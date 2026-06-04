@@ -5,10 +5,14 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountCore, ModelMountInvocationAdmissionRequest, ModelMountRouteDecisionRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
-use ioi_services::agentic::runtime::kernel::receipt_binder::ReceiptBinder;
+use ioi_services::agentic::runtime::kernel::receipt_binder::{
+    AcceptedReceiptAppendIssuer, AcceptedReceiptAppendRequest, ReceiptBinder,
+    ACCEPTED_RECEIPT_APPEND_SCHEMA_VERSION,
+};
 use ioi_services::agentic::runtime::kernel::step_module::{
-    StepModuleInvocation, StepModuleNext, StepModuleProjectionStatus, StepModuleResult,
-    StepModuleStatus, StepModuleWorkflowProjection, STEP_MODULE_RESULT_SCHEMA_VERSION,
+    StepModuleBackend, StepModuleInvocation, StepModuleKind, StepModuleNext,
+    StepModuleProjectionStatus, StepModuleResult, StepModuleStatus, StepModuleWorkflowProjection,
+    STEP_MODULE_RESULT_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::step_router::StepModuleRouterCore;
 use serde::Deserialize;
@@ -84,6 +88,21 @@ struct ModelMountInvocationAdmissionBridgeRequest {
     request: ModelMountInvocationAdmissionRequest,
 }
 
+#[derive(Debug, Deserialize)]
+struct ModelMountInvocationReceiptBindingBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    invocation: StepModuleInvocation,
+    result: StepModuleResult,
+    #[serde(default)]
+    expected_heads: Vec<String>,
+    #[serde(default)]
+    receipt_ref: Option<String>,
+}
+
 pub fn run_bridge_response_from_stdin() -> Value {
     match run_bridge() {
         Ok(response) => json!({ "ok": true, "result": response }),
@@ -132,6 +151,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             admit_model_mount_invocation(request)
+        }
+        "bind_model_mount_invocation_receipt" => {
+            let request: ModelMountInvocationReceiptBindingBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            bind_model_mount_invocation_receipt(request)
         }
         other => Err(BridgeError::new(
             "operation_unsupported",
@@ -248,6 +273,122 @@ fn admit_model_mount_invocation(
         "evidence_refs": [
             "rust_model_mount_core",
             record.invocation_admission_ref,
+        ],
+    }))
+}
+
+fn bind_model_mount_invocation_receipt(
+    request: ModelMountInvocationReceiptBindingBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "bind_model_mount_invocation_receipt" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    if request.invocation.module_ref.kind != StepModuleKind::ModelMount
+        || request.invocation.execution.backend != StepModuleBackend::ModelMount
+    {
+        return Err(BridgeError::new(
+            "model_mount_step_module_required",
+            "model invocation receipt binding requires a model_mount StepModule invocation"
+                .to_string(),
+        ));
+    }
+    let router_admission = StepModuleRouterCore
+        .admit_execution(&request.invocation, &request.result)
+        .map_err(|error| BridgeError::new("router_admission_invalid", format!("{error:?}")))?;
+    let receipt_binding = ReceiptBinder
+        .bind_step_module_result(&request.invocation, &request.result, request.expected_heads)
+        .map_err(|error| BridgeError::new("receipt_binding_invalid", format!("{error:?}")))?;
+    let receipt_ref = request
+        .receipt_ref
+        .clone()
+        .or_else(|| request.result.receipt_refs.first().cloned())
+        .ok_or_else(|| {
+            BridgeError::new(
+                "receipt_ref_required",
+                "model invocation receipt binding requires a receipt ref".to_string(),
+            )
+        })?;
+    let accepted_receipt_append = ReceiptBinder
+        .append_accepted_receipt(
+            &AcceptedReceiptAppendRequest {
+                schema_version: ACCEPTED_RECEIPT_APPEND_SCHEMA_VERSION.to_string(),
+                receipt_ref: receipt_ref.clone(),
+                invocation_id: request.invocation.invocation_id.clone(),
+                receipt_binding_ref: receipt_binding.binding_hash.clone(),
+                issuer: AcceptedReceiptAppendIssuer::RustReceiptCore,
+                state_root_before: receipt_binding.state_root_before.clone(),
+                state_root_after: receipt_binding.state_root_after.clone(),
+                resulting_head: receipt_binding.resulting_head.clone(),
+            },
+            &receipt_binding,
+        )
+        .map_err(|error| {
+            BridgeError::new("accepted_receipt_append_invalid", format!("{error:?}"))
+        })?;
+    let agentgres_admission = if request.result.agentgres_operation_refs.is_empty() {
+        Value::Null
+    } else {
+        let proposal = AgentgresOperationProposal {
+            schema_version: AGENTGRES_ADMISSION_SCHEMA_VERSION.to_string(),
+            operation_ref: request
+                .result
+                .agentgres_operation_refs
+                .first()
+                .cloned()
+                .unwrap_or_default(),
+            invocation_id: request.result.invocation_id.clone(),
+            receipt_binding_ref: receipt_binding.binding_hash.clone(),
+            receipt_refs: request.result.receipt_refs.clone(),
+            artifact_refs: request.result.artifact_refs.clone(),
+            payload_refs: request.result.payload_refs.clone(),
+            expected_heads: receipt_binding.expected_heads.clone(),
+            state_root_before: receipt_binding.state_root_before.clone(),
+            state_root_after: request.result.state_root_after.clone(),
+            resulting_head: request.result.resulting_head.clone(),
+        };
+        match AgentgresAdmissionCore.admit(&proposal, &receipt_binding) {
+            Ok(record) => json!(record),
+            Err(error) => {
+                return Err(BridgeError::new(
+                    "agentgres_admission_invalid",
+                    format!("{error:?}"),
+                ));
+            }
+        }
+    };
+    let projection_record = RustProjectionCore
+        .project_step_module_result(&request.invocation, &request.result, &receipt_binding)
+        .map_err(|error| BridgeError::new("projection_record_invalid", format!("{error:?}")))?;
+    let receipt_refs = request.result.receipt_refs.clone();
+    let binding_hash = receipt_binding.binding_hash.clone();
+    let append_hash = accepted_receipt_append.append_hash.clone();
+    Ok(json!({
+        "source": "rust_model_mount_receipt_binding_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
+        "invocation": request.invocation,
+        "result": request.result,
+        "router_admission": router_admission,
+        "receipt_binding": receipt_binding,
+        "accepted_receipt_append": accepted_receipt_append,
+        "agentgres_admission": agentgres_admission,
+        "projection_record": projection_record,
+        "receipt_refs": receipt_refs,
+        "evidence_refs": [
+            "rust_receipt_binder_core",
+            binding_hash,
+            append_hash,
         ],
     }))
 }
@@ -2723,6 +2864,124 @@ mod tests {
             .as_str()
             .expect("invocation admission ref")
             .starts_with("model_mount://invocation_admission/"));
+    }
+
+    #[test]
+    fn bridge_binds_model_mount_invocation_receipt_through_rust_core() {
+        let request: ModelMountInvocationReceiptBindingBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": COMMAND_SCHEMA_VERSION,
+                "operation": "bind_model_mount_invocation_receipt",
+                "backend": "rust_model_mount_live",
+                "invocation": {
+                    "schema_version": "ioi.step_module_invocation.v1",
+                    "invocation_id": "model-invocation://receipt.test",
+                    "run_id": "run:model-mount",
+                    "task_id": "task:model-mount",
+                    "thread_id": null,
+                    "workflow_graph_id": "workflow.graph",
+                    "workflow_node_id": "workflow.node",
+                    "context_chamber_ref": null,
+                    "action_proposal_ref": "action:model-mount:receipt.test",
+                    "gate_result_ref": "gate:model-mount:receipt.test",
+                    "module_ref": {
+                        "kind": "model_mount",
+                        "id": "chat:route.local-first:endpoint.local",
+                        "version": "migration",
+                        "manifest_ref": null
+                    },
+                    "actor": {
+                        "actor_id": "runtime:hypervisor-daemon",
+                        "runtime_node_ref": "node://local"
+                    },
+                    "authority": {
+                        "authority_grant_refs": ["grant://wallet/model-chat"],
+                        "policy_hash": "sha256:policy",
+                        "primitive_capabilities": ["model:chat"],
+                        "authority_scopes": [],
+                        "approval_ref": null
+                    },
+                    "input": {
+                        "input_hash": "sha256:input",
+                        "expected_schema_ref": "schema://model-mount/chat/input",
+                        "context_refs": [
+                            "model_mount://route_decision/test",
+                            "receipt://route/test"
+                        ],
+                        "artifact_refs": [],
+                        "payload_refs": [],
+                        "state_root_before": null,
+                        "projection_watermark": null,
+                        "data_plane_handle": null
+                    },
+                    "custody": {
+                        "privacy_profile": "internal",
+                        "plaintext_policy": {
+                            "node_plaintext_allowed": false,
+                            "declassification_required": false
+                        },
+                        "custody_proof_ref": null,
+                        "leakage_profile_ref": null
+                    },
+                    "execution": {
+                        "backend": "model_mount",
+                        "idempotency_key": "model_invocation:receipt.test",
+                        "deadline_ms": 300000,
+                        "resource_lease_ref": null,
+                        "retry_policy_ref": null
+                    }
+                },
+                "result": {
+                    "schema_version": "ioi.step_module_result.v1",
+                    "invocation_id": "model-invocation://receipt.test",
+                    "status": "success",
+                    "execution_result_ref": "result://model-mount/receipt.test",
+                    "normalized_observation_ref": "observation://model-mount/receipt.test",
+                    "receipt_refs": ["receipt://receipt.test"],
+                    "artifact_refs": [],
+                    "payload_refs": [],
+                    "agentgres_operation_refs": [],
+                    "state_root_after": null,
+                    "resulting_head": null,
+                    "workflow_projection": {
+                        "workflow_graph_id": "workflow.graph",
+                        "workflow_node_id": "workflow.node",
+                        "component_kind": "ModelInvocationNode",
+                        "status": "live",
+                        "attempt_id": "attempt://model-mount/receipt.test",
+                        "evidence_refs": ["model_mount://invocation_admission/test"],
+                        "receipt_refs": ["receipt://receipt.test"]
+                    },
+                    "next": {
+                        "model_reentry_required": false,
+                        "verifier_required": false
+                    }
+                },
+                "expected_heads": [],
+                "receipt_ref": "receipt://receipt.test"
+            }))
+            .expect("bridge request");
+
+        let response = bind_model_mount_invocation_receipt(request).expect("receipt bound");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_receipt_binding_command"
+        );
+        assert_eq!(response["backend"], "rust_model_mount_live");
+        assert_eq!(response["router_admission"]["backend"], "model_mount");
+        assert_eq!(
+            response["accepted_receipt_append"]["receipt_ref"],
+            "receipt://receipt.test"
+        );
+        assert_eq!(
+            response["projection_record"]["component_kind"],
+            "ModelInvocationNode"
+        );
+        assert_eq!(
+            response["receipt_binding"]["receipt_refs"][0],
+            "receipt://receipt.test"
+        );
     }
 
     #[test]

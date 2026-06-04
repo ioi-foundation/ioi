@@ -1033,6 +1033,10 @@ export class ModelMountingState {
     return this.modelMountAdmissionRunner.admitInvocation(request);
   }
 
+  bindModelMountInvocationReceipt(request) {
+    return this.modelMountAdmissionRunner.bindInvocationReceipt(request);
+  }
+
   testRoute(routeId, body = {}) {
     return testRouteState(this, routeId, body);
   }

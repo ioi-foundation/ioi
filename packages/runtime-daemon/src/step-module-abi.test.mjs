@@ -8,6 +8,7 @@ import {
 import {
   STEP_MODULE_INVOCATION_SCHEMA_VERSION,
   STEP_MODULE_RESULT_SCHEMA_VERSION,
+  createModelMountStepModuleProjection,
   createStepModuleInvocationForCodingTool,
   validateStepModuleInvocationShape,
   validateStepModuleResultShape,
@@ -65,6 +66,61 @@ test("cTEE private workspace projection refuses node plaintext custody", () => {
 
   assert.throws(
     () => validateStepModuleInvocationShape(invocation),
+    /cannot allow node plaintext custody/,
+  );
+});
+
+test("model mount receipts project into the Step/Module ABI", () => {
+  const { invocation, result } = createModelMountStepModuleProjection({
+    invocationRef: "model-invocation://receipt.1.model_invocation",
+    routeRef: "route.local-first",
+    providerRef: "provider.local",
+    endpointRef: "endpoint.local",
+    modelRef: "model.local",
+    capability: "responses",
+    invocationKind: "responses",
+    inputHash: "sha256:input",
+    outputHash: "sha256:output",
+    policyHash: "sha256:policy",
+    routeDecisionRef: "model_mount://route_decision/test",
+    routeReceiptRef: "receipt://receipt.route",
+    receiptRef: "receipt://receipt.1.model_invocation",
+    authorityGrantRefs: ["grant://wallet/model-chat"],
+    workflowGraphId: "workflow.graph",
+    workflowNodeId: "workflow.node",
+    privacyProfile: "local_private",
+  });
+
+  assert.equal(invocation.schema_version, STEP_MODULE_INVOCATION_SCHEMA_VERSION);
+  assert.equal(invocation.module_ref.kind, "model_mount");
+  assert.equal(invocation.execution.backend, "model_mount");
+  assert.equal(invocation.custody.privacy_profile, "internal");
+  assert.deepEqual(invocation.authority.authority_grant_refs, ["grant://wallet/model-chat"]);
+  assert.ok(invocation.input.context_refs.includes("model_mount://route_decision/test"));
+  assert.equal(result.schema_version, STEP_MODULE_RESULT_SCHEMA_VERSION);
+  assert.equal(result.invocation_id, invocation.invocation_id);
+  assert.equal(result.workflow_projection.component_kind, "ModelInvocationNode");
+  assert.equal(result.workflow_projection.status, "live");
+  assert.deepEqual(result.receipt_refs, ["receipt://receipt.1.model_invocation"]);
+  assert.doesNotThrow(() => validateStepModuleInvocationShape(invocation));
+  assert.doesNotThrow(() => validateStepModuleResultShape(result));
+});
+
+test("model mount StepModule projection refuses cTEE plaintext custody", () => {
+  assert.throws(
+    () =>
+      createModelMountStepModuleProjection({
+        invocationRef: "model-invocation://receipt.private",
+        routeRef: "route.private",
+        providerRef: "provider.private",
+        endpointRef: "endpoint.private",
+        modelRef: "model.private",
+        inputHash: "sha256:input",
+        outputHash: "sha256:output",
+        receiptRef: "receipt://receipt.private",
+        privacyProfile: "private_workspace_ctee",
+        nodePlaintextAllowed: true,
+      }),
     /cannot allow node plaintext custody/,
   );
 });

@@ -5,6 +5,7 @@ import {
   capabilityForInvocationKind,
   invokeModel,
   modelMountInvocationAdmissionRequestForReceipt,
+  modelMountInvocationReceiptBindingRequestForReceipt,
   startModelStream,
 } from "./model-invocation-operations.mjs";
 
@@ -16,6 +17,7 @@ function fakeState(overrides = {}) {
     nowMs: 1_000,
     receiptIdCounter: 0,
     receipts: [],
+    receiptBindingRequests: [],
     recordedConversations: [],
     routes: new Map([["route.local-first", { id: "route.local-first" }]]),
     writes: [],
@@ -72,6 +74,40 @@ function fakeState(overrides = {}) {
         invocation_admission_hash: `sha256:invocation-${this.receiptIdCounter}`,
         receipt_refs: request.receipt_refs,
         evidence_refs: ["rust_model_mount_core", `model_mount://invocation_admission/${this.receiptIdCounter}`],
+      };
+    },
+    bindModelMountInvocationReceipt(request) {
+      this.receiptBindingRequests.push(request);
+      return {
+        source: "rust_model_mount_receipt_binding_command",
+        backend: "rust_model_mount_live",
+        invocation: request.invocation,
+        result: request.result,
+        router_admission: {
+          schema_version: "ioi.step_module_router_admission.v1",
+          invocation_id: request.invocation.invocation_id,
+          backend: "model_mount",
+          authoritative_transition: true,
+        },
+        receipt_binding: {
+          schema_version: "ioi.step_module_receipt_binding.v1",
+          invocation_id: request.invocation.invocation_id,
+          receipt_refs: request.result.receipt_refs,
+          binding_hash: `sha256:binding-${this.receiptIdCounter}`,
+        },
+        accepted_receipt_append: {
+          schema_version: "ioi.accepted_receipt_append.v1",
+          receipt_ref: request.receiptRef,
+          invocation_id: request.invocation.invocation_id,
+          receipt_binding_ref: `sha256:binding-${this.receiptIdCounter}`,
+          append_hash: `sha256:append-${this.receiptIdCounter}`,
+        },
+        projection_record: {
+          schema_version: "ioi.step_module_projection.v1",
+          component_kind: "ModelInvocationNode",
+        },
+        receipt_refs: request.result.receipt_refs,
+        evidence_refs: ["rust_receipt_binder_core", `sha256:binding-${this.receiptIdCounter}`],
       };
     },
     receipt(kind, payload) {
@@ -183,6 +219,11 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(result.receipt.details.routeId, "route.local-first");
   assert.equal(result.receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/1");
   assert.equal(result.receipt.details.modelMountInvocationAdmission.route_decision_ref, "model_mount://route_decision/test");
+  assert.equal(result.receipt.details.modelMountReceiptBindingRef, "sha256:binding-1");
+  assert.equal(result.receipt.details.modelMountAcceptedReceiptAppendHash, "sha256:append-1");
+  assert.equal(result.receipt.details.modelMountStepModuleInvocation.module_ref.kind, "model_mount");
+  assert.equal(result.receipt.details.modelMountStepModuleResult.workflow_projection.status, "live");
+  assert.equal(state.receiptBindingRequests[0].receiptRef, "receipt://receipt.1.model_invocation");
   assert.deepEqual(result.receipt.details.modelMountInvocationAdmissionReceiptRefs, [
     "receipt://receipt.route",
     "receipt://receipt.1.model_invocation",
@@ -224,6 +265,7 @@ test("invokeModel reuses identical in-flight provider execution and marks coales
   assert.equal(secondResult.receipt.details.coalesced, true);
   assert.equal(secondResult.receipt.details.coalesceKeyHash, "hash:coalesce-key");
   assert.equal(secondResult.receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/2");
+  assert.equal(secondResult.receipt.details.modelMountReceiptBindingRef, "sha256:binding-2");
   assert.equal(state.inflightModelInvocations.size, 0);
 });
 
@@ -261,6 +303,8 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(result.invocation.receipt.details.streamSource, "provider_native");
   assert.equal(result.invocation.receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/1");
   assert.equal(result.invocation.receipt.details.modelMountInvocationAdmission.stream_status, "started");
+  assert.equal(result.invocation.receipt.details.modelMountReceiptBindingRef, "sha256:binding-1");
+  assert.equal(result.invocation.receipt.details.modelMountAcceptedReceiptAppend.receipt_ref, "receipt://receipt.1.model_invocation");
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "coalesced"), false);
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "sendOptions"), false);
   assert.equal(state.appendOperations[0].kind, "model.provider_stream_request_shape");
@@ -349,6 +393,60 @@ test("modelMountInvocationAdmissionRequestForReceipt binds route decision and in
   assert.equal(request.response_ref, "resp.1");
 });
 
+test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount StepModule binding", () => {
+  const admissionRequest = modelMountInvocationAdmissionRequestForReceipt({
+    body: {},
+    capability: "responses",
+    kind: "responses",
+    receiptDetails: {
+      routeId: "route.local-first",
+      providerId: "provider.local",
+      endpointId: "endpoint.local",
+      selectedModel: "model.local",
+      policyHash: "sha256:policy",
+      inputHash: "sha256:input",
+      outputHash: "sha256:output",
+      grantId: "grant://wallet/model-chat",
+      responseId: "resp.1",
+    },
+    receiptId: "receipt.invoke",
+    receiptKind: "model_invocation",
+    routeReceipt: {
+      id: "receipt.route",
+      details: {
+        modelMountRouteDecisionRef: "model_mount://route_decision/test",
+        workflowGraphId: "graph.1",
+        workflowNodeId: "node.1",
+      },
+    },
+    selection: selection(),
+  });
+  const request = modelMountInvocationReceiptBindingRequestForReceipt({
+    admission: {
+      invocation_admission_ref: "model_mount://invocation_admission/test",
+      evidence_refs: ["rust_model_mount_core"],
+    },
+    admissionRequest,
+    receiptDetails: {
+      providerAuthEvidenceRefs: ["provider.auth"],
+      backendEvidenceRefs: ["backend.evidence"],
+    },
+    receiptId: "receipt.invoke",
+  });
+
+  assert.equal(request.receiptRef, "receipt://receipt.invoke");
+  assert.deepEqual(request.expectedHeads, []);
+  assert.equal(request.invocation.module_ref.kind, "model_mount");
+  assert.equal(request.invocation.execution.backend, "model_mount");
+  assert.equal(request.invocation.workflow_graph_id, "graph.1");
+  assert.equal(request.invocation.workflow_node_id, "node.1");
+  assert.deepEqual(request.invocation.authority.authority_grant_refs, ["grant://wallet/model-chat"]);
+  assert.deepEqual(request.result.receipt_refs, ["receipt://receipt.invoke"]);
+  assert.equal(request.result.workflow_projection.component_kind, "ModelInvocationNode");
+  assert.equal(request.result.workflow_projection.status, "live");
+  assert.ok(request.result.workflow_projection.evidence_refs.includes("provider.auth"));
+});
+
 test("invokeModel fails closed without invocation receipt id support", async () => {
   const state = fakeState({ nextReceiptId: undefined });
 
@@ -365,5 +463,24 @@ test("invokeModel fails closed without invocation receipt id support", async () 
         deps(),
       ),
     (error) => error.code === "model_mount_invocation_receipt_id_required",
+  );
+});
+
+test("invokeModel fails closed without Rust receipt binding support", async () => {
+  const state = fakeState({ bindModelMountInvocationReceipt: undefined });
+
+  await assert.rejects(
+    () =>
+      invokeModel(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.chat:*",
+          kind: "responses",
+          body: { model: "model.local" },
+        },
+        deps(),
+      ),
+    (error) => error.code === "model_mount_invocation_receipt_binding_required",
   );
 });

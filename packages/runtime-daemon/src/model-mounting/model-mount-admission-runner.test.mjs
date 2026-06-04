@@ -137,6 +137,57 @@ test("Rust model_mount admission runner sends invocation bridge request", () => 
   assert.equal(result.record.invocation_admission_hash, "sha256:invocation-test");
 });
 
+test("Rust model_mount admission runner sends invocation receipt binding request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_receipt_binding_command",
+            backend: "rust_model_mount_live",
+            receipt_binding: {
+              schema_version: "ioi.step_module_receipt_binding.v1",
+              binding_hash: "sha256:binding",
+              receipt_refs: ["receipt://invocation"],
+            },
+            accepted_receipt_append: {
+              schema_version: "ioi.accepted_receipt_append.v1",
+              append_hash: "sha256:append",
+              receipt_ref: "receipt://invocation",
+            },
+            projection_record: {
+              component_kind: "ModelInvocationNode",
+            },
+            receipt_refs: ["receipt://invocation"],
+            evidence_refs: ["rust_receipt_binder_core", "sha256:binding", "sha256:append"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.bindInvocationReceipt({
+    invocation: { invocation_id: "model-invocation://test" },
+    result: { receipt_refs: ["receipt://invocation"] },
+    receiptRef: "receipt://invocation",
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "bind_model_mount_invocation_receipt");
+  assert.equal(calls[0].request.receipt_ref, "receipt://invocation");
+  assert.equal(result.receipt_binding.binding_hash, "sha256:binding");
+  assert.equal(result.accepted_receipt_append.append_hash, "sha256:append");
+  assert.deepEqual(result.evidence_refs, ["rust_receipt_binder_core", "sha256:binding", "sha256:append"]);
+});
+
 test("Rust model_mount admission runner reads the generic admission command env", () => {
   const runner = createModelMountAdmissionRunnerFromEnv({
     [MODEL_MOUNT_ADMISSION_COMMAND_ENV]: "mock-model-mount-bridge",

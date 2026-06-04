@@ -188,6 +188,185 @@ export function createCodingToolStepModuleProjection(options = {}) {
   return { invocation, result };
 }
 
+export function createStepModuleInvocationForModelMount({
+  invocationRef,
+  routeRef,
+  providerRef,
+  endpointRef,
+  modelRef,
+  capability = "chat",
+  invocationKind = "chat",
+  inputHash,
+  policyHash = DEFAULT_POLICY_HASH,
+  routeDecisionRef = null,
+  routeReceiptRef = null,
+  runId = "run:model-mount",
+  taskId = "task:model-mount",
+  threadId = null,
+  workflowGraphId = DEFAULT_WORKFLOW_GRAPH_ID,
+  workflowNodeId = `node:model-mount:${safeRefSegment(invocationRef)}`,
+  actionProposalRef = `action:model-mount:${safeRefSegment(invocationRef)}`,
+  gateResultRef = `gate:model-mount:${safeRefSegment(invocationRef)}`,
+  manifestRef = null,
+  actorId = DEFAULT_ACTOR_ID,
+  runtimeNodeRef = DEFAULT_RUNTIME_NODE_REF,
+  authorityGrantRefs = [],
+  authorityScopes = [],
+  approvalRef = null,
+  privacyProfile = "internal",
+  nodePlaintextAllowed = false,
+  declassificationRequired = false,
+  custodyProofRef = null,
+  leakageProfileRef = null,
+  stateRootBefore = null,
+  projectionWatermark = null,
+  idempotencyKey = `step-module:${invocationRef}`,
+  deadlineMs = 300_000,
+} = {}) {
+  requireModelMountString("invocationRef", invocationRef);
+  requireModelMountString("routeRef", routeRef);
+  requireModelMountString("providerRef", providerRef);
+  requireModelMountString("endpointRef", endpointRef);
+  requireModelMountString("modelRef", modelRef);
+  requireModelMountString("inputHash", inputHash);
+
+  const invocation = {
+    schema_version: STEP_MODULE_INVOCATION_SCHEMA_VERSION,
+    invocation_id: invocationRef,
+    run_id: runId,
+    task_id: taskId,
+    thread_id: threadId,
+    workflow_graph_id: workflowGraphId,
+    workflow_node_id: workflowNodeId,
+    context_chamber_ref: null,
+    action_proposal_ref: actionProposalRef,
+    gate_result_ref: gateResultRef,
+    module_ref: {
+      kind: "model_mount",
+      id: `${capability}:${routeRef}:${endpointRef}`,
+      version: "migration",
+      manifest_ref: manifestRef,
+    },
+    actor: {
+      actor_id: actorId,
+      runtime_node_ref: runtimeNodeRef,
+    },
+    authority: {
+      authority_grant_refs: normalizeStringArray(authorityGrantRefs),
+      policy_hash: normalizeSha256(policyHash),
+      primitive_capabilities: [`model:${capability}`, `model:${invocationKind}`],
+      authority_scopes: normalizeStringArray(authorityScopes),
+      approval_ref: approvalRef,
+    },
+    input: {
+      input_hash: normalizeSha256(inputHash),
+      expected_schema_ref: `schema://model-mount/${invocationKind}/input`,
+      context_refs: normalizeStringArray([
+        routeRef,
+        providerRef,
+        endpointRef,
+        modelRef,
+        routeDecisionRef,
+        routeReceiptRef,
+      ]),
+      artifact_refs: [],
+      payload_refs: [],
+      state_root_before: stateRootBefore,
+      projection_watermark: projectionWatermark,
+      data_plane_handle: null,
+    },
+    custody: {
+      privacy_profile: normalizeStepModulePrivacyProfile(privacyProfile),
+      plaintext_policy: {
+        node_plaintext_allowed: Boolean(nodePlaintextAllowed),
+        declassification_required: Boolean(declassificationRequired),
+      },
+      custody_proof_ref: custodyProofRef,
+      leakage_profile_ref: leakageProfileRef,
+    },
+    execution: {
+      backend: "model_mount",
+      idempotency_key: idempotencyKey,
+      deadline_ms: deadlineMs,
+      resource_lease_ref: null,
+      retry_policy_ref: null,
+    },
+  };
+
+  validateStepModuleInvocationShape(invocation);
+  return invocation;
+}
+
+export function createStepModuleResultForModelMount({
+  invocation,
+  receiptRef,
+  outputHash,
+  status = "success",
+  workflowProjectionStatus = "live",
+  executionResultRef = null,
+  normalizedObservationRef = null,
+  artifactRefs = [],
+  payloadRefs = [],
+  agentgresOperationRefs = [],
+  stateRootAfter = null,
+  resultingHead = null,
+  evidenceRefs = [],
+  modelReentryRequired = false,
+  verifierRequired = false,
+} = {}) {
+  if (!invocation || typeof invocation !== "object") {
+    throw new TypeError("createStepModuleResultForModelMount requires invocation.");
+  }
+  requireModelMountString("receiptRef", receiptRef);
+  requireModelMountString("outputHash", outputHash);
+
+  const resultHash = stepModuleHash({
+    invocationId: invocation.invocation_id,
+    receiptRef,
+    outputHash,
+    status,
+  });
+  const stepResult = {
+    schema_version: STEP_MODULE_RESULT_SCHEMA_VERSION,
+    invocation_id: invocation.invocation_id,
+    status,
+    execution_result_ref: executionResultRef ?? `result://model-mount/${resultHash.slice(7, 39)}`,
+    normalized_observation_ref:
+      normalizedObservationRef ?? `observation://model-mount/${resultHash.slice(7, 39)}`,
+    receipt_refs: [receiptRef],
+    artifact_refs: normalizeStringArray(artifactRefs),
+    payload_refs: normalizeStringArray(payloadRefs),
+    agentgres_operation_refs: normalizeStringArray(agentgresOperationRefs),
+    state_root_after: stateRootAfter,
+    resulting_head: resultingHead,
+    workflow_projection: {
+      workflow_graph_id: invocation.workflow_graph_id ?? DEFAULT_WORKFLOW_GRAPH_ID,
+      workflow_node_id: invocation.workflow_node_id ?? `node:model-mount:${safeRefSegment(invocation.invocation_id)}`,
+      component_kind: "ModelInvocationNode",
+      status: workflowProjectionStatus,
+      attempt_id: `attempt://model-mount/${resultHash.slice(7, 39)}`,
+      evidence_refs: normalizeStringArray(evidenceRefs),
+      receipt_refs: [receiptRef],
+    },
+    next: {
+      model_reentry_required: Boolean(modelReentryRequired),
+      verifier_required: Boolean(verifierRequired),
+    },
+  };
+
+  validateStepModuleResultShape(stepResult);
+  return stepResult;
+}
+
+export function createModelMountStepModuleProjection(options = {}) {
+  const invocation = createStepModuleInvocationForModelMount(options);
+  const result = createStepModuleResultForModelMount({
+    ...options,
+    invocation,
+  });
+  return { invocation, result };
+}
+
 export function validateStepModuleInvocationShape(invocation) {
   const failures = [];
   requireEqual(
@@ -267,6 +446,32 @@ export function validateStepModuleResultShape(result) {
 function normalizeStringArray(value) {
   if (!Array.isArray(value)) return [];
   return value.filter((entry) => typeof entry === "string" && entry.trim()).map((entry) => entry.trim());
+}
+
+function normalizeSha256(value) {
+  const normalized = String(value ?? "").trim();
+  return normalized.startsWith("sha256:") ? normalized : `sha256:${normalized}`;
+}
+
+function normalizeStepModulePrivacyProfile(value) {
+  const normalized = String(value ?? "").trim();
+  if (normalized === "private_workspace_ctee" || normalized === "tee_confidential" || normalized === "redacted" || normalized === "public") {
+    return normalized;
+  }
+  return "internal";
+}
+
+function requireModelMountString(field, value) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new TypeError(`createStepModuleInvocationForModelMount requires ${field}.`);
+  }
+}
+
+function safeRefSegment(value) {
+  return String(value ?? "unknown")
+    .replace(/^[a-z]+:\/\//i, "")
+    .replace(/[^a-zA-Z0-9_.:-]+/g, "-")
+    .slice(0, 96) || "unknown";
 }
 
 function backendAllowedForKind(kind, backend) {

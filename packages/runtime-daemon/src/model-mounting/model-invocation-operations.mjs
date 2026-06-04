@@ -10,6 +10,9 @@ import {
 } from "./provider-driver-helpers.mjs";
 import { optionalString } from "./provider-registry.mjs";
 import { stableHash } from "./io.mjs";
+import {
+  createModelMountStepModuleProjection,
+} from "../step-module-abi.mjs";
 
 export async function invokeModel(state, { authorization, requiredScope, kind, body = {} }, deps = {}) {
   const {
@@ -103,16 +106,24 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
     ephemeralMcp,
     includeInvocationFields: true,
   });
-  const modelMountInvocationAdmission = state.admitModelMountInvocation(
-    modelMountInvocationAdmissionRequestForReceipt({
-      body,
-      capability,
-      kind,
+  const modelMountInvocationAdmissionRequest = modelMountInvocationAdmissionRequestForReceipt({
+    body,
+    capability,
+    kind,
+    receiptDetails,
+    receiptId,
+    receiptKind,
+    routeReceipt,
+    selection,
+  });
+  const modelMountInvocationAdmission = state.admitModelMountInvocation(modelMountInvocationAdmissionRequest);
+  const modelMountInvocationReceiptBinding = bindModelMountInvocationReceipt(
+    state,
+    modelMountInvocationReceiptBindingRequestForReceipt({
+      admission: modelMountInvocationAdmission,
+      admissionRequest: modelMountInvocationAdmissionRequest,
       receiptDetails,
       receiptId,
-      receiptKind,
-      routeReceipt,
-      selection,
     }),
   );
   const receipt = state.receipt(receiptKind, {
@@ -134,8 +145,15 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
       "rust_model_mount_core",
       modelMountInvocationAdmission.invocation_admission_ref,
       ...(modelMountInvocationAdmission.evidence_refs ?? []),
+      "rust_receipt_binder_core",
+      modelMountInvocationReceiptBinding.receipt_binding?.binding_hash,
+      modelMountInvocationReceiptBinding.accepted_receipt_append?.append_hash,
+      ...(modelMountInvocationReceiptBinding.evidence_refs ?? []),
     ]),
-    details: withModelMountInvocationAdmission(receiptDetails, modelMountInvocationAdmission),
+    details: withModelMountInvocationReceiptBinding(
+      withModelMountInvocationAdmission(receiptDetails, modelMountInvocationAdmission),
+      modelMountInvocationReceiptBinding,
+    ),
   });
   const conversationState = statefulInvocation
     ? state.recordConversationState({
@@ -264,17 +282,25 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     streamStatus: "started",
     streamSource: "provider_native",
   };
-  const modelMountInvocationAdmission = state.admitModelMountInvocation(
-    modelMountInvocationAdmissionRequestForReceipt({
-      body,
-      capability,
-      kind,
+  const modelMountInvocationAdmissionRequest = modelMountInvocationAdmissionRequestForReceipt({
+    body,
+    capability,
+    kind,
+    receiptDetails,
+    receiptId,
+    receiptKind: "model_invocation",
+    routeReceipt,
+    selection,
+    streamStatus: "started",
+  });
+  const modelMountInvocationAdmission = state.admitModelMountInvocation(modelMountInvocationAdmissionRequest);
+  const modelMountInvocationReceiptBinding = bindModelMountInvocationReceipt(
+    state,
+    modelMountInvocationReceiptBindingRequestForReceipt({
+      admission: modelMountInvocationAdmission,
+      admissionRequest: modelMountInvocationAdmissionRequest,
       receiptDetails,
       receiptId,
-      receiptKind: "model_invocation",
-      routeReceipt,
-      selection,
-      streamStatus: "started",
     }),
   );
   const receipt = state.receipt("model_invocation", {
@@ -294,8 +320,15 @@ export async function startModelStream(state, { authorization, requiredScope, ki
       "rust_model_mount_core",
       modelMountInvocationAdmission.invocation_admission_ref,
       ...(modelMountInvocationAdmission.evidence_refs ?? []),
+      "rust_receipt_binder_core",
+      modelMountInvocationReceiptBinding.receipt_binding?.binding_hash,
+      modelMountInvocationReceiptBinding.accepted_receipt_append?.append_hash,
+      ...(modelMountInvocationReceiptBinding.evidence_refs ?? []),
     ]),
-    details: withModelMountInvocationAdmission(receiptDetails, modelMountInvocationAdmission),
+    details: withModelMountInvocationReceiptBinding(
+      withModelMountInvocationAdmission(receiptDetails, modelMountInvocationAdmission),
+      modelMountInvocationReceiptBinding,
+    ),
   });
   const route = persistRouteSelection(state, selection.route, selection.endpoint.modelId, receipt.id);
   const invocation = {
@@ -410,6 +443,51 @@ export function modelMountInvocationAdmissionRequestForReceipt({
   };
 }
 
+export function modelMountInvocationReceiptBindingRequestForReceipt({
+  admission,
+  admissionRequest,
+  receiptDetails = {},
+  receiptId,
+} = {}) {
+  const receiptRefValue = receiptRef(requiredStringRef("receiptId", receiptId));
+  const { invocation, result } = createModelMountStepModuleProjection({
+    invocationRef: requiredStringRef("admissionRequest.invocation_ref", admissionRequest?.invocation_ref),
+    routeRef: requiredStringRef("admissionRequest.route_ref", admissionRequest?.route_ref),
+    providerRef: requiredStringRef("admissionRequest.provider_ref", admissionRequest?.provider_ref),
+    endpointRef: requiredStringRef("admissionRequest.endpoint_ref", admissionRequest?.endpoint_ref),
+    modelRef: requiredStringRef("admissionRequest.model_ref", admissionRequest?.model_ref),
+    capability: requiredStringRef("admissionRequest.capability", admissionRequest?.capability),
+    invocationKind: requiredStringRef("admissionRequest.invocation_kind", admissionRequest?.invocation_kind),
+    inputHash: hashRef(admissionRequest?.input_hash, "admissionRequest.input_hash"),
+    outputHash: hashRef(admissionRequest?.output_hash, "admissionRequest.output_hash"),
+    policyHash: policyHashRef(admissionRequest?.policy_hash),
+    routeDecisionRef: requiredStringRef("admissionRequest.route_decision_ref", admissionRequest?.route_decision_ref),
+    routeReceiptRef: requiredStringRef("admissionRequest.route_receipt_ref", admissionRequest?.route_receipt_ref),
+    receiptRef: receiptRefValue,
+    authorityGrantRefs: admissionRequest?.authority_grant_refs ?? [],
+    workflowGraphId: optionalRef(admissionRequest?.workflow_graph_ref) ?? "workflow:model-mount",
+    workflowNodeId:
+      optionalRef(admissionRequest?.workflow_node_ref) ?? `node:model-mount:${requiredStringRef("receiptId", receiptId)}`,
+    privacyProfile: admissionRequest?.privacy_profile ?? "internal",
+    nodePlaintextAllowed: Boolean(admissionRequest?.node_plaintext_allowed),
+    custodyProofRef: admissionRequest?.custody_ref ?? null,
+    idempotencyKey: admissionRequest?.idempotency_key ?? `model_invocation:${receiptId}`,
+    evidenceRefs: uniqueRefs([
+      "rust_model_mount_core",
+      admission?.invocation_admission_ref,
+      ...(admission?.evidence_refs ?? []),
+      ...(receiptDetails.providerAuthEvidenceRefs ?? []),
+      ...(receiptDetails.backendEvidenceRefs ?? []),
+    ]),
+  });
+  return {
+    invocation,
+    result,
+    expectedHeads: [],
+    receiptRef: receiptRefValue,
+  };
+}
+
 function withModelMountInvocationAdmission(details, admission) {
   return {
     ...details,
@@ -421,6 +499,33 @@ function withModelMountInvocationAdmission(details, admission) {
     modelMountInvocationAdmissionReceiptRefs: admission.receipt_refs ?? [],
     modelMountInvocationAdmission: admission.record,
   };
+}
+
+function withModelMountInvocationReceiptBinding(details, binding) {
+  return {
+    ...details,
+    modelMountReceiptBindingSource: binding.source,
+    modelMountReceiptBindingBackend: binding.backend,
+    modelMountReceiptBindingRef: binding.receipt_binding?.binding_hash ?? null,
+    modelMountReceiptBinding: binding.receipt_binding ?? null,
+    modelMountAcceptedReceiptAppendHash: binding.accepted_receipt_append?.append_hash ?? null,
+    modelMountAcceptedReceiptAppend: binding.accepted_receipt_append ?? null,
+    modelMountStepModuleInvocation: binding.invocation ?? null,
+    modelMountStepModuleResult: binding.result ?? null,
+    modelMountRouterAdmission: binding.router_admission ?? null,
+    modelMountProjectionRecord: binding.projection_record ?? null,
+    modelMountReceiptBindingReceiptRefs: binding.receipt_refs ?? [],
+  };
+}
+
+function bindModelMountInvocationReceipt(state, request) {
+  if (typeof state.bindModelMountInvocationReceipt !== "function") {
+    const error = new Error("Model invocation receipt persistence requires Rust receipt_binder binding.");
+    error.status = 500;
+    error.code = "model_mount_invocation_receipt_binding_required";
+    throw error;
+  }
+  return state.bindModelMountInvocationReceipt(request);
 }
 
 function nextInvocationReceiptId(state, kind) {

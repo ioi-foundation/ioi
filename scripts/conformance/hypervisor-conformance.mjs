@@ -262,6 +262,9 @@ function runAbi() {
   const jsTools = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
     : "";
+  const stepModuleAbi = exists("packages/runtime-daemon/src/step-module-abi.mjs")
+    ? read("packages/runtime-daemon/src/step-module-abi.mjs")
+    : "";
 
   assertCheck(
     result,
@@ -310,10 +313,21 @@ function runAbi() {
     result,
     "js-coding-tool-abi-projection-wrapper",
     exists("packages/runtime-daemon/src/step-module-abi.mjs") &&
-      /createCodingToolStepModuleProjection/.test(read("packages/runtime-daemon/src/step-module-abi.mjs")) &&
+      /createCodingToolStepModuleProjection/.test(stepModuleAbi) &&
       /codingToolStepModuleProjection/.test(read("packages/runtime-daemon/src/coding-tools.mjs")),
     ["packages/runtime-daemon/src/step-module-abi.mjs", "packages/runtime-daemon/src/coding-tools.mjs"],
     "Phase 1 is pending: JS coding tool contracts must emit Step/Module wrappers in projection mode",
+  );
+  assertCheck(
+    result,
+    "js-model-mount-abi-projection-wrapper",
+    /createModelMountStepModuleProjection/.test(stepModuleAbi) &&
+      /createStepModuleInvocationForModelMount/.test(stepModuleAbi) &&
+      /createStepModuleResultForModelMount/.test(stepModuleAbi) &&
+      /kind: "model_mount"/.test(stepModuleAbi) &&
+      /backend: "model_mount"/.test(stepModuleAbi),
+    ["packages/runtime-daemon/src/step-module-abi.mjs"],
+    "Phase 1/4 is pending: model mount invocation receipts must project into the shared Step/Module ABI",
   );
   assertCheck(
     result,
@@ -458,6 +472,28 @@ function runBridge() {
     ],
     "Phase 4/9 is pending: model invocation receipts must be admitted by Rust model_mount core before JS persistence",
   );
+  assertCheck(
+    result,
+    "model-mount-invocation-receipt-binding-live-bridge",
+    /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
+      /ModelMountInvocationReceiptBindingBridgeRequest/.test(bridgeModule) &&
+      /bridge_binds_model_mount_invocation_receipt_through_rust_core/.test(bridgeModule) &&
+      /ReceiptBinder/.test(bridgeModule) &&
+      /AcceptedReceiptAppendIssuer::RustReceiptCore/.test(bridgeModule) &&
+      /bindInvocationReceipt/.test(modelMountAdmissionRunner) &&
+      /bindModelMountInvocationReceipt/.test(modelMountingState) &&
+      /modelMountInvocationReceiptBindingRequestForReceipt/.test(modelInvocationOps) &&
+      /model_mount_invocation_receipt_binding_required/.test(modelInvocationOps) &&
+      /modelMountReceiptBindingRef/.test(modelInvocationOps) &&
+      /modelMountAcceptedReceiptAppendHash/.test(modelInvocationOps),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+    ],
+    "Phase 4 is pending: model invocation receipts must be bound by Rust receipt_binder before JS persistence",
+  );
   return result;
 }
 
@@ -465,6 +501,9 @@ function runReceipts() {
   const result = createTierResult("receipts");
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
+    : "";
+  const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     : "";
   assertCheck(
     result,
@@ -517,6 +556,23 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
     "Phase 4/9 is pending: Rust model_mount core must own invocation receipt admission and route-decision binding",
+  );
+  assertCheck(
+    result,
+    "model-mount-invocation-receipt-binder-core",
+    /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
+      /ReceiptBinder/.test(bridgeModule) &&
+      /append_accepted_receipt/.test(bridgeModule) &&
+      /RustProjectionCore/.test(bridgeModule) &&
+      /modelMountReceiptBindingRef/.test(modelInvocationOps) &&
+      /modelMountAcceptedReceiptAppend/.test(modelInvocationOps) &&
+      /modelMountStepModuleInvocation/.test(modelInvocationOps) &&
+      /modelMountStepModuleResult/.test(modelInvocationOps),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+    ],
+    "Phase 4 is pending: Rust receipt_binder must bind model invocation accepted receipts before persistence",
   );
   assertCheck(
     result,

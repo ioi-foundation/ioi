@@ -42,6 +42,19 @@ export class RustModelMountAdmissionRunner {
     return normalizeInvocationBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
+  bindInvocationReceipt({ invocation, result, expectedHeads = [], receiptRef = null } = {}) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "bind_model_mount_invocation_receipt",
+      backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
+      invocation,
+      result,
+      expected_heads: Array.isArray(expectedHeads) ? expectedHeads : [],
+      receipt_ref: receiptRef,
+    };
+    return normalizeInvocationReceiptBindingBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
   invokeBridge(request) {
     if (this.mockResult) {
       const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
@@ -138,6 +151,23 @@ function normalizeInvocationBridgeResult(value = {}) {
     invocation_admission_ref: result.invocation_admission_ref ?? record.invocation_admission_ref ?? null,
     invocation_admission_hash: result.invocation_admission_hash ?? record.invocation_admission_hash ?? null,
     receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+  };
+}
+
+function normalizeInvocationReceiptBindingBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    source: result.source ?? "rust_model_mount_receipt_binding_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_ADMISSION_BACKEND,
+    invocation: result.invocation ?? null,
+    result: result.result ?? null,
+    router_admission: result.router_admission ?? null,
+    receipt_binding: result.receipt_binding ?? null,
+    accepted_receipt_append: result.accepted_receipt_append ?? null,
+    agentgres_admission: result.agentgres_admission ?? null,
+    projection_record: result.projection_record ?? null,
+    receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : [],
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
   };
 }

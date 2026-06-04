@@ -52,6 +52,35 @@ function mockModelMountAdmissionRunner() {
         evidence_refs: ["rust_model_mount_core", "model_mount://invocation_admission/test"],
       };
     },
+    bindInvocationReceipt(request) {
+      return {
+        source: "rust_model_mount_receipt_binding_command",
+        backend: "rust_model_mount_live",
+        invocation: request.invocation,
+        result: request.result,
+        router_admission: {
+          schema_version: "ioi.step_module_router_admission.v1",
+          backend: "model_mount",
+          authoritative_transition: true,
+        },
+        receipt_binding: {
+          schema_version: "ioi.step_module_receipt_binding.v1",
+          binding_hash: "sha256:binding-test",
+          receipt_refs: request.result.receipt_refs,
+        },
+        accepted_receipt_append: {
+          schema_version: "ioi.accepted_receipt_append.v1",
+          append_hash: "sha256:append-test",
+          receipt_ref: request.receiptRef,
+        },
+        projection_record: {
+          schema_version: "ioi.step_module_projection.v1",
+          component_kind: "ModelInvocationNode",
+        },
+        receipt_refs: request.result.receipt_refs,
+        evidence_refs: ["rust_receipt_binder_core", "sha256:binding-test"],
+      };
+    },
   };
 }
 
