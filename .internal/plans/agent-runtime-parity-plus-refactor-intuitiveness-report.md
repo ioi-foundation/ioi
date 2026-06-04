@@ -198,6 +198,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Extended `apps/autopilot/openvscode-extension/ioi-workbench/studio/policy-lease-lifecycle.js`.
 - Moved the simple request-and-deny policy lease helper behind the policy lease lifecycle module while preserving the existing `extension.js` compatibility wrapper, daemon approval/decision envelopes, projection flags, receipt projection, timeline copy, and output copy.
 - Added focused policy-lease lifecycle tests for request-and-deny route shaping, token usage, approval turn payload propagation, projection mutation, receipt projection, timeline output, and deny copy.
+- Extended `apps/autopilot/openvscode-extension/ioi-workbench/studio/durability-panels.js`.
+- Moved Studio session-brain lifecycle orchestration out of `extension.js` behind the existing compatibility wrapper while preserving daemon thread/memory/policy envelopes, replay-step projection, runtime-cockpit flags, bridge proof envelope, and product-safe run-brain artifact checks.
+- Added focused durability-panel tests for session-brain lifecycle daemon envelope shaping, memory write/policy routing, read-only late-write handling, replay-step projection, runtime-cockpit flags, and bridge proof emission.
 - Extended `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-state.js`.
 - Moved Studio projection lifecycle helpers for daemon-thread reset, new-session projection, work cursor capture, and documented-work summary delegation out of `extension.js` while preserving existing call-site names and session preference carry-forward semantics.
 - Added focused projection-state lifecycle tests for daemon-thread field reset, answer-stream reset delegation, model/mode/approval preference preservation across new sessions, and work-cursor count projection.

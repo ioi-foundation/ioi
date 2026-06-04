@@ -169,3 +169,79 @@ test("trajectory replay projection blocks duplicate side effects", () => {
   assert.equal(panel.sideEffectCount, 2);
   assert.equal(panel.duplicateSideEffectCount, 1);
 });
+
+test("session brain lifecycle orchestration preserves daemon envelopes and bridge proof", async () => {
+  const requests = [];
+  const bridgeRequests = [];
+  const projection = {
+    selectedModel: "auto",
+    modelRoute: "route.local-first",
+    sessionBrainPanels: [],
+    replaySteps: [],
+    runtimeCockpit: {},
+  };
+  const lifecycle = createStudioDurabilityPanels({
+    buildWorkspaceActionContext: (source) => ({ source }),
+    daemonEndpoint: () => "http://daemon.local",
+    daemonRequestToken: () => "token-one",
+    fetchStudioThreadEvents: async () => [
+      {
+        seq: 7,
+        kind: "memory.write",
+        payload_summary: { recordId: "record-plan", receipt_refs: ["receipt-plan-event"] },
+      },
+    ],
+    firstArray,
+    getStudioRuntimeProjection: () => projection,
+    normalizeReceiptRefs,
+    requestJson: async (endpoint, route, options = {}) => {
+      requests.push({ endpoint, route, options });
+      if (route === "/v1/threads") return { id: "thread-one" };
+      if (route.endsWith("/memory/policy")) return { receiptRefs: ["receipt-policy"] };
+      if (route.endsWith("/memory/path")) {
+        return { recordsPath: "/home/user/.ioi/agentgres/memory" };
+      }
+      if (route.endsWith("/memory") && options.method === "GET") {
+        return {
+          workspace: "/workspace/project",
+          policy: { readOnly: true },
+          records: [
+            { id: "record-plan", memoryKey: "implementation_plan", text: "Plan", receiptRefs: ["receipt-plan"] },
+            { id: "record-task", memoryKey: "task", text: "Task", evidenceRefs: ["task.md"] },
+            { id: "record-walkthrough", memoryKey: "walkthrough", text: "Walkthrough" },
+            { id: "record-scratch", memoryKey: "scratch/eval-script", text: "Scratch" },
+          ],
+        };
+      }
+      if (route.endsWith("/memory") && options.method === "POST" && options.payload?.text?.includes("late write")) {
+        throw new Error("memory_read_only");
+      }
+      return { receiptRefs: [`receipt-${requests.length}`] };
+    },
+    stringValue,
+    studioMaxRuntimeEventSeq: (events) => Math.max(...events.map((event) => event.seq || 0)),
+    studioRuntimeEventKind: (event = {}) => stringValue(event.kind || event.type, "runtime.event"),
+    uniqueStrings,
+    workspaceSummary: () => ({ path: "/workspace/project" }),
+    workspacePath: () => "/workspace/project",
+    writeBridgeRequest: async (...args) => bridgeRequests.push(args),
+  });
+
+  const proof = await lifecycle.exerciseStudioSessionBrainLifecycle({ appendLine() {} });
+
+  assert.equal(proof.passed, true);
+  assert.equal(projection.threadId, "thread-one");
+  assert.equal(projection.sessionBrainPanels.length, 1);
+  assert.equal(projection.replaySteps.length, 6);
+  assert.equal(projection.runtimeCockpit.replayStepDetailObserved, true);
+  assert.equal(projection.runtimeCockpit.receiptTimelinePerStepObserved, true);
+  assert.equal(requests[0].route, "/v1/threads");
+  assert.equal(requests[0].options.payload.source, "agent_studio_session_brain_lifecycle");
+  assert.equal(requests[0].options.payload.options.local.cwd, "/workspace/project");
+  assert.equal(requests.filter((request) => request.route.endsWith("/memory") && request.options.method === "POST").length, 5);
+  assert.equal(bridgeRequests[0][0], "studio.sessionBrainLifecycle.exercised");
+  assert.equal(bridgeRequests[0][1].passed, true);
+  assert.equal(bridgeRequests[0][1].artifactWriteCount, 4);
+  assert.equal(bridgeRequests[0][1].replayCursor, 7);
+  assert.equal(bridgeRequests[0][2].source, "studio-session-brain-lifecycle");
+});

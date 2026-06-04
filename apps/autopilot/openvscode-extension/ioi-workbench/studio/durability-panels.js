@@ -3,12 +3,21 @@
 const STUDIO_TRAJECTORY_REPLAY_SIDE_EFFECT_KEY = "trajectory_replay_side_effect";
 
 function createStudioDurabilityPanels({
+  buildWorkspaceActionContext,
+  daemonEndpoint,
+  daemonRequestToken,
+  fetchStudioThreadEvents,
   firstArray,
+  getStudioRuntimeProjection,
   normalizeReceiptRefs,
+  requestJson,
   stringValue,
+  studioMaxRuntimeEventSeq,
   studioRuntimeEventKind,
   uniqueStrings,
+  workspaceSummary,
   workspacePath,
+  writeBridgeRequest,
 } = {}) {
   const array = typeof firstArray === "function" ? firstArray : (value) => (Array.isArray(value) ? value : []);
   const receipts = typeof normalizeReceiptRefs === "function" ? normalizeReceiptRefs : () => [];
@@ -215,7 +224,185 @@ function createStudioDurabilityPanels({
     };
   }
 
+  async function exerciseStudioSessionBrainLifecycle(output) {
+    const studioRuntimeProjection = getStudioRuntimeProjection();
+    const workspace = workspaceSummary();
+    const contextSnapshot = buildWorkspaceActionContext("studio-session-brain-lifecycle");
+    const thread = await requestJson(daemonEndpoint(), "/v1/threads", {
+      method: "POST",
+      token: daemonRequestToken(),
+      payload: {
+        source: "agent_studio_session_brain_lifecycle",
+        goal: "Prove Agent Studio run brain artifacts are daemon-owned, replayable, and product-safe.",
+        options: {
+          local: { cwd: workspace.path },
+          model: { id: studioRuntimeProjection.selectedModel || "auto", routeId: studioRuntimeProjection.modelRoute || "route.local-first" },
+        },
+      },
+    });
+    const threadId = thread.thread_id || thread.threadId || thread.id;
+    if (!threadId) throw new Error("Session brain lifecycle did not create a daemon thread.");
+    studioRuntimeProjection.threadId = threadId;
+
+    const artifacts = [
+      {
+        memoryKey: "implementation_plan",
+        text: "# Implementation Plan\n\n- Prove Agent Studio renders daemon-owned run brain artifacts.",
+        workflowNodeId: "runtime.session-brain.implementation-plan",
+      },
+      {
+        memoryKey: "task",
+        text: "# Task Checklist\n\n- [x] Write plan\n- [x] Capture replay cursor\n- [x] Lock run brain",
+        workflowNodeId: "runtime.session-brain.task",
+      },
+      {
+        memoryKey: "walkthrough",
+        text: "# Walkthrough\n\nThe run brain is projected as replayable Studio state with trace links.",
+        workflowNodeId: "runtime.session-brain.walkthrough",
+      },
+      {
+        memoryKey: "scratch/eval-script",
+        text: "Scratch note: temporary validation details stay outside the user workspace.",
+        workflowNodeId: "runtime.session-brain.scratch",
+      },
+    ];
+    const artifactWrites = [];
+    for (const artifact of artifacts) {
+      artifactWrites.push(await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory`, {
+        method: "POST",
+        token: daemonRequestToken(),
+        payload: {
+          source: "agent_studio_session_brain_lifecycle",
+          text: artifact.text,
+          memoryKey: artifact.memoryKey,
+          scope: "thread",
+          workflowGraphId: "workflow.agent-studio.session-brain",
+          workflowNodeId: artifact.workflowNodeId,
+        },
+      }));
+    }
+    const readOnlyPolicy = await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory/policy`, {
+      method: "PATCH",
+      token: daemonRequestToken(),
+      payload: {
+        readOnly: true,
+        retention: "persistent",
+        source: "agent_studio_session_brain_completion_audit_lock",
+      },
+    });
+    let lateWriteBlocked = false;
+    let lateWriteReason = null;
+    try {
+      await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory`, {
+        method: "POST",
+        token: daemonRequestToken(),
+        payload: {
+          source: "agent_studio_session_brain_lifecycle",
+          text: "This late write should be blocked by the audit lock.",
+          memoryKey: "walkthrough",
+          scope: "thread",
+        },
+      });
+    } catch (error) {
+      lateWriteBlocked = /memory_read_only/.test(String(error?.message || error));
+      lateWriteReason = lateWriteBlocked ? "memory_read_only" : String(error?.message || error);
+    }
+
+    const memoryProjection = await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory`, {
+      method: "GET",
+      token: daemonRequestToken(),
+    });
+    const memoryPath = await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory/path`, {
+      method: "GET",
+      token: daemonRequestToken(),
+    });
+    const events = await fetchStudioThreadEvents(threadId, output, {
+      sinceSeq: 0,
+      timeoutMs: 2500,
+    });
+    const replayCursor = studioMaxRuntimeEventSeq(events);
+    const panel = studioSessionBrainPanelFromProjection({
+      memoryProjection,
+      memoryPath,
+      events,
+      lateWriteBlocked,
+      replayCursor,
+      completionReceiptRefs: receipts(readOnlyPolicy),
+    });
+    studioRuntimeProjection.sessionBrainPanels.push(panel);
+    studioRuntimeProjection.replaySteps = [
+      {
+        id: "session-brain.thread-started",
+        kind: "thread.started",
+        status: "observed",
+        summary: "Daemon session started for run brain replay.",
+      },
+      ...artifacts.map((artifact, index) => ({
+        id: `session-brain.memory-write-${index + 1}`,
+        kind: "memory.write",
+        status: "observed",
+        summary: `${artifact.memoryKey.replace(/[_/-]+/g, " ")} recorded in run brain memory.`,
+      })),
+      {
+        id: "session-brain.audit-lock",
+        kind: "memory.policy",
+        status: "observed",
+        summary: "Run brain memory locked for completion audit.",
+      },
+    ];
+    studioRuntimeProjection.runtimeCockpit.replayStepDetailObserved =
+      studioRuntimeProjection.replaySteps.length > 0;
+    studioRuntimeProjection.runtimeCockpit.receiptTimelinePerStepObserved =
+      array(panel.receiptRefs).length > 0;
+    const checks = {
+      threadCreated: Boolean(threadId),
+      implementationPlanVisible: panel.hasImplementationPlan,
+      taskChecklistVisible: panel.hasTaskChecklist,
+      walkthroughVisible: panel.hasWalkthrough,
+      scratchRefsVisible: panel.hasScratchRefs,
+      artifactRefsVisible: panel.hasArtifactRefs,
+      replayCursorVisible: panel.hasReplayCursor,
+      brainRootOutsideWorkspace: panel.brainOutsideWorkspace,
+      readOnlyAuditModeVisible: panel.readOnlyAuditMode,
+      lateWriteBlocked,
+      receiptsLinked: array(panel.receiptRefs).length > 0,
+    };
+    await writeBridgeRequest("studio.sessionBrainLifecycle.exercised", {
+      sourceCommand: "ioi.studio.exerciseSessionBrainLifecycle",
+      runtimeAuthority: "daemon-owned",
+      projectionOwner: "openvscode-workbench-adapter",
+      ownsRuntimeState: false,
+      passed: Object.values(checks).every(Boolean),
+      checks,
+      artifactWriteCount: artifactWrites.length,
+      replayCursor,
+      lateWriteReason,
+    }, contextSnapshot).catch((error) => {
+      output.appendLine(`[ioi-studio] session brain lifecycle bridge request unavailable: ${error?.message || String(error)}`);
+    });
+    return {
+      passed: Object.values(checks).every(Boolean),
+      checks,
+      artifactWriteCount: artifactWrites.length,
+      replayCursor,
+      panel: {
+        status: panel.status,
+        artifactCount: panel.artifactCount,
+        scratchCount: panel.scratchCount,
+        hasImplementationPlan: panel.hasImplementationPlan,
+        hasTaskChecklist: panel.hasTaskChecklist,
+        hasWalkthrough: panel.hasWalkthrough,
+        hasScratchRefs: panel.hasScratchRefs,
+        hasArtifactRefs: panel.hasArtifactRefs,
+        hasReplayCursor: panel.hasReplayCursor,
+        brainOutsideWorkspace: panel.brainOutsideWorkspace,
+        readOnlyAuditMode: panel.readOnlyAuditMode,
+      },
+    };
+  }
+
   return {
+    exerciseStudioSessionBrainLifecycle,
     studioMemoryRecordReceiptRefs,
     studioSessionBrainArtifactKind,
     studioSessionBrainPanelFromProjection,
