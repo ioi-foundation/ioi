@@ -325,8 +325,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs`.
 - Moved local artifact import dry-run/materialization plus endpoint mount/unmount state transitions out of `model-mounting.mjs` behind existing compatibility methods.
 - Added focused artifact-endpoint operation tests for dry-run imports, materialized local imports, endpoint mount derivation, explicit provider fallback, and unmount receipts.
+- Added `packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs`.
+- Moved model load, load-estimate, and unload state transitions out of `model-mounting.mjs` behind existing compatibility methods while preserving runtime-engine defaults, backend estimates, provider driver calls, supersession, and receipts.
+- Added focused model-loading operation tests for estimate-only loads, persisted loaded instances, native resource estimates, and unload evidence receipts.
 
-Status: `model-mounting.mjs` still owns route persistence wrappers, catalog import/download operation glue, model load/unload/invocation/tokenizer utilities, and some product projection glue. Safe next extractions are catalog import/download slices, invocation utility slices, load/unload slices, and remaining route HTTP glue.
+Status: `model-mounting.mjs` still owns route persistence wrappers, catalog import/download operation glue, model invocation/tokenizer utilities, and some product projection glue. Safe next extractions are catalog import/download slices, invocation utility slices, and remaining route HTTP glue.
 
 ### Rust Runtime Hot Spot
 
@@ -401,6 +404,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `model-mounting/provider-operations`
   - `model-mounting/catalog-operations`
   - `model-mounting/artifact-endpoint-operations`
+  - `model-mounting/model-loading-operations`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.

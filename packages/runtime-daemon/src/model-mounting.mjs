@@ -55,6 +55,11 @@ import {
   unmountEndpoint as unmountEndpointState,
 } from "./model-mounting/artifact-endpoint-operations.mjs";
 import {
+  loadEstimate as loadEstimateState,
+  loadModel as loadModelState,
+  unloadModel as unloadModelState,
+} from "./model-mounting/model-loading-operations.mjs";
+import {
   catalogVariantForSource,
   enrichCatalogEntry,
   huggingFaceCatalogEntries,
@@ -1108,152 +1113,27 @@ export class ModelMountingState {
   }
 
   async loadModel(body = {}) {
-    const endpoint = this.resolveEndpoint(body.endpoint_id ?? body.endpointId, body.model_id ?? body.modelId);
-    const provider = this.provider(endpoint.providerId);
-    const loadPolicy = normalizeLoadPolicy(body.load_policy ?? body.loadPolicy ?? endpoint.loadPolicy);
-    const runtimePreference = this.runtimePreferenceForEndpoint(endpoint);
-    const requestLoadOptions = body.load_options ?? body.loadOptions ?? {};
-    const runtimeDefaults = { ...this.runtimeDefaultLoadOptions(runtimePreference.selectedEngineId) };
-    if ((body.load_policy ?? body.loadPolicy) && !hasExplicitTtlOption(body) && !hasExplicitTtlOption(requestLoadOptions)) {
-      delete runtimeDefaults.ttlSeconds;
-    }
-    const loadOptions = normalizeLoadOptions(
-      { ...runtimeDefaults, ...body, ...requestLoadOptions },
-      loadPolicy,
-    );
-    if (loadOptions.ttlSeconds !== null) loadPolicy.idleTtlSeconds = loadOptions.ttlSeconds;
-    const estimate = this.loadEstimate(endpoint, loadOptions, runtimePreference);
-    if (loadOptions.estimateOnly) {
-      const receipt = this.lifecycleReceipt("model_load_estimate", {
-        endpointId: endpoint.id,
-        modelId: endpoint.modelId,
-        providerId: endpoint.providerId,
-        backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
-        runtimeEngineId: runtimePreference.selectedEngineId,
-        runtimeEngineProfile: this.runtimeEngineProfile(runtimePreference.selectedEngineId) ?? null,
-        loadPolicy,
-        loadOptions,
-        estimate,
-      });
-      return {
-        schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-        status: "estimate_only",
-        endpointId: endpoint.id,
-        modelId: endpoint.modelId,
-        providerId: endpoint.providerId,
-        backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
-        runtimeEngineId: runtimePreference.selectedEngineId,
-        runtimeEngineProfile: this.runtimeEngineProfile(runtimePreference.selectedEngineId) ?? null,
-        loadPolicy,
-        loadOptions,
-        estimate,
-        receiptId: receipt.id,
-      };
-    }
-    const driverResult = await this.driverForProvider(provider).load({
-      state: this,
-      provider,
-      endpoint,
-      body: { ...body, loadOptions, load_policy: loadPolicy },
+    return loadModelState(this, body, {
+      defaultBackendForProvider,
+      driverNameForProvider,
+      expiresAt,
+      hasExplicitTtlOption,
+      normalizeLoadOptions,
+      normalizeLoadPolicy,
+      safeId,
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
     });
-    const now = this.nowIso();
-    const instance = {
-      id: body.id ?? `instance.${safeId(endpoint.id)}.${Date.now()}`,
-      endpointId: endpoint.id,
-      providerId: endpoint.providerId,
-      modelId: endpoint.modelId,
-      status: "loaded",
-      backend: driverResult.backend ?? endpoint.apiFormat,
-      backendId: driverResult.backendId ?? endpoint.backendId ?? defaultBackendForProvider(provider),
-      driver: driverNameForProvider(provider),
-      loadPolicy,
-      loadOptions,
-      runtimeEngineId: runtimePreference.selectedEngineId,
-      runtimeEngineProfile: this.runtimeEngineProfile(runtimePreference.selectedEngineId) ?? null,
-      identifier: loadOptions.identifier ?? null,
-      contextLength: loadOptions.contextLength ?? endpoint.contextWindow ?? null,
-      parallelism: loadOptions.parallel ?? null,
-      gpuOffload: loadOptions.gpu ?? null,
-      estimate: driverResult.estimate ?? estimate,
-      backendProcess: driverResult.process ?? null,
-      backendProcessId: driverResult.process?.id ?? null,
-      backendProcessPidHash: driverResult.process?.pidHash ?? null,
-      loadedAt: now,
-      lastUsedAt: now,
-      expiresAt: expiresAt(now, loadPolicy),
-      workflowScope: body.workflow_scope ?? body.workflowScope ?? null,
-      agentScope: body.agent_scope ?? body.agentScope ?? null,
-      providerEvidenceRefs: driverResult.evidenceRefs ?? [],
-    };
-    this.instances.set(instance.id, instance);
-    this.supersedeLoadedInstances(endpoint.id, instance.id);
-    this.writeMap("model-instances", this.instances);
-    this.lifecycleReceipt("model_load", {
-      instanceId: instance.id,
-      endpointId: endpoint.id,
-      modelId: endpoint.modelId,
-      providerId: endpoint.providerId,
-      backendId: instance.backendId,
-      runtimeEngineId: runtimePreference.selectedEngineId,
-      loadPolicy,
-      loadOptions,
-      estimate: instance.estimate,
-      providerEvidenceRefs: driverResult.evidenceRefs ?? [],
-      backendProcess: driverResult.process ?? null,
-      commandArgsHash: driverResult.commandArgsHash ?? null,
-    });
-    return instance;
   }
 
   loadEstimate(endpoint, loadOptions = {}, runtimePreference = this.runtimePreference()) {
-    const provider = this.provider(endpoint.providerId);
-    const artifact = this.getModel(endpoint.modelId);
-    const nativeEstimate = estimateNativeLocalResources({
-      ...artifact,
-      contextWindow: loadOptions.contextLength ?? artifact.contextWindow,
+    return loadEstimateState(this, endpoint, loadOptions, runtimePreference, {
+      defaultBackendForProvider,
+      estimateNativeLocalResources,
     });
-    return {
-      endpointId: endpoint.id,
-      modelId: endpoint.modelId,
-      providerId: endpoint.providerId,
-      backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
-      runtimeEngineId: runtimePreference.selectedEngineId,
-      contextLength: loadOptions.contextLength ?? nativeEstimate.contextWindow,
-      parallelism: loadOptions.parallel ?? 1,
-      gpuOffload: loadOptions.gpu ?? "auto",
-      identifier: loadOptions.identifier ?? null,
-      estimatedVramBytes: nativeEstimate.estimatedVramBytes,
-      estimatedSizeBytes: nativeEstimate.sizeBytes,
-      realInference: provider.kind !== "ioi_native_local" ? null : nativeEstimate.realInference,
-      evidenceRefs: ["model_load_option_estimate", "runtime_engine_preference"],
-    };
   }
 
   async unloadModel(body = {}) {
-    const instanceId = body.instance_id ?? body.instanceId ?? body.id;
-    const instance = instanceId
-      ? this.instance(instanceId)
-      : this.loadedInstanceForEndpoint(this.resolveEndpoint(body.endpoint_id ?? body.endpointId, body.model_id ?? body.modelId).id);
-    const endpoint = this.endpoint(instance.endpointId);
-    const provider = this.provider(instance.providerId);
-    const driverResult = await this.driverForProvider(provider).unload({ state: this, provider, endpoint, instance, body });
-    const updated = {
-      ...instance,
-      status: "unloaded",
-      unloadedAt: this.nowIso(),
-      providerEvidenceRefs: driverResult.evidenceRefs ?? instance.providerEvidenceRefs ?? [],
-    };
-    this.instances.set(instance.id, updated);
-    this.writeMap("model-instances", this.instances);
-    this.lifecycleReceipt("model_unload", {
-      instanceId: instance.id,
-      endpointId: instance.endpointId,
-      modelId: instance.modelId,
-      providerId: instance.providerId,
-      providerEvidenceRefs: driverResult.evidenceRefs ?? [],
-      backendProcess: driverResult.process ?? null,
-    });
-    return updated;
+    return unloadModelState(this, body);
   }
 
   async downloadModel(body = {}) {
