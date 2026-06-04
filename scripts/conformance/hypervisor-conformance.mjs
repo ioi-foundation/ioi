@@ -369,6 +369,20 @@ function runBridge() {
   const nativeLocalFixture = exists("packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs")
     : "";
+  const retiredNativeFixtureResponseFiles = [
+    "packages/runtime-daemon/src/model-mounting/native-fixture-artifacts.mjs",
+    "packages/runtime-daemon/src/model-mounting/native-fixture-intent.mjs",
+    "packages/runtime-daemon/src/model-mounting/native-fixture-intent.test.mjs",
+    "packages/runtime-daemon/src/model-mounting/native-fixture-repo-aware.mjs",
+    "packages/runtime-daemon/src/model-mounting/native-fixture-repo-aware.test.mjs",
+    "packages/runtime-daemon/src/model-mounting/native-fixture-stage2-web-repair.mjs",
+    "packages/runtime-daemon/src/model-mounting/native-fixture-stage2-web-repair.test.mjs",
+    "packages/runtime-daemon/src/model-mounting/native-fixture-stage5-stop-hook-repair.mjs",
+    "packages/runtime-daemon/src/model-mounting/native-fixture-stage5-stop-hook-repair.test.mjs",
+    "packages/runtime-daemon/src/model-mounting/native-fixture-tool-catalogue.mjs",
+    "packages/runtime-daemon/src/model-mounting/native-fixture-tool-catalogue.test.mjs",
+    "scripts/lib/workflow-native-fixture-intent-refactor-proof.mjs",
+  ];
   const openAiBackendDrivers = exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs")
     : "";
@@ -549,6 +563,7 @@ function runBridge() {
       /model_mount_local_provider_direct_stream_retired/.test(providerLocalDrivers) &&
       !exists("packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/native-local-fixture.test.mjs") &&
+      retiredNativeFixtureResponseFiles.every((file) => !exists(file)) &&
       !/nativeLocalStreamRecords/.test(providerLocalDrivers) &&
       !/jsonLineReadableStream/.test(providerLocalDrivers) &&
       !/nativeLocalStreamRecords/.test(nativeLocalFixture) &&
@@ -561,6 +576,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
       "packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs",
+      ...retiredNativeFixtureResponseFiles,
     ],
     "Phase 9/10 is pending: native-local stream frame planning must execute through Rust model_mount while JS only adapts returned chunks to protocol streams",
   );
