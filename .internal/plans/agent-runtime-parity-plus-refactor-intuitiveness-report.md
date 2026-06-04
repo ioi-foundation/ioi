@@ -313,8 +313,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs`.
 - Moved backend process ensure/touch/start/spawn/stop behavior, backend health/start/stop operations, and backend log reads out of `model-mounting.mjs` behind existing compatibility methods.
 - Added focused backend-lifecycle tests for stale process touch recovery, deterministic fixture process starts, fake subprocess output/exit handling, clean process stop, backend health/start/stop receipts, external-blocker start failures, and backend log projection.
+- Added `packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs`.
+- Moved catalog provider OAuth start/callback/exchange/refresh/revoke orchestration out of `model-mounting.mjs` behind existing compatibility methods while preserving vault writes, receipts, public provider config projection, and fail-closed missing-session errors.
+- Added focused catalog-provider-oauth tests for pending authorization persistence, callback state-hash lookup, exchange persistence, refresh/revoke boundary updates, and missing-session 404 envelopes.
 
-Status: `model-mounting.mjs` still owns route persistence wrappers, provider/catalog operation glue, and some product projection glue. Safe next extractions are provider/catalog operation slices and remaining route HTTP glue.
+Status: `model-mounting.mjs` still owns route persistence wrappers, provider/catalog operation glue, and some product projection glue. Safe next extractions are provider operation slices, catalog search/import/download slices, and remaining route HTTP glue.
 
 ### Rust Runtime Hot Spot
 
@@ -385,6 +388,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, provider/cat
   - `model-mounting/runtime-survey`
   - `model-mounting/backend-processes`
   - `model-mounting/backend-lifecycle`
+  - `model-mounting/catalog-provider-oauth`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
