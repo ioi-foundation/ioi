@@ -128,12 +128,7 @@ import {
   stopProvider as stopProviderState,
   upsertProvider as upsertProviderState,
 } from "./model-mounting/provider-operations.mjs";
-import {
-  hostedProvider as hostedProviderFromRegistry,
-  optionalString as optionalStringFromProviderRegistry,
-  publicProvider as publicProviderFromRegistry,
-  requiredString as requiredStringFromProviderRegistry,
-} from "./model-mounting/provider-registry.mjs";
+import { createProviderRegistryBindings } from "./model-mounting/provider-registry-bindings.mjs";
 import {
   assertNoPlaintextProviderSecret,
   assertProviderVaultBoundary,
@@ -385,6 +380,17 @@ import {
 } from "./model-mounting/routes.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1", SECRET_REDACTION = "[REDACTED]";
+const {
+  hostedProvider,
+  optionalString,
+  publicProvider,
+  requiredString,
+} = createProviderRegistryBindings({
+  providerHasVaultRef,
+  providerRequiresVaultSecret,
+  runtimeError,
+  stableHash,
+});
 
 export class ModelMountingState {
   constructor({ stateDir, cwd, appendOperation, homeDir, now = () => new Date(), vaultSecrets = {} }) {
@@ -2498,24 +2504,4 @@ export class ModelMountingState {
   driverForProvider(provider) {
     return driverForProviderState(this, provider);
   }
-}
-
-function hostedProvider(id, label, apiFormat, secret) {
-  return hostedProviderFromRegistry(id, label, apiFormat, secret);
-}
-
-function publicProvider(provider, vaultMetadata = null) {
-  return publicProviderFromRegistry(provider, vaultMetadata, {
-    providerHasVaultRef,
-    providerRequiresVaultSecret,
-    stableHash,
-  });
-}
-
-function requiredString(value, field) {
-  return requiredStringFromProviderRegistry(value, field, { runtimeError });
-}
-
-function optionalString(value) {
-  return optionalStringFromProviderRegistry(value);
 }
