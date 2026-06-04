@@ -134,6 +134,8 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added focused workflow-composer panel tests for asset URI construction, nonce/CSP handling, daemon connect-source escaping, shell-header preservation, daemon-owned initial state, and `<` escaping inside serialized bootstrap state.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/workflow-composer-panel-lifecycle.js`.
 - Moved Workflow Composer panel creation/reuse/disposal, webview message routing, visibility projection, and scenario/capture postMessage scheduling out of `extension.js`.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/studio-panel-lifecycle.js`.
+- Moved Agent Studio webview panel creation/reuse/disposal and webview message routing out of `extension.js` while preserving existing local Studio projection state and public bridge request envelopes.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/prompt-policy.js`.
 - Moved Studio prompt/model policy helpers for whitespace compaction, auto-model selector detection, local-workspace prompt detection, harness-probe exclusion, retrieval routing, and workspace-context routing out of `extension.js`.
 - Added focused prompt-policy tests for whitespace/model selector normalization, workspace-vs-external retrieval decisions, Ask/Agent workspace context gating, and internal harness probe suppression.
