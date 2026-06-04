@@ -99,6 +99,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/durability-panels.js`.
 - Moved Studio session-brain and trajectory-replay proof panel projection out of `extension.js` while preserving the existing test-hook command flow, bridge request envelopes, and product panel data-testids.
 - Added focused durability-panel tests for required run-brain artifacts, receipt linking, read-only audit state, workspace-boundary projection, stable trajectory replay ids, cursor replay emptiness, and duplicate side-effect blocking.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/policy-lease-lifecycle.js`.
+- Moved Studio policy-lease lifecycle fixture materialization, approval-required tool body shaping, and allow/revoke/expiry row projection out of `extension.js` while preserving the live daemon exercise command and bridge request envelope.
+- Added focused policy-lease lifecycle tests for fixture path materialization, daemon approval envelope fields, dry-run patch payloads, allow-once execution, revoke blocking, expiry blocking, and receipt propagation.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
@@ -437,6 +440,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `model-mounting/backend-registry-state`
   - `runtime-run-cancellation`
   - `studio/durability-panels`
+  - `studio/policy-lease-lifecycle`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
