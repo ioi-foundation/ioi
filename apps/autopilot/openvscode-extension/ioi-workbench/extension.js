@@ -37,6 +37,7 @@ const { createWorkbenchModeBodyRenderers } = require("./workbench/mode-body-rend
 const { formatBytes, modelSnapshotFromState } = require("./workbench/model-snapshot");
 const { createWorkbenchOverviewPanelRenderer } = require("./workbench/overview-panel");
 const { createWorkbenchPanelLifecycle } = require("./workbench/panel-lifecycle");
+const { createPersistentModePanels } = require("./workbench/persistent-mode-panels");
 const { createAutopilotShellHeader } = require("./workbench/shell-header");
 const { createWorkflowComposerPanelRenderer } = require("./workbench/workflow-composer-panel");
 const {
@@ -170,8 +171,6 @@ let studioPanel = null;
 let studioPanelLastHtml = null;
 let studioPanelPageNonce = null;
 let workflowComposerPanel = null;
-let modelsPanel = null;
-const genericModePanels = new Map();
 const autopilotModeController = createAutopilotModeController({
   AUTOPILOT_MODE_BY_ID,
   AUTOPILOT_MODE_BY_PANEL_VIEW_ID,
@@ -7413,152 +7412,28 @@ async function openStudioPanel(context, output) {
   return studioPanel;
 }
 
-async function openModelsPanel(context, output, options = {}) {
-  const modelsViewDefinition =
-    VIEW_DEFINITIONS.find((definition) => definition.id === "ioi.models") || {
-      id: "ioi.models",
-      title: "Models",
-      eyebrow: "Daemon model runtime",
-      description: "Daemon-backed model mounting.",
-      actions: [],
-    };
-  const state = await readBridgeState();
-  if (modelsPanel) {
-    modelsPanel.reveal(vscode.ViewColumn.One);
-  } else {
-    modelsPanel = vscode.window.createWebviewPanel(
-      "ioi.models",
-      "Autopilot Models",
-      vscode.ViewColumn.One,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-      },
-    );
-    modelsPanel.iconPath = vscode.Uri.joinPath(
-      context.extensionUri,
-      "media",
-      "ioi-activity.svg",
-    );
-    modelsPanel.webview.onDidReceiveMessage(async (message) => {
-      if (
-        message?.type === "bridgeRequest" &&
-        typeof message.requestType === "string"
-      ) {
-        await writeBridgeRequest(
-          message.requestType,
-          message.payload || {},
-          buildWorkspaceActionContext("models-panel-webview"),
-        );
-        return;
-      }
-      if (message?.type === "modelsModeProof" && message.proof) {
-        await writeBridgeRequest(
-          "modelsMode.proof",
-          message.proof,
-          buildWorkspaceActionContext("models-panel-webview"),
-        );
-        return;
-      }
-      if (message?.type === "modelsModeProof" && message.proof) {
-        await writeBridgeRequest(
-          "modelsMode.proof",
-          message.proof,
-          buildWorkspaceActionContext("ioi.models"),
-        );
-        return;
-      }
-      if (message?.type !== "command" || typeof message.command !== "string") {
-        return;
-      }
-      await vscode.commands.executeCommand(message.command, message.payload);
-    });
-    registerModePanelVisibilityProjection(modelsPanel, "models", output);
-    modelsPanel.onDidDispose(() => {
-      modelsPanel = null;
-    });
-  }
-  modelsPanel.webview.html = renderHtml(modelsViewDefinition, state);
-  const phase = typeof options.phase === "string" ? options.phase : null;
-  if (phase) {
-    setTimeout(() => {
-      modelsPanel?.webview.postMessage({
-        type: "ioi.models.capturePhase",
-        phase,
-      });
-    }, 700);
-  }
-  output.appendLine("Opened Autopilot Models webview.");
-  return modelsPanel;
-}
+const {
+  openGenericModePanel: openGenericModePanelFromManager,
+  openModelsPanel: openModelsPanelFromManager,
+  refreshPersistentModePanels,
+} = createPersistentModePanels({
+  AUTOPILOT_MODE_BY_ID,
+  VIEW_DEFINITIONS,
+  buildWorkspaceActionContext,
+  codeModePanelHtml,
+  readBridgeState,
+  registerModePanelVisibilityProjection,
+  renderHtml,
+  vscode,
+  writeBridgeRequest,
+});
 
-function renderModePanelHtml(modeId, state) {
-  if (modeId === "code") {
-    return codeModePanelHtml(state);
-  }
-  const mode = AUTOPILOT_MODE_BY_ID[modeId];
-  const viewId = mode?.panelViewId;
-  const viewDefinition =
-    VIEW_DEFINITIONS.find((definition) => definition.id === viewId) || {
-      id: viewId || `ioi.${modeId}`,
-      title: mode?.title || "Autopilot",
-      eyebrow: "Autopilot mode",
-      description: "Persistent Autopilot workbench mode.",
-      actions: [],
-    };
-  return renderHtml(viewDefinition, state);
+async function openModelsPanel(context, output, options = {}) {
+  return openModelsPanelFromManager(context, output, options);
 }
 
 async function openGenericModePanel(context, output, modeId) {
-  const mode = AUTOPILOT_MODE_BY_ID[modeId];
-  if (!mode) {
-    throw new Error(`Unknown Autopilot mode: ${modeId}`);
-  }
-  const state = await readBridgeState();
-  let panel = genericModePanels.get(modeId);
-  if (panel) {
-    panel.reveal(vscode.ViewColumn.One);
-  } else {
-    panel = vscode.window.createWebviewPanel(
-      mode.panelViewType,
-      `Autopilot ${mode.title}`,
-      vscode.ViewColumn.One,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-      },
-    );
-    panel.iconPath = vscode.Uri.joinPath(
-      context.extensionUri,
-      "media",
-      "ioi-activity.svg",
-    );
-    panel.webview.onDidReceiveMessage(async (message) => {
-      if (
-        message?.type === "bridgeRequest" &&
-        typeof message.requestType === "string"
-      ) {
-        await writeBridgeRequest(
-          message.requestType,
-          message.payload || {},
-          buildWorkspaceActionContext(`${modeId}-mode-webview`),
-        );
-        return;
-      }
-      if (message?.type !== "command" || typeof message.command !== "string") {
-        return;
-      }
-      await vscode.commands.executeCommand(message.command, message.payload);
-    });
-    registerModePanelVisibilityProjection(panel, modeId, output);
-    panel.onDidDispose(() => {
-      genericModePanels.delete(modeId);
-    });
-    genericModePanels.set(modeId, panel);
-  }
-  panel.webview.html = renderModePanelHtml(modeId, state);
-  output.appendLine(`Opened Autopilot ${mode.title} mode webview.`);
-  return panel;
+  return openGenericModePanelFromManager(context, output, modeId);
 }
 
 function openWorkflowComposerPanel(context, output, options = {}) {
@@ -7908,20 +7783,7 @@ function activate(context) {
       if (studioPanel) {
         updateStudioPanelHtml(state);
       }
-      if (modelsPanel) {
-        const modelsViewDefinition =
-          VIEW_DEFINITIONS.find((definition) => definition.id === "ioi.models") || {
-            id: "ioi.models",
-            title: "Models",
-            eyebrow: "Daemon model runtime",
-            description: "Daemon-backed model mounting.",
-            actions: [],
-          };
-        modelsPanel.webview.html = renderHtml(modelsViewDefinition, state);
-      }
-      for (const [modeId, panel] of genericModePanels) {
-        panel.webview.html = renderModePanelHtml(modeId, state);
-      }
+      refreshPersistentModePanels(state);
       for (const provider of providers) {
         void provider.render();
       }

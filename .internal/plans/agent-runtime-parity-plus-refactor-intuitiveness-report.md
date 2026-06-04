@@ -177,6 +177,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/panel-lifecycle.js`.
 - Moved workbench panel lifecycle helpers for activity sidebar closing, mode visibility bridge projection, webview view provider rendering/message forwarding, appearance sync, and bridge-state polling out of `extension.js` while preserving daemon-owned bridge envelopes, auto-open timing, and command dispatch behavior.
 - Added focused panel-lifecycle tests for visibility projection throttling, listener disposal, theme update de-duping, bridge polling disposal, webview message forwarding, and primary-surface auto-open.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/persistent-mode-panels.js`.
+- Moved Autopilot Models and generic persistent mode panel lifecycle/render refresh logic out of `extension.js` while preserving model proof bridge envelopes, command dispatch, phase capture messages, generic mode disposal cleanup, and code-mode renderer delegation.
+- Added focused persistent-mode panel tests for model panel bridge/proof/command forwarding, phase capture scheduling, generic panel refresh/disposal, code-mode delegation, and unknown-mode fail-closed behavior.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
