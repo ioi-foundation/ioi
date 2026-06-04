@@ -292,6 +292,9 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/state-seeding.mjs`.
 - Moved default model-mounting bootstrap orchestration for local/native providers, LM Studio discovery, runtime provider defaults, backend seeding, fixture artifact/endpoint seeding, and default routes out of `model-mounting.mjs` behind the existing `ModelMountingState.seedDefaults()` compatibility method.
 - Added focused state-seeding tests for fixture-enabled defaults, disabled-fixture pruning, LM Studio detected-artifact fallback, and discovered LM Studio artifact precedence.
+- Added `packages/runtime-daemon/src/model-mounting/state-persistence.mjs`.
+- Moved the model-mounting directory-to-map persistence table, map loading, whole-state write ordering, write-map delegation, and vault-ref metadata refresh out of `model-mounting.mjs` behind existing `ModelMountingState.load()`, `loadMap()`, `writeAll()`, `writeMap()`, and `writeVaultRefs()` compatibility methods.
+- Added focused state-persistence tests for load filtering, canonical map coverage, whole-state write ordering, vault-ref refresh, and store delegation.
 
 Status: `model-mounting.mjs` still owns state-machine behavior, route persistence wrappers, backend process lifecycle, and some product projection glue. Safe next extractions are state-machine slices and remaining route HTTP glue.
 

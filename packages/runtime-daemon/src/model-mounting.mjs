@@ -248,6 +248,13 @@ import {
 } from "./model-mounting/default-records.mjs";
 import { seedModelMountingDefaults } from "./model-mounting/state-seeding.mjs";
 import {
+  loadModelMountingMap,
+  loadModelMountingMaps,
+  writeAllModelMountingMaps,
+  writeModelMountingMap,
+  writeModelMountingVaultRefs,
+} from "./model-mounting/state-persistence.mjs";
+import {
   validateContinuationSafety as validateContinuationSafetyRule,
   validateReceiptGate as validateReceiptGateRule,
 } from "./model-mounting/validation.mjs";
@@ -335,32 +342,11 @@ export class ModelMountingState {
   }
 
   load() {
-    this.loadMap("model-providers", this.providers);
-    this.loadMap("model-backends", this.backends);
-    this.loadMap("backend-processes", this.backendProcesses);
-    this.loadMap("model-artifacts", this.artifacts);
-    this.loadMap("model-endpoints", this.endpoints);
-    this.loadMap("model-instances", this.instances);
-    this.loadMap("model-routes", this.routes);
-    this.loadMap("model-downloads", this.downloads);
-    this.loadMap("model-catalog-providers", this.catalogProviderConfigs);
-    this.loadMap("oauth-sessions", this.oauthSessions);
-    this.loadMap("oauth-states", this.oauthStates);
-    this.loadMap("runtime-preferences", this.runtimeSelections);
-    this.loadMap("runtime-engine-profiles", this.runtimeEngineProfiles);
-    this.loadMap("tokens", this.tokens);
-    this.loadMap("vault-refs", this.vaultRefs);
-    this.loadMap("mcp-servers", this.mcpServers);
-    this.loadMap("model-conversations", this.conversations);
+    return loadModelMountingMaps(this, { listJson, readJson });
   }
 
   loadMap(dir, map) {
-    for (const filePath of listJson(path.join(this.stateDir, dir))) {
-      const record = readJson(filePath);
-      if (typeof record.id === "string") {
-        map.set(record.id, record);
-      }
-    }
+    return loadModelMountingMap(this, dir, map, { listJson, readJson });
   }
 
   seedDefaults() {
@@ -559,33 +545,15 @@ export class ModelMountingState {
   }
 
   writeAll() {
-    this.writeMap("model-providers", this.providers);
-    this.writeMap("model-backends", this.backends);
-    this.writeMap("backend-processes", this.backendProcesses);
-    this.writeMap("model-artifacts", this.artifacts);
-    this.writeMap("model-endpoints", this.endpoints);
-    this.writeMap("model-instances", this.instances);
-    this.writeMap("model-routes", this.routes);
-    this.writeMap("model-downloads", this.downloads);
-    this.writeMap("model-catalog-providers", this.catalogProviderConfigs);
-    this.writeMap("oauth-sessions", this.oauthSessions);
-    this.writeMap("oauth-states", this.oauthStates);
-    this.writeMap("runtime-preferences", this.runtimeSelections);
-    this.writeMap("runtime-engine-profiles", this.runtimeEngineProfiles);
-    this.writeMap("tokens", this.tokens);
-    this.writeVaultRefs();
-    this.writeMap("mcp-servers", this.mcpServers);
-    this.writeMap("model-conversations", this.conversations);
-    this.writeProjection();
+    return writeAllModelMountingMaps(this);
   }
 
   writeMap(dir, map) {
-    this.store.writeMap(dir, map);
+    return writeModelMountingMap(this, dir, map);
   }
 
   writeVaultRefs() {
-    this.vaultRefs = new Map(this.vault.metadataRecords().map((record) => [record.id, record]));
-    this.writeMap("vault-refs", this.vaultRefs);
+    return writeModelMountingVaultRefs(this);
   }
 
   serverStatus(baseUrl) {
