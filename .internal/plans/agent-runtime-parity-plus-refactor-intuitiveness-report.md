@@ -319,8 +319,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/provider-operations.mjs`.
 - Moved provider upsert, provider secret-ref normalization, provider health, provider model/loaded listing, and provider start/stop orchestration out of `model-mounting.mjs` behind existing compatibility methods while preserving public provider redaction and fail-closed health envelopes.
 - Added focused provider-operation tests for vault-bound upsert, plaintext secret rejection, health success/failure persistence, model/loaded fallbacks, and stateless start/stop receipts.
+- Added `packages/runtime-daemon/src/model-mounting/catalog-operations.mjs`.
+- Moved model storage summary, catalog status projection, catalog search aggregation, and catalog entry enrichment out of `model-mounting.mjs` behind existing compatibility methods.
+- Added focused catalog-operation tests for quota/orphan accounting, status projection, search normalization/result aggregation, and enrichment dependency flow.
 
-Status: `model-mounting.mjs` still owns route persistence wrappers, catalog search/import/download operation glue, model invocation/tokenizer utilities, and some product projection glue. Safe next extractions are catalog search/import/download slices, invocation utility slices, and remaining route HTTP glue.
+Status: `model-mounting.mjs` still owns route persistence wrappers, catalog import/download operation glue, model invocation/tokenizer utilities, and some product projection glue. Safe next extractions are catalog import/download slices, invocation utility slices, and remaining route HTTP glue.
 
 ### Rust Runtime Hot Spot
 
@@ -393,6 +396,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog sear
   - `model-mounting/backend-lifecycle`
   - `model-mounting/catalog-provider-oauth`
   - `model-mounting/provider-operations`
+  - `model-mounting/catalog-operations`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.

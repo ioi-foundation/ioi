@@ -54,6 +54,12 @@ import {
   enrichCatalogEntry,
   huggingFaceCatalogEntries,
 } from "./model-mounting/catalog-entries.mjs";
+import {
+  catalogSearch as catalogSearchState,
+  catalogStatus as catalogStatusState,
+  enrichCatalogEntryForState,
+  storageSummary as storageSummaryState,
+} from "./model-mounting/catalog-operations.mjs";
 import { backendBindAddress, discoverAutopilotLlamaServer, llamaCppGpuLayersArg, llamaCppLibraryPathEnv } from "./model-mounting/local-runtime-engines.mjs";
 import {
   providerHealthFailureStatus,
@@ -735,33 +741,10 @@ export class ModelMountingState {
   }
 
   catalogStatus() {
-    const lastSearch = this.lastCatalogSearch;
-    const providers = this.catalogProviderPorts().map((port) => catalogProviderStatus(port));
-    return {
+    return catalogStatusState(this, {
+      catalogProviderStatus,
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      checkedAt: this.nowIso(),
-      providers,
-      adapterBoundary: {
-        port: "ModelCatalogProviderPort",
-        operations: ["search", "resolveVariant", "importUrl", "download", "health"],
-        evidenceRefs: ["provider_neutral_model_catalog_adapter_boundary"],
-      },
-      filters: {
-        formats: ["gguf", "mlx", "safetensors"],
-        quantization: ["Q2", "Q3", "Q4", "Q5", "Q6", "Q8", "F16", "BF16", "IQ"],
-        compatibility: ["native_local_fixture", "llama_cpp", "ollama", "vllm", "mlx"],
-      },
-      storage: this.storageSummary(),
-      lastSearch: lastSearch
-        ? {
-            searchedAt: lastSearch.searchedAt,
-            query: lastSearch.query,
-            filters: lastSearch.filters,
-            resultCount: lastSearch.results.length,
-          }
-        : null,
-      results: lastSearch?.results ?? [],
-    };
+    });
   }
 
   catalogProviderPorts() {
@@ -921,73 +904,25 @@ export class ModelMountingState {
   }
 
   storageSummary() {
-    const files = listModelFiles(this.modelRoot);
-    const totalBytes = files.reduce((total, filePath) => total + fs.statSync(filePath).size, 0);
-    const knownPaths = new Set([...this.artifacts.values()].map((artifact) => artifact.artifactPath).filter(Boolean));
-    const orphanCount = files.filter((filePath) => !knownPaths.has(filePath)).length;
-    const quotaBytes = Number(process.env.IOI_MODEL_STORAGE_QUOTA_BYTES ?? 0) || null;
-    return {
-      rootHash: stableHash(this.modelRoot),
-      totalBytes,
-      quotaBytes,
-      quotaStatus: quotaBytes && totalBytes > quotaBytes ? "over_quota" : "ok",
-      fileCount: files.length,
-      orphanCount,
-      destructiveActionsRequireUnload: true,
-      evidenceRefs: ["model_storage_quota_boundary", "artifact_delete_unload_guard"],
-    };
+    return storageSummaryState(this, {
+      env: process.env,
+      listModelFiles,
+      stableHash,
+      statSync: fs.statSync,
+    });
   }
 
   async catalogSearch(query = {}) {
-    const searchedAt = this.nowIso();
-    const text = String(query.q ?? query.query ?? "autopilot").trim().toLowerCase();
-    const requestedFormat = query.format === undefined || query.format === "" ? null : String(query.format).toLowerCase();
-    const requestedQuantization = query.quantization === undefined || query.quantization === "" ? null : String(query.quantization).toLowerCase();
-    const limit = normalizeLimit(query.limit, 20, 100);
-    const providerResults = [];
-    for (const port of this.catalogProviderPorts()) {
-      const result = await port.search({
-        state: this,
-        query: text,
-        format: requestedFormat,
-        quantization: requestedQuantization,
-        limit,
-        searchedAt,
-      });
-      providerResults.push({
-        ...catalogProviderStatus(port, result),
-        results: (Array.isArray(result.results) ? result.results : []).map((entry) => this.enrichCatalogEntry(entry)),
-      });
-    }
-    const results = providerResults.flatMap((provider) => provider.results).slice(0, limit);
-    const search = {
+    return catalogSearchState(this, query, {
+      catalogProviderStatus,
+      normalizeLimit,
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      searchedAt,
-      query: text,
-      filters: {
-        format: requestedFormat,
-        quantization: requestedQuantization,
-        limit,
-      },
-      adapterBoundary: {
-        port: "ModelCatalogProviderPort",
-        operations: ["search", "resolveVariant", "importUrl", "download", "health"],
-        evidenceRefs: ["provider_neutral_model_catalog_adapter_boundary"],
-      },
-      providers: providerResults.map(({ results: _results, ...provider }) => provider),
-      results,
-    };
-    this.lastCatalogSearch = search;
-    return search;
+    });
   }
 
   enrichCatalogEntry(entry, options = {}) {
-    const storage = this.storageSummary();
-    const artifacts = [...this.artifacts.values()];
-    return enrichCatalogEntry(entry, {
-      storage,
-      artifacts,
-      maxBytes: options.maxBytes ?? null,
+    return enrichCatalogEntryForState(this, entry, options, {
+      enrichCatalogEntry,
     });
   }
 
