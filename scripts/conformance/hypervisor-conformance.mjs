@@ -347,9 +347,11 @@ function runBridge() {
     "workspace-status-rust-command-bridge",
     exists("crates/node/src/bin/ioi-step-module-bridge.rs") &&
       /workspace\.status/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
-      /ioi\.step_module\.command_bridge\.v1/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")),
+      /ioi\.step_module\.command_bridge\.v1/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
+      /StepModuleRouterCore/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
+      /router_admission/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")),
     ["crates/node/src/bin/ioi-step-module-bridge.rs"],
-    "Phase 3 is pending: add a Rust command bridge for the first shadowed daemon tool",
+    "Phase 3/10 is pending: add a Rust command bridge for the first shadowed daemon tool and route it through StepModuleRouter",
   );
   return result;
 }

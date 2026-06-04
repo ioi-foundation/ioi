@@ -6,6 +6,7 @@ use ioi_services::agentic::runtime::kernel::step_module::{
     StepModuleInvocation, StepModuleNext, StepModuleProjectionStatus, StepModuleResult,
     StepModuleStatus, StepModuleWorkflowProjection, STEP_MODULE_RESULT_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::step_router::StepModuleRouterCore;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::io::{self, Read};
@@ -125,6 +126,19 @@ fn workspace_status_shadow_response(request: StepModuleBridgeRequest) -> Value {
             }
         });
     }
+    let router_admission = match StepModuleRouterCore.admit_execution(&request.invocation, &result)
+    {
+        Ok(record) => record,
+        Err(error) => {
+            return json!({
+                "source": "rust_workload_command",
+                "error": {
+                    "code": "router_admission_invalid",
+                    "message": format!("{error:?}"),
+                }
+            });
+        }
+    };
     let receipt_binding =
         match ReceiptBinder.bind_step_module_result(&request.invocation, &result, vec![]) {
             Ok(binding) => binding,
@@ -159,6 +173,7 @@ fn workspace_status_shadow_response(request: StepModuleBridgeRequest) -> Value {
         "backend": request.backend,
         "invocation": request.invocation,
         "result": result,
+        "router_admission": router_admission,
         "receipt_binding": receipt_binding,
         "projection_record": projection_record,
         "shadow_observation": {

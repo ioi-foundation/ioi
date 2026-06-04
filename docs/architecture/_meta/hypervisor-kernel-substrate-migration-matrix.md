@@ -667,11 +667,60 @@ ImplementationSlice:
     push: required after verification
 ```
 
+## Implementation Slice 13
+
+```yaml
+ImplementationSlice:
+  objective: route the first Rust command-bridge tool path through
+    StepModuleRouterCore and return the router admission record with
+    workspace.status shadow output
+  owner_boundary:
+    route_or_surface: workspace.status Rust command bridge admission chain
+    authority_gate: unchanged; existing daemon gates still precede the bridge
+    execution_backend: rust_workload_shadow command bridge now performs Rust
+      router admission before receipt binding and projection
+    truth_path: no accepted Agentgres mutation in this slice; the bridge proves
+      StepModuleRouter admission is in the first shadow path
+    projection_path: unchanged shadow projection record, now accompanied by
+      router_admission evidence
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    daemon: []
+    rust_core:
+      - crates/node/src/bin/ioi-step-module-bridge.rs
+      - crates/services/src/agentic/runtime/kernel/step_router.rs
+    ide: []
+    tests:
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - bridge output includes router admission
+    - direct JS authoritative mutation fails
+    - no accepted transition without receipt/ref/state-root binding
+    - no cTEE plaintext-custody regression
+  verification:
+    commands:
+      - cargo check -p ioi-node --bin ioi-step-module-bridge
+      - npm run hypervisor-conformance:bridge
+      - npm run hypervisor-conformance
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: false
+    compatibility_shims_remaining:
+      - workspace.status is still shadowed; live daemon_js execution remains
+        until live parity and facade demotion land
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `coding-tools` | `packages/runtime-daemon/src/coding-tools.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `packages/runtime-daemon/src/step-module-runner.mjs`, `crates/node/src/bin/ioi-step-module-bridge.rs`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS daemon tool dispatch with Step/Module projection wrappers, runner boundary, and Rust direct-mutation guard | Rust core `step_router` plus workload/WASM backend | Agentgres admitted operation with receipt, refs, heads, and state roots | `abi`, `bridge`, `receipts`, `negative` | `workspace.status` has Rust command-bridge shadow path and daemon_js authoritative mutation is rejected by Rust StepModuleRouter; live JS surfaces still need routing/demotion | Rust path passes shadow, gated, and live parity for each migrated tool; JS can no longer append authoritative effects. |
+| `coding-tools` | `packages/runtime-daemon/src/coding-tools.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `packages/runtime-daemon/src/step-module-runner.mjs`, `crates/node/src/bin/ioi-step-module-bridge.rs`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS daemon tool dispatch with Step/Module projection wrappers, runner boundary, and Rust router-admitted shadow path | Rust core `step_router` plus workload/WASM backend | Agentgres admitted operation with receipt, refs, heads, and state roots | `abi`, `bridge`, `receipts`, `negative` | `workspace.status` Rust command bridge now returns router admission, receipt binding, and projection record; live JS surfaces still need routing/demotion | Rust path passes shadow, gated, and live parity for each migrated tool; JS can no longer append authoritative effects. |
 | `approvals-gates` | `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `crates/services/src/agentic/runtime/kernel/authority.rs` | JS daemon routes plus Rust external-exit authority guard | Rust core `authority` with wallet.network handoff | authority grant and approval receipt before effect boundary | `bridge`, `negative` | Rust wallet.network guard implemented for external exits; live JS approval surface remains | JS can only request/render approvals; grants and gate decisions are issued by Rust authority core and wallet.network. |
 | `runtime-events-replay-trace` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | JS daemon envelope/projection code | Rust core `projection` plus Agentgres projection watermarks | replayable projection over admitted operations and receipts | `receipts`, `compositor` | JS projection source | Rust emits canonical projection records consumed by IDE/CLI/SDK. |
 | `model-mounting` | `packages/runtime-daemon/src/model-mounting/*` | JS daemon model-mounting store and route policy | Rust core `model_mount` | model invocation receipts, route/custody refs, Agentgres operation | `bridge`, `receipts`, `ctee` | live product daemon state | Rust records route decisions and receipts; JS surfaces are non-authoritative clients. |
