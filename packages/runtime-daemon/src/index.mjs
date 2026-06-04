@@ -27,7 +27,7 @@ import {
   nativeBrowserApprovalRefForInput,
   nativeBrowserCdpTimeoutMs,
   nativeBrowserControlledRelaunchApprovalRefForInput,
-  nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch as nativeBrowserExecutionUnavailableFromControlledRelaunchLaunchImpl,
+  nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch,
   nativeBrowserHasExplicitCdpEndpoint,
   nativeBrowserSessionModeForInput,
   sandboxedHostedSessionModeForInput,
@@ -8002,6 +8002,7 @@ export class AgentgresRuntimeStateStore {
         launchReceipt: controlledRelaunchLaunch.launchReceipt,
         actionKind: requestedActionKind,
         approvalRef: requestedApprovalRef,
+        uniqueStrings,
       });
       controlledRelaunchCleanup = await controlledRelaunchLaunch.cleanup({
         leaseId: `lease_${runId}_browser`,
@@ -12796,17 +12797,4 @@ function buildRun({
     subagentMemoryInheritance,
     result,
   };
-}
-
-function nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch({
-  launchReceipt,
-  actionKind,
-  approvalRef,
-} = {}) {
-  return nativeBrowserExecutionUnavailableFromControlledRelaunchLaunchImpl({
-    launchReceipt,
-    actionKind,
-    approvalRef,
-    uniqueStrings,
-  });
 }

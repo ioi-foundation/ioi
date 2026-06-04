@@ -80,4 +80,16 @@ test("computer-use inputs project visual metadata and unavailable relaunch recei
   });
   assert.equal(unavailable.status, "unavailable");
   assert.deepEqual(unavailable.evidence_refs, ["launch-1", "broker-1", "extra-1"]);
+
+  const injectedDedupe = nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch({
+    launchReceipt: {
+      launch_ref: "launch-1",
+      broker_ref: "broker-1",
+      evidence_refs: ["launch-1", "extra-1"],
+    },
+    uniqueStrings(values) {
+      return [...new Set(values.filter(Boolean))].reverse();
+    },
+  });
+  assert.deepEqual(injectedDedupe.evidence_refs, ["extra-1", "broker-1", "launch-1"]);
 });
