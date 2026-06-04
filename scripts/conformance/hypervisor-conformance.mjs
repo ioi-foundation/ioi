@@ -474,6 +474,26 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-provider-execution-live-bridge",
+    /admit_model_mount_provider_execution/.test(bridgeModule) &&
+      /ModelMountProviderExecutionRequest/.test(bridgeModule) &&
+      /bridge_admits_model_mount_provider_execution_through_rust_core/.test(bridgeModule) &&
+      /admitProviderExecution/.test(modelMountAdmissionRunner) &&
+      /rust_model_mount_provider_execution_command/.test(modelMountAdmissionRunner) &&
+      /admitModelMountProviderExecution/.test(modelMountingState) &&
+      /modelMountProviderExecutionRequestForInvocation/.test(modelInvocationOps) &&
+      /model_mount_provider_execution_admission_required/.test(modelInvocationOps) &&
+      /modelMountProviderExecutionRef/.test(modelInvocationOps),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+    ],
+    "Phase 9/10 is pending: provider execution must be admitted by Rust model_mount core before JS provider driver calls",
+  );
+  assertCheck(
+    result,
     "model-mount-invocation-receipt-binding-live-bridge",
     /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       /ModelMountInvocationReceiptBindingBridgeRequest/.test(bridgeModule) &&
@@ -565,6 +585,30 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
     "Phase 4/9 is pending: Rust model_mount core must own invocation receipt admission and route-decision binding",
+  );
+  assertCheck(
+    result,
+    "model-mount-provider-execution-core",
+    exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      /MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountProviderExecutionRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /MissingProviderExecutionRouteReceiptRef/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /admit_model_mount_provider_execution/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ) &&
+      /model_mount_provider_execution_admission_required/.test(modelInvocationOps),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+    ],
+    "Phase 9/10 is pending: Rust model_mount core must own provider execution admission before model provider driver calls",
   );
   assertCheck(
     result,

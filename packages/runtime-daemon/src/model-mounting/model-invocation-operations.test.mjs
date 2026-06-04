@@ -6,6 +6,7 @@ import {
   invokeModel,
   modelMountInvocationAgentgresTransitionForReceipt,
   modelMountInvocationAdmissionRequestForReceipt,
+  modelMountProviderExecutionRequestForInvocation,
   modelMountInvocationReceiptBindingRequestForReceipt,
   startModelStream,
 } from "./model-invocation-operations.mjs";
@@ -19,6 +20,7 @@ function fakeState(overrides = {}) {
     receiptIdCounter: 0,
     receipts: [],
     receiptBindingRequests: [],
+    providerExecutionRequests: [],
     recordedConversations: [],
     routes: new Map([["route.local-first", { id: "route.local-first" }]]),
     writes: [],
@@ -84,6 +86,25 @@ function fakeState(overrides = {}) {
         invocation_admission_hash: `sha256:invocation-${this.receiptIdCounter}`,
         receipt_refs: request.receipt_refs,
         evidence_refs: ["rust_model_mount_core", `model_mount://invocation_admission/${this.receiptIdCounter}`],
+      };
+    },
+    admitModelMountProviderExecution(request) {
+      this.providerExecutionRequests.push(request);
+      return {
+        source: "rust_model_mount_provider_execution_command",
+        backend: "rust_model_mount_live",
+        record: {
+          ...request,
+          provider_execution_ref: `model_mount://provider_execution/${this.providerExecutionRequests.length}`,
+          provider_execution_hash: `sha256:provider-execution-${this.providerExecutionRequests.length}`,
+        },
+        provider_execution_ref: `model_mount://provider_execution/${this.providerExecutionRequests.length}`,
+        provider_execution_hash: `sha256:provider-execution-${this.providerExecutionRequests.length}`,
+        receipt_refs: request.receipt_refs,
+        evidence_refs: [
+          "rust_model_mount_core",
+          `model_mount://provider_execution/${this.providerExecutionRequests.length}`,
+        ],
       };
     },
     bindModelMountInvocationReceipt(request) {
@@ -238,6 +259,8 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(result.receipt.details.routeId, "route.local-first");
   assert.equal(result.receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/1");
   assert.equal(result.receipt.details.modelMountInvocationAdmission.route_decision_ref, "model_mount://route_decision/test");
+  assert.equal(result.receipt.details.modelMountProviderExecutionRef, "model_mount://provider_execution/1");
+  assert.equal(result.receipt.details.modelMountProviderExecution.request_hash.startsWith("sha256:"), true);
   assert.equal(result.receipt.details.modelMountReceiptBindingRef, "sha256:binding-1");
   assert.equal(result.receipt.details.modelMountAcceptedReceiptAppendHash, "sha256:append-1");
   assert.equal(result.receipt.details.modelMountStepModuleInvocation.input.state_root_before, "sha256:state-0");
@@ -247,6 +270,9 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(result.receipt.details.modelMountStepModuleInvocation.module_ref.kind, "model_mount");
   assert.equal(result.receipt.details.modelMountStepModuleResult.workflow_projection.status, "live");
   assert.equal(state.receiptBindingRequests[0].receiptRef, "receipt://receipt.1.model_invocation");
+  assert.equal(state.providerExecutionRequests[0].route_decision_ref, "model_mount://route_decision/test");
+  assert.equal(state.providerExecutionRequests[0].route_receipt_ref, "receipt://receipt.route");
+  assert.equal(state.providerExecutionRequests[0].stream_status, null);
   assert.deepEqual(state.receiptBindingRequests[0].expectedHeads, [
     "agentgres://model-mounting/operation-log/head/0",
   ]);
@@ -291,6 +317,7 @@ test("invokeModel reuses identical in-flight provider execution and marks coales
   assert.equal(secondResult.receipt.details.coalesced, true);
   assert.equal(secondResult.receipt.details.coalesceKeyHash, "hash:coalesce-key");
   assert.equal(secondResult.receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/2");
+  assert.equal(secondResult.receipt.details.modelMountProviderExecutionRef, "model_mount://provider_execution/1");
   assert.equal(secondResult.receipt.details.modelMountReceiptBindingRef, "sha256:binding-2");
   assert.equal(secondResult.receipt.details.modelMountStepModuleResult.agentgres_operation_refs[0], "agentgres://model-mounting/operation-log/op_00000002_model_invocation_coalesced");
   assert.equal(state.inflightModelInvocations.size, 0);
@@ -329,6 +356,7 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(result.invocation.receipt.details.streamStatus, "started");
   assert.equal(result.invocation.receipt.details.streamSource, "provider_native");
   assert.equal(result.invocation.receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/1");
+  assert.equal(result.invocation.receipt.details.modelMountProviderExecutionRef, "model_mount://provider_execution/1");
   assert.equal(result.invocation.receipt.details.modelMountInvocationAdmission.stream_status, "started");
   assert.equal(result.invocation.receipt.details.modelMountReceiptBindingRef, "sha256:binding-1");
   assert.equal(result.invocation.receipt.details.modelMountAcceptedReceiptAppend.receipt_ref, "receipt://receipt.1.model_invocation");
@@ -336,6 +364,7 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "coalesced"), false);
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "sendOptions"), false);
   assert.equal(state.appendOperations[0].kind, "model.provider_stream_request_shape");
+  assert.equal(state.providerExecutionRequests[0].stream_status, "started");
   assert.equal(state.routes.get("route.local-first").lastReceiptId, result.invocation.receipt.id);
 });
 
@@ -360,6 +389,39 @@ test("startModelStream falls back to non-stream invocation when provider lacks n
   assert.equal(result.native, false);
   assert.equal(result.invocation.fallback, true);
   assert.equal(state.fallbackInvocationArgs.body.stream, false);
+});
+
+test("startModelStream fails closed without Rust provider execution admission before stream call", async () => {
+  let streamCalls = 0;
+  const state = fakeState({
+    admitModelMountProviderExecution: undefined,
+    driver: {
+      supportsStream: () => true,
+      async streamInvoke() {
+        streamCalls += 1;
+        return {
+          stream: { [Symbol.asyncIterator]: async function* noop() {} },
+        };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      startModelStream(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.responses:*",
+          kind: "responses",
+          body: { model: "model.local", response_id: "resp.stream", stream: true },
+        },
+        deps(),
+      ),
+    (error) => error.code === "model_mount_provider_execution_admission_required",
+  );
+  assert.equal(streamCalls, 0);
+  assert.deepEqual(state.appendOperations, []);
 });
 
 test("modelMountInvocationAdmissionRequestForReceipt binds route decision and invocation receipts", () => {
@@ -419,6 +481,58 @@ test("modelMountInvocationAdmissionRequestForReceipt binds route decision and in
   assert.equal(request.workflow_graph_ref, "graph.1");
   assert.equal(request.workflow_node_ref, "node.1");
   assert.equal(request.response_ref, "resp.1");
+});
+
+test("modelMountProviderExecutionRequestForInvocation gates provider driver execution", () => {
+  const request = modelMountProviderExecutionRequestForInvocation({
+    body: {
+      authority_receipt_refs: ["receipt://wallet/model-chat"],
+      custody_ref: "ctee://custody/private-workspace",
+      privacy_profile: "private_workspace_ctee",
+      model_policy: { privacy_profile: "private_workspace_ctee" },
+    },
+    capability: "chat",
+    ephemeralMcp: {
+      toolReceiptIds: ["receipt.tool"],
+    },
+    hash: (value) => `hash:${JSON.stringify(value)}`,
+    input: "hello",
+    instance: {
+      id: "instance.local",
+      backendId: "backend.local",
+    },
+    kind: "responses",
+    previousResponseId: "resp.previous",
+    providerBody: { model: "model.local", stream: false },
+    responseId: "resp.1",
+    routeReceipt: {
+      id: "receipt.route",
+      details: {
+        modelMountRouteDecisionRef: "model_mount://route_decision/test",
+        workflowGraphId: "graph.1",
+        workflowNodeId: "node.1",
+      },
+    },
+    selection: selection(),
+    streamStatus: null,
+    token: {
+      grantId: "grant://wallet/model-chat",
+    },
+  });
+
+  assert.equal(request.schema_version, "ioi.model_mount.provider_execution.v1");
+  assert.equal(request.route_decision_ref, "model_mount://route_decision/test");
+  assert.equal(request.route_receipt_ref, "receipt://receipt.route");
+  assert.equal(request.model_ref, "model.local");
+  assert.equal(request.request_hash.startsWith("sha256:"), true);
+  assert.deepEqual(request.receipt_refs, ["receipt://receipt.route", "receipt://receipt.tool"]);
+  assert.deepEqual(request.authority_grant_refs, ["grant://wallet/model-chat"]);
+  assert.deepEqual(request.authority_receipt_refs, ["receipt://wallet/model-chat"]);
+  assert.deepEqual(request.backend_evidence_refs, ["backend.local", "backend.endpoint"]);
+  assert.equal(request.custody_ref, "ctee://custody/private-workspace");
+  assert.equal(request.privacy_profile, "private_workspace_ctee");
+  assert.equal(request.response_ref, "resp.1");
+  assert.equal(request.previous_response_ref, "resp.previous");
 });
 
 test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount StepModule binding", () => {
@@ -511,6 +625,35 @@ test("invokeModel fails closed without invocation receipt id support", async () 
       ),
     (error) => error.code === "model_mount_invocation_receipt_id_required",
   );
+});
+
+test("invokeModel fails closed without Rust provider execution admission before provider call", async () => {
+  let providerCalls = 0;
+  const state = fakeState({
+    admitModelMountProviderExecution: undefined,
+    driver: {
+      async invoke() {
+        providerCalls += 1;
+        return { outputText: "should not run" };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      invokeModel(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.chat:*",
+          kind: "responses",
+          body: { model: "model.local" },
+        },
+        deps(),
+      ),
+    (error) => error.code === "model_mount_provider_execution_admission_required",
+  );
+  assert.equal(providerCalls, 0);
 });
 
 test("invokeModel fails closed without Rust receipt binding support", async () => {

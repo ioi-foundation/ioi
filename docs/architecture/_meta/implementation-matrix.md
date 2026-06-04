@@ -4,7 +4,7 @@ Status: canonical implementation index.
 Canonical owner: this file for mapping major architecture concepts to canonical owner docs, current durable forms, object/projection status, code anchors, and conformance hooks.
 Supersedes: ad hoc implementation-status tables in plans/specs when concept ownership or durable-form status conflicts.
 Superseded by: none.
-Last alignment pass: 2026-06-03.
+Last alignment pass: 2026-06-04.
 
 ## Purpose
 
@@ -78,6 +78,7 @@ artifact ref
 | `ContextChamber` | [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) | scoped runtime state, context events, projections | promote when chamber state outlives one turn or is shared | runtime state and compaction paths | DHP-4 |
 | `LoopStep` / `LoopIteration` | [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) | event, receipt, trace segment | promote when loop-level replay/verification is first-class | `crates/services/src/agentic/runtime/service/decision_loop/mod.rs` | DHP-2, DHP-3 |
 | `ModelPass` | [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | model invocation receipt plus redacted trace | keep as receipt/trace unless lineage query needs object | cognition and model-router paths | CEC, DHP-6 |
+| `ModelProviderExecution` | [`hypervisor-kernel-substrate-unification-master-guide.md`](./hypervisor-kernel-substrate-unification-master-guide.md) | Rust `model_mount` provider-execution admission record binding route decision, route receipt, policy/input hashes, wallet refs, cTEE custody refs, backend evidence, and stream status before provider driver execution | admission/receipt-backed execution boundary; promote if provider execution needs lifecycle query beyond receipt replay | `crates/services/src/agentic/runtime/kernel/model_mount.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs` | `hypervisor-conformance:bridge`, `hypervisor-conformance:receipts` |
 | `ActionProposal` | [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) | action request, runtime item, event | promote when approval/replay/policy review needs identity | `crates/types/src/app/runtime/computer_use.rs`, `crates/node/src/bin/ioi-runtime-bridge.rs` | DHP-2 |
 | `GateResult` | [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md), [`wallet-network/doctrine.md`](../components/wallet-network/doctrine.md) | policy/authority decision receipt | receipt now; object if long-lived approval/blocker | policy and approval handlers | DHP-2, CEC phase order |
 | `ExecutionResult` | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | workload/tool/worker/service receipt | receipt; artifact refs for large outputs | tool execution processing paths | CEC execution/verification |

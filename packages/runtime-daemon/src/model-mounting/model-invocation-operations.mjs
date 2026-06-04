@@ -56,6 +56,25 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
     providerExecution = (async () => {
       const instance = await state.ensureLoaded(selection.endpoint);
       const ephemeralMcp = state.compileEphemeralMcpIntegrations({ authorization, body, input });
+      const modelMountProviderExecutionAdmission = admitModelMountProviderExecution(
+        state,
+        modelMountProviderExecutionRequestForInvocation({
+          body,
+          capability,
+          ephemeralMcp,
+          hash,
+          input,
+          instance,
+          kind,
+          previousResponseId,
+          providerBody,
+          responseId,
+          routeReceipt,
+          selection,
+          streamStatus: null,
+          token,
+        }),
+      );
       const providerResult = await state.driverForProvider(selection.provider).invoke({
         state,
         provider: selection.provider,
@@ -66,7 +85,7 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
         input,
         token,
       });
-      return { instance, ephemeralMcp, providerResult };
+      return { instance, ephemeralMcp, modelMountProviderExecutionAdmission, providerResult };
     })();
     if (coalesceKey) {
       state.inflightModelInvocations.set(coalesceKey, providerExecution);
@@ -80,32 +99,35 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
       state.inflightModelInvocations.delete(coalesceKey);
     }
   }
-  const { instance, ephemeralMcp, providerResult } = execution;
+  const { instance, ephemeralMcp, modelMountProviderExecutionAdmission, providerResult } = execution;
   const outputText = providerResult.outputText;
   const latencyMs = Math.max(1, state.now().getTime() - started);
   const tokenCount = providerResult.tokenCount ?? estimateTokenCounts(input, outputText);
   const receiptKind = coalesced ? "model_invocation_coalesced" : "model_invocation";
   const receiptId = nextInvocationReceiptId(state, receiptKind);
-  const receiptDetails = invocationReceiptDetails({
-    body,
-    coalesced,
-    coalesceKey,
-    continuationSafety,
-    hash,
-    input,
-    instance,
-    latencyMs,
-    outputText,
-    previousResponseId,
-    providerResult,
-    responseId,
-    routeReceipt,
-    selection,
-    token,
-    tokenCount,
-    ephemeralMcp,
-    includeInvocationFields: true,
-  });
+  const receiptDetails = withModelMountProviderExecutionAdmission(
+    invocationReceiptDetails({
+      body,
+      coalesced,
+      coalesceKey,
+      continuationSafety,
+      hash,
+      input,
+      instance,
+      latencyMs,
+      outputText,
+      previousResponseId,
+      providerResult,
+      responseId,
+      routeReceipt,
+      selection,
+      token,
+      tokenCount,
+      ephemeralMcp,
+      includeInvocationFields: true,
+    }),
+    modelMountProviderExecutionAdmission,
+  );
   const modelMountInvocationAdmissionRequest = modelMountInvocationAdmissionRequestForReceipt({
     body,
     capability,
@@ -151,6 +173,8 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
       ...ephemeralMcp.evidenceRefs,
       ...(providerResult.providerAuthEvidenceRefs ?? []),
       "rust_model_mount_core",
+      modelMountProviderExecutionAdmission.provider_execution_ref,
+      ...(modelMountProviderExecutionAdmission.evidence_refs ?? []),
       modelMountInvocationAdmission.invocation_admission_ref,
       ...(modelMountInvocationAdmission.evidence_refs ?? []),
       "rust_receipt_binder_core",
@@ -237,6 +261,25 @@ export async function startModelStream(state, { authorization, requiredScope, ki
   const instance = await state.ensureLoaded(selection.endpoint);
   const ephemeralMcp = state.compileEphemeralMcpIntegrations({ authorization, body, input });
   const providerBody = providerRequestBodyForRoute(body, selection.endpoint);
+  const modelMountProviderExecutionAdmission = admitModelMountProviderExecution(
+    state,
+    modelMountProviderExecutionRequestForInvocation({
+      body,
+      capability,
+      ephemeralMcp,
+      hash,
+      input,
+      instance,
+      kind,
+      previousResponseId,
+      providerBody,
+      responseId,
+      routeReceipt,
+      selection,
+      streamStatus: "started",
+      token,
+    }),
+  );
   state.appendOperation?.("model.provider_stream_request_shape", {
     providerId: selection.provider.id,
     providerKind: selection.provider.kind,
@@ -244,7 +287,10 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     routeId: selection.route.id,
     capability,
     requestShape: summarizeRequest(providerBody),
-    evidenceRefs: ["model_provider_stream_request_shape"],
+    evidenceRefs: [
+      "model_provider_stream_request_shape",
+      modelMountProviderExecutionAdmission.provider_execution_ref,
+    ],
   });
   const providerResult = await driver.streamInvoke({
     state,
@@ -266,7 +312,7 @@ export async function startModelStream(state, { authorization, requiredScope, ki
   const latencyMs = Math.max(1, state.now().getTime() - started);
   const tokenCount = providerResult.tokenCount ?? estimateTokenCounts(input, outputText);
   const receiptId = nextInvocationReceiptId(state, "model_invocation");
-  const receiptDetails = {
+  const receiptDetails = withModelMountProviderExecutionAdmission({
     ...invocationReceiptDetails({
       body,
       coalesced: false,
@@ -289,7 +335,7 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     }),
     streamStatus: "started",
     streamSource: "provider_native",
-  };
+  }, modelMountProviderExecutionAdmission);
   const modelMountInvocationAdmissionRequest = modelMountInvocationAdmissionRequestForReceipt({
     body,
     capability,
@@ -334,6 +380,8 @@ export async function startModelStream(state, { authorization, requiredScope, ki
       ...ephemeralMcp.evidenceRefs,
       ...(providerResult.providerAuthEvidenceRefs ?? []),
       "rust_model_mount_core",
+      modelMountProviderExecutionAdmission.provider_execution_ref,
+      ...(modelMountProviderExecutionAdmission.evidence_refs ?? []),
       modelMountInvocationAdmission.invocation_admission_ref,
       ...(modelMountInvocationAdmission.evidence_refs ?? []),
       "rust_receipt_binder_core",
@@ -459,6 +507,103 @@ export function modelMountInvocationAdmissionRequestForReceipt({
   };
 }
 
+export function modelMountProviderExecutionRequestForInvocation({
+  body = {},
+  capability = "chat",
+  ephemeralMcp = {},
+  hash = stableHash,
+  input,
+  instance = {},
+  kind,
+  previousResponseId = null,
+  providerBody = {},
+  responseId = null,
+  routeReceipt,
+  selection,
+  streamStatus = null,
+  token = {},
+} = {}) {
+  const routeReceiptRef = receiptRef(requiredStringRef("routeReceipt.id", routeReceipt?.id));
+  const routeDecisionRef = requiredStringRef(
+    "routeReceipt.details.modelMountRouteDecisionRef",
+    routeReceipt?.details?.modelMountRouteDecisionRef,
+  );
+  const requestHash = hashRef(
+    hash({
+      endpointId: selection?.endpoint?.id ?? null,
+      invocationKind: kind,
+      providerBody,
+      streamStatus,
+    }),
+    "request_hash",
+  );
+  const policy = body.model_policy ?? body.modelPolicy ?? {};
+  return {
+    schema_version: "ioi.model_mount.provider_execution.v1",
+    invocation_ref: `model-provider-execution://${requestHash.replace(/^sha256:/, "sha256/")}`,
+    route_decision_ref: routeDecisionRef,
+    route_receipt_ref: routeReceiptRef,
+    route_ref: requiredStringRef("route.id", selection?.route?.id),
+    provider_ref: requiredStringRef("provider.id", selection?.provider?.id),
+    endpoint_ref: requiredStringRef("endpoint.id", selection?.endpoint?.id),
+    model_ref: requiredStringRef("endpoint.modelId", selection?.endpoint?.modelId),
+    capability: requiredStringRef("capability", capability),
+    invocation_kind: requiredStringRef("kind", kind),
+    policy_hash: policyHashRef(hash(policy)),
+    input_hash: hashRef(hash(input ?? ""), "input_hash"),
+    request_hash: requestHash,
+    idempotency_key: `model_provider_execution:${routeReceiptRef}:${requestHash}`,
+    receipt_refs: uniqueRefs([
+      routeReceiptRef,
+      ...(Array.isArray(ephemeralMcp.toolReceiptIds) ? ephemeralMcp.toolReceiptIds.map(receiptRef) : []),
+    ]),
+    authority_grant_refs: uniqueRefs([
+      optionalRef(token.grantId),
+      ...(Array.isArray(body.authority_grant_refs) ? body.authority_grant_refs : []),
+      ...(Array.isArray(body.authorityGrantRefs) ? body.authorityGrantRefs : []),
+    ]),
+    authority_receipt_refs: uniqueRefs([
+      ...(Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : []),
+      ...(Array.isArray(body.authorityReceiptRefs) ? body.authorityReceiptRefs : []),
+    ]),
+    provider_auth_evidence_refs: [],
+    backend_evidence_refs: uniqueRefs([
+      instance.backendId,
+      selection?.endpoint?.backendId,
+    ]),
+    tool_receipt_refs: uniqueRefs(ephemeralMcp.toolReceiptIds ?? []),
+    custody_ref: optionalRef(
+      body.custody_ref ??
+        body.custodyRef ??
+        selection?.endpoint?.custodyRef ??
+        selection?.endpoint?.custody_ref ??
+        selection?.provider?.custodyRef ??
+        selection?.provider?.custody_ref,
+    ),
+    privacy_profile: optionalRef(
+      body.privacy_profile ??
+        body.privacyProfile ??
+        policy.privacy_profile ??
+        policy.privacyProfile ??
+        policy.privacy ??
+        selection?.route?.privacy ??
+        selection?.provider?.privacyClass,
+    ),
+    node_plaintext_allowed: Boolean(
+      body.node_plaintext_allowed ??
+        body.nodePlaintextAllowed ??
+        selection?.endpoint?.nodePlaintextAllowed ??
+        selection?.provider?.nodePlaintextAllowed ??
+        false,
+    ),
+    workflow_graph_ref: optionalRef(routeReceipt?.details?.workflowGraphId),
+    workflow_node_ref: optionalRef(routeReceipt?.details?.workflowNodeId),
+    response_ref: optionalRef(responseId),
+    previous_response_ref: optionalRef(previousResponseId),
+    stream_status: optionalRef(streamStatus),
+  };
+}
+
 export function modelMountInvocationReceiptBindingRequestForReceipt({
   admission,
   admissionRequest,
@@ -570,6 +715,19 @@ export function withModelMountInvocationAdmission(details, admission) {
   };
 }
 
+export function withModelMountProviderExecutionAdmission(details, admission) {
+  return {
+    ...details,
+    modelMountProviderExecutionSchemaVersion: "ioi.model_mount.provider_execution.v1",
+    modelMountProviderExecutionRef: admission.provider_execution_ref,
+    modelMountProviderExecutionHash: admission.provider_execution_hash,
+    modelMountProviderExecutionSource: admission.source,
+    modelMountProviderExecutionBackend: admission.backend,
+    modelMountProviderExecutionReceiptRefs: admission.receipt_refs ?? [],
+    modelMountProviderExecution: admission.record,
+  };
+}
+
 export function withModelMountInvocationReceiptBinding(details, binding) {
   return {
     ...details,
@@ -592,6 +750,16 @@ export function withModelMountInvocationReceiptBinding(details, binding) {
     modelMountProjectionRecord: binding.projection_record ?? null,
     modelMountReceiptBindingReceiptRefs: binding.receipt_refs ?? [],
   };
+}
+
+function admitModelMountProviderExecution(state, request) {
+  if (typeof state.admitModelMountProviderExecution !== "function") {
+    const error = new Error("Model provider execution requires Rust model_mount provider execution admission.");
+    error.status = 500;
+    error.code = "model_mount_provider_execution_admission_required";
+    throw error;
+  }
+  return state.admitModelMountProviderExecution(request);
 }
 
 function bindModelMountInvocationReceipt(state, request) {

@@ -46,7 +46,8 @@ use invocation::ToolInvocationEnvelope;
 use marketplace::{MarketplaceAdmissionError, MarketplaceServiceContract};
 use model_mount::{
     ModelMountCore, ModelMountError, ModelMountInvocationAdmissionRecord,
-    ModelMountInvocationAdmissionRequest, ModelMountRouteDecisionRecord,
+    ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRecord,
+    ModelMountProviderExecutionRequest, ModelMountRouteDecisionRecord,
     ModelMountRouteDecisionRequest,
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
@@ -122,6 +123,13 @@ impl RuntimeKernelService {
         request: &ModelMountInvocationAdmissionRequest,
     ) -> Result<ModelMountInvocationAdmissionRecord, ModelMountError> {
         ModelMountCore.admit_invocation(request)
+    }
+
+    pub fn admit_model_mount_provider_execution(
+        &self,
+        request: &ModelMountProviderExecutionRequest,
+    ) -> Result<ModelMountProviderExecutionRecord, ModelMountError> {
+        ModelMountCore.admit_provider_execution(request)
     }
 
     pub fn validate_tool_invocation(

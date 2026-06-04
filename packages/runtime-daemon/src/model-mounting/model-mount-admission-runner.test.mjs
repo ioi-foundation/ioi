@@ -55,6 +55,33 @@ function invocationRequest() {
   };
 }
 
+function providerExecutionRequest() {
+  return {
+    schema_version: "ioi.model_mount.provider_execution.v1",
+    invocation_ref: "model-provider-execution://response/test",
+    route_decision_ref: "model_mount://route_decision/test",
+    route_receipt_ref: "receipt://route",
+    route_ref: "route.local-first",
+    provider_ref: "provider.local",
+    endpoint_ref: "endpoint.local",
+    model_ref: "model.local",
+    capability: "chat",
+    invocation_kind: "responses",
+    policy_hash: "sha256:policy",
+    input_hash: "sha256:input",
+    request_hash: "sha256:request",
+    idempotency_key: "model_provider_execution:test",
+    receipt_refs: ["receipt://route"],
+    authority_grant_refs: ["grant://wallet/model-chat"],
+    authority_receipt_refs: [],
+    provider_auth_evidence_refs: [],
+    backend_evidence_refs: [],
+    tool_receipt_refs: [],
+    privacy_profile: "local_private",
+    node_plaintext_allowed: false,
+  };
+}
+
 test("Rust model_mount admission runner sends route-decision bridge request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
@@ -135,6 +162,46 @@ test("Rust model_mount admission runner sends invocation bridge request", () => 
   assert.equal(calls[0].request.request.route_decision_ref, "model_mount://route_decision/test");
   assert.equal(result.invocation_admission_ref, "model_mount://invocation_admission/test");
   assert.equal(result.record.invocation_admission_hash, "sha256:invocation-test");
+});
+
+test("Rust model_mount admission runner sends provider execution bridge request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_provider_execution_command",
+            backend: "rust_model_mount_live",
+            record: {
+              ...request.request,
+              provider_execution_ref: "model_mount://provider_execution/test",
+              provider_execution_hash: "sha256:provider-execution-test",
+            },
+            provider_execution_ref: "model_mount://provider_execution/test",
+            provider_execution_hash: "sha256:provider-execution-test",
+            receipt_refs: request.request.receipt_refs,
+            evidence_refs: ["rust_model_mount_core"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.admitProviderExecution(providerExecutionRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "admit_model_mount_provider_execution");
+  assert.equal(calls[0].request.request.request_hash, "sha256:request");
+  assert.equal(result.provider_execution_ref, "model_mount://provider_execution/test");
+  assert.equal(result.record.provider_execution_hash, "sha256:provider-execution-test");
 });
 
 test("Rust model_mount admission runner sends invocation receipt binding request", () => {
