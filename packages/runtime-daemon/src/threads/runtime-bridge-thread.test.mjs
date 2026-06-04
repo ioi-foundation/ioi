@@ -260,13 +260,7 @@ test("runtime bridge turn creation submits clamped bridge request and persists r
   assert.equal(write.run.id, "run_runtime");
   assert.equal(write.run.projection.events[0].event_kind, "lsp.diagnostics.injected");
 
-  const budget = store.calls.find((call) =>
-    call.operation === "append_operation" &&
-    call.operationKind === "turn.runtime_bridge.submit_budget"
-  );
-  assert.equal(budget.payload.requestedMaxSteps, 4);
-  assert.equal(budget.payload.normalizedMaxSteps, 8);
-  assert.equal(budget.payload.clampedMaxSteps, true);
+  assert.equal(store.calls.some((call) => call.operation === "append_operation"), false);
   assert.deepEqual(turn, { turn_id: "turn_runtime", run_id: "run_runtime" });
 });
 
@@ -296,12 +290,7 @@ test("runtime bridge turn creation maps bridge unavailable errors and cleans in-
   );
 
   assert.equal(store.calls.some((call) => call.operation === "unregister_in_flight"), true);
-  const errorOperation = store.calls.find((call) =>
-    call.operation === "append_operation" &&
-    call.operationKind === "turn.runtime_bridge.submit_error"
-  );
-  assert.equal(errorOperation.payload.errorName, "Error");
-  assert.equal(errorOperation.payload.details.operation, null);
+  assert.equal(store.calls.some((call) => call.operation === "append_operation"), false);
 });
 
 test("runtime bridge thread control sends action to bridge", async () => {

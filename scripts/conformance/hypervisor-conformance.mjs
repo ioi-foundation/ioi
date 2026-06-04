@@ -873,6 +873,9 @@ function runReceipts() {
   const memoryStore = exists("packages/runtime-daemon/src/memory-store.mjs")
     ? read("packages/runtime-daemon/src/memory-store.mjs")
     : "";
+  const runtimeBridgeThread = exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
+    ? read("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
+    : "";
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
@@ -1445,6 +1448,19 @@ function runReceipts() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 5/11 is pending: memory record and policy updates must not mirror daemon-local operation-log records outside admitted receipt/Agentgres paths",
+  );
+  assertCheck(
+    result,
+    "runtime-bridge-turn-operation-append-retired",
+    !/turn\.runtime_bridge\.submit_(?:budget|error)/.test(runtimeBridgeThread) &&
+      /assert\.equal\(store\.calls\.some\(\(call\) => call\.operation === "append_operation"\), false\)/.test(
+        read("packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
+      "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
+    ],
+    "Phase 5/11 is pending: runtime bridge turn submit budget/error mirrors must not append duplicate daemon-local operation records outside run receipts/projections",
   );
   assertCheck(
     result,

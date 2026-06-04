@@ -120,34 +120,6 @@ export async function createRuntimeBridgeTurn(store, { agent, threadId, request,
     for (const turnId of inFlightTurnIds) {
       store.unregisterInFlightRuntimeTurn(threadId, turnId);
     }
-    store.appendOperation("turn.runtime_bridge.submit_error", {
-      objectId: agent.id,
-      agentId: agent.id,
-      threadId,
-      runtimeProfile: agent.runtimeProfile,
-      operation: "submit_turn",
-      errorName: error?.name ?? null,
-      errorCode: error?.code ?? error?.details?.adapterErrorCode ?? null,
-      errorMessage: String(error?.message ?? error),
-      errorStatus: error?.status ?? null,
-      bridgeId: store.runtimeBridge.bridgeId,
-      requestIntentId: request?.intentFrame?.intentId ?? request?.intentFrame?.intent_id ?? null,
-      requestRouteDirective: request?.intentFrame?.routeDirective ?? request?.intentFrame?.route_directive ?? null,
-      requestRequiredCapabilities: Array.isArray(request?.intentFrame?.requiredCapabilities)
-        ? request.intentFrame.requiredCapabilities
-        : [],
-      details: error?.details
-        ? {
-            operation: error.details.operation ?? null,
-            bridgeId: error.details.bridgeId ?? null,
-            adapterErrorCode: error.details.adapterErrorCode ?? null,
-            exitCode: error.details.exitCode ?? null,
-            signal: error.details.signal ?? null,
-            stderr: error.details.stderr ?? null,
-            error: error.details.error ?? null,
-          }
-        : null,
-    });
     if (RuntimeApiBridgeUnavailableError && error instanceof RuntimeApiBridgeUnavailableError) {
       throw store.runtimeBridgeUnavailable({
         runtimeProfile: agent.runtimeProfile,
@@ -183,19 +155,6 @@ export async function createRuntimeBridgeTurn(store, { agent, threadId, request,
   for (const turnId of inFlightTurnIds) {
     store.unregisterInFlightRuntimeTurn(threadId, turnId);
   }
-  store.appendOperation("turn.runtime_bridge.submit_budget", {
-    objectId: run.id,
-    runId: run.id,
-    agentId: agent.id,
-    threadId,
-    runtimeProfile: agent.runtimeProfile,
-    requestedMaxSteps,
-    normalizedMaxSteps,
-    clampedMaxSteps: requestedMaxSteps !== null && normalizedMaxSteps !== requestedMaxSteps,
-    requestMaxSteps,
-    optionsMaxSteps,
-    bridgeId: store.runtimeBridge.bridgeId,
-  });
   return store.turnForRun(run);
 }
 
