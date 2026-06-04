@@ -532,6 +532,31 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-native-local-stream-invocation-live-bridge",
+    /execute_model_mount_provider_stream_invocation/.test(bridgeModule) &&
+      /bridge_executes_native_local_model_mount_provider_stream_through_rust_core/.test(bridgeModule) &&
+      /executeProviderStreamInvocation/.test(modelMountAdmissionRunner) &&
+      /rust_model_mount_provider_stream_invocation_command/.test(modelMountAdmissionRunner) &&
+      /executeModelMountProviderStreamInvocation/.test(modelMountingState) &&
+      /modelMountProviderStreamInvocationRequestForExecution/.test(modelInvocationOps) &&
+      /modelMountProviderStreamInvocationRequiresRust/.test(modelInvocationOps) &&
+      /rust_model_mount_native_local_stream/.test(modelInvocationOps) &&
+      /withTextChunksReadableStream/.test(modelInvocationOps) &&
+      /model_mount_provider_stream_invocation_execution_required/.test(modelInvocationOps) &&
+      /model_mount_local_provider_direct_stream_retired/.test(providerLocalDrivers) &&
+      !/nativeLocalStreamRecords/.test(providerLocalDrivers) &&
+      !/jsonLineReadableStream/.test(providerLocalDrivers),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
+    ],
+    "Phase 9/10 is pending: native-local stream frame planning must execute through Rust model_mount while JS only adapts returned chunks to protocol streams",
+  );
+  assertCheck(
+    result,
     "model-mount-local-provider-direct-invoke-retired",
     /model_mount_local_provider_direct_invoke_retired/.test(providerLocalDrivers) &&
       !/deterministicOutput/.test(providerLocalDrivers) &&
@@ -809,6 +834,34 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 9/10 is pending: Rust model_mount core must own migrated local provider invocation execution",
+  );
+  assertCheck(
+    result,
+    "model-mount-native-local-stream-invocation-core",
+    exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      /MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountProviderStreamInvocationResult/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /invoke_provider_stream/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /rust_model_mount_native_local_stream/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /native_local_stream_chunks/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /invoke_model_mount_provider_stream/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ) &&
+      /model_mount_provider_stream_invocation_execution_required/.test(modelInvocationOps),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+    ],
+    "Phase 9/10 is pending: Rust model_mount core must own native-local stream output text, chunk planning, evidence, and hash binding",
   );
   assertCheck(
     result,

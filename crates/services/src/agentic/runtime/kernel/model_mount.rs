@@ -8,6 +8,8 @@ pub const MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_execution.v1";
 pub const MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_invocation.v1";
+pub const MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION: &str =
+    "ioi.model_mount.provider_stream_invocation.v1";
 pub const MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION: &str = "ioi.model_mount.provider_result.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -331,6 +333,34 @@ pub struct ModelMountProviderInvocationResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelMountProviderStreamInvocationResult {
+    pub schema_version: String,
+    pub provider_execution_ref: String,
+    pub provider_execution_hash: String,
+    pub route_decision_ref: String,
+    pub route_receipt_ref: String,
+    pub route_ref: String,
+    pub provider_ref: String,
+    pub provider_kind: String,
+    pub endpoint_ref: String,
+    pub model_ref: String,
+    pub capability: String,
+    pub invocation_kind: String,
+    pub request_hash: String,
+    pub output_text: String,
+    pub token_count: ModelMountTokenCount,
+    pub provider_response_kind: String,
+    pub backend: String,
+    pub backend_id: String,
+    pub execution_backend: String,
+    pub stream_format: String,
+    pub stream_kind: String,
+    pub stream_chunks: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub invocation_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelMountProviderResultAdmissionRequest {
     pub schema_version: String,
     pub provider_execution_ref: String,
@@ -578,6 +608,54 @@ impl ModelMountCore {
         Ok(result)
     }
 
+    pub fn invoke_provider_stream(
+        &self,
+        request: &ModelMountProviderInvocationRequest,
+    ) -> Result<ModelMountProviderStreamInvocationResult, ModelMountError> {
+        request.validate_stream()?;
+        let output_text = deterministic_native_local_output(
+            &request.invocation_kind,
+            &request.input,
+            &request.model_ref,
+        )?;
+        let token_count = estimate_tokens(&request.input, &output_text);
+        let stream_chunks = native_local_stream_chunks(&output_text, &token_count)?;
+        let mut result = ModelMountProviderStreamInvocationResult {
+            schema_version: MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION.to_string(),
+            provider_execution_ref: request.provider_execution_ref.clone(),
+            provider_execution_hash: request.provider_execution_hash.clone(),
+            route_decision_ref: request.route_decision_ref.clone(),
+            route_receipt_ref: request.route_receipt_ref.clone(),
+            route_ref: request.route_ref.clone(),
+            provider_ref: request.provider_ref.clone(),
+            provider_kind: request.provider_kind.clone(),
+            endpoint_ref: request.endpoint_ref.clone(),
+            model_ref: request.model_ref.clone(),
+            capability: request.capability.clone(),
+            invocation_kind: request.invocation_kind.clone(),
+            request_hash: request.request_hash.clone(),
+            output_text,
+            token_count,
+            provider_response_kind: "rust_model_mount.native_local.stream".to_string(),
+            backend: "autopilot.native_local.fixture".to_string(),
+            backend_id: request
+                .backend_ref
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .unwrap_or("backend.autopilot.native-local.fixture")
+                .to_string(),
+            execution_backend: request.execution_backend.clone(),
+            stream_format: "ioi_jsonl".to_string(),
+            stream_kind: native_local_stream_kind(&request.invocation_kind),
+            stream_chunks,
+            evidence_refs: provider_stream_invocation_evidence_refs(request),
+            invocation_hash: String::new(),
+        };
+        result.invocation_hash = provider_stream_invocation_hash(&result)?;
+        Ok(result)
+    }
+
     pub fn admit_provider_result(
         &self,
         request: &ModelMountProviderResultAdmissionRequest,
@@ -819,6 +897,60 @@ impl ModelMountProviderInvocationRequest {
         }
         Ok(())
     }
+
+    pub fn validate_stream(&self) -> Result<(), ModelMountError> {
+        if self.schema_version != MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION {
+            return Err(ModelMountError::InvalidSchemaVersion {
+                expected: MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("provider_execution_ref", &self.provider_execution_ref)?;
+        require_non_empty("provider_execution_hash", &self.provider_execution_hash)?;
+        require_non_empty("route_decision_ref", &self.route_decision_ref)?;
+        require_non_empty("route_receipt_ref", &self.route_receipt_ref)?;
+        require_non_empty("route_ref", &self.route_ref)?;
+        require_non_empty("provider_ref", &self.provider_ref)?;
+        require_non_empty("provider_kind", &self.provider_kind)?;
+        require_non_empty("endpoint_ref", &self.endpoint_ref)?;
+        require_non_empty("model_ref", &self.model_ref)?;
+        require_non_empty("capability", &self.capability)?;
+        require_non_empty("invocation_kind", &self.invocation_kind)?;
+        require_non_empty("request_hash", &self.request_hash)?;
+        require_non_empty("execution_backend", &self.execution_backend)?;
+        validate_receipt_refs(&self.receipt_refs)?;
+        if !self.receipt_refs.contains(&self.route_receipt_ref) {
+            return Err(ModelMountError::MissingProviderExecutionRouteReceiptRef);
+        }
+        if !matches!(self.stream_status.as_deref(), Some("started")) {
+            return Err(ModelMountError::StreamProviderInvocationUnsupported);
+        }
+        if !is_native_local_provider_stream_invocation_backend(self) {
+            return Err(ModelMountError::UnsupportedProviderInvocationBackend);
+        }
+        let Some(admission) = self.admitted_provider_execution.as_ref() else {
+            return Err(ModelMountError::MissingProviderExecutionAdmission);
+        };
+        if admission.provider_execution_ref != self.provider_execution_ref {
+            return Err(ModelMountError::ProviderExecutionRefMismatch);
+        }
+        if admission.provider_execution_hash != self.provider_execution_hash {
+            return Err(ModelMountError::ProviderExecutionHashMismatch);
+        }
+        if admission.route_decision_ref != self.route_decision_ref
+            || admission.route_receipt_ref != self.route_receipt_ref
+            || admission.provider_ref != self.provider_ref
+            || admission.endpoint_ref != self.endpoint_ref
+            || admission.model_ref != self.model_ref
+            || admission.capability != self.capability
+            || admission.invocation_kind != self.invocation_kind
+            || admission.request_hash != self.request_hash
+            || admission.stream_status != self.stream_status
+        {
+            return Err(ModelMountError::ProviderExecutionRefMismatch);
+        }
+        Ok(())
+    }
 }
 
 impl ModelMountProviderResultAdmissionRequest {
@@ -905,6 +1037,18 @@ fn is_native_local_provider_invocation_backend(
     request: &ModelMountProviderInvocationRequest,
 ) -> bool {
     if request.execution_backend.trim() != "rust_model_mount_native_local" {
+        return false;
+    }
+    let provider_kind = request.provider_kind.trim();
+    let api_format = request.api_format.as_deref().unwrap_or("").trim();
+    let driver = request.driver.as_deref().unwrap_or("").trim();
+    provider_kind == "ioi_native_local" || driver == "native_local" || api_format == "ioi_native"
+}
+
+fn is_native_local_provider_stream_invocation_backend(
+    request: &ModelMountProviderInvocationRequest,
+) -> bool {
+    if request.execution_backend.trim() != "rust_model_mount_native_local_stream" {
         return false;
     }
     let provider_kind = request.provider_kind.trim();
@@ -1001,6 +1145,53 @@ fn provider_invocation_response_kind(request: &ModelMountProviderInvocationReque
     "rust_model_mount.fixture".to_string()
 }
 
+fn native_local_stream_kind(invocation_kind: &str) -> String {
+    if invocation_kind == "responses" {
+        return "openai_responses_native_local".to_string();
+    }
+    "openai_chat_completions_native_local".to_string()
+}
+
+fn native_local_stream_chunks(
+    output_text: &str,
+    token_count: &ModelMountTokenCount,
+) -> Result<Vec<String>, ModelMountError> {
+    let mut text_chunks = Vec::new();
+    let chars: Vec<char> = output_text.chars().collect();
+    if chars.is_empty() {
+        text_chunks.push(String::new());
+    } else {
+        for chunk in chars.chunks(64) {
+            text_chunks.push(chunk.iter().collect::<String>());
+        }
+    }
+    let mut records = Vec::new();
+    for chunk in text_chunks {
+        let record = serde_json::json!({
+            "delta": chunk,
+            "done": false,
+        });
+        records.push(
+            serde_json::to_string(&record)
+                .map_err(|error| ModelMountError::HashFailed(error.to_string()))?
+                + "\n",
+        );
+    }
+    let done = serde_json::json!({
+        "delta": "",
+        "done": true,
+        "done_reason": "stop",
+        "prompt_eval_count": token_count.prompt_tokens,
+        "eval_count": token_count.completion_tokens,
+    });
+    records.push(
+        serde_json::to_string(&done)
+            .map_err(|error| ModelMountError::HashFailed(error.to_string()))?
+            + "\n",
+    );
+    Ok(records)
+}
+
 fn estimate_tokens(input: &str, output: &str) -> ModelMountTokenCount {
     let prompt_tokens = estimated_token_count(input);
     let completion_tokens = estimated_token_count(output);
@@ -1029,6 +1220,24 @@ fn provider_invocation_evidence_refs(request: &ModelMountProviderInvocationReque
         refs.push("rust_model_mount_fixture_backend".to_string());
         refs.push("deterministic_fixture".to_string());
     }
+    for evidence_ref in &request.evidence_refs {
+        if !evidence_ref.trim().is_empty() && !refs.contains(evidence_ref) {
+            refs.push(evidence_ref.clone());
+        }
+    }
+    refs
+}
+
+fn provider_stream_invocation_evidence_refs(
+    request: &ModelMountProviderInvocationRequest,
+) -> Vec<String> {
+    let mut refs = vec![
+        "rust_model_mount_provider_stream_invocation".to_string(),
+        "rust_model_mount_native_local_stream_backend".to_string(),
+        "autopilot_native_local_openai_compatible_serving".to_string(),
+        "deterministic_native_local_fixture".to_string(),
+        request.provider_execution_ref.clone(),
+    ];
     for evidence_ref in &request.evidence_refs {
         if !evidence_ref.trim().is_empty() && !refs.contains(evidence_ref) {
             refs.push(evidence_ref.clone());
@@ -1113,6 +1322,16 @@ fn provider_execution_hash(
 
 fn provider_invocation_hash(
     result: &ModelMountProviderInvocationResult,
+) -> Result<String, ModelMountError> {
+    let mut canonical = result.clone();
+    canonical.invocation_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn provider_stream_invocation_hash(
+    result: &ModelMountProviderStreamInvocationResult,
 ) -> Result<String, ModelMountError> {
     let mut canonical = result.clone();
     canonical.invocation_hash.clear();
@@ -1251,6 +1470,38 @@ mod tests {
             driver: Some("fixture".to_string()),
             backend_ref: Some("backend.fixture".to_string()),
             stream_status: None,
+            receipt_refs: admission.receipt_refs.clone(),
+            evidence_refs: vec![admission.provider_execution_ref.clone()],
+            admitted_provider_execution: Some(admission),
+        }
+    }
+
+    fn provider_stream_invocation_request() -> ModelMountProviderInvocationRequest {
+        let mut execution_request = provider_execution_request();
+        execution_request.stream_status = Some("started".to_string());
+        let admission = ModelMountCore
+            .admit_provider_execution(&execution_request)
+            .expect("stream provider execution admitted");
+        ModelMountProviderInvocationRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION.to_string(),
+            provider_execution_ref: admission.provider_execution_ref.clone(),
+            provider_execution_hash: admission.provider_execution_hash.clone(),
+            route_decision_ref: admission.route_decision_ref.clone(),
+            route_receipt_ref: admission.route_receipt_ref.clone(),
+            route_ref: admission.route_ref.clone(),
+            provider_ref: admission.provider_ref.clone(),
+            provider_kind: "ioi_native_local".to_string(),
+            endpoint_ref: admission.endpoint_ref.clone(),
+            model_ref: admission.model_ref.clone(),
+            capability: admission.capability.clone(),
+            invocation_kind: admission.invocation_kind.clone(),
+            input: "user: hello".to_string(),
+            request_hash: admission.request_hash.clone(),
+            execution_backend: "rust_model_mount_native_local_stream".to_string(),
+            api_format: Some("ioi_native".to_string()),
+            driver: Some("native_local".to_string()),
+            backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
+            stream_status: admission.stream_status.clone(),
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
             admitted_provider_execution: Some(admission),
@@ -1604,6 +1855,48 @@ mod tests {
     }
 
     #[test]
+    fn native_local_provider_stream_invocation_executes_in_rust_model_mount() {
+        let request = provider_stream_invocation_request();
+        let result = ModelMountCore
+            .invoke_provider_stream(&request)
+            .expect("native-local provider stream executes in Rust");
+
+        assert_eq!(
+            result.schema_version,
+            MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION
+        );
+        assert_eq!(
+            result.execution_backend,
+            "rust_model_mount_native_local_stream"
+        );
+        assert_eq!(result.stream_format, "ioi_jsonl");
+        assert_eq!(result.stream_kind, "openai_responses_native_local");
+        assert_eq!(
+            result.provider_response_kind,
+            "rust_model_mount.native_local.stream"
+        );
+        assert_eq!(result.backend, "autopilot.native_local.fixture");
+        assert_eq!(result.backend_id, "backend.autopilot.native-local.fixture");
+        assert!(result
+            .output_text
+            .starts_with("Autopilot native local model response from model://qwen/qwen3.5-9b."));
+        assert!(result.stream_chunks.len() >= 2);
+        assert!(result.stream_chunks[0].contains("\"done\":false"));
+        assert!(result
+            .stream_chunks
+            .last()
+            .expect("done chunk")
+            .contains("\"done\":true"));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_provider_stream_invocation".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_native_local_stream_backend".to_string()));
+        assert!(result.invocation_hash.starts_with("sha256:"));
+    }
+
+    #[test]
     fn fixture_provider_invocation_requires_bound_provider_execution() {
         let mut request = provider_invocation_request();
         request.admitted_provider_execution = None;
@@ -1653,6 +1946,25 @@ mod tests {
             .expect_err("streaming provider execution remains a later slice");
 
         assert_eq!(error, ModelMountError::StreamProviderInvocationUnsupported);
+    }
+
+    #[test]
+    fn native_local_provider_stream_invocation_rejects_unstarted_or_wrong_backends() {
+        let mut request = provider_stream_invocation_request();
+        request.stream_status = None;
+        let error = ModelMountCore
+            .invoke_provider_stream(&request)
+            .expect_err("stream invocation requires started admission");
+
+        assert_eq!(error, ModelMountError::StreamProviderInvocationUnsupported);
+
+        let mut request = provider_stream_invocation_request();
+        request.execution_backend = "js_provider_driver_observation".to_string();
+        let error = ModelMountCore
+            .invoke_provider_stream(&request)
+            .expect_err("stream invocation requires Rust native-local stream backend");
+
+        assert_eq!(error, ModelMountError::UnsupportedProviderInvocationBackend);
     }
 
     #[test]

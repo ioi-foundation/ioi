@@ -49,8 +49,8 @@ use model_mount::{
     ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRecord,
     ModelMountProviderExecutionRequest, ModelMountProviderInvocationRequest,
     ModelMountProviderInvocationResult, ModelMountProviderResultAdmissionRecord,
-    ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRecord,
-    ModelMountRouteDecisionRequest,
+    ModelMountProviderResultAdmissionRequest, ModelMountProviderStreamInvocationResult,
+    ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest,
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
@@ -139,6 +139,13 @@ impl RuntimeKernelService {
         request: &ModelMountProviderInvocationRequest,
     ) -> Result<ModelMountProviderInvocationResult, ModelMountError> {
         ModelMountCore.invoke_provider(request)
+    }
+
+    pub fn invoke_model_mount_provider_stream(
+        &self,
+        request: &ModelMountProviderInvocationRequest,
+    ) -> Result<ModelMountProviderStreamInvocationResult, ModelMountError> {
+        ModelMountCore.invoke_provider_stream(request)
     }
 
     pub fn admit_model_mount_provider_result(

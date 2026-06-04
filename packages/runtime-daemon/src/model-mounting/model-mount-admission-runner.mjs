@@ -64,6 +64,16 @@ export class RustModelMountAdmissionRunner {
     return normalizeProviderInvocationBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
+  executeProviderStreamInvocation(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "execute_model_mount_provider_stream_invocation",
+      backend: request?.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND,
+      request,
+    };
+    return normalizeProviderStreamInvocationBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
   admitProviderResult(request) {
     const bridgeRequest = {
       schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
@@ -215,6 +225,38 @@ function normalizeProviderInvocationBridgeResult(value = {}) {
       result.providerResponseKind ?? result.provider_response_kind ?? record.provider_response_kind ?? null,
     executionBackend: result.execution_backend ?? record.execution_backend ?? null,
     backendId: result.backendId ?? result.backend_id ?? record.backend_id ?? null,
+    provider_execution_ref: result.provider_execution_ref ?? record.provider_execution_ref ?? null,
+    provider_execution_hash: result.provider_execution_hash ?? record.provider_execution_hash ?? null,
+    invocation_hash: result.invocation_hash ?? record.invocation_hash ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+    backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+  };
+}
+
+function normalizeProviderStreamInvocationBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.result && typeof result.result === "object" ? result.result : {};
+  const streamChunks = Array.isArray(result.streamChunks)
+    ? result.streamChunks
+    : Array.isArray(result.stream_chunks)
+      ? result.stream_chunks
+      : Array.isArray(record.stream_chunks)
+        ? record.stream_chunks
+        : [];
+  return {
+    source: result.source ?? "rust_model_mount_provider_stream_invocation_command",
+    backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND,
+    result: record,
+    outputText: result.outputText ?? result.output_text ?? record.output_text ?? "",
+    tokenCount: result.tokenCount ?? result.token_count ?? record.token_count ?? null,
+    providerResponse: result.providerResponse ?? result.provider_response ?? null,
+    providerResponseKind:
+      result.providerResponseKind ?? result.provider_response_kind ?? record.provider_response_kind ?? null,
+    executionBackend: result.execution_backend ?? record.execution_backend ?? null,
+    backendId: result.backendId ?? result.backend_id ?? record.backend_id ?? null,
+    streamFormat: result.streamFormat ?? result.stream_format ?? record.stream_format ?? null,
+    streamKind: result.streamKind ?? result.stream_kind ?? record.stream_kind ?? null,
+    streamChunks,
     provider_execution_ref: result.provider_execution_ref ?? record.provider_execution_ref ?? null,
     provider_execution_hash: result.provider_execution_hash ?? record.provider_execution_hash ?? null,
     invocation_hash: result.invocation_hash ?? record.invocation_hash ?? null,

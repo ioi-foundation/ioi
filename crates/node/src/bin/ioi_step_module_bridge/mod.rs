@@ -196,6 +196,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             execute_model_mount_provider_invocation(request)
         }
+        "execute_model_mount_provider_stream_invocation" => {
+            let request: ModelMountProviderInvocationBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            execute_model_mount_provider_stream_invocation(request)
+        }
         "admit_model_mount_provider_result" => {
             let request: ModelMountProviderResultAdmissionBridgeRequest =
                 serde_json::from_value(raw_request)
@@ -417,6 +423,72 @@ fn execute_model_mount_provider_invocation(
         "execution_backend": execution_backend,
         "backendId": backend_id.clone(),
         "backend_id": backend_id,
+        "provider_execution_ref": provider_execution_ref,
+        "provider_execution_hash": provider_execution_hash,
+        "invocation_hash": invocation_hash,
+        "evidence_refs": evidence_refs,
+    }))
+}
+
+fn execute_model_mount_provider_stream_invocation(
+    request: ModelMountProviderInvocationBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "execute_model_mount_provider_stream_invocation" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let result = ModelMountCore
+        .invoke_provider_stream(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "model_mount_provider_stream_invocation_rejected",
+                format!("{error:?}"),
+            )
+        })?;
+    let output_text = result.output_text.clone();
+    let token_count = result.token_count.clone();
+    let provider_response_kind = result.provider_response_kind.clone();
+    let execution_backend = result.execution_backend.clone();
+    let backend_id = result.backend_id.clone();
+    let stream_format = result.stream_format.clone();
+    let stream_kind = result.stream_kind.clone();
+    let stream_chunks = result.stream_chunks.clone();
+    let provider_execution_ref = result.provider_execution_ref.clone();
+    let provider_execution_hash = result.provider_execution_hash.clone();
+    let invocation_hash = result.invocation_hash.clone();
+    let evidence_refs = result.evidence_refs.clone();
+    Ok(json!({
+        "source": "rust_model_mount_provider_stream_invocation_command",
+        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
+        "result": result,
+        "outputText": output_text.clone(),
+        "output_text": output_text,
+        "tokenCount": token_count.clone(),
+        "token_count": token_count,
+        "providerResponse": null,
+        "provider_response": null,
+        "providerResponseKind": provider_response_kind.clone(),
+        "provider_response_kind": provider_response_kind,
+        "execution_backend": execution_backend,
+        "backendId": backend_id.clone(),
+        "backend_id": backend_id,
+        "streamFormat": stream_format.clone(),
+        "stream_format": stream_format,
+        "streamKind": stream_kind.clone(),
+        "stream_kind": stream_kind,
+        "streamChunks": stream_chunks.clone(),
+        "stream_chunks": stream_chunks,
         "provider_execution_ref": provider_execution_ref,
         "provider_execution_hash": provider_execution_hash,
         "invocation_hash": invocation_hash,
@@ -3306,6 +3378,111 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_model_mount_native_local_backend"));
+    }
+
+    #[test]
+    fn bridge_executes_native_local_model_mount_provider_stream_through_rust_core() {
+        let provider_execution_request: ModelMountProviderExecutionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": COMMAND_SCHEMA_VERSION,
+                "operation": "admit_model_mount_provider_execution",
+                "backend": "rust_model_mount_live",
+                "request": {
+                    "schema_version": "ioi.model_mount.provider_execution.v1",
+                    "invocation_ref": "model-provider-execution://native-local/stream/test",
+                    "route_decision_ref": "model_mount://route_decision/native-local/stream/test",
+                    "route_receipt_ref": "receipt://route/native-local/stream/test",
+                    "route_ref": "route.native-local",
+                    "provider_ref": "provider.autopilot.local",
+                    "endpoint_ref": "endpoint.native-local",
+                    "model_ref": "model://qwen/qwen3.5-9b",
+                    "capability": "responses",
+                    "invocation_kind": "responses",
+                    "policy_hash": "sha256:policy",
+                    "input_hash": "sha256:input",
+                    "request_hash": "sha256:request",
+                    "idempotency_key": "model_provider_execution:native-local-stream:test",
+                    "receipt_refs": ["receipt://route/native-local/stream/test"],
+                    "authority_grant_refs": ["grant://wallet/model-responses"],
+                    "authority_receipt_refs": ["receipt://wallet/model-responses"],
+                    "provider_auth_evidence_refs": [],
+                    "backend_evidence_refs": ["backend.autopilot.native-local.fixture"],
+                    "tool_receipt_refs": [],
+                    "privacy_profile": "local_private",
+                    "node_plaintext_allowed": false,
+                    "stream_status": "started"
+                }
+            }))
+            .expect("native-local stream provider execution request");
+        let admission_response =
+            admit_model_mount_provider_execution(provider_execution_request).expect("admitted");
+        let admission = admission_response["record"].clone();
+        let provider_execution_ref = admission["provider_execution_ref"]
+            .as_str()
+            .expect("provider execution ref");
+        let provider_execution_hash = admission["provider_execution_hash"]
+            .as_str()
+            .expect("provider execution hash");
+
+        let request: ModelMountProviderInvocationBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "execute_model_mount_provider_stream_invocation",
+            "backend": "rust_model_mount_native_local_stream",
+            "request": {
+                "schema_version": "ioi.model_mount.provider_invocation.v1",
+                "provider_execution_ref": provider_execution_ref,
+                "provider_execution_hash": provider_execution_hash,
+                "route_decision_ref": "model_mount://route_decision/native-local/stream/test",
+                "route_receipt_ref": "receipt://route/native-local/stream/test",
+                "route_ref": "route.native-local",
+                "provider_ref": "provider.autopilot.local",
+                "provider_kind": "ioi_native_local",
+                "endpoint_ref": "endpoint.native-local",
+                "model_ref": "model://qwen/qwen3.5-9b",
+                "capability": "responses",
+                "invocation_kind": "responses",
+                "input": "user: hello",
+                "request_hash": "sha256:request",
+                "execution_backend": "rust_model_mount_native_local_stream",
+                "api_format": "ioi_native",
+                "driver": "native_local",
+                "backend_ref": "backend.autopilot.native-local.fixture",
+                "stream_status": "started",
+                "receipt_refs": ["receipt://route/native-local/stream/test"],
+                "evidence_refs": [provider_execution_ref],
+                "admitted_provider_execution": admission.clone()
+            }
+        }))
+        .expect("native-local provider stream invocation bridge request");
+
+        let response = execute_model_mount_provider_stream_invocation(request)
+            .expect("native-local provider stream executed");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_provider_stream_invocation_command"
+        );
+        assert_eq!(response["backend"], "rust_model_mount_native_local_stream");
+        assert_eq!(
+            response["execution_backend"],
+            "rust_model_mount_native_local_stream"
+        );
+        assert_eq!(response["streamFormat"], "ioi_jsonl");
+        assert_eq!(response["streamKind"], "openai_responses_native_local");
+        assert_eq!(
+            response["providerResponseKind"],
+            "rust_model_mount.native_local.stream"
+        );
+        assert!(response["streamChunks"]
+            .as_array()
+            .expect("stream chunks")
+            .iter()
+            .any(|value| value.as_str().unwrap_or("").contains("\"done\":true")));
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_model_mount_native_local_stream_backend"));
     }
 
     #[test]

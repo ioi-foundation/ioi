@@ -112,6 +112,30 @@ function providerInvocationRequest() {
   };
 }
 
+function providerStreamInvocationRequest() {
+  return {
+    ...providerInvocationRequest(),
+    provider_ref: "provider.autopilot.local",
+    provider_kind: "ioi_native_local",
+    endpoint_ref: "endpoint.native-local",
+    model_ref: "model://qwen/qwen3.5-9b",
+    execution_backend: "rust_model_mount_native_local_stream",
+    api_format: "ioi_native",
+    driver: "native_local",
+    backend_ref: "backend.autopilot.native-local.fixture",
+    stream_status: "started",
+    admitted_provider_execution: {
+      ...providerExecutionRequest(),
+      provider_ref: "provider.autopilot.local",
+      endpoint_ref: "endpoint.native-local",
+      model_ref: "model://qwen/qwen3.5-9b",
+      provider_execution_ref: "model_mount://provider_execution/test",
+      provider_execution_hash: "sha256:provider-execution-test",
+      stream_status: "started",
+    },
+  };
+}
+
 function providerResultRequest() {
   return {
     schema_version: "ioi.model_mount.provider_result.v1",
@@ -319,6 +343,78 @@ test("Rust model_mount admission runner sends provider invocation bridge request
   assert.equal(result.executionBackend, "rust_model_mount_fixture");
   assert.equal(result.backendId, "backend.fixture");
   assert.equal(result.invocation_hash, "sha256:invocation");
+});
+
+test("Rust model_mount admission runner sends native-local provider stream invocation bridge request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_provider_stream_invocation_command",
+            backend: "rust_model_mount_native_local_stream",
+            result: {
+              ...request.request,
+              schema_version: "ioi.model_mount.provider_stream_invocation.v1",
+              output_text: "Autopilot native local stream response",
+              token_count: { prompt_tokens: 3, completion_tokens: 8, total_tokens: 11 },
+              provider_response_kind: "rust_model_mount.native_local.stream",
+              backend: "autopilot.native_local.fixture",
+              backend_id: "backend.autopilot.native-local.fixture",
+              execution_backend: "rust_model_mount_native_local_stream",
+              stream_format: "ioi_jsonl",
+              stream_kind: "openai_responses_native_local",
+              stream_chunks: [
+                "{\"delta\":\"Autopilot native local stream response\",\"done\":false}\n",
+                "{\"delta\":\"\",\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":3,\"eval_count\":8}\n",
+              ],
+              evidence_refs: ["rust_model_mount_provider_stream_invocation"],
+              invocation_hash: "sha256:stream-invocation",
+            },
+            outputText: "Autopilot native local stream response",
+            tokenCount: { prompt_tokens: 3, completion_tokens: 8, total_tokens: 11 },
+            providerResponseKind: "rust_model_mount.native_local.stream",
+            execution_backend: "rust_model_mount_native_local_stream",
+            backendId: "backend.autopilot.native-local.fixture",
+            streamFormat: "ioi_jsonl",
+            streamKind: "openai_responses_native_local",
+            streamChunks: [
+              "{\"delta\":\"Autopilot native local stream response\",\"done\":false}\n",
+              "{\"delta\":\"\",\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":3,\"eval_count\":8}\n",
+            ],
+            provider_execution_ref: "model_mount://provider_execution/test",
+            provider_execution_hash: "sha256:provider-execution-test",
+            invocation_hash: "sha256:stream-invocation",
+            evidence_refs: ["rust_model_mount_provider_stream_invocation"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.executeProviderStreamInvocation(providerStreamInvocationRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "execute_model_mount_provider_stream_invocation");
+  assert.equal(calls[0].request.backend, "rust_model_mount_native_local_stream");
+  assert.equal(calls[0].request.request.provider_kind, "ioi_native_local");
+  assert.equal(calls[0].request.request.stream_status, "started");
+  assert.equal(result.outputText, "Autopilot native local stream response");
+  assert.equal(result.providerResponseKind, "rust_model_mount.native_local.stream");
+  assert.equal(result.executionBackend, "rust_model_mount_native_local_stream");
+  assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
+  assert.equal(result.streamFormat, "ioi_jsonl");
+  assert.equal(result.streamKind, "openai_responses_native_local");
+  assert.equal(result.streamChunks.some((chunk) => chunk.includes("\"done\":true")), true);
+  assert.equal(result.invocation_hash, "sha256:stream-invocation");
 });
 
 test("Rust model_mount admission runner sends provider result admission bridge request", () => {

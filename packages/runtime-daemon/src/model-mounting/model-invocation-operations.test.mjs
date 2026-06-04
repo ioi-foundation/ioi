@@ -9,6 +9,8 @@ import {
   modelMountProviderExecutionRequestForInvocation,
   modelMountProviderInvocationRequestForExecution,
   modelMountProviderInvocationRequiresRust,
+  modelMountProviderStreamInvocationRequestForExecution,
+  modelMountProviderStreamInvocationRequiresRust,
   modelMountProviderResultAdmissionRequestForExecution,
   modelMountInvocationReceiptBindingRequestForReceipt,
   startModelStream,
@@ -25,6 +27,7 @@ function fakeState(overrides = {}) {
     receiptBindingRequests: [],
     providerExecutionRequests: [],
     providerInvocationRequests: [],
+    providerStreamInvocationRequests: [],
     providerResultRequests: [],
     recordedConversations: [],
     routes: new Map([["route.local-first", { id: "route.local-first" }]]),
@@ -135,6 +138,12 @@ function fakeState(overrides = {}) {
       this.providerInvocationRequests.push(request);
       return providerInvocationBridgeResult(request, {
         invocationHash: `sha256:provider-invocation-${this.providerInvocationRequests.length}`,
+      });
+    },
+    executeModelMountProviderStreamInvocation(request) {
+      this.providerStreamInvocationRequests.push(request);
+      return providerStreamInvocationBridgeResult(request, {
+        invocationHash: `sha256:provider-stream-invocation-${this.providerStreamInvocationRequests.length}`,
       });
     },
     bindModelMountInvocationReceipt(request) {
@@ -312,6 +321,82 @@ function providerInvocationBridgeResult(request, options = {}) {
   };
 }
 
+function providerStreamInvocationBridgeResult(request, options = {}) {
+  const outputText = options.outputText ?? "rust stream answer";
+  const tokenCount = options.tokenCount ?? { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 };
+  const executionBackend = request.execution_backend ?? "rust_model_mount_native_local_stream";
+  const backendId = request.backend_ref ?? "backend.autopilot.native-local.fixture";
+  const streamKind =
+    request.invocation_kind === "responses"
+      ? "openai_responses_native_local"
+      : "openai_chat_completions_native_local";
+  const streamChunks =
+    options.streamChunks ?? [
+      `{"delta":${JSON.stringify(outputText)},"done":false}\n`,
+      `{"delta":"","done":true,"done_reason":"stop","prompt_eval_count":${tokenCount.prompt_tokens},"eval_count":${tokenCount.completion_tokens}}\n`,
+    ];
+  const evidenceRefs = [
+    "rust_model_mount_provider_stream_invocation",
+    "rust_model_mount_native_local_stream_backend",
+    request.provider_execution_ref,
+  ];
+  const invocationHash = options.invocationHash ?? "sha256:provider-stream-invocation-test";
+  const result = {
+    source: "rust_model_mount_provider_stream_invocation_command",
+    backend: executionBackend,
+    result: {
+      ...request,
+      schema_version: "ioi.model_mount.provider_stream_invocation.v1",
+      output_text: outputText,
+      token_count: tokenCount,
+      provider_response_kind: "rust_model_mount.native_local.stream",
+      backend: "autopilot.native_local.fixture",
+      backend_id: backendId,
+      execution_backend: executionBackend,
+      stream_format: "ioi_jsonl",
+      stream_kind: streamKind,
+      stream_chunks: streamChunks,
+      evidence_refs: evidenceRefs,
+      invocation_hash: invocationHash,
+    },
+    outputText,
+    tokenCount,
+    providerResponse: null,
+    providerResponseKind: "rust_model_mount.native_local.stream",
+    executionBackend,
+    backendId,
+    streamFormat: "ioi_jsonl",
+    streamKind,
+    streamChunks,
+    provider_execution_ref: request.provider_execution_ref,
+    provider_execution_hash: request.provider_execution_hash,
+    invocation_hash: invocationHash,
+    evidence_refs: evidenceRefs,
+    backendEvidenceRefs: evidenceRefs,
+  };
+  if (options.compatTranslation) {
+    result.compatTranslation = options.compatTranslation;
+  }
+  return result;
+}
+
+async function readReadableStreamText(stream) {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    return text;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 test("capabilityForInvocationKind maps model APIs to route capabilities", () => {
   assert.equal(capabilityForInvocationKind("embeddings"), "embeddings");
   assert.equal(capabilityForInvocationKind("rerank"), "rerank");
@@ -479,7 +564,7 @@ test("invokeModel reuses identical in-flight provider execution and marks coales
 });
 
 test("startModelStream returns native stream invocations with stream-only receipt fields", async () => {
-  const stream = { [Symbol.asyncIterator]: async function* noop() {} };
+  let streamCalls = 0;
   const state = fakeState({
     selectRoute(payload) {
       this.selectRoutePayload = payload;
@@ -500,12 +585,8 @@ test("startModelStream returns native stream invocations with stream-only receip
     driver: {
       supportsStream: () => true,
       async streamInvoke() {
-        return {
-          stream,
-          abort: () => "aborted",
-          providerResponseKind: "openai.responses.stream",
-          tokenCount: { prompt_tokens: 1, completion_tokens: 0, total_tokens: 1 },
-        };
+        streamCalls += 1;
+        throw new Error("native-local stream production must execute through Rust model_mount");
       },
     },
   });
@@ -522,7 +603,13 @@ test("startModelStream returns native stream invocations with stream-only receip
   );
 
   assert.equal(result.native, true);
-  assert.equal(result.providerStream, stream);
+  assert.equal(streamCalls, 0);
+  assert.equal(typeof result.providerStream.getReader, "function");
+  assert.equal((await readReadableStreamText(result.providerStream)).includes("rust stream answer"), true);
+  assert.equal(result.providerResult.providerResponseKind, "rust_model_mount.native_local.stream");
+  assert.equal(result.providerResult.streamFormat, "ioi_jsonl");
+  assert.equal(result.providerResult.streamKind, "openai_responses_native_local");
+  assert.equal(result.providerResult.streamChunks.some((chunk) => chunk.includes("\"done\":true")), true);
   assert.equal(result.invocation.responseId, "resp.stream");
   assert.equal(result.invocation.receipt.details.streamStatus, "started");
   assert.equal(result.invocation.receipt.details.streamSource, "provider_native");
@@ -539,9 +626,17 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "sendOptions"), false);
   assert.deepEqual(state.appendOperations, []);
   assert.equal(state.providerExecutionRequests[0].stream_status, "started");
+  assert.equal(state.providerStreamInvocationRequests.length, 1);
+  assert.equal(state.providerStreamInvocationRequests[0].execution_backend, "rust_model_mount_native_local_stream");
+  assert.equal(state.providerStreamInvocationRequests[0].stream_status, "started");
+  assert.equal(state.providerStreamInvocationRequests[0].provider_kind, "ioi_native_local");
+  assert.equal(state.providerStreamInvocationRequests[0].api_format, "ioi_native");
+  assert.equal(state.providerStreamInvocationRequests[0].driver, "native_local");
+  assert.equal(state.providerInvocationRequests.length, 0);
   assert.equal(state.providerResultRequests[0].stream_status, "started");
-  assert.equal(state.providerResultRequests[0].output_text, "");
-  assert.equal(state.providerResultRequests[0].provider_response_kind, "openai.responses.stream");
+  assert.equal(state.providerResultRequests[0].output_text, "rust stream answer");
+  assert.equal(state.providerResultRequests[0].provider_response_kind, "rust_model_mount.native_local.stream");
+  assert.equal(result.invocation.receipt.details.providerResponseKind, "rust_model_mount.native_local.stream");
   assert.equal(state.routes.get("route.local-first").lastReceiptId, result.invocation.receipt.id);
 });
 
@@ -631,22 +726,22 @@ test("startModelStream fails closed when provider lacks native streaming", async
   assert.deepEqual(state.appendOperations, []);
 });
 
-test("startModelStream fails closed when admitted native stream path returns no stream", async () => {
+test("startModelStream fails closed when admitted hosted stream path returns no stream", async () => {
   let streamCalls = 0;
   const state = fakeState({
     selectRoute(payload) {
       this.selectRoutePayload = payload;
       return selection({
         endpoint: {
-          apiFormat: "ioi_native",
-          driver: "native_local",
-          providerId: "provider.autopilot.local",
-          backendId: "backend.autopilot.native-local.fixture",
+          apiFormat: "openai_chat_completions",
+          driver: "openai_compatible",
+          providerId: "provider.openai-compatible",
+          backendId: "backend.openai-compatible",
         },
         provider: {
-          id: "provider.autopilot.local",
-          kind: "ioi_native_local",
-          driver: "native_local",
+          id: "provider.openai-compatible",
+          kind: "openai_compatible",
+          driver: "openai_compatible",
         },
       });
     },
@@ -675,6 +770,7 @@ test("startModelStream fails closed when admitted native stream path returns no 
   );
   assert.equal(streamCalls, 1);
   assert.equal(state.providerExecutionRequests.length, 1);
+  assert.equal(state.providerStreamInvocationRequests.length, 0);
   assert.equal(state.providerResultRequests.length, 0);
   assert.equal(state.fallbackInvocationArgs, undefined);
   assert.deepEqual(state.appendOperations, []);
@@ -726,6 +822,7 @@ test("startModelStream fails closed without Rust provider execution admission be
     (error) => error.code === "model_mount_provider_execution_admission_required",
   );
   assert.equal(streamCalls, 0);
+  assert.equal(state.providerStreamInvocationRequests.length, 0);
   assert.deepEqual(state.appendOperations, []);
 });
 
@@ -776,6 +873,7 @@ test("startModelStream fails closed without Rust provider result admission befor
   );
   assert.equal(streamCalls, 0);
   assert.equal(state.providerExecutionRequests.length, 1);
+  assert.equal(state.providerStreamInvocationRequests.length, 0);
   assert.deepEqual(state.appendOperations, []);
 });
 
@@ -802,11 +900,12 @@ test("startModelStream rejects provider compatibility translations before admiss
       supportsStream: () => true,
       async streamInvoke() {
         streamCalls += 1;
-        return {
-          stream: { [Symbol.asyncIterator]: async function* noop() {} },
-          compatTranslation: "chat_completions",
-        };
+        throw new Error("native-local stream production must execute through Rust model_mount");
       },
+    },
+    executeModelMountProviderStreamInvocation(request) {
+      this.providerStreamInvocationRequests.push(request);
+      return providerStreamInvocationBridgeResult(request, { compatTranslation: "chat_completions" });
     },
   });
 
@@ -824,8 +923,9 @@ test("startModelStream rejects provider compatibility translations before admiss
       ),
     (error) => error.code === "model_mount_provider_compat_translation_forbidden",
   );
-  assert.equal(streamCalls, 1);
+  assert.equal(streamCalls, 0);
   assert.equal(state.providerExecutionRequests.length, 1);
+  assert.equal(state.providerStreamInvocationRequests.length, 1);
   assert.equal(state.providerResultRequests.length, 0);
   assert.equal(state.receipts.length, 0);
 });
@@ -1006,6 +1106,74 @@ test("modelMountProviderInvocationRequestForExecution binds fixture execution to
     false,
   );
   assert.equal(modelMountProviderInvocationRequiresRust({ provider: { kind: "openai" }, endpoint: {} }), false);
+});
+
+test("modelMountProviderStreamInvocationRequestForExecution binds native-local stream execution to provider admission", () => {
+  const admission = {
+    source: "rust_model_mount_provider_execution_command",
+    backend: "rust_model_mount_live",
+    record: {
+      schema_version: "ioi.model_mount.provider_execution.v1",
+      provider_execution_ref: "model_mount://provider_execution/stream-test",
+      provider_execution_hash: "sha256:provider-execution-stream-test",
+      route_decision_ref: "model_mount://route_decision/test",
+      route_receipt_ref: "receipt://route",
+      route_ref: "route.native-local",
+      provider_ref: "provider.autopilot.local",
+      endpoint_ref: "endpoint.native-local",
+      model_ref: "model://qwen/qwen3.5-9b",
+      capability: "responses",
+      invocation_kind: "responses",
+      request_hash: "sha256:request",
+      stream_status: "started",
+      receipt_refs: ["receipt://route"],
+    },
+    provider_execution_ref: "model_mount://provider_execution/stream-test",
+    provider_execution_hash: "sha256:provider-execution-stream-test",
+    receipt_refs: ["receipt://route"],
+    evidence_refs: ["rust_model_mount_core"],
+  };
+
+  const request = modelMountProviderStreamInvocationRequestForExecution({
+    input: "user: hello",
+    instance: { backendId: "backend.autopilot.native-local.fixture" },
+    kind: "responses",
+    modelMountProviderExecutionAdmission: admission,
+    selection: selection({
+      endpoint: {
+        apiFormat: "ioi_native",
+        driver: "native_local",
+        modelId: "model://qwen/qwen3.5-9b",
+        providerId: "provider.autopilot.local",
+      },
+      provider: {
+        id: "provider.autopilot.local",
+        kind: "ioi_native_local",
+        driver: "native_local",
+      },
+    }),
+  });
+
+  assert.equal(request.schema_version, "ioi.model_mount.provider_invocation.v1");
+  assert.equal(request.provider_execution_ref, "model_mount://provider_execution/stream-test");
+  assert.equal(request.provider_execution_hash, "sha256:provider-execution-stream-test");
+  assert.equal(request.execution_backend, "rust_model_mount_native_local_stream");
+  assert.equal(request.stream_status, "started");
+  assert.equal(request.provider_kind, "ioi_native_local");
+  assert.equal(request.api_format, "ioi_native");
+  assert.equal(request.driver, "native_local");
+  assert.equal(request.backend_ref, "backend.autopilot.native-local.fixture");
+  assert.deepEqual(request.receipt_refs, ["receipt://route"]);
+  assert.equal(request.admitted_provider_execution.provider_execution_hash, "sha256:provider-execution-stream-test");
+  assert.equal(
+    modelMountProviderStreamInvocationRequiresRust({
+      provider: { kind: "ioi_native_local", driver: "native_local" },
+      endpoint: { apiFormat: "ioi_native", driver: "native_local" },
+    }),
+    true,
+  );
+  assert.equal(modelMountProviderStreamInvocationRequiresRust({ provider: { kind: "local_folder" }, endpoint: {} }), false);
+  assert.equal(modelMountProviderStreamInvocationRequiresRust({ provider: { kind: "openai" }, endpoint: {} }), false);
 });
 
 test("modelMountProviderResultAdmissionRequestForExecution binds JS provider observation to provider admission", () => {

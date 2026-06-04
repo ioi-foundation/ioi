@@ -250,18 +250,21 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     policy: body.model_policy ?? body.modelPolicy ?? {},
   });
   const continuationSafety = state.validateContinuationSafety({ previousState, selection, body });
-  if (modelMountProviderInvocationRequiresRust(selection, { stream: true })) {
+  const rustProviderStream = modelMountProviderStreamInvocationRequiresRust(selection);
+  if (!rustProviderStream && modelMountProviderInvocationRequiresRust(selection, { stream: true })) {
     const error = new Error("Native model stream requires a Rust model_mount stream backend for the selected provider.");
     error.status = 501;
     error.code = "model_mount_native_stream_backend_required";
     throw error;
   }
-  const driver = state.driverForProvider(selection.provider);
-  if (typeof driver.streamInvoke !== "function" || (typeof driver.supportsStream === "function" && !driver.supportsStream(kind))) {
-    const error = new Error("Native model stream requires a provider driver with stream support.");
-    error.status = 501;
-    error.code = "model_mount_native_stream_capability_required";
-    throw error;
+  const driver = rustProviderStream ? null : state.driverForProvider(selection.provider);
+  if (!rustProviderStream) {
+    if (typeof driver.streamInvoke !== "function" || (typeof driver.supportsStream === "function" && !driver.supportsStream(kind))) {
+      const error = new Error("Native model stream requires a provider driver with stream support.");
+      error.status = 501;
+      error.code = "model_mount_native_stream_capability_required";
+      throw error;
+    }
   }
   const routeReceipt = state.routeSelectionReceipt(selection, { body, capability, responseId, previousResponseId });
   const instance = await state.ensureLoaded(selection.endpoint);
@@ -287,16 +290,30 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     }),
   );
   requireModelMountProviderResultAdmission(state);
-  let providerResult = await driver.streamInvoke({
-    state,
-    provider: selection.provider,
-    endpoint: selection.endpoint,
-    instance,
-    kind,
-    body: providerBody,
-    input,
-    token,
-  });
+  let providerResult = rustProviderStream
+    ? executeModelMountProviderStreamInvocation(
+        state,
+        modelMountProviderStreamInvocationRequestForExecution({
+          input,
+          instance,
+          kind,
+          modelMountProviderExecutionAdmission,
+          selection,
+        }),
+      )
+    : await driver.streamInvoke({
+        state,
+        provider: selection.provider,
+        endpoint: selection.endpoint,
+        instance,
+        kind,
+        body: providerBody,
+        input,
+        token,
+      });
+  if (rustProviderStream) {
+    providerResult = withTextChunksReadableStream(providerResult);
+  }
   rejectProviderCompatTranslation(providerResult);
   if (!providerResult?.stream) {
     const error = new Error("Native provider stream invocation did not return a stream after Rust stream-start admission.");
@@ -658,6 +675,51 @@ export function modelMountProviderInvocationRequestForExecution({
   };
 }
 
+export function modelMountProviderStreamInvocationRequestForExecution({
+  input,
+  instance = {},
+  kind,
+  modelMountProviderExecutionAdmission = {},
+  selection,
+} = {}) {
+  const record = modelMountProviderExecutionAdmission.record ?? {};
+  const provider = selection?.provider ?? {};
+  const endpoint = selection?.endpoint ?? {};
+  return {
+    schema_version: "ioi.model_mount.provider_invocation.v1",
+    provider_execution_ref: requiredStringRef(
+      "modelMountProviderExecutionAdmission.provider_execution_ref",
+      modelMountProviderExecutionAdmission.provider_execution_ref ?? record.provider_execution_ref,
+    ),
+    provider_execution_hash: requiredStringRef(
+      "modelMountProviderExecutionAdmission.provider_execution_hash",
+      modelMountProviderExecutionAdmission.provider_execution_hash ?? record.provider_execution_hash,
+    ),
+    route_decision_ref: requiredStringRef("providerExecution.route_decision_ref", record.route_decision_ref),
+    route_receipt_ref: requiredStringRef("providerExecution.route_receipt_ref", record.route_receipt_ref),
+    route_ref: requiredStringRef("providerExecution.route_ref", record.route_ref),
+    provider_ref: requiredStringRef("providerExecution.provider_ref", record.provider_ref),
+    provider_kind: requiredStringRef("provider.kind", provider.kind),
+    endpoint_ref: requiredStringRef("providerExecution.endpoint_ref", record.endpoint_ref),
+    model_ref: requiredStringRef("providerExecution.model_ref", record.model_ref),
+    capability: requiredStringRef("providerExecution.capability", record.capability),
+    invocation_kind: requiredStringRef("providerExecution.invocation_kind", record.invocation_kind ?? kind),
+    input: String(input ?? ""),
+    request_hash: requiredStringRef("providerExecution.request_hash", record.request_hash),
+    execution_backend: "rust_model_mount_native_local_stream",
+    api_format: optionalRef(endpoint.apiFormat ?? provider.apiFormat),
+    driver: optionalRef(endpoint.driver ?? provider.driver ?? driverNameForProvider(provider)),
+    backend_ref: optionalRef(instance.backendId ?? endpoint.backendId),
+    stream_status: optionalRef(record.stream_status) ?? "started",
+    receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
+    evidence_refs: uniqueRefs([
+      modelMountProviderExecutionAdmission.provider_execution_ref ?? record.provider_execution_ref,
+      ...(modelMountProviderExecutionAdmission.evidence_refs ?? []),
+    ]),
+    admitted_provider_execution: record,
+  };
+}
+
 export function modelMountProviderResultAdmissionRequestForExecution({
   input,
   instance = {},
@@ -936,6 +998,10 @@ export function modelMountProviderInvocationRequiresRust(selection = {}, options
   return fixtureProviderInvocationSelected(selection) || (!stream && nativeLocalProviderInvocationSelected(selection));
 }
 
+export function modelMountProviderStreamInvocationRequiresRust(selection = {}) {
+  return nativeLocalProviderInvocationSelected(selection);
+}
+
 function modelMountProviderInvocationExecutionBackend(selection = {}) {
   if (nativeLocalProviderInvocationSelected(selection)) {
     return "rust_model_mount_native_local";
@@ -975,6 +1041,56 @@ function executeModelMountProviderInvocation(state, request) {
     throw error;
   }
   return state.executeModelMountProviderInvocation(request);
+}
+
+function executeModelMountProviderStreamInvocation(state, request) {
+  if (typeof state.executeModelMountProviderStreamInvocation !== "function") {
+    const error = new Error("Migrated native-local model stream execution requires Rust model_mount provider stream invocation execution.");
+    error.status = 500;
+    error.code = "model_mount_provider_stream_invocation_execution_required";
+    throw error;
+  }
+  return state.executeModelMountProviderStreamInvocation(request);
+}
+
+function withTextChunksReadableStream(providerResult = {}) {
+  const streamHandle = textChunksReadableStream(providerResult.streamChunks ?? []);
+  return {
+    ...providerResult,
+    stream: streamHandle.stream,
+    abort: streamHandle.abort,
+  };
+}
+
+function textChunksReadableStream(chunks = []) {
+  const encoder = new TextEncoder();
+  const encoded = (Array.isArray(chunks) ? chunks : []).map((chunk) => encoder.encode(String(chunk ?? "")));
+  let controllerRef = null;
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    try {
+      controllerRef?.close();
+    } catch {
+      // The consumer may already have canceled the stream.
+    }
+  };
+  const abort = () => close();
+  const stream = new ReadableStream({
+    start(controller) {
+      controllerRef = controller;
+      for (const chunk of encoded) {
+        if (closed) break;
+        controller.enqueue(chunk);
+      }
+      close();
+    },
+    cancel() {
+      abort();
+    },
+  });
+  return { stream, abort };
 }
 
 function withModelMountProviderResultAdmission(providerResult, admission) {

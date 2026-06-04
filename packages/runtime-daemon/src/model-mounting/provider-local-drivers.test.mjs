@@ -45,19 +45,6 @@ function fakeNativeState() {
   };
 }
 
-async function readStreamText(stream) {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let text = "";
-  for (;;) {
-    const next = await reader.read();
-    if (next.done) break;
-    text += decoder.decode(next.value, { stream: true });
-  }
-  text += decoder.decode();
-  return text;
-}
-
 test("local provider drivers fail closed for retired direct non-stream invoke", async () => {
   const fixture = new FixtureModelProviderDriver();
   await assert.rejects(
@@ -91,7 +78,7 @@ test("local provider drivers fail closed for retired direct non-stream invoke", 
   assert.equal(state.logs.length, 0);
 });
 
-test("native-local provider driver records load and stream lifecycle", async () => {
+test("native-local provider driver keeps load control and retires direct stream production", async () => {
   const state = fakeNativeState();
   const driver = new NativeLocalModelProviderDriver();
   const endpoint = {
@@ -106,35 +93,15 @@ test("native-local provider driver records load and stream lifecycle", async () 
   assert.ok(load.evidenceRefs.includes("deterministic_native_local_fixture"));
   assert.equal(state.logs.at(-1).event, "load");
 
-  const stream = await driver.streamInvoke({
-    kind: "chat.completions",
-    input: { messages: [{ role: "user", content: "summarize repo state" }] },
-    endpoint,
-    state,
-  });
-  assert.equal(stream.streamFormat, "ioi_jsonl");
-  assert.ok(stream.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
-
-  const text = await readStreamText(stream.stream);
-  assert.match(text, /"delta":/);
-  assert.match(text, /"done":true/);
-
-  const previousDelay = process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS;
-  try {
-    process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS = "25";
-    const abortable = await driver.streamInvoke({
-      kind: "chat.completions",
-      input: { messages: [{ role: "user", content: "abortable stream" }] },
-      endpoint,
-      state,
-    });
-    abortable.abort();
-  } finally {
-    if (previousDelay === undefined) {
-      delete process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS;
-    } else {
-      process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS = previousDelay;
-    }
-  }
-  assert.equal(state.logs.at(-1).event, "stream_abort");
+  await assert.rejects(
+    () =>
+      driver.streamInvoke({
+        kind: "chat.completions",
+        input: { messages: [{ role: "user", content: "summarize repo state" }] },
+        endpoint,
+        state,
+      }),
+    (error) => error.code === "model_mount_local_provider_direct_stream_retired",
+  );
+  assert.equal(state.logs.at(-1).event, "load");
 });

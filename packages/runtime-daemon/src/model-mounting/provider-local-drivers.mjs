@@ -1,13 +1,6 @@
-import {
-  jsonLineReadableStream,
-  nativeLocalOutput,
-  nativeLocalStreamRecords,
-  providerStreamFrameDelayMs,
-} from "./native-local-fixture.mjs";
-import { estimateTokens } from "./provider-protocol.mjs";
 import { estimateNativeLocalResources } from "./local-system-probes.mjs";
 import { normalizeLoadOptions } from "./load-policy.mjs";
-import { normalizeScopes, stableHash } from "./io.mjs";
+import { normalizeScopes } from "./io.mjs";
 
 export class NativeLocalModelProviderDriver {
   async health(provider) {
@@ -94,62 +87,8 @@ export class NativeLocalModelProviderDriver {
     return kind === "chat.completions" || kind === "chat" || kind === "responses";
   }
 
-  async streamInvoke({ kind, input, endpoint, state }) {
-    if (!this.supportsStream(kind)) return null;
-    const backendId = endpoint.backendId ?? "backend.autopilot.native-local.fixture";
-    const processRecord = state.ensureBackendProcess(backendId, {
-      endpoint,
-      loadOptions: state.loadedInstanceForEndpoint(endpoint.id, false)?.loadOptions ?? {},
-      reason: "model_stream",
-    });
-    const processSnapshot = state.backendProcessSnapshot(processRecord);
-    const outputText = nativeLocalOutput({ kind, input, modelId: endpoint.modelId });
-    const tokenCount = estimateTokens(input, outputText);
-    state.writeBackendLog(endpoint.id, {
-      backendId,
-      event: "stream",
-      modelId: endpoint.modelId,
-      kind,
-      inputHash: stableHash(input),
-      outputHash: stableHash(outputText),
-      backend: "autopilot.native_local.fixture",
-      processId: processRecord?.id ?? null,
-      pidHash: processRecord?.pidHash ?? null,
-    });
-    const streamHandle = jsonLineReadableStream(nativeLocalStreamRecords(outputText, tokenCount), {
-      delayMs: providerStreamFrameDelayMs(),
-      onAbort: (reason) => {
-        state.writeBackendLog(endpoint.id, {
-          backendId,
-          event: "stream_abort",
-          modelId: endpoint.modelId,
-          kind,
-          reason,
-          inputHash: stableHash(input),
-          outputHash: stableHash(outputText),
-          backend: "autopilot.native_local.fixture",
-          processId: processRecord?.id ?? null,
-          pidHash: processRecord?.pidHash ?? null,
-        });
-      },
-    });
-    return {
-      stream: streamHandle.stream,
-      abort: () => streamHandle.abort("client_disconnect"),
-      status: 200,
-      streamFormat: "ioi_jsonl",
-      streamKind: kind === "responses" ? "openai_responses_native_local" : "openai_chat_completions_native_local",
-      providerResponseKind: kind === "responses" ? "native_local.responses.stream" : "native_local.chat.stream",
-      backend: "autopilot.native_local.fixture",
-      backendId,
-      backendProcess: processSnapshot,
-      backendEvidenceRefs: [
-        "autopilot_native_local_provider_native_stream",
-        "autopilot_native_local_openai_compatible_serving",
-        "deterministic_native_local_fixture",
-        ...normalizeScopes(processSnapshot.evidenceRefs, []),
-      ],
-    };
+  async streamInvoke() {
+    throw retiredLocalProviderStreamError("Native-local stream provider invocation");
   }
 
   async invoke() {
@@ -192,5 +131,12 @@ function retiredLocalProviderInvokeError(label) {
   const error = new Error(`${label} is retired; execute migrated local provider invocations through Rust model_mount.`);
   error.status = 500;
   error.code = "model_mount_local_provider_direct_invoke_retired";
+  return error;
+}
+
+function retiredLocalProviderStreamError(label) {
+  const error = new Error(`${label} is retired; execute native-local stream frames through Rust model_mount.`);
+  error.status = 500;
+  error.code = "model_mount_local_provider_direct_stream_retired";
   return error;
 }
