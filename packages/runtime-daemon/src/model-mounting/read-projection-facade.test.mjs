@@ -112,7 +112,6 @@ function createState() {
       code: "not_found",
       details,
     }),
-    operationCount: () => 42,
   });
   for (const key of Object.keys(facade)) {
     state[key] = (...args) => facade[key](state, ...args);
@@ -181,7 +180,7 @@ test("read projection facade projects latest provider and vault health envelopes
   assert.equal(providerHealth.health.status, "healthy");
   assert.equal(providerHealth.receipt.id, "receipt-provider-health");
   assert.equal(providerHealth.replay.receipt.id, "receipt-provider-health");
-  assert.equal(providerHealth.projectionWatermark, 42);
+  assert.equal(providerHealth.projectionWatermark, 4);
 
   const vaultHealth = facade.latestVaultHealth(state);
   assert.equal(vaultHealth.schemaVersion, "model.mount.schema");
@@ -189,7 +188,7 @@ test("read projection facade projects latest provider and vault health envelopes
   assert.equal(vaultHealth.health.implementation, "runtime_memory_vault");
   assert.equal(vaultHealth.receipt.id, "receipt-vault-health");
   assert.equal(vaultHealth.replay.receipt.id, "receipt-vault-health");
-  assert.equal(vaultHealth.projectionWatermark, 42);
+  assert.equal(vaultHealth.projectionWatermark, 4);
 });
 
 test("read projection facade preserves latest health not-found errors", () => {

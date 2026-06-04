@@ -1380,6 +1380,23 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-receipt-store-operation-append-retired",
+    !/\bappendOperation\b/.test(modelMountStore) &&
+      /model invocation receipt writes persist only after Rust receipt and Agentgres admission without operation append/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+      ) &&
+      /const sequence = this\.listReceipts\(\)\.length/.test(read("packages/runtime-daemon/src/model-mounting.mjs")) &&
+      /watermark: receipts\.length/.test(read("packages/runtime-daemon/src/model-mounting/projections.mjs")),
+    [
+      "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/projections.mjs",
+    ],
+    "Phase 5/11 is pending: receipt persistence must not append duplicate JS operation-log records after Rust binding and Agentgres admission",
+  );
+  assertCheck(
+    result,
     "model-mount-invocation-receipt-binder-core",
     /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       /ReceiptBinder/.test(bridgeModule) &&

@@ -86,9 +86,8 @@ function notFound(message, details) {
 }
 
 export class AgentgresModelMountingStore {
-  constructor({ stateDir, appendOperation }) {
+  constructor({ stateDir }) {
     this.stateDir = path.resolve(stateDir);
-    this.appendOperation = appendOperation;
   }
 
   ensureDirs() {
@@ -139,13 +138,6 @@ export class AgentgresModelMountingStore {
       receiptKind: receipt.kind,
       redaction: receipt.redaction,
       evidenceRefs: receipt.evidenceRefs,
-    });
-    this.appendOperation?.(receipt.kind, {
-      objectId: receipt.id,
-      receiptId: receipt.id,
-      kind: receipt.kind,
-      evidenceRefs: receipt.evidenceRefs,
-      details: receipt.details,
     });
   }
 

@@ -180,20 +180,14 @@ test("model invocation receipt writes reject mismatched Agentgres operation refs
   assert.deepEqual(appended, []);
 });
 
-test("model invocation receipt writes append only after Rust receipt and Agentgres admission", () => {
+test("model invocation receipt writes persist only after Rust receipt and Agentgres admission without operation append", () => {
   const { appended, stateDir, store } = testStore();
   const receipt = boundModelInvocationReceipt();
 
   store.writeReceipt(receipt);
 
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.model-invocation.json")), true);
-  assert.equal(appended.length, 1);
-  assert.equal(appended[0].kind, "model_invocation");
-  assert.equal(appended[0].payload.receiptId, "receipt.model-invocation");
-  assert.equal(
-    appended[0].payload.details.modelMountAgentgresOperationRef,
-    "agentgres://model-mounting/operation-log/op_00000001_model_invocation",
-  );
+  assert.deepEqual(appended, []);
 });
 
 test("model lifecycle receipt writes fail closed without provider kind and Rust instance lifecycle binding", () => {
@@ -239,7 +233,7 @@ test("model lifecycle receipt writes allow Rust-bound local and remote provider 
 
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.local-bound.json")), true);
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.remote.json")), true);
-  assert.deepEqual(appended.map((item) => item.payload.receiptId), ["receipt.local-bound", "receipt.remote"]);
+  assert.deepEqual(appended, []);
 });
 
 test("provider inventory receipt writes fail closed without provider kind and Rust inventory binding", () => {
@@ -281,10 +275,7 @@ test("provider inventory receipt writes allow Rust-bound local and remote provid
 
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.inventory-local-bound.json")), true);
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.inventory-remote.json")), true);
-  assert.deepEqual(appended.map((item) => item.payload.receiptId), [
-    "receipt.inventory-local-bound",
-    "receipt.inventory-remote",
-  ]);
+  assert.deepEqual(appended, []);
 });
 
 test("provider health receipt writes fail closed without provider kind and Rust lifecycle binding", () => {
@@ -326,10 +317,7 @@ test("provider health receipt writes allow Rust-bound local and remote provider 
 
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.health-local-bound.json")), true);
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.health-remote.json")), true);
-  assert.deepEqual(appended.map((item) => item.payload.receiptId), [
-    "receipt.health-local-bound",
-    "receipt.health-remote",
-  ]);
+  assert.deepEqual(appended, []);
 });
 
 test("provider control receipt writes fail closed without provider kind and Rust lifecycle binding", () => {
@@ -371,8 +359,5 @@ test("provider control receipt writes allow Rust-bound local and remote provider
 
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.control-local-bound.json")), true);
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.control-remote.json")), true);
-  assert.deepEqual(appended.map((item) => item.payload.receiptId), [
-    "receipt.control-local-bound",
-    "receipt.control-remote",
-  ]);
+  assert.deepEqual(appended, []);
 });

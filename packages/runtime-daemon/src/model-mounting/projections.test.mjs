@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -87,14 +87,12 @@ function fakeState(stateDir = mkdtempSync(join(tmpdir(), "ioi-model-projection-t
 }
 
 test("projection builder composes product-safe model mounting projection categories", () => {
-  const dir = mkdtempSync(join(tmpdir(), "ioi-model-projection-count-"));
-  writeFileSync(join(dir, "operation-log.jsonl"), "{}\n{}\n");
-  const state = fakeState(dir);
+  const state = fakeState();
   try {
     const projection = buildModelMountingProjection(state, { schemaVersion: SCHEMA });
     assert.equal(projection.schemaVersion, SCHEMA);
     assert.equal(projection.source, "agentgres_model_mounting_projection");
-    assert.equal(projection.watermark, 2);
+    assert.equal(projection.watermark, 6);
     assert.equal(projection.lifecycleEvents.length, 1);
     assert.equal(projection.routeReceipts.length, 1);
     assert.equal(projection.providerHealthReceipts.length, 1);
@@ -103,9 +101,9 @@ test("projection builder composes product-safe model mounting projection categor
 
     const summary = buildProjectionSummary(projection);
     assert.equal(summary.receiptCount, 6);
-    assert.equal(summary.watermark, 2);
+    assert.equal(summary.watermark, 6);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(state.stateDir, { recursive: true, force: true });
   }
 });
 

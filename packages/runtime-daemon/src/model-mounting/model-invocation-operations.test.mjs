@@ -69,7 +69,7 @@ function fakeState(overrides = {}) {
       return { getTime: () => this.nowMs };
     },
     agentgresModelMountingHead() {
-      const sequence = this.receipts.length + this.appendOperations.length;
+      const sequence = this.receipts.length;
       return {
         sequence,
         headRef: `agentgres://model-mounting/operation-log/head/${sequence}`,

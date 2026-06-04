@@ -284,7 +284,6 @@ import {
   sleep,
   fileSizeIfExists,
   normalizeNonNegativeInteger,
-  operationCount as modelMountingOperationCount,
   truthy,
   matchesAny,
   publicMcpServer,
@@ -366,19 +365,17 @@ const {
 });
 
 export class ModelMountingState {
-  constructor({ stateDir, cwd, appendOperation, homeDir, now = () => new Date(), vaultSecrets = {}, modelMountAdmissionRunner = null }) {
+  constructor({ stateDir, cwd, homeDir, now = () => new Date(), vaultSecrets = {}, modelMountAdmissionRunner = null }) {
     this.stateDir = path.resolve(stateDir);
     this.cwd = path.resolve(cwd ?? process.cwd());
     this.homeDir = path.resolve(homeDir ?? process.env.HOME ?? this.cwd);
     this.modelRoot = path.join(this.stateDir, "models");
     this.bootId = `daemon_boot_${crypto.randomUUID()}`;
-    this.appendOperation = appendOperation;
     this.now = now;
     this.modelMountAdmissionRunner =
       modelMountAdmissionRunner ?? createModelMountAdmissionRunnerFromEnv(process.env);
     this.store = new AgentgresModelMountingStore({
       stateDir: this.stateDir,
-      appendOperation: (kind, payload) => this.appendOperation?.(kind, payload),
     });
     this.walletAuthority = new AgentgresWalletAuthority({
       now: this.now,
@@ -1018,7 +1015,7 @@ export class ModelMountingState {
   }
 
   agentgresModelMountingHead() {
-    const sequence = modelMountingOperationCount(this.stateDir);
+    const sequence = this.listReceipts().length;
     return {
       sequence,
       headRef: `agentgres://model-mounting/operation-log/head/${sequence}`,

@@ -1,4 +1,3 @@
-import { operationCount } from "./io.mjs";
 import * as routeDecision from "./route-decision.mjs";
 
 export function buildAuthoritySnapshot(state, baseUrl, { schemaVersion }) {
@@ -54,11 +53,12 @@ export function buildProjectionSummary(projection) {
 }
 
 export function buildModelMountingProjection(state, { schemaVersion }) {
+  const receipts = state.listReceipts();
   return {
     schemaVersion,
     source: "agentgres_model_mounting_projection",
     generatedAt: state.nowIso(),
-    watermark: operationCount(state.stateDir),
+    watermark: receipts.length,
     artifacts: state.listArtifacts(),
     endpoints: state.listEndpoints(),
     instances: state.listInstances(),
@@ -83,14 +83,14 @@ export function buildModelMountingProjection(state, { schemaVersion }) {
     conversationStates: state.listConversations(),
     workflowBindings: state.workflowNodeBindings(),
     adapterBoundaries: state.adapterBoundaries(),
-    lifecycleEvents: state.listReceipts().filter((receipt) => receipt.kind === "model_lifecycle"),
-    routeReceipts: state.listReceipts().filter((receipt) => receipt.kind === "model_route_selection"),
+    lifecycleEvents: receipts.filter((receipt) => receipt.kind === "model_lifecycle"),
+    routeReceipts: receipts.filter((receipt) => receipt.kind === "model_route_selection"),
     routeDecisions: state.modelRouteDecisions(),
-    providerHealthReceipts: state.listReceipts().filter((receipt) => receipt.kind === "provider_health"),
-    runtimeSurveyReceipts: state.listReceipts().filter((receipt) => receipt.kind === "runtime_survey"),
-    invocationReceipts: state.listReceipts().filter((receipt) => receipt.kind === "model_invocation"),
-    toolReceipts: state.listReceipts().filter((receipt) => receipt.kind === "mcp_tool_invocation"),
-    receipts: state.listReceipts(),
+    providerHealthReceipts: receipts.filter((receipt) => receipt.kind === "provider_health"),
+    runtimeSurveyReceipts: receipts.filter((receipt) => receipt.kind === "runtime_survey"),
+    invocationReceipts: receipts.filter((receipt) => receipt.kind === "model_invocation"),
+    toolReceipts: receipts.filter((receipt) => receipt.kind === "mcp_tool_invocation"),
+    receipts,
   };
 }
 

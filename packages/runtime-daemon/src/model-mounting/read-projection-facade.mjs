@@ -23,10 +23,7 @@ import {
   buildProjectionSummary,
   buildReceiptReplay,
 } from "./projections.mjs";
-import {
-  notFound,
-  operationCount,
-} from "./io.mjs";
+import { notFound } from "./io.mjs";
 
 export function createModelMountingReadProjectionFacade({
   buildModelCapabilities,
@@ -36,7 +33,6 @@ export function createModelMountingReadProjectionFacade({
   listJson,
   modelMountSchemaVersion,
   notFound: notFoundDep = notFound,
-  operationCount: operationCountDep = operationCount,
   path,
   providerHasVaultRef,
   publicOAuthSession,
@@ -158,7 +154,7 @@ export function createModelMountingReadProjectionFacade({
       health,
       receipt,
       replay: state.receiptReplay(receipt.id),
-      projectionWatermark: operationCountDep(state.stateDir),
+      projectionWatermark: state.listReceipts().length,
     };
   }
 
@@ -177,7 +173,7 @@ export function createModelMountingReadProjectionFacade({
       health: receipt.details,
       receipt,
       replay: state.receiptReplay(receipt.id),
-      projectionWatermark: operationCountDep(state.stateDir),
+      projectionWatermark: state.listReceipts().length,
     };
   }
 
