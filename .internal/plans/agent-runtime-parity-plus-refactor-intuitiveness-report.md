@@ -134,6 +134,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/thread-lifecycle.js`.
 - Moved Studio daemon thread lifecycle helpers out of `extension.js` behind compatibility wrappers: Agent/Ask mode profile switching, run-result fallback text, daemon thread creation/projection, and permission-mode updates.
 - Added focused thread-lifecycle tests for incompatible-thread reset behavior, thread creation request envelope/projection, route receipt propagation, permission-mode update payload/error reporting, and assistant-result fallback text.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-controls.js`.
+- Moved Studio stop/resume runtime controls out of `extension.js` behind compatibility wrappers while preserving daemon interrupt/resume routes, runtime cockpit stop/resume flags, bridge `chat.stop`/`chat.resume` envelopes, timeline entries, and panel refresh behavior.
+- Added focused runtime-control tests for stop/resume daemon payloads, bridge context snapshots, cockpit recompute flags, receipt propagation, route-failure logging, and refresh behavior.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/shell-header.js`.
 - Moved Autopilot workbench shell-header styles, posture tone mapping, native-shell gating, runtime posture chips, and mode switch action rendering out of `extension.js` while preserving existing call-site names and data-testids.
 - Added focused shell-header tests for tone mapping, native shell gating, sanitized posture rendering, command affordances, and product shell selectors.
@@ -600,6 +603,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `studio/runtime-cockpit-lifecycle`
   - `studio/thread-events`
   - `studio/thread-lifecycle`
+  - `studio/runtime-controls`
   - `workbench/shell-header`
   - `workbench/mode-body-renderers`
   - `workbench/model-snapshot`

@@ -89,6 +89,7 @@ const {
   studioRuntimeToolEventExcerpt,
   sanitizeStudioPublicToolText,
 } = require("./studio/runtime-event-utils");
+const { createStudioRuntimeControls } = require("./studio/runtime-controls");
 const { createStudioRuntimeEventSelectors } = require("./studio/runtime-event-selectors");
 const { createStudioThreadEvents } = require("./studio/thread-events");
 const { createStudioThreadLifecycle } = require("./studio/thread-lifecycle");
@@ -784,6 +785,7 @@ const {
 
 let studioThreadEvents;
 let studioThreadLifecycle;
+let studioRuntimeControls;
 
 function collectStudioAgentEventsFromResponse(turn = {}) {
   return studioThreadEvents.collectStudioAgentEventsFromResponse(turn);
@@ -823,6 +825,14 @@ async function ensureStudioDaemonThread(payload = {}, output) {
 
 async function applyStudioPermissionModeSelection(payload = {}, output) {
   return studioThreadLifecycle.applyStudioPermissionModeSelection(payload, output);
+}
+
+async function stopStudioTurn(output) {
+  return studioRuntimeControls.stopStudioTurn(output);
+}
+
+async function resumeStudioTurn(output) {
+  return studioRuntimeControls.resumeStudioTurn(output);
 }
 
 const {
@@ -4428,6 +4438,19 @@ studioThreadLifecycle = createStudioThreadLifecycle({
   workspaceSummary,
 });
 
+studioRuntimeControls = createStudioRuntimeControls({
+  appendStudioReceiptsFromResponse,
+  appendStudioTimeline,
+  buildWorkspaceActionContext,
+  daemonEndpoint,
+  daemonRequestToken,
+  getStudioRuntimeProjection: () => studioRuntimeProjection,
+  recomputeStudioRuntimeCockpitAchieved,
+  refreshStudioPanelHtml,
+  requestJson,
+  writeBridgeRequest,
+});
+
 const studioAgentTurnEvents = createStudioAgentTurnEvents({ fetchStudioThreadEvents, applyStudioAgentTurnEvents, studioMaxRuntimeEventSeq, studioAssistantTextFromRuntimeToolEvents, studioAgentTurnResultText, studioRuntimeEventKind, firstArray });
 
 const {
@@ -5475,106 +5498,6 @@ async function navigateStudioHunk(direction, output) {
   studioRuntimeProjection.runtimeCockpit.hunkNavigationObserved = true;
   recomputeStudioRuntimeCockpitAchieved();
   appendStudioTimeline("Native hunk navigation", direction === "previous" ? "previous change" : "next change", "completed");
-  await refreshStudioPanelHtml(output);
-}
-
-async function stopStudioTurn(output) {
-  studioRuntimeProjection.pending = false;
-  studioRuntimeProjection.status = "interrupted";
-  studioRuntimeProjection.timeline.push({
-    label: "Stop requested",
-    detail: "Operator stop routed from Studio control surface.",
-    status: "blocked",
-  });
-  if (studioRuntimeProjection.threadId && studioRuntimeProjection.turnId) {
-    await requestJson(
-      daemonEndpoint(),
-      `/v1/threads/${encodeURIComponent(studioRuntimeProjection.threadId)}/turns/${encodeURIComponent(studioRuntimeProjection.turnId)}/interrupt`,
-      {
-        method: "POST",
-        token: daemonRequestToken(),
-        payload: {
-          source: "agent_studio",
-          reason: "operator_stop",
-          runtimeControlAction: "stop",
-          runtime_control_action: "stop",
-        },
-      },
-    ).then((result) => {
-      appendStudioReceiptsFromResponse(result, "session_stop", "Daemon stopped Studio thread.");
-      if (result?.runtime_control || result?.runtimeControl) {
-        studioRuntimeProjection.runtimeCockpit.stopControlObserved = true;
-        studioRuntimeProjection.runtimeCockpit.stopResumeObserved =
-          studioRuntimeProjection.runtimeCockpit.resumeControlObserved === true;
-        recomputeStudioRuntimeCockpitAchieved();
-        appendStudioTimeline("Runtime stop control", "Daemon runtime_service control_thread stop acknowledged.", "completed");
-      }
-    }).catch((error) => {
-      output?.appendLine?.(`[ioi-studio] stop projection unavailable: ${error?.message || String(error)}`);
-    });
-  }
-  await writeBridgeRequest(
-    "chat.stop",
-    {
-      threadId: studioRuntimeProjection.threadId,
-      turnId: studioRuntimeProjection.turnId,
-      runtimeAuthority: "daemon-owned",
-      projectionOwner: "ioi-workbench-agent-studio",
-      reason: "operator_stop",
-      ownsRuntimeState: false,
-    },
-    buildWorkspaceActionContext("agent-studio-stop"),
-  ).catch((error) => {
-    output?.appendLine?.(`[ioi-studio] bridge stop route unavailable: ${error?.message || String(error)}`);
-  });
-  await refreshStudioPanelHtml(output);
-}
-
-async function resumeStudioTurn(output) {
-  studioRuntimeProjection.status = "active";
-  recomputeStudioRuntimeCockpitAchieved();
-  appendStudioTimeline("Resume requested", "Operator resume routed to daemon session lifecycle.", "completed");
-  if (studioRuntimeProjection.threadId) {
-    await requestJson(
-      daemonEndpoint(),
-      `/v1/threads/${encodeURIComponent(studioRuntimeProjection.threadId)}/resume`,
-      {
-        method: "POST",
-        token: daemonRequestToken(),
-        payload: {
-          source: "agent_studio",
-          reason: "operator_resume",
-        },
-      },
-    ).then((result) => {
-      appendStudioReceiptsFromResponse(result, "session_resume", "Daemon resumed Studio thread.");
-      if (result?.runtime_control || result?.runtimeControl) {
-        studioRuntimeProjection.runtimeCockpit.resumeControlObserved = true;
-        studioRuntimeProjection.runtimeCockpit.stopResumeObserved =
-          studioRuntimeProjection.runtimeCockpit.stopControlObserved === true;
-        recomputeStudioRuntimeCockpitAchieved();
-        appendStudioTimeline("Runtime resume control", "Daemon runtime_service control_thread resume acknowledged.", "completed");
-      }
-    }).catch((error) => {
-      appendStudioTimeline("Resume projection unavailable", error?.message || String(error), "blocked");
-      output?.appendLine?.(`[ioi-studio] resume projection unavailable: ${error?.message || String(error)}`);
-    });
-  }
-  await writeBridgeRequest(
-    "chat.resume",
-    {
-      threadId: studioRuntimeProjection.threadId,
-      turnId: studioRuntimeProjection.turnId,
-      runtimeAuthority: "daemon-owned",
-      projectionOwner: "ioi-workbench-agent-studio",
-      reason: "operator_resume",
-      ownsRuntimeState: false,
-    },
-    buildWorkspaceActionContext("agent-studio-resume"),
-  ).catch((error) => {
-    output?.appendLine?.(`[ioi-studio] bridge resume route unavailable: ${error?.message || String(error)}`);
-  });
-  studioRuntimeProjection.status = "completed";
   await refreshStudioPanelHtml(output);
 }
 
