@@ -165,6 +165,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Moved Studio pending chat placeholder/worklog rendering out of `extension.js` while preserving elapsed command labels, source-chip rendering, command-output excerpts, and hidden non-pending state.
 - Added focused pending-view tests for hidden state, command pending rows, public detail/excerpt rendering, source-chip escaping, and non-command paragraph excerpts.
 - Removed an unused local `studioIcon` helper from `extension.js`; no call sites or static coverage referenced it.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-cockpit-rows.js`.
+- Moved Studio runtime cockpit row renderers for diff review, tool proposals, policy leases, command output, diagnostics, browser/worker status, and compact actionable prompts out of `extension.js` while preserving data-testids, hunk payload attributes, lease flags, and recent row bounds.
+- Added focused runtime-cockpit row tests for diff controls, policy prompts, command/diagnostics cards, browser/worker cards, and action-card receipts.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
