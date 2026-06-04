@@ -53,11 +53,42 @@ function createStore() {
     },
     readCodingToolArtifact(threadId, artifactId, range) {
       calls.push({ name: "readArtifact", threadId, artifactId, range });
-      return { artifactId };
+      return {
+        schemaVersion: "ioi.runtime.coding-tool-result.v1",
+        artifactId,
+        artifactRef: artifactId,
+        artifactRefs: [artifactId],
+        content: "stored artifact\n",
+        contentHash: "artifact-content-hash",
+        fullContentHash: "artifact-full-hash",
+        offsetBytes: range?.offsetBytes ?? 0,
+        lengthBytes: 16,
+        totalBytes: 16,
+        truncated: false,
+        receiptRefs: ["receipt_artifact_read"],
+        shellFallbackUsed: false,
+      };
     },
     retrieveCodingToolResult(threadId, query) {
       calls.push({ name: "retrieveResult", threadId, query });
-      return { query };
+      return {
+        schemaVersion: "ioi.runtime.coding-tool-result.v1",
+        toolCallId: query.toolCallId ?? "tool_from_artifact",
+        artifactId: query.artifactId ?? "artifact_result",
+        artifactRef: query.artifactId ?? "artifact_result",
+        artifactRefs: [query.artifactId ?? "artifact_result"],
+        channel: query.channel ?? "stdout",
+        content: "stored result\n",
+        contentHash: "result-content-hash",
+        fullContentHash: "result-full-hash",
+        offsetBytes: query.range?.offsetBytes ?? 0,
+        lengthBytes: 14,
+        totalBytes: 14,
+        truncated: false,
+        availableArtifacts: [{ artifactId: query.artifactId ?? "artifact_result", channel: query.channel ?? "stdout" }],
+        receiptRefs: ["receipt_tool_retrieve_result"],
+        shellFallbackUsed: false,
+      };
     },
     materializeCodingToolArtifactDrafts(input) {
       calls.push({ name: "materializeArtifacts", input });
@@ -818,31 +849,185 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 
-test("coding tool invocation surface keeps non-migrated tools blocked in rust workload live mode", () => {
+test("coding tool invocation surface runs artifact.read through rust workload live path", () => {
+  const runnerCalls = [];
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool(input) {
+      runnerCalls.push(input);
+      const artifactResult = input.input.rustWorkloadDataPlane.result;
+      return {
+        backend: "rust_workload_live",
+        mode: "live",
+        blocking: true,
+        source: "rust_workload_command",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://rust-live/artifact.read",
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: "invocation://rust-live/artifact.read",
+          status: "success",
+          execution_result_ref: "result://rust-live/artifact.read",
+          normalized_observation_ref: "observation://rust-live/artifact.read",
+          receipt_refs: ["receipt://rust-live/artifact.read"],
+          artifact_refs: artifactResult.artifactRefs,
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: null,
+          resulting_head: null,
+          workflow_projection: {
+            workflow_graph_id: "graph_alpha",
+            workflow_node_id: "node_artifact",
+            component_kind: "ArtifactReadNode",
+            status: "live",
+            attempt_id: "attempt://rust-live/artifact.read",
+            evidence_refs: ["evidence://rust-live/artifact.read"],
+            receipt_refs: ["receipt://rust-live/artifact.read"],
+          },
+          next: {
+            model_reentry_required: false,
+            verifier_required: false,
+          },
+        },
+        bridge_result: {
+          router_admission: {
+            schema_version: "ioi.step_module_router_admission.v1",
+            backend: "workload_grpc",
+          },
+          shadow_observation: {
+            tool: "artifact.read",
+            result: {
+              ...artifactResult,
+              backend: "rust_artifact_read",
+              dataPlaneSource: "daemon_artifact_store",
+              shellFallbackUsed: false,
+            },
+          },
+        },
+      };
+    },
+  };
   const surface = createSurface({
-    stepModuleRunner: {
-      backend: "rust_workload_live",
-      blocksDaemonJsExecution: true,
-      runCodingTool() {
-        throw new Error("non-migrated tool should not reach StepModule runner");
-      },
+    stepModuleRunner: liveRunner,
+    executeCodingTool() {
+      throw new Error("daemon JS execution must not run");
     },
   });
   const store = createStore();
 
-  assert.throws(
-    () =>
-      surface.invokeThreadTool(store, "thread_alpha", "artifact.read", {
-        toolCallId: "tool_artifact",
-        input: { artifactId: "artifact_alpha" },
-      }),
-    (error) => {
-      assert.equal(error.status, 403);
-      assert.equal(error.code, "policy");
-      assert.equal(error.details.reason, "step_module_rust_workload_not_live");
-      return true;
+  const result = surface.invokeThreadTool(store, "thread_alpha", "artifact.read", {
+    toolCallId: "tool_artifact",
+    workflowGraphId: "graph_alpha",
+    workflowNodeId: "node_artifact",
+    input: { artifactId: "artifact_alpha", offsetBytes: 2, lengthBytes: 8 },
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(runnerCalls.length, 1);
+  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.source, "daemon_artifact_store");
+  assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.result.content, "stored artifact\n");
+  assert.ok(store.calls.some((call) => call.name === "readArtifact"));
+  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.backend, "rust_artifact_read");
+  assert.equal(result.result.artifactId, "artifact_alpha");
+  assert.equal(result.result.dataPlaneSource, "daemon_artifact_store");
+  assert.ok(result.receipt_refs.includes("receipt://rust-live/artifact.read"));
+  assert.ok(result.artifact_refs.includes("artifact_alpha"));
+  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+});
+
+test("coding tool invocation surface runs tool.retrieve_result through rust workload live path", () => {
+  const runnerCalls = [];
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool(input) {
+      runnerCalls.push(input);
+      const retrieveResult = input.input.rustWorkloadDataPlane.result;
+      return {
+        backend: "rust_workload_live",
+        mode: "live",
+        blocking: true,
+        source: "rust_workload_command",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://rust-live/tool.retrieve_result",
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: "invocation://rust-live/tool.retrieve_result",
+          status: "success",
+          execution_result_ref: "result://rust-live/tool.retrieve_result",
+          normalized_observation_ref: "observation://rust-live/tool.retrieve_result",
+          receipt_refs: ["receipt://rust-live/tool.retrieve_result"],
+          artifact_refs: retrieveResult.artifactRefs,
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: null,
+          resulting_head: null,
+          workflow_projection: {
+            workflow_graph_id: "graph_alpha",
+            workflow_node_id: "node_retrieve",
+            component_kind: "ToolRetrieveResultNode",
+            status: "live",
+            attempt_id: "attempt://rust-live/tool.retrieve_result",
+            evidence_refs: ["evidence://rust-live/tool.retrieve_result"],
+            receipt_refs: ["receipt://rust-live/tool.retrieve_result"],
+          },
+          next: {
+            model_reentry_required: false,
+            verifier_required: false,
+          },
+        },
+        bridge_result: {
+          router_admission: {
+            schema_version: "ioi.step_module_router_admission.v1",
+            backend: "workload_grpc",
+          },
+          shadow_observation: {
+            tool: "tool.retrieve_result",
+            result: {
+              ...retrieveResult,
+              backend: "rust_tool_result_retrieve",
+              dataPlaneSource: "daemon_artifact_store",
+              shellFallbackUsed: false,
+            },
+          },
+        },
+      };
     },
-  );
+  };
+  const surface = createSurface({
+    stepModuleRunner: liveRunner,
+    executeCodingTool() {
+      throw new Error("daemon JS execution must not run");
+    },
+  });
+  const store = createStore();
+
+  const result = surface.invokeThreadTool(store, "thread_alpha", "tool.retrieve_result", {
+    toolCallId: "tool_retrieve",
+    workflowGraphId: "graph_alpha",
+    workflowNodeId: "node_retrieve",
+    input: { toolCallId: "tool_patch", channel: "stdout", maxBytes: 32 },
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(runnerCalls.length, 1);
+  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.query.toolCallId, "tool_patch");
+  assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.result.content, "stored result\n");
+  assert.ok(store.calls.some((call) => call.name === "retrieveResult"));
+  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.backend, "rust_tool_result_retrieve");
+  assert.equal(result.result.toolCallId, "tool_patch");
+  assert.equal(result.result.dataPlaneSource, "daemon_artifact_store");
+  assert.ok(result.receipt_refs.includes("receipt://rust-live/tool.retrieve_result"));
+  assert.ok(result.artifact_refs.includes("artifact_result"));
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 

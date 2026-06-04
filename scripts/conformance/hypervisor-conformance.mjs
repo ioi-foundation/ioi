@@ -373,6 +373,9 @@ function runBridge() {
       /typescript\.check/.test(bridgeModule) &&
       /run_typescript_check/.test(bridgeModule) &&
       /local_tsc_executable/.test(bridgeModule) &&
+      /artifact\.read/.test(bridgeModule) &&
+      /tool\.retrieve_result/.test(bridgeModule) &&
+      /normalize_prefetched_artifact_result/.test(bridgeModule) &&
       /ioi\.step_module\.command_bridge\.v1/.test(bridgeModule) &&
       /StepModuleRouterCore/.test(bridgeModule) &&
       /router_admission/.test(bridgeModule) &&
@@ -383,6 +386,9 @@ function runBridge() {
       /file\.apply_patch/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /test\.run/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /lsp\.diagnostics/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
+      /artifact\.read/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
+      /tool\.retrieve_result/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
+      /rustWorkloadDataPlane/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /rust_workload_live/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")),
     [
       "crates/node/src/bin/ioi-step-module-bridge.rs",

@@ -20,6 +20,7 @@ import {
   CODING_TOOL_IDS,
   CODING_TOOL_PACK_ID,
   CODING_TOOL_RESULT_SCHEMA_VERSION,
+  artifactReadRange,
   codingToolContracts,
   codingToolInputForRequest,
   codingToolInputSummary,
@@ -37,6 +38,8 @@ const RUST_WORKLOAD_LIVE_TOOL_IDS = new Set([
   "file.apply_patch",
   "test.run",
   "lsp.diagnostics",
+  "artifact.read",
+  "tool.retrieve_result",
 ]);
 
 export function createRuntimeCodingToolInvocationSurface(deps = {}) {
@@ -236,10 +239,11 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     });
     if (rustLiveCodingTool) {
       try {
+        const rustLiveInput = rustLiveInputForCodingTool(store, threadId, normalizedToolId, input);
         stepModuleProjection = stepModuleRunner.runCodingTool({
           contract: toolContract,
           toolId: normalizedToolId,
-          input,
+          input: rustLiveInput,
           result: {},
           context: stepModuleContext({
             status,
@@ -527,6 +531,82 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
   return {
     invokeThreadTool,
   };
+}
+
+function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
+  if (toolId === "artifact.read") {
+    if (typeof store.readCodingToolArtifact !== "function") {
+      throw toolInputError(
+        "artifact_read_unavailable",
+        "artifact.read requires a daemon artifact store.",
+        { threadId, toolId },
+      );
+    }
+    const artifactId = optionalString(input.artifactId ?? input.artifact_id ?? input.artifactRef ?? input.artifact_ref);
+    if (!artifactId) {
+      throw toolInputError(
+        "artifact_read_id_required",
+        "artifact.read requires artifactId or artifactRef.",
+        { threadId, toolId },
+      );
+    }
+    const range = artifactReadRange(input);
+    return {
+      ...input,
+      rustWorkloadDataPlane: {
+        schemaVersion: "ioi.runtime.coding-tool-data-plane.v1",
+        source: "daemon_artifact_store",
+        operation: toolId,
+        artifactId,
+        artifactRef: artifactId,
+        range,
+        result: store.readCodingToolArtifact(threadId, artifactId, range),
+      },
+    };
+  }
+  if (toolId === "tool.retrieve_result") {
+    if (typeof store.retrieveCodingToolResult !== "function") {
+      throw toolInputError(
+        "tool_retrieve_result_unavailable",
+        "tool.retrieve_result requires a daemon artifact store.",
+        { threadId, toolId },
+      );
+    }
+    const toolCallId = optionalString(input.toolCallId ?? input.tool_call_id);
+    const artifactId = optionalString(input.artifactId ?? input.artifact_id ?? input.artifactRef ?? input.artifact_ref);
+    if (!toolCallId && !artifactId) {
+      throw toolInputError(
+        "tool_retrieve_result_target_required",
+        "tool.retrieve_result requires toolCallId or artifactId.",
+        { threadId, toolId },
+      );
+    }
+    const range = artifactReadRange(input);
+    const query = {
+      toolCallId,
+      artifactId,
+      channel: optionalString(input.channel),
+      range,
+    };
+    return {
+      ...input,
+      rustWorkloadDataPlane: {
+        schemaVersion: "ioi.runtime.coding-tool-data-plane.v1",
+        source: "daemon_artifact_store",
+        operation: toolId,
+        query,
+        result: store.retrieveCodingToolResult(threadId, query),
+      },
+    };
+  }
+  return input;
+}
+
+function toolInputError(code, message, details = {}) {
+  const error = new Error(message);
+  error.code = code;
+  error.details = details;
+  return error;
 }
 
 function codingToolResultForRustLiveStepModule(toolId, stepModuleProjection = {}) {

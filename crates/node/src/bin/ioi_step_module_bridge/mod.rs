@@ -99,6 +99,8 @@ fn run_bridge() -> Result<Value, BridgeError> {
         "file.apply_patch" => file_apply_patch_response(request),
         "test.run" => test_run_response(request),
         "lsp.diagnostics" => lsp_diagnostics_response(request),
+        "artifact.read" => artifact_read_response(request),
+        "tool.retrieve_result" => tool_retrieve_result_response(request),
         other => Err(BridgeError::new(
             "tool_unsupported",
             format!("unsupported StepModule tool {}", other),
@@ -249,6 +251,81 @@ fn lsp_diagnostics_response(request: StepModuleBridgeRequest) -> Result<Value, B
         json!({
             "tool": "lsp.diagnostics",
             "result": diagnostics_result,
+        }),
+    ))
+}
+
+fn artifact_read_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
+    let read_result = normalize_prefetched_artifact_result(
+        "artifact.read",
+        &request.input,
+        "rust_artifact_read",
+    )?;
+    let mut result = successful_step_module_result(&request, "artifact.read", "ArtifactReadNode");
+    result.artifact_refs = json_string_refs(&read_result, &["artifactRefs", "artifact_refs"]);
+    result.receipt_refs = unique_string_refs(
+        result
+            .receipt_refs
+            .into_iter()
+            .chain(json_string_refs(
+                &read_result,
+                &["receiptRefs", "receipt_refs"],
+            ))
+            .collect(),
+    );
+    result.workflow_projection.evidence_refs.push(format!(
+        "evidence://rust-workload/artifact.read/{}",
+        optional_json_string(
+            &read_result,
+            &["artifactId", "artifact_id", "artifactRef", "artifact_ref"]
+        )
+        .map(|value| safe_ref_path(&value))
+        .unwrap_or_else(|| "unknown".to_string())
+    ));
+    Ok(step_module_response(
+        request,
+        result,
+        json!({
+            "tool": "artifact.read",
+            "result": read_result,
+        }),
+    ))
+}
+
+fn tool_retrieve_result_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
+    let retrieve_result = normalize_prefetched_artifact_result(
+        "tool.retrieve_result",
+        &request.input,
+        "rust_tool_result_retrieve",
+    )?;
+    let mut result =
+        successful_step_module_result(&request, "tool.retrieve_result", "ToolRetrieveResultNode");
+    result.artifact_refs = json_string_refs(&retrieve_result, &["artifactRefs", "artifact_refs"]);
+    result.receipt_refs = unique_string_refs(
+        result
+            .receipt_refs
+            .into_iter()
+            .chain(json_string_refs(
+                &retrieve_result,
+                &["receiptRefs", "receipt_refs"],
+            ))
+            .collect(),
+    );
+    result.workflow_projection.evidence_refs.push(format!(
+        "evidence://rust-workload/tool.retrieve_result/{}",
+        optional_json_string(
+            &retrieve_result,
+            &["toolCallId", "tool_call_id", "artifactId", "artifact_id"]
+        )
+        .map(|value| safe_ref_path(&value))
+        .unwrap_or_else(|| "unknown".to_string())
+    ));
+    Ok(step_module_response(
+        request,
+        result,
+        json!({
+            "tool": "tool.retrieve_result",
+            "result": retrieve_result,
         }),
     ))
 }
@@ -406,6 +483,103 @@ fn step_module_response_with_expected_heads(
         "projection_record": projection_record,
         "shadow_observation": shadow_observation,
     })
+}
+
+fn normalize_prefetched_artifact_result(
+    tool_id: &str,
+    input: &Value,
+    backend: &str,
+) -> Result<Value, BridgeError> {
+    let envelope = input
+        .get("rustWorkloadDataPlane")
+        .or_else(|| input.get("rust_workload_data_plane"))
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            BridgeError::new(
+                "data_plane_payload_required",
+                format!("{tool_id} requires a daemon-provided data-plane payload"),
+            )
+        })?;
+    let source = envelope
+        .get("source")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            BridgeError::new(
+                "data_plane_source_required",
+                format!("{tool_id} requires a data-plane source"),
+            )
+        })?;
+    if source != "daemon_artifact_store" {
+        return Err(BridgeError::new(
+            "data_plane_source_unsupported",
+            format!("{tool_id} does not accept data-plane source {source}"),
+        ));
+    }
+    let operation = envelope
+        .get("operation")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            BridgeError::new(
+                "data_plane_operation_required",
+                format!("{tool_id} requires a data-plane operation"),
+            )
+        })?;
+    if operation != tool_id {
+        return Err(BridgeError::new(
+            "data_plane_operation_mismatch",
+            format!("{tool_id} received data-plane operation {operation}"),
+        ));
+    }
+    let mut normalized = envelope.get("result").cloned().ok_or_else(|| {
+        BridgeError::new(
+            "data_plane_result_required",
+            format!("{tool_id} requires a data-plane result"),
+        )
+    })?;
+    let fallback_artifact_ref = optional_json_string(
+        &normalized,
+        &["artifactId", "artifact_id", "artifactRef", "artifact_ref"],
+    );
+    let object = normalized.as_object_mut().ok_or_else(|| {
+        BridgeError::new(
+            "data_plane_result_invalid",
+            format!("{tool_id} data-plane result must be an object"),
+        )
+    })?;
+    let content = object
+        .get("content")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            BridgeError::new(
+                "data_plane_content_required",
+                format!("{tool_id} data-plane result must include content"),
+            )
+        })?
+        .to_string();
+    let content_hash = sha256_hex(content.as_bytes())?;
+    object.insert(
+        "schemaVersion".to_string(),
+        json!(CODING_TOOL_RESULT_SCHEMA_VERSION),
+    );
+    object.insert("backend".to_string(), json!(backend));
+    object.insert("dataPlaneSource".to_string(), json!(source));
+    object.insert("data_plane_source".to_string(), json!(source));
+    object.insert("rustWorkloadDataPlane".to_string(), json!(true));
+    object.insert("rust_workload_data_plane".to_string(), json!(true));
+    object.insert("contentHash".to_string(), json!(content_hash));
+    object.insert("content_hash".to_string(), json!(content_hash));
+    object.insert("shellFallbackUsed".to_string(), json!(false));
+    object.insert("shell_fallback_used".to_string(), json!(false));
+    if !object.contains_key("artifactRefs") && !object.contains_key("artifact_refs") {
+        if let Some(artifact_id) = fallback_artifact_ref {
+            object.insert("artifactRefs".to_string(), json!([artifact_id]));
+        }
+    }
+    Ok(normalized)
 }
 
 fn inspect_test_run(workspace_root: &str, input: &Value) -> Result<Value, BridgeError> {
@@ -1994,6 +2168,33 @@ fn sanitize_string_array(value: Option<&Value>) -> Vec<String> {
         .unwrap_or_default()
 }
 
+fn json_string_refs(value: &Value, keys: &[&str]) -> Vec<String> {
+    for key in keys {
+        let refs = sanitize_string_array(value.get(*key));
+        if !refs.is_empty() {
+            return refs;
+        }
+    }
+    Vec::new()
+}
+
+fn optional_json_string(value: &Value, keys: &[&str]) -> Option<String> {
+    keys.iter()
+        .find_map(|key| value.get(*key).and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn unique_string_refs(values: Vec<String>) -> Vec<String> {
+    values.into_iter().fold(Vec::new(), |mut unique, value| {
+        if !unique.contains(&value) {
+            unique.push(value);
+        }
+        unique
+    })
+}
+
 fn sanitize_test_env(value: Option<&Value>) -> Vec<(String, String)> {
     value
         .and_then(Value::as_object)
@@ -2582,6 +2783,159 @@ mod tests {
         assert_eq!(response["result"]["agentgres_operation_refs"], json!([]));
         assert_eq!(response["agentgres_admission"], Value::Null);
         assert_eq!(response["result"]["state_root_after"], Value::Null);
+    }
+
+    #[test]
+    fn artifact_read_uses_prefetched_data_plane_payload() {
+        let request = bridge_request(
+            "artifact.read",
+            "/tmp",
+            json!({
+                "artifactId": "artifact_alpha",
+                "rustWorkloadDataPlane": {
+                    "schemaVersion": "ioi.runtime.coding-tool-data-plane.v1",
+                    "source": "daemon_artifact_store",
+                    "operation": "artifact.read",
+                    "artifactId": "artifact_alpha",
+                    "result": {
+                        "schemaVersion": "ioi.runtime.coding-tool-result.v1",
+                        "artifactId": "artifact_alpha",
+                        "artifactRef": "artifact_alpha",
+                        "artifactRefs": ["artifact_alpha"],
+                        "content": "hello artifact\n",
+                        "contentHash": "prefetch-hash",
+                        "fullContentHash": "full-hash",
+                        "offsetBytes": 0,
+                        "lengthBytes": 15,
+                        "totalBytes": 15,
+                        "truncated": false,
+                        "receiptRefs": ["receipt_artifact_prefetch"],
+                        "shellFallbackUsed": true
+                    }
+                }
+            }),
+        );
+
+        let response = artifact_read_response(request).expect("artifact read response");
+
+        assert_eq!(
+            response["shadow_observation"]["result"]["backend"],
+            "rust_artifact_read"
+        );
+        assert_eq!(
+            response["shadow_observation"]["result"]["dataPlaneSource"],
+            "daemon_artifact_store"
+        );
+        assert_eq!(
+            response["shadow_observation"]["result"]["shellFallbackUsed"],
+            false
+        );
+        assert_eq!(
+            response["shadow_observation"]["result"]["contentHash"]
+                .as_str()
+                .expect("content hash")
+                .len(),
+            64
+        );
+        assert_ne!(
+            response["shadow_observation"]["result"]["contentHash"],
+            "prefetch-hash"
+        );
+        assert_eq!(
+            response["result"]["artifact_refs"],
+            json!(["artifact_alpha"])
+        );
+        assert!(response["result"]["receipt_refs"]
+            .as_array()
+            .expect("receipt refs")
+            .iter()
+            .any(|value| value == "receipt_artifact_prefetch"));
+        assert_eq!(response["agentgres_admission"], Value::Null);
+        assert_eq!(
+            response["projection_record"]["status"],
+            response["result"]["workflow_projection"]["status"],
+        );
+    }
+
+    #[test]
+    fn tool_retrieve_result_uses_prefetched_data_plane_payload() {
+        let request = bridge_request(
+            "tool.retrieve_result",
+            "/tmp",
+            json!({
+                "toolCallId": "tool_patch",
+                "channel": "stdout",
+                "rustWorkloadDataPlane": {
+                    "schemaVersion": "ioi.runtime.coding-tool-data-plane.v1",
+                    "source": "daemon_artifact_store",
+                    "operation": "tool.retrieve_result",
+                    "query": {
+                        "toolCallId": "tool_patch",
+                        "channel": "stdout"
+                    },
+                    "result": {
+                        "schemaVersion": "ioi.runtime.coding-tool-result.v1",
+                        "toolCallId": "tool_patch",
+                        "artifactId": "artifact_result",
+                        "artifactRef": "artifact_result",
+                        "artifactRefs": ["artifact_result"],
+                        "channel": "stdout",
+                        "content": "stored stdout\n",
+                        "contentHash": "prefetch-hash",
+                        "fullContentHash": "full-hash",
+                        "availableArtifacts": [{
+                            "artifactId": "artifact_result",
+                            "channel": "stdout"
+                        }],
+                        "receiptRefs": ["receipt_tool_result_prefetch"],
+                        "shellFallbackUsed": true
+                    }
+                }
+            }),
+        );
+
+        let response = tool_retrieve_result_response(request).expect("retrieve response");
+
+        assert_eq!(
+            response["shadow_observation"]["result"]["backend"],
+            "rust_tool_result_retrieve"
+        );
+        assert_eq!(
+            response["shadow_observation"]["result"]["toolCallId"],
+            "tool_patch"
+        );
+        assert_eq!(
+            response["shadow_observation"]["result"]["contentHash"]
+                .as_str()
+                .expect("content hash")
+                .len(),
+            64
+        );
+        assert_eq!(
+            response["result"]["artifact_refs"],
+            json!(["artifact_result"])
+        );
+        assert!(response["result"]["receipt_refs"]
+            .as_array()
+            .expect("receipt refs")
+            .iter()
+            .any(|value| value == "receipt_tool_result_prefetch"));
+        assert_eq!(response["agentgres_admission"], Value::Null);
+    }
+
+    #[test]
+    fn artifact_read_requires_prefetched_data_plane_payload() {
+        let request = bridge_request(
+            "artifact.read",
+            "/tmp",
+            json!({
+                "artifactId": "artifact_alpha"
+            }),
+        );
+
+        let error = artifact_read_response(request).expect_err("missing payload should fail");
+
+        assert_eq!(error.code, "data_plane_payload_required");
     }
 
     #[test]

@@ -1810,7 +1810,7 @@ function toolRetrieveResultTool(input = {}, context = {}) {
   });
 }
 
-function artifactReadRange(input = {}) {
+export function artifactReadRange(input = {}) {
   return {
     offsetBytes: boundedInteger(input.offsetBytes ?? input.offset_bytes, 0, 0, Number.MAX_SAFE_INTEGER),
     lengthBytes: boundedInteger(
