@@ -215,6 +215,54 @@ ImplementationSlice:
     push: required after verification
 ```
 
+## Implementation Slice 4
+
+```yaml
+ImplementationSlice:
+  objective: introduce the Rust StepModule receipt binder and include its
+    binding in the workspace.status Rust shadow bridge response
+  owner_boundary:
+    route_or_surface: StepModuleResult receipt/ref/state-root binding primitive
+    authority_gate: unchanged; existing daemon gates still precede the bridge
+    execution_backend: Rust command bridge shadow path
+    truth_path: receipt binding exists; Agentgres admission is still not promoted
+      as live accepted truth in this slice
+    projection_path: unchanged shadow StepModuleResult.workflow_projection
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    daemon: []
+    rust_core:
+      - crates/services/src/agentic/runtime/kernel/receipt_binder.rs
+      - crates/services/src/agentic/runtime/kernel/mod.rs
+      - crates/node/src/bin/ioi-step-module-bridge.rs
+    ide: []
+    tests:
+      - Rust unit tests in crates/services/src/agentic/runtime/kernel/receipt_binder.rs
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - no bypass of daemon execution ownership
+    - no bypass of wallet.network authority where applicable
+    - no accepted transition without receipt/ref/state-root binding
+    - no cTEE plaintext-custody regression
+  verification:
+    commands:
+      - cargo test -p ioi-services receipt_binder
+      - cargo check -p ioi-node --bin ioi-step-module-bridge
+      - npm run hypervisor-conformance:receipts
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: false
+    compatibility_shims_remaining:
+      - JS receipt/event emission remains live until Agentgres admission and
+        facade-retirement slices migrate accepted truth paths
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -224,7 +272,7 @@ ImplementationSlice:
 | `runtime-events-replay-trace` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | JS daemon envelope/projection code | Rust core `projection` plus Agentgres projection watermarks | replayable projection over admitted operations and receipts | `receipts`, `compositor` | JS projection source | Rust emits canonical projection records consumed by IDE/CLI/SDK. |
 | `model-mounting` | `packages/runtime-daemon/src/model-mounting/*` | JS daemon model-mounting store and route policy | Rust core `model_mount` | model invocation receipts, route/custody refs, Agentgres operation | `bridge`, `receipts`, `ctee` | live product daemon state | Rust records route decisions and receipts; JS surfaces are non-authoritative clients. |
 | `agentgres-admission` | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs`, `.ioi/agentgres` local state, `docs/architecture/components/agentgres/*` | daemon-local operation-like records plus target canon | Rust core `agentgres_admission` | expected heads, state-root validation, accepted operation admission | `receipts`, `negative` | partial target, split truth risk | no JS path can append accepted operations directly or mutate durable truth without expected heads/state-root binding. |
-| `receipt-binding` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/ipc/proto/public/v1/public.proto` | JS receipts plus Rust/workload receipts | Rust core `receipt_binder` | one binder for invocation, result, artifact refs, payload refs, and state roots | `receipts`, `negative` | duplicate receipt shapes | every meaningful route family emits receipts through one Rust binder. |
+| `receipt-binding` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/ipc/proto/public/v1/public.proto`, `crates/services/src/agentic/runtime/kernel/receipt_binder.rs` | JS receipts plus Rust/workload receipts; Rust binder primitive exists | Rust core `receipt_binder` | one binder for invocation, result, artifact refs, payload refs, and state roots | `receipts`, `negative` | binder primitive implemented for StepModuleResult; JS receipts still live | every meaningful route family emits receipts through one Rust binder. |
 | `ctee-private-workspace` | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md` | canon plus partial product routing | Rust core `ctee` | custody proof, leakage profile, declassification receipt, plaintext-free mount failure | `ctee`, `negative` | planned runtime path | untrusted node plaintext mount fails closed; declassification and private operator paths are receipt-bound. |
 | `workload-client-wasm` | `crates/client/src/workload_client/mod.rs`, `crates/vm/wasm/src/lib.rs`, `crates/validator/src/standard/workload/*` | Rust workload/kernel substrate exists below daemon | Rust core `workload_client` plus WASM/service backend | StepModuleResult with workload receipt and state-root binding | `bridge`, `receipts` | substrate exists, not default daemon backend | daemon routes admitted work through StepModuleRunner into Rust/WASM or workload backend. |
 | `workflow-compositor` | `packages/agent-ide/src/runtime/*`, `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | IDE/daemon projection shaping | Rust core `projection` consumed by IDE/CLI/SDK | projection checkpoints rebuilt from Agentgres admitted truth | `compositor`, `negative` | rich projection, not final truth source | compositor cannot create accepted truth directly and only renders/replays canonical projections. |
@@ -263,14 +311,14 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 3:
+Current expected behavior after Slice 4:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
 | `hypervisor-conformance:abi` | pass | Step/Module schemas and current coding-tool projection wrappers exist. |
 | `hypervisor-conformance:bridge` | pass | daemon StepModuleRunner boundary and fail-closed Rust workload runner selection exist. |
-| `hypervisor-conformance:receipts` | fail closed | one Rust receipt/state-root binder is not yet authoritative. |
+| `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists and the Rust shadow bridge emits a receipt binding. |
 | `hypervisor-conformance:ctee` | fail closed | cTEE private workspace module path and plaintext-failure tests are not yet implemented. |
 | `hypervisor-conformance:compositor` | fail closed | IDE/CLI/SDK are not yet backed by Rust projection records. |
 | `hypervisor-conformance:negative` | fail closed | forbidden-path fixtures are not yet implemented. |

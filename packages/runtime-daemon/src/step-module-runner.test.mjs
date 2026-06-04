@@ -102,6 +102,10 @@ test("rust workload command bridge sends StepModuleInvocation request", () => {
           ok: true,
           result: {
             source: "rust_workload_command",
+            receipt_binding: {
+              schema_version: "ioi.step_module_receipt_binding.v1",
+              binding_hash: "sha256:test",
+            },
             result: null,
           },
         }),
@@ -109,7 +113,7 @@ test("rust workload command bridge sends StepModuleInvocation request", () => {
       };
     },
   });
-  runner.runCodingTool({
+  const projection = runner.runCodingTool({
     contract: workspaceStatusContract,
     toolId: "workspace.status",
     input: { includeIgnored: true },
@@ -121,6 +125,10 @@ test("rust workload command bridge sends StepModuleInvocation request", () => {
   assert.equal(calls[0].request.operation, "run_coding_tool_step_module");
   assert.equal(calls[0].request.invocation.schema_version, "ioi.step_module_invocation.v1");
   assert.equal(calls[0].request.invocation.execution.backend, "workload_grpc");
+  assert.equal(
+    projection.bridge_result.receipt_binding.schema_version,
+    "ioi.step_module_receipt_binding.v1",
+  );
 });
 
 test("gated/live Rust workload runner blocks daemon-js execution until implemented", () => {

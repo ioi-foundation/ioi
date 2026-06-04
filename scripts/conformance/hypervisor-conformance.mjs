@@ -359,8 +359,15 @@ function runReceipts() {
   assertCheck(
     result,
     "receipt-binder-core",
-    codeCorpusContains(/ReceiptBinder|receipt_binder/),
-    ["crates/services/src/agentic/runtime", "packages/runtime-daemon/src/runtime-event-envelopes.mjs"],
+    exists("crates/services/src/agentic/runtime/kernel/receipt_binder.rs") &&
+      /STEP_MODULE_RECEIPT_BINDING_SCHEMA_VERSION/.test(
+        read("crates/services/src/agentic/runtime/kernel/receipt_binder.rs"),
+      ) &&
+      /receipt_binding/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")),
+    [
+      "crates/services/src/agentic/runtime/kernel/receipt_binder.rs",
+      "crates/node/src/bin/ioi-step-module-bridge.rs",
+    ],
     "Phase 4 is pending: one Rust receipt/state-root binder must own accepted result binding",
   );
   assertCheck(

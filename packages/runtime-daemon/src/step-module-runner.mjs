@@ -216,6 +216,7 @@ export class StepModuleRunnerError extends Error {
 function normalizeBridgeResult(value, defaults = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   return {
+    ...result,
     source: result.source ?? defaults.source ?? "rust_workload",
     invocation: result.invocation ?? defaults.invocation ?? null,
     result: result.result ?? null,

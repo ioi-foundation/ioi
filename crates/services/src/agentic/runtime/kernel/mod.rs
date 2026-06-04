@@ -16,6 +16,7 @@ pub mod plan;
 pub mod policy;
 pub mod profile;
 pub mod projection;
+pub mod receipt_binder;
 pub mod scope;
 pub mod settlement;
 pub mod step_module;
@@ -28,6 +29,7 @@ use invocation::ToolInvocationEnvelope;
 use marketplace::{MarketplaceAdmissionError, MarketplaceServiceContract};
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
+use receipt_binder::{ReceiptBinder, ReceiptBindingError, StepModuleReceiptBinding};
 use settlement::{ArtifactPromotionReceipt, PromotionValidationError, SettlementReceiptBundleV2};
 use step_module::{StepModuleInvocation, StepModuleResult, StepModuleValidationError};
 
@@ -98,6 +100,15 @@ impl RuntimeKernelService {
         result: &StepModuleResult,
     ) -> Result<(), Vec<StepModuleValidationError>> {
         result.validate()
+    }
+
+    pub fn bind_step_module_result(
+        &self,
+        invocation: &StepModuleInvocation,
+        result: &StepModuleResult,
+        expected_heads: Vec<String>,
+    ) -> Result<StepModuleReceiptBinding, ReceiptBindingError> {
+        ReceiptBinder.bind_step_module_result(invocation, result, expected_heads)
     }
 
     pub fn validate_receipt_manifest(
