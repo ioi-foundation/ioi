@@ -354,6 +354,7 @@ const {
   promptRequiresRetrieval,
   promptRequiresWorkspaceContext,
   promptTargetsLocalWorkspace,
+  workspaceTargetsForPrompt,
 } = createStudioPromptPolicy({
   normalizeStudioExecutionMode,
   stringValue,
@@ -369,42 +370,6 @@ const {
   compactStudioWhitespace,
   studioTextIndicatesApprovalPause: (...args) => studioTextIndicatesApprovalPause(...args),
 });
-
-function workspaceTargetsForPrompt(prompt = "") {
-  const raw = compactText(prompt);
-  const targets = [];
-  const pathPattern = /(?:^|\s|["'`])((?:\.\/|\.\.\/|\/)?(?:\.internal|apps|crates|docs|examples|ide|packages|scripts|src|tests?)\/[^\s"'`),;:]+)(?=$|\s|["'`),;:])/gi;
-  for (const match of raw.matchAll(pathPattern)) {
-    const path = compactText(match?.[1] || "").replace(/[.!?]+$/g, "");
-    if (path && !targets.some((target) => target.kind === "path" && target.path === path)) {
-      targets.push({ kind: "path", path, reason: "explicit_workspace_path" });
-    }
-  }
-  if (targets.length > 0) {
-    return targets;
-  }
-  const stopWords = new Set([
-    "about", "and", "are", "between", "codebase", "does", "explain", "find", "first",
-    "from", "how", "inspect", "into", "look", "or", "per", "project", "read",
-    "repo", "repository", "search", "should", "summarize", "the", "this", "what", "where", "which",
-    "workspace",
-  ]);
-  const seenTerms = new Set();
-  const terms = raw
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, " ")
-    .split(/\s+/)
-    .map((term) => term.replace(/^[-./_]+|[-./_]+$/g, ""))
-    .filter((term) => term.length >= 3 && !stopWords.has(term))
-    .filter((term) => {
-      if (seenTerms.has(term)) return false;
-      seenTerms.add(term);
-      return true;
-    })
-    .slice(0, 8);
-  const query = terms.length > 0 ? terms.join(" ") : raw.slice(0, 120);
-  return query ? [{ kind: "search", query, reason: "workspace_context_query" }] : [];
-}
 
 const {
   studioRuntimeEventTurnId,

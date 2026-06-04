@@ -52,3 +52,23 @@ test("prompt policy keeps internal harness probes out of retrieval and workspace
     assert.equal(policy.promptRequiresWorkspaceContext(prompt, "agent"), false);
   }
 });
+
+test("prompt policy extracts workspace targets from prompts", () => {
+  const policy = createPolicy();
+
+  assert.deepEqual(
+    policy.workspaceTargetsForPrompt("review apps/autopilot/openvscode-extension and apps/autopilot/openvscode-extension."),
+    [{ kind: "path", path: "apps/autopilot/openvscode-extension", reason: "explicit_workspace_path" }],
+  );
+  assert.deepEqual(
+    policy.workspaceTargetsForPrompt("inspect packages/runtime-daemon/src/index.mjs, then summarize docs/architecture/runtime.md"),
+    [
+      { kind: "path", path: "packages/runtime-daemon/src/index.mjs", reason: "explicit_workspace_path" },
+      { kind: "path", path: "docs/architecture/runtime.md", reason: "explicit_workspace_path" },
+    ],
+  );
+  assert.deepEqual(
+    policy.workspaceTargetsForPrompt("explain retry limit behavior in the current workspace"),
+    [{ kind: "search", query: "retry limit behavior current", reason: "workspace_context_query" }],
+  );
+});
