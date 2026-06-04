@@ -46,6 +46,43 @@ test("receipt operations create lifecycle receipt envelopes through the state de
   });
 });
 
+test("model instance lifecycle receipts require Rust binding for migrated local providers", () => {
+  const created = [];
+  const state = {
+    providers: new Map([["provider.local", { id: "provider.local", kind: "ioi_native_local" }]]),
+    receipt(kind, payload) {
+      const record = { kind, ...payload };
+      created.push(record);
+      return record;
+    },
+  };
+
+  assert.throws(
+    () => lifecycleReceipt(state, "model_load", {
+      instanceId: "instance.local",
+      modelId: "model.local",
+      providerId: "provider.local",
+    }),
+    (error) =>
+      error.code === "model_mount_instance_lifecycle_receipt_direct_write_forbidden" &&
+      error.details.missing.includes("instance.local:modelMountInstanceLifecycleHash"),
+  );
+
+  const record = lifecycleReceipt(state, "model_load", {
+    instanceId: "instance.local",
+    modelId: "model.local",
+    providerId: "provider.local",
+    providerLifecycleHash: "sha256:provider-lifecycle",
+    modelMountInstanceLifecycleAction: "load",
+    modelMountInstanceLifecycleStatus: "loaded",
+    modelMountInstanceLifecycleHash: "sha256:instance-lifecycle",
+    modelMountInstanceLifecycleEvidenceRefs: ["rust_model_mount_instance_lifecycle"],
+  });
+
+  assert.equal(record.kind, "model_lifecycle");
+  assert.equal(created.length, 1);
+});
+
 test("receipt operations write redacted receipts and refresh projection", () => {
   const writes = [];
   const state = {

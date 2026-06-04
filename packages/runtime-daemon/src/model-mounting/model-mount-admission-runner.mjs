@@ -352,6 +352,7 @@ function normalizeInstanceLifecycleBridgeResult(value = {}) {
     source: result.source ?? "rust_model_mount_instance_lifecycle_command",
     backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
     result: record,
+    action: result.action ?? record.action ?? null,
     status: result.status ?? record.status ?? null,
     backendId: result.backendId ?? result.backend_id ?? record.backend_id ?? null,
     driver: result.driver ?? record.driver ?? null,

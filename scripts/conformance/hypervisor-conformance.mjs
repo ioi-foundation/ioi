@@ -653,28 +653,42 @@ function runBridge() {
       /RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND/.test(modelMountAdmissionRunner) &&
       /planModelMountInstanceLifecycle/.test(modelMountingState) &&
       /planModelMountInstanceLifecycleForMigratedProvider/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
       /state\.planModelMountInstanceLifecycle/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
       /model_mount_instance_lifecycle_planning_required/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
       /modelMountInstanceLifecycleHash/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+      ) &&
+      /modelMountInstanceLifecycleAction/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+      ) &&
+      /action: "evict"/.test(read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")) &&
+      /action: "supersede"/.test(read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")) &&
+      /idle TTL eviction plans Rust lifecycle/.test(
+        read("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs"),
+      ) &&
+      /explicit supersede plans Rust lifecycle/.test(
+        read("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs"),
       ) &&
       /fails closed for migrated local provider without Rust instance lifecycle plan/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
       ),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs",
+      "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
+      "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/10 is pending: migrated local provider model load/unload instance transitions must be planned and hash-bound by Rust model_mount before JS writes model-instance state",
+    "Phase 9/10 is pending: migrated local provider model load/unload/evict/supersede instance transitions must be planned and hash-bound by Rust model_mount before JS writes model-instance state",
   );
   assertCheck(
     result,
@@ -1067,6 +1081,15 @@ function runReceipts() {
       /InstanceLifecycleStatusMismatch/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
+      /"evict" if self\.target_status\.trim\(\) == "evicted"/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /"supersede" if self\.target_status\.trim\(\) == "superseded"/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /model_instance_eviction_and_supersede_lifecycle_are_planned/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
       /plan_instance_lifecycle/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
       /rust_model_mount_instance_lifecycle/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
@@ -1081,7 +1104,7 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
-    "Phase 9/10 is pending: Rust model_mount core must own migrated local provider model-instance load/unload transition backend, evidence, provider lifecycle hash binding, and transition hash planning",
+    "Phase 9/10 is pending: Rust model_mount core must own migrated local provider model-instance load/unload/evict/supersede transition backend, evidence, provider lifecycle hash binding, and transition hash planning",
   );
   assertCheck(
     result,
@@ -1092,17 +1115,46 @@ function runReceipts() {
       /model_mount_instance_map_direct_write_forbidden/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&
-      /rust_model_mount_instance_lifecycle/.test(
-        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      /RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+      ) &&
+      /modelMountInstanceLifecycleAction/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+      ) &&
+      /modelMountInstanceLifecycleStatus/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
       /model instance map writes require Rust lifecycle binding/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /reject lifecycle action\/status drift/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ),
     [
+      "packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
     ],
     "Phase 9/10 is pending: direct JS model-instance map persistence for migrated local providers must fail closed without Rust model_mount instance lifecycle binding",
+  );
+  assertCheck(
+    result,
+    "model-mount-instance-lifecycle-receipt-direct-write-guard",
+    /assertModelInstanceLifecycleReceiptRustBound/.test(
+      read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
+    ) &&
+      /model_mount_instance_lifecycle_receipt_direct_write_forbidden/.test(
+        read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
+      ) &&
+      /model_supersede/.test(read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")) &&
+      /model instance lifecycle receipts require Rust binding/.test(
+        read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/receipt-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
+    ],
+    "Phase 9/10 is pending: direct JS model-instance lifecycle receipt persistence for migrated local providers must fail closed without Rust model_mount instance lifecycle binding",
   );
   assertCheck(
     result,

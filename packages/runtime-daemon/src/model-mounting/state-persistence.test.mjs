@@ -131,6 +131,8 @@ test("model instance map writes allow Rust-bound local and non-migrated provider
       providerId: "provider.local",
       status: "loaded",
       providerLifecycleHash: "sha256:provider-lifecycle",
+      modelMountInstanceLifecycleAction: "load",
+      modelMountInstanceLifecycleStatus: "loaded",
       modelMountInstanceLifecycleHash: "sha256:instance-lifecycle",
       modelMountInstanceLifecycleEvidenceRefs: ["rust_model_mount_instance_lifecycle"],
     }],
@@ -144,4 +146,29 @@ test("model instance map writes allow Rust-bound local and non-migrated provider
   writeModelMountingMap(state, "model-instances", map);
 
   assert.deepEqual(state.writes, [["model-instances", ["instance.local", "instance.remote"]]]);
+});
+
+test("model instance map writes reject lifecycle action/status drift for migrated local providers", () => {
+  const state = fakeState();
+  state.providers.set("provider.local", { id: "provider.local", kind: "ioi_native_local" });
+  const map = new Map([
+    ["instance.local", {
+      id: "instance.local",
+      providerId: "provider.local",
+      status: "evicted",
+      providerLifecycleHash: "sha256:provider-lifecycle",
+      modelMountInstanceLifecycleAction: "load",
+      modelMountInstanceLifecycleStatus: "loaded",
+      modelMountInstanceLifecycleHash: "sha256:instance-lifecycle",
+      modelMountInstanceLifecycleEvidenceRefs: ["rust_model_mount_instance_lifecycle"],
+    }],
+  ]);
+
+  assert.throws(
+    () => writeModelMountingMap(state, "model-instances", map),
+    (error) =>
+      error.code === "model_mount_instance_map_direct_write_forbidden" &&
+      error.details.mismatches.includes("instance.local:modelMountInstanceLifecycleAction") &&
+      error.details.mismatches.includes("instance.local:modelMountInstanceLifecycleStatus"),
+  );
 });

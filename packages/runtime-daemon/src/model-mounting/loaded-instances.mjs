@@ -1,3 +1,9 @@
+import {
+  modelMountInstanceLifecycleFields,
+  modelMountInstanceLifecycleRequiresRust,
+  planModelMountInstanceLifecycleForMigratedProvider,
+} from "./model-instance-lifecycle.mjs";
+
 export function loadedInstanceForEndpoint(state, endpointId, failIfMissing = true, deps = {}) {
   const { notFound } = deps;
   const instance = [...state.instances.values()].find(
@@ -16,11 +22,17 @@ export function evictExpiredInstances(state) {
     if (instance.status !== "loaded" || !instance.expiresAt || Date.parse(instance.expiresAt) > nowMs) {
       continue;
     }
+    const instanceLifecycle = planStateInstanceLifecycle(state, instance, {
+      action: "evict",
+      targetStatus: "evicted",
+      evidenceRefs: ["model_idle_evict"],
+    });
     const evicted = {
       ...instance,
       status: "evicted",
       evictedAt: state.nowIso(),
       evictionReason: "idle_ttl",
+      ...modelMountInstanceLifecycleFields(instanceLifecycle),
     };
     state.instances.set(instance.id, evicted);
     changed = true;
@@ -29,6 +41,7 @@ export function evictExpiredInstances(state) {
       endpointId: instance.endpointId,
       modelId: instance.modelId,
       providerId: instance.providerId,
+      ...lifecycleReceiptFields(evicted, instanceLifecycle),
     });
   }
   if (changed) {
@@ -50,12 +63,27 @@ export function coalesceLoadedInstances(state) {
     if (instance.status !== "loaded" || !instance.endpointId) continue;
     const keeper = loadedByEndpoint.get(instance.endpointId);
     if (!keeper || keeper.id === instance.id) continue;
-    state.instances.set(instance.id, {
+    const instanceLifecycle = planStateInstanceLifecycle(state, instance, {
+      action: "supersede",
+      targetStatus: "superseded",
+      evidenceRefs: ["model_supersede", keeper.id],
+    });
+    const superseded = {
       ...instance,
       status: "superseded",
       supersededAt: state.nowIso(),
       supersededBy: keeper.id,
       supersededReason: "endpoint_reload",
+      ...modelMountInstanceLifecycleFields(instanceLifecycle),
+    };
+    state.instances.set(instance.id, superseded);
+    state.lifecycleReceipt("model_supersede", {
+      instanceId: instance.id,
+      endpointId: instance.endpointId,
+      modelId: instance.modelId,
+      providerId: instance.providerId,
+      supersededBy: keeper.id,
+      ...lifecycleReceiptFields(superseded, instanceLifecycle),
     });
     changed = true;
   }
@@ -68,14 +96,81 @@ export function supersedeLoadedInstances(state, endpointId, keepInstanceId) {
   let changed = false;
   for (const instance of state.instances.values()) {
     if (instance.id === keepInstanceId || instance.endpointId !== endpointId || instance.status !== "loaded") continue;
-    state.instances.set(instance.id, {
+    const instanceLifecycle = planStateInstanceLifecycle(state, instance, {
+      action: "supersede",
+      targetStatus: "superseded",
+      evidenceRefs: ["model_supersede", keepInstanceId],
+    });
+    const superseded = {
       ...instance,
       status: "superseded",
       supersededAt: state.nowIso(),
       supersededBy: keepInstanceId,
       supersededReason: "endpoint_reload",
+      ...modelMountInstanceLifecycleFields(instanceLifecycle),
+    };
+    state.instances.set(instance.id, superseded);
+    state.lifecycleReceipt("model_supersede", {
+      instanceId: instance.id,
+      endpointId: instance.endpointId,
+      modelId: instance.modelId,
+      providerId: instance.providerId,
+      supersededBy: keepInstanceId,
+      ...lifecycleReceiptFields(superseded, instanceLifecycle),
     });
     changed = true;
   }
   return changed;
+}
+
+function planStateInstanceLifecycle(state, instance, { action, targetStatus, evidenceRefs = [] }) {
+  const provider = providerForInstance(state, instance);
+  if (!modelMountInstanceLifecycleRequiresRust(provider)) return null;
+  const endpoint = endpointForInstance(state, instance);
+  return planModelMountInstanceLifecycleForMigratedProvider({
+    state,
+    action,
+    targetStatus,
+    instanceId: instance.id,
+    endpoint,
+    provider,
+    backendId: instance.backendId ?? endpoint.backendId ?? null,
+    driver: instance.driver ?? provider.driver ?? "fixture",
+    providerLifecycleHash: instance.providerLifecycleHash,
+    evidenceRefs: [
+      ...(Array.isArray(instance.providerEvidenceRefs) ? instance.providerEvidenceRefs : []),
+      ...(Array.isArray(instance.modelMountInstanceLifecycleEvidenceRefs)
+        ? instance.modelMountInstanceLifecycleEvidenceRefs
+        : []),
+      ...evidenceRefs,
+    ],
+  });
+}
+
+function providerForInstance(state, instance) {
+  const provider = state.providers?.get?.(instance.providerId);
+  if (provider) return provider;
+  if (typeof state.provider === "function" && instance.providerId) {
+    return state.provider(instance.providerId);
+  }
+  return null;
+}
+
+function endpointForInstance(state, instance) {
+  if (typeof state.endpoint === "function" && instance.endpointId) {
+    return state.endpoint(instance.endpointId);
+  }
+  return {
+    id: instance.endpointId,
+    modelId: instance.modelId,
+    backendId: instance.backendId ?? null,
+  };
+}
+
+function lifecycleReceiptFields(instance, instanceLifecycle) {
+  if (!instanceLifecycle) return {};
+  return {
+    providerLifecycleHash: instance.providerLifecycleHash ?? null,
+    ...modelMountInstanceLifecycleFields(instanceLifecycle),
+  };
 }

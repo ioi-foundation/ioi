@@ -1,5 +1,10 @@
 import path from "node:path";
 
+import {
+  modelMountInstanceLifecycleBindingIssues,
+  modelMountInstanceLifecycleRequiresRust,
+} from "./model-instance-lifecycle.mjs";
+
 export const MODEL_MOUNTING_STATE_MAPS = [
   ["model-providers", "providers"],
   ["model-backends", "backends"],
@@ -60,34 +65,22 @@ export function writeModelMountingVaultRefs(state) {
 function assertModelInstanceMapRustBound(state, dir, map) {
   if (dir !== "model-instances") return;
   const missing = [];
+  const mismatches = [];
   for (const instance of map.values()) {
-    if (!requiresRustInstanceLifecycleBinding(state, instance)) continue;
-    const evidenceRefs = Array.isArray(instance.modelMountInstanceLifecycleEvidenceRefs)
-      ? instance.modelMountInstanceLifecycleEvidenceRefs
-      : [];
-    if (!instance.providerLifecycleHash) {
-      missing.push(`${instance.id}:providerLifecycleHash`);
-    }
-    if (!instance.modelMountInstanceLifecycleHash) {
-      missing.push(`${instance.id}:modelMountInstanceLifecycleHash`);
-    }
-    if (!evidenceRefs.includes("rust_model_mount_instance_lifecycle")) {
-      missing.push(`${instance.id}:modelMountInstanceLifecycleEvidenceRefs`);
-    }
+    const provider = state.providers?.get?.(instance.providerId);
+    if (!modelMountInstanceLifecycleRequiresRust(provider)) continue;
+    const issues = modelMountInstanceLifecycleBindingIssues(instance, {
+      prefix: instance.id,
+      status: instance.status,
+    });
+    missing.push(...issues.missing);
+    mismatches.push(...issues.mismatches);
   }
-  if (missing.length > 0) {
+  if (missing.length > 0 || mismatches.length > 0) {
     const error = new Error("Model instance writes for migrated local providers require Rust model_mount lifecycle bindings.");
     error.status = 500;
     error.code = "model_mount_instance_map_direct_write_forbidden";
-    error.details = { missing };
+    error.details = { missing, mismatches };
     throw error;
   }
-}
-
-function requiresRustInstanceLifecycleBinding(state, instance) {
-  if (!["loaded", "unloaded", "evicted", "superseded"].includes(instance?.status)) {
-    return false;
-  }
-  const provider = state.providers?.get?.(instance.providerId);
-  return provider?.kind === "ioi_native_local" || provider?.kind === "local_folder";
 }

@@ -87,6 +87,7 @@ function fakeState() {
     planModelMountInstanceLifecycle(request) {
       this.transitionRequests.push(request);
       return {
+        action: request.action,
         status: request.target_status,
         backendId: request.backend_ref,
         driver: request.driver,
@@ -215,6 +216,8 @@ test("loadModel persists loaded instance, supersedes previous instances, and rec
   assert.equal(instance.backendProcessId, "process.1");
   assert.deepEqual(instance.providerEvidenceRefs, ["driver.load"]);
   assert.equal(instance.providerLifecycleHash, "sha256:provider-load");
+  assert.equal(instance.modelMountInstanceLifecycleAction, "load");
+  assert.equal(instance.modelMountInstanceLifecycleStatus, "loaded");
   assert.equal(instance.modelMountInstanceLifecycleHash, "sha256:load:instance.explicit");
   assert.ok(instance.modelMountInstanceLifecycleEvidenceRefs.includes("rust_model_mount_instance_lifecycle"));
   assert.equal(state.instances.get(instance.id), instance);
@@ -223,6 +226,8 @@ test("loadModel persists loaded instance, supersedes previous instances, and rec
   assert.equal(state.receipts.at(-1).kind, "model_load");
   assert.equal(state.receipts.at(-1).details.commandArgsHash, "args.hash");
   assert.equal(state.receipts.at(-1).details.providerLifecycleHash, "sha256:provider-load");
+  assert.equal(state.receipts.at(-1).details.modelMountInstanceLifecycleAction, "load");
+  assert.equal(state.receipts.at(-1).details.modelMountInstanceLifecycleStatus, "loaded");
   assert.equal(state.receipts.at(-1).details.modelMountInstanceLifecycleHash, "sha256:load:instance.explicit");
   assert.equal(state.transitionRequests.at(-1).action, "load");
   assert.equal(state.transitionRequests.at(-1).provider_lifecycle_hash, "sha256:provider-load");
@@ -264,12 +269,16 @@ test("unloadModel updates loaded instance and records provider evidence", async 
   assert.equal(result.unloadedAt, state.now);
   assert.deepEqual(result.providerEvidenceRefs, ["driver.unload"]);
   assert.equal(result.providerLifecycleHash, "sha256:provider-unload");
+  assert.equal(result.modelMountInstanceLifecycleAction, "unload");
+  assert.equal(result.modelMountInstanceLifecycleStatus, "unloaded");
   assert.equal(result.modelMountInstanceLifecycleHash, "sha256:unload:instance.loaded");
   assert.equal(state.instances.get("instance.loaded"), result);
   assert.equal(state.writes.at(-1)[0], "model-instances");
   assert.equal(state.receipts.at(-1).kind, "model_unload");
   assert.equal(state.receipts.at(-1).details.backendProcess.id, "process.1");
   assert.equal(state.receipts.at(-1).details.providerLifecycleHash, "sha256:provider-unload");
+  assert.equal(state.receipts.at(-1).details.modelMountInstanceLifecycleAction, "unload");
+  assert.equal(state.receipts.at(-1).details.modelMountInstanceLifecycleStatus, "unloaded");
   assert.equal(state.receipts.at(-1).details.modelMountInstanceLifecycleHash, "sha256:unload:instance.loaded");
   assert.equal(state.transitionRequests.at(-1).action, "unload");
 });

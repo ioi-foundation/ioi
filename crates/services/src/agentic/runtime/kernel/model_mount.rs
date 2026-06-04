@@ -1230,7 +1230,11 @@ impl ModelMountInstanceLifecycleRequest {
         match self.action.trim() {
             "load" if self.target_status.trim() == "loaded" => Ok(()),
             "unload" if self.target_status.trim() == "unloaded" => Ok(()),
-            "load" | "unload" => Err(ModelMountError::InstanceLifecycleStatusMismatch),
+            "evict" if self.target_status.trim() == "evicted" => Ok(()),
+            "supersede" if self.target_status.trim() == "superseded" => Ok(()),
+            "load" | "unload" | "evict" | "supersede" => {
+                Err(ModelMountError::InstanceLifecycleStatusMismatch)
+            }
             _ => Err(ModelMountError::UnsupportedInstanceLifecycleAction),
         }
     }
@@ -2778,6 +2782,39 @@ mod tests {
     }
 
     #[test]
+    fn model_instance_eviction_and_supersede_lifecycle_are_planned_in_rust_model_mount() {
+        let mut request = instance_lifecycle_request();
+        request.action = "evict".to_string();
+        request.target_status = "evicted".to_string();
+        request.evidence_refs = vec!["model_idle_evict".to_string()];
+
+        let result = ModelMountCore
+            .plan_instance_lifecycle(&request)
+            .expect("model instance eviction lifecycle planned in Rust");
+
+        assert_eq!(result.action, "evict");
+        assert_eq!(result.status, "evicted");
+        assert!(result
+            .evidence_refs
+            .contains(&"model_idle_evict".to_string()));
+
+        request = instance_lifecycle_request();
+        request.action = "supersede".to_string();
+        request.target_status = "superseded".to_string();
+        request.evidence_refs = vec!["model_supersede".to_string()];
+
+        let result = ModelMountCore
+            .plan_instance_lifecycle(&request)
+            .expect("model instance supersede lifecycle planned in Rust");
+
+        assert_eq!(result.action, "supersede");
+        assert_eq!(result.status, "superseded");
+        assert!(result
+            .evidence_refs
+            .contains(&"model_supersede".to_string()));
+    }
+
+    #[test]
     fn model_instance_lifecycle_rejects_js_backend_and_status_drift() {
         let mut request = instance_lifecycle_request();
         request.execution_backend = "daemon_js".to_string();
@@ -2800,7 +2837,7 @@ mod tests {
         request.action = "restart".to_string();
         let error = ModelMountCore
             .plan_instance_lifecycle(&request)
-            .expect_err("instance lifecycle planner only supports load/unload");
+            .expect_err("instance lifecycle planner only supports canonical instance transitions");
 
         assert_eq!(error, ModelMountError::UnsupportedInstanceLifecycleAction);
     }
