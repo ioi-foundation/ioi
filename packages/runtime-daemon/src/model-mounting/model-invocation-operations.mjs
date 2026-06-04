@@ -252,17 +252,17 @@ export async function startModelStream(state, { authorization, requiredScope, ki
   });
   const continuationSafety = state.validateContinuationSafety({ previousState, selection, body });
   if (modelMountProviderInvocationRequiresRust(selection)) {
-    return {
-      native: false,
-      invocation: await state.invokeModel({ authorization, requiredScope, kind, body: { ...body, stream: false } }),
-    };
+    const error = new Error("Native model stream requires a Rust model_mount stream backend for the selected provider.");
+    error.status = 501;
+    error.code = "model_mount_native_stream_backend_required";
+    throw error;
   }
   const driver = state.driverForProvider(selection.provider);
   if (typeof driver.streamInvoke !== "function" || (typeof driver.supportsStream === "function" && !driver.supportsStream(kind))) {
-    return {
-      native: false,
-      invocation: await state.invokeModel({ authorization, requiredScope, kind, body: { ...body, stream: false } }),
-    };
+    const error = new Error("Native model stream requires a provider driver with stream support.");
+    error.status = 501;
+    error.code = "model_mount_native_stream_capability_required";
+    throw error;
   }
   const routeReceipt = state.routeSelectionReceipt(selection, { body, capability, responseId, previousResponseId });
   const instance = await state.ensureLoaded(selection.endpoint);

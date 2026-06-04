@@ -474,27 +474,90 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(state.routes.get("route.local-first").lastReceiptId, result.invocation.receipt.id);
 });
 
-test("startModelStream falls back to non-stream invocation when provider lacks native streaming", async () => {
+test("startModelStream fails closed when selected Rust provider backend lacks native stream execution", async () => {
   const state = fakeState({
+    selectRoute(payload) {
+      this.selectRoutePayload = payload;
+      return selection({
+        endpoint: {
+          apiFormat: "ioi_fixture",
+          driver: "fixture",
+          providerId: "provider.fixture",
+          backendId: "backend.fixture",
+        },
+        provider: {
+          id: "provider.fixture",
+          kind: "local_folder",
+          driver: "fixture",
+        },
+      });
+    },
+    driver: {
+      supportsStream: () => true,
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      startModelStream(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.chat:*",
+          kind: "chat.completions",
+          body: { model: "model.local", stream: true },
+        },
+        deps(),
+      ),
+    (error) => error.code === "model_mount_native_stream_backend_required",
+  );
+  assert.equal(state.providerExecutionRequests.length, 0);
+  assert.equal(state.providerResultRequests.length, 0);
+  assert.equal(state.fallbackInvocationArgs, undefined);
+  assert.deepEqual(state.appendOperations, []);
+});
+
+test("startModelStream fails closed when provider lacks native streaming", async () => {
+  const state = fakeState({
+    selectRoute(payload) {
+      this.selectRoutePayload = payload;
+      return selection({
+        endpoint: {
+          apiFormat: "openai_chat_completions",
+          driver: "openai_compatible",
+          providerId: "provider.openai-compatible",
+          backendId: "backend.openai-compatible",
+        },
+        provider: {
+          id: "provider.openai-compatible",
+          kind: "openai_compatible",
+          driver: "openai_compatible",
+        },
+      });
+    },
     driver: {
       supportsStream: () => false,
     },
   });
 
-  const result = await startModelStream(
-    state,
-    {
-      authorization: "Bearer token",
-      requiredScope: "model.chat:*",
-      kind: "chat.completions",
-      body: { model: "model.local", stream: true },
-    },
-    deps(),
+  await assert.rejects(
+    () =>
+      startModelStream(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.chat:*",
+          kind: "chat.completions",
+          body: { model: "model.local", stream: true },
+        },
+        deps(),
+      ),
+    (error) => error.code === "model_mount_native_stream_capability_required",
   );
-
-  assert.equal(result.native, false);
-  assert.equal(result.invocation.fallback, true);
-  assert.equal(state.fallbackInvocationArgs.body.stream, false);
+  assert.equal(state.providerExecutionRequests.length, 0);
+  assert.equal(state.providerResultRequests.length, 0);
+  assert.equal(state.fallbackInvocationArgs, undefined);
+  assert.deepEqual(state.appendOperations, []);
 });
 
 test("startModelStream fails closed when admitted native stream path returns no stream", async () => {

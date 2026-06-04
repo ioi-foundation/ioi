@@ -563,6 +563,18 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-native-stream-pre-admission-downgrade-retired",
+    /model_mount_native_stream_backend_required/.test(modelInvocationOps) &&
+      /model_mount_native_stream_capability_required/.test(modelInvocationOps) &&
+      !/state\.invokeModel\(\{ authorization, requiredScope, kind, body: \{ \.\.\.body, stream: false \} \}\)/.test(modelInvocationOps),
+    [
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+    ],
+    "Phase 9/10 is pending: native stream requests must fail closed before Rust stream-start admission instead of downgrading to non-stream JS invocation",
+  );
+  assertCheck(
+    result,
     "model-mount-invocation-receipt-binding-live-bridge",
     /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       /ModelMountInvocationReceiptBindingBridgeRequest/.test(bridgeModule) &&
