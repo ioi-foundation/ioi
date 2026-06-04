@@ -367,6 +367,9 @@ function runBridge() {
       /cargo\.check/.test(bridgeModule) &&
       /lsp\.diagnostics/.test(bridgeModule) &&
       /inspect_lsp_diagnostics/.test(bridgeModule) &&
+      /typescript\.check/.test(bridgeModule) &&
+      /run_typescript_check/.test(bridgeModule) &&
+      /local_tsc_executable/.test(bridgeModule) &&
       /ioi\.step_module\.command_bridge\.v1/.test(bridgeModule) &&
       /StepModuleRouterCore/.test(bridgeModule) &&
       /router_admission/.test(bridgeModule) &&
