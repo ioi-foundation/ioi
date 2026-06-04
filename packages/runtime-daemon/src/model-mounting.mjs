@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -173,6 +172,17 @@ import {
   backendProcessSpawnArgs as backendProcessSpawnArgsState,
   backendSupportsSupervision as backendSupportsSupervisionState,
 } from "./model-mounting/backend-processes.mjs";
+import {
+  backendHealth as backendHealthState,
+  backendLogs as backendLogsState,
+  ensureBackendProcess as ensureBackendProcessState,
+  spawnBackendChildProcess as spawnBackendChildProcessState,
+  startBackend as startBackendState,
+  startBackendProcess as startBackendProcessState,
+  stopBackend as stopBackendState,
+  stopBackendProcess as stopBackendProcessState,
+  touchBackendProcess as touchBackendProcessState,
+} from "./model-mounting/backend-lifecycle.mjs";
 import {
   FixtureModelProviderDriver,
   NativeLocalModelProviderDriver,
@@ -3673,15 +3683,7 @@ export class ModelMountingState {
   }
 
   ensureBackendProcess(backendId, { endpoint = null, loadOptions = {}, reason = "runtime_control" } = {}) {
-    const backend = this.backend(backendId);
-    if (!this.backendSupportsSupervision(backend)) {
-      return null;
-    }
-    const existing = this.backendProcessForBackend(backendId);
-    if (existing?.status === "started") {
-      return this.touchBackendProcess(existing, { endpoint, loadOptions, reason });
-    }
-    return this.startBackendProcess(backend, { endpoint, loadOptions, reason });
+    return ensureBackendProcessState(this, backendId, { endpoint, loadOptions, reason });
   }
 
   backendSupportsSupervision(backend) {
@@ -3689,348 +3691,53 @@ export class ModelMountingState {
   }
 
   touchBackendProcess(processRecord, { endpoint = null, loadOptions = {}, reason = "health_probe" } = {}) {
-    const backend = this.backend(processRecord.backendId);
-    const argsRedacted = this.backendProcessArgs(backend, { endpoint, loadOptions });
-    const updated = {
-      ...processRecord,
-      status: processRecord.stale ? "stale_recovered" : processRecord.status,
-      processStatus: processRecord.stale ? "stale_recovered" : processRecord.processStatus ?? processRecord.status,
-      lastHealthAt: this.nowIso(),
-      updatedAt: this.nowIso(),
-      argsHash: stableHash(argsRedacted.join("\0")),
-      argsRedacted,
-      reason,
-    };
-    this.backendProcesses.set(updated.id, updated);
-    this.writeMap("backend-processes", this.backendProcesses);
-    return this.reconciledBackendProcess(updated);
+    return touchBackendProcessState(this, processRecord, { endpoint, loadOptions, reason }, {
+      normalizeScopes,
+      stableHash,
+    });
   }
 
   startBackendProcess(backend, { endpoint = null, loadOptions = {}, reason = "runtime_control" } = {}) {
-    const now = this.nowIso();
-    const argsRedacted = this.backendProcessArgs(backend, { endpoint, loadOptions });
-    const processRef = `supervised://${safeId(backend.id)}/${crypto.randomUUID()}`;
-    const childProcessInfo = this.spawnBackendChildProcess(backend, {
-      endpoint,
-      loadOptions,
-      reason,
-      processRef,
-      argsRedacted,
+    return startBackendProcessState(this, backend, { endpoint, loadOptions, reason }, {
+      processEnv: process.env,
+      redact,
+      safeId,
+      stableHash,
     });
-    const startupTimeoutMs = Number(loadOptions.startupTimeoutMs ?? process.env.IOI_MODEL_BACKEND_STARTUP_TIMEOUT_MS ?? 15000);
-    const processRecord = {
-      id: `backend_process_${safeId(backend.id)}_${Date.now()}`,
-      backendId: backend.id,
-      backendKind: backend.kind,
-      status: "started",
-      processStatus: "started",
-      supervisorKind: backend.kind === "native_local" ? "deterministic_fixture_process" : "external_process",
-      bootId: this.bootId,
-      processRefHash: stableHash(processRef),
-      pidHash: childProcessInfo.pidHash ?? stableHash(processRef).slice(0, 16),
-      pidTracked: backend.kind === "native_local" ? "deterministic_fixture_process_ref" : "process_ref_hash",
-      spawned: childProcessInfo.spawned,
-      spawnStatus: childProcessInfo.status,
-      spawnErrorHash: childProcessInfo.errorHash ?? null,
-      childProcessKey: childProcessInfo.childProcessKey ?? null,
-      baseUrl: backend.baseUrl ?? null,
-      binaryPathHash: backend.binaryPath ? stableHash(backend.binaryPath) : null,
-      argsRedacted,
-      argsHash: stableHash(argsRedacted.join("\0")),
-      loadOptions: redact(loadOptions),
-      endpointId: endpoint?.id ?? null,
-      modelId: endpoint?.modelId ?? null,
-      startupTimeoutMs,
-      healthProbe: backend.baseUrl ? `${backend.baseUrl}/health`.replace(/\/v1\/health$/, "/health") : "local://health",
-      startedAt: now,
-      updatedAt: now,
-      lastHealthAt: now,
-      stoppedAt: null,
-      stale: false,
-      reason,
-      evidenceRefs: [
-        "ModelBackendDriver.process_supervision",
-        backend.kind === "native_local" ? "deterministic_native_local_fixture_process" : `${backend.kind}_process_supervisor`,
-        "bounded_backend_log_capture",
-        "startup_timeout_guard",
-        ...childProcessInfo.evidenceRefs,
-      ],
-    };
-    this.backendProcesses.set(processRecord.id, processRecord);
-    this.writeMap("backend-processes", this.backendProcesses);
-    this.writeBackendLog(backend.id, {
-      backendId: backend.id,
-      event: "backend_process_start",
-      backendKind: backend.kind,
-      processId: processRecord.id,
-      pidHash: processRecord.pidHash,
-      argsHash: processRecord.argsHash,
-      reason,
-    });
-    return processRecord;
   }
 
   spawnBackendChildProcess(backend, { endpoint = null, loadOptions = {}, reason = "runtime_control", processRef, argsRedacted = [] } = {}) {
-    if (!["llama_cpp", "ollama", "vllm"].includes(backend.kind)) {
-      return { spawned: false, status: "not_required", evidenceRefs: [] };
-    }
-    if (!backend.binaryPath) {
-      return { spawned: false, status: "binary_absent", evidenceRefs: [`${backend.kind}_binary_absent`] };
-    }
-    if (backend.kind === "llama_cpp" && !endpoint?.artifactPath && !loadOptions.modelPath && !loadOptions.model_path) {
-      return {
-        spawned: false,
-        status: "waiting_for_model",
-        evidenceRefs: ["llama_cpp_start_requires_model_artifact"],
-      };
-    }
-    const spawnArgs = this.backendProcessSpawnArgs(backend, { endpoint, loadOptions });
-    try {
-      const child = childProcess.spawn(backend.binaryPath, spawnArgs, {
-        cwd: this.cwd,
-        env: {
-          ...process.env,
-          IOI_MODEL_BACKEND_BASE_URL: backend.baseUrl ?? "",
-          IOI_MODEL_BACKEND_REASON: reason,
-          ...(backend.kind === "llama_cpp" ? { LD_LIBRARY_PATH: llamaCppLibraryPathEnv(backend.binaryPath, process.env.LD_LIBRARY_PATH) } : {}),
-          ...(backend.kind === "ollama" ? { OLLAMA_HOST: backend.baseUrl ?? "http://127.0.0.1:11434" } : {}),
-        },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      const pidHash = stableHash(`${processRef}:${child.pid ?? "unknown"}`).slice(0, 16);
-      const processKey = stableHash(`${backend.id}:${pidHash}:${Date.now()}`).slice(0, 16);
-      this.backendChildProcesses.set(processKey, child);
-      const recordOutput = (stream, chunk) => {
-        this.writeBackendLog(backend.id, {
-          backendId: backend.id,
-          event: `backend_process_${stream}`,
-          backendKind: backend.kind,
-          pidHash,
-          bytes: Buffer.byteLength(chunk),
-          outputHash: stableHash(String(chunk)),
-          argsHash: stableHash(argsRedacted.join("\0")),
-        });
-      };
-      child.stdout?.on("data", (chunk) => recordOutput("stdout", chunk));
-      child.stderr?.on("data", (chunk) => recordOutput("stderr", chunk));
-      child.once("exit", (code, signal) => {
-        this.backendChildProcesses.delete(processKey);
-        const existing = this.backendProcessForBackend(backend.id);
-        if (existing?.pidHash !== pidHash || existing.status === "stopped") return;
-        const updated = {
-          ...existing,
-          status: code === 0 ? "exited" : "degraded",
-          processStatus: code === 0 ? "exited" : "degraded",
-          exitCode: code,
-          signal,
-          stoppedAt: this.nowIso(),
-          updatedAt: this.nowIso(),
-          evidenceRefs: [...normalizeScopes(existing.evidenceRefs, []), `${backend.kind}_process_exit_observed`],
-        };
-        this.backendProcesses.set(updated.id, updated);
-        this.writeMap("backend-processes", this.backendProcesses);
-        this.writeBackendLog(backend.id, {
-          backendId: backend.id,
-          event: "backend_process_exit",
-          backendKind: backend.kind,
-          pidHash,
-          exitCode: code,
-          signal,
-        });
-      });
-      child.once("error", (error) => {
-        this.writeBackendLog(backend.id, {
-          backendId: backend.id,
-          event: "backend_process_spawn_error",
-          backendKind: backend.kind,
-          pidHash,
-          errorHash: stableHash(error?.message ?? "spawn error"),
-        });
-      });
-      return {
-        spawned: true,
-        status: "spawned",
-        pidHash,
-        childProcessKey: processKey,
-        evidenceRefs: [`${backend.kind}_binary_spawn`, `${backend.kind}_spawn_args_redacted`],
-      };
-    } catch (error) {
-      return {
-        spawned: false,
-        status: "spawn_failed",
-        errorHash: stableHash(error?.message ?? "spawn failed"),
-        evidenceRefs: [`${backend.kind}_binary_spawn_failed`],
-      };
-    }
+    return spawnBackendChildProcessState(this, backend, { endpoint, loadOptions, reason, processRef, argsRedacted }, {
+      llamaCppLibraryPathEnv,
+      normalizeScopes,
+      processEnv: process.env,
+      stableHash,
+    });
   }
 
   stopBackendProcess(backend, { reason = "runtime_control" } = {}) {
-    const existing = this.backendProcessForBackend(backend.id);
-    if (!existing) return null;
-    const child = existing.childProcessKey ? this.backendChildProcesses.get(existing.childProcessKey) : null;
-    if (child && !child.killed) {
-      try {
-        child.kill("SIGTERM");
-      } catch {
-        // Stop receipts record intent even if the subprocess has already exited.
-      }
-    }
-    const updated = {
-      ...existing,
-      status: "stopped",
-      processStatus: "stopped",
-      stoppedAt: this.nowIso(),
-      updatedAt: this.nowIso(),
-      reason,
-      evidenceRefs: [...normalizeScopes(existing.evidenceRefs, []), "clean_backend_stop"],
-    };
-    this.backendProcesses.set(updated.id, updated);
-    this.writeMap("backend-processes", this.backendProcesses);
-    this.writeBackendLog(backend.id, {
-      backendId: backend.id,
-      event: "backend_process_stop",
-      backendKind: backend.kind,
-      processId: updated.id,
-      pidHash: updated.pidHash,
-      reason,
-    });
-    return updated;
+    return stopBackendProcessState(this, backend, { reason }, { normalizeScopes });
   }
 
   backendHealth(backendId) {
-    const backend = this.backend(backendId);
-    const checkedAt = this.nowIso();
-    const processRecord = this.backendProcessForBackend(backendId);
-    const status =
-      backend.status === "blocked" || backend.status === "absent"
-        ? backend.status
-        : processRecord?.status === "stale_recovered"
-          ? "degraded"
-          : "available";
-    const hardware = hardwareSnapshot();
-    const processSnapshot = this.backendProcessSnapshot(processRecord);
-    const receipt = this.lifecycleReceipt("backend_health", {
-      backendId,
-      modelId: backend.label,
-      state: status,
-      evidenceRefs: backend.evidenceRefs ?? [],
-      hardware,
-      process: processSnapshot,
-    });
-    const updated = {
-      ...backend,
-      status,
-      checkedAt,
-      lastReceiptId: receipt.id,
-      lastHealthReceiptId: receipt.id,
-      processStatus: processSnapshot.processStatus,
-      process: { ...backend.process, ...processSnapshot, receiptId: receipt.id },
-    };
-    this.backends.set(backendId, updated);
-    this.writeMap("model-backends", this.backends);
-    return updated;
+    return backendHealthState(this, backendId, { hardwareSnapshot });
   }
 
   startBackend(backendId, body = {}) {
-    const backend = this.backend(backendId);
-    if (backend.status === "blocked" && !backend.binaryPath && !String(backend.baseUrl ?? "").startsWith("local://")) {
-      throw runtimeError({
-        status: 424,
-        code: "external_blocker",
-        message: "Backend cannot be started until its binary path or base URL is configured.",
-        details: { backendId, backendKind: backend.kind, evidenceRefs: backend.evidenceRefs ?? [] },
-      });
-    }
-    const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? this.runtimeDefaultLoadOptions(backendId) ?? {});
-    const processRecord = this.ensureBackendProcess(backendId, { loadOptions, reason: "backend_start" });
-    const processSnapshot = this.backendProcessSnapshot(processRecord);
-    const receipt = this.lifecycleReceipt("backend_start", {
-      backendId,
-      modelId: backend.label,
-      state: "available",
-      evidenceRefs: backend.evidenceRefs ?? [],
-      process: processSnapshot,
-    });
-    const updated = {
-      ...backend,
-      status: "available",
-      processStatus: processSnapshot.processStatus ?? (backend.processStatus === "stateless_http" ? "stateless_http" : "started"),
-      process: { ...backend.process, ...processSnapshot, receiptId: receipt.id },
-      startedAt: this.nowIso(),
-      lastReceiptId: receipt.id,
-    };
-    if (processRecord?.id) {
-      this.backendProcesses.set(processRecord.id, { ...processRecord, lastReceiptId: receipt.id });
-      this.writeMap("backend-processes", this.backendProcesses);
-    }
-    this.backends.set(backendId, updated);
-    this.writeMap("model-backends", this.backends);
-    this.writeBackendLog(backendId, {
-      backendId,
-      event: "backend_start",
-      backendKind: backend.kind,
-      receiptId: receipt.id,
-      processId: processRecord?.id ?? null,
-      pidHash: processRecord?.pidHash ?? null,
-    });
-    return updated;
+    return startBackendState(this, backendId, body, { normalizeLoadOptions, runtimeError });
   }
 
   stopBackend(backendId) {
-    const backend = this.backend(backendId);
-    const processRecord = this.stopBackendProcess(backend, { reason: "backend_stop" });
-    const processSnapshot = this.backendProcessSnapshot(processRecord);
-    const receipt = this.lifecycleReceipt("backend_stop", {
-      backendId,
-      modelId: backend.label,
-      state: "stopped",
-      evidenceRefs: backend.evidenceRefs ?? [],
-      process: processSnapshot,
-    });
-    const updated = {
-      ...backend,
-      status: backend.kind === "fixture" ? "available" : "stopped",
-      processStatus: backend.kind === "fixture" ? "stateless" : processSnapshot.processStatus ?? "stopped",
-      process: { ...backend.process, ...processSnapshot, receiptId: receipt.id },
-      stoppedAt: this.nowIso(),
-      lastReceiptId: receipt.id,
-    };
-    if (processRecord?.id) {
-      this.backendProcesses.set(processRecord.id, { ...processRecord, lastReceiptId: receipt.id });
-      this.writeMap("backend-processes", this.backendProcesses);
-    }
-    this.backends.set(backendId, updated);
-    this.writeMap("model-backends", this.backends);
-    this.writeBackendLog(backendId, {
-      backendId,
-      event: "backend_stop",
-      backendKind: backend.kind,
-      receiptId: receipt.id,
-    });
-    return updated;
+    return stopBackendState(this, backendId);
   }
 
   backendLogs(backendId) {
-    this.backend(backendId);
-    const logDir = path.join(this.stateDir, "backend-logs");
-    const records = [];
-    for (const filePath of listFiles(logDir, ".jsonl")) {
-      for (const line of readLines(filePath)) {
-        const record = parseJsonMaybe(line);
-        if (record?.backendId === backendId || record?.backend === backendId || filePath.endsWith(`${safeFileName(backendId)}.jsonl`)) {
-          records.push(record);
-        }
-      }
-    }
-    const resolved = records.sort((left, right) => String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? ""))).slice(-200);
-    this.lifecycleReceipt("backend_logs_read", {
-      backendId,
-      modelId: this.backend(backendId).label,
-      state: "read",
-      logCount: resolved.length,
-      evidenceRefs: ["backend_log_projection"],
+    return backendLogsState(this, backendId, {
+      listFiles,
+      parseJsonMaybe,
+      readLines,
+      safeFileName,
     });
-    return resolved;
   }
 
   writeBackendLog(endpointId, event) {

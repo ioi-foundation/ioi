@@ -310,8 +310,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/backend-processes.mjs`.
 - Moved backend registry lookup, public backend-process snapshot projection, redacted backend command args, supervised spawn args, and supervision support predicates out of `model-mounting.mjs` behind existing compatibility methods.
 - Added focused backend-process tests for missing-backend errors, snapshot defaults, redacted artifact args, native/vLLM args, raw supervised spawn paths, unsupported-backend fallback args, and supervision support boundaries.
+- Added `packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs`.
+- Moved backend process ensure/touch/start/spawn/stop behavior, backend health/start/stop operations, and backend log reads out of `model-mounting.mjs` behind existing compatibility methods.
+- Added focused backend-lifecycle tests for stale process touch recovery, deterministic fixture process starts, fake subprocess output/exit handling, clean process stop, backend health/start/stop receipts, external-blocker start failures, and backend log projection.
 
-Status: `model-mounting.mjs` still owns route persistence wrappers, backend process start/stop lifecycle, provider/catalog operation glue, and some product projection glue. Safe next extractions are backend lifecycle slices, provider/catalog operation slices, and remaining route HTTP glue.
+Status: `model-mounting.mjs` still owns route persistence wrappers, provider/catalog operation glue, and some product projection glue. Safe next extractions are provider/catalog operation slices and remaining route HTTP glue.
 
 ### Rust Runtime Hot Spot
 
@@ -381,6 +384,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, backend proc
   - `model-mounting/runtime-engines`
   - `model-mounting/runtime-survey`
   - `model-mounting/backend-processes`
+  - `model-mounting/backend-lifecycle`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
@@ -393,7 +397,7 @@ CLI/TUI surfaces were not hardened in this leg because the active parity-plus pr
 
 - Reduce `extension.js` further by moving Studio projection events, managed-session controls, panel lifecycle, and feature command groups.
 - Reduce `packages/runtime-daemon/src/index.mjs` by extracting service lifecycle, route registration, thread store/control, replay, and managed-session state.
-- Reduce `model-mounting.mjs` further by moving provider registry/drivers, wallet/vault ports, state machine, validation, and routes.
+- Reduce `model-mounting.mjs` further by moving provider/catalog operation glue and remaining route HTTP glue.
 - Continue Rust hot-spot splits around final reply contract, tool outcome classification, finalize action processing, queue facts, filesystem handler, and substrate lifecycle.
 - Run longer integrated sessions to watch for retry-limit regressions and replay/reconnect durability under real use.
 - Keep watching the product UI for raw trace/tool/path leakage after every projection or panel lifecycle extraction.
