@@ -59,6 +59,7 @@ const {
 } = require("./studio/projection-state");
 const { createStudioManagedSessionProjection } = require("./studio/projection-managed-sessions");
 const { createStudioParityPlusEventProjection } = require("./studio/projection-parity-plus-events");
+const { createStudioRuntimeEventProjection } = require("./studio/projection-runtime-events");
 const { createStudioWorkspaceChangeProjection } = require("./studio/projection-workspace-changes");
 const {
   refreshStudioReplayStepsFromProjection: refreshStudioReplayStepsFromProjectionState,
@@ -794,53 +795,17 @@ const {
   workspaceSummary,
 });
 
-function appendStudioTimeline(label, detail, status = "ready", extra = {}) {
-  studioRuntimeProjection.timeline.push({
-    label,
-    detail,
-    status,
-    at: new Date().toISOString(),
-    ...extra,
-  });
-}
-
-function appendStudioRuntimeEvent(event, fallbackKind = "runtime.event") {
-  if (!event || typeof event !== "object") {
-    return;
-  }
-  const normalized = {
-    id: event.event_id || event.eventId || event.id || `${fallbackKind}.${Date.now()}`,
-    kind: event.event_kind || event.eventKind || event.kind || fallbackKind,
-    status: event.status || event.payload_summary?.status || "observed",
-    summary:
-      event.summary ||
-      event.payload_summary?.summary ||
-      event.payload_summary?.result_summary ||
-      event.payload_summary?.input_summary ||
-      "",
-    receiptRefs: normalizeReceiptRefs(event),
-    raw: event,
-  };
-  normalized.visibility = classifyStudioRuntimeEvent(normalized);
-  studioRuntimeProjection.runtimeEvents.push(normalized);
-  if (normalized.receiptRefs.length > 0) {
-    appendStudioReceipts(normalized.receiptRefs.map((id) => ({
-      id,
-      kind: normalized.kind,
-      summary: normalized.summary || "Daemon runtime event receipt.",
-    })));
-  }
-}
-
-function appendStudioReceiptsFromResponse(response, kind, summary) {
-  appendStudioReceipts(
-    normalizeReceiptRefs(response).map((id) => ({
-      id,
-      kind,
-      summary,
-    })),
-  );
-}
+const {
+  appendStudioReceiptsFromResponse,
+  appendStudioRuntimeEvent,
+  appendStudioTimeline,
+  recomputeStudioRuntimeCockpitAchieved,
+} = createStudioRuntimeEventProjection({
+  appendStudioReceipts,
+  classifyStudioRuntimeEvent,
+  getStudioRuntimeProjection: () => studioRuntimeProjection,
+  normalizeReceiptRefs,
+});
 
 const {
   applyStudioParityPlusEvent,
@@ -859,30 +824,6 @@ const {
 } = createStudioToolResponseProjection({
   normalizeReceiptRefs,
 });
-
-function recomputeStudioRuntimeCockpitAchieved() {
-  const cockpit = studioRuntimeProjection.runtimeCockpit || {};
-  cockpit.achieved = Boolean(
-    cockpit.modelBackedStreamingObserved &&
-    cockpit.realDaemonToolProposalObserved &&
-    cockpit.policyLeaseDialogObserved &&
-    cockpit.policyDeniedActionDidNotExecute &&
-    cockpit.sandboxCommandOutputStreamObserved &&
-    cockpit.sandboxCommandReceiptObserved &&
-    cockpit.inlineDiffOverlayObserved &&
-    cockpit.hunkNavigationObserved &&
-    cockpit.hunkAcceptRejectReceiptsObserved &&
-    cockpit.stopResumeObserved &&
-    cockpit.diagnosticsTestGateObserved &&
-    cockpit.receiptTimelinePerStepObserved &&
-    cockpit.replayStepDetailObserved &&
-    cockpit.projectionOnlyRuntimeRejected &&
-    cockpit.browserStatusObserved &&
-    cockpit.workerStatusObserved
-  );
-  studioRuntimeProjection.runtimeCockpit = cockpit;
-  return cockpit.achieved;
-}
 
 const { studioCleanProductErrorMessage } = createStudioProductErrorMessage({ stringValue });
 const {

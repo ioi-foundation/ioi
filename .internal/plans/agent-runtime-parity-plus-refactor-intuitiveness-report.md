@@ -152,6 +152,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/tool-response-projection.js`.
 - Moved Studio tool-response JSON preview and command-output projection helpers out of `extension.js` while preserving nested result aliases, failed exit-code fallback, and receipt propagation.
 - Added focused tool-response projection tests for bounded previews, top-level command aliases, nested diagnostics output, failed fallback exit code, and receipt propagation.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-runtime-events.js`.
+- Moved Studio timeline append, runtime-event normalization, response receipt projection, and runtime-cockpit achieved gate recomputation out of `extension.js` while preserving visibility classification and receipt timeline behavior.
+- Added focused runtime-event projection tests for timeline metadata, runtime event alias normalization, receipt projection, non-object tolerance, and cockpit achieved gate semantics.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
