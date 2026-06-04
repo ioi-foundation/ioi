@@ -385,7 +385,6 @@ export class ModelMountingState {
     });
     this.vault = new AgentgresVaultPort({
       now: this.now,
-      appendOperation: (kind, payload) => this.appendOperation?.(kind, payload),
       secrets: vaultSecrets,
       materialAdapter: configuredVaultMaterialAdapter({ now: this.now }),
     });

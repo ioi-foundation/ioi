@@ -67,7 +67,7 @@ test("configured vault material adapter fails closed when only partial env is pr
   }
 });
 
-test("vault port resolves environment aliases and keeps metadata public", () => {
+test("vault port resolves environment aliases and keeps metadata public without local operation append", () => {
   const priorOpenAi = process.env.OPENAI_API_KEY;
   try {
     process.env.OPENAI_API_KEY = "openai-env-secret";
@@ -84,10 +84,7 @@ test("vault port resolves environment aliases and keeps metadata public", () => 
     assert.equal(resolved.material, "openai-env-secret");
     assert.equal(resolved.materialSource, "environment_alias");
     assert.equal(JSON.stringify(resolved).includes("vault://provider.openai/api-key"), false);
-
-    const audit = operations.find((operation) => operation.kind === "vault.vault.resolve");
-    assert.match(audit.payload.objectId, /^vault_ref_[a-f0-9]+$/);
-    assert.equal(JSON.stringify(audit).includes("openai-env-secret"), false);
+    assert.deepEqual(operations, []);
   } finally {
     if (priorOpenAi === undefined) delete process.env.OPENAI_API_KEY;
     else process.env.OPENAI_API_KEY = priorOpenAi;
@@ -122,6 +119,5 @@ test("vault port binds, lists, removes, and serializes redacted metadata", () =>
   const removed = vault.removeVaultRef(vaultRef);
   assert.equal(removed.configured, false);
   assert.equal(vault.resolveVaultRef(vaultRef, "provider.auth:custom").resolvedMaterial, false);
-  assert.equal(JSON.stringify(operations).includes("custom-secret"), false);
-  assert.equal(JSON.stringify(operations).includes(vaultRef), false);
+  assert.deepEqual(operations, []);
 });

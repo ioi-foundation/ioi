@@ -861,6 +861,9 @@ function runReceipts() {
   const walletAuthority = exists("packages/runtime-daemon/src/model-mounting/wallet-authority.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/wallet-authority.mjs")
     : "";
+  const vaultPort = exists("packages/runtime-daemon/src/model-mounting/vault-port.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/vault-port.mjs")
+    : "";
   const modelMountStore = exists("packages/runtime-daemon/src/model-mounting/store.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.mjs")
     : "";
@@ -1361,6 +1364,19 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/wallet-authority.test.mjs",
     ],
     "Phase 7/11 is pending: wallet authority audit mirroring must not append JS operation-like records outside wallet.network and admitted receipt paths",
+  );
+  assertCheck(
+    result,
+    "model-mount-vault-audit-append-retired",
+    !/\bappendOperation\b/.test(vaultPort) &&
+      /vault port resolves environment aliases and keeps metadata public without local operation append/.test(
+        read("packages/runtime-daemon/src/model-mounting/vault-port.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/vault-port.mjs",
+      "packages/runtime-daemon/src/model-mounting/vault-port.test.mjs",
+    ],
+    "Phase 7/11 is pending: vault audit mirroring must not append JS operation-like records outside wallet.network and admitted receipt paths",
   );
   assertCheck(
     result,

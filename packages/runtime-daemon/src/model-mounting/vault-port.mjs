@@ -194,9 +194,8 @@ export class EncryptedKeychainVaultMaterialAdapter {
 }
 
 export class AgentgresVaultPort {
-  constructor({ now, appendOperation, secrets = {}, metadata = [], materialAdapter = null }) {
+  constructor({ now, secrets = {}, metadata = [], materialAdapter = null }) {
     this.now = now;
-    this.appendOperation = appendOperation;
     this.materialAdapter = materialAdapter;
     this.secrets = new Map(Object.entries(secrets ?? {}).map(([vaultRef, material]) => [vaultRef, String(material)]));
     this.metadata = new Map();
@@ -463,10 +462,6 @@ export class AgentgresVaultPort {
       port: "VaultPort",
       kind,
       ...safePayload,
-    });
-    this.appendOperation?.(`vault.${kind}`, {
-      ...safePayload,
-      details: safePayload,
     });
   }
 
