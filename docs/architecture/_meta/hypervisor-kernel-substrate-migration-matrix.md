@@ -1781,6 +1781,70 @@ ImplementationSlice:
     push: required after verification
 ```
 
+## Implementation Slice 31
+
+```yaml
+ImplementationSlice:
+  objective: make direct JS model invocation receipt appends fail closed unless
+    the receipt already carries Rust receipt_binder and Agentgres admission
+  owner_boundary:
+    route_or_surface: model-mounting receipt store persistence for accepted
+      model invocation and coalesced model invocation receipts
+    authority_gate: the JS store refuses to persist or append operation-log
+      records for accepted model invocation receipts unless the receipt details
+      contain Rust receipt binding, accepted-receipt append, Agentgres
+      admission, operation ref, state roots, and resulting head
+    execution_backend: provider invocation drivers still execute in JS in this
+      slice; direct JS persistence is demoted behind the already-bound Rust
+      receipt/admission proof
+    truth_path: model invocation receipt operation append is no longer possible
+      through the store alone; it must be preceded by Rust receipt_binder and
+      Agentgres admission
+    projection_path: existing model-mounting projections continue reading the
+      receipt store, which now rejects unbound accepted invocation receipts
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    daemon:
+      - packages/runtime-daemon/src/model-mounting/store.mjs
+    rust_core: []
+    ide: []
+    tests:
+      - packages/runtime-daemon/src/model-mounting/store.test.mjs
+      - packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs
+      - packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - direct JS store write of accepted model invocation receipt fails closed
+      before file persistence and operation append
+    - accepted model invocation receipt persistence requires Rust
+      receipt_binder ref, accepted append hash, Agentgres admission hash,
+      operation ref, state roots, and resulting head
+    - conformance receipts tier detects the direct-store append guard
+  verification:
+    commands:
+      - node --test packages/runtime-daemon/src/model-mounting/store.test.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs
+      - node --test packages/runtime-daemon/src/model-mounting/*.test.mjs
+      - npm run hypervisor-conformance:receipts
+      - npm run hypervisor-conformance
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: false
+    compatibility_shims_remaining:
+      - provider invocation drivers remain JS-owned until model invocation
+        execution envelopes and provider request/response semantics move behind
+        Rust workload/model_mount ownership
+      - the JS model-mounting store still writes projection/cache receipt
+        envelopes after Rust admission; future slices must move broader
+        operation-log ownership into Rust Agentgres admission and remove any
+        remaining direct append surface for meaningful transitions
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -1788,8 +1852,8 @@ ImplementationSlice:
 | `coding-tools` | `packages/runtime-daemon/src/coding-tools.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `packages/runtime-daemon/src/step-module-runner.mjs`, `crates/node/src/bin/ioi-step-module-bridge.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS daemon tool dispatch with Step/Module projection wrappers plus live Rust paths for every current coding tool: workspace.status, git.diff, file.inspect, file.apply_patch, test.run, lsp.diagnostics, artifact.read, tool.retrieve_result, and computer_use.request_lease | Rust core `step_router` plus workload/WASM backend | Agentgres admitted operation with receipt, refs, heads, and state roots | `abi`, `bridge`, `receipts`, `negative` | every current coding-tool ID returns a Rust live payload without daemon_js in rust_workload_live mode; JS fallback helpers remain only for non-live compatibility until facade retirement | Rust path passes shadow, gated, and live parity for each migrated tool; JS can no longer append authoritative effects. |
 | `approvals-gates` | `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `crates/services/src/agentic/runtime/kernel/authority.rs` | JS daemon routes plus Rust external-exit authority guard | Rust core `authority` with wallet.network handoff | authority grant and approval receipt before effect boundary | `bridge`, `negative` | Rust wallet.network guard implemented for external exits; live JS approval surface remains | JS can only request/render approvals; grants and gate decisions are issued by Rust authority core and wallet.network. |
 | `runtime-events-replay-trace` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | JS daemon envelope/projection code | Rust core `projection` plus Agentgres projection watermarks | replayable projection over admitted operations and receipts | `receipts`, `compositor` | JS projection source | Rust emits canonical projection records consumed by IDE/CLI/SDK. |
-| `model-mounting` | `packages/runtime-daemon/src/model-mounting/*`, `packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/model_mount.rs` | JS daemon model-mounting store/provider invocation plus Rust route-decision, invocation-receipt admission, receipt_binder binding, and Agentgres admission for invocation receipts | Rust core `model_mount` | model invocation receipts, route/custody refs, Agentgres operation | `abi`, `bridge`, `receipts`, `ctee` | live route-selection and model-invocation receipts call Rust model_mount admission; invocation receipts are represented as `model_mount` StepModule results and bound by Rust receipt_binder plus Rust Agentgres admission before JS store persistence; provider invocation execution and JS store demotion still remain | Rust records route decisions and receipts; JS surfaces are non-authoritative clients. |
-| `agentgres-admission` | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs`, `.ioi/agentgres` local state, `crates/services/src/agentic/runtime/kernel/agentgres_admission.rs`, `docs/architecture/components/agentgres/*` | daemon-local operation-like records plus Rust admission/storage guards; model invocation receipt operations now enter Rust Agentgres admission | Rust core `agentgres_admission` | expected heads, state-root validation, accepted operation admission | `receipts`, `negative` | Rust operation admission and storage-write guards implemented; model invocation receipt operations carry expected-head/state-root admission; broad live JS append/write surfaces still need routing/demotion | no JS path can append accepted operations directly or mutate durable truth without expected heads/state-root binding. |
+| `model-mounting` | `packages/runtime-daemon/src/model-mounting/*`, `packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/model_mount.rs` | JS daemon model-mounting store/provider invocation plus Rust route-decision, invocation-receipt admission, receipt_binder binding, Agentgres admission for invocation receipts, and a store guard against unbound direct invocation appends | Rust core `model_mount` | model invocation receipts, route/custody refs, Agentgres operation | `abi`, `bridge`, `receipts`, `ctee` | live route-selection and model-invocation receipts call Rust model_mount admission; invocation receipts are represented as `model_mount` StepModule results and bound by Rust receipt_binder plus Rust Agentgres admission before JS store persistence; direct JS store append of unbound invocation receipts now fails closed; provider invocation execution and broader JS store demotion still remain | Rust records route decisions and receipts; JS surfaces are non-authoritative clients. |
+| `agentgres-admission` | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs`, `.ioi/agentgres` local state, `crates/services/src/agentic/runtime/kernel/agentgres_admission.rs`, `docs/architecture/components/agentgres/*` | daemon-local operation-like records plus Rust admission/storage guards; model invocation receipt operations now enter Rust Agentgres admission and unbound direct store appends are rejected | Rust core `agentgres_admission` | expected heads, state-root validation, accepted operation admission | `receipts`, `negative` | Rust operation admission and storage-write guards implemented; model invocation receipt operations carry expected-head/state-root admission; direct unbound invocation receipt store writes fail closed; broad live JS append/write surfaces still need routing/demotion | no JS path can append accepted operations directly or mutate durable truth without expected heads/state-root binding. |
 | `receipt-binding` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/ipc/proto/public/v1/public.proto`, `crates/services/src/agentic/runtime/kernel/receipt_binder.rs` | JS receipts plus Rust receipt binder and append guard | Rust core `receipt_binder` | one binder for invocation, result, artifact refs, payload refs, and state roots | `receipts`, `negative` | binder primitive and direct-append guard implemented; JS receipts still live | every meaningful route family emits receipts through one Rust binder. |
 | `ctee-private-workspace` | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md`, `crates/services/src/agentic/runtime/kernel/ctee.rs` | canon plus Rust StepModule validation boundary | Rust core `ctee` | custody proof, leakage profile, declassification receipt, plaintext-free mount failure | `ctee`, `negative` | Rust validation path implemented; full execution/admission/projection still pending | untrusted node plaintext mount fails closed; declassification and private operator paths are receipt-bound. |
 | `workload-client-wasm` | `crates/client/src/workload_client/mod.rs`, `crates/vm/wasm/src/lib.rs`, `crates/validator/src/standard/workload/*` | Rust workload/kernel substrate exists below daemon | Rust core `workload_client` plus WASM/service backend | StepModuleResult with workload receipt and state-root binding | `bridge`, `receipts` | substrate exists, not default daemon backend | daemon routes admitted work through StepModuleRunner into Rust/WASM or workload backend. |
@@ -1831,14 +1895,14 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 25:
+Current expected behavior after Slice 31:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
 | `hypervisor-conformance:abi` | pass | Step/Module schemas and current coding-tool projection wrappers exist. |
 | `hypervisor-conformance:bridge` | pass | daemon StepModuleRunner boundary and fail-closed Rust workload runner selection exist. |
-| `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists and the Rust shadow bridge emits a receipt binding. |
+| `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists, model invocation receipts carry Rust Agentgres admission, and direct unbound model invocation store appends fail closed. |
 | `hypervisor-conformance:ctee` | pass | Rust cTEE Private Workspace module validation exists and untrusted plaintext custody fails closed. |
 | `hypervisor-conformance:compositor` | pass | Rust projection records exist, the shadow bridge emits them, and compositor accepted-truth attempts fail closed. |
 | `hypervisor-conformance:negative` | pass | All required forbidden-path negative fixtures are implemented at the Rust guard level. |

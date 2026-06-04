@@ -127,6 +127,7 @@ export class AgentgresModelMountingStore {
   }
 
   writeReceipt(receipt) {
+    assertAcceptedModelInvocationReceiptBound(receipt);
     writeJson(path.join(this.stateDir, "receipts", `${receipt.id}.json`), receipt);
     emitRemoteBoundaryEvent(process.env.IOI_AGENTGRES_URL, "/operations", {
       port: "AgentgresModelMountingStorePort",
@@ -189,4 +190,86 @@ export class AgentgresModelMountingStore {
       evidenceRefs: ["agentgres_canonical_operation_log", "typed_agentgres_projection_boundary"],
     };
   }
+}
+
+const ACCEPTED_MODEL_INVOCATION_RECEIPT_KINDS = new Set([
+  "model_invocation",
+  "model_invocation_coalesced",
+]);
+
+function assertAcceptedModelInvocationReceiptBound(receipt) {
+  if (!ACCEPTED_MODEL_INVOCATION_RECEIPT_KINDS.has(receipt?.kind)) return;
+  const details = receipt?.details && typeof receipt.details === "object" ? receipt.details : {};
+  const operationRef = optionalNonEmptyString(details.modelMountAgentgresOperationRef);
+  const missing = [];
+  if (!optionalNonEmptyString(details.modelMountReceiptBindingRef)) missing.push("modelMountReceiptBindingRef");
+  if (!optionalNonEmptyString(details.modelMountAcceptedReceiptAppendHash)) {
+    missing.push("modelMountAcceptedReceiptAppendHash");
+  }
+  if (!operationRef) missing.push("modelMountAgentgresOperationRef");
+  if (!optionalNonEmptyString(details.modelMountAgentgresAdmissionHash)) {
+    missing.push("modelMountAgentgresAdmissionHash");
+  }
+  if (!optionalNonEmptyString(details.modelMountStepModuleInvocation?.input?.state_root_before)) {
+    missing.push("modelMountStepModuleInvocation.input.state_root_before");
+  }
+  if (!Array.isArray(details.modelMountStepModuleResult?.agentgres_operation_refs)) {
+    missing.push("modelMountStepModuleResult.agentgres_operation_refs");
+  }
+  if (!optionalNonEmptyString(details.modelMountStepModuleResult?.state_root_after)) {
+    missing.push("modelMountStepModuleResult.state_root_after");
+  }
+  if (!optionalNonEmptyString(details.modelMountStepModuleResult?.resulting_head)) {
+    missing.push("modelMountStepModuleResult.resulting_head");
+  }
+
+  const mismatches = [];
+  if (
+    operationRef &&
+    !details.modelMountStepModuleResult?.agentgres_operation_refs?.includes(operationRef)
+  ) {
+    mismatches.push("modelMountAgentgresOperationRef");
+  }
+  if (
+    operationRef &&
+    optionalNonEmptyString(details.modelMountAgentgresAdmission?.operation_ref) !== operationRef
+  ) {
+    mismatches.push("modelMountAgentgresAdmission.operation_ref");
+  }
+  if (
+    optionalNonEmptyString(details.modelMountAgentgresStateRootBefore) !==
+    optionalNonEmptyString(details.modelMountStepModuleInvocation?.input?.state_root_before)
+  ) {
+    mismatches.push("modelMountAgentgresStateRootBefore");
+  }
+  if (
+    optionalNonEmptyString(details.modelMountAgentgresStateRootAfter) !==
+    optionalNonEmptyString(details.modelMountStepModuleResult?.state_root_after)
+  ) {
+    mismatches.push("modelMountAgentgresStateRootAfter");
+  }
+  if (
+    optionalNonEmptyString(details.modelMountAgentgresResultingHead) !==
+    optionalNonEmptyString(details.modelMountStepModuleResult?.resulting_head)
+  ) {
+    mismatches.push("modelMountAgentgresResultingHead");
+  }
+
+  if (missing.length > 0 || mismatches.length > 0) {
+    throw runtimeError({
+      status: 409,
+      code: "model_mount_invocation_receipt_direct_append_forbidden",
+      message: "Model invocation receipts require Rust receipt_binder and Agentgres admission before JS store persistence.",
+      details: {
+        receiptId: receipt?.id ?? null,
+        receiptKind: receipt?.kind ?? null,
+        missing,
+        mismatches,
+      },
+    });
+  }
+}
+
+function optionalNonEmptyString(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }

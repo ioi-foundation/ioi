@@ -508,6 +508,9 @@ function runReceipts() {
   const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     : "";
+  const modelMountStore = exists("packages/runtime-daemon/src/model-mounting/store.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/store.mjs")
+    : "";
   assertCheck(
     result,
     "receipt-binder-core",
@@ -600,6 +603,18 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 4 is pending: model invocation receipt operations must pass through Rust Agentgres admission with expected heads and state-root binding",
+  );
+  assertCheck(
+    result,
+    "model-mount-invocation-direct-store-append-guard",
+    /assertAcceptedModelInvocationReceiptBound/.test(modelMountStore) &&
+      /model_mount_invocation_receipt_direct_append_forbidden/.test(modelMountStore) &&
+      /modelMountReceiptBindingRef/.test(modelMountStore) &&
+      /modelMountAcceptedReceiptAppendHash/.test(modelMountStore) &&
+      /modelMountAgentgresOperationRef/.test(modelMountStore) &&
+      /modelMountAgentgresAdmissionHash/.test(modelMountStore),
+    ["packages/runtime-daemon/src/model-mounting/store.mjs"],
+    "Phase 4/11 is pending: JS model-mounting store must reject direct model invocation receipt appends without Rust receipt_binder and Agentgres admission",
   );
   assertCheck(
     result,
