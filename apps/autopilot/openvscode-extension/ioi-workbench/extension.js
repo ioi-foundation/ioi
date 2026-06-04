@@ -36,6 +36,7 @@ const { createAutopilotModeController } = require("./workbench/mode-controller")
 const { createWorkbenchModeBodyRenderers } = require("./workbench/mode-body-renderers");
 const { formatBytes, modelSnapshotFromState } = require("./workbench/model-snapshot");
 const { createWorkbenchOverviewPanelRenderer } = require("./workbench/overview-panel");
+const { createOverviewPanelLifecycle } = require("./workbench/overview-panel-lifecycle");
 const { createWorkbenchPanelLifecycle } = require("./workbench/panel-lifecycle");
 const { createPersistentModePanels } = require("./workbench/persistent-mode-panels");
 const { createAutopilotShellHeader } = require("./workbench/shell-header");
@@ -298,6 +299,10 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function uniqueStrings(values = []) {
+  return [...new Set(firstArray(values).map((value) => String(value)).filter(Boolean))];
+}
+
 const {
   commandPayloadAttr,
   formatRelativeTime,
@@ -362,7 +367,7 @@ const {
   studioSanitizePublicAssistantText,
 } = createStudioPublicTextSanitizer({
   compactStudioWhitespace,
-  studioTextIndicatesApprovalPause,
+  studioTextIndicatesApprovalPause: (...args) => studioTextIndicatesApprovalPause(...args),
 });
 
 function workspaceTargetsForPrompt(prompt = "") {
@@ -665,7 +670,6 @@ const {
   studioPendingWorklogLastAtMs,
   studioRuntimeEventSeen,
   studioVisiblePendingStepDetail,
-  uniqueStrings,
 } = createStudioPendingWorkProjection({
   stringValue,
   firstArray,
@@ -3304,69 +3308,6 @@ function currentStudioPanelPageNonce() {
 
 function studioPanelHtml(state) {
   return renderStudioPanelHtml(state);
-}
-async function openOverviewPanel(context, output) {
-  const state = await readBridgeState();
-  if (overviewPanel) {
-    overviewPanel.reveal(vscode.ViewColumn.One);
-  } else {
-    overviewPanel = vscode.window.createWebviewPanel(
-      "ioi.overview",
-      "Autopilot Overview",
-      vscode.ViewColumn.One,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-      },
-    );
-    overviewPanel.iconPath = vscode.Uri.joinPath(
-      context.extensionUri,
-      "media",
-      "ioi-activity.svg",
-    );
-    overviewPanel.webview.onDidReceiveMessage(async (message) => {
-      if (
-        message?.type === "bridgeRequest" &&
-        typeof message.requestType === "string"
-      ) {
-        if (message.requestType === "chat.agentMode.select") {
-          applyStudioAgentModeSelection(message.payload || {});
-          await refreshStudioPanelHtml(output);
-          await focusStudioPanelComposer();
-        }
-        if (message.requestType === "chat.permissionMode.select") {
-          await applyStudioPermissionModeSelection(message.payload || {}, output);
-          await refreshStudioPanelHtml(output);
-          await focusStudioPanelComposer();
-        }
-        if (!message.payload?.bridgeRequestAlreadyWritten) {
-          await writeBridgeRequest(
-            message.requestType,
-            message.payload || {},
-            buildWorkspaceActionContext("overview-panel-webview"),
-          ).catch((error) => {
-            output.appendLine(
-              `[ioi-overview] bridge request unavailable: ${error?.message || String(error)}`,
-            );
-          });
-        }
-        return;
-      }
-      if (message?.type !== "command" || typeof message.command !== "string") {
-        return;
-      }
-      await vscode.commands.executeCommand(message.command, message.payload);
-    });
-    registerModePanelVisibilityProjection(overviewPanel, "home", output);
-    overviewPanel.onDidDispose(() => {
-      overviewPanel = null;
-      overviewPanelLastHtml = null;
-      overviewPanelNonce = null;
-    });
-  }
-  updateOverviewPanelHtml(state);
-  output.appendLine("Opened Autopilot Overview webview.");
-  return overviewPanel;
 }
 
 async function refreshStudioPanelHtml(output) {
@@ -7305,6 +7246,50 @@ async function resumeStudioTurn(output) {
 }
 
 const {
+  IOIViewProvider,
+  closePrimarySidebarAfterActivityLaunch,
+  registerModePanelVisibilityProjection,
+  syncWorkbenchAppearance,
+  watchBridgeState,
+} = createWorkbenchPanelLifecycle({
+  AUTOPILOT_MODE_BY_ID,
+  AUTOPILOT_MODE_BY_VIEW_ID,
+  MODE_VISIBILITY_REQUEST_TYPES,
+  buildWorkspaceActionContext,
+  renderHtml,
+  vscode,
+  workspaceSummary,
+  writeBridgeRequest,
+});
+
+const {
+  openOverviewPanel: openOverviewPanelFromManager,
+} = createOverviewPanelLifecycle({
+  applyStudioAgentModeSelection,
+  applyStudioPermissionModeSelection,
+  buildWorkspaceActionContext,
+  focusStudioPanelComposer,
+  getOverviewPanel: () => overviewPanel,
+  readBridgeState,
+  refreshStudioPanelHtml,
+  registerModePanelVisibilityProjection,
+  resetOverviewPanelRenderState: () => {
+    overviewPanelLastHtml = null;
+    overviewPanelNonce = null;
+  },
+  setOverviewPanel: (panel) => {
+    overviewPanel = panel;
+  },
+  updateOverviewPanelHtml,
+  vscode,
+  writeBridgeRequest,
+});
+
+async function openOverviewPanel(context, output) {
+  return openOverviewPanelFromManager(context, output);
+}
+
+const {
   openStudioPanel: openStudioPanelFromManager,
 } = createStudioPanelLifecycle({
   applyStudioAgentModeSelection,
@@ -7398,23 +7383,6 @@ const {
   daemonEndpoint,
   daemonToken,
   requestJson,
-});
-
-const {
-  IOIViewProvider,
-  closePrimarySidebarAfterActivityLaunch,
-  registerModePanelVisibilityProjection,
-  syncWorkbenchAppearance,
-  watchBridgeState,
-} = createWorkbenchPanelLifecycle({
-  AUTOPILOT_MODE_BY_ID,
-  AUTOPILOT_MODE_BY_VIEW_ID,
-  MODE_VISIBILITY_REQUEST_TYPES,
-  buildWorkspaceActionContext,
-  renderHtml,
-  vscode,
-  workspaceSummary,
-  writeBridgeRequest,
 });
 
 function registerNativeCommands(context, output) {
