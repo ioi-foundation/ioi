@@ -334,8 +334,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs`.
 - Moved model tokenization, token counting, context-fit estimation, and endpoint context-window fallback out of `model-mounting.mjs` behind existing compatibility methods while preserving route receipts, redacted input hashes, and public response envelopes.
 - Added focused tokenizer-operation tests for route/receipt updates, token/count envelopes, keep-tail context fitting, and context-window fallback order.
+- Added `packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs`.
+- Moved ephemeral MCP integration compilation, MCP server import/normalization/listing, MCP tool invocation, and workflow-node dispatch out of `model-mounting.mjs` behind existing compatibility methods while preserving vault-ref policy, tool narrowing, receipt envelopes, and workflow memory-write blocking.
+- Added focused MCP/workflow operation tests for vault-ref redaction, MCP import/listing, allowed-tool policy, ephemeral tool receipts, router/MCP/Receipt Gate/model dispatch, and memory policy rejection.
 
-Status: `model-mounting.mjs` still owns route persistence wrappers, catalog import/download operation glue, model invocation utilities, and some product projection glue. Safe next extractions are catalog import/download materialization, invocation utility slices, and remaining route HTTP glue.
+Status: `model-mounting.mjs` still owns route persistence wrappers, catalog import/download operation glue, model invocation/stream utilities, and some product projection glue. Safe next extractions are catalog import/download materialization, invocation/stream utility slices, and remaining route HTTP glue.
 
 ### Rust Runtime Hot Spot
 
@@ -413,6 +416,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `model-mounting/model-loading-operations`
   - `model-mounting/storage-operations`
   - `model-mounting/tokenizer-operations`
+  - `model-mounting/mcp-workflow-operations`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.

@@ -73,6 +73,14 @@ import {
   tokenizeModel as tokenizeModelState,
 } from "./model-mounting/tokenizer-operations.mjs";
 import {
+  compileEphemeralMcpIntegrations as compileEphemeralMcpIntegrationsState,
+  executeWorkflowNode as executeWorkflowNodeState,
+  importMcpJson as importMcpJsonState,
+  invokeMcpTool as invokeMcpToolState,
+  listMcpServers as listMcpServersState,
+  normalizeMcpServer as normalizeMcpServerState,
+} from "./model-mounting/mcp-workflow-operations.mjs";
+import {
   catalogVariantForSource,
   enrichCatalogEntry,
   huggingFaceCatalogEntries,
@@ -2180,119 +2188,28 @@ export class ModelMountingState {
   }
 
   compileEphemeralMcpIntegrations({ authorization, body = {}, input }) {
-    const integrations = Array.isArray(body.integrations) ? body.integrations : [];
-    const ephemeral = integrations.filter((integration) => integration?.type === "ephemeral_mcp");
-    const toolReceiptIds = [];
-    const serverIds = [];
-    const evidenceRefs = [];
-    for (const integration of ephemeral) {
-      const label = requiredString(integration.server_label ?? integration.serverLabel, "server_label");
-      const server = this.normalizeMcpServer(label, {
-        ...integration,
-        url: integration.server_url ?? integration.serverUrl,
-        allowed_tools: integration.allowed_tools ?? integration.allowedTools,
-        source: "ephemeral_mcp",
-      });
-      const stored = {
-        ...server,
-        id: `mcp.ephemeral.${safeId(label)}.${stableHash(integration.server_url ?? integration.serverUrl ?? label).slice(0, 10)}`,
-        status: "ephemeral_registered",
-      };
-      this.mcpServers.set(stored.id, stored);
-      serverIds.push(stored.id);
-      const serverReceipt = this.receipt("mcp_ephemeral_registration", {
-        summary: `Ephemeral MCP server ${label} registered for one model request.`,
-        redaction: "redacted",
-        evidenceRefs: ["ephemeral_mcp", "RuntimeToolContract", stored.id],
-        details: stored,
-      });
-      evidenceRefs.push(serverReceipt.id, stored.id);
-      const allowedTools = stored.allowedTools.length > 0 ? stored.allowedTools : [];
-      for (const tool of allowedTools) {
-        const result = this.invokeMcpTool({
-          authorization,
-          body: {
-            server_id: stored.id,
-            tool,
-            input: {
-              source: "ephemeral_mcp",
-              requestInputHash: stableHash(input),
-            },
-          },
-        });
-        toolReceiptIds.push(result.receipt.id);
-        evidenceRefs.push(result.receipt.id);
-      }
-    }
-    if (ephemeral.length > 0) {
-      this.writeMap("mcp-servers", this.mcpServers);
-    }
-    return { toolReceiptIds, serverIds, evidenceRefs };
+    return compileEphemeralMcpIntegrationsState(this, { authorization, body, input }, {
+      requiredString,
+      safeId,
+      stableHash,
+    });
   }
 
   importMcpJson(body = {}) {
-    const raw = body.mcp_json ?? body.mcpJson ?? body;
-    const servers = raw.mcpServers ?? raw.servers ?? {};
-    const imported = [];
-    for (const [label, config] of Object.entries(servers)) {
-      const server = this.normalizeMcpServer(label, config);
-      this.mcpServers.set(server.id, server);
-      imported.push(server);
-      this.receipt("mcp_server_import", {
-        summary: `MCP server ${label} imported with governed tool narrowing.`,
-        redaction: "redacted",
-        evidenceRefs: ["mcp.json", "RuntimeToolContract", server.id],
-        details: server,
-      });
-    }
-    this.writeMap("mcp-servers", this.mcpServers);
-    return {
-      imported,
-      count: imported.length,
-      empty: imported.length === 0,
-    };
+    return importMcpJsonState(this, body);
   }
 
   normalizeMcpServer(label, config = {}) {
-    const id = `mcp.${safeId(label)}`;
-    const allowedTools = normalizeScopes(
-      config.allowed_tools ?? config.allowedTools,
-      config.tools ? Object.keys(config.tools) : [],
-    );
-    for (const [key, value] of Object.entries(config.headers ?? config.env ?? {})) {
-      this.walletAuthority.resolveVaultRef(String(value));
-      if (!String(value).startsWith("vault://")) {
-        throw runtimeError({
-          status: 403,
-          code: "policy",
-          message: "MCP secrets must be vault refs.",
-          details: { header: key },
-        });
-      }
-    }
-    const secretRefs = Object.fromEntries(
-      Object.entries(config.headers ?? config.env ?? {}).map(([key]) => [key, `vault://${id}/${safeId(key)}`]),
-    );
-    return {
-      id,
-      label,
-      transport: config.url || config.server_url || config.serverUrl ? "remote" : "stdio",
-      command: config.command ?? null,
-      args: Array.isArray(config.args) ? config.args : [],
-      serverUrl: config.url ?? config.server_url ?? config.serverUrl ?? null,
-      allowedTools,
-      secretRefs,
-      redactedHeaders: Object.fromEntries(Object.keys(config.headers ?? {}).map((key) => [key, SECRET_REDACTION])),
-      status: "registered",
-      source: config.source ?? "mcp.json",
-      importedAt: this.nowIso(),
-    };
+    return normalizeMcpServerState(this, label, config, {
+      normalizeScopes,
+      runtimeError,
+      safeId,
+      secretRedaction: SECRET_REDACTION,
+    });
   }
 
   listMcpServers() {
-    return [...this.mcpServers.values()]
-      .map(publicMcpServer)
-      .sort((left, right) => left.id.localeCompare(right.id));
+    return listMcpServersState(this, { publicMcpServer });
   }
 
   listConversations() {
@@ -2300,113 +2217,25 @@ export class ModelMountingState {
   }
 
   invokeMcpTool({ authorization, body = {} }) {
-    const serverId = body.server_id ?? body.serverId ?? `mcp.${safeId(body.server_label ?? body.serverLabel ?? "")}`;
-    const server = this.mcpServers.get(serverId);
-    if (!server) throw notFound(`MCP server not found: ${serverId}`, { serverId });
-    const tool = requiredString(body.tool, "tool");
-    this.authorize(authorization, `mcp.call:${server.label}.${tool}`);
-    if (server.allowedTools.length > 0 && !server.allowedTools.includes(tool)) {
-      throw runtimeError({
-        status: 403,
-        code: "policy",
-        message: "MCP tool is not included in allowed_tools.",
-        details: { serverId, tool },
-      });
-    }
-    const receipt = this.receipt("mcp_tool_invocation", {
-      summary: `MCP tool ${server.label}.${tool} executed through governed RuntimeToolContract path.`,
-      redaction: "redacted",
-      evidenceRefs: ["RuntimeToolContract", server.id, `tool:${tool}`],
-      details: {
-        serverId,
-        tool,
-        inputHash: stableHash(body.input ?? {}),
-        outputHash: stableHash({ ok: true, tool }),
-      },
+    return invokeMcpToolState(this, { authorization, body }, {
+      notFound,
+      requiredString,
+      runtimeError,
+      safeId,
+      stableHash,
     });
-    return {
-      server: server.label,
-      tool,
-      result: { ok: true, fixture: true, tool },
-      receipt,
-    };
   }
 
   async executeWorkflowNode({ authorization, body = {} }) {
-    const node = requiredString(body.node ?? body.node_type ?? body.nodeType, "node");
-    const capability = body.capability ?? capabilityForWorkflowNode(node);
-    const memoryOptions = workflowMemoryOptionsFromBody(body);
-    const base = {
-      model: body.model_id ?? body.modelId ?? body.model,
-      route_id: body.route_id ?? body.routeId,
-      model_policy: body.model_policy ?? body.modelPolicy ?? {},
-      input: body.input ?? body.prompt ?? "",
-      messages: body.messages,
-      max_tokens: body.max_tokens ?? body.maxTokens,
-      temperature: body.temperature,
-      workflow_graph_id: body.workflow_graph_id ?? body.workflowGraphId,
-      workflow_node_id: body.workflow_node_id ?? body.workflowNodeId ?? body.node_id ?? body.nodeId,
-      workflow_node_type: body.workflow_node_type ?? body.workflowNodeType ?? node,
-    };
-    if (memoryOptions) {
-      base.memory = memoryOptions;
-      base.send_options = { memory: memoryOptions };
-    }
-    if (node === "Model Router") {
-      const routeId = base.route_id ?? "route.local-first";
-      this.authorize(authorization, `route.use:${routeId}`);
-      return {
-        node,
-        status: "selected",
-        ...(this.testRoute(routeId, { ...base, capability })),
-      };
-    }
-    if (node === "Local Tool/MCP" || node === "Local Tool / MCP") {
-      return {
-        node,
-        status: "executed",
-        ...(this.invokeMcpTool({ authorization, body: body.mcp ?? body })),
-      };
-    }
-    if (node === "Receipt Gate") {
-      return this.validateReceiptGate(body);
-    }
-    const kind = workflowKindForNode(node);
-    const requiredScope =
-      kind === "embeddings"
-        ? "model.embeddings:*"
-        : kind === "rerank"
-          ? "model.rerank:*"
-          : kind === "responses"
-            ? "model.responses:*"
-            : "model.chat:*";
-    const memoryWriteBlockReason = workflowMemoryWriteBlockReason(memoryOptions);
-    if (memoryWriteBlockReason) {
-      throw runtimeError({
-        status: 403,
-        code: "policy",
-        message: "Workflow memory write blocked by policy.",
-        details: {
-          reason: memoryWriteBlockReason,
-          memory: memoryOptions,
-          workflowNodeId: base.workflow_node_id ?? null,
-        },
-      });
-    }
-    const invocation = await this.invokeModel({
-      authorization,
-      requiredScope,
-      kind,
-      body: base,
+    return executeWorkflowNodeState(this, { authorization, body }, {
+      capabilityForWorkflowNode,
+      nativeInvocationResponseShape,
+      requiredString,
+      runtimeError,
+      workflowKindForNode,
+      workflowMemoryOptionsFromBody,
+      workflowMemoryWriteBlockReason,
     });
-    return {
-      node,
-      status: "executed",
-      capability,
-      invocation: nativeInvocationResponseShape(invocation),
-      receipt: invocation.receipt,
-      routeReceipt: invocation.routeReceipt,
-    };
   }
 
   validateReceiptGate(body = {}) {
