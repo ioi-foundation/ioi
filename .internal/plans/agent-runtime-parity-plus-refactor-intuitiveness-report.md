@@ -146,6 +146,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-workspace-changes.js`.
 - Moved Studio workspace-change review inspection projection and daemon refresh routing out of `extension.js` while preserving hunk alias normalization, route/query envelope, cockpit markers, and fail-closed logging.
 - Added focused workspace-change projection tests for hunk normalization, daemon route/query shape, and daemon-refresh failure tolerance.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-parity-plus-events.js`.
+- Moved parity-plus runtime event payload aliasing and panel routing out of `extension.js` while preserving session-brain, trajectory-replay, safety, import-only, and reconnect projection semantics.
+- Added focused parity-plus event projection tests for payload aliases, session-brain rows/receipts, trajectory replay, import-only panels, safety panels, and unknown-event fallback.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.

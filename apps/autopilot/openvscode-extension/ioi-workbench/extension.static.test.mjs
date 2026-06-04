@@ -92,6 +92,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/public-text-sanitizer.js",
   managedSessions:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-managed-sessions.js",
+  parityPlusEvents:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-parity-plus-events.js",
   workspaceChanges:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-workspace-changes.js",
   artifactRouting:
@@ -167,6 +169,7 @@ async function readStudioComposite() {
       paths.projectionReplay,
       paths.publicTextSanitizer,
       paths.managedSessions,
+      paths.parityPlusEvents,
       paths.workspaceChanges,
       paths.artifactRouting,
       paths.artifactIntent,
