@@ -122,6 +122,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added focused parity-plus tests for contract flag extraction and raw receipt/trace/path/tool leakage guards.
 - Moved Studio Stage 5 stop/cancel/recover lifecycle orchestration out of `extension.js` behind the existing compatibility wrapper while preserving runtime turn submission, stop/resume control projection, clean final-answer checks, and the `studio.stage5StopCancelRecover.exercised` bridge proof envelope.
 - Added focused parity-plus tests for Stage 5 stop/cancel/recover submission options, stop/resume projection flags, assistant turn projection, clean answer preview, and bridge proof emission.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/stage7-delegation-lifecycle.js`.
+- Moved Studio Stage 7 delegation lifecycle orchestration out of `extension.js` behind the existing compatibility wrapper while preserving daemon parent-thread creation, delegated worker spawn, failed-child persistence/recovery, browser subagent artifact projection, worker/replay panel projection, and the `studio.stage7DelegationLifecycle.exercised` bridge proof envelope.
+- Added focused Stage 7 lifecycle tests for parent/child request sequencing, failed-child recovery projection, worker/browser cards, replay rows, receipt propagation, and bridge proof emission.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/shell-header.js`.
 - Moved Autopilot workbench shell-header styles, posture tone mapping, native-shell gating, runtime posture chips, and mode switch action rendering out of `extension.js` while preserving existing call-site names and data-testids.
 - Added focused shell-header tests for tone mapping, native shell gating, sanitized posture rendering, command affordances, and product shell selectors.
@@ -584,6 +587,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `studio/chat-output-renderers`
   - `studio/parity-plus-panels`
   - `studio/parity-plus-panels` Stage 5 stop/cancel/recover lifecycle helper
+  - `studio/stage7-delegation-lifecycle`
   - `workbench/shell-header`
   - `workbench/mode-body-renderers`
   - `workbench/model-snapshot`

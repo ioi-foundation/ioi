@@ -70,6 +70,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/chat-output-renderers.js",
   parityPlusPanels:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/parity-plus-panels.js",
+  stage7DelegationLifecycle:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/stage7-delegation-lifecycle.js",
   pendingView:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/pending-view.js",
   durabilityPanels:
@@ -178,6 +180,7 @@ async function readStudioComposite() {
       paths.codeExecution,
       paths.chatOutputRenderers,
       paths.parityPlusPanels,
+      paths.stage7DelegationLifecycle,
       paths.pendingView,
       paths.durabilityPanels,
       paths.runtimeCockpitRows,
