@@ -149,6 +149,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-parity-plus-events.js`.
 - Moved parity-plus runtime event payload aliasing and panel routing out of `extension.js` while preserving session-brain, trajectory-replay, safety, import-only, and reconnect projection semantics.
 - Added focused parity-plus event projection tests for payload aliases, session-brain rows/receipts, trajectory replay, import-only panels, safety panels, and unknown-event fallback.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/tool-response-projection.js`.
+- Moved Studio tool-response JSON preview and command-output projection helpers out of `extension.js` while preserving nested result aliases, failed exit-code fallback, and receipt propagation.
+- Added focused tool-response projection tests for bounded previews, top-level command aliases, nested diagnostics output, failed fallback exit code, and receipt propagation.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
