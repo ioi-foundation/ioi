@@ -713,15 +713,9 @@ impl ModelMountCore {
             model_ref: request.model_ref.clone(),
             action: request.action.clone(),
             status: provider_lifecycle_status(request)?,
-            backend: "autopilot.native_local.fixture".to_string(),
-            backend_id: request
-                .backend_ref
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .unwrap_or("backend.autopilot.native-local.fixture")
-                .to_string(),
-            driver: "native_local".to_string(),
+            backend: provider_lifecycle_backend(request),
+            backend_id: provider_lifecycle_backend_id(request),
+            driver: provider_lifecycle_driver(request),
             execution_backend: request.execution_backend.clone(),
             evidence_refs: provider_lifecycle_evidence_refs(request),
             lifecycle_hash: String::new(),
@@ -1047,7 +1041,9 @@ impl ModelMountProviderLifecycleRequest {
         if !matches!(self.action.trim(), "health" | "load" | "unload") {
             return Err(ModelMountError::UnsupportedProviderLifecycleAction);
         }
-        if !is_native_local_provider_lifecycle_backend(self) {
+        if !is_native_local_provider_lifecycle_backend(self)
+            && !is_fixture_provider_lifecycle_backend(self)
+        {
             return Err(ModelMountError::UnsupportedProviderLifecycleBackend);
         }
         Ok(())
@@ -1170,6 +1166,16 @@ fn is_native_local_provider_lifecycle_backend(
     provider_kind == "ioi_native_local" || driver == "native_local" || api_format == "ioi_native"
 }
 
+fn is_fixture_provider_lifecycle_backend(request: &ModelMountProviderLifecycleRequest) -> bool {
+    if request.execution_backend.trim() != "rust_model_mount_fixture_lifecycle" {
+        return false;
+    }
+    let provider_kind = request.provider_kind.trim();
+    let api_format = request.api_format.as_deref().unwrap_or("").trim();
+    let driver = request.driver.as_deref().unwrap_or("").trim();
+    provider_kind == "local_folder" || driver == "fixture" || api_format == "ioi_fixture"
+}
+
 fn provider_lifecycle_status(
     request: &ModelMountProviderLifecycleRequest,
 ) -> Result<String, ModelMountError> {
@@ -1187,6 +1193,47 @@ fn provider_lifecycle_status(
         "load" => Ok("loaded".to_string()),
         "unload" => Ok("unloaded".to_string()),
         _ => Err(ModelMountError::UnsupportedProviderLifecycleAction),
+    }
+}
+
+fn provider_lifecycle_backend(request: &ModelMountProviderLifecycleRequest) -> String {
+    if is_native_local_provider_lifecycle_backend(request) {
+        "autopilot.native_local.fixture".to_string()
+    } else {
+        request
+            .api_format
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("ioi_fixture")
+            .to_string()
+    }
+}
+
+fn provider_lifecycle_backend_id(request: &ModelMountProviderLifecycleRequest) -> String {
+    if is_native_local_provider_lifecycle_backend(request) {
+        return request
+            .backend_ref
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("backend.autopilot.native-local.fixture")
+            .to_string();
+    }
+    request
+        .backend_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("backend.fixture")
+        .to_string()
+}
+
+fn provider_lifecycle_driver(request: &ModelMountProviderLifecycleRequest) -> String {
+    if is_native_local_provider_lifecycle_backend(request) {
+        "native_local".to_string()
+    } else {
+        "fixture".to_string()
     }
 }
 
@@ -1401,17 +1448,21 @@ fn provider_result_evidence_refs(
 }
 
 fn provider_lifecycle_evidence_refs(request: &ModelMountProviderLifecycleRequest) -> Vec<String> {
-    let mut refs = vec![
-        "rust_model_mount_provider_lifecycle".to_string(),
-        "rust_model_mount_native_local_lifecycle_backend".to_string(),
-    ];
-    if matches!(request.action.trim(), "health" | "load") {
-        refs.push("autopilot_native_local_backend_registry".to_string());
+    let mut refs = vec!["rust_model_mount_provider_lifecycle".to_string()];
+    if is_native_local_provider_lifecycle_backend(request) {
+        refs.push("rust_model_mount_native_local_lifecycle_backend".to_string());
+        if matches!(request.action.trim(), "health" | "load") {
+            refs.push("autopilot_native_local_backend_registry".to_string());
+        }
+        if matches!(request.action.trim(), "load" | "unload") {
+            refs.push("autopilot_native_local_process_supervisor".to_string());
+        }
+        refs.push("deterministic_native_local_fixture".to_string());
+    } else {
+        refs.push("rust_model_mount_fixture_lifecycle_backend".to_string());
+        refs.push("agentgres_model_registry_fixture".to_string());
+        refs.push("deterministic_fixture".to_string());
     }
-    if matches!(request.action.trim(), "load" | "unload") {
-        refs.push("autopilot_native_local_process_supervisor".to_string());
-    }
-    refs.push("deterministic_native_local_fixture".to_string());
     for evidence_ref in request
         .process_evidence_refs
         .iter()
@@ -1695,6 +1746,24 @@ mod tests {
             provider_status: Some("configured".to_string()),
             evidence_refs: vec!["daemon_model_load_request".to_string()],
             process_evidence_refs: vec!["autopilot_native_local_process_started".to_string()],
+        }
+    }
+
+    fn fixture_provider_lifecycle_request() -> ModelMountProviderLifecycleRequest {
+        ModelMountProviderLifecycleRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION.to_string(),
+            provider_ref: "provider://fixture".to_string(),
+            provider_kind: "local_folder".to_string(),
+            endpoint_ref: "endpoint://fixture/qwen3".to_string(),
+            model_ref: "model://fixture/qwen3".to_string(),
+            action: "health".to_string(),
+            execution_backend: "rust_model_mount_fixture_lifecycle".to_string(),
+            api_format: Some("ioi_fixture".to_string()),
+            driver: Some("fixture".to_string()),
+            backend_ref: Some("backend.fixture".to_string()),
+            provider_status: Some("configured".to_string()),
+            evidence_refs: vec!["daemon_fixture_health_request".to_string()],
+            process_evidence_refs: vec![],
         }
     }
 
@@ -2166,6 +2235,39 @@ mod tests {
             .expect("blocked native-local provider health planned in Rust");
 
         assert_eq!(result.status, "blocked");
+    }
+
+    #[test]
+    fn fixture_provider_lifecycle_is_planned_in_rust_model_mount() {
+        let mut request = fixture_provider_lifecycle_request();
+
+        let result = ModelMountCore
+            .plan_provider_lifecycle(&request)
+            .expect("fixture provider health planned in Rust");
+
+        assert_eq!(result.action, "health");
+        assert_eq!(result.status, "available");
+        assert_eq!(result.backend, "ioi_fixture");
+        assert_eq!(result.backend_id, "backend.fixture");
+        assert_eq!(result.driver, "fixture");
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_fixture_lifecycle_backend".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"agentgres_model_registry_fixture".to_string()));
+
+        request.action = "load".to_string();
+        let result = ModelMountCore
+            .plan_provider_lifecycle(&request)
+            .expect("fixture provider load planned in Rust");
+        assert_eq!(result.status, "loaded");
+
+        request.action = "unload".to_string();
+        let result = ModelMountCore
+            .plan_provider_lifecycle(&request)
+            .expect("fixture provider unload planned in Rust");
+        assert_eq!(result.status, "unloaded");
     }
 
     #[test]

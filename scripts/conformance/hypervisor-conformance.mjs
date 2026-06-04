@@ -588,13 +588,18 @@ function runBridge() {
       /bridge_plans_native_local_model_mount_provider_lifecycle_through_rust_core/.test(bridgeModule) &&
       /planProviderLifecycle/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_provider_lifecycle_command/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND/.test(modelMountAdmissionRunner) &&
       /planModelMountProviderLifecycle/.test(modelMountingState) &&
       /nativeLocalLifecycleRequest/.test(providerLocalDrivers) &&
+      /fixtureLifecycleRequest/.test(providerLocalDrivers) &&
       /RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND/.test(providerLocalDrivers) &&
+      /RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND/.test(providerLocalDrivers) &&
       /state\.planModelMountProviderLifecycle/.test(providerLocalDrivers) &&
       /provider_status/.test(providerLocalDrivers) &&
       /model_mount_provider_lifecycle_planning_required/.test(providerLocalDrivers) &&
+      /model_mount_fixture_provider_lifecycle_planning_required/.test(providerLocalDrivers) &&
       /plans health through Rust model_mount/.test(read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs")) &&
+      /fixture provider driver plans health and lifecycle through Rust model_mount/.test(read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs")) &&
       /rust_model_mount_provider_lifecycle/.test(read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs")),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -924,6 +929,9 @@ function runReceipts() {
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
       /UnsupportedProviderLifecycleBackend/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /rust_model_mount_fixture_lifecycle/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
       /plan_provider_lifecycle/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&

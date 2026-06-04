@@ -46,6 +46,7 @@ function fakeNativeState() {
     },
     planModelMountProviderLifecycle(request) {
       lifecycleRequests.push(request);
+      const isFixture = request.execution_backend === "rust_model_mount_fixture_lifecycle";
       const status =
         request.action === "health"
           ? request.provider_status === "blocked"
@@ -57,13 +58,15 @@ function fakeNativeState() {
       return {
         status,
         backendId: request.backend_ref,
-        providerBackend: "autopilot.native_local.fixture",
-        driver: "native_local",
+        providerBackend: isFixture ? "ioi_fixture" : "autopilot.native_local.fixture",
+        driver: isFixture ? "fixture" : "native_local",
         executionBackend: request.execution_backend,
         lifecycle_hash: `sha256:${request.action}`,
         evidence_refs: [
           "rust_model_mount_provider_lifecycle",
-          "rust_model_mount_native_local_lifecycle_backend",
+          isFixture
+            ? "rust_model_mount_fixture_lifecycle_backend"
+            : "rust_model_mount_native_local_lifecycle_backend",
           ...request.process_evidence_refs,
           ...request.evidence_refs,
         ],
@@ -127,6 +130,36 @@ test("native-local provider driver plans health through Rust model_mount", async
 
   assert.equal(blocked.status, "blocked");
   assert.equal(state.lifecycleRequests.at(-1).provider_status, "blocked");
+});
+
+test("fixture provider driver plans health and lifecycle through Rust model_mount", async () => {
+  const state = fakeNativeState();
+  const driver = new FixtureModelProviderDriver();
+  const provider = { id: "provider.fixture", kind: "local_folder", status: "configured" };
+  const endpoint = {
+    id: "endpoint.fixture",
+    providerId: "provider.fixture",
+    modelId: "fixture:model",
+    apiFormat: "ioi_fixture",
+    backendId: "backend.fixture",
+  };
+
+  const health = await driver.health(provider, { state });
+  assert.equal(health.status, "available");
+  assert.equal(health.lifecycleHash, "sha256:health");
+  assert.equal(state.lifecycleRequests.at(-1).execution_backend, "rust_model_mount_fixture_lifecycle");
+  assert.ok(health.evidenceRefs.includes("rust_model_mount_fixture_lifecycle_backend"));
+
+  const load = await driver.load({ state, provider, endpoint });
+  assert.equal(load.status, "loaded");
+  assert.equal(load.backend, "ioi_fixture");
+  assert.equal(load.driver, "fixture");
+  assert.equal(load.lifecycleHash, "sha256:load");
+
+  const unload = await driver.unload({ state, provider, endpoint });
+  assert.equal(unload.status, "unloaded");
+  assert.equal(unload.backendId, "backend.fixture");
+  assert.equal(unload.lifecycleHash, "sha256:unload");
 });
 
 test("native-local provider driver keeps load control and retires direct stream production", async () => {

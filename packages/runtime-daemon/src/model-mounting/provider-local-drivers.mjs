@@ -2,6 +2,7 @@ import { estimateNativeLocalResources } from "./local-system-probes.mjs";
 import { normalizeLoadOptions } from "./load-policy.mjs";
 import { normalizeScopes } from "./io.mjs";
 import {
+  RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND,
   RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
 } from "./model-mount-admission-runner.mjs";
 
@@ -128,10 +129,24 @@ export class NativeLocalModelProviderDriver {
 }
 
 export class FixtureModelProviderDriver {
-  async health(provider) {
+  async health(provider, { state } = {}) {
+    const lifecycle = requireFixtureLifecycleResult(state?.planModelMountProviderLifecycle(fixtureLifecycleRequest({
+      action: "health",
+      provider,
+      endpoint: {
+        id: provider.defaultEndpointId ?? provider.endpointId ?? `${provider.id}.health`,
+        providerId: provider.id,
+        modelId: provider.defaultModelId ?? provider.modelId ?? provider.id,
+        apiFormat: provider.apiFormat ?? "ioi_fixture",
+        backendId: provider.backendId ?? "backend.fixture",
+      },
+      backendId: provider.backendId ?? "backend.fixture",
+      evidenceRefs: ["daemon_fixture_health_request"],
+    })), "health");
     return {
-      status: provider.status === "blocked" ? "blocked" : "available",
-      evidenceRefs: ["agentgres_model_registry_fixture"],
+      status: lifecycle.status,
+      evidenceRefs: lifecycle.evidence_refs ?? [],
+      lifecycleHash: lifecycle.lifecycle_hash ?? null,
     };
   }
 
@@ -145,12 +160,40 @@ export class FixtureModelProviderDriver {
       .filter((instance) => instance.providerId === provider.id && instance.status === "loaded");
   }
 
-  async load({ endpoint }) {
-    return { backend: endpoint.apiFormat, backendId: endpoint.backendId ?? "backend.fixture", driver: "fixture", status: "loaded" };
+  async load({ state, provider = null, endpoint }) {
+    const lifecycle = requireFixtureLifecycleResult(state?.planModelMountProviderLifecycle(fixtureLifecycleRequest({
+      action: "load",
+      provider,
+      endpoint,
+      backendId: endpoint.backendId ?? "backend.fixture",
+      evidenceRefs: ["daemon_fixture_load_request"],
+    })), "load");
+    return {
+      backend: lifecycle.providerBackend,
+      backendId: lifecycle.backendId,
+      driver: lifecycle.driver,
+      status: lifecycle.status,
+      evidenceRefs: lifecycle.evidence_refs ?? [],
+      lifecycleHash: lifecycle.lifecycle_hash ?? null,
+    };
   }
 
-  async unload() {
-    return { driver: "fixture", status: "unloaded" };
+  async unload({ state, provider = null, endpoint }) {
+    const lifecycle = requireFixtureLifecycleResult(state?.planModelMountProviderLifecycle(fixtureLifecycleRequest({
+      action: "unload",
+      provider,
+      endpoint,
+      backendId: endpoint?.backendId ?? "backend.fixture",
+      evidenceRefs: ["daemon_fixture_unload_request"],
+    })), "unload");
+    return {
+      driver: lifecycle.driver,
+      status: lifecycle.status,
+      backend: lifecycle.providerBackend,
+      backendId: lifecycle.backendId,
+      evidenceRefs: lifecycle.evidence_refs ?? [],
+      lifecycleHash: lifecycle.lifecycle_hash ?? null,
+    };
   }
 
   async invoke() {
@@ -197,6 +240,30 @@ function nativeLocalLifecycleRequest({
   };
 }
 
+function fixtureLifecycleRequest({
+  action,
+  provider = null,
+  endpoint,
+  backendId,
+  evidenceRefs = [],
+}) {
+  return {
+    schema_version: "ioi.model_mount.provider_lifecycle.v1",
+    provider_ref: provider?.id ?? endpoint?.providerId ?? "provider.fixture",
+    provider_kind: provider?.kind ?? "local_folder",
+    endpoint_ref: endpoint?.id ?? `${provider?.id ?? "provider.fixture"}.health`,
+    model_ref: endpoint?.modelId ?? provider?.defaultModelId ?? provider?.modelId ?? provider?.id ?? "model.fixture",
+    action,
+    execution_backend: RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND,
+    api_format: endpoint?.apiFormat ?? provider?.apiFormat ?? "ioi_fixture",
+    driver: provider?.driver ?? "fixture",
+    backend_ref: backendId,
+    provider_status: provider?.status ?? null,
+    evidence_refs: normalizeScopes(evidenceRefs, []),
+    process_evidence_refs: [],
+  };
+}
+
 function requireNativeLocalLifecycleResult(value, action) {
   const expectedStatus =
     action === "health"
@@ -216,6 +283,31 @@ function requireNativeLocalLifecycleResult(value, action) {
     const error = new Error("Native-local provider lifecycle planning requires a Rust model_mount lifecycle result.");
     error.status = 502;
     error.code = "model_mount_provider_lifecycle_planning_required";
+    error.details = { action, expectedStatus };
+    throw error;
+  }
+  return value;
+}
+
+function requireFixtureLifecycleResult(value, action) {
+  const expectedStatus =
+    action === "health"
+      ? null
+      : action === "load"
+        ? "loaded"
+        : "unloaded";
+  if (
+    !value ||
+    (expectedStatus ? value.status !== expectedStatus : !["available", "blocked"].includes(value.status)) ||
+    !value.providerBackend ||
+    !value.backendId ||
+    value.driver !== "fixture" ||
+    value.executionBackend !== RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND ||
+    !value.lifecycle_hash
+  ) {
+    const error = new Error("Fixture provider lifecycle planning requires a Rust model_mount lifecycle result.");
+    error.status = 502;
+    error.code = "model_mount_fixture_provider_lifecycle_planning_required";
     error.details = { action, expectedStatus };
     throw error;
   }
