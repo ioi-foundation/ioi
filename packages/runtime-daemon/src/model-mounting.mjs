@@ -23,18 +23,13 @@ import {
   isFixtureModelRecord,
 } from "./model-mounting/fixture-policy.mjs";
 import {
-  assertDownloadPolicyAllowed,
-  catalogApprovalDecision,
   destructiveConfirmationState,
   inferModelArchitecture,
   inferParameterCount,
   importTargetPath,
   listModelFiles,
   materializeImportArtifact,
-  modelIdFromSourceUrl,
-  normalizeDownloadPolicy,
   normalizeImportMode,
-  sourceLabelForUrl,
 } from "./model-mounting/catalog-helpers.mjs";
 import {
   importModel as importModelState,
@@ -92,7 +87,6 @@ import {
   writeBackendLog as writeBackendLogState,
 } from "./model-mounting/backend-registry-state.mjs";
 import {
-  catalogVariantForSource,
   enrichCatalogEntry,
   huggingFaceCatalogEntries,
 } from "./model-mounting/catalog-entries.mjs";
@@ -102,6 +96,10 @@ import {
   enrichCatalogEntryForState,
   storageSummary as storageSummaryState,
 } from "./model-mounting/catalog-operations.mjs";
+import {
+  catalogImportUrl as catalogImportUrlState,
+  downloadModel as downloadModelState,
+} from "./model-mounting/catalog-download-operations.mjs";
 import { backendBindAddress, discoverAutopilotLlamaServer, llamaCppGpuLayersArg, llamaCppLibraryPathEnv } from "./model-mounting/local-runtime-engines.mjs";
 import {
   providerHealthFailureStatus,
@@ -275,7 +273,6 @@ import {
   fetchWithTimeout,
   fileSizeIfExists,
   normalizeNonNegativeInteger,
-  normalizeOptionalBytes,
   truthy,
   matchesAny,
   publicToken,
@@ -286,17 +283,11 @@ import {
   normalizeScopes,
 } from "./model-mounting/io.mjs";
 import {
-  materializeFixtureDownload,
-  materializeLiveDownload,
   materializeLiveDownloadAttempt,
   writeDownloadResumeMetadata,
   isRetriableDownloadFailure,
   downloadRetryBackoffMs,
-  shouldRetainFailedDownloadPartial,
-  failedDownloadCleanupState,
   cleanupPartialDownload,
-  downloadFailureReason,
-  publicDownloadSource,
 } from "./model-mounting/download-helpers.mjs";
 import {
   catalogAuthFailureFields,
@@ -304,7 +295,6 @@ import {
   catalogAuthProviderFields,
   catalogEntryWithAuth,
   catalogProviderConfigHealthFields,
-  publicCatalogAuthEvidence,
   publicCatalogProviderConfig,
 } from "./model-mounting/catalog-projections.mjs";
 import {
@@ -314,11 +304,9 @@ import {
 import {
   internalFixtureModelsEnabled,
   liveModelCatalogEnabled,
-  liveModelDownloadEnabled,
   lmStudioPublicCliEnabled,
   lmStudioRuntimeDiscoveryEnabled,
   modelCatalogTimeoutMs,
-  modelDownloadTimeoutMs,
 } from "./model-mounting/environment.mjs";
 import {
   backendRegistryRecords,
@@ -1017,87 +1005,9 @@ export class ModelMountingState {
   }
 
   async catalogImportUrl(body = {}) {
-    const sourceUrl = requiredString(body.source_url ?? body.sourceUrl ?? body.url, "source_url");
-    const isFixture = sourceUrl.startsWith("fixture://");
-    if (!isFixture && !liveModelCatalogEnabled()) {
-      throw runtimeError({
-        status: 424,
-        code: "external_blocker",
-        message: "Live catalog imports are gated. Use fixture:// URLs or set IOI_LIVE_MODEL_CATALOG=1.",
-        details: { sourceUrlHash: stableHash(sourceUrl), evidenceRefs: ["network_access_opt_in"] },
-      });
-    }
-    if (!isFixture && !liveModelDownloadEnabled()) {
-      throw runtimeError({
-        status: 424,
-        code: "external_blocker",
-        message: "Live catalog downloads are gated. Set IOI_LIVE_MODEL_DOWNLOAD=1 to materialize remote artifacts.",
-        details: { sourceUrlHash: stableHash(sourceUrl), evidenceRefs: ["network_download_opt_in"] },
-      });
-    }
-    const modelId = body.model_id ?? body.modelId ?? modelIdFromSourceUrl(sourceUrl);
-    const lastCatalogEntry = this.lastCatalogSearch?.results?.find((entry) => entry.sourceUrl === sourceUrl || entry.sourceUrlHash === stableHash(sourceUrl));
-    const variant = catalogVariantForSource(sourceUrl, { ...(lastCatalogEntry ?? {}), ...body });
-    const receipt = this.lifecycleReceipt("model_catalog_import_url", {
-      modelId,
-      providerId: body.provider_id ?? body.providerId ?? "provider.autopilot.local",
-      sourceUrlHash: stableHash(sourceUrl),
-      sourceLabel: variant.sourceLabel,
-      format: variant.format,
-      quantization: variant.quantization,
-      license: variant.license,
-      compatibility: variant.compatibility,
-      architecture: variant.architecture,
-      parameterCount: variant.parameterCount,
-      recommendation: variant.recommendation,
-      backendCompatibility: variant.backendCompatibility,
-      downloadRisk: variant.downloadRisk,
-      benchmarkReadiness: variant.benchmarkReadiness,
-      selectionReceiptFields: variant.selectionReceiptFields,
-      catalogProviderId: variant.catalogProviderId,
-      catalogAuth: publicCatalogAuthEvidence(variant.catalogAuth),
-      approvalDecision: catalogApprovalDecision({ isFixture, body }),
-      liveDownloadGate: isFixture ? "fixture" : "IOI_LIVE_MODEL_DOWNLOAD",
-    });
-    const download = await this.downloadModel({
-      ...body,
-      model_id: modelId,
-      provider_id: body.provider_id ?? body.providerId ?? "provider.autopilot.local",
-      source_url: sourceUrl,
-      source_label: variant.sourceLabel,
-      file_name: body.file_name ?? body.fileName ?? `${safeFileName(modelId)}.${variant.format}`,
-      ...(isFixture
-        ? {
-            fixture_content:
-              body.fixture_content ??
-              body.fixtureContent ??
-              [`family=${variant.family}`, `quantization=${variant.quantization}`, `context=${variant.contextWindow}`, ""].join("\n"),
-          }
-        : {}),
-      format: variant.format,
-      quantization: variant.quantization,
-      family: variant.family,
-      context_window: variant.contextWindow,
-      license: variant.license,
-      compatibility: variant.compatibility,
-      architecture: variant.architecture,
-      parameter_count: variant.parameterCount,
-      recommendation_score: variant.recommendation?.score,
-      download_risk_status: variant.downloadRisk?.status,
-      backend_compatibility: variant.backendCompatibility,
-      benchmark_readiness: variant.benchmarkReadiness,
-      selection_receipt_fields: variant.selectionReceiptFields,
-      transfer_approved: Boolean(body.transfer_approved ?? body.transferApproved ?? isFixture),
-      variant_id: variant.id,
-      catalog_provider_id: variant.catalogProviderId,
-      catalog_receipt_id: receipt.id,
-    });
-    return {
+    return catalogImportUrlState(this, body, {
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      status: download.status,
-      catalogReceiptId: receipt.id,
-      download,
-    };
+    });
   }
 
   importModel(body = {}) {
@@ -1155,283 +1065,7 @@ export class ModelMountingState {
   }
 
   async downloadModel(body = {}) {
-    const now = this.nowIso();
-    const modelId = requiredString(body.model_id ?? body.modelId, "model_id");
-    const providerId = body.provider_id ?? body.providerId ?? "provider.autopilot.local";
-    const source = body.source_url ?? body.sourceUrl ?? body.source ?? "deterministic_fixture_download";
-    const isFixture = String(source).startsWith("fixture://") || source === "deterministic_fixture_download";
-    if (!isFixture && !liveModelDownloadEnabled()) {
-      throw runtimeError({
-        status: 424,
-        code: "external_blocker",
-        message: "Live model downloads are gated. Set IOI_LIVE_MODEL_DOWNLOAD=1.",
-        details: { sourceUrlHash: stableHash(source), evidenceRefs: ["network_download_opt_in"] },
-      });
-    }
-    const sourceLabel = body.source_label ?? body.sourceLabel ?? sourceLabelForUrl(source);
-    const variantMetadata = catalogVariantForSource(source, body);
-    const catalogProviderId = body.catalog_provider_id ?? body.catalogProviderId ?? variantMetadata.catalogProviderId ?? null;
-    const catalogAuth = !isFixture && catalogProviderId
-      ? await catalogProviderAuthHeaders(catalogProviderId, this)
-      : { headers: {}, evidence: null };
-    const catalogAuthReceipt = publicCatalogAuthEvidence(catalogAuth.evidence);
-    const targetDir = path.join(this.modelRoot, "downloads", safeFileName(modelId));
-    const targetPath = path.join(targetDir, body.file_name ?? body.fileName ?? `${safeFileName(modelId)}.gguf`);
-    const fixtureContent = String(body.fixture_content ?? body.fixtureContent ?? `deterministic model bytes for ${modelId}\n`);
-    const bytesTotal = Number(body.bytes_total ?? body.bytesTotal ?? (isFixture ? Buffer.byteLength(fixtureContent) : 0));
-    const maxBytes = normalizeOptionalBytes(body.max_bytes ?? body.maxBytes ?? process.env.IOI_MODEL_DOWNLOAD_MAX_BYTES);
-    const downloadPolicy = normalizeDownloadPolicy(body, { isFixture, maxBytes, source });
-    assertDownloadPolicyAllowed(downloadPolicy, source);
-    const jobBase = {
-      id: `download_job_${crypto.randomUUID()}`,
-      modelId,
-      providerId,
-      source: publicDownloadSource(source),
-      sourceHash: stableHash(source),
-      sourceUrlHash: stableHash(source),
-      sourceLabel,
-      variant: variantMetadata,
-      targetPath,
-      targetPathHash: stableHash(targetPath),
-      bytesTotal,
-      bytesCompleted: 0,
-      progress: 0,
-      maxBytes,
-      downloadPolicy,
-      bandwidthLimitBps: downloadPolicy.bandwidthLimitBps,
-      retryLimit: downloadPolicy.retryLimit,
-      resumeDownload: downloadPolicy.resume,
-      createdAt: now,
-      updatedAt: now,
-      receiptIds: [],
-      receiptId: null,
-    };
-    const queuedReceipt = this.lifecycleReceipt("model_download_queued", {
-      jobId: jobBase.id,
-      modelId,
-      providerId,
-      sourceHash: stableHash(source),
-      sourceLabel,
-      variant: variantMetadata,
-      catalogProviderId,
-      catalogAuth: catalogAuthReceipt,
-      recommendation: variantMetadata.recommendation,
-      backendCompatibility: variantMetadata.backendCompatibility,
-      downloadRisk: variantMetadata.downloadRisk,
-      benchmarkReadiness: variantMetadata.benchmarkReadiness,
-      selectionReceiptFields: variantMetadata.selectionReceiptFields,
-      approvalDecision: downloadPolicy.approvalDecision,
-      downloadPolicy,
-      targetPathHash: stableHash(targetPath),
-      maxBytes,
-      downloadMode: isFixture ? "fixture" : "live_network",
-    });
-    if (truthy(body.fail ?? body.simulate_failure ?? body.simulateFailure)) {
-      const failed = {
-        ...jobBase,
-        artifactId: null,
-        status: "failed",
-        failureReason: body.failure_reason ?? body.failureReason ?? "deterministic_fixture_failure",
-        updatedAt: this.nowIso(),
-        receiptIds: [queuedReceipt.id],
-        receiptId: queuedReceipt.id,
-      };
-      const failedReceipt = this.lifecycleReceipt("model_download_failed", {
-        jobId: failed.id,
-        modelId,
-        providerId,
-        failureReason: failed.failureReason,
-        downloadPolicy,
-      });
-      const storedFailed = { ...failed, receiptIds: [...failed.receiptIds, failedReceipt.id], receiptId: failedReceipt.id };
-      this.downloads.set(storedFailed.id, storedFailed);
-      this.writeMap("model-downloads", this.downloads);
-      this.writeProjection();
-      return storedFailed;
-    }
-    if (truthy(body.queued_only ?? body.queuedOnly)) {
-      const queued = {
-        ...jobBase,
-        artifactId: null,
-        status: "queued",
-        receiptIds: [queuedReceipt.id],
-        receiptId: queuedReceipt.id,
-      };
-      this.downloads.set(queued.id, queued);
-      this.writeMap("model-downloads", this.downloads);
-      this.writeProjection();
-      return queued;
-    }
-    fs.mkdirSync(targetDir, { recursive: true });
-    const runningReceipt = this.lifecycleReceipt("model_download_running", {
-      jobId: jobBase.id,
-      modelId,
-      providerId,
-      bytesTotal,
-      bytesCompleted: 0,
-      maxBytes,
-      sourceHash: stableHash(source),
-      sourceLabel,
-      downloadMode: isFixture ? "fixture" : "live_network",
-      downloadPolicy,
-      catalogProviderId,
-      catalogAuth: catalogAuthReceipt,
-    });
-    const transferReceiptIds = [];
-    const recordTransferEvent = (operation, details = {}) => {
-      const receipt = this.lifecycleReceipt(operation, {
-        jobId: jobBase.id,
-        modelId,
-        providerId,
-        sourceHash: stableHash(source),
-        sourceLabel,
-        targetPathHash: stableHash(targetPath),
-        downloadMode: isFixture ? "fixture" : "live_network",
-        downloadPolicy,
-        catalogProviderId,
-        catalogAuth: catalogAuthReceipt,
-        ...details,
-      });
-      transferReceiptIds.push(receipt.id);
-      return receipt;
-    };
-    let materialized;
-    try {
-      materialized = isFixture
-        ? materializeFixtureDownload({ targetPath, fixtureContent })
-        : await materializeLiveDownload({
-            source,
-            targetPath,
-            expectedChecksum: body.checksum ?? body.expected_checksum ?? body.expectedChecksum ?? null,
-            maxBytes,
-            resume: downloadPolicy.resume,
-            bandwidthLimitBps: downloadPolicy.bandwidthLimitBps,
-            retryLimit: downloadPolicy.retryLimit,
-            timeoutMs: modelDownloadTimeoutMs(),
-            headers: catalogAuth.headers,
-            onTransferEvent: recordTransferEvent,
-          });
-    } catch (error) {
-      const failureReason = downloadFailureReason(error);
-      const transfer = error?.downloadTransfer ?? null;
-      const cleanupState = failedDownloadCleanupState(targetPath, {
-        retainPartial: shouldRetainFailedDownloadPartial(downloadPolicy, failureReason),
-      });
-      const failedReceipt = this.lifecycleReceipt("model_download_failed", {
-        jobId: jobBase.id,
-        modelId,
-        providerId,
-        failureReason,
-        sourceHash: stableHash(source),
-        sourceLabel,
-        errorHash: stableHash(error?.message ?? "download failed"),
-        cleanupState,
-        transfer,
-        catalogProviderId,
-        catalogAuth: catalogAuthReceipt,
-        attemptCount: transfer?.attemptCount ?? null,
-        retryCount: transfer?.retryCount ?? null,
-        resumeMetadataPathHash: transfer?.resumeMetadataPathHash ?? stableHash(`${targetPath}.part.json`),
-        downloadPolicy,
-      });
-      const failed = {
-        ...jobBase,
-        artifactId: null,
-        status: "failed",
-        failureReason,
-        cleanupState,
-        transfer,
-        attemptCount: transfer?.attemptCount ?? null,
-        retryCount: transfer?.retryCount ?? null,
-        resumeMetadataPathHash: transfer?.resumeMetadataPathHash ?? stableHash(`${targetPath}.part.json`),
-        updatedAt: this.nowIso(),
-        receiptIds: [queuedReceipt.id, runningReceipt.id, ...transferReceiptIds, failedReceipt.id],
-        receiptId: failedReceipt.id,
-      };
-      this.downloads.set(failed.id, failed);
-      this.writeMap("model-downloads", this.downloads);
-      this.writeProjection();
-      return failed;
-    }
-    const checksum = materialized.checksum;
-    const completedBytes = materialized.bytesCompleted;
-    const metadata = parseLocalModelMetadata(targetPath);
-    const artifact = this.artifacts.get(`download.${safeId(modelId)}`) ?? {
-      id: `download.${safeId(modelId)}`,
-      providerId,
-      modelId,
-      displayName: body.display_name ?? body.displayName ?? modelId,
-      family: body.family ?? metadata.family ?? "download",
-      format: body.format ?? variantMetadata.format ?? metadata.format ?? "gguf",
-      quantization: body.quantization ?? variantMetadata.quantization ?? metadata.quantization ?? null,
-      sizeBytes: completedBytes,
-      checksum,
-      contextWindow: body.context_window ?? body.contextWindow ?? metadata.contextWindow ?? null,
-      capabilities: normalizeScopes(body.capabilities, ["chat"]),
-      privacyClass: body.privacy_class ?? body.privacyClass ?? "local_private",
-      source: publicDownloadSource(source),
-      sourceLabel,
-      sourceUrlHash: stableHash(source),
-      license: body.license ?? variantMetadata.license ?? null,
-      compatibility: body.compatibility ?? variantMetadata.compatibility ?? [],
-      artifactPath: targetPath,
-      metadata,
-      state: "installed",
-      discoveredAt: now,
-    };
-    const job = {
-      ...jobBase,
-      artifactId: artifact.id,
-      status: "completed",
-      checksum,
-      progress: 1,
-      bytesTotal: materialized.bytesTotal || completedBytes,
-      bytesCompleted: completedBytes,
-      resumeOffset: materialized.resumeOffset ?? 0,
-      attemptCount: materialized.attemptCount ?? 1,
-      retryCount: materialized.retryCount ?? 0,
-      resumeMetadataPathHash: materialized.resumeMetadataPathHash ?? stableHash(`${targetPath}.part.json`),
-      transfer: materialized.transfer ?? null,
-      updatedAt: this.nowIso(),
-      receiptIds: [queuedReceipt.id, runningReceipt.id, ...transferReceiptIds],
-      receiptId: runningReceipt.id,
-    };
-    this.artifacts.set(artifact.id, artifact);
-    this.downloads.set(job.id, job);
-    const receipt = this.lifecycleReceipt("model_download_completed", {
-      jobId: job.id,
-      artifactId: artifact.id,
-      modelId,
-      providerId: artifact.providerId,
-      bytesTotal: materialized.bytesTotal || completedBytes,
-      bytesCompleted: completedBytes,
-      maxBytes,
-      checksum,
-      sourceHash: stableHash(source),
-      sourceLabel,
-      variant: variantMetadata,
-      recommendation: variantMetadata.recommendation,
-      backendCompatibility: variantMetadata.backendCompatibility,
-      downloadRisk: variantMetadata.downloadRisk,
-      benchmarkReadiness: variantMetadata.benchmarkReadiness,
-      selectionReceiptFields: variantMetadata.selectionReceiptFields,
-      approvalDecision: downloadPolicy.approvalDecision,
-      downloadPolicy,
-      resumeOffset: materialized.resumeOffset ?? 0,
-      attemptCount: materialized.attemptCount ?? 1,
-      retryCount: materialized.retryCount ?? 0,
-      resumeMetadataPathHash: materialized.resumeMetadataPathHash ?? stableHash(`${targetPath}.part.json`),
-      transfer: materialized.transfer ?? null,
-      downloadMode: isFixture ? "fixture" : "live_network",
-      catalogProviderId,
-      catalogAuth: catalogAuthReceipt,
-    });
-    const completed = { ...job, receiptId: receipt.id, receiptIds: [...job.receiptIds, receipt.id] };
-    this.downloads.set(completed.id, completed);
-    this.writeMap("model-artifacts", this.artifacts);
-    this.writeMap("model-downloads", this.downloads);
-    this.writeProjection();
-    return completed;
+    return downloadModelState(this, body);
   }
 
   cancelDownload(jobId, body = {}) {

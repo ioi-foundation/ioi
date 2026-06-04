@@ -449,6 +449,9 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs`.
 - Moved model-mounting read-list, snapshot, authority snapshot, projection, adapter-boundary, receipt replay, and route-decision compatibility wrappers out of `model-mounting.mjs` while preserving product artifact filtering, vault-safe provider projection, schema versions, and receipt replay links.
 - Added focused read-projection-facade tests for product-safe list delegation, capability projection, snapshots, projection summary, receipt replay, and authority snapshot composition.
+- Added `packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs`.
+- Moved catalog import URL orchestration and model download job materialization out of `model-mounting.mjs` behind compatibility-preserving `ModelMountingState.catalogImportUrl()` and `ModelMountingState.downloadModel()` delegates, while preserving live catalog/download gates, external transfer approval policy, receipt envelopes, fixture materialization, transfer retry metadata, artifact projection, and generated evidence separation.
+- Added focused catalog-download operation tests for fixture import handoff, live-source fail-closed gating, queued and simulated-failure jobs, completed fixture artifact writes, and live-transfer failure metadata.
 - Added `packages/runtime-daemon/src/model-mounting/provider-registry.mjs`.
 - Moved hosted provider shaping, public provider redaction/vault-boundary projection, and route string validation helpers out of `model-mounting.mjs` behind compatibility wrappers.
 - Added `packages/runtime-daemon/src/model-mounting/provider-registry-bindings.mjs`.
