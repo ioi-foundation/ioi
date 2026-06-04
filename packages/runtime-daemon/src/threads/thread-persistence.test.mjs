@@ -1,15 +1,25 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 
 import {
+  appendOperationRecord,
+  operationCountRecord,
+  removeQuietFile,
+  statePathFor,
   terminalEventCount,
   writeAgentRecord,
   writeRunRecord,
+  writeSubagentRecord,
 } from "./thread-persistence.mjs";
 
 function fakeStore() {
   return {
     operations: [],
+    stateDir: "/runtime-state",
+    subagents: new Map(),
     writes: [],
     appendOperation(kind, payload) {
       this.operations.push({ kind, payload });
@@ -64,6 +74,72 @@ test("thread persistence writes agent records and operation entries", () => {
   assert.deepEqual(store.operations, [
     { kind: "agent.create", payload: { objectId: "agent_1", agent } },
   ]);
+});
+
+test("thread persistence writes subagent records and summarized operation entries", () => {
+  const store = fakeStore();
+  const subagent = {
+    subagentId: "subagent_1",
+    parentThreadId: "thread_1",
+    agentId: "agent_1",
+    lifecycle_status: "running",
+    role: "research",
+  };
+
+  writeSubagentRecord(store, subagent, "subagent.spawn", deps(store));
+
+  assert.equal(store.subagents.get("subagent_1"), subagent);
+  assert.deepEqual(store.writes, [{ filePath: "subagents/subagent_1.json", value: subagent }]);
+  assert.deepEqual(store.operations, [
+    {
+      kind: "subagent.spawn",
+      payload: {
+        objectId: "subagent_1",
+        subagentId: "subagent_1",
+        parentThreadId: "thread_1",
+        agentId: "agent_1",
+        status: "running",
+        role: "research",
+      },
+    },
+  ]);
+});
+
+test("thread persistence rejects subagent records without stable ids", () => {
+  const store = fakeStore();
+
+  assert.throws(
+    () => writeSubagentRecord(store, {}, "subagent.spawn", {
+      ...deps(store),
+      runtimeError: ({ status, code, message, details }) => Object.assign(new Error(message), { status, code, details }),
+    }),
+    (error) => error.status === 500 && error.code === "subagent_id_required",
+  );
+});
+
+test("thread persistence owns operation log paths, counts, digest records, and quiet removal", () => {
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-thread-persistence-"));
+  const store = { stateDir };
+
+  assert.equal(statePathFor(store, "operation-log.jsonl"), path.join(stateDir, "operation-log.jsonl"));
+  assert.equal(operationCountRecord(store), 0);
+
+  const first = appendOperationRecord(store, "agent.create", { agentId: "agent_1" });
+  const second = appendOperationRecord(store, "run.create", { objectId: "run_1" });
+  assert.equal(first.sequence, 1);
+  assert.equal(second.sequence, 2);
+  assert.equal(first.objectId, "agent_1");
+  assert.equal(second.objectId, "run_1");
+  assert.match(first.digest, /^[a-f0-9]{64}$/);
+  assert.equal(operationCountRecord(store), 2);
+
+  const temporaryFile = path.join(stateDir, "projection.json");
+  fs.writeFileSync(temporaryFile, "{}");
+  removeQuietFile(temporaryFile);
+  removeQuietFile(temporaryFile);
+  assert.equal(fs.existsSync(temporaryFile), false);
+
+  fs.rmSync(stateDir, { recursive: true, force: true });
 });
 
 test("thread persistence writes run projections and summarized operation entry", () => {

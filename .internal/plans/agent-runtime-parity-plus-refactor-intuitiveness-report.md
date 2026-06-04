@@ -228,6 +228,8 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Extended `thread-store.mjs` to own run list/get and run/thread usage projection helpers while preserving existing `AgentgresRuntimeStateStore` method names.
 - Added `packages/runtime-daemon/src/threads/thread-persistence.mjs`.
 - Moved agent/run record persistence, run projection writes, and persisted run operation terminal-event summarization out of `index.mjs` behind existing `writeAgent` and `writeRun` compatibility methods.
+- Extended `packages/runtime-daemon/src/threads/thread-persistence.mjs`.
+- Moved subagent record persistence, operation-log append/count behavior, state path construction, and quiet projection deletion out of `index.mjs` behind existing store method names.
 - Added `packages/runtime-daemon/src/runtime-tool-catalog.mjs`.
 - Moved runtime account/node/tool catalog projections, tool governance metadata normalization, and doctor-safe runtime node redaction out of `index.mjs` while preserving existing public methods and MCP serve descriptor behavior.
 - Added `packages/runtime-daemon/src/repository-projections.mjs`.

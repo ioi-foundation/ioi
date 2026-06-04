@@ -273,8 +273,13 @@ import {
   runtimeEventStreamPath as runtimeEventStreamPathState,
 } from "./threads/thread-replay.mjs";
 import {
+  appendOperationRecord,
+  operationCountRecord,
+  removeQuietFile,
+  statePathFor,
   writeAgentRecord,
   writeRunRecord,
+  writeSubagentRecord,
 } from "./threads/thread-persistence.mjs";
 import {
   agentForThread as agentForThreadState,
@@ -11409,61 +11414,26 @@ export class AgentgresRuntimeStateStore {
   }
 
   writeSubagent(subagent, operationKind) {
-    const subagentId = subagent.subagent_id ?? subagent.subagentId ?? subagent.agent_id ?? subagent.agentId;
-    if (!subagentId) {
-      throw runtimeError({
-        status: 500,
-        code: "subagent_id_required",
-        message: "Subagent records require a stable id before persistence.",
-        details: { operationKind },
-      });
-    }
-    this.subagents.set(String(subagentId), subagent);
-    writeJson(this.pathFor("subagents", `${subagentId}.json`), subagent);
-    this.appendOperation(operationKind, {
-      objectId: subagentId,
-      subagentId,
-      parentThreadId: subagent.parent_thread_id ?? subagent.parentThreadId ?? null,
-      agentId: subagent.agent_id ?? subagent.agentId ?? null,
-      status: subagent.status ?? subagent.lifecycle_status ?? null,
-      role: subagent.role ?? null,
+    return writeSubagentRecord(this, subagent, operationKind, {
+      runtimeError,
+      writeJson,
     });
   }
 
   appendOperation(kind, payload) {
-    const sequence = this.operationCount() + 1;
-    const operation = {
-      sequence,
-      operationId: `op_${String(sequence).padStart(8, "0")}_${kind.replace(/[^a-z0-9]+/gi, "_")}`,
-      kind,
-      objectId: payload.objectId ?? payload.agentId ?? payload.runId ?? null,
-      createdAt: new Date().toISOString(),
-      payload,
-    };
-    const digest = crypto.createHash("sha256").update(JSON.stringify(operation)).digest("hex");
-    const record = { ...operation, digest };
-    fs.mkdirSync(this.stateDir, { recursive: true });
-    fs.appendFileSync(this.pathFor("operation-log.jsonl"), `${JSON.stringify(record)}\n`);
-    return record;
+    return appendOperationRecord(this, kind, payload);
   }
 
   operationCount() {
-    const logPath = this.pathFor("operation-log.jsonl");
-    if (!fs.existsSync(logPath)) return 0;
-    const text = fs.readFileSync(logPath, "utf8").trim();
-    return text ? text.split(/\n/).length : 0;
+    return operationCountRecord(this);
   }
 
   pathFor(...segments) {
-    return path.join(this.stateDir, ...segments);
+    return statePathFor(this, ...segments);
   }
 
   removeQuiet(filePath) {
-    try {
-      fs.rmSync(filePath, { force: true });
-    } catch {
-      // Deleting a non-existent projection is not a state transition.
-    }
+    return removeQuietFile(filePath);
   }
 }
 
