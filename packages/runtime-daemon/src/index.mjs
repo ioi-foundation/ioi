@@ -220,6 +220,10 @@ import {
   uniqueStrings,
 } from "./runtime-value-helpers.mjs";
 import { createRuntimeAgentOptionsHelpers } from "./runtime-agent-options.mjs";
+import {
+  createAgent as createAgentState,
+  createRun as createRunState,
+} from "./runtime-agent-run-lifecycle.mjs";
 import { startRuntimeDaemonServiceWithStore } from "./service/runtime-daemon-service.mjs";
 import {
   assertRuntimeBridgeAvailable as assertRuntimeBridgeAvailableState,
@@ -916,39 +920,13 @@ export class AgentgresRuntimeStateStore {
   }
 
   createAgent(options = {}) {
-    const now = new Date().toISOString();
-    const cwd = path.resolve(options.local?.cwd ?? this.defaultCwd);
-    const runtime = runtimeModeForOptions(options);
-    ensureProviderAvailable(runtime, options);
-    const modelRoute = this.resolveModelRoute(options, {
-      evidenceRefs: ["runtime_agent_model_route"],
-      workflowNodeId: "runtime.model-router",
-      workflowNodeType: "Model Router",
+    return createAgentState(this, options, {
+      ensureProviderAvailable,
+      initialThreadRuntimeControls,
+      mcpRegistryForWorkspace,
+      runtimeModeForOptions,
+      summarizeAgentOptions,
     });
-    const agent = {
-      id: `agent_${crypto.randomUUID()}`,
-      status: "active",
-      runtime,
-      cwd,
-      modelId: modelRoute.selectedModel,
-      requestedModelId: modelRoute.requestedModelId,
-      modelRouteId: modelRoute.routeId,
-      modelRouteEndpointId: modelRoute.endpointId,
-      modelRouteProviderId: modelRoute.providerId,
-      modelRouteReceiptId: modelRoute.receiptId,
-      modelRouteDecision: modelRoute.decision,
-      runtimeControls: initialThreadRuntimeControls(options, modelRoute, now),
-      mcpRegistry: mcpRegistryForWorkspace(cwd, {
-        ...options,
-        homeDir: this.homeDir,
-      }),
-      createdAt: now,
-      updatedAt: now,
-      options: summarizeAgentOptions(cwd, options),
-    };
-    this.agents.set(agent.id, agent);
-    this.writeAgent(agent, "agent.create");
-    return agent;
   }
 
   listAgents() {
@@ -973,61 +951,14 @@ export class AgentgresRuntimeStateStore {
   }
 
   createRun(agentId, request = {}) {
-    const agent = this.getAgent(agentId);
-    ensureProviderAvailable(agent.runtime, agent.options);
-    const mode = request.mode ?? "send";
-    const threadMode = request.threadMode ?? threadModeForRunMode(mode, agent.runtimeControls?.mode);
-    const approvalMode =
-      request.approvalMode ??
-      request.approval_mode ??
-      agent.runtimeControls?.approvalMode ??
-      approvalModeForThreadMode(threadMode);
-    const prompt =
-      request.prompt ??
-      (mode === "learn"
-        ? `Learn governed task-family updates for ${request.options?.taskFamily ?? "runtime"}`
-        : "");
-    const modelRoute = this.resolveRunModelRoute(agent, request);
-    const memory = this.resolveRunMemory(agent, request, prompt);
-    const skillHookCatalog = this.skillHookCatalog({ cwd: agent.cwd });
-    const run = buildRun({
-      agent,
-      mode,
-      prompt,
-      request,
-      source: "local_daemon_agentgres",
-      modelRoute,
-      memory,
-      skillHookCatalog,
-      diagnosticsFeedback: request.diagnosticsFeedback ?? request.diagnostics_feedback ?? null,
+    return createRunState(this, agentId, request, {
+      approvalModeForThreadMode,
+      buildRun,
+      ensureProviderAvailable,
+      runtimeUsageTelemetryForRun,
+      threadIdForAgent,
+      threadModeForRunMode,
     });
-    const runtimeRunDraft = {
-      ...run,
-      threadMode,
-      approvalMode,
-    };
-    const usageTelemetry = runtimeUsageTelemetryForRun({
-      run: runtimeRunDraft,
-      agent,
-      threadId: threadIdForAgent(agent.id),
-    });
-    const runtimeRun = {
-      ...runtimeRunDraft,
-      usage: usageTelemetry,
-      usage_telemetry: usageTelemetry,
-      usageTelemetry,
-      runtimeUsage: usageTelemetry,
-      trace: {
-        ...runtimeRunDraft.trace,
-        usage: usageTelemetry,
-        usage_telemetry: usageTelemetry,
-        usageTelemetry,
-        runtimeUsage: usageTelemetry,
-      },
-    };
-    this.runs.set(runtimeRun.id, runtimeRun);
-    this.writeRun(runtimeRun, "run.create");
-    return runtimeRun;
   }
 
   resolveModelRoute(options = {}, context = {}) {
