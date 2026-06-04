@@ -615,11 +615,63 @@ ImplementationSlice:
     push: required after verification
 ```
 
+## Implementation Slice 12
+
+```yaml
+ImplementationSlice:
+  objective: add a Rust StepModuleRouter guard so daemon_js can remain a
+    projection/shadow facade during migration but cannot admit authoritative
+    mutations
+  owner_boundary:
+    route_or_surface: StepModule execution admission primitive
+    authority_gate: unchanged; existing authority guards still precede effect
+      boundaries
+    execution_backend: daemon_js is rejected when a result carries Agentgres
+      operation refs, state-root/resulting-head mutation, or live projection
+      status; Rust/workload backends can carry authoritative transitions
+    truth_path: authoritative StepModule transitions must be admitted through
+      Rust router plus receipt/Agentgres binders before becoming truth
+    projection_path: daemon_js remains projection/shadow-only until facade
+      retirement removes the old live JS surfaces
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    daemon: []
+    rust_core:
+      - crates/services/src/agentic/runtime/kernel/step_router.rs
+      - crates/services/src/agentic/runtime/kernel/mod.rs
+    ide: []
+    tests:
+      - Rust unit tests in crates/services/src/agentic/runtime/kernel/step_router.rs
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - direct JS authoritative mutation fails
+    - no bypass of daemon execution ownership
+    - no accepted transition without receipt/ref/state-root binding
+    - no cTEE plaintext-custody regression
+  verification:
+    commands:
+      - cargo test -p ioi-services step_router
+      - npm run hypervisor-conformance:negative
+      - npm run hypervisor-conformance
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: false
+    compatibility_shims_remaining:
+      - live JS coding/tool/facade surfaces still need to be routed through the
+        Rust StepModuleRouter and then demoted or removed after parity
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `coding-tools` | `packages/runtime-daemon/src/coding-tools.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `packages/runtime-daemon/src/step-module-runner.mjs`, `crates/node/src/bin/ioi-step-module-bridge.rs` | JS daemon tool dispatch with Step/Module projection wrappers and runner boundary | Rust core `step_router` plus workload/WASM backend | Agentgres admitted operation with receipt, refs, heads, and state roots | `abi`, `bridge`, `receipts`, `negative` | `workspace.status` has Rust command-bridge shadow path; live execution still JS authoritative | Rust path passes shadow, gated, and live parity for each migrated tool; JS can no longer append authoritative effects. |
+| `coding-tools` | `packages/runtime-daemon/src/coding-tools.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `packages/runtime-daemon/src/step-module-runner.mjs`, `crates/node/src/bin/ioi-step-module-bridge.rs`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS daemon tool dispatch with Step/Module projection wrappers, runner boundary, and Rust direct-mutation guard | Rust core `step_router` plus workload/WASM backend | Agentgres admitted operation with receipt, refs, heads, and state roots | `abi`, `bridge`, `receipts`, `negative` | `workspace.status` has Rust command-bridge shadow path and daemon_js authoritative mutation is rejected by Rust StepModuleRouter; live JS surfaces still need routing/demotion | Rust path passes shadow, gated, and live parity for each migrated tool; JS can no longer append authoritative effects. |
 | `approvals-gates` | `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `crates/services/src/agentic/runtime/kernel/authority.rs` | JS daemon routes plus Rust external-exit authority guard | Rust core `authority` with wallet.network handoff | authority grant and approval receipt before effect boundary | `bridge`, `negative` | Rust wallet.network guard implemented for external exits; live JS approval surface remains | JS can only request/render approvals; grants and gate decisions are issued by Rust authority core and wallet.network. |
 | `runtime-events-replay-trace` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | JS daemon envelope/projection code | Rust core `projection` plus Agentgres projection watermarks | replayable projection over admitted operations and receipts | `receipts`, `compositor` | JS projection source | Rust emits canonical projection records consumed by IDE/CLI/SDK. |
 | `model-mounting` | `packages/runtime-daemon/src/model-mounting/*` | JS daemon model-mounting store and route policy | Rust core `model_mount` | model invocation receipts, route/custody refs, Agentgres operation | `bridge`, `receipts`, `ctee` | live product daemon state | Rust records route decisions and receipts; JS surfaces are non-authoritative clients. |
@@ -631,8 +683,8 @@ ImplementationSlice:
 | `worker-service-packages` | `docs/architecture/foundations/common-objects-and-envelopes.md`, `docs/architecture/domains/aiagent/worker-endpoints.md`, `docs/architecture/domains/sas/service-endpoints.md` | target canon plus service/module concepts | Rust core `step_router` plus workload/WASM/AIIP backends | package invocation receipt, authority grant, artifacts, projection | `bridge`, `receipts`, `compositor` | target only | service and worker package invocation uses the shared Step/Module ABI. |
 | `l1-settlement` | `docs/architecture/foundations/ioi-l1-mainnet.md`, `crates/services/src/agentic/runtime/kernel/settlement.rs` | canon plus Rust trigger guard | Rust settlement/admission core under daemon-owned execution | sparse public/economic/cross-domain commitment by trigger only | `negative` | Rust trigger guard implemented; product settlement surfaces still pending | L1 settlement attempts without marketplace/public/economic/cross-domain/operator trigger fail closed. |
 | `meta-improvement` | `crates/services/src/agentic/runtime/kernel/*`, workflow/evaluation docs | partial Rust/IDE signals | Rust core authority plus proposal/eval/approval path | proposal object, eval receipts, approval grant, committed mutation | `receipts`, `negative` | target only | agents cannot self-modify directly; all improvements are proposal-mediated. |
-| `rust-daemon-core` | target layout in master guide plus `crates/services/src/agentic/runtime/kernel/*` | partial Rust primitives for authority, cTEE, receipts, Agentgres admission, projection, and Step/Module ABI | Rust modules: `authority`, `step_router`, `workload_client`, `model_mount`, `ctee`, `receipt_binder`, `agentgres_admission`, `projection`, `conformance` | one Rust owner for hot-path semantics | all tiers | partial primitives, not extracted as one authoritative core | hot-path execution, authority, receipt/state-root binding, cTEE, replay, and conformance are owned by Rust core. |
-| `js-facade-retirement` | `packages/runtime-daemon/src/*` | JS is current live daemon implementation | non-authoritative product/API/client facade only where useful | stable protocol APIs into Rust core | `negative`, terminal `hypervisor-conformance` | not retired | every migrated route family removes or demotes old JS authoritative paths and compatibility shims. |
+| `rust-daemon-core` | target layout in master guide plus `crates/services/src/agentic/runtime/kernel/*` | partial Rust primitives for authority, step_router, cTEE, receipts, Agentgres admission, projection, settlement, and Step/Module ABI | Rust modules: `authority`, `step_router`, `workload_client`, `model_mount`, `ctee`, `receipt_binder`, `agentgres_admission`, `projection`, `conformance` | one Rust owner for hot-path semantics | all tiers | partial primitives, not extracted as one authoritative core | hot-path execution, authority, receipt/state-root binding, cTEE, replay, and conformance are owned by Rust core. |
+| `js-facade-retirement` | `packages/runtime-daemon/src/*`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS is current live daemon implementation, with Rust guard forbidding authoritative daemon_js mutation | non-authoritative product/API/client facade only where useful | stable protocol APIs into Rust core | `negative`, terminal `hypervisor-conformance` | direct JS authoritative mutation guard implemented; broad live facade retirement still pending | every migrated route family removes or demotes old JS authoritative paths and compatibility shims. |
 
 ## Cleanup Targets Found In Phase 0
 
@@ -665,7 +717,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 11:
+Current expected behavior after Slice 12:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
@@ -675,5 +727,5 @@ Current expected behavior after Slice 11:
 | `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists and the Rust shadow bridge emits a receipt binding. |
 | `hypervisor-conformance:ctee` | pass | Rust cTEE Private Workspace module validation exists and untrusted plaintext custody fails closed. |
 | `hypervisor-conformance:compositor` | pass | Rust projection records exist, the shadow bridge emits them, and compositor accepted-truth attempts fail closed. |
-| `hypervisor-conformance:negative` | fail closed | all negative cases pass except direct JS authoritative mutation, which still needs the JS facade retirement guard. |
-| `hypervisor-conformance` | fail closed | terminal migration is not complete. |
+| `hypervisor-conformance:negative` | pass | All required forbidden-path negative fixtures are implemented at the Rust guard level. |
+| `hypervisor-conformance` | pass at current tier surface | Current wired tiers pass; terminal migration is still not claimed until live route families are routed through Rust core and JS facade retirement is complete. |

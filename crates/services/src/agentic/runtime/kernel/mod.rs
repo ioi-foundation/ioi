@@ -23,6 +23,7 @@ pub mod receipt_binder;
 pub mod scope;
 pub mod settlement;
 pub mod step_module;
+pub mod step_router;
 pub mod trace;
 
 use agentgres_admission::{
@@ -55,6 +56,9 @@ use settlement::{
     SettlementReceiptBundleV2,
 };
 use step_module::{StepModuleInvocation, StepModuleResult, StepModuleValidationError};
+use step_router::{
+    StepModuleExecutionAdmissionRecord, StepModuleRouterCore, StepModuleRouterError,
+};
 
 use ioi_types::app::ApprovalAuthority;
 
@@ -130,6 +134,14 @@ impl RuntimeKernelService {
         result: &StepModuleResult,
     ) -> Result<(), Vec<StepModuleValidationError>> {
         result.validate()
+    }
+
+    pub fn admit_step_module_execution(
+        &self,
+        invocation: &StepModuleInvocation,
+        result: &StepModuleResult,
+    ) -> Result<StepModuleExecutionAdmissionRecord, StepModuleRouterError> {
+        StepModuleRouterCore.admit_execution(invocation, result)
     }
 
     pub fn bind_step_module_result(
