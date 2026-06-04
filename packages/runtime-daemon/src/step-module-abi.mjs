@@ -30,6 +30,9 @@ export function createStepModuleInvocationForCodingTool({
   contextChamberRef = null,
   actionProposalRef = `action:projection:${toolId}`,
   gateResultRef = `gate:projection:${toolId}`,
+  moduleKind = "daemon_native_tool",
+  executionBackend = "daemon_js",
+  manifestRef = null,
   actorId = DEFAULT_ACTOR_ID,
   runtimeNodeRef = DEFAULT_RUNTIME_NODE_REF,
   policyHash = DEFAULT_POLICY_HASH,
@@ -64,10 +67,10 @@ export function createStepModuleInvocationForCodingTool({
     action_proposal_ref: actionProposalRef,
     gate_result_ref: gateResultRef,
     module_ref: {
-      kind: "daemon_native_tool",
+      kind: moduleKind,
       id: toolId,
       version: contract.schemaVersion ?? "migration",
-      manifest_ref: null,
+      manifest_ref: manifestRef,
     },
     actor: {
       actor_id: actorId,
@@ -100,7 +103,7 @@ export function createStepModuleInvocationForCodingTool({
       leakage_profile_ref: null,
     },
     execution: {
-      backend: "daemon_js",
+      backend: executionBackend,
       idempotency_key: idempotencyKey,
       deadline_ms: deadlineMs,
       resource_lease_ref: null,

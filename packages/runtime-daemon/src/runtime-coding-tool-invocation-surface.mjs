@@ -28,6 +28,7 @@ import {
   codingToolSummary,
   executeCodingTool as defaultExecuteCodingTool,
 } from "./coding-tools.mjs";
+import { createStepModuleRunnerFromEnv } from "./step-module-runner.mjs";
 
 export function createRuntimeCodingToolInvocationSurface(deps = {}) {
   const {
@@ -38,6 +39,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     diagnosticsRepairContextForRequest,
     diagnosticsRepairContextForToolPack,
     executeCodingTool = defaultExecuteCodingTool,
+    stepModuleRunner = createStepModuleRunnerFromEnv(),
   } = deps;
 
   function invokeThreadTool(store, threadId, toolId, request = {}) {
@@ -184,6 +186,15 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
         toolContract,
       });
     }
+    if (stepModuleRunner.blocksDaemonJsExecution) {
+      throw policyError("StepModule Rust workload backend is not live for direct execution yet.", {
+        threadId,
+        toolId: normalizedToolId,
+        tool_call_id: toolCallId,
+        reason: "step_module_rust_workload_not_live",
+        backend: stepModuleRunner.backend,
+      });
+    }
     const artifactRefs = [];
     const receiptRefs = [receiptId];
     let status = "completed";
@@ -251,6 +262,40 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       ...(workspaceSnapshot ? [workspaceSnapshot.record.snapshotId] : []),
       ...requestRollbackRefs,
     ]);
+    let stepModuleProjection = null;
+    let stepModuleError = null;
+    try {
+      stepModuleProjection = stepModuleRunner.runCodingTool({
+        contract: toolContract,
+        toolId: normalizedToolId,
+        input,
+        result,
+        context: {
+          runId: `run:${threadId}`,
+          taskId: `task:${turnId || threadId}`,
+          threadId,
+          workflowGraphId,
+          workflowNodeId,
+          actionProposalRef: `action:coding-tool:${toolCallId}`,
+          gateResultRef: approvalSatisfaction?.approvalId
+            ? `gate:${approvalSatisfaction.approvalId}`
+            : `gate:coding-tool:${toolCallId}`,
+          approvalRef: approvalSatisfaction?.approvalId ?? null,
+          idempotencyKey: codingToolIdempotencyKey,
+          status: status === "failed" ? "failure" : "success",
+          workflowProjectionStatus:
+            stepModuleRunner.backend === "rust_workload_shadow" ? "shadow" : "projected",
+          receiptRefs,
+          artifactRefs,
+        },
+      });
+    } catch (caught) {
+      stepModuleError = {
+        code: caught?.code ?? "step_module_runner_failed",
+        message: String(caught?.message ?? caught),
+        details: caught?.details ?? null,
+      };
+    }
     const payloadSummary = {
       schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
       event_kind: "CodingToolResult",
@@ -285,6 +330,10 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       receipt_id: receiptId,
       receipt_count: receiptRefs.length,
       artifact_count: artifactRefs.length,
+      step_module_backend: stepModuleProjection?.backend ?? stepModuleRunner.backend,
+      step_module_invocation: stepModuleProjection?.invocation ?? null,
+      step_module_result: stepModuleProjection?.result ?? null,
+      step_module_error: stepModuleError,
     };
     const commandStreamEvents = store.appendCodingToolCommandStreamEvents({
       agent,
@@ -367,6 +416,10 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       workspaceSnapshotEvent,
       auto_diagnostics: autoDiagnostics,
       autoDiagnostics,
+      step_module: stepModuleProjection,
+      stepModule: stepModuleProjection,
+      step_module_error: stepModuleError,
+      stepModuleError,
       command_stream_events: commandStreamEvents,
       commandStreamEvents,
       result,
