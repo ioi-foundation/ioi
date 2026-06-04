@@ -81,6 +81,13 @@ import {
   normalizeMcpServer as normalizeMcpServerState,
 } from "./model-mounting/mcp-workflow-operations.mjs";
 import {
+  conversationState as conversationStateRecord,
+  listConversations as listConversationsState,
+  nextResponseId as nextResponseIdState,
+  recordConversationState as recordConversationStateRecord,
+  recordModelStreamCompleted as recordModelStreamCompletedState,
+} from "./model-mounting/conversation-operations.mjs";
+import {
   catalogVariantForSource,
   enrichCatalogEntry,
   huggingFaceCatalogEntries,
@@ -1904,29 +1911,15 @@ export class ModelMountingState {
   }
 
   nextResponseId(requested) {
-    const responseId = optionalString(requested) ?? `resp_${crypto.randomUUID()}`;
-    if (this.conversations.has(responseId)) {
-      throw runtimeError({
-        status: 409,
-        code: "continuation",
-        message: "response_id already exists.",
-        details: { response_id: responseId },
-      });
-    }
-    return responseId;
+    return nextResponseIdState(this, requested, {
+      optionalString,
+      randomUUID: () => crypto.randomUUID(),
+      runtimeError,
+    });
   }
 
   conversationState(responseId) {
-    const state = this.conversations.get(responseId);
-    if (!state) {
-      throw runtimeError({
-        status: 404,
-        code: "continuation",
-        message: "previous_response_id was not found.",
-        details: { previous_response_id: responseId },
-      });
-    }
-    return state;
+    return conversationStateRecord(this, responseId, { runtimeError });
   }
 
   validateContinuationSafety({ previousState, selection, body = {} }) {
@@ -1954,39 +1947,21 @@ export class ModelMountingState {
     status = "completed",
     continuationSafety = null,
   }) {
-    const now = this.nowIso();
-    const record = {
-      id: responseId,
-      object: "ioi.model_response_state",
-      status,
-      redaction: "redacted",
-      createdAt: now,
-      previousResponseId: previousState?.id ?? null,
-      rootResponseId: previousState?.rootResponseId ?? previousState?.id ?? responseId,
+    return recordConversationStateRecord(this, {
+      responseId,
+      previousState,
       kind,
-      routeId: selection.route.id,
-      endpointId: selection.endpoint.id,
-      selectedModel: selection.endpoint.modelId,
-      providerId: selection.endpoint.providerId,
-      backendId: instance?.backendId ?? selection.endpoint.backendId ?? null,
-      instanceId: instance?.id ?? null,
-      receiptId: receipt.id,
-      routeReceiptId: routeReceipt?.id ?? null,
-      streamReceiptId,
-      inputHash: stableHash(input),
-      outputHash: stableHash(outputText),
+      input,
+      outputText,
+      selection,
+      instance,
+      receipt,
+      routeReceipt,
       tokenCount,
-      messageCount: Number(previousState?.messageCount ?? 0) + 2,
-      continuation: continuationSafety,
-      replay: {
-        source: "redacted_conversation_state",
-        plaintextPersisted: false,
-        previousResponseId: previousState?.id ?? null,
-      },
-    };
-    this.conversations.set(record.id, record);
-    this.writeMap("model-conversations", this.conversations);
-    return record;
+      streamReceiptId,
+      status,
+      continuationSafety,
+    }, { stableHash });
   }
 
   async startModelStream({ authorization, requiredScope, kind, body = {} }) {
@@ -2136,55 +2111,11 @@ export class ModelMountingState {
   }
 
   recordModelStreamCompleted({ invocation, streamKind, outputText = "", providerUsage = null, chunksForwarded = 0, finishReason = null, providerResult = {} }) {
-    const tokenCount = normalizeUsage(providerUsage, estimateTokens(invocation.input ?? "", outputText));
-    const receipt = this.receipt("model_invocation_stream_completed", {
-      summary: `${streamKind} stream completed for ${invocation.model}.`,
-      redaction: "redacted",
-      evidenceRefs: ["model_stream", streamKind, invocation.receipt.id, invocation.route.id, invocation.endpoint.id],
-      details: {
-        streamKind,
-        streamSource: "provider_native",
-        invocationReceiptId: invocation.receipt.id,
-        routeId: invocation.route.id,
-        selectedModel: invocation.model,
-        endpointId: invocation.endpoint.id,
-        providerId: invocation.endpoint.providerId,
-        instanceId: invocation.instance.id,
-        backendId: invocation.instance.backendId ?? invocation.receipt.details?.backendId ?? null,
-        selectedBackend: invocation.receipt.details?.selectedBackend ?? null,
-        providerResponseKind: providerResult.providerResponseKind ?? invocation.providerResponseKind ?? null,
-        backendEvidenceRefs: providerResult.backendEvidenceRefs ?? [],
-        toolReceiptIds: invocation.toolReceiptIds ?? [],
-        tokenCount,
-        outputHash: stableHash(outputText),
-        chunksForwarded,
-        finishReason,
-        responseId: invocation.responseId ?? null,
-        previousResponseId: invocation.previousResponseId ?? null,
-      },
+    return recordModelStreamCompletedState(this, { invocation, streamKind, outputText, providerUsage, chunksForwarded, finishReason, providerResult }, {
+      estimateTokens,
+      normalizeUsage,
+      stableHash,
     });
-    if (invocation.responseId) {
-      invocation.conversationState = this.recordConversationState({
-        responseId: invocation.responseId,
-        previousState: invocation.previousConversationState ?? null,
-        kind: invocation.kind,
-        input: invocation.input ?? "",
-        outputText,
-        selection: {
-          route: invocation.route,
-          endpoint: invocation.endpoint,
-          provider: null,
-        },
-        instance: invocation.instance,
-        receipt: invocation.receipt,
-        routeReceipt: invocation.routeReceipt,
-        tokenCount,
-        streamReceiptId: receipt.id,
-        status: "completed",
-        continuationSafety: invocation.continuationSafety ?? null,
-      });
-    }
-    return receipt;
   }
 
   compileEphemeralMcpIntegrations({ authorization, body = {}, input }) {
@@ -2213,7 +2144,7 @@ export class ModelMountingState {
   }
 
   listConversations() {
-    return [...this.conversations.values()].sort((left, right) => String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? "")));
+    return listConversationsState(this);
   }
 
   invokeMcpTool({ authorization, body = {} }) {

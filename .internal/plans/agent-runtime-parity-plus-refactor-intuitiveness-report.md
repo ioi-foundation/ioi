@@ -337,6 +337,9 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs`.
 - Moved ephemeral MCP integration compilation, MCP server import/normalization/listing, MCP tool invocation, and workflow-node dispatch out of `model-mounting.mjs` behind existing compatibility methods while preserving vault-ref policy, tool narrowing, receipt envelopes, and workflow memory-write blocking.
 - Added focused MCP/workflow operation tests for vault-ref redaction, MCP import/listing, allowed-tool policy, ephemeral tool receipts, router/MCP/Receipt Gate/model dispatch, and memory policy rejection.
+- Added `packages/runtime-daemon/src/model-mounting/conversation-operations.mjs`.
+- Moved response id allocation, previous-response lookup, redacted conversation-state persistence, streamed-response completion receipts, and conversation listing out of `model-mounting.mjs` behind existing compatibility methods.
+- Added focused conversation-operation tests for continuation collisions/missing responses, replay-safe redacted records, stream completion finalization, and created-at sorting.
 
 Status: `model-mounting.mjs` still owns route persistence wrappers, catalog import/download operation glue, model invocation/stream utilities, and some product projection glue. Safe next extractions are catalog import/download materialization, invocation/stream utility slices, and remaining route HTTP glue.
 
@@ -417,6 +420,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `model-mounting/storage-operations`
   - `model-mounting/tokenizer-operations`
   - `model-mounting/mcp-workflow-operations`
+  - `model-mounting/conversation-operations`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
