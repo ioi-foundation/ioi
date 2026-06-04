@@ -169,6 +169,115 @@ test("coding tool invocation surface replays duplicate idempotent tool events", 
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 
+test("coding tool invocation surface runs workspace.status through rust workload live path", () => {
+  const runnerCalls = [];
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool(input) {
+      runnerCalls.push(input);
+      return {
+        backend: "rust_workload_live",
+        mode: "live",
+        blocking: true,
+        source: "rust_workload_command",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://rust-live/workspace.status",
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: "invocation://rust-live/workspace.status",
+          status: "success",
+          execution_result_ref: "result://rust-live/workspace.status",
+          normalized_observation_ref: "observation://rust-live/workspace.status",
+          receipt_refs: ["receipt://rust-live/workspace.status"],
+          artifact_refs: [],
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: null,
+          resulting_head: null,
+          workflow_projection: {
+            workflow_graph_id: "graph_alpha",
+            workflow_node_id: "node_status",
+            component_kind: "CodingToolNode",
+            status: "live",
+            attempt_id: "attempt://rust-live/workspace.status",
+            evidence_refs: [],
+            receipt_refs: ["receipt://rust-live/workspace.status"],
+          },
+          next: {
+            model_reentry_required: false,
+            verifier_required: false,
+          },
+        },
+        bridge_result: {
+          router_admission: {
+            schema_version: "ioi.step_module_router_admission.v1",
+            backend: "workload_grpc",
+          },
+          shadow_observation: {
+            tool: "workspace.status",
+            include_ignored: true,
+          },
+        },
+      };
+    },
+  };
+  const surface = createSurface({
+    stepModuleRunner: liveRunner,
+    executeCodingTool() {
+      throw new Error("daemon JS execution must not run");
+    },
+  });
+  const store = createStore();
+
+  const result = surface.invokeThreadTool(store, "thread_alpha", "workspace.status", {
+    toolCallId: "tool_status",
+    workflowGraphId: "graph_alpha",
+    workflowNodeId: "node_status",
+    input: { includeIgnored: true },
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(runnerCalls.length, 1);
+  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.executionResultRef, "result://rust-live/workspace.status");
+  assert.equal(result.result.routerAdmission.schema_version, "ioi.step_module_router_admission.v1");
+  assert.equal(result.step_module.backend, "rust_workload_live");
+  assert.equal(result.event.payload_summary.step_module_backend, "rust_workload_live");
+  assert.ok(result.receipt_refs.includes("receipt://rust-live/workspace.status"));
+  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+});
+
+test("coding tool invocation surface keeps non-migrated tools blocked in rust workload live mode", () => {
+  const surface = createSurface({
+    stepModuleRunner: {
+      backend: "rust_workload_live",
+      blocksDaemonJsExecution: true,
+      runCodingTool() {
+        throw new Error("non-migrated tool should not reach StepModule runner");
+      },
+    },
+  });
+  const store = createStore();
+
+  assert.throws(
+    () =>
+      surface.invokeThreadTool(store, "thread_alpha", "file.inspect", {
+        toolCallId: "tool_inspect",
+      }),
+    (error) => {
+      assert.equal(error.status, 403);
+      assert.equal(error.code, "policy");
+      assert.equal(error.details.reason, "step_module_rust_workload_not_live");
+      return true;
+    },
+  );
+  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+});
+
 test("coding tool invocation surface fails closed for budget blocks", () => {
   const surface = createSurface({
     codingToolBudgetPolicyForRequest: () => ({

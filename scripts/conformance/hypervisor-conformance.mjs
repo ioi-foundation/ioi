@@ -346,12 +346,18 @@ function runBridge() {
     result,
     "workspace-status-rust-command-bridge",
     exists("crates/node/src/bin/ioi-step-module-bridge.rs") &&
+      exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
       /workspace\.status/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
       /ioi\.step_module\.command_bridge\.v1/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
       /StepModuleRouterCore/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
-      /router_admission/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")),
-    ["crates/node/src/bin/ioi-step-module-bridge.rs"],
-    "Phase 3/10 is pending: add a Rust command bridge for the first shadowed daemon tool and route it through StepModuleRouter",
+      /router_admission/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
+      /rustLiveWorkspaceStatus/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
+      /rust_workload_live/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")),
+    [
+      "crates/node/src/bin/ioi-step-module-bridge.rs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+    ],
+    "Phase 3/10 is pending: add a Rust command bridge for the first shadowed daemon tool, route it through StepModuleRouter, and promote workspace.status live without daemon_js",
   );
   return result;
 }
