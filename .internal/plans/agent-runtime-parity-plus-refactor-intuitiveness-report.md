@@ -136,6 +136,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-event-selectors.js`.
 - Moved pure Studio runtime-event selector helpers for tool matching, completed-tool matching, tool-event counts, turn-id extraction, and turn-scoped event filtering out of `extension.js`.
 - Added focused runtime-event selector tests for case-insensitive tool matching, completed-tool detection, count behavior, turn-id aliases, turn filtering, and fallback semantics.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/turn-policy.js`.
+- Moved Studio turn policy/product-copy helpers for retrieval fail-closed messaging, retrieval-grounded result detection, Agent max-step selection, approval-pause detection/copy/error construction, and policy-blocked file-read messaging out of `extension.js`.
+- Added focused turn-policy tests for retrieval/workspace max-step selection, source-retrieval copy, approval-pause copy/error metadata, and policy-blocked file-read redaction.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
