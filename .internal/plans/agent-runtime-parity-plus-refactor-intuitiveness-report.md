@@ -375,6 +375,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs`.
 - Moved agent creation and canonical run creation orchestration out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore.createAgent()` and `createRun()` delegates, while preserving model-route resolution, runtime-control initialization, MCP registry projection, provider fail-closed checks, memory/run/skill-hook handoff, usage telemetry aliases, trace usage projection, and persistence operations.
 - Added focused runtime agent/run lifecycle tests for agent route/control/registry persistence, hosted-provider fail-closed behavior, learn-mode prompt fallback, run memory/skill catalog handoff, approval/thread mode projection, usage telemetry aliases, and run persistence.
+- Added `packages/runtime-daemon/src/runtime-repository-surface.mjs`.
+- Moved public repository, branch-policy, GitHub context, PR attempt, issue context, review gate, and PR-create-plan surface methods out of `index.mjs` behind `AgentgresRuntimeStateStore` compatibility delegates while preserving read-only projection dependencies and workspace-root scoping.
+- Added focused repository-surface tests for projection delegation, workflow projection factory wiring, dependency injection, and store cwd propagation.
 - Added `packages/runtime-daemon/src/runtime-identifiers.mjs`.
 - Moved runtime thread/agent/run/turn/session id derivation, runtime-backed agent detection, fixture profile defaults, and lifecycle/thread status normalization out of `index.mjs`.
 - Added focused runtime identifier tests for prefix compatibility, event stream ids, runtime session fallback, fixture profile override/null preservation, runtime profile detection, and lifecycle status aliases.

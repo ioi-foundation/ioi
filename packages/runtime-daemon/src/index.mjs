@@ -224,6 +224,7 @@ import {
   createAgent as createAgentState,
   createRun as createRunState,
 } from "./runtime-agent-run-lifecycle.mjs";
+import { createRuntimeRepositorySurface } from "./runtime-repository-surface.mjs";
 import { startRuntimeDaemonServiceWithStore } from "./service/runtime-daemon-service.mjs";
 import {
   assertRuntimeBridgeAvailable as assertRuntimeBridgeAvailableState,
@@ -237,16 +238,6 @@ import {
   repositoryContextForWorkspace,
   workspaceTrustWarningRecordForMode,
 } from "./repository-context.mjs";
-import {
-  branchPolicyProjection,
-  githubContextProjection,
-  githubPrCreatePlanProjection,
-  issueContextProjection,
-  prAttemptsProjection,
-  repositoryContextProjection,
-  repositoryListProjection,
-  reviewGateProjection,
-} from "./repository-projections.mjs";
 import { createRepositoryWorkflowProjections } from "./repository-workflow-projections.mjs";
 import {
   approvalModeForThreadMode,
@@ -888,6 +879,7 @@ export class AgentgresRuntimeStateStore {
       processEnv: process.env,
       redactRuntimeNodeForDoctor,
     });
+    this.repositorySurface = createRuntimeRepositorySurface();
     this.threadTurnProjection = createThreadTurnProjection({
       eventStreamIdForThread,
       fixtureProfileForAgent,
@@ -6378,80 +6370,35 @@ export class AgentgresRuntimeStateStore {
   }
 
   listRepositories() {
-    return repositoryListProjection({ cwd: this.defaultCwd }, {
-      doctorHash,
-      repositoryContextForWorkspace,
-    });
+    return this.repositorySurface.listRepositories(this);
   }
 
   repositoryContext() {
-    return repositoryContextProjection({ cwd: this.defaultCwd }, {
-      doctorHash,
-      repositoryContextForWorkspace,
-    });
+    return this.repositorySurface.repositoryContext(this);
   }
 
   branchPolicy() {
-    return branchPolicyProjection({ cwd: this.defaultCwd }, {
-      branchPolicyForRepositoryContext,
-      doctorHash,
-      repositoryContextForWorkspace,
-    });
+    return this.repositorySurface.branchPolicy(this);
   }
 
   githubContext() {
-    return githubContextProjection({ cwd: this.defaultCwd }, {
-      branchPolicyForRepositoryContext,
-      doctorHash,
-      githubContextForRepository,
-      repositoryContextForWorkspace,
-    });
+    return this.repositorySurface.githubContext(this);
   }
 
   prAttempts() {
-    return prAttemptsProjection({ cwd: this.defaultCwd }, {
-      branchPolicyForRepositoryContext,
-      doctorHash,
-      githubContextForRepository,
-      prAttemptForRepository,
-      repositoryContextForWorkspace,
-    });
+    return this.repositorySurface.prAttempts(this);
   }
 
   issueContext() {
-    return issueContextProjection({ cwd: this.defaultCwd }, {
-      branchPolicyForRepositoryContext,
-      doctorHash,
-      githubContextForRepository,
-      issueContextForGithub,
-      prAttemptForRepository,
-      repositoryContextForWorkspace,
-      reviewGateForPrAttempt,
-    });
+    return this.repositorySurface.issueContext(this);
   }
 
   reviewGate() {
-    return reviewGateProjection({ cwd: this.defaultCwd }, {
-      branchPolicyForRepositoryContext,
-      doctorHash,
-      githubContextForRepository,
-      prAttemptForRepository,
-      repositoryContextForWorkspace,
-      reviewGateForPrAttempt,
-    });
+    return this.repositorySurface.reviewGate(this);
   }
 
   githubPrCreatePlan() {
-    return githubPrCreatePlanProjection({ cwd: this.defaultCwd }, {
-      branchPolicyForRepositoryContext,
-      doctorHash,
-      githubContextForRepository,
-      githubPrCreatePlanForReviewGate,
-      issueContextForGithub,
-      prAttemptForRepository,
-      repositoryContextForWorkspace,
-      reviewGateForPrAttempt,
-    });
+    return this.repositorySurface.githubPrCreatePlan(this);
   }
 
   getAccount() {
