@@ -316,8 +316,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs`.
 - Moved catalog provider OAuth start/callback/exchange/refresh/revoke orchestration out of `model-mounting.mjs` behind existing compatibility methods while preserving vault writes, receipts, public provider config projection, and fail-closed missing-session errors.
 - Added focused catalog-provider-oauth tests for pending authorization persistence, callback state-hash lookup, exchange persistence, refresh/revoke boundary updates, and missing-session 404 envelopes.
+- Added `packages/runtime-daemon/src/model-mounting/provider-operations.mjs`.
+- Moved provider upsert, provider secret-ref normalization, provider health, provider model/loaded listing, and provider start/stop orchestration out of `model-mounting.mjs` behind existing compatibility methods while preserving public provider redaction and fail-closed health envelopes.
+- Added focused provider-operation tests for vault-bound upsert, plaintext secret rejection, health success/failure persistence, model/loaded fallbacks, and stateless start/stop receipts.
 
-Status: `model-mounting.mjs` still owns route persistence wrappers, provider/catalog operation glue, and some product projection glue. Safe next extractions are provider operation slices, catalog search/import/download slices, and remaining route HTTP glue.
+Status: `model-mounting.mjs` still owns route persistence wrappers, catalog search/import/download operation glue, model invocation/tokenizer utilities, and some product projection glue. Safe next extractions are catalog search/import/download slices, invocation utility slices, and remaining route HTTP glue.
 
 ### Rust Runtime Hot Spot
 
@@ -389,6 +392,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, provider/cat
   - `model-mounting/backend-processes`
   - `model-mounting/backend-lifecycle`
   - `model-mounting/catalog-provider-oauth`
+  - `model-mounting/provider-operations`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
