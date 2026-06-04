@@ -289,6 +289,7 @@ export async function startModelStream(state, { authorization, requiredScope, ki
       token,
     }),
   );
+  requireModelMountProviderResultAdmission(state);
   state.appendOperation?.("model.provider_stream_request_shape", {
     providerId: selection.provider.id,
     providerKind: selection.provider.kind,
@@ -301,7 +302,7 @@ export async function startModelStream(state, { authorization, requiredScope, ki
       modelMountProviderExecutionAdmission.provider_execution_ref,
     ],
   });
-  const providerResult = await driver.streamInvoke({
+  let providerResult = await driver.streamInvoke({
     state,
     provider: selection.provider,
     endpoint: selection.endpoint,
@@ -317,6 +318,18 @@ export async function startModelStream(state, { authorization, requiredScope, ki
       invocation: await state.invokeModel({ authorization, requiredScope, kind, body: { ...body, stream: false } }),
     };
   }
+  const modelMountProviderResultAdmission = admitModelMountProviderResult(
+    state,
+    modelMountProviderResultAdmissionRequestForExecution({
+      input,
+      instance,
+      kind,
+      modelMountProviderExecutionAdmission,
+      providerResult,
+      selection,
+    }),
+  );
+  providerResult = withModelMountProviderResultAdmission(providerResult, modelMountProviderResultAdmission);
   const outputText = "";
   const latencyMs = Math.max(1, state.now().getTime() - started);
   const tokenCount = providerResult.tokenCount ?? estimateTokenCounts(input, outputText);
@@ -388,6 +401,8 @@ export async function startModelStream(state, { authorization, requiredScope, ki
       token.grantId,
       ...ephemeralMcp.evidenceRefs,
       ...(providerResult.providerAuthEvidenceRefs ?? []),
+      providerResult.modelMountProviderResultAdmissionRef,
+      ...(providerResult.modelMountProviderResultAdmissionEvidenceRefs ?? []),
       "rust_model_mount_core",
       modelMountProviderExecutionAdmission.provider_execution_ref,
       ...(modelMountProviderExecutionAdmission.evidence_refs ?? []),
@@ -868,13 +883,17 @@ function admitModelMountProviderExecution(state, request) {
 }
 
 function admitModelMountProviderResult(state, request) {
+  requireModelMountProviderResultAdmission(state);
+  return state.admitModelMountProviderResult(request);
+}
+
+function requireModelMountProviderResultAdmission(state) {
   if (typeof state.admitModelMountProviderResult !== "function") {
     const error = new Error("Model provider result requires Rust model_mount provider result admission.");
     error.status = 500;
     error.code = "model_mount_provider_result_admission_required";
     throw error;
   }
-  return state.admitModelMountProviderResult(request);
 }
 
 async function executeModelProviderInvocation({
@@ -899,12 +918,7 @@ async function executeModelProviderInvocation({
       }),
     );
   }
-  if (typeof state.admitModelMountProviderResult !== "function") {
-    const error = new Error("Model provider result requires Rust model_mount provider result admission.");
-    error.status = 500;
-    error.code = "model_mount_provider_result_admission_required";
-    throw error;
-  }
+  requireModelMountProviderResultAdmission(state);
   const providerResult = await state.driverForProvider(selection.provider).invoke({
     state,
     provider: selection.provider,

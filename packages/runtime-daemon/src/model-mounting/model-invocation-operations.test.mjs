@@ -458,6 +458,9 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(result.invocation.receipt.details.streamSource, "provider_native");
   assert.equal(result.invocation.receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/1");
   assert.equal(result.invocation.receipt.details.modelMountProviderExecutionRef, "model_mount://provider_execution/1");
+  assert.equal(result.invocation.receipt.details.modelMountProviderResultAdmissionRef, "model_mount://provider_result/1");
+  assert.equal(result.invocation.receipt.details.modelMountProviderResultAdmissionHash, "sha256:provider-result-1");
+  assert.equal(result.invocation.receipt.details.modelMountProviderResultAdmission.stream_status, "started");
   assert.equal(result.invocation.receipt.details.modelMountInvocationAdmission.stream_status, "started");
   assert.equal(result.invocation.receipt.details.modelMountReceiptBindingRef, "sha256:binding-1");
   assert.equal(result.invocation.receipt.details.modelMountAcceptedReceiptAppend.receipt_ref, "receipt://receipt.1.model_invocation");
@@ -466,6 +469,9 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "sendOptions"), false);
   assert.equal(state.appendOperations[0].kind, "model.provider_stream_request_shape");
   assert.equal(state.providerExecutionRequests[0].stream_status, "started");
+  assert.equal(state.providerResultRequests[0].stream_status, "started");
+  assert.equal(state.providerResultRequests[0].output_text, "");
+  assert.equal(state.providerResultRequests[0].provider_response_kind, "openai.responses.stream");
   assert.equal(state.routes.get("route.local-first").lastReceiptId, result.invocation.receipt.id);
 });
 
@@ -538,6 +544,56 @@ test("startModelStream fails closed without Rust provider execution admission be
     (error) => error.code === "model_mount_provider_execution_admission_required",
   );
   assert.equal(streamCalls, 0);
+  assert.deepEqual(state.appendOperations, []);
+});
+
+test("startModelStream fails closed without Rust provider result admission before stream call", async () => {
+  let streamCalls = 0;
+  const state = fakeState({
+    admitModelMountProviderResult: undefined,
+    selectRoute(payload) {
+      this.selectRoutePayload = payload;
+      return selection({
+        endpoint: {
+          apiFormat: "ioi_native",
+          driver: "native_local",
+          providerId: "provider.autopilot.local",
+          backendId: "backend.autopilot.native-local.fixture",
+        },
+        provider: {
+          id: "provider.autopilot.local",
+          kind: "ioi_native_local",
+          driver: "native_local",
+        },
+      });
+    },
+    driver: {
+      supportsStream: () => true,
+      async streamInvoke() {
+        streamCalls += 1;
+        return {
+          stream: { [Symbol.asyncIterator]: async function* noop() {} },
+        };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      startModelStream(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.responses:*",
+          kind: "responses",
+          body: { model: "model.local", response_id: "resp.stream", stream: true },
+        },
+        deps(),
+      ),
+    (error) => error.code === "model_mount_provider_result_admission_required",
+  );
+  assert.equal(streamCalls, 0);
+  assert.equal(state.providerExecutionRequests.length, 1);
   assert.deepEqual(state.appendOperations, []);
 });
 

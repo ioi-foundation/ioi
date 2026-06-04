@@ -1561,6 +1561,61 @@ mod tests {
     }
 
     #[test]
+    fn admits_stream_start_provider_result_observation_bound_to_execution() {
+        let mut execution_request = provider_execution_request();
+        execution_request.stream_status = Some("started".to_string());
+        let admission = ModelMountCore
+            .admit_provider_execution(&execution_request)
+            .expect("stream provider execution admitted");
+        let output_text = String::new();
+        let output_hash = format!(
+            "sha256:{}",
+            sha256_hex(output_text.as_bytes()).expect("output hash")
+        );
+        let request = ModelMountProviderResultAdmissionRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION.to_string(),
+            provider_execution_ref: admission.provider_execution_ref.clone(),
+            provider_execution_hash: admission.provider_execution_hash.clone(),
+            route_decision_ref: admission.route_decision_ref.clone(),
+            route_receipt_ref: admission.route_receipt_ref.clone(),
+            route_ref: admission.route_ref.clone(),
+            provider_ref: admission.provider_ref.clone(),
+            provider_kind: "ioi_native_local".to_string(),
+            endpoint_ref: admission.endpoint_ref.clone(),
+            model_ref: admission.model_ref.clone(),
+            capability: admission.capability.clone(),
+            invocation_kind: admission.invocation_kind.clone(),
+            request_hash: admission.request_hash.clone(),
+            output_text,
+            output_hash,
+            token_count: ModelMountTokenCount {
+                prompt_tokens: 1,
+                completion_tokens: 0,
+                total_tokens: 1,
+            },
+            provider_response_kind: Some("native_local.responses.stream".to_string()),
+            execution_backend: "js_provider_driver_observation".to_string(),
+            backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
+            stream_status: admission.stream_status.clone(),
+            receipt_refs: admission.receipt_refs.clone(),
+            provider_auth_evidence_refs: vec![],
+            backend_evidence_refs: vec!["autopilot_native_local_provider_native_stream".to_string()],
+            evidence_refs: vec![admission.provider_execution_ref.clone()],
+            admitted_provider_execution: Some(admission),
+        };
+
+        let record = ModelMountCore
+            .admit_provider_result(&request)
+            .expect("stream provider result observation admitted");
+
+        assert_eq!(record.stream_status.as_deref(), Some("started"));
+        assert_eq!(
+            record.provider_response_kind.as_deref(),
+            Some("native_local.responses.stream")
+        );
+    }
+
+    #[test]
     fn provider_result_admission_requires_bound_provider_execution() {
         let mut request = provider_result_admission_request();
         request.admitted_provider_execution = None;

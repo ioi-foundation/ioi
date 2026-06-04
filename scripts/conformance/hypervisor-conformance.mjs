@@ -535,6 +535,21 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-stream-provider-result-admission-live-bridge",
+    /startModelStream/.test(modelInvocationOps) &&
+      /requireModelMountProviderResultAdmission/.test(modelInvocationOps) &&
+      /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
+      /streamStatus: "started"/.test(modelInvocationOps) &&
+      /modelMountProviderResultAdmissionRef/.test(modelInvocationOps) &&
+      /model_mount_provider_result_admission_required/.test(modelInvocationOps),
+    [
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+    ],
+    "Phase 9/10 is pending: native stream-start provider observations must be Rust-admitted before provider stream handles become accepted receipts",
+  );
+  assertCheck(
+    result,
     "model-mount-invocation-receipt-binding-live-bridge",
     /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       /ModelMountInvocationReceiptBindingBridgeRequest/.test(bridgeModule) &&
@@ -707,6 +722,23 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 9/10 is pending: non-migrated provider results must be Rust-admitted observations bound to provider execution",
+  );
+  assertCheck(
+    result,
+    "model-mount-stream-provider-result-admission-core",
+    exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      /admits_stream_start_provider_result_observation_bound_to_execution/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /stream_status/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /ProviderExecutionRefMismatch/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+    ],
+    "Phase 9/10 is pending: stream-start provider result admission must bind to the same stream-status provider execution record",
   );
   assertCheck(
     result,
