@@ -5,16 +5,28 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub const STEP_MODULE_RECEIPT_BINDING_SCHEMA_VERSION: &str = "ioi.step_module_receipt_binding.v1";
+pub const ACCEPTED_RECEIPT_APPEND_SCHEMA_VERSION: &str = "ioi.accepted_receipt_append.v1";
+pub const DIRECT_ACCEPTED_RECEIPT_APPEND_NEGATIVE_CONFORMANCE: &str =
+    "direct accepted receipt append outside the Rust core fails";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReceiptBindingError {
+    InvalidAcceptedReceiptAppendSchema {
+        expected: &'static str,
+        actual: String,
+    },
     InvalidInvocation(Vec<StepModuleValidationError>),
     InvalidResult(Vec<StepModuleValidationError>),
+    MissingField(&'static str),
     InvocationResultMismatch,
     AcceptedResultMissingReceipt,
     AgentgresOperationMissingExpectedHeads,
     AgentgresOperationMissingStateBinding,
     StateRootAfterWithoutBefore,
+    DirectAcceptedReceiptAppendOutsideRustCore,
+    ReceiptBindingHashMismatch,
+    ReceiptNotBoundToResult,
+    AcceptedReceiptStateRootMismatch,
     HashFailed(String),
 }
 
@@ -36,6 +48,41 @@ pub struct StepModuleReceiptBinding {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub projection_watermark: Option<String>,
     pub binding_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AcceptedReceiptAppendIssuer {
+    RustReceiptCore,
+    DaemonJsFacade,
+    ExternalAdapter,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AcceptedReceiptAppendRequest {
+    pub schema_version: String,
+    pub receipt_ref: String,
+    pub invocation_id: String,
+    pub receipt_binding_ref: String,
+    pub issuer: AcceptedReceiptAppendIssuer,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_root_before: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_root_after: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resulting_head: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AcceptedReceiptAppendRecord {
+    pub schema_version: String,
+    pub receipt_ref: String,
+    pub invocation_id: String,
+    pub receipt_binding_ref: String,
+    pub state_root_before: Option<String>,
+    pub state_root_after: Option<String>,
+    pub resulting_head: Option<String>,
+    pub append_hash: String,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -93,6 +140,53 @@ impl ReceiptBinder {
         binding.binding_hash = binding_hash(&binding)?;
         Ok(binding)
     }
+
+    pub fn append_accepted_receipt(
+        &self,
+        request: &AcceptedReceiptAppendRequest,
+        binding: &StepModuleReceiptBinding,
+    ) -> Result<AcceptedReceiptAppendRecord, ReceiptBindingError> {
+        if request.schema_version != ACCEPTED_RECEIPT_APPEND_SCHEMA_VERSION {
+            return Err(ReceiptBindingError::InvalidAcceptedReceiptAppendSchema {
+                expected: ACCEPTED_RECEIPT_APPEND_SCHEMA_VERSION,
+                actual: request.schema_version.clone(),
+            });
+        }
+        require_non_empty("receipt_ref", &request.receipt_ref)?;
+        require_non_empty("invocation_id", &request.invocation_id)?;
+        require_non_empty("receipt_binding_ref", &request.receipt_binding_ref)?;
+        if request.issuer != AcceptedReceiptAppendIssuer::RustReceiptCore {
+            return Err(ReceiptBindingError::DirectAcceptedReceiptAppendOutsideRustCore);
+        }
+        if request.invocation_id != binding.invocation_id {
+            return Err(ReceiptBindingError::InvocationResultMismatch);
+        }
+        if request.receipt_binding_ref != binding.binding_hash {
+            return Err(ReceiptBindingError::ReceiptBindingHashMismatch);
+        }
+        if !binding.receipt_refs.contains(&request.receipt_ref) {
+            return Err(ReceiptBindingError::ReceiptNotBoundToResult);
+        }
+        if request.state_root_before != binding.state_root_before
+            || request.state_root_after != binding.state_root_after
+            || request.resulting_head != binding.resulting_head
+        {
+            return Err(ReceiptBindingError::AcceptedReceiptStateRootMismatch);
+        }
+
+        let mut record = AcceptedReceiptAppendRecord {
+            schema_version: ACCEPTED_RECEIPT_APPEND_SCHEMA_VERSION.to_string(),
+            receipt_ref: request.receipt_ref.clone(),
+            invocation_id: request.invocation_id.clone(),
+            receipt_binding_ref: request.receipt_binding_ref.clone(),
+            state_root_before: request.state_root_before.clone(),
+            state_root_after: request.state_root_after.clone(),
+            resulting_head: request.resulting_head.clone(),
+            append_hash: String::new(),
+        };
+        record.append_hash = accepted_receipt_append_hash(&record)?;
+        Ok(record)
+    }
 }
 
 fn binding_hash(binding: &StepModuleReceiptBinding) -> Result<String, ReceiptBindingError> {
@@ -101,6 +195,24 @@ fn binding_hash(binding: &StepModuleReceiptBinding) -> Result<String, ReceiptBin
     let bytes = serde_json::to_vec(&canonical)
         .map_err(|error| ReceiptBindingError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn accepted_receipt_append_hash(
+    record: &AcceptedReceiptAppendRecord,
+) -> Result<String, ReceiptBindingError> {
+    let mut canonical = record.clone();
+    canonical.append_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| ReceiptBindingError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn require_non_empty(field: &'static str, value: &str) -> Result<(), ReceiptBindingError> {
+    if value.trim().is_empty() {
+        Err(ReceiptBindingError::MissingField(field))
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -201,6 +313,19 @@ mod tests {
         }
     }
 
+    fn append_request(binding: &StepModuleReceiptBinding) -> AcceptedReceiptAppendRequest {
+        AcceptedReceiptAppendRequest {
+            schema_version: ACCEPTED_RECEIPT_APPEND_SCHEMA_VERSION.to_string(),
+            receipt_ref: "receipt:test".to_string(),
+            invocation_id: binding.invocation_id.clone(),
+            receipt_binding_ref: binding.binding_hash.clone(),
+            issuer: AcceptedReceiptAppendIssuer::RustReceiptCore,
+            state_root_before: binding.state_root_before.clone(),
+            state_root_after: binding.state_root_after.clone(),
+            resulting_head: binding.resulting_head.clone(),
+        }
+    }
+
     #[test]
     fn receipt_binder_binds_expected_heads_and_state_roots() {
         let binding = ReceiptBinder
@@ -248,5 +373,73 @@ mod tests {
             .expect_err("before root is required when after root exists");
 
         assert_eq!(error, ReceiptBindingError::StateRootAfterWithoutBefore);
+    }
+
+    #[test]
+    fn rust_receipt_core_appends_bound_accepted_receipt() {
+        let binding = ReceiptBinder
+            .bind_step_module_result(
+                &invocation(),
+                &result(),
+                vec!["sha256:head-before".to_string()],
+            )
+            .expect("valid binding");
+
+        let record = ReceiptBinder
+            .append_accepted_receipt(&append_request(&binding), &binding)
+            .expect("receipt append record");
+
+        assert_eq!(
+            record.schema_version,
+            ACCEPTED_RECEIPT_APPEND_SCHEMA_VERSION
+        );
+        assert_eq!(record.receipt_ref, "receipt:test");
+        assert_eq!(record.receipt_binding_ref, binding.binding_hash);
+        assert!(record.append_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn direct_accepted_receipt_append_outside_the_rust_core_fails() {
+        assert_eq!(
+            DIRECT_ACCEPTED_RECEIPT_APPEND_NEGATIVE_CONFORMANCE,
+            "direct accepted receipt append outside the Rust core fails"
+        );
+        let binding = ReceiptBinder
+            .bind_step_module_result(
+                &invocation(),
+                &result(),
+                vec!["sha256:head-before".to_string()],
+            )
+            .expect("valid binding");
+        let mut request = append_request(&binding);
+        request.issuer = AcceptedReceiptAppendIssuer::DaemonJsFacade;
+
+        let error = ReceiptBinder
+            .append_accepted_receipt(&request, &binding)
+            .expect_err("non-core append must fail");
+
+        assert_eq!(
+            error,
+            ReceiptBindingError::DirectAcceptedReceiptAppendOutsideRustCore
+        );
+    }
+
+    #[test]
+    fn accepted_receipt_append_requires_receipt_binding_match() {
+        let binding = ReceiptBinder
+            .bind_step_module_result(
+                &invocation(),
+                &result(),
+                vec!["sha256:head-before".to_string()],
+            )
+            .expect("valid binding");
+        let mut request = append_request(&binding);
+        request.receipt_binding_ref = "sha256:drifted-binding".to_string();
+
+        let error = ReceiptBinder
+            .append_accepted_receipt(&request, &binding)
+            .expect_err("receipt binding hash must match");
+
+        assert_eq!(error, ReceiptBindingError::ReceiptBindingHashMismatch);
     }
 }

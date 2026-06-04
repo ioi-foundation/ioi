@@ -40,7 +40,10 @@ use marketplace::{MarketplaceAdmissionError, MarketplaceServiceContract};
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
 use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
-use receipt_binder::{ReceiptBinder, ReceiptBindingError, StepModuleReceiptBinding};
+use receipt_binder::{
+    AcceptedReceiptAppendRecord, AcceptedReceiptAppendRequest, ReceiptBinder, ReceiptBindingError,
+    StepModuleReceiptBinding,
+};
 use settlement::{ArtifactPromotionReceipt, PromotionValidationError, SettlementReceiptBundleV2};
 use step_module::{StepModuleInvocation, StepModuleResult, StepModuleValidationError};
 
@@ -120,6 +123,14 @@ impl RuntimeKernelService {
         expected_heads: Vec<String>,
     ) -> Result<StepModuleReceiptBinding, ReceiptBindingError> {
         ReceiptBinder.bind_step_module_result(invocation, result, expected_heads)
+    }
+
+    pub fn append_accepted_receipt(
+        &self,
+        request: &AcceptedReceiptAppendRequest,
+        binding: &StepModuleReceiptBinding,
+    ) -> Result<AcceptedReceiptAppendRecord, ReceiptBindingError> {
+        ReceiptBinder.append_accepted_receipt(request, binding)
     }
 
     pub fn admit_agentgres_operation(
