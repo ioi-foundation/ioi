@@ -328,6 +328,12 @@ function runAbi() {
 
 function runBridge() {
   const result = createTierResult("bridge");
+  const bridgeBin = exists("crates/node/src/bin/ioi-step-module-bridge.rs")
+    ? read("crates/node/src/bin/ioi-step-module-bridge.rs")
+    : "";
+  const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
+    : "";
   assertCheck(
     result,
     "step-module-runner-interface",
@@ -346,13 +352,15 @@ function runBridge() {
     result,
     "migrated-coding-tools-rust-command-bridge",
     exists("crates/node/src/bin/ioi-step-module-bridge.rs") &&
+      exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs") &&
       exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
-      /workspace\.status/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
-      /git\.diff/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
-      /file\.inspect/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
-      /ioi\.step_module\.command_bridge\.v1/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
-      /StepModuleRouterCore/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
-      /router_admission/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
+      /run_bridge_response_from_stdin/.test(bridgeBin) &&
+      /workspace\.status/.test(bridgeModule) &&
+      /git\.diff/.test(bridgeModule) &&
+      /file\.inspect/.test(bridgeModule) &&
+      /ioi\.step_module\.command_bridge\.v1/.test(bridgeModule) &&
+      /StepModuleRouterCore/.test(bridgeModule) &&
+      /router_admission/.test(bridgeModule) &&
       /RUST_WORKLOAD_LIVE_TOOL_IDS/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /workspace\.status/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /git\.diff/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
@@ -360,6 +368,7 @@ function runBridge() {
       /rust_workload_live/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")),
     [
       "crates/node/src/bin/ioi-step-module-bridge.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
     ],
     "Phase 3/10 is pending: route migrated coding tools through the Rust command bridge, StepModuleRouter, and live workload path without daemon_js",
@@ -369,6 +378,9 @@ function runBridge() {
 
 function runReceipts() {
   const result = createTierResult("receipts");
+  const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
+    : "";
   assertCheck(
     result,
     "receipt-binder-core",
@@ -376,10 +388,10 @@ function runReceipts() {
       /STEP_MODULE_RECEIPT_BINDING_SCHEMA_VERSION/.test(
         read("crates/services/src/agentic/runtime/kernel/receipt_binder.rs"),
       ) &&
-      /receipt_binding/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")),
+      /receipt_binding/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/receipt_binder.rs",
-      "crates/node/src/bin/ioi-step-module-bridge.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
     "Phase 4 is pending: one Rust receipt/state-root binder must own accepted result binding",
   );
@@ -426,16 +438,19 @@ function runCompositor() {
   const projectionCore = exists("crates/services/src/agentic/runtime/kernel/projection.rs")
     ? read("crates/services/src/agentic/runtime/kernel/projection.rs")
     : "";
+  const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
+    : "";
   assertCheck(
     result,
     "rust-projection-core",
     /RustProjectionCore/.test(projectionCore) &&
       /StepModuleProjectionRecord/.test(projectionCore) &&
       /workflow_projection_watermark_from_agentgres/.test(projectionCore) &&
-      /projection_record/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")),
+      /projection_record/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/projection.rs",
-      "crates/node/src/bin/ioi-step-module-bridge.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
     "Phase 5 is pending: compositor projections must come from Rust projection records and Agentgres watermarks",
   );
