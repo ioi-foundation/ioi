@@ -304,8 +304,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/runtime-survey.mjs`.
 - Moved runtime survey receipt projection, latest runtime survey fallback/projection, LM Studio runtime list probing, and LM Studio runtime survey probing out of `model-mounting.mjs` behind existing `ModelMountingState.runtimeSurvey()`, `latestRuntimeSurvey()`, `lmStudioRuntimeEngines()`, and `lmStudioRuntimeSurvey()` compatibility methods.
 - Added focused runtime-survey tests for checked/not-checked survey projection, selected-engine receipts, LM Studio runtime list hashing, disabled/missing CLI fallbacks, and blocked survey error hashing without raw stderr leakage.
+- Added `packages/runtime-daemon/src/model-mounting/default-discovery.mjs`.
+- Moved native-local fixture artifact materialization, LM Studio provider discovery, LM Studio artifact discovery, LM Studio public projection pruning, and internal fixture projection pruning out of `model-mounting.mjs` behind existing default-seeding compatibility methods.
+- Added focused default-discovery tests for fixture artifact metadata/materialization, disabled/running/configured LM Studio provider states, LM Studio artifact discovery gates, and pruning of LM Studio/fixture artifacts, endpoints, and instances.
 
-Status: `model-mounting.mjs` still owns route persistence wrappers, backend process lifecycle, LM Studio artifact discovery, and some product projection glue. Safe next extractions are backend lifecycle slices, LM Studio artifact/probe slices, and remaining route HTTP glue.
+Status: `model-mounting.mjs` still owns route persistence wrappers, backend process lifecycle, provider/catalog operation glue, and some product projection glue. Safe next extractions are backend lifecycle slices, provider/catalog operation slices, and remaining route HTTP glue.
 
 ### Rust Runtime Hot Spot
 
@@ -344,6 +347,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, backend proc
   - `repository-context`
   - `http/public-runtime-routes`
   - `model-mounting/environment`
+  - `model-mounting/default-discovery`
   - `model-mounting/provider-auth`
   - `model-mounting/oauth-boundary`
   - `repository-workflow-projections`
