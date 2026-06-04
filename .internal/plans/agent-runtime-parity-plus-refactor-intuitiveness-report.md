@@ -139,6 +139,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/turn-policy.js`.
 - Moved Studio turn policy/product-copy helpers for retrieval fail-closed messaging, retrieval-grounded result detection, Agent max-step selection, approval-pause detection/copy/error construction, and policy-blocked file-read messaging out of `extension.js`.
 - Added focused turn-policy tests for retrieval/workspace max-step selection, source-retrieval copy, approval-pause copy/error metadata, and policy-blocked file-read redaction.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/receipt-refs.js`.
+- Moved Studio receipt-reference normalization out of `extension.js` while preserving snake/camel aliases, nested event/result/payload summary aliases, object receipt ids, and de-duplication semantics.
+- Added focused receipt-ref tests for alias coverage, nested receipt extraction, de-duplication, and missing-record tolerance.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.

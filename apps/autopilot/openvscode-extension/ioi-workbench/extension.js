@@ -83,6 +83,7 @@ const { createStudioManagedSessionView } = require("./studio/managed-session-vie
 const { createStudioPendingWorkProjection } = require("./studio/pending-work");
 const { createStudioTurnPolicy } = require("./studio/turn-policy");
 const { createStudioPolicyLeaseLifecycle } = require("./studio/policy-lease-lifecycle");
+const { createStudioReceiptRefs } = require("./studio/receipt-refs");
 const {
   createStudioWorkRecordProjection,
   studioPublicOutputBlock,
@@ -524,30 +525,6 @@ function startNewStudioSession(reason = "New Studio session") {
   return studioRuntimeProjection;
 }
 
-function normalizeReceiptRefs(...sources) {
-  const refs = [];
-  for (const source of sources) {
-    if (!source) continue;
-    if (typeof source === "string") {
-      refs.push(source);
-      continue;
-    }
-    refs.push(
-      ...firstArray(source.receipt_refs),
-      ...firstArray(source.receiptRefs),
-      ...firstArray(source.receiptIds),
-      ...firstArray(source.receipts).map((receipt) => receipt?.id || receipt?.receipt_id || receipt?.receiptId),
-      ...firstArray(source.event?.receipt_refs),
-      ...firstArray(source.event?.receiptRefs),
-      ...firstArray(source.result?.receipt_refs),
-      ...firstArray(source.result?.receiptRefs),
-      ...firstArray(source.payload_summary?.receipt_refs),
-      ...firstArray(source.payload_summary?.receiptRefs),
-    );
-  }
-  return uniqueStrings(refs);
-}
-
 const {
   assertStudioProductModelSelector,
   isExternalStudioModelRecord,
@@ -588,6 +565,11 @@ const {
   studioDefaultMaxOutputTokens: STUDIO_DEFAULT_MAX_OUTPUT_TOKENS,
   studioFixtureModelUsageAllowed,
   studioTextContainsProductFixtureMarker,
+});
+
+const { normalizeReceiptRefs } = createStudioReceiptRefs({
+  firstArray,
+  uniqueStrings: (values) => [...new Set(firstArray(values).map((value) => String(value)).filter(Boolean))],
 });
 
 const {
@@ -729,6 +711,7 @@ const {
   studioFirstSourceExcerptFromEvent,
   getProjection: () => studioRuntimeProjection,
 });
+
 const {
   studioSessionBrainPanelFromProjection,
   studioTrajectoryReplayPanelFromProjection,
