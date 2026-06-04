@@ -32,7 +32,6 @@ export function deleteAgent(store, agentId, deps = {}) {
     );
   }
   store.agents.delete(agentId);
-  store.appendOperation("agent.delete", { agentId, priorStatus: agent.status });
   store.removeQuiet(path.join(store.stateDir, "agents", `${agentId}.json`));
 }
 

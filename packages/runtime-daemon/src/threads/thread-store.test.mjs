@@ -172,7 +172,7 @@ test("thread store updates and deletes agents without canonical runs", () => {
 
   deleteAgent(store, "agent_1", deps(store.calls));
   assert.equal(store.agents.has("agent_1"), false);
-  assert.equal(store.calls.some((call) => call.operationKind === "agent.delete"), true);
+  assert.equal(store.calls.some((call) => call.operation === "append_operation"), false);
   assert.equal(store.calls.some((call) => call.operation === "remove_quiet"), true);
 });
 

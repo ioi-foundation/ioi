@@ -876,6 +876,9 @@ function runReceipts() {
   const runtimeBridgeThread = exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
     ? read("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
     : "";
+  const threadStore = exists("packages/runtime-daemon/src/threads/thread-store.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-store.mjs")
+    : "";
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
@@ -1461,6 +1464,19 @@ function runReceipts() {
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
     "Phase 5/11 is pending: runtime bridge turn submit budget/error mirrors must not append duplicate daemon-local operation records outside run receipts/projections",
+  );
+  assertCheck(
+    result,
+    "thread-agent-delete-operation-append-retired",
+    !/agent\.delete/.test(threadStore) &&
+      /assert\.equal\(store\.calls\.some\(\(call\) => call\.operation === "append_operation"\), false\)/.test(
+        read("packages/runtime-daemon/src/threads/thread-store.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/threads/thread-store.mjs",
+      "packages/runtime-daemon/src/threads/thread-store.test.mjs",
+    ],
+    "Phase 5/11 is pending: agent deletion must not append a duplicate daemon-local operation record outside the guarded deletion state transition",
   );
   assertCheck(
     result,
