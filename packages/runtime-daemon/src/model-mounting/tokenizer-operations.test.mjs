@@ -1,0 +1,167 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  contextWindowForEndpoint,
+  countModelTokens,
+  fitModelContext,
+  modelTokenizerUtility,
+  tokenizeModel,
+} from "./tokenizer-operations.mjs";
+
+function fakeState() {
+  const endpoint = {
+    id: "endpoint.local.llama",
+    providerId: "provider.local",
+    modelId: "llama-test",
+    backendId: "backend.native",
+    artifactId: "artifact.llama",
+  };
+  const route = {
+    id: "route.local-first",
+    endpointIds: [endpoint.id],
+  };
+  return {
+    artifacts: new Map([
+      ["artifact.llama", {
+        id: "artifact.llama",
+        modelId: "llama-test",
+        contextWindow: 4,
+      }],
+    ]),
+    receipts: [],
+    routeReceiptCount: 0,
+    routes: new Map([[route.id, route]]),
+    writes: [],
+    authorize(authorization, requiredScope) {
+      return { authorization, requiredScope, grantId: `grant.${requiredScope}` };
+    },
+    contextWindowForEndpoint(endpointRecord, body) {
+      return contextWindowForEndpoint(this, endpointRecord, body);
+    },
+    modelTokenizerUtility(args) {
+      return modelTokenizerUtility(this, args, deps);
+    },
+    receipt(kind, payload) {
+      const receipt = { id: `receipt.${kind}.${this.receipts.length + 1}`, kind, payload };
+      this.receipts.push(receipt);
+      return receipt;
+    },
+    routeSelectionReceipt(selection, payload) {
+      this.routeReceiptCount += 1;
+      return {
+        id: `route-receipt.${this.routeReceiptCount}`,
+        selection,
+        payload,
+      };
+    },
+    selectRoute({ routeId }) {
+      return {
+        route: this.routes.get(routeId ?? "route.local-first"),
+        endpoint,
+        provider: { id: endpoint.providerId },
+      };
+    },
+    writeMap(name, map) {
+      this.writes.push([name, [...map.values()].map((record) => ({ ...record }))]);
+    },
+  };
+}
+
+const deps = {
+  deterministicTokenizeText(input) {
+    return String(input).trim() ? String(input).trim().split(/\s+/) : [];
+  },
+  inputText(body = {}) {
+    return body.input ?? body.prompt ?? "";
+  },
+  normalizeNonNegativeInteger(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? Math.floor(number) : fallback;
+  },
+  schemaVersion: "schema.tokenizer.test",
+  stableHash(value) {
+    return `hash:${value}`;
+  },
+  truncateToEstimatedTokens(input, availableTokens) {
+    return String(input).trim().split(/\s+/).slice(-availableTokens).join(" ");
+  },
+};
+
+test("modelTokenizerUtility records route and redacted tokenization receipt", () => {
+  const state = fakeState();
+
+  const utility = modelTokenizerUtility(
+    state,
+    { authorization: "auth", requiredScope: "model.tokenize:*", body: { input: "one two three" }, operation: "tokenize" },
+    deps,
+  );
+
+  assert.deepEqual(utility.tokens, ["one", "two", "three"]);
+  assert.equal(utility.promptTokens, 3);
+  assert.equal(utility.contextWindow, 4);
+  assert.equal(utility.receipt.kind, "model_tokenization");
+  assert.equal(utility.receipt.payload.details.inputHash, "hash:one two three");
+  assert.equal(state.routes.get("route.local-first").lastSelectedModel, "llama-test");
+  assert.equal(state.writes.at(-1)[0], "model-routes");
+});
+
+test("tokenizeModel and countModelTokens preserve public response envelopes", () => {
+  const state = fakeState();
+
+  const tokenized = tokenizeModel(
+    state,
+    { authorization: "auth", body: { input: "alpha beta" } },
+    { schemaVersion: deps.schemaVersion },
+  );
+  const counted = countModelTokens(
+    state,
+    { authorization: "auth", body: { input: "alpha beta gamma" } },
+    { schemaVersion: deps.schemaVersion, stableHash: deps.stableHash },
+  );
+
+  assert.equal(tokenized.schemaVersion, "schema.tokenizer.test");
+  assert.deepEqual(tokenized.tokens, ["alpha", "beta"]);
+  assert.equal(tokenized.token_count, 2);
+  assert.equal(tokenized.usage.total_tokens, 2);
+  assert.equal(counted.input_hash, "hash:alpha beta gamma");
+  assert.equal(counted.token_count, 3);
+  assert.equal(counted.route_receipt_id, "route-receipt.2");
+});
+
+test("fitModelContext reports fit and keep-tail truncation", () => {
+  const state = fakeState();
+
+  const result = fitModelContext(
+    state,
+    { authorization: "auth", body: { input: "one two three four five", reserve_output_tokens: 1 } },
+    deps,
+  );
+
+  assert.equal(result.schemaVersion, "schema.tokenizer.test");
+  assert.equal(result.context_window, 4);
+  assert.equal(result.reserved_output_tokens, 1);
+  assert.equal(result.available_input_tokens, 3);
+  assert.equal(result.prompt_tokens, 5);
+  assert.equal(result.fits, false);
+  assert.equal(result.overflow_tokens, 2);
+  assert.equal(result.truncation.applied, true);
+  assert.equal(result.fitted_input, "three four five");
+  assert.equal(result.fitted_input_hash, "hash:three four five");
+  assert.equal(state.receipts.at(-1).kind, "model_context_fit");
+});
+
+test("contextWindowForEndpoint honors explicit, artifact, metadata, and default fallbacks", () => {
+  const state = fakeState();
+
+  assert.equal(contextWindowForEndpoint(state, { modelId: "missing" }, { context_window: 16 }), 16);
+  assert.equal(contextWindowForEndpoint(state, { modelId: "llama-test", artifactId: "artifact.llama" }, {}), 4);
+
+  state.artifacts.set("artifact.meta", {
+    id: "artifact.meta",
+    modelId: "meta-model",
+    metadata: { context: 12 },
+  });
+  assert.equal(contextWindowForEndpoint(state, { modelId: "meta-model" }, {}), 12);
+  assert.equal(contextWindowForEndpoint(state, { modelId: "unknown" }, {}), 4096);
+});

@@ -331,8 +331,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/storage-operations.mjs`.
 - Moved download status/cancel, model artifact deletion, and model storage cleanup out of `model-mounting.mjs` behind existing compatibility methods while preserving destructive-confirmation, cleanup, projection, and receipt behavior.
 - Added focused storage-operation tests for missing download jobs, cancel cleanup, terminal download preservation, artifact dry-run/delete/conflict behavior, and confirmed orphan cleanup.
+- Added `packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs`.
+- Moved model tokenization, token counting, context-fit estimation, and endpoint context-window fallback out of `model-mounting.mjs` behind existing compatibility methods while preserving route receipts, redacted input hashes, and public response envelopes.
+- Added focused tokenizer-operation tests for route/receipt updates, token/count envelopes, keep-tail context fitting, and context-window fallback order.
 
-Status: `model-mounting.mjs` still owns route persistence wrappers, catalog import/download operation glue, model invocation/tokenizer utilities, and some product projection glue. Safe next extractions are catalog import/download materialization, invocation utility slices, and remaining route HTTP glue.
+Status: `model-mounting.mjs` still owns route persistence wrappers, catalog import/download operation glue, model invocation utilities, and some product projection glue. Safe next extractions are catalog import/download materialization, invocation utility slices, and remaining route HTTP glue.
 
 ### Rust Runtime Hot Spot
 
@@ -409,6 +412,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `model-mounting/artifact-endpoint-operations`
   - `model-mounting/model-loading-operations`
   - `model-mounting/storage-operations`
+  - `model-mounting/tokenizer-operations`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
