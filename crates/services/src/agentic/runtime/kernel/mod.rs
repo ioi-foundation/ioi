@@ -5,6 +5,7 @@
 
 pub mod approval;
 pub mod capability;
+pub mod ctee;
 pub mod deadline;
 pub mod evidence;
 pub mod inference;
@@ -24,6 +25,10 @@ pub mod trace;
 
 use approval::{ApprovalScopeContext, AuthorityScopeMatcher, ScopeMatchDecision};
 use capability::CapabilityLeaseDecision;
+use ctee::{
+    CteeNodeTrust, CteePrivateWorkspaceError, CteePrivateWorkspaceReceipt,
+    PrivateWorkspaceCteeModule,
+};
 use evidence::ReceiptManifestKind;
 use invocation::ToolInvocationEnvelope;
 use marketplace::{MarketplaceAdmissionError, MarketplaceServiceContract};
@@ -109,6 +114,14 @@ impl RuntimeKernelService {
         expected_heads: Vec<String>,
     ) -> Result<StepModuleReceiptBinding, ReceiptBindingError> {
         ReceiptBinder.bind_step_module_result(invocation, result, expected_heads)
+    }
+
+    pub fn validate_private_workspace_ctee_invocation(
+        &self,
+        invocation: &StepModuleInvocation,
+        node_trust: &CteeNodeTrust,
+    ) -> Result<CteePrivateWorkspaceReceipt, CteePrivateWorkspaceError> {
+        PrivateWorkspaceCteeModule.validate_invocation(invocation, node_trust)
     }
 
     pub fn validate_receipt_manifest(

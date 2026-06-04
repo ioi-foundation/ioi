@@ -382,18 +382,27 @@ function runReceipts() {
 
 function runCtee() {
   const result = createTierResult("ctee");
+  const cteeModule = exists("crates/services/src/agentic/runtime/kernel/ctee.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/ctee.rs")
+    : "";
   assertCheck(
     result,
     "ctee-core-module",
-    codeCorpusContains(/CteePrivateWorkspaceRunner|PrivateWorkspaceCteeModule|ctee_private_workspace_module_path/),
-    ["crates/services/src/agentic/runtime", "packages/runtime-daemon/src", "docs/architecture/components/daemon-runtime/private-workspace-ctee.md"],
+    /PrivateWorkspaceCteeModule/.test(cteeModule) &&
+      /CteePrivateWorkspaceRunner/.test(cteeModule) &&
+      /ctee_private_workspace_module_path/.test(cteeModule),
+    [
+      "crates/services/src/agentic/runtime/kernel/ctee.rs",
+      "docs/architecture/components/daemon-runtime/private-workspace-ctee.md",
+    ],
     "Phase 6 is pending: cTEE private workspace action must route through the shared ABI",
   );
   assertCheck(
     result,
     "ctee-plaintext-negative-test",
-    codeCorpusContains(/ctee private workspace plaintext mount on an untrusted node fails|untrusted node plaintext mount fails/),
-    ["crates/services/src/agentic/runtime", "packages/runtime-daemon/src", "scripts/lib"],
+    /cTEE private workspace plaintext mount on an untrusted node fails/.test(cteeModule) &&
+      /UntrustedNodePlaintextMountForbidden|CteePlaintextCustodyForbidden/.test(cteeModule),
+    ["crates/services/src/agentic/runtime/kernel/ctee.rs"],
     "Phase 6/11 is pending: untrusted-node plaintext mount must fail closed in executable tests",
   );
   return result;

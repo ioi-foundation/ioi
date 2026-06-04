@@ -263,6 +263,54 @@ ImplementationSlice:
     push: required after verification
 ```
 
+## Implementation Slice 5
+
+```yaml
+ImplementationSlice:
+  objective: introduce the Rust cTEE Private Workspace module boundary and prove
+    plaintext custody fails closed on untrusted nodes
+  owner_boundary:
+    route_or_surface: cTEE Private Workspace StepModule validation
+    authority_gate: StepModule authority fields plus declassification approval
+      requirement; wallet.network handoff remains a later authority-core slice
+    execution_backend: ctee_operator ABI backend validation
+    truth_path: no accepted Agentgres mutation in this slice
+    projection_path: no compositor projection upgrade in this slice
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    daemon: []
+    rust_core:
+      - crates/services/src/agentic/runtime/kernel/ctee.rs
+      - crates/services/src/agentic/runtime/kernel/mod.rs
+    ide: []
+    tests:
+      - Rust unit tests in crates/services/src/agentic/runtime/kernel/ctee.rs
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - no bypass of daemon execution ownership
+    - no bypass of wallet.network authority where applicable
+    - no accepted transition without receipt/ref/state-root binding
+    - no cTEE plaintext-custody regression
+  verification:
+    commands:
+      - cargo test -p ioi-services ctee_private_workspace
+      - npm run hypervisor-conformance:ctee
+      - npm run hypervisor-conformance:negative (expected fail closed overall,
+        with the cTEE plaintext negative case passing)
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: false
+    compatibility_shims_remaining:
+      - cTEE validation exists in Rust, but full private workspace execution,
+        Agentgres admission, and compositor projection remain to be migrated
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -273,7 +321,7 @@ ImplementationSlice:
 | `model-mounting` | `packages/runtime-daemon/src/model-mounting/*` | JS daemon model-mounting store and route policy | Rust core `model_mount` | model invocation receipts, route/custody refs, Agentgres operation | `bridge`, `receipts`, `ctee` | live product daemon state | Rust records route decisions and receipts; JS surfaces are non-authoritative clients. |
 | `agentgres-admission` | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs`, `.ioi/agentgres` local state, `docs/architecture/components/agentgres/*` | daemon-local operation-like records plus target canon | Rust core `agentgres_admission` | expected heads, state-root validation, accepted operation admission | `receipts`, `negative` | partial target, split truth risk | no JS path can append accepted operations directly or mutate durable truth without expected heads/state-root binding. |
 | `receipt-binding` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/ipc/proto/public/v1/public.proto`, `crates/services/src/agentic/runtime/kernel/receipt_binder.rs` | JS receipts plus Rust/workload receipts; Rust binder primitive exists | Rust core `receipt_binder` | one binder for invocation, result, artifact refs, payload refs, and state roots | `receipts`, `negative` | binder primitive implemented for StepModuleResult; JS receipts still live | every meaningful route family emits receipts through one Rust binder. |
-| `ctee-private-workspace` | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md` | canon plus partial product routing | Rust core `ctee` | custody proof, leakage profile, declassification receipt, plaintext-free mount failure | `ctee`, `negative` | planned runtime path | untrusted node plaintext mount fails closed; declassification and private operator paths are receipt-bound. |
+| `ctee-private-workspace` | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md`, `crates/services/src/agentic/runtime/kernel/ctee.rs` | canon plus Rust StepModule validation boundary | Rust core `ctee` | custody proof, leakage profile, declassification receipt, plaintext-free mount failure | `ctee`, `negative` | Rust validation path implemented; full execution/admission/projection still pending | untrusted node plaintext mount fails closed; declassification and private operator paths are receipt-bound. |
 | `workload-client-wasm` | `crates/client/src/workload_client/mod.rs`, `crates/vm/wasm/src/lib.rs`, `crates/validator/src/standard/workload/*` | Rust workload/kernel substrate exists below daemon | Rust core `workload_client` plus WASM/service backend | StepModuleResult with workload receipt and state-root binding | `bridge`, `receipts` | substrate exists, not default daemon backend | daemon routes admitted work through StepModuleRunner into Rust/WASM or workload backend. |
 | `workflow-compositor` | `packages/agent-ide/src/runtime/*`, `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | IDE/daemon projection shaping | Rust core `projection` consumed by IDE/CLI/SDK | projection checkpoints rebuilt from Agentgres admitted truth | `compositor`, `negative` | rich projection, not final truth source | compositor cannot create accepted truth directly and only renders/replays canonical projections. |
 | `worker-service-packages` | `docs/architecture/foundations/common-objects-and-envelopes.md`, `docs/architecture/domains/aiagent/worker-endpoints.md`, `docs/architecture/domains/sas/service-endpoints.md` | target canon plus service/module concepts | Rust core `step_router` plus workload/WASM/AIIP backends | package invocation receipt, authority grant, artifacts, projection | `bridge`, `receipts`, `compositor` | target only | service and worker package invocation uses the shared Step/Module ABI. |
@@ -311,7 +359,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 4:
+Current expected behavior after Slice 5:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
@@ -319,7 +367,7 @@ Current expected behavior after Slice 4:
 | `hypervisor-conformance:abi` | pass | Step/Module schemas and current coding-tool projection wrappers exist. |
 | `hypervisor-conformance:bridge` | pass | daemon StepModuleRunner boundary and fail-closed Rust workload runner selection exist. |
 | `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists and the Rust shadow bridge emits a receipt binding. |
-| `hypervisor-conformance:ctee` | fail closed | cTEE private workspace module path and plaintext-failure tests are not yet implemented. |
+| `hypervisor-conformance:ctee` | pass | Rust cTEE Private Workspace module validation exists and untrusted plaintext custody fails closed. |
 | `hypervisor-conformance:compositor` | fail closed | IDE/CLI/SDK are not yet backed by Rust projection records. |
 | `hypervisor-conformance:negative` | fail closed | forbidden-path fixtures are not yet implemented. |
 | `hypervisor-conformance` | fail closed | terminal migration is not complete. |
