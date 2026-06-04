@@ -156,6 +156,8 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/turn-policy.js`.
 - Moved Studio turn policy/product-copy helpers for retrieval fail-closed messaging, retrieval-grounded result detection, Agent max-step selection, approval-pause detection/copy/error construction, and policy-blocked file-read messaging out of `extension.js`.
 - Added focused turn-policy tests for retrieval/workspace max-step selection, source-retrieval copy, approval-pause copy/error metadata, and policy-blocked file-read redaction.
+- Extended `apps/autopilot/openvscode-extension/ioi-workbench/studio/agent-turn-recovery.js` to own prompt extraction, started-time normalization, submitted-turn matching, and terminal-turn classification helpers used by daemon turn recovery.
+- Added focused agent-turn-recovery tests for prompt-source precedence, timestamp aliases, submitted prompt/time matching, and terminal projection classification.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/receipt-refs.js`.
 - Moved Studio receipt-reference normalization out of `extension.js` while preserving snake/camel aliases, nested event/result/payload summary aliases, object receipt ids, and de-duplication semantics.
 - Moved Studio receipt timeline projection and append/de-duplication into the same receipt module while preserving fallback kind/summary copy and injected projection state mutation.

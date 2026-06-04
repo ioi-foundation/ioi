@@ -1,3 +1,89 @@
+function createStudioAgentTurnRecoveryHelpers({
+  collectStudioAgentEventsFromResponse,
+  firstArray,
+  stringValue,
+  studioAgentTurnResultText,
+  studioRuntimeEventIsRunningStepCompletion,
+  studioRuntimeEventKind,
+} = {}) {
+  function studioTurnPromptText(turn = {}) {
+    const direct = stringValue(
+      turn.prompt ||
+        turn.input ||
+        turn.message ||
+        turn.request?.prompt ||
+        turn.request?.input ||
+        turn.request?.message,
+    );
+    if (direct) {
+      return direct;
+    }
+    const userTurn = firstArray(turn.conversation)
+      .slice()
+      .reverse()
+      .find((item) => String(item?.role || item?.type || "").toLowerCase() === "user");
+    if (userTurn) {
+      return stringValue(userTurn.content || userTurn.text || userTurn.message);
+    }
+    const startedEvent = collectStudioAgentEventsFromResponse(turn)
+      .find((event) => studioRuntimeEventKind(event).toLowerCase() === "turn.started");
+    return stringValue(startedEvent?.payload?.prompt || startedEvent?.payload_summary?.prompt);
+  }
+
+  function studioTurnStartedAtMs(turn = {}) {
+    const numeric = Number(
+      turn.started_at_ms ||
+        turn.startedAtMs ||
+        turn.created_at_ms ||
+        turn.createdAtMs ||
+        0,
+    );
+    if (Number.isFinite(numeric) && numeric > 0) {
+      return numeric;
+    }
+    const parsed = Date.parse(
+      turn.started_at ||
+        turn.startedAt ||
+        turn.created_at ||
+        turn.createdAt ||
+        "",
+    );
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function studioTurnMatchesSubmittedPrompt(turn = {}, prompt = "", submittedAtMs = 0) {
+    const turnPrompt = studioTurnPromptText(turn);
+    if (turnPrompt && prompt && turnPrompt === prompt) {
+      return true;
+    }
+    const startedAtMs = studioTurnStartedAtMs(turn);
+    return Boolean(startedAtMs && submittedAtMs && startedAtMs >= submittedAtMs - 2000);
+  }
+
+  function studioTurnLooksTerminal(turn = {}) {
+    const events = collectStudioAgentEventsFromResponse(turn);
+    const statusText = stringValue(turn.status || turn.state || "").toLowerCase();
+    const resultText = studioAgentTurnResultText(turn, events);
+    if (resultText) {
+      return true;
+    }
+    if (events.some(studioRuntimeEventIsRunningStepCompletion)) {
+      return false;
+    }
+    if (/blocked|failed|error|completed|paused|approval|waiting_for_approval/.test(statusText)) {
+      return true;
+    }
+    return events.some((event) => /turn\.(completed|failed)|completed|failed|blocked/.test(studioRuntimeEventKind(event).toLowerCase()));
+  }
+
+  return {
+    studioTurnLooksTerminal,
+    studioTurnMatchesSubmittedPrompt,
+    studioTurnPromptText,
+    studioTurnStartedAtMs,
+  };
+}
+
 function createStudioAgentTurnRecovery({
   fetchStudioThreadTurns,
   studioTurnMatchesSubmittedPrompt,
@@ -80,4 +166,5 @@ function createStudioAgentTurnRecovery({
 
 module.exports = {
   createStudioAgentTurnRecovery,
+  createStudioAgentTurnRecoveryHelpers,
 };
