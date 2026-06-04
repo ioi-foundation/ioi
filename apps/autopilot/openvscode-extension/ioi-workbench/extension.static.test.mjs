@@ -76,6 +76,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/pending-view.js",
   durabilityPanels:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/durability-panels.js",
+  runtimeCockpitLifecycle:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-cockpit-lifecycle.js",
   runtimeCockpitRows:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-cockpit-rows.js",
   runtimeRailRows:
@@ -183,6 +185,7 @@ async function readStudioComposite() {
       paths.stage7DelegationLifecycle,
       paths.pendingView,
       paths.durabilityPanels,
+      paths.runtimeCockpitLifecycle,
       paths.runtimeCockpitRows,
       paths.runtimeRailRows,
       paths.nativeChatView,

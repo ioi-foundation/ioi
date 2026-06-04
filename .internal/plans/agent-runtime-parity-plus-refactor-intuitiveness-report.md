@@ -125,6 +125,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/stage7-delegation-lifecycle.js`.
 - Moved Studio Stage 7 delegation lifecycle orchestration out of `extension.js` behind the existing compatibility wrapper while preserving daemon parent-thread creation, delegated worker spawn, failed-child persistence/recovery, browser subagent artifact projection, worker/replay panel projection, and the `studio.stage7DelegationLifecycle.exercised` bridge proof envelope.
 - Added focused Stage 7 lifecycle tests for parent/child request sequencing, failed-child recovery projection, worker/browser cards, replay rows, receipt propagation, and bridge proof emission.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-cockpit-lifecycle.js`.
+- Moved Studio runtime cockpit projection out of `extension.js` behind the existing `projectStudioRuntimeCockpit` wrapper while preserving model-stream proof projection, policy lease denial, sandbox diagnostics, dry-run patch preview/approval, browser discovery, worker/subagent status, replay refresh, and achieved/incomplete timeline behavior.
+- Added focused runtime-cockpit lifecycle tests for daemon proof lanes, hunk approval projection, browser/worker cards, replay refresh, achieved timeline emission, and the no-thread blocked path.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/shell-header.js`.
 - Moved Autopilot workbench shell-header styles, posture tone mapping, native-shell gating, runtime posture chips, and mode switch action rendering out of `extension.js` while preserving existing call-site names and data-testids.
 - Added focused shell-header tests for tone mapping, native shell gating, sanitized posture rendering, command affordances, and product shell selectors.
@@ -588,6 +591,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `studio/parity-plus-panels`
   - `studio/parity-plus-panels` Stage 5 stop/cancel/recover lifecycle helper
   - `studio/stage7-delegation-lifecycle`
+  - `studio/runtime-cockpit-lifecycle`
   - `workbench/shell-header`
   - `workbench/mode-body-renderers`
   - `workbench/model-snapshot`
