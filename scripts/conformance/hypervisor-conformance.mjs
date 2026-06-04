@@ -494,6 +494,26 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-fixture-provider-invocation-live-bridge",
+    /execute_model_mount_fixture_provider_invocation/.test(bridgeModule) &&
+      /ModelMountProviderInvocationRequest/.test(bridgeModule) &&
+      /bridge_executes_model_mount_fixture_provider_invocation_through_rust_core/.test(bridgeModule) &&
+      /executeProviderInvocation/.test(modelMountAdmissionRunner) &&
+      /rust_model_mount_fixture_provider_invocation_command/.test(modelMountAdmissionRunner) &&
+      /executeModelMountProviderInvocation/.test(modelMountingState) &&
+      /modelMountProviderInvocationRequestForExecution/.test(modelInvocationOps) &&
+      /modelMountProviderInvocationRequiresRust/.test(modelInvocationOps) &&
+      /model_mount_provider_invocation_execution_required/.test(modelInvocationOps),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+    ],
+    "Phase 9/10 is pending: the fixture provider backend must execute through Rust model_mount instead of the JS provider driver",
+  );
+  assertCheck(
+    result,
     "model-mount-invocation-receipt-binding-live-bridge",
     /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       /ModelMountInvocationReceiptBindingBridgeRequest/.test(bridgeModule) &&
@@ -609,6 +629,36 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 9/10 is pending: Rust model_mount core must own provider execution admission before model provider driver calls",
+  );
+  assertCheck(
+    result,
+    "model-mount-fixture-provider-invocation-core",
+    exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      /MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountProviderInvocationRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /MissingProviderExecutionAdmission/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /UnsupportedProviderInvocationBackend/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /StreamProviderInvocationUnsupported/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /invoke_model_mount_fixture_provider/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ) &&
+      /model_mount_provider_invocation_execution_required/.test(modelInvocationOps),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+    ],
+    "Phase 9/10 is pending: Rust model_mount core must own migrated fixture provider invocation execution",
   );
   assertCheck(
     result,

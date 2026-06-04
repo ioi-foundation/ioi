@@ -1988,6 +1988,89 @@ ImplementationSlice:
     push: required after verification
 ```
 
+## Implementation Slice 34
+
+```yaml
+ImplementationSlice:
+  objective: execute the deterministic fixture model provider backend through
+    Rust model_mount instead of the JS provider driver
+  owner_boundary:
+    route_or_surface: fixture/local-folder model provider invocation
+    authority_gate: fixture provider requests still require Rust
+      provider-execution admission first, then the daemon builds a
+      provider-invocation request tied to that admission ref/hash before any
+      provider output is produced
+    execution_backend: `rust_model_mount_fixture` now computes the fixture
+      provider output, token envelope, backend ids, evidence refs, and invocation
+      hash; JS driver execution for that migrated backend fails closed when the
+      Rust execution bridge is unavailable
+    truth_path: existing model invocation receipts carry the Rust
+      provider-execution ref plus Rust fixture provider invocation evidence
+      before invocation admission, receipt_binder, accepted_receipt_append, and
+      Agentgres admission
+    projection_path: model-mounting projections continue reading accepted
+      receipts; fixture provider invocations now expose Rust invocation evidence
+      for replay/inspection
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+      - docs/architecture/_meta/implementation-matrix.md
+    daemon:
+      - packages/runtime-daemon/src/model-mounting.mjs
+      - packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs
+      - packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs
+    rust_core:
+      - crates/services/src/agentic/runtime/kernel/model_mount.rs
+      - crates/services/src/agentic/runtime/kernel/mod.rs
+      - crates/node/src/bin/ioi_step_module_bridge/mod.rs
+    ide: []
+    tests:
+      - packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs
+      - packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs
+      - packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs
+      - scripts/conformance/hypervisor-conformance.mjs
+      - Rust model_mount unit tests in crates/services/src/agentic/runtime/kernel/model_mount.rs
+      - Rust bridge unit test in crates/node/src/bin/ioi_step_module_bridge/mod.rs
+  conformance_checks:
+    - Rust model_mount core exposes a provider-invocation schema, result hash,
+      fixture backend execution, unsupported-backend guard, and stream guard
+    - Rust bridge exposes and tests
+      `execute_model_mount_fixture_provider_invocation`
+    - JS fixture/local-folder invocation fails closed before any JS provider
+      driver call when Rust provider-invocation execution is unavailable
+    - non-migrated providers still run behind provider-execution admission until
+      their concrete Rust execution backends are migrated
+    - conformance bridge and receipts tiers detect the Rust fixture provider
+      invocation path
+  verification:
+    commands:
+      - cargo fmt -p ioi-services -p ioi-node
+      - cargo test -p ioi-services model_mount
+      - cargo test -p ioi-node bridge_executes_model_mount_fixture_provider_invocation_through_rust_core
+      - node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs
+      - node --test packages/runtime-daemon/src/model-mounting/*.test.mjs
+      - npm run hypervisor-conformance:bridge
+      - npm run hypervisor-conformance:receipts
+      - npm run hypervisor-conformance
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: false
+    compatibility_shims_remaining:
+      - hosted/openai-compatible, native-local streaming, Ollama, LM Studio,
+        llama.cpp, and vLLM provider request/response execution still run in JS
+        after Rust provider-execution admission; later slices must move each
+        concrete provider/workload backend behind Rust workload_client/model_mount
+        execution ownership
+      - the JS store still writes the projection/cache receipt envelope after
+        Rust admission; broader operation-log ownership remains to be moved to
+        Rust Agentgres admission
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -1995,7 +2078,7 @@ ImplementationSlice:
 | `coding-tools` | `packages/runtime-daemon/src/coding-tools.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `packages/runtime-daemon/src/step-module-runner.mjs`, `crates/node/src/bin/ioi-step-module-bridge.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS daemon tool dispatch with Step/Module projection wrappers plus live Rust paths for every current coding tool: workspace.status, git.diff, file.inspect, file.apply_patch, test.run, lsp.diagnostics, artifact.read, tool.retrieve_result, and computer_use.request_lease | Rust core `step_router` plus workload/WASM backend | Agentgres admitted operation with receipt, refs, heads, and state roots | `abi`, `bridge`, `receipts`, `negative` | every current coding-tool ID returns a Rust live payload without daemon_js in rust_workload_live mode; JS fallback helpers remain only for non-live compatibility until facade retirement | Rust path passes shadow, gated, and live parity for each migrated tool; JS can no longer append authoritative effects. |
 | `approvals-gates` | `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `crates/services/src/agentic/runtime/kernel/authority.rs` | JS daemon routes plus Rust external-exit authority guard | Rust core `authority` with wallet.network handoff | authority grant and approval receipt before effect boundary | `bridge`, `negative` | Rust wallet.network guard implemented for external exits; live JS approval surface remains | JS can only request/render approvals; grants and gate decisions are issued by Rust authority core and wallet.network. |
 | `runtime-events-replay-trace` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | JS daemon envelope/projection code | Rust core `projection` plus Agentgres projection watermarks | replayable projection over admitted operations and receipts | `receipts`, `compositor` | JS projection source | Rust emits canonical projection records consumed by IDE/CLI/SDK. |
-| `model-mounting` | `packages/runtime-daemon/src/model-mounting/*`, `packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/model_mount.rs` | JS daemon model-mounting store/provider driver plus Rust route-decision, provider-execution, invocation-receipt admission, receipt_binder binding, Agentgres admission for invocation and stream-completion receipts, and a store guard against unbound direct invocation appends | Rust core `model_mount` | model invocation receipts, provider-execution receipts, route/custody refs, Agentgres operation | `abi`, `bridge`, `receipts`, `ctee` | live route-selection, provider-execution admission, and model-invocation receipts call Rust model_mount admission; invocation and stream-completion receipts are represented as `model_mount` StepModule results and bound by Rust receipt_binder plus Rust Agentgres admission before JS store persistence; direct JS store append of unbound invocation receipts now fails closed; provider request/response execution itself and broader JS store demotion still remain | Rust records route decisions, provider execution admission, and receipts; JS provider/store surfaces are demoted after Rust workload/model_mount execution ownership replaces the remaining driver call. |
+| `model-mounting` | `packages/runtime-daemon/src/model-mounting/*`, `packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/model_mount.rs` | JS daemon model-mounting store/provider driver plus Rust route-decision, provider-execution, fixture provider-invocation execution, invocation-receipt admission, receipt_binder binding, Agentgres admission for invocation and stream-completion receipts, and a store guard against unbound direct invocation appends | Rust core `model_mount` | model invocation receipts, provider-execution/invocation receipts, route/custody refs, Agentgres operation | `abi`, `bridge`, `receipts`, `ctee` | live route-selection, provider-execution admission, fixture provider invocation execution, and model-invocation receipts call Rust model_mount; invocation and stream-completion receipts are represented as `model_mount` StepModule results and bound by Rust receipt_binder plus Rust Agentgres admission before JS store persistence; direct JS store append of unbound invocation receipts now fails closed; non-fixture provider request/response execution and broader JS store demotion still remain | Rust records route decisions, provider execution admission, migrated provider invocation execution, and receipts; JS provider/store surfaces are demoted as each remaining provider backend moves behind Rust workload/model_mount execution ownership. |
 | `agentgres-admission` | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs`, `.ioi/agentgres` local state, `crates/services/src/agentic/runtime/kernel/agentgres_admission.rs`, `docs/architecture/components/agentgres/*` | daemon-local operation-like records plus Rust admission/storage guards; model invocation and stream-completion receipt operations now enter Rust Agentgres admission and unbound direct store appends are rejected | Rust core `agentgres_admission` | expected heads, state-root validation, accepted operation admission | `receipts`, `negative` | Rust operation admission and storage-write guards implemented; model invocation and stream-completion receipt operations carry expected-head/state-root admission; direct unbound invocation receipt store writes fail closed; broad live JS append/write surfaces still need routing/demotion | no JS path can append accepted operations directly or mutate durable truth without expected heads/state-root binding. |
 | `receipt-binding` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/ipc/proto/public/v1/public.proto`, `crates/services/src/agentic/runtime/kernel/receipt_binder.rs` | JS receipts plus Rust receipt binder and append guard | Rust core `receipt_binder` | one binder for invocation, result, artifact refs, payload refs, and state roots | `receipts`, `negative` | binder primitive and direct-append guard implemented; JS receipts still live | every meaningful route family emits receipts through one Rust binder. |
 | `ctee-private-workspace` | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md`, `crates/services/src/agentic/runtime/kernel/ctee.rs` | canon plus Rust StepModule validation boundary | Rust core `ctee` | custody proof, leakage profile, declassification receipt, plaintext-free mount failure | `ctee`, `negative` | Rust validation path implemented; full execution/admission/projection still pending | untrusted node plaintext mount fails closed; declassification and private operator paths are receipt-bound. |
@@ -2004,7 +2087,7 @@ ImplementationSlice:
 | `worker-service-packages` | `docs/architecture/foundations/common-objects-and-envelopes.md`, `docs/architecture/domains/aiagent/worker-endpoints.md`, `docs/architecture/domains/sas/service-endpoints.md` | target canon plus service/module concepts | Rust core `step_router` plus workload/WASM/AIIP backends | package invocation receipt, authority grant, artifacts, projection | `bridge`, `receipts`, `compositor` | target only | service and worker package invocation uses the shared Step/Module ABI. |
 | `l1-settlement` | `docs/architecture/foundations/ioi-l1-mainnet.md`, `crates/services/src/agentic/runtime/kernel/settlement.rs` | canon plus Rust trigger guard | Rust settlement/admission core under daemon-owned execution | sparse public/economic/cross-domain commitment by trigger only | `negative` | Rust trigger guard implemented; product settlement surfaces still pending | L1 settlement attempts without marketplace/public/economic/cross-domain/operator trigger fail closed. |
 | `meta-improvement` | `crates/services/src/agentic/runtime/kernel/*`, workflow/evaluation docs | partial Rust/IDE signals | Rust core authority plus proposal/eval/approval path | proposal object, eval receipts, approval grant, committed mutation | `receipts`, `negative` | target only | agents cannot self-modify directly; all improvements are proposal-mediated. |
-| `rust-daemon-core` | target layout in master guide plus `crates/services/src/agentic/runtime/kernel/*` | partial Rust primitives for authority, step_router, cTEE, receipts, Agentgres admission, projection, settlement, Step/Module ABI, and model_mount provider-execution admission | Rust modules: `authority`, `step_router`, `workload_client`, `model_mount`, `ctee`, `receipt_binder`, `agentgres_admission`, `projection`, `conformance` | one Rust owner for hot-path semantics | all tiers | partial primitives, not extracted as one authoritative core; model_mount now admits provider-execution envelopes before JS provider driver calls | hot-path execution, authority, receipt/state-root binding, cTEE, replay, and conformance are owned by Rust core. |
+| `rust-daemon-core` | target layout in master guide plus `crates/services/src/agentic/runtime/kernel/*` | partial Rust primitives for authority, step_router, cTEE, receipts, Agentgres admission, projection, settlement, Step/Module ABI, model_mount provider-execution admission, and fixture provider-invocation execution | Rust modules: `authority`, `step_router`, `workload_client`, `model_mount`, `ctee`, `receipt_binder`, `agentgres_admission`, `projection`, `conformance` | one Rust owner for hot-path semantics | all tiers | partial primitives, not extracted as one authoritative core; model_mount now admits provider-execution envelopes before JS provider driver calls and executes the migrated fixture provider backend | hot-path execution, authority, receipt/state-root binding, cTEE, replay, and conformance are owned by Rust core. |
 | `js-facade-retirement` | `packages/runtime-daemon/src/*`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS is current live daemon implementation, with Rust guard forbidding authoritative daemon_js mutation | non-authoritative product/API/client facade only where useful | stable protocol APIs into Rust core | `negative`, terminal `hypervisor-conformance` | direct JS authoritative mutation guard implemented; broad live facade retirement still pending | every migrated route family removes or demotes old JS authoritative paths and compatibility shims. |
 
 ## Cleanup Targets Found In Phase 0
@@ -2017,7 +2100,7 @@ must be retired as the corresponding route family reaches verified parity:
 | Direct JS coding tool dispatch for consequential effects | It is the current split-brain authoritative execution path. | Each tool has ABI coverage, Rust/WASM or workload execution, receipts/state roots, and compositor parity. |
 | Daemon-local operation-like truth outside Rust Agentgres admission | It risks duplicate accepted truth. | Agentgres admission enforces expected heads and state-root binding for meaningful transitions. |
 | Receipt emission in multiple owners | Duplicate receipt paths make replay and failure analysis ambiguous. | `receipt_binder` owns all accepted receipt/result binding. |
-| Model/provider fallback routes outside daemon-owned model mounting | Earlier parity work established daemon-owned mounting/routing as source of truth. | Rust `model_mount` owns route decisions, provider-execution admission, and receipts. |
+| Model/provider fallback routes outside daemon-owned model mounting | Earlier parity work established daemon-owned mounting/routing as source of truth. | Rust `model_mount` owns route decisions, provider-execution admission, migrated provider invocation execution, and receipts. |
 | Compatibility adapters that can mutate state or emit accepted receipts | Alpha has no need to preserve old route behavior after migration. | Stable protocol APIs exist and migrated route families pass negative conformance. |
 | Workflow compositor accepted-truth shortcuts | The IDE should compose and inspect, not admit truth. | compositor projections rebuild from Agentgres operations and Rust projection watermarks. |
 | cTEE language without runtime plaintext-failure tests | cTEE is no-plaintext-custody private workspace execution, not encryption-at-rest. | private workspace module path and leakage/declassification tests pass. |
@@ -2038,14 +2121,14 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 33:
+Current expected behavior after Slice 34:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
 | `hypervisor-conformance:abi` | pass | Step/Module schemas and current coding-tool projection wrappers exist. |
-| `hypervisor-conformance:bridge` | pass | daemon StepModuleRunner boundary, fail-closed Rust workload runner selection, and live Rust model_mount provider-execution admission bridge exist. |
-| `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists, model provider execution is admitted before driver calls, model invocation and stream-completion receipts carry Rust Agentgres admission, and direct unbound model invocation store appends fail closed. |
+| `hypervisor-conformance:bridge` | pass | daemon StepModuleRunner boundary, fail-closed Rust workload runner selection, live Rust model_mount provider-execution admission bridge, and Rust fixture provider invocation bridge exist. |
+| `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists, model provider execution is admitted before driver calls, fixture provider invocation executes in Rust, model invocation and stream-completion receipts carry Rust Agentgres admission, and direct unbound model invocation store appends fail closed. |
 | `hypervisor-conformance:ctee` | pass | Rust cTEE Private Workspace module validation exists and untrusted plaintext custody fails closed. |
 | `hypervisor-conformance:compositor` | pass | Rust projection records exist, the shadow bridge emits them, and compositor accepted-truth attempts fail closed. |
 | `hypervisor-conformance:negative` | pass | All required forbidden-path negative fixtures are implemented at the Rust guard level. |

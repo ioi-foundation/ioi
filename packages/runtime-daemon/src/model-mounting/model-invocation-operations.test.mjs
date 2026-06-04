@@ -7,6 +7,8 @@ import {
   modelMountInvocationAgentgresTransitionForReceipt,
   modelMountInvocationAdmissionRequestForReceipt,
   modelMountProviderExecutionRequestForInvocation,
+  modelMountProviderInvocationRequestForExecution,
+  modelMountProviderInvocationRequiresRust,
   modelMountInvocationReceiptBindingRequestForReceipt,
   startModelStream,
 } from "./model-invocation-operations.mjs";
@@ -21,6 +23,7 @@ function fakeState(overrides = {}) {
     receipts: [],
     receiptBindingRequests: [],
     providerExecutionRequests: [],
+    providerInvocationRequests: [],
     recordedConversations: [],
     routes: new Map([["route.local-first", { id: "route.local-first" }]]),
     writes: [],
@@ -105,6 +108,35 @@ function fakeState(overrides = {}) {
           "rust_model_mount_core",
           `model_mount://provider_execution/${this.providerExecutionRequests.length}`,
         ],
+      };
+    },
+    executeModelMountProviderInvocation(request) {
+      this.providerInvocationRequests.push(request);
+      return {
+        source: "rust_model_mount_fixture_provider_invocation_command",
+        backend: "rust_model_mount_fixture",
+        result: {
+          ...request,
+          output_text: "provider answer",
+          token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+          provider_response_kind: "rust_model_mount.fixture",
+          backend: "ioi_fixture",
+          backend_id: "backend.fixture",
+          execution_backend: "rust_model_mount_fixture",
+          evidence_refs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
+          invocation_hash: `sha256:provider-invocation-${this.providerInvocationRequests.length}`,
+        },
+        outputText: "provider answer",
+        tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+        providerResponse: null,
+        providerResponseKind: "rust_model_mount.fixture",
+        executionBackend: "rust_model_mount_fixture",
+        backendId: "backend.fixture",
+        provider_execution_ref: request.provider_execution_ref,
+        provider_execution_hash: request.provider_execution_hash,
+        invocation_hash: `sha256:provider-invocation-${this.providerInvocationRequests.length}`,
+        evidence_refs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
+        backendEvidenceRefs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
       };
     },
     bindModelMountInvocationReceipt(request) {
@@ -200,8 +232,8 @@ function fakeState(overrides = {}) {
   return state;
 }
 
-function selection() {
-  return {
+function selection(overrides = {}) {
+  const base = {
     route: { id: "route.local-first", fallback: ["endpoint.local"] },
     endpoint: {
       id: "endpoint.local",
@@ -214,6 +246,11 @@ function selection() {
       id: "provider.local",
       kind: "local_folder",
     },
+  };
+  return {
+    route: { ...base.route, ...(overrides.route ?? {}) },
+    endpoint: { ...base.endpoint, ...(overrides.endpoint ?? {}) },
+    provider: { ...base.provider, ...(overrides.provider ?? {}) },
   };
 }
 
@@ -273,6 +310,9 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(state.providerExecutionRequests[0].route_decision_ref, "model_mount://route_decision/test");
   assert.equal(state.providerExecutionRequests[0].route_receipt_ref, "receipt://receipt.route");
   assert.equal(state.providerExecutionRequests[0].stream_status, null);
+  assert.equal(state.providerInvocationRequests[0].provider_execution_ref, "model_mount://provider_execution/1");
+  assert.equal(state.providerInvocationRequests[0].execution_backend, "rust_model_mount_fixture");
+  assert.equal(state.providerInvocationRequests[0].admitted_provider_execution.provider_execution_hash, "sha256:provider-execution-1");
   assert.deepEqual(state.receiptBindingRequests[0].expectedHeads, [
     "agentgres://model-mounting/operation-log/head/0",
   ]);
@@ -290,16 +330,40 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
 
 test("invokeModel reuses identical in-flight provider execution and marks coalesced receipts", async () => {
   let resolveProvider;
-  let providerCalls = 0;
+  let providerInvocationCalls = 0;
   const state = fakeState({
-    driver: {
-      invoke: async () => {
-        providerCalls += 1;
-        await new Promise((resolve) => {
-          resolveProvider = resolve;
-        });
-        return { outputText: "shared answer" };
-      },
+    async executeModelMountProviderInvocation(request) {
+      this.providerInvocationRequests.push(request);
+      providerInvocationCalls += 1;
+      await new Promise((resolve) => {
+        resolveProvider = resolve;
+      });
+      return {
+        source: "rust_model_mount_fixture_provider_invocation_command",
+        backend: "rust_model_mount_fixture",
+        result: {
+          ...request,
+          output_text: "shared answer",
+          token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+          provider_response_kind: "rust_model_mount.fixture",
+          backend: "ioi_fixture",
+          backend_id: "backend.fixture",
+          execution_backend: "rust_model_mount_fixture",
+          evidence_refs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
+          invocation_hash: "sha256:provider-invocation-shared",
+        },
+        outputText: "shared answer",
+        tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+        providerResponse: null,
+        providerResponseKind: "rust_model_mount.fixture",
+        executionBackend: "rust_model_mount_fixture",
+        backendId: "backend.fixture",
+        provider_execution_ref: request.provider_execution_ref,
+        provider_execution_hash: request.provider_execution_hash,
+        invocation_hash: "sha256:provider-invocation-shared",
+        evidence_refs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
+        backendEvidenceRefs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
+      };
     },
   });
   const operation = { authorization: "Bearer token", requiredScope: "model.chat:*", kind: "chat.completions", body: { model: "model.local" } };
@@ -311,7 +375,7 @@ test("invokeModel reuses identical in-flight provider execution and marks coales
   resolveProvider();
   const [firstResult, secondResult] = await Promise.all([first, second]);
 
-  assert.equal(providerCalls, 1);
+  assert.equal(providerInvocationCalls, 1);
   assert.equal(firstResult.receipt.kind, "model_invocation");
   assert.equal(secondResult.receipt.kind, "model_invocation_coalesced");
   assert.equal(secondResult.receipt.details.coalesced, true);
@@ -326,6 +390,22 @@ test("invokeModel reuses identical in-flight provider execution and marks coales
 test("startModelStream returns native stream invocations with stream-only receipt fields", async () => {
   const stream = { [Symbol.asyncIterator]: async function* noop() {} };
   const state = fakeState({
+    selectRoute(payload) {
+      this.selectRoutePayload = payload;
+      return selection({
+        endpoint: {
+          apiFormat: "ioi_native",
+          driver: "native_local",
+          providerId: "provider.autopilot.local",
+          backendId: "backend.autopilot.native-local.fixture",
+        },
+        provider: {
+          id: "provider.autopilot.local",
+          kind: "ioi_native_local",
+          driver: "native_local",
+        },
+      });
+    },
     driver: {
       supportsStream: () => true,
       async streamInvoke() {
@@ -395,6 +475,22 @@ test("startModelStream fails closed without Rust provider execution admission be
   let streamCalls = 0;
   const state = fakeState({
     admitModelMountProviderExecution: undefined,
+    selectRoute(payload) {
+      this.selectRoutePayload = payload;
+      return selection({
+        endpoint: {
+          apiFormat: "ioi_native",
+          driver: "native_local",
+          providerId: "provider.autopilot.local",
+          backendId: "backend.autopilot.native-local.fixture",
+        },
+        provider: {
+          id: "provider.autopilot.local",
+          kind: "ioi_native_local",
+          driver: "native_local",
+        },
+      });
+    },
     driver: {
       supportsStream: () => true,
       async streamInvoke() {
@@ -535,6 +631,56 @@ test("modelMountProviderExecutionRequestForInvocation gates provider driver exec
   assert.equal(request.previous_response_ref, "resp.previous");
 });
 
+test("modelMountProviderInvocationRequestForExecution binds fixture execution to provider admission", () => {
+  const admission = {
+    source: "rust_model_mount_provider_execution_command",
+    backend: "rust_model_mount_live",
+    record: {
+      schema_version: "ioi.model_mount.provider_execution.v1",
+      provider_execution_ref: "model_mount://provider_execution/test",
+      provider_execution_hash: "sha256:provider-execution-test",
+      route_decision_ref: "model_mount://route_decision/test",
+      route_receipt_ref: "receipt://route",
+      route_ref: "route.local-first",
+      provider_ref: "provider.local",
+      endpoint_ref: "endpoint.local",
+      model_ref: "model.local",
+      capability: "chat",
+      invocation_kind: "chat.completions",
+      request_hash: "sha256:request",
+      receipt_refs: ["receipt://route"],
+    },
+    provider_execution_ref: "model_mount://provider_execution/test",
+    provider_execution_hash: "sha256:provider-execution-test",
+    receipt_refs: ["receipt://route"],
+    evidence_refs: ["rust_model_mount_core"],
+  };
+
+  const request = modelMountProviderInvocationRequestForExecution({
+    input: "user: hello",
+    instance: { backendId: "backend.fixture" },
+    kind: "chat.completions",
+    modelMountProviderExecutionAdmission: admission,
+    selection: selection({
+      endpoint: { apiFormat: "ioi_fixture", driver: "fixture" },
+      provider: { driver: "fixture" },
+    }),
+  });
+
+  assert.equal(request.schema_version, "ioi.model_mount.provider_invocation.v1");
+  assert.equal(request.provider_execution_ref, "model_mount://provider_execution/test");
+  assert.equal(request.provider_execution_hash, "sha256:provider-execution-test");
+  assert.equal(request.execution_backend, "rust_model_mount_fixture");
+  assert.equal(request.provider_kind, "local_folder");
+  assert.equal(request.api_format, "ioi_fixture");
+  assert.equal(request.driver, "fixture");
+  assert.equal(request.backend_ref, "backend.fixture");
+  assert.deepEqual(request.receipt_refs, ["receipt://route"]);
+  assert.equal(request.admitted_provider_execution.provider_execution_hash, "sha256:provider-execution-test");
+  assert.equal(modelMountProviderInvocationRequiresRust({ provider: { kind: "local_folder" }, endpoint: {} }), true);
+  assert.equal(modelMountProviderInvocationRequiresRust({ provider: { kind: "openai" }, endpoint: {} }), false);
+});
+
 test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount StepModule binding", () => {
   const admissionRequest = modelMountInvocationAdmissionRequestForReceipt({
     body: {},
@@ -654,6 +800,83 @@ test("invokeModel fails closed without Rust provider execution admission before 
     (error) => error.code === "model_mount_provider_execution_admission_required",
   );
   assert.equal(providerCalls, 0);
+});
+
+test("invokeModel fails closed for migrated fixture backend without Rust provider invocation execution", async () => {
+  let providerCalls = 0;
+  const state = fakeState({
+    executeModelMountProviderInvocation: undefined,
+    driver: {
+      async invoke() {
+        providerCalls += 1;
+        return { outputText: "should not run" };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      invokeModel(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.chat:*",
+          kind: "responses",
+          body: { model: "model.local" },
+        },
+        deps(),
+      ),
+    (error) => error.code === "model_mount_provider_invocation_execution_required",
+  );
+  assert.equal(providerCalls, 0);
+});
+
+test("invokeModel keeps unmigrated provider drivers behind provider execution admission", async () => {
+  let providerCalls = 0;
+  const state = fakeState({
+    executeModelMountProviderInvocation: undefined,
+    driver: {
+      async invoke() {
+        providerCalls += 1;
+        return {
+          outputText: "hosted provider answer",
+          providerResponseKind: "openai.chat",
+          tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+        };
+      },
+    },
+    selectRoute(payload) {
+      this.selectRoutePayload = payload;
+      return selection({
+        endpoint: {
+          apiFormat: "openai",
+          providerId: "provider.openai",
+          backendId: "backend.openai-compatible",
+        },
+        provider: {
+          id: "provider.openai",
+          kind: "openai",
+          driver: "openai_compatible",
+        },
+      });
+    },
+  });
+
+  const result = await invokeModel(
+    state,
+    {
+      authorization: "Bearer token",
+      requiredScope: "model.chat:*",
+      kind: "responses",
+      body: { model: "model.local" },
+    },
+    deps(),
+  );
+
+  assert.equal(providerCalls, 1);
+  assert.equal(state.providerInvocationRequests.length, 0);
+  assert.equal(result.outputText, "hosted provider answer");
+  assert.equal(result.receipt.details.modelMountProviderExecutionRef, "model_mount://provider_execution/1");
 });
 
 test("invokeModel fails closed without Rust receipt binding support", async () => {

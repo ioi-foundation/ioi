@@ -5,6 +5,7 @@ import {
   summarizeProviderRequestBodyForTrace,
 } from "./provider-protocol.mjs";
 import {
+  driverNameForProvider,
   modelInvocationCoalesceKey,
   supportsResponseState,
 } from "./provider-driver-helpers.mjs";
@@ -75,14 +76,14 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
           token,
         }),
       );
-      const providerResult = await state.driverForProvider(selection.provider).invoke({
-        state,
-        provider: selection.provider,
-        endpoint: selection.endpoint,
+      const providerResult = await executeModelProviderInvocation({
+        input,
         instance,
         kind,
-        body: providerBody,
-        input,
+        modelMountProviderExecutionAdmission,
+        providerBody,
+        selection,
+        state,
         token,
       });
       return { instance, ephemeralMcp, modelMountProviderExecutionAdmission, providerResult };
@@ -250,6 +251,12 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     policy: body.model_policy ?? body.modelPolicy ?? {},
   });
   const continuationSafety = state.validateContinuationSafety({ previousState, selection, body });
+  if (modelMountProviderInvocationRequiresRust(selection)) {
+    return {
+      native: false,
+      invocation: await state.invokeModel({ authorization, requiredScope, kind, body: { ...body, stream: false } }),
+    };
+  }
   const driver = state.driverForProvider(selection.provider);
   if (typeof driver.streamInvoke !== "function" || (typeof driver.supportsStream === "function" && !driver.supportsStream(kind))) {
     return {
@@ -604,6 +611,51 @@ export function modelMountProviderExecutionRequestForInvocation({
   };
 }
 
+export function modelMountProviderInvocationRequestForExecution({
+  input,
+  instance = {},
+  kind,
+  modelMountProviderExecutionAdmission = {},
+  selection,
+} = {}) {
+  const record = modelMountProviderExecutionAdmission.record ?? {};
+  const provider = selection?.provider ?? {};
+  const endpoint = selection?.endpoint ?? {};
+  return {
+    schema_version: "ioi.model_mount.provider_invocation.v1",
+    provider_execution_ref: requiredStringRef(
+      "modelMountProviderExecutionAdmission.provider_execution_ref",
+      modelMountProviderExecutionAdmission.provider_execution_ref ?? record.provider_execution_ref,
+    ),
+    provider_execution_hash: requiredStringRef(
+      "modelMountProviderExecutionAdmission.provider_execution_hash",
+      modelMountProviderExecutionAdmission.provider_execution_hash ?? record.provider_execution_hash,
+    ),
+    route_decision_ref: requiredStringRef("providerExecution.route_decision_ref", record.route_decision_ref),
+    route_receipt_ref: requiredStringRef("providerExecution.route_receipt_ref", record.route_receipt_ref),
+    route_ref: requiredStringRef("providerExecution.route_ref", record.route_ref),
+    provider_ref: requiredStringRef("providerExecution.provider_ref", record.provider_ref),
+    provider_kind: requiredStringRef("provider.kind", provider.kind),
+    endpoint_ref: requiredStringRef("providerExecution.endpoint_ref", record.endpoint_ref),
+    model_ref: requiredStringRef("providerExecution.model_ref", record.model_ref),
+    capability: requiredStringRef("providerExecution.capability", record.capability),
+    invocation_kind: requiredStringRef("providerExecution.invocation_kind", record.invocation_kind ?? kind),
+    input: String(input ?? ""),
+    request_hash: requiredStringRef("providerExecution.request_hash", record.request_hash),
+    execution_backend: "rust_model_mount_fixture",
+    api_format: optionalRef(endpoint.apiFormat ?? provider.apiFormat),
+    driver: optionalRef(endpoint.driver ?? provider.driver ?? driverNameForProvider(provider)),
+    backend_ref: optionalRef(instance.backendId ?? endpoint.backendId),
+    stream_status: optionalRef(record.stream_status),
+    receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
+    evidence_refs: uniqueRefs([
+      modelMountProviderExecutionAdmission.provider_execution_ref ?? record.provider_execution_ref,
+      ...(modelMountProviderExecutionAdmission.evidence_refs ?? []),
+    ]),
+    admitted_provider_execution: record,
+  };
+}
+
 export function modelMountInvocationReceiptBindingRequestForReceipt({
   admission,
   admissionRequest,
@@ -760,6 +812,57 @@ function admitModelMountProviderExecution(state, request) {
     throw error;
   }
   return state.admitModelMountProviderExecution(request);
+}
+
+async function executeModelProviderInvocation({
+  input,
+  instance,
+  kind,
+  modelMountProviderExecutionAdmission,
+  providerBody,
+  selection,
+  state,
+  token,
+}) {
+  if (modelMountProviderInvocationRequiresRust(selection)) {
+    return executeModelMountProviderInvocation(
+      state,
+      modelMountProviderInvocationRequestForExecution({
+        input,
+        instance,
+        kind,
+        modelMountProviderExecutionAdmission,
+        selection,
+      }),
+    );
+  }
+  return state.driverForProvider(selection.provider).invoke({
+    state,
+    provider: selection.provider,
+    endpoint: selection.endpoint,
+    instance,
+    kind,
+    body: providerBody,
+    input,
+    token,
+  });
+}
+
+export function modelMountProviderInvocationRequiresRust(selection = {}) {
+  const provider = selection.provider ?? {};
+  const endpoint = selection.endpoint ?? {};
+  const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
+  return provider.kind === "local_folder" || driver === "fixture" || endpoint.apiFormat === "ioi_fixture";
+}
+
+function executeModelMountProviderInvocation(state, request) {
+  if (typeof state.executeModelMountProviderInvocation !== "function") {
+    const error = new Error("Fixture model provider execution requires Rust model_mount provider invocation execution.");
+    error.status = 500;
+    error.code = "model_mount_provider_invocation_execution_required";
+    throw error;
+  }
+  return state.executeModelMountProviderInvocation(request);
 }
 
 function bindModelMountInvocationReceipt(state, request) {

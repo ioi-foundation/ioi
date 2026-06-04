@@ -67,6 +67,34 @@ function mockModelMountAdmissionRunner() {
         evidence_refs: ["rust_model_mount_core", "model_mount://provider_execution/test"],
       };
     },
+    executeProviderInvocation(request) {
+      return {
+        source: "rust_model_mount_fixture_provider_invocation_command",
+        backend: "rust_model_mount_fixture",
+        result: {
+          ...request,
+          output_text: "provider answer",
+          token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+          provider_response_kind: "rust_model_mount.fixture",
+          backend: "ioi_fixture",
+          backend_id: "backend.fixture",
+          execution_backend: "rust_model_mount_fixture",
+          evidence_refs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
+          invocation_hash: "sha256:provider-invocation-test",
+        },
+        outputText: "provider answer",
+        tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+        providerResponse: null,
+        providerResponseKind: "rust_model_mount.fixture",
+        executionBackend: "rust_model_mount_fixture",
+        backendId: "backend.fixture",
+        provider_execution_ref: request.provider_execution_ref,
+        provider_execution_hash: request.provider_execution_hash,
+        invocation_hash: "sha256:provider-invocation-test",
+        evidence_refs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
+        backendEvidenceRefs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
+      };
+    },
     bindInvocationReceipt(request) {
       return {
         source: "rust_model_mount_receipt_binding_command",

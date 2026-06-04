@@ -6,6 +6,8 @@ pub const MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION: &str =
     "ioi.model_mount.invocation_admission.v1";
 pub const MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_execution.v1";
+pub const MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION: &str =
+    "ioi.model_mount.provider_invocation.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModelMountError {
@@ -18,6 +20,11 @@ pub enum ModelMountError {
     MissingRouteReceiptRef,
     MissingInvocationReceiptRef,
     MissingProviderExecutionRouteReceiptRef,
+    MissingProviderExecutionAdmission,
+    ProviderExecutionHashMismatch,
+    ProviderExecutionRefMismatch,
+    UnsupportedProviderInvocationBackend,
+    StreamProviderInvocationUnsupported,
     UnresolvedAutoModel,
     PrivateWorkspaceMissingCustodyRef,
     PrivateWorkspacePlaintextNotAllowed,
@@ -254,6 +261,72 @@ pub struct ModelMountProviderExecutionRecord {
     pub provider_execution_hash: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelMountProviderInvocationRequest {
+    pub schema_version: String,
+    pub provider_execution_ref: String,
+    pub provider_execution_hash: String,
+    pub route_decision_ref: String,
+    pub route_receipt_ref: String,
+    pub route_ref: String,
+    pub provider_ref: String,
+    pub provider_kind: String,
+    pub endpoint_ref: String,
+    pub model_ref: String,
+    pub capability: String,
+    pub invocation_kind: String,
+    pub input: String,
+    pub request_hash: String,
+    pub execution_backend: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_format: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub driver: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stream_status: Option<String>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub admitted_provider_execution: Option<ModelMountProviderExecutionRecord>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelMountTokenCount {
+    pub prompt_tokens: u64,
+    pub completion_tokens: u64,
+    pub total_tokens: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelMountProviderInvocationResult {
+    pub schema_version: String,
+    pub provider_execution_ref: String,
+    pub provider_execution_hash: String,
+    pub route_decision_ref: String,
+    pub route_receipt_ref: String,
+    pub route_ref: String,
+    pub provider_ref: String,
+    pub provider_kind: String,
+    pub endpoint_ref: String,
+    pub model_ref: String,
+    pub capability: String,
+    pub invocation_kind: String,
+    pub request_hash: String,
+    pub output_text: String,
+    pub token_count: ModelMountTokenCount,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_response_kind: Option<String>,
+    pub backend: String,
+    pub backend_id: String,
+    pub execution_backend: String,
+    pub evidence_refs: Vec<String>,
+    pub invocation_hash: String,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct ModelMountCore;
 
@@ -395,6 +468,58 @@ impl ModelMountCore {
                 .collect::<String>()
         );
         Ok(record)
+    }
+
+    pub fn invoke_fixture_provider(
+        &self,
+        request: &ModelMountProviderInvocationRequest,
+    ) -> Result<ModelMountProviderInvocationResult, ModelMountError> {
+        request.validate()?;
+        let output_text = deterministic_fixture_output(
+            &request.invocation_kind,
+            &request.input,
+            &request.model_ref,
+        )?;
+        let token_count = estimate_tokens(&request.input, &output_text);
+        let backend = request
+            .api_format
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("ioi_fixture")
+            .to_string();
+        let backend_id = request
+            .backend_ref
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("backend.fixture")
+            .to_string();
+        let mut result = ModelMountProviderInvocationResult {
+            schema_version: MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION.to_string(),
+            provider_execution_ref: request.provider_execution_ref.clone(),
+            provider_execution_hash: request.provider_execution_hash.clone(),
+            route_decision_ref: request.route_decision_ref.clone(),
+            route_receipt_ref: request.route_receipt_ref.clone(),
+            route_ref: request.route_ref.clone(),
+            provider_ref: request.provider_ref.clone(),
+            provider_kind: request.provider_kind.clone(),
+            endpoint_ref: request.endpoint_ref.clone(),
+            model_ref: request.model_ref.clone(),
+            capability: request.capability.clone(),
+            invocation_kind: request.invocation_kind.clone(),
+            request_hash: request.request_hash.clone(),
+            output_text,
+            token_count,
+            provider_response_kind: Some("rust_model_mount.fixture".to_string()),
+            backend,
+            backend_id,
+            execution_backend: "rust_model_mount_fixture".to_string(),
+            evidence_refs: fixture_invocation_evidence_refs(request),
+            invocation_hash: String::new(),
+        };
+        result.invocation_hash = provider_invocation_hash(&result)?;
+        Ok(result)
     }
 }
 
@@ -540,11 +665,124 @@ impl ModelMountProviderExecutionRequest {
     }
 }
 
+impl ModelMountProviderInvocationRequest {
+    pub fn validate(&self) -> Result<(), ModelMountError> {
+        if self.schema_version != MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION {
+            return Err(ModelMountError::InvalidSchemaVersion {
+                expected: MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("provider_execution_ref", &self.provider_execution_ref)?;
+        require_non_empty("provider_execution_hash", &self.provider_execution_hash)?;
+        require_non_empty("route_decision_ref", &self.route_decision_ref)?;
+        require_non_empty("route_receipt_ref", &self.route_receipt_ref)?;
+        require_non_empty("route_ref", &self.route_ref)?;
+        require_non_empty("provider_ref", &self.provider_ref)?;
+        require_non_empty("provider_kind", &self.provider_kind)?;
+        require_non_empty("endpoint_ref", &self.endpoint_ref)?;
+        require_non_empty("model_ref", &self.model_ref)?;
+        require_non_empty("capability", &self.capability)?;
+        require_non_empty("invocation_kind", &self.invocation_kind)?;
+        require_non_empty("request_hash", &self.request_hash)?;
+        require_non_empty("execution_backend", &self.execution_backend)?;
+        validate_receipt_refs(&self.receipt_refs)?;
+        if !self.receipt_refs.contains(&self.route_receipt_ref) {
+            return Err(ModelMountError::MissingProviderExecutionRouteReceiptRef);
+        }
+        if matches!(self.stream_status.as_deref(), Some(value) if !value.trim().is_empty()) {
+            return Err(ModelMountError::StreamProviderInvocationUnsupported);
+        }
+        if !is_fixture_provider_invocation_backend(self) {
+            return Err(ModelMountError::UnsupportedProviderInvocationBackend);
+        }
+        let Some(admission) = self.admitted_provider_execution.as_ref() else {
+            return Err(ModelMountError::MissingProviderExecutionAdmission);
+        };
+        if admission.provider_execution_ref != self.provider_execution_ref {
+            return Err(ModelMountError::ProviderExecutionRefMismatch);
+        }
+        if admission.provider_execution_hash != self.provider_execution_hash {
+            return Err(ModelMountError::ProviderExecutionHashMismatch);
+        }
+        if admission.route_decision_ref != self.route_decision_ref
+            || admission.route_receipt_ref != self.route_receipt_ref
+            || admission.provider_ref != self.provider_ref
+            || admission.endpoint_ref != self.endpoint_ref
+            || admission.model_ref != self.model_ref
+            || admission.capability != self.capability
+            || admission.invocation_kind != self.invocation_kind
+            || admission.request_hash != self.request_hash
+        {
+            return Err(ModelMountError::ProviderExecutionRefMismatch);
+        }
+        Ok(())
+    }
+}
+
 fn is_private_workspace_profile(value: Option<&str>) -> bool {
     matches!(
         value.map(str::trim),
         Some("private_workspace_ctee") | Some("ctee_private_workspace")
     )
+}
+
+fn is_fixture_provider_invocation_backend(request: &ModelMountProviderInvocationRequest) -> bool {
+    if request.execution_backend.trim() != "rust_model_mount_fixture" {
+        return false;
+    }
+    let provider_kind = request.provider_kind.trim();
+    let api_format = request.api_format.as_deref().unwrap_or("").trim();
+    let driver = request.driver.as_deref().unwrap_or("").trim();
+    provider_kind == "local_folder" || driver == "fixture" || api_format == "ioi_fixture"
+}
+
+fn deterministic_fixture_output(
+    invocation_kind: &str,
+    input: &str,
+    model_ref: &str,
+) -> Result<String, ModelMountError> {
+    let digest = sha256_hex(input.as_bytes())?;
+    let digest = &digest[..12];
+    if invocation_kind == "embeddings" {
+        return Ok(format!("embedding:{model_ref}:{digest}"));
+    }
+    if invocation_kind == "rerank" {
+        return Ok(format!("rerank:{model_ref}:{digest}"));
+    }
+    Ok(format!(
+        "IOI model router fixture response from {model_ref}. input_hash={digest}"
+    ))
+}
+
+fn estimate_tokens(input: &str, output: &str) -> ModelMountTokenCount {
+    let prompt_tokens = estimated_token_count(input);
+    let completion_tokens = estimated_token_count(output);
+    ModelMountTokenCount {
+        prompt_tokens,
+        completion_tokens,
+        total_tokens: prompt_tokens + completion_tokens,
+    }
+}
+
+fn estimated_token_count(value: &str) -> u64 {
+    let chars = value.chars().count() as u64;
+    ((chars + 3) / 4).max(1)
+}
+
+fn fixture_invocation_evidence_refs(request: &ModelMountProviderInvocationRequest) -> Vec<String> {
+    let mut refs = vec![
+        "rust_model_mount_provider_invocation".to_string(),
+        "rust_model_mount_fixture_backend".to_string(),
+        "deterministic_fixture".to_string(),
+        request.provider_execution_ref.clone(),
+    ];
+    for evidence_ref in &request.evidence_refs {
+        if !evidence_ref.trim().is_empty() && !refs.contains(evidence_ref) {
+            refs.push(evidence_ref.clone());
+        }
+    }
+    refs
 }
 
 fn validate_receipt_refs(receipt_refs: &[String]) -> Result<(), ModelMountError> {
@@ -563,6 +801,10 @@ fn require_non_empty(field: &'static str, value: &str) -> Result<(), ModelMountE
     } else {
         Ok(())
     }
+}
+
+fn sha256_hex(bytes: &[u8]) -> Result<String, ModelMountError> {
+    Ok(hex::encode(Sha256::digest(bytes)))
 }
 
 fn route_decision_hash(record: &ModelMountRouteDecisionRecord) -> Result<String, ModelMountError> {
@@ -591,6 +833,16 @@ fn provider_execution_hash(
     let mut canonical = record.clone();
     canonical.provider_execution_ref.clear();
     canonical.provider_execution_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn provider_invocation_hash(
+    result: &ModelMountProviderInvocationResult,
+) -> Result<String, ModelMountError> {
+    let mut canonical = result.clone();
+    canonical.invocation_hash.clear();
     let bytes = serde_json::to_vec(&canonical)
         .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
@@ -688,6 +940,36 @@ mod tests {
             response_ref: Some("response://test".to_string()),
             previous_response_ref: None,
             stream_status: None,
+        }
+    }
+
+    fn provider_invocation_request() -> ModelMountProviderInvocationRequest {
+        let admission = ModelMountCore
+            .admit_provider_execution(&provider_execution_request())
+            .expect("provider execution admitted");
+        ModelMountProviderInvocationRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION.to_string(),
+            provider_execution_ref: admission.provider_execution_ref.clone(),
+            provider_execution_hash: admission.provider_execution_hash.clone(),
+            route_decision_ref: admission.route_decision_ref.clone(),
+            route_receipt_ref: admission.route_receipt_ref.clone(),
+            route_ref: admission.route_ref.clone(),
+            provider_ref: admission.provider_ref.clone(),
+            provider_kind: "local_folder".to_string(),
+            endpoint_ref: admission.endpoint_ref.clone(),
+            model_ref: admission.model_ref.clone(),
+            capability: admission.capability.clone(),
+            invocation_kind: admission.invocation_kind.clone(),
+            input: "user: hello".to_string(),
+            request_hash: admission.request_hash.clone(),
+            execution_backend: "rust_model_mount_fixture".to_string(),
+            api_format: Some("ioi_fixture".to_string()),
+            driver: Some("fixture".to_string()),
+            backend_ref: Some("backend.fixture".to_string()),
+            stream_status: None,
+            receipt_refs: admission.receipt_refs.clone(),
+            evidence_refs: vec![admission.provider_execution_ref.clone()],
+            admitted_provider_execution: Some(admission),
         }
     }
 
@@ -924,5 +1206,83 @@ mod tests {
             .expect_err("private workspace provider execution cannot allow plaintext");
 
         assert_eq!(error, ModelMountError::PrivateWorkspacePlaintextNotAllowed);
+    }
+
+    #[test]
+    fn fixture_provider_invocation_executes_in_rust_model_mount() {
+        let result = ModelMountCore
+            .invoke_fixture_provider(&provider_invocation_request())
+            .expect("fixture provider invocation executes in Rust");
+
+        assert_eq!(
+            result.schema_version,
+            MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION
+        );
+        assert_eq!(result.execution_backend, "rust_model_mount_fixture");
+        assert_eq!(result.backend, "ioi_fixture");
+        assert_eq!(result.backend_id, "backend.fixture");
+        assert!(result
+            .output_text
+            .starts_with("IOI model router fixture response from model://qwen/qwen3.5-9b."));
+        assert_eq!(
+            result.token_count.total_tokens,
+            result.token_count.prompt_tokens + result.token_count.completion_tokens
+        );
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_provider_invocation".to_string()));
+        assert!(result.invocation_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn fixture_provider_invocation_requires_bound_provider_execution() {
+        let mut request = provider_invocation_request();
+        request.admitted_provider_execution = None;
+
+        let error = ModelMountCore
+            .invoke_fixture_provider(&request)
+            .expect_err("provider invocation requires the full admission record");
+
+        assert_eq!(error, ModelMountError::MissingProviderExecutionAdmission);
+
+        request = provider_invocation_request();
+        let admitted_ref = request.provider_execution_ref.clone();
+        request.provider_execution_ref = "model_mount://provider_execution/drifted".to_string();
+
+        let error = ModelMountCore
+            .invoke_fixture_provider(&request)
+            .expect_err("provider execution ref must match admission");
+
+        assert_eq!(error, ModelMountError::ProviderExecutionRefMismatch);
+
+        request.provider_execution_ref = admitted_ref;
+        request.provider_execution_hash = "sha256:drifted".to_string();
+        let error = ModelMountCore
+            .invoke_fixture_provider(&request)
+            .expect_err("provider execution hash must match admission");
+
+        assert_eq!(error, ModelMountError::ProviderExecutionHashMismatch);
+    }
+
+    #[test]
+    fn fixture_provider_invocation_rejects_unmigrated_or_stream_backends() {
+        let mut request = provider_invocation_request();
+        request.provider_kind = "openai".to_string();
+        request.driver = Some("openai_compatible".to_string());
+        request.api_format = Some("openai".to_string());
+
+        let error = ModelMountCore
+            .invoke_fixture_provider(&request)
+            .expect_err("only the fixture backend is migrated in this slice");
+
+        assert_eq!(error, ModelMountError::UnsupportedProviderInvocationBackend);
+
+        let mut request = provider_invocation_request();
+        request.stream_status = Some("started".to_string());
+        let error = ModelMountCore
+            .invoke_fixture_provider(&request)
+            .expect_err("streaming provider execution remains a later slice");
+
+        assert_eq!(error, ModelMountError::StreamProviderInvocationUnsupported);
     }
 }

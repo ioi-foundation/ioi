@@ -82,6 +82,36 @@ function providerExecutionRequest() {
   };
 }
 
+function providerInvocationRequest() {
+  return {
+    schema_version: "ioi.model_mount.provider_invocation.v1",
+    provider_execution_ref: "model_mount://provider_execution/test",
+    provider_execution_hash: "sha256:provider-execution-test",
+    route_decision_ref: "model_mount://route_decision/test",
+    route_receipt_ref: "receipt://route",
+    route_ref: "route.local-first",
+    provider_ref: "provider.local",
+    provider_kind: "local_folder",
+    endpoint_ref: "endpoint.local",
+    model_ref: "model.local",
+    capability: "chat",
+    invocation_kind: "responses",
+    input: "user: hello",
+    request_hash: "sha256:request",
+    execution_backend: "rust_model_mount_fixture",
+    api_format: "ioi_fixture",
+    driver: "fixture",
+    backend_ref: "backend.fixture",
+    receipt_refs: ["receipt://route"],
+    evidence_refs: ["model_mount://provider_execution/test"],
+    admitted_provider_execution: {
+      ...providerExecutionRequest(),
+      provider_execution_ref: "model_mount://provider_execution/test",
+      provider_execution_hash: "sha256:provider-execution-test",
+    },
+  };
+}
+
 test("Rust model_mount admission runner sends route-decision bridge request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
@@ -202,6 +232,60 @@ test("Rust model_mount admission runner sends provider execution bridge request"
   assert.equal(calls[0].request.request.request_hash, "sha256:request");
   assert.equal(result.provider_execution_ref, "model_mount://provider_execution/test");
   assert.equal(result.record.provider_execution_hash, "sha256:provider-execution-test");
+});
+
+test("Rust model_mount admission runner sends fixture provider invocation bridge request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_fixture_provider_invocation_command",
+            backend: "rust_model_mount_fixture",
+            result: {
+              ...request.request,
+              output_text: "IOI model router fixture response from model.local. input_hash=abc123",
+              token_count: { prompt_tokens: 3, completion_tokens: 8, total_tokens: 11 },
+              provider_response_kind: "rust_model_mount.fixture",
+              backend: "ioi_fixture",
+              backend_id: "backend.fixture",
+              execution_backend: "rust_model_mount_fixture",
+              evidence_refs: ["rust_model_mount_provider_invocation"],
+              invocation_hash: "sha256:invocation",
+            },
+            outputText: "IOI model router fixture response from model.local. input_hash=abc123",
+            tokenCount: { prompt_tokens: 3, completion_tokens: 8, total_tokens: 11 },
+            providerResponseKind: "rust_model_mount.fixture",
+            execution_backend: "rust_model_mount_fixture",
+            backendId: "backend.fixture",
+            provider_execution_ref: "model_mount://provider_execution/test",
+            provider_execution_hash: "sha256:provider-execution-test",
+            invocation_hash: "sha256:invocation",
+            evidence_refs: ["rust_model_mount_provider_invocation"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.executeProviderInvocation(providerInvocationRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "execute_model_mount_fixture_provider_invocation");
+  assert.equal(calls[0].request.backend, "rust_model_mount_fixture");
+  assert.equal(calls[0].request.request.provider_execution_ref, "model_mount://provider_execution/test");
+  assert.equal(result.outputText.startsWith("IOI model router fixture response"), true);
+  assert.equal(result.executionBackend, "rust_model_mount_fixture");
+  assert.equal(result.backendId, "backend.fixture");
+  assert.equal(result.invocation_hash, "sha256:invocation");
 });
 
 test("Rust model_mount admission runner sends invocation receipt binding request", () => {

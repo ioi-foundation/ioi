@@ -4,6 +4,7 @@ export const MODEL_MOUNT_ADMISSION_COMMAND_ENV = "IOI_MODEL_MOUNT_ADMISSION_COMM
 export const MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV = "IOI_MODEL_MOUNT_ADMISSION_COMMAND_ARGS";
 export const MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
 export const RUST_MODEL_MOUNT_ADMISSION_BACKEND = "rust_model_mount_live";
+export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
 
 export function createModelMountAdmissionRunnerFromEnv(env = process.env, options = {}) {
   return new RustModelMountAdmissionRunner({
@@ -50,6 +51,16 @@ export class RustModelMountAdmissionRunner {
       request,
     };
     return normalizeProviderExecutionBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
+  executeProviderInvocation(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "execute_model_mount_fixture_provider_invocation",
+      backend: RUST_MODEL_MOUNT_FIXTURE_BACKEND,
+      request,
+    };
+    return normalizeProviderInvocationBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
   bindInvocationReceipt({ invocation, result, expectedHeads = [], receiptRef = null } = {}) {
@@ -176,6 +187,28 @@ function normalizeProviderExecutionBridgeResult(value = {}) {
     provider_execution_hash: result.provider_execution_hash ?? record.provider_execution_hash ?? null,
     receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+  };
+}
+
+function normalizeProviderInvocationBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.result && typeof result.result === "object" ? result.result : {};
+  return {
+    source: result.source ?? "rust_model_mount_fixture_provider_invocation_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_FIXTURE_BACKEND,
+    result: record,
+    outputText: result.outputText ?? result.output_text ?? record.output_text ?? "",
+    tokenCount: result.tokenCount ?? result.token_count ?? record.token_count ?? null,
+    providerResponse: result.providerResponse ?? result.provider_response ?? null,
+    providerResponseKind:
+      result.providerResponseKind ?? result.provider_response_kind ?? record.provider_response_kind ?? null,
+    executionBackend: result.execution_backend ?? record.execution_backend ?? null,
+    backendId: result.backendId ?? result.backend_id ?? record.backend_id ?? null,
+    provider_execution_ref: result.provider_execution_ref ?? record.provider_execution_ref ?? null,
+    provider_execution_hash: result.provider_execution_hash ?? record.provider_execution_hash ?? null,
+    invocation_hash: result.invocation_hash ?? record.invocation_hash ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+    backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
   };
 }
 
