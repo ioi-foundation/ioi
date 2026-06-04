@@ -7,6 +7,7 @@ use ioi_services::agentic::runtime::kernel::step_module::{
 use ioi_services::agentic::runtime::kernel::step_router::StepModuleRouterCore;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::env;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Component, Path, PathBuf};
@@ -23,9 +24,14 @@ const DIAGNOSTIC_DEFAULT_TIMEOUT_MS: u64 = 30 * 1000;
 const DIAGNOSTIC_MAX_TIMEOUT_MS: u64 = 2 * 60 * 1000;
 const DIAGNOSTIC_DEFAULT_OUTPUT_BYTES: u64 = 64 * 1024;
 const DIAGNOSTIC_MAX_OUTPUT_BYTES: u64 = 64 * 1024;
+const TEST_DEFAULT_TIMEOUT_MS: u64 = 60 * 1000;
+const TEST_MAX_TIMEOUT_MS: u64 = 5 * 60 * 1000;
+const TEST_DEFAULT_OUTPUT_BYTES: u64 = 64 * 1024;
+const TEST_MAX_OUTPUT_BYTES: u64 = 64 * 1024;
 const DEFAULT_PREVIEW_LINES: usize = 200;
 const MAX_PREVIEW_LINES: usize = 500;
 const DIAGNOSTIC_COMMAND_IDS: [&str; 3] = ["auto", "node.check", "typescript.check"];
+const TEST_COMMAND_IDS: [&str; 4] = ["node.test", "npm.test", "cargo.test", "cargo.check"];
 
 #[derive(Debug, Deserialize)]
 struct StepModuleBridgeRequest {
@@ -84,6 +90,7 @@ fn run_bridge() -> Result<Value, BridgeError> {
         "workspace.status" => workspace_status_response(request),
         "git.diff" => git_diff_response(request),
         "file.inspect" => file_inspect_response(request),
+        "test.run" => test_run_response(request),
         "lsp.diagnostics" => lsp_diagnostics_response(request),
         other => Err(BridgeError::new(
             "tool_unsupported",
@@ -157,6 +164,25 @@ fn file_inspect_response(request: StepModuleBridgeRequest) -> Result<Value, Brid
         json!({
             "tool": "file.inspect",
             "result": inspected,
+        }),
+    ))
+}
+
+fn test_run_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
+    let workspace_root = request.workspace_root.clone().ok_or_else(|| {
+        BridgeError::new(
+            "workspace_root_required",
+            "workspace_root is required".to_string(),
+        )
+    })?;
+    let test_result = inspect_test_run(&workspace_root, &request.input)?;
+    let result = successful_step_module_result(&request, "test.run", "TestRunNode");
+    Ok(step_module_response(
+        request,
+        result,
+        json!({
+            "tool": "test.run",
+            "result": test_result,
         }),
     ))
 }
@@ -290,6 +316,113 @@ fn step_module_response(
         "projection_record": projection_record,
         "shadow_observation": shadow_observation,
     })
+}
+
+fn inspect_test_run(workspace_root: &str, input: &Value) -> Result<Value, BridgeError> {
+    let root = fs::canonicalize(workspace_root)
+        .map_err(|error| BridgeError::new("workspace_root_invalid", error.to_string()))?;
+    let command_id = input
+        .get("commandId")
+        .or_else(|| input.get("command_id"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("node.test");
+    if !TEST_COMMAND_IDS.contains(&command_id) {
+        return Err(BridgeError::new(
+            "test_run_command_not_allowed",
+            format!("test.run commandId is not allowlisted: {command_id}"),
+        ));
+    }
+    if command_id != "node.test" {
+        return Err(BridgeError::new(
+            "test_run_backend_unsupported",
+            format!("{command_id} is not live in the Rust bridge yet"),
+        ));
+    }
+    let cwd = input
+        .get("cwd")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(".");
+    let run_cwd = workspace_directory(&root, cwd, "test_run_cwd_missing")?;
+    let paths = workspace_tool_paths(&root, input)?;
+    let timeout_ms = bounded_u64(
+        input
+            .get("timeoutMs")
+            .or_else(|| input.get("timeout_ms"))
+            .and_then(Value::as_u64),
+        TEST_DEFAULT_TIMEOUT_MS,
+        1,
+        TEST_MAX_TIMEOUT_MS,
+    );
+    let max_output_bytes = bounded_u64(
+        input
+            .get("maxOutputBytes")
+            .or_else(|| input.get("max_output_bytes"))
+            .and_then(Value::as_u64),
+        TEST_DEFAULT_OUTPUT_BYTES,
+        1,
+        TEST_MAX_OUTPUT_BYTES,
+    ) as usize;
+    let mut args = vec!["--test".to_string()];
+    args.extend(
+        paths
+            .iter()
+            .map(|path| relative_path_between(&run_cwd.absolute_path, &path.absolute_path)),
+    );
+    args.extend(sanitize_string_array(input.get("args")));
+    let env_overrides = sanitize_test_env(input.get("env"));
+    let started = Instant::now();
+    let run = run_command_with_timeout(
+        "node",
+        &args,
+        &run_cwd.absolute_path,
+        timeout_ms,
+        &env_overrides,
+    )?;
+    let duration_ms = started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+    let (stdout, stdout_truncated) = utf8_preview(&run.stdout, max_output_bytes);
+    let (stderr, stderr_truncated) = utf8_preview(&run.stderr, max_output_bytes);
+    let output_text = format!("{}\n{}", run.stdout, run.stderr);
+    let output_hash = ioi_crypto::algorithms::hash::sha256(output_text.as_bytes())
+        .map(|hash| hex::encode(hash))
+        .map_err(|error| BridgeError::new("test_run_hash_failed", error.to_string()))?;
+    let truncated = stdout_truncated || stderr_truncated;
+    let test_status = if run.timed_out {
+        "timed_out"
+    } else if run.exit_code == 0 {
+        "passed"
+    } else {
+        "failed"
+    };
+    Ok(json!({
+        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspaceRoot": workspace_root,
+        "commandId": command_id,
+        "command": "node --test",
+        "executable": "node",
+        "args": args,
+        "cwd": run_cwd.relative_path,
+        "exitCode": run.exit_code,
+        "signal": null,
+        "testStatus": test_status,
+        "timedOut": run.timed_out,
+        "durationMs": duration_ms,
+        "timeoutMs": timeout_ms,
+        "stdout": stdout,
+        "stderr": stderr,
+        "stdoutBytes": run.stdout.len(),
+        "stderrBytes": run.stderr.len(),
+        "outputBytes": run.stdout.len() + run.stderr.len(),
+        "outputHash": output_hash,
+        "truncated": truncated,
+        "spilloverRecommended": truncated,
+        "artifactDrafts": [],
+        "allowedCommandIds": TEST_COMMAND_IDS,
+        "shellFallbackUsed": false,
+    }))
 }
 
 fn inspect_lsp_diagnostics(workspace_root: &str, input: &Value) -> Result<Value, BridgeError> {
@@ -790,6 +923,35 @@ fn path_candidate(root: &Path, selected_path: &str) -> PathBuf {
     }
 }
 
+fn relative_path_between(base: &Path, target: &Path) -> String {
+    let normalized_base = normalize_path_lexically(base);
+    let normalized_target = normalize_path_lexically(target);
+    let base_parts = normal_path_parts(&normalized_base);
+    let target_parts = normal_path_parts(&normalized_target);
+    let common_len = base_parts
+        .iter()
+        .zip(target_parts.iter())
+        .take_while(|(left, right)| left == right)
+        .count();
+    let mut parts = Vec::new();
+    parts.extend(std::iter::repeat("..".to_string()).take(base_parts.len() - common_len));
+    parts.extend(target_parts[common_len..].iter().cloned());
+    if parts.is_empty() {
+        ".".to_string()
+    } else {
+        parts.join("/")
+    }
+}
+
+fn normal_path_parts(path: &Path) -> Vec<String> {
+    path.components()
+        .filter_map(|component| match component {
+            Component::Normal(value) => Some(value.to_string_lossy().to_string()),
+            _ => None,
+        })
+        .collect()
+}
+
 fn nearest_existing_path(path: &Path) -> Option<PathBuf> {
     let mut current = path.to_path_buf();
     while !current.exists() {
@@ -877,6 +1039,7 @@ fn run_node_check(
             ],
             cwd,
             timeout_ms,
+            &[],
         )?;
         if !run.stdout.is_empty() {
             stdout_parts.push(run.stdout.clone());
@@ -927,10 +1090,14 @@ fn run_command_with_timeout(
     args: &[String],
     cwd: &Path,
     timeout_ms: u64,
+    env_overrides: &[(String, String)],
 ) -> Result<CapturedCommand, BridgeError> {
+    let command_env = safe_subprocess_env(env_overrides);
     let mut child = Command::new(command)
         .args(args)
         .current_dir(cwd)
+        .env_clear()
+        .envs(command_env)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -965,6 +1132,94 @@ fn run_command_with_timeout(
         },
         timed_out,
     })
+}
+
+fn sanitize_string_array(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .take(100)
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn sanitize_test_env(value: Option<&Value>) -> Vec<(String, String)> {
+    value
+        .and_then(Value::as_object)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|(key, value)| {
+                    let value = value.as_str()?;
+                    if env_key_allowed(key) {
+                        Some((key.clone(), value.to_string()))
+                    } else {
+                        None
+                    }
+                })
+                .take(40)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn safe_subprocess_env(overrides: &[(String, String)]) -> Vec<(String, String)> {
+    let mut env_values = env::vars()
+        .filter(|(key, _)| env_key_allowed(key) && !key.starts_with("NODE_TEST"))
+        .collect::<Vec<_>>();
+    for (key, value) in overrides {
+        if env_key_allowed(key) && !key.starts_with("NODE_TEST") {
+            env_values.retain(|(existing_key, _)| existing_key != key);
+            env_values.push((key.clone(), value.clone()));
+        }
+    }
+    env_values
+}
+
+fn env_key_allowed(key: &str) -> bool {
+    if key.is_empty() {
+        return false;
+    }
+    let mut chars = key.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !(first == '_' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    if !chars.all(|character| character == '_' || character.is_ascii_alphanumeric()) {
+        return false;
+    }
+    !is_sensitive_env_key(key)
+}
+
+fn is_sensitive_env_key(key: &str) -> bool {
+    let lower = key.to_ascii_lowercase();
+    [
+        "token",
+        "secret",
+        "password",
+        "credential",
+        "authorization",
+        "cookie",
+        "session",
+        "vault",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+        || lower.contains("apikey")
+        || lower.contains("api_key")
+        || lower.contains("api-key")
+        || lower.contains("privatekey")
+        || lower.contains("private_key")
+        || lower.contains("private-key")
 }
 
 fn node_check_output_diagnostics(target: &WorkspacePath, run: &CapturedCommand) -> Vec<Value> {
@@ -1182,6 +1437,82 @@ mod tests {
         assert_eq!(result["changedFiles"], json!([]));
         assert_eq!(result["counts"]["changed"], 0);
         assert_eq!(result["shellFallbackUsed"], false);
+    }
+
+    #[test]
+    fn test_run_node_test_reports_passed() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+        fs::write(
+            workspace.join("passing.test.mjs"),
+            "import test from 'node:test';\nimport assert from 'node:assert/strict';\ntest('passes', () => assert.equal(1, 1));\n",
+        )
+        .expect("fixture file");
+
+        let result = inspect_test_run(
+            workspace.to_str().expect("utf8 path"),
+            &json!({
+                "commandId": "node.test",
+                "path": "passing.test.mjs",
+                "timeoutMs": 5000
+            }),
+        )
+        .expect("test result");
+
+        assert_eq!(result["schemaVersion"], CODING_TOOL_RESULT_SCHEMA_VERSION);
+        assert_eq!(result["commandId"], "node.test");
+        assert_eq!(result["command"], "node --test");
+        assert_eq!(result["args"], json!(["--test", "passing.test.mjs"]));
+        assert_eq!(result["testStatus"], "passed");
+        assert_eq!(result["exitCode"], 0);
+        assert_eq!(result["timedOut"], false);
+        assert_eq!(result["shellFallbackUsed"], false);
+        assert_eq!(result["outputHash"].as_str().expect("hash").len(), 64);
+    }
+
+    #[test]
+    fn test_run_node_test_reports_failure() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+        fs::write(
+            workspace.join("failing.test.mjs"),
+            "import test from 'node:test';\nimport assert from 'node:assert/strict';\ntest('fails', () => assert.equal(1, 2));\n",
+        )
+        .expect("fixture file");
+
+        let result = inspect_test_run(
+            workspace.to_str().expect("utf8 path"),
+            &json!({
+                "commandId": "node.test",
+                "path": "failing.test.mjs",
+                "timeoutMs": 5000
+            }),
+        )
+        .expect("test result");
+
+        assert_eq!(result["commandId"], "node.test");
+        assert_eq!(result["testStatus"], "failed");
+        assert_ne!(result["exitCode"], 0);
+        assert_eq!(result["timedOut"], false);
+    }
+
+    #[test]
+    fn test_run_non_node_backend_fails_closed_until_live() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+
+        let error = inspect_test_run(
+            workspace.to_str().expect("utf8 path"),
+            &json!({
+                "commandId": "cargo.check"
+            }),
+        )
+        .expect_err("cargo.check should fail closed until migrated");
+
+        assert_eq!(error.code, "test_run_backend_unsupported");
     }
 
     #[test]

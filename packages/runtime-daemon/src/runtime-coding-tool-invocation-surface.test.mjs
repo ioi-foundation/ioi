@@ -571,6 +571,114 @@ test("coding tool invocation surface runs lsp.diagnostics through rust workload 
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 
+test("coding tool invocation surface runs test.run through rust workload live path", () => {
+  const runnerCalls = [];
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool(input) {
+      runnerCalls.push(input);
+      return {
+        backend: "rust_workload_live",
+        mode: "live",
+        blocking: true,
+        source: "rust_workload_command",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://rust-live/test.run",
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: "invocation://rust-live/test.run",
+          status: "success",
+          execution_result_ref: "result://rust-live/test.run",
+          normalized_observation_ref: "observation://rust-live/test.run",
+          receipt_refs: ["receipt://rust-live/test.run"],
+          artifact_refs: [],
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: null,
+          resulting_head: null,
+          workflow_projection: {
+            workflow_graph_id: "graph_alpha",
+            workflow_node_id: "node_test",
+            component_kind: "TestRunNode",
+            status: "live",
+            attempt_id: "attempt://rust-live/test.run",
+            evidence_refs: [],
+            receipt_refs: ["receipt://rust-live/test.run"],
+          },
+          next: {
+            model_reentry_required: false,
+            verifier_required: false,
+          },
+        },
+        bridge_result: {
+          router_admission: {
+            schema_version: "ioi.step_module_router_admission.v1",
+            backend: "workload_grpc",
+          },
+          shadow_observation: {
+            tool: "test.run",
+            result: {
+              schemaVersion: "ioi.runtime.coding-tool-result.v1",
+              workspaceRoot: "/tmp/workspace",
+              commandId: "node.test",
+              command: "node --test",
+              executable: "node",
+              args: ["--test", "src/index.test.mjs"],
+              cwd: ".",
+              exitCode: 0,
+              signal: null,
+              testStatus: "passed",
+              timedOut: false,
+              durationMs: 18,
+              timeoutMs: 60000,
+              stdout: "ok 1 - passes",
+              stderr: "",
+              stdoutBytes: 13,
+              stderrBytes: 0,
+              outputBytes: 13,
+              outputHash: "abc123",
+              truncated: false,
+              spilloverRecommended: false,
+              artifactDrafts: [],
+              allowedCommandIds: ["node.test", "npm.test", "cargo.test", "cargo.check"],
+              shellFallbackUsed: false,
+            },
+          },
+        },
+      };
+    },
+  };
+  const surface = createSurface({
+    stepModuleRunner: liveRunner,
+    executeCodingTool() {
+      throw new Error("daemon JS execution must not run");
+    },
+  });
+  const store = createStore();
+
+  const result = surface.invokeThreadTool(store, "thread_alpha", "test.run", {
+    toolCallId: "tool_test",
+    workflowGraphId: "graph_alpha",
+    workflowNodeId: "node_test",
+    input: { commandId: "node.test", path: "src/index.test.mjs" },
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(runnerCalls.length, 1);
+  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.commandId, "node.test");
+  assert.equal(result.result.testStatus, "passed");
+  assert.equal(result.result.exitCode, 0);
+  assert.deepEqual(result.result.args, ["--test", "src/index.test.mjs"]);
+  assert.equal(result.step_module.backend, "rust_workload_live");
+  assert.ok(result.receipt_refs.includes("receipt://rust-live/test.run"));
+  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+});
+
 test("coding tool invocation surface keeps non-migrated tools blocked in rust workload live mode", () => {
   const surface = createSurface({
     stepModuleRunner: {

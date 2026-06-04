@@ -34,6 +34,7 @@ const RUST_WORKLOAD_LIVE_TOOL_IDS = new Set([
   "workspace.status",
   "git.diff",
   "file.inspect",
+  "test.run",
   "lsp.diagnostics",
 ]);
 
