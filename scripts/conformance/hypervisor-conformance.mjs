@@ -855,6 +855,9 @@ function runReceipts() {
   const providerProtocol = exists("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
     : "";
+  const providerTransport = exists("packages/runtime-daemon/src/model-mounting/provider-transport.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-transport.mjs")
+    : "";
   const modelMountStore = exists("packages/runtime-daemon/src/model-mounting/store.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.mjs")
     : "";
@@ -1328,6 +1331,20 @@ function runReceipts() {
     !/summarizeProviderRequestBodyForTrace/.test(providerProtocol),
     ["packages/runtime-daemon/src/model-mounting/provider-protocol.mjs"],
     "Phase 4/9 is pending: legacy stream request-shape trace helpers must not remain after Rust provider-result admission owns stream-start evidence",
+  );
+  assertCheck(
+    result,
+    "model-mount-provider-open-retry-append-retired",
+    !/appendOperation\?\.\("model\.provider_open_retry"/.test(providerTransport) &&
+      !/model\.provider_open_retry/.test(providerTransport) &&
+      /provider transport retries without appending operation-like records/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-transport.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs",
+    ],
+    "Phase 5/11 is pending: provider transport retry traces must not append JS operation-like records outside Rust Agentgres admission",
   );
   assertCheck(
     result,

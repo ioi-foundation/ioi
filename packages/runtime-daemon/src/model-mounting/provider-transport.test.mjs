@@ -9,10 +9,22 @@ import {
 } from "./provider-transport.mjs";
 
 async function withJsonServer(handler) {
+  let retryCount = 0;
   const server = http.createServer((request, response) => {
     if (request.url === "/models") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ data: [{ id: "model-a" }] }));
+      return;
+    }
+    if (request.url === "/retry") {
+      retryCount += 1;
+      if (retryCount === 1) {
+        response.writeHead(503, { "content-type": "application/json" });
+        response.end(JSON.stringify({ error: { code: "warming" } }));
+        return;
+      }
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ ok: true, attempts: retryCount }));
       return;
     }
     if (request.url === "/fail") {
@@ -55,6 +67,27 @@ test("provider transport fetches JSON with auth boundary evidence", async () => 
     assert.equal(result.status, 200);
     assert.deepEqual(result.body, { data: [{ id: "model-a" }] });
     assert.equal(result.authEvidence, null);
+  });
+});
+
+test("provider transport retries without appending operation-like records", async () => {
+  await withJsonServer(async (baseUrl) => {
+    const appendOperations = [];
+    const result = await fetchProviderJson({
+      id: "provider.ollama",
+      kind: "ollama",
+      baseUrl,
+      status: "configured",
+      authScheme: "none",
+    }, "/retry", {
+      state: {
+        appendOperation: (kind, payload) => appendOperations.push({ kind, payload }),
+      },
+    });
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.body, { ok: true, attempts: 2 });
+    assert.deepEqual(appendOperations, []);
   });
 });
 

@@ -45,14 +45,7 @@ export async function fetchProviderJson(provider, route, { method = "GET", body,
         !tolerateHttpError &&
         shouldRetryProviderOpen(provider, response.status, attempt, Date.now() - startedAt)
       ) {
-        await retryProviderOpen(provider, route, {
-          state,
-          mode: "json",
-          attempt,
-          status: response.status,
-          body: parsed,
-          startedAt,
-        });
+        await retryProviderOpen(provider, route, { attempt });
         continue;
       }
       if (!response.ok && !tolerateHttpError) {
@@ -63,14 +56,7 @@ export async function fetchProviderJson(provider, route, { method = "GET", body,
       clearTimeout(timeout);
       if (error?.status || error?.code === "external_blocker") throw error;
       if (shouldRetryProviderOpen(provider, "network", attempt, Date.now() - startedAt)) {
-        await retryProviderOpen(provider, route, {
-          state,
-          mode: "json",
-          attempt,
-          status: "network",
-          error,
-          startedAt,
-        });
+        await retryProviderOpen(provider, route, { attempt });
         continue;
       }
       throw runtimeError({
@@ -121,14 +107,7 @@ export async function fetchProviderStream(provider, route, { method = "GET", bod
         const text = await response.text();
         const parsed = text.trim() ? parseJsonMaybe(text) : null;
         if (shouldRetryProviderOpen(provider, response.status, attempt, Date.now() - startedAt)) {
-          await retryProviderOpen(provider, route, {
-            state,
-            mode: "stream",
-            attempt,
-            status: response.status,
-            body: parsed,
-            startedAt,
-          });
+          await retryProviderOpen(provider, route, { attempt });
           continue;
         }
         throw providerHttpError(provider, "OpenAI-compatible provider stream failed.", {
@@ -157,14 +136,7 @@ export async function fetchProviderStream(provider, route, { method = "GET", bod
       clearTimeout(timeout);
       if (error?.status || error?.code === "external_blocker") throw error;
       if (shouldRetryProviderOpen(provider, "network", attempt, Date.now() - startedAt)) {
-        await retryProviderOpen(provider, route, {
-          state,
-          mode: "stream",
-          attempt,
-          status: "network",
-          error,
-          startedAt,
-        });
+        await retryProviderOpen(provider, route, { attempt });
         continue;
       }
       throw runtimeError({
@@ -182,21 +154,8 @@ export async function fetchProviderStream(provider, route, { method = "GET", bod
   }
 }
 
-export async function retryProviderOpen(provider, route, { state, mode, attempt = 0, status, body, error, startedAt } = {}) {
+export async function retryProviderOpen(_provider, _route, { attempt = 0 } = {}) {
   const delayMs = providerOpenRetryDelayMs(attempt);
-  state?.appendOperation?.("model.provider_open_retry", {
-    providerId: provider.id,
-    providerKind: provider.kind,
-    route,
-    mode,
-    attempt: attempt + 1,
-    status,
-    delayMs,
-    elapsedMs: Math.max(0, Date.now() - (startedAt ?? Date.now())),
-    providerErrorHash: body ? stableHash(body) : null,
-    error: error ? String(error?.name ?? error?.message ?? error) : null,
-    evidenceRefs: ["provider_open_retry", `${provider.kind}_transient_backend_readiness`],
-  });
   await new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
