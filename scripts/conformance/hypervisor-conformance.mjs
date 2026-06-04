@@ -370,6 +370,9 @@ function runBridge() {
     ? read("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs")
     : "";
   const openAiCompatibleProviderDrivers = [openAiCompatibleDriver, openAiBackendDrivers, lmStudioDriver].join("\n");
+  const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
+    ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
+    : "";
   const retiredRouteDecisionEnvPattern = new RegExp("MODEL_MOUNT_" + "ROUTE_DECISION_COMMAND_ENV");
   assertCheck(
     result,
@@ -557,6 +560,21 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs",
     ],
     "Phase 9/10 is pending: responses provider calls must fail closed instead of downgrading to chat completions",
+  );
+  assertCheck(
+    result,
+    "model-mount-protocol-response-facade-reexport-retired",
+    /from "\.\/model-mounting\/protocol-responses\.mjs"/.test(openAiCompatRoutes) &&
+      !/protocol-responses\.mjs/.test(modelMountingState) &&
+      !/openAiChatCompletion as compatOpenAiChatCompletion/.test(
+        read("packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/openai-compat-routes.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs",
+    ],
+    "Phase 11 is pending: protocol response helpers must live behind the stable protocol module, not the broad model-mounting compatibility facade",
   );
   assertCheck(
     result,

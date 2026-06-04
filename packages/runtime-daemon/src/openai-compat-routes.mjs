@@ -6,7 +6,7 @@ import {
   openAiCompletion,
   openAiEmbedding,
   openAiResponse,
-} from "./model-mounting.mjs";
+} from "./model-mounting/protocol-responses.mjs";
 import {
   notFound,
   readBody,

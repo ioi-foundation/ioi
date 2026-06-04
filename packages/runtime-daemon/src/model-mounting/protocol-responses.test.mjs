@@ -8,9 +8,7 @@ import {
   openAiEmbedding,
   openAiResponse,
 } from "./protocol-responses.mjs";
-import {
-  openAiChatCompletion as compatOpenAiChatCompletion,
-} from "../model-mounting.mjs";
+import * as modelMountingFacade from "../model-mounting.mjs";
 
 function invocation(overrides = {}) {
   return {
@@ -68,10 +66,10 @@ test("OpenAI embeddings use deterministic vectors for each input", () => {
   assert.equal(response.receipt_id, "receipt-1");
 });
 
-test("model-mounting compatibility re-export remains available", () => {
-  const response = compatOpenAiChatCompletion(invocation());
-
-  assert.equal(response.object, "chat.completion");
-  assert.equal(response.choices[0].message.content, "done");
-  assert.equal(response.receipt_id, "receipt-1");
+test("model-mounting facade does not re-export protocol response helpers", () => {
+  assert.equal(Object.hasOwn(modelMountingFacade, "openAiChatCompletion"), false);
+  assert.equal(Object.hasOwn(modelMountingFacade, "openAiResponse"), false);
+  assert.equal(Object.hasOwn(modelMountingFacade, "openAiEmbedding"), false);
+  assert.equal(Object.hasOwn(modelMountingFacade, "openAiCompletion"), false);
+  assert.equal(Object.hasOwn(modelMountingFacade, "anthropicMessage"), false);
 });

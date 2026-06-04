@@ -267,13 +267,6 @@ import {
   AgentgresVaultPort,
   configuredVaultMaterialAdapter,
 } from "./model-mounting/vault-port.mjs";
-export {
-  anthropicMessage,
-  openAiChatCompletion,
-  openAiCompletion,
-  openAiEmbedding,
-  openAiResponse,
-} from "./model-mounting/protocol-responses.mjs";
 import {
   isExecutable,
   listJson,
