@@ -38,6 +38,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/agent-turn-recovery.js",
   runtimeEvents:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-event-utils.js",
+  runtimeEventSelectors:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-event-selectors.js",
   pendingWork:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/pending-work.js",
   policyLeaseLifecycle:
@@ -132,6 +134,7 @@ async function readStudioComposite() {
       paths.turnResultText,
       paths.turnRecovery,
       paths.runtimeEvents,
+      paths.runtimeEventSelectors,
       paths.pendingWork,
       paths.policyLeaseLifecycle,
       paths.workRecordProjection,

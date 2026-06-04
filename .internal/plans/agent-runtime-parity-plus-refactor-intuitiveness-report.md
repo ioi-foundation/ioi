@@ -133,6 +133,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/prompt-policy.js`.
 - Moved Studio prompt/model policy helpers for whitespace compaction, auto-model selector detection, local-workspace prompt detection, harness-probe exclusion, retrieval routing, and workspace-context routing out of `extension.js`.
 - Added focused prompt-policy tests for whitespace/model selector normalization, workspace-vs-external retrieval decisions, Ask/Agent workspace context gating, and internal harness probe suppression.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-event-selectors.js`.
+- Moved pure Studio runtime-event selector helpers for tool matching, completed-tool matching, tool-event counts, turn-id extraction, and turn-scoped event filtering out of `extension.js`.
+- Added focused runtime-event selector tests for case-insensitive tool matching, completed-tool detection, count behavior, turn-id aliases, turn filtering, and fallback semantics.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
