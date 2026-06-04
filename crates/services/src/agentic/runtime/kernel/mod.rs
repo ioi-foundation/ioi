@@ -45,7 +45,9 @@ use evidence::ReceiptManifestKind;
 use invocation::ToolInvocationEnvelope;
 use marketplace::{MarketplaceAdmissionError, MarketplaceServiceContract};
 use model_mount::{
-    ModelMountCore, ModelMountError, ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest,
+    ModelMountCore, ModelMountError, ModelMountInvocationAdmissionRecord,
+    ModelMountInvocationAdmissionRequest, ModelMountRouteDecisionRecord,
+    ModelMountRouteDecisionRequest,
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
@@ -113,6 +115,13 @@ impl RuntimeKernelService {
         request: &ModelMountRouteDecisionRequest,
     ) -> Result<ModelMountRouteDecisionRecord, ModelMountError> {
         ModelMountCore.admit_route_decision(request)
+    }
+
+    pub fn admit_model_mount_invocation(
+        &self,
+        request: &ModelMountInvocationAdmissionRequest,
+    ) -> Result<ModelMountInvocationAdmissionRecord, ModelMountError> {
+        ModelMountCore.admit_invocation(request)
     }
 
     pub fn validate_tool_invocation(

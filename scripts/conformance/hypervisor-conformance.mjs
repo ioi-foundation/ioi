@@ -337,12 +337,16 @@ function runBridge() {
   const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
     ? read("packages/runtime-daemon/src/model-mounting.mjs")
     : "";
-  const modelRouteRunner = exists("packages/runtime-daemon/src/model-mounting/route-decision-runner.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/route-decision-runner.mjs")
+  const modelMountAdmissionRunner = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
     : "";
   const modelRoutes = exists("packages/runtime-daemon/src/model-mounting/routes.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/routes.mjs")
     : "";
+  const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
+    : "";
+  const retiredRouteDecisionEnvPattern = new RegExp("MODEL_MOUNT_" + "ROUTE_DECISION_COMMAND_ENV");
   assertCheck(
     result,
     "step-module-runner-interface",
@@ -416,22 +420,43 @@ function runBridge() {
       /ModelMountCore/.test(bridgeModule) &&
       /ModelMountRouteDecisionRequest/.test(bridgeModule) &&
       /bridge_admits_model_mount_route_decision_through_rust_core/.test(bridgeModule) &&
-      /RustModelMountRouteDecisionRunner/.test(modelRouteRunner) &&
-      /MODEL_MOUNT_ROUTE_DECISION_COMMAND_ENV/.test(modelRouteRunner) &&
-      /model_mount_route_decision_bridge_unconfigured/.test(modelRouteRunner) &&
+      /RustModelMountAdmissionRunner/.test(modelMountAdmissionRunner) &&
+      /MODEL_MOUNT_ADMISSION_COMMAND_ENV/.test(modelMountAdmissionRunner) &&
+      !retiredRouteDecisionEnvPattern.test(modelMountAdmissionRunner) &&
+      /model_mount_admission_bridge_unconfigured/.test(modelMountAdmissionRunner) &&
       /admitModelMountRouteDecision/.test(modelMountingState) &&
-      /createModelMountRouteDecisionRunnerFromEnv/.test(modelMountingState) &&
+      /createModelMountAdmissionRunnerFromEnv/.test(modelMountingState) &&
       /modelMountRouteDecisionRequestForSelection/.test(modelRoutes) &&
       /model_mount_route_decision_admission_required/.test(modelRoutes) &&
       /model_mount_route_decision_receipt_id_required/.test(modelRoutes) &&
       /modelMountRouteDecisionRef/.test(modelRoutes),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/model-mounting/route-decision-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 3/9 is pending: model-mounting route decisions must call Rust model_mount core and fail closed before provider invocation",
+  );
+  assertCheck(
+    result,
+    "model-mount-invocation-admission-live-bridge",
+    /admit_model_mount_invocation/.test(bridgeModule) &&
+      /ModelMountInvocationAdmissionRequest/.test(bridgeModule) &&
+      /bridge_admits_model_mount_invocation_through_rust_core/.test(bridgeModule) &&
+      /admitInvocation/.test(modelMountAdmissionRunner) &&
+      /rust_model_mount_invocation_command/.test(modelMountAdmissionRunner) &&
+      /admitModelMountInvocation/.test(modelMountingState) &&
+      /modelMountInvocationAdmissionRequestForReceipt/.test(modelInvocationOps) &&
+      /model_mount_invocation_receipt_id_required/.test(modelInvocationOps) &&
+      /modelMountInvocationAdmissionRef/.test(modelInvocationOps),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+    ],
+    "Phase 4/9 is pending: model invocation receipts must be admitted by Rust model_mount core before JS persistence",
   );
   return result;
 }
@@ -473,6 +498,25 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
     "Phase 9 is pending: Rust model_mount core must own resolved route decisions, receipts, and cTEE custody metadata",
+  );
+  assertCheck(
+    result,
+    "model-mount-invocation-admission-core",
+    exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      /MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountInvocationAdmissionRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /MissingRouteReceiptRef/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /MissingInvocationReceiptRef/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /admit_model_mount_invocation/.test(read("crates/services/src/agentic/runtime/kernel/mod.rs")),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+    ],
+    "Phase 4/9 is pending: Rust model_mount core must own invocation receipt admission and route-decision binding",
   );
   assertCheck(
     result,

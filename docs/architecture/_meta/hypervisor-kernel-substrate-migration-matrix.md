@@ -1518,14 +1518,14 @@ ImplementationSlice:
       - packages/runtime-daemon/src/model-mounting.mjs
       - packages/runtime-daemon/src/model-mounting/receipt-operations.mjs
       - packages/runtime-daemon/src/model-mounting/routes.mjs
-      - packages/runtime-daemon/src/model-mounting/route-decision-runner.mjs
+      - packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs
       - packages/runtime-daemon/src/index.mjs
     rust_core:
       - crates/node/src/bin/ioi_step_module_bridge/mod.rs
     ide: []
     tests:
       - packages/runtime-daemon/src/model-mounting/routes.test.mjs
-      - packages/runtime-daemon/src/model-mounting/route-decision-runner.test.mjs
+      - packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs
       - packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs
       - Rust bridge unit test in crates/node/src/bin/ioi_step_module_bridge/mod.rs
       - scripts/conformance/hypervisor-conformance.mjs
@@ -1539,7 +1539,7 @@ ImplementationSlice:
     - conformance bridge tier detects the live model_mount route-decision bridge
   verification:
     commands:
-      - node --test packages/runtime-daemon/src/model-mounting/routes.test.mjs packages/runtime-daemon/src/model-mounting/route-decision-runner.test.mjs packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs
+      - node --test packages/runtime-daemon/src/model-mounting/routes.test.mjs packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs
       - cargo test -p ioi-node bridge_admits_model_mount_route_decision_through_rust_core
       - npm run hypervisor-conformance:bridge
       - npm run hypervisor-conformance
@@ -1559,6 +1559,82 @@ ImplementationSlice:
     push: required after verification
 ```
 
+## Implementation Slice 28
+
+```yaml
+ImplementationSlice:
+  objective: route model invocation receipts through Rust model_mount admission
+    before JS persistence
+  owner_boundary:
+    route_or_surface: model invocation and native-stream-start receipt creation
+    authority_gate: daemon invocation receipt creation now requires a Rust
+      model_mount invocation admission record bound to the prior route decision,
+      route receipt, and the exact precomputed invocation receipt id
+    execution_backend: provider invocation drivers still execute in JS in this
+      slice; Rust now owns the invocation receipt admission boundary after
+      provider result materialization and before receipt persistence
+    truth_path: invocation receipts carry the Rust modelMountInvocationAdmission
+      record with route_decision_ref, route_receipt_ref,
+      invocation_receipt_ref, policy/input/output hashes, authority refs,
+      provider/backend evidence refs, and cTEE custody posture
+    projection_path: existing invocation projections continue reading the
+      canonical model_invocation receipts, now with Rust-admitted invocation
+      records embedded
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    daemon:
+      - packages/runtime-daemon/src/model-mounting.mjs
+      - packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs
+      - packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs
+    rust_core:
+      - crates/services/src/agentic/runtime/kernel/model_mount.rs
+      - crates/services/src/agentic/runtime/kernel/mod.rs
+      - crates/node/src/bin/ioi_step_module_bridge/mod.rs
+    ide: []
+    tests:
+      - packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs
+      - packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs
+      - packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs
+      - Rust model_mount unit tests in crates/services/src/agentic/runtime/kernel/model_mount.rs
+      - Rust bridge unit test in crates/node/src/bin/ioi_step_module_bridge/mod.rs
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - Rust model_mount core admits invocation records only with route and
+      invocation receipt refs bound
+    - model invocation receipts fail closed without precomputed receipt ids
+    - completed, coalesced, and native stream-start receipts embed Rust
+      invocation admission records
+    - Rust bridge exposes and tests `admit_model_mount_invocation`
+    - conformance bridge and receipts tiers detect the invocation admission
+      core and live daemon bridge
+  verification:
+    commands:
+      - cargo test -p ioi-services model_mount
+      - cargo test -p ioi-node bridge_admits_model_mount_invocation_through_rust_core
+      - node --test packages/runtime-daemon/src/model-mounting/*.test.mjs
+      - npm run hypervisor-conformance:bridge
+      - npm run hypervisor-conformance:receipts
+      - npm run hypervisor-conformance
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: true
+    compatibility_shims_remaining:
+      - route-decision-only admission runner naming and env aliases were
+        retired; model-mount admission now uses the canonical
+        `IOI_MODEL_MOUNT_ADMISSION_*` bridge contract
+      - provider invocation drivers remain JS-owned until model invocation
+        execution envelopes and provider request/response semantics move behind
+        Rust workload/model_mount ownership
+      - receipt persistence remains the model-mounting JS store path until
+        Agentgres admission and receipt_binder integration are promoted
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -1566,7 +1642,7 @@ ImplementationSlice:
 | `coding-tools` | `packages/runtime-daemon/src/coding-tools.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `packages/runtime-daemon/src/step-module-runner.mjs`, `crates/node/src/bin/ioi-step-module-bridge.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS daemon tool dispatch with Step/Module projection wrappers plus live Rust paths for every current coding tool: workspace.status, git.diff, file.inspect, file.apply_patch, test.run, lsp.diagnostics, artifact.read, tool.retrieve_result, and computer_use.request_lease | Rust core `step_router` plus workload/WASM backend | Agentgres admitted operation with receipt, refs, heads, and state roots | `abi`, `bridge`, `receipts`, `negative` | every current coding-tool ID returns a Rust live payload without daemon_js in rust_workload_live mode; JS fallback helpers remain only for non-live compatibility until facade retirement | Rust path passes shadow, gated, and live parity for each migrated tool; JS can no longer append authoritative effects. |
 | `approvals-gates` | `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `crates/services/src/agentic/runtime/kernel/authority.rs` | JS daemon routes plus Rust external-exit authority guard | Rust core `authority` with wallet.network handoff | authority grant and approval receipt before effect boundary | `bridge`, `negative` | Rust wallet.network guard implemented for external exits; live JS approval surface remains | JS can only request/render approvals; grants and gate decisions are issued by Rust authority core and wallet.network. |
 | `runtime-events-replay-trace` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | JS daemon envelope/projection code | Rust core `projection` plus Agentgres projection watermarks | replayable projection over admitted operations and receipts | `receipts`, `compositor` | JS projection source | Rust emits canonical projection records consumed by IDE/CLI/SDK. |
-| `model-mounting` | `packages/runtime-daemon/src/model-mounting/*`, `packages/runtime-daemon/src/model-mounting/route-decision-runner.mjs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/model_mount.rs` | JS daemon model-mounting store/provider invocation plus Rust route-decision admission for route-selection receipts | Rust core `model_mount` | model invocation receipts, route/custody refs, Agentgres operation | `bridge`, `receipts`, `ctee` | live route-selection receipts call Rust model_mount admission and fail closed when the bridge is unconfigured; provider invocation and receipt persistence still need Rust/Agentgres promotion | Rust records route decisions and receipts; JS surfaces are non-authoritative clients. |
+| `model-mounting` | `packages/runtime-daemon/src/model-mounting/*`, `packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/model_mount.rs` | JS daemon model-mounting store/provider invocation plus Rust route-decision and invocation-receipt admission | Rust core `model_mount` | model invocation receipts, route/custody refs, Agentgres operation | `bridge`, `receipts`, `ctee` | live route-selection and model-invocation receipts call Rust model_mount admission and fail closed without precomputed receipt refs; provider invocation execution and receipt persistence still need Rust/Agentgres promotion | Rust records route decisions and receipts; JS surfaces are non-authoritative clients. |
 | `agentgres-admission` | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs`, `.ioi/agentgres` local state, `crates/services/src/agentic/runtime/kernel/agentgres_admission.rs`, `docs/architecture/components/agentgres/*` | daemon-local operation-like records plus Rust admission/storage guards | Rust core `agentgres_admission` | expected heads, state-root validation, accepted operation admission | `receipts`, `negative` | Rust operation admission and storage-write guards implemented; live JS append/write surfaces still need routing/demotion | no JS path can append accepted operations directly or mutate durable truth without expected heads/state-root binding. |
 | `receipt-binding` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/ipc/proto/public/v1/public.proto`, `crates/services/src/agentic/runtime/kernel/receipt_binder.rs` | JS receipts plus Rust receipt binder and append guard | Rust core `receipt_binder` | one binder for invocation, result, artifact refs, payload refs, and state roots | `receipts`, `negative` | binder primitive and direct-append guard implemented; JS receipts still live | every meaningful route family emits receipts through one Rust binder. |
 | `ctee-private-workspace` | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md`, `crates/services/src/agentic/runtime/kernel/ctee.rs` | canon plus Rust StepModule validation boundary | Rust core `ctee` | custody proof, leakage profile, declassification receipt, plaintext-free mount failure | `ctee`, `negative` | Rust validation path implemented; full execution/admission/projection still pending | untrusted node plaintext mount fails closed; declassification and private operator paths are receipt-bound. |

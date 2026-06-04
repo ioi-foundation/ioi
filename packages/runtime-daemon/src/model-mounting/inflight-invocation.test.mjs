@@ -11,7 +11,7 @@ async function withModelState(fn) {
     stateDir: mkdtempSync(join(tmpdir(), "ioi-model-state-")),
     cwd: process.cwd(),
     homeDir: process.env.HOME,
-    modelMountRouteDecisionRunner: mockRouteDecisionRunner(),
+    modelMountAdmissionRunner: mockModelMountAdmissionRunner(),
   });
   try {
     return await fn(state);
@@ -20,7 +20,7 @@ async function withModelState(fn) {
   }
 }
 
-function mockRouteDecisionRunner() {
+function mockModelMountAdmissionRunner() {
   return {
     admitRouteDecision(request) {
       return {
@@ -35,6 +35,21 @@ function mockRouteDecisionRunner() {
         route_decision_hash: "sha256:test",
         receipt_refs: request.receipt_refs,
         evidence_refs: ["rust_model_mount_core", "model_mount://route_decision/test"],
+      };
+    },
+    admitInvocation(request) {
+      return {
+        source: "rust_model_mount_mock",
+        backend: "rust_model_mount_live",
+        record: {
+          ...request,
+          invocation_admission_ref: "model_mount://invocation_admission/test",
+          invocation_admission_hash: "sha256:invocation-test",
+        },
+        invocation_admission_ref: "model_mount://invocation_admission/test",
+        invocation_admission_hash: "sha256:invocation-test",
+        receipt_refs: request.receipt_refs,
+        evidence_refs: ["rust_model_mount_core", "model_mount://invocation_admission/test"],
       };
     },
   };

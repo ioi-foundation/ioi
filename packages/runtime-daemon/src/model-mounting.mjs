@@ -4,8 +4,8 @@ import path from "node:path";
 
 import * as routeDecision from "./model-mounting/route-decision.mjs";
 import {
-  createModelMountRouteDecisionRunnerFromEnv,
-} from "./model-mounting/route-decision-runner.mjs";
+  createModelMountAdmissionRunnerFromEnv,
+} from "./model-mounting/model-mount-admission-runner.mjs";
 import { modelCapabilities as buildModelCapabilities } from "./model-mounting/model-capability.mjs";
 import { AgentgresModelMountingStore } from "./model-mounting/store.mjs";
 import { modelMountingRelationSchemas } from "./model-mounting/schema-relations.mjs";
@@ -372,7 +372,7 @@ const {
 });
 
 export class ModelMountingState {
-  constructor({ stateDir, cwd, appendOperation, homeDir, now = () => new Date(), vaultSecrets = {}, modelMountRouteDecisionRunner = null }) {
+  constructor({ stateDir, cwd, appendOperation, homeDir, now = () => new Date(), vaultSecrets = {}, modelMountAdmissionRunner = null }) {
     this.stateDir = path.resolve(stateDir);
     this.cwd = path.resolve(cwd ?? process.cwd());
     this.homeDir = path.resolve(homeDir ?? process.env.HOME ?? this.cwd);
@@ -380,8 +380,8 @@ export class ModelMountingState {
     this.bootId = `daemon_boot_${crypto.randomUUID()}`;
     this.appendOperation = appendOperation;
     this.now = now;
-    this.modelMountRouteDecisionRunner =
-      modelMountRouteDecisionRunner ?? createModelMountRouteDecisionRunnerFromEnv(process.env);
+    this.modelMountAdmissionRunner =
+      modelMountAdmissionRunner ?? createModelMountAdmissionRunnerFromEnv(process.env);
     this.store = new AgentgresModelMountingStore({
       stateDir: this.stateDir,
       appendOperation: (kind, payload) => this.appendOperation?.(kind, payload),
@@ -1026,7 +1026,11 @@ export class ModelMountingState {
   }
 
   admitModelMountRouteDecision(request) {
-    return this.modelMountRouteDecisionRunner.admitRouteDecision(request);
+    return this.modelMountAdmissionRunner.admitRouteDecision(request);
+  }
+
+  admitModelMountInvocation(request) {
+    return this.modelMountAdmissionRunner.admitInvocation(request);
   }
 
   testRoute(routeId, body = {}) {
@@ -1209,8 +1213,8 @@ export class ModelMountingState {
     return lifecycleReceiptState(this, operation, details);
   }
 
-  receipt(kind, { summary, redaction, evidenceRefs, details }) {
-    return receiptState(this, kind, { summary, redaction, evidenceRefs, details }, {
+  receipt(kind, { id, summary, redaction, evidenceRefs, details }) {
+    return receiptState(this, kind, { id, summary, redaction, evidenceRefs, details }, {
       randomUUID: () => crypto.randomUUID(),
       redact,
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
