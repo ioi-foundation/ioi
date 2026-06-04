@@ -203,6 +203,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added focused durability-panel tests for session-brain lifecycle daemon envelope shaping, memory write/policy routing, read-only late-write handling, replay-step projection, runtime-cockpit flags, and bridge proof emission.
 - Moved Studio trajectory-replay reconnect orchestration out of `extension.js` behind the existing compatibility wrapper while preserving daemon thread/memory envelopes, side-effect key semantics, reconnect banner projection, replay-step projection, runtime-cockpit flags, and bridge proof envelope.
 - Added focused durability-panel tests for trajectory-replay lifecycle daemon envelope shaping, one side-effect write, replay cursor projection, runtime-cockpit flags, and bridge proof emission.
+- Extended `apps/autopilot/openvscode-extension/ioi-workbench/studio/parity-plus-panels.js`.
+- Moved Studio Stage 2 web-repair proof orchestration out of `extension.js` behind the existing compatibility wrapper while preserving prompt submission shape, daemon event replay, contract false-then-true checks, source projection, product transcript cleanliness, and bridge proof envelope.
+- Added focused parity-plus tests for Stage 2 proof submission, source projection, final-contract values, completed web tool checks, clean answer preview, and bridge proof emission.
 - Extended `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-state.js`.
 - Moved Studio projection lifecycle helpers for daemon-thread reset, new-session projection, work cursor capture, and documented-work summary delegation out of `extension.js` while preserving existing call-site names and session preference carry-forward semantics.
 - Added focused projection-state lifecycle tests for daemon-thread field reset, answer-stream reset delegation, model/mode/approval preference preservation across new sessions, and work-cursor count projection.

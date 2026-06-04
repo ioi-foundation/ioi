@@ -144,3 +144,68 @@ test("parity plus product text checks catch raw trace and tool leakage", () => {
   assert.equal(studio.studioStage5ProductTextIsClean(".tmp/autopilot-stage5-stop-hook-repair/state.json"), false);
   assert.equal(studio.studioStage5ProductTextIsClean("StopHookBlocked"), false);
 });
+
+test("stage2 web repair orchestration preserves proof envelope and product checks", async () => {
+  const submissions = [];
+  const bridgeRequests = [];
+  const projection = {
+    executionMode: "agent",
+    modelRoute: "route.local-first",
+    selectedModel: "auto",
+    threadId: "thread-one",
+    turnId: "turn-one",
+    turns: [{
+      role: "assistant",
+      content: "António Guterres is the current Secretary-General. Source: https://ask.un.org/faq/14625",
+      sourceRefs: [{ url: "https://ask.un.org/faq/14625", title: "UN FAQ" }],
+      workRecord: { summary: "web_search web_read source ask.un.org" },
+    }],
+    actionCards: [{ toolId: "web_search", status: "completed", source: "ask.un.org" }],
+  };
+  const runtimeEvents = [
+    { kind: "tool.completed", tool: "web_search" },
+    { kind: "tool.completed", tool: "web_read" },
+    "stage2_web_repair_forced_model_chat_reply_rejection=true",
+    "final_output_contract_ready satisfied=false",
+    "web_final_summary_contract_ready=true",
+    "chat_reply_model_authored_web_pipeline_answer_accepted model_chat_reply",
+    { kind: "tool.completed", tool: "chat_reply" },
+  ];
+  const studio = createStudioParityPlusPanels({
+    buildWorkspaceActionContext: (source) => ({ source }),
+    compactStudioWhitespace: (value) => String(value || "").replace(/\s+/g, " ").trim(),
+    escapeHtml,
+    fetchStudioThreadEvents: async () => runtimeEvents.slice(3),
+    fetchStudioThreadTurnEvents: async () => runtimeEvents.slice(0, 3),
+    firstArray,
+    getStudioRuntimeProjection: () => projection,
+    sanitizeStudioProductAssistantText: (value) => String(value || ""),
+    STUDIO_MODE_AGENT: "agent",
+    STUDIO_PERMISSION_MODE_FULL_ACCESS: "full_access",
+    stringValue: (value, fallback = "") => (typeof value === "string" ? value : value === null || value === undefined ? fallback : String(value)),
+    studioRuntimeEventsIncludeCompletedTool: (events, pattern) => events.some((event) => pattern.test(JSON.stringify(event))),
+    studioSourceRefsFromRuntimeEvents: () => [{ url: "https://ask.un.org/faq/14625", title: "UN FAQ" }],
+    studioTraceLink: () => "",
+    studioVerifiedBadge: () => "",
+    submitStudioPrompt: async (payload) => submissions.push(payload),
+    uniqueStudioRuntimeEvents: (events) => events,
+    writeBridgeRequest: async (...args) => bridgeRequests.push(args),
+  });
+
+  const proof = await studio.exerciseStudioStage2WebRepairLoop({ appendLine() {} }, { prompt: "Who leads the UN?" });
+
+  assert.equal(submissions[0].prompt, "Who leads the UN?");
+  assert.equal(submissions[0].executionMode, "agent");
+  assert.equal(submissions[0].approvalMode, "full_access");
+  assert.equal(proof.passed, true);
+  assert.deepEqual(proof.finalContractValues, [false, true]);
+  assert.equal(proof.sourceRefCount, 1);
+  assert.equal(proof.checks.webSearchCompleted, true);
+  assert.equal(proof.checks.webReadCompleted, true);
+  assert.equal(proof.checks.finalContractFalseThenTrue, true);
+  assert.equal(proof.checks.productTranscriptClean, true);
+  assert.equal(bridgeRequests[0][0], "studio.stage2WebRepairLoop.exercised");
+  assert.equal(bridgeRequests[0][1].passed, true);
+  assert.equal(bridgeRequests[0][1].sourceRefCount, 1);
+  assert.equal(bridgeRequests[0][2].source, "studio-stage2-web-repair-loop");
+});

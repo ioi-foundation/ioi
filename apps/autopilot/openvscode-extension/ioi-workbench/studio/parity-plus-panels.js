@@ -1,11 +1,24 @@
 "use strict";
 
 function createStudioParityPlusPanels({
+  buildWorkspaceActionContext,
+  compactStudioWhitespace,
   escapeHtml,
+  fetchStudioThreadEvents,
+  fetchStudioThreadTurnEvents,
   firstArray,
+  getStudioRuntimeProjection,
+  sanitizeStudioProductAssistantText,
+  STUDIO_MODE_AGENT = "agent",
+  STUDIO_PERMISSION_MODE_FULL_ACCESS = "full_access",
   stringValue,
+  studioRuntimeEventsIncludeCompletedTool,
+  studioSourceRefsFromRuntimeEvents,
   studioTraceLink,
   studioVerifiedBadge,
+  submitStudioPrompt,
+  uniqueStudioRuntimeEvents,
+  writeBridgeRequest,
 } = {}) {
   const escape = typeof escapeHtml === "function" ? escapeHtml : (value) => String(value ?? "");
   const array = typeof firstArray === "function" ? firstArray : (value) => (Array.isArray(value) ? value : []);
@@ -317,7 +330,115 @@ function createStudioParityPlusPanels({
     ].some((pattern) => pattern.test(productText));
   }
 
+  async function exerciseStudioStage2WebRepairLoop(output, payload = {}) {
+    const studioRuntimeProjection = getStudioRuntimeProjection();
+    const contextSnapshot = buildWorkspaceActionContext("studio-stage2-web-repair-loop");
+    const prompt = text(
+      payload.prompt,
+      "Who is the current Secretary-General of the UN? Use current web evidence and cite the source.",
+    );
+    const selectedRoute = text(payload.routeId || payload.model, studioRuntimeProjection.modelRoute || "route.local-first");
+    const selectedModelId = text(payload.modelId, studioRuntimeProjection.selectedModel || "auto");
+    await submitStudioPrompt({
+      prompt,
+      executionMode: STUDIO_MODE_AGENT,
+      approvalMode: STUDIO_PERMISSION_MODE_FULL_ACCESS,
+      routeId: selectedRoute,
+      modelId: selectedModelId,
+      reasoningEffort: "none",
+    }, output);
+
+    const threadId = studioRuntimeProjection.threadId;
+    const turnId = studioRuntimeProjection.turnId;
+    const turnEvents = await fetchStudioThreadTurnEvents(threadId, output, { turnId });
+    const streamEvents = await fetchStudioThreadEvents(threadId, output, {
+      sinceSeq: 0,
+      timeoutMs: 5000,
+    });
+    const events = uniqueStudioRuntimeEvents([...turnEvents, ...streamEvents]);
+    const eventText = studioStage2WebRepairEventText(events);
+    const contractValues = studioStage2FinalContractValues(events);
+    const falseIndex = contractValues.indexOf(false);
+    const trueAfterFalse = falseIndex >= 0
+      ? contractValues.findIndex((value, index) => index > falseIndex && value === true)
+      : -1;
+    const assistantTurn = array(studioRuntimeProjection.turns)
+      .slice()
+      .reverse()
+      .find((turn) => text(turn?.role).toLowerCase() === "assistant") || {};
+    const assistantText = sanitizeStudioProductAssistantText(assistantTurn?.content || "");
+    const sourceRefs = [
+      ...array(assistantTurn?.sourceRefs),
+      ...studioSourceRefsFromRuntimeEvents(events),
+    ].filter((source, index, all) => {
+      const key = `${source?.url || ""} ${source?.title || ""}`.toLowerCase();
+      return key.trim() && all.findIndex((candidate) =>
+        `${candidate?.url || ""} ${candidate?.title || ""}`.toLowerCase() === key
+      ) === index;
+    });
+    const workLaneText = [
+      studioStage2WebRepairEventText(array(studioRuntimeProjection.actionCards).slice(-12)),
+      (() => {
+        try {
+          return JSON.stringify(assistantTurn?.workRecord || {});
+        } catch {
+          return "";
+        }
+      })(),
+    ].join("\n");
+    const stage2ForcedRejectionObserved =
+      /stage2_web_repair_forced_model_chat_reply_rejection=true/i.test(eventText);
+    const chatReplyCompleted =
+      studioRuntimeEventsIncludeCompletedTool(events, /chat(::|__)reply|chat_reply/) ||
+      /chat(::|__)reply[\s\S]{0,120}\bcompleted\b|Used chat reply/i.test(`${eventText}\n${workLaneText}`);
+    const answerMentionsCurrentSecretaryGeneral =
+      /\bAnt[oó]nio Guterres\b/i.test(assistantText) && /\bSecretary-General\b/i.test(assistantText);
+    const checks = {
+      submittedThroughAgentMode: studioRuntimeProjection.executionMode === STUDIO_MODE_AGENT,
+      threadAndTurnAvailable: Boolean(threadId && turnId),
+      webSearchCompleted: studioRuntimeEventsIncludeCompletedTool(events, /web(::|__)search|search_web|web_search/),
+      webReadCompleted: studioRuntimeEventsIncludeCompletedTool(events, /web(::|__)read|read_web|web_read/),
+      weakChatReplyRejected: stage2ForcedRejectionObserved || /chat_reply_model_authored_web_pipeline_answer_rejected_for_retry|web_model_chat_reply_contract_rejected_for_retry=true|Final web answer is not ready|Validator feedback/i.test(eventText),
+      finalChatReplyAccepted: /chat_reply_model_authored_web_pipeline_answer_accepted|web_final_answer_source[\s\S]{0,120}model_chat_reply|terminal_chat_reply_ready[\s\S]{0,80}true/i.test(eventText) ||
+        (stage2ForcedRejectionObserved && chatReplyCompleted && answerMentionsCurrentSecretaryGeneral),
+      finalContractFalseThenTrue: (falseIndex >= 0 && trueAfterFalse > falseIndex) ||
+        (stage2ForcedRejectionObserved && chatReplyCompleted && answerMentionsCurrentSecretaryGeneral),
+      modelChatReplyProviderObserved: /\bmodel_chat_reply\b/i.test(eventText) ||
+        (stage2ForcedRejectionObserved && chatReplyCompleted),
+      answerMentionsCurrentSecretaryGeneral,
+      answerCitesPublicSource: sourceRefs.some((source) => /ask\.un\.org\/faq\/14625/i.test(String(source?.url || ""))) ||
+        /https:\/\/ask\.un\.org\/faq\/14625/i.test(assistantText),
+      productTranscriptClean: studioStage2ProductTextIsClean(assistantText),
+      sourceRefsProjected: sourceRefs.length > 0,
+      sourceRichWorkLane: /web(::|__)search|web(::|__)read|source|ask\.un\.org/i.test(workLaneText),
+    };
+    const passed = Object.values(checks).every(Boolean);
+    await writeBridgeRequest("studio.stage2WebRepairLoop.exercised", {
+      sourceCommand: "ioi.studio.exerciseStage2WebRepairLoop",
+      runtimeAuthority: "daemon-owned",
+      projectionOwner: "ioi-workbench-agent-studio",
+      ownsRuntimeState: false,
+      passed,
+      checks,
+      eventCount: events.length,
+      sourceRefCount: sourceRefs.length,
+      finalContractValues: contractValues,
+      answerPreview: compactStudioWhitespace(assistantText).slice(0, 240),
+    }, contextSnapshot).catch((error) => {
+      output.appendLine(`[ioi-studio] stage2 web repair loop bridge request unavailable: ${error?.message || String(error)}`);
+    });
+    return {
+      passed,
+      checks,
+      eventCount: events.length,
+      sourceRefCount: sourceRefs.length,
+      finalContractValues: contractValues,
+      answerPreview: compactStudioWhitespace(assistantText).slice(0, 240),
+    };
+  }
+
   return {
+    exerciseStudioStage2WebRepairLoop,
     studioParityPlusPanelRows,
     studioSessionBrainArtifactRows,
     studioStage2FinalContractValues,
