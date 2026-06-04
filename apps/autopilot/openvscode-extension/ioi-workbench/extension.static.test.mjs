@@ -132,6 +132,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/artifact-intent.js",
   artifactPreview:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/artifact-preview.js",
+  hunkLifecycle:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/hunk-lifecycle.js",
   managedSessionView:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/managed-session-view.js",
   studioModeControls:
@@ -219,6 +221,7 @@ async function readStudioComposite() {
       paths.artifactRouting,
       paths.artifactIntent,
       paths.artifactPreview,
+      paths.hunkLifecycle,
       paths.managedSessionView,
       paths.studioModeControls,
       paths.studioQuickInput,

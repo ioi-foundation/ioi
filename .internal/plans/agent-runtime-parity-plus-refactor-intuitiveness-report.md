@@ -137,6 +137,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-controls.js`.
 - Moved Studio stop/resume runtime controls out of `extension.js` behind compatibility wrappers while preserving daemon interrupt/resume routes, runtime cockpit stop/resume flags, bridge `chat.stop`/`chat.resume` envelopes, timeline entries, and panel refresh behavior.
 - Added focused runtime-control tests for stop/resume daemon payloads, bridge context snapshots, cockpit recompute flags, receipt propagation, route-failure logging, and refresh behavior.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/hunk-lifecycle.js`.
+- Moved Studio inline diff hunk decision and native hunk navigation lifecycle out of `extension.js` behind compatibility wrappers while preserving workspace-change lifecycle tools, approval decision route, bridge `chat.hunkDecision` envelope, receipt projection, cockpit flags, native compare-editor commands, and refresh behavior.
+- Added focused hunk-lifecycle tests for workspace-change accept, approval fallback rejection, blocked decision refresh, and native navigation command/error handling.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/shell-header.js`.
 - Moved Autopilot workbench shell-header styles, posture tone mapping, native-shell gating, runtime posture chips, and mode switch action rendering out of `extension.js` while preserving existing call-site names and data-testids.
 - Added focused shell-header tests for tone mapping, native shell gating, sanitized posture rendering, command affordances, and product shell selectors.
@@ -604,6 +607,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `studio/thread-events`
   - `studio/thread-lifecycle`
   - `studio/runtime-controls`
+  - `studio/hunk-lifecycle`
   - `workbench/shell-header`
   - `workbench/mode-body-renderers`
   - `workbench/model-snapshot`
