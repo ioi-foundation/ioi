@@ -118,11 +118,15 @@ test("rust workload command bridge sends StepModuleInvocation request", () => {
     toolId: "workspace.status",
     input: { includeIgnored: true },
     result: {},
+    context: {
+      workspaceRoot: "/tmp/workspace",
+    },
   });
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "mock-step-module-bridge");
   assert.equal(calls[0].request.operation, "run_coding_tool_step_module");
+  assert.equal(calls[0].request.workspace_root, "/tmp/workspace");
   assert.equal(calls[0].request.invocation.schema_version, "ioi.step_module_invocation.v1");
   assert.equal(calls[0].request.invocation.execution.backend, "workload_grpc");
   assert.equal(

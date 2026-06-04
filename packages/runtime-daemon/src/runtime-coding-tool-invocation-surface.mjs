@@ -30,6 +30,8 @@ import {
 } from "./coding-tools.mjs";
 import { createStepModuleRunnerFromEnv } from "./step-module-runner.mjs";
 
+const RUST_WORKLOAD_LIVE_TOOL_IDS = new Set(["workspace.status", "file.inspect"]);
+
 export function createRuntimeCodingToolInvocationSurface(deps = {}) {
   const {
     codingToolApprovalManifestForThread,
@@ -186,9 +188,10 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
         toolContract,
       });
     }
-    const rustLiveWorkspaceStatus =
-      stepModuleRunner.backend === "rust_workload_live" && normalizedToolId === "workspace.status";
-    if (stepModuleRunner.blocksDaemonJsExecution && !rustLiveWorkspaceStatus) {
+    const rustLiveCodingTool =
+      stepModuleRunner.backend === "rust_workload_live" &&
+      RUST_WORKLOAD_LIVE_TOOL_IDS.has(normalizedToolId);
+    if (stepModuleRunner.blocksDaemonJsExecution && !rustLiveCodingTool) {
       throw policyError("StepModule Rust workload backend is not live for direct execution yet.", {
         threadId,
         toolId: normalizedToolId,
@@ -222,8 +225,9 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       workflowProjectionStatus,
       receiptRefs,
       artifactRefs,
+      workspaceRoot: agent.cwd,
     });
-    if (rustLiveWorkspaceStatus) {
+    if (rustLiveCodingTool) {
       try {
         stepModuleProjection = stepModuleRunner.runCodingTool({
           contract: toolContract,
@@ -480,7 +484,13 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
 
 function codingToolResultForRustLiveStepModule(toolId, stepModuleProjection = {}) {
   const stepResult = stepModuleProjection?.result ?? {};
+  const observedResult = stepModuleProjection?.bridge_result?.shadow_observation?.result;
+  const toolResult =
+    observedResult && typeof observedResult === "object" && !Array.isArray(observedResult)
+      ? observedResult
+      : {};
   return {
+    ...toolResult,
     schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
     toolName: toolId,
     status: "completed",

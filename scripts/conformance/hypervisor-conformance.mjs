@@ -344,20 +344,23 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "workspace-status-rust-command-bridge",
+    "migrated-coding-tools-rust-command-bridge",
     exists("crates/node/src/bin/ioi-step-module-bridge.rs") &&
       exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
       /workspace\.status/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
+      /file\.inspect/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
       /ioi\.step_module\.command_bridge\.v1/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
       /StepModuleRouterCore/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
       /router_admission/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")) &&
-      /rustLiveWorkspaceStatus/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
+      /RUST_WORKLOAD_LIVE_TOOL_IDS/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
+      /workspace\.status/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
+      /file\.inspect/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /rust_workload_live/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")),
     [
       "crates/node/src/bin/ioi-step-module-bridge.rs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
     ],
-    "Phase 3/10 is pending: add a Rust command bridge for the first shadowed daemon tool, route it through StepModuleRouter, and promote workspace.status live without daemon_js",
+    "Phase 3/10 is pending: route migrated coding tools through the Rust command bridge, StepModuleRouter, and live workload path without daemon_js",
   );
   return result;
 }

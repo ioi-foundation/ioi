@@ -123,6 +123,7 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
       workload_grpc_addr: this.grpcAddr,
       shmem_id: this.shmemId,
       invocation: projection.invocation,
+      workspace_root: context.workspaceRoot ?? context.workspace_root ?? null,
       input,
     };
     const bridgeResult = this.invokeBridge(request);

@@ -251,6 +251,100 @@ test("coding tool invocation surface runs workspace.status through rust workload
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 
+test("coding tool invocation surface runs file.inspect through rust workload live path", () => {
+  const runnerCalls = [];
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool(input) {
+      runnerCalls.push(input);
+      return {
+        backend: "rust_workload_live",
+        mode: "live",
+        blocking: true,
+        source: "rust_workload_command",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://rust-live/file.inspect",
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: "invocation://rust-live/file.inspect",
+          status: "success",
+          execution_result_ref: "result://rust-live/file.inspect",
+          normalized_observation_ref: "observation://rust-live/file.inspect",
+          receipt_refs: ["receipt://rust-live/file.inspect"],
+          artifact_refs: [],
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: null,
+          resulting_head: null,
+          workflow_projection: {
+            workflow_graph_id: "graph_alpha",
+            workflow_node_id: "node_inspect",
+            component_kind: "FilesystemToolNode",
+            status: "live",
+            attempt_id: "attempt://rust-live/file.inspect",
+            evidence_refs: [],
+            receipt_refs: ["receipt://rust-live/file.inspect"],
+          },
+          next: {
+            model_reentry_required: false,
+            verifier_required: false,
+          },
+        },
+        bridge_result: {
+          router_admission: {
+            schema_version: "ioi.step_module_router_admission.v1",
+            backend: "workload_grpc",
+          },
+          shadow_observation: {
+            tool: "file.inspect",
+            result: {
+              schemaVersion: "ioi.runtime.coding-tool-result.v1",
+              workspaceRoot: "/tmp/workspace",
+              path: "README.md",
+              kind: "file",
+              exists: true,
+              sizeBytes: 42,
+              preview: "# IOI",
+              previewBytes: 5,
+              previewHash: "sha256:test",
+              truncated: false,
+              previewLineCount: 1,
+              shellFallbackUsed: false,
+            },
+          },
+        },
+      };
+    },
+  };
+  const surface = createSurface({
+    stepModuleRunner: liveRunner,
+    executeCodingTool() {
+      throw new Error("daemon JS execution must not run");
+    },
+  });
+  const store = createStore();
+
+  const result = surface.invokeThreadTool(store, "thread_alpha", "file.inspect", {
+    toolCallId: "tool_inspect",
+    workflowGraphId: "graph_alpha",
+    workflowNodeId: "node_inspect",
+    input: { path: "README.md" },
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(runnerCalls.length, 1);
+  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.path, "README.md");
+  assert.equal(result.result.kind, "file");
+  assert.equal(result.step_module.backend, "rust_workload_live");
+  assert.ok(result.receipt_refs.includes("receipt://rust-live/file.inspect"));
+  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+});
+
 test("coding tool invocation surface keeps non-migrated tools blocked in rust workload live mode", () => {
   const surface = createSurface({
     stepModuleRunner: {
@@ -265,8 +359,9 @@ test("coding tool invocation surface keeps non-migrated tools blocked in rust wo
 
   assert.throws(
     () =>
-      surface.invokeThreadTool(store, "thread_alpha", "file.inspect", {
-        toolCallId: "tool_inspect",
+      surface.invokeThreadTool(store, "thread_alpha", "file.apply_patch", {
+        toolCallId: "tool_patch",
+        input: { path: "README.md", oldText: "a", newText: "b" },
       }),
     (error) => {
       assert.equal(error.status, 403);
