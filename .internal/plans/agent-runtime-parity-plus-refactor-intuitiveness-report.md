@@ -279,7 +279,7 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Moved subagent memory receiver selection, inheritance-mode normalization, explicit selector detection, and inheritance gating into `runtime-memory-helpers.mjs`.
 - Added focused runtime memory helper tests for policy aliases, write blocking, operation/event vocabulary, subagent inheritance evidence, receiver/selector inheritance behavior, and filter alias normalization.
 - Added `packages/runtime-daemon/src/threads/thread-memory-state.mjs`.
-- Moved thread/agent memory projection, memory policy/path lookup, policy mutation adapter behavior, memory status projection, and memory validation out of `index.mjs` behind existing `AgentgresRuntimeStateStore` method names.
+- Moved thread/agent memory projection, memory policy/path lookup, memory writes/edits/deletes, policy mutation adapter behavior, memory control event projection, memory status projection, and memory validation out of `index.mjs` behind existing `AgentgresRuntimeStateStore` method names.
 - Added `packages/runtime-daemon/src/runtime-run-helpers.mjs`.
 - Moved run result text, mode-to-task-family/strategy mapping, capability sequence construction, and run-event id/cursor construction out of `index.mjs` behind dependency-injected helper exports.
 - Added focused runtime run helper tests for mode vocabulary, memory-specific result text, capability sequence additions, and stable event id/cursor shaping.

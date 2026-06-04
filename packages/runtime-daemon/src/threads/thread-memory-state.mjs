@@ -1,12 +1,62 @@
 export function createThreadMemoryState({
+  doctorHash,
+  eventStreamIdForThread,
+  fixtureProfileForAgent,
+  memoryControlKind,
+  memoryEventKind,
+  memoryMutationRawInput,
+  memoryMutationRowLabel,
+  memoryMutationSummary,
+  memoryOperatorControlKind,
+  memoryRowsForStatus,
+  memoryRuntimeEventKind,
+  memoryWorkflowNodeId,
   agentIdForThread,
   memoryListFilters,
   memoryPolicyOverrides,
   memoryStatusForProjection,
+  memoryWriteBlockReason,
+  normalizeArray,
+  operatorControlSource,
   optionalString,
+  policyError,
+  safeId,
   threadIdForAgent,
   validateMemoryProjection,
 } = {}) {
+  function rememberForAgent(store, agent, { text, threadId = threadIdForAgent(agent.id), scope = "thread", source = "operator_remember", workflow = {} } = {}) {
+    return store.memory.remember({
+      text,
+      agent,
+      threadId,
+      scope,
+      source,
+      workflow,
+    });
+  }
+
+  function rememberForThread(store, threadId, body = {}) {
+    const agent = store.agentForThread(threadId);
+    const policy = store.memory.effectivePolicy({
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      overrides: memoryPolicyOverrides(body),
+    });
+    const blocked = memoryWriteBlockReason(policy, body, true);
+    if (blocked) {
+      throw policyError("Memory write blocked by policy.", { threadId, reason: blocked, policy });
+    }
+    const mutation = store.rememberForAgent(agent, {
+      text: body.text ?? body.fact ?? body.memory,
+      threadId,
+      scope: body.scope ?? "thread",
+      source: body.source ?? "thread_memory_api",
+      workflow: body.workflow ?? body,
+    });
+    return store.recordThreadMemoryMutation(threadId, mutation, body, "write");
+  }
+
   function listMemoryForThread(store, threadId, options = {}) {
     const agent = store.agentForThread(threadId);
     return store.memory.projection({
@@ -39,6 +89,60 @@ export function createThreadMemoryState({
   function memoryPathForThread(store, threadId) {
     const agent = store.agentForThread(threadId);
     return store.memory.pathProjection({ agent, threadId, workspace: agent.cwd });
+  }
+
+  function updateMemoryForThread(store, threadId, memoryId, body = {}) {
+    const agent = store.agentForThread(threadId);
+    const policy = store.memory.effectivePolicy({
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      overrides: memoryPolicyOverrides(body),
+    });
+    const blocked = memoryWriteBlockReason(policy, body, true);
+    if (blocked) {
+      throw policyError("Memory edit blocked by policy.", { threadId, memoryId, reason: blocked, policy });
+    }
+    const mutation = store.updateMemoryRecord(memoryId, body);
+    return store.recordThreadMemoryMutation(threadId, mutation, body, "edit");
+  }
+
+  function deleteMemoryForThread(store, threadId, memoryId, body = {}) {
+    const agent = store.agentForThread(threadId);
+    const policy = store.memory.effectivePolicy({
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      overrides: memoryPolicyOverrides(body),
+    });
+    const blocked = memoryWriteBlockReason(policy, body, true);
+    if (blocked) {
+      throw policyError("Memory delete blocked by policy.", { threadId, memoryId, reason: blocked, policy });
+    }
+    const mutation = store.deleteMemoryRecord(memoryId, body);
+    return store.recordThreadMemoryMutation(threadId, mutation, body, "delete");
+  }
+
+  function rememberForAgentId(store, agentId, body = {}) {
+    const agent = store.getAgent(agentId);
+    const threadId = body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id);
+    const policy = store.memory.effectivePolicy({
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      overrides: memoryPolicyOverrides(body),
+    });
+    const blocked = memoryWriteBlockReason(policy, body, true);
+    if (blocked) {
+      throw policyError("Memory write blocked by policy.", { agentId, threadId, reason: blocked, policy });
+    }
+    return store.rememberForAgent(agent, {
+      text: body.text ?? body.fact ?? body.memory,
+      threadId,
+      scope: body.scope ?? "thread",
+      source: body.source ?? "agent_memory_api",
+      workflow: body.workflow ?? body,
+    });
   }
 
   function listMemoryForAgent(store, agentId, options = {}) {
@@ -76,6 +180,53 @@ export function createThreadMemoryState({
     const agent = store.getAgent(agentId);
     const threadId = options.thread_id ?? options.threadId ?? threadIdForAgent(agent.id);
     return store.memory.pathProjection({ agent, threadId, workspace: agent.cwd });
+  }
+
+  function updateMemoryForAgentId(store, agentId, memoryId, body = {}) {
+    const agent = store.getAgent(agentId);
+    const threadId = body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id);
+    const policy = store.memory.effectivePolicy({
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      overrides: memoryPolicyOverrides(body),
+    });
+    const blocked = memoryWriteBlockReason(policy, body, true);
+    if (blocked) {
+      throw policyError("Memory edit blocked by policy.", { agentId, threadId, memoryId, reason: blocked, policy });
+    }
+    return store.updateMemoryRecord(memoryId, body);
+  }
+
+  function deleteMemoryForAgentId(store, agentId, memoryId, body = {}) {
+    const agent = store.getAgent(agentId);
+    const threadId = body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id);
+    const policy = store.memory.effectivePolicy({
+      agent,
+      threadId,
+      workspace: agent.cwd,
+      overrides: memoryPolicyOverrides(body),
+    });
+    const blocked = memoryWriteBlockReason(policy, body, true);
+    if (blocked) {
+      throw policyError("Memory delete blocked by policy.", { agentId, threadId, memoryId, reason: blocked, policy });
+    }
+    return store.deleteMemoryRecord(memoryId, body);
+  }
+
+  function updateMemoryRecord(store, memoryId, body = {}) {
+    return store.memory.updateRecord({
+      id: memoryId,
+      text: body.text ?? body.fact ?? body.memory,
+      source: body.source ?? "memory_edit_api",
+    });
+  }
+
+  function deleteMemoryRecord(store, memoryId, body = {}) {
+    return store.memory.deleteRecord({
+      id: memoryId,
+      source: body.source ?? "memory_delete_api",
+    });
   }
 
   function memoryProjectionForContext(store, options = {}) {
@@ -119,7 +270,217 @@ export function createThreadMemoryState({
     };
   }
 
+  function recordThreadMemoryStatus(store, threadId, request = {}, schemaVersion) {
+    const agent = store.agentForThread(threadId);
+    const status = store.memoryStatus({ ...request, thread_id: threadId });
+    return store.appendThreadMemoryControlEvent({
+      threadId,
+      agent,
+      request,
+      controlKind: "memory_status",
+      sourceEventKind: "OperatorControl.Memory",
+      eventKind: "memory.status",
+      componentKind: "memory_policy",
+      workflowNodeId: "runtime.memory-manager",
+      payloadSchemaVersion: schemaVersion,
+      status: status.status === "needs_review" ? "blocked" : "completed",
+      payload: {
+        ...status,
+        event_kind: "MemoryStatus",
+        control_kind: "memory_status",
+        thread_id: threadId,
+        agent_id: agent.id,
+        rows: memoryRowsForStatus(status),
+        summary: `Memory has ${status.record_count} record(s); policy ${status.policy?.id ?? "default"} is ${status.status}.`,
+      },
+    });
+  }
+
+  function validateThreadMemory(store, threadId, request = {}, schemaVersion) {
+    const agent = store.agentForThread(threadId);
+    const validation = store.validateMemory({ ...request, thread_id: threadId });
+    return store.appendThreadMemoryControlEvent({
+      threadId,
+      agent,
+      request,
+      controlKind: "memory_validate",
+      sourceEventKind: "OperatorControl.MemoryValidate",
+      eventKind: "memory.validation",
+      componentKind: "memory_policy",
+      workflowNodeId: "runtime.memory-manager.validate",
+      payloadSchemaVersion: schemaVersion,
+      status: validation.ok ? "completed" : "blocked",
+      payload: {
+        ...validation,
+        event_kind: "MemoryValidationReport",
+        control_kind: "memory_validate",
+        thread_id: threadId,
+        agent_id: agent.id,
+        summary: validation.ok
+          ? `Memory validation passed for ${validation.record_count} record(s).`
+          : `Memory validation found ${validation.issue_count} issue(s).`,
+      },
+    });
+  }
+
+  function recordThreadMemoryMutation(store, threadId, mutation = {}, request = {}, operation = "write", schemaVersion) {
+    const agent = store.agentForThread(threadId);
+    const status = store.memoryStatus({ ...request, thread_id: threadId });
+    const record = mutation.record ?? null;
+    const policy = mutation.policy ?? status.policy ?? null;
+    const receipt = mutation.receipt ?? null;
+    const receiptRefs = receipt?.id ? [receipt.id] : [];
+    const memoryRecordId = record?.id ?? null;
+    const memoryPolicyId = policy?.id ?? null;
+    const controlKind = memoryControlKind(operation);
+    const payloadRecordList = record ? [record] : status.records;
+    const mutationRows = memoryRowsForStatus({
+      ...status,
+      records: payloadRecordList,
+      receipt_refs: receiptRefs,
+      receiptRefs,
+    }).map((row) =>
+      row.row_kind === "memory_record" && (!memoryRecordId || row.memory_record_id === memoryRecordId)
+        ? {
+            ...row,
+            label: memoryMutationRowLabel(operation),
+            raw_input: memoryMutationRawInput(operation),
+            memory_operation: operation,
+            workflow_node_id: record?.workflowNodeId ?? memoryWorkflowNodeId(operation),
+          }
+        : row,
+    );
+    const payload = {
+      ...status,
+      schema_version: schemaVersion,
+      schemaVersion,
+      object: "ioi.runtime_memory_manager_mutation",
+      event_kind: memoryEventKind(operation),
+      control_kind: controlKind,
+      memory_operation: operation,
+      memoryOperation: operation,
+      mutation_status: "completed",
+      mutationStatus: "completed",
+      thread_id: threadId,
+      threadId,
+      agent_id: agent.id,
+      agentId: agent.id,
+      record,
+      records: payloadRecordList,
+      policy,
+      receipt,
+      memory_record_id: memoryRecordId,
+      memoryRecordId,
+      memory_policy_id: memoryPolicyId,
+      memoryPolicyId,
+      receipt_refs: receiptRefs,
+      receiptRefs,
+      rows: mutationRows,
+      memory_rows: mutationRows,
+      memoryRows: mutationRows,
+      summary: memoryMutationSummary(operation, { record, policy }),
+    };
+    const result = store.appendThreadMemoryControlEvent({
+      threadId,
+      agent,
+      request,
+      controlKind,
+      sourceEventKind: memoryOperatorControlKind(operation),
+      eventKind: memoryRuntimeEventKind(operation),
+      componentKind: operation === "policy_update" ? "memory_policy" : "memory_write",
+      workflowNodeId: memoryWorkflowNodeId(operation),
+      payloadSchemaVersion: schemaVersion,
+      status: "completed",
+      payload,
+      receiptRefs,
+      policyDecisionKind: operation,
+    });
+    return {
+      ...mutation,
+      ...result,
+      record,
+      policy,
+      receipt,
+      operation,
+    };
+  }
+
+  function appendThreadMemoryControlEvent(store, {
+    threadId,
+    agent,
+    request,
+    controlKind,
+    sourceEventKind,
+    eventKind,
+    componentKind,
+    workflowNodeId,
+    payloadSchemaVersion,
+    status,
+    payload,
+    receiptRefs,
+    policyDecisionRefs,
+    policyDecisionKind = "read",
+  }) {
+    const thread = store.threadForAgent(agent);
+    const turnId =
+      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(thread.latest_turn_id) ??
+      "";
+    const source = operatorControlSource(request.source);
+    const graphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const nodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      workflowNodeId;
+    const eventHash = doctorHash(`${threadId}:${controlKind}:${JSON.stringify(payload)}:${Date.now()}`).slice(0, 12);
+    const resolvedReceiptRefs = normalizeArray(receiptRefs).length
+      ? normalizeArray(receiptRefs)
+      : [`receipt_memory_${safeId(controlKind)}_${eventHash}`];
+    const resolvedPolicyDecisionRefs = normalizeArray(policyDecisionRefs).length
+      ? normalizeArray(policyDecisionRefs)
+      : [`policy_memory_${safeId(controlKind)}_${safeId(policyDecisionKind)}_${eventHash}`];
+    const event = store.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:memory:${safeId(controlKind)}:${eventHash}`,
+      idempotency_key:
+        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+        `thread:${threadId}:memory:${controlKind}:${eventHash}`,
+      source,
+      source_event_kind: sourceEventKind,
+      event_kind: eventKind,
+      status,
+      actor: "operator",
+      workspace_root: agent.cwd,
+      workflow_graph_id: graphId,
+      workflow_node_id: nodeId,
+      component_kind: componentKind,
+      payload_schema_version: payloadSchemaVersion,
+      payload_summary: payload,
+      receipt_refs: resolvedReceiptRefs,
+      policy_decision_refs: resolvedPolicyDecisionRefs,
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    const result = {
+      ...payload,
+      event,
+      receipt_refs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+    };
+    const updatedAgent = { ...agent, updatedAt: event.created_at };
+    store.agents.set(agent.id, updatedAgent);
+    store.writeAgent(updatedAgent, `thread.${controlKind}`);
+    return result;
+  }
+
   return {
+    appendThreadMemoryControlEvent,
+    deleteMemoryForAgentId,
+    deleteMemoryForThread,
+    deleteMemoryRecord,
     listMemoryForAgent,
     listMemoryForThread,
     memoryPathForAgent,
@@ -128,8 +489,17 @@ export function createThreadMemoryState({
     memoryPolicyForThread,
     memoryProjectionForContext,
     memoryStatus,
+    recordThreadMemoryMutation,
+    recordThreadMemoryStatus,
+    rememberForAgent,
+    rememberForAgentId,
+    rememberForThread,
     setMemoryPolicyForAgent,
     setMemoryPolicyForThread,
+    updateMemoryForAgentId,
+    updateMemoryForThread,
+    updateMemoryRecord,
+    validateThreadMemory,
     validateMemory,
   };
 }
