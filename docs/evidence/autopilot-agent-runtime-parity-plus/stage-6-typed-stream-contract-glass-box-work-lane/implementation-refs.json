@@ -1,9 +1,0 @@
-{
-  "schemaVersion": "ioi.agent-runtime-parity-plus.implementation_refs.v1",
-  "refs": [
-    {"path":"crates/node/src/runtime_bridge_events.rs","lines":"6,346,515-540,665-814","summary":"Adds daemon-owned product event projection schema, source-ref extraction, product/trace visibility, and tests proving safe payload_summary boundaries."},
-    {"path":"crates/node/src/bin/ioi-runtime-bridge.rs","lines":"2083-2108,3173-3185","summary":"Attaches the same safe payload_summary projection to bridge-authored turn/browser events and asserts the bridge event constructor contract."},
-    {"path":"apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-event-utils.js","lines":"1-173","summary":"Existing GUI consumes typed runtime events and derives tool kind/detail without owning runtime semantics."},
-    {"path":"apps/autopilot/openvscode-extension/ioi-workbench/studio-work-summary.js","lines":"1-303","summary":"Existing GUI summary renderer keeps collapsed work minimal and builds expanded work rows from daemon-projected runtime state."}
-  ]
-}

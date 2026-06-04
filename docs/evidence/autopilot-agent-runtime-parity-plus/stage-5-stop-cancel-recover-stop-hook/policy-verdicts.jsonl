@@ -1,3 +1,0 @@
-{"policy":"default_permissions","operation":"control_thread.pause","verdict":"allowed_daemon_lifecycle_control","notes":"Lifecycle control is daemon-owned and persisted through service pause@v1."}
-{"policy":"default_permissions","operation":"control_thread.cancel","verdict":"allowed_daemon_lifecycle_control","notes":"Lifecycle control is daemon-owned and persisted through service cancel@v1."}
-{"policy":"completion_gate","operation":"chat__reply_after_failed_validation","verdict":"blocked","errorClass":"StopHookBlocked","notes":"Stop hook keeps agent running and returns typed model-loop feedback instead of product terminalization."}

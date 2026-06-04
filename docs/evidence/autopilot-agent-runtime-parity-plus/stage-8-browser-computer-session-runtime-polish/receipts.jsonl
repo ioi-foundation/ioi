@@ -1,3 +1,0 @@
-{"schemaVersion":"ioi.agent-runtime-parity-plus.receipt.v1","stage":8,"receiptType":"test","command":"cargo test -p ioi-services managed_session_snapshot --lib -- --nocapture","result":"passed","testsPassed":3,"elapsedSeconds":0.39}
-{"schemaVersion":"ioi.agent-runtime-parity-plus.receipt.v1","stage":8,"receiptType":"test","command":"cargo test -p ioi-node --features local-mode --bin ioi-runtime-bridge managed_browser_session -- --nocapture","result":"passed","testsPassed":1,"elapsedSeconds":0.62}
-{"schemaVersion":"ioi.agent-runtime-parity-plus.receipt.v1","stage":8,"receiptType":"build","command":"cargo build -p ioi-node --features local-mode --bin ioi-runtime-bridge","result":"passed","elapsedSeconds":0.39}

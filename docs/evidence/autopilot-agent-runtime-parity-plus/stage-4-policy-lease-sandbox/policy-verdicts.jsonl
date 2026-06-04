@@ -1,4 +1,0 @@
-{"schemaVersion":"ioi.agent-runtime-parity-plus.policy-verdicts.v1","verdict":"supporting_pass","check":"runtime_control_policy_maps_yolo_to_allow_all","result":"full access maps to allow_all policy"}
-{"schemaVersion":"ioi.agent-runtime-parity-plus.policy-verdicts.v1","verdict":"supporting_pass","check":"runtime_control_policy_maps_default_permissions_to_safe_policy","result":"auto-review selector persists require_approval safe policy with auto_review provenance"}
-{"schemaVersion":"ioi.agent-runtime-parity-plus.policy-verdicts.v1","verdict":"supporting_pass","check":"workspace_filesystem_boundary_classifies_absolute_escape_as_outside_workspace","result":"absolute path escape classified outside workspace"}
-{"schemaVersion":"ioi.agent-runtime-parity-plus.policy-verdicts.v1","verdict":"supporting_pass","check":"workspace_filesystem_policy_adds_repo_scoped_read_and_write_rules","result":"repo-scoped filesystem read/write rules are added"}

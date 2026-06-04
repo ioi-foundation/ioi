@@ -1,8 +1,0 @@
-{
-  "schemaVersion": "ioi.agent-runtime-parity-plus.cleanup-proof.v1",
-  "stage": 4,
-  "commands": [
-    "rm -rf /tmp/ioi-agent-runtime-policy-lease.*"
-  ],
-  "result": "Disposable bridge workspace and state directory removed after inspection."
-}

@@ -1,4 +1,0 @@
-{"kind":"runtime_control","operation":"pause","status":"blocked","receipt":"control_thread.pause persisted blocked runtime status"}
-{"kind":"runtime_control","operation":"cancel","status":"canceled","receipt":"control_thread.cancel persisted canceled runtime status"}
-{"kind":"inspection","operation":"inspect_thread","status":"canceled","receipt":"inspect_thread exposed runtime_state and stop_hooks through bridge contract"}
-{"kind":"completion_gate","operation":"chat__reply","status":"blocked","receipt":"stop_hook_completion_blocked=true; error_class=StopHookBlocked"}

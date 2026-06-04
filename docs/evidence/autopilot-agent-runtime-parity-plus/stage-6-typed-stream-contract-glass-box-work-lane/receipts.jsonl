@@ -1,2 +1,0 @@
-{"kind":"event_projection_contract","status":"passed","summary":"Every replayed event includes product_projection_schema_version, payload_detail_visibility=runs_tracing, and payload_summary.schema_version."}
-{"kind":"product_boundary_leak_scan","status":"passed","summary":"payload_summary leak scan found no kernel_event, session_id, receipt_ref, receiptRefs, request_hash, or model_hash."}

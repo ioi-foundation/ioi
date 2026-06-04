@@ -1,6 +1,0 @@
-{
-  "schemaVersion": "ioi.agent-runtime-parity-plus.side-effects.v1",
-  "stage": 4,
-  "workspaceFixture": "not present before probe",
-  "dataFixture": "not present before probe"
-}

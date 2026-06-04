@@ -319,6 +319,7 @@ Status: `model-mounting.mjs` still owns state-machine behavior, route persistenc
 - Kept public/product names stable: Agent Studio command ids, `ioi.*` command ids, data-testids, daemon routes, and request/response envelopes were not renamed.
 - Treat the Stage 8 manual-auth handoff fixture as managed-session/operator-control and reconnect coverage only. It is intentionally not a real login, credential, CAPTCHA, payment, or approval-policy proof; future auth durability should use a separate local HTTP auth fixture with cookie/session behavior.
 - Added `internal-docs/prompts` to `.gitignore` and removed tracked prompt files from the next tree so local prompt material stays out of `master`.
+- Removed generated `docs/evidence/` artifacts from the tracked tree while keeping the ignored local evidence directory available for reruns.
 - Introduced private/module-level names that describe ownership boundaries:
   - `public-text-sanitizer`
   - `studio/projection-managed-sessions`

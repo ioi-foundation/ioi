@@ -1,1 +1,0 @@
-{"schema_version":"ioi.runtime.bridge.command.v1","bridge_id":"stage6-bridge","operation":"start_thread","input":{"thread_id":"thread_stage6_stream_contract","workspace_root":"/tmp/ioi-stage6-workspace.z3pLy1","request":{"goal":"Stage 6 typed stream contract proof","max_steps":4},"options":{"permissionMode":"default_permissions"}}}
