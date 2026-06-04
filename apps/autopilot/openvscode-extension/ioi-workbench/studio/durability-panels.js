@@ -224,6 +224,142 @@ function createStudioDurabilityPanels({
     };
   }
 
+  async function exerciseStudioTrajectoryReplayReconnect(output, payload = {}) {
+    const studioRuntimeProjection = getStudioRuntimeProjection();
+    const phase = payload?.phase === "reconnect" ? "reconnect" : "create";
+    const contextSnapshot = buildWorkspaceActionContext(`studio-trajectory-replay-${phase}`);
+    let threadId = text(payload?.threadId || payload?.thread_id, "");
+    let sideEffectWriteAttempted = false;
+    if (!threadId) {
+      const workspace = workspaceSummary();
+      const thread = await requestJson(daemonEndpoint(), "/v1/threads", {
+        method: "POST",
+        token: daemonRequestToken(),
+        payload: {
+          source: "agent_studio_trajectory_replay_reconnect",
+          goal: "Prove Agent Studio can reload daemon-owned trajectory state without duplicating side effects.",
+          options: {
+            local: { cwd: workspace.path },
+            model: { id: studioRuntimeProjection.selectedModel || "auto", routeId: studioRuntimeProjection.modelRoute || "route.local-first" },
+          },
+        },
+      });
+      threadId = thread.thread_id || thread.threadId || thread.id;
+    }
+    if (!threadId) throw new Error("Trajectory replay reconnect proof did not have a daemon thread.");
+    studioRuntimeProjection.threadId = threadId;
+
+    if (phase === "create") {
+      sideEffectWriteAttempted = true;
+      await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory`, {
+        method: "POST",
+        token: daemonRequestToken(),
+        payload: {
+          source: "agent_studio_trajectory_replay_reconnect",
+          text: "Trajectory replay proof side effect. This record must exist exactly once after GUI reconnect.",
+          memoryKey: STUDIO_TRAJECTORY_REPLAY_SIDE_EFFECT_KEY,
+          scope: "thread",
+          workflowGraphId: "workflow.agent-studio.trajectory-replay",
+          workflowNodeId: "runtime.trajectory-replay.side-effect",
+        },
+      });
+    }
+
+    const memoryProjection = await requestJson(daemonEndpoint(), `/v1/threads/${encodeURIComponent(threadId)}/memory`, {
+      method: "GET",
+      token: daemonRequestToken(),
+    });
+    const events = await fetchStudioThreadEvents(threadId, output, {
+      sinceSeq: 0,
+      timeoutMs: 2500,
+    });
+    const replayCursor = studioMaxRuntimeEventSeq(events);
+    const eventsSinceCursor = await fetchStudioThreadEvents(threadId, output, {
+      sinceSeq: replayCursor,
+      timeoutMs: 800,
+    });
+    const panel = studioTrajectoryReplayPanelFromProjection({
+      phase,
+      threadId,
+      expectedThreadId: text(payload?.expectedThreadId || payload?.expected_thread_id, ""),
+      events,
+      eventsSinceCursor,
+      memoryProjection,
+      expectedReplayIds: array(payload?.expectedReplayIds || payload?.expected_replay_ids),
+      replayCursor,
+    });
+    studioRuntimeProjection.trajectoryReplayPanels.push(panel);
+    if (phase === "reconnect") {
+      studioRuntimeProjection.engineReconnectBanners.push({
+        id: "trajectory-replay.engine-reconnect",
+        kind: "engine.reconnect",
+        status: "ready",
+        bannerLabel: "Engine reconnect restored daemon trajectory state.",
+        composerFrozen: false,
+        receiptRefs: panel.receiptRefs,
+      });
+    }
+    studioRuntimeProjection.replaySteps = panel.rows.map((row) => ({
+      id: row.id,
+      kind: row.kind,
+      status: row.status,
+      summary: row.summary,
+    }));
+    studioRuntimeProjection.runtimeCockpit.replayStepDetailObserved =
+      studioRuntimeProjection.replaySteps.length > 0;
+    studioRuntimeProjection.runtimeCockpit.receiptTimelinePerStepObserved =
+      panel.receiptRefs.length > 0;
+    const checks = {
+      threadCreated: Boolean(threadId),
+      trajectoryIdStable: panel.trajectoryIdStable,
+      replayCursorObserved: panel.replayCursorObserved,
+      replayRowsObserved: panel.rows.length > 0,
+      replayIdsStable: panel.replayIdsStable,
+      replayFromCursorEmpty: panel.replayFromCursorEmpty,
+      sideEffectRecordedOnce: panel.sideEffectCount === 1,
+      duplicateSideEffectsAbsent: panel.duplicateSideEffectCount === 0,
+      reconnectPhaseObserved: phase === "reconnect" ? panel.guiReconnected : true,
+    };
+    const passed = Object.values(checks).every(Boolean);
+    await writeBridgeRequest("studio.trajectoryReplayReconnect.exercised", {
+      sourceCommand: "ioi.studio.exerciseTrajectoryReplayReconnect",
+      runtimeAuthority: "daemon-owned",
+      projectionOwner: "openvscode-workbench-adapter",
+      ownsRuntimeState: false,
+      phase,
+      threadId,
+      passed,
+      checks,
+      replayCursor,
+      replayIds: panel.replayIds,
+      eventCount: events.length,
+      eventsSinceCursorCount: eventsSinceCursor.length,
+      sideEffectRecordCount: panel.sideEffectCount,
+      duplicateSideEffectCount: panel.duplicateSideEffectCount,
+      sideEffectWriteAttempted,
+    }, contextSnapshot).catch((error) => {
+      output.appendLine(`[ioi-studio] trajectory replay reconnect bridge request unavailable: ${error?.message || String(error)}`);
+    });
+    return {
+      passed,
+      phase,
+      threadId,
+      replayCursor,
+      replayIds: panel.replayIds,
+      eventCount: events.length,
+      eventsSinceCursorCount: eventsSinceCursor.length,
+      checks,
+      panel: {
+        status: panel.status,
+        sideEffectCount: panel.sideEffectCount,
+        duplicateSideEffectCount: panel.duplicateSideEffectCount,
+        replayRows: panel.rows.length,
+        replayIdsStable: panel.replayIdsStable,
+        guiReconnected: panel.guiReconnected,
+      },
+    };
+  }
+
   async function exerciseStudioSessionBrainLifecycle(output) {
     const studioRuntimeProjection = getStudioRuntimeProjection();
     const workspace = workspaceSummary();
@@ -403,6 +539,7 @@ function createStudioDurabilityPanels({
 
   return {
     exerciseStudioSessionBrainLifecycle,
+    exerciseStudioTrajectoryReplayReconnect,
     studioMemoryRecordReceiptRefs,
     studioSessionBrainArtifactKind,
     studioSessionBrainPanelFromProjection,

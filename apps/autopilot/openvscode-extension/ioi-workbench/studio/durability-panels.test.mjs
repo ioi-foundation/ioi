@@ -245,3 +245,70 @@ test("session brain lifecycle orchestration preserves daemon envelopes and bridg
   assert.equal(bridgeRequests[0][1].replayCursor, 7);
   assert.equal(bridgeRequests[0][2].source, "studio-session-brain-lifecycle");
 });
+
+test("trajectory replay lifecycle orchestration records one side effect and bridge proof", async () => {
+  const requests = [];
+  const bridgeRequests = [];
+  const projection = {
+    selectedModel: "auto",
+    modelRoute: "route.local-first",
+    trajectoryReplayPanels: [],
+    engineReconnectBanners: [],
+    replaySteps: [],
+    runtimeCockpit: {},
+  };
+  const lifecycle = createStudioDurabilityPanels({
+    buildWorkspaceActionContext: (source) => ({ source }),
+    daemonEndpoint: () => "http://daemon.local",
+    daemonRequestToken: () => "token-one",
+    fetchStudioThreadEvents: async (_threadId, _output, options = {}) =>
+      options.sinceSeq > 0
+        ? []
+        : [
+            { seq: 1, kind: "thread.started", status: "observed", receiptRefs: ["receipt-thread"] },
+            { seq: 2, kind: "memory.write", status: "observed", receiptRefs: ["receipt-memory"] },
+          ],
+    firstArray,
+    getStudioRuntimeProjection: () => projection,
+    normalizeReceiptRefs,
+    requestJson: async (endpoint, route, options = {}) => {
+      requests.push({ endpoint, route, options });
+      if (route === "/v1/threads") return { id: "thread-one" };
+      if (route.endsWith("/memory") && options.method === "GET") {
+        return {
+          records: [{ memoryKey: STUDIO_TRAJECTORY_REPLAY_SIDE_EFFECT_KEY }],
+        };
+      }
+      return { receiptRefs: [`receipt-${requests.length}`] };
+    },
+    stringValue,
+    studioMaxRuntimeEventSeq: (events) => Math.max(...events.map((event) => event.seq || 0)),
+    studioRuntimeEventKind: (event = {}) => stringValue(event.kind || event.type, "runtime.event"),
+    uniqueStrings,
+    workspaceSummary: () => ({ path: "/workspace/project" }),
+    workspacePath: () => "/workspace/project",
+    writeBridgeRequest: async (...args) => bridgeRequests.push(args),
+  });
+
+  const proof = await lifecycle.exerciseStudioTrajectoryReplayReconnect({ appendLine() {} });
+
+  assert.equal(proof.passed, true);
+  assert.equal(proof.phase, "create");
+  assert.equal(projection.threadId, "thread-one");
+  assert.equal(projection.trajectoryReplayPanels.length, 1);
+  assert.equal(projection.engineReconnectBanners.length, 0);
+  assert.equal(projection.replaySteps.length, 2);
+  assert.equal(projection.runtimeCockpit.replayStepDetailObserved, true);
+  assert.equal(projection.runtimeCockpit.receiptTimelinePerStepObserved, true);
+  assert.equal(requests[0].route, "/v1/threads");
+  assert.equal(requests[0].options.payload.source, "agent_studio_trajectory_replay_reconnect");
+  assert.equal(requests[0].options.payload.options.local.cwd, "/workspace/project");
+  const sideEffectRequest = requests.find((request) => request.route.endsWith("/memory") && request.options.method === "POST");
+  assert.equal(sideEffectRequest.options.payload.memoryKey, STUDIO_TRAJECTORY_REPLAY_SIDE_EFFECT_KEY);
+  assert.equal(bridgeRequests[0][0], "studio.trajectoryReplayReconnect.exercised");
+  assert.equal(bridgeRequests[0][1].passed, true);
+  assert.equal(bridgeRequests[0][1].sideEffectWriteAttempted, true);
+  assert.equal(bridgeRequests[0][1].sideEffectRecordCount, 1);
+  assert.equal(bridgeRequests[0][1].replayCursor, 2);
+  assert.equal(bridgeRequests[0][2].source, "studio-trajectory-replay-create");
+});
