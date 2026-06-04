@@ -149,6 +149,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/diagnostics-repair-execution.mjs`.
 - Moved diagnostics repair execution result projection, operator override approval shaping, restore-apply approval/conflict/status/policy-ref helpers, and restore-apply summary text out of `index.mjs` behind dependency-injected helper exports.
 - Added focused diagnostics repair execution tests for approval/conflict policy refs and public snake/camel retry and operator-override envelopes.
+- Added `packages/runtime-daemon/src/diagnostics-repair-policy.mjs`.
+- Moved diagnostics repair policy config normalization, repair context shaping, rollback repair policy decision construction, and diagnostics/restore policy normalization out of `index.mjs` behind dependency-injected helper exports.
+- Added focused diagnostics repair policy tests for config aliases, context envelopes, rollback refs, decision defaults, and policy decision refs.
 - Added `packages/runtime-daemon/src/runtime-usage-events.mjs`.
 - Moved runtime bridge usage-delta insertion, usage delta payload shaping, context-pressure delta/alert payload shaping, and context pressure rounding/status helpers out of `index.mjs` behind dependency-injected helper exports.
 - Added focused runtime usage event tests for telemetry aliases, context-pressure alert actions, insertion order after `turn.started`, and public event kinds.
