@@ -150,7 +150,6 @@ export function removeQuietFile(filePath) {
 export function writeAgentRecord(store, agent, operationKind, deps = {}) {
   const { writeJson } = deps;
   writeJson(store.pathFor("agents", `${agent.id}.json`), agent);
-  store.appendOperation(operationKind, { objectId: agent.id, agent });
 }
 
 export function writeSubagentRecord(store, subagent, operationKind, deps = {}) {
@@ -169,14 +168,6 @@ export function writeSubagentRecord(store, subagent, operationKind, deps = {}) {
   }
   store.subagents.set(String(subagentId), subagent);
   writeJson(store.pathFor("subagents", `${subagentId}.json`), subagent);
-  store.appendOperation(operationKind, {
-    objectId: subagentId,
-    subagentId,
-    parentThreadId: subagent.parent_thread_id ?? subagent.parentThreadId ?? null,
-    agentId: subagent.agent_id ?? subagent.agentId ?? null,
-    status: subagent.status ?? subagent.lifecycle_status ?? null,
-    role: subagent.role ?? null,
-  });
 }
 
 export function writeRunRecord(store, run, operationKind, deps = {}) {

@@ -879,11 +879,18 @@ function runReceipts() {
   const threadStore = exists("packages/runtime-daemon/src/threads/thread-store.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-store.mjs")
     : "";
+  const threadPersistence = exists("packages/runtime-daemon/src/threads/thread-persistence.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-persistence.mjs")
+    : "";
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
   const modelMountingConstructorArgs =
     runtimeDaemonIndex.match(/this\.modelMounting = new ModelMountingState\(\{[\s\S]*?\n    \}\);/)?.[0] ?? "";
+  const writeAgentRecordBody =
+    threadPersistence.match(/export function writeAgentRecord[\s\S]*?\n}\n/)?.[0] ?? "";
+  const writeSubagentRecordBody =
+    threadPersistence.match(/export function writeSubagentRecord[\s\S]*?\n}\n/)?.[0] ?? "";
   const modelMountReceiptWriteGuards = exists("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
     : "";
@@ -1477,6 +1484,25 @@ function runReceipts() {
       "packages/runtime-daemon/src/threads/thread-store.test.mjs",
     ],
     "Phase 5/11 is pending: agent deletion must not append a duplicate daemon-local operation record outside the guarded deletion state transition",
+  );
+  assertCheck(
+    result,
+    "thread-agent-subagent-operation-append-retired",
+    /writeAgentRecord/.test(writeAgentRecordBody) &&
+      /writeSubagentRecord/.test(writeSubagentRecordBody) &&
+      !/\bappendOperation\b/.test(writeAgentRecordBody) &&
+      !/\bappendOperation\b/.test(writeSubagentRecordBody) &&
+      /thread persistence writes agent records without operation entries/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /thread persistence writes subagent records without operation entries/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/threads/thread-persistence.mjs",
+      "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
+    ],
+    "Phase 5/11 is pending: agent and subagent persistence must not append duplicate daemon-local operation records outside their persisted state records",
   );
   assertCheck(
     result,

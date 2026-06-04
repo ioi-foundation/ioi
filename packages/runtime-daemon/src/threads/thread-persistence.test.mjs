@@ -81,19 +81,17 @@ test("thread persistence counts terminal events", () => {
   );
 });
 
-test("thread persistence writes agent records and operation entries", () => {
+test("thread persistence writes agent records without operation entries", () => {
   const store = fakeStore();
   const agent = { id: "agent_1", status: "active" };
 
   writeAgentRecord(store, agent, "agent.create", deps(store));
 
   assert.deepEqual(store.writes, [{ filePath: "agents/agent_1.json", value: agent }]);
-  assert.deepEqual(store.operations, [
-    { kind: "agent.create", payload: { objectId: "agent_1", agent } },
-  ]);
+  assert.deepEqual(store.operations, []);
 });
 
-test("thread persistence writes subagent records and summarized operation entries", () => {
+test("thread persistence writes subagent records without operation entries", () => {
   const store = fakeStore();
   const subagent = {
     subagentId: "subagent_1",
@@ -107,19 +105,7 @@ test("thread persistence writes subagent records and summarized operation entrie
 
   assert.equal(store.subagents.get("subagent_1"), subagent);
   assert.deepEqual(store.writes, [{ filePath: "subagents/subagent_1.json", value: subagent }]);
-  assert.deepEqual(store.operations, [
-    {
-      kind: "subagent.spawn",
-      payload: {
-        objectId: "subagent_1",
-        subagentId: "subagent_1",
-        parentThreadId: "thread_1",
-        agentId: "agent_1",
-        status: "running",
-        role: "research",
-      },
-    },
-  ]);
+  assert.deepEqual(store.operations, []);
 });
 
 test("thread persistence rejects subagent records without stable ids", () => {
