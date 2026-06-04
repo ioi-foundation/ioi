@@ -45,7 +45,8 @@ use evidence::ReceiptManifestKind;
 use invocation::ToolInvocationEnvelope;
 use marketplace::{MarketplaceAdmissionError, MarketplaceServiceContract};
 use model_mount::{
-    ModelMountCore, ModelMountError, ModelMountInvocationAdmissionRecord,
+    ModelMountCore, ModelMountError, ModelMountInstanceLifecycleRequest,
+    ModelMountInstanceLifecycleResult, ModelMountInvocationAdmissionRecord,
     ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRecord,
     ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
     ModelMountProviderInventoryResult, ModelMountProviderInvocationRequest,
@@ -162,6 +163,13 @@ impl RuntimeKernelService {
         request: &ModelMountProviderInventoryRequest,
     ) -> Result<ModelMountProviderInventoryResult, ModelMountError> {
         ModelMountCore.plan_provider_inventory(request)
+    }
+
+    pub fn plan_model_mount_instance_lifecycle(
+        &self,
+        request: &ModelMountInstanceLifecycleRequest,
+    ) -> Result<ModelMountInstanceLifecycleResult, ModelMountError> {
+        ModelMountCore.plan_instance_lifecycle(request)
     }
 
     pub fn admit_model_mount_provider_result(

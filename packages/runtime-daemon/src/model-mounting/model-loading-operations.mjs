@@ -1,3 +1,5 @@
+import { RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND } from "./model-mount-admission-runner.mjs";
+
 export async function loadModel(state, body = {}, deps = {}) {
   const {
     defaultBackendForProvider,
@@ -60,8 +62,21 @@ export async function loadModel(state, body = {}, deps = {}) {
     body: { ...body, loadOptions, load_policy: loadPolicy },
   });
   const now = state.nowIso();
+  const instanceId = body.id ?? `instance.${safeId(endpoint.id)}.${Date.now()}`;
+  const instanceLifecycle = planModelMountInstanceLifecycleForMigratedProvider({
+    state,
+    action: "load",
+    targetStatus: "loaded",
+    instanceId,
+    endpoint,
+    provider,
+    backendId: driverResult.backendId ?? backendId,
+    driver: driverNameForProvider(provider),
+    providerLifecycleHash: driverResult.lifecycleHash,
+    evidenceRefs: driverResult.evidenceRefs ?? [],
+  });
   const instance = {
-    id: body.id ?? `instance.${safeId(endpoint.id)}.${Date.now()}`,
+    id: instanceId,
     endpointId: endpoint.id,
     providerId: endpoint.providerId,
     modelId: endpoint.modelId,
@@ -87,6 +102,9 @@ export async function loadModel(state, body = {}, deps = {}) {
     workflowScope: body.workflow_scope ?? body.workflowScope ?? null,
     agentScope: body.agent_scope ?? body.agentScope ?? null,
     providerEvidenceRefs: driverResult.evidenceRefs ?? [],
+    providerLifecycleHash: driverResult.lifecycleHash ?? null,
+    modelMountInstanceLifecycleHash: instanceLifecycle?.instance_lifecycle_hash ?? null,
+    modelMountInstanceLifecycleEvidenceRefs: instanceLifecycle?.evidence_refs ?? [],
   };
   state.instances.set(instance.id, instance);
   state.supersedeLoadedInstances(endpoint.id, instance.id);
@@ -102,6 +120,9 @@ export async function loadModel(state, body = {}, deps = {}) {
     loadOptions,
     estimate: instance.estimate,
     providerEvidenceRefs: driverResult.evidenceRefs ?? [],
+    providerLifecycleHash: driverResult.lifecycleHash ?? null,
+    modelMountInstanceLifecycleHash: instanceLifecycle?.instance_lifecycle_hash ?? null,
+    modelMountInstanceLifecycleEvidenceRefs: instanceLifecycle?.evidence_refs ?? [],
     backendProcess: driverResult.process ?? null,
     commandArgsHash: driverResult.commandArgsHash ?? null,
   });
@@ -144,11 +165,26 @@ export async function unloadModel(state, body = {}, deps = {}) {
   const endpoint = state.endpoint(instance.endpointId);
   const provider = state.provider(instance.providerId);
   const driverResult = await state.driverForProvider(provider).unload({ state, provider, endpoint, instance, body });
+  const instanceLifecycle = planModelMountInstanceLifecycleForMigratedProvider({
+    state,
+    action: "unload",
+    targetStatus: "unloaded",
+    instanceId: instance.id,
+    endpoint,
+    provider,
+    backendId: driverResult.backendId ?? instance.backendId ?? endpoint.backendId,
+    driver: driverResult.driver ?? instance.driver ?? deps.driverNameForProvider?.(provider) ?? provider.driver ?? "fixture",
+    providerLifecycleHash: driverResult.lifecycleHash,
+    evidenceRefs: driverResult.evidenceRefs ?? [],
+  });
   const updated = {
     ...instance,
     status: "unloaded",
     unloadedAt: state.nowIso(),
     providerEvidenceRefs: driverResult.evidenceRefs ?? instance.providerEvidenceRefs ?? [],
+    providerLifecycleHash: driverResult.lifecycleHash ?? instance.providerLifecycleHash ?? null,
+    modelMountInstanceLifecycleHash: instanceLifecycle?.instance_lifecycle_hash ?? null,
+    modelMountInstanceLifecycleEvidenceRefs: instanceLifecycle?.evidence_refs ?? [],
   };
   state.instances.set(instance.id, updated);
   state.writeMap("model-instances", state.instances);
@@ -158,7 +194,86 @@ export async function unloadModel(state, body = {}, deps = {}) {
     modelId: instance.modelId,
     providerId: instance.providerId,
     providerEvidenceRefs: driverResult.evidenceRefs ?? [],
+    providerLifecycleHash: driverResult.lifecycleHash ?? null,
+    modelMountInstanceLifecycleHash: instanceLifecycle?.instance_lifecycle_hash ?? null,
+    modelMountInstanceLifecycleEvidenceRefs: instanceLifecycle?.evidence_refs ?? [],
     backendProcess: driverResult.process ?? null,
   });
   return updated;
+}
+
+function planModelMountInstanceLifecycleForMigratedProvider({
+  state,
+  action,
+  targetStatus,
+  instanceId,
+  endpoint,
+  provider,
+  backendId,
+  driver,
+  providerLifecycleHash,
+  evidenceRefs = [],
+}) {
+  if (!modelMountInstanceLifecycleRequiresRust(provider)) return null;
+  if (!providerLifecycleHash) {
+    const error = new Error("Model instance lifecycle transition requires a Rust provider lifecycle hash.");
+    error.status = 502;
+    error.code = "model_mount_instance_lifecycle_provider_hash_required";
+    error.details = { action, providerId: provider?.id ?? null };
+    throw error;
+  }
+  if (typeof state.planModelMountInstanceLifecycle !== "function") {
+    const error = new Error("Model instance lifecycle transition requires Rust model_mount planning.");
+    error.status = 502;
+    error.code = "model_mount_instance_lifecycle_planning_required";
+    error.details = { action, providerId: provider?.id ?? null };
+    throw error;
+  }
+  return requireModelMountInstanceLifecycleResult(state.planModelMountInstanceLifecycle({
+    schema_version: "ioi.model_mount.instance_lifecycle.v1",
+    instance_ref: instanceId,
+    endpoint_ref: endpoint.id,
+    model_ref: endpoint.modelId,
+    provider_ref: provider.id,
+    action,
+    target_status: targetStatus,
+    execution_backend: RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
+    backend_ref: backendId,
+    driver,
+    provider_lifecycle_hash: providerLifecycleHash,
+    evidence_refs: normalizeRefs(evidenceRefs),
+  }), { action, targetStatus, backendId, driver, providerLifecycleHash });
+}
+
+function modelMountInstanceLifecycleRequiresRust(provider) {
+  return provider?.kind === "ioi_native_local" || provider?.kind === "local_folder";
+}
+
+function requireModelMountInstanceLifecycleResult(value, {
+  action,
+  targetStatus,
+  backendId,
+  driver,
+  providerLifecycleHash,
+}) {
+  if (
+    !value ||
+    value.status !== targetStatus ||
+    value.backendId !== backendId ||
+    value.driver !== driver ||
+    value.executionBackend !== RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND ||
+    value.providerLifecycleHash !== providerLifecycleHash ||
+    !value.instance_lifecycle_hash
+  ) {
+    const error = new Error("Model instance lifecycle transition requires a Rust model_mount instance lifecycle result.");
+    error.status = 502;
+    error.code = "model_mount_instance_lifecycle_planning_required";
+    error.details = { action, targetStatus, backendId, driver };
+    throw error;
+  }
+  return value;
+}
+
+function normalizeRefs(values = []) {
+  return [...new Set((Array.isArray(values) ? values : []).map((value) => String(value).trim()).filter(Boolean))];
 }

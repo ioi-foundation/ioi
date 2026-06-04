@@ -37,6 +37,7 @@ function fakeState() {
     providerRecord: provider,
     receipts: [],
     superseded: [],
+    transitionRequests: [],
     writes: [],
     now: "2026-06-04T00:00:00.000Z",
     driverCalls: [],
@@ -49,6 +50,7 @@ function fakeState() {
             backendId: "backend.native",
             estimate: { fromDriver: true },
             evidenceRefs: ["driver.load"],
+            lifecycleHash: "sha256:provider-load",
             process: { id: "process.1", pidHash: "pid.hash" },
             commandArgsHash: "args.hash",
           };
@@ -57,6 +59,7 @@ function fakeState() {
           this.driverCalls.push(["unload", instance.id]);
           return {
             evidenceRefs: ["driver.unload"],
+            lifecycleHash: "sha256:provider-unload",
             process: { id: "process.1" },
           };
         },
@@ -80,6 +83,22 @@ function fakeState() {
       const receipt = { id: `receipt.${kind}.${this.receipts.length + 1}`, kind, details };
       this.receipts.push(receipt);
       return receipt;
+    },
+    planModelMountInstanceLifecycle(request) {
+      this.transitionRequests.push(request);
+      return {
+        status: request.target_status,
+        backendId: request.backend_ref,
+        driver: request.driver,
+        executionBackend: request.execution_backend,
+        providerLifecycleHash: request.provider_lifecycle_hash,
+        instance_lifecycle_hash: `sha256:${request.action}:${request.instance_ref}`,
+        evidence_refs: [
+          "rust_model_mount_instance_lifecycle",
+          "rust_model_mount_provider_lifecycle_bound",
+          ...request.evidence_refs,
+        ],
+      };
     },
     loadEstimate(endpointRecord, loadOptions, runtimePreference) {
       return loadEstimate(this, endpointRecord, loadOptions, runtimePreference, deps);
@@ -195,11 +214,18 @@ test("loadModel persists loaded instance, supersedes previous instances, and rec
   assert.equal(instance.runtimeEngineId, "engine.native");
   assert.equal(instance.backendProcessId, "process.1");
   assert.deepEqual(instance.providerEvidenceRefs, ["driver.load"]);
+  assert.equal(instance.providerLifecycleHash, "sha256:provider-load");
+  assert.equal(instance.modelMountInstanceLifecycleHash, "sha256:load:instance.explicit");
+  assert.ok(instance.modelMountInstanceLifecycleEvidenceRefs.includes("rust_model_mount_instance_lifecycle"));
   assert.equal(state.instances.get(instance.id), instance);
   assert.deepEqual(state.superseded, [["endpoint.local.llama", "instance.explicit"]]);
   assert.equal(state.writes.at(-1)[0], "model-instances");
   assert.equal(state.receipts.at(-1).kind, "model_load");
   assert.equal(state.receipts.at(-1).details.commandArgsHash, "args.hash");
+  assert.equal(state.receipts.at(-1).details.providerLifecycleHash, "sha256:provider-load");
+  assert.equal(state.receipts.at(-1).details.modelMountInstanceLifecycleHash, "sha256:load:instance.explicit");
+  assert.equal(state.transitionRequests.at(-1).action, "load");
+  assert.equal(state.transitionRequests.at(-1).provider_lifecycle_hash, "sha256:provider-load");
 });
 
 test("loadEstimate derives native resource estimate and backend defaults", () => {
@@ -237,8 +263,27 @@ test("unloadModel updates loaded instance and records provider evidence", async 
   assert.equal(result.status, "unloaded");
   assert.equal(result.unloadedAt, state.now);
   assert.deepEqual(result.providerEvidenceRefs, ["driver.unload"]);
+  assert.equal(result.providerLifecycleHash, "sha256:provider-unload");
+  assert.equal(result.modelMountInstanceLifecycleHash, "sha256:unload:instance.loaded");
   assert.equal(state.instances.get("instance.loaded"), result);
   assert.equal(state.writes.at(-1)[0], "model-instances");
   assert.equal(state.receipts.at(-1).kind, "model_unload");
   assert.equal(state.receipts.at(-1).details.backendProcess.id, "process.1");
+  assert.equal(state.receipts.at(-1).details.providerLifecycleHash, "sha256:provider-unload");
+  assert.equal(state.receipts.at(-1).details.modelMountInstanceLifecycleHash, "sha256:unload:instance.loaded");
+  assert.equal(state.transitionRequests.at(-1).action, "unload");
+});
+
+test("loadModel fails closed for migrated local provider without Rust instance lifecycle plan", async () => {
+  const state = fakeState();
+  state.planModelMountInstanceLifecycle = () => ({ status: "loaded" });
+
+  await assert.rejects(
+    () => loadModel(state, { endpoint_id: "endpoint.local.llama", id: "instance.fail" }, deps),
+    (error) => error.code === "model_mount_instance_lifecycle_planning_required",
+  );
+
+  assert.equal(state.instances.has("instance.fail"), false);
+  assert.equal(state.writes.length, 0);
+  assert.equal(state.receipts.length, 0);
 });

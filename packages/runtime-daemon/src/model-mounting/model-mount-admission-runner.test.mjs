@@ -168,6 +168,23 @@ function providerInventoryRequest() {
   };
 }
 
+function instanceLifecycleRequest() {
+  return {
+    schema_version: "ioi.model_mount.instance_lifecycle.v1",
+    instance_ref: "model_instance://native/qwen3",
+    endpoint_ref: "endpoint.native-local",
+    model_ref: "model://qwen/qwen3.5-9b",
+    provider_ref: "provider.autopilot.local",
+    action: "load",
+    target_status: "loaded",
+    execution_backend: "rust_model_mount_instance_lifecycle",
+    backend_ref: "backend.autopilot.native-local.fixture",
+    driver: "native_local",
+    provider_lifecycle_hash: "sha256:provider-lifecycle",
+    evidence_refs: ["rust_model_mount_provider_lifecycle"],
+  };
+}
+
 function providerResultRequest() {
   return {
     schema_version: "ioi.model_mount.provider_result.v1",
@@ -554,6 +571,55 @@ test("Rust model_mount admission runner sends local provider inventory bridge re
   assert.deepEqual(result.itemRefs, ["model_instance://native/qwen3"]);
   assert.equal(result.itemCount, 1);
   assert.equal(result.inventory_hash, "sha256:inventory");
+});
+
+test("Rust model_mount admission runner sends model instance lifecycle bridge request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_instance_lifecycle_command",
+            backend: "rust_model_mount_instance_lifecycle",
+            result: {
+              ...request.request,
+              status: "loaded",
+              backend_id: "backend.autopilot.native-local.fixture",
+              instance_lifecycle_hash: "sha256:instance-lifecycle",
+              evidence_refs: ["rust_model_mount_instance_lifecycle"],
+            },
+            status: "loaded",
+            backendId: "backend.autopilot.native-local.fixture",
+            driver: "native_local",
+            execution_backend: "rust_model_mount_instance_lifecycle",
+            providerLifecycleHash: "sha256:provider-lifecycle",
+            instance_lifecycle_hash: "sha256:instance-lifecycle",
+            evidence_refs: ["rust_model_mount_instance_lifecycle"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planInstanceLifecycle(instanceLifecycleRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_instance_lifecycle");
+  assert.equal(calls[0].request.backend, "rust_model_mount_instance_lifecycle");
+  assert.equal(calls[0].request.request.action, "load");
+  assert.equal(result.status, "loaded");
+  assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
+  assert.equal(result.executionBackend, "rust_model_mount_instance_lifecycle");
+  assert.equal(result.providerLifecycleHash, "sha256:provider-lifecycle");
+  assert.equal(result.instance_lifecycle_hash, "sha256:instance-lifecycle");
 });
 
 test("Rust model_mount admission runner sends provider result admission bridge request", () => {

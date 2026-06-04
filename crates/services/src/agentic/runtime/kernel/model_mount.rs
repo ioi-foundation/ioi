@@ -14,6 +14,8 @@ pub const MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_lifecycle.v1";
 pub const MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_inventory.v1";
+pub const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION: &str =
+    "ioi.model_mount.instance_lifecycle.v1";
 pub const MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION: &str = "ioi.model_mount.provider_result.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,6 +39,9 @@ pub enum ModelMountError {
     UnsupportedProviderLifecycleBackend,
     UnsupportedProviderInventoryAction,
     UnsupportedProviderInventoryBackend,
+    UnsupportedInstanceLifecycleAction,
+    UnsupportedInstanceLifecycleBackend,
+    InstanceLifecycleStatusMismatch,
     StreamProviderInvocationUnsupported,
     UnresolvedAutoModel,
     PrivateWorkspaceMissingCustodyRef,
@@ -447,6 +452,40 @@ pub struct ModelMountProviderInventoryResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelMountInstanceLifecycleRequest {
+    pub schema_version: String,
+    pub instance_ref: String,
+    pub endpoint_ref: String,
+    pub model_ref: String,
+    pub provider_ref: String,
+    pub action: String,
+    pub target_status: String,
+    pub execution_backend: String,
+    pub backend_ref: String,
+    pub driver: String,
+    pub provider_lifecycle_hash: String,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelMountInstanceLifecycleResult {
+    pub schema_version: String,
+    pub instance_ref: String,
+    pub endpoint_ref: String,
+    pub model_ref: String,
+    pub provider_ref: String,
+    pub action: String,
+    pub status: String,
+    pub backend_id: String,
+    pub driver: String,
+    pub execution_backend: String,
+    pub provider_lifecycle_hash: String,
+    pub evidence_refs: Vec<String>,
+    pub instance_lifecycle_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelMountProviderResultAdmissionRequest {
     pub schema_version: String,
     pub provider_execution_ref: String,
@@ -787,6 +826,30 @@ impl ModelMountCore {
             inventory_hash: String::new(),
         };
         result.inventory_hash = provider_inventory_hash(&result)?;
+        Ok(result)
+    }
+
+    pub fn plan_instance_lifecycle(
+        &self,
+        request: &ModelMountInstanceLifecycleRequest,
+    ) -> Result<ModelMountInstanceLifecycleResult, ModelMountError> {
+        request.validate()?;
+        let mut result = ModelMountInstanceLifecycleResult {
+            schema_version: MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION.to_string(),
+            instance_ref: request.instance_ref.clone(),
+            endpoint_ref: request.endpoint_ref.clone(),
+            model_ref: request.model_ref.clone(),
+            provider_ref: request.provider_ref.clone(),
+            action: request.action.clone(),
+            status: request.target_status.clone(),
+            backend_id: request.backend_ref.clone(),
+            driver: request.driver.clone(),
+            execution_backend: request.execution_backend.clone(),
+            provider_lifecycle_hash: request.provider_lifecycle_hash.clone(),
+            evidence_refs: instance_lifecycle_evidence_refs(request),
+            instance_lifecycle_hash: String::new(),
+        };
+        result.instance_lifecycle_hash = instance_lifecycle_hash(&result)?;
         Ok(result)
     }
 
@@ -1140,6 +1203,36 @@ impl ModelMountProviderInventoryRequest {
             require_non_empty("item_refs[]", item_ref)?;
         }
         Ok(())
+    }
+}
+
+impl ModelMountInstanceLifecycleRequest {
+    pub fn validate(&self) -> Result<(), ModelMountError> {
+        if self.schema_version != MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION {
+            return Err(ModelMountError::InvalidSchemaVersion {
+                expected: MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("instance_ref", &self.instance_ref)?;
+        require_non_empty("endpoint_ref", &self.endpoint_ref)?;
+        require_non_empty("model_ref", &self.model_ref)?;
+        require_non_empty("provider_ref", &self.provider_ref)?;
+        require_non_empty("action", &self.action)?;
+        require_non_empty("target_status", &self.target_status)?;
+        require_non_empty("execution_backend", &self.execution_backend)?;
+        require_non_empty("backend_ref", &self.backend_ref)?;
+        require_non_empty("driver", &self.driver)?;
+        require_non_empty("provider_lifecycle_hash", &self.provider_lifecycle_hash)?;
+        if self.execution_backend.trim() != "rust_model_mount_instance_lifecycle" {
+            return Err(ModelMountError::UnsupportedInstanceLifecycleBackend);
+        }
+        match self.action.trim() {
+            "load" if self.target_status.trim() == "loaded" => Ok(()),
+            "unload" if self.target_status.trim() == "unloaded" => Ok(()),
+            "load" | "unload" => Err(ModelMountError::InstanceLifecycleStatusMismatch),
+            _ => Err(ModelMountError::UnsupportedInstanceLifecycleAction),
+        }
     }
 }
 
@@ -1652,6 +1745,18 @@ fn provider_inventory_evidence_refs(request: &ModelMountProviderInventoryRequest
     refs
 }
 
+fn instance_lifecycle_evidence_refs(request: &ModelMountInstanceLifecycleRequest) -> Vec<String> {
+    let mut refs = vec![
+        "rust_model_mount_instance_lifecycle".to_string(),
+        "rust_model_mount_provider_lifecycle_bound".to_string(),
+        "agentgres_model_instance_registry_planned".to_string(),
+    ];
+    for evidence_ref in &request.evidence_refs {
+        push_unique_ref(&mut refs, evidence_ref);
+    }
+    refs
+}
+
 fn push_unique_ref(refs: &mut Vec<String>, value: &str) {
     let value = value.trim();
     if !value.is_empty() && !refs.iter().any(|existing| existing == value) {
@@ -1747,6 +1852,16 @@ fn provider_inventory_hash(
 ) -> Result<String, ModelMountError> {
     let mut canonical = result.clone();
     canonical.inventory_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn instance_lifecycle_hash(
+    result: &ModelMountInstanceLifecycleResult,
+) -> Result<String, ModelMountError> {
+    let mut canonical = result.clone();
+    canonical.instance_lifecycle_hash.clear();
     let bytes = serde_json::to_vec(&canonical)
         .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
@@ -1985,6 +2100,23 @@ mod tests {
             provider_status: Some("configured".to_string()),
             item_refs: vec!["model://fixture/qwen3".to_string()],
             evidence_refs: vec!["daemon_fixture_list_models_request".to_string()],
+        }
+    }
+
+    fn instance_lifecycle_request() -> ModelMountInstanceLifecycleRequest {
+        ModelMountInstanceLifecycleRequest {
+            schema_version: MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION.to_string(),
+            instance_ref: "model_instance://native/qwen3".to_string(),
+            endpoint_ref: "endpoint://ioi-native-local/qwen3".to_string(),
+            model_ref: "model://qwen/qwen3.5-9b".to_string(),
+            provider_ref: "provider://ioi-native-local".to_string(),
+            action: "load".to_string(),
+            target_status: "loaded".to_string(),
+            execution_backend: "rust_model_mount_instance_lifecycle".to_string(),
+            backend_ref: "backend.autopilot.native-local.fixture".to_string(),
+            driver: "native_local".to_string(),
+            provider_lifecycle_hash: "sha256:provider-lifecycle".to_string(),
+            evidence_refs: vec!["rust_model_mount_provider_lifecycle".to_string()],
         }
     }
 
@@ -2597,6 +2729,80 @@ mod tests {
             .expect_err("inventory planner only supports explicit listing actions");
 
         assert_eq!(error, ModelMountError::UnsupportedProviderInventoryAction);
+    }
+
+    #[test]
+    fn model_instance_lifecycle_is_planned_in_rust_model_mount() {
+        let result = ModelMountCore
+            .plan_instance_lifecycle(&instance_lifecycle_request())
+            .expect("model instance lifecycle planned in Rust");
+
+        assert_eq!(
+            result.schema_version,
+            MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION
+        );
+        assert_eq!(result.action, "load");
+        assert_eq!(result.status, "loaded");
+        assert_eq!(result.backend_id, "backend.autopilot.native-local.fixture");
+        assert_eq!(result.driver, "native_local");
+        assert_eq!(
+            result.execution_backend,
+            "rust_model_mount_instance_lifecycle"
+        );
+        assert_eq!(result.provider_lifecycle_hash, "sha256:provider-lifecycle");
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_instance_lifecycle".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_provider_lifecycle_bound".to_string()));
+        assert!(result.instance_lifecycle_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn model_instance_unload_lifecycle_is_planned_in_rust_model_mount() {
+        let mut request = instance_lifecycle_request();
+        request.action = "unload".to_string();
+        request.target_status = "unloaded".to_string();
+        request.evidence_refs = vec!["rust_model_mount_fixture_lifecycle_backend".to_string()];
+
+        let result = ModelMountCore
+            .plan_instance_lifecycle(&request)
+            .expect("model instance unload lifecycle planned in Rust");
+
+        assert_eq!(result.action, "unload");
+        assert_eq!(result.status, "unloaded");
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_fixture_lifecycle_backend".to_string()));
+    }
+
+    #[test]
+    fn model_instance_lifecycle_rejects_js_backend_and_status_drift() {
+        let mut request = instance_lifecycle_request();
+        request.execution_backend = "daemon_js".to_string();
+
+        let error = ModelMountCore
+            .plan_instance_lifecycle(&request)
+            .expect_err("instance lifecycle planner must reject JS backend");
+
+        assert_eq!(error, ModelMountError::UnsupportedInstanceLifecycleBackend);
+
+        request = instance_lifecycle_request();
+        request.target_status = "unloaded".to_string();
+        let error = ModelMountCore
+            .plan_instance_lifecycle(&request)
+            .expect_err("load action must bind the loaded target status");
+
+        assert_eq!(error, ModelMountError::InstanceLifecycleStatusMismatch);
+
+        request = instance_lifecycle_request();
+        request.action = "restart".to_string();
+        let error = ModelMountCore
+            .plan_instance_lifecycle(&request)
+            .expect_err("instance lifecycle planner only supports load/unload");
+
+        assert_eq!(error, ModelMountError::UnsupportedInstanceLifecycleAction);
     }
 
     #[test]

@@ -7,6 +7,7 @@ export const RUST_MODEL_MOUNT_ADMISSION_BACKEND = "rust_model_mount_live";
 export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
 export const RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND = "rust_model_mount_fixture_inventory";
 export const RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND = "rust_model_mount_fixture_lifecycle";
+export const RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND = "rust_model_mount_instance_lifecycle";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_local";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND = "rust_model_mount_native_local_inventory";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND = "rust_model_mount_native_local_lifecycle";
@@ -96,6 +97,16 @@ export class RustModelMountAdmissionRunner {
       request,
     };
     return normalizeProviderInventoryBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
+  planInstanceLifecycle(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_instance_lifecycle",
+      backend: request?.execution_backend ?? RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
+      request,
+    };
+    return normalizeInstanceLifecycleBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
   admitProviderResult(request) {
@@ -329,6 +340,25 @@ function normalizeProviderInventoryBridgeResult(value = {}) {
     itemRefs,
     itemCount: result.itemCount ?? result.item_count ?? record.item_count ?? itemRefs.length,
     inventory_hash: result.inventory_hash ?? record.inventory_hash ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+    backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+  };
+}
+
+function normalizeInstanceLifecycleBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.result && typeof result.result === "object" ? result.result : {};
+  return {
+    source: result.source ?? "rust_model_mount_instance_lifecycle_command",
+    backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
+    result: record,
+    status: result.status ?? record.status ?? null,
+    backendId: result.backendId ?? result.backend_id ?? record.backend_id ?? null,
+    driver: result.driver ?? record.driver ?? null,
+    executionBackend: result.execution_backend ?? record.execution_backend ?? null,
+    providerLifecycleHash:
+      result.providerLifecycleHash ?? result.provider_lifecycle_hash ?? record.provider_lifecycle_hash ?? null,
+    instance_lifecycle_hash: result.instance_lifecycle_hash ?? record.instance_lifecycle_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
     backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
   };

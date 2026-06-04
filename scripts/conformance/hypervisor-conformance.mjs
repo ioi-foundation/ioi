@@ -644,6 +644,40 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-instance-lifecycle-live-bridge",
+    /plan_model_mount_instance_lifecycle/.test(bridgeModule) &&
+      /ModelMountInstanceLifecycleRequest/.test(bridgeModule) &&
+      /bridge_plans_model_mount_instance_lifecycle_through_rust_core/.test(bridgeModule) &&
+      /planInstanceLifecycle/.test(modelMountAdmissionRunner) &&
+      /rust_model_mount_instance_lifecycle_command/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND/.test(modelMountAdmissionRunner) &&
+      /planModelMountInstanceLifecycle/.test(modelMountingState) &&
+      /planModelMountInstanceLifecycleForMigratedProvider/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
+      ) &&
+      /state\.planModelMountInstanceLifecycle/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
+      ) &&
+      /model_mount_instance_lifecycle_planning_required/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
+      ) &&
+      /modelMountInstanceLifecycleHash/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
+      ) &&
+      /fails closed for migrated local provider without Rust instance lifecycle plan/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
+      ),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+    ],
+    "Phase 9/10 is pending: migrated local provider model load/unload instance transitions must be planned and hash-bound by Rust model_mount before JS writes model-instance state",
+  );
+  assertCheck(
+    result,
     "model-mount-local-provider-direct-invoke-retired",
     /model_mount_local_provider_direct_invoke_retired/.test(providerLocalDrivers) &&
       !/deterministicOutput/.test(providerLocalDrivers) &&
@@ -1016,6 +1050,38 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
     "Phase 9/10 is pending: Rust model_mount core must own local provider model/list-loaded inventory backend, evidence, and hash planning",
+  );
+  assertCheck(
+    result,
+    "model-mount-instance-lifecycle-core",
+    exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      /MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountInstanceLifecycleRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /UnsupportedInstanceLifecycleBackend/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /InstanceLifecycleStatusMismatch/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /plan_instance_lifecycle/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /rust_model_mount_instance_lifecycle/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /instance_lifecycle_evidence_refs/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /plan_model_mount_instance_lifecycle/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+    ],
+    "Phase 9/10 is pending: Rust model_mount core must own migrated local provider model-instance load/unload transition backend, evidence, provider lifecycle hash binding, and transition hash planning",
   );
   assertCheck(
     result,
