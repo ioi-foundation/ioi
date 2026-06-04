@@ -36,6 +36,7 @@ const { createAutopilotModeController } = require("./workbench/mode-controller")
 const { createWorkbenchModeBodyRenderers } = require("./workbench/mode-body-renderers");
 const { formatBytes, modelSnapshotFromState } = require("./workbench/model-snapshot");
 const { createWorkbenchOverviewPanelRenderer } = require("./workbench/overview-panel");
+const { createWorkbenchPanelLifecycle } = require("./workbench/panel-lifecycle");
 const { createAutopilotShellHeader } = require("./workbench/shell-header");
 const { createWorkflowComposerPanelRenderer } = require("./workbench/workflow-composer-panel");
 const {
@@ -178,7 +179,6 @@ const autopilotModeController = createAutopilotModeController({
   vscode,
 });
 let studioModelInvocationToken = null;
-const modeVisibilityProjectionLastAtMs = new Map();
 const MODE_VISIBILITY_REQUEST_TYPES = {
   home: "overview.open",
   studio: "studio.open",
@@ -7651,21 +7651,6 @@ function openWorkflowComposerPanel(context, output, options = {}) {
   return workflowComposerPanel;
 }
 
-function closePrimarySidebarAfterActivityLaunch() {
-  for (const delayMs of [125, 350, 800, 1400]) {
-    setTimeout(() => {
-      void vscode.commands
-        .executeCommand("workbench.action.closeSidebar")
-        .catch((error) => {
-          console.error(
-            "[IOI Workbench] Failed to close activity launcher sidebar:",
-            error,
-          );
-        });
-    }, delayMs);
-  }
-}
-
 function updateOverviewPanelHtml(state) {
   if (!overviewPanel) {
     return;
@@ -7678,180 +7663,6 @@ function updateOverviewPanelHtml(state) {
   overviewPanel.webview.html = html;
 }
 
-function writeModeVisibilityProjection(modeId, output, reason = "panel-visible") {
-  const requestType = MODE_VISIBILITY_REQUEST_TYPES[modeId];
-  const mode = AUTOPILOT_MODE_BY_ID[modeId];
-  if (!requestType || !mode) {
-    return;
-  }
-  const now = Date.now();
-  const lastAt = modeVisibilityProjectionLastAtMs.get(modeId) || 0;
-  if (now - lastAt < 450) {
-    return;
-  }
-  modeVisibilityProjectionLastAtMs.set(modeId, now);
-  const actionContext = buildWorkspaceActionContext(`${modeId}-${reason}`);
-  void writeBridgeRequest(requestType, {
-    workspaceRoot: workspaceSummary().path,
-    sourceCommand: mode.command,
-    source: reason,
-    phase: mode.phase,
-    runtimeAuthority: "daemon-owned",
-    projectionOwner: "openvscode-workbench-adapter",
-    ownsRuntimeState: false,
-  }, actionContext).catch((error) => {
-    output?.appendLine?.(
-      `[ioi-${modeId}] visible projection unavailable: ${error?.message || String(error)}`,
-    );
-  });
-}
-
-function registerModePanelVisibilityProjection(panel, modeId, output) {
-  const disposable = panel.onDidChangeViewState((event) => {
-    if (event.webviewPanel.active) {
-      writeModeVisibilityProjection(modeId, output);
-    }
-  });
-  panel.onDidDispose(() => {
-    disposable.dispose();
-  });
-}
-
-class IOIViewProvider {
-  constructor(definition, getState) {
-    this.definition = definition;
-    this.getState = getState;
-    this.webviewView = null;
-    this.lastRenderedHtml = null;
-    this.primaryOpenInFlight = false;
-    this.lastPrimaryOpenAtMs = 0;
-  }
-
-  resolveWebviewView(webviewView) {
-    this.webviewView = webviewView;
-    this.lastRenderedHtml = null;
-    webviewView.webview.options = {
-      enableScripts: true,
-      enableForms: true,
-    };
-    void this.render();
-    this.maybeAutoOpenPrimarySurface();
-    webviewView.webview.onDidReceiveMessage(async (message) => {
-      if (
-        message?.type === "bridgeRequest" &&
-        typeof message.requestType === "string"
-      ) {
-        await writeBridgeRequest(
-          message.requestType,
-          message.payload || {},
-          buildWorkspaceActionContext("ioi.chat"),
-        );
-        return;
-      }
-      if (message?.type !== "command" || typeof message.command !== "string") {
-        return;
-      }
-      await vscode.commands.executeCommand(message.command, message.payload);
-    });
-    const visibilityDisposable = webviewView.onDidChangeVisibility(() => {
-      if (webviewView.visible) {
-        this.maybeAutoOpenPrimarySurface();
-      }
-    });
-    webviewView.onDidDispose(() => {
-      visibilityDisposable.dispose();
-      this.webviewView = null;
-    });
-  }
-
-  maybeAutoOpenPrimarySurface() {
-    const mode = AUTOPILOT_MODE_BY_VIEW_ID[this.definition.id];
-    const primarySurface = mode
-      ? {
-          command: mode.command,
-          payload: {
-            source: "activitybar",
-            phase: mode.phase,
-          },
-        }
-      : null;
-    if (!primarySurface) {
-      return;
-    }
-    const now = Date.now();
-    if (this.primaryOpenInFlight || now - this.lastPrimaryOpenAtMs < 800) {
-      return;
-    }
-    this.primaryOpenInFlight = true;
-    this.lastPrimaryOpenAtMs = now;
-    setTimeout(() => {
-      void (async () => {
-        try {
-          closePrimarySidebarAfterActivityLaunch();
-          await vscode.commands.executeCommand(
-            primarySurface.command,
-            primarySurface.payload,
-          );
-          closePrimarySidebarAfterActivityLaunch();
-        } catch (error) {
-          console.error(
-            "[IOI Workbench] Failed to auto-open primary activity surface:",
-            error,
-          );
-        } finally {
-          this.primaryOpenInFlight = false;
-        }
-      })();
-    }, 0);
-  }
-
-  async render() {
-    if (!this.webviewView) {
-      return;
-    }
-    const state = await this.getState();
-    await syncWorkbenchAppearance(state);
-    const html = renderHtml(this.definition, state);
-    if (html === this.lastRenderedHtml) {
-      return;
-    }
-    this.lastRenderedHtml = html;
-    this.webviewView.webview.html = html;
-  }
-}
-
-let lastAppliedColorTheme = null;
-
-async function syncWorkbenchAppearance(state) {
-  const colorTheme = state?.appearance?.openVsCodeColorTheme;
-  if (typeof colorTheme !== "string" || !colorTheme.trim()) {
-    return;
-  }
-  const normalized = colorTheme.trim();
-  if (normalized === lastAppliedColorTheme) {
-    return;
-  }
-  lastAppliedColorTheme = normalized;
-  try {
-    await vscode.workspace
-      .getConfiguration("workbench")
-      .update("colorTheme", normalized, vscode.ConfigurationTarget.Global);
-  } catch (error) {
-    console.error("[IOI Workbench] Failed to apply bridge appearance:", error);
-  }
-}
-
-function watchBridgeState(onChange) {
-  const handle = setInterval(() => {
-    void onChange();
-  }, 2_000);
-  return {
-    dispose() {
-      clearInterval(handle);
-    },
-  };
-}
-
 const {
   pickPayloadString,
   runDaemonModelCatalogDownload,
@@ -7862,6 +7673,23 @@ const {
   daemonEndpoint,
   daemonToken,
   requestJson,
+});
+
+const {
+  IOIViewProvider,
+  closePrimarySidebarAfterActivityLaunch,
+  registerModePanelVisibilityProjection,
+  syncWorkbenchAppearance,
+  watchBridgeState,
+} = createWorkbenchPanelLifecycle({
+  AUTOPILOT_MODE_BY_ID,
+  AUTOPILOT_MODE_BY_VIEW_ID,
+  MODE_VISIBILITY_REQUEST_TYPES,
+  buildWorkspaceActionContext,
+  renderHtml,
+  vscode,
+  workspaceSummary,
+  writeBridgeRequest,
 });
 
 function registerNativeCommands(context, output) {

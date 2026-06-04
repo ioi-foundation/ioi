@@ -174,6 +174,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js`.
 - Moved daemon model workbench/catalog action helpers and payload string alias handling out of `extension.js` into the model command adapter boundary while preserving model command route paths, daemon-owned envelopes, download policy gating, and endpoint fail-closed behavior.
 - Added focused model-daemon action tests for estimate/load/unload route shaping, catalog search/provider/download payloads, source-url validation, and missing daemon endpoint handling.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/panel-lifecycle.js`.
+- Moved workbench panel lifecycle helpers for activity sidebar closing, mode visibility bridge projection, webview view provider rendering/message forwarding, appearance sync, and bridge-state polling out of `extension.js` while preserving daemon-owned bridge envelopes, auto-open timing, and command dispatch behavior.
+- Added focused panel-lifecycle tests for visibility projection throttling, listener disposal, theme update de-duping, bridge polling disposal, webview message forwarding, and primary-surface auto-open.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
