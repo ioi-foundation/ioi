@@ -95,6 +95,29 @@ function mockModelMountAdmissionRunner() {
         backendEvidenceRefs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
       };
     },
+    planProviderLifecycle(request) {
+      return {
+        source: "rust_model_mount_provider_lifecycle_command",
+        backend: "rust_model_mount_native_local_lifecycle",
+        result: {
+          ...request,
+          status: request.action === "load" ? "loaded" : "unloaded",
+          backend: "autopilot.native_local.fixture",
+          backend_id: "backend.autopilot.native-local.fixture",
+          driver: "native_local",
+          lifecycle_hash: "sha256:provider-lifecycle-test",
+          evidence_refs: ["rust_model_mount_provider_lifecycle"],
+        },
+        status: request.action === "load" ? "loaded" : "unloaded",
+        backendId: "backend.autopilot.native-local.fixture",
+        providerBackend: "autopilot.native_local.fixture",
+        driver: "native_local",
+        executionBackend: "rust_model_mount_native_local_lifecycle",
+        lifecycle_hash: "sha256:provider-lifecycle-test",
+        evidence_refs: ["rust_model_mount_provider_lifecycle"],
+        backendEvidenceRefs: ["rust_model_mount_provider_lifecycle"],
+      };
+    },
     admitProviderResult(request) {
       return {
         source: "rust_model_mount_provider_result_command",

@@ -136,6 +136,23 @@ function providerStreamInvocationRequest() {
   };
 }
 
+function providerLifecycleRequest() {
+  return {
+    schema_version: "ioi.model_mount.provider_lifecycle.v1",
+    provider_ref: "provider.autopilot.local",
+    provider_kind: "ioi_native_local",
+    endpoint_ref: "endpoint.native-local",
+    model_ref: "model.native-local",
+    action: "load",
+    execution_backend: "rust_model_mount_native_local_lifecycle",
+    api_format: "ioi_native",
+    driver: "native_local",
+    backend_ref: "backend.autopilot.native-local.fixture",
+    evidence_refs: ["daemon_native_local_load_request"],
+    process_evidence_refs: ["fake_process"],
+  };
+}
+
 function providerResultRequest() {
   return {
     schema_version: "ioi.model_mount.provider_result.v1",
@@ -415,6 +432,57 @@ test("Rust model_mount admission runner sends native-local provider stream invoc
   assert.equal(result.streamKind, "openai_responses_native_local");
   assert.equal(result.streamChunks.some((chunk) => chunk.includes("\"done\":true")), true);
   assert.equal(result.invocation_hash, "sha256:stream-invocation");
+});
+
+test("Rust model_mount admission runner sends native-local provider lifecycle bridge request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_provider_lifecycle_command",
+            backend: "rust_model_mount_native_local_lifecycle",
+            result: {
+              ...request.request,
+              status: "loaded",
+              backend: "autopilot.native_local.fixture",
+              backend_id: "backend.autopilot.native-local.fixture",
+              driver: "native_local",
+              lifecycle_hash: "sha256:lifecycle",
+              evidence_refs: ["rust_model_mount_provider_lifecycle"],
+            },
+            status: "loaded",
+            backendId: "backend.autopilot.native-local.fixture",
+            providerBackend: "autopilot.native_local.fixture",
+            driver: "native_local",
+            execution_backend: "rust_model_mount_native_local_lifecycle",
+            lifecycle_hash: "sha256:lifecycle",
+            evidence_refs: ["rust_model_mount_provider_lifecycle"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planProviderLifecycle(providerLifecycleRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_provider_lifecycle");
+  assert.equal(calls[0].request.backend, "rust_model_mount_native_local_lifecycle");
+  assert.equal(calls[0].request.request.action, "load");
+  assert.equal(result.status, "loaded");
+  assert.equal(result.providerBackend, "autopilot.native_local.fixture");
+  assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
+  assert.equal(result.executionBackend, "rust_model_mount_native_local_lifecycle");
+  assert.equal(result.lifecycle_hash, "sha256:lifecycle");
 });
 
 test("Rust model_mount admission runner sends provider result admission bridge request", () => {

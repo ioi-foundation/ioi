@@ -6,6 +6,7 @@ export const MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION = "ioi.step_module.com
 export const RUST_MODEL_MOUNT_ADMISSION_BACKEND = "rust_model_mount_live";
 export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_local";
+export const RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND = "rust_model_mount_native_local_lifecycle";
 
 export function createModelMountAdmissionRunnerFromEnv(env = process.env, options = {}) {
   return new RustModelMountAdmissionRunner({
@@ -72,6 +73,16 @@ export class RustModelMountAdmissionRunner {
       request,
     };
     return normalizeProviderStreamInvocationBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
+  planProviderLifecycle(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_provider_lifecycle",
+      backend: request?.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
+      request,
+    };
+    return normalizeProviderLifecycleBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
   admitProviderResult(request) {
@@ -260,6 +271,24 @@ function normalizeProviderStreamInvocationBridgeResult(value = {}) {
     provider_execution_ref: result.provider_execution_ref ?? record.provider_execution_ref ?? null,
     provider_execution_hash: result.provider_execution_hash ?? record.provider_execution_hash ?? null,
     invocation_hash: result.invocation_hash ?? record.invocation_hash ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+    backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+  };
+}
+
+function normalizeProviderLifecycleBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.result && typeof result.result === "object" ? result.result : {};
+  return {
+    source: result.source ?? "rust_model_mount_provider_lifecycle_command",
+    backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
+    result: record,
+    status: result.status ?? record.status ?? null,
+    backendId: result.backendId ?? result.backend_id ?? record.backend_id ?? null,
+    providerBackend: result.providerBackend ?? result.provider_backend ?? record.backend ?? null,
+    driver: result.driver ?? record.driver ?? null,
+    executionBackend: result.execution_backend ?? record.execution_backend ?? null,
+    lifecycle_hash: result.lifecycle_hash ?? record.lifecycle_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
     backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
   };

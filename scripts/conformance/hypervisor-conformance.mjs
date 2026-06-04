@@ -582,6 +582,29 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-native-local-lifecycle-live-bridge",
+    /plan_model_mount_provider_lifecycle/.test(bridgeModule) &&
+      /ModelMountProviderLifecycleRequest/.test(bridgeModule) &&
+      /bridge_plans_native_local_model_mount_provider_lifecycle_through_rust_core/.test(bridgeModule) &&
+      /planProviderLifecycle/.test(modelMountAdmissionRunner) &&
+      /rust_model_mount_provider_lifecycle_command/.test(modelMountAdmissionRunner) &&
+      /planModelMountProviderLifecycle/.test(modelMountingState) &&
+      /nativeLocalLifecycleRequest/.test(providerLocalDrivers) &&
+      /RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND/.test(providerLocalDrivers) &&
+      /state\.planModelMountProviderLifecycle/.test(providerLocalDrivers) &&
+      /model_mount_provider_lifecycle_planning_required/.test(providerLocalDrivers) &&
+      /rust_model_mount_provider_lifecycle/.test(read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs")),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+    ],
+    "Phase 9/10 is pending: native-local load/unload lifecycle envelopes must be planned by Rust model_mount while JS only supervises process state",
+  );
+  assertCheck(
+    result,
     "model-mount-local-provider-direct-invoke-retired",
     /model_mount_local_provider_direct_invoke_retired/.test(providerLocalDrivers) &&
       !/deterministicOutput/.test(providerLocalDrivers) &&
@@ -887,6 +910,35 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 9/10 is pending: Rust model_mount core must own native-local stream output text, chunk planning, evidence, and hash binding",
+  );
+  assertCheck(
+    result,
+    "model-mount-native-local-lifecycle-core",
+    exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      /MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountProviderLifecycleRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /UnsupportedProviderLifecycleBackend/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /plan_provider_lifecycle/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /rust_model_mount_native_local_lifecycle/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /provider_lifecycle_evidence_refs/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /plan_model_mount_provider_lifecycle/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+    ],
+    "Phase 9/10 is pending: Rust model_mount core must own native-local load/unload lifecycle backend, evidence, and hash planning",
   );
   assertCheck(
     result,

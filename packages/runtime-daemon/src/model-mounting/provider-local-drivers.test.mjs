@@ -8,6 +8,7 @@ import {
 
 function fakeNativeState() {
   const logs = [];
+  const lifecycleRequests = [];
   const processRecord = {
     id: "backend_process_native",
     backendId: "backend.autopilot.native-local.fixture",
@@ -17,6 +18,7 @@ function fakeNativeState() {
   };
   return {
     logs,
+    lifecycleRequests,
     getModel(modelId) {
       return {
         id: "artifact.native",
@@ -41,6 +43,23 @@ function fakeNativeState() {
     },
     writeBackendLog(endpointId, event) {
       logs.push({ endpointId, ...event });
+    },
+    planModelMountProviderLifecycle(request) {
+      lifecycleRequests.push(request);
+      return {
+        status: request.action === "load" ? "loaded" : "unloaded",
+        backendId: request.backend_ref,
+        providerBackend: "autopilot.native_local.fixture",
+        driver: "native_local",
+        executionBackend: request.execution_backend,
+        lifecycle_hash: `sha256:${request.action}`,
+        evidence_refs: [
+          "rust_model_mount_provider_lifecycle",
+          "rust_model_mount_native_local_lifecycle_backend",
+          ...request.process_evidence_refs,
+          ...request.evidence_refs,
+        ],
+      };
     },
   };
 }
@@ -90,7 +109,10 @@ test("native-local provider driver keeps load control and retires direct stream 
   const load = await driver.load({ state, endpoint, body: { idle_ttl_seconds: 120 } });
   assert.equal(load.status, "loaded");
   assert.equal(load.backend, "autopilot.native_local.fixture");
-  assert.ok(load.evidenceRefs.includes("deterministic_native_local_fixture"));
+  assert.equal(load.lifecycleHash, "sha256:load");
+  assert.ok(load.evidenceRefs.includes("rust_model_mount_provider_lifecycle"));
+  assert.equal(state.lifecycleRequests.at(-1).execution_backend, "rust_model_mount_native_local_lifecycle");
+  assert.deepEqual(state.lifecycleRequests.at(-1).process_evidence_refs, ["fake_process"]);
   assert.equal(state.logs.at(-1).event, "load");
 
   await assert.rejects(
@@ -104,4 +126,12 @@ test("native-local provider driver keeps load control and retires direct stream 
     (error) => error.code === "model_mount_local_provider_direct_stream_retired",
   );
   assert.equal(state.logs.at(-1).event, "load");
+
+  const unload = await driver.unload({ state, endpoint });
+  assert.equal(unload.status, "unloaded");
+  assert.equal(unload.backendId, "backend.autopilot.native-local.fixture");
+  assert.equal(unload.lifecycleHash, "sha256:unload");
+  assert.ok(unload.evidenceRefs.includes("rust_model_mount_native_local_lifecycle_backend"));
+  assert.equal(state.lifecycleRequests.at(-1).action, "unload");
+  assert.equal(state.logs.at(-1).event, "unload");
 });

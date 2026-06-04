@@ -1052,6 +1052,10 @@ export class ModelMountingState {
     return this.modelMountAdmissionRunner.executeProviderStreamInvocation(request);
   }
 
+  planModelMountProviderLifecycle(request) {
+    return this.modelMountAdmissionRunner.planProviderLifecycle(request);
+  }
+
   admitModelMountProviderResult(request) {
     return this.modelMountAdmissionRunner.admitProviderResult(request);
   }

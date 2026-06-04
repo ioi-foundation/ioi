@@ -3,8 +3,8 @@ use ioi_services::agentic::runtime::kernel::agentgres_admission::{
 };
 use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountCore, ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRequest,
-    ModelMountProviderInvocationRequest, ModelMountProviderResultAdmissionRequest,
-    ModelMountRouteDecisionRequest,
+    ModelMountProviderInvocationRequest, ModelMountProviderLifecycleRequest,
+    ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -111,6 +111,16 @@ struct ModelMountProviderInvocationBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct ModelMountProviderLifecycleBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountProviderLifecycleRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct ModelMountProviderResultAdmissionBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -201,6 +211,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             execute_model_mount_provider_stream_invocation(request)
+        }
+        "plan_model_mount_provider_lifecycle" => {
+            let request: ModelMountProviderLifecycleBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_model_mount_provider_lifecycle(request)
         }
         "admit_model_mount_provider_result" => {
             let request: ModelMountProviderResultAdmissionBridgeRequest =
@@ -492,6 +508,55 @@ fn execute_model_mount_provider_stream_invocation(
         "provider_execution_ref": provider_execution_ref,
         "provider_execution_hash": provider_execution_hash,
         "invocation_hash": invocation_hash,
+        "evidence_refs": evidence_refs,
+    }))
+}
+
+fn plan_model_mount_provider_lifecycle(
+    request: ModelMountProviderLifecycleBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_model_mount_provider_lifecycle" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let result = ModelMountCore
+        .plan_provider_lifecycle(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "model_mount_provider_lifecycle_rejected",
+                format!("{error:?}"),
+            )
+        })?;
+    let status = result.status.clone();
+    let backend = result.backend.clone();
+    let backend_id = result.backend_id.clone();
+    let driver = result.driver.clone();
+    let execution_backend = result.execution_backend.clone();
+    let lifecycle_hash = result.lifecycle_hash.clone();
+    let evidence_refs = result.evidence_refs.clone();
+    Ok(json!({
+        "source": "rust_model_mount_provider_lifecycle_command",
+        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
+        "result": result,
+        "status": status,
+        "backendId": backend_id.clone(),
+        "backend_id": backend_id,
+        "providerBackend": backend.clone(),
+        "provider_backend": backend,
+        "driver": driver,
+        "execution_backend": execution_backend,
+        "lifecycle_hash": lifecycle_hash,
         "evidence_refs": evidence_refs,
     }))
 }
@@ -3483,6 +3548,61 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_model_mount_native_local_stream_backend"));
+    }
+
+    #[test]
+    fn bridge_plans_native_local_model_mount_provider_lifecycle_through_rust_core() {
+        let request: ModelMountProviderLifecycleBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_model_mount_provider_lifecycle",
+            "backend": "rust_model_mount_native_local_lifecycle",
+            "request": {
+                "schema_version": "ioi.model_mount.provider_lifecycle.v1",
+                "provider_ref": "provider.autopilot.local",
+                "provider_kind": "ioi_native_local",
+                "endpoint_ref": "endpoint.native-local",
+                "model_ref": "model://qwen/qwen3.5-9b",
+                "action": "load",
+                "execution_backend": "rust_model_mount_native_local_lifecycle",
+                "api_format": "ioi_native",
+                "driver": "native_local",
+                "backend_ref": "backend.autopilot.native-local.fixture",
+                "evidence_refs": ["daemon_model_load_request"],
+                "process_evidence_refs": ["autopilot_native_local_process_started"]
+            }
+        }))
+        .expect("native-local lifecycle bridge request");
+
+        let response =
+            plan_model_mount_provider_lifecycle(request).expect("lifecycle planned in Rust");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_provider_lifecycle_command"
+        );
+        assert_eq!(
+            response["backend"],
+            "rust_model_mount_native_local_lifecycle"
+        );
+        assert_eq!(response["status"], "loaded");
+        assert_eq!(
+            response["backendId"],
+            "backend.autopilot.native-local.fixture"
+        );
+        assert_eq!(
+            response["providerBackend"],
+            "autopilot.native_local.fixture"
+        );
+        assert_eq!(response["driver"], "native_local");
+        assert!(response["lifecycle_hash"]
+            .as_str()
+            .expect("lifecycle hash")
+            .starts_with("sha256:"));
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_model_mount_native_local_lifecycle_backend"));
     }
 
     #[test]

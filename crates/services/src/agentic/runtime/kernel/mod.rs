@@ -48,7 +48,8 @@ use model_mount::{
     ModelMountCore, ModelMountError, ModelMountInvocationAdmissionRecord,
     ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRecord,
     ModelMountProviderExecutionRequest, ModelMountProviderInvocationRequest,
-    ModelMountProviderInvocationResult, ModelMountProviderResultAdmissionRecord,
+    ModelMountProviderInvocationResult, ModelMountProviderLifecycleRequest,
+    ModelMountProviderLifecycleResult, ModelMountProviderResultAdmissionRecord,
     ModelMountProviderResultAdmissionRequest, ModelMountProviderStreamInvocationResult,
     ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest,
 };
@@ -146,6 +147,13 @@ impl RuntimeKernelService {
         request: &ModelMountProviderInvocationRequest,
     ) -> Result<ModelMountProviderStreamInvocationResult, ModelMountError> {
         ModelMountCore.invoke_provider_stream(request)
+    }
+
+    pub fn plan_model_mount_provider_lifecycle(
+        &self,
+        request: &ModelMountProviderLifecycleRequest,
+    ) -> Result<ModelMountProviderLifecycleResult, ModelMountError> {
+        ModelMountCore.plan_provider_lifecycle(request)
     }
 
     pub fn admit_model_mount_provider_result(

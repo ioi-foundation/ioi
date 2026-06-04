@@ -10,6 +10,8 @@ pub const MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_invocation.v1";
 pub const MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_stream_invocation.v1";
+pub const MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION: &str =
+    "ioi.model_mount.provider_lifecycle.v1";
 pub const MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION: &str = "ioi.model_mount.provider_result.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,6 +31,8 @@ pub enum ModelMountError {
     ProviderResultOutputHashMismatch,
     UnsupportedProviderResultBackend,
     UnsupportedProviderInvocationBackend,
+    UnsupportedProviderLifecycleAction,
+    UnsupportedProviderLifecycleBackend,
     StreamProviderInvocationUnsupported,
     UnresolvedAutoModel,
     PrivateWorkspaceMissingCustodyRef,
@@ -361,6 +365,44 @@ pub struct ModelMountProviderStreamInvocationResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelMountProviderLifecycleRequest {
+    pub schema_version: String,
+    pub provider_ref: String,
+    pub provider_kind: String,
+    pub endpoint_ref: String,
+    pub model_ref: String,
+    pub action: String,
+    pub execution_backend: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_format: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub driver: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_ref: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+    #[serde(default)]
+    pub process_evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelMountProviderLifecycleResult {
+    pub schema_version: String,
+    pub provider_ref: String,
+    pub provider_kind: String,
+    pub endpoint_ref: String,
+    pub model_ref: String,
+    pub action: String,
+    pub status: String,
+    pub backend: String,
+    pub backend_id: String,
+    pub driver: String,
+    pub execution_backend: String,
+    pub evidence_refs: Vec<String>,
+    pub lifecycle_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelMountProviderResultAdmissionRequest {
     pub schema_version: String,
     pub provider_execution_ref: String,
@@ -653,6 +695,36 @@ impl ModelMountCore {
             invocation_hash: String::new(),
         };
         result.invocation_hash = provider_stream_invocation_hash(&result)?;
+        Ok(result)
+    }
+
+    pub fn plan_provider_lifecycle(
+        &self,
+        request: &ModelMountProviderLifecycleRequest,
+    ) -> Result<ModelMountProviderLifecycleResult, ModelMountError> {
+        request.validate()?;
+        let mut result = ModelMountProviderLifecycleResult {
+            schema_version: MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION.to_string(),
+            provider_ref: request.provider_ref.clone(),
+            provider_kind: request.provider_kind.clone(),
+            endpoint_ref: request.endpoint_ref.clone(),
+            model_ref: request.model_ref.clone(),
+            action: request.action.clone(),
+            status: provider_lifecycle_status(&request.action)?,
+            backend: "autopilot.native_local.fixture".to_string(),
+            backend_id: request
+                .backend_ref
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .unwrap_or("backend.autopilot.native-local.fixture")
+                .to_string(),
+            driver: "native_local".to_string(),
+            execution_backend: request.execution_backend.clone(),
+            evidence_refs: provider_lifecycle_evidence_refs(request),
+            lifecycle_hash: String::new(),
+        };
+        result.lifecycle_hash = provider_lifecycle_hash(&result)?;
         Ok(result)
     }
 
@@ -953,6 +1025,33 @@ impl ModelMountProviderInvocationRequest {
     }
 }
 
+impl ModelMountProviderLifecycleRequest {
+    pub fn validate(&self) -> Result<(), ModelMountError> {
+        if self.schema_version != MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION {
+            return Err(ModelMountError::InvalidSchemaVersion {
+                expected: MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("provider_ref", &self.provider_ref)?;
+        require_non_empty("provider_kind", &self.provider_kind)?;
+        require_non_empty("endpoint_ref", &self.endpoint_ref)?;
+        require_non_empty("model_ref", &self.model_ref)?;
+        require_non_empty("action", &self.action)?;
+        require_non_empty("execution_backend", &self.execution_backend)?;
+        if self.model_ref.trim().eq_ignore_ascii_case("auto") {
+            return Err(ModelMountError::UnresolvedAutoModel);
+        }
+        if !matches!(self.action.trim(), "load" | "unload") {
+            return Err(ModelMountError::UnsupportedProviderLifecycleAction);
+        }
+        if !is_native_local_provider_lifecycle_backend(self) {
+            return Err(ModelMountError::UnsupportedProviderLifecycleBackend);
+        }
+        Ok(())
+    }
+}
+
 impl ModelMountProviderResultAdmissionRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION {
@@ -1055,6 +1154,26 @@ fn is_native_local_provider_stream_invocation_backend(
     let api_format = request.api_format.as_deref().unwrap_or("").trim();
     let driver = request.driver.as_deref().unwrap_or("").trim();
     provider_kind == "ioi_native_local" || driver == "native_local" || api_format == "ioi_native"
+}
+
+fn is_native_local_provider_lifecycle_backend(
+    request: &ModelMountProviderLifecycleRequest,
+) -> bool {
+    if request.execution_backend.trim() != "rust_model_mount_native_local_lifecycle" {
+        return false;
+    }
+    let provider_kind = request.provider_kind.trim();
+    let api_format = request.api_format.as_deref().unwrap_or("").trim();
+    let driver = request.driver.as_deref().unwrap_or("").trim();
+    provider_kind == "ioi_native_local" || driver == "native_local" || api_format == "ioi_native"
+}
+
+fn provider_lifecycle_status(action: &str) -> Result<String, ModelMountError> {
+    match action.trim() {
+        "load" => Ok("loaded".to_string()),
+        "unload" => Ok("unloaded".to_string()),
+        _ => Err(ModelMountError::UnsupportedProviderLifecycleAction),
+    }
 }
 
 fn deterministic_provider_output(
@@ -1267,6 +1386,33 @@ fn provider_result_evidence_refs(
     refs
 }
 
+fn provider_lifecycle_evidence_refs(request: &ModelMountProviderLifecycleRequest) -> Vec<String> {
+    let mut refs = vec![
+        "rust_model_mount_provider_lifecycle".to_string(),
+        "rust_model_mount_native_local_lifecycle_backend".to_string(),
+    ];
+    if request.action.trim() == "load" {
+        refs.push("autopilot_native_local_backend_registry".to_string());
+    }
+    refs.push("autopilot_native_local_process_supervisor".to_string());
+    refs.push("deterministic_native_local_fixture".to_string());
+    for evidence_ref in request
+        .process_evidence_refs
+        .iter()
+        .chain(request.evidence_refs.iter())
+    {
+        push_unique_ref(&mut refs, evidence_ref);
+    }
+    refs
+}
+
+fn push_unique_ref(refs: &mut Vec<String>, value: &str) {
+    let value = value.trim();
+    if !value.is_empty() && !refs.iter().any(|existing| existing == value) {
+        refs.push(value.to_string());
+    }
+}
+
 fn validate_receipt_refs(receipt_refs: &[String]) -> Result<(), ModelMountError> {
     if receipt_refs.iter().all(|value| value.trim().is_empty()) {
         return Err(ModelMountError::MissingReceiptRef);
@@ -1335,6 +1481,16 @@ fn provider_stream_invocation_hash(
 ) -> Result<String, ModelMountError> {
     let mut canonical = result.clone();
     canonical.invocation_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn provider_lifecycle_hash(
+    result: &ModelMountProviderLifecycleResult,
+) -> Result<String, ModelMountError> {
+    let mut canonical = result.clone();
+    canonical.lifecycle_hash.clear();
     let bytes = serde_json::to_vec(&canonical)
         .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
@@ -1505,6 +1661,23 @@ mod tests {
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
             admitted_provider_execution: Some(admission),
+        }
+    }
+
+    fn provider_lifecycle_request() -> ModelMountProviderLifecycleRequest {
+        ModelMountProviderLifecycleRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION.to_string(),
+            provider_ref: "provider://ioi-native-local".to_string(),
+            provider_kind: "ioi_native_local".to_string(),
+            endpoint_ref: "endpoint://ioi-native-local/qwen3".to_string(),
+            model_ref: "model://qwen/qwen3.5-9b".to_string(),
+            action: "load".to_string(),
+            execution_backend: "rust_model_mount_native_local_lifecycle".to_string(),
+            api_format: Some("ioi_native".to_string()),
+            driver: Some("native_local".to_string()),
+            backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
+            evidence_refs: vec!["daemon_model_load_request".to_string()],
+            process_evidence_refs: vec!["autopilot_native_local_process_started".to_string()],
         }
     }
 
@@ -1894,6 +2067,77 @@ mod tests {
             .evidence_refs
             .contains(&"rust_model_mount_native_local_stream_backend".to_string()));
         assert!(result.invocation_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn native_local_provider_lifecycle_is_planned_in_rust_model_mount() {
+        let result = ModelMountCore
+            .plan_provider_lifecycle(&provider_lifecycle_request())
+            .expect("native-local provider lifecycle planned in Rust");
+
+        assert_eq!(
+            result.schema_version,
+            MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION
+        );
+        assert_eq!(result.action, "load");
+        assert_eq!(result.status, "loaded");
+        assert_eq!(result.backend, "autopilot.native_local.fixture");
+        assert_eq!(result.backend_id, "backend.autopilot.native-local.fixture");
+        assert_eq!(result.driver, "native_local");
+        assert_eq!(
+            result.execution_backend,
+            "rust_model_mount_native_local_lifecycle"
+        );
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_provider_lifecycle".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_native_local_lifecycle_backend".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"autopilot_native_local_process_started".to_string()));
+        assert!(result.lifecycle_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn native_local_provider_unload_lifecycle_is_planned_in_rust_model_mount() {
+        let mut request = provider_lifecycle_request();
+        request.action = "unload".to_string();
+        request.evidence_refs.clear();
+
+        let result = ModelMountCore
+            .plan_provider_lifecycle(&request)
+            .expect("native-local provider unload lifecycle planned in Rust");
+
+        assert_eq!(result.action, "unload");
+        assert_eq!(result.status, "unloaded");
+        assert!(!result
+            .evidence_refs
+            .contains(&"autopilot_native_local_backend_registry".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"deterministic_native_local_fixture".to_string()));
+    }
+
+    #[test]
+    fn native_local_provider_lifecycle_rejects_unsupported_backend_and_action() {
+        let mut request = provider_lifecycle_request();
+        request.execution_backend = "daemon_js".to_string();
+
+        let error = ModelMountCore
+            .plan_provider_lifecycle(&request)
+            .expect_err("lifecycle planner must reject JS backend");
+
+        assert_eq!(error, ModelMountError::UnsupportedProviderLifecycleBackend);
+
+        request = provider_lifecycle_request();
+        request.action = "restart".to_string();
+        let error = ModelMountCore
+            .plan_provider_lifecycle(&request)
+            .expect_err("lifecycle planner only supports explicit load/unload actions");
+
+        assert_eq!(error, ModelMountError::UnsupportedProviderLifecycleAction);
     }
 
     #[test]
