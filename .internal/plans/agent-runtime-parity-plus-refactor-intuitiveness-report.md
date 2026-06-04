@@ -87,6 +87,7 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/model-selection.js`.
 - Moved Agent Studio product model selection filtering, fixture/external provider gates, reasoning-effort controls, output-token bounds, preferred model selection, Studio model snapshot projection, and mounted-model QuickPick rows out of `extension.js`.
 - Moved product model selection list and loaded product model instance projection out of `extension.js` so overview counts share the same model-selection policy module.
+- Moved Studio route-invocation model id resolution out of `extension.js` into `model-selection.js`, preserving explicit model ids, concrete model route aliases, `route.*` auto fallback, and fixture-model rejection.
 - Added focused model-selection tests for fixture/external/embedding-only rejection, injected environment gates, reasoning/token controls, active route preference, mounted model QuickPick projection, selection de-duping, and loaded-instance filtering.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/model-fixture-policy.js`.
 - Moved Studio fixture-model environment gating, deny-fixture policy envelope shaping, and fixture-marker detection out of `extension.js` while preserving model-selection injection and artifact generation policy behavior.

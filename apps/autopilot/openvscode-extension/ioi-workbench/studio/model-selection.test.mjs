@@ -91,6 +91,18 @@ test("external provider gate and fixture policy errors respect injected environm
   assert.equal(allowed.studioProductModelSelectionError("route.local-first", "local:auto"), null);
 });
 
+test("model route invocation chooses explicit models, concrete route aliases, and auto fallback", () => {
+  const selection = createSelection();
+
+  assert.equal(selection.studioModelIdForRouteInvocation("route.local-first", "qwen/qwen3.5"), "qwen/qwen3.5");
+  assert.equal(selection.studioModelIdForRouteInvocation("qwen/qwen3.5", "auto"), "qwen/qwen3.5");
+  assert.equal(selection.studioModelIdForRouteInvocation("route.local-first", "auto"), "auto");
+  assert.throws(
+    () => selection.studioModelIdForRouteInvocation("route.local-first", "local:auto"),
+    /No product model is mounted/,
+  );
+});
+
 test("reasoning effort and token bounds preserve product control defaults", () => {
   const selection = createSelection({
     env: {

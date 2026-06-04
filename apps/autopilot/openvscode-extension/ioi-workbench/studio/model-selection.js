@@ -180,6 +180,20 @@ function createStudioModelSelection({
     }
   }
 
+  function studioModelIdForRouteInvocation(selectedRoute, selectedModelId) {
+    const explicitModelId = stringValue(selectedModelId);
+    assertStudioProductModelSelector(selectedRoute, explicitModelId);
+    if (!isAutoStudioModelSelector(explicitModelId)) {
+      return explicitModelId;
+    }
+    const routeOrModel = stringValue(selectedRoute);
+    assertStudioProductModelSelector(routeOrModel, explicitModelId);
+    if (routeOrModel && !routeOrModel.startsWith("route.") && !isAutoStudioModelSelector(routeOrModel)) {
+      return routeOrModel;
+    }
+    return "auto";
+  }
+
   function normalizeStudioReasoningEffort(value, fallback = "none") {
     const normalized = String(value || "").trim().toLowerCase();
     if (!normalized || normalized === "provider_default" || normalized === "default" || normalized === "auto") {
@@ -536,6 +550,7 @@ function createStudioModelSelection({
     mountedModelQuickInputRowsFromState,
     normalizeStudioReasoningEffort,
     productStudioModelSelectionsFromSnapshot,
+    studioModelIdForRouteInvocation,
     studioArtifactMaxOutputTokens,
     studioExternalModelProviderUsageAllowed,
     studioMaxOutputTokens,

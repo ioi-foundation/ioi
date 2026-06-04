@@ -489,6 +489,7 @@ const {
   mountedModelQuickInputRowsFromState,
   normalizeStudioReasoningEffort,
   productStudioModelSelectionsFromSnapshot,
+  studioModelIdForRouteInvocation,
   studioArtifactMaxOutputTokens,
   studioExternalModelProviderUsageAllowed,
   studioMaxOutputTokens,
@@ -5165,20 +5166,6 @@ function studioPostPendingWorklogSnapshot() {
 
 const studioAgentFinalHandoffStreamer = createStudioAgentFinalHandoffStreamer({ crypto, studioPostRuntimeMessage, stringValue });
 const studioAgentAnswerStreamProjector = createStudioAgentAnswerStreamProjector({ getStudioRuntimeProjection: () => studioRuntimeProjection, studioPostRuntimeMessage, stringValue });
-
-function studioModelIdForRouteInvocation(selectedRoute, selectedModelId) {
-  const explicitModelId = stringValue(selectedModelId);
-  assertStudioProductModelSelector(selectedRoute, explicitModelId);
-  if (!isAutoStudioModelSelector(explicitModelId)) {
-    return explicitModelId;
-  }
-  const routeOrModel = stringValue(selectedRoute);
-  assertStudioProductModelSelector(routeOrModel, explicitModelId);
-  if (routeOrModel && !routeOrModel.startsWith("route.") && !isAutoStudioModelSelector(routeOrModel)) {
-    return routeOrModel;
-  }
-  return "auto";
-}
 
 async function ensureStudioModelInvocationToken(output) {
   const configuredToken = daemonRequestToken();
