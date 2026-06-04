@@ -379,6 +379,8 @@ pub struct ModelMountProviderLifecycleRequest {
     pub driver: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backend_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_status: Option<String>,
     #[serde(default)]
     pub evidence_refs: Vec<String>,
     #[serde(default)]
@@ -710,7 +712,7 @@ impl ModelMountCore {
             endpoint_ref: request.endpoint_ref.clone(),
             model_ref: request.model_ref.clone(),
             action: request.action.clone(),
-            status: provider_lifecycle_status(&request.action)?,
+            status: provider_lifecycle_status(request)?,
             backend: "autopilot.native_local.fixture".to_string(),
             backend_id: request
                 .backend_ref
@@ -1042,7 +1044,7 @@ impl ModelMountProviderLifecycleRequest {
         if self.model_ref.trim().eq_ignore_ascii_case("auto") {
             return Err(ModelMountError::UnresolvedAutoModel);
         }
-        if !matches!(self.action.trim(), "load" | "unload") {
+        if !matches!(self.action.trim(), "health" | "load" | "unload") {
             return Err(ModelMountError::UnsupportedProviderLifecycleAction);
         }
         if !is_native_local_provider_lifecycle_backend(self) {
@@ -1168,8 +1170,20 @@ fn is_native_local_provider_lifecycle_backend(
     provider_kind == "ioi_native_local" || driver == "native_local" || api_format == "ioi_native"
 }
 
-fn provider_lifecycle_status(action: &str) -> Result<String, ModelMountError> {
-    match action.trim() {
+fn provider_lifecycle_status(
+    request: &ModelMountProviderLifecycleRequest,
+) -> Result<String, ModelMountError> {
+    match request.action.trim() {
+        "health" => {
+            if matches!(
+                request.provider_status.as_deref().map(str::trim),
+                Some("blocked")
+            ) {
+                Ok("blocked".to_string())
+            } else {
+                Ok("available".to_string())
+            }
+        }
         "load" => Ok("loaded".to_string()),
         "unload" => Ok("unloaded".to_string()),
         _ => Err(ModelMountError::UnsupportedProviderLifecycleAction),
@@ -1391,10 +1405,12 @@ fn provider_lifecycle_evidence_refs(request: &ModelMountProviderLifecycleRequest
         "rust_model_mount_provider_lifecycle".to_string(),
         "rust_model_mount_native_local_lifecycle_backend".to_string(),
     ];
-    if request.action.trim() == "load" {
+    if matches!(request.action.trim(), "health" | "load") {
         refs.push("autopilot_native_local_backend_registry".to_string());
     }
-    refs.push("autopilot_native_local_process_supervisor".to_string());
+    if matches!(request.action.trim(), "load" | "unload") {
+        refs.push("autopilot_native_local_process_supervisor".to_string());
+    }
     refs.push("deterministic_native_local_fixture".to_string());
     for evidence_ref in request
         .process_evidence_refs
@@ -1676,6 +1692,7 @@ mod tests {
             api_format: Some("ioi_native".to_string()),
             driver: Some("native_local".to_string()),
             backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
+            provider_status: Some("configured".to_string()),
             evidence_refs: vec!["daemon_model_load_request".to_string()],
             process_evidence_refs: vec!["autopilot_native_local_process_started".to_string()],
         }
@@ -2121,6 +2138,37 @@ mod tests {
     }
 
     #[test]
+    fn native_local_provider_health_lifecycle_is_planned_in_rust_model_mount() {
+        let mut request = provider_lifecycle_request();
+        request.action = "health".to_string();
+        request.evidence_refs = vec!["daemon_native_local_health_request".to_string()];
+        request.process_evidence_refs.clear();
+
+        let result = ModelMountCore
+            .plan_provider_lifecycle(&request)
+            .expect("native-local provider health planned in Rust");
+
+        assert_eq!(result.action, "health");
+        assert_eq!(result.status, "available");
+        assert!(result
+            .evidence_refs
+            .contains(&"autopilot_native_local_backend_registry".to_string()));
+        assert!(!result
+            .evidence_refs
+            .contains(&"autopilot_native_local_process_supervisor".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"deterministic_native_local_fixture".to_string()));
+
+        request.provider_status = Some("blocked".to_string());
+        let result = ModelMountCore
+            .plan_provider_lifecycle(&request)
+            .expect("blocked native-local provider health planned in Rust");
+
+        assert_eq!(result.status, "blocked");
+    }
+
+    #[test]
     fn native_local_provider_lifecycle_rejects_unsupported_backend_and_action() {
         let mut request = provider_lifecycle_request();
         request.execution_backend = "daemon_js".to_string();
@@ -2135,7 +2183,7 @@ mod tests {
         request.action = "restart".to_string();
         let error = ModelMountCore
             .plan_provider_lifecycle(&request)
-            .expect_err("lifecycle planner only supports explicit load/unload actions");
+            .expect_err("lifecycle planner only supports explicit health/load/unload actions");
 
         assert_eq!(error, ModelMountError::UnsupportedProviderLifecycleAction);
     }

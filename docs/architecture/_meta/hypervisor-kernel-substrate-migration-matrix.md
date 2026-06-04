@@ -3141,6 +3141,77 @@ ImplementationSlice:
     push: required after verification
 ```
 
+## Implementation Slice 50
+
+```yaml
+ImplementationSlice:
+  objective: route native-local provider health result envelopes through Rust
+    model_mount
+  owner_boundary:
+    route_or_surface: native-local provider health control surface
+      (`NativeLocalModelProviderDriver.health`)
+    authority_gate: unchanged; provider health remains a daemon-observed
+      control surface while its public status/evidence envelope is planned by
+      Rust
+    execution_backend: Rust `model_mount` lifecycle planner now owns
+      native-local health/load/unload status, backend, evidence, and hash
+      envelopes through `rust_model_mount_native_local_lifecycle`
+    truth_path: unchanged; provider health persistence and receipts still write
+      through the JS daemon state surface after the Rust-planned health envelope
+    projection_path: unchanged
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    daemon:
+      - packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs
+    rust_core:
+      - crates/services/src/agentic/runtime/kernel/model_mount.rs
+    ide: []
+    tests:
+      - packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - bridge conformance requires native-local health/load/unload lifecycle
+      envelopes to use the Rust planner and provider status binding
+    - receipts conformance continues to require Rust lifecycle schema,
+      unsupported-backend/action guards, evidence refs, hash planning, and
+      kernel-service facade
+    - native-local driver tests assert configured and blocked health call the
+      Rust lifecycle planner
+  verification:
+    commands:
+      - cargo fmt -p ioi-services
+      - node --check packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs scripts/conformance/hypervisor-conformance.mjs
+      - node --test packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs
+      - cargo test -p ioi-services agentic::runtime::kernel::model_mount
+      - node --test packages/runtime-daemon/src/model-mounting/*.test.mjs
+      - npm run hypervisor-conformance:bridge
+      - npm run hypervisor-conformance:receipts
+      - npm run hypervisor-conformance
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: false
+    compatibility_shims_remaining:
+      - JS still calls the native-local health method and persists provider
+        health receipts after the Rust-planned envelope
+      - local provider model/list-loaded surfaces remain JS daemon control
+        surfaces
+      - JS still performs native-local backend process supervision and backend
+        log writes before asking Rust to plan load/unload lifecycle result
+        envelopes
+      - hosted/openai-compatible, Ollama, LM Studio, llama.cpp, and vLLM
+        request/response and stream transports still run in JS as
+        Rust-admitted observations until migrated behind Rust
+        workload_client/model_mount execution ownership
+      - broader operation-log ownership remains to be moved to Rust Agentgres
+        admission
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -3148,7 +3219,7 @@ ImplementationSlice:
 | `coding-tools` | `packages/runtime-daemon/src/coding-tools.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `packages/runtime-daemon/src/step-module-runner.mjs`, `crates/node/src/bin/ioi-step-module-bridge.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS daemon tool dispatch with Step/Module projection wrappers plus live Rust paths for every current coding tool: workspace.status, git.diff, file.inspect, file.apply_patch, test.run, lsp.diagnostics, artifact.read, tool.retrieve_result, and computer_use.request_lease | Rust core `step_router` plus workload/WASM backend | Agentgres admitted operation with receipt, refs, heads, and state roots | `abi`, `bridge`, `receipts`, `negative` | every current coding-tool ID returns a Rust live payload without daemon_js in rust_workload_live mode; JS fallback helpers remain only for non-live compatibility until facade retirement | Rust path passes shadow, gated, and live parity for each migrated tool; JS can no longer append authoritative effects. |
 | `approvals-gates` | `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `crates/services/src/agentic/runtime/kernel/authority.rs` | JS daemon routes plus Rust external-exit authority guard | Rust core `authority` with wallet.network handoff | authority grant and approval receipt before effect boundary | `bridge`, `negative` | Rust wallet.network guard implemented for external exits; live JS approval surface remains | JS can only request/render approvals; grants and gate decisions are issued by Rust authority core and wallet.network. |
 | `runtime-events-replay-trace` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | JS daemon envelope/projection code | Rust core `projection` plus Agentgres projection watermarks | replayable projection over admitted operations and receipts | `receipts`, `compositor` | JS projection source | Rust emits canonical projection records consumed by IDE/CLI/SDK. |
-| `model-mounting` | `packages/runtime-daemon/src/model-mounting/*`, `packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/model_mount.rs` | JS daemon model-mounting store/provider control surfaces plus Rust route-decision, provider-execution, fixture and native-local non-stream provider-invocation execution, native-local stream invocation planning/chunks, native-local load/unload lifecycle result-envelope planning, provider-result admission for non-migrated driver and stream-start observations, invocation-receipt admission, receipt_binder binding, Agentgres admission for invocation and stream-completion receipts, and a store guard against unbound direct invocation appends | Rust core `model_mount` | model invocation receipts, provider-execution/invocation/result receipts, route/custody refs, Agentgres operation | `abi`, `bridge`, `receipts`, `ctee` | live route-selection, provider-execution admission, fixture and native-local non-stream provider invocation execution, native-local stream frame planning/chunks, native-local load/unload lifecycle result envelope planning, non-migrated provider-result admission for hosted/non-migrated non-stream and stream-start observations, and model-invocation receipts call Rust model_mount; direct JS local provider non-stream `invoke()` and native-local stream production shims now fail closed, dead native-local JS stream helper exports are removed, the obsolete JS native-local output wrapper is deleted, and retired JS native fixture response modules are gone; the provider-invocation bridge now uses the shared `execute_model_mount_provider_invocation` operation instead of a fixture-only command; native-local stream invocations use `execute_model_mount_provider_stream_invocation` and JS only adapts returned Rust chunks into the protocol stream facade; native-local load/unload calls use `plan_model_mount_provider_lifecycle` while JS still supervises process state and persists model-instance lifecycle receipts; stream request-shape evidence no longer appends a duplicate JS operation-like record; native stream requests now fail closed before or after stream-start admission instead of downgrading into non-stream invocation; OpenAI-compatible `responses` calls now fail closed instead of translating to chat-completions provider results; provider compatibility-translation markers now fail closed before provider-result admission and no longer enter accepted receipts or native responses; protocol response helpers are no longer re-exported through the broad model-mounting compatibility facade; invocation and stream-completion receipts are represented as `model_mount` StepModule results and bound by Rust receipt_binder plus Rust Agentgres admission before JS store persistence; direct JS store append of unbound invocation receipts now fails closed; hosted/non-migrated request/response and stream transports, local provider health/list surfaces, process supervision/logging, lifecycle receipt persistence, and broader JS store demotion still remain | Rust records route decisions, provider execution admission, migrated provider invocation execution, native-local stream invocation chunks, native-local lifecycle result envelopes, admitted non-migrated provider observations, stream-start observations, and receipts; JS provider/store surfaces are demoted as each remaining provider backend moves behind Rust workload/model_mount execution ownership. |
+| `model-mounting` | `packages/runtime-daemon/src/model-mounting/*`, `packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/model_mount.rs` | JS daemon model-mounting store/provider control surfaces plus Rust route-decision, provider-execution, fixture and native-local non-stream provider-invocation execution, native-local stream invocation planning/chunks, native-local health/load/unload lifecycle result-envelope planning, provider-result admission for non-migrated driver and stream-start observations, invocation-receipt admission, receipt_binder binding, Agentgres admission for invocation and stream-completion receipts, and a store guard against unbound direct invocation appends | Rust core `model_mount` | model invocation receipts, provider-execution/invocation/result receipts, route/custody refs, Agentgres operation | `abi`, `bridge`, `receipts`, `ctee` | live route-selection, provider-execution admission, fixture and native-local non-stream provider invocation execution, native-local stream frame planning/chunks, native-local health/load/unload lifecycle result envelope planning, non-migrated provider-result admission for hosted/non-migrated non-stream and stream-start observations, and model-invocation receipts call Rust model_mount; direct JS local provider non-stream `invoke()` and native-local stream production shims now fail closed, dead native-local JS stream helper exports are removed, the obsolete JS native-local output wrapper is deleted, and retired JS native fixture response modules are gone; the provider-invocation bridge now uses the shared `execute_model_mount_provider_invocation` operation instead of a fixture-only command; native-local stream invocations use `execute_model_mount_provider_stream_invocation` and JS only adapts returned Rust chunks into the protocol stream facade; native-local health/load/unload calls use `plan_model_mount_provider_lifecycle` while JS still supervises process state and persists provider/model-instance lifecycle receipts; stream request-shape evidence no longer appends a duplicate JS operation-like record; native stream requests now fail closed before or after stream-start admission instead of downgrading into non-stream invocation; OpenAI-compatible `responses` calls now fail closed instead of translating to chat-completions provider results; provider compatibility-translation markers now fail closed before provider-result admission and no longer enter accepted receipts or native responses; protocol response helpers are no longer re-exported through the broad model-mounting compatibility facade; invocation and stream-completion receipts are represented as `model_mount` StepModule results and bound by Rust receipt_binder plus Rust Agentgres admission before JS store persistence; direct JS store append of unbound invocation receipts now fails closed; hosted/non-migrated request/response and stream transports, local provider model/list-loaded surfaces, process supervision/logging, lifecycle receipt persistence, and broader JS store demotion still remain | Rust records route decisions, provider execution admission, migrated provider invocation execution, native-local stream invocation chunks, native-local lifecycle result envelopes, admitted non-migrated provider observations, stream-start observations, and receipts; JS provider/store surfaces are demoted as each remaining provider backend moves behind Rust workload/model_mount execution ownership. |
 | `agentgres-admission` | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs`, `.ioi/agentgres` local state, `crates/services/src/agentic/runtime/kernel/agentgres_admission.rs`, `docs/architecture/components/agentgres/*` | daemon-local operation-like records plus Rust admission/storage guards; model invocation and stream-completion receipt operations now enter Rust Agentgres admission and unbound direct store appends are rejected | Rust core `agentgres_admission` | expected heads, state-root validation, accepted operation admission | `receipts`, `negative` | Rust operation admission and storage-write guards implemented; model invocation and stream-completion receipt operations carry expected-head/state-root admission; direct unbound invocation receipt store writes fail closed; broad live JS append/write surfaces still need routing/demotion | no JS path can append accepted operations directly or mutate durable truth without expected heads/state-root binding. |
 | `receipt-binding` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/ipc/proto/public/v1/public.proto`, `crates/services/src/agentic/runtime/kernel/receipt_binder.rs` | JS receipts plus Rust receipt binder and append guard | Rust core `receipt_binder` | one binder for invocation, result, artifact refs, payload refs, and state roots | `receipts`, `negative` | binder primitive and direct-append guard implemented; JS receipts still live | every meaningful route family emits receipts through one Rust binder. |
 | `ctee-private-workspace` | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md`, `crates/services/src/agentic/runtime/kernel/ctee.rs` | canon plus Rust StepModule validation boundary | Rust core `ctee` | custody proof, leakage profile, declassification receipt, plaintext-free mount failure | `ctee`, `negative` | Rust validation path implemented; full execution/admission/projection still pending | untrusted node plaintext mount fails closed; declassification and private operator paths are receipt-bound. |
@@ -3191,14 +3262,14 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 49:
+Current expected behavior after Slice 50:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
 | `hypervisor-conformance:abi` | pass | Step/Module schemas and current coding-tool projection wrappers exist. |
-| `hypervisor-conformance:bridge` | pass | daemon StepModuleRunner boundary, fail-closed Rust workload runner selection, live Rust model_mount provider-execution admission bridge, shared Rust provider invocation bridge for fixture and native-local non-stream execution, Rust native-local stream invocation bridge and returned-chunk adapter, Rust native-local lifecycle planner bridge for load/unload result envelopes, retired direct JS local provider non-stream invoke and native-local stream production shims, removed dead JS native-local stream helper exports, obsolete output wrapper, and retired fixture response modules, Rust provider-result admission bridge, stream-start provider-result admission guard, native-stream no-downgrade guards, OpenAI-compatible responses no-fallback guard, provider compatibility-translation fail-closed guard, and protocol response facade re-export retirement guard exist without a duplicate JS request-shape append. |
-| `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists, model provider execution is admitted before driver calls, fixture and native-local non-stream provider invocation execute in Rust, native-local stream frame planning/chunks execute in Rust, native-local lifecycle status/backend/evidence envelopes are planned and hash-bound in Rust, non-migrated provider results and native stream-start observations are Rust-admitted observations, stream request-shape evidence no longer appends a duplicate JS operation-like record, model invocation and stream-completion receipts carry Rust Agentgres admission, and direct unbound model invocation store appends fail closed. |
+| `hypervisor-conformance:bridge` | pass | daemon StepModuleRunner boundary, fail-closed Rust workload runner selection, live Rust model_mount provider-execution admission bridge, shared Rust provider invocation bridge for fixture and native-local non-stream execution, Rust native-local stream invocation bridge and returned-chunk adapter, Rust native-local lifecycle planner bridge for health/load/unload result envelopes, retired direct JS local provider non-stream invoke and native-local stream production shims, removed dead JS native-local stream helper exports, obsolete output wrapper, and retired fixture response modules, Rust provider-result admission bridge, stream-start provider-result admission guard, native-stream no-downgrade guards, OpenAI-compatible responses no-fallback guard, provider compatibility-translation fail-closed guard, and protocol response facade re-export retirement guard exist without a duplicate JS request-shape append. |
+| `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists, model provider execution is admitted before driver calls, fixture and native-local non-stream provider invocation execute in Rust, native-local stream frame planning/chunks execute in Rust, native-local health/load/unload lifecycle status/backend/evidence envelopes are planned and hash-bound in Rust, non-migrated provider results and native stream-start observations are Rust-admitted observations, stream request-shape evidence no longer appends a duplicate JS operation-like record, model invocation and stream-completion receipts carry Rust Agentgres admission, and direct unbound model invocation store appends fail closed. |
 | `hypervisor-conformance:ctee` | pass | Rust cTEE Private Workspace module validation exists and untrusted plaintext custody fails closed. |
 | `hypervisor-conformance:compositor` | pass | Rust projection records exist, the shadow bridge emits them, and compositor accepted-truth attempts fail closed. |
 | `hypervisor-conformance:negative` | pass | All required forbidden-path negative fixtures are implemented at the Rust guard level. |

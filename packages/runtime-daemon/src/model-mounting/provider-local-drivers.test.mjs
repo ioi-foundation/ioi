@@ -46,8 +46,16 @@ function fakeNativeState() {
     },
     planModelMountProviderLifecycle(request) {
       lifecycleRequests.push(request);
+      const status =
+        request.action === "health"
+          ? request.provider_status === "blocked"
+            ? "blocked"
+            : "available"
+          : request.action === "load"
+            ? "loaded"
+            : "unloaded";
       return {
-        status: request.action === "load" ? "loaded" : "unloaded",
+        status,
         backendId: request.backend_ref,
         providerBackend: "autopilot.native_local.fixture",
         driver: "native_local",
@@ -95,6 +103,30 @@ test("local provider drivers fail closed for retired direct non-stream invoke", 
     (error) => error.code === "model_mount_local_provider_direct_invoke_retired",
   );
   assert.equal(state.logs.length, 0);
+});
+
+test("native-local provider driver plans health through Rust model_mount", async () => {
+  const state = fakeNativeState();
+  const driver = new NativeLocalModelProviderDriver();
+
+  const health = await driver.health(
+    { id: "provider.native", kind: "ioi_native_local", status: "configured" },
+    { state },
+  );
+
+  assert.equal(health.status, "available");
+  assert.equal(health.lifecycleHash, "sha256:health");
+  assert.ok(health.evidenceRefs.includes("rust_model_mount_provider_lifecycle"));
+  assert.equal(state.lifecycleRequests.at(-1).action, "health");
+  assert.equal(state.lifecycleRequests.at(-1).provider_status, "configured");
+
+  const blocked = await driver.health(
+    { id: "provider.native", kind: "ioi_native_local", status: "blocked" },
+    { state },
+  );
+
+  assert.equal(blocked.status, "blocked");
+  assert.equal(state.lifecycleRequests.at(-1).provider_status, "blocked");
 });
 
 test("native-local provider driver keeps load control and retires direct stream production", async () => {

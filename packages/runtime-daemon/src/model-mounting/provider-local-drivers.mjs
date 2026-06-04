@@ -6,10 +6,24 @@ import {
 } from "./model-mount-admission-runner.mjs";
 
 export class NativeLocalModelProviderDriver {
-  async health(provider) {
+  async health(provider, { state } = {}) {
+    const lifecycle = requireNativeLocalLifecycleResult(state?.planModelMountProviderLifecycle(nativeLocalLifecycleRequest({
+      action: "health",
+      provider,
+      endpoint: {
+        id: provider.defaultEndpointId ?? provider.endpointId ?? `${provider.id}.health`,
+        providerId: provider.id,
+        modelId: provider.defaultModelId ?? provider.modelId ?? provider.id,
+        apiFormat: provider.apiFormat ?? "ioi_native",
+        backendId: provider.backendId ?? "backend.autopilot.native-local.fixture",
+      },
+      backendId: provider.backendId ?? "backend.autopilot.native-local.fixture",
+      evidenceRefs: ["daemon_native_local_health_request"],
+    })), "health");
     return {
-      status: provider.status === "blocked" ? "blocked" : "available",
-      evidenceRefs: ["autopilot_native_local_backend_registry", "deterministic_native_local_fixture"],
+      status: lifecycle.status,
+      evidenceRefs: lifecycle.evidence_refs ?? [],
+      lifecycleHash: lifecycle.lifecycle_hash ?? null,
     };
   }
 
@@ -177,16 +191,22 @@ function nativeLocalLifecycleRequest({
     api_format: endpoint.apiFormat ?? provider?.apiFormat ?? "ioi_native",
     driver: provider?.driver ?? "native_local",
     backend_ref: backendId,
+    provider_status: provider?.status ?? null,
     evidence_refs: normalizeScopes(evidenceRefs, []),
     process_evidence_refs: normalizeScopes(processSnapshot?.evidenceRefs, []),
   };
 }
 
 function requireNativeLocalLifecycleResult(value, action) {
-  const expectedStatus = action === "load" ? "loaded" : "unloaded";
+  const expectedStatus =
+    action === "health"
+      ? null
+      : action === "load"
+        ? "loaded"
+        : "unloaded";
   if (
     !value ||
-    value.status !== expectedStatus ||
+    (expectedStatus ? value.status !== expectedStatus : !["available", "blocked"].includes(value.status)) ||
     !value.providerBackend ||
     !value.backendId ||
     value.driver !== "native_local" ||
