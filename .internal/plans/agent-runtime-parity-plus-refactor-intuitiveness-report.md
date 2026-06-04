@@ -128,6 +128,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-cockpit-lifecycle.js`.
 - Moved Studio runtime cockpit projection out of `extension.js` behind the existing `projectStudioRuntimeCockpit` wrapper while preserving model-stream proof projection, policy lease denial, sandbox diagnostics, dry-run patch preview/approval, browser discovery, worker/subagent status, replay refresh, and achieved/incomplete timeline behavior.
 - Added focused runtime-cockpit lifecycle tests for daemon proof lanes, hunk approval projection, browser/worker cards, replay refresh, achieved timeline emission, and the no-thread blocked path.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/thread-events.js`.
+- Moved Studio daemon thread event collection, runtime-event de-duping, max-seq calculation, SSE event fetch, turn fetch, and turn-scoped event expansion out of `extension.js` behind compatibility wrappers.
+- Added focused thread-event tests for response alias collection, event identity de-duping, terminal SSE stop behavior, turn-scoped expansion, and product-safe fetch failure handling.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/shell-header.js`.
 - Moved Autopilot workbench shell-header styles, posture tone mapping, native-shell gating, runtime posture chips, and mode switch action rendering out of `extension.js` while preserving existing call-site names and data-testids.
 - Added focused shell-header tests for tone mapping, native shell gating, sanitized posture rendering, command affordances, and product shell selectors.
@@ -592,6 +595,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `studio/parity-plus-panels` Stage 5 stop/cancel/recover lifecycle helper
   - `studio/stage7-delegation-lifecycle`
   - `studio/runtime-cockpit-lifecycle`
+  - `studio/thread-events`
   - `workbench/shell-header`
   - `workbench/mode-body-renderers`
   - `workbench/model-snapshot`
