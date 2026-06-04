@@ -299,10 +299,10 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     token,
   });
   if (!providerResult?.stream) {
-    return {
-      native: false,
-      invocation: await state.invokeModel({ authorization, requiredScope, kind, body: { ...body, stream: false } }),
-    };
+    const error = new Error("Native provider stream invocation did not return a stream after Rust stream-start admission.");
+    error.status = 502;
+    error.code = "model_mount_native_stream_result_required";
+    throw error;
   }
   const modelMountProviderResultAdmission = admitModelMountProviderResult(
     state,

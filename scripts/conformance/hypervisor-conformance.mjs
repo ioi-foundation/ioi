@@ -552,6 +552,17 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-native-stream-no-downgrade-live-bridge",
+    /model_mount_native_stream_result_required/.test(modelInvocationOps) &&
+      !/if \(!providerResult\?\.stream\) \{\s*return\s*\{[\s\S]*?state\.invokeModel\(\{ authorization, requiredScope, kind, body: \{ \.\.\.body, stream: false \} \}\)/.test(modelInvocationOps),
+    [
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+    ],
+    "Phase 9/10 is pending: admitted native stream starts must fail closed instead of downgrading to a second JS non-stream invocation",
+  );
+  assertCheck(
+    result,
     "model-mount-invocation-receipt-binding-live-bridge",
     /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       /ModelMountInvocationReceiptBindingBridgeRequest/.test(bridgeModule) &&

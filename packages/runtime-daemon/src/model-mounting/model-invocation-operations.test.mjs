@@ -497,6 +497,55 @@ test("startModelStream falls back to non-stream invocation when provider lacks n
   assert.equal(state.fallbackInvocationArgs.body.stream, false);
 });
 
+test("startModelStream fails closed when admitted native stream path returns no stream", async () => {
+  let streamCalls = 0;
+  const state = fakeState({
+    selectRoute(payload) {
+      this.selectRoutePayload = payload;
+      return selection({
+        endpoint: {
+          apiFormat: "ioi_native",
+          driver: "native_local",
+          providerId: "provider.autopilot.local",
+          backendId: "backend.autopilot.native-local.fixture",
+        },
+        provider: {
+          id: "provider.autopilot.local",
+          kind: "ioi_native_local",
+          driver: "native_local",
+        },
+      });
+    },
+    driver: {
+      supportsStream: () => true,
+      async streamInvoke() {
+        streamCalls += 1;
+        return { providerResponseKind: "openai.responses.stream" };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      startModelStream(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.responses:*",
+          kind: "responses",
+          body: { model: "model.local", response_id: "resp.stream", stream: true },
+        },
+        deps(),
+      ),
+    (error) => error.code === "model_mount_native_stream_result_required",
+  );
+  assert.equal(streamCalls, 1);
+  assert.equal(state.providerExecutionRequests.length, 1);
+  assert.equal(state.providerResultRequests.length, 0);
+  assert.equal(state.fallbackInvocationArgs, undefined);
+  assert.deepEqual(state.appendOperations, []);
+});
+
 test("startModelStream fails closed without Rust provider execution admission before stream call", async () => {
   let streamCalls = 0;
   const state = fakeState({
