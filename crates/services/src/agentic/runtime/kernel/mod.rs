@@ -47,7 +47,8 @@ use marketplace::{MarketplaceAdmissionError, MarketplaceServiceContract};
 use model_mount::{
     ModelMountCore, ModelMountError, ModelMountInvocationAdmissionRecord,
     ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRecord,
-    ModelMountProviderExecutionRequest, ModelMountProviderInvocationRequest,
+    ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
+    ModelMountProviderInventoryResult, ModelMountProviderInvocationRequest,
     ModelMountProviderInvocationResult, ModelMountProviderLifecycleRequest,
     ModelMountProviderLifecycleResult, ModelMountProviderResultAdmissionRecord,
     ModelMountProviderResultAdmissionRequest, ModelMountProviderStreamInvocationResult,
@@ -154,6 +155,13 @@ impl RuntimeKernelService {
         request: &ModelMountProviderLifecycleRequest,
     ) -> Result<ModelMountProviderLifecycleResult, ModelMountError> {
         ModelMountCore.plan_provider_lifecycle(request)
+    }
+
+    pub fn plan_model_mount_provider_inventory(
+        &self,
+        request: &ModelMountProviderInventoryRequest,
+    ) -> Result<ModelMountProviderInventoryResult, ModelMountError> {
+        ModelMountCore.plan_provider_inventory(request)
     }
 
     pub fn admit_model_mount_provider_result(

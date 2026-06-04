@@ -2,7 +2,9 @@ import { estimateNativeLocalResources } from "./local-system-probes.mjs";
 import { normalizeLoadOptions } from "./load-policy.mjs";
 import { normalizeScopes } from "./io.mjs";
 import {
+  RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND,
   RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND,
+  RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
   RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
 } from "./model-mount-admission-runner.mjs";
 
@@ -29,17 +31,29 @@ export class NativeLocalModelProviderDriver {
   }
 
   async listModels({ state, provider }) {
-    return state.listArtifacts().filter((artifact) => artifact.providerId === provider.id);
+    const artifacts = state.listArtifacts().filter((artifact) => artifact.providerId === provider.id);
+    const inventory = requireNativeLocalInventoryResult(state?.planModelMountProviderInventory(nativeLocalInventoryRequest({
+      action: "list_models",
+      provider,
+      backendId: provider?.backendId ?? "backend.autopilot.native-local.fixture",
+      itemRefs: recordRefs(artifacts),
+      evidenceRefs: ["daemon_native_local_list_models_request"],
+    })), "list_models", artifacts.length);
+    return attachInventoryMetadata(artifacts, inventory);
   }
 
   async listLoaded({ state, provider }) {
-    return state
+    const instances = state
       .listInstances()
-      .filter((instance) => instance.providerId === provider.id && instance.status === "loaded")
-      .map((instance) => ({
-        ...instance,
-        backendEvidenceRefs: ["autopilot_native_local_process_supervisor", "deterministic_native_local_fixture"],
-      }));
+      .filter((instance) => instance.providerId === provider.id && instance.status === "loaded");
+    const inventory = requireNativeLocalInventoryResult(state?.planModelMountProviderInventory(nativeLocalInventoryRequest({
+      action: "list_loaded",
+      provider,
+      backendId: provider?.backendId ?? "backend.autopilot.native-local.fixture",
+      itemRefs: recordRefs(instances),
+      evidenceRefs: ["daemon_native_local_list_loaded_request"],
+    })), "list_loaded", instances.length);
+    return attachInventoryMetadata(instances, inventory);
   }
 
   async load({ state, provider = null, endpoint, body = {} }) {
@@ -151,13 +165,29 @@ export class FixtureModelProviderDriver {
   }
 
   async listModels({ state, provider }) {
-    return state.listArtifacts().filter((artifact) => artifact.providerId === provider.id);
+    const artifacts = state.listArtifacts().filter((artifact) => artifact.providerId === provider.id);
+    const inventory = requireFixtureInventoryResult(state?.planModelMountProviderInventory(fixtureInventoryRequest({
+      action: "list_models",
+      provider,
+      backendId: provider?.backendId ?? "backend.fixture",
+      itemRefs: recordRefs(artifacts),
+      evidenceRefs: ["daemon_fixture_list_models_request"],
+    })), "list_models", artifacts.length);
+    return attachInventoryMetadata(artifacts, inventory);
   }
 
   async listLoaded({ state, provider }) {
-    return state
+    const instances = state
       .listInstances()
       .filter((instance) => instance.providerId === provider.id && instance.status === "loaded");
+    const inventory = requireFixtureInventoryResult(state?.planModelMountProviderInventory(fixtureInventoryRequest({
+      action: "list_loaded",
+      provider,
+      backendId: provider?.backendId ?? "backend.fixture",
+      itemRefs: recordRefs(instances),
+      evidenceRefs: ["daemon_fixture_list_loaded_request"],
+    })), "list_loaded", instances.length);
+    return attachInventoryMetadata(instances, inventory);
   }
 
   async load({ state, provider = null, endpoint }) {
@@ -264,6 +294,75 @@ function fixtureLifecycleRequest({
   };
 }
 
+function nativeLocalInventoryRequest({
+  action,
+  provider = null,
+  backendId,
+  itemRefs = [],
+  evidenceRefs = [],
+}) {
+  return {
+    schema_version: "ioi.model_mount.provider_inventory.v1",
+    provider_ref: provider?.id ?? "provider.autopilot.local",
+    provider_kind: provider?.kind ?? "ioi_native_local",
+    action,
+    execution_backend: RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
+    api_format: provider?.apiFormat ?? "ioi_native",
+    driver: provider?.driver ?? "native_local",
+    backend_ref: backendId,
+    provider_status: provider?.status ?? null,
+    item_refs: normalizeScopes(itemRefs, []),
+    evidence_refs: normalizeScopes(evidenceRefs, []),
+  };
+}
+
+function fixtureInventoryRequest({
+  action,
+  provider = null,
+  backendId,
+  itemRefs = [],
+  evidenceRefs = [],
+}) {
+  return {
+    schema_version: "ioi.model_mount.provider_inventory.v1",
+    provider_ref: provider?.id ?? "provider.fixture",
+    provider_kind: provider?.kind ?? "local_folder",
+    action,
+    execution_backend: RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND,
+    api_format: provider?.apiFormat ?? "ioi_fixture",
+    driver: provider?.driver ?? "fixture",
+    backend_ref: backendId,
+    provider_status: provider?.status ?? null,
+    item_refs: normalizeScopes(itemRefs, []),
+    evidence_refs: normalizeScopes(evidenceRefs, []),
+  };
+}
+
+function attachInventoryMetadata(records, inventory) {
+  return records.map((record) => ({
+    ...record,
+    backendEvidenceRefs: normalizeScopes([
+      ...(record.backendEvidenceRefs ?? []),
+      ...(inventory.evidence_refs ?? []),
+    ], []),
+    inventoryEvidenceRefs: inventory.evidence_refs ?? [],
+    inventoryHash: inventory.inventory_hash ?? null,
+    inventoryItemCount: inventory.itemCount ?? inventory.itemRefs?.length ?? records.length,
+  }));
+}
+
+function recordRefs(records) {
+  return records
+    .map((record) =>
+      record.id ??
+      record.artifactRef ??
+      record.modelRef ??
+      record.modelId ??
+      record.endpointId ??
+      null)
+    .filter(Boolean);
+}
+
 function requireNativeLocalLifecycleResult(value, action) {
   const expectedStatus =
     action === "health"
@@ -309,6 +408,46 @@ function requireFixtureLifecycleResult(value, action) {
     error.status = 502;
     error.code = "model_mount_fixture_provider_lifecycle_planning_required";
     error.details = { action, expectedStatus };
+    throw error;
+  }
+  return value;
+}
+
+function requireNativeLocalInventoryResult(value, action, expectedCount) {
+  if (
+    !value ||
+    value.status !== "listed" ||
+    !value.providerBackend ||
+    !value.backendId ||
+    value.driver !== "native_local" ||
+    value.executionBackend !== RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND ||
+    !value.inventory_hash ||
+    value.itemCount !== expectedCount
+  ) {
+    const error = new Error("Native-local provider inventory planning requires a Rust model_mount inventory result.");
+    error.status = 502;
+    error.code = "model_mount_provider_inventory_planning_required";
+    error.details = { action, expectedCount };
+    throw error;
+  }
+  return value;
+}
+
+function requireFixtureInventoryResult(value, action, expectedCount) {
+  if (
+    !value ||
+    value.status !== "listed" ||
+    !value.providerBackend ||
+    !value.backendId ||
+    value.driver !== "fixture" ||
+    value.executionBackend !== RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND ||
+    !value.inventory_hash ||
+    value.itemCount !== expectedCount
+  ) {
+    const error = new Error("Fixture provider inventory planning requires a Rust model_mount inventory result.");
+    error.status = 502;
+    error.code = "model_mount_fixture_provider_inventory_planning_required";
+    error.details = { action, expectedCount };
     throw error;
   }
   return value;

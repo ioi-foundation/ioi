@@ -153,6 +153,21 @@ function providerLifecycleRequest() {
   };
 }
 
+function providerInventoryRequest() {
+  return {
+    schema_version: "ioi.model_mount.provider_inventory.v1",
+    provider_ref: "provider.autopilot.local",
+    provider_kind: "ioi_native_local",
+    action: "list_loaded",
+    execution_backend: "rust_model_mount_native_local_inventory",
+    api_format: "ioi_native",
+    driver: "native_local",
+    backend_ref: "backend.autopilot.native-local.fixture",
+    item_refs: ["model_instance://native/qwen3"],
+    evidence_refs: ["daemon_native_local_list_loaded_request"],
+  };
+}
+
 function providerResultRequest() {
   return {
     schema_version: "ioi.model_mount.provider_result.v1",
@@ -483,6 +498,62 @@ test("Rust model_mount admission runner sends native-local provider lifecycle br
   assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
   assert.equal(result.executionBackend, "rust_model_mount_native_local_lifecycle");
   assert.equal(result.lifecycle_hash, "sha256:lifecycle");
+});
+
+test("Rust model_mount admission runner sends local provider inventory bridge request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_provider_inventory_command",
+            backend: "rust_model_mount_native_local_inventory",
+            result: {
+              ...request.request,
+              status: "listed",
+              backend: "autopilot.native_local.fixture",
+              backend_id: "backend.autopilot.native-local.fixture",
+              driver: "native_local",
+              item_count: 1,
+              inventory_hash: "sha256:inventory",
+              evidence_refs: ["rust_model_mount_provider_inventory"],
+            },
+            status: "listed",
+            backendId: "backend.autopilot.native-local.fixture",
+            providerBackend: "autopilot.native_local.fixture",
+            driver: "native_local",
+            execution_backend: "rust_model_mount_native_local_inventory",
+            itemRefs: ["model_instance://native/qwen3"],
+            itemCount: 1,
+            inventory_hash: "sha256:inventory",
+            evidence_refs: ["rust_model_mount_provider_inventory"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planProviderInventory(providerInventoryRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_provider_inventory");
+  assert.equal(calls[0].request.backend, "rust_model_mount_native_local_inventory");
+  assert.equal(calls[0].request.request.action, "list_loaded");
+  assert.equal(result.status, "listed");
+  assert.equal(result.providerBackend, "autopilot.native_local.fixture");
+  assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
+  assert.equal(result.executionBackend, "rust_model_mount_native_local_inventory");
+  assert.deepEqual(result.itemRefs, ["model_instance://native/qwen3"]);
+  assert.equal(result.itemCount, 1);
+  assert.equal(result.inventory_hash, "sha256:inventory");
 });
 
 test("Rust model_mount admission runner sends provider result admission bridge request", () => {

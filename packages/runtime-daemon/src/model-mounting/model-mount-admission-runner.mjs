@@ -5,8 +5,10 @@ export const MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV = "IOI_MODEL_MOUNT_ADMISSION
 export const MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
 export const RUST_MODEL_MOUNT_ADMISSION_BACKEND = "rust_model_mount_live";
 export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
+export const RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND = "rust_model_mount_fixture_inventory";
 export const RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND = "rust_model_mount_fixture_lifecycle";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_local";
+export const RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND = "rust_model_mount_native_local_inventory";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND = "rust_model_mount_native_local_lifecycle";
 
 export function createModelMountAdmissionRunnerFromEnv(env = process.env, options = {}) {
@@ -84,6 +86,16 @@ export class RustModelMountAdmissionRunner {
       request,
     };
     return normalizeProviderLifecycleBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
+  planProviderInventory(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_provider_inventory",
+      backend: request?.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
+      request,
+    };
+    return normalizeProviderInventoryBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
   admitProviderResult(request) {
@@ -290,6 +302,33 @@ function normalizeProviderLifecycleBridgeResult(value = {}) {
     driver: result.driver ?? record.driver ?? null,
     executionBackend: result.execution_backend ?? record.execution_backend ?? null,
     lifecycle_hash: result.lifecycle_hash ?? record.lifecycle_hash ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+    backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+  };
+}
+
+function normalizeProviderInventoryBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.result && typeof result.result === "object" ? result.result : {};
+  const itemRefs = Array.isArray(result.itemRefs)
+    ? result.itemRefs
+    : Array.isArray(result.item_refs)
+      ? result.item_refs
+      : Array.isArray(record.item_refs)
+        ? record.item_refs
+        : [];
+  return {
+    source: result.source ?? "rust_model_mount_provider_inventory_command",
+    backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
+    result: record,
+    status: result.status ?? record.status ?? null,
+    backendId: result.backendId ?? result.backend_id ?? record.backend_id ?? null,
+    providerBackend: result.providerBackend ?? result.provider_backend ?? record.backend ?? null,
+    driver: result.driver ?? record.driver ?? null,
+    executionBackend: result.execution_backend ?? record.execution_backend ?? null,
+    itemRefs,
+    itemCount: result.itemCount ?? result.item_count ?? record.item_count ?? itemRefs.length,
+    inventory_hash: result.inventory_hash ?? record.inventory_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
     backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
   };

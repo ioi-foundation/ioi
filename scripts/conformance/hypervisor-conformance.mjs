@@ -612,6 +612,38 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-local-provider-inventory-live-bridge",
+    /plan_model_mount_provider_inventory/.test(bridgeModule) &&
+      /ModelMountProviderInventoryRequest/.test(bridgeModule) &&
+      /bridge_plans_local_model_mount_provider_inventory_through_rust_core/.test(bridgeModule) &&
+      /planProviderInventory/.test(modelMountAdmissionRunner) &&
+      /rust_model_mount_provider_inventory_command/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(modelMountAdmissionRunner) &&
+      /planModelMountProviderInventory/.test(modelMountingState) &&
+      /nativeLocalInventoryRequest/.test(providerLocalDrivers) &&
+      /fixtureInventoryRequest/.test(providerLocalDrivers) &&
+      /RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND/.test(providerLocalDrivers) &&
+      /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(providerLocalDrivers) &&
+      /state\??\.planModelMountProviderInventory/.test(providerLocalDrivers) &&
+      /model_mount_provider_inventory_planning_required/.test(providerLocalDrivers) &&
+      /model_mount_fixture_provider_inventory_planning_required/.test(providerLocalDrivers) &&
+      /plan model and loaded inventory through Rust model_mount/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs"),
+      ) &&
+      /rust_model_mount_provider_inventory/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs"),
+      ),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+    ],
+    "Phase 9/10 is pending: local provider model/list-loaded inventory envelopes must be planned and hash-bound by Rust model_mount while JS still reads daemon state records",
+  );
+  assertCheck(
+    result,
     "model-mount-local-provider-direct-invoke-retired",
     /model_mount_local_provider_direct_invoke_retired/.test(providerLocalDrivers) &&
       !/deterministicOutput/.test(providerLocalDrivers) &&
@@ -949,6 +981,41 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
     "Phase 9/10 is pending: Rust model_mount core must own native-local health/load/unload lifecycle backend, evidence, and hash planning",
+  );
+  assertCheck(
+    result,
+    "model-mount-local-provider-inventory-core",
+    exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      /MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountProviderInventoryRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /UnsupportedProviderInventoryBackend/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /UnsupportedProviderInventoryAction/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /rust_model_mount_fixture_inventory/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /rust_model_mount_native_local_inventory/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /plan_provider_inventory/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /provider_inventory_evidence_refs/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /plan_model_mount_provider_inventory/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+    ],
+    "Phase 9/10 is pending: Rust model_mount core must own local provider model/list-loaded inventory backend, evidence, and hash planning",
   );
   assertCheck(
     result,

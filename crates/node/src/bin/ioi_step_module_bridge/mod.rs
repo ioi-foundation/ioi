@@ -3,8 +3,9 @@ use ioi_services::agentic::runtime::kernel::agentgres_admission::{
 };
 use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountCore, ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRequest,
-    ModelMountProviderInvocationRequest, ModelMountProviderLifecycleRequest,
-    ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRequest,
+    ModelMountProviderInventoryRequest, ModelMountProviderInvocationRequest,
+    ModelMountProviderLifecycleRequest, ModelMountProviderResultAdmissionRequest,
+    ModelMountRouteDecisionRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -121,6 +122,16 @@ struct ModelMountProviderLifecycleBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct ModelMountProviderInventoryBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountProviderInventoryRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct ModelMountProviderResultAdmissionBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -217,6 +228,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_model_mount_provider_lifecycle(request)
+        }
+        "plan_model_mount_provider_inventory" => {
+            let request: ModelMountProviderInventoryBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_model_mount_provider_inventory(request)
         }
         "admit_model_mount_provider_result" => {
             let request: ModelMountProviderResultAdmissionBridgeRequest =
@@ -557,6 +574,61 @@ fn plan_model_mount_provider_lifecycle(
         "driver": driver,
         "execution_backend": execution_backend,
         "lifecycle_hash": lifecycle_hash,
+        "evidence_refs": evidence_refs,
+    }))
+}
+
+fn plan_model_mount_provider_inventory(
+    request: ModelMountProviderInventoryBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_model_mount_provider_inventory" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let result = ModelMountCore
+        .plan_provider_inventory(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "model_mount_provider_inventory_rejected",
+                format!("{error:?}"),
+            )
+        })?;
+    let status = result.status.clone();
+    let backend = result.backend.clone();
+    let backend_id = result.backend_id.clone();
+    let driver = result.driver.clone();
+    let execution_backend = result.execution_backend.clone();
+    let item_refs = result.item_refs.clone();
+    let item_count = result.item_count;
+    let inventory_hash = result.inventory_hash.clone();
+    let evidence_refs = result.evidence_refs.clone();
+    Ok(json!({
+        "source": "rust_model_mount_provider_inventory_command",
+        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
+        "result": result,
+        "status": status,
+        "backendId": backend_id.clone(),
+        "backend_id": backend_id,
+        "providerBackend": backend.clone(),
+        "provider_backend": backend,
+        "driver": driver,
+        "execution_backend": execution_backend,
+        "itemRefs": item_refs.clone(),
+        "item_refs": item_refs,
+        "itemCount": item_count,
+        "item_count": item_count,
+        "inventory_hash": inventory_hash,
         "evidence_refs": evidence_refs,
     }))
 }
@@ -3603,6 +3675,60 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_model_mount_native_local_lifecycle_backend"));
+    }
+
+    #[test]
+    fn bridge_plans_local_model_mount_provider_inventory_through_rust_core() {
+        let request: ModelMountProviderInventoryBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_model_mount_provider_inventory",
+            "backend": "rust_model_mount_native_local_inventory",
+            "request": {
+                "schema_version": "ioi.model_mount.provider_inventory.v1",
+                "provider_ref": "provider.autopilot.local",
+                "provider_kind": "ioi_native_local",
+                "action": "list_loaded",
+                "execution_backend": "rust_model_mount_native_local_inventory",
+                "api_format": "ioi_native",
+                "driver": "native_local",
+                "backend_ref": "backend.autopilot.native-local.fixture",
+                "item_refs": ["model_instance://native/qwen3"],
+                "evidence_refs": ["daemon_native_local_list_loaded_request"]
+            }
+        }))
+        .expect("native-local inventory bridge request");
+
+        let response =
+            plan_model_mount_provider_inventory(request).expect("inventory planned in Rust");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_provider_inventory_command"
+        );
+        assert_eq!(
+            response["backend"],
+            "rust_model_mount_native_local_inventory"
+        );
+        assert_eq!(response["status"], "listed");
+        assert_eq!(
+            response["backendId"],
+            "backend.autopilot.native-local.fixture"
+        );
+        assert_eq!(
+            response["providerBackend"],
+            "autopilot.native_local.fixture"
+        );
+        assert_eq!(response["driver"], "native_local");
+        assert_eq!(response["itemCount"], 1);
+        assert!(response["inventory_hash"]
+            .as_str()
+            .expect("inventory hash")
+            .starts_with("sha256:"));
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_model_mount_native_local_inventory_backend"));
     }
 
     #[test]

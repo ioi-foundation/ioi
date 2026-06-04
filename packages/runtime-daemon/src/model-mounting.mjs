@@ -1056,6 +1056,10 @@ export class ModelMountingState {
     return this.modelMountAdmissionRunner.planProviderLifecycle(request);
   }
 
+  planModelMountProviderInventory(request) {
+    return this.modelMountAdmissionRunner.planProviderInventory(request);
+  }
+
   admitModelMountProviderResult(request) {
     return this.modelMountAdmissionRunner.admitProviderResult(request);
   }
