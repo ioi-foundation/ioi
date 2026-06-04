@@ -1113,11 +1113,69 @@ ImplementationSlice:
     push: required after verification
 ```
 
+## Implementation Slice 21
+
+```yaml
+ImplementationSlice:
+  objective: promote the remaining test.run npm.test, cargo.test, and
+    cargo.check backends to the Rust workload live path and remove the temporary
+    non-node test backend unsupported shim
+  owner_boundary:
+    route_or_surface: test.run coding tool invocation
+    authority_gate: existing budget/approval gates still run before live bridge
+      execution
+    execution_backend: rust_workload_live for all allowlisted test.run command
+      ids: node.test, npm.test, cargo.test, and cargo.check
+    truth_path: no accepted Agentgres mutation in this slice; test execution
+      output remains a StepModule result with router admission, receipt binding,
+      and projection evidence
+    projection_path: runtime event payload carries the Rust StepModule result,
+      router admission, and normalized test.run observation for every
+      allowlisted test command backend
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    daemon: []
+    rust_core:
+      - crates/node/src/bin/ioi_step_module_bridge/mod.rs
+    ide: []
+    tests:
+      - Rust unit tests in crates/node/src/bin/ioi_step_module_bridge/mod.rs
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - test.run npm.test, cargo.test, and cargo.check execute through Rust live
+      command mapping
+    - test.run command execution is bounded and workspace cwd/path checked
+    - disallowed test command ids fail closed instead of falling back to JS
+    - bridge output includes router admission, receipt binding, and projection
+      evidence
+    - no accepted transition without receipt/ref/state-root binding
+  verification:
+    commands:
+      - cargo test -p ioi-node --bin ioi-step-module-bridge test_run
+      - cargo test -p ioi-node --bin ioi-step-module-bridge
+      - cargo check -p ioi-node --bin ioi-step-module-bridge
+      - npm run hypervisor-conformance:bridge
+      - npm run hypervisor-conformance
+      - git diff --check
+    replay_or_shadow_comparison: npm.test, cargo.test, cargo.check, node.test,
+      and disallowed-command fail-closed cases
+  cleanup:
+    legacy_paths_removed: false
+    compatibility_shims_remaining:
+      - JS testRunTool remains as a legacy fallback until JS facade retirement
+        once Rust workload live mode is the only daemon execution configuration
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `coding-tools` | `packages/runtime-daemon/src/coding-tools.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `packages/runtime-daemon/src/step-module-runner.mjs`, `crates/node/src/bin/ioi-step-module-bridge.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS daemon tool dispatch with Step/Module projection wrappers plus live Rust paths for workspace.status, git.diff, file.inspect, test.run node.test, and lsp.diagnostics node.check | Rust core `step_router` plus workload/WASM backend | Agentgres admitted operation with receipt, refs, heads, and state roots | `abi`, `bridge`, `receipts`, `negative` | `workspace.status`, `git.diff`, `file.inspect`, `test.run` node.test, and `lsp.diagnostics` node.check return Rust live payloads without daemon_js; mutating/retrieval coding tools, diagnostics auto/typescript.check, and non-node test commands still need routing/demotion | Rust path passes shadow, gated, and live parity for each migrated tool; JS can no longer append authoritative effects. |
+| `coding-tools` | `packages/runtime-daemon/src/coding-tools.mjs`, `packages/runtime-daemon/src/step-module-abi.mjs`, `packages/runtime-daemon/src/step-module-runner.mjs`, `crates/node/src/bin/ioi-step-module-bridge.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS daemon tool dispatch with Step/Module projection wrappers plus live Rust paths for workspace.status, git.diff, file.inspect, all test.run command backends, and lsp.diagnostics node.check | Rust core `step_router` plus workload/WASM backend | Agentgres admitted operation with receipt, refs, heads, and state roots | `abi`, `bridge`, `receipts`, `negative` | `workspace.status`, `git.diff`, `file.inspect`, all `test.run` command backends, and `lsp.diagnostics` node.check return Rust live payloads without daemon_js; mutating/retrieval coding tools and diagnostics auto/typescript.check still need routing/demotion | Rust path passes shadow, gated, and live parity for each migrated tool; JS can no longer append authoritative effects. |
 | `approvals-gates` | `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `crates/services/src/agentic/runtime/kernel/authority.rs` | JS daemon routes plus Rust external-exit authority guard | Rust core `authority` with wallet.network handoff | authority grant and approval receipt before effect boundary | `bridge`, `negative` | Rust wallet.network guard implemented for external exits; live JS approval surface remains | JS can only request/render approvals; grants and gate decisions are issued by Rust authority core and wallet.network. |
 | `runtime-events-replay-trace` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | JS daemon envelope/projection code | Rust core `projection` plus Agentgres projection watermarks | replayable projection over admitted operations and receipts | `receipts`, `compositor` | JS projection source | Rust emits canonical projection records consumed by IDE/CLI/SDK. |
 | `model-mounting` | `packages/runtime-daemon/src/model-mounting/*` | JS daemon model-mounting store and route policy | Rust core `model_mount` | model invocation receipts, route/custody refs, Agentgres operation | `bridge`, `receipts`, `ctee` | live product daemon state | Rust records route decisions and receipts; JS surfaces are non-authoritative clients. |
@@ -1163,7 +1221,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 20:
+Current expected behavior after Slice 21:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

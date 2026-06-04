@@ -334,12 +334,6 @@ fn inspect_test_run(workspace_root: &str, input: &Value) -> Result<Value, Bridge
             format!("test.run commandId is not allowlisted: {command_id}"),
         ));
     }
-    if command_id != "node.test" {
-        return Err(BridgeError::new(
-            "test_run_backend_unsupported",
-            format!("{command_id} is not live in the Rust bridge yet"),
-        ));
-    }
     let cwd = input
         .get("cwd")
         .and_then(Value::as_str)
@@ -366,17 +360,13 @@ fn inspect_test_run(workspace_root: &str, input: &Value) -> Result<Value, Bridge
         1,
         TEST_MAX_OUTPUT_BYTES,
     ) as usize;
-    let mut args = vec!["--test".to_string()];
-    args.extend(
-        paths
-            .iter()
-            .map(|path| relative_path_between(&run_cwd.absolute_path, &path.absolute_path)),
-    );
+    let command = test_command_for_input(command_id, &run_cwd.absolute_path, &paths);
+    let mut args = command.args;
     args.extend(sanitize_string_array(input.get("args")));
     let env_overrides = sanitize_test_env(input.get("env"));
     let started = Instant::now();
     let run = run_command_with_timeout(
-        "node",
+        command.executable,
         &args,
         &run_cwd.absolute_path,
         timeout_ms,
@@ -401,8 +391,8 @@ fn inspect_test_run(workspace_root: &str, input: &Value) -> Result<Value, Bridge
         "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
         "workspaceRoot": workspace_root,
         "commandId": command_id,
-        "command": "node --test",
-        "executable": "node",
+        "command": command.display_command,
+        "executable": command.executable,
         "args": args,
         "cwd": run_cwd.relative_path,
         "exitCode": run.exit_code,
@@ -1006,6 +996,46 @@ struct CapturedCommand {
     timed_out: bool,
 }
 
+struct TestCommand {
+    executable: &'static str,
+    display_command: &'static str,
+    args: Vec<String>,
+}
+
+fn test_command_for_input(command_id: &str, cwd: &Path, paths: &[WorkspacePath]) -> TestCommand {
+    match command_id {
+        "node.test" => {
+            let mut args = vec!["--test".to_string()];
+            args.extend(
+                paths
+                    .iter()
+                    .map(|path| relative_path_between(cwd, &path.absolute_path)),
+            );
+            TestCommand {
+                executable: "node",
+                display_command: "node --test",
+                args,
+            }
+        }
+        "npm.test" => TestCommand {
+            executable: "npm",
+            display_command: "npm test",
+            args: vec!["test".to_string()],
+        },
+        "cargo.test" => TestCommand {
+            executable: "cargo",
+            display_command: "cargo test",
+            args: vec!["test".to_string()],
+        },
+        "cargo.check" => TestCommand {
+            executable: "cargo",
+            display_command: "cargo check",
+            args: vec!["check".to_string()],
+        },
+        _ => unreachable!("test command id is validated before command mapping"),
+    }
+}
+
 fn run_node_check(
     cwd: &Path,
     paths: &[WorkspacePath],
@@ -1368,6 +1398,8 @@ impl BridgeError {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
 
     #[test]
     fn workspace_status_reads_git_porcelain_status() {
@@ -1498,8 +1530,111 @@ mod tests {
         assert_eq!(result["timedOut"], false);
     }
 
+    #[cfg(unix)]
     #[test]
-    fn test_run_non_node_backend_fails_closed_until_live() {
+    fn test_run_npm_test_uses_sanitized_env_and_extra_args() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        let bin = temp.path().join("bin");
+        fs::create_dir(&workspace).expect("workspace dir");
+        fs::create_dir(&bin).expect("bin dir");
+        write_fake_executable(
+            &bin.join("npm"),
+            "#!/bin/sh\nif [ -n \"$SECRET_TOKEN\" ]; then exit 7; fi\nif [ -n \"$NODE_TEST_CONTEXT\" ]; then exit 8; fi\necho fake npm \"$@\"\n",
+        );
+        let path_env = format!(
+            "{}:{}",
+            bin.to_string_lossy(),
+            std::env::var("PATH").unwrap_or_default()
+        );
+
+        let result = inspect_test_run(
+            workspace.to_str().expect("utf8 path"),
+            &json!({
+                "commandId": "npm.test",
+                "args": ["--", "unit"],
+                "timeoutMs": 5000,
+                "env": {
+                    "PATH": path_env,
+                    "SECRET_TOKEN": "must-not-leak",
+                    "NODE_TEST_CONTEXT": "must-not-leak"
+                }
+            }),
+        )
+        .expect("test result");
+
+        assert_eq!(result["commandId"], "npm.test");
+        assert_eq!(result["command"], "npm test");
+        assert_eq!(result["executable"], "npm");
+        assert_eq!(result["args"], json!(["test", "--", "unit"]));
+        assert_eq!(result["testStatus"], "passed");
+        assert!(result["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("fake npm test -- unit"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_run_cargo_backends_use_rust_live_command_mapping() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        let bin = temp.path().join("bin");
+        fs::create_dir(&workspace).expect("workspace dir");
+        fs::create_dir(&bin).expect("bin dir");
+        write_fake_executable(
+            &bin.join("cargo"),
+            "#!/bin/sh\nif [ -n \"$SECRET_TOKEN\" ]; then exit 7; fi\necho fake cargo \"$@\"\n",
+        );
+        let path_env = format!(
+            "{}:{}",
+            bin.to_string_lossy(),
+            std::env::var("PATH").unwrap_or_default()
+        );
+
+        let check_result = inspect_test_run(
+            workspace.to_str().expect("utf8 path"),
+            &json!({
+                "commandId": "cargo.check",
+                "timeoutMs": 5000,
+                "env": {
+                    "PATH": path_env,
+                    "SECRET_TOKEN": "must-not-leak"
+                }
+            }),
+        )
+        .expect("cargo check result");
+        let test_result = inspect_test_run(
+            workspace.to_str().expect("utf8 path"),
+            &json!({
+                "commandId": "cargo.test",
+                "timeoutMs": 5000,
+                "env": {
+                    "PATH": path_env,
+                    "SECRET_TOKEN": "must-not-leak"
+                }
+            }),
+        )
+        .expect("cargo test result");
+
+        assert_eq!(check_result["command"], "cargo check");
+        assert_eq!(check_result["args"], json!(["check"]));
+        assert_eq!(check_result["testStatus"], "passed");
+        assert!(check_result["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("fake cargo check"));
+        assert_eq!(test_result["command"], "cargo test");
+        assert_eq!(test_result["args"], json!(["test"]));
+        assert_eq!(test_result["testStatus"], "passed");
+        assert!(test_result["stdout"]
+            .as_str()
+            .expect("stdout")
+            .contains("fake cargo test"));
+    }
+
+    #[test]
+    fn test_run_disallowed_command_fails_closed() {
         let temp = tempfile::tempdir().expect("tempdir");
         let workspace = temp.path().join("workspace");
         fs::create_dir(&workspace).expect("workspace dir");
@@ -1507,12 +1642,12 @@ mod tests {
         let error = inspect_test_run(
             workspace.to_str().expect("utf8 path"),
             &json!({
-                "commandId": "cargo.check"
+                "commandId": "python.test"
             }),
         )
-        .expect_err("cargo.check should fail closed until migrated");
+        .expect_err("unknown command should fail closed");
 
-        assert_eq!(error.code, "test_run_backend_unsupported");
+        assert_eq!(error.code, "test_run_command_not_allowed");
     }
 
     #[test]
@@ -1691,5 +1826,15 @@ mod tests {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr),
         );
+    }
+
+    #[cfg(unix)]
+    fn write_fake_executable(path: &Path, content: &str) {
+        fs::write(path, content).expect("fake executable");
+        let mut permissions = fs::metadata(path)
+            .expect("fake executable metadata")
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(path, permissions).expect("fake executable permissions");
     }
 }

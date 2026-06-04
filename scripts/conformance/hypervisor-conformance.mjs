@@ -362,6 +362,9 @@ function runBridge() {
       /file\.inspect/.test(bridgeModule) &&
       /test\.run/.test(bridgeModule) &&
       /inspect_test_run/.test(bridgeModule) &&
+      /npm\.test/.test(bridgeModule) &&
+      /cargo\.test/.test(bridgeModule) &&
+      /cargo\.check/.test(bridgeModule) &&
       /lsp\.diagnostics/.test(bridgeModule) &&
       /inspect_lsp_diagnostics/.test(bridgeModule) &&
       /ioi\.step_module\.command_bridge\.v1/.test(bridgeModule) &&
