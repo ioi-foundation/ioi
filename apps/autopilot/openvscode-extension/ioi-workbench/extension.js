@@ -30,6 +30,7 @@ const {
 const {
   createWorkbenchContextSnapshot,
 } = require("./workbench/context-snapshot");
+const { createAutopilotModeController } = require("./workbench/mode-controller");
 const { createWorkbenchModeBodyRenderers } = require("./workbench/mode-body-renderers");
 const { formatBytes, modelSnapshotFromState } = require("./workbench/model-snapshot");
 const { createAutopilotShellHeader } = require("./workbench/shell-header");
@@ -153,8 +154,12 @@ let studioPanelPageNonce = null;
 let workflowComposerPanel = null;
 let modelsPanel = null;
 const genericModePanels = new Map();
-let currentAutopilotModeId = "home";
-let lastAutopilotModeBeforeCode = "home";
+const autopilotModeController = createAutopilotModeController({
+  AUTOPILOT_MODE_BY_ID,
+  AUTOPILOT_MODE_BY_PANEL_VIEW_ID,
+  AUTOPILOT_MODE_BY_VIEW_ID,
+  vscode,
+});
 let studioModelInvocationToken = null;
 const modeVisibilityProjectionLastAtMs = new Map();
 const MODE_VISIBILITY_REQUEST_TYPES = {
@@ -1860,47 +1865,8 @@ function renderWorkflowView() {
   `;
 }
 
-function modeIdForViewId(viewId) {
-  return (
-    AUTOPILOT_MODE_BY_VIEW_ID[viewId]?.id ||
-    AUTOPILOT_MODE_BY_PANEL_VIEW_ID[viewId]?.id ||
-    null
-  );
-}
-
-function setActiveAutopilotMode(modeId) {
-  if (!AUTOPILOT_MODE_BY_ID[modeId]) {
-    return;
-  }
-  if (modeId !== "code") {
-    lastAutopilotModeBeforeCode = modeId;
-  }
-  currentAutopilotModeId = modeId;
-}
-
-async function applyWorkbenchChromeForMode(modeId, output) {
-  const menuBarVisibility = modeId === "code" ? "classic" : "hidden";
-  await vscode.commands
-    .executeCommand("setContext", "ioi.autopilotMode", modeId !== "code")
-    .catch(() => undefined);
-  await vscode.commands
-    .executeCommand("setContext", "ioi.codeMode", modeId === "code")
-    .catch(() => undefined);
-  await vscode.workspace
-    .getConfiguration("window")
-    .update("menuBarVisibility", menuBarVisibility, vscode.ConfigurationTarget.Global)
-    .catch((error) => {
-      output?.appendLine(
-        `[ioi-workbench] unable to update global VS Code menu bar visibility: ${
-          error?.message || String(error)
-        }`,
-      );
-    });
-}
-
 async function enterAutopilotMode(modeId, output) {
-  setActiveAutopilotMode(modeId);
-  await applyWorkbenchChromeForMode(modeId, output);
+  await autopilotModeController.enterAutopilotMode(modeId, output);
 }
 
 const {
@@ -2447,7 +2413,9 @@ function renderHtml(view, state) {
   const isStudioView = view.id === "ioi.studio";
   const isWorkflowView = view.id === "ioi.workflows";
   const isModelsView = view.id === "ioi.models";
-  const shellModeId = modeIdForViewId(view.id) || currentAutopilotModeId;
+  const shellModeId =
+    autopilotModeController.modeIdForViewId(view.id) ||
+    autopilotModeController.currentModeId();
   const appearanceThemeId =
     typeof state.appearance?.themeId === "string"
       ? state.appearance.themeId
@@ -10418,7 +10386,7 @@ function registerNativeCommands(context, output) {
       workspaceSummary,
       pickString,
       autopilotModeById: AUTOPILOT_MODE_BY_ID,
-      getLastAutopilotModeBeforeCode: () => lastAutopilotModeBeforeCode,
+      getLastAutopilotModeBeforeCode: () => autopilotModeController.lastModeBeforeCode(),
       getStudioPanel: () => studioPanel,
       enterHome: () => enterAutopilotMode("home", output),
       enterStudio: () => enterAutopilotMode("studio", output),
