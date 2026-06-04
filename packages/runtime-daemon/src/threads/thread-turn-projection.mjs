@@ -74,7 +74,7 @@ export function createThreadTurnProjection({
         workspace: agent.cwd,
       }).length,
       archived: agent.status === "archived",
-      evidence_refs: ["agentgres_canonical_operation_log", "runtime_tti_projection"],
+      evidence_refs: ["agentgres_canonical_state_projection", "runtime_tti_projection"],
       runtime_profile: agent.runtimeProfile ?? "fixture",
       runtime_bridge_id: agent.runtimeBridgeId ?? null,
       runtime_bridge_source: agent.runtimeBridgeSource ?? null,
@@ -149,7 +149,7 @@ export function createThreadTurnProjection({
       memory_refs: run.memoryRecords?.map((record) => record.id) ?? [],
       memory_write_receipt_ids: run.memoryWriteReceipts?.map((receipt) => receipt.id) ?? [],
       evidence_refs: [
-        "agentgres_canonical_operation_log",
+        "agentgres_canonical_state_projection",
         `run:${run.id}`,
         run.activeSkillHookManifest?.manifestId,
       ].filter(Boolean),

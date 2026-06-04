@@ -5,10 +5,8 @@ import path from "node:path";
 import { test } from "node:test";
 
 import {
-  appendOperationRecord,
   ensureStateDirs,
   loadStateRecords,
-  operationCountRecord,
   removeQuietFile,
   RUNTIME_STATE_DIRS,
   statePathFor,
@@ -35,14 +33,8 @@ function fakeStore() {
     schemaVersion: "ioi.agentgres.runtime.v0",
     subagents: new Map(),
     writes: [],
-    appendOperation(kind, payload) {
-      this.operations.push({ kind, payload });
-    },
     canonicalProjection(runId) {
       return { runId, projection: "canonical" };
-    },
-    operationCount() {
-      return this.operations.length;
     },
     pathFor(...segments) {
       return segments.join("/");
@@ -120,21 +112,11 @@ test("thread persistence rejects subagent records without stable ids", () => {
   );
 });
 
-test("thread persistence owns operation log paths, counts, digest records, and quiet removal", () => {
+test("thread persistence resolves state paths and quiet removal without operation logs", () => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-thread-persistence-"));
   const store = { stateDir };
 
-  assert.equal(statePathFor(store, "operation-log.jsonl"), path.join(stateDir, "operation-log.jsonl"));
-  assert.equal(operationCountRecord(store), 0);
-
-  const first = appendOperationRecord(store, "agent.create", { agentId: "agent_1" });
-  const second = appendOperationRecord(store, "run.create", { objectId: "run_1" });
-  assert.equal(first.sequence, 1);
-  assert.equal(second.sequence, 2);
-  assert.equal(first.objectId, "agent_1");
-  assert.equal(second.objectId, "run_1");
-  assert.match(first.digest, /^[a-f0-9]{64}$/);
-  assert.equal(operationCountRecord(store), 2);
+  assert.equal(statePathFor(store, "projections", "run_1.json"), path.join(stateDir, "projections", "run_1.json"));
 
   const temporaryFile = path.join(stateDir, "projection.json");
   fs.writeFileSync(temporaryFile, "{}");
@@ -215,7 +197,7 @@ test("thread persistence loads agents, runs, subagents, coding artifacts, and re
   assert.deepEqual(store.registeredEvents, [{ seq: 1 }, { seq: 2 }]);
 });
 
-test("thread persistence writes run projections and summarized operation entry", () => {
+test("thread persistence writes run projections without operation entries", () => {
   const store = fakeStore();
   const run = {
     id: "run_1",
@@ -267,18 +249,5 @@ test("thread persistence writes run projections and summarized operation entry",
     semanticImpact: { impact: "local" },
     projectionWatermark: 1,
   });
-  assert.deepEqual(store.operations, [
-    {
-      kind: "run.create",
-      payload: {
-        objectId: "run_1",
-        runId: "run_1",
-        agentId: "agent_1",
-        status: "completed",
-        eventCount: 2,
-        terminalEventCount: 1,
-        traceBundleId: "trace_bundle_1",
-      },
-    },
-  ]);
+  assert.deepEqual(store.operations, []);
 });

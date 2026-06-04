@@ -56,9 +56,6 @@ function harness() {
       calls.push({ name: "eventsForRun", runId, cursor });
       return [{ id: "canonical-event", cursor }];
     },
-    operationCount() {
-      return 42;
-    },
     pathFor(...segments) {
       return ["/state", ...segments].join("/");
     },
@@ -161,11 +158,11 @@ test("runtime run read surface projects authority evidence, replay, trace, and c
   assert.deepEqual(canonicalProjection, {
     schemaVersion: "schema.v1",
     runId: "run-one",
-    source: "agentgres_canonical_operation_log",
-    watermark: 42,
+    source: "agentgres_canonical_state_projection",
+    watermark: 2,
     freshness: {
       source: "local-agentgres-v0",
-      operationCount: 42,
+      runStateWatermark: 2,
       generatedAt: canonicalProjection.freshness.generatedAt,
     },
     paths: {
@@ -174,7 +171,6 @@ test("runtime run read surface projects authority evidence, replay, trace, and c
       job: "jobs/job-run-one.json",
       checklist: "checklists/checklist-run-one.json",
       quality: "quality/run-one.json",
-      operationLog: "operation-log.jsonl",
     },
     terminalState: "completed",
     stopCondition: { reason: "done" },

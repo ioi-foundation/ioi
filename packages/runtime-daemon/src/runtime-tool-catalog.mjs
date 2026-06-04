@@ -138,7 +138,7 @@ export function runtimeNodes(env = process.env) {
       status: "available",
       endpoint: "local",
       privacyClass: "local_private",
-      evidenceRefs: ["agentgres_canonical_operation_log", "ioi_daemon_public_runtime_api"],
+      evidenceRefs: ["agentgres_canonical_state_projection", "ioi_daemon_public_runtime_api"],
     },
     {
       id: "hosted-provider",

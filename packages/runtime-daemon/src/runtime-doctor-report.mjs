@@ -36,7 +36,7 @@ export function createRuntimeDoctorReport({
         fs.existsSync(store.stateDir) ? "pass" : "blocked",
         true,
         "Agentgres v0 state directory is present.",
-        [store.stateDir, "agentgres_canonical_operation_log"],
+        [store.stateDir, "agentgres_canonical_state_projection"],
       ),
       doctorCheck(
         "model.routes",
@@ -141,7 +141,7 @@ export function createRuntimeDoctorReport({
       },
       configPaths: {
         stateDir: store.stateDir,
-        operationLog: path.join(store.stateDir, "operation-log.jsonl"),
+        projections: path.join(store.stateDir, "projections"),
         memoryRecords: memoryPaths.recordsPath,
         memoryPolicies: memoryPaths.policiesPath,
         modelMountingProjection: path.join(store.stateDir, "projections", "model-mounting-canonical.json"),
@@ -196,7 +196,8 @@ export function createRuntimeDoctorReport({
       },
       agentgres: {
         schemaVersion: store.schemaVersion,
-        operationCount: store.operationCount(),
+        source: "agentgres_canonical_state_projection",
+        runStateWatermark: store.runs instanceof Map ? store.runs.size : 0,
         localStateDirPresent: fs.existsSync(store.stateDir),
         remoteAdapterConfigured: Boolean(processEnv.IOI_AGENTGRES_URL),
         remoteAdapterHash: processEnv.IOI_AGENTGRES_URL ? doctorHash(processEnv.IOI_AGENTGRES_URL) : null,

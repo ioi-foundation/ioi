@@ -49,7 +49,7 @@ function createHarness({ exists = () => true, env = {} } = {}) {
       validationIssueCount: 0,
     }),
     listTools: () => [{ stableToolId: "fs.read" }],
-    operationCount: () => 3,
+    runs: new Map([["run-one", {}], ["run-two", {}], ["run-three", {}]]),
     listRuntimeNodes: () => [{ id: "hosted", endpoint: "https://provider.example" }],
   };
   return { helper, store };
@@ -73,6 +73,8 @@ test("runtime doctor report projects ready degraded status with redacted endpoin
   assert.equal(report.mcp.servers[0].secretRefCount, 1);
   assert.equal(report.mcp.servers[0].secretsRedacted, true);
   assert.equal(report.agentgres.remoteAdapterConfigured, true);
+  assert.equal(report.agentgres.source, "agentgres_canonical_state_projection");
+  assert.equal(report.agentgres.runStateWatermark, 3);
   assert.equal(report.wallet.networkConfigured, true);
   assert.equal(report.runtimeNodes[0].endpoint, "redacted");
   assert.equal(report.runtimeNodes[0].endpointHash, "hash:24");

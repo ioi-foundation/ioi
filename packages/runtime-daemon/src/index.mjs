@@ -189,10 +189,8 @@ import {
   threadModeForRunMode,
 } from "./threads/thread-runtime-controls.mjs";
 import {
-  appendOperationRecord,
   ensureStateDirs,
   loadStateRecords,
-  operationCountRecord,
   removeQuietFile,
   statePathFor,
   writeStateSchema,
@@ -3755,14 +3753,6 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
-  appendOperation(kind, payload) {
-    return appendOperationRecord(this, kind, payload);
-  }
-
-  operationCount() {
-    return operationCountRecord(this);
-  }
-
   pathFor(...segments) {
     return statePathFor(this, ...segments);
   }
@@ -3979,7 +3969,7 @@ function buildRun({
     changedObjects: mode === "send" ? [] : [`daemon:${mode}`],
     evidenceRefs: [
       "ioi_daemon_public_runtime_api",
-      "agentgres_canonical_operation_log",
+      "agentgres_canonical_state_projection",
       runtimeTask.taskId,
       runtimeJob.jobId,
       runtimeChecklist.checklistId,
@@ -4060,7 +4050,7 @@ function buildRun({
         status: diagnosticsBlockingGate ? "blocked" : "passed",
       },
       {
-        checkId: "agentgres-operation-log",
+        checkId: "agentgres-state-projection",
         description: "Run, task, receipts, scorecard, and ledger are written to Agentgres v0.",
         status: "passed",
       },
@@ -4581,7 +4571,7 @@ function buildRun({
     kind: "agentgres_canonical_write",
     summary: "Run state, task state, receipts, scorecard, stop condition, and quality ledger were written to Agentgres v0.",
     redaction: "redacted",
-    evidenceRefs: ["agentgres_canonical_operation_log", `run:${runId}`],
+    evidenceRefs: ["agentgres_canonical_state_projection", `run:${runId}`],
   };
   const traceReceipt = {
     id: `receipt_${runId}_trace`,
@@ -5152,7 +5142,7 @@ function buildRun({
       {
         runId,
         canonicalOwner: "Agentgres",
-        source: "agentgres_canonical_operation_log",
+        source: "agentgres_canonical_state_projection",
       },
       "redacted",
     ),

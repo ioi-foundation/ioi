@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -72,7 +71,6 @@ export function writeStateSchema(store, deps = {}) {
         "created_at",
       ],
       quality: ["runId", "scorecard", "qualityLedger", "stopCondition"],
-      operationLog: ["sequence", "operationId", "kind", "objectId", "createdAt", "digest"],
       ...store.modelMounting.writeSchemaRelationSchemas(),
     },
     canonicalOwner: "Agentgres",
@@ -115,36 +113,17 @@ export function loadStateRecords(store, deps = {}) {
   }
 }
 
-export function operationCountRecord(store) {
-  const logPath = statePathFor(store, "operation-log.jsonl");
-  if (!fs.existsSync(logPath)) return 0;
-  const text = fs.readFileSync(logPath, "utf8").trim();
-  return text ? text.split(/\n/).length : 0;
-}
-
-export function appendOperationRecord(store, kind, payload) {
-  const sequence = operationCountRecord(store) + 1;
-  const operation = {
-    sequence,
-    operationId: `op_${String(sequence).padStart(8, "0")}_${kind.replace(/[^a-z0-9]+/gi, "_")}`,
-    kind,
-    objectId: payload.objectId ?? payload.agentId ?? payload.runId ?? null,
-    createdAt: new Date().toISOString(),
-    payload,
-  };
-  const digest = crypto.createHash("sha256").update(JSON.stringify(operation)).digest("hex");
-  const record = { ...operation, digest };
-  fs.mkdirSync(store.stateDir, { recursive: true });
-  fs.appendFileSync(statePathFor(store, "operation-log.jsonl"), `${JSON.stringify(record)}\n`);
-  return record;
-}
-
 export function removeQuietFile(filePath) {
   try {
     fs.rmSync(filePath, { force: true });
   } catch {
     // Deleting a non-existent projection is not a state transition.
   }
+}
+
+function runStateProjectionWatermark(store, run) {
+  const runCount = store.runs instanceof Map ? store.runs.size : 0;
+  return Math.max(runCount, run?.id ? 1 : 0);
 }
 
 export function writeAgentRecord(store, agent, operationKind, deps = {}) {
@@ -190,7 +169,7 @@ export function writeRunRecord(store, run, operationKind, deps = {}) {
     taskState: run.trace.taskState,
     postconditions: run.trace.postconditions,
     semanticImpact: run.trace.semanticImpact,
-    projectionWatermark: store.operationCount() + 1,
+    projectionWatermark: runStateProjectionWatermark(store, run),
   });
   writeJson(store.pathFor("jobs", `${runtimeJob.jobId}.json`), runtimeJob);
   writeJson(store.pathFor("checklists", `${runtimeChecklist.checklistId}.json`), runtimeChecklist);
@@ -230,13 +209,4 @@ export function writeRunRecord(store, run, operationKind, deps = {}) {
     },
   });
   writeJson(store.pathFor("projections", `${run.id}.json`), store.canonicalProjection(run.id));
-  store.appendOperation(operationKind, {
-    objectId: run.id,
-    runId: run.id,
-    agentId: run.agentId,
-    status: run.status,
-    eventCount: run.events.length,
-    terminalEventCount: terminalEventCount(run.events, terminalEventTypes),
-    traceBundleId: run.trace.traceBundleId,
-  });
 }

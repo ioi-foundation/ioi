@@ -342,7 +342,7 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     assert.equal(canceledReplay.at(-1)?.type, "canceled");
 
     const trace = await canceled.trace();
-    assert.equal(trace.canonicalState.source, "agentgres_canonical_operation_log");
+    assert.equal(trace.canonicalState.source, "agentgres_canonical_state_projection");
     assert.equal(trace.runtimeTask.schemaVersion, "ioi.agent-runtime.task-record.v1");
     assert.equal(trace.runtimeTask.object, "ioi.runtime_task");
     assert.equal(trace.runtimeTask.runId, run.id);
@@ -383,9 +383,7 @@ test("local daemon public API persists canonical Agentgres state and replays wit
     assert.ok(canceledArtifacts.some((artifact) => artifact.name === "runtime-checklist.json"));
     assert.ok(canceledArtifacts.some((artifact) => artifact.name === "agentgres-projection.json"));
 
-    const operationLog = path.join(stateDir, "operation-log.jsonl");
-    assert.ok(fs.existsSync(operationLog));
-    assert.ok(fs.readFileSync(operationLog, "utf8").includes("run.cancel"));
+    assert.equal(fs.existsSync(path.join(stateDir, "operation-log.jsonl")), false);
     for (const relative of [
       ["runs", `${run.id}.json`],
       ["tasks", `${run.id}.json`],

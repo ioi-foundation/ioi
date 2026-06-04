@@ -22,6 +22,10 @@ function defaultRuntimeChecklistRecordForRun(run = {}) {
   return { checklistId: run.runtimeChecklist?.checklistId ?? run.checklistId ?? run.id };
 }
 
+function runStateProjectionWatermark(store) {
+  return store.runs instanceof Map ? store.runs.size : 0;
+}
+
 export function createRuntimeRunReadSurface({
   authorityEvidenceSummaryForEvents: authorityEvidenceSummaryForEventsDep = authorityEvidenceSummaryForEvents,
   getRun: getRunDep = getRunState,
@@ -96,15 +100,15 @@ export function createRuntimeRunReadSurface({
     },
     canonicalProjection(store, runId) {
       const run = store.getRun(runId);
-      const watermark = store.operationCount();
+      const watermark = runStateProjectionWatermark(store);
       return {
         schemaVersion: store.schemaVersion,
         runId,
-        source: "agentgres_canonical_operation_log",
+        source: "agentgres_canonical_state_projection",
         watermark,
         freshness: {
           source: "local-agentgres-v0",
-          operationCount: watermark,
+          runStateWatermark: watermark,
           generatedAt: new Date().toISOString(),
         },
         paths: {
@@ -113,7 +117,6 @@ export function createRuntimeRunReadSurface({
           job: relativeDep(store.stateDir, store.pathFor("jobs", `${runtimeJobRecordForRunDep(run).jobId}.json`)),
           checklist: relativeDep(store.stateDir, store.pathFor("checklists", `${runtimeChecklistRecordForRunDep(run).checklistId}.json`)),
           quality: relativeDep(store.stateDir, store.pathFor("quality", `${run.id}.json`)),
-          operationLog: "operation-log.jsonl",
         },
         terminalState: run.status,
         stopCondition: run.trace.stopCondition,

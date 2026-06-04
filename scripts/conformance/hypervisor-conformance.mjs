@@ -885,6 +885,26 @@ function runReceipts() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
+  const runtimeRunReadSurface = exists("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
+    : "";
+  const runtimeDoctorReport = exists("packages/runtime-daemon/src/runtime-doctor-report.mjs")
+    ? read("packages/runtime-daemon/src/runtime-doctor-report.mjs")
+    : "";
+  const runtimeToolCatalog = exists("packages/runtime-daemon/src/runtime-tool-catalog.mjs")
+    ? read("packages/runtime-daemon/src/runtime-tool-catalog.mjs")
+    : "";
+  const threadTurnProjection = exists("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
+    : "";
+  const runtimeRunStateSurfaces = [
+    threadPersistence,
+    runtimeDaemonIndex,
+    runtimeRunReadSurface,
+    runtimeDoctorReport,
+    runtimeToolCatalog,
+    threadTurnProjection,
+  ].join("\n");
   const modelMountingConstructorArgs =
     runtimeDaemonIndex.match(/this\.modelMounting = new ModelMountingState\(\{[\s\S]*?\n    \}\);/)?.[0] ?? "";
   const writeAgentRecordBody =
@@ -1503,6 +1523,33 @@ function runReceipts() {
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
     ],
     "Phase 5/11 is pending: agent and subagent persistence must not append duplicate daemon-local operation records outside their persisted state records",
+  );
+  assertCheck(
+    result,
+    "thread-run-operation-log-append-retired",
+    !/appendOperationRecord|operationCountRecord|operation-log\.jsonl|agentgres_canonical_operation_log/.test(
+      runtimeRunStateSurfaces,
+    ) &&
+      !/\bappendOperation\s*\(/.test(runtimeRunStateSurfaces) &&
+      !/\boperationCount\s*\(/.test(runtimeRunStateSurfaces) &&
+      /runStateProjectionWatermark/.test(threadPersistence) &&
+      /thread persistence writes run projections without operation entries/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /agentgres_canonical_state_projection/.test(runtimeRunReadSurface) &&
+      /runStateWatermark/.test(runtimeRunReadSurface) &&
+      /agentgres_canonical_state_projection/.test(runtimeDoctorReport) &&
+      /runStateWatermark/.test(runtimeDoctorReport),
+    [
+      "packages/runtime-daemon/src/threads/thread-persistence.mjs",
+      "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
+      "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
+      "packages/runtime-daemon/src/runtime-doctor-report.mjs",
+      "packages/runtime-daemon/src/runtime-tool-catalog.mjs",
+      "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 5/11 is pending: run persistence and read surfaces must not append or expose duplicate daemon-local operation-log records outside Agentgres state projections and admitted receipts",
   );
   assertCheck(
     result,
