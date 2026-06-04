@@ -262,8 +262,56 @@ test("provider model and loaded lists use driver results or local fallbacks", as
 
   assert.deepEqual(models.map((record) => record.id), ["artifact.local"]);
   assert.deepEqual(loaded.map((record) => record.id), ["instance.local"]);
+  assert.equal(state.receipts.at(-2).details.providerKind, "fixture");
   assert.equal(state.receipts.at(-2).details.modelCount, 1);
+  assert.equal(state.receipts.at(-1).details.providerKind, "fixture");
   assert.equal(state.receipts.at(-1).details.loadedCount, 1);
+});
+
+test("local provider model and loaded list receipts carry Rust inventory bindings", async () => {
+  const state = fakeState();
+  state.providers.set("provider.local", {
+    id: "provider.local",
+    kind: "ioi_native_local",
+    label: "Native",
+    status: "available",
+    discovery: { evidenceRefs: ["native_provider"] },
+  });
+  state.drivers.set("provider.local", {
+    async listModels() {
+      return Object.assign([{ id: "artifact.native", providerId: "provider.local" }], {
+        modelMountProviderInventory: {
+          action: "list_models",
+          status: "listed",
+          inventoryHash: "sha256:list-models",
+          evidenceRefs: ["rust_model_mount_provider_inventory"],
+          executionBackend: "rust_model_mount_native_local_inventory",
+          itemCount: 1,
+        },
+      });
+    },
+    async listLoaded() {
+      return Object.assign([{ id: "instance.native", providerId: "provider.local", status: "loaded" }], {
+        modelMountProviderInventory: {
+          action: "list_loaded",
+          status: "listed",
+          inventoryHash: "sha256:list-loaded",
+          evidenceRefs: ["rust_model_mount_provider_inventory"],
+          executionBackend: "rust_model_mount_native_local_inventory",
+          itemCount: 1,
+        },
+      });
+    },
+  });
+
+  await listProviderModels(state, "provider.local");
+  await listProviderLoaded(state, "provider.local");
+
+  assert.equal(state.receipts.at(-2).details.providerKind, "ioi_native_local");
+  assert.equal(state.receipts.at(-2).details.modelMountProviderInventoryAction, "list_models");
+  assert.equal(state.receipts.at(-2).details.modelMountProviderInventoryHash, "sha256:list-models");
+  assert.equal(state.receipts.at(-1).details.modelMountProviderInventoryAction, "list_loaded");
+  assert.equal(state.receipts.at(-1).details.modelMountProviderInventoryHash, "sha256:list-loaded");
 });
 
 test("provider start and stop preserve stateless defaults and receipts", async () => {

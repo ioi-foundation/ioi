@@ -39,7 +39,7 @@ export class NativeLocalModelProviderDriver {
       itemRefs: recordRefs(artifacts),
       evidenceRefs: ["daemon_native_local_list_models_request"],
     })), "list_models", artifacts.length);
-    return attachInventoryMetadata(artifacts, inventory);
+    return attachInventoryMetadata(artifacts, inventory, "list_models");
   }
 
   async listLoaded({ state, provider }) {
@@ -53,7 +53,7 @@ export class NativeLocalModelProviderDriver {
       itemRefs: recordRefs(instances),
       evidenceRefs: ["daemon_native_local_list_loaded_request"],
     })), "list_loaded", instances.length);
-    return attachInventoryMetadata(instances, inventory);
+    return attachInventoryMetadata(instances, inventory, "list_loaded");
   }
 
   async load({ state, provider = null, endpoint, body = {} }) {
@@ -173,7 +173,7 @@ export class FixtureModelProviderDriver {
       itemRefs: recordRefs(artifacts),
       evidenceRefs: ["daemon_fixture_list_models_request"],
     })), "list_models", artifacts.length);
-    return attachInventoryMetadata(artifacts, inventory);
+    return attachInventoryMetadata(artifacts, inventory, "list_models");
   }
 
   async listLoaded({ state, provider }) {
@@ -187,7 +187,7 @@ export class FixtureModelProviderDriver {
       itemRefs: recordRefs(instances),
       evidenceRefs: ["daemon_fixture_list_loaded_request"],
     })), "list_loaded", instances.length);
-    return attachInventoryMetadata(instances, inventory);
+    return attachInventoryMetadata(instances, inventory, "list_loaded");
   }
 
   async load({ state, provider = null, endpoint }) {
@@ -338,8 +338,8 @@ function fixtureInventoryRequest({
   };
 }
 
-function attachInventoryMetadata(records, inventory) {
-  return records.map((record) => ({
+function attachInventoryMetadata(records, inventory, action) {
+  const enriched = records.map((record) => ({
     ...record,
     backendEvidenceRefs: normalizeScopes([
       ...(record.backendEvidenceRefs ?? []),
@@ -349,6 +349,15 @@ function attachInventoryMetadata(records, inventory) {
     inventoryHash: inventory.inventory_hash ?? null,
     inventoryItemCount: inventory.itemCount ?? inventory.itemRefs?.length ?? records.length,
   }));
+  enriched.modelMountProviderInventory = {
+    action: inventory.result?.action ?? inventory.action ?? action,
+    status: inventory.status ?? null,
+    executionBackend: inventory.executionBackend ?? null,
+    inventoryHash: inventory.inventory_hash ?? null,
+    evidenceRefs: inventory.evidence_refs ?? [],
+    itemCount: inventory.itemCount ?? inventory.itemRefs?.length ?? records.length,
+  };
+  return enriched;
 }
 
 function recordRefs(records) {

@@ -1173,6 +1173,36 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-provider-inventory-receipt-direct-write-guard",
+    /modelMountProviderInventory/.test(
+      read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs"),
+    ) &&
+      /providerInventoryReceiptFields/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      /assertProviderInventoryReceiptBound/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+      ) &&
+      /model_mount_provider_inventory_receipt_direct_append_forbidden/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+      ) &&
+      /local provider model and loaded list receipts carry Rust inventory bindings/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /provider inventory receipt writes fail closed without provider kind/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
+    ],
+    "Phase 9/10 is pending: direct JS provider inventory lifecycle receipt persistence for migrated local providers must fail closed without provider kind and Rust model_mount inventory binding",
+  );
+  assertCheck(
+    result,
     "model-mount-provider-result-admission-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
       /MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION/.test(

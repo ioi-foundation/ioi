@@ -134,6 +134,7 @@ export class AgentgresModelMountingStore {
   writeReceipt(receipt) {
     assertAcceptedModelInvocationReceiptBound(receipt);
     assertModelInstanceLifecycleReceiptBound(receipt);
+    assertProviderInventoryReceiptBound(receipt);
     writeJson(path.join(this.stateDir, "receipts", `${receipt.id}.json`), receipt);
     emitRemoteBoundaryEvent(process.env.IOI_AGENTGRES_URL, "/operations", {
       port: "AgentgresModelMountingStorePort",
@@ -209,6 +210,11 @@ const MODEL_INSTANCE_LIFECYCLE_RECEIPT_STATUSES = new Map([
   ["model_unload", "unloaded"],
   ["model_idle_evict", "evicted"],
   ["model_supersede", "superseded"],
+]);
+
+const PROVIDER_INVENTORY_RECEIPT_ACTIONS = new Map([
+  ["provider_models_list", "list_models"],
+  ["provider_loaded_list", "list_loaded"],
 ]);
 
 function assertAcceptedModelInvocationReceiptBound(receipt) {
@@ -323,6 +329,68 @@ function assertModelInstanceLifecycleReceiptBound(receipt) {
       status: 409,
       code: "model_mount_instance_lifecycle_receipt_direct_append_forbidden",
       message: "Model instance lifecycle receipts for migrated local providers require Rust model_mount lifecycle bindings before JS store persistence.",
+      details: {
+        receiptId: receipt?.id ?? null,
+        receiptKind: receipt?.kind ?? null,
+        operation: details.operation ?? null,
+        providerKind,
+        missing,
+        mismatches,
+      },
+    });
+  }
+}
+
+function assertProviderInventoryReceiptBound(receipt) {
+  if (receipt?.kind !== "model_lifecycle") return;
+  const details = receipt?.details && typeof receipt.details === "object" ? receipt.details : {};
+  const expectedAction = PROVIDER_INVENTORY_RECEIPT_ACTIONS.get(details.operation);
+  if (!expectedAction) return;
+  const providerKind = optionalNonEmptyString(details.providerKind ?? details.provider_kind);
+  const missing = [];
+  const mismatches = [];
+  if (!providerKind && optionalNonEmptyString(details.providerId)) {
+    missing.push("providerKind");
+  }
+  if (!providerKind || !modelMountProviderKindRequiresRustInstanceLifecycle(providerKind)) {
+    if (missing.length > 0) {
+      throw runtimeError({
+        status: 409,
+        code: "model_mount_provider_inventory_receipt_direct_append_forbidden",
+        message: "Provider inventory receipts require provider kind before JS store persistence.",
+        details: {
+          receiptId: receipt?.id ?? null,
+          receiptKind: receipt?.kind ?? null,
+          operation: details.operation ?? null,
+          missing,
+          mismatches,
+        },
+      });
+    }
+    return;
+  }
+  if (!optionalNonEmptyString(details.modelMountProviderInventoryHash)) {
+    missing.push("modelMountProviderInventoryHash");
+  }
+  if (!Array.isArray(details.modelMountProviderInventoryEvidenceRefs) ||
+    !details.modelMountProviderInventoryEvidenceRefs.includes("rust_model_mount_provider_inventory")) {
+    missing.push("modelMountProviderInventoryEvidenceRefs");
+  }
+  if (!optionalNonEmptyString(details.modelMountProviderInventoryAction)) {
+    missing.push("modelMountProviderInventoryAction");
+  } else if (details.modelMountProviderInventoryAction !== expectedAction) {
+    mismatches.push("modelMountProviderInventoryAction");
+  }
+  if (!optionalNonEmptyString(details.modelMountProviderInventoryStatus)) {
+    missing.push("modelMountProviderInventoryStatus");
+  } else if (details.modelMountProviderInventoryStatus !== "listed") {
+    mismatches.push("modelMountProviderInventoryStatus");
+  }
+  if (missing.length > 0 || mismatches.length > 0) {
+    throw runtimeError({
+      status: 409,
+      code: "model_mount_provider_inventory_receipt_direct_append_forbidden",
+      message: "Provider inventory receipts for migrated local providers require Rust model_mount inventory bindings before JS store persistence.",
       details: {
         receiptId: receipt?.id ?? null,
         receiptKind: receipt?.kind ?? null,

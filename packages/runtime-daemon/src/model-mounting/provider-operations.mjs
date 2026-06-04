@@ -210,10 +210,12 @@ export async function listProviderModels(state, providerId) {
     : state.listArtifacts().filter((artifact) => artifact.providerId === providerId);
   state.lifecycleReceipt("provider_models_list", {
     providerId,
+    providerKind: provider.kind,
     modelId: provider.label,
     state: provider.status,
     modelCount: resolved.length,
     evidenceRefs: provider.discovery?.evidenceRefs ?? [],
+    ...providerInventoryReceiptFields(models.modelMountProviderInventory),
   });
   return resolved;
 }
@@ -226,12 +228,26 @@ export async function listProviderLoaded(state, providerId) {
     : state.listInstances().filter((instance) => instance.providerId === providerId && instance.status === "loaded");
   state.lifecycleReceipt("provider_loaded_list", {
     providerId,
+    providerKind: provider.kind,
     modelId: provider.label,
     state: provider.status,
     loadedCount: resolved.length,
     evidenceRefs: provider.discovery?.evidenceRefs ?? [],
+    ...providerInventoryReceiptFields(loaded.modelMountProviderInventory),
   });
   return resolved;
+}
+
+function providerInventoryReceiptFields(inventory) {
+  if (!inventory) return {};
+  return {
+    modelMountProviderInventoryAction: inventory.action,
+    modelMountProviderInventoryStatus: inventory.status,
+    modelMountProviderInventoryHash: inventory.inventoryHash,
+    modelMountProviderInventoryEvidenceRefs: inventory.evidenceRefs ?? [],
+    modelMountProviderInventoryExecutionBackend: inventory.executionBackend,
+    modelMountProviderInventoryItemCount: inventory.itemCount,
+  };
 }
 
 export async function startProvider(state, providerId, deps = {}) {

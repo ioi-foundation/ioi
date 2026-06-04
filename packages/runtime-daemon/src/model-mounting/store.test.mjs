@@ -68,6 +68,23 @@ function modelLifecycleReceipt(details = {}) {
   };
 }
 
+function providerInventoryReceipt(details = {}) {
+  return {
+    id: details.id ?? "receipt.provider-inventory",
+    kind: "model_lifecycle",
+    redaction: "redacted",
+    evidenceRefs: ["model_registry", "agentgres_canonical_operation_log", details.operation ?? "provider_models_list"],
+    details: {
+      operation: "provider_models_list",
+      providerId: "provider.local",
+      providerKind: "ioi_native_local",
+      modelId: "Local",
+      modelCount: 1,
+      ...details,
+    },
+  };
+}
+
 test("model invocation receipt writes fail closed without Rust receipt and Agentgres admission", () => {
   const { appended, stateDir, store } = testStore();
 
@@ -191,4 +208,49 @@ test("model lifecycle receipt writes allow Rust-bound local and remote provider 
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.local-bound.json")), true);
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.remote.json")), true);
   assert.deepEqual(appended.map((item) => item.payload.receiptId), ["receipt.local-bound", "receipt.remote"]);
+});
+
+test("provider inventory receipt writes fail closed without provider kind and Rust inventory binding", () => {
+  const { appended, stateDir, store } = testStore();
+
+  assert.throws(
+    () => store.writeReceipt(providerInventoryReceipt({ providerKind: undefined })),
+    (error) =>
+      error.code === "model_mount_provider_inventory_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("providerKind"),
+  );
+  assert.throws(
+    () => store.writeReceipt(providerInventoryReceipt()),
+    (error) =>
+      error.code === "model_mount_provider_inventory_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("modelMountProviderInventoryHash"),
+  );
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.provider-inventory.json")), false);
+  assert.deepEqual(appended, []);
+});
+
+test("provider inventory receipt writes allow Rust-bound local and remote provider records", () => {
+  const { appended, stateDir, store } = testStore();
+  const localReceipt = providerInventoryReceipt({
+    id: "receipt.inventory-local-bound",
+    modelMountProviderInventoryAction: "list_models",
+    modelMountProviderInventoryStatus: "listed",
+    modelMountProviderInventoryHash: "sha256:inventory",
+    modelMountProviderInventoryEvidenceRefs: ["rust_model_mount_provider_inventory"],
+  });
+  const remoteReceipt = providerInventoryReceipt({
+    id: "receipt.inventory-remote",
+    providerId: "provider.remote",
+    providerKind: "openai_compatible",
+  });
+
+  store.writeReceipt(localReceipt);
+  store.writeReceipt(remoteReceipt);
+
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.inventory-local-bound.json")), true);
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.inventory-remote.json")), true);
+  assert.deepEqual(appended.map((item) => item.payload.receiptId), [
+    "receipt.inventory-local-bound",
+    "receipt.inventory-remote",
+  ]);
 });

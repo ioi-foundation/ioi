@@ -235,6 +235,8 @@ test("local provider drivers plan model and loaded inventory through Rust model_
   assert.equal(nativeModels.length, 1);
   assert.equal(nativeModels[0].inventoryHash, "sha256:list_models:1");
   assert.ok(nativeModels[0].inventoryEvidenceRefs.includes("rust_model_mount_provider_inventory"));
+  assert.equal(nativeModels.modelMountProviderInventory.inventoryHash, "sha256:list_models:1");
+  assert.equal(nativeModels.modelMountProviderInventory.action, "list_models");
   assert.equal(state.inventoryRequests.at(-1).action, "list_models");
   assert.equal(state.inventoryRequests.at(-1).execution_backend, "rust_model_mount_native_local_inventory");
   assert.deepEqual(state.inventoryRequests.at(-1).item_refs, ["artifact.native"]);
@@ -245,6 +247,7 @@ test("local provider drivers plan model and loaded inventory through Rust model_
   });
   assert.equal(nativeLoaded.length, 1);
   assert.equal(nativeLoaded[0].inventoryHash, "sha256:list_loaded:1");
+  assert.equal(nativeLoaded.modelMountProviderInventory.action, "list_loaded");
   assert.ok(nativeLoaded[0].backendEvidenceRefs.includes("rust_model_mount_native_local_inventory_backend"));
   assert.equal(state.inventoryRequests.at(-1).action, "list_loaded");
   assert.deepEqual(state.inventoryRequests.at(-1).item_refs, ["instance.native.loaded"]);
