@@ -252,9 +252,78 @@ function createStudioParityPlusPanels({
     return rows.join("");
   }
 
+  function studioStage2WebRepairEventText(events = []) {
+    return array(events)
+      .map((event) => {
+        try {
+          return JSON.stringify(event);
+        } catch {
+          return String(event);
+        }
+      })
+      .join("\n");
+  }
+
+  function studioStage2FinalContractValues(events = []) {
+    const values = [];
+    for (const event of array(events)) {
+      const eventText = studioStage2WebRepairEventText([event]);
+      if (!/\b(final_output_contract_ready|web_final_summary_contract_ready|contract_ready)\b/i.test(eventText)) {
+        continue;
+      }
+      if (/\b(satisfied|ready|success|value|passed)\b[^a-z0-9]{0,16}false\b/i.test(eventText)) {
+        values.push(false);
+      }
+      if (/\b(satisfied|ready|success|value|passed)\b[^a-z0-9]{0,16}true\b/i.test(eventText)) {
+        values.push(true);
+      }
+      for (const match of eventText.matchAll(/\b(?:web_final_summary_contract_ready|contract_ready)=(true|false)\b/gi)) {
+        values.push(match[1].toLowerCase() === "true");
+      }
+    }
+    return values;
+  }
+
+  function studioStage2ProductTextIsClean(value = "") {
+    const productText = String(value || "");
+    return ![
+      /\bERROR_CLASS=/i,
+      /\bValidator feedback\b/i,
+      /\bweb_model_chat_reply_contract_rejected_for_retry\b/i,
+      /\bfinal_output_contract_ready\b/i,
+      /\bchat_reply_model_authored_web_pipeline_answer_/i,
+      /\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/i,
+      /\b(?:autopilot-)?native-fixture\b/i,
+      /\bmodel_chat_reply\b/i,
+      /\/home\/[^<\s]+/i,
+      /\/tmp\/[^<\s]+/i,
+    ].some((pattern) => pattern.test(productText));
+  }
+
+  function studioStage5ProductTextIsClean(value = "") {
+    const productText = String(value || "");
+    return ![
+      /\bERROR_CLASS=/i,
+      /\bStopHookBlocked\b/i,
+      /\bstop_hook/i,
+      /\bchat_reply_blocked_by_stop_hook\b/i,
+      /\bstop_hook_completion_blocked\b/i,
+      /\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/i,
+      /\b(?:autopilot-)?native-fixture\b/i,
+      /\btool\.(?:completed|failed|started)\b/i,
+      /\.tmp\/autopilot-stage5-stop-hook-repair/i,
+      /\/home\/[^<\s]+/i,
+      /\/tmp\/[^<\s]+/i,
+    ].some((pattern) => pattern.test(productText));
+  }
+
   return {
     studioParityPlusPanelRows,
     studioSessionBrainArtifactRows,
+    studioStage2FinalContractValues,
+    studioStage2ProductTextIsClean,
+    studioStage2WebRepairEventText,
+    studioStage5ProductTextIsClean,
     studioTrajectoryReplayRows,
   };
 }

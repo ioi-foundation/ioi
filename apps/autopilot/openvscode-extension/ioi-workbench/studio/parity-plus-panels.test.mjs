@@ -113,3 +113,34 @@ test("parity plus panels preserve proof-critical panel attributes", () => {
   assert.match(html, /data-testid="studio-engine-reconnect-banner"/);
   assert.match(html, /data-testid="trace-link"/);
 });
+
+test("parity plus stage proof helpers parse contract readiness values", () => {
+  const studio = renderer();
+
+  assert.deepEqual(
+    studio.studioStage2FinalContractValues([
+      { payload: { message: "final_output_contract_ready satisfied=false" } },
+      { payload_summary: { message: "web_final_summary_contract_ready=true" } },
+      "contract_ready=false",
+    ]),
+    [false, true, false],
+  );
+  assert.match(
+    studio.studioStage2WebRepairEventText([{ event_kind: "turn.completed" }]),
+    /turn\.completed/,
+  );
+});
+
+test("parity plus product text checks catch raw trace and tool leakage", () => {
+  const studio = renderer();
+
+  assert.equal(studio.studioStage2ProductTextIsClean("Here is the cited answer."), true);
+  assert.equal(studio.studioStage2ProductTextIsClean("receipt_abcdef123456 leaked"), false);
+  assert.equal(studio.studioStage2ProductTextIsClean("final_output_contract_ready=true"), false);
+  assert.equal(studio.studioStage2ProductTextIsClean("/home/user/project/file.txt"), false);
+
+  assert.equal(studio.studioStage5ProductTextIsClean("Stopped safely and recovered."), true);
+  assert.equal(studio.studioStage5ProductTextIsClean("tool.completed raw event leaked"), false);
+  assert.equal(studio.studioStage5ProductTextIsClean(".tmp/autopilot-stage5-stop-hook-repair/state.json"), false);
+  assert.equal(studio.studioStage5ProductTextIsClean("StopHookBlocked"), false);
+});

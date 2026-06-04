@@ -114,6 +114,8 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/parity-plus-panels.js`.
 - Moved Studio parity-plus panel shell rendering, session-brain artifact rows, trajectory replay rows, proof-critical panel attributes, trace links, and verified badge integration out of `extension.js`.
 - Added focused parity-plus panel tests for run-brain artifact fallback/rows, trajectory replay fallback/rows, proof panel data-testids, brain/replay status attributes, side-effect counts, trace links, and badge propagation.
+- Extended `parity-plus-panels.js` to own Stage 2/Stage 5 proof text checks for contract readiness parsing and product-lane leak detection, removing those proof helpers from `extension.js`.
+- Added focused parity-plus tests for contract flag extraction and raw receipt/trace/path/tool leakage guards.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/shell-header.js`.
 - Moved Autopilot workbench shell-header styles, posture tone mapping, native-shell gating, runtime posture chips, and mode switch action rendering out of `extension.js` while preserving existing call-site names and data-testids.
 - Added focused shell-header tests for tone mapping, native shell gating, sanitized posture rendering, command affordances, and product shell selectors.

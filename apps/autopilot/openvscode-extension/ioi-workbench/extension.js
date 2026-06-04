@@ -751,6 +751,10 @@ const {
 });
 const {
   studioParityPlusPanelRows: studioParityPlusPanelRowsFromRenderer,
+  studioStage2FinalContractValues,
+  studioStage2ProductTextIsClean,
+  studioStage2WebRepairEventText,
+  studioStage5ProductTextIsClean,
 } = createStudioParityPlusPanels({
   escapeHtml,
   firstArray,
@@ -4060,71 +4064,6 @@ async function exerciseStudioSessionBrainLifecycle(output) {
       readOnlyAuditMode: panel.readOnlyAuditMode,
     },
   };
-}
-
-function studioStage2WebRepairEventText(events = []) {
-  return firstArray(events)
-    .map((event) => {
-      try {
-        return JSON.stringify(event);
-      } catch {
-        return String(event);
-      }
-    })
-    .join("\n");
-}
-
-function studioStage2FinalContractValues(events = []) {
-  const values = [];
-  for (const event of firstArray(events)) {
-    const text = studioStage2WebRepairEventText([event]);
-    if (!/\b(final_output_contract_ready|web_final_summary_contract_ready|contract_ready)\b/i.test(text)) {
-      continue;
-    }
-    if (/\b(satisfied|ready|success|value|passed)\b[^a-z0-9]{0,16}false\b/i.test(text)) {
-      values.push(false);
-    }
-    if (/\b(satisfied|ready|success|value|passed)\b[^a-z0-9]{0,16}true\b/i.test(text)) {
-      values.push(true);
-    }
-    for (const match of text.matchAll(/\b(?:web_final_summary_contract_ready|contract_ready)=(true|false)\b/gi)) {
-      values.push(match[1].toLowerCase() === "true");
-    }
-  }
-  return values;
-}
-
-function studioStage2ProductTextIsClean(text = "") {
-  const value = String(text || "");
-  return ![
-    /\bERROR_CLASS=/i,
-    /\bValidator feedback\b/i,
-    /\bweb_model_chat_reply_contract_rejected_for_retry\b/i,
-    /\bfinal_output_contract_ready\b/i,
-    /\bchat_reply_model_authored_web_pipeline_answer_/i,
-    /\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/i,
-    /\b(?:autopilot-)?native-fixture\b/i,
-    /\bmodel_chat_reply\b/i,
-    /\/home\/[^<\s]+/i,
-    /\/tmp\/[^<\s]+/i,
-  ].some((pattern) => pattern.test(value));
-}
-
-function studioStage5ProductTextIsClean(text = "") {
-  const value = String(text || "");
-  return ![
-    /\bERROR_CLASS=/i,
-    /\bStopHookBlocked\b/i,
-    /\bstop_hook/i,
-    /\bchat_reply_blocked_by_stop_hook\b/i,
-    /\bstop_hook_completion_blocked\b/i,
-    /\b(?:receipt|trace|request|turn|thread)_[a-z0-9:_-]{8,}\b/i,
-    /\b(?:autopilot-)?native-fixture\b/i,
-    /\btool\.(?:completed|failed|started)\b/i,
-    /\.tmp\/autopilot-stage5-stop-hook-repair/i,
-    /\/home\/[^<\s]+/i,
-    /\/tmp\/[^<\s]+/i,
-  ].some((pattern) => pattern.test(value));
 }
 
 async function exerciseStudioStage2WebRepairLoop(output, payload = {}) {
