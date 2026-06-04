@@ -117,11 +117,19 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
     selection,
   });
   const modelMountInvocationAdmission = state.admitModelMountInvocation(modelMountInvocationAdmissionRequest);
+  const agentgresTransition = modelMountInvocationAgentgresTransitionForReceipt(state, {
+    admission: modelMountInvocationAdmission,
+    admissionRequest: modelMountInvocationAdmissionRequest,
+    receiptDetails,
+    receiptId,
+    receiptKind,
+  });
   const modelMountInvocationReceiptBinding = bindModelMountInvocationReceipt(
     state,
     modelMountInvocationReceiptBindingRequestForReceipt({
       admission: modelMountInvocationAdmission,
       admissionRequest: modelMountInvocationAdmissionRequest,
+      agentgresTransition,
       receiptDetails,
       receiptId,
     }),
@@ -294,11 +302,19 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     streamStatus: "started",
   });
   const modelMountInvocationAdmission = state.admitModelMountInvocation(modelMountInvocationAdmissionRequest);
+  const agentgresTransition = modelMountInvocationAgentgresTransitionForReceipt(state, {
+    admission: modelMountInvocationAdmission,
+    admissionRequest: modelMountInvocationAdmissionRequest,
+    receiptDetails,
+    receiptId,
+    receiptKind: "model_invocation",
+  });
   const modelMountInvocationReceiptBinding = bindModelMountInvocationReceipt(
     state,
     modelMountInvocationReceiptBindingRequestForReceipt({
       admission: modelMountInvocationAdmission,
       admissionRequest: modelMountInvocationAdmissionRequest,
+      agentgresTransition,
       receiptDetails,
       receiptId,
     }),
@@ -446,6 +462,7 @@ export function modelMountInvocationAdmissionRequestForReceipt({
 export function modelMountInvocationReceiptBindingRequestForReceipt({
   admission,
   admissionRequest,
+  agentgresTransition = null,
   receiptDetails = {},
   receiptId,
 } = {}) {
@@ -472,6 +489,13 @@ export function modelMountInvocationReceiptBindingRequestForReceipt({
     nodePlaintextAllowed: Boolean(admissionRequest?.node_plaintext_allowed),
     custodyProofRef: admissionRequest?.custody_ref ?? null,
     idempotencyKey: admissionRequest?.idempotency_key ?? `model_invocation:${receiptId}`,
+    stateRootBefore: requiredStringRef("agentgresTransition.stateRootBefore", agentgresTransition?.stateRootBefore),
+    projectionWatermark: requiredStringRef("agentgresTransition.projectionWatermark", agentgresTransition?.projectionWatermark),
+    agentgresOperationRefs: [
+      requiredStringRef("agentgresTransition.operationRef", agentgresTransition?.operationRef),
+    ],
+    stateRootAfter: requiredStringRef("agentgresTransition.stateRootAfter", agentgresTransition?.stateRootAfter),
+    resultingHead: requiredStringRef("agentgresTransition.resultingHead", agentgresTransition?.resultingHead),
     evidenceRefs: uniqueRefs([
       "rust_model_mount_core",
       admission?.invocation_admission_ref,
@@ -483,8 +507,53 @@ export function modelMountInvocationReceiptBindingRequestForReceipt({
   return {
     invocation,
     result,
-    expectedHeads: [],
+    expectedHeads: uniqueRefs(agentgresTransition?.expectedHeads ?? []),
     receiptRef: receiptRefValue,
+  };
+}
+
+export function modelMountInvocationAgentgresTransitionForReceipt(
+  state,
+  {
+    admission,
+    admissionRequest,
+    receiptDetails = {},
+    receiptId,
+    receiptKind,
+  } = {},
+) {
+  if (typeof state.agentgresModelMountingHead !== "function") {
+    const error = new Error("Model invocation Agentgres admission requires a current model-mounting operation head.");
+    error.status = 500;
+    error.code = "model_mount_agentgres_head_required";
+    throw error;
+  }
+  const currentHead = normalizeAgentgresHead(state.agentgresModelMountingHead());
+  const nextSequence = currentHead.sequence + 1;
+  const operationId = `op_${String(nextSequence).padStart(8, "0")}_${requiredStringRef("receiptKind", receiptKind).replace(/[^a-z0-9]+/gi, "_")}`;
+  const operationRef = `agentgres://model-mounting/operation-log/${operationId}`;
+  const resultingHead = `agentgres://model-mounting/operation-log/head/${nextSequence}`;
+  const stateRootAfter = `sha256:${stableHash({
+    schema: "ioi.agentgres.model_mounting_state_root.v1",
+    sequence: nextSequence,
+    previousHead: currentHead.headRef,
+    operationRef,
+    receiptId: requiredStringRef("receiptId", receiptId),
+    receiptKind,
+    routeDecisionRef: admissionRequest?.route_decision_ref ?? null,
+    invocationAdmissionRef: admission?.invocation_admission_ref ?? null,
+    invocationAdmissionHash: admission?.invocation_admission_hash ?? null,
+    inputHash: admissionRequest?.input_hash ?? receiptDetails.inputHash ?? null,
+    outputHash: admissionRequest?.output_hash ?? receiptDetails.outputHash ?? null,
+  })}`;
+  return {
+    operationId,
+    operationRef,
+    expectedHeads: [currentHead.headRef],
+    stateRootBefore: currentHead.stateRoot,
+    stateRootAfter,
+    resultingHead,
+    projectionWatermark: `model-mounting-operation-log:${nextSequence}`,
   };
 }
 
@@ -513,6 +582,13 @@ function withModelMountInvocationReceiptBinding(details, binding) {
     modelMountStepModuleInvocation: binding.invocation ?? null,
     modelMountStepModuleResult: binding.result ?? null,
     modelMountRouterAdmission: binding.router_admission ?? null,
+    modelMountAgentgresAdmission: binding.agentgres_admission ?? null,
+    modelMountAgentgresAdmissionHash: binding.agentgres_admission?.admission_hash ?? null,
+    modelMountAgentgresOperationRef: binding.agentgres_admission?.operation_ref ?? null,
+    modelMountAgentgresExpectedHeads: binding.agentgres_admission?.expected_heads ?? [],
+    modelMountAgentgresStateRootBefore: binding.agentgres_admission?.state_root_before ?? null,
+    modelMountAgentgresStateRootAfter: binding.agentgres_admission?.state_root_after ?? null,
+    modelMountAgentgresResultingHead: binding.agentgres_admission?.resulting_head ?? null,
     modelMountProjectionRecord: binding.projection_record ?? null,
     modelMountReceiptBindingReceiptRefs: binding.receipt_refs ?? [],
   };
@@ -526,6 +602,21 @@ function bindModelMountInvocationReceipt(state, request) {
     throw error;
   }
   return state.bindModelMountInvocationReceipt(request);
+}
+
+function normalizeAgentgresHead(value) {
+  const sequence = Number(value?.sequence);
+  if (!Number.isInteger(sequence) || sequence < 0) {
+    const error = new Error("Model invocation Agentgres admission requires a non-negative operation head sequence.");
+    error.status = 500;
+    error.code = "model_mount_agentgres_head_invalid";
+    throw error;
+  }
+  return {
+    sequence,
+    headRef: requiredStringRef("agentgresHead.headRef", value?.headRef),
+    stateRoot: hashRef(value?.stateRoot, "agentgresHead.stateRoot"),
+  };
 }
 
 function nextInvocationReceiptId(state, kind) {

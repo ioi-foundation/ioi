@@ -161,6 +161,15 @@ test("Rust model_mount admission runner sends invocation receipt binding request
               append_hash: "sha256:append",
               receipt_ref: "receipt://invocation",
             },
+            agentgres_admission: {
+              schema_version: "ioi.agentgres_admission.v1",
+              operation_ref: "agentgres://model-mounting/operation-log/op_00000001_model_invocation",
+              expected_heads: ["agentgres://model-mounting/operation-log/head/0"],
+              state_root_before: "sha256:state-before",
+              state_root_after: "sha256:state-after",
+              resulting_head: "agentgres://model-mounting/operation-log/head/1",
+              admission_hash: "sha256:agentgres",
+            },
             projection_record: {
               component_kind: "ModelInvocationNode",
             },
@@ -174,16 +183,30 @@ test("Rust model_mount admission runner sends invocation receipt binding request
   });
 
   const result = runner.bindInvocationReceipt({
-    invocation: { invocation_id: "model-invocation://test" },
-    result: { receipt_refs: ["receipt://invocation"] },
+    invocation: {
+      invocation_id: "model-invocation://test",
+      input: { state_root_before: "sha256:state-before" },
+    },
+    result: {
+      receipt_refs: ["receipt://invocation"],
+      agentgres_operation_refs: ["agentgres://model-mounting/operation-log/op_00000001_model_invocation"],
+      state_root_after: "sha256:state-after",
+      resulting_head: "agentgres://model-mounting/operation-log/head/1",
+    },
+    expectedHeads: ["agentgres://model-mounting/operation-log/head/0"],
     receiptRef: "receipt://invocation",
   });
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "bind_model_mount_invocation_receipt");
+  assert.deepEqual(calls[0].request.expected_heads, ["agentgres://model-mounting/operation-log/head/0"]);
   assert.equal(calls[0].request.receipt_ref, "receipt://invocation");
   assert.equal(result.receipt_binding.binding_hash, "sha256:binding");
+  assert.equal(
+    result.agentgres_admission.operation_ref,
+    "agentgres://model-mounting/operation-log/op_00000001_model_invocation",
+  );
   assert.equal(result.accepted_receipt_append.append_hash, "sha256:append");
   assert.deepEqual(result.evidence_refs, ["rust_receipt_binder_core", "sha256:binding", "sha256:append"]);
 });

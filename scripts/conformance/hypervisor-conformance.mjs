@@ -479,12 +479,15 @@ function runBridge() {
       /ModelMountInvocationReceiptBindingBridgeRequest/.test(bridgeModule) &&
       /bridge_binds_model_mount_invocation_receipt_through_rust_core/.test(bridgeModule) &&
       /ReceiptBinder/.test(bridgeModule) &&
+      /AgentgresAdmissionCore/.test(bridgeModule) &&
       /AcceptedReceiptAppendIssuer::RustReceiptCore/.test(bridgeModule) &&
       /bindInvocationReceipt/.test(modelMountAdmissionRunner) &&
       /bindModelMountInvocationReceipt/.test(modelMountingState) &&
       /modelMountInvocationReceiptBindingRequestForReceipt/.test(modelInvocationOps) &&
       /model_mount_invocation_receipt_binding_required/.test(modelInvocationOps) &&
+      /model_mount_agentgres_head_required/.test(modelInvocationOps) &&
       /modelMountReceiptBindingRef/.test(modelInvocationOps) &&
+      /modelMountAgentgresAdmission/.test(modelInvocationOps) &&
       /modelMountAcceptedReceiptAppendHash/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -562,10 +565,17 @@ function runReceipts() {
     "model-mount-invocation-receipt-binder-core",
     /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       /ReceiptBinder/.test(bridgeModule) &&
+      /AgentgresAdmissionCore/.test(bridgeModule) &&
       /append_accepted_receipt/.test(bridgeModule) &&
       /RustProjectionCore/.test(bridgeModule) &&
       /modelMountReceiptBindingRef/.test(modelInvocationOps) &&
       /modelMountAcceptedReceiptAppend/.test(modelInvocationOps) &&
+      /modelMountAgentgresAdmission/.test(modelInvocationOps) &&
+      /modelMountAgentgresOperationRef/.test(modelInvocationOps) &&
+      /model_mount_agentgres_head_required/.test(modelInvocationOps) &&
+      /agentgresOperationRefs/.test(modelInvocationOps) &&
+      /stateRootAfter/.test(modelInvocationOps) &&
+      /resultingHead/.test(modelInvocationOps) &&
       /modelMountStepModuleInvocation/.test(modelInvocationOps) &&
       /modelMountStepModuleResult/.test(modelInvocationOps),
     [
@@ -573,6 +583,23 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 4 is pending: Rust receipt_binder must bind model invocation accepted receipts before persistence",
+  );
+  assertCheck(
+    result,
+    "model-mount-invocation-agentgres-admission-core",
+    /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
+      /AgentgresAdmissionCore/.test(bridgeModule) &&
+      /agentgres_admission/.test(bridgeModule) &&
+      /modelMountInvocationAgentgresTransitionForReceipt/.test(modelInvocationOps) &&
+      /modelMountAgentgresExpectedHeads/.test(modelInvocationOps) &&
+      /modelMountAgentgresStateRootBefore/.test(modelInvocationOps) &&
+      /modelMountAgentgresStateRootAfter/.test(modelInvocationOps) &&
+      /modelMountAgentgresResultingHead/.test(modelInvocationOps),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+    ],
+    "Phase 4 is pending: model invocation receipt operations must pass through Rust Agentgres admission with expected heads and state-root binding",
   );
   assertCheck(
     result,

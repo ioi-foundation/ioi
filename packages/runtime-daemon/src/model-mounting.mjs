@@ -291,6 +291,7 @@ import {
   sleep,
   fileSizeIfExists,
   normalizeNonNegativeInteger,
+  operationCount as modelMountingOperationCount,
   truthy,
   matchesAny,
   publicMcpServer,
@@ -1023,6 +1024,19 @@ export class ModelMountingState {
 
   nextReceiptId(kind) {
     return `receipt_${kind}_${crypto.randomUUID()}`;
+  }
+
+  agentgresModelMountingHead() {
+    const sequence = modelMountingOperationCount(this.stateDir);
+    return {
+      sequence,
+      headRef: `agentgres://model-mounting/operation-log/head/${sequence}`,
+      stateRoot: `sha256:${stableHash({
+        schema: "ioi.agentgres.model_mounting_state_root.v1",
+        sequence,
+      })}`,
+      projectionWatermark: `model-mounting-operation-log:${sequence}`,
+    };
   }
 
   admitModelMountRouteDecision(request) {

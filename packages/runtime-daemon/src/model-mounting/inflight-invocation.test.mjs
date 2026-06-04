@@ -73,6 +73,17 @@ function mockModelMountAdmissionRunner() {
           append_hash: "sha256:append-test",
           receipt_ref: request.receiptRef,
         },
+        agentgres_admission: request.result.agentgres_operation_refs?.length
+          ? {
+              schema_version: "ioi.agentgres_admission.v1",
+              operation_ref: request.result.agentgres_operation_refs[0],
+              expected_heads: request.expectedHeads,
+              state_root_before: request.invocation.input.state_root_before,
+              state_root_after: request.result.state_root_after,
+              resulting_head: request.result.resulting_head,
+              admission_hash: "sha256:agentgres-test",
+            }
+          : null,
         projection_record: {
           schema_version: "ioi.step_module_projection.v1",
           component_kind: "ModelInvocationNode",

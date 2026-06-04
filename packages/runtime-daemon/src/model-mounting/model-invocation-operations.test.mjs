@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   capabilityForInvocationKind,
   invokeModel,
+  modelMountInvocationAgentgresTransitionForReceipt,
   modelMountInvocationAdmissionRequestForReceipt,
   modelMountInvocationReceiptBindingRequestForReceipt,
   startModelStream,
@@ -57,6 +58,15 @@ function fakeState(overrides = {}) {
       this.nowMs += 25;
       return { getTime: () => this.nowMs };
     },
+    agentgresModelMountingHead() {
+      const sequence = this.receipts.length + this.appendOperations.length;
+      return {
+        sequence,
+        headRef: `agentgres://model-mounting/operation-log/head/${sequence}`,
+        stateRoot: `sha256:state-${sequence}`,
+        projectionWatermark: `model-mounting-operation-log:${sequence}`,
+      };
+    },
     nextReceiptId(kind) {
       this.receiptIdCounter += 1;
       return `receipt.${this.receiptIdCounter}.${kind}`;
@@ -101,6 +111,15 @@ function fakeState(overrides = {}) {
           invocation_id: request.invocation.invocation_id,
           receipt_binding_ref: `sha256:binding-${this.receiptIdCounter}`,
           append_hash: `sha256:append-${this.receiptIdCounter}`,
+        },
+        agentgres_admission: {
+          schema_version: "ioi.agentgres_admission.v1",
+          operation_ref: request.result.agentgres_operation_refs[0],
+          expected_heads: request.expectedHeads,
+          state_root_before: request.invocation.input.state_root_before,
+          state_root_after: request.result.state_root_after,
+          resulting_head: request.result.resulting_head,
+          admission_hash: `sha256:agentgres-${this.receiptIdCounter}`,
         },
         projection_record: {
           schema_version: "ioi.step_module_projection.v1",
@@ -221,9 +240,16 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(result.receipt.details.modelMountInvocationAdmission.route_decision_ref, "model_mount://route_decision/test");
   assert.equal(result.receipt.details.modelMountReceiptBindingRef, "sha256:binding-1");
   assert.equal(result.receipt.details.modelMountAcceptedReceiptAppendHash, "sha256:append-1");
+  assert.equal(result.receipt.details.modelMountStepModuleInvocation.input.state_root_before, "sha256:state-0");
+  assert.equal(result.receipt.details.modelMountStepModuleResult.agentgres_operation_refs[0], "agentgres://model-mounting/operation-log/op_00000001_model_invocation");
+  assert.equal(result.receipt.details.modelMountStepModuleResult.state_root_after.startsWith("sha256:"), true);
+  assert.equal(result.receipt.details.modelMountAgentgresAdmission.operation_ref, "agentgres://model-mounting/operation-log/op_00000001_model_invocation");
   assert.equal(result.receipt.details.modelMountStepModuleInvocation.module_ref.kind, "model_mount");
   assert.equal(result.receipt.details.modelMountStepModuleResult.workflow_projection.status, "live");
   assert.equal(state.receiptBindingRequests[0].receiptRef, "receipt://receipt.1.model_invocation");
+  assert.deepEqual(state.receiptBindingRequests[0].expectedHeads, [
+    "agentgres://model-mounting/operation-log/head/0",
+  ]);
   assert.deepEqual(result.receipt.details.modelMountInvocationAdmissionReceiptRefs, [
     "receipt://receipt.route",
     "receipt://receipt.1.model_invocation",
@@ -266,6 +292,7 @@ test("invokeModel reuses identical in-flight provider execution and marks coales
   assert.equal(secondResult.receipt.details.coalesceKeyHash, "hash:coalesce-key");
   assert.equal(secondResult.receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/2");
   assert.equal(secondResult.receipt.details.modelMountReceiptBindingRef, "sha256:binding-2");
+  assert.equal(secondResult.receipt.details.modelMountStepModuleResult.agentgres_operation_refs[0], "agentgres://model-mounting/operation-log/op_00000002_model_invocation_coalesced");
   assert.equal(state.inflightModelInvocations.size, 0);
 });
 
@@ -305,6 +332,7 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(result.invocation.receipt.details.modelMountInvocationAdmission.stream_status, "started");
   assert.equal(result.invocation.receipt.details.modelMountReceiptBindingRef, "sha256:binding-1");
   assert.equal(result.invocation.receipt.details.modelMountAcceptedReceiptAppend.receipt_ref, "receipt://receipt.1.model_invocation");
+  assert.equal(result.invocation.receipt.details.modelMountAgentgresAdmission.operation_ref, "agentgres://model-mounting/operation-log/op_00000002_model_invocation");
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "coalesced"), false);
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "sendOptions"), false);
   assert.equal(state.appendOperations[0].kind, "model.provider_stream_request_shape");
@@ -421,12 +449,26 @@ test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount Ste
     },
     selection: selection(),
   });
+  const agentgresTransition = modelMountInvocationAgentgresTransitionForReceipt(fakeState(), {
+    admission: {
+      invocation_admission_ref: "model_mount://invocation_admission/test",
+      invocation_admission_hash: "sha256:invocation-test",
+    },
+    admissionRequest,
+    receiptDetails: {
+      inputHash: "sha256:input",
+      outputHash: "sha256:output",
+    },
+    receiptId: "receipt.invoke",
+    receiptKind: "model_invocation",
+  });
   const request = modelMountInvocationReceiptBindingRequestForReceipt({
     admission: {
       invocation_admission_ref: "model_mount://invocation_admission/test",
       evidence_refs: ["rust_model_mount_core"],
     },
     admissionRequest,
+    agentgresTransition,
     receiptDetails: {
       providerAuthEvidenceRefs: ["provider.auth"],
       backendEvidenceRefs: ["backend.evidence"],
@@ -435,13 +477,18 @@ test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount Ste
   });
 
   assert.equal(request.receiptRef, "receipt://receipt.invoke");
-  assert.deepEqual(request.expectedHeads, []);
+  assert.deepEqual(request.expectedHeads, ["agentgres://model-mounting/operation-log/head/0"]);
   assert.equal(request.invocation.module_ref.kind, "model_mount");
   assert.equal(request.invocation.execution.backend, "model_mount");
+  assert.equal(request.invocation.input.state_root_before, "sha256:state-0");
   assert.equal(request.invocation.workflow_graph_id, "graph.1");
   assert.equal(request.invocation.workflow_node_id, "node.1");
   assert.deepEqual(request.invocation.authority.authority_grant_refs, ["grant://wallet/model-chat"]);
   assert.deepEqual(request.result.receipt_refs, ["receipt://receipt.invoke"]);
+  assert.deepEqual(request.result.agentgres_operation_refs, [
+    "agentgres://model-mounting/operation-log/op_00000001_model_invocation",
+  ]);
+  assert.equal(request.result.resulting_head, "agentgres://model-mounting/operation-log/head/1");
   assert.equal(request.result.workflow_projection.component_kind, "ModelInvocationNode");
   assert.equal(request.result.workflow_projection.status, "live");
   assert.ok(request.result.workflow_projection.evidence_refs.includes("provider.auth"));
@@ -482,5 +529,24 @@ test("invokeModel fails closed without Rust receipt binding support", async () =
         deps(),
       ),
     (error) => error.code === "model_mount_invocation_receipt_binding_required",
+  );
+});
+
+test("invokeModel fails closed without Agentgres operation head support", async () => {
+  const state = fakeState({ agentgresModelMountingHead: undefined });
+
+  await assert.rejects(
+    () =>
+      invokeModel(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.chat:*",
+          kind: "responses",
+          body: { model: "model.local" },
+        },
+        deps(),
+      ),
+    (error) => error.code === "model_mount_agentgres_head_required",
   );
 });
