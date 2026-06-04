@@ -301,8 +301,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/runtime-engines.mjs`.
 - Moved runtime-engine preference projection, endpoint backend preference override, runtime-engine profile/default-load-option accessors, engine list/detail projection, operator selection, profile update, profile removal, and operator profile application out of `model-mounting.mjs` behind existing `ModelMountingState.runtime*` compatibility methods.
 - Added focused runtime-engine tests for default and endpoint preferences, profile priority/disable projection, selection persistence, disabled-engine preference reset, detail projection, and override removal.
+- Added `packages/runtime-daemon/src/model-mounting/runtime-survey.mjs`.
+- Moved runtime survey receipt projection, latest runtime survey fallback/projection, LM Studio runtime list probing, and LM Studio runtime survey probing out of `model-mounting.mjs` behind existing `ModelMountingState.runtimeSurvey()`, `latestRuntimeSurvey()`, `lmStudioRuntimeEngines()`, and `lmStudioRuntimeSurvey()` compatibility methods.
+- Added focused runtime-survey tests for checked/not-checked survey projection, selected-engine receipts, LM Studio runtime list hashing, disabled/missing CLI fallbacks, and blocked survey error hashing without raw stderr leakage.
 
-Status: `model-mounting.mjs` still owns route persistence wrappers, backend process lifecycle, runtime survey/LM Studio probing, and some product projection glue. Safe next extractions are backend lifecycle slices, runtime survey/probe slices, and remaining route HTTP glue.
+Status: `model-mounting.mjs` still owns route persistence wrappers, backend process lifecycle, LM Studio artifact discovery, and some product projection glue. Safe next extractions are backend lifecycle slices, LM Studio artifact/probe slices, and remaining route HTTP glue.
 
 ### Rust Runtime Hot Spot
 
@@ -369,6 +372,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, backend proc
   - `substrate/semantic_impact`
   - `model-mounting/projections`
   - `model-mounting/runtime-engines`
+  - `model-mounting/runtime-survey`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.

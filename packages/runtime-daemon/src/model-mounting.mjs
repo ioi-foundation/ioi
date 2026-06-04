@@ -161,6 +161,12 @@ import {
   updateRuntimeEngine as updateRuntimeEngineState,
 } from "./model-mounting/runtime-engines.mjs";
 import {
+  latestRuntimeSurvey as latestRuntimeSurveyState,
+  lmStudioRuntimeEngines as lmStudioRuntimeEnginesState,
+  lmStudioRuntimeSurvey as lmStudioRuntimeSurveyState,
+  runtimeSurvey as runtimeSurveyState,
+} from "./model-mounting/runtime-survey.mjs";
+import {
   FixtureModelProviderDriver,
   NativeLocalModelProviderDriver,
 } from "./model-mounting/provider-local-drivers.mjs";
@@ -3730,116 +3736,36 @@ export class ModelMountingState {
   }
 
   runtimeSurvey() {
-    const checkedAt = this.nowIso();
-    const hardware = hardwareSnapshot();
-    const engines = this.listRuntimeEngines();
-    const lmStudio = this.lmStudioRuntimeSurvey(checkedAt);
-    const runtimePreference = this.runtimePreference();
-    const selectedEngines = engines.filter((engine) => engine.selected).map((engine) => engine.id);
-    const receipt = this.receipt("runtime_survey", {
-      summary: `Runtime survey captured ${engines.length} engine profile${engines.length === 1 ? "" : "s"}.`,
-      redaction: "redacted",
-      evidenceRefs: [
-        "runtime_engine_registry",
-        "hardware_snapshot",
-        ...(lmStudio.status === "available" ? ["lm_studio_public_lms_runtime_survey"] : []),
-      ],
-      details: {
-        checkedAt,
-        engineCount: engines.length,
-        selectedEngines,
-        runtimePreference,
-        hardware,
-        lmStudio,
-      },
-    });
-    return {
+    return runtimeSurveyState(this, {
+      hardwareSnapshot,
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      checkedAt,
-      engines,
-      hardware,
-      lmStudio,
-      runtimePreference,
-      receiptId: receipt.id,
-    };
+    });
   }
 
   latestRuntimeSurvey() {
-    const receipt = [...this.listReceipts()].reverse().find((item) => item.kind === "runtime_survey");
-    if (!receipt) {
-      return {
-        status: "not_checked",
-        receiptId: "none",
-        checkedAt: null,
-        engineCount: this.listRuntimeEngines().length,
-        selectedEngines: [],
-        runtimePreference: this.runtimePreference(),
-        hardware: hardwareSnapshot(),
-        lmStudio: { status: "not_checked", evidenceRefs: ["runtime_survey_not_checked"] },
-      };
-    }
-    return {
-      status: "checked",
-      receiptId: receipt.id,
-      checkedAt: receipt.details?.checkedAt ?? receipt.createdAt,
-      engineCount: receipt.details?.engineCount ?? 0,
-      selectedEngines: receipt.details?.selectedEngines ?? [],
-      runtimePreference: receipt.details?.runtimePreference ?? this.runtimePreference(),
-      hardware: receipt.details?.hardware ?? hardwareSnapshot(),
-      lmStudio: receipt.details?.lmStudio ?? { status: "unknown" },
-    };
+    return latestRuntimeSurveyState(this, { hardwareSnapshot });
   }
 
   lmStudioRuntimeEngines(checkedAt) {
-    if (!lmStudioRuntimeDiscoveryEnabled()) return [];
-    const provider = this.providers.get("provider.lmstudio");
-    const lmsPath =
-      provider?.discovery?.publicCli?.path ??
-      process.env.IOI_LMS_PATH ??
-      path.join(this.homeDir, ".lmstudio/bin/lms");
-    if (!lmsPath || !isExecutable(lmsPath)) return [];
-    const result = runPublicCommand(lmsPath, ["runtime", "ls"], { timeout: 2500 });
-    if (result.status !== 0) return [];
-    return parseLmStudioRuntimeEngines(result.stdout).map((engine) => ({
-      ...engine,
-      checkedAt,
-      lmsPathHash: stableHash(lmsPath).slice(0, 16),
-      outputHash: stableHash(result.stdout),
-      evidenceRefs: ["lm_studio_public_lms_runtime_ls"],
-    }));
+    return lmStudioRuntimeEnginesState(this, checkedAt, {
+      env: process.env,
+      isExecutable,
+      lmStudioRuntimeDiscoveryEnabled,
+      parseLmStudioRuntimeEngines,
+      runPublicCommand,
+      stableHash,
+    });
   }
 
   lmStudioRuntimeSurvey(checkedAt) {
-    if (!lmStudioRuntimeDiscoveryEnabled()) {
-      return {
-        status: "absent",
-        checkedAt,
-        evidenceRefs: ["lm_studio_public_runtime_discovery_disabled"],
-      };
-    }
-    const provider = this.providers.get("provider.lmstudio");
-    const lmsPath =
-      provider?.discovery?.publicCli?.path ??
-      process.env.IOI_LMS_PATH ??
-      path.join(this.homeDir, ".lmstudio/bin/lms");
-    if (!lmsPath || !isExecutable(lmsPath)) {
-      return { status: "absent", checkedAt, evidenceRefs: ["lm_studio_public_lms_absent"] };
-    }
-    const result = runPublicCommand(lmsPath, ["runtime", "survey"], { timeout: 3000 });
-    const parsed = parseLmStudioRuntimeSurvey(result.stdout);
-    return {
-      status: result.status === 0 ? "available" : "blocked",
-      checkedAt,
-      selectedRuntime: parsed.selectedRuntime,
-      accelerators: parsed.accelerators,
-      cpu: parsed.cpu,
-      ram: parsed.ram,
-      outputHash: stableHash(`${result.stdout}\n${result.stderr}`),
-      exitCode: result.status,
-      lmsPathHash: stableHash(lmsPath).slice(0, 16),
-      evidenceRefs: ["lm_studio_public_lms_runtime_survey"],
-      errorHash: result.status === 0 ? null : stableHash(result.stderr || result.error || "runtime survey failed"),
-    };
+    return lmStudioRuntimeSurveyState(this, checkedAt, {
+      env: process.env,
+      isExecutable,
+      lmStudioRuntimeDiscoveryEnabled,
+      parseLmStudioRuntimeSurvey,
+      runPublicCommand,
+      stableHash,
+    });
   }
 
   backend(backendId) {
