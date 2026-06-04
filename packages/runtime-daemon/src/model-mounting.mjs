@@ -388,6 +388,7 @@ import {
   endpointIdsForExplicitModel as endpointIdsForExplicitModelRule,
   routeSelectionReceipt as routeSelectionReceiptRule,
   selectRoute as selectRouteRule,
+  testRoute as testRouteState,
   upsertRouteRecord,
 } from "./model-mounting/routes.mjs";
 
@@ -1711,23 +1712,7 @@ export class ModelMountingState {
   }
 
   testRoute(routeId, body = {}) {
-    const route = this.route(routeId);
-    const capability = body.capability ?? "chat";
-    const selection = this.selectRoute({
-      modelId: body.model ?? body.model_id ?? body.modelId,
-      routeId,
-      capability,
-      policy: body.model_policy ?? body.modelPolicy ?? {},
-    });
-    const receipt = this.routeSelectionReceipt(selection, { body: { ...body, route_id: routeId }, capability });
-    const updatedRoute = {
-      ...route,
-      lastSelectedModel: selection.endpoint.modelId,
-      lastReceiptId: receipt.id,
-    };
-    this.routes.set(routeId, updatedRoute);
-    this.writeMap("model-routes", this.routes);
-    return { route: updatedRoute, selection, receipt };
+    return testRouteState(this, routeId, body);
   }
 
   async invokeModel({ authorization, requiredScope, kind, body = {} }) {

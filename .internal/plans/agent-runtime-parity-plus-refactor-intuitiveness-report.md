@@ -302,8 +302,8 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Moved continuation route/endpoint/model safety checks and workflow Receipt Gate validation out of `model-mounting.mjs` behind compatibility-preserving `ModelMountingState` wrappers.
 - Added focused validation tests for continuation modes, unsafe route mismatch blocking, Receipt Gate pass receipts, and Receipt Gate mismatch/tool-link failures.
 - Added `packages/runtime-daemon/src/model-mounting/routes.mjs`.
-- Moved route record normalization, explicit model endpoint ordering/mount fallback, route policy selection, and model route-selection receipt shaping out of `model-mounting.mjs` behind compatibility-preserving `ModelMountingState` wrappers.
-- Added focused route helper tests for route aliases, fallback endpoint ordering, explicit-model auto-mount, policy rejection reasons, route blocker details, and route-decision receipt metadata.
+- Moved route record normalization, explicit model endpoint ordering/mount fallback, route policy selection, model route-selection receipt shaping, and route test mutation/receipt persistence out of `model-mounting.mjs` behind compatibility-preserving `ModelMountingState` wrappers.
+- Added focused route helper tests for route aliases, fallback endpoint ordering, explicit-model auto-mount, policy rejection reasons, route blocker details, route-decision receipt metadata, and route test selection/write behavior.
 - Added `packages/runtime-daemon/src/model-mounting/state-seeding.mjs`.
 - Moved default model-mounting bootstrap orchestration for local/native providers, LM Studio discovery, runtime provider defaults, backend seeding, fixture artifact/endpoint seeding, and default routes out of `model-mounting.mjs` behind the existing `ModelMountingState.seedDefaults()` compatibility method.
 - Added focused state-seeding tests for fixture-enabled defaults, disabled-fixture pruning, LM Studio detected-artifact fallback, and discovered LM Studio artifact precedence.

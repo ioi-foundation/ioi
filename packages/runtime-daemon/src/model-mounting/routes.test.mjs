@@ -5,6 +5,7 @@ import {
   endpointIdsForExplicitModel,
   routeSelectionReceipt,
   selectRoute,
+  testRoute,
   upsertRouteRecord,
 } from "./routes.mjs";
 
@@ -218,4 +219,65 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
   assert.equal(created[0].details.modelRouteDecisionId, "decision-1");
   assert.equal(created[0].details.workflowNodeId, "node-1");
   assert.deepEqual(created[0].evidenceRefs, ["model_router", "route.local-first", "endpoint.local", "extra"]);
+});
+
+test("model mounting route helpers test routes through state compatibility methods", () => {
+  const writes = [];
+  const routes = new Map([["route.local-first", {
+    id: "route.local-first",
+    fallback: ["endpoint.local"],
+    deniedProviders: [],
+    providerEligibility: [],
+    privacy: "local_or_enterprise",
+    maxCostUsd: 1,
+  }]]);
+  const selection = {
+    route: routes.get("route.local-first"),
+    endpoint: { id: "endpoint.local", modelId: "model.local", providerId: "provider.local" },
+    provider: { id: "provider.local" },
+  };
+  const receipt = { id: "receipt-route-test" };
+  const state = {
+    routes,
+    route(routeId) {
+      return routes.get(routeId);
+    },
+    selectRoute(input) {
+      assert.deepEqual(input, {
+        modelId: "model.local",
+        routeId: "route.local-first",
+        capability: "chat",
+        policy: { privacy: "local_only" },
+      });
+      return selection;
+    },
+    routeSelectionReceipt(receiptSelection, payload) {
+      assert.equal(receiptSelection, selection);
+      assert.deepEqual(payload, {
+        body: {
+          model: "model.local",
+          model_policy: { privacy: "local_only" },
+          route_id: "route.local-first",
+        },
+        capability: "chat",
+      });
+      return receipt;
+    },
+    writeMap(dir, map) {
+      writes.push({ dir, map });
+    },
+  };
+
+  const result = testRoute(state, "route.local-first", {
+    model: "model.local",
+    model_policy: { privacy: "local_only" },
+  });
+
+  assert.equal(result.receipt, receipt);
+  assert.equal(result.route.lastSelectedModel, "model.local");
+  assert.equal(result.route.lastReceiptId, "receipt-route-test");
+  assert.equal(routes.get("route.local-first"), result.route);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].dir, "model-routes");
+  assert.equal(writes[0].map, routes);
 });

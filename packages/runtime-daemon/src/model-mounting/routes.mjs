@@ -174,3 +174,23 @@ export function routeSelectionReceipt({
     },
   });
 }
+
+export function testRoute(state, routeId, body = {}) {
+  const route = state.route(routeId);
+  const capability = body.capability ?? "chat";
+  const selection = state.selectRoute({
+    modelId: body.model ?? body.model_id ?? body.modelId,
+    routeId,
+    capability,
+    policy: body.model_policy ?? body.modelPolicy ?? {},
+  });
+  const receipt = state.routeSelectionReceipt(selection, { body: { ...body, route_id: routeId }, capability });
+  const updatedRoute = {
+    ...route,
+    lastSelectedModel: selection.endpoint.modelId,
+    lastReceiptId: receipt.id,
+  };
+  state.routes.set(routeId, updatedRoute);
+  state.writeMap("model-routes", state.routes);
+  return { route: updatedRoute, selection, receipt };
+}
