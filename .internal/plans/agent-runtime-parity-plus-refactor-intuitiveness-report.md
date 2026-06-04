@@ -115,6 +115,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/mode-body-renderers.js`.
 - Moved artifact, policy, connector, and transient activity body renderers out of `extension.js` while preserving command ids, payload affordances, empty-state copy, and product escaping.
 - Added focused mode-body renderer tests for artifact actions, policy metrics, connector actions, direct-mode activity affordances, and escaping.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/model-snapshot.js`.
+- Moved product model snapshot normalization and compact byte formatting out of `extension.js` while preserving existing model surface and shell-header dependency injection.
+- Added focused model-snapshot tests for byte labels, malformed collection fallback, generated-at precedence, and empty-state defaults.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
@@ -465,6 +468,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `studio/parity-plus-panels`
   - `workbench/shell-header`
   - `workbench/mode-body-renderers`
+  - `workbench/model-snapshot`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
