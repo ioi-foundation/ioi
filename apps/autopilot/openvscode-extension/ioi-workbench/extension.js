@@ -142,6 +142,10 @@ const {
   studioUnescapeJsonStringFragment,
 } = require("./studio/source-refs");
 const {
+  firstArray,
+  stringValue,
+} = require("./studio/value-helpers");
+const {
   AUTOPILOT_MODE_BY_ID,
   AUTOPILOT_MODE_BY_PANEL_VIEW_ID,
   AUTOPILOT_MODE_BY_VIEW_ID,
@@ -337,14 +341,6 @@ const {
   workspaceSummary,
 });
 
-function stringValue(value, fallback = "") {
-  if (typeof value !== "string") {
-    return fallback;
-  }
-  const trimmed = value.trim();
-  return trimmed || fallback;
-}
-
 const {
   compactStudioWhitespace,
   isAutoStudioModelSelector,
@@ -402,10 +398,6 @@ function workspaceTargetsForPrompt(prompt = "") {
     .slice(0, 8);
   const query = terms.length > 0 ? terms.join(" ") : raw.slice(0, 120);
   return query ? [{ kind: "search", query, reason: "workspace_context_query" }] : [];
-}
-
-function firstArray(value) {
-  return Array.isArray(value) ? value : [];
 }
 
 const {

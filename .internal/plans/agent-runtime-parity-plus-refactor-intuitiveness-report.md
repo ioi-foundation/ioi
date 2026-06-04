@@ -95,6 +95,8 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/view-helpers.js`.
 - Moved shared view helpers for relative time labels, command payload attributes, command buttons, item stacks, runtime summary strips, and bridge diagnostics out of `extension.js`.
 - Added focused view-helper tests for compact time labels, payload escaping, command affordances, item stacks, runtime summary rows, and diagnostics escaping.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/value-helpers.js`.
+- Moved Studio `stringValue` and `firstArray` helpers out of `extension.js` while preserving the extension's existing trim/fallback semantics.
 - Moved managed browser/computer session work-record attachment and card row rendering out of `extension.js` behind compatibility wrappers.
 - Added focused managed-session view tests for bounded session-card attachment, waiting-for-user handoff rendering, control-state data-testids, HTML escaping, and default sandbox browser state.
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/durability-panels.js`.
