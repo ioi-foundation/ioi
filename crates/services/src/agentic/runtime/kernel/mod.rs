@@ -34,6 +34,7 @@ use invocation::ToolInvocationEnvelope;
 use marketplace::{MarketplaceAdmissionError, MarketplaceServiceContract};
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
+use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
 use receipt_binder::{ReceiptBinder, ReceiptBindingError, StepModuleReceiptBinding};
 use settlement::{ArtifactPromotionReceipt, PromotionValidationError, SettlementReceiptBundleV2};
 use step_module::{StepModuleInvocation, StepModuleResult, StepModuleValidationError};
@@ -122,6 +123,19 @@ impl RuntimeKernelService {
         node_trust: &CteeNodeTrust,
     ) -> Result<CteePrivateWorkspaceReceipt, CteePrivateWorkspaceError> {
         PrivateWorkspaceCteeModule.validate_invocation(invocation, node_trust)
+    }
+
+    pub fn project_step_module_result(
+        &self,
+        invocation: &StepModuleInvocation,
+        result: &StepModuleResult,
+        binding: &StepModuleReceiptBinding,
+    ) -> Result<StepModuleProjectionRecord, ProjectionError> {
+        RustProjectionCore.project_step_module_result(invocation, result, binding)
+    }
+
+    pub fn reject_workflow_compositor_accepted_truth_attempt(&self) -> Result<(), ProjectionError> {
+        RustProjectionCore.reject_workflow_compositor_accepted_truth_attempt()
     }
 
     pub fn validate_receipt_manifest(

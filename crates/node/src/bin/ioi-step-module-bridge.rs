@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::ReceiptBinder;
 use ioi_services::agentic::runtime::kernel::step_module::{
     StepModuleInvocation, StepModuleNext, StepModuleProjectionStatus, StepModuleResult,
@@ -137,12 +138,29 @@ fn workspace_status_shadow_response(request: StepModuleBridgeRequest) -> Value {
                 });
             }
         };
+    let projection_record = match RustProjectionCore.project_step_module_result(
+        &request.invocation,
+        &result,
+        &receipt_binding,
+    ) {
+        Ok(record) => record,
+        Err(error) => {
+            return json!({
+                "source": "rust_workload_command",
+                "error": {
+                    "code": "projection_record_invalid",
+                    "message": format!("{error:?}"),
+                }
+            });
+        }
+    };
     json!({
         "source": "rust_workload_command",
         "backend": request.backend,
         "invocation": request.invocation,
         "result": result,
         "receipt_binding": receipt_binding,
+        "projection_record": projection_record,
         "shadow_observation": {
             "tool": "workspace.status",
             "input_hash": input_hash,

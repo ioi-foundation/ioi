@@ -410,18 +410,28 @@ function runCtee() {
 
 function runCompositor() {
   const result = createTierResult("compositor");
+  const projectionCore = exists("crates/services/src/agentic/runtime/kernel/projection.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/projection.rs")
+    : "";
   assertCheck(
     result,
     "rust-projection-core",
-    codeCorpusContains(/RustProjectionCore|StepModuleProjectionRecord|workflow_projection_watermark_from_agentgres/),
-    ["crates/services/src/agentic/runtime", "packages/runtime-daemon/src/runtime-event-envelopes.mjs"],
+    /RustProjectionCore/.test(projectionCore) &&
+      /StepModuleProjectionRecord/.test(projectionCore) &&
+      /workflow_projection_watermark_from_agentgres/.test(projectionCore) &&
+      /projection_record/.test(read("crates/node/src/bin/ioi-step-module-bridge.rs")),
+    [
+      "crates/services/src/agentic/runtime/kernel/projection.rs",
+      "crates/node/src/bin/ioi-step-module-bridge.rs",
+    ],
     "Phase 5 is pending: compositor projections must come from Rust projection records and Agentgres watermarks",
   );
   assertCheck(
     result,
     "compositor-truth-negative-guard",
-    codeCorpusContains(/compositor.*accepted truth|workflow compositor.*create accepted truth|accepted truth.*compositor/),
-    ["packages/agent-ide/src", "packages/runtime-daemon/src", "scripts/lib"],
+    /workflow compositor attempt to create accepted truth directly fails/.test(projectionCore) &&
+      /WorkflowCompositorAcceptedTruthForbidden/.test(projectionCore),
+    ["crates/services/src/agentic/runtime/kernel/projection.rs"],
     "Phase 11 is pending: compositor must be unable to create accepted truth directly",
   );
   return result;
