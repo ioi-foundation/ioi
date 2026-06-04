@@ -20,6 +20,7 @@ function createRows(state) {
     firstArray: (value) => Array.isArray(value) ? value : [],
     getHunkApprovalId: () => "approval-default",
     getStudioRuntimeProjection: () => state,
+    safeJsonPreview: (value) => JSON.stringify(value),
     studioCommandHeadline: (command) => command.headline || command.label || "Ran command",
     stringValue: (value, fallback = "") => value === null || value === undefined ? fallback : String(value),
   });
@@ -104,4 +105,26 @@ test("runtime cockpit rows render recent action cards with receipts", () => {
   assert.match(html, /data-testid="studio-tool-proposal-card"/);
   assert.match(html, /data-tool-id="file.write"/);
   assert.match(html, /receipt-action/);
+});
+
+test("runtime cockpit rows build patch preview hunks from daemon tool responses", () => {
+  const rows = createRows({ hunkApprovalId: "approval-runtime" });
+
+  assert.equal(
+    rows.studioRuntimeCockpitPatchTargetFromPrompt("update .tmp/autopilot-runtime-cockpit-code/run-1/status-labels.mjs please"),
+    ".tmp/autopilot-runtime-cockpit-code/run-1/status-labels.mjs",
+  );
+  assert.equal(rows.studioRuntimeCockpitPatchTargetFromPrompt("no explicit path"), "README.md");
+
+  const hunk = rows.patchPreviewHunkFromToolResponse({
+    result: {
+      unified_diff: "@@ -1 +1 @@\n-old\n+new",
+    },
+  }, "src/status-labels.mjs");
+
+  assert.equal(hunk.file, "src/status-labels.mjs");
+  assert.equal(hunk.approvalId, "approval-runtime");
+  assert.match(hunk.beforeContent, /statusLabel/);
+  assert.match(hunk.afterContent, /normalizeRunStatusLabel/);
+  assert.match(hunk.afterContent, /@@ -1 \+1 @@/);
 });

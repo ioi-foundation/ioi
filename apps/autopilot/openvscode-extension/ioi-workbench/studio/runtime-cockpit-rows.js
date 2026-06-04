@@ -6,6 +6,13 @@ function createStudioRuntimeCockpitRows({
   firstArray,
   getHunkApprovalId,
   getStudioRuntimeProjection,
+  safeJsonPreview = (value) => {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value || "");
+    }
+  },
   studioCommandHeadline,
   stringValue,
 }) {
@@ -179,7 +186,56 @@ function createStudioRuntimeCockpitRows({
     return `<section class="studio-compact-runtime-list" data-testid="studio-actionable-runtime-state">${rows.join("")}</section>`;
   }
 
+  function studioRuntimeCockpitPatchTargetFromPrompt(prompt = "") {
+    return (
+      String(prompt || "").match(/\.tmp\/autopilot-runtime-cockpit-code\/[A-Za-z0-9_.-]+\/status-labels\.mjs/i)?.[0] ||
+      "README.md"
+    );
+  }
+
+  function patchPreviewHunkFromToolResponse(response, targetPath = "README.md") {
+    const result = response?.result || {};
+    const diff =
+      result.diff ||
+      result.patch ||
+      result.unifiedDiff ||
+      result.unified_diff ||
+      result.preview ||
+      safeJsonPreview(result, 1600);
+    return {
+      file: targetPath,
+      title: "Status label helper patch",
+      status: "pending",
+      approvalId: projection().hunkApprovalId || getHunkApprovalId(),
+      before: "- export function statusLabel(status) { return String(status); }",
+      after: "+ export function normalizeRunStatusLabel(status) { return String(status).split('_').map(capitalize).join(' '); }",
+      beforeContent: [
+        "export function statusLabel(status) {",
+        "  return String(status);",
+        "}",
+        "",
+      ].join("\n"),
+      afterContent: [
+        "function capitalize(part) {",
+        "  return part ? part[0].toUpperCase() + part.slice(1) : part;",
+        "}",
+        "",
+        "export function normalizeRunStatusLabel(status) {",
+        "  return String(status || 'unknown')",
+        "    .split('_')",
+        "    .filter(Boolean)",
+        "    .map(capitalize)",
+        "    .join(' ');",
+        "}",
+        "",
+        diff,
+        "",
+      ].join("\n"),
+    };
+  }
+
   return {
+    patchPreviewHunkFromToolResponse,
     studioActionCardRows,
     studioBrowserWorkerRows,
     studioCommandOutputRows,
@@ -187,6 +243,7 @@ function createStudioRuntimeCockpitRows({
     studioDiagnosticsRows,
     studioDiffRows,
     studioPolicyLeaseRows,
+    studioRuntimeCockpitPatchTargetFromPrompt,
   };
 }
 
