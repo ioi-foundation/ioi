@@ -48,6 +48,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/tool-palette.js",
   modelSelection:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/model-selection.js",
+  overviewView:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/overview-view.js",
   chatCommands:
     "apps/autopilot/openvscode-extension/ioi-workbench/commands/chat.js",
   modelCommands:
@@ -117,6 +119,7 @@ async function readStudioComposite() {
       paths.nativeChatView,
       paths.toolPalette,
       paths.modelSelection,
+      paths.overviewView,
       paths.chatCommands,
       paths.modelCommands,
       paths.navigationCommands,
