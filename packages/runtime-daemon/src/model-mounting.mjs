@@ -50,6 +50,11 @@ import {
   sourceLabelForUrl,
 } from "./model-mounting/catalog-helpers.mjs";
 import {
+  importModel as importModelState,
+  mountEndpoint as mountEndpointState,
+  unmountEndpoint as unmountEndpointState,
+} from "./model-mounting/artifact-endpoint-operations.mjs";
+import {
   catalogVariantForSource,
   enrichCatalogEntry,
   huggingFaceCatalogEntries,
@@ -1073,137 +1078,33 @@ export class ModelMountingState {
   }
 
   importModel(body = {}) {
-    const now = this.nowIso();
-    const modelId = requiredString(body.model_id ?? body.modelId, "model_id");
-    const sourcePath = body.path ?? body.source_path ?? body.sourcePath ?? body.local_path ?? body.localPath ?? null;
-    const sourceInfo = sourcePath ? inspectLocalArtifact(sourcePath) : null;
-    const importMode = normalizeImportMode(body.import_mode ?? body.importMode ?? body.mode ?? (sourceInfo ? "reference" : "operator"));
-    if (importMode === "dry_run") {
-      const targetPreview = sourceInfo ? importTargetPath(this.modelRoot, modelId, sourceInfo.path) : null;
-      const metadata = sourceInfo ? parseLocalModelMetadata(sourceInfo.path) : {};
-      const receipt = this.lifecycleReceipt("model_import_dry_run", {
-        modelId,
-        providerId: body.provider_id ?? body.providerId ?? (sourceInfo ? "provider.autopilot.local" : "provider.local.folder"),
-        sourcePathHash: sourceInfo?.path ? stableHash(sourceInfo.path) : null,
-        targetPathHash: targetPreview ? stableHash(targetPreview) : null,
-        importMode,
-      });
-      return {
-        schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-        status: "dry_run",
-        modelId,
-        importMode,
-        sourcePathHash: sourceInfo?.path ? stableHash(sourceInfo.path) : null,
-        targetPathHash: targetPreview ? stableHash(targetPreview) : null,
-        metadata,
-        receiptId: receipt.id,
-      };
-    }
-    const importedPath = sourceInfo ? materializeImportArtifact(this.modelRoot, modelId, sourceInfo.path, importMode) : null;
-    const inspectedPath = importedPath ?? sourceInfo?.path ?? null;
-    const importedInfo = inspectedPath ? inspectLocalArtifact(inspectedPath) : sourceInfo;
-    const metadata = inspectedPath ? parseLocalModelMetadata(inspectedPath) : {};
-    const artifact = {
-      id: body.id ?? `import.${safeId(modelId)}`,
-      providerId: body.provider_id ?? body.providerId ?? (sourceInfo ? "provider.autopilot.local" : "provider.local.folder"),
-      modelId,
-      displayName: body.display_name ?? body.displayName ?? modelId,
-      family: body.family ?? metadata.family ?? "imported",
-      format: body.format ?? metadata.format ?? null,
-      quantization: body.quantization ?? metadata.quantization ?? null,
-      sizeBytes: body.size_bytes ?? body.sizeBytes ?? importedInfo?.sizeBytes ?? null,
-      checksum: body.checksum ?? importedInfo?.checksum ?? null,
-      contextWindow: body.context_window ?? body.contextWindow ?? metadata.contextWindow ?? null,
-      capabilities: normalizeScopes(body.capabilities, ["chat"]),
-      privacyClass: body.privacy_class ?? body.privacyClass ?? "local_private",
-      source: body.source ?? (sourceInfo ? "local_path_import" : "operator_import"),
-      importMode,
-      artifactPath: inspectedPath,
-      metadata,
-      backendRegistry: this.backendRegistry(),
-      state: "installed",
-      discoveredAt: now,
-    };
-    this.artifacts.set(artifact.id, artifact);
-    this.writeMap("model-artifacts", this.artifacts);
-    this.lifecycleReceipt("model_import", {
-      artifactId: artifact.id,
-      modelId: artifact.modelId,
-      providerId: artifact.providerId,
-      state: artifact.state,
-      artifactPathHash: artifact.artifactPath ? stableHash(artifact.artifactPath) : null,
-      sourcePathHash: sourceInfo?.path ? stableHash(sourceInfo.path) : null,
-      importMode,
-      checksum: artifact.checksum,
+    return importModelState(this, body, {
+      importTargetPath,
+      inspectLocalArtifact,
+      materializeImportArtifact,
+      normalizeImportMode,
+      normalizeScopes,
+      parseLocalModelMetadata,
+      requiredString,
+      safeId,
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      stableHash,
     });
-    this.writeProjection();
-    return artifact;
   }
 
   mountEndpoint(body = {}) {
-    const now = this.nowIso();
-    const modelId = body.model_id ?? body.modelId;
-    if (!modelId) {
-      throw runtimeError({
-        status: 400,
-        code: "model_id_required",
-        message: "Mounting a model endpoint requires an explicit model id.",
-      });
-    }
-    const explicitProviderId = body.provider_id ?? body.providerId;
-    const artifact = explicitProviderId ? null : this.getModel(modelId);
-    const providerId = explicitProviderId ?? artifact.providerId;
-    const provider = this.provider(providerId);
-    const resolvedArtifact = artifact ?? this.modelForProviderMount(modelId, provider, body, now);
-    const endpoint = {
-      id: body.id ?? `endpoint.${safeId(providerId)}.${safeId(resolvedArtifact.modelId)}`,
-      providerId,
-      modelId: resolvedArtifact.modelId,
-      apiFormat: body.api_format ?? body.apiFormat ?? provider.apiFormat,
-      driver: body.driver ?? provider.driver ?? driverForProviderKind(provider.kind),
-      baseUrl:
-        body.base_url ??
-        body.baseUrl ??
-        provider.baseUrl ??
-        ((body.driver ?? provider.driver ?? driverForProviderKind(provider.kind)) === "fixture"
-          ? "local://ioi-daemon/model-fixture"
-          : null),
-      capabilities: normalizeScopes(body.capabilities, resolvedArtifact.capabilities),
-      privacyClass: body.privacy_class ?? body.privacyClass ?? provider.privacyClass,
-      artifactId: resolvedArtifact.id,
-      artifactPath: resolvedArtifact.artifactPath ?? null,
-      backendId: body.backend_id ?? body.backendId ?? defaultBackendForProvider(provider),
-      loadPolicy: normalizeLoadPolicy(body.load_policy ?? body.loadPolicy),
-      status: "mounted",
-      mountedAt: now,
-    };
-    this.endpoints.set(endpoint.id, endpoint);
-    this.writeMap("model-endpoints", this.endpoints);
-    this.lifecycleReceipt("model_mount", {
-      endpointId: endpoint.id,
-      modelId: endpoint.modelId,
-      providerId: endpoint.providerId,
-      loadPolicy: endpoint.loadPolicy,
+    return mountEndpointState(this, body, {
+      defaultBackendForProvider,
+      driverForProviderKind,
+      normalizeLoadPolicy,
+      normalizeScopes,
+      runtimeError,
+      safeId,
     });
-    return endpoint;
   }
 
   unmountEndpoint(body = {}) {
-    const endpointId = requiredString(body.endpoint_id ?? body.endpointId ?? body.id, "endpoint_id");
-    const endpoint = this.endpoint(endpointId);
-    const updated = {
-      ...endpoint,
-      status: "unmounted",
-      unmountedAt: this.nowIso(),
-    };
-    this.endpoints.set(endpointId, updated);
-    this.writeMap("model-endpoints", this.endpoints);
-    this.lifecycleReceipt("model_unmount", {
-      endpointId,
-      modelId: endpoint.modelId,
-      providerId: endpoint.providerId,
-    });
-    return updated;
+    return unmountEndpointState(this, body, { requiredString });
   }
 
   async loadModel(body = {}) {
