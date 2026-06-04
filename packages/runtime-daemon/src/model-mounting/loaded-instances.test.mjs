@@ -145,6 +145,7 @@ test("idle TTL eviction plans Rust lifecycle for migrated local providers", () =
   assert.equal(evicted.modelMountInstanceLifecycleHash, "sha256:evict:instance_old");
   assert.equal(state.transitionRequests.at(-1).action, "evict");
   assert.equal(state.transitionRequests.at(-1).target_status, "evicted");
+  assert.equal(state.receipts.at(-1)[1].providerKind, "ioi_native_local");
   assert.equal(state.receipts.at(-1)[1].modelMountInstanceLifecycleAction, "evict");
 });
 
@@ -233,4 +234,5 @@ test("explicit supersede plans Rust lifecycle for migrated local providers", () 
   assert.equal(state.transitionRequests.at(-1).action, "supersede");
   assert.equal(state.transitionRequests.at(-1).target_status, "superseded");
   assert.equal(state.receipts.at(-1)[0], "model_supersede");
+  assert.equal(state.receipts.at(-1)[1].providerKind, "local_folder");
 });

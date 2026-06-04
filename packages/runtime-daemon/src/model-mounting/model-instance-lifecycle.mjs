@@ -8,7 +8,11 @@ export const MODEL_MOUNT_INSTANCE_LIFECYCLE_STATUS_ACTIONS = new Map([
 ]);
 
 export function modelMountInstanceLifecycleRequiresRust(provider) {
-  return provider?.kind === "ioi_native_local" || provider?.kind === "local_folder";
+  return modelMountProviderKindRequiresRustInstanceLifecycle(provider?.kind);
+}
+
+export function modelMountProviderKindRequiresRustInstanceLifecycle(providerKind) {
+  return providerKind === "ioi_native_local" || providerKind === "local_folder";
 }
 
 export function expectedModelMountInstanceLifecycleAction(status) {

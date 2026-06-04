@@ -225,6 +225,7 @@ test("loadModel persists loaded instance, supersedes previous instances, and rec
   assert.equal(state.writes.at(-1)[0], "model-instances");
   assert.equal(state.receipts.at(-1).kind, "model_load");
   assert.equal(state.receipts.at(-1).details.commandArgsHash, "args.hash");
+  assert.equal(state.receipts.at(-1).details.providerKind, "ioi_native_local");
   assert.equal(state.receipts.at(-1).details.providerLifecycleHash, "sha256:provider-load");
   assert.equal(state.receipts.at(-1).details.modelMountInstanceLifecycleAction, "load");
   assert.equal(state.receipts.at(-1).details.modelMountInstanceLifecycleStatus, "loaded");
@@ -276,6 +277,7 @@ test("unloadModel updates loaded instance and records provider evidence", async 
   assert.equal(state.writes.at(-1)[0], "model-instances");
   assert.equal(state.receipts.at(-1).kind, "model_unload");
   assert.equal(state.receipts.at(-1).details.backendProcess.id, "process.1");
+  assert.equal(state.receipts.at(-1).details.providerKind, "ioi_native_local");
   assert.equal(state.receipts.at(-1).details.providerLifecycleHash, "sha256:provider-unload");
   assert.equal(state.receipts.at(-1).details.modelMountInstanceLifecycleAction, "unload");
   assert.equal(state.receipts.at(-1).details.modelMountInstanceLifecycleStatus, "unloaded");

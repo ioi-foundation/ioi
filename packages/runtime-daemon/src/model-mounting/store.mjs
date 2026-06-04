@@ -2,6 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 
+import {
+  modelMountInstanceLifecycleBindingIssues,
+  modelMountProviderKindRequiresRustInstanceLifecycle,
+} from "./model-instance-lifecycle.mjs";
+
 const SECRET_REDACTION = "[REDACTED]";
 
 function stableHash(value) {
@@ -128,6 +133,7 @@ export class AgentgresModelMountingStore {
 
   writeReceipt(receipt) {
     assertAcceptedModelInvocationReceiptBound(receipt);
+    assertModelInstanceLifecycleReceiptBound(receipt);
     writeJson(path.join(this.stateDir, "receipts", `${receipt.id}.json`), receipt);
     emitRemoteBoundaryEvent(process.env.IOI_AGENTGRES_URL, "/operations", {
       port: "AgentgresModelMountingStorePort",
@@ -198,6 +204,13 @@ const ACCEPTED_MODEL_INVOCATION_RECEIPT_KINDS = new Set([
   "model_invocation_stream_completed",
 ]);
 
+const MODEL_INSTANCE_LIFECYCLE_RECEIPT_STATUSES = new Map([
+  ["model_load", "loaded"],
+  ["model_unload", "unloaded"],
+  ["model_idle_evict", "evicted"],
+  ["model_supersede", "superseded"],
+]);
+
 function assertAcceptedModelInvocationReceiptBound(receipt) {
   if (!ACCEPTED_MODEL_INVOCATION_RECEIPT_KINDS.has(receipt?.kind)) return;
   const details = receipt?.details && typeof receipt.details === "object" ? receipt.details : {};
@@ -264,6 +277,57 @@ function assertAcceptedModelInvocationReceiptBound(receipt) {
       details: {
         receiptId: receipt?.id ?? null,
         receiptKind: receipt?.kind ?? null,
+        missing,
+        mismatches,
+      },
+    });
+  }
+}
+
+function assertModelInstanceLifecycleReceiptBound(receipt) {
+  if (receipt?.kind !== "model_lifecycle") return;
+  const details = receipt?.details && typeof receipt.details === "object" ? receipt.details : {};
+  const status = MODEL_INSTANCE_LIFECYCLE_RECEIPT_STATUSES.get(details.operation);
+  if (!status) return;
+  const providerKind = optionalNonEmptyString(details.providerKind ?? details.provider_kind);
+  const missing = [];
+  const mismatches = [];
+  if (!providerKind && optionalNonEmptyString(details.providerId)) {
+    missing.push("providerKind");
+  }
+  if (!providerKind || !modelMountProviderKindRequiresRustInstanceLifecycle(providerKind)) {
+    if (missing.length > 0) {
+      throw runtimeError({
+        status: 409,
+        code: "model_mount_instance_lifecycle_receipt_direct_append_forbidden",
+        message: "Model instance lifecycle receipts require provider kind before JS store persistence.",
+        details: {
+          receiptId: receipt?.id ?? null,
+          receiptKind: receipt?.kind ?? null,
+          operation: details.operation ?? null,
+          missing,
+          mismatches,
+        },
+      });
+    }
+    return;
+  }
+  const issues = modelMountInstanceLifecycleBindingIssues(details, {
+    prefix: details.instanceId ?? details.operation ?? "model_lifecycle",
+    status,
+  });
+  missing.push(...issues.missing);
+  mismatches.push(...issues.mismatches);
+  if (missing.length > 0 || mismatches.length > 0) {
+    throw runtimeError({
+      status: 409,
+      code: "model_mount_instance_lifecycle_receipt_direct_append_forbidden",
+      message: "Model instance lifecycle receipts for migrated local providers require Rust model_mount lifecycle bindings before JS store persistence.",
+      details: {
+        receiptId: receipt?.id ?? null,
+        receiptKind: receipt?.kind ?? null,
+        operation: details.operation ?? null,
+        providerKind,
         missing,
         mismatches,
       },

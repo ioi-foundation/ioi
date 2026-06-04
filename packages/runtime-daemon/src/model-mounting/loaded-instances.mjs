@@ -41,7 +41,7 @@ export function evictExpiredInstances(state) {
       endpointId: instance.endpointId,
       modelId: instance.modelId,
       providerId: instance.providerId,
-      ...lifecycleReceiptFields(evicted, instanceLifecycle),
+      ...lifecycleReceiptFields(state, evicted, instanceLifecycle),
     });
   }
   if (changed) {
@@ -83,7 +83,7 @@ export function coalesceLoadedInstances(state) {
       modelId: instance.modelId,
       providerId: instance.providerId,
       supersededBy: keeper.id,
-      ...lifecycleReceiptFields(superseded, instanceLifecycle),
+      ...lifecycleReceiptFields(state, superseded, instanceLifecycle),
     });
     changed = true;
   }
@@ -116,7 +116,7 @@ export function supersedeLoadedInstances(state, endpointId, keepInstanceId) {
       modelId: instance.modelId,
       providerId: instance.providerId,
       supersededBy: keepInstanceId,
-      ...lifecycleReceiptFields(superseded, instanceLifecycle),
+      ...lifecycleReceiptFields(state, superseded, instanceLifecycle),
     });
     changed = true;
   }
@@ -167,9 +167,10 @@ function endpointForInstance(state, instance) {
   };
 }
 
-function lifecycleReceiptFields(instance, instanceLifecycle) {
+function lifecycleReceiptFields(state, instance, instanceLifecycle) {
   if (!instanceLifecycle) return {};
   return {
+    providerKind: providerForInstance(state, instance)?.kind ?? null,
     providerLifecycleHash: instance.providerLifecycleHash ?? null,
     ...modelMountInstanceLifecycleFields(instanceLifecycle),
   };

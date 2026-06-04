@@ -1147,14 +1147,29 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
       ) &&
       /model_supersede/.test(read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")) &&
+      /assertModelInstanceLifecycleReceiptBound/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+      ) &&
+      /model_mount_instance_lifecycle_receipt_direct_append_forbidden/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+      ) &&
+      /providerKind/.test(read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")) &&
+      /providerKind/.test(read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")) &&
       /model instance lifecycle receipts require Rust binding/.test(
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
+      ) &&
+      /model lifecycle receipt writes fail closed without provider kind/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ),
     [
+      "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
     ],
-    "Phase 9/10 is pending: direct JS model-instance lifecycle receipt persistence for migrated local providers must fail closed without Rust model_mount instance lifecycle binding",
+    "Phase 9/10 is pending: direct JS model-instance lifecycle receipt persistence for migrated local providers must fail closed without provider kind and Rust model_mount instance lifecycle binding",
   );
   assertCheck(
     result,

@@ -51,6 +51,23 @@ function boundModelInvocationReceipt(overrides = {}) {
   };
 }
 
+function modelLifecycleReceipt(details = {}) {
+  return {
+    id: details.id ?? "receipt.model-lifecycle",
+    kind: "model_lifecycle",
+    redaction: "redacted",
+    evidenceRefs: ["model_registry", "agentgres_canonical_operation_log", details.operation ?? "model_load"],
+    details: {
+      operation: "model_load",
+      instanceId: "instance.local",
+      modelId: "model.local",
+      providerId: "provider.local",
+      providerKind: "ioi_native_local",
+      ...details,
+    },
+  };
+}
+
 test("model invocation receipt writes fail closed without Rust receipt and Agentgres admission", () => {
   const { appended, stateDir, store } = testStore();
 
@@ -128,4 +145,50 @@ test("model invocation receipt writes append only after Rust receipt and Agentgr
     appended[0].payload.details.modelMountAgentgresOperationRef,
     "agentgres://model-mounting/operation-log/op_00000001_model_invocation",
   );
+});
+
+test("model lifecycle receipt writes fail closed without provider kind and Rust instance lifecycle binding", () => {
+  const { appended, stateDir, store } = testStore();
+
+  assert.throws(
+    () =>
+      store.writeReceipt(modelLifecycleReceipt({
+        providerKind: undefined,
+      })),
+    (error) =>
+      error.code === "model_mount_instance_lifecycle_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("providerKind"),
+  );
+  assert.throws(
+    () => store.writeReceipt(modelLifecycleReceipt()),
+    (error) =>
+      error.code === "model_mount_instance_lifecycle_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("instance.local:modelMountInstanceLifecycleHash"),
+  );
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.model-lifecycle.json")), false);
+  assert.deepEqual(appended, []);
+});
+
+test("model lifecycle receipt writes allow Rust-bound local and remote provider records", () => {
+  const { appended, stateDir, store } = testStore();
+  const localReceipt = modelLifecycleReceipt({
+    id: "receipt.local-bound",
+    providerLifecycleHash: "sha256:provider-lifecycle",
+    modelMountInstanceLifecycleAction: "load",
+    modelMountInstanceLifecycleStatus: "loaded",
+    modelMountInstanceLifecycleHash: "sha256:instance-lifecycle",
+    modelMountInstanceLifecycleEvidenceRefs: ["rust_model_mount_instance_lifecycle"],
+  });
+  const remoteReceipt = modelLifecycleReceipt({
+    id: "receipt.remote",
+    providerId: "provider.remote",
+    providerKind: "openai_compatible",
+  });
+
+  store.writeReceipt(localReceipt);
+  store.writeReceipt(remoteReceipt);
+
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.local-bound.json")), true);
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.remote.json")), true);
+  assert.deepEqual(appended.map((item) => item.payload.receiptId), ["receipt.local-bound", "receipt.remote"]);
 });
