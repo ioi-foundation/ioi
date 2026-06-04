@@ -171,6 +171,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Extended `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-state.js`.
 - Moved Studio projection lifecycle helpers for daemon-thread reset, new-session projection, work cursor capture, and documented-work summary delegation out of `extension.js` while preserving existing call-site names and session preference carry-forward semantics.
 - Added focused projection-state lifecycle tests for daemon-thread field reset, answer-stream reset delegation, model/mode/approval preference preservation across new sessions, and work-cursor count projection.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js`.
+- Moved daemon model workbench/catalog action helpers and payload string alias handling out of `extension.js` into the model command adapter boundary while preserving model command route paths, daemon-owned envelopes, download policy gating, and endpoint fail-closed behavior.
+- Added focused model-daemon action tests for estimate/load/unload route shaping, catalog search/provider/download payloads, source-url validation, and missing daemon endpoint handling.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.

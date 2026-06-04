@@ -86,6 +86,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/view-helpers.js",
   chatCommands:
     "apps/autopilot/openvscode-extension/ioi-workbench/commands/chat.js",
+  modelDaemonActions:
+    "apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js",
   modelCommands:
     "apps/autopilot/openvscode-extension/ioi-workbench/commands/models.js",
   navigationCommands:
@@ -178,6 +180,7 @@ async function readStudioComposite() {
       paths.traceView,
       paths.viewHelpers,
       paths.chatCommands,
+      paths.modelDaemonActions,
       paths.modelCommands,
       paths.navigationCommands,
       paths.runtimeSurfaceCommands,

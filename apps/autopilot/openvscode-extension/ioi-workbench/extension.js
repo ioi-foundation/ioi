@@ -13,6 +13,7 @@ const {
 const { createWorkspaceBridge } = require("./bridge/workspace-bridge");
 const { registerChatCommands } = require("./commands/chat");
 const { registerMigrationCommands } = require("./commands/migration");
+const { createModelDaemonActions } = require("./commands/model-daemon-actions");
 const { registerModelCommands } = require("./commands/models");
 const { registerNavigationCommands } = require("./commands/navigation");
 const { registerQuickInputCommands } = require("./commands/quick-input");
@@ -7851,154 +7852,17 @@ function watchBridgeState(onChange) {
   };
 }
 
-async function runDaemonModelWorkbenchAction(action, payload = {}) {
-  const endpoint = daemonEndpoint();
-  const token = daemonToken();
-  if (!endpoint) {
-    throw new Error("IOI_DAEMON_ENDPOINT is required for model workbench actions.");
-  }
-  const targetEndpointId =
-    pickPayloadString(payload, "endpointId") ||
-    pickPayloadString(payload, "endpoint_id") ||
-    "endpoint.electron.model-gui";
-  const targetInstanceId =
-    pickPayloadString(payload, "instanceId") || pickPayloadString(payload, "instance_id");
-  let requestedGpu =
-    pickPayloadString(payload, "gpu") || pickPayloadString(payload, "gpuOffload") || "0";
-  if (requestedGpu === "auto") {
-    requestedGpu = "0";
-  }
-  if (action === "estimate") {
-    return requestJson(endpoint, "/api/v1/models/estimate-load", {
-      method: "POST",
-      token,
-      payload: {
-        endpoint_id: targetEndpointId,
-        load_options: {
-          estimateOnly: true,
-          gpu: requestedGpu,
-          contextLength: Number(pickPayloadString(payload, "contextLength") || 4096),
-          parallel: Number(pickPayloadString(payload, "parallel") || 2),
-          ttlSeconds: Number(pickPayloadString(payload, "ttlSeconds") || 900),
-          identifier: pickPayloadString(payload, "identifier") || "electron-model-workbench",
-        },
-      },
-    });
-  }
-  if (action === "load") {
-    return requestJson(endpoint, `/api/v1/models/mounts/${encodeURIComponent(targetEndpointId)}/load`, {
-      method: "POST",
-      token,
-      payload: {
-        load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
-        load_options: {
-          gpu: requestedGpu,
-          contextLength: Number(pickPayloadString(payload, "contextLength") || 4096),
-          parallel: Number(pickPayloadString(payload, "parallel") || 2),
-          ttlSeconds: Number(pickPayloadString(payload, "ttlSeconds") || 900),
-          identifier: pickPayloadString(payload, "identifier") || "electron-model-workbench",
-        },
-      },
-    });
-  }
-  if (action === "unload") {
-    return requestJson(
-      endpoint,
-      targetInstanceId
-        ? `/api/v1/models/instances/${encodeURIComponent(targetInstanceId)}/unload`
-        : `/api/v1/models/mounts/${encodeURIComponent(targetEndpointId)}/unload`,
-      {
-        method: "POST",
-        token,
-        payload: {},
-      },
-    );
-  }
-  throw new Error(`Unknown model workbench action: ${action}`);
-}
-
-async function runDaemonModelCatalogSearch(payload = {}) {
-  const endpoint = daemonEndpoint();
-  const token = daemonToken();
-  if (!endpoint) {
-    throw new Error("IOI_DAEMON_ENDPOINT is required for model catalog search.");
-  }
-  const params = new URLSearchParams();
-  const query = pickPayloadString(payload, "query") || pickPayloadString(payload, "q") || "";
-  if (query) {
-    params.set("q", query);
-    params.set("query", query);
-  }
-  const format = pickPayloadString(payload, "format");
-  const quantization = pickPayloadString(payload, "quantization");
-  if (format) params.set("format", format);
-  if (quantization) params.set("quantization", quantization);
-  params.set("limit", pickPayloadString(payload, "limit") || "20");
-  return requestJson(endpoint, `/api/v1/models/catalog/search?${params.toString()}`, {
-    method: "GET",
-    token,
-  });
-}
-
-async function runDaemonModelCatalogProviderConfig(payload = {}) {
-  const endpoint = daemonEndpoint();
-  const token = daemonToken();
-  const providerId = pickPayloadString(payload, "providerId") || pickPayloadString(payload, "provider_id") || "catalog.huggingface";
-  if (!endpoint) {
-    throw new Error("IOI_DAEMON_ENDPOINT is required for catalog source configuration.");
-  }
-  const body = {
-    enabled: payload?.enabled === false ? false : true,
-  };
-  if (providerId === "catalog.local_manifest") {
-    body.manifest_path = pickPayloadString(payload, "manifestPath") || pickPayloadString(payload, "path") || "";
-  } else {
-    body.base_url = pickPayloadString(payload, "baseUrl") || pickPayloadString(payload, "url") || "https://huggingface.co";
-  }
-  return requestJson(endpoint, `/api/v1/models/catalog/providers/${encodeURIComponent(providerId)}`, {
-    method: "PATCH",
-    token,
-    payload: body,
-  });
-}
-
-async function runDaemonModelCatalogDownload(payload = {}) {
-  const endpoint = daemonEndpoint();
-  const token = daemonToken();
-  const sourceUrl = pickPayloadString(payload, "sourceUrl") || pickPayloadString(payload, "source_url");
-  if (!endpoint) {
-    throw new Error("IOI_DAEMON_ENDPOINT is required for model catalog download.");
-  }
-  if (!sourceUrl) {
-    throw new Error("A daemon catalog source URL is required for model download.");
-  }
-  return requestJson(endpoint, "/api/v1/models/download", {
-    method: "POST",
-    token,
-    payload: {
-      source_url: sourceUrl,
-      model_id: pickPayloadString(payload, "modelId") || pickPayloadString(payload, "model_id"),
-      catalog_entry_id: pickPayloadString(payload, "catalogEntryId") || pickPayloadString(payload, "catalog_entry_id"),
-      download_policy: {
-        approvalDecision: "required",
-        externalNetwork: "daemon_gated",
-      },
-    },
-  });
-}
-
-function pickPayloadString(value, key) {
-  if (typeof value === "string" && key === "value") {
-    return value;
-  }
-  if (value && typeof value === "object" && typeof value[key] === "string") {
-    return value[key];
-  }
-  if (value && typeof value === "object" && typeof value[key] === "number") {
-    return String(value[key]);
-  }
-  return null;
-}
+const {
+  pickPayloadString,
+  runDaemonModelCatalogDownload,
+  runDaemonModelCatalogProviderConfig,
+  runDaemonModelCatalogSearch,
+  runDaemonModelWorkbenchAction,
+} = createModelDaemonActions({
+  daemonEndpoint,
+  daemonToken,
+  requestJson,
+});
 
 function registerNativeCommands(context, output) {
   ensureStudioDiffProvider(context);
