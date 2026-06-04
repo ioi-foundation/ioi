@@ -168,6 +168,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-cockpit-rows.js`.
 - Moved Studio runtime cockpit row renderers for diff review, tool proposals, policy leases, command output, diagnostics, browser/worker status, and compact actionable prompts out of `extension.js` while preserving data-testids, hunk payload attributes, lease flags, and recent row bounds.
 - Added focused runtime-cockpit row tests for diff controls, policy prompts, command/diagnostics cards, browser/worker cards, and action-card receipts.
+- Extended `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-state.js`.
+- Moved Studio projection lifecycle helpers for daemon-thread reset, new-session projection, work cursor capture, and documented-work summary delegation out of `extension.js` while preserving existing call-site names and session preference carry-forward semantics.
+- Added focused projection-state lifecycle tests for daemon-thread field reset, answer-stream reset delegation, model/mode/approval preference preservation across new sessions, and work-cursor count projection.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.

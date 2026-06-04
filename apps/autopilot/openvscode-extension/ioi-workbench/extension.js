@@ -56,6 +56,7 @@ const { createStudioAgentTurnRecovery } = require("./studio/agent-turn-recovery"
 const { createStudioProductErrorMessage } = require("./studio/product-error-message");
 const {
   createInitialStudioRuntimeProjection: createInitialStudioRuntimeProjectionFromState,
+  createStudioProjectionLifecycle,
 } = require("./studio/projection-state");
 const { createStudioManagedSessionProjection } = require("./studio/projection-managed-sessions");
 const { createStudioParityPlusEventProjection } = require("./studio/projection-parity-plus-events");
@@ -240,20 +241,16 @@ const {
   buildRuntimeRefs,
   refSafe,
 });
-let studioRuntimeProjection = createInitialStudioRuntimeProjection();
+let studioRuntimeProjection = createInitialStudioRuntimeProjectionFromState({
+  approvalId: STUDIO_APPROVAL_ID,
+  executionMode: STUDIO_MODE_AGENT,
+  permissionMode: STUDIO_PERMISSION_MODE_DEFAULT,
+  policyLeaseId: STUDIO_POLICY_LEASE_ID,
+  runtimeProfile: STUDIO_AGENT_RUNTIME_PROFILE,
+});
 let studioDiffProviderDisposable = null;
 const studioDiffDocuments = new Map();
 let activeTraceTarget = null;
-
-function createInitialStudioRuntimeProjection() {
-  return createInitialStudioRuntimeProjectionFromState({
-    approvalId: STUDIO_APPROVAL_ID,
-    executionMode: STUDIO_MODE_AGENT,
-    permissionMode: STUDIO_PERMISSION_MODE_DEFAULT,
-    policyLeaseId: STUDIO_POLICY_LEASE_ID,
-    runtimeProfile: STUDIO_AGENT_RUNTIME_PROFILE,
-  });
-}
 
 function buildWorkspaceActionContext(source, uri) {
   return buildWorkspaceActionContextFromWorkbench({ vscode, workspaceSummary }, source, uri);
@@ -498,41 +495,6 @@ const {
   uniqueStrings,
 });
 
-function resetStudioDaemonThreadProjection() {
-  studioRuntimeProjection.threadId = null;
-  studioRuntimeProjection.sessionId = null;
-  studioRuntimeProjection.turnId = null;
-  studioRuntimeProjection.runId = null;
-  studioRuntimeProjection.lastModelStream = null;
-  studioRuntimeProjection.lastIntentFrame = null;
-  studioRuntimeProjection.pendingWorklog = [];
-  studioRuntimeProjection.runtimeEventSeenIds = [];
-  studioAgentAnswerStreamProjector.reset();
-}
-
-function startNewStudioSession(reason = "New Studio session") {
-  const previous = studioRuntimeProjection || {};
-  const next = createInitialStudioRuntimeProjection();
-  next.executionMode = normalizeStudioExecutionMode(previous.executionMode || STUDIO_MODE_AGENT);
-  next.runtimeProfile =
-    next.executionMode === STUDIO_MODE_AGENT
-      ? STUDIO_AGENT_RUNTIME_PROFILE
-      : STUDIO_DIRECT_MODEL_RUNTIME_PROFILE;
-  next.modelRoute = previous.modelRoute || "route.local-first";
-  next.selectedModel = previous.selectedModel || "auto";
-  next.reasoningEffort = normalizeStudioReasoningEffort(previous.reasoningEffort, "none");
-  next.approvalMode = normalizeStudioPermissionMode(previous.approvalMode);
-  next.timeline = [
-    {
-      label: "New Studio session",
-      detail: reason,
-      status: "ready",
-    },
-  ];
-  studioRuntimeProjection = next;
-  return studioRuntimeProjection;
-}
-
 const {
   assertStudioProductModelSelector,
   isExternalStudioModelRecord,
@@ -646,30 +608,34 @@ const {
   normalizeReceiptRefs,
 });
 
-function studioWorkCursor() {
-  return {
-    startedAtMs: Date.now(),
-    actionCards: studioRuntimeProjection.actionCards.length,
-    policyLeases: studioRuntimeProjection.policyLeases.length,
-    commandOutputs: studioRuntimeProjection.commandOutputs.length,
-    diagnosticGates: studioRuntimeProjection.diagnosticGates.length,
-    diffHunks: studioRuntimeProjection.diffHunks.length,
-    browserCards: studioRuntimeProjection.browserCards.length,
-    workerCards: studioRuntimeProjection.workerCards.length,
-    computerUseSessions: studioRuntimeProjection.computerUseSessions.length,
-    conversationArtifacts: studioRuntimeProjection.conversationArtifacts.length,
-    pendingWorklog: studioRuntimeProjection.pendingWorklog.length,
-    receipts: studioRuntimeProjection.receipts.length,
-  };
-}
-
-function studioDocumentedWorkRecord(cursor = {}) {
-  return studioDocumentedWorkRecordFromSummary(studioRuntimeProjection, cursor);
-}
-
-function studioDocumentedWorkSummary(record = {}) {
-  return studioDocumentedWorkSummaryFromSummary(record, studioRuntimeProjection.status);
-}
+const {
+  resetStudioDaemonThreadProjection,
+  startNewStudioSession,
+  studioDocumentedWorkRecord,
+  studioDocumentedWorkSummary,
+  studioWorkCursor,
+} = createStudioProjectionLifecycle({
+  agentRuntimeProfile: STUDIO_AGENT_RUNTIME_PROFILE,
+  createInitialProjection: () => createInitialStudioRuntimeProjectionFromState({
+    approvalId: STUDIO_APPROVAL_ID,
+    executionMode: STUDIO_MODE_AGENT,
+    permissionMode: STUDIO_PERMISSION_MODE_DEFAULT,
+    policyLeaseId: STUDIO_POLICY_LEASE_ID,
+    runtimeProfile: STUDIO_AGENT_RUNTIME_PROFILE,
+  }),
+  directModelRuntimeProfile: STUDIO_DIRECT_MODEL_RUNTIME_PROFILE,
+  documentedWorkRecord: studioDocumentedWorkRecordFromSummary,
+  documentedWorkSummary: studioDocumentedWorkSummaryFromSummary,
+  getProjection: () => studioRuntimeProjection,
+  normalizeExecutionMode: normalizeStudioExecutionMode,
+  normalizePermissionMode: normalizeStudioPermissionMode,
+  normalizeReasoningEffort: normalizeStudioReasoningEffort,
+  resetAnswerStream: () => studioAgentAnswerStreamProjector.reset(),
+  setProjection: (projection) => {
+    studioRuntimeProjection = projection;
+  },
+  studioModeAgent: STUDIO_MODE_AGENT,
+});
 
 const {
   sanitizeStudioSourceUrl,

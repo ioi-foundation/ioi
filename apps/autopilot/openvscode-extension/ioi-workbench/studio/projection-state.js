@@ -130,6 +130,95 @@ function createInitialStudioRuntimeProjection({
   };
 }
 
+function createStudioProjectionLifecycle({
+  createInitialProjection,
+  getProjection,
+  setProjection,
+  resetAnswerStream = () => {},
+  normalizeExecutionMode = (value) => value,
+  normalizePermissionMode = (value) => value,
+  normalizeReasoningEffort = (value, fallback) => value ?? fallback,
+  studioModeAgent,
+  agentRuntimeProfile,
+  directModelRuntimeProfile,
+  documentedWorkRecord,
+  documentedWorkSummary,
+  now = () => Date.now(),
+} = {}) {
+  const currentProjection = () => getProjection?.() || {};
+  const arrayLength = (value) => (Array.isArray(value) ? value.length : 0);
+
+  function resetStudioDaemonThreadProjection() {
+    const projection = currentProjection();
+    projection.threadId = null;
+    projection.sessionId = null;
+    projection.turnId = null;
+    projection.runId = null;
+    projection.lastModelStream = null;
+    projection.lastIntentFrame = null;
+    projection.pendingWorklog = [];
+    projection.runtimeEventSeenIds = [];
+    resetAnswerStream();
+    return projection;
+  }
+
+  function startNewStudioSession(reason = "New Studio session") {
+    const previous = currentProjection();
+    const next = createInitialProjection();
+    next.executionMode = normalizeExecutionMode(previous.executionMode || studioModeAgent);
+    next.runtimeProfile =
+      next.executionMode === studioModeAgent ? agentRuntimeProfile : directModelRuntimeProfile;
+    next.modelRoute = previous.modelRoute || "route.local-first";
+    next.selectedModel = previous.selectedModel || "auto";
+    next.reasoningEffort = normalizeReasoningEffort(previous.reasoningEffort, "none");
+    next.approvalMode = normalizePermissionMode(previous.approvalMode);
+    next.timeline = [
+      {
+        label: "New Studio session",
+        detail: reason,
+        status: "ready",
+      },
+    ];
+    setProjection(next);
+    return currentProjection();
+  }
+
+  function studioWorkCursor() {
+    const projection = currentProjection();
+    return {
+      startedAtMs: now(),
+      actionCards: arrayLength(projection.actionCards),
+      policyLeases: arrayLength(projection.policyLeases),
+      commandOutputs: arrayLength(projection.commandOutputs),
+      diagnosticGates: arrayLength(projection.diagnosticGates),
+      diffHunks: arrayLength(projection.diffHunks),
+      browserCards: arrayLength(projection.browserCards),
+      workerCards: arrayLength(projection.workerCards),
+      computerUseSessions: arrayLength(projection.computerUseSessions),
+      conversationArtifacts: arrayLength(projection.conversationArtifacts),
+      pendingWorklog: arrayLength(projection.pendingWorklog),
+      receipts: arrayLength(projection.receipts),
+    };
+  }
+
+  function studioDocumentedWorkRecord(cursor = {}) {
+    return documentedWorkRecord(currentProjection(), cursor);
+  }
+
+  function studioDocumentedWorkSummary(record = {}) {
+    return documentedWorkSummary(record, currentProjection().status);
+  }
+
+  return {
+    resetStudioDaemonThreadProjection,
+    startNewStudioSession,
+    studioDocumentedWorkRecord,
+    studioDocumentedWorkSummary,
+    studioWorkCursor,
+  };
+}
+
 module.exports = {
   createInitialStudioRuntimeProjection,
+  createStudioProjectionLifecycle,
 };
