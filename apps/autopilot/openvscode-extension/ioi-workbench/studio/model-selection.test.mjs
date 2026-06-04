@@ -152,3 +152,34 @@ test("preferred model selection favors active product route then mounted quick p
   assert.equal(rows[1].routeId, "route.local-first");
   assert.equal(rows[1].instanceId, "instance-b");
 });
+
+test("product selection and loaded instance projection dedupe overview counts", () => {
+  const selection = createSelection();
+  const snapshot = {
+    artifacts: [
+      { id: "real-a", modelId: "real-a", name: "Real A", capabilities: ["chat"] },
+      { id: "real-a-duplicate", modelId: "real-a", name: "Real A duplicate", capabilities: ["chat"] },
+      { id: "fixture", modelId: "local:auto", name: "Fixture", capabilities: ["chat"] },
+    ],
+    endpoints: [
+      { id: "endpoint-a", artifactId: "real-a", modelId: "real-a", routeId: "route-a" },
+      { id: "endpoint-a-duplicate", artifactId: "real-a-duplicate", modelId: "real-a", routeId: "route-a-dup" },
+    ],
+    routes: [
+      { id: "route-a", endpointId: "endpoint-a", modelId: "real-a" },
+      { id: "route-a-dup", endpointId: "endpoint-a-duplicate", modelId: "real-a" },
+    ],
+    instances: [
+      { id: "instance-a", endpointId: "endpoint-a", modelId: "real-a", status: "loaded" },
+      { id: "instance-a", endpointId: "endpoint-a", modelId: "real-a", status: "running" },
+      { id: "instance-stopped", endpointId: "endpoint-a", modelId: "real-a", status: "stopped" },
+    ],
+  };
+
+  const selections = selection.productStudioModelSelectionsFromSnapshot(snapshot);
+  assert.equal(selections.length, 1);
+  assert.equal(selections[0].artifact.id, "real-a");
+
+  const loaded = selection.loadedProductStudioModelInstances(snapshot, selections);
+  assert.deepEqual(loaded.map((instance) => instance.id), ["instance-a"]);
+});

@@ -424,6 +424,56 @@ function createStudioModelSelection({
     };
   }
 
+  function productStudioModelSelectionsFromSnapshot(snapshot = {}) {
+    const seen = new Set();
+    return (Array.isArray(snapshot.artifacts) ? snapshot.artifacts : [])
+      .map((artifact) => {
+        const modelId = studioSelectionModelId({ artifact });
+        const endpoint = modelEndpointForArtifact(snapshot, artifact) || {};
+        const route =
+          (Array.isArray(snapshot.routes) ? snapshot.routes : []).find((candidate) =>
+            studioSameNonEmptyId(candidate.endpointId, endpoint.id) ||
+            firstArray(candidate.fallback || candidate.fallbackEndpoints || candidate.fallback_endpoints).includes(endpoint.id) ||
+            studioSameNonEmptyId(candidate.modelId, modelId) ||
+            studioSameNonEmptyId(candidate.id, endpoint.routeId) ||
+            studioSameNonEmptyId(candidate.routeId, endpoint.routeId),
+          ) ||
+          {};
+        const selection = { artifact, endpoint, route };
+        if (!isProductStudioModelSelection(selection)) {
+          return null;
+        }
+        const key = studioSelectionModelId(selection);
+        if (!key || seen.has(key)) {
+          return null;
+        }
+        seen.add(key);
+        return selection;
+      })
+      .filter(Boolean);
+  }
+
+  function loadedProductStudioModelInstances(snapshot = {}, selections = []) {
+    const endpointIds = new Set(selections.map((selection) => selection.endpoint?.id).filter(Boolean));
+    const modelIds = new Set(selections.map((selection) => studioSelectionModelId(selection)).filter(Boolean));
+    const seen = new Set();
+    return (Array.isArray(snapshot.instances) ? snapshot.instances : [])
+      .filter((instance) => {
+        if (!/loaded|ready|running/i.test(String(instance.status || ""))) {
+          return false;
+        }
+        return endpointIds.has(instance.endpointId) || modelIds.has(instance.modelId);
+      })
+      .filter((instance) => {
+        const key = instance.id || `${instance.endpointId || ""}:${instance.modelId || ""}`;
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+  }
+
   function mountedModelQuickInputRowsFromState(state = {}) {
     const snapshot = modelSnapshotFromState(state);
     const mountedStatus = (value) => /loaded|ready|running|mounted|active/i.test(String(value || ""));
@@ -478,12 +528,14 @@ function createStudioModelSelection({
     isExternalStudioModelRecord,
     isFixtureStudioModelRecord,
     isProductStudioModelSelection,
+    loadedProductStudioModelInstances,
     modelRecordIsEmbeddingOnly,
     modelRecordReasoningSignals,
     modelRecordStatusScore,
     modelRecordSupportsChat,
     mountedModelQuickInputRowsFromState,
     normalizeStudioReasoningEffort,
+    productStudioModelSelectionsFromSnapshot,
     studioArtifactMaxOutputTokens,
     studioExternalModelProviderUsageAllowed,
     studioMaxOutputTokens,
