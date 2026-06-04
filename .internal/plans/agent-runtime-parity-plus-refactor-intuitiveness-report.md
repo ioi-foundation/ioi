@@ -385,6 +385,8 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
 - Moved filesystem handler patch failure classification, workspace read/write boundary wrappers, and safe regular-file read/write target guards out of `handler.rs` while preserving handler-module helper names used by policy tests and filesystem tool handling.
 - Added `crates/services/src/agentic/runtime/substrate/semantic_impact.rs`.
 - Moved substrate semantic-impact projection, changed-path classification, mutating-tool detection, and targeted test-selection hints out of `substrate.rs` while preserving the public `RuntimeSubstrateSnapshot` projection API and substrate test behavior.
+- Added `crates/services/src/agentic/runtime/substrate/session_lifecycle.rs`.
+- Moved substrate session trace bundle projection, workflow envelope adapter projection, harness trace adapter projection, and operator interruption contract projection out of `substrate.rs` while preserving the public `RuntimeSubstrateSnapshot` projection API and substrate test behavior.
 
 ## Naming And Vocabulary Decisions
 
@@ -432,6 +434,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `queue/support/pipeline/facts/market_quote`
   - `filesystem/handler/policy`
   - `substrate/semantic_impact`
+  - `substrate/session_lifecycle`
   - `model-mounting/projections`
   - `model-mounting/runtime-engines`
   - `model-mounting/runtime-survey`
