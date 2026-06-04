@@ -322,6 +322,7 @@ import {
   evaluateCompactionPolicyDecision,
   evaluateContextBudgetPolicy,
 } from "./threads/context-budget-policy.mjs";
+import { createThreadMemoryState } from "./threads/thread-memory-state.mjs";
 import {
   handleOpenAiCompatibilityRoute,
   isOpenAiCompatibilityRoute,
@@ -478,6 +479,15 @@ const {
   normalizeArray,
   optionalString,
   safeId,
+});
+const threadMemoryState = createThreadMemoryState({
+  agentIdForThread,
+  memoryListFilters,
+  memoryPolicyOverrides,
+  memoryStatusForProjection,
+  optionalString,
+  threadIdForAgent,
+  validateMemoryProjection,
 });
 const {
   capabilitySequenceForMode,
@@ -1208,32 +1218,19 @@ export class AgentgresRuntimeStateStore {
   }
 
   listMemoryForThread(threadId, options = {}) {
-    const agent = this.agentForThread(threadId);
-    return this.memory.projection({ agent, threadId, workspace: agent.cwd, filters: memoryListFilters(options) });
+    return threadMemoryState.listMemoryForThread(this, threadId, options);
   }
 
   memoryPolicyForThread(threadId) {
-    const agent = this.agentForThread(threadId);
-    return this.memory.effectivePolicy({ agent, threadId, workspace: agent.cwd });
+    return threadMemoryState.memoryPolicyForThread(this, threadId);
   }
 
   setMemoryPolicyForThread(threadId, body = {}) {
-    const agent = this.agentForThread(threadId);
-    const mutation = this.memory.setPolicy({
-      targetType: "thread",
-      targetId: threadId,
-      agent,
-      threadId,
-      workspace: agent.cwd,
-      source: body.source ?? "thread_memory_policy_api",
-      updates: memoryPolicyOverrides(body.policy ?? body),
-    });
-    return this.recordThreadMemoryMutation(threadId, mutation, body, "policy_update");
+    return threadMemoryState.setMemoryPolicyForThread(this, threadId, body);
   }
 
   memoryPathForThread(threadId) {
-    const agent = this.agentForThread(threadId);
-    return this.memory.pathProjection({ agent, threadId, workspace: agent.cwd });
+    return threadMemoryState.memoryPathForThread(this, threadId);
   }
 
   updateMemoryForThread(threadId, memoryId, body = {}) {
@@ -1291,35 +1288,19 @@ export class AgentgresRuntimeStateStore {
   }
 
   listMemoryForAgent(agentId, options = {}) {
-    const agent = this.getAgent(agentId);
-    const threadId = options.thread_id ?? options.threadId ?? threadIdForAgent(agent.id);
-    return this.memory.projection({ agent, threadId, workspace: agent.cwd, filters: memoryListFilters(options) });
+    return threadMemoryState.listMemoryForAgent(this, agentId, options);
   }
 
   memoryPolicyForAgent(agentId, options = {}) {
-    const agent = this.getAgent(agentId);
-    const threadId = options.thread_id ?? options.threadId ?? threadIdForAgent(agent.id);
-    return this.memory.effectivePolicy({ agent, threadId, workspace: agent.cwd });
+    return threadMemoryState.memoryPolicyForAgent(this, agentId, options);
   }
 
   setMemoryPolicyForAgent(agentId, body = {}) {
-    const agent = this.getAgent(agentId);
-    const threadId = body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id);
-    return this.memory.setPolicy({
-      targetType: body.targetType ?? body.target_type ?? "thread",
-      targetId: body.targetId ?? body.target_id ?? threadId,
-      agent,
-      threadId,
-      workspace: agent.cwd,
-      source: body.source ?? "agent_memory_policy_api",
-      updates: memoryPolicyOverrides(body.policy ?? body),
-    });
+    return threadMemoryState.setMemoryPolicyForAgent(this, agentId, body);
   }
 
   memoryPathForAgent(agentId, options = {}) {
-    const agent = this.getAgent(agentId);
-    const threadId = options.thread_id ?? options.threadId ?? threadIdForAgent(agent.id);
-    return this.memory.pathProjection({ agent, threadId, workspace: agent.cwd });
+    return threadMemoryState.memoryPathForAgent(this, agentId, options);
   }
 
   updateMemoryForAgentId(agentId, memoryId, body = {}) {
@@ -1370,44 +1351,15 @@ export class AgentgresRuntimeStateStore {
   }
 
   memoryProjectionForContext(options = {}) {
-    const threadId = optionalString(options.thread_id ?? options.threadId);
-    const agentId =
-      optionalString(options.agent_id ?? options.agentId) ??
-      (threadId ? agentIdForThread(threadId) : undefined);
-    if (threadId) return this.listMemoryForThread(threadId, options);
-    if (agentId) return this.listMemoryForAgent(agentId, options);
-    return this.memory.projection({
-      workspace: this.defaultCwd,
-      filters: memoryListFilters(options),
-    });
+    return threadMemoryState.memoryProjectionForContext(this, options);
   }
 
   memoryStatus(options = {}) {
-    const projection = this.memoryProjectionForContext(options);
-    return {
-      ...memoryStatusForProjection(projection),
-      thread_id: projection.threadId ?? null,
-      threadId: projection.threadId ?? null,
-      agent_id: projection.agentId ?? null,
-      agentId: projection.agentId ?? null,
-      workspace: projection.workspace ?? null,
-    };
+    return threadMemoryState.memoryStatus(this, options);
   }
 
   validateMemory(input = {}) {
-    const projection =
-      input.projection && typeof input.projection === "object"
-        ? input.projection
-        : this.memoryProjectionForContext(input);
-    const validation = validateMemoryProjection(projection);
-    return {
-      ...validation,
-      thread_id: projection.threadId ?? null,
-      threadId: projection.threadId ?? null,
-      agent_id: projection.agentId ?? null,
-      agentId: projection.agentId ?? null,
-      workspace: projection.workspace ?? null,
-    };
+    return threadMemoryState.validateMemory(this, input);
   }
 
   recordThreadMemoryStatus(threadId, request = {}) {
