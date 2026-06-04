@@ -167,6 +167,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-value-helpers.mjs`.
 - Moved shared array/string normalization, safe-id hashing, doctor-check shaping, workspace-relative path bounding, operator-control source normalization, and operator-control append behavior out of `index.mjs` behind direct helper exports.
 - Added focused runtime value-helper tests for normalization, safe ids, hashes, workspace-relative paths, doctor-check envelopes, and operator-control de-duping.
+- Added `packages/runtime-daemon/src/runtime-agent-options.mjs`.
+- Moved agent option summaries, Cursor compatibility discovery, runtime mode/provider availability checks, memory option merging, and provider-key doctor reporting out of `index.mjs` behind dependency-injected helper exports.
+- Added focused runtime agent-options tests for Cursor MCP/hook/skill discovery, option summaries, provider endpoint fail-closed behavior, memory merge precedence, and provider-key doctor redaction.
 - Added `packages/runtime-daemon/src/runtime-identifiers.mjs`.
 - Moved runtime thread/agent/run/turn/session id derivation, runtime-backed agent detection, fixture profile defaults, and lifecycle/thread status normalization out of `index.mjs`.
 - Added focused runtime identifier tests for prefix compatibility, event stream ids, runtime session fallback, fixture profile override/null preservation, runtime profile detection, and lifecycle status aliases.
