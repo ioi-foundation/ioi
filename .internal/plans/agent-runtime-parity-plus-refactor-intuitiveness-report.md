@@ -343,6 +343,9 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/state-accessors.mjs`.
 - Moved provider/endpoint/instance/route lookup, endpoint resolution, and ensure-loaded refresh/load behavior out of `model-mounting.mjs` behind existing compatibility methods.
 - Added focused state-accessor tests for lookup errors, endpoint mount fallback, unavailable endpoint errors, loaded-instance refresh, and load fallback.
+- Added `packages/runtime-daemon/src/model-mounting/backend-registry-state.mjs`.
+- Moved backend registry seeding/derivation, stored/derived backend projection merging, backend-process reconciliation, backend-process lookup, and backend log writes out of `model-mounting.mjs` behind existing compatibility methods.
+- Added focused backend-registry-state tests for environment/discovery derivation, stored-record merging, process projection, stale boot reconciliation, newest-process lookup, and redacted backend log mirroring.
 
 Status: `model-mounting.mjs` still owns route persistence wrappers, catalog import/download operation glue, model invocation/stream utilities, and some product projection glue. Safe next extractions are catalog import/download materialization, invocation/stream utility slices, and remaining route HTTP glue.
 
@@ -425,6 +428,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `model-mounting/mcp-workflow-operations`
   - `model-mounting/conversation-operations`
   - `model-mounting/state-accessors`
+  - `model-mounting/backend-registry-state`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.

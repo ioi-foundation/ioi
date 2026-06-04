@@ -96,6 +96,15 @@ import {
   route as routeState,
 } from "./model-mounting/state-accessors.mjs";
 import {
+  backendProcessForBackend as backendProcessForBackendState,
+  backendRegistry as backendRegistryState,
+  deriveBackendRegistry as deriveBackendRegistryState,
+  listBackendProcesses as listBackendProcessesState,
+  reconciledBackendProcess as reconciledBackendProcessState,
+  seedBackends as seedBackendsState,
+  writeBackendLog as writeBackendLogState,
+} from "./model-mounting/backend-registry-state.mjs";
+import {
   catalogVariantForSource,
   enrichCatalogEntry,
   huggingFaceCatalogEntries,
@@ -2295,65 +2304,20 @@ export class ModelMountingState {
   }
 
   seedBackends(checkedAt) {
-    for (const backend of this.deriveBackendRegistry(checkedAt)) {
-      const previous = this.backends.get(backend.id);
-      this.backends.set(backend.id, previous ? { ...previous, ...backend } : backend);
-    }
+    return seedBackendsState(this, checkedAt);
   }
 
   backendRegistry() {
-    const derived = new Map(this.deriveBackendRegistry(this.nowIso()).map((backend) => [backend.id, backend]));
-    for (const [id, backend] of this.backends.entries()) {
-      derived.set(id, {
-        ...derived.get(id),
-        ...backend,
-        hardware: backend.hardware ?? derived.get(id)?.hardware,
-        evidenceRefs: backend.evidenceRefs ?? derived.get(id)?.evidenceRefs ?? [],
-      });
-    }
-    return [...derived.values()]
-      .map((backend) => {
-        const processRecord = this.backendProcessForBackend(backend.id);
-        return {
-          ...backend,
-          processStatus: processRecord?.processStatus ?? processRecord?.status ?? backend.processStatus,
-          process: processRecord
-            ? {
-                id: processRecord.id,
-                status: processRecord.status,
-                processStatus: processRecord.processStatus ?? processRecord.status,
-                pidHash: processRecord.pidHash ?? null,
-                supervisorKind: processRecord.supervisorKind ?? null,
-                spawned: Boolean(processRecord.spawned),
-                spawnStatus: processRecord.spawnStatus ?? null,
-                startedAt: processRecord.startedAt ?? null,
-                stoppedAt: processRecord.stoppedAt ?? null,
-                lastHealthAt: processRecord.lastHealthAt ?? null,
-                argsHash: processRecord.argsHash ?? null,
-                argsRedacted: processRecord.argsRedacted ?? [],
-                startupTimeoutMs: processRecord.startupTimeoutMs ?? null,
-                stale: Boolean(processRecord.stale),
-                staleReason: processRecord.staleReason ?? null,
-                receiptId: processRecord.lastReceiptId ?? null,
-              }
-            : null,
-        };
-      })
-      .sort((left, right) => left.id.localeCompare(right.id));
+    return backendRegistryState(this);
   }
 
   deriveBackendRegistry(checkedAt) {
-    const hardware = hardwareSnapshot();
-    const llamaBinary = process.env.IOI_LLAMA_CPP_SERVER_PATH ?? discoverAutopilotLlamaServer(this.homeDir) ?? findExecutable("llama-server");
-    const ollamaBinary = process.env.IOI_OLLAMA_BINARY ?? findExecutable("ollama");
-    const vllmBinary = process.env.IOI_VLLM_BINARY ?? findExecutable("vllm");
-    return backendRegistryRecords({
-      checkedAt,
-      hardware,
-      llamaBinary,
-      ollamaBinary,
-      providers: this.providers,
-      vllmBinary,
+    return deriveBackendRegistryState(this, checkedAt, {
+      backendRegistryRecords,
+      discoverAutopilotLlamaServer,
+      findExecutable,
+      hardwareSnapshot,
+      processEnv: process.env,
     });
   }
 
@@ -2362,36 +2326,15 @@ export class ModelMountingState {
   }
 
   listBackendProcesses() {
-    return [...this.backendProcesses.values()]
-      .map((processRecord) => this.reconciledBackendProcess(processRecord))
-      .sort((left, right) => String(left.startedAt ?? "").localeCompare(String(right.startedAt ?? "")));
+    return listBackendProcessesState(this);
   }
 
   backendProcessForBackend(backendId) {
-    const processes = this.listBackendProcesses().filter((processRecord) => processRecord.backendId === backendId);
-    return processes.at(-1) ?? null;
+    return backendProcessForBackendState(this, backendId);
   }
 
   reconciledBackendProcess(processRecord) {
-    if (!processRecord) return null;
-    if (processRecord.status === "started" && processRecord.bootId && processRecord.bootId !== this.bootId) {
-      return {
-        ...processRecord,
-        status: "stale_recovered",
-        processStatus: "stale_recovered",
-        stale: true,
-        staleReason: "daemon_boot_mismatch",
-        evidenceRefs: [
-          ...normalizeScopes(processRecord.evidenceRefs, []),
-          "supervisor_stale_process_detection",
-          "agentgres_process_projection_replay",
-        ],
-      };
-    }
-    return {
-      stale: false,
-      ...processRecord,
-    };
+    return reconciledBackendProcessState(this, processRecord, { normalizeScopes });
   }
 
   runtimePreference() {
@@ -2568,21 +2511,11 @@ export class ModelMountingState {
   }
 
   writeBackendLog(endpointId, event) {
-    const record = {
-      id: `backend_log_${crypto.randomUUID()}`,
-      endpointId,
-      backendId: event.backendId ?? event.backend ?? endpointId,
-      createdAt: this.nowIso(),
-      ...redact(event),
-    };
-    const filePath = path.join(this.stateDir, "backend-logs", `${safeFileName(endpointId)}.jsonl`);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.appendFileSync(filePath, `${JSON.stringify(record)}\n`);
-    if (record.backendId && record.backendId !== endpointId) {
-      const backendPath = path.join(this.stateDir, "backend-logs", `${safeFileName(record.backendId)}.jsonl`);
-      fs.appendFileSync(backendPath, `${JSON.stringify(record)}\n`);
-    }
-    return record;
+    return writeBackendLogState(this, endpointId, event, {
+      randomUUID: () => crypto.randomUUID(),
+      redact,
+      safeFileName,
+    });
   }
 
   driverForProvider(provider) {
