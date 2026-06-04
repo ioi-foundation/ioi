@@ -148,6 +148,19 @@ import {
   supersedeLoadedInstances as supersedeLoadedInstancesState,
 } from "./model-mounting/loaded-instances.mjs";
 import {
+  applyRuntimeEngineProfile as applyRuntimeEngineProfileState,
+  listRuntimeEngineProfiles as listRuntimeEngineProfilesState,
+  listRuntimeEngines as listRuntimeEnginesState,
+  removeRuntimeEngineOverride as removeRuntimeEngineOverrideState,
+  runtimeDefaultLoadOptions as runtimeDefaultLoadOptionsState,
+  runtimeEngine as runtimeEngineState,
+  runtimeEngineProfile as runtimeEngineProfileState,
+  runtimePreference as runtimePreferenceState,
+  runtimePreferenceForEndpoint as runtimePreferenceForEndpointState,
+  selectRuntimeEngine as selectRuntimeEngineState,
+  updateRuntimeEngine as updateRuntimeEngineState,
+} from "./model-mounting/runtime-engines.mjs";
+import {
   FixtureModelProviderDriver,
   NativeLocalModelProviderDriver,
 } from "./model-mounting/provider-local-drivers.mjs";
@@ -3658,258 +3671,62 @@ export class ModelMountingState {
   }
 
   runtimePreference() {
-    const preference =
-      this.runtimeSelections.get("default") ?? {
-        id: "default",
-        selectedEngineId: "backend.autopilot.native-local.fixture",
-        selectedAt: null,
-        receiptId: "none",
-        source: "default_native_local_runtime",
-      };
-    return {
-      ...preference,
-      defaultLoadOptions: this.runtimeDefaultLoadOptions(preference.selectedEngineId),
-    };
+    return runtimePreferenceState(this);
   }
 
   runtimePreferenceForEndpoint(endpoint = {}) {
-    const preference = this.runtimePreference();
-    const endpointBackendId = endpoint.backendId ?? null;
-    if (!endpointBackendId || endpointBackendId === preference.selectedEngineId) return preference;
-    if (!this.backendRegistry().some((backend) => backend.id === endpointBackendId)) return preference;
-    return {
-      ...preference,
-      selectedEngineId: endpointBackendId,
-      source: "endpoint_backend_runtime",
-      endpointBackendId,
-      defaultLoadOptions: this.runtimeDefaultLoadOptions(endpointBackendId),
-    };
+    return runtimePreferenceForEndpointState(this, endpoint);
   }
 
   runtimeEngineProfile(engineId) {
-    return this.runtimeEngineProfiles.get(engineId) ?? null;
+    return runtimeEngineProfileState(this, engineId);
   }
 
   listRuntimeEngineProfiles() {
-    return [...this.runtimeEngineProfiles.values()].sort((left, right) => left.id.localeCompare(right.id));
+    return listRuntimeEngineProfilesState(this);
   }
 
   runtimeDefaultLoadOptions(engineId) {
-    const profile = this.runtimeEngineProfile(engineId);
-    return profile?.defaultLoadOptions ?? {};
+    return runtimeDefaultLoadOptionsState(this, engineId);
   }
 
   runtimeEngine(engineId) {
-    const engine = this.listRuntimeEngines().find((item) => item.id === engineId);
-    if (!engine) throw notFound(`Runtime engine not found: ${engineId}`, { engineId });
-    return {
-      ...engine,
-      profile: this.runtimeEngineProfile(engineId),
-      preference: this.runtimePreference().selectedEngineId === engineId ? this.runtimePreference() : null,
-      loadedInstances: this.listInstances().filter((instance) => instance.runtimeEngineId === engineId || instance.backendId === engineId),
-      latestReceipts: this.listReceipts()
-        .filter((receipt) => receipt.details?.runtimeEngineId === engineId || receipt.details?.engineId === engineId || receipt.details?.backendId === engineId)
-        .slice(-8),
-    };
+    return runtimeEngineState(this, engineId, { notFound });
   }
 
   selectRuntimeEngine(body = {}) {
-    const engineId = requiredString(body.engine_id ?? body.engineId ?? body.id, "engine_id");
-    const checkedAt = this.nowIso();
-    const engines = this.listRuntimeEngines();
-    const engine = engines.find((item) => item.id === engineId);
-    if (!engine) throw notFound(`Runtime engine not found: ${engineId}`, { engineId });
-    if (engine.operatorProfile?.disabled) {
-      throw runtimeError({
-        status: 409,
-        code: "runtime_engine_disabled",
-        message: "Runtime engine is disabled by its operator profile.",
-        details: { engineId, receiptId: engine.operatorProfile.receiptId ?? null },
-      });
-    }
-    const receipt = this.lifecycleReceipt("runtime_engine_select", {
-      engineId,
-      engineKind: engine.kind,
-      engineStatus: engine.status,
-      source: engine.source,
-      modelFormat: engine.modelFormat,
-      defaultLoadOptions: engine.operatorProfile?.defaultLoadOptions ?? {},
-      checkedAt,
-    });
-    const preference = {
-      id: "default",
-      selectedEngineId: engineId,
-      selectedAt: checkedAt,
-      receiptId: receipt.id,
-      source: "operator_runtime_select",
-      engineKind: engine.kind,
-      engineLabel: engine.label,
-      modelFormat: engine.modelFormat,
-      defaultLoadOptions: engine.operatorProfile?.defaultLoadOptions ?? {},
-    };
-    this.runtimeSelections.set(preference.id, preference);
-    this.writeMap("runtime-preferences", this.runtimeSelections);
-    this.writeProjection();
-    return {
+    return selectRuntimeEngineState(this, body, {
+      notFound,
+      requiredString,
+      runtimeError,
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      ...preference,
-    };
+    });
   }
 
   updateRuntimeEngine(engineId, body = {}) {
-    const engine = this.runtimeEngine(engineId);
-    const now = this.nowIso();
-    const existing = this.runtimeEngineProfile(engineId) ?? {};
-    const disabledValue = body.disabled ?? body.disable ?? existing.disabled ?? false;
-    const defaultLoadOptions = normalizeRuntimeEngineDefaultLoadOptions(
-      body.default_load_options ?? body.defaultLoadOptions ?? body.load_options ?? body.loadOptions ?? existing.defaultLoadOptions ?? {},
-    );
-    const receipt = this.lifecycleReceipt("runtime_engine_update", {
-      engineId,
-      engineKind: engine.kind,
-      previousProfileHash: stableHash(existing),
-      disabled: Boolean(disabledValue),
-      priority: body.priority ?? existing.priority ?? null,
-      defaultLoadOptions,
-      evidenceRefs: ["operator_runtime_engine_profile", "runtime_engine_default_load_options"],
-    });
-    const profile = {
-      id: engineId,
-      engineId,
-      label: body.label ?? body.operator_label ?? body.operatorLabel ?? existing.label ?? null,
-      disabled: Boolean(disabledValue),
-      priority: body.priority === undefined || body.priority === null || body.priority === ""
-        ? existing.priority ?? null
-        : Number(body.priority),
-      defaultLoadOptions,
-      updatedAt: now,
-      receiptId: receipt.id,
-      source: "operator_runtime_engine_profile",
-    };
-    this.runtimeEngineProfiles.set(engineId, profile);
-    this.writeMap("runtime-engine-profiles", this.runtimeEngineProfiles);
-    if (profile.disabled && this.runtimePreference().selectedEngineId === engineId) {
-      this.runtimeSelections.set("default", {
-        id: "default",
-        selectedEngineId: "backend.autopilot.native-local.fixture",
-        selectedAt: now,
-        receiptId: receipt.id,
-        source: "operator_runtime_disable_reset",
-        engineKind: "native_local",
-        engineLabel: "Autopilot native-local fixture",
-        modelFormat: "gguf,fixture",
-        defaultLoadOptions: this.runtimeDefaultLoadOptions("backend.autopilot.native-local.fixture"),
-      });
-      this.writeMap("runtime-preferences", this.runtimeSelections);
-    }
-    this.writeProjection();
-    return {
+    return updateRuntimeEngineState(this, engineId, body, {
+      normalizeRuntimeEngineDefaultLoadOptions,
+      notFound,
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      profile,
-      engine: this.runtimeEngine(engineId),
-      receiptId: receipt.id,
-    };
+      stableHash,
+    });
   }
 
   removeRuntimeEngineOverride(engineId) {
-    this.runtimeEngine(engineId);
-    const existing = this.runtimeEngineProfile(engineId);
-    const receipt = this.lifecycleReceipt("runtime_engine_profile_remove", {
-      engineId,
-      hadProfile: Boolean(existing),
-      previousProfileHash: stableHash(existing ?? {}),
-      evidenceRefs: ["operator_runtime_engine_profile_remove"],
-    });
-    this.runtimeEngineProfiles.delete(engineId);
-    fs.rmSync(path.join(this.stateDir, "runtime-engine-profiles", `${safeFileName(engineId)}.json`), { force: true });
-    this.writeMap("runtime-engine-profiles", this.runtimeEngineProfiles);
-    if (this.runtimePreference().selectedEngineId === engineId && existing?.disabled) {
-      this.runtimeSelections.set("default", {
-        id: "default",
-        selectedEngineId: "backend.autopilot.native-local.fixture",
-        selectedAt: this.nowIso(),
-        receiptId: receipt.id,
-        source: "operator_runtime_profile_remove_reset",
-        engineKind: "native_local",
-        engineLabel: "Autopilot native-local fixture",
-        modelFormat: "gguf,fixture",
-        defaultLoadOptions: this.runtimeDefaultLoadOptions("backend.autopilot.native-local.fixture"),
-      });
-      this.writeMap("runtime-preferences", this.runtimeSelections);
-    }
-    this.writeProjection();
-    return {
+    return removeRuntimeEngineOverrideState(this, engineId, {
+      notFound,
+      safeFileName,
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      engineId,
-      removed: Boolean(existing),
-      engine: this.runtimeEngine(engineId),
-      receiptId: receipt.id,
-    };
+      stableHash,
+    });
   }
 
   listRuntimeEngines() {
-    const checkedAt = this.nowIso();
-    const activeBackendIds = new Set(this.listInstances().map((instance) => instance.backendId).filter(Boolean));
-    const runtimePreference = this.runtimePreference();
-    const hasExplicitPreference = runtimePreference.receiptId !== "none";
-    const backendEngines = this.backendRegistry().map((backend) => ({
-      id: backend.id,
-      kind: backend.kind,
-      label: backend.label,
-      status: backend.status,
-      selected:
-        runtimePreference.selectedEngineId === backend.id ||
-        (!hasExplicitPreference &&
-          (activeBackendIds.has(backend.id) ||
-            (activeBackendIds.size === 0 && backend.id === "backend.autopilot.native-local.fixture"))),
-      modelFormat: (backend.supportedFormats ?? []).join(",") || "unknown",
-      source: "autopilot_backend_registry",
-      processStatus: backend.processStatus ?? "unknown",
-      checkedAt,
-      evidenceRefs: backend.evidenceRefs ?? [],
-    })).map((engine) => this.applyRuntimeEngineProfile(engine));
-    const lmStudioEngines = this.lmStudioRuntimeEngines(checkedAt).map((engine) => ({
-      ...engine,
-      selected: runtimePreference.selectedEngineId === engine.id || (!hasExplicitPreference && engine.selected),
-    })).map((engine) => this.applyRuntimeEngineProfile(engine));
-    return [...backendEngines, ...lmStudioEngines].sort((left, right) => {
-      const leftPriority = left.operatorProfile?.priority ?? 1000;
-      const rightPriority = right.operatorProfile?.priority ?? 1000;
-      if (leftPriority !== rightPriority) return leftPriority - rightPriority;
-      return left.id.localeCompare(right.id);
-    });
+    return listRuntimeEnginesState(this);
   }
 
   applyRuntimeEngineProfile(engine) {
-    const profile = this.runtimeEngineProfile(engine.id);
-    if (!profile) {
-      return {
-        ...engine,
-        operatorProfile: {
-          configured: false,
-          disabled: false,
-          priority: null,
-          defaultLoadOptions: {},
-          receiptId: null,
-        },
-      };
-    }
-    const disabled = Boolean(profile.disabled);
-    return {
-      ...engine,
-      label: profile.label || engine.label,
-      status: disabled ? "disabled" : engine.status,
-      selected: disabled ? false : engine.selected,
-      operatorProfile: {
-        configured: true,
-        disabled,
-        priority: profile.priority ?? null,
-        defaultLoadOptions: profile.defaultLoadOptions ?? {},
-        updatedAt: profile.updatedAt ?? null,
-        receiptId: profile.receiptId ?? null,
-        source: profile.source ?? "operator_runtime_engine_profile",
-      },
-    };
+    return applyRuntimeEngineProfileState(this, engine);
   }
 
   runtimeSurvey() {

@@ -298,8 +298,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/loaded-instances.mjs`.
 - Moved loaded model instance lookup, idle TTL eviction, loaded-instance coalescing, and endpoint reload supersession out of `model-mounting.mjs` behind existing `ModelMountingState.loadedInstanceForEndpoint()`, `evictExpiredInstances()`, `coalesceLoadedInstances()`, and `supersedeLoadedInstances()` compatibility methods.
 - Added focused loaded-instance tests for nullable/error lookup modes, idle eviction receipts/write behavior, no-op eviction skips, newest-instance coalescing, and explicit supersession return values.
+- Added `packages/runtime-daemon/src/model-mounting/runtime-engines.mjs`.
+- Moved runtime-engine preference projection, endpoint backend preference override, runtime-engine profile/default-load-option accessors, engine list/detail projection, operator selection, profile update, profile removal, and operator profile application out of `model-mounting.mjs` behind existing `ModelMountingState.runtime*` compatibility methods.
+- Added focused runtime-engine tests for default and endpoint preferences, profile priority/disable projection, selection persistence, disabled-engine preference reset, detail projection, and override removal.
 
-Status: `model-mounting.mjs` still owns route persistence wrappers, backend process lifecycle, runtime-engine preference controls, and some product projection glue. Safe next extractions are backend lifecycle slices, runtime-engine control slices, and remaining route HTTP glue.
+Status: `model-mounting.mjs` still owns route persistence wrappers, backend process lifecycle, runtime survey/LM Studio probing, and some product projection glue. Safe next extractions are backend lifecycle slices, runtime survey/probe slices, and remaining route HTTP glue.
 
 ### Rust Runtime Hot Spot
 
@@ -365,6 +368,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, backend proc
   - `filesystem/handler/policy`
   - `substrate/semantic_impact`
   - `model-mounting/projections`
+  - `model-mounting/runtime-engines`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
