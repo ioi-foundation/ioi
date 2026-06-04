@@ -389,6 +389,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-skill-hook-surface.mjs`.
 - Moved public skill/hook catalog, skill registry projection, and hook registry projection methods out of `index.mjs` behind `AgentgresRuntimeStateStore` compatibility delegates while preserving workspace/home discovery scoping, redaction, evidence refs, and skill-vs-hook source filtering.
 - Added focused runtime-skill-hook-surface tests for catalog delegation, default/explicit cwd handling, skill projection shaping, hook projection shaping, and source filtering.
+- Added `packages/runtime-daemon/src/runtime-task-job-surface.mjs`.
+- Moved public task/job list, create, get, and cancel methods out of `index.mjs` behind `AgentgresRuntimeStateStore` compatibility delegates while preserving task/job projection helpers, run cancellation mapping, status filtering, existing-agent lookup, and synthesized-agent defaults.
+- Added focused runtime-task-job-surface tests for sorted/filtered task and job projection, create-task payload shaping, existing/synthesized agent flows, get-by-public-id/run-id behavior, cancel delegation, and not-found errors.
 - Added `packages/runtime-daemon/src/runtime-identifiers.mjs`.
 - Moved runtime thread/agent/run/turn/session id derivation, runtime-backed agent detection, fixture profile defaults, and lifecycle/thread status normalization out of `index.mjs`.
 - Added focused runtime identifier tests for prefix compatibility, event stream ids, runtime session fallback, fixture profile override/null preservation, runtime profile detection, and lifecycle status aliases.

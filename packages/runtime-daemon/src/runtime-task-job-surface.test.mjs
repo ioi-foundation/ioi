@@ -1,0 +1,138 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { createRuntimeTaskJobSurface } from "./runtime-task-job-surface.mjs";
+
+function run(id, status, createdAt) {
+  return { id, status, createdAt, agentId: "agent-one" };
+}
+
+function harness() {
+  const calls = [];
+  const runs = [
+    run("run-b", "completed", "2026-06-04T00:00:02.000Z"),
+    run("run-a", "running", "2026-06-04T00:00:01.000Z"),
+  ];
+  const surface = createRuntimeTaskJobSurface({
+    notFound(message, details) {
+      const error = new Error(message);
+      error.details = details;
+      return error;
+    },
+    optionalString(value) {
+      return typeof value === "string" && value.trim() ? value.trim() : null;
+    },
+    runtimeJobRecordForRun(input) {
+      return {
+        jobId: `job-${input.id}`,
+        runId: input.id,
+        status: input.status,
+        createdAt: input.createdAt,
+      };
+    },
+    runtimeTaskRecordForRun(input) {
+      return {
+        taskId: `task-${input.id}`,
+        runId: input.id,
+        status: input.status,
+        createdAt: input.createdAt,
+      };
+    },
+  });
+  const store = {
+    defaultCwd: "/workspace/default",
+    listRuns(agentId) {
+      calls.push({ name: "listRuns", agentId });
+      return runs;
+    },
+    getAgent(agentId) {
+      calls.push({ name: "getAgent", agentId });
+      return { id: agentId };
+    },
+    createAgent(input) {
+      calls.push({ name: "createAgent", input });
+      return { id: "agent-created" };
+    },
+    createRun(agentId, input) {
+      calls.push({ name: "createRun", agentId, input });
+      return run("run-created", "running", "2026-06-04T00:00:03.000Z");
+    },
+    cancelRun(runId) {
+      calls.push({ name: "cancelRun", runId });
+      return run(runId, "cancelled", "2026-06-04T00:00:04.000Z");
+    },
+  };
+  return { calls, store, surface };
+}
+
+test("runtime task job surface lists and filters task and job projections", () => {
+  const { calls, store, surface } = harness();
+
+  assert.deepEqual(surface.listTasks(store).map((task) => task.taskId), ["task-run-a", "task-run-b"]);
+  assert.deepEqual(surface.listJobs(store, { status: "completed" }), [
+    {
+      jobId: "job-run-b",
+      runId: "run-b",
+      status: "completed",
+      createdAt: "2026-06-04T00:00:02.000Z",
+    },
+  ]);
+  assert.deepEqual(calls, [
+    { name: "listRuns", agentId: undefined },
+    { name: "listRuns", agentId: undefined },
+  ]);
+});
+
+test("runtime task job surface creates task with existing or synthesized agent", () => {
+  const { calls, store, surface } = harness();
+
+  assert.equal(surface.createTask(store, { agent_id: "agent-one", objective: "Do it" }).taskId, "task-run-created");
+  assert.equal(surface.createTask(store, {
+    workspace: "/workspace/custom",
+    model: "route.local-first",
+    goal: "Make it so",
+    options: "ignored",
+  }).taskId, "task-run-created");
+
+  assert.deepEqual(calls.filter((call) => call.name === "getAgent"), [
+    { name: "getAgent", agentId: "agent-one" },
+  ]);
+  assert.deepEqual(calls.find((call) => call.name === "createAgent").input, {
+    local: { cwd: "/workspace/custom" },
+    model: "route.local-first",
+  });
+  assert.deepEqual(calls.filter((call) => call.name === "createRun").map((call) => ({
+    agentId: call.agentId,
+    mode: call.input.mode,
+    prompt: call.input.prompt,
+    options: call.input.options,
+  })), [
+    { agentId: "agent-one", mode: "send", prompt: "Do it", options: {} },
+    { agentId: "agent-created", mode: "send", prompt: "Make it so", options: {} },
+  ]);
+});
+
+test("runtime task job surface gets and cancels tasks and jobs by public id or run id", () => {
+  const { calls, store, surface } = harness();
+
+  assert.equal(surface.getTask(store, "task-run-a").runId, "run-a");
+  assert.equal(surface.getJob(store, "run-b").jobId, "job-run-b");
+  assert.deepEqual(surface.cancelTask(store, "task-run-a"), {
+    taskId: "task-run-a",
+    runId: "run-a",
+    status: "cancelled",
+    createdAt: "2026-06-04T00:00:04.000Z",
+  });
+  assert.deepEqual(surface.cancelJob(store, "job-run-b"), {
+    jobId: "job-run-b",
+    runId: "run-b",
+    status: "cancelled",
+    createdAt: "2026-06-04T00:00:04.000Z",
+  });
+  assert.deepEqual(calls.filter((call) => call.name === "cancelRun"), [
+    { name: "cancelRun", runId: "run-a" },
+    { name: "cancelRun", runId: "run-b" },
+  ]);
+  assert.throws(() => surface.getTask(store, "missing"), /Task not found/);
+  assert.throws(() => surface.getJob(store, "missing"), /Job not found/);
+});

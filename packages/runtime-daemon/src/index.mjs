@@ -202,6 +202,7 @@ import { createRuntimeEventPayloadHelpers } from "./runtime-event-payloads.mjs";
 import { createRuntimeCodingToolResultHelpers } from "./runtime-coding-tool-results.mjs";
 import { createRuntimeDoctorReport } from "./runtime-doctor-report.mjs";
 import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
+import { createRuntimeTaskJobSurface } from "./runtime-task-job-surface.mjs";
 import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
 import {
   appendOperatorControl,
@@ -881,6 +882,12 @@ export class AgentgresRuntimeStateStore {
     this.skillHookSurface = createRuntimeSkillHookSurface({
       defaultCwd: this.defaultCwd,
       homeDir: this.homeDir,
+    });
+    this.taskJobSurface = createRuntimeTaskJobSurface({
+      notFound,
+      optionalString,
+      runtimeJobRecordForRun,
+      runtimeTaskRecordForRun,
     });
     this.toolSurface = createRuntimeToolSurface();
     this.threadTurnProjection = createThreadTurnProjection({
@@ -4723,67 +4730,31 @@ export class AgentgresRuntimeStateStore {
   }
 
   listJobs(options = {}) {
-    const agentId = options.agentId ?? options.agent_id ?? undefined;
-    const status = options.status ?? undefined;
-    return this.listRuns(agentId)
-      .map((run) => runtimeJobRecordForRun(run))
-      .filter((job) => !status || job.status === status)
-      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    return this.taskJobSurface.listJobs(this, options);
   }
 
   createTask(body = {}) {
-    const agentId = optionalString(body.agentId ?? body.agent_id);
-    const agent = agentId
-      ? this.getAgent(agentId)
-      : this.createAgent({
-          ...(body.agent ?? body.agent_options ?? body.agentOptions ?? {}),
-          local: {
-            cwd: body.cwd ?? body.workspace ?? this.defaultCwd,
-            ...((body.agent ?? body.agent_options ?? body.agentOptions ?? {}).local ?? {}),
-          },
-          model: body.model ?? (body.agent ?? body.agent_options ?? body.agentOptions ?? {}).model,
-        });
-    const options = body.options && typeof body.options === "object" ? body.options : {};
-    const run = this.createRun(agent.id, {
-      ...body,
-      mode: body.mode ?? "send",
-      prompt: body.prompt ?? body.objective ?? body.goal ?? "",
-      options,
-    });
-    return runtimeTaskRecordForRun(run);
+    return this.taskJobSurface.createTask(this, body);
   }
 
   listTasks(options = {}) {
-    const agentId = options.agentId ?? options.agent_id ?? undefined;
-    const status = options.status ?? undefined;
-    return this.listRuns(agentId)
-      .map((run) => runtimeTaskRecordForRun(run))
-      .filter((task) => !status || task.status === status)
-      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    return this.taskJobSurface.listTasks(this, options);
   }
 
   getTask(taskId) {
-    const task = this.listTasks().find((candidate) => candidate.taskId === taskId || candidate.runId === taskId);
-    if (!task) throw notFound(`Task not found: ${taskId}`, { taskId });
-    return task;
+    return this.taskJobSurface.getTask(this, taskId);
   }
 
   cancelTask(taskId) {
-    const task = this.getTask(taskId);
-    const canceledRun = this.cancelRun(task.runId);
-    return runtimeTaskRecordForRun(canceledRun);
+    return this.taskJobSurface.cancelTask(this, taskId);
   }
 
   getJob(jobId) {
-    const job = this.listJobs().find((candidate) => candidate.jobId === jobId || candidate.runId === jobId);
-    if (!job) throw notFound(`Job not found: ${jobId}`, { jobId });
-    return job;
+    return this.taskJobSurface.getJob(this, jobId);
   }
 
   cancelJob(jobId) {
-    const job = this.getJob(jobId);
-    const canceledRun = this.cancelRun(job.runId);
-    return runtimeJobRecordForRun(canceledRun);
+    return this.taskJobSurface.cancelJob(this, jobId);
   }
 
   listMcpServers(options = {}) {
