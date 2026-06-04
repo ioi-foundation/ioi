@@ -366,6 +366,9 @@ function runBridge() {
   const providerLocalDrivers = exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs")
     : "";
+  const nativeLocalFixture = exists("packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs")
+    : "";
   const openAiBackendDrivers = exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs")
     : "";
@@ -545,13 +548,17 @@ function runBridge() {
       /model_mount_provider_stream_invocation_execution_required/.test(modelInvocationOps) &&
       /model_mount_local_provider_direct_stream_retired/.test(providerLocalDrivers) &&
       !/nativeLocalStreamRecords/.test(providerLocalDrivers) &&
-      !/jsonLineReadableStream/.test(providerLocalDrivers),
+      !/jsonLineReadableStream/.test(providerLocalDrivers) &&
+      !/nativeLocalStreamRecords/.test(nativeLocalFixture) &&
+      !/jsonLineReadableStream/.test(nativeLocalFixture) &&
+      !/providerStreamFrameDelayMs/.test(nativeLocalFixture),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
+      "packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs",
     ],
     "Phase 9/10 is pending: native-local stream frame planning must execute through Rust model_mount while JS only adapts returned chunks to protocol streams",
   );
