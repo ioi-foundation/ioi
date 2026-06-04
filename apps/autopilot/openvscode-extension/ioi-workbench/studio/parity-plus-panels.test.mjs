@@ -274,3 +274,87 @@ test("stage5 stop-hook repair orchestration preserves repair proof envelope", as
   assert.match(bridgeRequests[0][1].helperPath, /status-labels\.mjs/);
   assert.equal(bridgeRequests[0][2].source, "studio-stage5-stop-hook-repair-loop");
 });
+
+test("stage5 stop/cancel/recover orchestration preserves lifecycle proof envelope", async () => {
+  const bridgeRequests = [];
+  const timeline = [];
+  const refreshes = [];
+  const projection = {
+    executionMode: "ask",
+    modelRoute: "route.local-first",
+    selectedModel: "auto",
+    pendingWorklog: [{ label: "stale" }],
+    runtimeCockpit: {},
+    turns: [],
+  };
+  const events = [
+    { kind: "turn.started", message: "model stream is active" },
+    { kind: "turn.control", status: "stop requested" },
+    { kind: "turn.completed", status: "completed" },
+  ];
+  const studio = createStudioParityPlusPanels({
+    appendStudioTimeline: (...args) => timeline.push(args),
+    buildWorkspaceActionContext: (source) => ({ source }),
+    compactStudioWhitespace: (value) => String(value || "").replace(/\s+/g, " ").trim(),
+    escapeHtml,
+    fetchStudioThreadEvents: async () => events.slice(1),
+    fetchStudioThreadTurnEvents: async () => events.slice(0, 1),
+    firstArray,
+    getStudioRuntimeProjection: () => projection,
+    sanitizeStudioProductAssistantText: (value) => String(value || ""),
+    refreshStudioPanelHtml: async (output) => refreshes.push(output),
+    resumeStudioTurn: async () => {
+      projection.runtimeCockpit.resumeControlObserved = true;
+      projection.runtimeCockpit.stopResumeObserved = true;
+    },
+    STUDIO_MODE_AGENT: "agent",
+    STUDIO_AGENT_RUNTIME_PROFILE: "runtime_service",
+    stringValue: (value, fallback = "") => (typeof value === "string" ? value : value === null || value === undefined ? fallback : String(value)),
+    stopStudioTurn: async () => {
+      projection.runtimeCockpit.stopControlObserved = true;
+    },
+    studioTraceLink: () => "",
+    studioVerifiedBadge: () => "",
+    submitStudioAgentTurn: async (payload) => {
+      projection.threadId = "thread-stage5";
+      projection.turnId = "turn-stage5";
+      return {
+        text: "Stopped safely, resumed, and finished with a clean final answer.",
+        events,
+        receiptRefs: ["receipt-stage5"],
+        status: "completed",
+        payload,
+      };
+    },
+    uniqueStudioRuntimeEvents: (value) => value,
+    workspaceSummary: () => ({ path: "/workspace/repo" }),
+    writeBridgeRequest: async (...args) => bridgeRequests.push(args),
+  });
+
+  const proof = await studio.exerciseStudioStage5StopCancelRecoverLifecycle({ appendLine() {} }, { maxSteps: 4 });
+
+  assert.equal(timeline[0][0], "Stage 5 lifecycle proof started");
+  assert.equal(refreshes.length, 2);
+  assert.equal(projection.pending, false);
+  assert.equal(projection.status, "completed");
+  assert.equal(projection.executionMode, "agent");
+  assert.equal(projection.runtimeProfile, "runtime_service");
+  assert.equal(projection.turns.length, 1);
+  assert.equal(projection.turns[0].agentTurn.eventCount, 3);
+  assert.equal(projection.turns[0].agentTurn.receiptRefs[0], "receipt-stage5");
+  assert.equal(proof.passed, true);
+  assert.equal(proof.threadId, "thread-stage5");
+  assert.equal(proof.turnId, "turn-stage5");
+  assert.equal(proof.eventCount, 3);
+  assert.equal(proof.checks.stopControlObserved, true);
+  assert.equal(proof.checks.resumeControlObserved, true);
+  assert.equal(proof.checks.stopResumeObserved, true);
+  assert.equal(proof.checks.turnStartedEventObserved, true);
+  assert.equal(proof.checks.finalAnswerClean, true);
+  assert.equal(bridgeRequests[0][0], "studio.stage5StopCancelRecover.exercised");
+  assert.equal(bridgeRequests[0][1].sourceCommand, "ioi.studio.exerciseStage5StopCancelRecoverLifecycle");
+  assert.equal(bridgeRequests[0][1].runtimeAuthority, "daemon-owned");
+  assert.equal(bridgeRequests[0][1].ownsRuntimeState, false);
+  assert.equal(bridgeRequests[0][1].passed, true);
+  assert.equal(bridgeRequests[0][2].source, "studio-stage5-stop-cancel-recover");
+});

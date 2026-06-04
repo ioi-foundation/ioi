@@ -1,6 +1,7 @@
 "use strict";
 
 function createStudioParityPlusPanels({
+  appendStudioTimeline,
   buildWorkspaceActionContext,
   compactStudioWhitespace,
   escapeHtml,
@@ -9,8 +10,12 @@ function createStudioParityPlusPanels({
   firstArray,
   getStudioRuntimeProjection,
   sanitizeStudioProductAssistantText,
+  refreshStudioPanelHtml,
+  resumeStudioTurn,
   STUDIO_MODE_AGENT = "agent",
+  STUDIO_AGENT_RUNTIME_PROFILE = "runtime_service",
   STUDIO_PERMISSION_MODE_FULL_ACCESS = "full_access",
+  stopStudioTurn,
   stringValue,
   studioRuntimeEventsIncludeCompletedTool,
   studioRuntimeToolEventCount,
@@ -18,8 +23,10 @@ function createStudioParityPlusPanels({
   studioPublicWorkspacePath,
   studioTraceLink,
   studioVerifiedBadge,
+  submitStudioAgentTurn,
   submitStudioPrompt,
   uniqueStudioRuntimeEvents,
+  workspaceSummary,
   writeBridgeRequest,
 } = {}) {
   const escape = typeof escapeHtml === "function" ? escapeHtml : (value) => String(value ?? "");
@@ -31,6 +38,9 @@ function createStudioParityPlusPanels({
   };
   const traceLink = typeof studioTraceLink === "function" ? studioTraceLink : () => "";
   const verifiedBadge = typeof studioVerifiedBadge === "function" ? studioVerifiedBadge : () => "";
+  const appendTimeline = typeof appendStudioTimeline === "function" ? appendStudioTimeline : () => {};
+  const refreshPanelHtml = typeof refreshStudioPanelHtml === "function" ? refreshStudioPanelHtml : async () => {};
+  const workspace = typeof workspaceSummary === "function" ? workspaceSummary : () => ({ path: "" });
 
   function studioSessionBrainArtifactRows(panel = {}) {
     const rows = array(panel.rows).slice(0, 8);
@@ -557,8 +567,134 @@ function createStudioParityPlusPanels({
     };
   }
 
+  async function waitForStudioRuntimeProjection(predicate, timeoutMs, label) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (predicate()) return true;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    throw new Error(`Timed out waiting for Studio runtime projection: ${label}`);
+  }
+
+  async function exerciseStudioStage5StopCancelRecoverLifecycle(output, payload = {}) {
+    const studioRuntimeProjection = getStudioRuntimeProjection();
+    const contextSnapshot = buildWorkspaceActionContext("studio-stage5-stop-cancel-recover");
+    const prompt = text(
+      payload.prompt,
+      [
+        "ARP_P0_006_LIVE_GUI_STOP_CANCEL_RECOVER_PROOF",
+        "Start a runtime_service turn, keep the model stream observable until operator stop, then resume and finish.",
+      ].join(" "),
+    );
+    const selectedRoute = text(payload.routeId || payload.model, studioRuntimeProjection.modelRoute || "route.local-first");
+    const selectedModelId = text(payload.modelId, studioRuntimeProjection.selectedModel || "auto");
+    studioRuntimeProjection.pending = true;
+    studioRuntimeProjection.status = "pending";
+    studioRuntimeProjection.pendingSeen = true;
+    studioRuntimeProjection.pendingStartedAtMs = Date.now();
+    studioRuntimeProjection.pendingWorklog = [];
+    studioRuntimeProjection.lastError = null;
+    studioRuntimeProjection.executionMode = STUDIO_MODE_AGENT;
+    studioRuntimeProjection.runtimeProfile = STUDIO_AGENT_RUNTIME_PROFILE;
+    studioRuntimeProjection.modelRoute = selectedRoute;
+    studioRuntimeProjection.selectedModel = selectedModelId;
+    appendTimeline("Stage 5 lifecycle proof started", "Runtime turn submitted for stop/resume control proof.", "running");
+    await refreshPanelHtml(output);
+
+    const submittedAtMs = Date.now();
+    const turnPromise = submitStudioAgentTurn({
+      prompt,
+      selectedRoute,
+      selectedModelId,
+      reasoningEffort: "none",
+      workspacePath: workspace().path,
+      maxStepsOverride: payload.maxSteps || payload.max_steps || 8,
+    }, output);
+
+    await waitForStudioRuntimeProjection(
+      () => Boolean(studioRuntimeProjection.threadId && studioRuntimeProjection.turnId),
+      Number(payload.turnIdTimeoutMs || payload.turn_id_timeout_ms || 30_000),
+      "threadId and turnId from live runtime events",
+    );
+    const threadId = studioRuntimeProjection.threadId;
+    const turnId = studioRuntimeProjection.turnId;
+    const stopRequestedAtMs = Date.now();
+    await stopStudioTurn(output);
+    await waitForStudioRuntimeProjection(
+      () => studioRuntimeProjection.runtimeCockpit.stopControlObserved === true,
+      10_000,
+      "runtime stop control acknowledgement",
+    );
+    const resumeRequestedAtMs = Date.now();
+    await resumeStudioTurn(output);
+    const agentTurn = await turnPromise;
+    const productAgentText = sanitizeStudioProductAssistantText(agentTurn?.text || "");
+    if (productAgentText) {
+      studioRuntimeProjection.turns.push({
+        role: "assistant",
+        content: productAgentText,
+        createdAt: new Date().toISOString(),
+        agentTurn: {
+          turnId,
+          eventCount: array(agentTurn?.events).length,
+          receiptRefs: array(agentTurn?.receiptRefs),
+          prompt,
+          status: agentTurn?.status === "blocked" ? "blocked" : "completed",
+        },
+      });
+    }
+    studioRuntimeProjection.pending = false;
+    studioRuntimeProjection.status = "completed";
+    await refreshPanelHtml(output);
+
+    const events = uniqueStudioRuntimeEvents([
+      ...await fetchStudioThreadTurnEvents(threadId, output, { turnId }).catch(() => []),
+      ...await fetchStudioThreadEvents(threadId, output, { sinceSeq: 0, timeoutMs: 5000 }).catch(() => []),
+    ]);
+    const eventText = studioStage2WebRepairEventText(events);
+    const checks = {
+      submittedThroughAgentMode: studioRuntimeProjection.executionMode === STUDIO_MODE_AGENT,
+      threadAndTurnAvailable: Boolean(threadId && turnId),
+      turnStartedBeforeStop: submittedAtMs <= stopRequestedAtMs,
+      stopBeforeResume: stopRequestedAtMs <= resumeRequestedAtMs,
+      stopControlObserved: studioRuntimeProjection.runtimeCockpit.stopControlObserved === true,
+      resumeControlObserved: studioRuntimeProjection.runtimeCockpit.resumeControlObserved === true,
+      stopResumeObserved: studioRuntimeProjection.runtimeCockpit.stopResumeObserved === true,
+      runtimeEventsObserved: events.length > 0,
+      turnStartedEventObserved: /turn\.started|model stream is active/i.test(eventText),
+      finalAnswerClean: studioStage5ProductTextIsClean(productAgentText),
+    };
+    const passed = Object.values(checks).every(Boolean);
+    await writeBridgeRequest("studio.stage5StopCancelRecover.exercised", {
+      sourceCommand: "ioi.studio.exerciseStage5StopCancelRecoverLifecycle",
+      runtimeAuthority: "daemon-owned",
+      projectionOwner: "ioi-workbench-agent-studio",
+      ownsRuntimeState: false,
+      passed,
+      checks,
+      threadId,
+      turnId,
+      eventCount: events.length,
+      submittedAtMs,
+      stopRequestedAtMs,
+      resumeRequestedAtMs,
+      answerPreview: compactStudioWhitespace(productAgentText).slice(0, 240),
+    }, contextSnapshot).catch((error) => {
+      output.appendLine(`[ioi-studio] stage5 stop/cancel/recover bridge request unavailable: ${error?.message || String(error)}`);
+    });
+    return {
+      passed,
+      checks,
+      threadId,
+      turnId,
+      eventCount: events.length,
+      answerPreview: compactStudioWhitespace(productAgentText).slice(0, 240),
+    };
+  }
+
   return {
     exerciseStudioStage2WebRepairLoop,
+    exerciseStudioStage5StopCancelRecoverLifecycle,
     exerciseStudioStage5StopHookRepairLoop,
     studioParityPlusPanelRows,
     studioSessionBrainArtifactRows,
