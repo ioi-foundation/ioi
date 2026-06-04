@@ -3,6 +3,7 @@
 //! New runtime code should use chat/artifact, graph, workflow, connector, and
 //! plugin language. Legacy surface names are treated as compatibility debt.
 
+pub mod agentgres_admission;
 pub mod approval;
 pub mod capability;
 pub mod ctee;
@@ -23,6 +24,10 @@ pub mod settlement;
 pub mod step_module;
 pub mod trace;
 
+use agentgres_admission::{
+    AgentgresAdmissionCore, AgentgresAdmissionError, AgentgresAdmissionRecord,
+    AgentgresOperationProposal,
+};
 use approval::{ApprovalScopeContext, AuthorityScopeMatcher, ScopeMatchDecision};
 use capability::CapabilityLeaseDecision;
 use ctee::{
@@ -115,6 +120,14 @@ impl RuntimeKernelService {
         expected_heads: Vec<String>,
     ) -> Result<StepModuleReceiptBinding, ReceiptBindingError> {
         ReceiptBinder.bind_step_module_result(invocation, result, expected_heads)
+    }
+
+    pub fn admit_agentgres_operation(
+        &self,
+        proposal: &AgentgresOperationProposal,
+        binding: &StepModuleReceiptBinding,
+    ) -> Result<AgentgresAdmissionRecord, AgentgresAdmissionError> {
+        AgentgresAdmissionCore.admit(proposal, binding)
     }
 
     pub fn validate_private_workspace_ctee_invocation(

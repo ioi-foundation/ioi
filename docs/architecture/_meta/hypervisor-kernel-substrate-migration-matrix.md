@@ -361,6 +361,56 @@ ImplementationSlice:
     push: required after verification
 ```
 
+## Implementation Slice 7
+
+```yaml
+ImplementationSlice:
+  objective: add the Rust Agentgres admission guard so accepted operation
+    proposals require expected heads, before/after state roots, resulting head,
+    and an exact StepModule receipt binding
+  owner_boundary:
+    route_or_surface: Agentgres operation admission primitive
+    authority_gate: unchanged; wallet.network authority handoff remains a later
+      authority-core slice
+    execution_backend: no execution backend change in this slice
+    truth_path: AgentgresAdmissionCore rejects unbound accepted-operation
+      proposals before they can become admitted operational truth
+    projection_path: admitted records carry the receipt-binding projection
+      watermark for Rust projection replay
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    daemon: []
+    rust_core:
+      - crates/services/src/agentic/runtime/kernel/agentgres_admission.rs
+      - crates/services/src/agentic/runtime/kernel/mod.rs
+    ide: []
+    tests:
+      - Rust unit tests in crates/services/src/agentic/runtime/kernel/agentgres_admission.rs
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - no bypass of daemon execution ownership
+    - no bypass of wallet.network authority where applicable
+    - no accepted transition without receipt/ref/state-root binding
+    - no cTEE plaintext-custody regression
+  verification:
+    commands:
+      - cargo test -p ioi-services agentgres_admission
+      - npm run hypervisor-conformance:negative (expected fail closed overall,
+        with the Agentgres expected-head/state-root case passing)
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: false
+    compatibility_shims_remaining:
+      - daemon-local operation-like records and JS append surfaces still need to
+        be routed through the Rust admission core before facade retirement
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -369,7 +419,7 @@ ImplementationSlice:
 | `approvals-gates` | `packages/runtime-daemon/src/runtime-route-handlers.mjs` | JS daemon routes plus local approval state | Rust core `authority` with wallet.network handoff | authority grant and approval receipt before effect boundary | `bridge`, `negative` | live JS authority surface | JS can only request/render approvals; grants and gate decisions are issued by Rust authority core and wallet.network. |
 | `runtime-events-replay-trace` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | JS daemon envelope/projection code | Rust core `projection` plus Agentgres projection watermarks | replayable projection over admitted operations and receipts | `receipts`, `compositor` | JS projection source | Rust emits canonical projection records consumed by IDE/CLI/SDK. |
 | `model-mounting` | `packages/runtime-daemon/src/model-mounting/*` | JS daemon model-mounting store and route policy | Rust core `model_mount` | model invocation receipts, route/custody refs, Agentgres operation | `bridge`, `receipts`, `ctee` | live product daemon state | Rust records route decisions and receipts; JS surfaces are non-authoritative clients. |
-| `agentgres-admission` | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs`, `.ioi/agentgres` local state, `docs/architecture/components/agentgres/*` | daemon-local operation-like records plus target canon | Rust core `agentgres_admission` | expected heads, state-root validation, accepted operation admission | `receipts`, `negative` | partial target, split truth risk | no JS path can append accepted operations directly or mutate durable truth without expected heads/state-root binding. |
+| `agentgres-admission` | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs`, `.ioi/agentgres` local state, `crates/services/src/agentic/runtime/kernel/agentgres_admission.rs`, `docs/architecture/components/agentgres/*` | daemon-local operation-like records plus Rust admission guard | Rust core `agentgres_admission` | expected heads, state-root validation, accepted operation admission | `receipts`, `negative` | Rust admission guard implemented; live JS append surfaces still need routing/demotion | no JS path can append accepted operations directly or mutate durable truth without expected heads/state-root binding. |
 | `receipt-binding` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/ipc/proto/public/v1/public.proto`, `crates/services/src/agentic/runtime/kernel/receipt_binder.rs` | JS receipts plus Rust/workload receipts; Rust binder primitive exists | Rust core `receipt_binder` | one binder for invocation, result, artifact refs, payload refs, and state roots | `receipts`, `negative` | binder primitive implemented for StepModuleResult; JS receipts still live | every meaningful route family emits receipts through one Rust binder. |
 | `ctee-private-workspace` | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md`, `crates/services/src/agentic/runtime/kernel/ctee.rs` | canon plus Rust StepModule validation boundary | Rust core `ctee` | custody proof, leakage profile, declassification receipt, plaintext-free mount failure | `ctee`, `negative` | Rust validation path implemented; full execution/admission/projection still pending | untrusted node plaintext mount fails closed; declassification and private operator paths are receipt-bound. |
 | `workload-client-wasm` | `crates/client/src/workload_client/mod.rs`, `crates/vm/wasm/src/lib.rs`, `crates/validator/src/standard/workload/*` | Rust workload/kernel substrate exists below daemon | Rust core `workload_client` plus WASM/service backend | StepModuleResult with workload receipt and state-root binding | `bridge`, `receipts` | substrate exists, not default daemon backend | daemon routes admitted work through StepModuleRunner into Rust/WASM or workload backend. |
@@ -409,7 +459,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 6:
+Current expected behavior after Slice 7:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
@@ -419,5 +469,5 @@ Current expected behavior after Slice 6:
 | `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists and the Rust shadow bridge emits a receipt binding. |
 | `hypervisor-conformance:ctee` | pass | Rust cTEE Private Workspace module validation exists and untrusted plaintext custody fails closed. |
 | `hypervisor-conformance:compositor` | pass | Rust projection records exist, the shadow bridge emits them, and compositor accepted-truth attempts fail closed. |
-| `hypervisor-conformance:negative` | fail closed | forbidden-path fixtures are not yet implemented. |
+| `hypervisor-conformance:negative` | fail closed | Agentgres expected-head/state-root, cTEE plaintext, and compositor accepted-truth negatives pass; the remaining forbidden-path fixtures are not yet implemented. |
 | `hypervisor-conformance` | fail closed | terminal migration is not complete. |
