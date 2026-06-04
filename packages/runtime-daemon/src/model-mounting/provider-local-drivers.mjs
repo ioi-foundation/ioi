@@ -4,7 +4,7 @@ import {
   nativeLocalStreamRecords,
   providerStreamFrameDelayMs,
 } from "./native-local-fixture.mjs";
-import { deterministicOutput, estimateTokens } from "./provider-protocol.mjs";
+import { estimateTokens } from "./provider-protocol.mjs";
 import { estimateNativeLocalResources } from "./local-system-probes.mjs";
 import { normalizeLoadOptions } from "./load-policy.mjs";
 import { normalizeScopes, stableHash } from "./io.mjs";
@@ -152,40 +152,8 @@ export class NativeLocalModelProviderDriver {
     };
   }
 
-  async invoke({ kind, input, endpoint, state }) {
-    const backendId = endpoint.backendId ?? "backend.autopilot.native-local.fixture";
-    const processRecord = state.ensureBackendProcess(backendId, {
-      endpoint,
-      loadOptions: state.loadedInstanceForEndpoint(endpoint.id, false)?.loadOptions ?? {},
-      reason: "model_invoke",
-    });
-    const processSnapshot = state.backendProcessSnapshot(processRecord);
-    const outputText = nativeLocalOutput({ kind, input, modelId: endpoint.modelId });
-    state.writeBackendLog(endpoint.id, {
-      backendId,
-      event: "invoke",
-      modelId: endpoint.modelId,
-      kind,
-      inputHash: stableHash(input),
-      outputHash: stableHash(outputText),
-      backend: "autopilot.native_local.fixture",
-      processId: processRecord?.id ?? null,
-      pidHash: processRecord?.pidHash ?? null,
-    });
-    return {
-      outputText,
-      tokenCount: estimateTokens(input, outputText),
-      providerResponse: null,
-      providerResponseKind: "native_local",
-      backend: "autopilot.native_local.fixture",
-      backendId,
-      backendProcess: processSnapshot,
-      backendEvidenceRefs: [
-        "autopilot_native_local_openai_compatible_serving",
-        "deterministic_native_local_fixture",
-        ...normalizeScopes(processSnapshot.evidenceRefs, []),
-      ],
-    };
+  async invoke() {
+    throw retiredLocalProviderInvokeError("Native-local non-stream provider invocation");
   }
 }
 
@@ -215,14 +183,14 @@ export class FixtureModelProviderDriver {
     return { driver: "fixture", status: "unloaded" };
   }
 
-  async invoke({ kind, input, endpoint }) {
-    const outputText = deterministicOutput({ kind, input, modelId: endpoint.modelId });
-    return {
-      outputText,
-      tokenCount: estimateTokens(input, outputText),
-      providerResponse: null,
-      backend: endpoint.apiFormat,
-      backendId: endpoint.backendId ?? "backend.fixture",
-    };
+  async invoke() {
+    throw retiredLocalProviderInvokeError("Fixture provider invocation");
   }
+}
+
+function retiredLocalProviderInvokeError(label) {
+  const error = new Error(`${label} is retired; execute migrated local provider invocations through Rust model_mount.`);
+  error.status = 500;
+  error.code = "model_mount_local_provider_direct_invoke_retired";
+  return error;
 }

@@ -58,22 +58,37 @@ async function readStreamText(stream) {
   return text;
 }
 
-test("fixture provider driver invokes deterministic fixture output", async () => {
-  const driver = new FixtureModelProviderDriver();
-  const result = await driver.invoke({
-    kind: "chat.completions",
-    input: { messages: [{ role: "user", content: "hello" }] },
-    endpoint: {
-      modelId: "local:auto",
-      apiFormat: "ioi_fixture",
-    },
-  });
+test("local provider drivers fail closed for retired direct non-stream invoke", async () => {
+  const fixture = new FixtureModelProviderDriver();
+  await assert.rejects(
+    () =>
+      fixture.invoke({
+        kind: "chat.completions",
+        input: { messages: [{ role: "user", content: "hello" }] },
+        endpoint: {
+          modelId: "local:auto",
+          apiFormat: "ioi_fixture",
+        },
+      }),
+    (error) => error.code === "model_mount_local_provider_direct_invoke_retired",
+  );
 
-  assert.equal(result.backend, "ioi_fixture");
-  assert.equal(result.backendId, "backend.fixture");
-  assert.equal(typeof result.outputText, "string");
-  assert.ok(result.outputText.length > 0);
-  assert.ok(result.tokenCount);
+  const state = fakeNativeState();
+  const native = new NativeLocalModelProviderDriver();
+  await assert.rejects(
+    () =>
+      native.invoke({
+        kind: "responses",
+        input: { input: [{ role: "user", content: "hello" }] },
+        endpoint: {
+          id: "endpoint.native",
+          modelId: "autopilot:native-fixture",
+        },
+        state,
+      }),
+    (error) => error.code === "model_mount_local_provider_direct_invoke_retired",
+  );
+  assert.equal(state.logs.length, 0);
 });
 
 test("native-local provider driver records load and stream lifecycle", async () => {

@@ -363,6 +363,9 @@ function runBridge() {
   const openAiCompatibleDriver = exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
     : "";
+  const providerLocalDrivers = exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs")
+    : "";
   const openAiBackendDrivers = exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs")
     : "";
@@ -526,6 +529,19 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 9/10 is pending: migrated local provider backends must execute through Rust model_mount instead of the JS provider driver",
+  );
+  assertCheck(
+    result,
+    "model-mount-local-provider-direct-invoke-retired",
+    /model_mount_local_provider_direct_invoke_retired/.test(providerLocalDrivers) &&
+      !/deterministicOutput/.test(providerLocalDrivers) &&
+      !/reason:\s*"model_invoke"/.test(providerLocalDrivers) &&
+      !/event:\s*"invoke"/.test(providerLocalDrivers),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs",
+    ],
+    "Phase 9/10 is pending: migrated local provider non-stream execution must fail closed if called through JS provider drivers",
   );
   assertCheck(
     result,
