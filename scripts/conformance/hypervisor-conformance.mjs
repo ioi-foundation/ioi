@@ -547,6 +547,8 @@ function runBridge() {
       /withTextChunksReadableStream/.test(modelInvocationOps) &&
       /model_mount_provider_stream_invocation_execution_required/.test(modelInvocationOps) &&
       /model_mount_local_provider_direct_stream_retired/.test(providerLocalDrivers) &&
+      !exists("packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/native-local-fixture.test.mjs") &&
       !/nativeLocalStreamRecords/.test(providerLocalDrivers) &&
       !/jsonLineReadableStream/.test(providerLocalDrivers) &&
       !/nativeLocalStreamRecords/.test(nativeLocalFixture) &&
