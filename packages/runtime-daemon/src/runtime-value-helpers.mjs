@@ -47,6 +47,12 @@ export function booleanValue(value) {
   return null;
 }
 
+export function normalizeBooleanOption(value, fallback) {
+  if (value === true || value === "true" || value === "1" || value === 1) return true;
+  if (value === false || value === "false" || value === "0" || value === 0) return false;
+  return fallback;
+}
+
 export function operatorControlSource(value) {
   const source = optionalString(value);
   return ["cli_tui", "react_flow", "sdk_client", "runtime_auto", "mcp_serve"].includes(source) ? source : "sdk_client";

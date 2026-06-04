@@ -166,8 +166,8 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Moved coding-tool public result draft stripping, command-stream request/chunk helpers, coding artifact metadata/read-result projection, and terminal-event counting out of `index.mjs` behind dependency-injected helper exports while preserving existing public artifact schema behavior.
 - Added focused runtime coding-tool result tests for draft stripping, artifact metadata/read slicing, command stream chunking, and terminal-event vocabulary injection.
 - Added `packages/runtime-daemon/src/runtime-value-helpers.mjs`.
-- Moved shared array/string normalization, safe-id hashing, doctor-check shaping, workspace-relative path bounding, operator-control source normalization, and operator-control append behavior out of `index.mjs` behind direct helper exports.
-- Added focused runtime value-helper tests for normalization, safe ids, hashes, workspace-relative paths, doctor-check envelopes, and operator-control de-duping.
+- Moved shared array/string normalization, boolean-option normalization, safe-id hashing, doctor-check shaping, workspace-relative path bounding, operator-control source normalization, and operator-control append behavior out of `index.mjs` behind direct helper exports.
+- Added focused runtime value-helper tests for normalization, boolean options, safe ids, hashes, workspace-relative paths, doctor-check envelopes, and operator-control de-duping.
 - Added `packages/runtime-daemon/src/runtime-agent-options.mjs`.
 - Moved agent option summaries, Cursor compatibility discovery, runtime mode/provider availability checks, memory option merging, and provider-key doctor reporting out of `index.mjs` behind dependency-injected helper exports.
 - Added focused runtime agent-options tests for Cursor MCP/hook/skill discovery, option summaries, provider endpoint fail-closed behavior, memory merge precedence, and provider-key doctor redaction.

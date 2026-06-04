@@ -205,6 +205,7 @@ import {
   doctorCheck,
   doctorHash,
   normalizeArray,
+  normalizeBooleanOption,
   objectRecord,
   operatorControlSource,
   optionalString,
@@ -13254,12 +13255,6 @@ function normalizeDiagnosticsRepairDefault(value) {
   if (["restore_apply", "apply", "apply_restore", "restore_apply_with_approval"].includes(action)) return "restore_apply";
   if (["operator_override", "override", "continue"].includes(action)) return "operator_override";
   return "repair_retry";
-}
-
-function normalizeBooleanOption(value, fallback) {
-  if (value === true || value === "true" || value === "1" || value === 1) return true;
-  if (value === false || value === "false" || value === "0" || value === 0) return false;
-  return fallback;
 }
 
 function compactDiagnosticsFeedback({ threadId, mode, diagnosticEvents }) {

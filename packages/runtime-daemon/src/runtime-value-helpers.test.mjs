@@ -7,6 +7,7 @@ import {
   doctorCheck,
   doctorHash,
   normalizeArray,
+  normalizeBooleanOption,
   objectRecord,
   operatorControlSource,
   optionalString,
@@ -42,6 +43,9 @@ test("runtime value helpers preserve doctor and operator-control envelopes", () 
   assert.equal(booleanValue(true), true);
   assert.equal(booleanValue("false"), false);
   assert.equal(booleanValue("maybe"), null);
+  assert.equal(normalizeBooleanOption("1", false), true);
+  assert.equal(normalizeBooleanOption("0", true), false);
+  assert.equal(normalizeBooleanOption("maybe", true), true);
   assert.equal(operatorControlSource("runtime_auto"), "runtime_auto");
   assert.equal(operatorControlSource("unknown"), "sdk_client");
   assert.deepEqual(
