@@ -97,6 +97,7 @@ const { createStudioSourceChipRenderer } = require("./studio/source-chip-rendere
 const { createStudioCodeExecution } = require("./studio/code-execution");
 const { createStudioChatOutputRenderers } = require("./studio/chat-output-renderers");
 const { createStudioParityPlusPanels } = require("./studio/parity-plus-panels");
+const { createStudioRuntimeRailRows } = require("./studio/runtime-rail-rows");
 const {
   STUDIO_TRAJECTORY_REPLAY_SIDE_EFFECT_KEY,
   createStudioDurabilityPanels,
@@ -1120,56 +1121,6 @@ function studioTurnRows() {
   }).join("");
 }
 
-function studioTimelineRows() {
-  return studioRuntimeProjection.timeline.slice(-8).map((item) => `
-    <li>
-      <span class="studio-status-dot studio-status-dot--${escapeHtml(item.status || "ready")}"></span>
-      <strong>${escapeHtml(item.label || "Runtime event")}</strong>
-      <span>${escapeHtml(item.detail || "")}</span>
-    </li>
-  `).join("");
-}
-
-function studioReceiptRows() {
-  const receipts = studioRuntimeProjection.receipts.length > 0
-    ? studioRuntimeProjection.receipts.slice(-8)
-    : [
-        {
-          id: "receipt.pending",
-          kind: "pending",
-          summary: "Receipts appear after daemon session, approval, or hunk decisions.",
-        },
-      ];
-  return receipts.map((receipt) => `
-    <li data-testid="studio-receipt-timeline-step">
-      <strong>${escapeHtml(receipt.kind || "receipt")}</strong>
-      <code>${escapeHtml(receipt.id || "pending")}</code>
-      <span>${escapeHtml(receipt.summary || "")}</span>
-    </li>
-  `).join("");
-}
-
-function studioHistoryRows() {
-  return studioRuntimeProjection.history.slice(-5).map((item) => `
-    <button type="button" class="studio-history-item" data-testid="studio-session-history-item">
-      <strong>${escapeHtml(item.title || "Session")}</strong>
-      <span>${escapeHtml([item.status, item.id].filter(Boolean).join(" · "))}</span>
-    </button>
-  `).join("");
-}
-
-function studioApprovalRows() {
-  return studioRuntimeProjection.approvals.slice(-5).map((approval) => `
-    <section class="studio-approval studio-approval-inline-card" data-testid="studio-approval-gate" data-approval-id="${escapeHtml(approval.id || STUDIO_APPROVAL_ID)}">
-      <div>
-        <strong data-testid="studio-approval-inline-card">${escapeHtml(approval.label || "Permission needed")}</strong>
-        <span>${escapeHtml(approval.detail || "Agent needs permission before continuing.")}</span>
-      </div>
-      <mark>${escapeHtml(approval.status || "pending")}</mark>
-    </section>
-  `).join("");
-}
-
 function studioDiffRows() {
   return studioRuntimeProjection.diffHunks.map((hunk, index) => {
     const changeId = stringValue(hunk.changeId || hunk.change_id);
@@ -1198,15 +1149,6 @@ function studioDiffRows() {
     </article>
   `;
   }).join("");
-}
-
-function studioTerminalRows() {
-  return studioRuntimeProjection.terminal.slice(-6).map((item) => `
-    <li>
-      <strong>${escapeHtml(item.label || "Terminal")}</strong>
-      <span>${escapeHtml(item.detail || "")}</span>
-    </li>
-  `).join("");
 }
 
 function studioActionCardRows() {
@@ -1306,20 +1248,6 @@ function studioBrowserWorkerRows() {
   return `${browserCards}${workerCards}`;
 }
 
-function studioReplayRows() {
-  const replaySteps = firstArray(studioRuntimeProjection.replaySteps).slice(-8);
-  if (replaySteps.length === 0) {
-    return '<li data-testid="studio-replay-step-detail"><strong>Replay pending</strong><span>Daemon replay steps appear after runtime events are observed.</span></li>';
-  }
-  return replaySteps.map((step) => `
-    <li data-testid="studio-replay-step-detail">
-      <strong>${escapeHtml(step.kind || "runtime.event")}</strong>
-      <code>${escapeHtml(step.id || "event")}</code>
-      <span>${escapeHtml(step.summary || step.status || "")}</span>
-    </li>
-  `).join("");
-}
-
 function studioCompactRuntimeStatusRows() {
   const rows = [];
   for (const lease of firstArray(studioRuntimeProjection.policyLeases).slice(-2)) {
@@ -1357,9 +1285,19 @@ function studioCompactRuntimeStatusRows() {
   return `<section class="studio-compact-runtime-list" data-testid="studio-actionable-runtime-state">${rows.join("")}</section>`;
 }
 
-function studioParityPlusPanelRows() {
-  return studioParityPlusPanelRowsFromRenderer(studioRuntimeProjection);
-}
+const {
+  studioApprovalRows,
+  studioHistoryRows,
+  studioParityPlusPanelRows,
+  studioReceiptRows,
+  studioReplayRows,
+  studioTerminalRows,
+  studioTimelineRows,
+} = createStudioRuntimeRailRows({
+  escapeHtml,
+  getStudioRuntimeProjection: () => studioRuntimeProjection,
+  studioParityPlusPanelRowsFromRenderer,
+});
 
 const {
   normalizeStudioToolPaletteRows,

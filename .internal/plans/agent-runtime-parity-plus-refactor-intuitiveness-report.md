@@ -155,6 +155,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/projection-runtime-events.js`.
 - Moved Studio timeline append, runtime-event normalization, response receipt projection, and runtime-cockpit achieved gate recomputation out of `extension.js` while preserving visibility classification and receipt timeline behavior.
 - Added focused runtime-event projection tests for timeline metadata, runtime event alias normalization, receipt projection, non-object tolerance, and cockpit achieved gate semantics.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-rail-rows.js`.
+- Moved simple Studio runtime rail renderers for timeline, receipts, history, approvals, terminal, replay, and parity-plus panels out of `extension.js` while preserving fallback rows, escaping, and recent-item bounds.
+- Added focused runtime-rail row tests for safe escaping, fallback receipt/replay rows, parity delegation, and recent receipt slicing.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.

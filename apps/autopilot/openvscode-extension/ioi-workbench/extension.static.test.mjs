@@ -64,6 +64,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/chat-output-renderers.js",
   parityPlusPanels:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/parity-plus-panels.js",
+  runtimeRailRows:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-rail-rows.js",
   nativeChatView:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/native-chat-view.js",
   toolPalette:
@@ -159,6 +161,7 @@ async function readStudioComposite() {
       paths.codeExecution,
       paths.chatOutputRenderers,
       paths.parityPlusPanels,
+      paths.runtimeRailRows,
       paths.nativeChatView,
       paths.toolPalette,
       paths.modelSelection,
