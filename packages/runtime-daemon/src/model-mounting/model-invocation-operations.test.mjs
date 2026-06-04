@@ -284,7 +284,6 @@ function deps(overrides = {}) {
     providerRequestBodyForRoute: (body, endpoint) => ({ ...body, model: endpoint.modelId }),
     stableHash: (value) => `hash:${value}`,
     supportsResponseState: (kind) => kind === "responses",
-    summarizeProviderRequestBodyForTrace: (body) => ({ model: body.model, stream: body.stream === true }),
     ...overrides,
   };
 }
@@ -464,10 +463,10 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(result.invocation.receipt.details.modelMountInvocationAdmission.stream_status, "started");
   assert.equal(result.invocation.receipt.details.modelMountReceiptBindingRef, "sha256:binding-1");
   assert.equal(result.invocation.receipt.details.modelMountAcceptedReceiptAppend.receipt_ref, "receipt://receipt.1.model_invocation");
-  assert.equal(result.invocation.receipt.details.modelMountAgentgresAdmission.operation_ref, "agentgres://model-mounting/operation-log/op_00000002_model_invocation");
+  assert.equal(result.invocation.receipt.details.modelMountAgentgresAdmission.operation_ref, "agentgres://model-mounting/operation-log/op_00000001_model_invocation");
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "coalesced"), false);
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "sendOptions"), false);
-  assert.equal(state.appendOperations[0].kind, "model.provider_stream_request_shape");
+  assert.deepEqual(state.appendOperations, []);
   assert.equal(state.providerExecutionRequests[0].stream_status, "started");
   assert.equal(state.providerResultRequests[0].stream_status, "started");
   assert.equal(state.providerResultRequests[0].output_text, "");

@@ -12,7 +12,6 @@ import {
   outputTextFromChat,
   outputTextFromResponse,
   parseJsonMaybe,
-  summarizeProviderRequestBodyForTrace,
   truncateToEstimatedTokens,
 } from "./provider-protocol.mjs";
 
@@ -65,45 +64,6 @@ test("normalize usage maps OpenAI and Responses token names with perf fields", (
     tokens_per_second: 42,
     time_to_first_token_ms: 9,
   });
-});
-
-test("trace summaries expose shape without leaking message content", () => {
-  const summary = summarizeProviderRequestBodyForTrace({
-    model: "gpt-test",
-    stream: true,
-    messages: [
-      { role: "system", content: "secret prompt" },
-      { role: "user", content: [{ type: "text", text: "private payload" }] },
-    ],
-    tools: [{ type: "function" }],
-    tool_choice: { type: "function", function: { name: "run" } },
-    response_format: { type: "json_schema" },
-    chat_template_kwargs: { beta: true, alpha: true },
-    max_tokens: "64",
-    stop: ["END"],
-    routeId: "route-1",
-    metadata: { internal: true },
-  });
-
-  assert.deepEqual(summary, {
-    model: "gpt-test",
-    stream: true,
-    messageCount: 2,
-    messageRoles: ["system", "user"],
-    messageContentChars: [13, 15],
-    toolCount: 1,
-    toolChoice: "object",
-    parallelToolCalls: null,
-    responseFormat: "json_schema",
-    reasoningEffort: null,
-    chatTemplateKwargs: ["alpha", "beta"],
-    maxTokens: 64,
-    stopCount: 1,
-    hasRouteId: true,
-    hasAutopilotMetadata: true,
-  });
-  assert.equal(JSON.stringify(summary).includes("secret prompt"), false);
-  assert.equal(JSON.stringify(summary).includes("private payload"), false);
 });
 
 test("parseJsonMaybe parses JSON and truncates invalid text", () => {

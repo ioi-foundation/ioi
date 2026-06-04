@@ -541,12 +541,14 @@ function runBridge() {
       /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
       /streamStatus: "started"/.test(modelInvocationOps) &&
       /modelMountProviderResultAdmissionRef/.test(modelInvocationOps) &&
-      /model_mount_provider_result_admission_required/.test(modelInvocationOps),
+      /model_mount_provider_result_admission_required/.test(modelInvocationOps) &&
+      !/model\.provider_stream_request_shape/.test(modelInvocationOps) &&
+      !/model_provider_stream_request_shape/.test(modelInvocationOps),
     [
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
     ],
-    "Phase 9/10 is pending: native stream-start provider observations must be Rust-admitted before provider stream handles become accepted receipts",
+    "Phase 9/10 is pending: native stream-start provider observations must be Rust-admitted without a duplicate JS request-shape operation append",
   );
   assertCheck(
     result,
@@ -586,6 +588,9 @@ function runReceipts() {
     : "";
   const conversationOps = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
+    : "";
+  const providerProtocol = exists("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
     : "";
   const modelMountStore = exists("packages/runtime-daemon/src/model-mounting/store.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.mjs")
@@ -739,6 +744,23 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 9/10 is pending: stream-start provider result admission must bind to the same stream-status provider execution record",
+  );
+  assertCheck(
+    result,
+    "model-mount-stream-request-shape-append-retired",
+    /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
+      /streamStatus: "started"/.test(modelInvocationOps) &&
+      !/model\.provider_stream_request_shape/.test(modelInvocationOps) &&
+      !/model_provider_stream_request_shape/.test(modelInvocationOps),
+    ["packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs"],
+    "Phase 4/9 is pending: stream request-shape evidence must not append a duplicate JS operation outside Rust provider admission",
+  );
+  assertCheck(
+    result,
+    "model-mount-stream-request-shape-trace-helper-retired",
+    !/summarizeProviderRequestBodyForTrace/.test(providerProtocol),
+    ["packages/runtime-daemon/src/model-mounting/provider-protocol.mjs"],
+    "Phase 4/9 is pending: legacy stream request-shape trace helpers must not remain after Rust provider-result admission owns stream-start evidence",
   );
   assertCheck(
     result,

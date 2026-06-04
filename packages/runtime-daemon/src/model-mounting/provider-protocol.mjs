@@ -1,39 +1,5 @@
 import { stableHash } from "./io.mjs";
 
-export function summarizeProviderRequestBodyForTrace(body = {}) {
-  const messages = Array.isArray(body.messages) ? body.messages : [];
-  return {
-    model: typeof body.model === "string" ? body.model : null,
-    stream: body.stream === true,
-    messageCount: messages.length,
-    messageRoles: messages.map((message) => String(message?.role ?? "unknown")),
-    messageContentChars: messages.map((message) => messageContentLength(message?.content)),
-    toolCount: Array.isArray(body.tools) ? body.tools.length : 0,
-    toolChoice: typeof body.tool_choice === "string" ? body.tool_choice : body.tool_choice ? "object" : null,
-    parallelToolCalls: body.parallel_tool_calls ?? null,
-    responseFormat: body.response_format?.type ?? null,
-    reasoningEffort: typeof body.reasoning_effort === "string" ? body.reasoning_effort : null,
-    chatTemplateKwargs: body.chat_template_kwargs && typeof body.chat_template_kwargs === "object"
-      ? Object.keys(body.chat_template_kwargs).sort()
-      : [],
-    maxTokens: Number.isFinite(Number(body.max_tokens)) ? Number(body.max_tokens) : null,
-    stopCount: Array.isArray(body.stop) ? body.stop.length : 0,
-    hasRouteId: body.route_id !== undefined || body.routeId !== undefined,
-    hasAutopilotMetadata: body.metadata !== undefined || body.model_policy !== undefined || body.modelPolicy !== undefined,
-  };
-}
-
-export function messageContentLength(content) {
-  if (typeof content === "string") return content.length;
-  if (Array.isArray(content)) {
-    return content.reduce((total, item) => total + messageContentLength(item?.text ?? item?.content ?? ""), 0);
-  }
-  if (content && typeof content === "object") {
-    return messageContentLength(content.text ?? content.content ?? "");
-  }
-  return 0;
-}
-
 export function parseJsonMaybe(text) {
   try {
     return JSON.parse(text);

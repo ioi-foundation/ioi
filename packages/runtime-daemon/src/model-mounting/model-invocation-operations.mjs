@@ -2,7 +2,6 @@ import * as routeDecision from "./route-decision.mjs";
 import {
   estimateTokens,
   inputText,
-  summarizeProviderRequestBodyForTrace,
 } from "./provider-protocol.mjs";
 import {
   driverNameForProvider,
@@ -235,7 +234,6 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     optionalString: optional = optionalString,
     providerRequestBodyForRoute = routeDecision.providerRequestBodyForRoute,
     stableHash: hash = stableHash,
-    summarizeProviderRequestBodyForTrace: summarizeRequest = summarizeProviderRequestBodyForTrace,
     supportsResponseState: responseStateSupported = supportsResponseState,
   } = deps;
   const token = state.authorize(authorization, requiredScope);
@@ -290,18 +288,6 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     }),
   );
   requireModelMountProviderResultAdmission(state);
-  state.appendOperation?.("model.provider_stream_request_shape", {
-    providerId: selection.provider.id,
-    providerKind: selection.provider.kind,
-    endpointId: selection.endpoint.id,
-    routeId: selection.route.id,
-    capability,
-    requestShape: summarizeRequest(providerBody),
-    evidenceRefs: [
-      "model_provider_stream_request_shape",
-      modelMountProviderExecutionAdmission.provider_execution_ref,
-    ],
-  });
   let providerResult = await driver.streamInvoke({
     state,
     provider: selection.provider,
