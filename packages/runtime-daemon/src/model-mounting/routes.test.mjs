@@ -3,9 +3,13 @@ import test from "node:test";
 
 import {
   endpointIdsForExplicitModel,
+  endpointIdsForExplicitModelForState,
   routeSelectionReceipt,
+  routeSelectionReceiptForState,
   selectRoute,
+  selectRouteForState,
   testRoute,
+  upsertRoute,
   upsertRouteRecord,
 } from "./routes.mjs";
 
@@ -219,6 +223,89 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
   assert.equal(created[0].details.modelRouteDecisionId, "decision-1");
   assert.equal(created[0].details.workflowNodeId, "node-1");
   assert.deepEqual(created[0].evidenceRefs, ["model_router", "route.local-first", "endpoint.local", "extra"]);
+});
+
+test("model mounting route state operations preserve delegate wiring", () => {
+  const writes = [];
+  const receipts = [];
+  const state = {
+    routes: new Map(),
+    endpoints: new Map([["endpoint.local", {
+      id: "endpoint.local",
+      modelId: "model.local",
+      providerId: "provider.local",
+      capabilities: ["chat"],
+      status: "mounted",
+    }]]),
+    providers: new Map([["provider.local", {
+      id: "provider.local",
+      kind: "local_folder",
+      privacyClass: "local_private",
+    }]]),
+    endpoint(endpointId) {
+      return this.endpoints.get(endpointId);
+    },
+    endpointIdsForExplicitModel(route, modelId) {
+      return endpointIdsForExplicitModelForState(this, route, modelId, { normalizeScopes });
+    },
+    mountEndpoint(body) {
+      const endpoint = { id: `endpoint.${body.model_id}`, modelId: body.model_id, providerId: "provider.local", capabilities: ["chat"], status: "mounted" };
+      this.endpoints.set(endpoint.id, endpoint);
+      return endpoint;
+    },
+    provider(providerId) {
+      return this.providers.get(providerId);
+    },
+    receipt(kind, payload) {
+      const record = { id: `receipt-${kind}`, kind, ...payload };
+      receipts.push(record);
+      return record;
+    },
+    route(routeId) {
+      return this.routes.get(routeId);
+    },
+    writeMap(dir, map) {
+      writes.push({ dir, map });
+    },
+  };
+
+  const route = upsertRoute(state, {
+    role: "Review",
+    fallback: ["endpoint.local"],
+  }, { normalizeScopes, safeId });
+  assert.equal(route.id, "route.review");
+  assert.equal(state.routes.get(route.id), route);
+  assert.equal(writes.at(-1).dir, "model-routes");
+  assert.deepEqual(endpointIdsForExplicitModelForState(state, route, "missing-model", { normalizeScopes }), ["endpoint.missing-model"]);
+
+  const selection = selectRouteForState(state, {
+    modelId: "auto",
+    routeId: route.id,
+    capability: "chat",
+    policy: {},
+  }, {
+    isAutoModelSelector: () => true,
+    isFixtureEndpointCandidate: () => false,
+    runtimeError,
+    truthy: Boolean,
+  });
+  assert.equal(selection.endpoint.id, "endpoint.local");
+  assert.equal(selection.evaluatedCandidates.at(-1).reason, "policy_allowed");
+
+  const receipt = routeSelectionReceiptForState(state, selection, {
+    body: { model: "auto" },
+    capability: "chat",
+  }, {
+    routeDecision: {
+      MODEL_ROUTE_DECISION_SCHEMA_VERSION: "v1",
+      MODEL_ROUTE_DECISION_EVENT_KIND: "model_route_decision",
+      workflowContextFromRouteRequest: () => ({}),
+      createModelRouteDecision: () => ({ decisionId: "decision-1" }),
+    },
+    stableHash: () => "policy-hash",
+  });
+  assert.equal(receipt.kind, "model_route_selection");
+  assert.equal(receipts.at(-1).details.modelRouteDecisionId, "decision-1");
 });
 
 test("model mounting route helpers test routes through state compatibility methods", () => {

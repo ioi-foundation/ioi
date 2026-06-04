@@ -1,0 +1,174 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { createRuntimeMcpServeSurface } from "./runtime-mcp-serve-surface.mjs";
+
+function harness() {
+  const agentChecks = [];
+  const invocations = [];
+  const tools = [
+    { stableToolId: "workspace.status", displayName: "Workspace status", inputSchema: { type: "object" } },
+    { stableToolId: "git.diff", displayName: "Git diff", inputSchema: { type: "object" } },
+    { stableToolId: "test.run", displayName: "Run tests", inputSchema: { type: "object" } },
+  ];
+  const allowedToolIds = (options = {}) =>
+    options.onlyDiff === true ? ["git.diff"] : ["workspace.status", "git.diff"];
+  const surface = createRuntimeMcpServeSurface({
+    RUNTIME_MCP_SERVE_PROTOCOL_VERSION: "mcp.protocol.test",
+    RUNTIME_MCP_SERVE_SCHEMA_VERSION: "ioi.runtime.mcp-serve.test",
+    codingToolContracts() {
+      return tools;
+    },
+    mcpServeAllowedToolIds: allowedToolIds,
+    mcpServeToolCallResult(invocation) {
+      return {
+        content: [{ type: "text", text: `${invocation.tool_name} ${invocation.status}` }],
+        structuredContent: invocation,
+        isError: invocation.status !== "completed",
+      };
+    },
+    mcpServeToolDescriptor(tool) {
+      return {
+        name: tool.stableToolId,
+        title: tool.displayName,
+        inputSchema: tool.inputSchema,
+        _meta: { stableToolId: tool.stableToolId },
+      };
+    },
+    mcpServeToolIdForName(name, options = {}) {
+      return allowedToolIds(options).includes(name) ? name : null;
+    },
+  });
+  const store = {
+    agentForThread(threadId) {
+      agentChecks.push(threadId);
+      return { id: "agent-one", thread_id: threadId };
+    },
+    async invokeThreadToolAsync(threadId, toolId, request) {
+      invocations.push({ threadId, toolId, request });
+      return {
+        status: "completed",
+        tool_name: toolId,
+        thread_id: threadId,
+        workflow_graph_id: request.workflow_graph_id,
+        workflow_node_id: request.workflow_node_id,
+        input: request.input,
+      };
+    },
+  };
+  return { agentChecks, invocations, store, surface };
+}
+
+test("runtime MCP serve surface projects status and allowed tool catalog", () => {
+  const { store, surface } = harness();
+
+  const status = surface.mcpServeStatus(store, { thread_id: "thread-one", onlyDiff: true });
+
+  assert.equal(status.schema_version, "ioi.runtime.mcp-serve.test");
+  assert.equal(status.protocol_version, "mcp.protocol.test");
+  assert.equal(status.thread_id, "thread-one");
+  assert.deepEqual(status.allowed_tool_ids, ["git.diff"]);
+  assert.equal(status.tool_count, 1);
+  assert.deepEqual(status.tools.map((tool) => tool.name), ["git.diff"]);
+  assert.equal(status.routes.serveForThread, "/v1/threads/{thread_id}/mcp/serve");
+  assert.deepEqual(status.evidence_refs, ["mcp.serve.http_jsonrpc", "coding_tool_receipt"]);
+});
+
+test("runtime MCP serve surface handles JSON-RPC lifecycle and batch notifications", async () => {
+  const { agentChecks, store, surface } = harness();
+
+  const initialize = await surface.handleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    { jsonrpc: "2.0", id: 1, method: "initialize" },
+    { onlyDiff: true },
+  );
+  assert.equal(initialize.result.protocolVersion, "mcp.protocol.test");
+  assert.equal(initialize.result.serverInfo.version, "ioi.runtime.mcp-serve.test");
+  assert.equal(initialize.result._meta.thread_id, "thread-one");
+  assert.deepEqual(initialize.result._meta.allowed_tool_ids, ["git.diff"]);
+
+  const initializedNotification = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    { jsonrpc: "2.0", method: "notifications/initialized" },
+  );
+  assert.equal(initializedNotification, null);
+
+  const initializedRequest = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    { jsonrpc: "2.0", id: 2, method: "notifications/initialized" },
+  );
+  assert.deepEqual(initializedRequest, { jsonrpc: "2.0", id: 2, result: {} });
+
+  const batch = await surface.handleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    [
+      { jsonrpc: "2.0", method: "notifications/initialized" },
+      { jsonrpc: "2.0", id: 3, method: "ping" },
+      { jsonrpc: "2.0", id: 4, method: "tools/list" },
+    ],
+  );
+  assert.equal(batch.length, 2);
+  assert.deepEqual(batch.map((response) => response.id), [3, 4]);
+  assert.deepEqual(batch[1].result.tools.map((tool) => tool.name), ["workspace.status", "git.diff"]);
+  assert.deepEqual(agentChecks, ["thread-one", "thread-one"]);
+});
+
+test("runtime MCP serve surface invokes allowed tools and rejects malformed requests", async () => {
+  const { invocations, store, surface } = harness();
+
+  const invalid = await surface.handleSingleMcpServeJsonRpc(store, "thread-one", []);
+  assert.equal(invalid.error.code, -32600);
+  assert.equal(invalid.error.data.schema_version, "ioi.runtime.mcp-serve.test");
+
+  const disallowed = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "workspace.status" } },
+    { onlyDiff: true },
+  );
+  assert.equal(disallowed.error.code, -32602);
+  assert.deepEqual(disallowed.error.data.allowedTools, ["git.diff"]);
+
+  const unsupported = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    { jsonrpc: "2.0", id: 6, method: "resources/read" },
+  );
+  assert.equal(unsupported.error.code, -32601);
+  assert.equal(unsupported.error.data.supportedMethods.includes("tools/call"), true);
+
+  const response = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    {
+      jsonrpc: "2.0",
+      id: 7,
+      method: "tools/call",
+      params: { name: "git.diff", arguments: { includeStat: true } },
+    },
+    {
+      onlyDiff: true,
+      workflowGraphId: "custom.graph",
+      workflowNodeId: "custom.node",
+    },
+  );
+  assert.equal(response.id, 7);
+  assert.equal(response.result.structuredContent.workflow_graph_id, "custom.graph");
+  assert.deepEqual(response.result.structuredContent.input, { includeStat: true });
+  assert.deepEqual(invocations, [
+    {
+      threadId: "thread-one",
+      toolId: "git.diff",
+      request: {
+        source: "mcp_serve",
+        workflow_graph_id: "custom.graph",
+        workflow_node_id: "custom.node",
+        input: { includeStat: true },
+      },
+    },
+  ]);
+});

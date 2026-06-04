@@ -48,6 +48,20 @@ import {
   downloadStatus as downloadStatusState,
 } from "./model-mounting/storage-operations.mjs";
 import {
+  bindVaultRef as bindVaultRefState,
+  listVaultRefs as listVaultRefsState,
+  removeVaultRef as removeVaultRefState,
+  vaultHealth as vaultHealthState,
+  vaultRefMetadata as vaultRefMetadataState,
+  vaultStatus as vaultStatusState,
+} from "./model-mounting/vault-operations.mjs";
+import {
+  authorize as authorizeState,
+  createToken as createTokenState,
+  listTokens as listTokensState,
+  revokeToken as revokeTokenState,
+} from "./model-mounting/capability-token-operations.mjs";
+import {
   contextWindowForEndpoint as contextWindowForEndpointState,
   countModelTokens as countModelTokensState,
   fitModelContext as fitModelContextState,
@@ -76,7 +90,9 @@ import {
 import {
   endpoint as endpointState,
   ensureLoaded as ensureLoadedState,
+  getModel as getModelState,
   instance as instanceState,
+  modelForProviderMount as modelForProviderMountState,
   provider as providerState,
   resolveEndpoint as resolveEndpointState,
   route as routeState,
@@ -90,16 +106,16 @@ import {
   seedBackends as seedBackendsState,
   writeBackendLog as writeBackendLogState,
 } from "./model-mounting/backend-registry-state.mjs";
-import {
-  enrichCatalogEntry,
-  huggingFaceCatalogEntries,
-} from "./model-mounting/catalog-entries.mjs";
+import { enrichCatalogEntry } from "./model-mounting/catalog-entries.mjs";
 import {
   catalogSearch as catalogSearchState,
   catalogStatus as catalogStatusState,
   enrichCatalogEntryForState,
   storageSummary as storageSummaryState,
 } from "./model-mounting/catalog-operations.mjs";
+import {
+  searchHuggingFaceCatalog as searchHuggingFaceCatalogState,
+} from "./model-mounting/huggingface-catalog-search.mjs";
 import {
   catalogImportUrl as catalogImportUrlState,
   downloadModel as downloadModelState,
@@ -127,7 +143,6 @@ import {
   providerHasVaultRef,
   providerRequiresVaultSecret,
   providerSecretInput,
-  sanitizeVaultRefs,
 } from "./model-mounting/provider-auth.mjs";
 import {
   oauthBoundaryForSession,
@@ -144,18 +159,18 @@ import {
 } from "./model-mounting/catalog-provider-oauth.mjs";
 import {
   assertConfigurableCatalogProvider,
-  MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS,
-  catalogProviderAuthHeaders,
   catalogProviderConfigUpdate,
-  catalogProviderHasSourceMaterial,
-  catalogProviderMaterialPurpose,
-  catalogProviderMaterialVaultRef,
-  catalogProviderRuntimeMaterialFromValue,
 } from "./model-mounting/catalog-provider-config.mjs";
+import {
+  catalogProviderConfig as catalogProviderConfigState,
+  catalogProviderRuntimeMaterial as catalogProviderRuntimeMaterialState,
+  configureCatalogProvider as configureCatalogProviderState,
+  getCatalogProviderConfig as getCatalogProviderConfigState,
+  listCatalogProviderConfigs as listCatalogProviderConfigsState,
+} from "./model-mounting/catalog-provider-configuration-operations.mjs";
 import {
   customHttpCatalogProviderPort,
   fixtureCatalogProviderPort,
-  huggingFaceCatalogBaseUrl,
   huggingFaceCatalogProviderPort,
   localManifestCatalogProviderPort,
   ollamaCatalogProviderPort,
@@ -271,15 +286,11 @@ import {
   emitRemoteBoundaryEvent,
   fileSha256,
   sleep,
-  fetchWithTimeout,
   fileSizeIfExists,
   normalizeNonNegativeInteger,
   truthy,
   matchesAny,
-  publicToken,
   publicMcpServer,
-  hashToken,
-  operationCount,
   publicVaultRefs,
   normalizeScopes,
 } from "./model-mounting/io.mjs";
@@ -290,24 +301,15 @@ import {
   downloadRetryBackoffMs,
   cleanupPartialDownload,
 } from "./model-mounting/download-helpers.mjs";
-import {
-  catalogAuthFailureFields,
-  catalogAuthFailureStatus,
-  catalogAuthProviderFields,
-  catalogEntryWithAuth,
-  catalogProviderConfigHealthFields,
-  publicCatalogProviderConfig,
-} from "./model-mounting/catalog-projections.mjs";
+import { publicCatalogProviderConfig } from "./model-mounting/catalog-projections.mjs";
 import {
   catalogProviderStatus,
   modelCatalogProviderPorts as buildModelCatalogProviderPorts,
 } from "./model-mounting/catalog-registry.mjs";
 import {
   internalFixtureModelsEnabled,
-  liveModelCatalogEnabled,
   lmStudioPublicCliEnabled,
   lmStudioRuntimeDiscoveryEnabled,
-  modelCatalogTimeoutMs,
 } from "./model-mounting/environment.mjs";
 import {
   backendRegistryRecords,
@@ -340,12 +342,18 @@ import {
   validateReceiptGate as validateReceiptGateRule,
 } from "./model-mounting/validation.mjs";
 import {
-  endpointIdsForExplicitModel as endpointIdsForExplicitModelRule,
-  routeSelectionReceipt as routeSelectionReceiptRule,
-  selectRoute as selectRouteRule,
+  endpointIdsForExplicitModelForState,
+  routeSelectionReceiptForState,
+  selectRouteForState,
   testRoute as testRouteState,
-  upsertRouteRecord,
+  upsertRoute as upsertRouteState,
 } from "./model-mounting/routes.mjs";
+import {
+  getReceipt as getReceiptState,
+  lifecycleReceipt as lifecycleReceiptState,
+  listReceipts as listReceiptsState,
+  receipt as receiptState,
+} from "./model-mounting/receipt-operations.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1", SECRET_REDACTION = "[REDACTED]";
 const {
@@ -410,6 +418,7 @@ export class ModelMountingState {
     this.inflightModelInvocations = new Map();
     this.readProjectionFacade = createModelMountingReadProjectionFacade({
       buildModelCapabilities,
+      capabilityForWorkflowNode,
       internalFixtureModelsEnabled,
       isFixtureModelRecord,
       listJson,
@@ -664,97 +673,27 @@ export class ModelMountingState {
   }
 
   latestProviderHealth(providerId) {
-    this.provider(providerId);
-    const health = this.listProviderHealth()
-      .filter((record) => record.providerId === providerId)
-      .at(-1);
-    if (!health?.receiptId) {
-      throw notFound(`Provider health has not been checked: ${providerId}`, { providerId });
-    }
-    const receipt = this.getReceipt(health.receiptId);
-    return {
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      source: "agentgres_provider_health_latest",
-      providerId,
-      health,
-      receipt,
-      replay: this.receiptReplay(receipt.id),
-      projectionWatermark: operationCount(this.stateDir),
-    };
+    return this.readProjectionFacade.latestProviderHealth(this, providerId);
   }
 
   latestVaultHealth() {
-    const receipt = this.listReceipts()
-      .filter((item) => item.kind === "vault_adapter_health")
-      .at(-1);
-    if (!receipt) {
-      throw notFound("Vault adapter health has not been checked.", { receiptKind: "vault_adapter_health" });
-    }
-    return {
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      source: "agentgres_vault_health_latest",
-      health: receipt.details,
-      receipt,
-      replay: this.receiptReplay(receipt.id),
-      projectionWatermark: operationCount(this.stateDir),
-    };
+    return this.readProjectionFacade.latestVaultHealth(this);
   }
 
   workflowNodeBindings() {
-    return [
-      "Model Call",
-      "Structured Output",
-      "Verifier",
-      "Planner",
-      "Embedding",
-      "Reranker",
-      "Vision",
-      "Local Tool/MCP",
-      "Model Router",
-      "Receipt Gate",
-    ].map((node) => ({
-      node,
-      modelId: null,
-      supportsExplicitModelId: true,
-      supportsModelPolicy: true,
-      capability: capabilityForWorkflowNode(node),
-      receiptRequired: true,
-      routeId: "route.local-first",
-      daemonApi: node === "Receipt Gate" ? "/api/v1/workflows/receipt-gate" : "/api/v1/workflows/nodes/execute",
-    }));
+    return this.readProjectionFacade.workflowNodeBindings(this);
   }
 
   getModel(id) {
-    const artifact = [...this.artifacts.values()].find((item) => item.id === id || item.modelId === id);
-    if (!artifact) {
-      throw notFound(`Model not found: ${id}`, { modelId: id });
-    }
-    return artifact;
+    return getModelState(this, id, { notFound });
   }
 
   modelForProviderMount(modelId, provider, body = {}, now = this.nowIso()) {
-    const artifact = [...this.artifacts.values()].find(
-      (item) => item.id === modelId || (item.modelId === modelId && item.providerId === provider.id),
-    );
-    if (artifact) return artifact;
-    const mounted = {
-      id: `${safeId(provider.id)}.${safeId(modelId)}`,
-      providerId: provider.id,
-      modelId,
-      displayName: body.display_name ?? body.displayName ?? modelId,
-      family: body.family ?? provider.kind,
-      quantization: body.quantization ?? null,
-      sizeBytes: Number.isFinite(Number(body.size_bytes ?? body.sizeBytes)) ? Number(body.size_bytes ?? body.sizeBytes) : null,
-      contextWindow: Number.isFinite(Number(body.context_window ?? body.contextWindow)) ? Number(body.context_window ?? body.contextWindow) : null,
-      capabilities: normalizeScopes(body.capabilities, provider.capabilities ?? ["chat", "responses", "embeddings"]),
-      privacyClass: body.privacy_class ?? body.privacyClass ?? provider.privacyClass,
-      source: `${driverNameForProvider(provider)}_provider_direct_mount`,
-      state: "available",
-      discoveredAt: now,
-    };
-    this.artifacts.set(mounted.id, mounted);
-    this.writeMap("model-artifacts", this.artifacts);
-    return mounted;
+    return modelForProviderMountState(this, modelId, provider, body, now, {
+      driverNameForProvider,
+      normalizeScopes,
+      safeId,
+    });
   }
 
   catalogStatus() {
@@ -776,50 +715,15 @@ export class ModelMountingState {
   }
 
   listCatalogProviderConfigs() {
-    return MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS.map((providerId) =>
-      publicCatalogProviderConfig(
-        providerId,
-        this.catalogProviderConfigs.get(providerId),
-        this.catalogProviderRuntimeMaterial(providerId),
-      ),
-    );
+    return listCatalogProviderConfigsState(this);
   }
 
   getCatalogProviderConfig(providerId) {
-    assertConfigurableCatalogProvider(providerId);
-    const port = this.catalogProviderPorts().find((candidate) => candidate.id === providerId) ?? null;
-    return {
-      ...publicCatalogProviderConfig(
-        providerId,
-        this.catalogProviderConfigs.get(providerId),
-        this.catalogProviderRuntimeMaterial(providerId),
-      ),
-      provider: port ? catalogProviderStatus(port) : null,
-    };
+    return getCatalogProviderConfigState(this, providerId);
   }
 
   configureCatalogProvider(providerId, body = {}) {
-    assertConfigurableCatalogProvider(providerId);
-    const existing = this.catalogProviderConfigs.get(providerId);
-    const update = catalogProviderConfigUpdate(providerId, body, existing, this.nowIso(), this);
-    const { record, runtimeMaterial, evidenceRefs } = update;
-    this.catalogProviderConfigs.set(providerId, record);
-    if (runtimeMaterial) this.catalogProviderRuntimeMaterials.set(providerId, runtimeMaterial);
-    else this.catalogProviderRuntimeMaterials.delete(providerId);
-    this.writeMap("model-catalog-providers", this.catalogProviderConfigs);
-    const publicRecord = publicCatalogProviderConfig(providerId, record, this.catalogProviderRuntimeMaterial(providerId));
-    const receipt = this.receipt("model_catalog_provider_configuration", {
-      summary: `${providerId} catalog configuration updated through the governed catalog provider path.`,
-      redaction: "redacted",
-      evidenceRefs: ["ModelCatalogProviderPort.configure", providerId, ...evidenceRefs],
-      details: publicRecord,
-    });
-    this.writeProjection();
-    return {
-      ...publicRecord,
-      receiptId: receipt.id,
-      provider: catalogProviderStatus(this.catalogProviderPorts().find((port) => port.id === providerId)),
-    };
+    return configureCatalogProviderState(this, providerId, body);
   }
 
   startCatalogProviderOAuth(providerId, body = {}) {
@@ -872,52 +776,11 @@ export class ModelMountingState {
   }
 
   catalogProviderConfig(providerId) {
-    return this.catalogProviderConfigs.get(providerId) ?? null;
+    return catalogProviderConfigState(this, providerId);
   }
 
   catalogProviderRuntimeMaterial(providerId) {
-    const existing = this.catalogProviderRuntimeMaterials.get(providerId) ?? null;
-    if (catalogProviderHasSourceMaterial(existing)) return existing;
-    if (existing?.runtimeMaterialStatus === "missing_runtime_material" || existing?.runtimeMaterialStatus === "vault_material_unavailable") {
-      return existing;
-    }
-    const config = this.catalogProviderConfigs.get(providerId) ?? null;
-    if (!config?.materialConfigured && !config?.materialVaultRefHash) return existing;
-    const vaultRef = catalogProviderMaterialVaultRef(providerId);
-    const purpose = catalogProviderMaterialPurpose(providerId);
-    try {
-      const resolved = this.vault.resolveVaultRef(vaultRef, purpose);
-      this.writeVaultRefs();
-      if (!resolved.resolvedMaterial || typeof resolved.material !== "string" || !resolved.material.trim()) {
-        const missing = {
-          runtimeMaterialStatus: "missing_runtime_material",
-          materialSource: resolved.materialSource ?? "unbound",
-          materialVaultRefHash: resolved.vaultRefHash,
-          evidenceRefs: normalizeScopes(resolved.evidenceRefs, ["VaultPort.resolveVaultRef", "catalog_provider_source_material_unbound"]),
-        };
-        this.catalogProviderRuntimeMaterials.set(providerId, missing);
-        return missing;
-      }
-      const material = {
-        ...catalogProviderRuntimeMaterialFromValue(providerId, resolved.material),
-        runtimeMaterialStatus: "resolved_from_vault",
-        materialSource: resolved.materialSource ?? "vault_material_adapter",
-        materialVaultRefHash: resolved.vaultRefHash,
-        evidenceRefs: normalizeScopes(resolved.evidenceRefs, ["VaultPort.resolveVaultRef", "catalog_provider_source_material_resolved"]),
-      };
-      this.catalogProviderRuntimeMaterials.set(providerId, material);
-      return material;
-    } catch (error) {
-      const failed = {
-        runtimeMaterialStatus: "vault_material_unavailable",
-        materialSource: "unavailable",
-        materialVaultRefHash: config.materialVaultRefHash ?? stableHash(vaultRef),
-        errorHash: stableHash(error?.message ?? "catalog source vault resolution failed"),
-        evidenceRefs: ["VaultPort.resolveVaultRef", "catalog_provider_source_material_fail_closed"],
-      };
-      this.catalogProviderRuntimeMaterials.set(providerId, failed);
-      return failed;
-    }
+    return catalogProviderRuntimeMaterialState(this, providerId);
   }
 
   storageSummary() {
@@ -944,65 +807,7 @@ export class ModelMountingState {
   }
 
   async searchHuggingFaceCatalog({ query, format, quantization, limit, searchedAt }) {
-    const baseUrl = huggingFaceCatalogBaseUrl(this);
-    const config = this.catalogProviderConfig("catalog.huggingface");
-    const evidenceRefs = ["huggingface_catalog_adapter_boundary", "network_access_opt_in"];
-    if (config?.enabled === false) {
-      const fields = catalogProviderConfigHealthFields("catalog.huggingface", config, this.catalogProviderRuntimeMaterial("catalog.huggingface"));
-      return { ...fields, status: "disabled", baseUrlHash: stableHash(baseUrl), evidenceRefs, results: [] };
-    }
-    if (!liveModelCatalogEnabled()) {
-      return {
-        ...catalogProviderConfigHealthFields("catalog.huggingface", config, this.catalogProviderRuntimeMaterial("catalog.huggingface")),
-        status: "gated",
-        baseUrlHash: stableHash(baseUrl),
-        evidenceRefs,
-        results: [],
-      };
-    }
-    try {
-      const auth = await catalogProviderAuthHeaders("catalog.huggingface", this);
-      const url = new URL("/api/models", baseUrl);
-      if (query) url.searchParams.set("search", query);
-      url.searchParams.set("limit", String(limit));
-      const response = await fetchWithTimeout(url, { timeoutMs: modelCatalogTimeoutMs(), headers: auth.headers });
-      if (!response.ok) {
-        return {
-          status: "degraded",
-          baseUrlHash: stableHash(baseUrl),
-          ...catalogAuthProviderFields(auth.evidence),
-          evidenceRefs: [...evidenceRefs, ...normalizeScopes(auth.evidence?.evidenceRefs, [])],
-          errorHash: stableHash(`http:${response.status}`),
-          results: [],
-        };
-      }
-      const payload = await response.json();
-      const records = Array.isArray(payload) ? payload : Array.isArray(payload?.models) ? payload.models : Array.isArray(payload?.results) ? payload.results : [];
-      const results = records
-        .flatMap((record) => huggingFaceCatalogEntries(record, { baseUrl, searchedAt }))
-        .filter((entry) => {
-          if (format && entry.format !== format) return false;
-          if (quantization && !String(entry.quantization ?? "").toLowerCase().includes(quantization)) return false;
-          return true;
-        })
-        .slice(0, limit);
-      return {
-        status: "available",
-        baseUrlHash: stableHash(baseUrl),
-        ...catalogAuthProviderFields(auth.evidence),
-        evidenceRefs: [...evidenceRefs, "huggingface_catalog_search", ...normalizeScopes(auth.evidence?.evidenceRefs, [])],
-        results: results.map((entry) => catalogEntryWithAuth(entry, auth.evidence)),
-      };
-    } catch (error) {
-      return {
-        status: catalogAuthFailureStatus(error),
-        baseUrlHash: stableHash(baseUrl),
-        evidenceRefs,
-        ...catalogAuthFailureFields(error),
-        errorHash: stableHash(error?.message ?? "catalog search failed"),
-        results: [],
-      };
-    }
+    return searchHuggingFaceCatalogState(this, { query, format, quantization, limit, searchedAt });
   }
 
   async catalogImportUrl(body = {}) {
@@ -1107,146 +912,43 @@ export class ModelMountingState {
   }
 
   bindVaultRef(body = {}) {
-    const vaultRef = requiredString(body.vault_ref ?? body.vaultRef, "vault_ref");
-    const material = requiredString(body.material ?? body.secret ?? body.value, "material");
-    const metadata = this.vault.bindVaultRef({
-      vaultRef,
-      material,
-      purpose: body.purpose ?? "operator_provider_auth_binding",
-      label: body.label ?? null,
-    });
-    this.writeVaultRefs();
-    const receipt = this.receipt("vault_ref_binding", {
-      summary: `Vault material bound for ${metadata.vaultRefHash}.`,
-      redaction: "redacted",
-      evidenceRefs: ["VaultPort.bindVaultRef", metadata.vaultRefHash],
-      details: metadata,
-    });
-    this.writeProjection();
-    return { ...metadata, receiptId: receipt.id };
+    return bindVaultRefState(this, body, { requiredString });
   }
 
   listVaultRefs() {
-    return this.vault.listVaultRefs();
+    return listVaultRefsState(this);
   }
 
   vaultRefMetadata(body = {}) {
-    const vaultRef = requiredString(body.vault_ref ?? body.vaultRef, "vault_ref");
-    return this.vault.vaultRefMetadata(vaultRef);
+    return vaultRefMetadataState(this, body, { requiredString });
   }
 
   vaultStatus() {
-    return this.vault.adapterStatus();
+    return vaultStatusState(this);
   }
 
   vaultHealth() {
-    const health = this.vault.health();
-    const receipt = this.receipt("vault_adapter_health", {
-      summary: `Vault adapter health is ${health.status}.`,
-      redaction: "redacted",
-      evidenceRefs: health.evidenceRefs,
-      details: health,
-    });
-    return { ...health, receiptId: receipt.id };
+    return vaultHealthState(this);
   }
 
   removeVaultRef(body = {}) {
-    const vaultRef = requiredString(body.vault_ref ?? body.vaultRef, "vault_ref");
-    const metadata = this.vault.removeVaultRef(vaultRef, body.purpose ?? "operator_provider_auth_remove");
-    this.writeVaultRefs();
-    const receipt = this.receipt("vault_ref_removal", {
-      summary: `Vault material removed for ${metadata.vaultRefHash}.`,
-      redaction: "redacted",
-      evidenceRefs: ["VaultPort.removeVaultRef", metadata.vaultRefHash],
-      details: metadata,
-    });
-    this.writeProjection();
-    return { ...metadata, receiptId: receipt.id };
+    return removeVaultRefState(this, body, { requiredString });
   }
 
   createToken(body = {}) {
-    const now = this.nowIso();
-    const tokenValue = `ioi_mnt_${crypto.randomBytes(24).toString("base64url")}`;
-    const token = this.walletAuthority.createGrant({
-      id: `grant_${crypto.randomUUID()}`,
-      audience: body.audience ?? "autopilot-local-server",
-      allowed: normalizeScopes(body.allowed, [
-        "model.chat:*",
-        "model.responses:*",
-        "model.embeddings:*",
-        "model.tokenize:*",
-        "model.context:*",
-        "route.use:*",
-      ]),
-      denied: normalizeScopes(body.denied, ["connector.gmail.send", "filesystem.write", "shell.exec"]),
-      expiresAt: body.expires_at ?? body.expiresAt ?? new Date(this.now().getTime() + 24 * 60 * 60 * 1000).toISOString(),
-      revocationEpoch: Number(body.revocation_epoch ?? body.revocationEpoch ?? 0),
-      grantId: body.grant_id ?? body.grantId ?? `wallet.grant.${crypto.randomUUID()}`,
-      vaultRefs: sanitizeVaultRefs(body.vault_refs ?? body.vaultRefs ?? {}),
-      auditReceiptIds: [],
-      tokenHash: hashToken(tokenValue),
-      createdAt: now,
-      lastUsedAt: null,
-      lastUsedScope: null,
-      revokedAt: null,
-      receiptId: null,
-    });
-    const receipt = this.receipt("permission_token", {
-      summary: `Capability token ${token.id} created for ${token.audience}.`,
-      redaction: "redacted",
-      evidenceRefs: ["wallet.network.capability_grant", token.grantId],
-      details: publicToken(token),
-    });
-    const stored = { ...token, receiptId: receipt.id };
-    this.tokens.set(stored.id, stored);
-    this.writeMap("tokens", this.tokens);
-    return { ...publicToken(stored), token: tokenValue };
+    return createTokenState(this, body);
   }
 
   listTokens() {
-    return [...this.tokens.values()]
-      .map(publicToken)
-      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    return listTokensState(this);
   }
 
   revokeToken(tokenId) {
-    const token = this.tokens.get(tokenId);
-    if (!token) throw notFound(`Token not found: ${tokenId}`, { tokenId });
-    const revoked = this.walletAuthority.revokeGrant(token);
-    this.tokens.set(tokenId, revoked);
-    this.writeMap("tokens", this.tokens);
-    this.receipt("permission_token_revocation", {
-      summary: `Capability token ${tokenId} revoked.`,
-      redaction: "redacted",
-      evidenceRefs: ["wallet.network.revocation", token.grantId],
-      details: publicToken(revoked),
-    });
-    return publicToken(revoked);
+    return revokeTokenState(this, tokenId);
   }
 
   authorize(authorization, requiredScope) {
-    if (!authorization || !authorization.startsWith("Bearer ")) {
-      throw runtimeError({
-        status: 401,
-        code: "auth",
-        message: "Bearer capability token is required for this model mounting operation.",
-        details: { requiredScope },
-      });
-    }
-    const tokenHash = hashToken(authorization.slice("Bearer ".length).trim());
-    const token = [...this.tokens.values()].find((candidate) => candidate.tokenHash === tokenHash);
-    if (!token) {
-      throw runtimeError({
-        status: 401,
-        code: "auth",
-        message: "Capability token was not recognized.",
-        details: { requiredScope },
-      });
-    }
-    const authorized = this.walletAuthority.authorizeScope(token, requiredScope);
-    this.tokens.set(authorized.id, authorized);
-    this.writeMap("tokens", this.tokens);
-    return authorized;
+    return authorizeState(this, authorization, requiredScope);
   }
 
   upsertProvider(body = {}) {
@@ -1298,22 +1000,18 @@ export class ModelMountingState {
   }
 
   upsertRoute(body = {}) {
-    const route = upsertRouteRecord(body, { normalizeScopes, safeId });
-    this.routes.set(route.id, route);
-    this.writeMap("model-routes", this.routes);
-    return route;
+    return upsertRouteState(this, body, { normalizeScopes, safeId });
   }
 
   routeSelectionReceipt(selection, { body = {}, capability = "chat", responseId = null, previousResponseId = null, evidenceRefs = [] } = {}) {
-    return routeSelectionReceiptRule({
+    return routeSelectionReceiptForState(this, selection, {
       body,
       capability,
       evidenceRefs,
       previousResponseId,
-      receipt: (kind, payload) => this.receipt(kind, payload),
       responseId,
+    }, {
       routeDecision,
-      selection,
       stableHash,
     });
   }
@@ -1487,37 +1185,23 @@ export class ModelMountingState {
   }
 
   listReceipts() {
-    return this.store.listReceipts();
+    return listReceiptsState(this);
   }
 
   getReceipt(receiptId) {
-    return this.store.getReceipt(receiptId);
+    return getReceiptState(this, receiptId);
   }
 
   lifecycleReceipt(operation, details) {
-    return this.receipt("model_lifecycle", {
-      summary: `${operation} recorded for ${details.modelId ?? details.endpointId ?? "model registry"}.`,
-      redaction: "redacted",
-      evidenceRefs: ["model_registry", "agentgres_canonical_operation_log", operation],
-      details: { operation, ...details },
-    });
+    return lifecycleReceiptState(this, operation, details);
   }
 
   receipt(kind, { summary, redaction, evidenceRefs, details }) {
-    const receipt = {
-      id: `receipt_${kind}_${crypto.randomUUID()}`,
-      runId: null,
-      kind,
-      summary,
-      redaction,
-      evidenceRefs,
-      createdAt: this.nowIso(),
-      details: redact(details),
+    return receiptState(this, kind, { summary, redaction, evidenceRefs, details }, {
+      randomUUID: () => crypto.randomUUID(),
+      redact,
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-    };
-    this.store.writeReceipt(receipt);
-    this.writeProjection();
-    return receipt;
+    });
   }
 
   provider(providerId) {
@@ -1541,28 +1225,13 @@ export class ModelMountingState {
   }
 
   endpointIdsForExplicitModel(route, modelId) {
-    return endpointIdsForExplicitModelRule({
-      endpoints: this.endpoints,
-      modelId,
-      mountEndpoint: (body) => this.mountEndpoint(body),
-      normalizeScopes,
-      route,
-    });
+    return endpointIdsForExplicitModelForState(this, route, modelId, { normalizeScopes });
   }
 
   selectRoute({ modelId, routeId, capability, policy }) {
-    return selectRouteRule({
-      capability,
-      endpoint: (endpointId) => this.endpoint(endpointId),
-      endpointIdsForExplicitModel: (route, explicitModelId) => this.endpointIdsForExplicitModel(route, explicitModelId),
+    return selectRouteForState(this, { modelId, routeId, capability, policy }, {
       isAutoModelSelector: routeDecision.isAutoModelSelector,
       isFixtureEndpointCandidate,
-      modelId,
-      policy,
-      provider: (providerId) => this.provider(providerId),
-      route: (id) => this.route(id),
-      routeId,
-      routes: this.routes,
       runtimeError,
       truthy,
     });

@@ -1,0 +1,409 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { createRuntimeDiagnosticsRepairSurface } from "./runtime-diagnostics-repair-surface.mjs";
+
+function runtimeError({ status, code, message, details }) {
+  const error = new Error(message);
+  error.status = status;
+  error.code = code;
+  error.details = details;
+  return error;
+}
+
+function createSurface() {
+  return createRuntimeDiagnosticsRepairSurface({
+    diagnosticsOperatorOverrideApprovalForRequest(request = {}) {
+      const required = request.operatorOverrideRequiresApproval !== false;
+      const satisfied = !required || request.confirm === true || request.operatorOverrideApproved === true;
+      return {
+        required,
+        satisfied,
+        source: required ? (satisfied ? "boolean_confirmation" : "missing") : "workflow_policy",
+      };
+    },
+    diagnosticsOperatorOverrideApprovalKey(approval = {}) {
+      if (!approval.required) return "approval_not_required";
+      return approval.satisfied ? `approval_${approval.source}` : "approval_required";
+    },
+    diagnosticsOperatorOverrideResultFromEvent({ threadId, event, turn = null } = {}) {
+      const payload = event?.payload_summary ?? {};
+      return {
+        threadId,
+        thread_id: threadId,
+        status: event?.status ?? "completed",
+        approvalRequired: Boolean(payload.approval_required),
+        approval_required: Boolean(payload.approval_required),
+        approvalSatisfied: Boolean(payload.approval_satisfied),
+        approval_satisfied: Boolean(payload.approval_satisfied),
+        continuationAllowed: Boolean(payload.continuation_allowed),
+        continuation_allowed: Boolean(payload.continuation_allowed),
+        turn,
+        event,
+      };
+    },
+    diagnosticsRepairApplyApprovalKey: () => "approval-key",
+    diagnosticsRepairExecutionStatus: (result) => result.status ?? "completed",
+    diagnosticsRepairRetryFeedback: () => ({
+      mode: "repair_retry",
+      diagnosticStatus: "failed",
+      diagnosticCount: 2,
+      rollbackRefs: ["snapshot_feedback"],
+    }),
+    diagnosticsRepairRetryResultFromEvent({ threadId, event, turn = null, run = null } = {}) {
+      return {
+        threadId,
+        thread_id: threadId,
+        status: event?.status ?? "completed",
+        turnId: turn?.turn_id ?? null,
+        turn_id: turn?.turn_id ?? null,
+        requestId: turn?.request_id ?? run?.id ?? null,
+        request_id: turn?.request_id ?? run?.id ?? null,
+        repairTurn: turn,
+        repair_turn: turn,
+        event,
+        run,
+      };
+    },
+    runtimeError,
+  });
+}
+
+function createStore({ action = "restore_apply", status = "available", snapshotRefs = ["snapshot_alpha"] } = {}) {
+  const calls = [];
+  const gateEvent = {
+    event_id: "event_gate",
+    workflow_graph_id: "graph_gate",
+    payload_summary: { workspace_snapshot_refs: snapshotRefs },
+  };
+  const decision = {
+    decisionId: "decision_alpha",
+    action,
+    status,
+    workspaceSnapshotRefs: snapshotRefs,
+    restoreConflictPolicy: "allow_override",
+  };
+  const repairPolicy = {
+    policyId: "policy_alpha",
+    workspaceSnapshotRefs: snapshotRefs,
+    restoreConflictPolicy: "clean_preview_only",
+  };
+  return {
+    calls,
+    agentForThread(threadId) {
+      calls.push({ name: "agentForThread", threadId });
+      return { id: "agent_alpha" };
+    },
+    resolveDiagnosticsRepairDecision(threadId, target, request) {
+      calls.push({ name: "resolve", threadId, target, request });
+      return { gateEvent, decision, repairPolicy };
+    },
+    applyWorkspaceSnapshotRestore(threadId, snapshotId, request) {
+      calls.push({ name: "apply", threadId, snapshotId, request });
+      return { status: "completed", event: { event_id: "event_apply" } };
+    },
+    previewWorkspaceSnapshotRestore(threadId, snapshotId, request) {
+      calls.push({ name: "preview", threadId, snapshotId, request });
+      return { status: "completed", event: { event_id: "event_preview" } };
+    },
+    createDiagnosticsRepairRetryTurn(threadId, input) {
+      calls.push({ name: "retry", threadId, input });
+      return { status: "completed", repairTurn: { turn_id: "turn_repair" }, event: { event_id: "event_retry" } };
+    },
+    executeDiagnosticsOperatorOverride(threadId, input) {
+      calls.push({ name: "override", threadId, input });
+      return { status: "completed", event: { event_id: "event_override" } };
+    },
+    appendDiagnosticsRepairDecisionExecutedEvent(input) {
+      calls.push({ name: "append", input });
+      return {
+        event_id: "event_executed",
+        receipt_refs: ["receipt_executed"],
+        artifact_refs: ["artifact_executed"],
+        policy_decision_refs: ["policy_executed"],
+        rollback_refs: ["snapshot_alpha"],
+      };
+    },
+  };
+}
+
+test("diagnostics repair surface routes restore apply with stable request aliases", () => {
+  const surface = createSurface();
+  const store = createStore();
+
+  const result = surface.executeDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", {
+    confirm: true,
+    allowConflicts: true,
+  });
+
+  assert.equal(result.action, "restore_apply");
+  assert.equal(result.status, "completed");
+  assert.deepEqual(result.receiptRefs, ["receipt_executed"]);
+  const apply = store.calls.find((call) => call.name === "apply");
+  assert.equal(apply.snapshotId, "snapshot_alpha");
+  assert.equal(apply.request.workflow_node_id, "runtime.lsp-diagnostics.repair.restore-apply");
+  assert.equal(apply.request.idempotency_key, "thread:thread_alpha:diagnostics-repair-apply:decision_alpha:snapshot_alpha:approval-key");
+  assert.equal(apply.request.restoreConflictPolicy, "allow_override");
+  assert.equal(apply.request.restore_conflict_policy, "allow_override");
+});
+
+test("diagnostics repair surface routes retry, override, and preview actions", () => {
+  for (const [action, expectedCall] of [
+    ["repair_retry", "retry"],
+    ["operator_override", "override"],
+    ["restore_preview", "preview"],
+  ]) {
+    const surface = createSurface();
+    const store = createStore({ action });
+    const result = surface.executeDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", {});
+    assert.equal(result.action, action);
+    assert.ok(store.calls.some((call) => call.name === expectedCall));
+  }
+});
+
+test("diagnostics repair surface fails closed for invalid or unavailable decisions", () => {
+  const surface = createSurface();
+
+  assert.throws(
+    () => surface.executeDiagnosticsRepairDecision(createStore(), "thread_alpha", "", {}),
+    (error) => error.status === 400 && error.code === "diagnostics_repair_decision_required",
+  );
+  assert.throws(
+    () => surface.executeDiagnosticsRepairDecision(createStore({ action: "delete_everything" }), "thread_alpha", "decision_alpha", {}),
+    (error) => error.status === 409 && error.code === "diagnostics_repair_decision_action_unimplemented",
+  );
+  assert.throws(
+    () => surface.executeDiagnosticsRepairDecision(createStore({ status: "used" }), "thread_alpha", "decision_alpha", {}),
+    (error) => error.status === 409 && error.code === "diagnostics_repair_decision_unavailable",
+  );
+  assert.throws(
+    () =>
+      surface.executeDiagnosticsRepairDecision(
+        createStore({ action: "restore_preview", snapshotRefs: [] }),
+        "thread_alpha",
+        "decision_alpha",
+        {},
+      ),
+    (error) => error.status === 409 && error.code === "diagnostics_repair_snapshot_required",
+  );
+});
+
+test("diagnostics repair surface executes operator override and updates the blocked turn", () => {
+  const surface = createSurface();
+  const events = [];
+  const idempotency = new Map();
+  const run = {
+    id: "run_blocked",
+    agentId: "agent_alpha",
+    status: "blocked",
+    turnStatus: "waiting_for_input",
+    diagnosticsBlockingGate: { status: "blocked" },
+    trace: { stopCondition: { reason: "lsp_diagnostics_blocked" } },
+    operatorControls: [],
+  };
+  const store = {
+    runs: new Map([[run.id, run]]),
+    writes: [],
+    agentForThread() {
+      return { id: "agent_alpha", cwd: "/tmp/workspace" };
+    },
+    runtimeEventStream() {
+      return { idempotency };
+    },
+    getRun(runId) {
+      return this.runs.get(runId);
+    },
+    writeRun(updated, reason) {
+      this.writes.push({ updated, reason });
+    },
+    turnForRun(updated) {
+      return { turn_id: "turn_blocked", status: updated.status };
+    },
+    appendDiagnosticsOperatorOverrideEvent(input) {
+      return surface.appendDiagnosticsOperatorOverrideEvent(this, input);
+    },
+    appendRuntimeEvent(event) {
+      const stored = {
+        ...event,
+        event_id: `event_${events.length + 1}`,
+        seq: events.length + 1,
+        created_at: "2026-06-04T14:00:00.000Z",
+      };
+      events.push(stored);
+      idempotency.set(event.idempotency_key, stored);
+      return stored;
+    },
+  };
+
+  const result = surface.executeDiagnosticsOperatorOverride(store, "thread_alpha", {
+    request: { confirm: true, source: "runtime_auto" },
+    gateEvent: {
+      event_id: "event_gate",
+      turn_id: "turn_blocked",
+      workspace_root: "/tmp/workspace",
+      payload_summary: { turn_id: "turn_blocked", gate_id: "gate_alpha" },
+    },
+    decision: { decision_id: "decision_override" },
+    repairPolicy: { policy_id: "policy_alpha" },
+    snapshotId: "snapshot_alpha",
+    workflowGraphId: "graph_alpha",
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(result.continuationAllowed, true);
+  assert.equal(store.runs.get("run_blocked").diagnosticsBlockingGate.status, "overridden");
+  assert.equal(store.writes[0].reason, "diagnostics.operator_override.event");
+  assert.equal(events[0].event_stream_id, "thread_alpha:events");
+  assert.equal(events[0].payload_summary.approval_satisfied, true);
+  assert.equal(events[0].payload_summary.continuation_allowed, true);
+});
+
+test("diagnostics repair surface creates retry turns with injected diagnostics feedback", () => {
+  const surface = createSurface();
+  const events = [];
+  const idempotency = new Map();
+  const createRunCalls = [];
+  const store = {
+    agentForThread() {
+      return { id: "agent_alpha", cwd: "/tmp/workspace" };
+    },
+    runtimeEventStream() {
+      return { idempotency };
+    },
+    createRun(agentId, request) {
+      createRunCalls.push({ agentId, request });
+      return { id: "run_repair", artifacts: [{ id: "artifact_alpha" }] };
+    },
+    turnForRun() {
+      return { turn_id: "turn_repair", request_id: "request_repair", status: "queued" };
+    },
+    appendDiagnosticsRepairRetryTurnEvent(input) {
+      return surface.appendDiagnosticsRepairRetryTurnEvent(this, input);
+    },
+    appendRuntimeEvent(event) {
+      const stored = {
+        ...event,
+        event_id: `event_${events.length + 1}`,
+        seq: events.length + 1,
+        created_at: "2026-06-04T14:00:00.000Z",
+      };
+      events.push(stored);
+      idempotency.set(event.idempotency_key, stored);
+      return stored;
+    },
+  };
+
+  const result = surface.createDiagnosticsRepairRetryTurn(store, "thread_alpha", {
+    request: { message: "Try the fix again" },
+    gateEvent: {
+      event_id: "event_gate",
+      workspace_root: "/tmp/workspace",
+      payload_summary: { gate_id: "gate_alpha" },
+    },
+    decision: { decision_id: "decision_retry" },
+    repairPolicy: { policy_id: "policy_alpha" },
+    snapshotId: "snapshot_alpha",
+    workflowGraphId: "graph_alpha",
+  });
+
+  assert.equal(result.turnId, "turn_repair");
+  assert.equal(createRunCalls[0].agentId, "agent_alpha");
+  assert.equal(createRunCalls[0].request.prompt, "Try the fix again");
+  assert.equal(createRunCalls[0].request.options.diagnosticsMode, "skip");
+  assert.equal(createRunCalls[0].request.diagnosticsFeedback.mode, "repair_retry");
+  assert.equal(events[0].payload_summary.retry_turn_id, "turn_repair");
+  assert.deepEqual(events[0].artifact_refs, ["artifact_alpha"]);
+});
+
+test("diagnostics repair surface resolves decisions from the latest matching gate event", () => {
+  const surface = createSurface();
+  const store = {
+    projected: false,
+    agentForThread() {
+      return { id: "agent_alpha" };
+    },
+    projectThreadEvents() {
+      this.projected = true;
+    },
+    runtimeEventsForStream() {
+      return [
+        {
+          seq: 1,
+          event_kind: "policy.blocked",
+          component_kind: "lsp_diagnostics_gate",
+          payload_summary: {
+            gate_id: "gate_alpha",
+            repair_policy: {
+              policy_id: "policy_old",
+              decisions: [{ decision_id: "decision_old", action: "repair_retry" }],
+            },
+          },
+        },
+        {
+          seq: 2,
+          event_kind: "policy.blocked",
+          component_kind: "lsp_diagnostics_gate",
+          payload_summary: {
+            gate_id: "gate_alpha",
+            repair_policy: {
+              policy_id: "policy_new",
+              decisions: [{ decision_id: "decision_preview", action: "restore_preview" }],
+            },
+          },
+        },
+      ];
+    },
+  };
+
+  const result = surface.resolveDiagnosticsRepairDecision(store, "thread_alpha", "restore_preview", {
+    gateId: "gate_alpha",
+  });
+
+  assert.equal(store.projected, true);
+  assert.equal(result.repairPolicy.policy_id, "policy_new");
+  assert.equal(result.decision.decision_id, "decision_preview");
+});
+
+test("diagnostics repair surface appends final execution events with action aliases", () => {
+  const surface = createSurface();
+  const events = [];
+  const store = {
+    appendRuntimeEvent(event) {
+      const stored = {
+        ...event,
+        event_id: `event_${events.length + 1}`,
+        seq: events.length + 1,
+        created_at: "2026-06-04T14:00:00.000Z",
+      };
+      events.push(stored);
+      return stored;
+    },
+  };
+
+  const event = surface.appendDiagnosticsRepairDecisionExecutedEvent(store, {
+    threadId: "thread_alpha",
+    request: { confirm: true },
+    gateEvent: { event_id: "event_gate", turn_id: "turn_blocked", payload_summary: { gate_id: "gate_alpha" } },
+    decision: { decision_id: "decision_override" },
+    repairPolicy: { policy_id: "policy_alpha" },
+    action: "operator_override",
+    snapshotId: "snapshot_alpha",
+    workflowGraphId: "graph_alpha",
+    workflowNodeId: "runtime.lsp-diagnostics.operator-override",
+    executionResult: {
+      status: "completed",
+      event: { event_id: "event_override" },
+      approval_required: true,
+      approval_satisfied: true,
+      continuation_allowed: true,
+      policy_decision_refs: ["policy_override"],
+      rollback_refs: ["snapshot_alpha"],
+    },
+  });
+
+  assert.equal(event.event_stream_id, "thread_alpha:events");
+  assert.equal(event.workflow_node_id, "runtime.lsp-diagnostics.operator-override.decision");
+  assert.equal(event.payload_summary.operator_override_event_id, "event_override");
+  assert.equal(event.payload_summary.operator_override_approval_satisfied, true);
+  assert.deepEqual(event.payload_summary.rollback_refs, ["snapshot_alpha"]);
+});

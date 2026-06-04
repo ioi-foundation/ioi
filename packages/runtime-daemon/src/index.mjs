@@ -17,7 +17,6 @@ import {
 import { computerUseProviderRegistryReport } from "./computer-use-provider-registry.mjs";
 import {
   computerUseControlActionForInput,
-  firstOptionalString,
   nativeBrowserActionKindForInput,
   nativeBrowserActionKindFromText,
   nativeBrowserActionKindIsReadOnly,
@@ -31,9 +30,7 @@ import {
   nativeBrowserHasExplicitCdpEndpoint,
   nativeBrowserSessionModeForInput,
   sandboxedHostedSessionModeForInput,
-  snakeCaseKey,
   visualGuiFiniteNumber,
-  visualGuiMediaTypeForPath,
   visualGuiObservationMetadataForInput,
   visualGuiSessionModeForInput,
 } from "./computer-use-inputs.mjs";
@@ -50,15 +47,9 @@ import { launchControlledNativeBrowser } from "./native-browser-controlled-relau
 import { executeNativeBrowserCdpAction } from "./native-browser-cdp-executor.mjs";
 import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
 import {
-  CODING_TOOL_IDS,
   CODING_TOOL_PACK_ID,
   CODING_TOOL_RESULT_SCHEMA_VERSION,
-  codingToolContracts,
-  codingToolInputForRequest,
   codingToolInputSummary,
-  codingToolResultSummary,
-  codingToolSourceEventKind,
-  codingToolSummary,
   executeCodingTool,
 } from "./coding-tools.mjs";
 import {
@@ -82,65 +73,13 @@ import {
 } from "./runtime-identifiers.mjs";
 import {
   boundedPositiveInteger,
-  mcpCatalogExposureForStatus,
-  mcpCatalogFullRequested,
-  mcpCatalogPreviewLimit,
-  mcpCatalogSummaryForServer,
-  mcpConfigSourceModeForRequest,
-  mcpJsonRpcError,
-  mcpJsonRpcErrorCodeFor,
-  mcpJsonRpcResult,
-  mcpLiveExecutionModeForServer,
-  mcpPromptKey,
-  mcpRegistryWithServers,
-  mcpResourceKey,
-  mcpServeAllowedToolIds,
-  mcpServeToolCallResult,
-  mcpServeToolDescriptor,
-  mcpServeToolIdForName,
-  mcpServerMatchesConfigSourceMode,
-  mcpServerRecordFromAddRequest,
-  mcpServerRecordsFromMutationInput,
-  mcpToolIdentityMatches,
-  mcpToolKey,
-  mcpToolMatchesQuery,
   mcpToolNamespaces,
-  mcpToolSearchLimit,
-  mcpTransportEvidenceRef,
-  mcpTransportSummary,
-  resolveMcpServerRecord,
-  resolveMcpToolRecord,
 } from "./runtime-mcp-helpers.mjs";
-import {
-  WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
-  WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
-  parseJsonObject,
-  workspaceRestoreApplyOperations,
-  workspaceRestoreOperationCounts,
-  workspaceRestorePreviewOperation,
-  workspaceSnapshotContentDraftsByPath,
-  workspaceSnapshotFileForPatch,
-} from "./workspace-restore.mjs";
 import {
   redactRuntimeNodeForDoctor,
   runtimeToolRegistryGovernanceMetadata,
 } from "./runtime-tool-catalog.mjs";
-import {
-  RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
-  RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-  RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
-  discoverMcpHttpCatalog,
-  discoverMcpStdioCatalog,
-  invokeMcpHttpTool,
-  invokeMcpStdioTool,
-  mcpRegistryForWorkspace,
-  mcpPromptsForServers,
-  mcpResourcesForServers,
-  mcpServerRecordsFromValidationInput,
-  mcpToolsForServers,
-  normalizeMcpServerRecord,
-  validateMcpServerRecords,
-} from "./mcp-manager.mjs";
+import { mcpRegistryForWorkspace } from "./mcp-manager.mjs";
 import {
   RUNTIME_MEMORY_MANAGER_MUTATION_SCHEMA_VERSION,
   RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION,
@@ -150,21 +89,7 @@ import {
   validateMemoryProjection,
 } from "./memory-manager.mjs";
 import {
-  RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
-  normalizeSubagentOutputContract,
-  normalizeSubagentRole,
   optionalPositiveInteger,
-  subagentBudgetStatusForRun,
-  subagentBudgetForRequest,
-  subagentBudgetUsageTelemetryForRequest,
-  subagentCancellationPropagates,
-  subagentContractOutputForRun,
-  subagentIsActive,
-  subagentManagerEventPayload,
-  subagentOperatorControlKind,
-  subagentResultForRun,
-  subagentRuntimeEventKind,
-  validateSubagentOutputContract,
 } from "./subagent-manager.mjs";
 import {
   RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
@@ -187,11 +112,12 @@ import { createRuntimeRecordProjections } from "./runtime-record-projections.mjs
 import { createRuntimeApprovalLease } from "./runtime-approval-lease.mjs";
 import { artifact, createRunArtifactResolver } from "./runtime-artifacts.mjs";
 import { createCodingToolApprovalPolicy } from "./runtime-coding-tool-approval.mjs";
-import { createCodingToolBudgetRecovery } from "./runtime-coding-tool-budget-recovery.mjs";
 import { createRuntimeInvocationResultProjections } from "./runtime-invocation-results.mjs";
 import { createDiagnosticsRepairExecutionHelpers } from "./diagnostics-repair-execution.mjs";
 import { createDiagnosticsFeedbackHelpers } from "./diagnostics-feedback.mjs";
+import { createRuntimeDiagnosticsFeedbackSurface } from "./runtime-diagnostics-feedback-surface.mjs";
 import { createDiagnosticsRepairPolicyHelpers } from "./diagnostics-repair-policy.mjs";
+import { createRuntimeDiagnosticsRepairSurface } from "./runtime-diagnostics-repair-surface.mjs";
 import { createRuntimeUsageEventHelpers } from "./runtime-usage-events.mjs";
 import { createRuntimeMemoryHelpers } from "./runtime-memory-helpers.mjs";
 import { cancelRun as cancelRunState } from "./runtime-run-cancellation.mjs";
@@ -201,10 +127,25 @@ import { createRuntimeEventEnvelopeHelpers } from "./runtime-event-envelopes.mjs
 import { createRuntimeEventPayloadHelpers } from "./runtime-event-payloads.mjs";
 import { createRuntimeCodingToolResultHelpers } from "./runtime-coding-tool-results.mjs";
 import { createRuntimeDoctorReport } from "./runtime-doctor-report.mjs";
+import { createRuntimeCodingToolArtifactSurface } from "./runtime-coding-tool-artifact-surface.mjs";
+import { createRuntimeCodingToolInvocationSurface } from "./runtime-coding-tool-invocation-surface.mjs";
+import { createRuntimeWorkspaceSnapshotSurface } from "./runtime-workspace-snapshot-surface.mjs";
+import { createRuntimeCodingToolGovernanceSurface } from "./runtime-coding-tool-governance-surface.mjs";
+import { createRuntimeCodingToolBudgetRecoverySurface } from "./runtime-coding-tool-budget-recovery-surface.mjs";
+import { createRuntimeConversationArtifactSurface } from "./runtime-conversation-artifact-surface.mjs";
+import { createRuntimeContextPolicySurface } from "./runtime-context-policy-surface.mjs";
+import { createRuntimeWorkflowEditSurface } from "./runtime-workflow-edit-surface.mjs";
+import { createRuntimeApprovalSurface } from "./runtime-approval-surface.mjs";
+import { createRuntimeMcpCatalogSurface } from "./runtime-mcp-catalog-surface.mjs";
+import { createRuntimeMcpControlSurface } from "./runtime-mcp-control-surface.mjs";
+import { createRuntimeMcpServeSurface } from "./runtime-mcp-serve-surface.mjs";
 import { createRuntimeRunReadSurface } from "./runtime-run-read-surface.mjs";
 import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
 import { createRuntimeTaskJobSurface } from "./runtime-task-job-surface.mjs";
+import { createRuntimeThreadControlSurface } from "./runtime-thread-control-surface.mjs";
+import { createRuntimeThreadEventSurface } from "./runtime-thread-event-surface.mjs";
 import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
+import { createRuntimeSubagentSurface } from "./runtime-subagent-surface.mjs";
 import {
   appendOperatorControl,
   booleanValue,
@@ -215,7 +156,6 @@ import {
   objectRecord,
   operatorControlSource,
   optionalString,
-  relativePathForWorkspace,
   safeId,
   uniqueStrings,
 } from "./runtime-value-helpers.mjs";
@@ -236,7 +176,6 @@ import {
   githubContextForRepository,
   gitOutput,
   repositoryContextForWorkspace,
-  workspaceTrustWarningRecordForMode,
 } from "./repository-context.mjs";
 import { createRepositoryWorkflowProjections } from "./repository-workflow-projections.mjs";
 import {
@@ -248,23 +187,7 @@ import {
   requestWithThreadRuntimeControls,
   runModeForThreadMode,
   threadModeForRunMode,
-  threadRuntimeControlKind,
-  threadRuntimeControlModelInput,
 } from "./threads/thread-runtime-controls.mjs";
-import {
-  appendRuntimeEvent as appendRuntimeEventState,
-  assertRuntimeCursorSeq as assertRuntimeCursorSeqState,
-  ensureThreadStartedEvent as ensureThreadStartedEventState,
-  latestRuntimeEventSeq as latestRuntimeEventSeqState,
-  projectRunEvents as projectRunEventsState,
-  projectThreadEvents as projectThreadEventsState,
-  registerRuntimeEvent as registerRuntimeEventState,
-  runtimeCursorSeq as runtimeCursorSeqState,
-  runtimeEventsForStream as runtimeEventsForStreamState,
-  runtimeEventsForTurn as runtimeEventsForTurnState,
-  runtimeEventStream as runtimeEventStreamState,
-  runtimeEventStreamPath as runtimeEventStreamPathState,
-} from "./threads/thread-replay.mjs";
 import {
   appendOperationRecord,
   ensureStateDirs,
@@ -311,12 +234,8 @@ import { createThreadTurnProjection } from "./threads/thread-turn-projection.mjs
 import {
   codingToolBudgetPolicyForRequest,
   contextBudgetNumber,
-  contextBudgetUsageTelemetryFromRequest,
-  evaluateCompactionPolicyDecision,
-  evaluateContextBudgetPolicy,
 } from "./threads/context-budget-policy.mjs";
 import { createThreadMemoryState } from "./threads/thread-memory-state.mjs";
-import { createWorkspaceTrustState } from "./threads/workspace-trust-state.mjs";
 import {
   handleOpenAiCompatibilityRoute,
   isOpenAiCompatibilityRoute,
@@ -363,43 +282,17 @@ import {
   RUNTIME_THREAD_SCHEMA_VERSION,
   RUNTIME_TURN_SCHEMA_VERSION,
   RUNTIME_EVENT_ENVELOPE_SCHEMA_VERSION,
-  RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
-  RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION,
-  RUNTIME_MODEL_ROUTE_CONTROL_SCHEMA_VERSION,
-  WORKSPACE_TRUST_WARNING_SCHEMA_VERSION,
-  WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION,
-  WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
-  WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
-  WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
   CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
   COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES,
-  RUNTIME_MCP_SERVE_SCHEMA_VERSION,
-  RUNTIME_MCP_SERVE_PROTOCOL_VERSION,
-  RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS,
-  RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION,
   RUNTIME_USAGE_DELTA_SCHEMA_VERSION,
   RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION,
   RUNTIME_CONTEXT_PRESSURE_ALERT_SCHEMA_VERSION,
-  RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
-  RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
-  MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT,
-  MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT,
-  WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
-  WORKSPACE_SNAPSHOT_NODE_ID,
-  WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION,
-  WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION,
-  WORKSPACE_RESTORE_PREVIEW_NODE_ID,
   LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION,
   LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION,
-  DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION,
-  DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
-  LSP_DIAGNOSTICS_AUTO_NODE_ID,
   LSP_DIAGNOSTICS_INJECTION_NODE_ID,
   LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID,
   LSP_DIAGNOSTICS_REPAIR_RETRY_NODE_ID,
   LSP_DIAGNOSTICS_OPERATOR_OVERRIDE_NODE_ID,
-  LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID,
-  LSP_DIAGNOSTICS_REPAIR_RESTORE_APPLY_NODE_ID,
   LSP_DIAGNOSTICS_MAX_INJECTED_FINDINGS,
   LSP_DIAGNOSTICS_MAX_INJECTED_MESSAGE_CHARS,
   DAEMON_FIXTURE_PROFILE,
@@ -500,18 +393,6 @@ const threadMemoryState = createThreadMemoryState({
   threadIdForAgent,
   validateMemoryProjection,
 });
-const workspaceTrustState = createWorkspaceTrustState({
-  eventStreamIdForThread,
-  fixtureProfileForAgent,
-  optionalString,
-  operatorControlSource,
-  runtimeError,
-  runtimeSessionIdForAgent,
-  safeId,
-  workspaceTrustAcknowledgementSchemaVersion: WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION,
-  workspaceTrustWarningRecordForMode,
-  workspaceTrustWarningSchemaVersion: WORKSPACE_TRUST_WARNING_SCHEMA_VERSION,
-});
 const threadForkState = createThreadForkState({
   eventStreamIdForThread,
   fixtureProfileForAgent,
@@ -585,22 +466,6 @@ const {
   normalizeThreadInteractionMode,
   normalizedAgentRuntimeControls,
   optionalString,
-  uniqueStrings,
-});
-const {
-  codingToolBudgetRecoveryAction,
-  codingToolBudgetRecoveryPolicyFromInputs,
-  codingToolBudgetRecoveryResult,
-  codingToolBudgetRecoveryTargetNodeIds,
-  isCodingToolBudgetBlockedRuntimeEvent,
-  recoveryPolicyRetryLimit,
-} = createCodingToolBudgetRecovery({
-  WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
-  WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
-  WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
-  normalizeArray,
-  optionalString,
-  runtimeError,
   uniqueStrings,
 });
 const {
@@ -734,10 +599,6 @@ const {
 });
 
 const {
-  codingToolArtifactMetadata,
-  codingToolArtifactReadResult,
-  codingToolCommandStreamChunks,
-  codingToolCommandStreamRequested,
   codingToolResultWithoutDrafts,
   terminalCount,
 } = createRuntimeCodingToolResultHelpers({
@@ -875,6 +736,77 @@ export class AgentgresRuntimeStateStore {
       processEnv: process.env,
       redactRuntimeNodeForDoctor,
     });
+    this.conversationArtifactSurface = createRuntimeConversationArtifactSurface({ notFound });
+    this.approvalSurface = createRuntimeApprovalSurface({
+      approvalDecisionForRequest,
+      approvalLeaseMetadataForRequest,
+      approvalLeaseMetadataFromPayload,
+      notFound,
+      runtimeError,
+    });
+    this.codingToolBudgetRecoverySurface = createRuntimeCodingToolBudgetRecoverySurface({
+      approvalReasonForDecisionEvent,
+      notFound,
+      runtimeError,
+    });
+    this.codingToolArtifactSurface = createRuntimeCodingToolArtifactSurface({
+      notFound,
+      policyError,
+      runtimeError,
+      writeJson,
+    });
+    this.codingToolInvocationSurface = createRuntimeCodingToolInvocationSurface({
+      codingToolApprovalManifestForThread,
+      codingToolBudgetPolicyForRequest,
+      codingToolInvocationResultFromEvent,
+      codingToolResultWithoutDrafts,
+      diagnosticsRepairContextForRequest,
+      diagnosticsRepairContextForToolPack,
+      executeCodingTool,
+    });
+    this.workspaceSnapshotSurface = createRuntimeWorkspaceSnapshotSurface({
+      notFound,
+      runtimeError,
+      writeJson,
+      workspaceRestoreApplyAllowsConflicts,
+      workspaceRestoreApplyApprovalForRequest,
+      workspaceRestoreApplyBlockedReason,
+      workspaceRestoreApplyPolicyDecisionRefs,
+      workspaceRestoreApplyStatus,
+      workspaceRestoreApplySummary,
+    });
+    this.diagnosticsFeedbackSurface = createRuntimeDiagnosticsFeedbackSurface({
+      compactDiagnosticsFeedback,
+      diagnosticsRepairPolicyConfig,
+      normalizeDiagnosticsMode,
+      postEditDiagnosticsConfig,
+    });
+    this.diagnosticsRepairSurface = createRuntimeDiagnosticsRepairSurface({
+      diagnosticsOperatorOverrideApprovalForRequest,
+      diagnosticsOperatorOverrideApprovalKey,
+      diagnosticsOperatorOverrideResultFromEvent,
+      diagnosticsRepairApplyApprovalKey,
+      diagnosticsRepairExecutionStatus,
+      diagnosticsRepairRetryFeedback,
+      diagnosticsRepairRetryResultFromEvent,
+      runtimeError,
+    });
+    this.codingToolGovernanceSurface = createRuntimeCodingToolGovernanceSurface({
+      approvalLeaseStateForDecision,
+      approvalReasonForDecisionEvent,
+      codingToolApprovalManifestsMatch,
+    });
+    this.contextPolicySurface = createRuntimeContextPolicySurface({ runtimeError });
+    this.workflowEditSurface = createRuntimeWorkflowEditSurface({
+      approvalReasonForDecisionEvent,
+      notFound,
+      policyError,
+      runtimeError,
+      writeJson,
+    });
+    this.mcpCatalogSurface = createRuntimeMcpCatalogSurface();
+    this.mcpControlSurface = createRuntimeMcpControlSurface();
+    this.mcpServeSurface = createRuntimeMcpServeSurface();
     this.repositorySurface = createRuntimeRepositorySurface();
     this.runReadSurface = createRuntimeRunReadSurface({
       authorityEvidenceSummaryForEvents,
@@ -897,6 +829,8 @@ export class AgentgresRuntimeStateStore {
       runtimeTaskRecordForRun,
     });
     this.toolSurface = createRuntimeToolSurface();
+    this.threadControlSurface = createRuntimeThreadControlSurface();
+    this.subagentSurface = createRuntimeSubagentSurface();
     this.threadTurnProjection = createThreadTurnProjection({
       eventStreamIdForThread,
       fixtureProfileForAgent,
@@ -911,6 +845,23 @@ export class AgentgresRuntimeStateStore {
       threadIdForAgent,
       threadModeForRunMode,
       threadStatusForAgent,
+      turnIdForRun,
+    });
+    this.threadEventSurface = createRuntimeThreadEventSurface({
+      DAEMON_FIXTURE_PROFILE,
+      RUNTIME_THREAD_SCHEMA_VERSION,
+      eventStreamIdForThread,
+      fs,
+      isRuntimeBackedAgent,
+      normalizeRuntimeEventEnvelope,
+      notFound,
+      runtimeError,
+      runtimeEventStreamFileName,
+      runtimeTurnIdForRun,
+      threadIdForAgent,
+      threadStatusForAgent,
+      threadTurnProjection: this.threadTurnProjection,
+      ttiEnvelopeForRunEvent,
       turnIdForRun,
     });
     this.memory = new AgentMemoryStore(this.stateDir, {
@@ -1210,244 +1161,23 @@ export class AgentgresRuntimeStateStore {
   }
 
   updateThreadMode(threadId, request = {}) {
-    return this.updateThreadRuntimeControls(threadId, { ...request, control: "mode" });
+    return this.threadControlSurface.updateThreadMode(this, threadId, request);
   }
 
   updateThreadModel(threadId, request = {}) {
-    return this.updateThreadRuntimeControls(threadId, { ...request, control: "model" });
+    return this.threadControlSurface.updateThreadModel(this, threadId, request);
   }
 
   updateThreadThinking(threadId, request = {}) {
-    return this.updateThreadRuntimeControls(threadId, { ...request, control: "thinking" });
+    return this.threadControlSurface.updateThreadThinking(this, threadId, request);
   }
 
   updateThreadRuntimeControls(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const now = new Date().toISOString();
-    const controlKind = threadRuntimeControlKind(request);
-    const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
-    const workflowGraphId = request.workflow_graph_id ?? request.workflowGraphId ?? null;
-    const existingControls = normalizedAgentRuntimeControls(agent);
-    const nextControls = {
-      ...existingControls,
-      model: { ...(existingControls.model ?? {}) },
-      updatedAt: now,
-    };
-    let modelRoute = null;
-    let updatedAgent = agent;
-
-    if (controlKind === "mode") {
-      const mode = normalizeThreadInteractionMode(
-        request.mode ?? request.interaction_mode ?? request.interactionMode ?? request.value,
-      );
-      const approvalMode = normalizeThreadApprovalMode(
-        request.approval_mode ?? request.approvalMode,
-        approvalModeForThreadMode(mode),
-      );
-      nextControls.mode = mode;
-      nextControls.approvalMode = approvalMode;
-    } else {
-      const modelInput = threadRuntimeControlModelInput(request, existingControls, agent);
-      modelRoute = this.resolveModelRoute(
-        {
-          model: modelInput.model,
-          workflowGraphId,
-          workflowNodeId: modelInput.workflowNodeId,
-          workflowNodeType: "Model Router",
-        },
-        {
-          evidenceRefs: [`runtime_thread_${controlKind}_control`],
-          workflowGraphId,
-          workflowNodeId: modelInput.workflowNodeId,
-          workflowNodeType: "Model Router",
-        },
-      );
-      nextControls.model = {
-        id: modelRoute.requestedModelId,
-        routeId: modelRoute.routeId,
-        selectedModel: modelRoute.selectedModel,
-        endpointId: modelRoute.endpointId,
-        providerId: modelRoute.providerId,
-        receiptId: modelRoute.receiptId,
-        reasoningEffort:
-          modelRoute.decision?.reasoningEffort ??
-          modelInput.model.reasoningEffort ??
-          null,
-        privacy: modelInput.model.privacy ?? null,
-        maxCostUsd: modelInput.model.maxCostUsd ?? null,
-        allowHostedFallback: modelInput.model.allowHostedFallback ?? null,
-        workflowGraphId,
-        workflowNodeId: modelRoute.decision?.workflowNodeId ?? modelInput.workflowNodeId,
-        updatedAt: now,
-      };
-      updatedAgent = {
-        ...updatedAgent,
-        modelId: modelRoute.selectedModel,
-        requestedModelId: modelRoute.requestedModelId,
-        modelRouteId: modelRoute.routeId,
-        modelRouteEndpointId: modelRoute.endpointId,
-        modelRouteProviderId: modelRoute.providerId,
-        modelRouteReceiptId: modelRoute.receiptId,
-        modelRouteDecision: modelRoute.decision,
-      };
-    }
-
-    const event = this.appendThreadRuntimeControlEvent({
-      agent: updatedAgent,
-      threadId,
-      controlKind,
-      controls: nextControls,
-      request,
-      source,
-      requestedBy,
-      workflowGraphId,
-      modelRoute,
-      now,
-    });
-    const workspaceTrustWarningEvent =
-      controlKind === "mode"
-        ? this.appendWorkspaceTrustWarningEvent({
-            agent: updatedAgent,
-            threadId,
-            controls: nextControls,
-            request,
-            source,
-            requestedBy,
-            workflowGraphId,
-            modeEvent: event,
-            now,
-          })
-        : null;
-    updatedAgent = {
-      ...updatedAgent,
-      runtimeControls: nextControls,
-      updatedAt: workspaceTrustWarningEvent?.created_at ?? event.created_at,
-    };
-    this.agents.set(agent.id, updatedAgent);
-    this.writeAgent(updatedAgent, `thread.${controlKind}`);
-    const thread = this.threadForAgent(updatedAgent);
-    const workspaceTrustWarning = workspaceTrustWarningEvent?.payload_summary ?? null;
-    return {
-      ...thread,
-      workspace_trust_warning: workspaceTrustWarning,
-      workspaceTrustWarning,
-      control: {
-        schemaVersion: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
-        schema_version: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
-        control_kind: controlKind,
-        controlKind,
-        mode: nextControls.mode,
-        approval_mode: nextControls.approvalMode,
-        model: nextControls.model,
-        event_id: event.event_id,
-        seq: event.seq,
-        receipt_refs: event.receipt_refs,
-        policy_decision_refs: event.policy_decision_refs,
-        workspace_trust_warning: workspaceTrustWarning,
-        workspaceTrustWarning,
-        workspace_trust_warning_event_id: workspaceTrustWarningEvent?.event_id ?? null,
-        workspaceTrustWarningEventId: workspaceTrustWarningEvent?.event_id ?? null,
-      },
-      event,
-      workspace_trust_warning_event: workspaceTrustWarningEvent,
-      workspaceTrustWarningEvent: workspaceTrustWarningEvent,
-    };
+    return this.threadControlSurface.updateThreadRuntimeControls(this, threadId, request);
   }
 
-  appendThreadRuntimeControlEvent({
-    agent,
-    threadId,
-    controlKind,
-    controls,
-    request,
-    source,
-    requestedBy,
-    workflowGraphId,
-    modelRoute,
-    now,
-  }) {
-    const streamId = eventStreamIdForThread(threadId);
-    const workflowNodeId =
-      request.workflow_node_id ??
-      request.workflowNodeId ??
-      modelRoute?.decision?.workflowNodeId ??
-      controls.model?.workflowNodeId ??
-      (controlKind === "mode" ? "runtime.thread-mode" : "runtime.model-router");
-    const payload =
-      controlKind === "mode"
-        ? {
-            event_kind: "OperatorControl.Mode",
-            control_kind: controlKind,
-            mode: controls.mode,
-            approval_mode: controls.approvalMode,
-            requested_by: requestedBy,
-            control_surface: source,
-            agent_id: agent.id,
-            thread_id: threadId,
-            session_id: runtimeSessionIdForAgent(agent),
-          }
-        : {
-            ...(modelRoute?.decision ?? {}),
-            event_kind: "ModelRouteDecision",
-            control_kind: controlKind,
-            requested_by: requestedBy,
-            control_surface: source,
-            agent_id: agent.id,
-            thread_id: threadId,
-            session_id: runtimeSessionIdForAgent(agent),
-            model_control: controls.model,
-          };
-    const controlHash = crypto
-      .createHash("sha256")
-      .update(JSON.stringify({
-        controlKind,
-        mode: controls.mode,
-        approvalMode: controls.approvalMode,
-        model: controls.model,
-        workflowNodeId,
-      }))
-      .digest("hex")
-      .slice(0, 16);
-    return this.appendRuntimeEvent({
-      event_stream_id: streamId,
-      thread_id: threadId,
-      turn_id: "",
-      item_id: `${threadId}:item:${controlKind}-control:${controlHash}`,
-      idempotency_key:
-        request.idempotency_key ??
-        request.idempotencyKey ??
-        `thread:${threadId}:control.${controlKind}:${controlHash}`,
-      source,
-      source_event_kind:
-        controlKind === "mode"
-          ? "OperatorControl.Mode"
-          : controlKind === "thinking"
-            ? "OperatorControl.Thinking"
-            : "OperatorControl.Model",
-      event_kind: controlKind === "mode" ? "thread.mode_updated" : "model.route_decision",
-      status: "completed",
-      actor: "user",
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: controlKind === "mode" ? "runtime_mode" : "model_router",
-      payload_schema_version:
-        controlKind === "mode"
-          ? RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION
-          : RUNTIME_MODEL_ROUTE_CONTROL_SCHEMA_VERSION,
-      payload,
-      receipt_refs:
-        controlKind === "mode"
-          ? [`receipt_${agent.id}_mode_${safeId(controls.mode)}_${controlHash}`]
-          : [modelRoute?.receiptId].filter(Boolean),
-      policy_decision_refs: [`policy_${agent.id}_${controlKind}_allow`],
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
-    });
+  appendThreadRuntimeControlEvent(input) {
+    return this.threadControlSurface.appendThreadRuntimeControlEvent(this, input);
   }
 
   appendWorkspaceTrustWarningEvent({
@@ -1461,7 +1191,7 @@ export class AgentgresRuntimeStateStore {
     modeEvent,
     now,
   }) {
-    return workspaceTrustState.appendWorkspaceTrustWarningEvent(this, {
+    return this.threadControlSurface.appendWorkspaceTrustWarningEvent(this, {
       agent,
       threadId,
       controls,
@@ -1475,7 +1205,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   acknowledgeWorkspaceTrustWarning(threadId, warningId, request = {}) {
-    return workspaceTrustState.acknowledgeWorkspaceTrustWarning(this, threadId, warningId, request);
+    return this.threadControlSurface.acknowledgeWorkspaceTrustWarning(this, threadId, warningId, request);
   }
 
   forkThread(threadId, request = {}) {
@@ -1483,1097 +1213,47 @@ export class AgentgresRuntimeStateStore {
   }
 
   listSubagents(threadId, options = {}) {
-    const parentAgent = this.agentForThread(threadId);
-    const role = optionalString(options.role ?? options.subagent_role ?? options.subagentRole);
-    const subagents = [...this.subagents.values()]
-      .filter((record) => (record.parent_thread_id ?? record.parentThreadId) === threadId)
-      .filter((record) => !role || record.role === role)
-      .sort((left, right) =>
-        String(left.created_at ?? left.createdAt ?? "").localeCompare(
-          String(right.created_at ?? right.createdAt ?? ""),
-        ),
-      )
-      .map((record) => this.subagentProjection(record));
-    return {
-      schema_version: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
-      schemaVersion: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
-      object: "ioi.runtime_subagent_list",
-      thread_id: threadId,
-      threadId,
-      parent_agent_id: parentAgent.id,
-      parentAgentId: parentAgent.id,
-      status: "ready",
-      count: subagents.length,
-      active_count: subagents.filter((record) => subagentIsActive(record)).length,
-      activeCount: subagents.filter((record) => subagentIsActive(record)).length,
-      subagents,
-    };
+    return this.subagentSurface.listSubagents(this, threadId, options);
   }
 
   spawnSubagent(threadId, request = {}) {
-    const parentAgent = this.agentForThread(threadId);
-    const parentThread = this.threadForAgent(parentAgent);
-    const prompt = optionalString(
-      request.prompt ?? request.message ?? request.input ?? request.subagentPrompt ?? request.subagent_prompt,
-    );
-    if (!prompt) {
-      throw runtimeError({
-        status: 400,
-        code: "subagent_prompt_required",
-        message: "Subagent spawn requires a prompt.",
-        details: { threadId },
-      });
-    }
-    const role = normalizeSubagentRole(request.role ?? request.subagentRole ?? request.subagent_role);
-    const maxConcurrency = optionalPositiveInteger(
-      request.max_concurrency ?? request.maxConcurrency ?? request.subagentMaxConcurrency,
-    );
-    if (maxConcurrency) {
-      const activeForRole = this.listSubagents(threadId, { role }).subagents.filter(subagentIsActive).length;
-      if (activeForRole >= maxConcurrency) {
-        throw policyError("Subagent role concurrency limit reached.", {
-          threadId,
-          role,
-          activeForRole,
-          maxConcurrency,
-        });
-      }
-    }
-
-    const modelRouteId =
-      optionalString(request.model_route_id ?? request.modelRouteId ?? request.subagentModelRoute) ??
-      parentAgent.modelRouteId ??
-      "route.local-first";
-    const childAgent = this.createAgent({
-      local: { cwd: parentAgent.cwd },
-      model: {
-        id: parentAgent.requestedModelId ?? parentAgent.modelId ?? "auto",
-        routeId: parentAgent.modelRouteId ?? "route.local-first",
-      },
-    });
-    const run = this.createRun(childAgent.id, {
-      mode: "send",
-      prompt,
-      options: {
-        receiver: role,
-        memory: request.memory ?? request.options?.memory ?? {},
-      },
-    });
-    const now = new Date().toISOString();
-    const subagentId = childAgent.id;
-    const outputContract = normalizeSubagentOutputContract(
-      request.output_contract ?? request.outputContract ?? request.subagentOutputContract,
-    );
-    const output = subagentContractOutputForRun(run, outputContract);
-    const outputContractStatus = validateSubagentOutputContract(output, outputContract);
-    const budget = subagentBudgetForRequest(request);
-    const budgetUsageTelemetry = subagentBudgetUsageTelemetryForRequest(request);
-    const budgetStatus = subagentBudgetStatusForRun({
-      budget,
-      run,
-      prompt,
-      previousUsage: budgetUsageTelemetry ?? {},
-    });
-    const subagentLifecycleStatus =
-      budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status);
-    const workflowGraphId =
-      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
-    const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-      `runtime.subagent.spawn.${safeId(role)}`;
-    const parentTurnId =
-      optionalString(request.parent_turn_id ?? request.parentTurnId ?? request.turn_id ?? request.turnId) ??
-      parentThread.latest_turn_id ??
-      null;
-    const contextPressureAction =
-      optionalString(request.context_pressure_action ?? request.contextPressureAction) ?? null;
-    const contextPressure = contextBudgetNumber(
-      request.context_pressure,
-      request.contextPressure,
-      request.pressure,
-    );
-    const pressureStatus =
-      optionalString(request.pressure_status ?? request.pressureStatus) ?? null;
-    const alertId = optionalString(request.alert_id ?? request.alertId) ?? null;
-    const sourceEventId =
-      optionalString(request.source_event_id ?? request.sourceEventId) ?? null;
-    const requestReceiptRefs = uniqueStrings(
-      request.receipt_refs ?? request.receiptRefs,
-    );
-    const requestPolicyDecisionRefs = uniqueStrings(
-      request.policy_decision_refs ?? request.policyDecisionRefs,
-    );
-    const runReceiptRefs = run.receipts.map((receipt) => receipt.id);
-    const record = {
-      schema_version: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
-      schemaVersion: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
-      object: "ioi.runtime_subagent",
-      subagent_id: subagentId,
-      subagentId,
-      agent_id: childAgent.id,
-      agentId: childAgent.id,
-      child_thread_id: threadIdForAgent(childAgent.id),
-      childThreadId: threadIdForAgent(childAgent.id),
-      run_id: run.id,
-      runId: run.id,
-      parent_thread_id: threadId,
-      parentThreadId: threadId,
-      parent_agent_id: parentAgent.id,
-      parentAgentId: parentAgent.id,
-      parent_turn_id: parentTurnId,
-      parentTurnId,
-      role,
-      tool_pack: optionalString(request.tool_pack ?? request.toolPack ?? request.subagentToolPack) ?? null,
-      toolPack: optionalString(request.tool_pack ?? request.toolPack ?? request.subagentToolPack) ?? null,
-      model_route_id: modelRouteId,
-      modelRouteId,
-      workflow_graph_id: workflowGraphId,
-      workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      workflowNodeId,
-      session_boot_id: runtimeSessionIdForAgent(childAgent),
-      sessionBootId: runtimeSessionIdForAgent(childAgent),
-      lifecycle_status: subagentLifecycleStatus,
-      lifecycleStatus: subagentLifecycleStatus,
-      status: subagentLifecycleStatus,
-      restart_status: "not_restarted",
-      restartStatus: "not_restarted",
-      fork_context: request.fork_context === true || request.forkContext === true,
-      forkContext: request.fork_context === true || request.forkContext === true,
-      context_mode: request.fork_context === true || request.forkContext === true ? "forked" : "fresh",
-      contextMode: request.fork_context === true || request.forkContext === true ? "forked" : "fresh",
-      max_concurrency: maxConcurrency,
-      maxConcurrency,
-      budget,
-      budget_usage_telemetry: budgetUsageTelemetry,
-      budgetUsageTelemetry,
-      budget_status: budgetStatus.status,
-      budgetStatus,
-      usage_telemetry: budgetStatus.usage,
-      usageTelemetry: budgetStatus.usage,
-      budget_policy_decision: budgetStatus.policy_decision,
-      budgetPolicyDecision: budgetStatus.policyDecision,
-      block_reason: budgetStatus.status === "exceeded" ? "subagent_budget_exceeded" : null,
-      blockReason: budgetStatus.status === "exceeded" ? "subagent_budget_exceeded" : null,
-      output_contract: outputContract,
-      outputContract,
-      output_contract_status: outputContractStatus.status,
-      outputContractStatus,
-      output_contract_validation: outputContractStatus,
-      outputContractValidation: outputContractStatus,
-      merge_policy: optionalString(request.merge_policy ?? request.mergePolicy) ?? "manual",
-      mergePolicy: optionalString(request.merge_policy ?? request.mergePolicy) ?? "manual",
-      cancellation_inheritance:
-        optionalString(request.cancellation_inheritance ?? request.cancellationInheritance) ?? "propagate",
-      cancellationInheritance:
-        optionalString(request.cancellation_inheritance ?? request.cancellationInheritance) ?? "propagate",
-      context_pressure_action: contextPressureAction,
-      contextPressureAction,
-      context_pressure: contextPressure,
-      contextPressure,
-      pressure: contextPressure,
-      pressure_status: pressureStatus,
-      pressureStatus,
-      alert_id: alertId,
-      alertId,
-      source_event_id: sourceEventId,
-      sourceEventId,
-      source_receipt_refs: requestReceiptRefs,
-      sourceReceiptRefs: requestReceiptRefs,
-      source_policy_decision_refs: requestPolicyDecisionRefs,
-      sourcePolicyDecisionRefs: requestPolicyDecisionRefs,
-      created_at: now,
-      createdAt: now,
-      updated_at: now,
-      updatedAt: now,
-      result: subagentResultForRun({ record: null, run, output, outputContractStatus }),
-      receipt_refs: uniqueStrings([...runReceiptRefs, ...requestReceiptRefs]),
-      receiptRefs: uniqueStrings([...runReceiptRefs, ...requestReceiptRefs]),
-      policy_decision_refs: requestPolicyDecisionRefs,
-      policyDecisionRefs: requestPolicyDecisionRefs,
-      evidence_refs: [
-        "runtime.subagent_manager",
-        "runtime.subagent.spawn",
-        run.id,
-        ...runReceiptRefs,
-        ...requestReceiptRefs,
-        ...requestPolicyDecisionRefs,
-      ],
-      evidenceRefs: [
-        "runtime.subagent_manager",
-        "runtime.subagent.spawn",
-        run.id,
-        ...runReceiptRefs,
-        ...requestReceiptRefs,
-        ...requestPolicyDecisionRefs,
-      ],
-    };
-    record.result = subagentResultForRun({ record, run, output, outputContractStatus });
-    const event = this.appendThreadSubagentControlEvent({
-      threadId,
-      parentAgent,
-      record,
-      request,
-      operation: "spawn",
-      status: subagentLifecycleStatus,
-    });
-    const saved = {
-      ...record,
-      event_id: event.event_id,
-      eventId: event.event_id,
-      receipt_refs: uniqueStrings([...record.receipt_refs, ...event.receipt_refs]),
-      receiptRefs: uniqueStrings([...record.receiptRefs, ...event.receipt_refs]),
-      updated_at: event.created_at,
-      updatedAt: event.created_at,
-    };
-    saved.result = subagentResultForRun({
-      record: saved,
-      run,
-      output,
-      outputContractStatus,
-    });
-    this.writeSubagent(saved, "subagent.spawn");
-    if (budgetStatus.status === "exceeded") {
-      throw policyError("Subagent budget limit exceeded.", {
-        threadId,
-        role,
-        subagentId,
-        reason: "subagent_budget_exceeded",
-        budgetStatus,
-        budget_status: budgetStatus.status,
-        subagent: this.subagentProjection(saved),
-        eventId: event.event_id,
-        event_id: event.event_id,
-        receiptRefs: event.receipt_refs,
-        receipt_refs: event.receipt_refs,
-        policyDecisionRefs: event.policy_decision_refs,
-        policy_decision_refs: event.policy_decision_refs,
-      });
-    }
-    return {
-      ...this.subagentProjection(saved),
-      event,
-    };
+    return this.subagentSurface.spawnSubagent(this, threadId, request);
   }
 
   waitSubagent(threadId, subagentId, request = {}) {
-    const record = this.getSubagent(threadId, subagentId);
-    const run = this.getRun(record.run_id ?? record.runId);
-    const output = subagentContractOutputForRun(run, record.output_contract ?? record.outputContract);
-    const outputContractStatus = validateSubagentOutputContract(
-      output,
-      record.output_contract ?? record.outputContract,
-    );
-    const previousLifecycleStatus = record.lifecycle_status ?? record.lifecycleStatus ?? record.status;
-    const lifecycleStatus =
-      previousLifecycleStatus === "blocked" ? "blocked" : lifecycleStatusForRun(run.status);
-    const updated = {
-      ...record,
-      lifecycle_status: lifecycleStatus,
-      lifecycleStatus,
-      status: lifecycleStatus,
-      output_contract_status: outputContractStatus.status,
-      outputContractStatus,
-      output_contract_validation: outputContractStatus,
-      outputContractValidation: outputContractStatus,
-      waited_at: new Date().toISOString(),
-      waitedAt: new Date().toISOString(),
-    };
-    updated.result = subagentResultForRun({ record: updated, run, output, outputContractStatus });
-    const event = this.appendThreadSubagentControlEvent({
-      threadId,
-      parentAgent: this.agentForThread(threadId),
-      record: updated,
-      request,
-      operation: "wait",
-      status: updated.status,
-    });
-    const saved = {
-      ...updated,
-      wait_event_id: event.event_id,
-      waitEventId: event.event_id,
-      receipt_refs: uniqueStrings([...normalizeArray(updated.receipt_refs), ...event.receipt_refs]),
-      receiptRefs: uniqueStrings([...normalizeArray(updated.receiptRefs), ...event.receipt_refs]),
-      updated_at: event.created_at,
-      updatedAt: event.created_at,
-    };
-    saved.result = subagentResultForRun({ record: saved, run, output, outputContractStatus });
-    this.writeSubagent(saved, "subagent.wait");
-    return {
-      ...saved.result,
-      subagent: this.subagentProjection(saved),
-      event,
-      receipt_refs: event.receipt_refs,
-      receiptRefs: event.receipt_refs,
-    };
+    return this.subagentSurface.waitSubagent(this, threadId, subagentId, request);
   }
 
   sendSubagentInput(threadId, subagentId, request = {}) {
-    const record = this.getSubagent(threadId, subagentId);
-    if ((record.lifecycle_status ?? record.lifecycleStatus ?? record.status) === "canceled") {
-      throw policyError("Cannot send input to a canceled subagent.", { threadId, subagentId });
-    }
-    const message = optionalString(
-      request.input ??
-        request.message ??
-        request.prompt ??
-        request.text ??
-        request.subagent_input ??
-        request.subagentInput,
-    );
-    if (!message) {
-      throw runtimeError({
-        status: 400,
-        code: "subagent_input_required",
-        message: "Subagent input requires a message.",
-        details: { threadId, subagentId },
-      });
-    }
-
-    const previousRunId = record.run_id ?? record.runId;
-    const childAgentId = record.agent_id ?? record.agentId ?? subagentId;
-    const inputId = `subagent_input_${doctorHash(`${threadId}:${subagentId}:${Date.now()}`).slice(0, 12)}`;
-    const run = this.createRun(childAgentId, {
-      mode: "send",
-      prompt: message,
-      options: {
-        receiver: record.role ?? "general",
-        memory: request.memory ?? request.options?.memory ?? {},
-      },
-    });
-    const output = subagentContractOutputForRun(run, record.output_contract ?? record.outputContract);
-    const outputContractStatus = validateSubagentOutputContract(
-      output,
-      record.output_contract ?? record.outputContract,
-    );
-    const budget = subagentBudgetForRequest(request) ?? subagentBudgetForRequest(record);
-    const budgetUsageTelemetry =
-      subagentBudgetUsageTelemetryForRequest(request) ??
-      record.usage_telemetry ??
-      record.usageTelemetry ??
-      null;
-    const budgetStatus = subagentBudgetStatusForRun({
-      budget,
-      run,
-      prompt: message,
-      previousUsage: budgetUsageTelemetry ?? {},
-    });
-    const now = new Date().toISOString();
-    const inputRecord = {
-      schema_version: "ioi.runtime.subagent-input.v1",
-      schemaVersion: "ioi.runtime.subagent-input.v1",
-      input_id: inputId,
-      inputId,
-      message,
-      run_id: run.id,
-      runId: run.id,
-      previous_run_id: previousRunId ?? null,
-      previousRunId: previousRunId ?? null,
-      created_at: now,
-      createdAt: now,
-      actor: optionalString(request.actor) ?? "operator",
-      source: operatorControlSource(request.source),
-      workflow_graph_id: optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
-      workflowGraphId: optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
-      workflow_node_id: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
-      workflowNodeId: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
-    };
-    const inputHistory = [...normalizeArray(record.input_history ?? record.inputHistory), inputRecord];
-    const updated = {
-      ...record,
-      run_id: run.id,
-      runId: run.id,
-      previous_run_ids: uniqueStrings([
-        ...normalizeArray(record.previous_run_ids ?? record.previousRunIds),
-        previousRunId,
-      ]),
-      previousRunIds: uniqueStrings([
-        ...normalizeArray(record.previousRunIds ?? record.previous_run_ids),
-        previousRunId,
-      ]),
-      lifecycle_status:
-        budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status),
-      lifecycleStatus:
-        budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status),
-      status:
-        budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status),
-      budget,
-      budget_usage_telemetry: budgetUsageTelemetry,
-      budgetUsageTelemetry,
-      budget_status: budgetStatus.status,
-      budgetStatus,
-      usage_telemetry: budgetStatus.usage,
-      usageTelemetry: budgetStatus.usage,
-      budget_policy_decision: budgetStatus.policy_decision,
-      budgetPolicyDecision: budgetStatus.policyDecision,
-      block_reason: budgetStatus.status === "exceeded" ? "subagent_budget_exceeded" : null,
-      blockReason: budgetStatus.status === "exceeded" ? "subagent_budget_exceeded" : null,
-      output_contract_status: outputContractStatus.status,
-      outputContractStatus,
-      output_contract_validation: outputContractStatus,
-      outputContractValidation: outputContractStatus,
-      input_count: inputHistory.length,
-      inputCount: inputHistory.length,
-      input_history: inputHistory,
-      inputHistory,
-      last_input: message,
-      lastInput: message,
-      last_input_at: now,
-      lastInputAt: now,
-      input_id: inputId,
-      inputId,
-      updated_at: now,
-      updatedAt: now,
-    };
-    updated.result = subagentResultForRun({ record: updated, run, output, outputContractStatus });
-    const event = this.appendThreadSubagentControlEvent({
-      threadId,
-      parentAgent: this.agentForThread(threadId),
-      record: updated,
-      request,
-      operation: "send_input",
-      status: updated.status,
-    });
-    const saved = {
-      ...updated,
-      input_event_id: event.event_id,
-      inputEventId: event.event_id,
-      receipt_refs: uniqueStrings([
-        ...normalizeArray(updated.receipt_refs),
-        ...normalizeArray(run.receipts).map((receipt) => receipt.id),
-        ...event.receipt_refs,
-      ]),
-      receiptRefs: uniqueStrings([
-        ...normalizeArray(updated.receiptRefs),
-        ...normalizeArray(run.receipts).map((receipt) => receipt.id),
-        ...event.receipt_refs,
-      ]),
-      evidence_refs: uniqueStrings([
-        ...normalizeArray(updated.evidence_refs ?? updated.evidenceRefs),
-        "runtime.subagent.input",
-        run.id,
-      ]),
-      evidenceRefs: uniqueStrings([
-        ...normalizeArray(updated.evidenceRefs ?? updated.evidence_refs),
-        "runtime.subagent.input",
-        run.id,
-      ]),
-      updated_at: event.created_at,
-      updatedAt: event.created_at,
-    };
-    saved.result = subagentResultForRun({ record: saved, run, output, outputContractStatus });
-    this.writeSubagent(saved, "subagent.input");
-    if (budgetStatus.status === "exceeded") {
-      throw policyError("Subagent budget limit exceeded.", {
-        threadId,
-        subagentId,
-        reason: "subagent_budget_exceeded",
-        budgetStatus,
-        budget_status: budgetStatus.status,
-        subagent: this.subagentProjection(saved),
-        eventId: event.event_id,
-        event_id: event.event_id,
-        receiptRefs: event.receipt_refs,
-        receipt_refs: event.receipt_refs,
-        policyDecisionRefs: event.policy_decision_refs,
-        policy_decision_refs: event.policy_decision_refs,
-      });
-    }
-    return {
-      ...this.subagentProjection(saved),
-      input: inputRecord,
-      result: saved.result,
-      event,
-    };
+    return this.subagentSurface.sendSubagentInput(this, threadId, subagentId, request);
   }
 
   cancelSubagent(threadId, subagentId, request = {}) {
-    const record = this.getSubagent(threadId, subagentId);
-    const previousStatus = record.lifecycle_status ?? record.lifecycleStatus ?? record.status ?? null;
-    const reason =
-      optionalString(request.reason ?? request.cancellation_reason ?? request.cancellationReason) ??
-      "operator_cancel";
-    const cancellationInherited = Boolean(request.inherited ?? request.cancellationInherited);
-    const propagatedFromThreadId =
-      optionalString(request.propagated_from_thread_id ?? request.propagatedFromThreadId) ?? null;
-    const run = this.cancelRun(record.run_id ?? record.runId);
-    const output = subagentContractOutputForRun(run, record.output_contract ?? record.outputContract);
-    const outputContractStatus = validateSubagentOutputContract(
-      output,
-      record.output_contract ?? record.outputContract,
-    );
-    const budget = subagentBudgetForRequest(request) ?? subagentBudgetForRequest(record);
-    const budgetUsageTelemetry =
-      subagentBudgetUsageTelemetryForRequest(request) ??
-      record.usage_telemetry ??
-      record.usageTelemetry ??
-      null;
-    const prompt = optionalString(record.prompt ?? record.objective ?? record.task) ?? "";
-    const budgetStatus = subagentBudgetStatusForRun({
-      budget,
-      run,
-      prompt,
-      previousUsage: budgetUsageTelemetry ?? {},
-    });
-    const now = new Date().toISOString();
-    const updated = {
-      ...record,
-      lifecycle_status: "canceled",
-      lifecycleStatus: "canceled",
-      status: "canceled",
-      output_contract_status: outputContractStatus.status,
-      outputContractStatus,
-      output_contract_validation: outputContractStatus,
-      outputContractValidation: outputContractStatus,
-      canceled_at: now,
-      canceledAt: now,
-      cancellation_reason: reason,
-      cancellationReason: reason,
-      cancellation_inherited: cancellationInherited,
-      cancellationInherited,
-      propagated_from_thread_id: propagatedFromThreadId,
-      propagatedFromThreadId,
-      cancellation: {
-        reason,
-        previous_status: previousStatus,
-        previousStatus,
-        requested_by: optionalString(request.actor) ?? "operator",
-        requestedBy: optionalString(request.actor) ?? "operator",
-        inherited: cancellationInherited,
-        propagated_from_thread_id: propagatedFromThreadId,
-        propagatedFromThreadId,
-        source: operatorControlSource(request.source),
-      },
-      updated_at: now,
-      updatedAt: now,
-    };
-    updated.result = subagentResultForRun({ record: updated, run, output, outputContractStatus });
-    const event = this.appendThreadSubagentControlEvent({
-      threadId,
-      parentAgent: this.agentForThread(threadId),
-      record: updated,
-      request,
-      operation: "cancel",
-      status: "canceled",
-    });
-    const saved = {
-      ...updated,
-      cancel_event_id: event.event_id,
-      cancelEventId: event.event_id,
-      receipt_refs: uniqueStrings([
-        ...normalizeArray(updated.receipt_refs),
-        ...normalizeArray(run.receipts).map((receipt) => receipt.id),
-        ...event.receipt_refs,
-      ]),
-      receiptRefs: uniqueStrings([
-        ...normalizeArray(updated.receiptRefs),
-        ...normalizeArray(run.receipts).map((receipt) => receipt.id),
-        ...event.receipt_refs,
-      ]),
-      evidence_refs: uniqueStrings([
-        ...normalizeArray(updated.evidence_refs ?? updated.evidenceRefs),
-        "runtime.subagent.cancel",
-        run.id,
-      ]),
-      evidenceRefs: uniqueStrings([
-        ...normalizeArray(updated.evidenceRefs ?? updated.evidence_refs),
-        "runtime.subagent.cancel",
-        run.id,
-      ]),
-      updated_at: event.created_at,
-      updatedAt: event.created_at,
-    };
-    saved.result = subagentResultForRun({ record: saved, run, output, outputContractStatus });
-    this.writeSubagent(saved, "subagent.cancel");
-    return {
-      ...saved.result,
-      subagent: this.subagentProjection(saved),
-      event,
-      cancellation: saved.cancellation,
-      receipt_refs: event.receipt_refs,
-      receiptRefs: event.receipt_refs,
-    };
+    return this.subagentSurface.cancelSubagent(this, threadId, subagentId, request);
   }
 
   propagateSubagentCancellation(threadId, request = {}) {
-    const parentAgent = this.agentForThread(threadId);
-    const reason =
-      optionalString(request.reason ?? request.cancellation_reason ?? request.cancellationReason) ??
-      "parent_cancel";
-    const source = operatorControlSource(request.source);
-    const requestBase = {
-      ...request,
-      source,
-      reason,
-      inherited: true,
-      cancellationInherited: true,
-      propagated_from_thread_id: threadId,
-      propagatedFromThreadId: threadId,
-    };
-    delete requestBase.idempotency_key;
-    delete requestBase.idempotencyKey;
-    const candidates = [...this.subagents.values()]
-      .filter((record) => (record.parent_thread_id ?? record.parentThreadId) === threadId)
-      .sort((left, right) =>
-        String(left.created_at ?? left.createdAt ?? "").localeCompare(
-          String(right.created_at ?? right.createdAt ?? ""),
-        ),
-      );
-    const canceled = [];
-    const skipped = [];
-    for (const record of candidates) {
-      const targetId = record.subagent_id ?? record.subagentId ?? record.agent_id ?? record.agentId;
-      const inheritance = record.cancellation_inheritance ?? record.cancellationInheritance ?? "propagate";
-      const status = record.lifecycle_status ?? record.lifecycleStatus ?? record.status ?? null;
-      if (!subagentCancellationPropagates(record)) {
-        skipped.push({
-          ...this.subagentProjection(record),
-          skip_reason: "cancellation_inheritance_not_propagate",
-          skipReason: "cancellation_inheritance_not_propagate",
-          cancellation_inheritance: inheritance,
-          cancellationInheritance: inheritance,
-        });
-        continue;
-      }
-      if (status === "canceled") {
-        skipped.push({
-          ...this.subagentProjection(record),
-          skip_reason: "already_canceled",
-          skipReason: "already_canceled",
-          cancellation_inheritance: inheritance,
-          cancellationInheritance: inheritance,
-        });
-        continue;
-      }
-      const childRequest = {
-        ...requestBase,
-        workflow_node_id:
-          optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-          `runtime.subagent.cancel.propagated.${safeId(record.role ?? "general")}`,
-        workflowNodeId:
-          optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-          `runtime.subagent.cancel.propagated.${safeId(record.role ?? "general")}`,
-      };
-      const result = this.cancelSubagent(threadId, String(targetId), childRequest);
-      canceled.push(result);
-    }
-    return {
-      schema_version: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
-      schemaVersion: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
-      object: "ioi.runtime_subagent_cancellation_propagation",
-      thread_id: threadId,
-      threadId,
-      parent_agent_id: parentAgent.id,
-      parentAgentId: parentAgent.id,
-      status: "completed",
-      source,
-      reason,
-      propagation_policy: "cancellationInheritance=propagate",
-      propagationPolicy: "cancellationInheritance=propagate",
-      candidate_count: candidates.length,
-      candidateCount: candidates.length,
-      canceled_count: canceled.length,
-      canceledCount: canceled.length,
-      skipped_count: skipped.length,
-      skippedCount: skipped.length,
-      canceled_subagents: canceled.map((result) => result.subagent),
-      canceledSubagents: canceled.map((result) => result.subagent),
-      skipped_subagents: skipped,
-      skippedSubagents: skipped,
-      event_refs: canceled.map((result) => result.event?.event_id).filter(Boolean),
-      eventRefs: canceled.map((result) => result.event?.event_id).filter(Boolean),
-      receipt_refs: uniqueStrings(canceled.flatMap((result) => normalizeArray(result.receipt_refs))),
-      receiptRefs: uniqueStrings(canceled.flatMap((result) => normalizeArray(result.receiptRefs))),
-    };
+    return this.subagentSurface.propagateSubagentCancellation(this, threadId, request);
   }
 
   resumeSubagent(threadId, subagentId, request = {}) {
-    const record = this.getSubagent(threadId, subagentId);
-    const previousRunId = record.run_id ?? record.runId;
-    const previousStatus = record.lifecycle_status ?? record.lifecycleStatus ?? record.status ?? null;
-    const childAgentId = record.agent_id ?? record.agentId ?? subagentId;
-    const role = normalizeSubagentRole(request.role ?? request.subagentRole ?? request.subagent_role ?? record.role);
-    const modelRouteId =
-      optionalString(request.model_route_id ?? request.modelRouteId ?? request.subagentModelRoute) ??
-      record.model_route_id ??
-      record.modelRouteId ??
-      "route.local-first";
-    const prompt =
-      optionalString(
-        request.prompt ??
-          request.message ??
-          request.input ??
-          request.resume_prompt ??
-          request.resumePrompt,
-      ) ?? `Resume subagent ${role}.`;
-    const resumeId = `subagent_resume_${doctorHash(`${threadId}:${subagentId}:${Date.now()}`).slice(0, 12)}`;
-    const run = this.createRun(childAgentId, {
-      mode: "send",
-      prompt,
-      options: {
-        receiver: role,
-        memory: request.memory ?? request.options?.memory ?? {},
-        model: { id: "auto", routeId: modelRouteId },
-      },
-    });
-    const output = subagentContractOutputForRun(run, record.output_contract ?? record.outputContract);
-    const outputContractStatus = validateSubagentOutputContract(
-      output,
-      record.output_contract ?? record.outputContract,
-    );
-    const budget = subagentBudgetForRequest(request) ?? subagentBudgetForRequest(record);
-    const budgetUsageTelemetry =
-      subagentBudgetUsageTelemetryForRequest(request) ??
-      record.usage_telemetry ??
-      record.usageTelemetry ??
-      null;
-    const budgetStatus = subagentBudgetStatusForRun({
-      budget,
-      run,
-      prompt,
-      previousUsage: budgetUsageTelemetry ?? {},
-    });
-    const now = new Date().toISOString();
-    const restartCount = Number(record.restart_count ?? record.restartCount ?? 0) + 1;
-    const resumeRecord = {
-      schema_version: "ioi.runtime.subagent-resume.v1",
-      schemaVersion: "ioi.runtime.subagent-resume.v1",
-      resume_id: resumeId,
-      resumeId,
-      run_id: run.id,
-      runId: run.id,
-      previous_run_id: previousRunId ?? null,
-      previousRunId: previousRunId ?? null,
-      previous_status: previousStatus,
-      previousStatus,
-      prompt,
-      role,
-      model_route_id: modelRouteId,
-      modelRouteId,
-      restart_count: restartCount,
-      restartCount,
-      created_at: now,
-      createdAt: now,
-      actor: optionalString(request.actor) ?? "operator",
-      source: operatorControlSource(request.source),
-      workflow_graph_id: optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
-      workflowGraphId: optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
-      workflow_node_id: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
-      workflowNodeId: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
-    };
-    const resumeHistory = [...normalizeArray(record.resume_history ?? record.resumeHistory), resumeRecord];
-    const cancellationHistory = [
-      ...normalizeArray(record.cancellation_history ?? record.cancellationHistory),
-      ...(record.cancellation ? [record.cancellation] : []),
-    ];
-    const updated = {
-      ...record,
-      role,
-      run_id: run.id,
-      runId: run.id,
-      previous_run_ids: uniqueStrings([
-        ...normalizeArray(record.previous_run_ids ?? record.previousRunIds),
-        previousRunId,
-      ]),
-      previousRunIds: uniqueStrings([
-        ...normalizeArray(record.previousRunIds ?? record.previous_run_ids),
-        previousRunId,
-      ]),
-      model_route_id: modelRouteId,
-      modelRouteId,
-      lifecycle_status:
-        budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status),
-      lifecycleStatus:
-        budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status),
-      status:
-        budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRun(run.status),
-      budget,
-      budget_usage_telemetry: budgetUsageTelemetry,
-      budgetUsageTelemetry,
-      budget_status: budgetStatus.status,
-      budgetStatus,
-      usage_telemetry: budgetStatus.usage,
-      usageTelemetry: budgetStatus.usage,
-      budget_policy_decision: budgetStatus.policy_decision,
-      budgetPolicyDecision: budgetStatus.policyDecision,
-      block_reason: budgetStatus.status === "exceeded" ? "subagent_budget_exceeded" : null,
-      blockReason: budgetStatus.status === "exceeded" ? "subagent_budget_exceeded" : null,
-      restart_status: "restarted",
-      restartStatus: "restarted",
-      restart_count: restartCount,
-      restartCount,
-      resume_id: resumeId,
-      resumeId,
-      resumed_at: now,
-      resumedAt: now,
-      resume_history: resumeHistory,
-      resumeHistory,
-      cancellation: null,
-      cancellation_reason: null,
-      cancellationReason: null,
-      cancellation_cleared_at: now,
-      cancellationClearedAt: now,
-      cancellation_history: cancellationHistory,
-      cancellationHistory,
-      output_contract_status: outputContractStatus.status,
-      outputContractStatus,
-      output_contract_validation: outputContractStatus,
-      outputContractValidation: outputContractStatus,
-      updated_at: now,
-      updatedAt: now,
-    };
-    updated.result = subagentResultForRun({ record: updated, run, output, outputContractStatus });
-    const event = this.appendThreadSubagentControlEvent({
-      threadId,
-      parentAgent: this.agentForThread(threadId),
-      record: updated,
-      request,
-      operation: "resume",
-      status: updated.status,
-    });
-    const saved = {
-      ...updated,
-      resume_event_id: event.event_id,
-      resumeEventId: event.event_id,
-      receipt_refs: uniqueStrings([
-        ...normalizeArray(updated.receipt_refs),
-        ...normalizeArray(run.receipts).map((receipt) => receipt.id),
-        ...event.receipt_refs,
-      ]),
-      receiptRefs: uniqueStrings([
-        ...normalizeArray(updated.receiptRefs),
-        ...normalizeArray(run.receipts).map((receipt) => receipt.id),
-        ...event.receipt_refs,
-      ]),
-      evidence_refs: uniqueStrings([
-        ...normalizeArray(updated.evidence_refs ?? updated.evidenceRefs),
-        "runtime.subagent.resume",
-        run.id,
-      ]),
-      evidenceRefs: uniqueStrings([
-        ...normalizeArray(updated.evidenceRefs ?? updated.evidence_refs),
-        "runtime.subagent.resume",
-        run.id,
-      ]),
-      updated_at: event.created_at,
-      updatedAt: event.created_at,
-    };
-    saved.result = subagentResultForRun({ record: saved, run, output, outputContractStatus });
-    this.writeSubagent(saved, "subagent.resume");
-    if (budgetStatus.status === "exceeded") {
-      throw policyError("Subagent budget limit exceeded.", {
-        threadId,
-        subagentId,
-        reason: "subagent_budget_exceeded",
-        budgetStatus,
-        budget_status: budgetStatus.status,
-        subagent: this.subagentProjection(saved),
-        eventId: event.event_id,
-        event_id: event.event_id,
-        receiptRefs: event.receipt_refs,
-        receipt_refs: event.receipt_refs,
-        policyDecisionRefs: event.policy_decision_refs,
-        policy_decision_refs: event.policy_decision_refs,
-      });
-    }
-    return {
-      ...saved.result,
-      subagent: this.subagentProjection(saved),
-      resume: resumeRecord,
-      event,
-      receipt_refs: event.receipt_refs,
-      receiptRefs: event.receipt_refs,
-    };
+    return this.subagentSurface.resumeSubagent(this, threadId, subagentId, request);
   }
 
   assignSubagent(threadId, subagentId, request = {}) {
-    const record = this.getSubagent(threadId, subagentId);
-    const previousRole = record.role ?? "general";
-    const role = normalizeSubagentRole(request.role ?? request.subagentRole ?? request.subagent_role ?? previousRole);
-    const toolPack =
-      optionalString(request.tool_pack ?? request.toolPack ?? request.subagentToolPack) ??
-      record.tool_pack ??
-      record.toolPack ??
-      null;
-    const modelRouteId =
-      optionalString(request.model_route_id ?? request.modelRouteId ?? request.subagentModelRoute) ??
-      record.model_route_id ??
-      record.modelRouteId ??
-      null;
-    const mergePolicy =
-      optionalString(request.merge_policy ?? request.mergePolicy) ??
-      record.merge_policy ??
-      record.mergePolicy ??
-      "manual";
-    const cancellationInheritance =
-      optionalString(request.cancellation_inheritance ?? request.cancellationInheritance) ??
-      record.cancellation_inheritance ??
-      record.cancellationInheritance ??
-      "propagate";
-    const targetAgentId =
-      optionalString(request.target_agent_id ?? request.targetAgentId) ??
-      record.agent_id ??
-      record.agentId ??
-      subagentId;
-    const assignmentId = `subagent_assignment_${doctorHash(`${threadId}:${subagentId}:${Date.now()}`).slice(0, 12)}`;
-    const now = new Date().toISOString();
-    const assignmentCount = Number(record.assignment_count ?? record.assignmentCount ?? 0) + 1;
-    const assignmentRecord = {
-      schema_version: "ioi.runtime.subagent-assignment.v1",
-      schemaVersion: "ioi.runtime.subagent-assignment.v1",
-      assignment_id: assignmentId,
-      assignmentId,
-      previous_role: previousRole,
-      previousRole,
-      role,
-      target_agent_id: targetAgentId,
-      targetAgentId,
-      tool_pack: toolPack,
-      toolPack,
-      model_route_id: modelRouteId,
-      modelRouteId,
-      merge_policy: mergePolicy,
-      mergePolicy,
-      cancellation_inheritance: cancellationInheritance,
-      cancellationInheritance,
-      assignment_count: assignmentCount,
-      assignmentCount,
-      created_at: now,
-      createdAt: now,
-      actor: optionalString(request.actor) ?? "operator",
-      source: operatorControlSource(request.source),
-      workflow_graph_id: optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
-      workflowGraphId: optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
-      workflow_node_id: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
-      workflowNodeId: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
-    };
-    const assignmentHistory = [
-      ...normalizeArray(record.assignment_history ?? record.assignmentHistory),
-      assignmentRecord,
-    ];
-    const run = this.getRun(record.run_id ?? record.runId);
-    const output = subagentContractOutputForRun(run, record.output_contract ?? record.outputContract);
-    const outputContractStatus = validateSubagentOutputContract(
-      output,
-      record.output_contract ?? record.outputContract,
-    );
-    const updated = {
-      ...record,
-      role,
-      target_agent_id: targetAgentId,
-      targetAgentId,
-      tool_pack: toolPack,
-      toolPack,
-      model_route_id: modelRouteId,
-      modelRouteId,
-      merge_policy: mergePolicy,
-      mergePolicy,
-      cancellation_inheritance: cancellationInheritance,
-      cancellationInheritance,
-      assignment_id: assignmentId,
-      assignmentId,
-      assignment_count: assignmentCount,
-      assignmentCount,
-      assignment_history: assignmentHistory,
-      assignmentHistory,
-      assigned_at: now,
-      assignedAt: now,
-      output_contract_status: outputContractStatus.status,
-      outputContractStatus,
-      output_contract_validation: outputContractStatus,
-      outputContractValidation: outputContractStatus,
-      updated_at: now,
-      updatedAt: now,
-    };
-    updated.result = subagentResultForRun({ record: updated, run, output, outputContractStatus });
-    const event = this.appendThreadSubagentControlEvent({
-      threadId,
-      parentAgent: this.agentForThread(threadId),
-      record: updated,
-      request,
-      operation: "assign",
-      status: updated.status,
-    });
-    const saved = {
-      ...updated,
-      assign_event_id: event.event_id,
-      assignEventId: event.event_id,
-      receipt_refs: uniqueStrings([...normalizeArray(updated.receipt_refs), ...event.receipt_refs]),
-      receiptRefs: uniqueStrings([...normalizeArray(updated.receiptRefs), ...event.receipt_refs]),
-      evidence_refs: uniqueStrings([
-        ...normalizeArray(updated.evidence_refs ?? updated.evidenceRefs),
-        "runtime.subagent.assign",
-        assignmentId,
-      ]),
-      evidenceRefs: uniqueStrings([
-        ...normalizeArray(updated.evidenceRefs ?? updated.evidence_refs),
-        "runtime.subagent.assign",
-        assignmentId,
-      ]),
-      updated_at: event.created_at,
-      updatedAt: event.created_at,
-    };
-    saved.result = subagentResultForRun({ record: saved, run, output, outputContractStatus });
-    this.writeSubagent(saved, "subagent.assign");
-    return {
-      ...this.subagentProjection(saved),
-      assignment: assignmentRecord,
-      result: saved.result,
-      event,
-    };
+    return this.subagentSurface.assignSubagent(this, threadId, subagentId, request);
   }
 
   getSubagentResult(threadId, subagentId) {
-    const record = this.getSubagent(threadId, subagentId);
-    const run = this.getRun(record.run_id ?? record.runId);
-    const output = subagentContractOutputForRun(run, record.output_contract ?? record.outputContract);
-    const outputContractStatus = validateSubagentOutputContract(
-      output,
-      record.output_contract ?? record.outputContract,
-    );
-    return {
-      ...subagentResultForRun({ record, run, output, outputContractStatus }),
-      subagent: this.subagentProjection({
-        ...record,
-        output_contract_status: outputContractStatus.status,
-        outputContractStatus,
-      }),
-    };
+    return this.subagentSurface.getSubagentResult(this, threadId, subagentId);
   }
 
   getSubagent(threadId, subagentId) {
-    const record = this.subagents.get(subagentId);
-    if (!record || (record.parent_thread_id ?? record.parentThreadId) !== threadId) {
-      throw notFound(`Subagent not found: ${subagentId}`, { threadId, subagentId });
-    }
-    return record;
+    return this.subagentSurface.getSubagent(this, threadId, subagentId);
   }
 
   subagentProjection(record = {}) {
-    return {
-      ...record,
-      schema_version: record.schema_version ?? RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
-      schemaVersion: record.schemaVersion ?? RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
-      object: record.object ?? "ioi.runtime_subagent",
-      subagent_id: record.subagent_id ?? record.subagentId ?? record.agent_id ?? record.agentId,
-      subagentId: record.subagentId ?? record.subagent_id ?? record.agentId ?? record.agent_id,
-      agent_id: record.agent_id ?? record.agentId,
-      agentId: record.agentId ?? record.agent_id,
-      parent_thread_id: record.parent_thread_id ?? record.parentThreadId,
-      parentThreadId: record.parentThreadId ?? record.parent_thread_id,
-      lifecycle_status: record.lifecycle_status ?? record.lifecycleStatus ?? record.status,
-      lifecycleStatus: record.lifecycleStatus ?? record.lifecycle_status ?? record.status,
-      output_contract_status:
-        record.output_contract_status ??
-        record.outputContractStatus?.status ??
-        record.output_contract_validation?.status ??
-        null,
-      outputContractStatus:
-        record.outputContractStatus ??
-        record.output_contract_validation ??
-        record.output_contract_status ??
-        null,
-    };
+    return this.subagentSurface.subagentProjection(record);
   }
 
   appendThreadSubagentControlEvent({
@@ -2584,63 +1264,13 @@ export class AgentgresRuntimeStateStore {
     operation,
     status,
   }) {
-    const thread = this.threadForAgent(parentAgent);
-    const source = operatorControlSource(request.source);
-    const eventHash = doctorHash(
-      `${threadId}:${operation}:${record.subagent_id ?? record.subagentId}:${Date.now()}`,
-    ).slice(0, 12);
-    const workflowGraphId =
-      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ??
-      record.workflow_graph_id ??
-      record.workflowGraphId ??
-      null;
-    const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-      record.workflow_node_id ??
-      record.workflowNodeId ??
-      `runtime.subagent.${operation}`;
-    const payload = subagentManagerEventPayload({ record, operation, status });
-    const budgetPolicyDecision = record.budget_policy_decision ?? record.budgetPolicyDecision ?? null;
-    const budgetStatus =
-      record.budget_status ?? record.budgetStatus?.status ?? budgetPolicyDecision?.reason ?? null;
-    const requestReceiptRefs = uniqueStrings(request.receipt_refs ?? request.receiptRefs);
-    const requestPolicyDecisionRefs = uniqueStrings(
-      request.policy_decision_refs ?? request.policyDecisionRefs,
-    );
-    const policyDecisionRefs = uniqueStrings([
-      ...requestPolicyDecisionRefs,
-      ...(budgetStatus === "exceeded" && budgetPolicyDecision?.id && typeof budgetPolicyDecision.id === "string"
-        ? [budgetPolicyDecision.id]
-        : [`policy_subagent_${safeId(operation)}_allow_${eventHash}`]),
-    ]);
-    return this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: record.parent_turn_id ?? record.parentTurnId ?? thread.latest_turn_id ?? "",
-      item_id: `${record.parent_turn_id ?? record.parentTurnId ?? threadId}:item:subagent:${safeId(operation)}:${safeId(record.subagent_id ?? record.subagentId)}`,
-      idempotency_key:
-        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
-        `thread:${threadId}:subagent.${operation}:${record.subagent_id ?? record.subagentId}:${eventHash}`,
-      source,
-      source_event_kind: subagentOperatorControlKind(operation),
-      event_kind: subagentRuntimeEventKind(operation),
+    return this.subagentSurface.appendThreadSubagentControlEvent(this, {
+      threadId,
+      parentAgent,
+      record,
+      request,
+      operation,
       status,
-      actor: "operator",
-      workspace_root: parentAgent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "subagent_lifecycle",
-      payload_schema_version: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
-      payload,
-      receipt_refs: uniqueStrings([
-        ...requestReceiptRefs,
-        `receipt_subagent_${safeId(operation)}_${eventHash}`,
-      ]),
-      policy_decision_refs: policyDecisionRefs,
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(parentAgent),
     });
   }
 
@@ -2780,106 +1410,75 @@ export class AgentgresRuntimeStateStore {
   }
 
   listTurns(threadId) {
-    const agent = this.agentForThread(threadId);
-    return this.listRuns(agent.id).map((run) => this.turnForRun(run));
+    return this.threadEventSurface.listTurns(this, threadId);
   }
 
   getTurn(threadId, turnId) {
-    const turn = this.listTurns(threadId).find((candidate) => candidate.turn_id === turnId);
-    if (!turn) throw notFound(`Turn not found: ${turnId}`, { threadId, turnId });
-    return turn;
+    return this.threadEventSurface.getTurn(this, threadId, turnId);
   }
 
   eventsForThread(threadId, cursor = {}) {
-    const agent = this.agentForThread(threadId);
-    this.projectThreadEvents(agent);
-    return this.runtimeEventsForStream(eventStreamIdForThread(threadIdForAgent(agent.id)), cursor);
+    return this.threadEventSurface.eventsForThread(this, threadId, cursor);
   }
 
   eventsForRun(runId, cursor = {}) {
-    const run = this.getRun(runId);
-    const agent = this.getAgent(run.agentId);
-    this.projectThreadEvents(agent);
-    return this.runtimeEventsForTurn(runtimeTurnIdForRun(run), cursor);
+    return this.threadEventSurface.eventsForRun(this, runId, cursor);
   }
 
   ensureThreadStartedEvent(agent) {
-    return ensureThreadStartedEventState(this, agent, {
-      DAEMON_FIXTURE_PROFILE,
-      RUNTIME_THREAD_SCHEMA_VERSION,
-      eventStreamIdForThread,
-      threadIdForAgent,
-      threadStatusForAgent,
-    });
+    return this.threadEventSurface.ensureThreadStartedEvent(this, agent);
   }
 
   projectThreadEvents(agent) {
-    return projectThreadEventsState(this, agent, {
-      isRuntimeBackedAgent,
-    });
+    return this.threadEventSurface.projectThreadEvents(this, agent);
   }
 
   projectRunEvents(run, agent = this.getAgent(run.agentId)) {
-    return projectRunEventsState(this, run, agent, {
-      isRuntimeBackedAgent,
-      threadIdForAgent,
-      ttiEnvelopeForRunEvent,
-      turnIdForRun,
-    });
+    return this.threadEventSurface.projectRunEvents(this, run, agent);
   }
 
   appendRuntimeEvent(event) {
-    return appendRuntimeEventState(this, event, {
-      fs,
-      normalizeRuntimeEventEnvelope,
-      runtimeError,
-    });
+    return this.threadEventSurface.appendRuntimeEvent(this, event);
   }
 
   runtimeEventsForStream(eventStreamId, cursor = {}) {
-    return runtimeEventsForStreamState(this, eventStreamId, cursor);
+    return this.threadEventSurface.runtimeEventsForStream(this, eventStreamId, cursor);
   }
 
   runtimeEventsForTurn(turnId, cursor = {}) {
-    return runtimeEventsForTurnState(this, turnId, cursor);
+    return this.threadEventSurface.runtimeEventsForTurn(this, turnId, cursor);
   }
 
   runtimeCursorSeq(stream, cursor = {}) {
-    return runtimeCursorSeqState(this, stream, cursor, {
-      runtimeError,
-    });
+    return this.threadEventSurface.runtimeCursorSeq(this, stream, cursor);
   }
 
   assertRuntimeCursorSeq(cursorSeq, latestSeq, details = {}) {
-    return assertRuntimeCursorSeqState(cursorSeq, latestSeq, details, {
-      runtimeError,
-    });
+    return this.threadEventSurface.assertRuntimeCursorSeq(cursorSeq, latestSeq, details);
   }
 
   latestRuntimeEventSeq(eventStreamId) {
-    return latestRuntimeEventSeqState(this, eventStreamId);
+    return this.threadEventSurface.latestRuntimeEventSeq(this, eventStreamId);
   }
 
   runtimeEventStream(eventStreamId) {
-    return runtimeEventStreamState(this, eventStreamId);
+    return this.threadEventSurface.runtimeEventStream(this, eventStreamId);
   }
 
   registerRuntimeEvent(record) {
-    return registerRuntimeEventState(this, record);
+    return this.threadEventSurface.registerRuntimeEvent(this, record);
   }
 
   runtimeEventStreamPath(eventStreamId) {
-    return runtimeEventStreamPathState(this, eventStreamId, {
-      runtimeEventStreamFileName,
-    });
+    return this.threadEventSurface.runtimeEventStreamPath(this, eventStreamId);
   }
 
   threadForAgent(agent) {
-    return this.threadTurnProjection.threadForAgent(this, agent);
+    return this.threadEventSurface.threadForAgent(this, agent);
   }
 
   turnForRun(run) {
-    return this.threadTurnProjection.turnForRun(this, run);
+    return this.threadEventSurface.turnForRun(this, run);
   }
 
   async interruptTurn(threadId, turnId, request = {}) {
@@ -3110,1630 +1709,67 @@ export class AgentgresRuntimeStateStore {
   }
 
   requestThreadApproval(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const runs = this.listRuns(agent.id);
-    const requestedTurnId = optionalString(request.turn_id ?? request.turnId);
-    let turnId = requestedTurnId ?? "";
-    let run = null;
-    if (turnId) {
-      run = this.getRun(runIdForTurn(turnId));
-      if (run.agentId !== agent.id) {
-        throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId: run.id });
-      }
-    } else {
-      run = runs.at(-1) ?? null;
-      turnId = run ? turnIdForRun(run.id) : "";
-    }
-
-    const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
-    const reason =
-      optionalString(request.reason ?? request.message ?? request.input) ??
-      "operator requested approval";
-    const action =
-      optionalString(request.action ?? request.approval_action ?? request.approvalAction) ??
-      "request_approval";
-    const toolId =
-      optionalString(request.tool_id ?? request.toolId ?? request.tool_name ?? request.toolName) ??
-      null;
-    const effectClass =
-      optionalString(request.effect_class ?? request.effectClass) ??
-      null;
-    const riskDomain =
-      optionalString(request.risk_domain ?? request.riskDomain) ??
-      null;
-    const approvalManifest =
-      request.approval_manifest && typeof request.approval_manifest === "object"
-        ? request.approval_manifest
-        : request.approvalManifest && typeof request.approvalManifest === "object"
-          ? request.approvalManifest
-          : null;
-    const runOrAgentId = run?.id ?? agent.id;
-    const approvalSeed = `${threadId}:${turnId || "thread"}:${reason}`;
-    const approvalHash = crypto.createHash("sha256").update(approvalSeed).digest("hex").slice(0, 16);
-    const approvalId =
-      optionalString(request.approval_id ?? request.approvalId) ??
-      `approval_context_pressure_${safeId(threadId)}_${safeId(turnId || "thread")}_${approvalHash}`;
-    const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-      `runtime.approval.${safeId(approvalId)}`;
-    const scope = optionalString(request.scope) ?? "thread";
-    const pressure = contextBudgetNumber(
-      request.pressure,
-      request.context_pressure,
-      request.contextPressure,
-    );
-    const pressureStatus =
-      optionalString(
-        request.pressure_status ??
-          request.pressureStatus ??
-          request.context_pressure_status ??
-          request.contextPressureStatus,
-      ) ?? null;
-    const alertId =
-      optionalString(request.alert_id ?? request.alertId ?? request.alert_event_id ?? request.alertEventId) ??
-      null;
-    const sourceEventId =
-      optionalString(request.source_event_id ?? request.sourceEventId) ?? null;
-    const leaseMetadata = approvalLeaseMetadataForRequest({
-      request,
-      approvalId,
-      action,
-      scope,
-      now: new Date().toISOString(),
-      threadId,
-    });
-    const receiptRefs = uniqueStrings([
-      ...normalizeArray(request.receipt_refs ?? request.receiptRefs),
-      `receipt_${runOrAgentId}_approval_required_${safeId(approvalId)}`,
-    ]);
-    const policyDecisionRefs = uniqueStrings([
-      ...normalizeArray(request.policy_decision_refs ?? request.policyDecisionRefs),
-      `policy_${runOrAgentId}_approval_required`,
-    ]);
-    const now = leaseMetadata.created_at;
-    const event = this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:approval-required:${safeId(approvalId)}`,
-      idempotency_key:
-        request.idempotency_key ??
-        request.idempotencyKey ??
-        `thread:${threadId}:approval.required:${approvalId}`,
-      source,
-      source_event_kind: "OperatorApproval.Request",
-      event_kind: "approval.required",
-      status: "waiting_for_approval",
-      actor: "user",
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
-      workflow_node_id: workflowNodeId,
-      component_kind: "approval_gate",
-      approval_id: approvalId,
-      payload_schema_version: "ioi.runtime.approval-request.v1",
-      payload: {
-        event_kind: "OperatorApproval.Request",
-        approval_id: approvalId,
-        approval_required: true,
-        approvalRequired: true,
-        reason,
-        requested_by: requestedBy,
-        control_surface: source,
-        action,
-        scope,
-        tool_id: toolId,
-        toolId,
-        effect_class: effectClass,
-        effectClass,
-        risk_domain: riskDomain,
-        riskDomain,
-        authority_scope_requirements: normalizeArray(
-          request.authority_scope_requirements ?? request.authorityScopeRequirements,
-        ),
-        expected_receipt_refs: leaseMetadata.expected_receipt_refs,
-        expectedReceiptRefs: leaseMetadata.expectedReceiptRefs,
-        policy_hash: leaseMetadata.policy_hash,
-        policyHash: leaseMetadata.policyHash,
-        ttl_ms: leaseMetadata.ttl_ms,
-        ttlMs: leaseMetadata.ttlMs,
-        expires_at: leaseMetadata.expires_at,
-        expiresAt: leaseMetadata.expiresAt,
-        lease_id: leaseMetadata.lease_id,
-        leaseId: leaseMetadata.leaseId,
-        revoke_endpoint: leaseMetadata.revoke_endpoint,
-        revokeEndpoint: leaseMetadata.revokeEndpoint,
-        approval_lease: leaseMetadata,
-        approvalLease: leaseMetadata,
-        approval_manifest: approvalManifest,
-        approvalManifest,
-        pressure: pressure ?? null,
-        pressure_status: pressureStatus,
-        pressureStatus,
-        alert_id: alertId,
-        alertId,
-        source_event_id: sourceEventId,
-        sourceEventId,
-        agent_id: agent.id,
-        thread_id: threadId,
-        turn_id: turnId || null,
-        run_id: run?.id ?? null,
-        session_id: runtimeSessionIdForAgent(agent),
-      },
-      receipt_refs: receiptRefs,
-      policy_decision_refs: policyDecisionRefs,
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
-    });
-    const control = {
-      control: "approval_request",
-      approvalId,
-      status: "waiting_for_approval",
-      source,
-      reason,
-      eventId: event.event_id,
-      seq: event.seq,
-      receiptRefs: event.receipt_refs,
-      policyDecisionRefs: event.policy_decision_refs,
-      createdAt: event.created_at,
-    };
-    if (run) {
-      const updated = {
-        ...run,
-        status: run.status === "queued" || run.status === "running" ? "blocked" : run.status,
-        updatedAt: event.created_at,
-        turnStatus: "waiting_for_approval",
-        trace: {
-          ...run.trace,
-          operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
-          approvalRequests: appendOperatorControl(run.trace?.approvalRequests, control),
-        },
-        operatorControls: appendOperatorControl(run.operatorControls, control),
-        approvalRequests: appendOperatorControl(run.approvalRequests, control),
-      };
-      this.runs.set(run.id, updated);
-      this.writeRun(updated, "approval.required");
-      return {
-        ...this.turnForRun(updated),
-        approval_id: approvalId,
-        approval_required: true,
-        approvalRequired: true,
-        event_id: event.event_id,
-        seq: event.seq,
-        receipt_refs: event.receipt_refs,
-        policy_decision_refs: event.policy_decision_refs,
-      };
-    }
-
-    const updatedAgent = { ...agent, updatedAt: event.created_at };
-    this.agents.set(agent.id, updatedAgent);
-    this.writeAgent(updatedAgent, "approval.required");
-    return {
-      ...this.threadForAgent(updatedAgent),
-      approval_id: approvalId,
-      approval_required: true,
-      approvalRequired: true,
-      event_id: event.event_id,
-      seq: event.seq,
-      receipt_refs: event.receipt_refs,
-      policy_decision_refs: event.policy_decision_refs,
-    };
+    return this.approvalSurface.requestThreadApproval(this, threadId, request);
   }
 
   decideThreadApproval(threadId, approvalId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const normalizedApprovalId =
-      optionalString(approvalId ?? request.approval_id ?? request.approvalId) ??
-      (() => {
-        throw runtimeError({
-          status: 400,
-          code: "approval_id_required",
-          message: "Approval decisions require an approval id.",
-          details: { threadId },
-        });
-      })();
-    const decision = approvalDecisionForRequest(request.decision ?? request.action ?? request.status);
-    const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
-    const reason = optionalString(request.reason ?? request.message ?? request.input) ?? null;
-    const runs = this.listRuns(agent.id);
-    const requestedTurnId = optionalString(request.turn_id ?? request.turnId);
-    let turnId = requestedTurnId ?? "";
-    let run = null;
-    if (turnId) {
-      run = this.getRun(runIdForTurn(turnId));
-      if (run.agentId !== agent.id) {
-        throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId: run.id });
-      }
-    } else {
-      run = runs.at(-1) ?? null;
-      turnId = run ? turnIdForRun(run.id) : "";
-    }
-
-    const now = new Date().toISOString();
-    const status = decision === "approve" ? "approved" : "rejected";
-    const decisionVerb = decision === "approve" ? "Approve" : "Reject";
-    const approvalRequestEvent = this.latestApprovalRequestEvent(threadId, normalizedApprovalId);
-    const approvalRequestPayload = approvalRequestEvent?.payload_summary ?? approvalRequestEvent?.payload ?? {};
-    const leaseMetadata = approvalLeaseMetadataFromPayload(
-      approvalRequestPayload,
-      normalizedApprovalId,
-      threadId,
-    );
-    const leaseStatus = decision === "approve" ? "active" : "denied";
-    const approvalLease = {
-      ...leaseMetadata,
-      status: leaseStatus,
-      decision,
-      approval_request_event_id: approvalRequestEvent?.event_id ?? null,
-      approvalRequestEventId: approvalRequestEvent?.event_id ?? null,
-      decided_at: now,
-      decidedAt: now,
-    };
-    const decisionHash = crypto
-      .createHash("sha256")
-      .update(`${normalizedApprovalId}:${decision}:${reason ?? ""}:${requestedBy}`)
-      .digest("hex")
-      .slice(0, 16);
-    const workflowNodeId =
-      request.workflow_node_id ??
-      request.workflowNodeId ??
-      `runtime.approval.${safeId(normalizedApprovalId)}`;
-    const runOrAgentId = run?.id ?? agent.id;
-    const event = this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:approval-${decision}:${safeId(normalizedApprovalId)}`,
-      idempotency_key:
-        request.idempotency_key ??
-        request.idempotencyKey ??
-        `thread:${threadId}:approval.${decision}:${normalizedApprovalId}:${decisionHash}`,
-      source,
-      source_event_kind: `OperatorApproval.${decisionVerb}`,
-      event_kind: `approval.${status}`,
-      status,
-      actor: "user",
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
-      workflow_node_id: workflowNodeId,
-      component_kind: "approval_gate",
-      approval_id: normalizedApprovalId,
-      payload_schema_version: "ioi.runtime.approval-decision.v1",
-      payload: {
-        event_kind: `OperatorApproval.${decisionVerb}`,
-        approval_id: normalizedApprovalId,
-        decision,
-        status,
-        reason,
-        requested_by: requestedBy,
-        control_surface: source,
-        action: approvalRequestPayload.action ?? null,
-        scope: approvalRequestPayload.scope ?? null,
-        tool_id: approvalRequestPayload.tool_id ?? approvalRequestPayload.toolId ?? null,
-        toolId: approvalRequestPayload.toolId ?? approvalRequestPayload.tool_id ?? null,
-        effect_class: approvalRequestPayload.effect_class ?? approvalRequestPayload.effectClass ?? null,
-        effectClass: approvalRequestPayload.effectClass ?? approvalRequestPayload.effect_class ?? null,
-        risk_domain: approvalRequestPayload.risk_domain ?? approvalRequestPayload.riskDomain ?? null,
-        riskDomain: approvalRequestPayload.riskDomain ?? approvalRequestPayload.risk_domain ?? null,
-        approval_request_event_id: approvalRequestEvent?.event_id ?? null,
-        approvalRequestEventId: approvalRequestEvent?.event_id ?? null,
-        lease_id: leaseMetadata.lease_id,
-        leaseId: leaseMetadata.leaseId,
-        lease_status: leaseStatus,
-        leaseStatus,
-        policy_hash: leaseMetadata.policy_hash,
-        policyHash: leaseMetadata.policyHash,
-        ttl_ms: leaseMetadata.ttl_ms,
-        ttlMs: leaseMetadata.ttlMs,
-        expires_at: leaseMetadata.expires_at,
-        expiresAt: leaseMetadata.expiresAt,
-        expected_receipt_refs: leaseMetadata.expected_receipt_refs,
-        expectedReceiptRefs: leaseMetadata.expectedReceiptRefs,
-        authority_scope_requirements: leaseMetadata.authority_scope_requirements,
-        authorityScopeRequirements: leaseMetadata.authorityScopeRequirements,
-        revoke_endpoint: leaseMetadata.revoke_endpoint,
-        revokeEndpoint: leaseMetadata.revokeEndpoint,
-        approval_lease: approvalLease,
-        approvalLease,
-        approval_manifest:
-          approvalRequestPayload.approval_manifest ?? approvalRequestPayload.approvalManifest ?? null,
-        approvalManifest:
-          approvalRequestPayload.approvalManifest ?? approvalRequestPayload.approval_manifest ?? null,
-        agent_id: agent.id,
-        thread_id: threadId,
-        turn_id: turnId || null,
-        run_id: run?.id ?? null,
-        session_id: runtimeSessionIdForAgent(agent),
-      },
-      receipt_refs: [`receipt_${runOrAgentId}_approval_${decision}_${safeId(normalizedApprovalId)}_${decisionHash}`],
-      policy_decision_refs: [`policy_${runOrAgentId}_approval_${decision}_allow`],
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
-    });
-    const control = {
-      control: "approval_decision",
-      approvalId: normalizedApprovalId,
-      leaseId: leaseMetadata.leaseId,
-      leaseStatus,
-      decision,
-      status,
-      source,
-      reason,
-      eventId: event.event_id,
-      seq: event.seq,
-      receiptRefs: event.receipt_refs,
-      policyDecisionRefs: event.policy_decision_refs,
-      createdAt: event.created_at,
-    };
-    if (run) {
-      const updated = {
-        ...run,
-        updatedAt: event.created_at,
-        turnStatus: decision === "reject" ? "waiting_for_input" : run.turnStatus,
-        trace: {
-          ...run.trace,
-          operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
-          approvalDecisions: appendOperatorControl(run.trace?.approvalDecisions, control),
-        },
-        operatorControls: appendOperatorControl(run.operatorControls, control),
-        approvalDecisions: appendOperatorControl(run.approvalDecisions, control),
-      };
-      this.runs.set(run.id, updated);
-      this.writeRun(updated, `approval.${decision}`);
-      return {
-        ...this.turnForRun(updated),
-        approval_id: normalizedApprovalId,
-        lease_id: leaseMetadata.lease_id,
-        leaseId: leaseMetadata.leaseId,
-        lease_status: leaseStatus,
-        leaseStatus,
-        approval_lease: approvalLease,
-        approvalLease,
-        decision,
-        event_id: event.event_id,
-        seq: event.seq,
-        receipt_refs: event.receipt_refs,
-        policy_decision_refs: event.policy_decision_refs,
-      };
-    }
-    const updatedAgent = { ...agent, updatedAt: event.created_at };
-    this.agents.set(agent.id, updatedAgent);
-    this.writeAgent(updatedAgent, `approval.${decision}`);
-    return {
-      ...this.threadForAgent(updatedAgent),
-      approval_id: normalizedApprovalId,
-      lease_id: leaseMetadata.lease_id,
-      leaseId: leaseMetadata.leaseId,
-      lease_status: leaseStatus,
-      leaseStatus,
-      approval_lease: approvalLease,
-      approvalLease,
-      decision,
-      event_id: event.event_id,
-      seq: event.seq,
-      receipt_refs: event.receipt_refs,
-      policy_decision_refs: event.policy_decision_refs,
-    };
+    return this.approvalSurface.decideThreadApproval(this, threadId, approvalId, request);
   }
 
   revokeThreadApproval(threadId, approvalId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const normalizedApprovalId =
-      optionalString(approvalId ?? request.approval_id ?? request.approvalId) ??
-      (() => {
-        throw runtimeError({
-          status: 400,
-          code: "approval_id_required",
-          message: "Approval revocation requires an approval id.",
-          details: { threadId },
-        });
-      })();
-    const approvalRequestEvent = this.latestApprovalRequestEvent(threadId, normalizedApprovalId);
-    if (!approvalRequestEvent) {
-      throw notFound(`Approval request not found: ${normalizedApprovalId}`, {
-        threadId,
-        approvalId: normalizedApprovalId,
-      });
-    }
-    const approvalRequestPayload = approvalRequestEvent.payload_summary ?? approvalRequestEvent.payload ?? {};
-    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
-    const priorDecisionEvent =
-      stream.events
-        .filter(
-          (event) =>
-            event.approval_id === normalizedApprovalId &&
-            event.seq > approvalRequestEvent.seq &&
-            (event.event_kind === "approval.approved" || event.event_kind === "approval.rejected"),
-        )
-        .at(-1) ?? null;
-    const source = operatorControlSource(request.source);
-    const requestedBy =
-      optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
-    const reason =
-      optionalString(request.reason ?? request.message ?? request.input) ??
-      "operator revoked approval lease";
-    const runs = this.listRuns(agent.id);
-    const requestedTurnId = optionalString(request.turn_id ?? request.turnId);
-    let turnId = requestedTurnId ?? approvalRequestEvent.turn_id ?? "";
-    let run = null;
-    if (turnId) {
-      run = this.getRun(runIdForTurn(turnId));
-      if (run.agentId !== agent.id) {
-        throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId: run.id });
-      }
-    } else {
-      run = runs.at(-1) ?? null;
-      turnId = run ? turnIdForRun(run.id) : "";
-    }
-
-    const now = new Date().toISOString();
-    const leaseMetadata = approvalLeaseMetadataFromPayload(
-      approvalRequestPayload,
-      normalizedApprovalId,
-      threadId,
-    );
-    const approvalLease = {
-      ...leaseMetadata,
-      status: "revoked",
-      approval_request_event_id: approvalRequestEvent.event_id,
-      approvalRequestEventId: approvalRequestEvent.event_id,
-      approval_decision_event_id: priorDecisionEvent?.event_id ?? null,
-      approvalDecisionEventId: priorDecisionEvent?.event_id ?? null,
-      revoked_at: now,
-      revokedAt: now,
-    };
-    const revokeHash = crypto
-      .createHash("sha256")
-      .update(`${normalizedApprovalId}:revoke:${reason}:${requestedBy}`)
-      .digest("hex")
-      .slice(0, 16);
-    const workflowNodeId =
-      request.workflow_node_id ??
-      request.workflowNodeId ??
-      approvalRequestEvent.workflow_node_id ??
-      `runtime.approval.${safeId(normalizedApprovalId)}`;
-    const workflowGraphId =
-      request.workflow_graph_id ??
-      request.workflowGraphId ??
-      approvalRequestEvent.workflow_graph_id ??
-      null;
-    const runOrAgentId = run?.id ?? agent.id;
-    const event = this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:approval-revoke:${safeId(normalizedApprovalId)}`,
-      idempotency_key:
-        request.idempotency_key ??
-        request.idempotencyKey ??
-        `thread:${threadId}:approval.revoke:${normalizedApprovalId}:${revokeHash}`,
-      source,
-      source_event_kind: "OperatorApproval.Revoke",
-      event_kind: "approval.revoked",
-      status: "revoked",
-      actor: "user",
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "approval_gate",
-      approval_id: normalizedApprovalId,
-      payload_schema_version: "ioi.runtime.approval-revoke.v1",
-      payload: {
-        event_kind: "OperatorApproval.Revoke",
-        approval_id: normalizedApprovalId,
-        decision: "revoke",
-        status: "revoked",
-        reason,
-        requested_by: requestedBy,
-        control_surface: source,
-        action: approvalRequestPayload.action ?? null,
-        scope: approvalRequestPayload.scope ?? null,
-        tool_id: approvalRequestPayload.tool_id ?? approvalRequestPayload.toolId ?? null,
-        toolId: approvalRequestPayload.toolId ?? approvalRequestPayload.tool_id ?? null,
-        effect_class: approvalRequestPayload.effect_class ?? approvalRequestPayload.effectClass ?? null,
-        effectClass: approvalRequestPayload.effectClass ?? approvalRequestPayload.effect_class ?? null,
-        risk_domain: approvalRequestPayload.risk_domain ?? approvalRequestPayload.riskDomain ?? null,
-        riskDomain: approvalRequestPayload.riskDomain ?? approvalRequestPayload.risk_domain ?? null,
-        approval_request_event_id: approvalRequestEvent.event_id,
-        approvalRequestEventId: approvalRequestEvent.event_id,
-        approval_decision_event_id: priorDecisionEvent?.event_id ?? null,
-        approvalDecisionEventId: priorDecisionEvent?.event_id ?? null,
-        lease_id: leaseMetadata.lease_id,
-        leaseId: leaseMetadata.leaseId,
-        lease_status: "revoked",
-        leaseStatus: "revoked",
-        policy_hash: leaseMetadata.policy_hash,
-        policyHash: leaseMetadata.policyHash,
-        ttl_ms: leaseMetadata.ttl_ms,
-        ttlMs: leaseMetadata.ttlMs,
-        expires_at: leaseMetadata.expires_at,
-        expiresAt: leaseMetadata.expiresAt,
-        expected_receipt_refs: leaseMetadata.expected_receipt_refs,
-        expectedReceiptRefs: leaseMetadata.expectedReceiptRefs,
-        authority_scope_requirements: leaseMetadata.authority_scope_requirements,
-        authorityScopeRequirements: leaseMetadata.authorityScopeRequirements,
-        revoke_endpoint: leaseMetadata.revoke_endpoint,
-        revokeEndpoint: leaseMetadata.revokeEndpoint,
-        approval_lease: approvalLease,
-        approvalLease,
-        approval_manifest:
-          approvalRequestPayload.approval_manifest ?? approvalRequestPayload.approvalManifest ?? null,
-        approvalManifest:
-          approvalRequestPayload.approvalManifest ?? approvalRequestPayload.approval_manifest ?? null,
-        agent_id: agent.id,
-        thread_id: threadId,
-        turn_id: turnId || null,
-        run_id: run?.id ?? null,
-        session_id: runtimeSessionIdForAgent(agent),
-      },
-      receipt_refs: [
-        `receipt_${runOrAgentId}_approval_revoke_${safeId(normalizedApprovalId)}_${revokeHash}`,
-      ],
-      policy_decision_refs: [`policy_${runOrAgentId}_approval_revoke`],
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
-    });
-    const control = {
-      control: "approval_revoke",
-      approvalId: normalizedApprovalId,
-      leaseId: leaseMetadata.leaseId,
-      leaseStatus: "revoked",
-      decision: "revoke",
-      status: "revoked",
-      source,
-      reason,
-      eventId: event.event_id,
-      seq: event.seq,
-      receiptRefs: event.receipt_refs,
-      policyDecisionRefs: event.policy_decision_refs,
-      createdAt: event.created_at,
-    };
-    if (run) {
-      const updated = {
-        ...run,
-        updatedAt: event.created_at,
-        turnStatus: "waiting_for_input",
-        trace: {
-          ...run.trace,
-          operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
-          approvalDecisions: appendOperatorControl(run.trace?.approvalDecisions, control),
-          approvalRevocations: appendOperatorControl(run.trace?.approvalRevocations, control),
-        },
-        operatorControls: appendOperatorControl(run.operatorControls, control),
-        approvalDecisions: appendOperatorControl(run.approvalDecisions, control),
-        approvalRevocations: appendOperatorControl(run.approvalRevocations, control),
-      };
-      this.runs.set(run.id, updated);
-      this.writeRun(updated, "approval.revoke");
-      return {
-        ...this.turnForRun(updated),
-        approval_id: normalizedApprovalId,
-        lease_id: leaseMetadata.lease_id,
-        leaseId: leaseMetadata.leaseId,
-        lease_status: "revoked",
-        leaseStatus: "revoked",
-        approval_lease: approvalLease,
-        approvalLease,
-        decision: "revoke",
-        status: "revoked",
-        event_id: event.event_id,
-        seq: event.seq,
-        receipt_refs: event.receipt_refs,
-        policy_decision_refs: event.policy_decision_refs,
-      };
-    }
-    const updatedAgent = { ...agent, updatedAt: event.created_at };
-    this.agents.set(agent.id, updatedAgent);
-    this.writeAgent(updatedAgent, "approval.revoke");
-    return {
-      ...this.threadForAgent(updatedAgent),
-      approval_id: normalizedApprovalId,
-      lease_id: leaseMetadata.lease_id,
-      leaseId: leaseMetadata.leaseId,
-      lease_status: "revoked",
-      leaseStatus: "revoked",
-      approval_lease: approvalLease,
-      approvalLease,
-      decision: "revoke",
-      status: "revoked",
-      event_id: event.event_id,
-      seq: event.seq,
-      receipt_refs: event.receipt_refs,
-      policy_decision_refs: event.policy_decision_refs,
-    };
+    return this.approvalSurface.revokeThreadApproval(this, threadId, approvalId, request);
   }
 
   latestApprovalDecisionEvent(threadId, approvalId) {
-    const normalizedApprovalId = optionalString(approvalId);
-    if (!normalizedApprovalId) return null;
-    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
-    return (
-      stream.events
-        .filter(
-          (event) =>
-            event.approval_id === normalizedApprovalId &&
-            (event.event_kind === "approval.approved" ||
-              event.event_kind === "approval.rejected" ||
-              event.event_kind === "approval.revoked"),
-        )
-        .at(-1) ?? null
-    );
+    return this.approvalSurface.latestApprovalDecisionEvent(this, threadId, approvalId);
   }
 
   latestCodingToolBudgetBlockedEventForRun(runId, sourceEventId = null) {
-    const run = this.getRun(runId);
-    const agent = this.getAgent(run.agentId);
-    this.projectThreadEvents(agent);
-    const turnId = turnIdForRun(run.id);
-    const events = this.runtimeEventsForTurn(turnId);
-    const explicitSourceEventId = optionalString(sourceEventId);
-    if (explicitSourceEventId) {
-      const explicit = events.find((event) => event.event_id === explicitSourceEventId);
-      if (explicit) return explicit;
-    }
-    return events.filter(isCodingToolBudgetBlockedRuntimeEvent).at(-1) ?? null;
+    return this.codingToolBudgetRecoverySurface.latestCodingToolBudgetBlockedEventForRun(
+      this,
+      runId,
+      sourceEventId,
+    );
   }
 
   codingToolBudgetRecoveryForRun(runId, request = {}) {
-    const run = this.getRun(runId);
-    const agent = this.getAgent(run.agentId);
-    const expectedThreadId = threadIdForAgent(agent.id);
-    const threadId =
-      optionalString(request.thread_id ?? request.threadId) ??
-      expectedThreadId;
-    if (threadId !== expectedThreadId) {
-      throw notFound(`Run not found for thread: ${runId}`, { runId, threadId });
-    }
-    const turnId = turnIdForRun(run.id);
-    const action = codingToolBudgetRecoveryAction(
-      request.action ?? request.recovery_action ?? request.recoveryAction,
-    );
-    const source = operatorControlSource(request.source);
-    const actor = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
-    const requestedSourceEventId = optionalString(request.source_event_id ?? request.sourceEventId);
-    const blockedEvent = this.latestCodingToolBudgetBlockedEventForRun(run.id, requestedSourceEventId);
-    const blockedPayload = blockedEvent?.payload_summary ?? blockedEvent?.payload ?? {};
-    const sourceEventId = requestedSourceEventId ?? blockedEvent?.event_id ?? null;
-    const targetNodeIds = codingToolBudgetRecoveryTargetNodeIds({ request, blockedEvent, blockedPayload });
-    const recoveryPolicy = codingToolBudgetRecoveryPolicyFromInputs({
-      request,
-      blockedPayload,
-      targetNodeIds,
-      source,
-    });
-    const approvalId =
-      optionalString(request.approval_id ?? request.approvalId) ??
-      optionalString(blockedPayload.approval_id ?? blockedPayload.approvalId) ??
-      `approval_workflow_run_coding_tool_budget_${safeId(run.id)}_${safeId(sourceEventId ?? "source")}`;
-    const workflowGraphId =
-      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ??
-      optionalString(blockedEvent?.workflow_graph_id ?? blockedPayload.workflow_graph_id ?? blockedPayload.workflowGraphId) ??
-      null;
-    const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-      optionalString(blockedEvent?.workflow_node_id ?? blockedPayload.workflow_node_id ?? blockedPayload.workflowNodeId) ??
-      targetNodeIds[0] ??
-      "runtime.coding-tool-budget-recovery";
-    const receiptRefs = uniqueStrings([
-      ...normalizeArray(request.receipt_refs ?? request.receiptRefs),
-      ...normalizeArray(blockedEvent?.receipt_refs),
-      `receipt_${run.id}_coding_tool_budget_recovery_${safeId(action)}_${safeId(approvalId)}`,
-    ]);
-    const policyDecisionRefs = uniqueStrings([
-      ...normalizeArray(request.policy_decision_refs ?? request.policyDecisionRefs),
-      ...normalizeArray(blockedEvent?.policy_decision_refs),
-      `policy_${run.id}_coding_tool_budget_recovery_${safeId(action)}`,
-    ]);
-    const approvalManifest = {
-      schema_version: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
-      schemaVersion: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
-      action: "workflow_run.coding_budget_recovery",
-      recovery_action: action,
-      recoveryAction: action,
-      reason: WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
-      source_event_id: sourceEventId,
-      sourceEventId,
-      approval_id: approvalId,
-      approvalId,
-      run_id: run.id,
-      runId: run.id,
-      thread_id: threadId,
-      threadId,
-      turn_id: turnId,
-      turnId,
-      workflow_graph_id: workflowGraphId,
-      workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      workflowNodeId,
-      target_node_ids: targetNodeIds,
-      targetNodeIds,
-      recovery_policy: recoveryPolicy,
-      recoveryPolicy,
-    };
-
-    if (action === "request_approval") {
-      const approval = this.requestThreadApproval(threadId, {
-        ...request,
-        source,
-        actor,
-        turnId,
-        workflowGraphId,
-        workflowNodeId,
-        action: "workflow_run.coding_budget_recovery",
-        reason: WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
-        scope: "coding_tool_budget_recovery",
-        approvalId,
-        toolId: "coding_tool",
-        effectClass: "coding_tool_budget_recovery",
-        riskDomain: "runtime_coding_tool_budget",
-        authorityScopeRequirements: ["workflow.run.coding_tool_budget_recovery"],
-        approvalManifest,
-        receiptRefs,
-        policyDecisionRefs,
-      });
-      const approvalEvent = this.latestApprovalRequestEvent(threadId, approval.approval_id);
-      return codingToolBudgetRecoveryResult({
-        action,
-        status: "waiting_for_approval",
-        run,
-        threadId,
-        turnId,
-        approvalId: approval.approval_id,
-        sourceEventId,
-        targetNodeIds,
-        workflowGraphId,
-        workflowNodeId,
-        recoveryPolicy,
-        event: approvalEvent,
-        approvalEvent,
-        receiptRefs: uniqueStrings([...receiptRefs, ...normalizeArray(approval.receipt_refs)]),
-        policyDecisionRefs: uniqueStrings([
-          ...policyDecisionRefs,
-          ...normalizeArray(approval.policy_decision_refs),
-        ]),
-      });
-    }
-
-    if (action === "approve_override" || action === "reject_override") {
-      const decision = action === "approve_override" ? "approve" : "reject";
-      const decisionResult = this.decideThreadApproval(threadId, approvalId, {
-        ...request,
-        source,
-        actor,
-        turnId,
-        decision,
-        reason: WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
-        workflowGraphId,
-        workflowNodeId,
-      });
-      const decisionEvent = this.latestApprovalDecisionEvent(threadId, approvalId);
-      return codingToolBudgetRecoveryResult({
-        action,
-        status: decision === "approve" ? "approved" : "rejected",
-        run,
-        threadId,
-        turnId,
-        approvalId,
-        sourceEventId,
-        targetNodeIds,
-        workflowGraphId,
-        workflowNodeId,
-        recoveryPolicy,
-        event: decisionEvent,
-        decisionEvent,
-        receiptRefs: uniqueStrings([...receiptRefs, ...normalizeArray(decisionResult.receipt_refs)]),
-        policyDecisionRefs: uniqueStrings([
-          ...policyDecisionRefs,
-          ...normalizeArray(decisionResult.policy_decision_refs),
-        ]),
-      });
-    }
-
-    const approvalRequestEvent = this.latestApprovalRequestEvent(threadId, approvalId);
-    const approvalDecisionEvent = this.latestApprovalDecisionEvent(threadId, approvalId);
-    if (recoveryPolicy.requiresApproval !== false) {
-      if (!approvalRequestEvent) {
-        return codingToolBudgetRecoveryResult({
-          action,
-          status: "blocked",
-          reason: "approval_request_missing",
-          run,
-          threadId,
-          turnId,
-          approvalId,
-          sourceEventId,
-          targetNodeIds,
-          workflowGraphId,
-          workflowNodeId,
-          recoveryPolicy,
-          receiptRefs,
-          policyDecisionRefs,
-        });
-      }
-      if (!approvalDecisionEvent || approvalDecisionEvent.event_kind !== "approval.approved") {
-        return codingToolBudgetRecoveryResult({
-          action,
-          status: "blocked",
-          reason: approvalDecisionEvent
-            ? approvalReasonForDecisionEvent(approvalDecisionEvent)
-            : "approval_decision_missing",
-          run,
-          threadId,
-          turnId,
-          approvalId,
-          sourceEventId,
-          targetNodeIds,
-          workflowGraphId,
-          workflowNodeId,
-          recoveryPolicy,
-          event: approvalDecisionEvent,
-          decisionEvent: approvalDecisionEvent,
-          receiptRefs,
-          policyDecisionRefs,
-        });
-      }
-    }
-    const retryLimit = recoveryPolicyRetryLimit(recoveryPolicy);
-    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
-    const retryCount = stream.events.filter((event) => {
-      if (event.event_kind !== "workflow.run.retry_completed") return false;
-      const payload = event.payload_summary ?? event.payload ?? {};
-      return (
-        event.approval_id === approvalId ||
-        payload.approval_id === approvalId ||
-        payload.approvalId === approvalId ||
-        (sourceEventId &&
-          (payload.source_event_id === sourceEventId || payload.sourceEventId === sourceEventId))
-      );
-    }).length;
-    if (retryCount >= retryLimit) {
-      return codingToolBudgetRecoveryResult({
-        action,
-        status: "blocked",
-        reason: "retry_limit_exceeded",
-        run,
-        threadId,
-        turnId,
-        approvalId,
-        sourceEventId,
-        targetNodeIds,
-        workflowGraphId,
-        workflowNodeId,
-        recoveryPolicy,
-        event: approvalDecisionEvent,
-        decisionEvent: approvalDecisionEvent,
-        receiptRefs,
-        policyDecisionRefs,
-      });
-    }
-    const now = new Date().toISOString();
-    const event = this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId}:item:coding-tool-budget-recovery:${safeId(approvalId)}:${retryCount + 1}`,
-      idempotency_key:
-        request.idempotency_key ??
-        request.idempotencyKey ??
-        `run:${run.id}:coding-tool-budget-recovery.retry:${approvalId}:${retryCount + 1}`,
-      source,
-      source_event_kind: "WorkflowRunCodingToolBudgetApprovedRetry",
-      event_kind: "workflow.run.retry_completed",
-      status: "completed",
-      actor,
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "coding_tool",
-      approval_id: approvalId,
-      payload_schema_version: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
-      payload: {
-        ...approvalManifest,
-        event_kind: "WorkflowRunCodingToolBudgetApprovedRetry",
-        eventKind: "WorkflowRunCodingToolBudgetApprovedRetry",
-        recovery_action: "retry_approved",
-        recoveryAction: "retry_approved",
-        status: "completed",
-        approval_satisfied: true,
-        approvalSatisfied: true,
-        approval_decision_event_id: approvalDecisionEvent?.event_id ?? null,
-        approvalDecisionEventId: approvalDecisionEvent?.event_id ?? null,
-        retry_count: retryCount + 1,
-        retryCount: retryCount + 1,
-        retry_limit: retryLimit,
-        retryLimit,
-        control_surface: source,
-        requested_by: actor,
-      },
-      receipt_refs: receiptRefs,
-      policy_decision_refs: policyDecisionRefs,
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
-    });
-    const control = {
-      control: "coding_tool_budget_recovery",
-      action: "retry_approved",
-      approvalId,
-      status: "completed",
-      source,
-      eventId: event.event_id,
-      seq: event.seq,
-      receiptRefs: event.receipt_refs,
-      policyDecisionRefs: event.policy_decision_refs,
-      createdAt: event.created_at,
-    };
-    const updated = {
-      ...run,
-      updatedAt: event.created_at,
-      trace: {
-        ...run.trace,
-        operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
-      },
-      operatorControls: appendOperatorControl(run.operatorControls, control),
-    };
-    this.runs.set(run.id, updated);
-    this.writeRun(updated, "workflow.run.retry_completed");
-    return codingToolBudgetRecoveryResult({
-      action,
-      status: "completed",
-      run: updated,
-      threadId,
-      turnId,
-      approvalId,
-      sourceEventId,
-      targetNodeIds,
-      workflowGraphId,
-      workflowNodeId,
-      recoveryPolicy,
-      event,
-      decisionEvent: approvalDecisionEvent,
-      receiptRefs: event.receipt_refs,
-      policyDecisionRefs: event.policy_decision_refs,
-    });
+    return this.codingToolBudgetRecoverySurface.codingToolBudgetRecoveryForRun(this, runId, request);
   }
 
   workflowEditThreadContext(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const runs = this.listRuns(agent.id);
-    const requestedTurnId = optionalString(request.turn_id ?? request.turnId);
-    let turnId = requestedTurnId ?? "";
-    let run = null;
-    if (turnId) {
-      run = this.getRun(runIdForTurn(turnId));
-      if (run.agentId !== agent.id) {
-        throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId: run.id });
-      }
-    } else {
-      run = runs.at(-1) ?? null;
-      turnId = run ? turnIdForRun(run.id) : "";
-    }
-    return { agent, run, turnId };
+    return this.workflowEditSurface.workflowEditThreadContext(this, threadId, request);
   }
 
   resolveWorkflowEditTarget(agent, request = {}) {
-    const rawPath = optionalString(request.workflow_path ?? request.workflowPath);
-    if (!rawPath) return { workflowPath: null, workflowRelativePath: null };
-    const workflowPath = path.resolve(agent.cwd, rawPath);
-    const workflowRelativePath = relativePathForWorkspace(workflowPath, agent.cwd);
-    if (!workflowRelativePath) {
-      throw policyError("Workflow edit proposals can only target files inside the runtime workspace.", {
-        workspaceRoot: agent.cwd,
-        workflowPath,
-      });
-    }
-    return { workflowPath, workflowRelativePath };
+    return this.workflowEditSurface.resolveWorkflowEditTarget(agent, request);
   }
 
   proposeWorkflowEdit(threadId, request = {}) {
-    const { agent, run, turnId } = this.workflowEditThreadContext(threadId, request);
-    const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "workflow-author";
-    const workflowGraphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
-    const targetWorkflowNodeIds = uniqueStrings(
-      [
-        ...normalizeArray(request.target_workflow_node_ids ?? request.targetWorkflowNodeIds),
-        ...normalizeArray(request.bounded_targets ?? request.boundedTargets),
-      ]
-        .map((value) => optionalString(value))
-        .filter(Boolean),
-    );
-    const title =
-      optionalString(request.title) ??
-      "Review workflow edit proposal";
-    const summary =
-      optionalString(request.summary) ??
-      "Proposal-only workflow edit staged for daemon-owned approval.";
-    const { workflowPath, workflowRelativePath } = this.resolveWorkflowEditTarget(agent, request);
-    const workflowPatch =
-      request.workflow_patch && typeof request.workflow_patch === "object"
-        ? request.workflow_patch
-        : request.workflowPatch && typeof request.workflowPatch === "object"
-          ? request.workflowPatch
-          : null;
-    const codeDiff = optionalString(request.code_diff ?? request.codeDiff) ?? null;
-    const editIntentHash = doctorHash(
-      JSON.stringify({
-        title,
-        summary,
-        workflowGraphId,
-        targetWorkflowNodeIds,
-        workflowRelativePath,
-        workflowPatch,
-        codeDiff,
-      }),
-    ).slice(0, 16);
-    const editIntentId =
-      optionalString(request.edit_intent_id ?? request.editIntentId) ??
-      `workflow_edit_intent_${editIntentHash}`;
-    const proposalId =
-      optionalString(request.proposal_id ?? request.proposalId) ??
-      `workflow_edit_proposal_${editIntentHash}`;
-    const approvalId =
-      optionalString(request.approval_id ?? request.approvalId) ??
-      `approval_workflow_edit_${safeId(proposalId)}`;
-    const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-      `runtime.workflow-edit-proposal.${safeId(proposalId)}`;
-    const patchHash = doctorHash(
-      JSON.stringify({
-        workflowRelativePath,
-        workflowPatch,
-        targetWorkflowNodeIds,
-        codeDiff,
-      }),
-    );
-    const runOrAgentId = run?.id ?? agent.id;
-    const approvalManifest = {
-      schema_version: "ioi.runtime.workflow-edit-proposal-approval.v1",
-      schemaVersion: "ioi.runtime.workflow-edit-proposal-approval.v1",
-      proposal_id: proposalId,
-      proposalId,
-      edit_intent_id: editIntentId,
-      editIntentId,
-      workflow_graph_id: workflowGraphId,
-      workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      workflowNodeId,
-      target_workflow_node_ids: targetWorkflowNodeIds,
-      targetWorkflowNodeIds,
-      workflow_path: workflowPath,
-      workflowPath,
-      workflow_relative_path: workflowRelativePath,
-      workflowRelativePath,
-      patch_hash: patchHash,
-      patchHash,
-      proposal_only: true,
-      proposalOnly: true,
-      mutation_allowed: false,
-      mutationAllowed: false,
-      mutation_executed: false,
-      mutationExecuted: false,
-      effect_class: "workflow_mutation",
-      effectClass: "workflow_mutation",
-      risk_domain: "workflow_graph",
-      riskDomain: "workflow_graph",
-      policy_reason: "workflow_edit_proposal_only_requires_operator_approval",
-      thread_mode: agent.runtimeControls?.mode ?? "agent",
-      approval_mode: "human_required",
-      authority_scope_requirements: ["workflow.edit.apply"],
-    };
-    const receiptRefs = uniqueStrings([
-      ...normalizeArray(request.receipt_refs ?? request.receiptRefs),
-      `receipt_${runOrAgentId}_workflow_edit_proposed_${safeId(proposalId)}`,
-    ]);
-    const policyDecisionRefs = uniqueStrings([
-      ...normalizeArray(request.policy_decision_refs ?? request.policyDecisionRefs),
-      `policy_${runOrAgentId}_workflow_edit_proposal_only`,
-    ]);
-    const now = new Date().toISOString();
-    const event = this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:workflow-edit-proposed:${safeId(proposalId)}`,
-      idempotency_key:
-        request.idempotency_key ??
-        request.idempotencyKey ??
-        `thread:${threadId}:workflow.edit.proposed:${proposalId}`,
-      source,
-      source_event_kind: "WorkflowEdit.Proposed",
-      event_kind: "workflow.edit_proposed",
-      status: "waiting_for_approval",
-      actor: "runtime",
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "workflow_edit_proposal",
-      approval_id: approvalId,
-      payload_schema_version: "ioi.runtime.workflow-edit-proposal.v1",
-      payload: {
-        event_kind: "WorkflowEdit.Proposed",
-        proposal_id: proposalId,
-        proposalId,
-        edit_intent_id: editIntentId,
-        editIntentId,
-        approval_id: approvalId,
-        approvalId,
-        approval_required: true,
-        approvalRequired: true,
-        title,
-        summary,
-        requested_by: requestedBy,
-        control_surface: source,
-        workflow_graph_id: workflowGraphId,
-        workflowGraphId,
-        workflow_node_id: workflowNodeId,
-        workflowNodeId,
-        target_workflow_node_ids: targetWorkflowNodeIds,
-        targetWorkflowNodeIds,
-        bounded_targets: targetWorkflowNodeIds,
-        boundedTargets: targetWorkflowNodeIds,
-        workflow_path: workflowPath,
-        workflowPath,
-        workflow_relative_path: workflowRelativePath,
-        workflowRelativePath,
-        workflow_patch: workflowPatch,
-        workflowPatch,
-        workflow_patch_present: Boolean(workflowPatch),
-        workflowPatchPresent: Boolean(workflowPatch),
-        code_diff: codeDiff,
-        codeDiff,
-        patch_hash: patchHash,
-        patchHash,
-        proposal_only: true,
-        proposalOnly: true,
-        mutation_allowed: false,
-        mutationAllowed: false,
-        mutation_executed: false,
-        mutationExecuted: false,
-        approval_manifest: approvalManifest,
-        approvalManifest,
-        agent_id: agent.id,
-        thread_id: threadId,
-        turn_id: turnId || null,
-        run_id: run?.id ?? null,
-        session_id: runtimeSessionIdForAgent(agent),
-      },
-      receipt_refs: receiptRefs,
-      policy_decision_refs: policyDecisionRefs,
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
-    });
-    const approval = this.requestThreadApproval(threadId, {
-      ...request,
-      source,
-      turnId,
-      workflowGraphId,
-      workflowNodeId,
-      action: "workflow.edit.apply",
-      actor: "runtime",
-      reason: `Workflow edit proposal ${proposalId} requires approval before apply.`,
-      scope: "workflow_edit_proposal",
-      approvalId,
-      toolId: "workflow.edit.apply",
-      effectClass: "workflow_mutation",
-      riskDomain: "workflow_graph",
-      authorityScopeRequirements: ["workflow.edit.apply"],
-      approvalManifest,
-      receiptRefs,
-      policyDecisionRefs: [`policy_${runOrAgentId}_workflow_edit_approval_required`],
-    });
-    const approvalEvent = this.latestApprovalRequestEvent(threadId, approval.approval_id);
-    return {
-      schema_version: "ioi.runtime.workflow-edit-proposal-result.v1",
-      schemaVersion: "ioi.runtime.workflow-edit-proposal-result.v1",
-      status: "waiting_for_approval",
-      proposal_id: proposalId,
-      proposalId,
-      edit_intent_id: editIntentId,
-      editIntentId,
-      approval_id: approval.approval_id,
-      approvalId: approval.approval_id,
-      approval_required: true,
-      approvalRequired: true,
-      mutation_allowed: false,
-      mutationAllowed: false,
-      mutation_executed: false,
-      mutationExecuted: false,
-      workflow_path: workflowPath,
-      workflowPath,
-      workflow_relative_path: workflowRelativePath,
-      workflowRelativePath,
-      patch_hash: patchHash,
-      patchHash,
-      event_id: event.event_id,
-      eventId: event.event_id,
-      approval_event_id: approval.event_id,
-      approvalEventId: approval.event_id,
-      receipt_refs: uniqueStrings([...event.receipt_refs, ...normalizeArray(approval.receipt_refs)]),
-      receiptRefs: uniqueStrings([...event.receipt_refs, ...normalizeArray(approval.receipt_refs)]),
-      policy_decision_refs: uniqueStrings([
-        ...event.policy_decision_refs,
-        ...normalizeArray(approval.policy_decision_refs),
-      ]),
-      policyDecisionRefs: uniqueStrings([
-        ...event.policy_decision_refs,
-        ...normalizeArray(approval.policy_decision_refs),
-      ]),
-      proposal_event: event,
-      proposalEvent: event,
-      approval_event: approvalEvent,
-      approvalEvent,
-    };
+    return this.workflowEditSurface.proposeWorkflowEdit(this, threadId, request);
   }
 
   latestWorkflowEditProposalEvent(threadId, proposalId) {
-    const normalizedProposalId = optionalString(proposalId);
-    if (!normalizedProposalId) return null;
-    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
-    return (
-      stream.events
-        .filter((event) => {
-          const payload = event.payload_summary ?? event.payload ?? {};
-          return (
-            event.event_kind === "workflow.edit_proposed" &&
-            (payload.proposal_id === normalizedProposalId ||
-              payload.proposalId === normalizedProposalId)
-          );
-        })
-        .at(-1) ?? null
-    );
+    return this.workflowEditSurface.latestWorkflowEditProposalEvent(this, threadId, proposalId);
   }
 
   latestWorkflowEditApplyEvent(threadId, proposalId) {
-    const normalizedProposalId = optionalString(proposalId);
-    if (!normalizedProposalId) return null;
-    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
-    return (
-      stream.events
-        .filter((event) => {
-          const payload = event.payload_summary ?? event.payload ?? {};
-          return (
-            event.event_kind === "workflow.edit_applied" &&
-            (payload.proposal_id === normalizedProposalId ||
-              payload.proposalId === normalizedProposalId)
-          );
-        })
-        .at(-1) ?? null
-    );
+    return this.workflowEditSurface.latestWorkflowEditApplyEvent(this, threadId, proposalId);
   }
 
   workflowEditApprovalSatisfaction({ threadId, approvalId, proposalEvent }) {
-    const normalizedApprovalId = optionalString(approvalId);
-    if (!normalizedApprovalId) return { satisfied: false, reason: "approval_id_missing" };
-    const approvalRequestEvent = this.latestApprovalRequestEvent(threadId, normalizedApprovalId);
-    if (!approvalRequestEvent) return { satisfied: false, approvalId: normalizedApprovalId, reason: "approval_request_missing" };
-    const proposalPayload = proposalEvent?.payload_summary ?? proposalEvent?.payload ?? {};
-    const approvalPayload = approvalRequestEvent.payload_summary ?? approvalRequestEvent.payload ?? {};
-    const requestedManifest = approvalPayload.approval_manifest ?? approvalPayload.approvalManifest ?? {};
-    const proposalId = proposalPayload.proposal_id ?? proposalPayload.proposalId ?? null;
-    const manifestProposalId = requestedManifest.proposal_id ?? requestedManifest.proposalId ?? null;
-    if (proposalId && manifestProposalId && proposalId !== manifestProposalId) {
-      return { satisfied: false, approvalId: normalizedApprovalId, reason: "approval_manifest_mismatch" };
-    }
-    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
-    const latestDecision = stream.events
-      .filter(
-        (event) =>
-          event.approval_id === normalizedApprovalId &&
-          event.seq > approvalRequestEvent.seq &&
-          (event.event_kind === "approval.approved" ||
-            event.event_kind === "approval.rejected" ||
-            event.event_kind === "approval.revoked"),
-      )
-      .at(-1);
-    if (!latestDecision) return { satisfied: false, approvalId: normalizedApprovalId, reason: "approval_decision_missing" };
-    return {
-      satisfied: latestDecision.event_kind === "approval.approved",
-      approvalId: normalizedApprovalId,
-      decisionEventId: latestDecision.event_id,
-      decisionSeq: latestDecision.seq,
-      reason: approvalReasonForDecisionEvent(latestDecision),
-    };
-  }
-
-  applyWorkflowEditProposal(threadId, proposalId, request = {}) {
-    const { agent, run, turnId } = this.workflowEditThreadContext(threadId, request);
-    const normalizedProposalId =
-      optionalString(proposalId ?? request.proposal_id ?? request.proposalId) ??
-      (() => {
-        throw runtimeError({
-          status: 400,
-          code: "workflow_edit_proposal_id_required",
-          message: "Workflow edit proposal apply requires a proposal id.",
-          details: { threadId },
-        });
-      })();
-    const proposalEvent = this.latestWorkflowEditProposalEvent(threadId, normalizedProposalId);
-    if (!proposalEvent) {
-      throw notFound(`Workflow edit proposal not found: ${normalizedProposalId}`, {
-        threadId,
-        proposalId: normalizedProposalId,
-      });
-    }
-    const proposalPayload = proposalEvent.payload_summary ?? proposalEvent.payload ?? {};
-    const approvalId =
-      optionalString(request.approval_id ?? request.approvalId) ??
-      optionalString(proposalPayload.approval_id ?? proposalPayload.approvalId);
-    const approvalSatisfaction = this.workflowEditApprovalSatisfaction({
+    return this.workflowEditSurface.workflowEditApprovalSatisfaction(this, {
       threadId,
       approvalId,
       proposalEvent,
     });
-    if (!approvalSatisfaction.satisfied) {
-      return {
-        schema_version: "ioi.runtime.workflow-edit-apply-result.v1",
-        schemaVersion: "ioi.runtime.workflow-edit-apply-result.v1",
-        status: "blocked",
-        proposal_id: normalizedProposalId,
-        proposalId: normalizedProposalId,
-        approval_id: approvalSatisfaction.approvalId ?? approvalId ?? null,
-        approvalId: approvalSatisfaction.approvalId ?? approvalId ?? null,
-        approval_required: true,
-        approvalRequired: true,
-        approval_satisfied: false,
-        approvalSatisfied: false,
-        mutation_allowed: false,
-        mutationAllowed: false,
-        mutation_executed: false,
-        mutationExecuted: false,
-        reason: approvalSatisfaction.reason,
-        error: {
-          code: "workflow_edit_approval_required",
-          message: `Workflow edit proposal ${normalizedProposalId} requires approval before apply.`,
-          details: {
-            proposalId: normalizedProposalId,
-            approvalId: approvalSatisfaction.approvalId ?? approvalId ?? null,
-            reason: approvalSatisfaction.reason,
-          },
-        },
-      };
-    }
-    const duplicateApply = this.latestWorkflowEditApplyEvent(threadId, normalizedProposalId);
-    if (duplicateApply) {
-      return {
-        schema_version: "ioi.runtime.workflow-edit-apply-result.v1",
-        schemaVersion: "ioi.runtime.workflow-edit-apply-result.v1",
-        status: "completed",
-        proposal_id: normalizedProposalId,
-        proposalId: normalizedProposalId,
-        approval_id: approvalSatisfaction.approvalId,
-        approvalId: approvalSatisfaction.approvalId,
-        approval_satisfied: true,
-        approvalSatisfied: true,
-        mutation_allowed: true,
-        mutationAllowed: true,
-        mutation_executed: Boolean(duplicateApply.payload_summary?.mutation_executed ?? duplicateApply.payload_summary?.mutationExecuted),
-        mutationExecuted: Boolean(duplicateApply.payload_summary?.mutationExecuted ?? duplicateApply.payload_summary?.mutation_executed),
-        idempotent_replay: true,
-        idempotentReplay: true,
-        event: duplicateApply,
-      };
-    }
-    const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "workflow-author";
-    const workflowGraphId =
-      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ??
-      optionalString(proposalEvent.workflow_graph_id);
-    const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-      optionalString(proposalEvent.workflow_node_id) ??
-      `runtime.workflow-edit-proposal.${safeId(normalizedProposalId)}`;
-    const workflowPath = optionalString(proposalPayload.workflow_path ?? proposalPayload.workflowPath);
-    const workflowPatch = proposalPayload.workflow_patch ?? proposalPayload.workflowPatch ?? null;
-    let workflowRelativePath = optionalString(proposalPayload.workflow_relative_path ?? proposalPayload.workflowRelativePath);
-    let mutationExecuted = false;
-    if (workflowPath && workflowPatch && typeof workflowPatch === "object") {
-      const resolvedWorkflowPath = path.resolve(agent.cwd, workflowPath);
-      workflowRelativePath = relativePathForWorkspace(resolvedWorkflowPath, agent.cwd);
-      if (!workflowRelativePath) {
-        throw policyError("Workflow edit apply blocked outside the runtime workspace.", {
-          workspaceRoot: agent.cwd,
-          workflowPath: resolvedWorkflowPath,
-          proposalId: normalizedProposalId,
-        });
-      }
-      writeJson(resolvedWorkflowPath, workflowPatch);
-      mutationExecuted = true;
-    }
-    const runOrAgentId = run?.id ?? agent.id;
-    const now = new Date().toISOString();
-    const event = this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:workflow-edit-applied:${safeId(normalizedProposalId)}`,
-      idempotency_key:
-        request.idempotency_key ??
-        request.idempotencyKey ??
-        `thread:${threadId}:workflow.edit.applied:${normalizedProposalId}:${approvalSatisfaction.approvalId}`,
-      source,
-      source_event_kind: "WorkflowEdit.Applied",
-      event_kind: "workflow.edit_applied",
-      status: "completed",
-      actor: "runtime",
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "workflow_edit_proposal",
-      approval_id: approvalSatisfaction.approvalId,
-      payload_schema_version: "ioi.runtime.workflow-edit-apply.v1",
-      payload: {
-        event_kind: "WorkflowEdit.Applied",
-        proposal_id: normalizedProposalId,
-        proposalId: normalizedProposalId,
-        proposal_event_id: proposalEvent.event_id,
-        proposalEventId: proposalEvent.event_id,
-        approval_id: approvalSatisfaction.approvalId,
-        approvalId: approvalSatisfaction.approvalId,
-        approval_satisfied: true,
-        approvalSatisfied: true,
-        approval_decision_event_id: approvalSatisfaction.decisionEventId,
-        approvalDecisionEventId: approvalSatisfaction.decisionEventId,
-        requested_by: requestedBy,
-        control_surface: source,
-        workflow_path: workflowPath,
-        workflowPath,
-        workflow_relative_path: workflowRelativePath,
-        workflowRelativePath,
-        patch_hash: proposalPayload.patch_hash ?? proposalPayload.patchHash ?? null,
-        patchHash: proposalPayload.patchHash ?? proposalPayload.patch_hash ?? null,
-        mutation_allowed: true,
-        mutationAllowed: true,
-        mutation_executed: mutationExecuted,
-        mutationExecuted,
-        proposal_only: true,
-        proposalOnly: true,
-        agent_id: agent.id,
-        thread_id: threadId,
-        turn_id: turnId || null,
-        run_id: run?.id ?? null,
-        session_id: runtimeSessionIdForAgent(agent),
-      },
-      receipt_refs: [
-        ...normalizeArray(proposalEvent.receipt_refs),
-        `receipt_${runOrAgentId}_workflow_edit_applied_${safeId(normalizedProposalId)}`,
-      ],
-      policy_decision_refs: [
-        `policy_${runOrAgentId}_workflow_edit_apply_approval_satisfied`,
-      ],
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
-    });
-    return {
-      schema_version: "ioi.runtime.workflow-edit-apply-result.v1",
-      schemaVersion: "ioi.runtime.workflow-edit-apply-result.v1",
-      status: "completed",
-      proposal_id: normalizedProposalId,
-      proposalId: normalizedProposalId,
-      approval_id: approvalSatisfaction.approvalId,
-      approvalId: approvalSatisfaction.approvalId,
-      approval_satisfied: true,
-      approvalSatisfied: true,
-      mutation_allowed: true,
-      mutationAllowed: true,
-      mutation_executed: mutationExecuted,
-      mutationExecuted,
-      idempotent_replay: false,
-      idempotentReplay: false,
-      event,
-    };
+  }
+
+  applyWorkflowEditProposal(threadId, proposalId, request = {}) {
+    return this.workflowEditSurface.applyWorkflowEditProposal(this, threadId, proposalId, request);
   }
 
   compactThread(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const runs = this.listRuns(agent.id);
-    const latestRun = runs.at(-1);
-    const turnId =
-      optionalString(request.turn_id ?? request.turnId) ??
-      (latestRun ? turnIdForRun(latestRun.id) : "");
-    const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
-    const reason =
-      optionalString(request.reason ?? request.message ?? request.input) ?? "operator requested context compaction";
-    const scope = optionalString(request.scope) ?? "thread";
-    const now = new Date().toISOString();
-    const streamId = eventStreamIdForThread(threadId);
-    const previousLatestSeq = this.latestRuntimeEventSeq(streamId);
-    const compactHash = crypto
-      .createHash("sha256")
-      .update(`${reason}:${scope}`)
-      .digest("hex")
-      .slice(0, 16);
-    const event = this.appendRuntimeEvent({
-      event_stream_id: streamId,
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:context-compact:${compactHash}`,
-      idempotency_key:
-        request.idempotency_key ??
-        request.idempotencyKey ??
-        `thread:${threadId}:context.compact:${compactHash}`,
-      source,
-      source_event_kind: "OperatorControl.Compact",
-      event_kind: "context.compacted",
-      status: "completed",
-      actor: "user",
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
-      workflow_node_id: request.workflow_node_id ?? request.workflowNodeId ?? "runtime.context-compact",
-      component_kind: "context_compaction",
-      payload_schema_version: "ioi.runtime.context-compaction.v1",
-      payload: {
-        event_kind: "OperatorControl.Compact",
-        reason,
-        scope,
-        requested_by: requestedBy,
-        control_surface: source,
-        previous_latest_seq: previousLatestSeq,
-        compacted_tokens: 0,
-        agent_id: agent.id,
-        thread_id: threadId,
-        turn_id: turnId || null,
-        run_id: latestRun?.id ?? null,
-        session_id: runtimeSessionIdForAgent(agent),
-      },
-      receipt_refs: [`receipt_${latestRun?.id ?? agent.id}_context_compaction_${compactHash}`],
-      policy_decision_refs: [`policy_${latestRun?.id ?? agent.id}_context_compaction_allow`],
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
-    });
-    const control = {
-      control: "compact",
-      source,
-      reason,
-      scope,
-      eventId: event.event_id,
-      seq: event.seq,
-      createdAt: event.created_at,
-    };
-    if (latestRun) {
-      const updated = {
-        ...latestRun,
-        updatedAt: event.created_at,
-        trace: {
-          ...latestRun.trace,
-          operatorControls: appendOperatorControl(latestRun.trace?.operatorControls, control),
-          contextCompaction: {
-            reason,
-            scope,
-            eventId: event.event_id,
-            seq: event.seq,
-            compactedTokens: 0,
-          },
-        },
-        operatorControls: appendOperatorControl(latestRun.operatorControls, control),
-      };
-      this.runs.set(latestRun.id, updated);
-      this.writeRun(updated, "thread.compact");
-      return this.threadForAgent(agent);
-    }
-    const updatedAgent = { ...agent, updatedAt: event.created_at };
-    this.agents.set(agent.id, updatedAgent);
-    this.writeAgent(updatedAgent, "thread.compact");
-    return this.threadForAgent(updatedAgent);
+    return this.contextPolicySurface.compactThread(this, threadId, request);
   }
 
   listJobs(options = {}) {
@@ -4765,256 +1801,59 @@ export class AgentgresRuntimeStateStore {
   }
 
   listMcpServers(options = {}) {
-    return this.mcpServersForContext(options);
+    return this.mcpCatalogSurface.listMcpServers(this, options);
   }
 
   listMcpTools(options = {}) {
-    const servers = this.mcpServersForContext(options);
-    const serverFilter = optionalString(options.server_id ?? options.serverId);
-    return mcpToolsForServers(
-      serverFilter ? servers.filter((server) => server.id === serverFilter) : servers,
-    );
+    return this.mcpCatalogSurface.listMcpTools(this, options);
   }
 
   async searchMcpTools(options = {}) {
-    const threadId = optionalString(options.thread_id ?? options.threadId);
-    if (threadId) return this.searchThreadMcpTools(threadId, options);
-    return this.searchMcpToolCatalog({
-      ...options,
-      servers: this.mcpServersForContext(options),
-      agent: { cwd: this.defaultCwd },
-    });
+    return this.mcpCatalogSurface.searchMcpTools(this, options);
   }
 
   async getMcpTool(toolId, options = {}) {
-    const threadId = optionalString(options.thread_id ?? options.threadId);
-    if (threadId) return this.getThreadMcpTool(threadId, toolId, options);
-    return this.getMcpToolFromCatalog(toolId, {
-      ...options,
-      servers: this.mcpServersForContext(options),
-      agent: { cwd: this.defaultCwd },
-    });
+    return this.mcpCatalogSurface.getMcpTool(this, toolId, options);
   }
 
   listMcpResources(options = {}) {
-    const servers = this.mcpServersForContext(options);
-    const serverFilter = optionalString(options.server_id ?? options.serverId);
-    return mcpResourcesForServers(
-      serverFilter ? servers.filter((server) => server.id === serverFilter) : servers,
-    );
+    return this.mcpCatalogSurface.listMcpResources(this, options);
   }
 
   listMcpPrompts(options = {}) {
-    const servers = this.mcpServersForContext(options);
-    const serverFilter = optionalString(options.server_id ?? options.serverId);
-    return mcpPromptsForServers(
-      serverFilter ? servers.filter((server) => server.id === serverFilter) : servers,
-    );
+    return this.mcpCatalogSurface.listMcpPrompts(this, options);
   }
 
   mcpStatus(options = {}) {
-    const servers = this.listMcpServers(options);
-    const tools = this.listMcpTools(options);
-    const resources = this.listMcpResources(options);
-    const prompts = this.listMcpPrompts(options);
-    const validation = validateMcpServerRecords(servers);
-    return {
-      schema_version: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-      schemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-      object: "ioi.runtime_mcp_manager_status",
-      status: validation.ok ? "ready" : "needs_review",
-      server_count: servers.length,
-      serverCount: servers.length,
-      tool_count: tools.length,
-      toolCount: tools.length,
-      resource_count: resources.length,
-      resourceCount: resources.length,
-      prompt_count: prompts.length,
-      promptCount: prompts.length,
-      enabled_server_count: servers.filter((server) => server.enabled !== false).length,
-      enabledServerCount: servers.filter((server) => server.enabled !== false).length,
-      servers,
-      tools,
-      resources,
-      prompts,
-      validation: {
-        ...validation,
-        server_count: servers.length,
-        serverCount: servers.length,
-        tool_count: tools.length,
-        toolCount: tools.length,
-        resource_count: resources.length,
-        resourceCount: resources.length,
-        prompt_count: prompts.length,
-        promptCount: prompts.length,
-        servers,
-        tools,
-        resources,
-        prompts,
-      },
-      routes: {
-        servers: "/v1/mcp/servers",
-        tools: "/v1/mcp/tools",
-        searchTools: "/v1/mcp/tools/search",
-        getTool: "/v1/mcp/tools/{tool_id}",
-        resources: "/v1/mcp/resources",
-        prompts: "/v1/mcp/prompts",
-        validate: "/v1/mcp/validate",
-        importServers: "/v1/mcp/import",
-        addServer: "/v1/mcp/servers",
-        removeServer: "/v1/mcp/servers/{server_id}",
-        enableServer: "/v1/mcp/servers/{server_id}/enable",
-        disableServer: "/v1/mcp/servers/{server_id}/disable",
-        invokeTool: "/v1/mcp/tools/{tool_id}/invoke",
-        serve: "/v1/mcp/serve",
-        serveForThread: "/v1/threads/{thread_id}/mcp/serve",
-      },
-    };
+    return this.mcpCatalogSurface.mcpStatus(this, options);
   }
 
   validateMcp(input = {}) {
-    const workspaceRoot = path.resolve(input.cwd ?? input.workspace_root ?? input.workspaceRoot ?? this.defaultCwd);
-    const servers = mcpServerRecordsFromValidationInput(input, workspaceRoot);
-    const validation = validateMcpServerRecords(servers);
-    return {
-      schema_version: RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
-      schemaVersion: RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
-      object: "ioi.runtime_mcp_manager_validation",
-      ok: validation.ok,
-      status: validation.ok ? "pass" : "blocked",
-      server_count: servers.length,
-      serverCount: servers.length,
-      tool_count: mcpToolsForServers(servers).length,
-      toolCount: mcpToolsForServers(servers).length,
-      resource_count: mcpResourcesForServers(servers).length,
-      resourceCount: mcpResourcesForServers(servers).length,
-      prompt_count: mcpPromptsForServers(servers).length,
-      promptCount: mcpPromptsForServers(servers).length,
-      issue_count: validation.issues.length,
-      issueCount: validation.issues.length,
-      warning_count: validation.warnings.length,
-      warningCount: validation.warnings.length,
-      issues: validation.issues,
-      warnings: validation.warnings,
-      servers,
-      tools: mcpToolsForServers(servers),
-      resources: mcpResourcesForServers(servers),
-      prompts: mcpPromptsForServers(servers),
-    };
+    return this.mcpCatalogSurface.validateMcp(this, input);
   }
 
   importMcp(input = {}) {
-    const threadId = optionalString(input.thread_id ?? input.threadId);
-    if (!threadId) {
-      throw runtimeError({
-        status: 400,
-        code: "mcp_thread_required",
-        message: "MCP import requires a thread_id so the daemon can update the active runtime registry.",
-      });
-    }
-    return this.importThreadMcp(threadId, input);
+    return this.mcpControlSurface.importMcp(this, input);
   }
 
   addMcpServer(input = {}) {
-    const threadId = optionalString(input.thread_id ?? input.threadId);
-    if (!threadId) {
-      throw runtimeError({
-        status: 400,
-        code: "mcp_thread_required",
-        message: "MCP server add requires a thread_id so the daemon can update the active runtime registry.",
-      });
-    }
-    return this.addThreadMcpServer(threadId, input);
+    return this.mcpControlSurface.addMcpServer(this, input);
   }
 
   removeMcpServer(serverId, input = {}) {
-    const threadId = optionalString(input.thread_id ?? input.threadId);
-    if (!threadId) {
-      throw runtimeError({
-        status: 400,
-        code: "mcp_thread_required",
-        message: "MCP server removal requires a thread_id so the daemon can update the active runtime registry.",
-        details: { serverId },
-      });
-    }
-    return this.removeThreadMcpServer(threadId, serverId, input);
+    return this.mcpControlSurface.removeMcpServer(this, serverId, input);
   }
 
   importThreadMcp(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const importedServers = mcpServerRecordsFromMutationInput(request, agent.cwd, "runtime_mcp_import");
-    return this.applyThreadMcpServerMutation({
-      threadId,
-      agent,
-      request,
-      mutationKind: "import",
-      sourceEventKind: "OperatorControl.McpImport",
-      eventKind: "mcp.servers_imported",
-      workflowNodeId: "runtime.mcp-manager.import",
-      serversToUpsert: importedServers,
-    });
+    return this.mcpControlSurface.importThreadMcp(this, threadId, request);
   }
 
   addThreadMcpServer(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const server = mcpServerRecordFromAddRequest(request, agent.cwd);
-    return this.applyThreadMcpServerMutation({
-      threadId,
-      agent,
-      request,
-      mutationKind: "add",
-      sourceEventKind: "OperatorControl.McpAdd",
-      eventKind: "mcp.server_added",
-      workflowNodeId:
-        optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-        `runtime.mcp-server.${safeId(server.id)}`,
-      serversToUpsert: [server],
-    });
+    return this.mcpControlSurface.addThreadMcpServer(this, threadId, request);
   }
 
   removeThreadMcpServer(threadId, serverId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const registry = agent.mcpRegistry ?? mcpRegistryForWorkspace(agent.cwd, { homeDir: this.homeDir });
-    const server = resolveMcpServerRecord(registry.servers, serverId ?? request.server_id ?? request.serverId);
-    if (!server) throw notFound(`MCP server not found: ${serverId}`, { threadId, serverId });
-    const remainingServers = normalizeArray(registry.servers).filter((candidate) => candidate.id !== server.id);
-    const updatedRegistry = mcpRegistryWithServers(registry, remainingServers);
-    const updatedAgent = {
-      ...agent,
-      mcpRegistry: updatedRegistry,
-      updatedAt: new Date().toISOString(),
-    };
-    this.agents.set(agent.id, updatedAgent);
-    const status = this.mcpStatus({ thread_id: threadId });
-    return this.appendThreadMcpControlEvent({
-      threadId,
-      agent: updatedAgent,
-      request,
-      controlKind: "mcp_remove",
-      sourceEventKind: "OperatorControl.McpRemove",
-      eventKind: "mcp.server_removed",
-      componentKind: "mcp_provider",
-      workflowNodeId:
-        optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-        `runtime.mcp-server.${safeId(server.id)}`,
-      payloadSchemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-      status: "completed",
-      payload: {
-        ...status,
-        event_kind: "McpServerRemoved",
-        control_kind: "mcp_remove",
-        thread_id: threadId,
-        agent_id: updatedAgent.id,
-        server_id: server.id,
-        serverId: server.id,
-        server,
-        removed: [server],
-        removed_count: 1,
-        removedCount: 1,
-        policy_decision: "registry_write_allowed",
-        summary: `MCP server ${server.id} removed from the active runtime registry.`,
-      },
-    });
+    return this.mcpControlSurface.removeThreadMcpServer(this, threadId, serverId, request);
   }
 
   applyThreadMcpServerMutation({
@@ -5027,868 +1866,76 @@ export class AgentgresRuntimeStateStore {
     workflowNodeId,
     serversToUpsert,
   }) {
-    const registry = agent.mcpRegistry ?? mcpRegistryForWorkspace(agent.cwd, { homeDir: this.homeDir });
-    const proposedServers = normalizeArray(serversToUpsert);
-    if (proposedServers.length === 0) {
-      throw runtimeError({
-        status: 400,
-        code: "mcp_servers_required",
-        message: `MCP ${mutationKind} requires at least one server definition.`,
-        details: { threadId, mutationKind },
-      });
-    }
-    const validation = validateMcpServerRecords(proposedServers);
-    if (!validation.ok) {
-      const status = this.mcpStatus({ thread_id: threadId });
-      return this.appendThreadMcpControlEvent({
-        threadId,
-        agent,
-        request,
-        controlKind: `mcp_${mutationKind}`,
-        sourceEventKind,
-        eventKind,
-        componentKind: "mcp_provider",
-        workflowNodeId,
-        payloadSchemaVersion: RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
-        status: "blocked",
-        payload: {
-          ...status,
-          event_kind: mutationKind === "import" ? "McpServersImportBlocked" : "McpServerAddBlocked",
-          control_kind: `mcp_${mutationKind}`,
-          thread_id: threadId,
-          agent_id: agent.id,
-          proposed_servers: proposedServers,
-          proposedServers,
-          validation,
-          issues: validation.issues,
-          warnings: validation.warnings,
-          policy_decision: "registry_write_blocked",
-          summary: `MCP ${mutationKind} blocked by ${validation.issues.length} validation issue(s).`,
-        },
-      });
-    }
-    const byId = new Map(normalizeArray(registry.servers).map((server) => [server.id, server]));
-    for (const server of proposedServers) {
-      byId.set(server.id, {
-        ...server,
-        evidence_refs: uniqueStrings([
-          ...(server.evidence_refs ?? server.evidenceRefs ?? []),
-          mutationKind === "import" ? "mcp.manager.server.import" : "mcp.manager.server.add",
-        ]),
-        evidenceRefs: uniqueStrings([
-          ...(server.evidence_refs ?? server.evidenceRefs ?? []),
-          mutationKind === "import" ? "mcp.manager.server.import" : "mcp.manager.server.add",
-        ]),
-      });
-    }
-    const updatedRegistry = mcpRegistryWithServers(registry, [...byId.values()]);
-    const updatedAgent = {
-      ...agent,
-      mcpRegistry: updatedRegistry,
-      updatedAt: new Date().toISOString(),
-    };
-    this.agents.set(agent.id, updatedAgent);
-    const status = this.mcpStatus({ thread_id: threadId });
-    const eventLabel = mutationKind === "import" ? "McpServersImported" : "McpServerAdded";
-    return this.appendThreadMcpControlEvent({
+    return this.mcpControlSurface.applyThreadMcpServerMutation(this, {
       threadId,
-      agent: updatedAgent,
+      agent,
       request,
-      controlKind: `mcp_${mutationKind}`,
+      mutationKind,
       sourceEventKind,
       eventKind,
-      componentKind: "mcp_provider",
       workflowNodeId,
-      payloadSchemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-      status: "completed",
-      payload: {
-        ...status,
-        event_kind: eventLabel,
-        control_kind: `mcp_${mutationKind}`,
-        thread_id: threadId,
-        agent_id: updatedAgent.id,
-        servers: proposedServers,
-        [mutationKind === "import" ? "imported" : "added"]: proposedServers,
-        [`${mutationKind}_count`]: proposedServers.length,
-        [`${mutationKind}Count`]: proposedServers.length,
-        policy_decision: "registry_write_allowed",
-        summary:
-          mutationKind === "import"
-            ? `Imported ${proposedServers.length} MCP server(s) into the active runtime registry.`
-            : `MCP server ${proposedServers[0]?.id ?? "unknown"} added to the active runtime registry.`,
-      },
+      serversToUpsert,
     });
   }
 
   async mcpStatusWithLiveDiscovery(status, agent, request = {}) {
-    const toolMap = new Map((status.tools ?? []).map((tool) => [mcpToolKey(tool), tool]));
-    const resourceMap = new Map(
-      (status.resources ?? []).map((resource) => [mcpResourceKey(resource), resource]),
-    );
-    const promptMap = new Map((status.prompts ?? []).map((prompt) => [mcpPromptKey(prompt), prompt]));
-    const catalogSummaries = [];
-    const previewLimit = mcpCatalogPreviewLimit(request);
-    const forceFullCatalog = mcpCatalogFullRequested(request);
-    const discoveries = [];
-    for (const server of status.servers ?? []) {
-      const liveMode = mcpLiveExecutionModeForServer(server, request);
-      if (server.enabled === false || !liveMode) {
-        continue;
-      }
-      try {
-        const catalog =
-          liveMode === "live_stdio"
-            ? await discoverMcpStdioCatalog(server, {
-                cwd: agent.cwd,
-                timeoutMs: request.timeout_ms ?? request.timeoutMs,
-              })
-            : await discoverMcpHttpCatalog(server, {
-                cwd: agent.cwd,
-                timeoutMs: request.timeout_ms ?? request.timeoutMs,
-                vault: this.modelMounting.vault,
-              });
-        const exposure = mcpCatalogExposureForStatus(server, catalog, {
-          previewLimit,
-          forceFullCatalog,
-        });
-        catalogSummaries.push(exposure.summary);
-        for (const tool of exposure.tools) {
-          toolMap.set(mcpToolKey(tool), tool);
-        }
-        for (const resource of exposure.resources) {
-          resourceMap.set(mcpResourceKey(resource), resource);
-        }
-        for (const prompt of exposure.prompts) {
-          promptMap.set(mcpPromptKey(prompt), prompt);
-        }
-        discoveries.push({
-          server_id: server.id,
-          serverId: server.id,
-          status: "completed",
-          transport: catalog.transport ?? server.transport ?? "stdio",
-          execution_mode: catalog.execution_mode ?? catalog.executionMode ?? liveMode,
-          executionMode: catalog.executionMode ?? catalog.execution_mode ?? liveMode,
-          auth_boundary: catalog.auth_boundary ?? catalog.authBoundary ?? null,
-          authBoundary: catalog.authBoundary ?? catalog.auth_boundary ?? null,
-          tool_count: catalog.tool_count ?? 0,
-          resource_count: catalog.resource_count ?? 0,
-          prompt_count: catalog.prompt_count ?? 0,
-          returned_tool_count: exposure.tools.length,
-          returnedToolCount: exposure.tools.length,
-          catalog_summary: exposure.summary,
-          catalogSummary: exposure.summary,
-          catalog_exposure: exposure.exposure,
-          catalogExposure: exposure.exposure,
-        });
-      } catch (error) {
-        discoveries.push({
-          server_id: server.id,
-          serverId: server.id,
-          status: "failed",
-          transport: server.transport ?? "stdio",
-          execution_mode: liveMode,
-          executionMode: liveMode,
-          error_code: optionalString(error?.code) ?? "mcp_live_discovery_failed",
-          message: String(error?.message ?? error),
-        });
-      }
-    }
-    const tools = [...toolMap.values()].sort((left, right) => mcpToolKey(left).localeCompare(mcpToolKey(right)));
-    const resources = [...resourceMap.values()].sort((left, right) =>
-      mcpResourceKey(left).localeCompare(mcpResourceKey(right)),
-    );
-    const prompts = [...promptMap.values()].sort((left, right) =>
-      mcpPromptKey(left).localeCompare(mcpPromptKey(right)),
-    );
-    return {
-      ...status,
-      tools,
-      tool_count: tools.length,
-      toolCount: tools.length,
-      resources,
-      resource_count: resources.length,
-      resourceCount: resources.length,
-      prompts,
-      prompt_count: prompts.length,
-      promptCount: prompts.length,
-      catalog_summaries: catalogSummaries,
-      catalogSummaries,
-      catalog_tool_count: catalogSummaries.reduce((sum, entry) => sum + (entry.tool_count ?? 0), 0),
-      catalogToolCount: catalogSummaries.reduce((sum, entry) => sum + (entry.tool_count ?? 0), 0),
-      returned_tool_count: tools.length,
-      returnedToolCount: tools.length,
-      live_discovery: {
-        status: discoveries.some((entry) => entry.status === "failed") ? "partial" : "completed",
-        requested: true,
-        servers: discoveries,
-      },
-      liveDiscovery: {
-        status: discoveries.some((entry) => entry.status === "failed") ? "partial" : "completed",
-        requested: true,
-        servers: discoveries,
-      },
-    };
+    return this.mcpControlSurface.mcpStatusWithLiveDiscovery(this, status, agent, request);
   }
 
   async searchThreadMcpTools(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    return this.searchMcpToolCatalog({
-      ...request,
-      thread_id: threadId,
-      threadId,
-      servers: this.listMcpServers({ ...request, thread_id: threadId }),
-      agent,
-    });
+    return this.mcpCatalogSurface.searchThreadMcpTools(this, threadId, request);
   }
 
   async getThreadMcpTool(threadId, toolId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    return this.getMcpToolFromCatalog(toolId, {
-      ...request,
-      thread_id: threadId,
-      threadId,
-      servers: this.listMcpServers({ ...request, thread_id: threadId }),
-      agent,
-    });
+    return this.mcpCatalogSurface.getThreadMcpTool(this, threadId, toolId, request);
   }
 
   async getMcpToolFromCatalog(toolId, request = {}) {
-    const result = await this.searchMcpToolCatalog({
-      ...request,
-      tool_id: toolId,
-      toolId,
-      exact: true,
-      limit: Math.max(Number(request.limit ?? 0), MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT),
-    });
-    const requested = optionalString(toolId ?? request.tool_id ?? request.toolId);
-    const tool = result.tools.find((candidate) => mcpToolIdentityMatches(candidate, requested)) ?? null;
-    if (!tool) {
-      throw notFound("MCP tool not found.", {
-        toolId: requested ?? null,
-        serverId: request.server_id ?? request.serverId ?? null,
-      });
-    }
-    return {
-      ...result,
-      object: "ioi.runtime_mcp_tool_fetch",
-      status: "completed",
-      tool_id: requested ?? tool.stableToolId ?? tool.stable_tool_id ?? null,
-      toolId: requested ?? tool.stableToolId ?? tool.stable_tool_id ?? null,
-      server_id: tool.serverId ?? tool.server_id ?? null,
-      serverId: tool.serverId ?? tool.server_id ?? null,
-      tool_name: tool.toolName ?? tool.tool_name ?? null,
-      toolName: tool.toolName ?? tool.tool_name ?? null,
-      tool,
-      tools: [tool],
-      returned_count: 1,
-      returnedCount: 1,
-    };
+    return this.mcpCatalogSurface.getMcpToolFromCatalog(this, toolId, request);
   }
 
   async searchMcpToolCatalog(request = {}) {
-    const query = optionalString(request.q ?? request.query ?? request.search) ?? "";
-    const requestedToolId = optionalString(request.tool_id ?? request.toolId);
-    const exact = request.exact === true || request.exact === "true";
-    const serverFilter = optionalString(request.server_id ?? request.serverId);
-    const liveDiscovery = request.live_discovery !== false && request.liveDiscovery !== false;
-    const limit = mcpToolSearchLimit(request);
-    const servers = normalizeArray(request.servers).filter((server) =>
-      serverFilter ? resolveMcpServerRecord([server], serverFilter) : true,
-    );
-    const agent = request.agent ?? { cwd: this.defaultCwd };
-    const catalogSummaries = [];
-    const failures = [];
-    const candidateTools = [];
-    for (const server of servers) {
-      let tools = mcpToolsForServers([server]);
-      let resources = mcpResourcesForServers([server]);
-      let prompts = mcpPromptsForServers([server]);
-      const liveMode = liveDiscovery ? mcpLiveExecutionModeForServer(server, request) : null;
-      if (server.enabled !== false && liveMode) {
-        try {
-          const catalog =
-            liveMode === "live_stdio"
-              ? await discoverMcpStdioCatalog(server, {
-                  cwd: agent.cwd,
-                  timeoutMs: request.timeout_ms ?? request.timeoutMs,
-                })
-              : await discoverMcpHttpCatalog(server, {
-                  cwd: agent.cwd,
-                  timeoutMs: request.timeout_ms ?? request.timeoutMs,
-                  vault: this.modelMounting.vault,
-                });
-          tools = normalizeArray(catalog.tools ?? catalog.listed_tools);
-          resources = normalizeArray(catalog.resources ?? catalog.listed_resources);
-          prompts = normalizeArray(catalog.prompts ?? catalog.listed_prompts);
-          catalogSummaries.push(mcpCatalogSummaryForServer(server, { tools, resources, prompts }, {
-            liveMode,
-            deferred: tools.length > mcpCatalogPreviewLimit(request),
-            previewLimit: mcpCatalogPreviewLimit(request),
-          }));
-        } catch (error) {
-          failures.push({
-            server_id: server.id,
-            serverId: server.id,
-            status: "failed",
-            error_code: optionalString(error?.code) ?? "mcp_tool_search_discovery_failed",
-            message: String(error?.message ?? error),
-          });
-          catalogSummaries.push(mcpCatalogSummaryForServer(server, { tools, resources, prompts }, {
-            liveMode,
-            status: "failed",
-            errorCode: optionalString(error?.code) ?? "mcp_tool_search_discovery_failed",
-          }));
-        }
-      } else {
-        catalogSummaries.push(mcpCatalogSummaryForServer(server, { tools, resources, prompts }, {
-          liveMode: liveMode ?? "declared_catalog",
-          deferred: false,
-          previewLimit: mcpCatalogPreviewLimit(request),
-        }));
-      }
-      candidateTools.push(...tools);
-    }
-    const filtered = candidateTools
-      .filter((tool) =>
-        requestedToolId
-          ? mcpToolIdentityMatches(tool, requestedToolId) || (!exact && mcpToolMatchesQuery(tool, requestedToolId))
-          : mcpToolMatchesQuery(tool, query),
-      )
-      .sort((left, right) => mcpToolKey(left).localeCompare(mcpToolKey(right)));
-    const returned = filtered.slice(0, limit);
-    return {
-      schema_version: RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION,
-      schemaVersion: RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION,
-      object: "ioi.runtime_mcp_tool_search",
-      status: failures.length > 0 ? "partial" : "completed",
-      query,
-      q: query,
-      exact,
-      live_discovery: liveDiscovery,
-      liveDiscovery,
-      server_count: servers.length,
-      serverCount: servers.length,
-      tool_count: filtered.length,
-      toolCount: filtered.length,
-      returned_count: returned.length,
-      returnedCount: returned.length,
-      limit,
-      deferred: filtered.length > returned.length,
-      tools: returned,
-      catalog_summaries: catalogSummaries,
-      catalogSummaries,
-      failures,
-      routes: {
-        search: "/v1/mcp/tools/search",
-        getTool: "/v1/mcp/tools/{tool_id}",
-        invokeTool: "/v1/mcp/tools/{tool_id}/invoke",
-      },
-    };
+    return this.mcpCatalogSurface.searchMcpToolCatalog(this, request);
   }
 
   setMcpServerEnabled(serverId, enabled, request = {}) {
-    const threadId = optionalString(request.thread_id ?? request.threadId);
-    if (!threadId) {
-      throw runtimeError({
-        status: 400,
-        code: "mcp_thread_required",
-        message: "MCP server enable/disable controls require a thread_id so the daemon can update the active runtime registry.",
-        details: { serverId, enabled },
-      });
-    }
-    return this.setThreadMcpServerEnabled(threadId, serverId, enabled, request);
+    return this.mcpControlSurface.setMcpServerEnabled(this, serverId, enabled, request);
   }
 
   setThreadMcpServerEnabled(threadId, serverId, enabled, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const registry = agent.mcpRegistry ?? mcpRegistryForWorkspace(agent.cwd, { homeDir: this.homeDir });
-    const server = resolveMcpServerRecord(registry.servers, serverId);
-    if (!server) throw notFound(`MCP server not found: ${serverId}`, { threadId, serverId });
-    const nextStatus = enabled
-      ? (server.status === "disabled" ? "configured" : server.status ?? "configured")
-      : "disabled";
-    const updatedServer = {
-      ...server,
-      enabled,
-      status: nextStatus,
-      health: {
-        ...(server.health ?? {}),
-        status: enabled ? server.health?.status ?? "not_connected" : "disabled",
-        live_probe: false,
-        reason: enabled ? "operator_enabled" : "operator_disabled",
-      },
-      evidence_refs: uniqueStrings([
-        ...(server.evidence_refs ?? server.evidenceRefs ?? []),
-        enabled ? "mcp.manager.server.enable" : "mcp.manager.server.disable",
-      ]),
-      evidenceRefs: uniqueStrings([
-        ...(server.evidence_refs ?? server.evidenceRefs ?? []),
-        enabled ? "mcp.manager.server.enable" : "mcp.manager.server.disable",
-      ]),
-    };
-    const servers = normalizeArray(registry.servers).map((candidate) =>
-      candidate.id === server.id ? updatedServer : candidate,
-    );
-    const updatedRegistry = mcpRegistryWithServers(registry, servers);
-    const updatedAgent = {
-      ...agent,
-      mcpRegistry: updatedRegistry,
-      updatedAt: new Date().toISOString(),
-    };
-    this.agents.set(agent.id, updatedAgent);
-    const status = this.mcpStatus({ thread_id: threadId });
-    const controlKind = enabled ? "mcp_enable" : "mcp_disable";
-    return this.appendThreadMcpControlEvent({
-      threadId,
-      agent: updatedAgent,
-      request,
-      controlKind,
-      sourceEventKind: enabled ? "OperatorControl.McpEnable" : "OperatorControl.McpDisable",
-      eventKind: enabled ? "mcp.server_enabled" : "mcp.server_disabled",
-      componentKind: "mcp_provider",
-      workflowNodeId:
-        optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-        `runtime.mcp-server.${safeId(updatedServer.id)}`,
-      payloadSchemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-      status: "completed",
-      payload: {
-        ...status,
-        event_kind: enabled ? "McpServerEnabled" : "McpServerDisabled",
-        control_kind: controlKind,
-        thread_id: threadId,
-        agent_id: updatedAgent.id,
-        server_id: updatedServer.id,
-        serverId: updatedServer.id,
-        enabled,
-        server: updatedServer,
-        servers: [updatedServer],
-        tools: mcpToolsForServers([updatedServer]),
-        summary: `MCP server ${updatedServer.id} ${enabled ? "enabled" : "disabled"}.`,
-      },
-    });
+    return this.mcpControlSurface.setThreadMcpServerEnabled(this, threadId, serverId, enabled, request);
   }
 
   async invokeMcpTool(request = {}) {
-    const threadId = optionalString(request.thread_id ?? request.threadId);
-    if (!threadId) {
-      throw runtimeError({
-        status: 400,
-        code: "mcp_thread_required",
-        message: "MCP tool invocation requires a thread_id so the daemon can apply the active MCP registry and approval policy.",
-        details: { toolId: request.tool_id ?? request.toolId ?? null },
-      });
-    }
-    return this.invokeThreadMcpTool(threadId, request.tool_id ?? request.toolId, request);
+    return this.mcpControlSurface.invokeMcpTool(this, request);
   }
 
   async invokeThreadMcpTool(threadId, toolId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const servers = this.listMcpServers({ thread_id: threadId });
-    const target = resolveMcpToolRecord(servers, toolId, request);
-    if (!target.server) {
-      throw notFound("MCP server not found for invocation.", {
-        threadId,
-        toolId,
-        serverId: request.server_id ?? request.serverId ?? null,
-      });
-    }
-    if (!target.toolName) {
-      throw runtimeError({
-        status: 400,
-        code: "mcp_tool_required",
-        message: "MCP invocation requires a tool name.",
-        details: { threadId, serverId: target.server.id, toolId: toolId ?? null },
-      });
-    }
-    const server = target.server;
-    const toolName = target.toolName;
-    const tools = mcpToolsForServers([server]);
-    const toolEntry =
-      tools.find((candidate) => candidate.toolName === toolName || candidate.tool_name === toolName) ??
-      null;
-    if (!toolEntry) {
-      throw notFound(`MCP tool not found: ${toolName}`, {
-        threadId,
-        serverId: server.id,
-        toolName,
-      });
-    }
-    const input = request.input ?? request.arguments ?? request.args ?? {};
-    const sideEffectClass =
-      optionalString(request.side_effect_class ?? request.sideEffectClass) ??
-      optionalString(toolEntry.sideEffectClass) ??
-      "read";
-    const requiresApproval =
-      request.requires_approval === true ||
-      request.requiresApproval === true ||
-      (sideEffectClass !== "none" && sideEffectClass !== "read");
-    const approvalMode =
-      optionalString(agent.runtimeControls?.approval_mode ?? agent.runtimeControls?.approvalMode) ??
-      "agent";
-    const approved =
-      request.approved === true ||
-      request.approval_granted === true ||
-      request.approvalGranted === true ||
-      approvalMode === "yolo";
-    const validation = validateMcpServerRecords([server]);
-    const blockers = [
-      ...(server.enabled === false ? ["server_disabled"] : []),
-      ...(!validation.ok ? validation.issues.map((issue) => issue.code) : []),
-      ...(requiresApproval && !approved ? ["approval_required"] : []),
-    ];
-    const inputHash = doctorHash(JSON.stringify(input));
-    let status = blockers.length > 0 ? "blocked" : "completed";
-    let output = null;
-    let transportExecution = null;
-    if (status === "completed") {
-      const liveMode = mcpLiveExecutionModeForServer(server, request);
-      if (liveMode === "live_stdio") {
-        try {
-          transportExecution = await invokeMcpStdioTool(server, toolName, input, {
-            cwd: agent.cwd,
-            timeoutMs: request.timeout_ms ?? request.timeoutMs,
-            mcpMode: request.mcp_mode ?? request.mcpMode,
-          });
-          output = transportExecution.result ?? {};
-        } catch (error) {
-          status = "blocked";
-          blockers.push("stdio_transport_failed");
-          transportExecution = {
-            ok: false,
-            status: "failed",
-            transport: "stdio",
-            execution_mode: "live_stdio",
-            executionMode: "live_stdio",
-            error: {
-              code: optionalString(error?.code) ?? "mcp_stdio_transport_error",
-              message: String(error?.message ?? error),
-              details: error?.details ?? {},
-            },
-          };
-        }
-      } else if (liveMode === "live_http" || liveMode === "live_sse") {
-        const transport = liveMode === "live_sse" ? "sse" : "http";
-        try {
-          transportExecution = await invokeMcpHttpTool(server, toolName, input, {
-            cwd: agent.cwd,
-            timeoutMs: request.timeout_ms ?? request.timeoutMs,
-            headers: request.headers,
-            vault: this.modelMounting.vault,
-          });
-          output = transportExecution.result ?? {};
-        } catch (error) {
-          status = "blocked";
-          blockers.push(`${transport}_transport_failed`);
-          transportExecution = {
-            ok: false,
-            status: "failed",
-            transport,
-            execution_mode: liveMode,
-            executionMode: liveMode,
-            error: {
-              code: optionalString(error?.code) ?? `mcp_${transport}_transport_error`,
-              message: String(error?.message ?? error),
-              details: error?.details ?? {},
-            },
-          };
-        }
-      } else {
-        output = { ok: true, fixture: true, serverId: server.id, toolName };
-        transportExecution = {
-          ok: true,
-          status: "completed",
-          transport: server.transport ?? "unknown",
-          execution_mode: "simulated_manager_receipt",
-          executionMode: "simulated_manager_receipt",
-        };
-      }
-    }
-    const outputHash = doctorHash(
-      JSON.stringify(output ?? { blocked: blockers, transport_execution: transportExecution }),
-    );
-    const callHash = doctorHash(
-      `${threadId}:${server.id}:${toolName}:${inputHash}:${Date.now()}`,
-    ).slice(0, 16);
-    const toolCallId = `mcp_call_${safeId(server.id)}_${safeId(toolName)}_${callHash}`;
-    const invocation = {
-      schema_version: RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
-      schemaVersion: RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
-      object: "ioi.runtime_mcp_tool_invocation",
-      tool_call_id: toolCallId,
-      toolCallId,
-      thread_id: threadId,
-      threadId,
-      agent_id: agent.id,
-      agentId: agent.id,
-      server_id: server.id,
-      serverId: server.id,
-      tool_name: toolName,
-      toolName,
-      status,
-      input_hash: inputHash,
-      inputHash,
-      output_hash: outputHash,
-      outputHash,
-      side_effect_class: sideEffectClass,
-      sideEffectClass,
-      requires_approval: requiresApproval,
-      requiresApproval,
-      approval_mode: approvalMode,
-      approvalMode,
-      approved,
-      blockers,
-      transport: server.transport ?? "stdio",
-      transport_execution: transportExecution,
-      transportExecution,
-      containment: {
-        ...(server.containment ?? {}),
-        receiptRequired: true,
-        executionMode: transportExecution?.executionMode ?? transportExecution?.execution_mode ?? "blocked",
-        execution_mode: transportExecution?.execution_mode ?? transportExecution?.executionMode ?? "blocked",
-      },
-      result: output,
-      evidence_refs: [
-        "mcp.manager.tool.invoke",
-        "mcp_containment_receipt",
-        mcpTransportEvidenceRef(transportExecution),
-        server.id,
-        `tool:${toolName}`,
-      ],
-      evidenceRefs: [
-        "mcp.manager.tool.invoke",
-        "mcp_containment_receipt",
-        mcpTransportEvidenceRef(transportExecution),
-        server.id,
-        `tool:${toolName}`,
-      ],
-    };
-    return this.appendThreadMcpControlEvent({
-      threadId,
-      agent,
-      request,
-      controlKind: "mcp_invoke",
-      sourceEventKind: "OperatorControl.McpInvoke",
-      eventKind: "mcp.tool_invocation",
-      componentKind: "mcp_tool_call",
-      workflowNodeId:
-        optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-        toolEntry.workflowNodeId ??
-        toolEntry.workflow_node_id ??
-        `runtime.mcp-tool.${safeId(server.id)}.${safeId(toolName)}`,
-      payloadSchemaVersion: RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
-      status,
-      payload: {
-        ...invocation,
-        event_kind: "McpToolInvocation",
-        control_kind: "mcp_invoke",
-        server,
-        servers: [server],
-        tool: { ...toolEntry, status },
-        tools: [{ ...toolEntry, status }],
-        invocation,
-        summary:
-          status === "completed"
-            ? `MCP tool ${server.id}.${toolName} invoked with ${mcpTransportSummary(transportExecution)}.`
-            : `MCP tool ${server.id}.${toolName} blocked: ${blockers.join(", ")}.`,
-        policy_decision: status === "completed" ? "invoke_allowed" : "invoke_blocked",
-        result: output,
-      },
-    });
+    return this.mcpControlSurface.invokeThreadMcpTool(this, threadId, toolId, request);
   }
 
   mcpServeStatus(options = {}) {
-    const allowedToolIds = mcpServeAllowedToolIds(options);
-    const tools = this.mcpServeToolCatalog(options);
-    return {
-      schema_version: RUNTIME_MCP_SERVE_SCHEMA_VERSION,
-      schemaVersion: RUNTIME_MCP_SERVE_SCHEMA_VERSION,
-      object: "ioi.runtime_mcp_serve_status",
-      status: "ready",
-      transport: "http_jsonrpc",
-      protocol_version: RUNTIME_MCP_SERVE_PROTOCOL_VERSION,
-      protocolVersion: RUNTIME_MCP_SERVE_PROTOCOL_VERSION,
-      thread_id: optionalString(options.thread_id ?? options.threadId) ?? null,
-      allowed_tool_ids: allowedToolIds,
-      allowedToolIds,
-      tool_count: tools.length,
-      toolCount: tools.length,
-      tools,
-      routes: {
-        serve: "/v1/mcp/serve",
-        serveForThread: "/v1/threads/{thread_id}/mcp/serve",
-      },
-      evidence_refs: ["mcp.serve.http_jsonrpc", "coding_tool_receipt"],
-      evidenceRefs: ["mcp.serve.http_jsonrpc", "coding_tool_receipt"],
-    };
+    return this.mcpServeSurface.mcpServeStatus(this, options);
   }
 
   mcpServeToolCatalog(options = {}) {
-    const allowedToolIds = new Set(mcpServeAllowedToolIds(options));
-    return codingToolContracts()
-      .filter((tool) => allowedToolIds.has(tool.stableToolId))
-      .map((tool) => mcpServeToolDescriptor(tool));
+    return this.mcpServeSurface.mcpServeToolCatalog(this, options);
   }
 
   async handleMcpServeJsonRpc(threadId, message, request = {}) {
-    this.agentForThread(threadId);
-    const context = {
-      ...request,
-      thread_id: threadId,
-      threadId,
-    };
-    if (Array.isArray(message)) {
-      const responses = await Promise.all(
-        message.map((entry) => this.handleSingleMcpServeJsonRpc(threadId, entry, context)),
-      );
-      return responses.filter(Boolean);
-    }
-    return this.handleSingleMcpServeJsonRpc(threadId, message, context);
+    return this.mcpServeSurface.handleMcpServeJsonRpc(this, threadId, message, request);
   }
 
   async handleSingleMcpServeJsonRpc(threadId, message, request = {}) {
-    const id = message?.id;
-    const method = optionalString(message?.method);
-    if (!message || typeof message !== "object" || Array.isArray(message) || !method) {
-      return mcpJsonRpcError(id ?? null, -32600, "Invalid MCP JSON-RPC request.", {
-        schema_version: RUNTIME_MCP_SERVE_SCHEMA_VERSION,
-      });
-    }
-    try {
-      if (method === "initialize") {
-        const status = this.mcpServeStatus(request);
-        return mcpJsonRpcResult(id, {
-          protocolVersion: RUNTIME_MCP_SERVE_PROTOCOL_VERSION,
-          capabilities: {
-            tools: { listChanged: false },
-            resources: { subscribe: false, listChanged: false },
-            prompts: { listChanged: false },
-          },
-          serverInfo: {
-            name: "ioi-runtime",
-            version: RUNTIME_MCP_SERVE_SCHEMA_VERSION,
-          },
-          instructions:
-            "IOI runtime MCP serve mode exposes governed, receipt-backed runtime tools for the selected thread.",
-          _meta: status,
-        });
-      }
-      if (method === "notifications/initialized") {
-        return id === undefined || id === null ? null : mcpJsonRpcResult(id, {});
-      }
-      if (method === "ping") {
-        return mcpJsonRpcResult(id, {});
-      }
-      if (method === "tools/list") {
-        return mcpJsonRpcResult(id, { tools: this.mcpServeToolCatalog(request) });
-      }
-      if (method === "resources/list") {
-        return mcpJsonRpcResult(id, { resources: [] });
-      }
-      if (method === "prompts/list") {
-        return mcpJsonRpcResult(id, { prompts: [] });
-      }
-      if (method === "tools/call") {
-        const params = message.params && typeof message.params === "object" ? message.params : {};
-        const toolName = optionalString(params.name ?? params.tool_name ?? params.toolName);
-        const toolId = mcpServeToolIdForName(toolName, request);
-        if (!toolId) {
-          return mcpJsonRpcError(id, -32602, `MCP serve tool is not allowed: ${toolName ?? "missing"}.`, {
-            allowedTools: mcpServeAllowedToolIds(request),
-          });
-        }
-        const input = params.arguments && typeof params.arguments === "object" && !Array.isArray(params.arguments)
-          ? params.arguments
-          : params.args && typeof params.args === "object" && !Array.isArray(params.args)
-            ? params.args
-            : {};
-        const invocation = await this.invokeThreadToolAsync(threadId, toolId, {
-          source: "mcp_serve",
-          workflow_graph_id:
-            optionalString(request.workflow_graph_id ?? request.workflowGraphId) ??
-            "runtime.mcp-serve",
-          workflow_node_id:
-            optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-            `runtime.mcp-serve.${safeId(toolId)}`,
-          input,
-        });
-        return mcpJsonRpcResult(id, mcpServeToolCallResult(invocation));
-      }
-      return mcpJsonRpcError(id, -32601, `MCP method not found: ${method}.`, {
-        supportedMethods: [
-          "initialize",
-          "notifications/initialized",
-          "ping",
-          "tools/list",
-          "tools/call",
-          "resources/list",
-          "prompts/list",
-        ],
-      });
-    } catch (error) {
-      return mcpJsonRpcError(id, mcpJsonRpcErrorCodeFor(error), String(error?.message ?? error), {
-        code: optionalString(error?.code) ?? "mcp_serve_error",
-        details: error?.details ?? null,
-      });
-    }
+    return this.mcpServeSurface.handleSingleMcpServeJsonRpc(this, threadId, message, request);
   }
 
   async recordThreadMcpStatus(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    let status = this.mcpStatus({ ...request, thread_id: threadId });
-    if (request.live_discovery === true || request.liveDiscovery === true) {
-      status = await this.mcpStatusWithLiveDiscovery(status, agent, request);
-    }
-    return this.appendThreadMcpControlEvent({
-      threadId,
-      agent,
-      request,
-      controlKind: "mcp_status",
-      sourceEventKind: "OperatorControl.Mcp",
-      eventKind: "mcp.catalog_status",
-      componentKind: "mcp_provider",
-      workflowNodeId: "runtime.mcp-manager",
-      payloadSchemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-      status: status.status === "ready" ? "completed" : "blocked",
-      payload: {
-        ...status,
-        event_kind: "McpCatalogStatus",
-        control_kind: "mcp_status",
-        thread_id: threadId,
-        agent_id: agent.id,
-        summary: `MCP catalog has ${status.server_count} server(s), ${status.tool_count} tool(s), ${status.resource_count ?? 0} resource(s), and ${status.prompt_count ?? 0} prompt(s).`,
-      },
-    });
+    return this.mcpControlSurface.recordThreadMcpStatus(this, threadId, request);
   }
 
   validateThreadMcp(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const validation = this.validateMcp(
-      request.mcp_json || request.mcpJson || request.servers || request.mcpServers
-        ? request
-        : { servers: this.listMcpServers({ ...request, thread_id: threadId }) },
-    );
-    return this.appendThreadMcpControlEvent({
-      threadId,
-      agent,
-      request,
-      controlKind: "mcp_validate",
-      sourceEventKind: "OperatorControl.McpValidate",
-      eventKind: "mcp.validation",
-      componentKind: "mcp_validator",
-      workflowNodeId: "runtime.mcp-manager.validate",
-      payloadSchemaVersion: RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
-      status: validation.ok ? "completed" : "blocked",
-      payload: {
-        ...validation,
-        event_kind: "McpValidationReport",
-        control_kind: "mcp_validate",
-        thread_id: threadId,
-        agent_id: agent.id,
-        summary: validation.ok
-          ? `MCP validation passed for ${validation.server_count} server(s).`
-          : `MCP validation found ${validation.issue_count} issue(s).`,
-      },
-    });
+    return this.mcpControlSurface.validateThreadMcp(this, threadId, request);
   }
 
   appendThreadMcpControlEvent({
@@ -5904,104 +1951,23 @@ export class AgentgresRuntimeStateStore {
     status,
     payload,
   }) {
-    const thread = this.threadForAgent(agent);
-    const turnId =
-      optionalString(request.turn_id ?? request.turnId) ??
-      optionalString(thread.latest_turn_id) ??
-      "";
-    const source = operatorControlSource(request.source);
-    const graphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
-    const nodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-      workflowNodeId;
-    const eventHash = doctorHash(`${threadId}:${controlKind}:${JSON.stringify(payload)}:${Date.now()}`).slice(0, 12);
-    const receiptId = `receipt_mcp_${safeId(controlKind)}_${eventHash}`;
-    const policyKind =
-      optionalString(payload.policy_decision ?? payload.policyDecision) ??
-      (status === "blocked"
-        ? "blocked"
-        : controlKind === "mcp_invoke"
-          ? "invoke_allowed"
-          : "read");
-    const policyId = `policy_mcp_${safeId(controlKind)}_${safeId(policyKind)}_${eventHash}`;
-    const event = this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:mcp:${safeId(controlKind)}:${eventHash}`,
-      idempotency_key:
-        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
-        `thread:${threadId}:mcp:${controlKind}:${eventHash}`,
-      source,
-      source_event_kind: sourceEventKind,
-      event_kind: eventKind,
+    return this.mcpControlSurface.appendThreadMcpControlEvent(this, {
+      threadId,
+      agent,
+      request,
+      controlKind,
+      sourceEventKind,
+      eventKind,
+      componentKind,
+      workflowNodeId,
+      payloadSchemaVersion,
       status,
-      actor: "operator",
-      workspace_root: agent.cwd,
-      workflow_graph_id: graphId,
-      workflow_node_id: nodeId,
-      component_kind: componentKind,
-      payload_schema_version: payloadSchemaVersion,
-      payload_summary: payload,
-      receipt_refs: [receiptId],
-      policy_decision_refs: [policyId],
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
+      payload,
     });
-    const result = {
-      ...payload,
-      event,
-      receipt_refs: event.receipt_refs,
-      policy_decision_refs: event.policy_decision_refs,
-    };
-    const updatedAgent = { ...agent, updatedAt: event.created_at };
-    this.agents.set(agent.id, updatedAgent);
-    this.writeAgent(updatedAgent, `thread.${controlKind}`);
-    return result;
   }
 
   mcpServersForContext(options = {}) {
-    const threadId = optionalString(options.thread_id ?? options.threadId);
-    const agentId =
-      optionalString(options.agent_id ?? options.agentId) ??
-      (threadId ? agentIdForThread(threadId) : undefined);
-    const sourceMode = mcpConfigSourceModeForRequest(options);
-    const servers = [];
-    if (agentId && this.agents.has(agentId)) {
-      const agent = this.getAgent(agentId);
-      servers.push(...normalizeArray(agent.mcpRegistry?.servers));
-    } else {
-      servers.push(
-        ...mcpRegistryForWorkspace(this.defaultCwd, {
-          ...options,
-          homeDir: this.homeDir,
-          mcpConfigSourceMode: sourceMode,
-        }).servers,
-      );
-      for (const agent of this.agents.values()) {
-        servers.push(...normalizeArray(agent.mcpRegistry?.servers));
-      }
-    }
-    servers.push(
-      ...this.modelMounting.listMcpServers().map((server) =>
-        normalizeMcpServerRecord(server.label ?? server.id, server, {
-          workspaceRoot: this.defaultCwd,
-          source: server.source ?? "model_mounting",
-          sourceScope: "model_mounting",
-          configCompatibility: "ioi_model_mounting",
-          status: server.status ?? "registered",
-        }),
-      ),
-    );
-    const byId = new Map();
-    for (const server of servers) {
-      byId.set(server.id, server);
-    }
-    return [...byId.values()]
-      .filter((server) => mcpServerMatchesConfigSourceMode(server, sourceMode))
-      .sort((left, right) => left.id.localeCompare(right.id));
+    return this.mcpCatalogSurface.mcpServersForContext(this, options);
   }
 
   agentForThread(threadId) {
@@ -6058,181 +2024,11 @@ export class AgentgresRuntimeStateStore {
   }
 
   evaluateContextBudget({ threadId = null, runId = null, request = {} } = {}) {
-    const requestedRunId = optionalString(request.run_id ?? request.runId) ?? runId;
-    const run = requestedRunId ? this.getRun(requestedRunId) : null;
-    const requestedThreadId =
-      optionalString(request.thread_id ?? request.threadId) ??
-      threadId ??
-      (run ? threadIdForAgent(run.agentId) : null);
-    const scope =
-      optionalString(request.scope) ??
-      (requestedRunId ? "run" : requestedThreadId ? "thread" : "workflow");
-    const usageTelemetry =
-      contextBudgetUsageTelemetryFromRequest(request) ??
-      (requestedRunId
-        ? this.usageForRun(requestedRunId)
-        : requestedThreadId
-          ? this.usageForThread(requestedThreadId)
-          : this.listUsage({ group_by: "thread" }));
-    const result = evaluateContextBudgetPolicy({
-      usageTelemetry,
-      request: {
-        ...request,
-        scope,
-        threadId: requestedThreadId,
-        thread_id: requestedThreadId,
-        runId: requestedRunId,
-        run_id: requestedRunId,
-      },
-    });
-
-    if (!requestedThreadId) return result;
-
-    const agent = this.agentForThread(requestedThreadId);
-    const latestRun = run ?? this.listRuns(agent.id).at(-1) ?? null;
-    const now = new Date().toISOString();
-    const eventKind =
-      result.status === "blocked" ? "policy.blocked" : "context_budget.evaluated";
-    const event = this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(requestedThreadId),
-      thread_id: requestedThreadId,
-      turn_id: latestRun ? turnIdForRun(latestRun.id) : "",
-      item_id: `${latestRun ? turnIdForRun(latestRun.id) : requestedThreadId}:item:context-budget:${safeId(result.policy_decision_id)}`,
-      idempotency_key:
-        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
-        `thread:${requestedThreadId}:context-budget:${safeId(result.policy_decision_id)}`,
-      source: operatorControlSource(request.source),
-      source_event_kind:
-        optionalString(request.eventKind ?? request.event_kind) ??
-        "RuntimeContextBudget.Evaluate",
-      event_kind: eventKind,
-      status: result.status === "blocked" ? "blocked" : "completed",
-      actor: optionalString(request.actor) ?? "operator",
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
-      workflow_node_id:
-        request.workflow_node_id ?? request.workflowNodeId ?? "runtime.context-budget",
-      component_kind: "context_budget",
-      payload_schema_version: RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
-      payload_summary: result,
-      receipt_refs: result.receipt_refs,
-      policy_decision_refs: result.policy_decision_refs,
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
-    });
-    return {
-      ...result,
-      event,
-      event_id: event.event_id,
-      eventId: event.event_id,
-      seq: event.seq,
-    };
+    return this.contextPolicySurface.evaluateContextBudget(this, { threadId, runId, request });
   }
 
   evaluateCompactionPolicy({ threadId, request = {} } = {}) {
-    const requestedThreadId =
-      optionalString(request.thread_id ?? request.threadId) ?? threadId;
-    if (!requestedThreadId) {
-      throw runtimeError({
-        status: 400,
-        code: "runtime_compaction_policy_thread_required",
-        message: "Compaction policy evaluation requires a thread id.",
-      });
-    }
-    const agent = this.agentForThread(requestedThreadId);
-    const latestRun = this.listRuns(agent.id).at(-1) ?? null;
-    const turnId =
-      optionalString(request.turn_id ?? request.turnId) ??
-      (latestRun ? turnIdForRun(latestRun.id) : "");
-    const result = evaluateCompactionPolicyDecision({
-      threadId: requestedThreadId,
-      turnId,
-      request,
-    });
-    const streamId = eventStreamIdForThread(requestedThreadId);
-    let compactEvent = null;
-    if (
-      result.action === "compact" &&
-      result.approval_satisfied &&
-      result.execute_compaction
-    ) {
-      const previousLatestSeq = this.latestRuntimeEventSeq(streamId);
-      this.compactThread(requestedThreadId, {
-        reason: result.compact_reason,
-        scope: result.compact_scope,
-        turn_id: turnId,
-        source: request.source,
-        actor: optionalString(request.actor) ?? "operator",
-        workflow_graph_id: result.workflow_graph_id,
-        workflow_node_id: result.compact_workflow_node_id,
-        idempotency_key:
-          optionalString(request.compact_idempotency_key ?? request.compactIdempotencyKey) ??
-          `thread:${requestedThreadId}:compaction-policy:compact:${safeId(result.policy_decision_id)}`,
-      });
-      compactEvent =
-        this.runtimeEventsForStream(streamId, { sinceSeq: previousLatestSeq }).find(
-          (event) => event.component_kind === "context_compaction",
-        ) ?? null;
-      result.compaction_executed = Boolean(compactEvent);
-      result.compactionExecuted = result.compaction_executed;
-      result.compaction_event_id = compactEvent?.event_id ?? null;
-      result.compactionEventId = result.compaction_event_id;
-      result.compaction_seq = compactEvent?.seq ?? null;
-      result.compactionSeq = result.compaction_seq;
-    }
-    const now = new Date().toISOString();
-    const eventKind =
-      result.action === "stop"
-        ? "policy.blocked"
-        : result.action === "approval_required"
-          ? "approval.required"
-          : "compaction_policy.evaluated";
-    const eventStatus =
-      result.action === "stop"
-        ? "blocked"
-        : result.action === "approval_required"
-          ? "waiting"
-          : "completed";
-    const event = this.appendRuntimeEvent({
-      event_stream_id: streamId,
-      thread_id: requestedThreadId,
-      turn_id: turnId,
-      item_id: `${turnId || requestedThreadId}:item:compaction-policy:${safeId(result.policy_decision_id)}`,
-      idempotency_key:
-        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
-        `thread:${requestedThreadId}:compaction-policy:${safeId(result.policy_decision_id)}`,
-      source: operatorControlSource(request.source),
-      source_event_kind:
-        optionalString(request.eventKind ?? request.event_kind) ??
-        "RuntimeCompactionPolicy.Evaluate",
-      event_kind: eventKind,
-      status: eventStatus,
-      actor: optionalString(request.actor) ?? "operator",
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: result.workflow_graph_id,
-      workflow_node_id: result.workflow_node_id,
-      approval_id: result.approval_id,
-      component_kind: "compaction_policy",
-      payload_schema_version: RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
-      payload_summary: result,
-      receipt_refs: result.receipt_refs,
-      policy_decision_refs: result.policy_decision_refs,
-      artifact_refs: compactEvent ? compactEvent.artifact_refs : [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
-    });
-    return {
-      ...result,
-      event,
-      event_id: event.event_id,
-      eventId: event.event_id,
-      seq: event.seq,
-    };
+    return this.contextPolicySurface.evaluateCompactionPolicy(this, { threadId, request });
   }
 
   cancelRun(runId) {
@@ -7426,337 +3222,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   invokeThreadTool(threadId, toolId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const normalizedToolId = optionalString(toolId);
-    if (COMPUTER_USE_BROWSER_DISCOVERY_TOOL_IDS.has(normalizedToolId)) {
-      return this.invokeComputerUseBrowserDiscoveryTool(threadId, normalizedToolId, request);
-    }
-    if (COMPUTER_USE_CONTROL_TOOL_IDS.has(normalizedToolId)) {
-      return this.invokeComputerUseControlTool(threadId, normalizedToolId, request);
-    }
-    if (COMPUTER_USE_NATIVE_BROWSER_TOOL_IDS.has(normalizedToolId)) {
-      return this.invokeComputerUseNativeBrowserTool(threadId, normalizedToolId, request);
-    }
-    if (COMPUTER_USE_VISUAL_GUI_TOOL_IDS.has(normalizedToolId)) {
-      return this.invokeComputerUseVisualGuiTool(threadId, normalizedToolId, request);
-    }
-    if (COMPUTER_USE_SANDBOXED_HOSTED_TOOL_IDS.has(normalizedToolId)) {
-      return this.invokeComputerUseSandboxedHostedTool(threadId, normalizedToolId, request);
-    }
-    if (COMPUTER_USE_VISUAL_GUI_OBSERVE_TOOL_IDS.has(normalizedToolId)) {
-      return this.invokeComputerUseVisualGuiObserveTool(threadId, normalizedToolId, request);
-    }
-    if (!normalizedToolId || !CODING_TOOL_IDS.has(normalizedToolId)) {
-      throw notFound(`Coding tool not found: ${toolId}`, {
-        threadId,
-        toolId,
-        pack: CODING_TOOL_PACK_ID,
-      });
-    }
-    const input = codingToolInputForRequest(request);
-    const turnId =
-      optionalString(request.turn_id ?? request.turnId) ??
-      optionalString(this.threadForAgent(agent).latest_turn_id) ??
-      "";
-    const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-      `runtime.coding-tool.${safeId(normalizedToolId)}`;
-    const workflowGraphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
-    const toolCallId =
-      optionalString(request.tool_call_id ?? request.toolCallId) ??
-      `coding_tool_${doctorHash(`${threadId}:${normalizedToolId}:${JSON.stringify(input)}:${Date.now()}`).slice(0, 16)}`;
-    const codingToolIdempotencyKey =
-      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
-      `thread:${threadId}:coding-tool:${toolCallId}`;
-    const duplicateToolEvent = this.runtimeEventStream(eventStreamIdForThread(threadId)).idempotency.get(
-      codingToolIdempotencyKey,
-    );
-    if (duplicateToolEvent) {
-      return codingToolInvocationResultFromEvent(duplicateToolEvent, {
-        agent,
-        threadId,
-        turnId,
-        toolId: normalizedToolId,
-        toolCallId,
-        workflowGraphId,
-        workflowNodeId,
-      });
-    }
-    const receiptId = `receipt_coding_tool_${safeId(normalizedToolId)}_${doctorHash(
-      `${threadId}:${normalizedToolId}:${toolCallId}`,
-    ).slice(0, 12)}`;
-    const requestRollbackRefs = uniqueStrings(normalizeArray(request.rollbackRefs ?? request.rollback_refs));
-    const diagnosticsRepairContext =
-      diagnosticsRepairContextForRequest(request) ??
-      diagnosticsRepairContextForToolPack(request, input, normalizedToolId);
-    const toolContract = codingToolContracts().find((tool) => tool.stableToolId === normalizedToolId);
-    const budgetPolicy = codingToolBudgetPolicyForRequest({
-      request,
-      threadId,
-      toolId: normalizedToolId,
-      toolCallId,
-      workflowGraphId,
-      workflowNodeId,
-    });
-    if (budgetPolicy?.status === "blocked") {
-      const blocked = this.blockCodingToolForBudget({
-        agent,
-        threadId,
-        turnId,
-        toolId: normalizedToolId,
-        toolCallId,
-        receiptId,
-        input,
-        request,
-        workflowGraphId,
-        workflowNodeId,
-        requestRollbackRefs,
-        diagnosticsRepairContext,
-        budgetPolicy,
-        toolContract,
-        codingToolIdempotencyKey,
-      });
-      throw policyError("Coding tool budget limit exceeded.", {
-        threadId,
-        toolId: normalizedToolId,
-        tool_call_id: toolCallId,
-        reason: "coding_tool_budget_exceeded",
-        budget_status: "exceeded",
-        context_budget_status: budgetPolicy.status,
-        contextBudgetStatus: budgetPolicy.status,
-        context_budget: budgetPolicy,
-        contextBudget: budgetPolicy,
-        budget_usage_telemetry: budgetPolicy.usage_telemetry,
-        budgetUsageTelemetry: budgetPolicy.usageTelemetry,
-        eventId: blocked.event?.event_id ?? null,
-        event_id: blocked.event?.event_id ?? null,
-        receiptRefs: blocked.receipt_refs,
-        receipt_refs: blocked.receipt_refs,
-        policyDecisionRefs: blocked.policy_decision_refs,
-        policy_decision_refs: blocked.policy_decision_refs,
-      });
-    }
-    const approvalManifest = codingToolApprovalManifestForThread({
-      agent,
-      threadId,
-      turnId,
-      toolId: normalizedToolId,
-      toolCallId,
-      toolContract,
-      input,
-      request,
-      workflowGraphId,
-      workflowNodeId,
-    });
-    const approvalSatisfaction = approvalManifest
-      ? this.codingToolApprovalSatisfaction({ threadId, approvalManifest, request })
-      : null;
-    if (approvalManifest && !approvalSatisfaction?.satisfied) {
-      return this.blockCodingToolForApproval({
-        agent,
-        threadId,
-        turnId,
-        toolId: normalizedToolId,
-        toolCallId,
-        receiptId,
-        input,
-        request,
-        workflowGraphId,
-        workflowNodeId,
-        requestRollbackRefs,
-        diagnosticsRepairContext,
-        approvalManifest,
-        toolContract,
-      });
-    }
-    const artifactRefs = [];
-    const receiptRefs = [receiptId];
-    let status = "completed";
-    let result = null;
-    let error = null;
-    let workspaceSnapshot = null;
-    let workspaceSnapshotEvent = null;
-    try {
-      result = executeCodingTool(normalizedToolId, agent.cwd, input, {
-        threadId,
-        toolId: normalizedToolId,
-        toolCallId,
-        readArtifact: (artifactId, range) => this.readCodingToolArtifact(threadId, artifactId, range),
-        retrieveToolResult: (query) => this.retrieveCodingToolResult(threadId, query),
-      });
-      const materializedArtifacts = this.materializeCodingToolArtifactDrafts({
-        threadId,
-        toolId: normalizedToolId,
-        toolCallId,
-        workspaceRoot: agent.cwd,
-        result,
-        receiptId,
-      });
-      if (normalizedToolId === "file.apply_patch") {
-        workspaceSnapshot = this.prepareWorkspaceSnapshotForPatch({
-          threadId,
-          turnId,
-          workspaceRoot: agent.cwd,
-          toolCallId,
-          workflowGraphId,
-          workflowNodeId,
-          result,
-        });
-      }
-      result = codingToolResultWithoutDrafts(result, materializedArtifacts);
-      artifactRefs.push(...normalizeArray(result.artifactRefs));
-      receiptRefs.push(...normalizeArray(result.receiptRefs));
-      if (workspaceSnapshot) {
-        result = {
-          ...result,
-          workspaceSnapshot: workspaceSnapshot.record,
-          workspace_snapshot: workspaceSnapshot.record,
-          workspaceSnapshotId: workspaceSnapshot.record.snapshotId,
-          workspace_snapshot_id: workspaceSnapshot.record.snapshotId,
-        };
-        artifactRefs.push(...workspaceSnapshot.record.artifactRefs);
-        receiptRefs.push(...workspaceSnapshot.record.receiptRefs);
-      }
-    } catch (caught) {
-      status = "failed";
-      error = {
-        code: caught?.code ?? "coding_tool_failed",
-        message: String(caught?.message ?? caught),
-        details: caught?.details ?? null,
-      };
-      result = {
-        schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
-        toolName: normalizedToolId,
-        status,
-        error,
-      };
-    }
-    const summary = codingToolSummary(normalizedToolId, result, status);
-    const rollbackRefs = uniqueStrings([
-      ...(workspaceSnapshot ? [workspaceSnapshot.record.snapshotId] : []),
-      ...requestRollbackRefs,
-    ]);
-    const payloadSummary = {
-      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      event_kind: "CodingToolResult",
-      tool_pack: CODING_TOOL_PACK_ID,
-      tool_name: normalizedToolId,
-      tool_call_id: toolCallId,
-      thread_id: threadId,
-      turn_id: turnId || null,
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      status,
-      summary,
-      shell_fallback_used: false,
-      input_summary: codingToolInputSummary(normalizedToolId, input),
-      result_summary: codingToolResultSummary(normalizedToolId, result),
-      result,
-      error,
-      rollback_refs: rollbackRefs,
-      diagnostics_repair_context: diagnosticsRepairContext,
-      diagnosticsRepairContext,
-      approval_required: Boolean(approvalManifest),
-      approvalRequired: Boolean(approvalManifest),
-      approval_satisfied: Boolean(approvalSatisfaction?.satisfied),
-      approvalSatisfied: Boolean(approvalSatisfaction?.satisfied),
-      approval_id: approvalSatisfaction?.approvalId ?? null,
-      approvalId: approvalSatisfaction?.approvalId ?? null,
-      approval_manifest: approvalManifest ?? null,
-      approvalManifest: approvalManifest ?? null,
-      approval_decision_event_id: approvalSatisfaction?.decisionEventId ?? null,
-      approvalDecisionEventId: approvalSatisfaction?.decisionEventId ?? null,
-      receipt_id: receiptId,
-      receipt_count: receiptRefs.length,
-      artifact_count: artifactRefs.length,
-    };
-    const commandStreamEvents = this.appendCodingToolCommandStreamEvents({
-      agent,
-      threadId,
-      turnId,
-      toolId: normalizedToolId,
-      toolCallId,
-      workflowGraphId,
-      workflowNodeId,
-      request,
-      result,
-      status,
-      receiptRefs,
-      artifactRefs,
-    });
-    const event = this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:coding-tool:${safeId(normalizedToolId)}:${doctorHash(toolCallId).slice(0, 12)}`,
-      idempotency_key: codingToolIdempotencyKey,
-      source: operatorControlSource(request.source),
-      source_event_kind: codingToolSourceEventKind(normalizedToolId),
-      event_kind: status === "failed" ? "tool.failed" : "tool.completed",
-      status,
-      actor: "runtime",
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "coding_tool",
-      tool_call_id: toolCallId,
-      artifact_refs: artifactRefs,
-      receipt_refs: uniqueStrings(receiptRefs),
-      rollback_refs: rollbackRefs,
-      payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      payload_summary: payloadSummary,
-    });
-    if (workspaceSnapshot) {
-      workspaceSnapshotEvent = this.appendWorkspaceSnapshotEvent({
-        threadId,
-        turnId,
-        workspaceRoot: agent.cwd,
-        workflowGraphId,
-        snapshot: workspaceSnapshot.record,
-        sourceToolEvent: event,
-      });
-    }
-    const autoDiagnostics =
-      status === "completed" && normalizedToolId === "file.apply_patch"
-        ? this.maybeRunPostEditDiagnostics({
-            threadId,
-            turnId,
-            patchToolCallId: toolCallId,
-            patchResult: result,
-            request,
-            input,
-            workflowGraphId,
-          })
-        : null;
-    return {
-      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      object: "ioi.runtime_coding_tool_result",
-      tool_pack: CODING_TOOL_PACK_ID,
-      tool_name: normalizedToolId,
-      tool_call_id: toolCallId,
-      thread_id: threadId,
-      turn_id: turnId || null,
-      status,
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      shell_fallback_used: false,
-      receipt_refs: event.receipt_refs,
-      artifact_refs: event.artifact_refs,
-      rollback_refs: event.rollback_refs,
-      event,
-      workspace_snapshot: workspaceSnapshot?.record ?? null,
-      workspaceSnapshot: workspaceSnapshot?.record ?? null,
-      workspace_snapshot_event: workspaceSnapshotEvent,
-      workspaceSnapshotEvent,
-      auto_diagnostics: autoDiagnostics,
-      autoDiagnostics,
-      command_stream_events: commandStreamEvents,
-      commandStreamEvents,
-      result,
-      error,
-    };
+    return this.codingToolInvocationSurface.invokeThreadTool(this, threadId, toolId, request);
   }
 
   appendCodingToolCommandStreamEvents({
@@ -7773,180 +3239,32 @@ export class AgentgresRuntimeStateStore {
     receiptRefs = [],
     artifactRefs = [],
   } = {}) {
-    if (!codingToolCommandStreamRequested(request)) return [];
-    const streamId = `command_stream_${safeId(toolCallId)}`;
-    const chunks = codingToolCommandStreamChunks(result);
-    if (chunks.length === 0) return [];
-    const events = [];
-    let chunkSeq = 0;
-    for (const chunk of chunks) {
-      chunkSeq += 1;
-      events.push(this.appendRuntimeEvent({
-        event_stream_id: eventStreamIdForThread(threadId),
-        thread_id: threadId,
-        turn_id: turnId,
-        item_id: `${turnId || threadId}:item:command-stream:${doctorHash(`${toolCallId}:${chunk.channel}:${chunkSeq}`).slice(0, 12)}`,
-        idempotency_key: `thread:${threadId}:command-stream:${toolCallId}:${chunk.channel}:${chunkSeq}`,
-        source: operatorControlSource(request.source),
-        source_event_kind: "CodingTool.Stream",
-        event_kind: "COMMAND_STREAM",
-        status: "streaming",
-        actor: "runtime",
-        workspace_root: agent.cwd,
-        workflow_graph_id: workflowGraphId,
-        workflow_node_id: workflowNodeId,
-        component_kind: "terminal_stream",
-        tool_call_id: toolCallId,
-        tool_name: toolId,
-        artifact_refs: artifactRefs,
-        receipt_refs: uniqueStrings(receiptRefs),
-        rollback_refs: [],
-        payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-        payload_summary: {
-          schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-          event_kind: "COMMAND_STREAM",
-          stream_id: streamId,
-          streamId,
-          stream_seq: chunkSeq,
-          streamSeq: chunkSeq,
-          channel: chunk.channel,
-          output_text: chunk.text,
-          outputText: chunk.text,
-          is_final: false,
-          isFinal: false,
-          command: optionalString(result?.command) ?? toolId,
-          tool_name: toolId,
-          tool_call_id: toolCallId,
-          truncated: Boolean(result?.truncated),
-          status,
-          artifact_refs: artifactRefs,
-          artifactRefs,
-          receipt_refs: uniqueStrings(receiptRefs),
-          receiptRefs: uniqueStrings(receiptRefs),
-        },
-      }));
-    }
-    events.push(this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:command-stream:${doctorHash(`${toolCallId}:final`).slice(0, 12)}`,
-      idempotency_key: `thread:${threadId}:command-stream:${toolCallId}:final`,
-      source: operatorControlSource(request.source),
-      source_event_kind: "CodingTool.Stream",
-      event_kind: "COMMAND_STREAM",
-      status: "completed",
-      actor: "runtime",
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "terminal_stream",
-      tool_call_id: toolCallId,
-      tool_name: toolId,
-      artifact_refs: artifactRefs,
-      receipt_refs: uniqueStrings(receiptRefs),
-      rollback_refs: [],
-      payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      payload_summary: {
-        schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-        event_kind: "COMMAND_STREAM",
-        stream_id: streamId,
-        streamId,
-        stream_seq: chunkSeq + 1,
-        streamSeq: chunkSeq + 1,
-        channel: "control",
-        output_text: "",
-        outputText: "",
-        is_final: true,
-        isFinal: true,
-        command: optionalString(result?.command) ?? toolId,
-        tool_name: toolId,
-        tool_call_id: toolCallId,
-        truncated: Boolean(result?.truncated),
-        status,
-        artifact_refs: artifactRefs,
-        artifactRefs,
-        receipt_refs: uniqueStrings(receiptRefs),
-        receiptRefs: uniqueStrings(receiptRefs),
-      },
-    }));
-    return events;
+    return this.codingToolArtifactSurface.appendCodingToolCommandStreamEvents(this, {
+      agent,
+      threadId,
+      turnId,
+      toolId,
+      toolCallId,
+      workflowGraphId,
+      workflowNodeId,
+      request,
+      result,
+      status,
+      receiptRefs,
+      artifactRefs,
+    });
   }
 
   latestApprovalRequestEvent(threadId, approvalId) {
-    const normalizedApprovalId = optionalString(approvalId);
-    if (!normalizedApprovalId) return null;
-    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
-    return (
-      stream.events
-        .filter(
-          (event) =>
-            event.approval_id === normalizedApprovalId &&
-            event.event_kind === "approval.required",
-        )
-        .at(-1) ?? null
-    );
+    return this.approvalSurface.latestApprovalRequestEvent(this, threadId, approvalId);
   }
 
   codingToolApprovalSatisfaction({ threadId, approvalManifest, request }) {
-    const approvalId = optionalString(request.approval_id ?? request.approvalId);
-    if (!approvalId) return { satisfied: false, reason: "approval_id_missing" };
-    const approvalRequestEvent = this.latestApprovalRequestEvent(threadId, approvalId);
-    if (!approvalRequestEvent) return { satisfied: false, approvalId, reason: "approval_request_missing" };
-    const requestedManifest =
-      approvalRequestEvent.payload_summary?.approval_manifest ??
-      approvalRequestEvent.payload_summary?.approvalManifest ??
-      null;
-    if (!codingToolApprovalManifestsMatch(requestedManifest, approvalManifest)) {
-      return { satisfied: false, approvalId, reason: "approval_manifest_mismatch" };
-    }
-    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
-    const latestDecision = stream.events
-      .filter(
-        (event) =>
-          event.approval_id === approvalId &&
-          event.seq > approvalRequestEvent.seq &&
-          (event.event_kind === "approval.approved" ||
-            event.event_kind === "approval.rejected" ||
-            event.event_kind === "approval.revoked"),
-      )
-      .at(-1);
-    if (!latestDecision) return { satisfied: false, approvalId, reason: "approval_decision_missing" };
-    if (latestDecision.event_kind !== "approval.approved") {
-      return {
-        satisfied: false,
-        approvalId,
-        decisionEventId: latestDecision.event_id,
-        decisionSeq: latestDecision.seq,
-        reason: approvalReasonForDecisionEvent(latestDecision),
-      };
-    }
-    const leaseState = approvalLeaseStateForDecision({
+    return this.codingToolGovernanceSurface.codingToolApprovalSatisfaction(this, {
       threadId,
-      approvalId,
-      approvalRequestEvent,
-      latestDecision,
+      approvalManifest,
+      request,
     });
-    if (leaseState.expired) {
-      return {
-        satisfied: false,
-        approvalId,
-        decisionEventId: latestDecision.event_id,
-        decisionSeq: latestDecision.seq,
-        reason: "approval_lease_expired",
-        leaseId: leaseState.leaseId,
-        expiresAt: leaseState.expiresAt,
-      };
-    }
-    return {
-      satisfied: true,
-      approvalId,
-      decisionEventId: latestDecision.event_id,
-      decisionSeq: latestDecision.seq,
-      reason: approvalReasonForDecisionEvent(latestDecision),
-      leaseId: leaseState.leaseId,
-      expiresAt: leaseState.expiresAt,
-    };
   }
 
   blockCodingToolForApproval({
@@ -7965,92 +3283,22 @@ export class AgentgresRuntimeStateStore {
     approvalManifest,
     toolContract,
   }) {
-    const approvalId = `approval_coding_tool_${safeId(toolId)}_${doctorHash(
-      `${threadId}:${turnId || "thread"}:${toolCallId}`,
-    ).slice(0, 16)}`;
-    const error = {
-      code: "coding_tool_approval_required",
-      message: `${toolId} requires approval before execution in ${approvalManifest.thread_mode} mode.`,
-      details: {
-        toolId,
-        tool_call_id: toolCallId,
-        thread_mode: approvalManifest.thread_mode,
-        approval_mode: approvalManifest.approval_mode,
-        policy_reason: approvalManifest.policy_reason,
-      },
-    };
-    const approval = this.requestThreadApproval(threadId, {
-      ...request,
-      source: operatorControlSource(request.source),
+    return this.codingToolGovernanceSurface.blockCodingToolForApproval(this, {
+      agent,
+      threadId,
       turnId,
+      toolId,
+      toolCallId,
+      receiptId,
+      input,
+      request,
       workflowGraphId,
       workflowNodeId,
-      action: "coding_tool.invoke",
-      actor: "runtime",
-      reason: error.message,
-      scope: "coding_tool",
-      idempotencyKey: `thread:${threadId}:approval.required:${approvalId}`,
-      approvalId,
-      toolId,
-      effectClass: approvalManifest.effect_class,
-      riskDomain: approvalManifest.risk_domain,
-      authorityScopeRequirements: approvalManifest.authority_scope_requirements,
-      approvalManifest,
-      receiptRefs: [receiptId],
-      policyDecisionRefs: [`policy_coding_tool_${safeId(toolId)}_approval_required`],
-    });
-    const result = {
-      schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      toolName: toolId,
-      status: "blocked",
-      approvalRequired: true,
-      approval_required: true,
-      approvalId: approval.approval_id,
-      approval_id: approval.approval_id,
-      approvalManifest,
-      approval_manifest: approvalManifest,
-      inputSummary: codingToolInputSummary(toolId, input),
-      input_summary: codingToolInputSummary(toolId, input),
-      error,
-    };
-    return {
-      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      object: "ioi.runtime_coding_tool_result",
-      tool_pack: CODING_TOOL_PACK_ID,
-      tool_name: toolId,
-      tool_call_id: toolCallId,
-      thread_id: threadId,
-      turn_id: turnId || null,
-      status: "blocked",
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      shell_fallback_used: false,
-      approval_required: true,
-      approvalRequired: true,
-      approval_id: approval.approval_id,
-      approvalId: approval.approval_id,
-      approval_manifest: approvalManifest,
-      approvalManifest,
-      receipt_refs: approval.receipt_refs,
-      artifact_refs: [],
-      rollback_refs: uniqueStrings(requestRollbackRefs),
-      event: null,
-      approval,
-      approval_event_id: approval.event_id,
-      workspace_snapshot: null,
-      workspaceSnapshot: null,
-      workspace_snapshot_event: null,
-      workspaceSnapshotEvent: null,
-      auto_diagnostics: null,
-      autoDiagnostics: null,
-      diagnostics_repair_context: diagnosticsRepairContext,
+      requestRollbackRefs,
       diagnosticsRepairContext,
-      tool_contract: toolContract ?? null,
-      toolContract: toolContract ?? null,
-      result,
-      error,
-    };
+      approvalManifest,
+      toolContract,
+    });
   }
 
   blockCodingToolForBudget({
@@ -8070,143 +3318,23 @@ export class AgentgresRuntimeStateStore {
     toolContract,
     codingToolIdempotencyKey,
   }) {
-    const receiptRefs = uniqueStrings([
+    return this.codingToolGovernanceSurface.blockCodingToolForBudget(this, {
+      agent,
+      threadId,
+      turnId,
+      toolId,
+      toolCallId,
       receiptId,
-      ...normalizeArray(budgetPolicy.receipt_refs ?? budgetPolicy.receiptRefs),
-    ]);
-    const policyDecisionRefs = uniqueStrings(
-      budgetPolicy.policy_decision_refs ?? budgetPolicy.policyDecisionRefs,
-    );
-    const error = {
-      code: "coding_tool_budget_exceeded",
-      message: `${toolId} blocked because the workflow coding-tool budget was exceeded.`,
-      details: {
-        toolId,
-        tool_call_id: toolCallId,
-        reason: "coding_tool_budget_exceeded",
-        budget_status: "exceeded",
-        context_budget_status: budgetPolicy.status,
-        contextBudgetStatus: budgetPolicy.status,
-        context_budget: budgetPolicy,
-        contextBudget: budgetPolicy,
-        budget_usage_telemetry: budgetPolicy.usage_telemetry,
-        budgetUsageTelemetry: budgetPolicy.usageTelemetry,
-      },
-    };
-    const result = {
-      schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      toolName: toolId,
-      status: "blocked",
-      budgetStatus: "exceeded",
-      budget_status: "exceeded",
-      contextBudgetStatus: budgetPolicy.status,
-      context_budget_status: budgetPolicy.status,
-      contextBudget: budgetPolicy,
-      context_budget: budgetPolicy,
-      inputSummary: codingToolInputSummary(toolId, input),
-      input_summary: codingToolInputSummary(toolId, input),
-      error,
-    };
-    const rollbackRefs = uniqueStrings(requestRollbackRefs);
-    const payloadSummary = {
-      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      event_kind: "CodingToolBudgetBlocked",
-      tool_pack: CODING_TOOL_PACK_ID,
-      tool_name: toolId,
-      tool_call_id: toolCallId,
-      thread_id: threadId,
-      turn_id: turnId || null,
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      status: "blocked",
-      summary: error.message,
-      shell_fallback_used: false,
-      input_summary: codingToolInputSummary(toolId, input),
-      result_summary: { status: "blocked", reason: "coding_tool_budget_exceeded" },
-      result,
-      error,
-      rollback_refs: rollbackRefs,
-      diagnostics_repair_context: diagnosticsRepairContext,
+      input,
+      request,
+      workflowGraphId,
+      workflowNodeId,
+      requestRollbackRefs,
       diagnosticsRepairContext,
-      approval_required: false,
-      approvalRequired: false,
-      budget_status: "exceeded",
-      budgetStatus: "exceeded",
-      context_budget_status: budgetPolicy.status,
-      contextBudgetStatus: budgetPolicy.status,
-      context_budget: budgetPolicy,
-      contextBudget: budgetPolicy,
-      budget_usage_telemetry: budgetPolicy.usage_telemetry,
-      budgetUsageTelemetry: budgetPolicy.usageTelemetry,
-      policy_decision_refs: policyDecisionRefs,
-      policyDecisionRefs,
-      receipt_id: receiptId,
-      receipt_count: receiptRefs.length,
-      artifact_count: 0,
-    };
-    const event = this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:coding-tool:${safeId(toolId)}:${doctorHash(toolCallId).slice(0, 12)}`,
-      idempotency_key:
-        codingToolIdempotencyKey ??
-        `thread:${threadId}:coding-tool:${toolCallId}:budget-blocked`,
-      source: operatorControlSource(request.source),
-      source_event_kind: codingToolSourceEventKind(toolId),
-      event_kind: "policy.blocked",
-      status: "blocked",
-      actor: "runtime",
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "coding_tool",
-      tool_call_id: toolCallId,
-      artifact_refs: [],
-      receipt_refs: receiptRefs,
-      policy_decision_refs: policyDecisionRefs,
-      rollback_refs: rollbackRefs,
-      payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      payload_summary: payloadSummary,
+      budgetPolicy,
+      toolContract,
+      codingToolIdempotencyKey,
     });
-    return {
-      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      object: "ioi.runtime_coding_tool_result",
-      tool_pack: CODING_TOOL_PACK_ID,
-      tool_name: toolId,
-      tool_call_id: toolCallId,
-      thread_id: threadId,
-      turn_id: turnId || null,
-      status: "blocked",
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      shell_fallback_used: false,
-      budget_status: "exceeded",
-      budgetStatus: "exceeded",
-      context_budget: budgetPolicy,
-      contextBudget: budgetPolicy,
-      receipt_refs: event.receipt_refs,
-      receiptRefs: event.receipt_refs,
-      policy_decision_refs: event.policy_decision_refs,
-      policyDecisionRefs: event.policy_decision_refs,
-      artifact_refs: [],
-      rollback_refs: rollbackRefs,
-      event,
-      workspace_snapshot: null,
-      workspaceSnapshot: null,
-      workspace_snapshot_event: null,
-      workspaceSnapshotEvent: null,
-      auto_diagnostics: null,
-      autoDiagnostics: null,
-      diagnostics_repair_context: diagnosticsRepairContext,
-      diagnosticsRepairContext,
-      tool_contract: toolContract ?? null,
-      toolContract: toolContract ?? null,
-      result,
-      error,
-    };
   }
 
   prepareWorkspaceSnapshotForPatch({
@@ -8218,111 +3346,15 @@ export class AgentgresRuntimeStateStore {
     workflowNodeId,
     result = {},
   } = {}) {
-    if (!result?.applied) return null;
-    const contentDraftsByPath = workspaceSnapshotContentDraftsByPath(
-      result.workspaceSnapshotDrafts ?? result.workspace_snapshot_drafts,
-    );
-    const captureRecords = normalizeArray(result.changedFiles)
-      .filter((entry) => optionalString(entry?.path))
-      .map((entry) =>
-        workspaceSnapshotFileForPatch(entry, contentDraftsByPath.get(optionalString(entry?.path) ?? ""), {
-          maxContentBytes: WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
-        }),
-      );
-    const files = captureRecords.map((capture) => capture.publicFile);
-    const contentFiles = captureRecords.map((capture) => capture.contentFile);
-    if (!files.length) return null;
-    const capturedFileCount = captureRecords.filter((capture) => capture.contentCaptured).length;
-    const omittedFileCount = captureRecords.length - capturedFileCount;
-    const previewSupported = omittedFileCount === 0;
-    const core = {
-      schemaVersion: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
-      object: "ioi.runtime_workspace_snapshot",
+    return this.workspaceSnapshotSurface.prepareWorkspaceSnapshotForPatch(this, {
       threadId,
-      turnId: turnId || null,
-      workspaceRoot,
-      snapshotKind: "pre_post_touched_files",
-      trigger: {
-        toolName: "file.apply_patch",
-        toolCallId,
-        workflowGraphId,
-        workflowNodeId,
-      },
-      fileCount: files.length,
-      changedFileCount: files.filter((file) => file.changed).length,
-      createdFileCount: files.filter((file) => file.created).length,
-      deletedFileCount: files.filter((file) => file.deleted).length,
-      files,
-      capture: {
-        status: previewSupported ? "content_captured" : "partial_content",
-        maxContentBytes: WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
-        capturedFileCount,
-        omittedFileCount,
-      },
-      restore: {
-        status: previewSupported ? "content_captured" : "partial_content",
-        previewSupported,
-        applySupported: previewSupported,
-        reason: previewSupported ? "restore_apply_requires_approval" : "snapshot_content_capture_incomplete",
-      },
-      redaction: {
-        profile: "workspace_snapshot_content_artifact",
-        contentIncluded: false,
-        contentArtifactIncluded: true,
-        pathsIncluded: true,
-      },
-      evidenceRefs: ["workspace_snapshot_content", "file.apply_patch", toolCallId].filter(Boolean),
-    };
-    const snapshotHash = doctorHash(JSON.stringify(core));
-    const snapshotId = `workspace_snapshot_${safeId(toolCallId)}_${snapshotHash.slice(0, 12)}`;
-    const receiptId = `receipt_${snapshotId}`;
-    const artifactId = `artifact_${safeId(snapshotId)}_content`;
-    const record = {
-      ...core,
-      snapshotId,
-      snapshot_id: snapshotId,
-      snapshotHash,
-      snapshot_hash: snapshotHash,
-      receiptRefs: [receiptId],
-      receipt_refs: [receiptId],
-      artifactRefs: [artifactId],
-      artifact_refs: [artifactId],
-      contentArtifactRefs: [artifactId],
-      content_artifact_refs: [artifactId],
-      summary: `Workspace snapshot recorded ${files.length} changed file(s) for ${toolCallId}.`,
-    };
-    const artifactPayload = {
-      schemaVersion: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
-      object: "ioi.runtime_workspace_snapshot_content",
-      snapshotId,
-      snapshot_id: snapshotId,
-      snapshotHash,
-      snapshot_hash: snapshotHash,
-      threadId,
-      thread_id: threadId,
-      turnId: turnId || null,
-      turn_id: turnId || null,
-      workspaceRoot,
-      workspace_root: workspaceRoot,
-      trigger: record.trigger,
-      capture: record.capture,
-      restore: record.restore,
-      snapshot: record,
-      files: contentFiles,
-    };
-    const artifactRecord = this.materializeWorkspaceSnapshotArtifact({
-      threadId,
+      turnId,
       toolCallId,
       workspaceRoot,
-      snapshot: record,
-      artifactPayload,
-      artifactId,
-      receiptId,
+      workflowGraphId,
+      workflowNodeId,
+      result,
     });
-    return {
-      record,
-      artifactRecord,
-    };
   }
 
   materializeWorkspaceSnapshotArtifact({
@@ -8334,38 +3366,15 @@ export class AgentgresRuntimeStateStore {
     artifactId,
     receiptId,
   } = {}) {
-    const createdAt = new Date().toISOString();
-    const content = JSON.stringify(artifactPayload ?? snapshot, null, 2);
-    const artifactRecord = {
-      schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-      schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-      id: artifactId,
-      thread_id: threadId,
+    return this.workspaceSnapshotSurface.materializeWorkspaceSnapshotArtifact(this, {
       threadId,
-      tool_name: "file.apply_patch",
-      toolName: "file.apply_patch",
-      tool_call_id: toolCallId,
       toolCallId,
-      workspace_root: workspaceRoot,
       workspaceRoot,
-      name: "workspace-snapshot-content.json",
-      channel: "workspace-snapshot",
-      media_type: "application/json",
-      mediaType: "application/json",
-      redaction: "workspace_snapshot_content_artifact",
-      receipt_id: receiptId,
+      snapshot,
+      artifactPayload,
+      artifactId,
       receiptId,
-      content,
-      content_bytes: Buffer.byteLength(content, "utf8"),
-      contentBytes: Buffer.byteLength(content, "utf8"),
-      content_hash: doctorHash(content),
-      contentHash: doctorHash(content),
-      created_at: createdAt,
-      createdAt,
-    };
-    this.codingArtifacts.set(artifactRecord.id, artifactRecord);
-    writeJson(this.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
-    return artifactRecord;
+    });
   }
 
   appendWorkspaceSnapshotEvent({
@@ -8376,588 +3385,30 @@ export class AgentgresRuntimeStateStore {
     snapshot,
     sourceToolEvent,
   } = {}) {
-    if (!snapshot?.snapshotId) return null;
-    const payloadSummary = {
-      schema_version: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
-      event_kind: "WorkspaceSnapshotCreated",
-      snapshot_id: snapshot.snapshotId,
-      snapshot_hash: snapshot.snapshotHash,
-      thread_id: threadId,
-      turn_id: turnId || null,
-      workspace_root: workspaceRoot,
-      snapshot_kind: snapshot.snapshotKind,
-      file_count: snapshot.fileCount,
-      changed_file_count: snapshot.changedFileCount,
-      created_file_count: snapshot.createdFileCount,
-      deleted_file_count: snapshot.deletedFileCount,
-      restore_status: snapshot.restore?.status ?? "metadata_only",
-      restore_preview_supported: Boolean(snapshot.restore?.previewSupported),
-      restore_apply_supported: Boolean(snapshot.restore?.applySupported),
-      source_tool_name: "file.apply_patch",
-      source_tool_call_id: sourceToolEvent?.tool_call_id ?? snapshot.trigger?.toolCallId ?? null,
-      source_tool_event_id: sourceToolEvent?.event_id ?? null,
-      source_workflow_node_id: snapshot.trigger?.workflowNodeId ?? null,
-      files: snapshot.files,
-      receipt_refs: snapshot.receiptRefs,
-      artifact_refs: snapshot.artifactRefs,
-      summary: snapshot.summary,
+    return this.workspaceSnapshotSurface.appendWorkspaceSnapshotEvent(this, {
+      threadId,
+      turnId,
+      workspaceRoot,
+      workflowGraphId,
       snapshot,
-    };
-    return this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:workspace-snapshot:${safeId(snapshot.snapshotId)}`,
-      idempotency_key: `thread:${threadId}:workspace-snapshot:${snapshot.snapshotId}`,
-      source: "runtime_auto",
-      source_event_kind: "WorkspaceSnapshot.Created",
-      event_kind: "workspace.snapshot.created",
-      status: "completed",
-      actor: "runtime",
-      workspace_root: workspaceRoot,
-      workflow_graph_id: workflowGraphId ?? snapshot.trigger?.workflowGraphId ?? null,
-      workflow_node_id: WORKSPACE_SNAPSHOT_NODE_ID,
-      component_kind: "workspace_snapshot",
-      tool_call_id: sourceToolEvent?.tool_call_id ?? snapshot.trigger?.toolCallId ?? null,
-      artifact_refs: snapshot.artifactRefs,
-      receipt_refs: snapshot.receiptRefs,
-      rollback_refs: [snapshot.snapshotId],
-      payload_schema_version: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
-      payload_summary: payloadSummary,
+      sourceToolEvent,
     });
   }
 
   listWorkspaceSnapshots(threadId) {
-    this.agentForThread(threadId);
-    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
-    const snapshots = stream.events
-      .filter((event) => event.event_kind === "workspace.snapshot.created")
-      .map((event) => event.payload_summary?.snapshot ?? event.payload_summary)
-      .filter((snapshot) => snapshot && typeof snapshot === "object" && !Array.isArray(snapshot));
-    return {
-      schemaVersion: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
-      object: "ioi.runtime_workspace_snapshot_list",
-      threadId,
-      thread_id: threadId,
-      snapshotCount: snapshots.length,
-      snapshot_count: snapshots.length,
-      snapshots,
-    };
+    return this.workspaceSnapshotSurface.listWorkspaceSnapshots(this, threadId);
   }
 
   previewWorkspaceSnapshotRestore(threadId, snapshotId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const normalizedSnapshotId = optionalString(snapshotId);
-    if (!normalizedSnapshotId) {
-      throw runtimeError({
-        status: 400,
-        code: "workspace_snapshot_id_required",
-        message: "Restore preview requires a workspace snapshot id.",
-        details: { threadId },
-      });
-    }
-    const workflowGraphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
-    const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
-    const idempotencyKey = optionalString(request.idempotency_key ?? request.idempotencyKey);
-    const snapshotPackage = this.workspaceSnapshotContentPackage(threadId, normalizedSnapshotId);
-    const operations = normalizeArray(snapshotPackage.files).map((file) =>
-      workspaceRestorePreviewOperation({
-        workspaceRoot: agent.cwd,
-        file,
-        maxDiffBytes: WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
-      }),
-    );
-    if (!operations.length) {
-      throw runtimeError({
-        status: 409,
-        code: "workspace_restore_preview_empty",
-        message: "Restore preview could not find content-backed files in the snapshot.",
-        details: { threadId, snapshotId: normalizedSnapshotId },
-      });
-    }
-    const readyCount = operations.filter((operation) => operation.status === "ready").length;
-    const noopCount = operations.filter((operation) => operation.status === "noop").length;
-    const conflictCount = operations.filter((operation) => operation.status === "conflict").length;
-    const blockedCount = operations.filter((operation) => operation.status === "blocked").length;
-    const previewStatus = conflictCount || blockedCount ? "blocked" : "ready";
-    const receiptId = `receipt_workspace_restore_preview_${safeId(normalizedSnapshotId)}_${doctorHash(
-      JSON.stringify(operations.map((operation) => [operation.path, operation.status, operation.currentHash])),
-    ).slice(0, 12)}`;
-    const artifactId = `artifact_workspace_restore_preview_${safeId(normalizedSnapshotId)}_${doctorHash(receiptId).slice(0, 12)}`;
-    const result = {
-      schemaVersion: WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION,
-      schema_version: WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION,
-      object: "ioi.runtime_workspace_restore_preview",
-      threadId,
-      thread_id: threadId,
-      turnId: snapshotPackage.snapshot?.turnId ?? snapshotPackage.snapshot?.turn_id ?? null,
-      turn_id: snapshotPackage.snapshot?.turnId ?? snapshotPackage.snapshot?.turn_id ?? null,
-      workspaceRoot: agent.cwd,
-      workspace_root: agent.cwd,
-      snapshotId: normalizedSnapshotId,
-      snapshot_id: normalizedSnapshotId,
-      snapshotHash: snapshotPackage.snapshot?.snapshotHash ?? snapshotPackage.snapshot?.snapshot_hash ?? null,
-      snapshot_hash: snapshotPackage.snapshot?.snapshotHash ?? snapshotPackage.snapshot?.snapshot_hash ?? null,
-      previewStatus,
-      preview_status: previewStatus,
-      previewSupported: blockedCount === 0,
-      preview_supported: blockedCount === 0,
-      applySupported: previewStatus === "ready",
-      apply_supported: previewStatus === "ready",
-      restoreApplySupported: previewStatus === "ready",
-      restore_apply_supported: previewStatus === "ready",
-      fileCount: operations.length,
-      file_count: operations.length,
-      readyCount,
-      ready_count: readyCount,
-      noopCount,
-      noop_count: noopCount,
-      conflictCount,
-      conflict_count: conflictCount,
-      blockedCount,
-      blocked_count: blockedCount,
-      operations,
-      receiptRefs: [receiptId],
-      receipt_refs: [receiptId],
-      artifactRefs: [artifactId],
-      artifact_refs: [artifactId],
-      rollbackRefs: [normalizedSnapshotId],
-      rollback_refs: [normalizedSnapshotId],
-      idempotencyKey,
-      idempotency_key: idempotencyKey,
-      summary:
-        previewStatus === "ready"
-          ? `Restore preview ready for ${operations.length} file(s) from ${normalizedSnapshotId}.`
-          : `Restore preview blocked for ${normalizedSnapshotId}: ${conflictCount} conflict(s), ${blockedCount} blocked file(s).`,
-    };
-    const artifactRecord = this.materializeWorkspaceRestorePreviewArtifact({
-      threadId,
-      workspaceRoot: agent.cwd,
-      snapshotId: normalizedSnapshotId,
-      artifactId,
-      receiptId,
-      preview: result,
-    });
-    const event = this.appendWorkspaceRestorePreviewEvent({
-      threadId,
-      turnId: result.turnId,
-      workspaceRoot: agent.cwd,
-      workflowGraphId,
-      workflowNodeId,
-      preview: {
-        ...result,
-        artifactRefs: [artifactRecord.id],
-        artifact_refs: [artifactRecord.id],
-      },
-    });
-    return {
-      ...result,
-      artifactRefs: [artifactRecord.id],
-      artifact_refs: [artifactRecord.id],
-      event,
-      restore_preview_event: event,
-      restorePreviewEvent: event,
-    };
+    return this.workspaceSnapshotSurface.previewWorkspaceSnapshotRestore(this, threadId, snapshotId, request);
   }
 
   applyWorkspaceSnapshotRestore(threadId, snapshotId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const normalizedSnapshotId = optionalString(snapshotId);
-    if (!normalizedSnapshotId) {
-      throw runtimeError({
-        status: 400,
-        code: "workspace_snapshot_id_required",
-        message: "Restore apply requires a workspace snapshot id.",
-        details: { threadId },
-      });
-    }
-    const workflowGraphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
-    const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
-    const idempotencyKey = optionalString(request.idempotency_key ?? request.idempotencyKey);
-    const approval = workspaceRestoreApplyApprovalForRequest(request);
-    const allowConflicts = workspaceRestoreApplyAllowsConflicts(request);
-    const conflictPolicy = allowConflicts ? "override_conflicts" : "clean_preview_only";
-    const snapshotPackage = this.workspaceSnapshotContentPackage(threadId, normalizedSnapshotId);
-    const previewOperations = normalizeArray(snapshotPackage.files).map((file) =>
-      workspaceRestorePreviewOperation({
-        workspaceRoot: agent.cwd,
-        file,
-        maxDiffBytes: WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
-      }),
-    );
-    if (!previewOperations.length) {
-      throw runtimeError({
-        status: 409,
-        code: "workspace_restore_apply_empty",
-        message: "Restore apply could not find content-backed files in the snapshot.",
-        details: { threadId, snapshotId: normalizedSnapshotId },
-      });
-    }
-    const previewCounts = workspaceRestoreOperationCounts(previewOperations);
-    const hardBlocked = previewCounts.blockedCount > 0;
-    const conflictBlocked = previewCounts.conflictCount > 0 && !allowConflicts;
-    let operations = previewOperations.map((operation) => ({
-      ...operation,
-      applyStatus: "blocked",
-      apply_status: "blocked",
-      applyReason: workspaceRestoreApplyBlockedReason(operation, {
-        approvalSatisfied: approval.satisfied,
-        allowConflicts,
-        hardBlocked,
-        conflictBlocked,
-      }),
-      apply_reason: workspaceRestoreApplyBlockedReason(operation, {
-        approvalSatisfied: approval.satisfied,
-        allowConflicts,
-        hardBlocked,
-        conflictBlocked,
-      }),
-    }));
-    if (approval.satisfied && !hardBlocked && !conflictBlocked) {
-      operations = workspaceRestoreApplyOperations({
-        workspaceRoot: agent.cwd,
-        files: snapshotPackage.files,
-        maxDiffBytes: WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
-        allowConflicts,
-      });
-    }
-    const counts = workspaceRestoreOperationCounts(operations);
-    const applyStatus = workspaceRestoreApplyStatus(counts);
-    const previewStatus = counts.conflictCount || counts.blockedCount ? "blocked" : "ready";
-    const policyDecisionRefs = workspaceRestoreApplyPolicyDecisionRefs({
-      snapshotId: normalizedSnapshotId,
-      approval,
-      allowConflicts,
-      hardBlocked,
-      conflictBlocked,
-      applyStatus,
-    });
-    const receiptId = `receipt_workspace_restore_apply_${safeId(normalizedSnapshotId)}_${doctorHash(
-      JSON.stringify(operations.map((operation) => [operation.path, operation.applyStatus ?? operation.apply_status, operation.appliedHash ?? operation.applied_hash])),
-    ).slice(0, 12)}`;
-    const artifactId = `artifact_workspace_restore_apply_${safeId(normalizedSnapshotId)}_${doctorHash(receiptId).slice(0, 12)}`;
-    const result = {
-      schemaVersion: WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION,
-      schema_version: WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION,
-      object: "ioi.runtime_workspace_restore_apply",
-      threadId,
-      thread_id: threadId,
-      turnId: snapshotPackage.snapshot?.turnId ?? snapshotPackage.snapshot?.turn_id ?? null,
-      turn_id: snapshotPackage.snapshot?.turnId ?? snapshotPackage.snapshot?.turn_id ?? null,
-      workspaceRoot: agent.cwd,
-      workspace_root: agent.cwd,
-      snapshotId: normalizedSnapshotId,
-      snapshot_id: normalizedSnapshotId,
-      snapshotHash: snapshotPackage.snapshot?.snapshotHash ?? snapshotPackage.snapshot?.snapshot_hash ?? null,
-      snapshot_hash: snapshotPackage.snapshot?.snapshotHash ?? snapshotPackage.snapshot?.snapshot_hash ?? null,
-      previewStatus,
-      preview_status: previewStatus,
-      applyStatus,
-      apply_status: applyStatus,
-      applySupported: applyStatus !== "blocked" && applyStatus !== "failed",
-      apply_supported: applyStatus !== "blocked" && applyStatus !== "failed",
-      restoreApplySupported: applyStatus !== "blocked" && applyStatus !== "failed",
-      restore_apply_supported: applyStatus !== "blocked" && applyStatus !== "failed",
-      approvalRequired: true,
-      approval_required: true,
-      approvalSatisfied: approval.satisfied,
-      approval_satisfied: approval.satisfied,
-      conflictPolicy,
-      conflict_policy: conflictPolicy,
-      fileCount: counts.fileCount,
-      file_count: counts.fileCount,
-      readyCount: counts.readyCount,
-      ready_count: counts.readyCount,
-      noopCount: counts.noopCount,
-      noop_count: counts.noopCount,
-      conflictCount: counts.conflictCount,
-      conflict_count: counts.conflictCount,
-      blockedCount: counts.blockedCount,
-      blocked_count: counts.blockedCount,
-      appliedCount: counts.appliedCount,
-      applied_count: counts.appliedCount,
-      applyNoopCount: counts.applyNoopCount,
-      apply_noop_count: counts.applyNoopCount,
-      applyBlockedCount: counts.applyBlockedCount,
-      apply_blocked_count: counts.applyBlockedCount,
-      failedCount: counts.failedCount,
-      failed_count: counts.failedCount,
-      operations,
-      policy: {
-        status: applyStatus === "blocked" ? "blocked" : "allowed",
-        approvalRequired: true,
-        approvalSatisfied: approval.satisfied,
-        approvalSource: approval.source,
-        conflictPolicy,
-      },
-      policy_decision_refs: policyDecisionRefs,
-      policyDecisionRefs,
-      receiptRefs: [receiptId],
-      receipt_refs: [receiptId],
-      artifactRefs: [artifactId],
-      artifact_refs: [artifactId],
-      rollbackRefs: [normalizedSnapshotId],
-      rollback_refs: [normalizedSnapshotId],
-      idempotencyKey,
-      idempotency_key: idempotencyKey,
-      summary: workspaceRestoreApplySummary({
-        snapshotId: normalizedSnapshotId,
-        applyStatus,
-        counts,
-        approval,
-        allowConflicts,
-      }),
-    };
-    const artifactRecord = this.materializeWorkspaceRestoreApplyArtifact({
-      threadId,
-      workspaceRoot: agent.cwd,
-      snapshotId: normalizedSnapshotId,
-      artifactId,
-      receiptId,
-      apply: result,
-    });
-    const event = this.appendWorkspaceRestoreApplyEvent({
-      threadId,
-      turnId: result.turnId,
-      workspaceRoot: agent.cwd,
-      workflowGraphId,
-      workflowNodeId,
-      apply: {
-        ...result,
-        artifactRefs: [artifactRecord.id],
-        artifact_refs: [artifactRecord.id],
-      },
-    });
-    return {
-      ...result,
-      artifactRefs: [artifactRecord.id],
-      artifact_refs: [artifactRecord.id],
-      event,
-      restore_apply_event: event,
-      restoreApplyEvent: event,
-    };
+    return this.workspaceSnapshotSurface.applyWorkspaceSnapshotRestore(this, threadId, snapshotId, request);
   }
 
   executeDiagnosticsRepairDecision(threadId, decisionRef, request = {}) {
-    this.agentForThread(threadId);
-    const target = optionalString(decisionRef ?? request.decision_id ?? request.decisionId ?? request.action);
-    if (!target) {
-      throw runtimeError({
-        status: 400,
-        code: "diagnostics_repair_decision_required",
-        message: "Diagnostics repair decision execution requires a decision id or action.",
-        details: { threadId },
-      });
-    }
-    const resolution = this.resolveDiagnosticsRepairDecision(threadId, target, request);
-    const { gateEvent, decision, repairPolicy } = resolution;
-    const action = optionalString(decision.action)?.toLowerCase();
-    if (!action) {
-      throw runtimeError({
-        status: 409,
-        code: "diagnostics_repair_decision_invalid",
-        message: "Diagnostics repair decision is missing an action.",
-        details: { threadId, decisionRef: target },
-      });
-    }
-    if (!["repair_retry", "restore_preview", "restore_apply", "operator_override"].includes(action)) {
-      throw runtimeError({
-        status: 409,
-        code: "diagnostics_repair_decision_action_unimplemented",
-        message: `Diagnostics repair decision action is not executable yet: ${action}.`,
-        details: {
-          threadId,
-          decisionRef: target,
-          action,
-          supportedActions: ["repair_retry", "restore_preview", "restore_apply", "operator_override"],
-        },
-      });
-    }
-    if (decision.status && !["available", "requires_approval"].includes(decision.status)) {
-      throw runtimeError({
-        status: 409,
-        code: "diagnostics_repair_decision_unavailable",
-        message: `Diagnostics repair decision is not available: ${decision.status}.`,
-        details: { threadId, decisionRef: target, action, status: decision.status },
-      });
-    }
-    const snapshotId =
-      optionalString(request.snapshot_id ?? request.snapshotId) ??
-      uniqueStrings([
-        ...normalizeArray(decision.workspaceSnapshotRefs ?? decision.workspace_snapshot_refs),
-        ...normalizeArray(repairPolicy.workspaceSnapshotRefs ?? repairPolicy.workspace_snapshot_refs),
-        ...normalizeArray(gateEvent.payload_summary?.workspace_snapshot_refs),
-      ])[0];
-    if (!snapshotId && ["restore_preview", "restore_apply"].includes(action)) {
-      throw runtimeError({
-        status: 409,
-        code: "diagnostics_repair_snapshot_required",
-        message: "Restore repair decision requires a workspace snapshot ref.",
-        details: { threadId, decisionRef: target, action },
-      });
-    }
-    const workflowGraphId = optionalString(
-      request.workflow_graph_id ?? request.workflowGraphId ?? gateEvent.workflow_graph_id,
-    );
-    const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-      (action === "repair_retry"
-        ? LSP_DIAGNOSTICS_REPAIR_RETRY_NODE_ID
-        : action === "operator_override"
-        ? LSP_DIAGNOSTICS_OPERATOR_OVERRIDE_NODE_ID
-        : action === "restore_apply"
-        ? LSP_DIAGNOSTICS_REPAIR_RESTORE_APPLY_NODE_ID
-        : LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID);
-    const decisionId = decision.decision_id ?? decision.decisionId ?? target;
-    const executionResult =
-      action === "repair_retry"
-        ? this.createDiagnosticsRepairRetryTurn(threadId, {
-            request,
-            gateEvent,
-            decision,
-            repairPolicy,
-            snapshotId,
-            workflowGraphId,
-            workflowNodeId,
-          })
-        : action === "operator_override"
-        ? this.executeDiagnosticsOperatorOverride(threadId, {
-            request,
-            gateEvent,
-            decision,
-            repairPolicy,
-            snapshotId,
-            workflowGraphId,
-            workflowNodeId,
-          })
-        : action === "restore_apply"
-        ? this.applyWorkspaceSnapshotRestore(threadId, snapshotId, {
-            source: request.source ?? "runtime_auto",
-            workflow_graph_id: workflowGraphId,
-            workflow_node_id: workflowNodeId,
-            idempotency_key:
-              optionalString(request.restore_apply_idempotency_key ?? request.restoreApplyIdempotencyKey) ??
-              `thread:${threadId}:diagnostics-repair-apply:${decisionId}:${snapshotId}:${diagnosticsRepairApplyApprovalKey(request)}`,
-            actor: request.actor ?? "operator",
-            approval: request.approval,
-            approvalDecision: request.approvalDecision,
-            approval_decision: request.approval_decision,
-            policyDecision: request.policyDecision,
-            policy_decision: request.policy_decision,
-            decision: request.decision,
-            confirm: request.confirm,
-            confirmed: request.confirmed,
-            confirmRestoreApply: request.confirmRestoreApply,
-            confirm_restore_apply: request.confirm_restore_apply,
-            applyConfirmed: request.applyConfirmed,
-            apply_confirmed: request.apply_confirmed,
-            approvalGranted: request.approvalGranted,
-            approval_granted: request.approval_granted,
-            approved: request.approved,
-            allowConflicts: request.allowConflicts,
-            allow_conflicts: request.allow_conflicts,
-            overrideConflicts: request.overrideConflicts,
-            override_conflicts: request.override_conflicts,
-            restoreConflictPolicy:
-              request.restoreConflictPolicy ??
-              request.restore_conflict_policy ??
-              decision.restoreConflictPolicy ??
-              decision.restore_conflict_policy ??
-              repairPolicy.restoreConflictPolicy ??
-              repairPolicy.restore_conflict_policy,
-            restore_conflict_policy:
-              request.restore_conflict_policy ??
-              request.restoreConflictPolicy ??
-              decision.restore_conflict_policy ??
-              decision.restoreConflictPolicy ??
-              repairPolicy.restore_conflict_policy ??
-              repairPolicy.restoreConflictPolicy,
-            diagnostics_repair_decision_id: decisionId,
-            diagnostics_repair_action: action,
-            diagnostics_blocking_gate_event_id: gateEvent.event_id,
-          })
-        : this.previewWorkspaceSnapshotRestore(threadId, snapshotId, {
-            source: request.source ?? "runtime_auto",
-            workflow_graph_id: workflowGraphId,
-            workflow_node_id: workflowNodeId,
-            idempotency_key:
-              optionalString(request.restore_preview_idempotency_key ?? request.restorePreviewIdempotencyKey) ??
-              `thread:${threadId}:diagnostics-repair-preview:${decisionId}:${snapshotId}:${action}`,
-            actor: request.actor ?? "operator",
-            diagnostics_repair_decision_id: decisionId,
-            diagnostics_repair_action: action,
-            diagnostics_blocking_gate_event_id: gateEvent.event_id,
-          });
-    const event = this.appendDiagnosticsRepairDecisionExecutedEvent({
-      threadId,
-      request,
-      gateEvent,
-      decision,
-      repairPolicy,
-      action,
-      snapshotId,
-      workflowGraphId,
-      workflowNodeId,
-      executionResult,
-    });
-    const repairRetry = action === "repair_retry" ? executionResult : null;
-    const operatorOverride = action === "operator_override" ? executionResult : null;
-    const restorePreview = action === "restore_preview" ? executionResult : null;
-    const restoreApply = action === "restore_apply" ? executionResult : null;
-    return {
-      schemaVersion: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
-      schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
-      object: "ioi.runtime_diagnostics_repair_decision_execution",
-      threadId,
-      thread_id: threadId,
-      decisionId: decision.decisionId ?? decision.decision_id ?? target,
-      decision_id: decisionId,
-      action,
-      status: diagnosticsRepairExecutionStatus(executionResult),
-      gateEventId: gateEvent.event_id,
-      gate_event_id: gateEvent.event_id,
-      policyId: repairPolicy.policyId ?? repairPolicy.policy_id ?? null,
-      policy_id: repairPolicy.policy_id ?? repairPolicy.policyId ?? null,
-      snapshotId,
-      snapshot_id: snapshotId,
-      workflowGraphId,
-      workflow_graph_id: workflowGraphId,
-      workflowNodeId,
-      workflow_node_id: workflowNodeId,
-      decision,
-      repairPolicy,
-      repair_policy: repairPolicy,
-      repairRetry,
-      repair_retry: repairRetry,
-      repairTurn: repairRetry?.repairTurn ?? null,
-      repair_turn: repairRetry?.repair_turn ?? null,
-      repairRetryEvent: repairRetry?.event ?? null,
-      repair_retry_event: repairRetry?.event ?? null,
-      operatorOverride,
-      operator_override: operatorOverride,
-      operatorOverrideEvent: operatorOverride?.event ?? null,
-      operator_override_event: operatorOverride?.event ?? null,
-      restorePreview,
-      restoreApply,
-      restore_preview: restorePreview,
-      restore_apply: restoreApply,
-      restorePreviewEvent: restorePreview?.event ?? null,
-      restoreApplyEvent: restoreApply?.event ?? null,
-      restore_preview_event: restorePreview?.event ?? null,
-      restore_apply_event: restoreApply?.event ?? null,
-      event,
-      receiptRefs: event.receipt_refs,
-      receipt_refs: event.receipt_refs,
-      artifactRefs: event.artifact_refs,
-      artifact_refs: event.artifact_refs,
-      policyDecisionRefs: event.policy_decision_refs,
-      policy_decision_refs: event.policy_decision_refs,
-      rollbackRefs: event.rollback_refs,
-      rollback_refs: event.rollback_refs,
-      summary: `Executed diagnostics repair decision ${action}${snapshotId ? ` for ${snapshotId}` : ""}.`,
-    };
+    return this.diagnosticsRepairSurface.executeDiagnosticsRepairDecision(this, threadId, decisionRef, request);
   }
 
   executeDiagnosticsOperatorOverride(threadId, {
@@ -8969,38 +3420,7 @@ export class AgentgresRuntimeStateStore {
     workflowGraphId = null,
     workflowNodeId = LSP_DIAGNOSTICS_OPERATOR_OVERRIDE_NODE_ID,
   } = {}) {
-    const agent = this.agentForThread(threadId);
-    const decisionId = decision?.decision_id ?? decision?.decisionId ?? "operator_override";
-    const approval = diagnosticsOperatorOverrideApprovalForRequest(request, { decision, repairPolicy });
-    const approvalKey = diagnosticsOperatorOverrideApprovalKey(approval);
-    const idempotencyKey =
-      optionalString(request.operator_override_idempotency_key ?? request.operatorOverrideIdempotencyKey) ??
-      `thread:${threadId}:diagnostics-operator-override:${decisionId}:${gateEvent?.event_id ?? "gate"}:${approvalKey}`;
-    const duplicate = this.runtimeEventStream(eventStreamIdForThread(threadId)).idempotency.get(idempotencyKey);
-    if (duplicate) {
-      return diagnosticsOperatorOverrideResultFromEvent({
-        threadId,
-        event: duplicate,
-        turn: this.turnForOperatorOverrideEvent(duplicate),
-      });
-    }
-
-    const status = approval.required && !approval.satisfied ? "blocked" : "completed";
-    const targetTurnId = optionalString(gateEvent?.turn_id ?? gateEvent?.payload_summary?.turn_id);
-    const targetRunId = targetTurnId ? runIdForTurn(targetTurnId) : null;
-    let previousTurnStatus = null;
-    let nextTurnStatus = null;
-    let turn = null;
-    if (targetRunId && status === "completed") {
-      const run = this.getRun(targetRunId);
-      if (run.agentId !== agent.id) {
-        throw notFound(`Turn not found: ${targetTurnId}`, { threadId, turnId: targetTurnId, runId: targetRunId });
-      }
-      previousTurnStatus = run.turnStatus ?? lifecycleStatusForRun(run.status);
-      nextTurnStatus = "completed";
-    }
-
-    const event = this.appendDiagnosticsOperatorOverrideEvent({
+    return this.diagnosticsRepairSurface.executeDiagnosticsOperatorOverride(this, threadId, {
       threadId,
       request,
       gateEvent,
@@ -9009,83 +3429,11 @@ export class AgentgresRuntimeStateStore {
       snapshotId,
       workflowGraphId,
       workflowNodeId,
-      approval,
-      status,
-      targetTurnId,
-      targetRunId,
-      previousTurnStatus,
-      nextTurnStatus,
-      idempotencyKey,
     });
-
-    if (targetRunId && status === "completed") {
-      const run = this.getRun(targetRunId);
-      const control = {
-        control: "diagnostics_operator_override",
-        source: operatorControlSource(request.source),
-        decisionId,
-        gateEventId: gateEvent?.event_id ?? null,
-        approvalRequired: approval.required,
-        approvalSatisfied: approval.satisfied,
-        approvalSource: approval.source,
-        snapshotId,
-        eventId: event.event_id,
-        seq: event.seq,
-        createdAt: event.created_at,
-      };
-      const updatedDiagnosticsBlockingGate = run.diagnosticsBlockingGate
-        ? {
-            ...run.diagnosticsBlockingGate,
-            status: "overridden",
-            decision: "operator_override",
-            continuationAllowed: true,
-            continuation_allowed: true,
-            approvalRequired: approval.required,
-            approval_required: approval.required,
-            approvalSatisfied: approval.satisfied,
-            approval_satisfied: approval.satisfied,
-            operatorOverrideEventId: event.event_id,
-            operator_override_event_id: event.event_id,
-          }
-        : run.diagnosticsBlockingGate;
-      const updated = {
-        ...run,
-        status: "completed",
-        turnStatus: undefined,
-        updatedAt: event.created_at,
-        result: "Operator override granted; blocking diagnostics gate marked continuation-allowed.",
-        diagnosticsBlockingGate: updatedDiagnosticsBlockingGate,
-        trace: {
-          ...run.trace,
-          diagnosticsBlockingGate: updatedDiagnosticsBlockingGate,
-          stopCondition: {
-            ...(run.trace?.stopCondition ?? {}),
-            reason: "operator_override_granted",
-            evidenceSufficient: true,
-            rationale: "Operator override granted continuation despite blocking diagnostics.",
-          },
-          operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
-        },
-        operatorControls: appendOperatorControl(run.operatorControls, control),
-      };
-      this.runs.set(run.id, updated);
-      this.writeRun(updated, "diagnostics.operator_override.event");
-      turn = this.turnForRun(updated);
-      nextTurnStatus = turn.status;
-    }
-
-    return diagnosticsOperatorOverrideResultFromEvent({ threadId, event, turn });
   }
 
   turnForOperatorOverrideEvent(event = {}) {
-    const payload = event.payload_summary ?? event.payload ?? {};
-    const targetTurnId = optionalString(payload.target_turn_id ?? payload.targetTurnId);
-    if (!targetTurnId) return null;
-    try {
-      return this.getTurn(event.thread_id, targetTurnId);
-    } catch {
-      return null;
-    }
+    return this.diagnosticsRepairSurface.turnForOperatorOverrideEvent(this, event);
   }
 
   appendDiagnosticsOperatorOverrideEvent({
@@ -9105,77 +3453,22 @@ export class AgentgresRuntimeStateStore {
     nextTurnStatus,
     idempotencyKey,
   } = {}) {
-    const decisionId = decision?.decision_id ?? decision?.decisionId ?? "operator_override";
-    const receiptId = `receipt_lsp_diagnostics_operator_override_${doctorHash(
-      `${threadId}:${decisionId}:${status}:${approval?.source ?? ""}`,
-    ).slice(0, 12)}`;
-    const rollbackRefs = uniqueStrings([
-      snapshotId,
-      ...normalizeArray(decision?.rollbackRefs ?? decision?.rollback_refs),
-      ...normalizeArray(repairPolicy?.rollbackRefs ?? repairPolicy?.rollback_refs),
-      ...normalizeArray(gateEvent?.rollback_refs),
-      ...normalizeArray(gateEvent?.payload_summary?.rollback_refs ?? gateEvent?.payload_summary?.rollbackRefs),
-    ]);
-    const policyDecisionRefs = uniqueStrings([
-      decisionId,
-      repairPolicy?.policy_id ?? repairPolicy?.policyId,
-      ...normalizeArray(gateEvent?.policy_decision_refs),
-      `policy_lsp_diagnostics_operator_override_${approval?.satisfied ? "approval_satisfied" : "approval_required"}`,
-      status === "completed" ? "policy_lsp_diagnostics_operator_override_continuation_allowed" : null,
-    ]);
-    const payloadSummary = {
-      schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
-      event_kind: "LspDiagnosticsOperatorOverrideExecuted",
-      thread_id: threadId,
-      decision_id: decisionId,
-      action: "operator_override",
-      status,
-      gate_event_id: gateEvent?.event_id ?? null,
-      gate_id: gateEvent?.payload_summary?.gate_id ?? null,
-      policy_id: repairPolicy?.policy_id ?? repairPolicy?.policyId ?? null,
-      snapshot_id: snapshotId ?? null,
-      target_turn_id: targetTurnId ?? null,
-      target_run_id: targetRunId ?? null,
-      previous_turn_status: previousTurnStatus ?? null,
-      next_turn_status: nextTurnStatus ?? null,
-      approval_required: Boolean(approval?.required),
-      approval_satisfied: Boolean(approval?.satisfied),
-      approval_source: approval?.source ?? "missing",
-      continuation_allowed: status === "completed",
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      rollback_refs: rollbackRefs,
-      receipt_refs: [receiptId],
-      artifact_refs: [],
-      policy_decision_refs: policyDecisionRefs,
+    return this.diagnosticsRepairSurface.appendDiagnosticsOperatorOverrideEvent(this, {
+      threadId,
+      request,
+      gateEvent,
       decision,
-      summary:
-        status === "completed"
-          ? `Diagnostics operator override granted for ${decisionId}.`
-          : `Diagnostics operator override blocked for ${decisionId}: approval is required.`,
-    };
-    return this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: targetTurnId ?? gateEvent?.turn_id ?? "",
-      item_id: `${targetTurnId || threadId}:item:diagnostics-operator-override:${safeId(String(decisionId))}`,
-      idempotency_key: idempotencyKey,
-      source: operatorControlSource(request.source),
-      source_event_kind: "LspDiagnostics.OperatorOverrideExecuted",
-      event_kind: "diagnostics.operator_override.executed",
+      repairPolicy,
+      snapshotId,
+      workflowGraphId,
+      workflowNodeId,
+      approval,
       status,
-      actor: optionalString(request.actor) ?? "operator",
-      workspace_root: gateEvent?.workspace_root ?? this.agentForThread(threadId).cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "lsp_diagnostics_operator_override",
-      tool_call_id: snapshotId ?? null,
-      receipt_refs: [receiptId],
-      artifact_refs: [],
-      policy_decision_refs: policyDecisionRefs,
-      rollback_refs: rollbackRefs,
-      payload_schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
-      payload_summary: payloadSummary,
+      targetTurnId,
+      targetRunId,
+      previousTurnStatus,
+      nextTurnStatus,
+      idempotencyKey,
     });
   }
 
@@ -9188,45 +3481,7 @@ export class AgentgresRuntimeStateStore {
     workflowGraphId = null,
     workflowNodeId = LSP_DIAGNOSTICS_REPAIR_RETRY_NODE_ID,
   } = {}) {
-    const agent = this.agentForThread(threadId);
-    const decisionId = decision?.decision_id ?? decision?.decisionId ?? "repair_retry";
-    const idempotencyKey =
-      optionalString(request.repair_retry_idempotency_key ?? request.repairRetryIdempotencyKey) ??
-      `thread:${threadId}:diagnostics-repair-retry:${decisionId}:${gateEvent?.event_id ?? "gate"}:${snapshotId ?? "no-snapshot"}`;
-    const duplicate = this.runtimeEventStream(eventStreamIdForThread(threadId)).idempotency.get(idempotencyKey);
-    if (duplicate) {
-      return diagnosticsRepairRetryResultFromEvent({
-        threadId,
-        event: duplicate,
-        turn: this.turnForRepairRetryEvent(duplicate),
-      });
-    }
-
-    const diagnosticsFeedback = diagnosticsRepairRetryFeedback({
-      threadId,
-      request,
-      gateEvent,
-      decision,
-      repairPolicy,
-      snapshotId,
-    });
-    const prompt =
-      optionalString(request.prompt ?? request.message ?? request.input) ??
-      "Repair the blocking post-edit diagnostics and retry the turn.";
-    const run = this.createRun(agent.id, {
-      mode: request.mode ?? "send",
-      prompt,
-      options: {
-        ...(request.options ?? {}),
-        diagnosticsMode: "skip",
-        diagnostics_mode: "skip",
-      },
-      memory: request.memory,
-      remember: request.remember,
-      diagnosticsFeedback,
-    });
-    const turn = this.turnForRun(run);
-    const event = this.appendDiagnosticsRepairRetryTurnEvent({
+    return this.diagnosticsRepairSurface.createDiagnosticsRepairRetryTurn(this, threadId, {
       threadId,
       request,
       gateEvent,
@@ -9235,23 +3490,11 @@ export class AgentgresRuntimeStateStore {
       snapshotId,
       workflowGraphId,
       workflowNodeId,
-      run,
-      turn,
-      diagnosticsFeedback,
-      idempotencyKey,
     });
-    return diagnosticsRepairRetryResultFromEvent({ threadId, event, turn, run });
   }
 
   turnForRepairRetryEvent(event = {}) {
-    const payload = event.payload_summary ?? event.payload ?? {};
-    const retryTurnId = optionalString(payload.retry_turn_id ?? payload.retryTurnId);
-    if (!retryTurnId) return null;
-    try {
-      return this.getTurn(event.thread_id, retryTurnId);
-    } catch {
-      return null;
-    }
+    return this.diagnosticsRepairSurface.turnForRepairRetryEvent(this, event);
   }
 
   appendDiagnosticsRepairRetryTurnEvent({
@@ -9268,112 +3511,24 @@ export class AgentgresRuntimeStateStore {
     diagnosticsFeedback,
     idempotencyKey,
   } = {}) {
-    const decisionId = decision?.decision_id ?? decision?.decisionId ?? "repair_retry";
-    const receiptId = `receipt_lsp_diagnostics_repair_retry_${doctorHash(
-      `${threadId}:${decisionId}:${turn?.turn_id ?? run?.id ?? ""}`,
-    ).slice(0, 12)}`;
-    const rollbackRefs = uniqueStrings([
-      snapshotId,
-      ...normalizeArray(decision?.rollbackRefs ?? decision?.rollback_refs),
-      ...normalizeArray(repairPolicy?.rollbackRefs ?? repairPolicy?.rollback_refs),
-      ...normalizeArray(gateEvent?.rollback_refs),
-      ...normalizeArray(diagnosticsFeedback?.rollbackRefs ?? diagnosticsFeedback?.rollback_refs),
-    ]);
-    const policyDecisionRefs = uniqueStrings([
-      decisionId,
-      repairPolicy?.policy_id ?? repairPolicy?.policyId,
-      ...normalizeArray(gateEvent?.policy_decision_refs),
-    ]);
-    const artifactRefs = uniqueStrings(
-      normalizeArray(run?.artifacts).map((artifactRecord) => artifactRecord?.id),
-    );
-    const payloadSummary = {
-      schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
-      event_kind: "LspDiagnosticsRepairRetryTurnCreated",
-      thread_id: threadId,
-      decision_id: decisionId,
-      action: "repair_retry",
-      status: turn?.status ?? "completed",
-      gate_event_id: gateEvent?.event_id ?? null,
-      gate_id: gateEvent?.payload_summary?.gate_id ?? null,
-      policy_id: repairPolicy?.policy_id ?? repairPolicy?.policyId ?? null,
-      snapshot_id: snapshotId ?? null,
-      retry_turn_id: turn?.turn_id ?? null,
-      retry_request_id: turn?.request_id ?? run?.id ?? null,
-      repair_prompt_injected: true,
-      diagnostics_mode: diagnosticsFeedback?.mode ?? "repair_retry",
-      diagnostic_status: diagnosticsFeedback?.diagnosticStatus ?? null,
-      diagnostic_count: diagnosticsFeedback?.diagnosticCount ?? null,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      rollback_refs: rollbackRefs,
-      receipt_refs: [receiptId],
-      artifact_refs: artifactRefs,
-      policy_decision_refs: policyDecisionRefs,
+    return this.diagnosticsRepairSurface.appendDiagnosticsRepairRetryTurnEvent(this, {
+      threadId,
+      request,
+      gateEvent,
       decision,
-      summary: `Diagnostics repair retry created turn ${turn?.turn_id ?? "unknown"} for ${decisionId}.`,
-    };
-    return this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turn?.turn_id ?? "",
-      item_id: `${turn?.turn_id || threadId}:item:diagnostics-repair-retry:${safeId(String(decisionId))}`,
-      idempotency_key: idempotencyKey,
-      source: operatorControlSource(request.source),
-      source_event_kind: "LspDiagnostics.RepairRetryTurnCreated",
-      event_kind: "diagnostics.repair_retry.created",
-      status: "completed",
-      actor: optionalString(request.actor) ?? "operator",
-      workspace_root: gateEvent?.workspace_root ?? this.agentForThread(threadId).cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "lsp_diagnostics_repair_retry",
-      tool_call_id: snapshotId ?? null,
-      receipt_refs: [receiptId],
-      artifact_refs: artifactRefs,
-      policy_decision_refs: policyDecisionRefs,
-      rollback_refs: rollbackRefs,
-      payload_schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
-      payload_summary: payloadSummary,
+      repairPolicy,
+      snapshotId,
+      workflowGraphId,
+      workflowNodeId,
+      run,
+      turn,
+      diagnosticsFeedback,
+      idempotencyKey,
     });
   }
 
   resolveDiagnosticsRepairDecision(threadId, decisionRef, request = {}) {
-    this.projectThreadEvents(this.agentForThread(threadId));
-    const gateId = optionalString(request.gate_id ?? request.gateId);
-    const target = optionalString(decisionRef)?.toLowerCase();
-    const action = optionalString(request.action ?? request.decision_action ?? request.decisionAction)?.toLowerCase();
-    const gateEvents = this.runtimeEventsForStream(eventStreamIdForThread(threadId), { sinceSeq: 0 })
-      .filter((event) => event.event_kind === "policy.blocked" && event.component_kind === "lsp_diagnostics_gate")
-      .filter((event) => {
-        if (!gateId) return true;
-        return (
-          event.payload_summary?.gate_id === gateId ||
-          event.payload_summary?.gateId === gateId ||
-          event.payload?.gate_id === gateId ||
-          event.payload?.gateId === gateId
-        );
-      })
-      .sort((left, right) => right.seq - left.seq);
-    for (const gateEvent of gateEvents) {
-      const repairPolicy = gateEvent.payload_summary?.repair_policy ?? gateEvent.payload_summary?.repairPolicy ?? {};
-      const decisions = normalizeArray(
-        repairPolicy.decisions ??
-          gateEvent.payload_summary?.repair_decisions ??
-          gateEvent.payload_summary?.repairDecisions,
-      );
-      const decision = decisions.find((candidate) => {
-        const candidateId = optionalString(candidate.decision_id ?? candidate.decisionId)?.toLowerCase();
-        const candidateAction = optionalString(candidate.action)?.toLowerCase();
-        return candidateId === target || candidateAction === target || (action && candidateAction === action);
-      });
-      if (decision) return { gateEvent, decision, repairPolicy };
-    }
-    throw notFound(`Diagnostics repair decision not found: ${decisionRef}`, {
-      threadId,
-      decisionRef,
-      gateId,
-    });
+    return this.diagnosticsRepairSurface.resolveDiagnosticsRepairDecision(this, threadId, decisionRef, request);
   }
 
   appendDiagnosticsRepairDecisionExecutedEvent({
@@ -9388,139 +3543,22 @@ export class AgentgresRuntimeStateStore {
     workflowNodeId,
     executionResult,
   } = {}) {
-    const decisionId = decision?.decision_id ?? decision?.decisionId ?? action;
-    const receiptId = `receipt_lsp_diagnostics_repair_${safeId(action)}_${doctorHash(
-      `${threadId}:${decisionId}:${snapshotId}:${executionResult?.event?.event_id ?? ""}`,
-    ).slice(0, 12)}`;
-    const policyDecisionRefs = uniqueStrings([
-      decisionId,
-      repairPolicy?.policy_id ?? repairPolicy?.policyId,
-      ...normalizeArray(gateEvent?.policy_decision_refs),
-      ...normalizeArray(executionResult?.policy_decision_refs ?? executionResult?.policyDecisionRefs),
-    ]);
-    const artifactRefs = uniqueStrings(normalizeArray(executionResult?.artifact_refs ?? executionResult?.artifactRefs));
-    const rollbackRefs = uniqueStrings([
+    return this.diagnosticsRepairSurface.appendDiagnosticsRepairDecisionExecutedEvent(this, {
+      threadId,
+      request,
+      gateEvent,
+      decision,
+      repairPolicy,
+      action,
       snapshotId,
-      ...normalizeArray(executionResult?.rollback_refs ?? executionResult?.rollbackRefs),
-    ]);
-    return this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: gateEvent?.turn_id ?? "",
-      item_id: `${gateEvent?.turn_id || threadId}:item:diagnostics-repair:${safeId(String(decisionId))}`,
-      idempotency_key:
-        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
-        `thread:${threadId}:diagnostics-repair:${decisionId}:${snapshotId}:${action}:${
-          action === "operator_override"
-            ? diagnosticsOperatorOverrideApprovalKey(
-                diagnosticsOperatorOverrideApprovalForRequest(request, { decision, repairPolicy }),
-              )
-            : "default"
-        }`,
-      source: operatorControlSource(request.source),
-      source_event_kind: "LspDiagnostics.RepairDecisionExecuted",
-      event_kind: "diagnostics.repair_decision.executed",
-      status: diagnosticsRepairExecutionStatus(executionResult),
-      actor: optionalString(request.actor) ?? "operator",
-      workspace_root: gateEvent?.workspace_root ?? "",
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: `${workflowNodeId}.decision`,
-      component_kind: "lsp_diagnostics_repair",
-      tool_call_id: snapshotId,
-      receipt_refs: [receiptId],
-      artifact_refs: artifactRefs,
-      policy_decision_refs: policyDecisionRefs,
-      rollback_refs: rollbackRefs,
-      payload_schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
-      payload_summary: {
-        schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
-        event_kind: "LspDiagnosticsRepairDecisionExecuted",
-        thread_id: threadId,
-        decision_id: decisionId,
-        action,
-        status: diagnosticsRepairExecutionStatus(executionResult),
-        gate_event_id: gateEvent?.event_id ?? null,
-        gate_id: gateEvent?.payload_summary?.gate_id ?? null,
-        policy_id: repairPolicy?.policy_id ?? repairPolicy?.policyId ?? null,
-        snapshot_id: snapshotId,
-        workflow_graph_id: workflowGraphId,
-        workflow_node_id: workflowNodeId,
-        repair_retry_event_id: action === "repair_retry" ? executionResult?.event?.event_id ?? null : null,
-        repair_retry_turn_id:
-          action === "repair_retry"
-            ? executionResult?.repair_turn?.turn_id ?? executionResult?.repairTurn?.turn_id ?? null
-            : null,
-        repair_retry_request_id:
-          action === "repair_retry"
-            ? executionResult?.repair_turn?.request_id ?? executionResult?.repairTurn?.request_id ?? null
-            : null,
-        operator_override_event_id: action === "operator_override" ? executionResult?.event?.event_id ?? null : null,
-        operator_override_status:
-          action === "operator_override"
-            ? executionResult?.override_status ?? executionResult?.overrideStatus ?? executionResult?.status ?? null
-            : null,
-        operator_override_approval_required:
-          action === "operator_override"
-            ? executionResult?.approval_required ?? executionResult?.approvalRequired ?? null
-            : null,
-        operator_override_approval_satisfied:
-          action === "operator_override"
-            ? executionResult?.approval_satisfied ?? executionResult?.approvalSatisfied ?? null
-            : null,
-        operator_override_continuation_allowed:
-          action === "operator_override"
-            ? executionResult?.continuation_allowed ?? executionResult?.continuationAllowed ?? null
-            : null,
-        restore_preview_event_id: action === "restore_preview" ? executionResult?.event?.event_id ?? null : null,
-        restore_preview_status: executionResult?.preview_status ?? executionResult?.previewStatus ?? null,
-        restore_apply_event_id: action === "restore_apply" ? executionResult?.event?.event_id ?? null : null,
-        restore_apply_status: executionResult?.apply_status ?? executionResult?.applyStatus ?? null,
-        approval_satisfied: executionResult?.approval_satisfied ?? executionResult?.approvalSatisfied ?? null,
-        rollback_refs: rollbackRefs,
-        receipt_refs: [receiptId],
-        artifact_refs: artifactRefs,
-        policy_decision_refs: policyDecisionRefs,
-        decision,
-        summary: `Diagnostics repair decision ${action} executed${snapshotId ? ` for ${snapshotId}` : ""}.`,
-      },
+      workflowGraphId,
+      workflowNodeId,
+      executionResult,
     });
   }
 
   workspaceSnapshotContentPackage(threadId, snapshotId) {
-    const matches = [...this.codingArtifacts.values()]
-      .filter((artifactRecord) => artifactRecord.thread_id === threadId && artifactRecord.channel === "workspace-snapshot")
-      .map((artifactRecord) => {
-        const parsed = parseJsonObject(artifactRecord.content);
-        const parsedSnapshotId =
-          parsed?.snapshotId ??
-          parsed?.snapshot_id ??
-          parsed?.snapshot?.snapshotId ??
-          parsed?.snapshot?.snapshot_id;
-        return parsedSnapshotId === snapshotId ? { artifactRecord, parsed } : null;
-      })
-      .filter(Boolean);
-    const match = matches[0];
-    if (!match) {
-      throw notFound(`Workspace snapshot not found: ${snapshotId}`, { threadId, snapshotId });
-    }
-    const snapshot = match.parsed.snapshot ?? match.parsed;
-    if (!snapshot?.restore?.previewSupported) {
-      throw runtimeError({
-        status: 409,
-        code: "workspace_restore_preview_unavailable",
-        message: "Workspace snapshot does not contain enough captured content for restore preview.",
-        details: {
-          threadId,
-          snapshotId,
-          restoreStatus: snapshot?.restore?.status ?? "unknown",
-        },
-      });
-    }
-    return {
-      artifactRecord: match.artifactRecord,
-      snapshot,
-      files: normalizeArray(match.parsed.files),
-    };
+    return this.workspaceSnapshotSurface.workspaceSnapshotContentPackage(this, threadId, snapshotId);
   }
 
   materializeWorkspaceRestorePreviewArtifact({
@@ -9531,38 +3569,14 @@ export class AgentgresRuntimeStateStore {
     receiptId,
     preview,
   } = {}) {
-    const createdAt = new Date().toISOString();
-    const content = JSON.stringify(preview, null, 2);
-    const artifactRecord = {
-      schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-      schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-      id: artifactId,
-      thread_id: threadId,
+    return this.workspaceSnapshotSurface.materializeWorkspaceRestorePreviewArtifact(this, {
       threadId,
-      tool_name: "workspace.restore_preview",
-      toolName: "workspace.restore_preview",
-      tool_call_id: snapshotId,
-      toolCallId: snapshotId,
-      workspace_root: workspaceRoot,
       workspaceRoot,
-      name: "workspace-restore-preview.json",
-      channel: "restore-preview",
-      media_type: "application/json",
-      mediaType: "application/json",
-      redaction: "workspace_restore_preview",
-      receipt_id: receiptId,
+      snapshotId,
+      artifactId,
       receiptId,
-      content,
-      content_bytes: Buffer.byteLength(content, "utf8"),
-      contentBytes: Buffer.byteLength(content, "utf8"),
-      content_hash: doctorHash(content),
-      contentHash: doctorHash(content),
-      created_at: createdAt,
-      createdAt,
-    };
-    this.codingArtifacts.set(artifactRecord.id, artifactRecord);
-    writeJson(this.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
-    return artifactRecord;
+      preview,
+    });
   }
 
   materializeWorkspaceRestoreApplyArtifact({
@@ -9573,38 +3587,14 @@ export class AgentgresRuntimeStateStore {
     receiptId,
     apply,
   } = {}) {
-    const createdAt = new Date().toISOString();
-    const content = JSON.stringify(apply, null, 2);
-    const artifactRecord = {
-      schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-      schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-      id: artifactId,
-      thread_id: threadId,
+    return this.workspaceSnapshotSurface.materializeWorkspaceRestoreApplyArtifact(this, {
       threadId,
-      tool_name: "workspace.restore_apply",
-      toolName: "workspace.restore_apply",
-      tool_call_id: snapshotId,
-      toolCallId: snapshotId,
-      workspace_root: workspaceRoot,
       workspaceRoot,
-      name: "workspace-restore-apply.json",
-      channel: "restore-apply",
-      media_type: "application/json",
-      mediaType: "application/json",
-      redaction: "workspace_restore_apply",
-      receipt_id: receiptId,
+      snapshotId,
+      artifactId,
       receiptId,
-      content,
-      content_bytes: Buffer.byteLength(content, "utf8"),
-      contentBytes: Buffer.byteLength(content, "utf8"),
-      content_hash: doctorHash(content),
-      contentHash: doctorHash(content),
-      created_at: createdAt,
-      createdAt,
-    };
-    this.codingArtifacts.set(artifactRecord.id, artifactRecord);
-    writeJson(this.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
-    return artifactRecord;
+      apply,
+    });
   }
 
   appendWorkspaceRestorePreviewEvent({
@@ -9615,34 +3605,13 @@ export class AgentgresRuntimeStateStore {
     workflowNodeId,
     preview,
   } = {}) {
-    return this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId || "",
-      item_id: `${turnId || threadId}:item:workspace-restore-preview:${safeId(preview.snapshotId)}`,
-      idempotency_key:
-        optionalString(preview.idempotency_key ?? preview.idempotencyKey) ??
-        `thread:${threadId}:workspace-restore-preview:${preview.snapshotId}:${doctorHash(
-          JSON.stringify(preview.operations),
-        ).slice(0, 12)}`,
-      source: "runtime_auto",
-      source_event_kind: "WorkspaceRestore.Previewed",
-      event_kind: "workspace.restore.previewed",
-      status: preview.previewStatus === "ready" ? "completed" : "blocked",
-      actor: "runtime",
-      workspace_root: workspaceRoot,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "restore_gate",
-      tool_call_id: preview.snapshotId,
-      artifact_refs: preview.artifactRefs,
-      receipt_refs: preview.receiptRefs,
-      rollback_refs: preview.rollbackRefs,
-      payload_schema_version: WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION,
-      payload_summary: {
-        ...preview,
-        event_kind: "WorkspaceRestorePreview",
-      },
+    return this.workspaceSnapshotSurface.appendWorkspaceRestorePreviewEvent(this, {
+      threadId,
+      turnId,
+      workspaceRoot,
+      workflowGraphId,
+      workflowNodeId,
+      preview,
     });
   }
 
@@ -9654,35 +3623,13 @@ export class AgentgresRuntimeStateStore {
     workflowNodeId,
     apply,
   } = {}) {
-    return this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId || "",
-      item_id: `${turnId || threadId}:item:workspace-restore-apply:${safeId(apply.snapshotId)}`,
-      idempotency_key:
-        optionalString(apply.idempotency_key ?? apply.idempotencyKey) ??
-        `thread:${threadId}:workspace-restore-apply:${apply.snapshotId}:${doctorHash(
-          JSON.stringify(apply.operations),
-        ).slice(0, 12)}`,
-      source: "runtime_auto",
-      source_event_kind: "WorkspaceRestore.Applied",
-      event_kind: "workspace.restore.applied",
-      status: apply.applyStatus === "blocked" ? "blocked" : apply.applyStatus === "failed" ? "failed" : "completed",
-      actor: "runtime",
-      workspace_root: workspaceRoot,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "restore_gate",
-      tool_call_id: apply.snapshotId,
-      artifact_refs: apply.artifactRefs,
-      receipt_refs: apply.receiptRefs,
-      rollback_refs: apply.rollbackRefs,
-      policy_decision_refs: apply.policyDecisionRefs,
-      payload_schema_version: WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION,
-      payload_summary: {
-        ...apply,
-        event_kind: "WorkspaceRestoreApply",
-      },
+    return this.workspaceSnapshotSurface.appendWorkspaceRestoreApplyEvent(this, {
+      threadId,
+      turnId,
+      workspaceRoot,
+      workflowGraphId,
+      workflowNodeId,
+      apply,
     });
   }
 
@@ -9695,344 +3642,76 @@ export class AgentgresRuntimeStateStore {
     input = {},
     workflowGraphId = null,
   } = {}) {
-    const config = postEditDiagnosticsConfig(request, input);
-    if (config.mode === "skip") return null;
-    const paths = normalizeArray(patchResult?.changedFiles)
-      .filter((entry) => entry?.diagnosticsRecommended !== false)
-      .map((entry) => optionalString(entry?.path))
-      .filter(Boolean);
-    if (!paths.length) return null;
-    const workspaceSnapshot =
-      patchResult?.workspaceSnapshot ??
-      patchResult?.workspace_snapshot ??
-      null;
-    const workspaceSnapshotId =
-      optionalString(patchResult?.workspaceSnapshotId ?? patchResult?.workspace_snapshot_id) ??
-      optionalString(workspaceSnapshot?.snapshotId ?? workspaceSnapshot?.snapshot_id);
-    const rollbackRefs = uniqueStrings([
-      workspaceSnapshotId,
-      ...normalizeArray(patchResult?.rollbackRefs ?? patchResult?.rollback_refs),
-    ]);
-    const repairPolicyConfig = config.repairPolicyConfig ?? diagnosticsRepairPolicyConfig(request, input);
-    return this.invokeThreadTool(threadId, "lsp.diagnostics", {
-      source: "runtime_auto",
-      turn_id: turnId || null,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: LSP_DIAGNOSTICS_AUTO_NODE_ID,
-      tool_call_id: `coding_tool_lsp_diagnostics_auto_${doctorHash(`${patchToolCallId}:${paths.join(",")}`).slice(0, 16)}`,
-      rollback_refs: rollbackRefs,
-      diagnostics_repair_context: {
-        schemaVersion: DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION,
-        object: "ioi.runtime_diagnostics_rollback_repair_context",
-        sourceToolName: "file.apply_patch",
-        source_tool_name: "file.apply_patch",
-        sourceToolCallId: patchToolCallId,
-        source_tool_call_id: patchToolCallId,
-        sourceWorkflowGraphId: workflowGraphId,
-        source_workflow_graph_id: workflowGraphId,
-        sourceWorkflowNodeId: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
-        source_workflow_node_id: optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? null,
-        workspaceSnapshotId: workspaceSnapshotId ?? null,
-        workspace_snapshot_id: workspaceSnapshotId ?? null,
-        restorePolicy: repairPolicyConfig.restorePolicy,
-        restore_policy: repairPolicyConfig.restorePolicy,
-        restoreConflictPolicy: repairPolicyConfig.restoreConflictPolicy,
-        restore_conflict_policy: repairPolicyConfig.restoreConflictPolicy,
-        diagnosticsRepairDefault: repairPolicyConfig.diagnosticsRepairDefault,
-        diagnostics_repair_default: repairPolicyConfig.diagnosticsRepairDefault,
-        operatorOverrideRequiresApproval: repairPolicyConfig.operatorOverrideRequiresApproval,
-        operator_override_requires_approval: repairPolicyConfig.operatorOverrideRequiresApproval,
-        rollbackRefs,
-        rollback_refs: rollbackRefs,
-        restore: workspaceSnapshot?.restore ?? null,
-        changedFiles: normalizeArray(patchResult?.changedFiles).map((entry) => ({
-          path: optionalString(entry?.path) ?? null,
-          beforeHash: optionalString(entry?.beforeHash ?? entry?.before_hash) ?? null,
-          before_hash: optionalString(entry?.beforeHash ?? entry?.before_hash) ?? null,
-          afterHash: optionalString(entry?.afterHash ?? entry?.after_hash) ?? null,
-          after_hash: optionalString(entry?.afterHash ?? entry?.after_hash) ?? null,
-          diagnosticsRecommended: entry?.diagnosticsRecommended !== false,
-          diagnostics_recommended: entry?.diagnosticsRecommended !== false,
-        })),
-      },
-      input: {
-        commandId: config.commandId,
-        paths,
-        cwd: config.cwd,
-        timeoutMs: config.timeoutMs,
-        maxOutputBytes: config.maxOutputBytes,
-      },
+    return this.diagnosticsFeedbackSurface.maybeRunPostEditDiagnostics(this, {
+      threadId,
+      turnId,
+      patchToolCallId,
+      patchResult,
+      request,
+      input,
+      workflowGraphId,
     });
   }
 
   pendingDiagnosticsFeedbackForNextTurn(threadId, request = {}) {
-    const injectionMode = normalizeDiagnosticsMode(
-      request.diagnosticsMode ??
-        request.diagnostics_mode ??
-        request.options?.diagnosticsMode ??
-        request.options?.diagnostics_mode ??
-        "advisory",
-    );
-    if (injectionMode === "skip") return null;
-    const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
-    const lastInjectedSeq = Math.max(
-      0,
-      ...stream.events
-        .filter((event) => event.event_kind === "lsp.diagnostics.injected")
-        .map((event) => Number(event.seq) || 0),
-    );
-    const diagnosticEvents = stream.events.filter((event) => {
-      const payload = event.payload_summary ?? event.payload ?? {};
-      return (
-        event.seq > lastInjectedSeq &&
-        event.event_kind === "tool.completed" &&
-        event.source === "runtime_auto" &&
-        payload.tool_name === "lsp.diagnostics"
-      );
-    });
-    if (!diagnosticEvents.length) return null;
-    return compactDiagnosticsFeedback({ threadId, mode: injectionMode, diagnosticEvents });
+    return this.diagnosticsFeedbackSurface.pendingDiagnosticsFeedbackForNextTurn(this, threadId, request);
   }
 
   materializeCodingToolArtifactDrafts({ threadId, toolId, toolCallId, workspaceRoot, result, receiptId }) {
-    const drafts = normalizeArray(result?.artifactDrafts ?? result?.artifact_drafts);
-    const createdAt = new Date().toISOString();
-    return drafts
-      .map((draft, index) => {
-        if (!draft || typeof draft !== "object" || Array.isArray(draft)) return null;
-        const content = String(draft.content ?? "");
-        const channel = optionalString(draft.channel) ?? `artifact-${index + 1}`;
-        const mediaType = optionalString(draft.mediaType ?? draft.media_type) ?? "text/plain";
-        const contentBytes = Buffer.byteLength(content, "utf8");
-        const contentHash = doctorHash(content);
-        const artifactRecord = {
-          schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-          schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-          id: `artifact_coding_tool_${safeId(toolCallId)}_${safeId(channel)}`,
-          thread_id: threadId,
-          threadId,
-          tool_name: toolId,
-          toolName: toolId,
-          tool_call_id: toolCallId,
-          toolCallId,
-          workspace_root: workspaceRoot,
-          workspaceRoot,
-          name: optionalString(draft.name) ?? `${safeId(toolId)}-${channel}.txt`,
-          channel,
-          media_type: mediaType,
-          mediaType,
-          redaction: optionalString(draft.redaction) ?? "none",
-          receipt_id: receiptId,
-          receiptId,
-          content,
-          content_bytes: contentBytes,
-          contentBytes,
-          content_hash: contentHash,
-          contentHash,
-          created_at: createdAt,
-          createdAt,
-        };
-        this.codingArtifacts.set(artifactRecord.id, artifactRecord);
-        writeJson(this.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
-        return artifactRecord;
-      })
-      .filter(Boolean);
-  }
-
-  materializeVisualGuiObservationArtifacts({ threadId, toolId, toolCallId, workspaceRoot, input }) {
-    const specs = [
-      {
-        pathKeys: ["screenshotPath", "screenshot_path", "screenshotFile", "screenshot_file"],
-        refKey: "screenshotRef",
-        channel: "visual-gui-screenshot",
-        defaultName: "visual-gui-screenshot.png",
-        defaultMediaType: "image/png",
-      },
-      {
-        pathKeys: ["somPath", "som_path", "setOfMarksPath", "set_of_marks_path"],
-        refKey: "somRef",
-        channel: "visual-gui-som",
-        defaultName: "visual-gui-som.json",
-        defaultMediaType: "application/json",
-      },
-      {
-        pathKeys: ["axPath", "ax_path", "accessibilityTreePath", "accessibility_tree_path"],
-        refKey: "axRef",
-        channel: "visual-gui-ax",
-        defaultName: "visual-gui-ax.json",
-        defaultMediaType: "application/json",
-      },
-    ];
-    const createdAt = new Date().toISOString();
-    const metadata = {};
-    const artifactRefs = [];
-    const artifacts = [];
-    for (const spec of specs) {
-      const explicitRef = optionalString(input[spec.refKey] ?? input[snakeCaseKey(spec.refKey)]);
-      if (explicitRef) continue;
-      const sourcePath = firstOptionalString(spec.pathKeys.map((key) => input[key]));
-      if (!sourcePath) continue;
-      const resolvedPath = path.resolve(workspaceRoot ?? process.cwd(), sourcePath);
-      let contentBuffer;
-      try {
-        contentBuffer = fs.readFileSync(resolvedPath);
-      } catch (error) {
-        throw runtimeError({
-          status: 400,
-          code: "computer_use_visual_artifact_unreadable",
-          message: `Visual GUI observation artifact could not be read for ${spec.channel}.`,
-          details: {
-            channel: spec.channel,
-            sourcePathHash: doctorHash(resolvedPath),
-            error: error?.code ?? error?.message ?? "read_failed",
-          },
-        });
-      }
-      if (contentBuffer.byteLength > COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES) {
-        throw runtimeError({
-          status: 413,
-          code: "computer_use_visual_artifact_too_large",
-          message: `Visual GUI observation artifact exceeds ${COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES} bytes.`,
-          details: {
-            channel: spec.channel,
-            sourcePathHash: doctorHash(resolvedPath),
-            contentBytes: contentBuffer.byteLength,
-            maxBytes: COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES,
-          },
-        });
-      }
-      const content = contentBuffer.toString("base64");
-      const extension = path.extname(resolvedPath);
-      const mediaType =
-        optionalString(input[`${spec.refKey}MediaType`] ?? input[`${snakeCaseKey(spec.refKey)}_media_type`]) ??
-        visualGuiMediaTypeForPath(resolvedPath) ??
-        spec.defaultMediaType;
-      const artifactId = `artifact_computer_use_visual_${safeId(toolCallId)}_${safeId(spec.channel)}`;
-      const receiptId = `receipt_${safeId(toolCallId)}_${safeId(spec.channel)}`;
-      const artifactRecord = {
-        schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-        schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-        id: artifactId,
-        thread_id: threadId,
-        threadId,
-        tool_name: toolId,
-        toolName: toolId,
-        tool_call_id: toolCallId,
-        toolCallId,
-        workspace_root: workspaceRoot,
-        workspaceRoot,
-        name: extension ? `${spec.channel}${extension}` : spec.defaultName,
-        channel: spec.channel,
-        media_type: mediaType,
-        mediaType,
-        encoding: "base64",
-        redaction: "local_redacted_artifacts",
-        receipt_id: receiptId,
-        receiptId,
-        content,
-        content_bytes: contentBuffer.byteLength,
-        contentBytes: contentBuffer.byteLength,
-        content_hash: doctorHash(content),
-        contentHash: doctorHash(content),
-        source_path_hash: doctorHash(resolvedPath),
-        sourcePathHash: doctorHash(resolvedPath),
-        source_path_included: false,
-        sourcePathIncluded: false,
-        created_at: createdAt,
-        createdAt,
-      };
-      this.codingArtifacts.set(artifactRecord.id, artifactRecord);
-      writeJson(this.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
-      metadata[spec.refKey] = artifactId;
-      artifactRefs.push(artifactId);
-      artifacts.push(artifactRecord);
-    }
-    return { metadata, artifactRefs, artifacts };
-  }
-
-  readCodingToolArtifact(threadId, artifactId, range = {}) {
-    const artifactRecord = this.codingArtifacts.get(artifactId);
-    if (!artifactRecord) throw notFound(`Artifact not found: ${artifactId}`, { threadId, artifactId });
-    if (artifactRecord.thread_id && artifactRecord.thread_id !== threadId) {
-      throw policyError("Artifact read blocked outside the owning runtime thread.", {
-        threadId,
-        artifactId,
-        ownerThreadId: artifactRecord.thread_id,
-      });
-    }
-    return codingToolArtifactReadResult(artifactRecord, range);
-  }
-
-  retrieveCodingToolResult(threadId, query = {}) {
-    if (query.artifactId) {
-      return {
-        ...this.readCodingToolArtifact(threadId, query.artifactId, query.range),
-        shellFallbackUsed: false,
-      };
-    }
-    const toolCallId = optionalString(query.toolCallId);
-    if (!toolCallId) {
-      throw runtimeError({
-        status: 400,
-        code: "tool_retrieve_result_target_required",
-        message: "tool.retrieve_result requires a toolCallId or artifactId.",
-        details: { threadId },
-      });
-    }
-    const artifacts = [...this.codingArtifacts.values()]
-      .filter((artifactRecord) => artifactRecord.thread_id === threadId && artifactRecord.tool_call_id === toolCallId)
-      .sort((left, right) => String(left.channel ?? "").localeCompare(String(right.channel ?? "")));
-    if (!artifacts.length) {
-      throw notFound(`Tool result artifact not found: ${toolCallId}`, { threadId, toolCallId });
-    }
-    const channel = optionalString(query.channel);
-    const artifactRecord = artifacts.find((item) => item.channel === channel) ?? artifacts[0];
-    return {
-      ...codingToolArtifactReadResult(artifactRecord, query.range),
-      toolCallId,
-      availableArtifacts: artifacts.map(codingToolArtifactMetadata),
-      shellFallbackUsed: false,
-    };
-  }
-
-  createConversationArtifact(threadId, input = {}) {
-    return this.conversationArtifacts.create({
-      ...input,
+    return this.codingToolArtifactSurface.materializeCodingToolArtifactDrafts(this, {
       threadId,
+      toolId,
+      toolCallId,
+      workspaceRoot,
+      result,
+      receiptId,
     });
   }
 
+  materializeVisualGuiObservationArtifacts({ threadId, toolId, toolCallId, workspaceRoot, input }) {
+    return this.codingToolArtifactSurface.materializeVisualGuiObservationArtifacts(this, {
+      threadId,
+      toolId,
+      toolCallId,
+      workspaceRoot,
+      input,
+    });
+  }
+
+  readCodingToolArtifact(threadId, artifactId, range = {}) {
+    return this.codingToolArtifactSurface.readCodingToolArtifact(this, threadId, artifactId, range);
+  }
+
+  retrieveCodingToolResult(threadId, query = {}) {
+    return this.codingToolArtifactSurface.retrieveCodingToolResult(this, threadId, query);
+  }
+
+  createConversationArtifact(threadId, input = {}) {
+    return this.conversationArtifactSurface.createConversationArtifact(this, threadId, input);
+  }
+
   listConversationArtifacts(query = {}) {
-    return this.conversationArtifacts.list(query);
+    return this.conversationArtifactSurface.listConversationArtifacts(this, query);
   }
 
   getConversationArtifact(artifactId) {
-    const artifact = this.conversationArtifacts.get(artifactId);
-    if (!artifact) throw notFound(`Conversation artifact not found: ${artifactId}`, { artifactId });
-    return artifact;
+    return this.conversationArtifactSurface.getConversationArtifact(this, artifactId);
   }
 
   listConversationArtifactRevisions(artifactId) {
-    this.getConversationArtifact(artifactId);
-    return this.conversationArtifacts.revisions(artifactId);
+    return this.conversationArtifactSurface.listConversationArtifactRevisions(this, artifactId);
   }
 
   performConversationArtifactAction(artifactId, input = {}) {
-    const result = this.conversationArtifacts.action(artifactId, input);
-    if (!result) throw notFound(`Conversation artifact not found: ${artifactId}`, { artifactId });
-    return result;
+    return this.conversationArtifactSurface.performConversationArtifactAction(this, artifactId, input);
   }
 
   exportConversationArtifact(artifactId, input = {}) {
-    const result = this.conversationArtifacts.exportArtifact(artifactId, input);
-    if (!result) throw notFound(`Conversation artifact not found: ${artifactId}`, { artifactId });
-    return result;
+    return this.conversationArtifactSurface.exportConversationArtifact(this, artifactId, input);
   }
 
   promoteConversationArtifact(artifactId, input = {}) {
-    const result = this.conversationArtifacts.promoteArtifact(artifactId, input);
-    if (!result) throw notFound(`Conversation artifact not found: ${artifactId}`, { artifactId });
-    return result;
+    return this.conversationArtifactSurface.promoteConversationArtifact(this, artifactId, input);
   }
 
   ensureDirs() {

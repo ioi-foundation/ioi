@@ -246,6 +246,7 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Moved Autopilot Models and generic persistent mode panel lifecycle/render refresh logic out of `extension.js` while preserving model proof bridge envelopes, command dispatch, phase capture messages, generic mode disposal cleanup, and code-mode renderer delegation.
 - Added focused persistent-mode panel tests for model panel bridge/proof/command forwarding, phase capture scheduling, generic panel refresh/disposal, code-mode delegation, and unknown-mode fail-closed behavior.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
+- Fixed live activation-order regressions in `extension.js` by passing lazy dependency wrappers into early Studio composition factories for product-text sanitization, native diff preview, patch-preview hunk projection, and cockpit patch-target extraction; the initial Stage 8 live proof exposed temporal-dead-zone failures for those const destructures, and the final Stage 8/Stage 9 live proofs passed after the wrappers.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
 
@@ -395,13 +396,82 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-run-read-surface.mjs`.
 - Moved run lookup/listing, run/thread/list usage projection, authority evidence summary, legacy event replay, canonical replay, trace projection, and canonical state path projection out of `index.mjs` behind compatibility delegates while leaving state-mutating context-budget and compaction policy evaluators local for a later policy slice.
 - Added focused runtime-run-read-surface tests for get/list delegation, run/thread/list usage shaping, authority evidence side effects, legacy replay cursor behavior, trace projection, canonical replay, and canonical path projection.
+- Added `packages/runtime-daemon/src/runtime-context-policy-surface.mjs`.
+- Moved state-mutating context-budget and compaction-policy evaluation out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore.evaluateContextBudget()` and `evaluateCompactionPolicy()` delegates while preserving route-handler method names, event envelopes, schema versions, idempotency keys, compaction execution, and thread/run usage fallback behavior.
+- Added focused runtime-context-policy-surface tests for run-scoped budget event projection, workflow-only budget evaluation, compact execution artifact linking, required-thread errors, and approval-required compaction status.
+- Extended `packages/runtime-daemon/src/runtime-context-policy-surface.mjs` to own direct thread compaction behind the existing `AgentgresRuntimeStateStore.compactThread()` compatibility delegate while preserving public route method names, context-compaction envelopes, idempotency keys, receipt/policy refs, run operator controls, run context-compaction trace, and runless agent writeback.
+- Extended focused runtime-context-policy-surface tests for direct compaction run writeback and runless thread/agent writeback.
 - Added `packages/runtime-daemon/src/runtime-identifiers.mjs`.
 - Moved runtime thread/agent/run/turn/session id derivation, runtime-backed agent detection, fixture profile defaults, and lifecycle/thread status normalization out of `index.mjs`.
 - Added focused runtime identifier tests for prefix compatibility, event stream ids, runtime session fallback, fixture profile override/null preservation, runtime profile detection, and lifecycle status aliases.
+- Added `packages/runtime-daemon/src/runtime-thread-event-surface.mjs`.
+- Moved public thread turn listing/get, thread/run event replay queries, thread-start/run projection triggers, runtime-event append/replay cursor helpers, event-stream registration/path helpers, and thread/turn projection delegates out of `index.mjs` behind compatibility-preserving store methods.
+- Added focused runtime-thread-event-surface tests for turn listing/get errors, thread/run replay routing, helper dependency injection, projection delegation, event-stream paths, cursor assertions, and thread/turn projection delegation.
+- Added `packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs`.
+- Moved public conversation artifact create/list/get/revisions/action/export/promote methods out of `index.mjs` behind compatibility-preserving store delegates while keeping artifact not-found behavior and thread-id payload shaping stable.
+- Added focused runtime-conversation-artifact-surface tests for artifact create/list/get/revisions delegation, action/export/promote delegation, and not-found preservation.
+- Added `packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs`.
+- Moved public MCP server/tool/resource/prompt list, MCP tool search/fetch, MCP manager status, MCP validation, and active-context server composition out of `index.mjs` behind compatibility-preserving store delegates while keeping workspace/agent/model-mounting source merging, server filtering, route metadata, counts, validation envelopes, and fetch not-found behavior stable.
+- Added focused runtime-mcp-catalog-surface tests for context server de-duplication, thread/workspace source filtering, model-mounting catalog normalization, tool/resource/prompt projections, global/thread tool search, exact tool fetch, fetch not-found behavior, status counts/routes, and validation envelopes.
+- Added `packages/runtime-daemon/src/runtime-mcp-control-surface.mjs`.
+- Moved MCP registry import/add/remove mutation handling, live status discovery, enable/disable controls, manager tool invocation, status/validation control events, and MCP control-event envelope construction out of `index.mjs` behind compatibility-preserving store delegates while keeping thread route method names and public control payload shapes stable.
+- Added focused runtime-mcp-control-surface tests for required-thread errors, add/remove mutation envelopes, blocked mutation validation, enable/status/validation control events, simulated invocation success, approval-required invocation blocking, receipt refs, and policy decision refs.
+- Added `packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs`.
+- Moved MCP serve status projection, allowed coding-tool catalog projection, JSON-RPC lifecycle handling, batch notification filtering, and governed `tools/call` invocation shaping out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore` delegates while keeping the public `/v1/mcp/serve` and `/v1/threads/{thread_id}/mcp/serve` route-facing methods stable.
+- Added focused runtime-mcp-serve-surface tests for status/catalog projection, initialize/ping/list lifecycle methods, initialized notification filtering, malformed/disallowed/unsupported errors, and `tools/call` workflow graph/node/input shaping.
+- Added `packages/runtime-daemon/src/runtime-thread-control-surface.mjs`.
+- Moved thread mode/model/thinking update orchestration, thread control event envelope shaping, control receipt/policy refs, model-route control persistence, and workspace trust warning/acknowledgement delegation out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore` delegates.
+- Added focused runtime-thread-control-surface tests for mode update envelopes with workspace-trust warnings, model/thinking route-control persistence, and workspace-trust acknowledgement delegation.
+- Added `packages/runtime-daemon/src/runtime-subagent-surface.mjs`.
+- Moved subagent list/get/projection helpers and daemon-owned subagent control event-envelope shaping out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore` delegates. This creates the ownership seam for later spawn/wait/input/cancel/resume/assign migration without changing route-facing method names.
+- Added focused runtime-subagent-surface tests for role-filtered list projection, subagent lookup/not-found preservation, and subagent control event receipt/policy envelope shaping.
+- Extended `packages/runtime-daemon/src/runtime-subagent-surface.mjs` to own subagent spawn orchestration behind the existing `AgentgresRuntimeStateStore.spawnSubagent()` compatibility delegate.
+- Extended focused runtime-subagent-surface tests for spawn metadata, context pressure/source refs, prompt validation, role concurrency policy blocking, blocked-budget policy persistence, spawn event envelopes, and spawn evidence refs.
+- Extended `packages/runtime-daemon/src/runtime-subagent-surface.mjs` to own subagent wait and result-read orchestration behind existing `AgentgresRuntimeStateStore.waitSubagent()` and `getSubagentResult()` compatibility delegates.
+- Extended focused runtime-subagent-surface tests for wait persistence/result envelopes and output-contract result projection.
+- Extended `packages/runtime-daemon/src/runtime-subagent-surface.mjs` to own subagent assignment orchestration behind the existing `AgentgresRuntimeStateStore.assignSubagent()` compatibility delegate.
+- Extended focused runtime-subagent-surface tests for role/tool/model/merge/cancellation metadata updates, assignment history persistence, assignment event envelopes, and assignment evidence refs.
+- Extended `packages/runtime-daemon/src/runtime-subagent-surface.mjs` to own subagent cancellation orchestration behind the existing `AgentgresRuntimeStateStore.cancelSubagent()` compatibility delegate.
+- Extended focused runtime-subagent-surface tests for inherited cancellation metadata, canceled run receipt preservation, cancellation event envelopes, persistence, and cancellation evidence refs.
+- Extended `packages/runtime-daemon/src/runtime-subagent-surface.mjs` to own parent-child cancellation propagation behind the existing `AgentgresRuntimeStateStore.propagateSubagentCancellation()` compatibility delegate.
+- Extended focused runtime-subagent-surface tests for propagated cancellation request shaping, inherited cancellation metadata, detached-child skip reporting, already-canceled skip reporting, propagation counts, event refs, and receipt aggregation.
+- Extended `packages/runtime-daemon/src/runtime-subagent-surface.mjs` to own subagent input orchestration behind the existing `AgentgresRuntimeStateStore.sendSubagentInput()` compatibility delegate.
+- Extended focused runtime-subagent-surface tests for input history persistence, previous-run linkage, input event envelopes, input validation, canceled-subagent policy blocking, result projection, and evidence refs.
+- Extended `packages/runtime-daemon/src/runtime-subagent-surface.mjs` to own subagent resume/restart orchestration behind the existing `AgentgresRuntimeStateStore.resumeSubagent()` compatibility delegate.
+- Extended focused runtime-subagent-surface tests for resume history persistence, restart metadata, cancellation clearing/history retention, resume event envelopes, blocked-budget policy persistence, and resume evidence refs.
+- Added `packages/runtime-daemon/src/runtime-approval-surface.mjs`.
+- Moved approval request, approval decision, approval revocation, latest approval request lookup, and latest approval decision lookup out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore` delegates while preserving route-facing event envelopes, approval lease metadata, receipt/policy refs, run/thread projection responses, and run/agent persistence updates.
+- Added focused runtime-approval-surface tests for approval request blocking, approval decision lease activation, approval revocation with prior-decision linkage, latest-event lookup, and fail-closed missing id/request behavior.
+- Added `packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs`.
+- Moved coding-tool budget blocked-event lookup and recovery request/approval/retry orchestration out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore.latestCodingToolBudgetBlockedEventForRun()` and `codingToolBudgetRecoveryForRun()` delegates while preserving approval manifests, retry-limit semantics, route-facing result aliases, receipt/policy refs, runtime event envelopes, and run operator-control writeback.
+- Added focused runtime-coding-tool-budget-recovery-surface tests for blocked-event lookup, approval request manifests, missing approval/decision gating, rejected decisions, approved retry writeback, retry-limit enforcement, and thread/run compatibility boundaries.
+- Added `packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs`.
+- Moved workflow edit proposal, proposal lookup, apply lookup, approval-satisfaction, and approved apply orchestration out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore` delegates while preserving proposal/apply event envelopes, approval manifests, result aliases, receipt/policy refs, workspace-boundary enforcement, mutation gating, and idempotent apply replay.
+- Added focused runtime-workflow-edit-surface tests for proposal manifest aliases, approval request wiring, blocked apply before decision, approved file-write apply, idempotent replay, workspace escape rejection, required proposal ids, and missing proposal errors.
+- Added `packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs`.
+- Moved coding-tool approval satisfaction, approval-required blocked result shaping, and budget-blocked event/result shaping out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore` delegates while preserving approval lease expiry handling, manifest matching, approval request envelopes, budget policy events, receipt/policy refs, rollback refs, diagnostics repair context aliases, and result schema aliases.
+- Added focused runtime-coding-tool-governance-surface tests for approval states, rejected/expired decisions, approval-required result envelopes, and budget-block event envelopes.
+- Added `packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs`.
+- Moved coding-tool artifact draft materialization, artifact read policy, tool-result retrieval, command-stream event shaping, and visual GUI observation artifact materialization out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore` delegates while preserving artifact schema aliases, persisted artifact records, artifact read chunking, cross-thread read blocking, retrieve-result target validation, channel fallback ordering, shell fallback aliases, command-stream idempotency keys, stream sequencing, final control events, visual artifact base64 encoding, source-path redaction, media-type inference, size/unreadable fail-closed envelopes, receipt refs, and artifact refs.
+- Added focused runtime-coding-tool-artifact-surface tests for draft materialization/writeback, owned-thread reads, cross-thread policy blocking, retrieve-result by channel/artifact id, required retrieve targets, command-stream event envelopes, skipped non-stream requests, visual GUI artifact materialization, explicit-ref skips, unreadable visual artifacts, and visual artifact size limits.
+- Added `packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs`.
+- Moved workspace snapshot preparation, snapshot content artifact materialization, snapshot event/list projection, workspace snapshot content-package lookup, restore preview/apply orchestration, restore preview/apply artifact materialization, and restore preview/apply event shaping out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore` delegates while preserving snapshot ids/hashes, content capture redaction, restore support flags, route-facing schema aliases, content-package fail-closed errors, restore artifact records, restore idempotency keys, restore preview/apply status/count aliases, approval/conflict policy refs, receipt refs, artifact refs, and rollback refs.
+- Added focused runtime-workspace-snapshot-surface tests for patch snapshot preparation, persisted content artifacts, snapshot event/list envelopes, content-package lookup and unavailable errors, restore preview/apply artifact materialization, restore preview/apply event envelopes, and real temp-workspace restore preview/apply behavior.
+- Added `packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs`.
+- Moved post-edit diagnostics invocation and pending diagnostics feedback packaging out of `index.mjs` behind compatibility-preserving `AgentgresRuntimeStateStore` delegates while preserving diagnostics mode gating, changed-file filtering, LSP diagnostics tool request envelopes, rollback refs, diagnostics repair context aliases, repair policy config propagation, last-injected sequence filtering, and compact diagnostics feedback handoff.
+- Added focused runtime-diagnostics-feedback-surface tests for skipped/pathless post-edit diagnostics, LSP diagnostics invocation envelopes, repair context projection, pending diagnostics filtering after the last injected event, and skip-mode feedback suppression.
+- Added `packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs`.
+- Moved diagnostics repair decision execution routing out of `index.mjs` behind the compatibility-preserving `AgentgresRuntimeStateStore.executeDiagnosticsRepairDecision()` delegate while preserving decision validation, action allow-listing, availability checks, snapshot-ref resolution, repair retry/operator override/restore preview/restore apply dispatch, restore approval idempotency keys, restore conflict policy aliases, execution event append calls, result aliases, receipt refs, artifact refs, policy refs, and rollback refs.
+- Added focused runtime-diagnostics-repair-surface tests for restore-apply request aliases, retry/override/preview dispatch, missing target, unsupported action, unavailable decision, and missing snapshot failures.
+- Extended `packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs` to own diagnostics operator override execution, operator override event construction, repair retry turn creation, repair retry event construction, repair decision lookup, and final repair decision executed-event construction behind compatibility-preserving `AgentgresRuntimeStateStore` delegates while preserving idempotency keys, target turn/run lookup, blocked/completed override behavior, run writeback, injected retry diagnostics feedback, gate filtering, action aliases, receipt refs, artifact refs, policy refs, rollback refs, and public result aliases.
+- Added focused runtime-diagnostics-repair-surface tests for completed operator override writeback, repair retry run creation and event projection, latest matching gate resolution, and final execution-event aliases.
+- Added `packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs`.
+- Moved `AgentgresRuntimeStateStore.invokeThreadTool()` coding-tool orchestration out of `index.mjs` behind a compatibility-preserving delegate while preserving computer-use sync dispatch, not-found handling, coding-tool input shaping, idempotency replay, receipt ids, diagnostics repair context aliases, budget blocked policy errors, approval blocking, tool execution callbacks, artifact draft materialization, apply-patch workspace snapshots, command-stream events, runtime event envelopes, post-edit diagnostics, workspace snapshot events, and public result aliases.
+- Added focused runtime-coding-tool-invocation-surface tests for completed apply-patch invocation, duplicate idempotent replay, budget blocks, approval blocks, computer-use dispatch, and not-found behavior.
 - Replaced leftover `computer-use-inputs` pass-through wrappers in `index.mjs` with direct named imports, keeping the controlled-relaunch unavailable wrapper only where `index.mjs` injects canonical `uniqueStrings`.
 - Replaced leftover `runtime-mcp-helpers` pass-through wrappers in `index.mjs` with direct named imports, keeping MCP implementation ownership in `runtime-mcp-helpers.mjs`.
 
-Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, thread store/control/replay persistence, and route registration glue.
+Status: `index.mjs` still owns the large state store and public route composition. Safe next extractions are daemon service lifecycle, remaining thread store persistence, and route registration glue. Subagent lifecycle orchestration, including parent-child cancellation propagation, now lives behind `runtime-subagent-surface.mjs` compatibility delegates; approval control orchestration now lives behind `runtime-approval-surface.mjs`; coding-tool budget recovery orchestration now lives behind `runtime-coding-tool-budget-recovery-surface.mjs`; workflow-edit proposal/apply orchestration now lives behind `runtime-workflow-edit-surface.mjs`; coding-tool approval/budget governance shaping now lives behind `runtime-coding-tool-governance-surface.mjs`; coding-tool artifact/readback/command-stream/visual-artifact behavior now lives behind `runtime-coding-tool-artifact-surface.mjs`; coding-tool invocation orchestration now lives behind `runtime-coding-tool-invocation-surface.mjs`; workspace snapshot/restore behavior now lives behind `runtime-workspace-snapshot-surface.mjs`; post-edit diagnostics feedback behavior now lives behind `runtime-diagnostics-feedback-surface.mjs`; and diagnostics repair decision dispatch plus override/retry/event helper behavior now lives behind `runtime-diagnostics-repair-surface.mjs`.
 
 ### Model Mounting
 
@@ -553,8 +623,64 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/backend-registry-state.mjs`.
 - Moved backend registry seeding/derivation, stored/derived backend projection merging, backend-process reconciliation, backend-process lookup, and backend log writes out of `model-mounting.mjs` behind existing compatibility methods.
 - Added focused backend-registry-state tests for environment/discovery derivation, stored-record merging, process projection, stale boot reconciliation, newest-process lookup, and redacted backend log mirroring.
+- Added `packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs`.
+- Moved catalog provider configuration list/get/update, public config projection, configuration receipt persistence, and vault-backed catalog provider runtime material resolution out of `model-mounting.mjs` behind existing compatibility methods.
+- Added focused catalog-provider configuration operation tests for configurable-provider public records, persisted write/projection/receipt behavior, vault material resolution, missing material preservation, and fail-closed vault errors.
+- Added `packages/runtime-daemon/src/model-mounting/vault-operations.mjs`.
+- Moved vault ref binding, vault metadata/status/health projection, vault ref removal, vault metadata persistence triggers, and vault receipt emission out of `model-mounting.mjs` behind existing compatibility methods.
+- Added focused vault-operation tests for bind/remove persistence, redacted receipt emission, health/status projection, list/metadata delegation, and required field errors.
+- Added `packages/runtime-daemon/src/model-mounting/huggingface-catalog-search.mjs`.
+- Moved Hugging Face catalog live-search gating, auth-header application, HTTP response shaping, payload alias normalization, format/quantization filtering, auth evidence projection, and fail-closed error envelopes out of `model-mounting.mjs` behind the existing `ModelMountingState.searchHuggingFaceCatalog()` compatibility delegate.
+- Added focused Hugging Face catalog-search tests for disabled/gated envelopes, successful filtered search with auth evidence, HTTP degradation, fail-closed auth errors, and payload alias normalization.
+- Added `packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs`.
+- Moved capability token creation, public token listing, token revocation, bearer-token lookup, scope authorization, grant receipt emission, token map persistence, and public token redaction out of `model-mounting.mjs` behind existing compatibility methods.
+- Added focused capability-token operation tests for public token envelopes, vault-ref redaction, grant persistence, authorize/revoke state updates, auth errors, not-found errors, and receipt emission.
+- Extended `packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs` to own latest provider/vault health projection envelopes behind `ModelMountingState.latestProviderHealth()` and `ModelMountingState.latestVaultHealth()` compatibility delegates.
+- Extended focused read-projection-facade tests for latest provider/vault health envelopes, receipt replay linkage, projection watermarks, and not-found behavior.
+- Extended `packages/runtime-daemon/src/model-mounting/read-model.mjs` and `read-projection-facade.mjs` to own workflow node binding projection behind the existing `ModelMountingState.workflowNodeBindings()` compatibility delegate.
+- Extended `packages/runtime-daemon/src/model-mounting/state-accessors.mjs` to own model artifact lookup and provider-direct mount artifact persistence behind `ModelMountingState.getModel()` and `ModelMountingState.modelForProviderMount()` compatibility delegates.
+- Extended focused read-model, read-projection-facade, and state-accessor tests for workflow binding projection, artifact lookup by id/model id, not-found behavior, provider-direct artifact persistence, persisted artifact writes, and mounted artifact shaping.
+- Extended `packages/runtime-daemon/src/model-mounting/routes.mjs` to own state-level route upsert, explicit-model endpoint ordering, route selection dependency wiring, and route-selection receipt creation behind existing `ModelMountingState` compatibility delegates.
+- Extended focused route tests for state-operation delegate wiring, route write persistence, explicit-model mount fallback, route selection, and route-selection receipt creation.
+- Added `packages/runtime-daemon/src/model-mounting/receipt-operations.mjs`.
+- Moved receipt list/get delegation, lifecycle receipt envelope creation, canonical receipt construction, redaction, store writes, and projection refresh out of `model-mounting.mjs` behind existing `ModelMountingState` compatibility delegates.
+- Added focused receipt-operation tests for canonical store read delegation, lifecycle receipt envelope shape, redacted details, receipt id generation, schema versioning, store writes, and projection refresh.
 
-Status: `model-mounting.mjs` is now primarily a compatibility facade plus route/state/storage/server/backend wrappers. Safe next extractions are remaining route HTTP glue, provider/vault mutating wrappers, and any residual product projection glue that is still easier to reason about from the root than from its owning module.
+Compatibility map for the latest model-mounting slices:
+
+| Public method | Owning module | Removal / migration status |
+| --- | --- | --- |
+| `ModelMountingState.listCatalogProviderConfigs()` | `model-mounting/catalog-provider-configuration-operations.mjs` | Keep as public read/projection delegate until route and projection callers have a deliberate migration plan. |
+| `ModelMountingState.getCatalogProviderConfig()` | `model-mounting/catalog-provider-configuration-operations.mjs` | Keep as route-facing delegate for `/catalog/providers/{provider_id}/config`. |
+| `ModelMountingState.configureCatalogProvider()` | `model-mounting/catalog-provider-configuration-operations.mjs` | Keep as route-facing mutation delegate so receipt/projection envelopes remain stable. |
+| `ModelMountingState.catalogProviderConfig()` | `model-mounting/catalog-provider-configuration-operations.mjs` | Keep as private compatibility delegate while OAuth, catalog ports, and catalog search still call the root state facade. |
+| `ModelMountingState.catalogProviderRuntimeMaterial()` | `model-mounting/catalog-provider-configuration-operations.mjs` | Keep as private compatibility delegate while catalog OAuth, config projection, and provider health callers share fail-closed runtime material semantics. |
+| `ModelMountingState.bindVaultRef()` | `model-mounting/vault-operations.mjs` | Keep as route-facing mutation delegate so vault receipts, metadata persistence, and projection refresh behavior remain stable. |
+| `ModelMountingState.listVaultRefs()` | `model-mounting/vault-operations.mjs` | Keep as public read delegate for vault metadata projection. |
+| `ModelMountingState.vaultRefMetadata()` | `model-mounting/vault-operations.mjs` | Keep as public read delegate for redacted vault-ref lookup. |
+| `ModelMountingState.vaultStatus()` | `model-mounting/vault-operations.mjs` | Keep as public read delegate for adapter status projection. |
+| `ModelMountingState.vaultHealth()` | `model-mounting/vault-operations.mjs` | Keep as public read/check delegate so vault health receipts remain route-compatible. |
+| `ModelMountingState.removeVaultRef()` | `model-mounting/vault-operations.mjs` | Keep as route-facing mutation delegate so removal receipts, metadata persistence, and projection refresh behavior remain stable. |
+| `ModelMountingState.searchHuggingFaceCatalog()` | `model-mounting/huggingface-catalog-search.mjs` | Keep as compatibility delegate while `huggingFaceCatalogProviderPort()` still calls through the state facade. |
+| `ModelMountingState.createToken()` | `model-mounting/capability-token-operations.mjs` | Keep as route-facing delegate so grant receipts, token redaction, and wallet authority audit behavior remain stable. |
+| `ModelMountingState.listTokens()` | `model-mounting/capability-token-operations.mjs` | Keep as public read delegate for product-safe token projections. |
+| `ModelMountingState.revokeToken()` | `model-mounting/capability-token-operations.mjs` | Keep as route-facing delegate so revocation receipts and wallet authority state remain stable. |
+| `ModelMountingState.authorize()` | `model-mounting/capability-token-operations.mjs` | Keep as private compatibility delegate while model invocation, tokenizer, and MCP workflow operations share the same bearer-token authorization behavior. |
+| `ModelMountingState.latestProviderHealth()` | `model-mounting/read-projection-facade.mjs` | Keep as public read/projection delegate so provider-health route envelopes, receipt replay, and projection watermarks stay route-compatible. |
+| `ModelMountingState.latestVaultHealth()` | `model-mounting/read-projection-facade.mjs` | Keep as public read/projection delegate so vault-health route envelopes, receipt replay, and projection watermarks stay route-compatible. |
+| `ModelMountingState.workflowNodeBindings()` | `model-mounting/read-projection-facade.mjs` / `model-mounting/read-model.mjs` | Keep as public product projection delegate so snapshot/projection workflow binding envelopes remain stable. |
+| `ModelMountingState.getModel()` | `model-mounting/state-accessors.mjs` | Keep as private compatibility delegate while loading, storage, local-driver, and endpoint-operation modules still call through the state facade. |
+| `ModelMountingState.modelForProviderMount()` | `model-mounting/state-accessors.mjs` | Keep as private compatibility delegate while endpoint mounting preserves provider-direct artifact persistence and call sites are still state-facade based. |
+| `ModelMountingState.upsertRoute()` | `model-mounting/routes.mjs` | Keep as route-facing mutation delegate so route record normalization, persistence, and map writes remain stable. |
+| `ModelMountingState.endpointIdsForExplicitModel()` | `model-mounting/routes.mjs` | Keep as private compatibility delegate while route selection still calls through state facade and can auto-mount explicit model endpoints. |
+| `ModelMountingState.selectRoute()` | `model-mounting/routes.mjs` | Keep as private compatibility delegate while invocation, stream, workflow, and test-route callers share the same route policy behavior. |
+| `ModelMountingState.routeSelectionReceipt()` | `model-mounting/routes.mjs` | Keep as private compatibility delegate so route-selection receipt envelopes, workflow metadata, evidence refs, and model-route decision fields remain stable. |
+| `ModelMountingState.listReceipts()` | `model-mounting/receipt-operations.mjs` | Keep as public read delegate because projections, replay, receipt gates, and runtime survey surfaces rely on canonical receipt listing. |
+| `ModelMountingState.getReceipt()` | `model-mounting/receipt-operations.mjs` | Keep as public read delegate because receipt replay and Receipt Gate validation rely on canonical receipt lookup. |
+| `ModelMountingState.lifecycleReceipt()` | `model-mounting/receipt-operations.mjs` | Keep as private compatibility delegate while operation modules continue emitting stable lifecycle receipt envelopes through the state facade. |
+| `ModelMountingState.receipt()` | `model-mounting/receipt-operations.mjs` | Keep as private compatibility delegate while operation modules continue sharing canonical receipt id/schema/redaction/write/projection semantics. |
+
+Status: `model-mounting.mjs` is now primarily a compatibility facade plus state/storage/server/backend wrappers. Latest provider/vault health projection and workflow node binding projection now live in the read projection facade, direct model lookup/provider-mount artifact persistence now lives in state accessors, route state-operation wiring now lives in `routes.mjs`, and canonical receipt construction now lives in `receipt-operations.mjs`. Safe next extractions are any leftover state/storage/server/backend wrappers whose ownership is clear enough to isolate.
 
 ### Rust Runtime Hot Spot
 
@@ -641,8 +767,23 @@ Status: `model-mounting.mjs` is now primarily a compatibility facade plus route/
   - `model-mounting/conversation-operations`
   - `model-mounting/state-accessors`
   - `model-mounting/backend-registry-state`
+  - `model-mounting/catalog-provider-configuration-operations`
+  - `model-mounting/vault-operations`
+  - `model-mounting/huggingface-catalog-search`
+  - `model-mounting/capability-token-operations`
   - `runtime-doctor-report`
   - `runtime-run-cancellation`
+  - `runtime-thread-control-surface`
+  - `runtime-subagent-surface`
+  - `runtime-approval-surface`
+  - `runtime-coding-tool-budget-recovery-surface`
+  - `runtime-workflow-edit-surface`
+  - `runtime-coding-tool-governance-surface`
+  - `runtime-coding-tool-artifact-surface`
+  - `runtime-coding-tool-invocation-surface`
+  - `runtime-workspace-snapshot-surface`
+  - `runtime-diagnostics-feedback-surface`
+  - `runtime-diagnostics-repair-surface`
   - `threads/model-route-selection`
   - `threads/run-memory-resolution`
   - `threads/thread-turn-projection`
@@ -669,11 +810,290 @@ Status: `model-mounting.mjs` is now primarily a compatibility facade plus route/
 
 CLI/TUI surfaces were not hardened in this leg because the active parity-plus product proof path remains the OpenVSCode/Agent Studio GUI plus daemon runtime. The CLI/TUI adapters should stay separately gated unless they become active product commitments. If activated, they need the same stream/replay/redaction/policy/managed-session contract checks used by the GUI proof path.
 
+## Soak And Product-Leak Audit
+
+- Final integrated soak for this refactor leg used the fast release gate, managed-session reconnect tests, Rust retry-limit tests, Stage 8 managed-session reconnect live GUI proof, and Stage 9 historic replay live GUI proof after the final extraction wave.
+- Retry-limit behavior remained covered by the two `ioi-services` zero-budget/failure-ceiling tests.
+- Replay/reconnect durability remained covered by `managed-session-inspection.test.mjs`, Stage 8 reconnect live proof, and Stage 9 historic replay live proof.
+- Product UI leakage remained covered by `extension.static.test.mjs` and the Stage 9 proof check `productUiAvoidsRawEvidencePaths`; the Stage 9 proof also recorded `noLiveExecutionRequests`.
+- The Stage 8 live proof initially exposed real activation-order regressions in `extension.js`; after lazy dependency wrappers were added, Stage 8 and Stage 9 both passed.
+
+## Current Verification Snapshot
+
+2026-06-04 baseline guardrails:
+
+- `git status --short --branch` recorded the active refactor worktree and no generated `docs/evidence/` files staged.
+- `git log --oneline --decorate -3` recorded `e5f13a68d (HEAD -> master, origin/master, origin/HEAD) Move daemon run read surface`, `21371d4f8 Move daemon task job surface`, and `03868d0ab Move skill hook and policy lease surfaces`.
+- `git check-ignore -v docs/evidence/autopilot-agent-runtime-parity-plus/example.json || true` confirmed `.gitignore:40:docs/evidence/`.
+- `node --check apps/autopilot/openvscode-extension/ioi-workbench/extension.js` passed.
+- `node --test apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs` passed.
+- `cargo test -p ioi-services zero_budget_does_not_trip_retry_limit_before_failure_ceiling --lib` passed.
+- `cargo test -p ioi-services retry_limit_terminalizes_after_failure_ceiling_even_with_zero_budget --lib` passed.
+
+2026-06-04 integrated fast gate and live GUI proofs:
+
+- `git log --oneline --decorate -3` passed and recorded `e5f13a68d (HEAD -> master, origin/master, origin/HEAD) Move daemon run read surface`, `21371d4f8 Move daemon task job surface`, and `03868d0ab Move skill hook and policy lease surfaces`.
+- `git check-ignore -v docs/evidence/autopilot-agent-runtime-parity-plus/example.json || true` confirmed `.gitignore:40:docs/evidence/`.
+- `node --check apps/autopilot/openvscode-extension/ioi-workbench/extension.js` passed after the live activation-order wrapper fix.
+- `node --test apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs` passed after the live activation-order wrapper fix.
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-thread-control.test.mjs packages/runtime-daemon/src/managed-session-inspection.test.mjs` passed.
+- `node --check scripts/lib/workflow-managed-session-reconnect-live-gui-proof.mjs` passed.
+- `node --check scripts/lib/workflow-historic-run-gui-replay-proof.mjs` passed.
+- `cargo test -p ioi-services zero_budget_does_not_trip_retry_limit_before_failure_ceiling --lib` passed.
+- `cargo test -p ioi-services retry_limit_terminalizes_after_failure_ceiling_even_with_zero_budget --lib` passed.
+- `node scripts/lib/workflow-managed-session-reconnect-live-gui-proof.mjs` passed and wrote evidence to `docs/evidence/autopilot-agent-runtime-parity-plus/stage-8-browser-computer-session-runtime-polish/live-gui-managed-session-reconnect/2026-06-04T17-17-30-781Z`.
+- `node scripts/lib/workflow-historic-run-gui-replay-proof.mjs` passed and wrote evidence to `docs/evidence/autopilot-agent-runtime-parity-plus/stage-9-evidence-replay-product-boundary/historic-run-gui-replay/2026-06-04T17-18-00-382Z`.
+- `git diff --check` passed.
+
+2026-06-04 daemon surface extraction checks:
+
+- `node --test packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-thread-event-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-subagent-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-run-read-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-task-job-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/threads/thread-replay.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-thread-control.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/managed-session-inspection.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/threads/thread-store.test.mjs packages/runtime-daemon/src/threads/thread-persistence.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/conversation-artifacts.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs` passed.
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-context-policy-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-thread-event-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-mcp-control-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-thread-control-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-subagent-surface.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 daemon direct context compaction delegate checks:
+
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-context-policy-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs packages/runtime-daemon/src/runtime-thread-control.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/managed-session-inspection.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 daemon subagent cancellation propagation checks:
+
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-subagent-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-subagent-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-subagent-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-subagent-surface.test.mjs packages/runtime-daemon/src/runtime-subagent-recovery.test.mjs packages/runtime-daemon/src/managed-session-inspection.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-thread-control.test.mjs packages/runtime-daemon/src/thread-store.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 daemon approval surface extraction checks:
+
+- `node --check packages/runtime-daemon/src/runtime-approval-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-approval-surface.test.mjs` passed.
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-approval-surface.test.mjs packages/runtime-daemon/src/runtime-approval-lease.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/approval-lease.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs packages/runtime-daemon/src/runtime-thread-control.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/managed-session-inspection.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 daemon coding-tool budget recovery surface extraction checks:
+
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs packages/runtime-daemon/src/runtime-approval-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/managed-session-inspection.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 daemon workflow-edit surface extraction checks:
+
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs packages/runtime-daemon/src/runtime-approval-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-thread-control.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 daemon coding-tool governance surface extraction checks:
+
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs packages/runtime-daemon/src/runtime-approval-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/approval-lease.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs packages/runtime-daemon/src/runtime-thread-control.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 daemon coding-tool artifact surface extraction checks:
+
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-results.test.mjs packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-results.test.mjs packages/runtime-daemon/src/computer-use-inputs.test.mjs packages/runtime-daemon/src/runtime-run-event-helpers.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 daemon workspace snapshot surface extraction checks:
+
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs packages/runtime-daemon/src/diagnostics-feedback.test.mjs packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 daemon diagnostics feedback surface extraction checks:
+
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs packages/runtime-daemon/src/diagnostics-feedback.test.mjs packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 daemon diagnostics repair decision surface extraction checks:
+
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs packages/runtime-daemon/src/diagnostics-feedback.test.mjs packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 daemon diagnostics repair helper expansion checks:
+
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs packages/runtime-daemon/src/diagnostics-feedback.test.mjs packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs` passed.
+
+2026-06-04 daemon coding-tool invocation surface extraction checks:
+
+- `node --check packages/runtime-daemon/src/index.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs` passed.
+- `node --check packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-results.test.mjs packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs packages/runtime-daemon/src/computer-use-inputs.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 model-mounting catalog provider configuration checks:
+
+- `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/routes.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs` passed.
+
+2026-06-04 model-mounting vault operation checks:
+
+- `node --check packages/runtime-daemon/src/model-mounting/vault-operations.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs packages/runtime-daemon/src/model-mounting/vault-port.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/routes.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs packages/runtime-daemon/src/model-mounting/provider-registry-bindings.test.mjs packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 model-mounting Hugging Face catalog search checks:
+
+- `node --check packages/runtime-daemon/src/model-mounting/huggingface-catalog-search.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting/huggingface-catalog-search.test.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/huggingface-catalog-search.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-projections.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/routes.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/provider-registry-bindings.test.mjs packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 model-mounting capability token operation checks:
+
+- `node --check packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs packages/runtime-daemon/src/model-mounting/wallet-authority.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/read-model.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/routes.test.mjs packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs packages/runtime-daemon/src/model-mounting/provider-registry-bindings.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 model-mounting latest health projection checks:
+
+- `node --check packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/read-model.test.mjs packages/runtime-daemon/src/model-mounting/projections.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs packages/runtime-daemon/src/model-mounting/wallet-authority.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 model-mounting read/accessor facade checks:
+
+- `node --check packages/runtime-daemon/src/model-mounting/read-model.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting/state-accessors.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting/read-model.test.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/read-model.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs packages/runtime-daemon/src/model-mounting/projections.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 model-mounting route state-operation checks:
+
+- `node --check packages/runtime-daemon/src/model-mounting/routes.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting/routes.test.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/routes.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/routes.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs` passed.
+- `git diff --check` passed.
+
+2026-06-04 model-mounting receipt operation checks:
+
+- `node --check packages/runtime-daemon/src/model-mounting/receipt-operations.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs` passed.
+- `node --check packages/runtime-daemon/src/model-mounting.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/routes.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs packages/runtime-daemon/src/model-mounting/server-control.test.mjs` passed.
+- `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/projections.test.mjs packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs` passed.
+- `git diff --check` passed.
+
 ## Remaining Follow-Ups
 
 - Reduce `extension.js` further by moving Studio projection events, managed-session controls, panel lifecycle, and feature command groups.
 - Reduce `packages/runtime-daemon/src/index.mjs` by extracting service lifecycle, route registration glue, and the remaining state-store orchestration that is still too large for easy review.
-- Reduce `model-mounting.mjs` further by moving provider/catalog operation glue and remaining route HTTP glue.
+- Reduce `model-mounting.mjs` further by moving any leftover state/storage/server/backend wrappers whose ownership is now clear enough to isolate.
 - Continue Rust hot-spot splits around final reply contract, tool outcome classification, finalize action processing, queue facts, filesystem handler, and substrate lifecycle.
-- Run longer integrated sessions to watch for retry-limit regressions and replay/reconnect durability under real use.
-- Keep watching the product UI for raw trace/tool/path leakage after every projection or panel lifecycle extraction.
+- After future extraction waves, rerun the integrated gate and live GUI proofs to keep watching retry-limit, replay/reconnect durability, and product UI leakage under real use.

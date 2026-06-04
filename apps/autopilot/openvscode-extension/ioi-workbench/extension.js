@@ -847,7 +847,7 @@ const {
   fetchStudioThreadTurnEvents,
   firstArray,
   getStudioRuntimeProjection: () => studioRuntimeProjection,
-  sanitizeStudioProductAssistantText,
+  sanitizeStudioProductAssistantText: (value) => sanitizeStudioProductAssistantText(value),
   refreshStudioPanelHtml,
   resumeStudioTurn,
   STUDIO_MODE_AGENT,
@@ -904,14 +904,16 @@ const {
   getStudioRuntimeProjection: () => studioRuntimeProjection,
   invokeStudioDaemonTool,
   normalizeReceiptRefs,
-  openStudioNativeDiffPreview,
-  patchPreviewHunkFromToolResponse,
+  openStudioNativeDiffPreview: (hunk, output) => openStudioNativeDiffPreview(hunk, output),
+  patchPreviewHunkFromToolResponse: (response, targetPath) =>
+    patchPreviewHunkFromToolResponse(response, targetPath),
   recomputeStudioRuntimeCockpitAchieved,
   refreshStudioReplayStepsFromProjection,
   requestAndDenyStudioPolicyLease,
   requestJson,
   studioApprovalTurnPayload,
-  studioRuntimeCockpitPatchTargetFromPrompt,
+  studioRuntimeCockpitPatchTargetFromPrompt: (prompt, fallback) =>
+    studioRuntimeCockpitPatchTargetFromPrompt(prompt, fallback),
   STUDIO_APPROVAL_ID,
   STUDIO_POLICY_LEASE_ID,
 });

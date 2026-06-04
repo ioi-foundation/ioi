@@ -110,6 +110,31 @@ export function providerHealthList(state, deps = {}) {
     .sort((left, right) => String(left.checkedAt ?? "").localeCompare(String(right.checkedAt ?? "")));
 }
 
+export function workflowNodeBindings(deps = {}) {
+  const { capabilityForWorkflowNode } = deps;
+  return [
+    "Model Call",
+    "Structured Output",
+    "Verifier",
+    "Planner",
+    "Embedding",
+    "Reranker",
+    "Vision",
+    "Local Tool/MCP",
+    "Model Router",
+    "Receipt Gate",
+  ].map((node) => ({
+    node,
+    modelId: null,
+    supportsExplicitModelId: true,
+    supportsModelPolicy: true,
+    capability: capabilityForWorkflowNode(node),
+    receiptRequired: true,
+    routeId: "route.local-first",
+    daemonApi: node === "Receipt Gate" ? "/api/v1/workflows/receipt-gate" : "/api/v1/workflows/nodes/execute",
+  }));
+}
+
 export function modelMountingSnapshot(state, baseUrl, deps = {}) {
   const { schemaVersion } = deps;
   return {

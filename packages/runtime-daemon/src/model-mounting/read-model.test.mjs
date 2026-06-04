@@ -13,6 +13,7 @@ import {
   productArtifactList,
   providerList,
   routeList,
+  workflowNodeBindings,
 } from "./read-model.mjs";
 
 function fakeState() {
@@ -163,6 +164,30 @@ test("model mounting read model builds product and protocol model lists", () => 
   assert.deepEqual(productArtifactList(state, { isFixtureModelRecord: (artifact) => artifact.family === "fixture" }).map((artifact) => artifact.id), ["artifact_b"]);
   assert.deepEqual(legacyModelList(state).map((model) => model.id), ["model_b"]);
   assert.deepEqual(openAiModelList(state).data.map((model) => model.id), ["model_b"]);
+});
+
+test("model mounting read model builds workflow node bindings", () => {
+  const bindings = workflowNodeBindings({
+    capabilityForWorkflowNode(node) {
+      if (node === "Embedding") return "embeddings";
+      if (node === "Receipt Gate") return "receipt_gate";
+      return "chat";
+    },
+  });
+
+  assert.equal(bindings.length, 10);
+  assert.equal(bindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
+  assert.equal(bindings.find((binding) => binding.node === "Receipt Gate").daemonApi, "/api/v1/workflows/receipt-gate");
+  assert.deepEqual(bindings.find((binding) => binding.node === "Model Call"), {
+    node: "Model Call",
+    modelId: null,
+    supportsExplicitModelId: true,
+    supportsModelPolicy: true,
+    capability: "chat",
+    receiptRequired: true,
+    routeId: "route.local-first",
+    daemonApi: "/api/v1/workflows/nodes/execute",
+  });
 });
 
 test("model mounting read model applies provider vault metadata and capabilities", () => {

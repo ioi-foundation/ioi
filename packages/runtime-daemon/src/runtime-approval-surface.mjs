@@ -1,0 +1,688 @@
+import crypto from "node:crypto";
+
+import {
+  eventStreamIdForThread,
+  fixtureProfileForAgent,
+  runIdForTurn,
+  runtimeSessionIdForAgent,
+  turnIdForRun,
+} from "./runtime-identifiers.mjs";
+import {
+  appendOperatorControl,
+  normalizeArray,
+  operatorControlSource,
+  optionalString,
+  safeId,
+  uniqueStrings,
+} from "./runtime-value-helpers.mjs";
+import { contextBudgetNumber } from "./threads/context-budget-policy.mjs";
+
+function approvalRequiredError(runtimeError, threadId) {
+  return runtimeError({
+    status: 400,
+    code: "approval_id_required",
+    message: "Approval decisions require an approval id.",
+    details: { threadId },
+  });
+}
+
+function approvalRevokeRequiredError(runtimeError, threadId) {
+  return runtimeError({
+    status: 400,
+    code: "approval_id_required",
+    message: "Approval revocation requires an approval id.",
+    details: { threadId },
+  });
+}
+
+function resolveApprovalTarget(store, agent, threadId, request = {}, fallbackTurnId = "", deps = {}) {
+  const { notFound } = deps;
+  const runs = store.listRuns(agent.id);
+  const requestedTurnId = optionalString(request.turn_id ?? request.turnId);
+  let turnId = requestedTurnId ?? fallbackTurnId ?? "";
+  let run = null;
+  if (turnId) {
+    run = store.getRun(runIdForTurn(turnId));
+    if (run.agentId !== agent.id) {
+      throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId: run.id });
+    }
+  } else {
+    run = runs.at(-1) ?? null;
+    turnId = run ? turnIdForRun(run.id) : "";
+  }
+  return { run, turnId };
+}
+
+function appendRunApprovalControl(run, control, bucket) {
+  return {
+    ...run,
+    trace: {
+      ...run.trace,
+      operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
+      [bucket]: appendOperatorControl(run.trace?.[bucket], control),
+    },
+    operatorControls: appendOperatorControl(run.operatorControls, control),
+    [bucket]: appendOperatorControl(run[bucket], control),
+  };
+}
+
+function requestApprovalManifest(request = {}) {
+  if (request.approval_manifest && typeof request.approval_manifest === "object") return request.approval_manifest;
+  if (request.approvalManifest && typeof request.approvalManifest === "object") return request.approvalManifest;
+  return null;
+}
+
+export function createRuntimeApprovalSurface(deps = {}) {
+  const {
+    approvalDecisionForRequest,
+    approvalLeaseMetadataForRequest,
+    approvalLeaseMetadataFromPayload,
+    notFound,
+    runtimeError,
+  } = deps;
+
+  function latestApprovalRequestEvent(store, threadId, approvalId) {
+    const normalizedApprovalId = optionalString(approvalId);
+    if (!normalizedApprovalId) return null;
+    const stream = store.runtimeEventStream(eventStreamIdForThread(threadId));
+    return (
+      stream.events
+        .filter(
+          (event) =>
+            event.approval_id === normalizedApprovalId &&
+            event.event_kind === "approval.required",
+        )
+        .at(-1) ?? null
+    );
+  }
+
+  function latestApprovalDecisionEvent(store, threadId, approvalId) {
+    const normalizedApprovalId = optionalString(approvalId);
+    if (!normalizedApprovalId) return null;
+    const stream = store.runtimeEventStream(eventStreamIdForThread(threadId));
+    return (
+      stream.events
+        .filter(
+          (event) =>
+            event.approval_id === normalizedApprovalId &&
+            (event.event_kind === "approval.approved" ||
+              event.event_kind === "approval.rejected" ||
+              event.event_kind === "approval.revoked"),
+        )
+        .at(-1) ?? null
+    );
+  }
+
+  function requestThreadApproval(store, threadId, request = {}) {
+    const agent = store.agentForThread(threadId);
+    const { run, turnId } = resolveApprovalTarget(store, agent, threadId, request, "", { notFound });
+    const source = operatorControlSource(request.source);
+    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const reason =
+      optionalString(request.reason ?? request.message ?? request.input) ??
+      "operator requested approval";
+    const action =
+      optionalString(request.action ?? request.approval_action ?? request.approvalAction) ??
+      "request_approval";
+    const toolId =
+      optionalString(request.tool_id ?? request.toolId ?? request.tool_name ?? request.toolName) ??
+      null;
+    const effectClass = optionalString(request.effect_class ?? request.effectClass) ?? null;
+    const riskDomain = optionalString(request.risk_domain ?? request.riskDomain) ?? null;
+    const runOrAgentId = run?.id ?? agent.id;
+    const approvalSeed = `${threadId}:${turnId || "thread"}:${reason}`;
+    const approvalHash = crypto.createHash("sha256").update(approvalSeed).digest("hex").slice(0, 16);
+    const approvalId =
+      optionalString(request.approval_id ?? request.approvalId) ??
+      `approval_context_pressure_${safeId(threadId)}_${safeId(turnId || "thread")}_${approvalHash}`;
+    const workflowNodeId =
+      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      `runtime.approval.${safeId(approvalId)}`;
+    const scope = optionalString(request.scope) ?? "thread";
+    const pressure = contextBudgetNumber(
+      request.pressure,
+      request.context_pressure,
+      request.contextPressure,
+    );
+    const pressureStatus =
+      optionalString(
+        request.pressure_status ??
+          request.pressureStatus ??
+          request.context_pressure_status ??
+          request.contextPressureStatus,
+      ) ?? null;
+    const alertId =
+      optionalString(request.alert_id ?? request.alertId ?? request.alert_event_id ?? request.alertEventId) ??
+      null;
+    const sourceEventId = optionalString(request.source_event_id ?? request.sourceEventId) ?? null;
+    const leaseMetadata = approvalLeaseMetadataForRequest({
+      request,
+      approvalId,
+      action,
+      scope,
+      now: new Date().toISOString(),
+      threadId,
+    });
+    const receiptRefs = uniqueStrings([
+      ...normalizeArray(request.receipt_refs ?? request.receiptRefs),
+      `receipt_${runOrAgentId}_approval_required_${safeId(approvalId)}`,
+    ]);
+    const policyDecisionRefs = uniqueStrings([
+      ...normalizeArray(request.policy_decision_refs ?? request.policyDecisionRefs),
+      `policy_${runOrAgentId}_approval_required`,
+    ]);
+    const now = leaseMetadata.created_at;
+    const event = store.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:approval-required:${safeId(approvalId)}`,
+      idempotency_key:
+        request.idempotency_key ??
+        request.idempotencyKey ??
+        `thread:${threadId}:approval.required:${approvalId}`,
+      source,
+      source_event_kind: "OperatorApproval.Request",
+      event_kind: "approval.required",
+      status: "waiting_for_approval",
+      actor: "user",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
+      workflow_node_id: workflowNodeId,
+      component_kind: "approval_gate",
+      approval_id: approvalId,
+      payload_schema_version: "ioi.runtime.approval-request.v1",
+      payload: {
+        event_kind: "OperatorApproval.Request",
+        approval_id: approvalId,
+        approval_required: true,
+        approvalRequired: true,
+        reason,
+        requested_by: requestedBy,
+        control_surface: source,
+        action,
+        scope,
+        tool_id: toolId,
+        toolId,
+        effect_class: effectClass,
+        effectClass,
+        risk_domain: riskDomain,
+        riskDomain,
+        authority_scope_requirements: normalizeArray(
+          request.authority_scope_requirements ?? request.authorityScopeRequirements,
+        ),
+        expected_receipt_refs: leaseMetadata.expected_receipt_refs,
+        expectedReceiptRefs: leaseMetadata.expectedReceiptRefs,
+        policy_hash: leaseMetadata.policy_hash,
+        policyHash: leaseMetadata.policyHash,
+        ttl_ms: leaseMetadata.ttl_ms,
+        ttlMs: leaseMetadata.ttlMs,
+        expires_at: leaseMetadata.expires_at,
+        expiresAt: leaseMetadata.expiresAt,
+        lease_id: leaseMetadata.lease_id,
+        leaseId: leaseMetadata.leaseId,
+        revoke_endpoint: leaseMetadata.revoke_endpoint,
+        revokeEndpoint: leaseMetadata.revokeEndpoint,
+        approval_lease: leaseMetadata,
+        approvalLease: leaseMetadata,
+        approval_manifest: requestApprovalManifest(request),
+        approvalManifest: requestApprovalManifest(request),
+        pressure: pressure ?? null,
+        pressure_status: pressureStatus,
+        pressureStatus,
+        alert_id: alertId,
+        alertId,
+        source_event_id: sourceEventId,
+        sourceEventId,
+        agent_id: agent.id,
+        thread_id: threadId,
+        turn_id: turnId || null,
+        run_id: run?.id ?? null,
+        session_id: runtimeSessionIdForAgent(agent),
+      },
+      receipt_refs: receiptRefs,
+      policy_decision_refs: policyDecisionRefs,
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    const control = {
+      control: "approval_request",
+      approvalId,
+      status: "waiting_for_approval",
+      source,
+      reason,
+      eventId: event.event_id,
+      seq: event.seq,
+      receiptRefs: event.receipt_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+      createdAt: event.created_at,
+    };
+    if (run) {
+      const withControl = appendRunApprovalControl(run, control, "approvalRequests");
+      const updated = {
+        ...withControl,
+        status: run.status === "queued" || run.status === "running" ? "blocked" : run.status,
+        updatedAt: event.created_at,
+        turnStatus: "waiting_for_approval",
+      };
+      store.runs.set(run.id, updated);
+      store.writeRun(updated, "approval.required");
+      return {
+        ...store.turnForRun(updated),
+        approval_id: approvalId,
+        approval_required: true,
+        approvalRequired: true,
+        event_id: event.event_id,
+        seq: event.seq,
+        receipt_refs: event.receipt_refs,
+        policy_decision_refs: event.policy_decision_refs,
+      };
+    }
+
+    const updatedAgent = { ...agent, updatedAt: event.created_at };
+    store.agents.set(agent.id, updatedAgent);
+    store.writeAgent(updatedAgent, "approval.required");
+    return {
+      ...store.threadForAgent(updatedAgent),
+      approval_id: approvalId,
+      approval_required: true,
+      approvalRequired: true,
+      event_id: event.event_id,
+      seq: event.seq,
+      receipt_refs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+    };
+  }
+
+  function decideThreadApproval(store, threadId, approvalId, request = {}) {
+    const agent = store.agentForThread(threadId);
+    const normalizedApprovalId =
+      optionalString(approvalId ?? request.approval_id ?? request.approvalId) ??
+      (() => {
+        throw approvalRequiredError(runtimeError, threadId);
+      })();
+    const decision = approvalDecisionForRequest(request.decision ?? request.action ?? request.status);
+    const source = operatorControlSource(request.source);
+    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const reason = optionalString(request.reason ?? request.message ?? request.input) ?? null;
+    const { run, turnId } = resolveApprovalTarget(store, agent, threadId, request, "", { notFound });
+    const now = new Date().toISOString();
+    const status = decision === "approve" ? "approved" : "rejected";
+    const decisionVerb = decision === "approve" ? "Approve" : "Reject";
+    const approvalRequestEvent = latestApprovalRequestEvent(store, threadId, normalizedApprovalId);
+    const approvalRequestPayload = approvalRequestEvent?.payload_summary ?? approvalRequestEvent?.payload ?? {};
+    const leaseMetadata = approvalLeaseMetadataFromPayload(
+      approvalRequestPayload,
+      normalizedApprovalId,
+      threadId,
+    );
+    const leaseStatus = decision === "approve" ? "active" : "denied";
+    const approvalLease = {
+      ...leaseMetadata,
+      status: leaseStatus,
+      decision,
+      approval_request_event_id: approvalRequestEvent?.event_id ?? null,
+      approvalRequestEventId: approvalRequestEvent?.event_id ?? null,
+      decided_at: now,
+      decidedAt: now,
+    };
+    const decisionHash = crypto
+      .createHash("sha256")
+      .update(`${normalizedApprovalId}:${decision}:${reason ?? ""}:${requestedBy}`)
+      .digest("hex")
+      .slice(0, 16);
+    const workflowNodeId =
+      request.workflow_node_id ??
+      request.workflowNodeId ??
+      `runtime.approval.${safeId(normalizedApprovalId)}`;
+    const runOrAgentId = run?.id ?? agent.id;
+    const event = store.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:approval-${decision}:${safeId(normalizedApprovalId)}`,
+      idempotency_key:
+        request.idempotency_key ??
+        request.idempotencyKey ??
+        `thread:${threadId}:approval.${decision}:${normalizedApprovalId}:${decisionHash}`,
+      source,
+      source_event_kind: `OperatorApproval.${decisionVerb}`,
+      event_kind: `approval.${status}`,
+      status,
+      actor: "user",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
+      workflow_node_id: workflowNodeId,
+      component_kind: "approval_gate",
+      approval_id: normalizedApprovalId,
+      payload_schema_version: "ioi.runtime.approval-decision.v1",
+      payload: {
+        event_kind: `OperatorApproval.${decisionVerb}`,
+        approval_id: normalizedApprovalId,
+        decision,
+        status,
+        reason,
+        requested_by: requestedBy,
+        control_surface: source,
+        action: approvalRequestPayload.action ?? null,
+        scope: approvalRequestPayload.scope ?? null,
+        tool_id: approvalRequestPayload.tool_id ?? approvalRequestPayload.toolId ?? null,
+        toolId: approvalRequestPayload.toolId ?? approvalRequestPayload.tool_id ?? null,
+        effect_class: approvalRequestPayload.effect_class ?? approvalRequestPayload.effectClass ?? null,
+        effectClass: approvalRequestPayload.effectClass ?? approvalRequestPayload.effect_class ?? null,
+        risk_domain: approvalRequestPayload.risk_domain ?? approvalRequestPayload.riskDomain ?? null,
+        riskDomain: approvalRequestPayload.riskDomain ?? approvalRequestPayload.risk_domain ?? null,
+        approval_request_event_id: approvalRequestEvent?.event_id ?? null,
+        approvalRequestEventId: approvalRequestEvent?.event_id ?? null,
+        lease_id: leaseMetadata.lease_id,
+        leaseId: leaseMetadata.leaseId,
+        lease_status: leaseStatus,
+        leaseStatus,
+        policy_hash: leaseMetadata.policy_hash,
+        policyHash: leaseMetadata.policyHash,
+        ttl_ms: leaseMetadata.ttl_ms,
+        ttlMs: leaseMetadata.ttlMs,
+        expires_at: leaseMetadata.expires_at,
+        expiresAt: leaseMetadata.expiresAt,
+        expected_receipt_refs: leaseMetadata.expected_receipt_refs,
+        expectedReceiptRefs: leaseMetadata.expectedReceiptRefs,
+        authority_scope_requirements: leaseMetadata.authority_scope_requirements,
+        authorityScopeRequirements: leaseMetadata.authorityScopeRequirements,
+        revoke_endpoint: leaseMetadata.revoke_endpoint,
+        revokeEndpoint: leaseMetadata.revokeEndpoint,
+        approval_lease: approvalLease,
+        approvalLease,
+        approval_manifest: approvalRequestPayload.approval_manifest ?? approvalRequestPayload.approvalManifest ?? null,
+        approvalManifest: approvalRequestPayload.approvalManifest ?? approvalRequestPayload.approval_manifest ?? null,
+        agent_id: agent.id,
+        thread_id: threadId,
+        turn_id: turnId || null,
+        run_id: run?.id ?? null,
+        session_id: runtimeSessionIdForAgent(agent),
+      },
+      receipt_refs: [`receipt_${runOrAgentId}_approval_${decision}_${safeId(normalizedApprovalId)}_${decisionHash}`],
+      policy_decision_refs: [`policy_${runOrAgentId}_approval_${decision}_allow`],
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    const control = {
+      control: "approval_decision",
+      approvalId: normalizedApprovalId,
+      leaseId: leaseMetadata.leaseId,
+      leaseStatus,
+      decision,
+      status,
+      source,
+      reason,
+      eventId: event.event_id,
+      seq: event.seq,
+      receiptRefs: event.receipt_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+      createdAt: event.created_at,
+    };
+    if (run) {
+      const withControl = appendRunApprovalControl(run, control, "approvalDecisions");
+      const updated = {
+        ...withControl,
+        updatedAt: event.created_at,
+        turnStatus: decision === "reject" ? "waiting_for_input" : run.turnStatus,
+      };
+      store.runs.set(run.id, updated);
+      store.writeRun(updated, `approval.${decision}`);
+      return {
+        ...store.turnForRun(updated),
+        approval_id: normalizedApprovalId,
+        lease_id: leaseMetadata.lease_id,
+        leaseId: leaseMetadata.leaseId,
+        lease_status: leaseStatus,
+        leaseStatus,
+        approval_lease: approvalLease,
+        approvalLease,
+        decision,
+        event_id: event.event_id,
+        seq: event.seq,
+        receipt_refs: event.receipt_refs,
+        policy_decision_refs: event.policy_decision_refs,
+      };
+    }
+    const updatedAgent = { ...agent, updatedAt: event.created_at };
+    store.agents.set(agent.id, updatedAgent);
+    store.writeAgent(updatedAgent, `approval.${decision}`);
+    return {
+      ...store.threadForAgent(updatedAgent),
+      approval_id: normalizedApprovalId,
+      lease_id: leaseMetadata.lease_id,
+      leaseId: leaseMetadata.leaseId,
+      lease_status: leaseStatus,
+      leaseStatus,
+      approval_lease: approvalLease,
+      approvalLease,
+      decision,
+      event_id: event.event_id,
+      seq: event.seq,
+      receipt_refs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+    };
+  }
+
+  function revokeThreadApproval(store, threadId, approvalId, request = {}) {
+    const agent = store.agentForThread(threadId);
+    const normalizedApprovalId =
+      optionalString(approvalId ?? request.approval_id ?? request.approvalId) ??
+      (() => {
+        throw approvalRevokeRequiredError(runtimeError, threadId);
+      })();
+    const approvalRequestEvent = latestApprovalRequestEvent(store, threadId, normalizedApprovalId);
+    if (!approvalRequestEvent) {
+      throw notFound(`Approval request not found: ${normalizedApprovalId}`, {
+        threadId,
+        approvalId: normalizedApprovalId,
+      });
+    }
+    const approvalRequestPayload = approvalRequestEvent.payload_summary ?? approvalRequestEvent.payload ?? {};
+    const stream = store.runtimeEventStream(eventStreamIdForThread(threadId));
+    const priorDecisionEvent =
+      stream.events
+        .filter(
+          (event) =>
+            event.approval_id === normalizedApprovalId &&
+            event.seq > approvalRequestEvent.seq &&
+            (event.event_kind === "approval.approved" || event.event_kind === "approval.rejected"),
+        )
+        .at(-1) ?? null;
+    const source = operatorControlSource(request.source);
+    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const reason =
+      optionalString(request.reason ?? request.message ?? request.input) ??
+      "operator revoked approval lease";
+    const { run, turnId } = resolveApprovalTarget(
+      store,
+      agent,
+      threadId,
+      request,
+      approvalRequestEvent.turn_id ?? "",
+      { notFound },
+    );
+    const now = new Date().toISOString();
+    const leaseMetadata = approvalLeaseMetadataFromPayload(
+      approvalRequestPayload,
+      normalizedApprovalId,
+      threadId,
+    );
+    const approvalLease = {
+      ...leaseMetadata,
+      status: "revoked",
+      approval_request_event_id: approvalRequestEvent.event_id,
+      approvalRequestEventId: approvalRequestEvent.event_id,
+      approval_decision_event_id: priorDecisionEvent?.event_id ?? null,
+      approvalDecisionEventId: priorDecisionEvent?.event_id ?? null,
+      revoked_at: now,
+      revokedAt: now,
+    };
+    const revokeHash = crypto
+      .createHash("sha256")
+      .update(`${normalizedApprovalId}:revoke:${reason}:${requestedBy}`)
+      .digest("hex")
+      .slice(0, 16);
+    const workflowNodeId =
+      request.workflow_node_id ??
+      request.workflowNodeId ??
+      approvalRequestEvent.workflow_node_id ??
+      `runtime.approval.${safeId(normalizedApprovalId)}`;
+    const workflowGraphId =
+      request.workflow_graph_id ??
+      request.workflowGraphId ??
+      approvalRequestEvent.workflow_graph_id ??
+      null;
+    const runOrAgentId = run?.id ?? agent.id;
+    const event = store.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:approval-revoke:${safeId(normalizedApprovalId)}`,
+      idempotency_key:
+        request.idempotency_key ??
+        request.idempotencyKey ??
+        `thread:${threadId}:approval.revoke:${normalizedApprovalId}:${revokeHash}`,
+      source,
+      source_event_kind: "OperatorApproval.Revoke",
+      event_kind: "approval.revoked",
+      status: "revoked",
+      actor: "user",
+      created_at: now,
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "approval_gate",
+      approval_id: normalizedApprovalId,
+      payload_schema_version: "ioi.runtime.approval-revoke.v1",
+      payload: {
+        event_kind: "OperatorApproval.Revoke",
+        approval_id: normalizedApprovalId,
+        decision: "revoke",
+        status: "revoked",
+        reason,
+        requested_by: requestedBy,
+        control_surface: source,
+        action: approvalRequestPayload.action ?? null,
+        scope: approvalRequestPayload.scope ?? null,
+        tool_id: approvalRequestPayload.tool_id ?? approvalRequestPayload.toolId ?? null,
+        toolId: approvalRequestPayload.toolId ?? approvalRequestPayload.tool_id ?? null,
+        effect_class: approvalRequestPayload.effect_class ?? approvalRequestPayload.effectClass ?? null,
+        effectClass: approvalRequestPayload.effectClass ?? approvalRequestPayload.effect_class ?? null,
+        risk_domain: approvalRequestPayload.risk_domain ?? approvalRequestPayload.riskDomain ?? null,
+        riskDomain: approvalRequestPayload.riskDomain ?? approvalRequestPayload.risk_domain ?? null,
+        approval_request_event_id: approvalRequestEvent.event_id,
+        approvalRequestEventId: approvalRequestEvent.event_id,
+        approval_decision_event_id: priorDecisionEvent?.event_id ?? null,
+        approvalDecisionEventId: priorDecisionEvent?.event_id ?? null,
+        lease_id: leaseMetadata.lease_id,
+        leaseId: leaseMetadata.leaseId,
+        lease_status: "revoked",
+        leaseStatus: "revoked",
+        policy_hash: leaseMetadata.policy_hash,
+        policyHash: leaseMetadata.policyHash,
+        ttl_ms: leaseMetadata.ttl_ms,
+        ttlMs: leaseMetadata.ttlMs,
+        expires_at: leaseMetadata.expires_at,
+        expiresAt: leaseMetadata.expiresAt,
+        expected_receipt_refs: leaseMetadata.expected_receipt_refs,
+        expectedReceiptRefs: leaseMetadata.expectedReceiptRefs,
+        authority_scope_requirements: leaseMetadata.authority_scope_requirements,
+        authorityScopeRequirements: leaseMetadata.authorityScopeRequirements,
+        revoke_endpoint: leaseMetadata.revoke_endpoint,
+        revokeEndpoint: leaseMetadata.revokeEndpoint,
+        approval_lease: approvalLease,
+        approvalLease,
+        approval_manifest: approvalRequestPayload.approval_manifest ?? approvalRequestPayload.approvalManifest ?? null,
+        approvalManifest: approvalRequestPayload.approvalManifest ?? approvalRequestPayload.approval_manifest ?? null,
+        agent_id: agent.id,
+        thread_id: threadId,
+        turn_id: turnId || null,
+        run_id: run?.id ?? null,
+        session_id: runtimeSessionIdForAgent(agent),
+      },
+      receipt_refs: [`receipt_${runOrAgentId}_approval_revoke_${safeId(normalizedApprovalId)}_${revokeHash}`],
+      policy_decision_refs: [`policy_${runOrAgentId}_approval_revoke`],
+      artifact_refs: [],
+      rollback_refs: [],
+      redaction_profile: "internal",
+      fixture_profile: fixtureProfileForAgent(agent),
+    });
+    const control = {
+      control: "approval_revoke",
+      approvalId: normalizedApprovalId,
+      leaseId: leaseMetadata.leaseId,
+      leaseStatus: "revoked",
+      decision: "revoke",
+      status: "revoked",
+      source,
+      reason,
+      eventId: event.event_id,
+      seq: event.seq,
+      receiptRefs: event.receipt_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+      createdAt: event.created_at,
+    };
+    if (run) {
+      const withDecision = appendRunApprovalControl(run, control, "approvalDecisions");
+      const withRevocation = appendRunApprovalControl(withDecision, control, "approvalRevocations");
+      const updated = {
+        ...withRevocation,
+        updatedAt: event.created_at,
+        turnStatus: "waiting_for_input",
+      };
+      store.runs.set(run.id, updated);
+      store.writeRun(updated, "approval.revoke");
+      return {
+        ...store.turnForRun(updated),
+        approval_id: normalizedApprovalId,
+        lease_id: leaseMetadata.lease_id,
+        leaseId: leaseMetadata.leaseId,
+        lease_status: "revoked",
+        leaseStatus: "revoked",
+        approval_lease: approvalLease,
+        approvalLease,
+        decision: "revoke",
+        status: "revoked",
+        event_id: event.event_id,
+        seq: event.seq,
+        receipt_refs: event.receipt_refs,
+        policy_decision_refs: event.policy_decision_refs,
+      };
+    }
+    const updatedAgent = { ...agent, updatedAt: event.created_at };
+    store.agents.set(agent.id, updatedAgent);
+    store.writeAgent(updatedAgent, "approval.revoke");
+    return {
+      ...store.threadForAgent(updatedAgent),
+      approval_id: normalizedApprovalId,
+      lease_id: leaseMetadata.lease_id,
+      leaseId: leaseMetadata.leaseId,
+      lease_status: "revoked",
+      leaseStatus: "revoked",
+      approval_lease: approvalLease,
+      approvalLease,
+      decision: "revoke",
+      status: "revoked",
+      event_id: event.event_id,
+      seq: event.seq,
+      receipt_refs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+    };
+  }
+
+  return {
+    decideThreadApproval,
+    latestApprovalDecisionEvent,
+    latestApprovalRequestEvent,
+    requestThreadApproval,
+    revokeThreadApproval,
+  };
+}

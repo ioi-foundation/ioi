@@ -28,6 +28,45 @@ export function route(state, routeId, deps = {}) {
   return record;
 }
 
+export function getModel(state, id, deps = {}) {
+  const { notFound } = deps;
+  const artifact = [...state.artifacts.values()].find((item) => item.id === id || item.modelId === id);
+  if (!artifact) {
+    throw notFound(`Model not found: ${id}`, { modelId: id });
+  }
+  return artifact;
+}
+
+export function modelForProviderMount(state, modelId, providerRecord, body = {}, now = state.nowIso(), deps = {}) {
+  const {
+    driverNameForProvider,
+    normalizeScopes,
+    safeId,
+  } = deps;
+  const artifact = [...state.artifacts.values()].find(
+    (item) => item.id === modelId || (item.modelId === modelId && item.providerId === providerRecord.id),
+  );
+  if (artifact) return artifact;
+  const mounted = {
+    id: `${safeId(providerRecord.id)}.${safeId(modelId)}`,
+    providerId: providerRecord.id,
+    modelId,
+    displayName: body.display_name ?? body.displayName ?? modelId,
+    family: body.family ?? providerRecord.kind,
+    quantization: body.quantization ?? null,
+    sizeBytes: Number.isFinite(Number(body.size_bytes ?? body.sizeBytes)) ? Number(body.size_bytes ?? body.sizeBytes) : null,
+    contextWindow: Number.isFinite(Number(body.context_window ?? body.contextWindow)) ? Number(body.context_window ?? body.contextWindow) : null,
+    capabilities: normalizeScopes(body.capabilities, providerRecord.capabilities ?? ["chat", "responses", "embeddings"]),
+    privacyClass: body.privacy_class ?? body.privacyClass ?? providerRecord.privacyClass,
+    source: `${driverNameForProvider(providerRecord)}_provider_direct_mount`,
+    state: "available",
+    discoveredAt: now,
+  };
+  state.artifacts.set(mounted.id, mounted);
+  state.writeMap("model-artifacts", state.artifacts);
+  return mounted;
+}
+
 export function resolveEndpoint(state, endpointId, modelId, deps = {}) {
   const { runtimeError } = deps;
   if (endpointId) return state.endpoint(endpointId);

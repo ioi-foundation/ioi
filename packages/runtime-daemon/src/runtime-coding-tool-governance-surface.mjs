@@ -1,0 +1,363 @@
+import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
+import {
+  doctorHash,
+  normalizeArray,
+  operatorControlSource,
+  optionalString,
+  safeId,
+  uniqueStrings,
+} from "./runtime-value-helpers.mjs";
+import {
+  CODING_TOOL_PACK_ID,
+  CODING_TOOL_RESULT_SCHEMA_VERSION,
+  codingToolInputSummary,
+  codingToolSourceEventKind,
+} from "./coding-tools.mjs";
+
+function defaultApprovalReasonForDecisionEvent(event = {}) {
+  const payload = event.payload_summary ?? event.payload ?? {};
+  return optionalString(payload.reason ?? event.reason) ?? "approval_not_satisfied";
+}
+
+function defaultApprovalLeaseStateForDecision() {
+  return { expired: false, leaseId: null, expiresAt: null };
+}
+
+function defaultCodingToolApprovalManifestsMatch(left, right) {
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+}
+
+export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
+  const {
+    approvalLeaseStateForDecision = defaultApprovalLeaseStateForDecision,
+    approvalReasonForDecisionEvent = defaultApprovalReasonForDecisionEvent,
+    codingToolApprovalManifestsMatch = defaultCodingToolApprovalManifestsMatch,
+  } = deps;
+
+  function codingToolApprovalSatisfaction(store, { threadId, approvalManifest, request }) {
+    const approvalId = optionalString(request.approval_id ?? request.approvalId);
+    if (!approvalId) return { satisfied: false, reason: "approval_id_missing" };
+    const approvalRequestEvent = store.latestApprovalRequestEvent(threadId, approvalId);
+    if (!approvalRequestEvent) return { satisfied: false, approvalId, reason: "approval_request_missing" };
+    const requestedManifest =
+      approvalRequestEvent.payload_summary?.approval_manifest ??
+      approvalRequestEvent.payload_summary?.approvalManifest ??
+      null;
+    if (!codingToolApprovalManifestsMatch(requestedManifest, approvalManifest)) {
+      return { satisfied: false, approvalId, reason: "approval_manifest_mismatch" };
+    }
+    const stream = store.runtimeEventStream(eventStreamIdForThread(threadId));
+    const latestDecision = stream.events
+      .filter(
+        (event) =>
+          event.approval_id === approvalId &&
+          event.seq > approvalRequestEvent.seq &&
+          (event.event_kind === "approval.approved" ||
+            event.event_kind === "approval.rejected" ||
+            event.event_kind === "approval.revoked"),
+      )
+      .at(-1);
+    if (!latestDecision) return { satisfied: false, approvalId, reason: "approval_decision_missing" };
+    if (latestDecision.event_kind !== "approval.approved") {
+      return {
+        satisfied: false,
+        approvalId,
+        decisionEventId: latestDecision.event_id,
+        decisionSeq: latestDecision.seq,
+        reason: approvalReasonForDecisionEvent(latestDecision),
+      };
+    }
+    const leaseState = approvalLeaseStateForDecision({
+      threadId,
+      approvalId,
+      approvalRequestEvent,
+      latestDecision,
+    });
+    if (leaseState.expired) {
+      return {
+        satisfied: false,
+        approvalId,
+        decisionEventId: latestDecision.event_id,
+        decisionSeq: latestDecision.seq,
+        reason: "approval_lease_expired",
+        leaseId: leaseState.leaseId,
+        expiresAt: leaseState.expiresAt,
+      };
+    }
+    return {
+      satisfied: true,
+      approvalId,
+      decisionEventId: latestDecision.event_id,
+      decisionSeq: latestDecision.seq,
+      reason: approvalReasonForDecisionEvent(latestDecision),
+      leaseId: leaseState.leaseId,
+      expiresAt: leaseState.expiresAt,
+    };
+  }
+
+  function blockCodingToolForApproval(store, {
+    agent,
+    threadId,
+    turnId,
+    toolId,
+    toolCallId,
+    receiptId,
+    input,
+    request,
+    workflowGraphId,
+    workflowNodeId,
+    requestRollbackRefs,
+    diagnosticsRepairContext,
+    approvalManifest,
+    toolContract,
+  }) {
+    const approvalId = `approval_coding_tool_${safeId(toolId)}_${doctorHash(
+      `${threadId}:${turnId || "thread"}:${toolCallId}`,
+    ).slice(0, 16)}`;
+    const error = {
+      code: "coding_tool_approval_required",
+      message: `${toolId} requires approval before execution in ${approvalManifest.thread_mode} mode.`,
+      details: {
+        toolId,
+        tool_call_id: toolCallId,
+        thread_mode: approvalManifest.thread_mode,
+        approval_mode: approvalManifest.approval_mode,
+        policy_reason: approvalManifest.policy_reason,
+      },
+    };
+    const approval = store.requestThreadApproval(threadId, {
+      ...request,
+      source: operatorControlSource(request.source),
+      turnId,
+      workflowGraphId,
+      workflowNodeId,
+      action: "coding_tool.invoke",
+      actor: "runtime",
+      reason: error.message,
+      scope: "coding_tool",
+      idempotencyKey: `thread:${threadId}:approval.required:${approvalId}`,
+      approvalId,
+      toolId,
+      effectClass: approvalManifest.effect_class,
+      riskDomain: approvalManifest.risk_domain,
+      authorityScopeRequirements: approvalManifest.authority_scope_requirements,
+      approvalManifest,
+      receiptRefs: [receiptId],
+      policyDecisionRefs: [`policy_coding_tool_${safeId(toolId)}_approval_required`],
+    });
+    const result = {
+      schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      toolName: toolId,
+      status: "blocked",
+      approvalRequired: true,
+      approval_required: true,
+      approvalId: approval.approval_id,
+      approval_id: approval.approval_id,
+      approvalManifest,
+      approval_manifest: approvalManifest,
+      inputSummary: codingToolInputSummary(toolId, input),
+      input_summary: codingToolInputSummary(toolId, input),
+      error,
+    };
+    return {
+      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      object: "ioi.runtime_coding_tool_result",
+      tool_pack: CODING_TOOL_PACK_ID,
+      tool_name: toolId,
+      tool_call_id: toolCallId,
+      thread_id: threadId,
+      turn_id: turnId || null,
+      status: "blocked",
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      shell_fallback_used: false,
+      approval_required: true,
+      approvalRequired: true,
+      approval_id: approval.approval_id,
+      approvalId: approval.approval_id,
+      approval_manifest: approvalManifest,
+      approvalManifest,
+      receipt_refs: approval.receipt_refs,
+      artifact_refs: [],
+      rollback_refs: uniqueStrings(requestRollbackRefs),
+      event: null,
+      approval,
+      approval_event_id: approval.event_id,
+      workspace_snapshot: null,
+      workspaceSnapshot: null,
+      workspace_snapshot_event: null,
+      workspaceSnapshotEvent: null,
+      auto_diagnostics: null,
+      autoDiagnostics: null,
+      diagnostics_repair_context: diagnosticsRepairContext,
+      diagnosticsRepairContext,
+      tool_contract: toolContract ?? null,
+      toolContract: toolContract ?? null,
+      result,
+      error,
+    };
+  }
+
+  function blockCodingToolForBudget(store, {
+    agent,
+    threadId,
+    turnId,
+    toolId,
+    toolCallId,
+    receiptId,
+    input,
+    request,
+    workflowGraphId,
+    workflowNodeId,
+    requestRollbackRefs,
+    diagnosticsRepairContext,
+    budgetPolicy,
+    toolContract,
+    codingToolIdempotencyKey,
+  }) {
+    const receiptRefs = uniqueStrings([
+      receiptId,
+      ...normalizeArray(budgetPolicy.receipt_refs ?? budgetPolicy.receiptRefs),
+    ]);
+    const policyDecisionRefs = uniqueStrings(
+      budgetPolicy.policy_decision_refs ?? budgetPolicy.policyDecisionRefs,
+    );
+    const error = {
+      code: "coding_tool_budget_exceeded",
+      message: `${toolId} blocked because the workflow coding-tool budget was exceeded.`,
+      details: {
+        toolId,
+        tool_call_id: toolCallId,
+        reason: "coding_tool_budget_exceeded",
+        budget_status: "exceeded",
+        context_budget_status: budgetPolicy.status,
+        contextBudgetStatus: budgetPolicy.status,
+        context_budget: budgetPolicy,
+        contextBudget: budgetPolicy,
+        budget_usage_telemetry: budgetPolicy.usage_telemetry,
+        budgetUsageTelemetry: budgetPolicy.usageTelemetry,
+      },
+    };
+    const result = {
+      schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      toolName: toolId,
+      status: "blocked",
+      budgetStatus: "exceeded",
+      budget_status: "exceeded",
+      contextBudgetStatus: budgetPolicy.status,
+      context_budget_status: budgetPolicy.status,
+      contextBudget: budgetPolicy,
+      context_budget: budgetPolicy,
+      inputSummary: codingToolInputSummary(toolId, input),
+      input_summary: codingToolInputSummary(toolId, input),
+      error,
+    };
+    const rollbackRefs = uniqueStrings(requestRollbackRefs);
+    const payloadSummary = {
+      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      event_kind: "CodingToolBudgetBlocked",
+      tool_pack: CODING_TOOL_PACK_ID,
+      tool_name: toolId,
+      tool_call_id: toolCallId,
+      thread_id: threadId,
+      turn_id: turnId || null,
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      status: "blocked",
+      summary: error.message,
+      shell_fallback_used: false,
+      input_summary: codingToolInputSummary(toolId, input),
+      result_summary: { status: "blocked", reason: "coding_tool_budget_exceeded" },
+      result,
+      error,
+      rollback_refs: rollbackRefs,
+      diagnostics_repair_context: diagnosticsRepairContext,
+      diagnosticsRepairContext,
+      approval_required: false,
+      approvalRequired: false,
+      budget_status: "exceeded",
+      budgetStatus: "exceeded",
+      context_budget_status: budgetPolicy.status,
+      contextBudgetStatus: budgetPolicy.status,
+      context_budget: budgetPolicy,
+      contextBudget: budgetPolicy,
+      budget_usage_telemetry: budgetPolicy.usage_telemetry,
+      budgetUsageTelemetry: budgetPolicy.usageTelemetry,
+      policy_decision_refs: policyDecisionRefs,
+      policyDecisionRefs,
+      receipt_id: receiptId,
+      receipt_count: receiptRefs.length,
+      artifact_count: 0,
+    };
+    const event = store.appendRuntimeEvent({
+      event_stream_id: eventStreamIdForThread(threadId),
+      thread_id: threadId,
+      turn_id: turnId,
+      item_id: `${turnId || threadId}:item:coding-tool:${safeId(toolId)}:${doctorHash(toolCallId).slice(0, 12)}`,
+      idempotency_key:
+        codingToolIdempotencyKey ??
+        `thread:${threadId}:coding-tool:${toolCallId}:budget-blocked`,
+      source: operatorControlSource(request.source),
+      source_event_kind: codingToolSourceEventKind(toolId),
+      event_kind: "policy.blocked",
+      status: "blocked",
+      actor: "runtime",
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      component_kind: "coding_tool",
+      tool_call_id: toolCallId,
+      artifact_refs: [],
+      receipt_refs: receiptRefs,
+      policy_decision_refs: policyDecisionRefs,
+      rollback_refs: rollbackRefs,
+      payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      payload_summary: payloadSummary,
+    });
+    return {
+      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      object: "ioi.runtime_coding_tool_result",
+      tool_pack: CODING_TOOL_PACK_ID,
+      tool_name: toolId,
+      tool_call_id: toolCallId,
+      thread_id: threadId,
+      turn_id: turnId || null,
+      status: "blocked",
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      shell_fallback_used: false,
+      budget_status: "exceeded",
+      budgetStatus: "exceeded",
+      context_budget: budgetPolicy,
+      contextBudget: budgetPolicy,
+      receipt_refs: event.receipt_refs,
+      receiptRefs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+      policyDecisionRefs: event.policy_decision_refs,
+      artifact_refs: [],
+      rollback_refs: rollbackRefs,
+      event,
+      workspace_snapshot: null,
+      workspaceSnapshot: null,
+      workspace_snapshot_event: null,
+      workspaceSnapshotEvent: null,
+      auto_diagnostics: null,
+      autoDiagnostics: null,
+      diagnostics_repair_context: diagnosticsRepairContext,
+      diagnosticsRepairContext,
+      tool_contract: toolContract ?? null,
+      toolContract: toolContract ?? null,
+      result,
+      error,
+    };
+  }
+
+  return {
+    codingToolApprovalSatisfaction,
+    blockCodingToolForApproval,
+    blockCodingToolForBudget,
+  };
+}

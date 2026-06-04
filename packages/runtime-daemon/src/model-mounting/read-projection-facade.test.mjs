@@ -16,6 +16,22 @@ function createState() {
       },
     },
     { id: "receipt-lifecycle", kind: "model_lifecycle", details: {} },
+    {
+      id: "receipt-provider-health",
+      kind: "provider_health",
+      details: {
+        providerId: "provider.local",
+        status: "healthy",
+      },
+    },
+    {
+      id: "receipt-vault-health",
+      kind: "vault_adapter_health",
+      details: {
+        status: "healthy",
+        implementation: "runtime_memory_vault",
+      },
+    },
   ];
   const state = {
     stateDir: "/state",
@@ -60,6 +76,11 @@ function createState() {
     listMcpServers: () => [],
     listReceipts: () => receipts,
     getReceipt: (receiptId) => receipts.find((receipt) => receipt.id === receiptId),
+    provider(providerId) {
+      const provider = this.providers.get(providerId);
+      if (!provider) throw Object.assign(new Error(`Provider not found: ${providerId}`), { status: 404 });
+      return provider;
+    },
     listRuntimeEngineProfiles: () => [],
     listRuntimeEngines: () => [],
     listTokens: () => [],
@@ -71,6 +92,11 @@ function createState() {
   };
   const facade = createModelMountingReadProjectionFacade({
     buildModelCapabilities: ({ artifacts }) => artifacts.map((artifact) => ({ modelId: artifact.modelId })),
+    capabilityForWorkflowNode(node) {
+      if (node === "Embedding") return "embeddings";
+      if (node === "Receipt Gate") return "receipt_gate";
+      return "chat";
+    },
     internalFixtureModelsEnabled: () => false,
     isFixtureModelRecord: (artifact) => artifact.family === "fixture",
     listJson: () => [],
@@ -81,11 +107,21 @@ function createState() {
     publicOAuthState: (oauthState) => ({ id: oauthState.id }),
     publicProvider: (provider, vaultMetadata) => ({ id: provider.id, vaultMetadata }),
     readJson: () => null,
+    notFound: (message, details) => Object.assign(new Error(message), {
+      status: 404,
+      code: "not_found",
+      details,
+    }),
+    operationCount: () => 42,
   });
   for (const key of Object.keys(facade)) {
     state[key] = (...args) => facade[key](state, ...args);
   }
-  state.listProviderHealth = () => [];
+  state.listProviderHealth = () => [{
+    providerId: "provider.local",
+    receiptId: "receipt-provider-health",
+    status: "healthy",
+  }];
   return { facade, state };
 }
 
@@ -102,6 +138,8 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     { modelId: "fixture" },
     { modelId: "model.local" },
   ]);
+  assert.equal(facade.workflowNodeBindings(state).find((binding) => binding.node === "Embedding").capability, "embeddings");
+  assert.equal(facade.workflowNodeBindings(state).find((binding) => binding.node === "Receipt Gate").daemonApi, "/api/v1/workflows/receipt-gate");
 });
 
 test("read projection facade composes snapshots, projection, and receipt replay", () => {
@@ -120,7 +158,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
 
   const summary = facade.projectionSummary(state);
   assert.equal(summary.schemaVersion, "model.mount.schema");
-  assert.equal(summary.receiptCount, 2);
+  assert.equal(summary.receiptCount, 4);
 
   const replay = facade.receiptReplay(state, "receipt-route");
   assert.equal(replay.schemaVersion, "model.mount.schema");
@@ -131,4 +169,47 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   const authority = facade.authoritySnapshot(state, "http://127.0.0.1:3200");
   assert.equal(authority.schemaVersion, "ioi.wallet-core-lite.authority.v1");
   assert.equal(authority.wallet.port, "WalletAuthorityPort");
+});
+
+test("read projection facade projects latest provider and vault health envelopes", () => {
+  const { facade, state } = createState();
+
+  const providerHealth = facade.latestProviderHealth(state, "provider.local");
+  assert.equal(providerHealth.schemaVersion, "model.mount.schema");
+  assert.equal(providerHealth.source, "agentgres_provider_health_latest");
+  assert.equal(providerHealth.providerId, "provider.local");
+  assert.equal(providerHealth.health.status, "healthy");
+  assert.equal(providerHealth.receipt.id, "receipt-provider-health");
+  assert.equal(providerHealth.replay.receipt.id, "receipt-provider-health");
+  assert.equal(providerHealth.projectionWatermark, 42);
+
+  const vaultHealth = facade.latestVaultHealth(state);
+  assert.equal(vaultHealth.schemaVersion, "model.mount.schema");
+  assert.equal(vaultHealth.source, "agentgres_vault_health_latest");
+  assert.equal(vaultHealth.health.implementation, "runtime_memory_vault");
+  assert.equal(vaultHealth.receipt.id, "receipt-vault-health");
+  assert.equal(vaultHealth.replay.receipt.id, "receipt-vault-health");
+  assert.equal(vaultHealth.projectionWatermark, 42);
+});
+
+test("read projection facade preserves latest health not-found errors", () => {
+  const { facade, state } = createState();
+
+  state.listProviderHealth = () => [];
+  assert.throws(
+    () => facade.latestProviderHealth(state, "provider.local"),
+    (error) =>
+      error.status === 404 &&
+      error.code === "not_found" &&
+      error.details.providerId === "provider.local",
+  );
+
+  state.listReceipts = () => [];
+  assert.throws(
+    () => facade.latestVaultHealth(state),
+    (error) =>
+      error.status === 404 &&
+      error.code === "not_found" &&
+      error.details.receiptKind === "vault_adapter_health",
+  );
 });

@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   endpoint,
   ensureLoaded,
+  getModel,
   instance,
+  modelForProviderMount,
   provider,
   resolveEndpoint,
   route,
@@ -16,8 +18,11 @@ function fakeState() {
       ["endpoint.active", { id: "endpoint.active", modelId: "llama-test", status: "mounted", loadPolicy: { mode: "on_demand" } }],
       ["endpoint.unmounted", { id: "endpoint.unmounted", modelId: "gone", status: "unmounted" }],
     ]),
+    artifacts: new Map([
+      ["artifact.local", { id: "artifact.local", modelId: "model.local", providerId: "provider.local" }],
+    ]),
     instances: new Map(),
-    providers: new Map([["provider.local", { id: "provider.local" }]]),
+    providers: new Map([["provider.local", { id: "provider.local", kind: "openai", capabilities: ["chat"], privacyClass: "hosted_metered" }]]),
     routes: new Map([["route.local-first", { id: "route.local-first" }]]),
     evictions: 0,
     loadedLookups: [],
@@ -71,6 +76,15 @@ const deps = {
     error.details = details;
     return error;
   },
+  driverNameForProvider(providerRecord) {
+    return providerRecord.driver ?? "openai_compatible";
+  },
+  normalizeScopes(scopes, fallback) {
+    return scopes ?? fallback;
+  },
+  safeId(value) {
+    return String(value).replace(/[^a-z0-9]+/gi, ".").toLowerCase();
+  },
 };
 
 test("state lookup accessors return records and fail closed", () => {
@@ -103,6 +117,40 @@ test("resolveEndpoint prefers explicit endpoint, existing model endpoint, mount 
     () => resolveEndpoint(state, null, null, deps),
     (error) => error.status === 424 && error.code === "product_model_unavailable",
   );
+});
+
+test("model accessors find artifacts and persist provider-direct mount artifacts", () => {
+  const state = fakeState();
+  const providerRecord = state.providers.get("provider.local");
+
+  assert.equal(getModel(state, "artifact.local", deps).id, "artifact.local");
+  assert.equal(getModel(state, "model.local", deps).id, "artifact.local");
+  assert.throws(() => getModel(state, "missing", deps), (error) => error.status === 404 && error.details.modelId === "missing");
+
+  assert.equal(modelForProviderMount(state, "model.local", providerRecord, {}, state.now, deps).id, "artifact.local");
+  const mounted = modelForProviderMount(
+    state,
+    "remote-model",
+    providerRecord,
+    {
+      display_name: "Remote Model",
+      size_bytes: "123",
+      context_window: "4096",
+      capabilities: ["chat", "vision"],
+      privacy_class: "hosted_private",
+    },
+    state.now,
+    deps,
+  );
+
+  assert.equal(mounted.id, "provider.local.remote.model");
+  assert.equal(mounted.source, "openai_compatible_provider_direct_mount");
+  assert.equal(mounted.sizeBytes, 123);
+  assert.equal(mounted.contextWindow, 4096);
+  assert.deepEqual(mounted.capabilities, ["chat", "vision"]);
+  assert.equal(mounted.privacyClass, "hosted_private");
+  assert.equal(state.artifacts.get(mounted.id), mounted);
+  assert.equal(state.writes.at(-1)[0], "model-artifacts");
 });
 
 test("ensureLoaded refreshes existing instance and writes it back", async () => {

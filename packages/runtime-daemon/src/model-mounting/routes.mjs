@@ -17,6 +17,14 @@ export function upsertRouteRecord(body = {}, { normalizeScopes, safeId } = {}) {
   };
 }
 
+export function upsertRoute(state, body = {}, deps = {}) {
+  const { normalizeScopes, safeId } = deps;
+  const route = upsertRouteRecord(body, { normalizeScopes, safeId });
+  state.routes.set(route.id, route);
+  state.writeMap("model-routes", state.routes);
+  return route;
+}
+
 export function endpointIdsForExplicitModel({
   endpoints,
   modelId,
@@ -36,6 +44,17 @@ export function endpointIdsForExplicitModel({
   }
   if (ordered.length > 0) return ordered;
   return [mountEndpoint({ model_id: modelId }).id];
+}
+
+export function endpointIdsForExplicitModelForState(state, route, modelId, deps = {}) {
+  const { normalizeScopes } = deps;
+  return endpointIdsForExplicitModel({
+    endpoints: state.endpoints,
+    modelId,
+    mountEndpoint: (body) => state.mountEndpoint(body),
+    normalizeScopes,
+    route,
+  });
 }
 
 export function selectRoute({
@@ -124,6 +143,31 @@ export function selectRoute({
   });
 }
 
+export function selectRouteForState(state, { modelId, routeId, capability, policy }, deps = {}) {
+  const {
+    isAutoModelSelector,
+    isFixtureEndpointCandidate,
+    runtimeError,
+    truthy,
+  } = deps;
+  return selectRoute({
+    capability,
+    endpoint: (endpointId) => state.endpoint(endpointId),
+    endpointIdsForExplicitModel: (route, explicitModelId) =>
+      state.endpointIdsForExplicitModel(route, explicitModelId),
+    isAutoModelSelector,
+    isFixtureEndpointCandidate,
+    modelId,
+    policy,
+    provider: (providerId) => state.provider(providerId),
+    route: (id) => state.route(id),
+    routeId,
+    routes: state.routes,
+    runtimeError,
+    truthy,
+  });
+}
+
 export function routeSelectionReceipt({
   body = {},
   capability = "chat",
@@ -172,6 +216,20 @@ export function routeSelectionReceipt({
       modelRouteDecision,
       ...workflow,
     },
+  });
+}
+
+export function routeSelectionReceiptForState(state, selection, options = {}, deps = {}) {
+  const {
+    routeDecision,
+    stableHash,
+  } = deps;
+  return routeSelectionReceipt({
+    ...options,
+    receipt: (kind, payload) => state.receipt(kind, payload),
+    routeDecision,
+    selection,
+    stableHash,
   });
 }
 
