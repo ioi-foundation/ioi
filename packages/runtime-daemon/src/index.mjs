@@ -708,7 +708,6 @@ export class AgentgresRuntimeStateStore {
       homeDir: options.homeDir,
       vaultSecrets: options.vaultSecrets,
       modelMountAdmissionRunner: options.modelMountAdmissionRunner,
-      appendOperation: (kind, payload) => this.appendOperation(kind, payload),
     });
     this.modelRouteSelection = createModelRouteSelection({
       modelMounting: this.modelMounting,

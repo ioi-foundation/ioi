@@ -870,6 +870,11 @@ function runReceipts() {
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
+  const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
+    ? read("packages/runtime-daemon/src/index.mjs")
+    : "";
+  const modelMountingConstructorArgs =
+    runtimeDaemonIndex.match(/this\.modelMounting = new ModelMountingState\(\{[\s\S]*?\n    \}\);/)?.[0] ?? "";
   const modelMountReceiptWriteGuards = exists("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
     : "";
@@ -1413,6 +1418,15 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
     ],
     "Phase 5/11 is pending: provider stream-shape evidence must be bound into the stream-completion receipt instead of appended as duplicate JS operation-like truth",
+  );
+  assertCheck(
+    result,
+    "model-mount-state-append-operation-injection-retired",
+    /new ModelMountingState/.test(modelMountingConstructorArgs) &&
+      /modelMountAdmissionRunner: options\.modelMountAdmissionRunner/.test(modelMountingConstructorArgs) &&
+      !/\bappendOperation\b/.test(modelMountingConstructorArgs),
+    ["packages/runtime-daemon/src/index.mjs"],
+    "Phase 5/11 is pending: the runtime store must not inject daemon-local appendOperation into the model-mounting state facade after receipt/Agentgres admission owns model-mounting truth",
   );
   assertCheck(
     result,
