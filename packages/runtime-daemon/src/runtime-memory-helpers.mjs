@@ -1,5 +1,6 @@
 export function createRuntimeMemoryHelpers({
   normalizeArray,
+  optionalString,
   safeId,
 } = {}) {
   function subagentMemoryPolicy({ agent, threadId, parentPolicy = {}, receiver, mode }) {
@@ -55,6 +56,36 @@ export function createRuntimeMemoryHelpers({
     if (options.write_requires_approval !== undefined) policy.writeRequiresApproval = options.write_requires_approval;
     if (options.subagent_inheritance !== undefined) policy.subagentInheritance = options.subagent_inheritance;
     return policy;
+  }
+
+  function subagentReceiverForRequest(request = {}) {
+    return optionalString(
+      request.receiver ??
+        request.options?.receiver ??
+        request.subagent ??
+        request.options?.subagent ??
+        request.subagentName ??
+        request.options?.subagentName,
+    ) ?? null;
+  }
+
+  function normalizeSubagentInheritanceMode(value) {
+    const mode = optionalString(value) ?? "explicit";
+    return ["none", "explicit", "read_only", "full"].includes(mode) ? mode : "explicit";
+  }
+
+  function shouldInheritSubagentMemory(mode, options = {}) {
+    if (mode === "none") return false;
+    if (mode === "explicit") return hasExplicitSubagentMemorySelector(options);
+    return true;
+  }
+
+  function hasExplicitSubagentMemorySelector(options = {}) {
+    return Boolean(
+      optionalString(options.memoryKey ?? options.memory_key) ??
+        optionalString(options.query ?? options.q ?? options.memoryQuery ?? options.memory_query) ??
+        optionalString(options.scope ?? options.memoryScope ?? options.memory_scope),
+    );
   }
 
   function memoryWriteBlockReason(policy = {}, options = {}, requestedWrite = false) {
@@ -227,6 +258,7 @@ export function createRuntimeMemoryHelpers({
     memoryControlKind,
     memoryEventKind,
     memoryEventSummary,
+    hasExplicitSubagentMemorySelector,
     memoryListFilters,
     memoryMutationRawInput,
     memoryMutationRowLabel,
@@ -237,6 +269,9 @@ export function createRuntimeMemoryHelpers({
     memoryWorkflowNodeId,
     memoryWriteApproved,
     memoryWriteBlockReason,
+    normalizeSubagentInheritanceMode,
+    shouldInheritSubagentMemory,
+    subagentReceiverForRequest,
     subagentMemoryInheritanceReceipt,
     subagentMemoryPolicy,
   };

@@ -11,8 +11,14 @@ function safeId(value) {
   return String(value ?? "runtime").replace(/[^a-zA-Z0-9_.-]+/g, "_");
 }
 
+function optionalString(value) {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value).trim();
+  return text ? text : undefined;
+}
+
 function helpers() {
-  return createRuntimeMemoryHelpers({ normalizeArray, safeId });
+  return createRuntimeMemoryHelpers({ normalizeArray, optionalString, safeId });
 }
 
 test("memory helper policy aliases and write approvals preserve daemon behavior", () => {
@@ -95,6 +101,21 @@ test("subagent memory policy and receipt preserve inheritance evidence", () => {
   assert.equal(receipt.id, "receipt_run-one_subagent_memory_inheritance");
   assert.equal(receipt.redaction, "redacted");
   assert.match(receipt.summary, /exposed 2 record/);
+});
+
+test("subagent memory request helpers preserve receiver and inheritance selectors", () => {
+  const runtime = helpers();
+
+  assert.equal(runtime.subagentReceiverForRequest({ options: { subagentName: "worker" } }), "worker");
+  assert.equal(runtime.subagentReceiverForRequest({ receiver: "  " }), null);
+  assert.equal(runtime.normalizeSubagentInheritanceMode("full"), "full");
+  assert.equal(runtime.normalizeSubagentInheritanceMode("invalid"), "explicit");
+  assert.equal(runtime.shouldInheritSubagentMemory("none", { query: "fact" }), false);
+  assert.equal(runtime.shouldInheritSubagentMemory("read_only", {}), true);
+  assert.equal(runtime.shouldInheritSubagentMemory("explicit", {}), false);
+  assert.equal(runtime.shouldInheritSubagentMemory("explicit", { memory_query: "fact" }), true);
+  assert.equal(runtime.hasExplicitSubagentMemorySelector({ memory_key: "project" }), true);
+  assert.equal(runtime.hasExplicitSubagentMemorySelector({}), false);
 });
 
 test("memory list filters normalize request aliases", () => {

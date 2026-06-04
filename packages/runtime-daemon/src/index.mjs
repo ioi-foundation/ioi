@@ -443,6 +443,7 @@ const {
   safeId,
 });
 const {
+  hasExplicitSubagentMemorySelector,
   memoryControlKind,
   memoryEventKind,
   memoryEventSummary,
@@ -455,10 +456,14 @@ const {
   memoryRuntimeEventKind,
   memoryWorkflowNodeId,
   memoryWriteBlockReason,
+  normalizeSubagentInheritanceMode,
+  shouldInheritSubagentMemory,
+  subagentReceiverForRequest,
   subagentMemoryInheritanceReceipt,
   subagentMemoryPolicy,
 } = createRuntimeMemoryHelpers({
   normalizeArray,
+  optionalString,
   safeId,
 });
 const {
@@ -12982,36 +12987,6 @@ function nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch({
     approvalRef,
     uniqueStrings,
   });
-}
-
-function subagentReceiverForRequest(request = {}) {
-  return optionalString(
-    request.receiver ??
-      request.options?.receiver ??
-      request.subagent ??
-      request.options?.subagent ??
-      request.subagentName ??
-      request.options?.subagentName,
-  ) ?? null;
-}
-
-function normalizeSubagentInheritanceMode(value) {
-  const mode = optionalString(value) ?? "explicit";
-  return ["none", "explicit", "read_only", "full"].includes(mode) ? mode : "explicit";
-}
-
-function shouldInheritSubagentMemory(mode, options = {}) {
-  if (mode === "none") return false;
-  if (mode === "explicit") return hasExplicitSubagentMemorySelector(options);
-  return true;
-}
-
-function hasExplicitSubagentMemorySelector(options = {}) {
-  return Boolean(
-    optionalString(options.memoryKey ?? options.memory_key) ??
-      optionalString(options.query ?? options.q ?? options.memoryQuery ?? options.memory_query) ??
-      optionalString(options.scope ?? options.memoryScope ?? options.memory_scope),
-  );
 }
 
 function postEditDiagnosticsConfig(request = {}, input = {}) {
