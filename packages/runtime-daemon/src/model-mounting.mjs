@@ -1165,8 +1165,26 @@ export class ModelMountingState {
     return startModelStreamState(this, { authorization, requiredScope, kind, body });
   }
 
-  recordModelStreamCompleted({ invocation, streamKind, outputText = "", providerUsage = null, chunksForwarded = 0, finishReason = null, providerResult = {} }) {
-    return recordModelStreamCompletedState(this, { invocation, streamKind, outputText, providerUsage, chunksForwarded, finishReason, providerResult }, {
+  recordModelStreamCompleted({
+    invocation,
+    streamKind,
+    outputText = "",
+    providerUsage = null,
+    chunksForwarded = 0,
+    finishReason = null,
+    providerResult = {},
+    providerStreamShapeSummary = null,
+  }) {
+    return recordModelStreamCompletedState(this, {
+      invocation,
+      streamKind,
+      outputText,
+      providerUsage,
+      chunksForwarded,
+      finishReason,
+      providerResult,
+      providerStreamShapeSummary,
+    }, {
       estimateTokens,
       normalizeUsage,
       stableHash,

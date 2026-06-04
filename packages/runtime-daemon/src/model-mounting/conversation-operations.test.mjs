@@ -246,6 +246,11 @@ test("recordModelStreamCompleted emits stream receipt and finalizes conversation
       chunksForwarded: 3,
       finishReason: "stop",
       providerResult: { providerResponseKind: "openai.responses", backendEvidenceRefs: ["backend.ok"] },
+      providerStreamShapeSummary: {
+        schemaVersion: "ioi.model.provider_stream_shape.v1",
+        framesForwarded: 3,
+        evidenceRefs: ["model_provider_stream_shape_summary"],
+      },
     },
     deps,
   );
@@ -254,6 +259,7 @@ test("recordModelStreamCompleted emits stream receipt and finalizes conversation
   assert.equal(receipt.id, "receipt.1.model_invocation_stream_completed");
   assert.equal(receipt.details.outputHash, "hash:stream answer");
   assert.deepEqual(receipt.details.toolReceiptIds, ["receipt.tool"]);
+  assert.equal(receipt.details.providerStreamShapeSummary.framesForwarded, 3);
   assert.equal(receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/1");
   assert.equal(receipt.details.modelMountReceiptBindingRef, "sha256:binding-1");
   assert.equal(receipt.details.modelMountAgentgresOperationRef, "agentgres://model-mounting/operation-log/op_00000001_model_invocation_stream_completed");

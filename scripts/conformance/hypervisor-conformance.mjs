@@ -867,6 +867,9 @@ function runReceipts() {
   const modelMountStore = exists("packages/runtime-daemon/src/model-mounting/store.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.mjs")
     : "";
+  const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
+    ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
+    : "";
   const modelMountReceiptWriteGuards = exists("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
     : "";
@@ -1394,6 +1397,22 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/projections.mjs",
     ],
     "Phase 5/11 is pending: receipt persistence must not append duplicate JS operation-log records after Rust binding and Agentgres admission",
+  );
+  assertCheck(
+    result,
+    "openai-provider-stream-shape-append-retired",
+    !/appendOperation\?\.\(\s*"model\.provider_stream_shape_summary"/.test(openAiCompatRoutes) &&
+      /providerStreamShapeSummary: finalizeOpenAiProviderStreamShape/.test(openAiCompatRoutes) &&
+      /providerStreamShapeSummary/.test(conversationOps) &&
+      /OpenAI provider stream shape is bound to the stream receipt without operation append/.test(
+        read("packages/runtime-daemon/src/openai-compat-routes.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/openai-compat-routes.mjs",
+      "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
+    ],
+    "Phase 5/11 is pending: provider stream-shape evidence must be bound into the stream-completion receipt instead of appended as duplicate JS operation-like truth",
   );
   assertCheck(
     result,

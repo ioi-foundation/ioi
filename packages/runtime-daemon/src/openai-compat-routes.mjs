@@ -826,11 +826,11 @@ export async function writeOpenAiProviderChatCompletionStream(request, response,
       chunksForwarded: written,
       finishReason,
       providerResult: streamInvocation.providerResult,
+      providerStreamShapeSummary: finalizeOpenAiProviderStreamShape(streamShape, {
+        framesForwarded: written,
+        finishReason,
+      }),
     });
-    mounts.appendOperation?.(
-      "model.provider_stream_shape_summary",
-      finalizeOpenAiProviderStreamShape(streamShape, { framesForwarded: written, finishReason }),
-    );
     const metadata = {
       id: `chatcmpl_${crypto.randomUUID()}`,
       object: "chat.completion.chunk",

@@ -98,6 +98,7 @@ export function recordModelStreamCompleted(state, {
   chunksForwarded = 0,
   finishReason = null,
   providerResult = {},
+  providerStreamShapeSummary = null,
 }, deps = {}) {
   const {
     estimateTokens,
@@ -128,6 +129,7 @@ export function recordModelStreamCompleted(state, {
     outputHash: stableHash(outputText),
     chunksForwarded,
     finishReason,
+    providerStreamShapeSummary,
     responseId: invocation.responseId ?? null,
     previousResponseId: invocation.previousResponseId ?? null,
   };
