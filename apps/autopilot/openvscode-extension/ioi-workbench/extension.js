@@ -80,6 +80,7 @@ const {
 const { createStudioResponseMetrics } = require("./studio/response-metrics");
 const { createStudioSourceChipRenderer } = require("./studio/source-chip-renderer");
 const { createStudioCodeExecution } = require("./studio/code-execution");
+const { createStudioChatOutputRenderers } = require("./studio/chat-output-renderers");
 const {
   STUDIO_TRAJECTORY_REPLAY_SIDE_EFFECT_KEY,
   createStudioDurabilityPanels,
@@ -1275,6 +1276,14 @@ function recomputeStudioRuntimeCockpitAchieved() {
 }
 
 const { studioCleanProductErrorMessage } = createStudioProductErrorMessage({ stringValue });
+const {
+  studioChatOutputRendererRows,
+} = createStudioChatOutputRenderers({
+  escapeHtml,
+  firstArray,
+  normalizeReceiptRefs,
+  studioVerifiedBadge,
+});
 
 function studioIcon(name) {
   const icons = {
@@ -1296,91 +1305,6 @@ function studioIcon(name) {
       '<path d="m7 10 5 5 5-5" />',
   };
   return `<svg class="studio-control-icon studio-control-icon--${escapeHtml(name)}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[name] || ""}</svg>`;
-}
-
-function studioMermaidSourcesFromText(content = "") {
-  const sources = [];
-  const fencePattern = /```(?:mermaid|text\/vnd\.mermaid)\s*\n([\s\S]*?)```/gi;
-  let match = null;
-  while ((match = fencePattern.exec(String(content || "")))) {
-    const source = String(match[1] || "").trim();
-    if (source) {
-      sources.push(source);
-    }
-  }
-  return sources;
-}
-
-function studioMermaidSummary(source = "") {
-  const lines = String(source || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("%%"));
-  const nodes = new Set();
-  for (const line of lines) {
-    for (const match of line.matchAll(/\b([A-Za-z][\w-]*)\s*(?:\[[^\]]+\]|\([^)]+\)|\{[^}]+\})?/g)) {
-      const id = match[1];
-      if (!/^(graph|flowchart|sequenceDiagram|participant|subgraph|end|classDef|style)$/.test(id)) {
-        nodes.add(id);
-      }
-    }
-  }
-  return {
-    title: lines[0] || "Mermaid diagram",
-    nodeIds: [...nodes].slice(0, 8),
-    nodeCount: nodes.size,
-    edgeCount: lines.filter((line) => /-->|---|==>|-.->/.test(line)).length,
-  };
-}
-
-function studioChatOutputRendererRows(turn = {}, turnIndex = 0) {
-  const explicitRenderers = firstArray(turn.outputRenderers || turn.output_renderers);
-  const cards = explicitRenderers.length
-    ? explicitRenderers
-        .filter((item) => String(item?.mimeType || item?.mime_type || item?.rendererId || item?.renderer_id || "").includes("mermaid"))
-        .map((item, index) => ({
-          id: item.id || `turn-${turnIndex}-renderer-${index}`,
-          source: item.source || item.content || item.text || "",
-          mimeType: item.mimeType || item.mime_type || "text/vnd.mermaid",
-          rendererId: item.rendererId || item.renderer_id || "vscode.chatMermaidDiagram",
-          receiptRefs: normalizeReceiptRefs(item, turn),
-        }))
-    : studioMermaidSourcesFromText(turn.content || turn.text || "").map((source, index) => ({
-        id: `turn-${turnIndex}-mermaid-${index}`,
-        source,
-        mimeType: "text/vnd.mermaid",
-        rendererId: "vscode.chatMermaidDiagram",
-        receiptRefs: normalizeReceiptRefs(turn),
-      }));
-  if (!cards.length) {
-    return "";
-  }
-  return cards.map((card) => {
-    const summary = studioMermaidSummary(card.source);
-    return `
-      <figure class="studio-chat-output-renderer studio-chat-output-renderer--mermaid" data-testid="studio-chat-mermaid-renderer" data-renderer-id="${escapeHtml(card.rendererId)}" data-mime-type="${escapeHtml(card.mimeType)}" data-node-count="${escapeHtml(String(summary.nodeCount))}" data-edge-count="${escapeHtml(String(summary.edgeCount))}">
-        <figcaption>
-          <strong>Mermaid diagram</strong>
-          <span>${escapeHtml(summary.nodeCount)} nodes · ${escapeHtml(summary.edgeCount)} edges · ${escapeHtml(card.mimeType)}</span>
-        </figcaption>
-        <div class="studio-chat-renderer-toolbar" data-testid="studio-chat-output-renderer-controls">
-          <button type="button" data-testid="studio-chat-renderer-zoom-in" data-renderer-action="zoom-in">Zoom in</button>
-          <button type="button" data-testid="studio-chat-renderer-zoom-out" data-renderer-action="zoom-out">Zoom out</button>
-          <button type="button" data-testid="studio-chat-renderer-fit" data-renderer-action="fit">Fit</button>
-        </div>
-        <div class="studio-mermaid-diagram" data-testid="studio-mermaid-diagram-surface" role="img" aria-label="${escapeHtml(summary.title)}">
-          ${summary.nodeIds.length
-            ? summary.nodeIds.map((nodeId) => `<button type="button" class="studio-mermaid-node" data-testid="studio-mermaid-clickable-node">${escapeHtml(nodeId)}</button>`).join("")
-            : '<span class="studio-mermaid-node">diagram</span>'}
-        </div>
-        <details class="studio-mermaid-source" data-testid="studio-chat-output-renderer-source">
-          <summary>Mermaid source</summary>
-          <pre>${escapeHtml(card.source)}</pre>
-        </details>
-        ${card.receiptRefs?.length ? `<footer>${studioVerifiedBadge({ id: card.id, kind: "chat.output_renderer", receiptRefs: card.receiptRefs, summary: "Mermaid renderer projected from daemon chat output." }, "Verified renderer")}</footer>` : ""}
-      </figure>
-    `;
-  }).join("");
 }
 
 function studioPendingWorklogRows() {

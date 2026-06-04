@@ -44,6 +44,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/source-refs.js",
   codeExecution:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/code-execution.js",
+  chatOutputRenderers:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/chat-output-renderers.js",
   nativeChatView:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/native-chat-view.js",
   toolPalette:
@@ -123,6 +125,7 @@ async function readStudioComposite() {
       paths.sourceChipRenderer,
       paths.sourceRefs,
       paths.codeExecution,
+      paths.chatOutputRenderers,
       paths.nativeChatView,
       paths.toolPalette,
       paths.modelSelection,

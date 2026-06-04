@@ -102,6 +102,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/policy-lease-lifecycle.js`.
 - Moved Studio policy-lease lifecycle fixture materialization, approval-required tool body shaping, and allow/revoke/expiry row projection out of `extension.js` while preserving the live daemon exercise command and bridge request envelope.
 - Added focused policy-lease lifecycle tests for fixture path materialization, daemon approval envelope fields, dry-run patch payloads, allow-once execution, revoke blocking, expiry blocking, and receipt propagation.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/chat-output-renderers.js`.
+- Moved Studio Mermaid chat-output renderer source extraction, summary projection, toolbar/source HTML, clickable-node projection, and verified renderer badge integration out of `extension.js`.
+- Added focused chat-output renderer tests for fenced Mermaid extraction, existing node/edge summary behavior, stable renderer controls/data-testids, verified receipt badge propagation, and explicit renderer-card preference.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
@@ -441,6 +444,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `runtime-run-cancellation`
   - `studio/durability-panels`
   - `studio/policy-lease-lifecycle`
+  - `studio/chat-output-renderers`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
