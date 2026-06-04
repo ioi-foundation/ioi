@@ -187,6 +187,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-run-event-helpers.mjs`.
 - Moved run-event status mapping, policy decision ref extraction, string payload record conversion, component/workflow-node mapping, receipt/artifact refs, and computer-use artifact ref extraction out of `index.mjs`.
 - Added focused runtime run-event helper tests for status mapping, policy ref de-duping, payload conversion, receipt/artifact refs, workflow nodes, and computer-use artifacts.
+- Added `packages/runtime-daemon/src/runtime-run-cancellation.mjs`.
+- Moved run cancellation terminal-event continuity, runtime task/job/checklist rewrite, canceled job/run terminal event projection, checklist receipt repair, and runtime-checklist artifact repair out of `index.mjs` behind the existing `cancelRun` store method.
+- Added focused runtime run-cancellation tests for terminal replay cleanup, runtime projection updates, missing task/checklist event append behavior, checklist receipt/artifact repair, failure-ontology labeling, and `run.cancel` persistence.
 - Added `packages/runtime-daemon/src/runtime-event-envelopes.mjs`.
 - Moved runtime bridge computer-use derived-event insertion, derived computer-use event envelope construction, TTI envelope construction, and normalized runtime event envelope projection out of `index.mjs`.
 - Added focused runtime event-envelope tests for computer-use derived insertion/de-duping, diagnostics/computer-use TTI envelope schema selection, and normalized replay compatibility fields.
@@ -429,6 +432,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `model-mounting/conversation-operations`
   - `model-mounting/state-accessors`
   - `model-mounting/backend-registry-state`
+  - `runtime-run-cancellation`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
@@ -440,7 +444,7 @@ CLI/TUI surfaces were not hardened in this leg because the active parity-plus pr
 ## Remaining Follow-Ups
 
 - Reduce `extension.js` further by moving Studio projection events, managed-session controls, panel lifecycle, and feature command groups.
-- Reduce `packages/runtime-daemon/src/index.mjs` by extracting service lifecycle, route registration, thread store/control, replay, and managed-session state.
+- Reduce `packages/runtime-daemon/src/index.mjs` by extracting service lifecycle, route registration glue, and the remaining state-store orchestration that is still too large for easy review.
 - Reduce `model-mounting.mjs` further by moving provider/catalog operation glue and remaining route HTTP glue.
 - Continue Rust hot-spot splits around final reply contract, tool outcome classification, finalize action processing, queue facts, filesystem handler, and substrate lifecycle.
 - Run longer integrated sessions to watch for retry-limit regressions and replay/reconnect durability under real use.
