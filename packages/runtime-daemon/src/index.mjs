@@ -246,9 +246,6 @@ import { createRepositoryWorkflowProjections } from "./repository-workflow-proje
 import {
   approvalModeForThreadMode,
   initialThreadRuntimeControls,
-  modelPolicyForOptions,
-  modelRouteBindingFromReceipt,
-  modelWorkflowContext,
   normalizeThreadApprovalMode,
   normalizeThreadInteractionMode,
   normalizedAgentRuntimeControls,
@@ -316,6 +313,7 @@ import {
   normalizeRuntimeBridgeThreadStart as normalizeRuntimeBridgeThreadStartState,
   normalizeRuntimeBridgeTurnSubmit as normalizeRuntimeBridgeTurnSubmitState,
 } from "./threads/runtime-bridge-thread.mjs";
+import { createModelRouteSelection } from "./threads/model-route-selection.mjs";
 import {
   codingToolBudgetPolicyForRequest,
   contextBudgetNumber,
@@ -856,6 +854,10 @@ export class AgentgresRuntimeStateStore {
       vaultSecrets: options.vaultSecrets,
       appendOperation: (kind, payload) => this.appendOperation(kind, payload),
     });
+    this.modelRouteSelection = createModelRouteSelection({
+      modelMounting: this.modelMounting,
+      normalizeArray,
+    });
     this.memory = new AgentMemoryStore(this.stateDir, {
       appendOperation: (kind, payload) => this.appendOperation(kind, payload),
     });
@@ -987,88 +989,15 @@ export class AgentgresRuntimeStateStore {
   }
 
   resolveModelRoute(options = {}, context = {}) {
-    const model = options.model ?? {};
-    const requestedModel = model.id ?? model.model ?? model.modelId ?? "auto";
-    const routeId = model.routeId ?? model.route_id ?? model.route ?? options.routeId ?? options.route_id ?? "route.local-first";
-    const capability = model.capability ?? options.capability ?? "chat";
-    const policy = modelPolicyForOptions(options);
-    const workflow = modelWorkflowContext({ model, options, context });
-    const body = {
-      model: requestedModel,
-      route_id: routeId,
-      model_policy: policy,
-      ...workflow,
-    };
-    return this.selectModelRouteWithFallback({
-      requestedModel,
-      routeId,
-      capability,
-      policy,
-      body,
-      evidenceRefs: context.evidenceRefs ?? [],
-    });
+    return this.modelRouteSelection.resolveModelRoute(options, context);
   }
 
   resolveRunModelRoute(agent, request = {}) {
-    const options = request.options ?? {};
-    if (options.model) {
-      return this.resolveModelRoute(options, {
-        evidenceRefs: ["runtime_run_model_route"],
-        workflowNodeId: "runtime.model-router",
-        workflowNodeType: "Model Router",
-      });
-    }
-    return {
-      requestedModelId: agent.requestedModelId ?? agent.modelId,
-      selectedModel: agent.modelId,
-      routeId: agent.modelRouteId ?? "route.local-first",
-      endpointId: agent.modelRouteEndpointId ?? null,
-      providerId: agent.modelRouteProviderId ?? null,
-      receiptId: agent.modelRouteReceiptId ?? null,
-      decision: agent.modelRouteDecision ?? null,
-    };
+    return this.modelRouteSelection.resolveRunModelRoute(agent, request);
   }
 
   selectModelRouteWithFallback({ requestedModel, routeId, capability, policy, body, evidenceRefs }) {
-    try {
-      const selection = this.modelMounting.selectRoute({ modelId: requestedModel, routeId, capability, policy });
-      const receipt = this.modelMounting.routeSelectionReceipt(selection, {
-        body,
-        capability,
-        evidenceRefs,
-      });
-      return modelRouteBindingFromReceipt(receipt, requestedModel);
-    } catch (error) {
-      const fallbackRouteId = "route.local-first";
-      const fallbackPolicy = {
-        ...policy,
-        allow_hosted_fallback: false,
-      };
-      const fallbackBody = {
-        ...body,
-        model: "auto",
-        route_id: fallbackRouteId,
-        model_policy: fallbackPolicy,
-        fallback_triggered: true,
-        fallback_reason: error?.code ?? "primary_route_unavailable",
-      };
-      const fallbackSelection = this.modelMounting.selectRoute({
-        modelId: "auto",
-        routeId: fallbackRouteId,
-        capability,
-        policy: fallbackPolicy,
-      });
-      fallbackSelection.evaluatedCandidates = [
-        ...normalizeArray(error?.details?.evaluatedCandidates),
-        ...normalizeArray(fallbackSelection.evaluatedCandidates),
-      ];
-      const receipt = this.modelMounting.routeSelectionReceipt(fallbackSelection, {
-        body: fallbackBody,
-        capability,
-        evidenceRefs: ["runtime_model_route_fallback", ...evidenceRefs],
-      });
-      return modelRouteBindingFromReceipt(receipt, requestedModel);
-    }
+    return this.modelRouteSelection.selectModelRouteWithFallback({ requestedModel, routeId, capability, policy, body, evidenceRefs });
   }
 
   resolveRunMemory(agent, request = {}, prompt = "") {

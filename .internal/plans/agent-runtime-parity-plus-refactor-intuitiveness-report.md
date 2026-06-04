@@ -251,6 +251,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Passed `RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION` into the helper explicitly so the module stays decoupled from the daemon constants bundle.
 - Added `packages/runtime-daemon/src/threads/thread-runtime-controls.mjs`.
 - Moved thread mode/approval normalization, initial and normalized runtime controls, request control injection, model-control update shaping, model policy/workflow context projection, reasoning-effort normalization, and model route receipt binding out of `index.mjs`.
+- Added `packages/runtime-daemon/src/threads/model-route-selection.mjs`.
+- Moved daemon model route resolution, run route reuse, and local-first fallback selection out of `index.mjs` behind compatibility wrappers while preserving model policy/workflow context shaping, route-selection receipts, fallback evidence refs, and candidate evidence merging.
+- Added focused model-route-selection tests for explicit workflow route selection, fallback route/evidence merging, and persisted run route reuse.
 - Added `packages/runtime-daemon/src/threads/context-budget-policy.mjs`.
 - Moved context-budget telemetry selection, threshold normalization, context-budget evaluation, coding-tool budget policy shaping, and compaction-policy decisions out of `index.mjs`.
 - Added `packages/runtime-daemon/src/repository-context.mjs`.
@@ -597,6 +600,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `model-mounting/state-accessors`
   - `model-mounting/backend-registry-state`
   - `runtime-run-cancellation`
+  - `threads/model-route-selection`
   - `studio/durability-panels`
   - `studio/policy-lease-lifecycle`
   - `studio/chat-output-renderers`
