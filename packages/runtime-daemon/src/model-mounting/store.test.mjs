@@ -85,6 +85,21 @@ function providerInventoryReceipt(details = {}) {
   };
 }
 
+function providerHealthReceipt(details = {}) {
+  return {
+    id: details.id ?? "receipt.provider-health",
+    kind: "provider_health",
+    redaction: "redacted",
+    evidenceRefs: ["provider_health_check"],
+    details: {
+      providerId: "provider.local",
+      providerKind: "ioi_native_local",
+      status: "available",
+      ...details,
+    },
+  };
+}
+
 test("model invocation receipt writes fail closed without Rust receipt and Agentgres admission", () => {
   const { appended, stateDir, store } = testStore();
 
@@ -252,5 +267,50 @@ test("provider inventory receipt writes allow Rust-bound local and remote provid
   assert.deepEqual(appended.map((item) => item.payload.receiptId), [
     "receipt.inventory-local-bound",
     "receipt.inventory-remote",
+  ]);
+});
+
+test("provider health receipt writes fail closed without provider kind and Rust lifecycle binding", () => {
+  const { appended, stateDir, store } = testStore();
+
+  assert.throws(
+    () => store.writeReceipt(providerHealthReceipt({ providerKind: undefined })),
+    (error) =>
+      error.code === "model_mount_provider_health_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("providerKind"),
+  );
+  assert.throws(
+    () => store.writeReceipt(providerHealthReceipt()),
+    (error) =>
+      error.code === "model_mount_provider_health_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("providerLifecycleHash"),
+  );
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.provider-health.json")), false);
+  assert.deepEqual(appended, []);
+});
+
+test("provider health receipt writes allow Rust-bound local and remote provider records", () => {
+  const { appended, stateDir, store } = testStore();
+  const localReceipt = providerHealthReceipt({
+    id: "receipt.health-local-bound",
+    providerLifecycleHash: "sha256:health",
+    modelMountProviderLifecycleAction: "health",
+    modelMountProviderLifecycleStatus: "available",
+    modelMountProviderLifecycleEvidenceRefs: ["rust_model_mount_provider_lifecycle"],
+  });
+  const remoteReceipt = providerHealthReceipt({
+    id: "receipt.health-remote",
+    providerId: "provider.remote",
+    providerKind: "openai_compatible",
+  });
+
+  store.writeReceipt(localReceipt);
+  store.writeReceipt(remoteReceipt);
+
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.health-local-bound.json")), true);
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.health-remote.json")), true);
+  assert.deepEqual(appended.map((item) => item.payload.receiptId), [
+    "receipt.health-local-bound",
+    "receipt.health-remote",
   ]);
 });

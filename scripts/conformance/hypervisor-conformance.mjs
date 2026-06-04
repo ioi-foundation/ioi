@@ -1203,6 +1203,36 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-provider-health-receipt-direct-write-guard",
+    /modelMountProviderLifecycle/.test(
+      read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs"),
+    ) &&
+      /providerLifecycleReceiptFields/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      /assertProviderHealthReceiptBound/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+      ) &&
+      /model_mount_provider_health_receipt_direct_append_forbidden/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+      ) &&
+      /local provider health receipts carry Rust lifecycle bindings/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /provider health receipt writes fail closed without provider kind/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
+    ],
+    "Phase 9/10 is pending: direct JS provider health receipt persistence for migrated local providers must fail closed without provider kind and Rust model_mount lifecycle binding",
+  );
+  assertCheck(
+    result,
     "model-mount-provider-result-admission-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
       /MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION/.test(

@@ -85,6 +85,7 @@ export async function providerHealth(state, providerId, deps = {}) {
         authVaultRefHash: driverResult.authEvidence?.vaultRefHash ?? null,
         providerAuthEvidenceRefs: driverResult.authEvidence?.evidenceRefs ?? [],
         providerAuthHeaderNames: driverResult.authEvidence?.headerNames ?? [],
+        ...providerLifecycleReceiptFields(driverResult.modelMountProviderLifecycle),
       },
     });
     const updated = {
@@ -196,6 +197,18 @@ function providerHealthFailure(state, provider, providerId, error, deps) {
     providerHealthReceiptId: receipt.id,
   };
   throw error;
+}
+
+function providerLifecycleReceiptFields(lifecycle) {
+  if (!lifecycle) return {};
+  return {
+    modelMountProviderLifecycleAction: lifecycle.action,
+    modelMountProviderLifecycleStatus: lifecycle.status,
+    providerLifecycleHash: lifecycle.lifecycleHash,
+    modelMountProviderLifecycleEvidenceRefs: lifecycle.evidenceRefs ?? [],
+    modelMountProviderLifecycleExecutionBackend: lifecycle.executionBackend,
+    modelMountProviderLifecycleBackendId: lifecycle.backendId,
+  };
 }
 
 export async function listProviderModels(state, providerId) {

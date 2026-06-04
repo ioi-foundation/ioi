@@ -237,6 +237,43 @@ test("provider health failure updates provider status and augments thrown detail
   assert.equal(state.projections, 1);
 });
 
+test("local provider health receipts carry Rust lifecycle bindings", async () => {
+  const state = fakeState();
+  state.providers.set("provider.local", {
+    id: "provider.local",
+    kind: "ioi_native_local",
+    label: "Native",
+    status: "configured",
+    discovery: { evidenceRefs: ["native_provider"] },
+  });
+  state.drivers.set("provider.local", {
+    async health() {
+      return {
+        status: "available",
+        evidenceRefs: ["rust_model_mount_provider_lifecycle"],
+        lifecycleHash: "sha256:health",
+        modelMountProviderLifecycle: {
+          action: "health",
+          status: "available",
+          lifecycleHash: "sha256:health",
+          evidenceRefs: ["rust_model_mount_provider_lifecycle"],
+          executionBackend: "rust_model_mount_native_local_lifecycle",
+          backendId: "backend.native",
+        },
+      };
+    },
+  });
+
+  await providerHealth(state, "provider.local", providerDeps());
+
+  const details = state.receipts.at(-1).payload.details;
+  assert.equal(details.providerKind, "ioi_native_local");
+  assert.equal(details.modelMountProviderLifecycleAction, "health");
+  assert.equal(details.modelMountProviderLifecycleStatus, "available");
+  assert.equal(details.providerLifecycleHash, "sha256:health");
+  assert.deepEqual(details.modelMountProviderLifecycleEvidenceRefs, ["rust_model_mount_provider_lifecycle"]);
+});
+
 test("provider model and loaded lists use driver results or local fallbacks", async () => {
   const state = fakeState();
   state.providers.set("provider.test", {

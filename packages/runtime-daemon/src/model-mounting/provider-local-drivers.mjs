@@ -27,6 +27,7 @@ export class NativeLocalModelProviderDriver {
       status: lifecycle.status,
       evidenceRefs: lifecycle.evidence_refs ?? [],
       lifecycleHash: lifecycle.lifecycle_hash ?? null,
+      modelMountProviderLifecycle: providerLifecycleMetadata(lifecycle, "health"),
     };
   }
 
@@ -161,6 +162,7 @@ export class FixtureModelProviderDriver {
       status: lifecycle.status,
       evidenceRefs: lifecycle.evidence_refs ?? [],
       lifecycleHash: lifecycle.lifecycle_hash ?? null,
+      modelMountProviderLifecycle: providerLifecycleMetadata(lifecycle, "health"),
     };
   }
 
@@ -370,6 +372,17 @@ function recordRefs(records) {
       record.endpointId ??
       null)
     .filter(Boolean);
+}
+
+function providerLifecycleMetadata(lifecycle, action) {
+  return {
+    action: lifecycle.result?.action ?? lifecycle.action ?? action,
+    status: lifecycle.status ?? null,
+    executionBackend: lifecycle.executionBackend ?? null,
+    lifecycleHash: lifecycle.lifecycle_hash ?? null,
+    evidenceRefs: lifecycle.evidence_refs ?? [],
+    backendId: lifecycle.backendId ?? null,
+  };
 }
 
 function requireNativeLocalLifecycleResult(value, action) {

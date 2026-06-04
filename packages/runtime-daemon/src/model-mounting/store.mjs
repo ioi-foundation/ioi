@@ -135,6 +135,7 @@ export class AgentgresModelMountingStore {
     assertAcceptedModelInvocationReceiptBound(receipt);
     assertModelInstanceLifecycleReceiptBound(receipt);
     assertProviderInventoryReceiptBound(receipt);
+    assertProviderHealthReceiptBound(receipt);
     writeJson(path.join(this.stateDir, "receipts", `${receipt.id}.json`), receipt);
     emitRemoteBoundaryEvent(process.env.IOI_AGENTGRES_URL, "/operations", {
       port: "AgentgresModelMountingStorePort",
@@ -216,6 +217,8 @@ const PROVIDER_INVENTORY_RECEIPT_ACTIONS = new Map([
   ["provider_models_list", "list_models"],
   ["provider_loaded_list", "list_loaded"],
 ]);
+
+const PROVIDER_HEALTH_LIFECYCLE_STATUSES = new Set(["available", "blocked"]);
 
 function assertAcceptedModelInvocationReceiptBound(receipt) {
   if (!ACCEPTED_MODEL_INVOCATION_RECEIPT_KINDS.has(receipt?.kind)) return;
@@ -395,6 +398,70 @@ function assertProviderInventoryReceiptBound(receipt) {
         receiptId: receipt?.id ?? null,
         receiptKind: receipt?.kind ?? null,
         operation: details.operation ?? null,
+        providerKind,
+        missing,
+        mismatches,
+      },
+    });
+  }
+}
+
+function assertProviderHealthReceiptBound(receipt) {
+  if (receipt?.kind !== "provider_health") return;
+  const details = receipt?.details && typeof receipt.details === "object" ? receipt.details : {};
+  const providerKind = optionalNonEmptyString(details.providerKind ?? details.provider_kind);
+  const missing = [];
+  const mismatches = [];
+  if (!providerKind && optionalNonEmptyString(details.providerId)) {
+    missing.push("providerKind");
+  }
+  if (!providerKind || !modelMountProviderKindRequiresRustInstanceLifecycle(providerKind)) {
+    if (missing.length > 0) {
+      throw runtimeError({
+        status: 409,
+        code: "model_mount_provider_health_receipt_direct_append_forbidden",
+        message: "Provider health receipts require provider kind before JS store persistence.",
+        details: {
+          receiptId: receipt?.id ?? null,
+          receiptKind: receipt?.kind ?? null,
+          missing,
+          mismatches,
+        },
+      });
+    }
+    return;
+  }
+  const expectedStatus = optionalNonEmptyString(details.status);
+  if (!expectedStatus) {
+    missing.push("status");
+  } else if (!PROVIDER_HEALTH_LIFECYCLE_STATUSES.has(expectedStatus)) {
+    mismatches.push("status");
+  }
+  if (!optionalNonEmptyString(details.providerLifecycleHash)) {
+    missing.push("providerLifecycleHash");
+  }
+  if (!Array.isArray(details.modelMountProviderLifecycleEvidenceRefs) ||
+    !details.modelMountProviderLifecycleEvidenceRefs.includes("rust_model_mount_provider_lifecycle")) {
+    missing.push("modelMountProviderLifecycleEvidenceRefs");
+  }
+  if (!optionalNonEmptyString(details.modelMountProviderLifecycleAction)) {
+    missing.push("modelMountProviderLifecycleAction");
+  } else if (details.modelMountProviderLifecycleAction !== "health") {
+    mismatches.push("modelMountProviderLifecycleAction");
+  }
+  if (!optionalNonEmptyString(details.modelMountProviderLifecycleStatus)) {
+    missing.push("modelMountProviderLifecycleStatus");
+  } else if (details.modelMountProviderLifecycleStatus !== expectedStatus) {
+    mismatches.push("modelMountProviderLifecycleStatus");
+  }
+  if (missing.length > 0 || mismatches.length > 0) {
+    throw runtimeError({
+      status: 409,
+      code: "model_mount_provider_health_receipt_direct_append_forbidden",
+      message: "Provider health receipts for migrated local providers require Rust model_mount lifecycle bindings before JS store persistence.",
+      details: {
+        receiptId: receipt?.id ?? null,
+        receiptKind: receipt?.kind ?? null,
         providerKind,
         missing,
         mismatches,
