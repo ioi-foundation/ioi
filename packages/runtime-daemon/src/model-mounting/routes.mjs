@@ -172,6 +172,8 @@ export function routeSelectionReceipt({
   body = {},
   capability = "chat",
   evidenceRefs = [],
+  admitModelMountRouteDecision,
+  nextReceiptId,
   previousResponseId = null,
   receipt,
   responseId = null,
@@ -183,6 +185,10 @@ export function routeSelectionReceipt({
   const requestedModel = body.model ?? body.model_id ?? body.modelId ?? null;
   const workflow = routeDecision.workflowContextFromRouteRequest(body);
   const policyHash = stableHash(policy);
+  if (typeof nextReceiptId !== "function") {
+    throw routeDecisionReceiptIdRequiredError();
+  }
+  const receiptId = nextReceiptId("model_route_selection");
   const modelRouteDecision = routeDecision.createModelRouteDecision({
     route: selection.route,
     endpoint: selection.endpoint,
@@ -197,10 +203,38 @@ export function routeSelectionReceipt({
     previousResponseId,
     evaluatedCandidates: selection.evaluatedCandidates ?? [],
   });
-  return receipt("model_route_selection", {
+  if (typeof admitModelMountRouteDecision !== "function") {
+    throw routeDecisionRustAdmissionRequiredError();
+  }
+  const modelMountRouteDecision = admitModelMountRouteDecision(
+    modelMountRouteDecisionRequestForSelection({
+      body,
+      capability,
+      modelRouteDecision,
+      policy,
+      policyHash,
+      previousResponseId,
+      receiptId,
+      responseId,
+      selection,
+      workflow,
+    }),
+  );
+  const rustEvidenceRefs = uniqueRefs([
+    modelMountRouteDecision.route_decision_ref,
+    ...(Array.isArray(modelMountRouteDecision.evidence_refs) ? modelMountRouteDecision.evidence_refs : []),
+  ]);
+  const payload = {
     summary: `Route ${selection.route.id} selected ${selection.endpoint.modelId}.`,
     redaction: "none",
-    evidenceRefs: ["model_router", selection.route.id, selection.endpoint.id, ...evidenceRefs],
+    evidenceRefs: uniqueRefs([
+      "model_router",
+      "rust_model_mount_core",
+      selection.route.id,
+      selection.endpoint.id,
+      ...rustEvidenceRefs,
+      ...evidenceRefs,
+    ]),
     details: {
       routeId: selection.route.id,
       selectedModel: selection.endpoint.modelId,
@@ -214,9 +248,18 @@ export function routeSelectionReceipt({
       modelRouteDecisionEventKind: routeDecision.MODEL_ROUTE_DECISION_EVENT_KIND,
       modelRouteDecisionId: modelRouteDecision.decisionId,
       modelRouteDecision,
+      modelMountRouteDecisionSchemaVersion: "ioi.model_mount.route_decision.v1",
+      modelMountRouteDecisionRef: modelMountRouteDecision.route_decision_ref,
+      modelMountRouteDecisionHash: modelMountRouteDecision.route_decision_hash,
+      modelMountRouteDecisionSource: modelMountRouteDecision.source,
+      modelMountRouteDecisionBackend: modelMountRouteDecision.backend,
+      modelMountRouteDecisionReceiptRefs: modelMountRouteDecision.receipt_refs ?? [],
+      modelMountRouteDecision: modelMountRouteDecision.record,
       ...workflow,
     },
-  });
+  };
+  if (receiptId) payload.id = receiptId;
+  return receipt("model_route_selection", payload);
 }
 
 export function routeSelectionReceiptForState(state, selection, options = {}, deps = {}) {
@@ -225,7 +268,9 @@ export function routeSelectionReceiptForState(state, selection, options = {}, de
     stableHash,
   } = deps;
   return routeSelectionReceipt({
+    admitModelMountRouteDecision: (request) => state.admitModelMountRouteDecision(request),
     ...options,
+    nextReceiptId: (kind) => state.nextReceiptId(kind),
     receipt: (kind, payload) => state.receipt(kind, payload),
     routeDecision,
     selection,
@@ -251,4 +296,109 @@ export function testRoute(state, routeId, body = {}) {
   state.routes.set(routeId, updatedRoute);
   state.writeMap("model-routes", state.routes);
   return { route: updatedRoute, selection, receipt };
+}
+
+export function modelMountRouteDecisionRequestForSelection({
+  body = {},
+  capability = "chat",
+  modelRouteDecision = {},
+  policy = {},
+  policyHash,
+  previousResponseId = null,
+  receiptId = null,
+  responseId = null,
+  selection,
+  workflow = {},
+} = {}) {
+  return {
+    schema_version: "ioi.model_mount.route_decision.v1",
+    route_ref: requiredRef("route_ref", selection?.route?.id),
+    provider_ref: requiredRef("provider_ref", selection?.provider?.id ?? selection?.endpoint?.providerId),
+    endpoint_ref: requiredRef("endpoint_ref", selection?.endpoint?.id),
+    model_ref: requiredRef("model_ref", selection?.endpoint?.modelId),
+    capability: requiredRef("capability", capability),
+    policy_hash: policyHashRef(policyHash),
+    idempotency_key: `model_route_decision:${requiredRef("decisionId", modelRouteDecision.decisionId)}`,
+    receipt_refs: [`receipt://${requiredRef("receiptId", receiptId)}`],
+    authority_grant_refs: normalizeRefs(body.authority_grant_refs ?? body.authorityGrantRefs),
+    authority_receipt_refs: normalizeRefs(body.authority_receipt_refs ?? body.authorityReceiptRefs),
+    custody_ref: optionalRef(
+      body.custody_ref ??
+        body.custodyRef ??
+        selection?.endpoint?.custodyRef ??
+        selection?.endpoint?.custody_ref ??
+        selection?.provider?.custodyRef ??
+        selection?.provider?.custody_ref,
+    ),
+    privacy_profile: optionalRef(
+      body.privacy_profile ??
+        body.privacyProfile ??
+        policy.privacy_profile ??
+        policy.privacyProfile ??
+        policy.privacy ??
+        selection?.route?.privacy ??
+        selection?.provider?.privacyClass,
+    ),
+    node_plaintext_allowed: Boolean(
+      body.node_plaintext_allowed ??
+        body.nodePlaintextAllowed ??
+        selection?.endpoint?.nodePlaintextAllowed ??
+        selection?.provider?.nodePlaintextAllowed ??
+        false,
+    ),
+    workflow_graph_ref: optionalRef(workflow.workflowGraphId),
+    workflow_node_ref: optionalRef(workflow.workflowNodeId),
+  };
+}
+
+function routeDecisionRustAdmissionRequiredError() {
+  const error = new Error("Model route decisions require Rust model_mount admission before receipt creation.");
+  error.status = 502;
+  error.code = "model_mount_route_decision_admission_required";
+  return error;
+}
+
+function routeDecisionReceiptIdRequiredError() {
+  const error = new Error("Model route decisions require a precomputed receipt id before Rust admission.");
+  error.status = 500;
+  error.code = "model_mount_route_decision_receipt_id_required";
+  return error;
+}
+
+function requiredRef(field, value) {
+  const normalized = optionalRef(value);
+  if (!normalized) {
+    const error = new Error(`Model route decision missing ${field}.`);
+    error.status = 500;
+    error.code = "model_mount_route_decision_ref_missing";
+    error.details = { field };
+    throw error;
+  }
+  return normalized;
+}
+
+function optionalRef(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeRefs(value) {
+  return Array.isArray(value)
+    ? value.map(optionalRef).filter(Boolean)
+    : [];
+}
+
+function uniqueRefs(values) {
+  const refs = [];
+  for (const value of values) {
+    const ref = optionalRef(value);
+    if (ref && !refs.includes(ref)) refs.push(ref);
+  }
+  return refs;
+}
+
+function policyHashRef(value) {
+  const normalized = requiredRef("policy_hash", value);
+  return normalized.startsWith("sha256:") ? normalized : `sha256:${normalized}`;
 }

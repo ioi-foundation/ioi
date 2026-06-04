@@ -15,14 +15,14 @@ export function lifecycleReceipt(state, operation, details) {
   });
 }
 
-export function receipt(state, kind, { summary, redaction, evidenceRefs, details }, deps = {}) {
+export function receipt(state, kind, { id, summary, redaction, evidenceRefs, details }, deps = {}) {
   const {
     randomUUID,
     redact,
     schemaVersion,
   } = deps;
   const record = {
-    id: `receipt_${kind}_${randomUUID()}`,
+    id: id ?? `receipt_${kind}_${randomUUID()}`,
     runId: null,
     kind,
     summary,

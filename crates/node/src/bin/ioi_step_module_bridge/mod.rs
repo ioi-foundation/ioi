@@ -1,6 +1,9 @@
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresOperationProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::model_mount::{
+    ModelMountCore, ModelMountRouteDecisionRequest,
+};
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::ReceiptBinder;
 use ioi_services::agentic::runtime::kernel::step_module::{
@@ -42,6 +45,13 @@ const DIAGNOSTIC_COMMAND_IDS: [&str; 3] = ["auto", "node.check", "typescript.che
 const TEST_COMMAND_IDS: [&str; 4] = ["node.test", "npm.test", "cargo.test", "cargo.check"];
 
 #[derive(Debug, Deserialize)]
+struct BridgeEnvelope {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct StepModuleBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -52,6 +62,16 @@ struct StepModuleBridgeRequest {
     workspace_root: Option<String>,
     #[serde(default)]
     input: Value,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelMountRouteDecisionBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountRouteDecisionRequest,
 }
 
 pub fn run_bridge_response_from_stdin() -> Value {
@@ -72,8 +92,39 @@ fn run_bridge() -> Result<Value, BridgeError> {
     io::stdin()
         .read_to_string(&mut input)
         .map_err(|error| BridgeError::new("stdin_read_failed", error.to_string()))?;
-    let request: StepModuleBridgeRequest = serde_json::from_str(&input)
+    let raw_request: Value = serde_json::from_str(&input)
         .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+    let envelope: BridgeEnvelope = serde_json::from_value(raw_request.clone())
+        .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+    if envelope.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, envelope.schema_version
+            ),
+        ));
+    }
+
+    match envelope.operation.as_str() {
+        "run_coding_tool_step_module" => {
+            let request: StepModuleBridgeRequest = serde_json::from_value(raw_request)
+                .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            run_coding_tool_step_module(request)
+        }
+        "admit_model_mount_route_decision" => {
+            let request: ModelMountRouteDecisionBridgeRequest = serde_json::from_value(raw_request)
+                .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            admit_model_mount_route_decision(request)
+        }
+        other => Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {other}"),
+        )),
+    }
+}
+
+fn run_coding_tool_step_module(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
     if request.schema_version != COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
@@ -109,6 +160,43 @@ fn run_bridge() -> Result<Value, BridgeError> {
             format!("unsupported StepModule tool {}", other),
         )),
     }
+}
+
+fn admit_model_mount_route_decision(
+    request: ModelMountRouteDecisionBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "admit_model_mount_route_decision" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = ModelMountCore
+        .admit_route_decision(&request.request)
+        .map_err(|error| {
+            BridgeError::new("model_mount_route_decision_rejected", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_model_mount_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
+        "record": record,
+        "route_decision_ref": record.route_decision_ref,
+        "route_decision_hash": record.route_decision_hash,
+        "receipt_refs": record.receipt_refs,
+        "evidence_refs": [
+            "rust_model_mount_core",
+            record.route_decision_ref,
+        ],
+    }))
 }
 
 fn workspace_status_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
@@ -2494,6 +2582,42 @@ mod tests {
     use serde_json::json;
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn bridge_admits_model_mount_route_decision_through_rust_core() {
+        let request: ModelMountRouteDecisionBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "admit_model_mount_route_decision",
+            "backend": "rust_model_mount_live",
+            "request": {
+                "schema_version": "ioi.model_mount.route_decision.v1",
+                "route_ref": "route.local-first",
+                "provider_ref": "provider.local",
+                "endpoint_ref": "endpoint.local",
+                "model_ref": "model.local",
+                "capability": "chat",
+                "policy_hash": "sha256:policy",
+                "idempotency_key": "model_route_decision:test",
+                "receipt_refs": ["receipt://route"],
+                "authority_grant_refs": [],
+                "authority_receipt_refs": [],
+                "privacy_profile": "local_private",
+                "node_plaintext_allowed": false
+            }
+        }))
+        .expect("bridge request");
+
+        let response = admit_model_mount_route_decision(request).expect("admitted");
+
+        assert_eq!(response["source"], "rust_model_mount_command");
+        assert_eq!(response["backend"], "rust_model_mount_live");
+        assert_eq!(response["record"]["model_ref"], "model.local");
+        assert_eq!(response["record"]["receipt_refs"][0], "receipt://route");
+        assert!(response["route_decision_ref"]
+            .as_str()
+            .expect("route decision ref")
+            .starts_with("model_mount://route_decision/"));
+    }
 
     #[test]
     fn workspace_status_reads_git_porcelain_status() {

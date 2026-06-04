@@ -334,6 +334,15 @@ function runBridge() {
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
+  const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting.mjs")
+    : "";
+  const modelRouteRunner = exists("packages/runtime-daemon/src/model-mounting/route-decision-runner.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/route-decision-runner.mjs")
+    : "";
+  const modelRoutes = exists("packages/runtime-daemon/src/model-mounting/routes.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/routes.mjs")
+    : "";
   assertCheck(
     result,
     "step-module-runner-interface",
@@ -399,6 +408,30 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
     ],
     "Phase 3/10 is pending: route migrated coding tools through the Rust command bridge, StepModuleRouter, and live workload path without daemon_js",
+  );
+  assertCheck(
+    result,
+    "model-mount-route-decision-live-bridge",
+    /admit_model_mount_route_decision/.test(bridgeModule) &&
+      /ModelMountCore/.test(bridgeModule) &&
+      /ModelMountRouteDecisionRequest/.test(bridgeModule) &&
+      /bridge_admits_model_mount_route_decision_through_rust_core/.test(bridgeModule) &&
+      /RustModelMountRouteDecisionRunner/.test(modelRouteRunner) &&
+      /MODEL_MOUNT_ROUTE_DECISION_COMMAND_ENV/.test(modelRouteRunner) &&
+      /model_mount_route_decision_bridge_unconfigured/.test(modelRouteRunner) &&
+      /admitModelMountRouteDecision/.test(modelMountingState) &&
+      /createModelMountRouteDecisionRunnerFromEnv/.test(modelMountingState) &&
+      /modelMountRouteDecisionRequestForSelection/.test(modelRoutes) &&
+      /model_mount_route_decision_admission_required/.test(modelRoutes) &&
+      /model_mount_route_decision_receipt_id_required/.test(modelRoutes) &&
+      /modelMountRouteDecisionRef/.test(modelRoutes),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/route-decision-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/routes.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+    ],
+    "Phase 3/9 is pending: model-mounting route decisions must call Rust model_mount core and fail closed before provider invocation",
   );
   return result;
 }

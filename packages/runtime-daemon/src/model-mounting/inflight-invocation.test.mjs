@@ -11,12 +11,33 @@ async function withModelState(fn) {
     stateDir: mkdtempSync(join(tmpdir(), "ioi-model-state-")),
     cwd: process.cwd(),
     homeDir: process.env.HOME,
+    modelMountRouteDecisionRunner: mockRouteDecisionRunner(),
   });
   try {
     return await fn(state);
   } finally {
     state.close();
   }
+}
+
+function mockRouteDecisionRunner() {
+  return {
+    admitRouteDecision(request) {
+      return {
+        source: "rust_model_mount_mock",
+        backend: "rust_model_mount_live",
+        record: {
+          ...request,
+          route_decision_ref: "model_mount://route_decision/test",
+          route_decision_hash: "sha256:test",
+        },
+        route_decision_ref: "model_mount://route_decision/test",
+        route_decision_hash: "sha256:test",
+        receipt_refs: request.receipt_refs,
+        evidence_refs: ["rust_model_mount_core", "model_mount://route_decision/test"],
+      };
+    },
+  };
 }
 
 function mountTestModel(state) {
