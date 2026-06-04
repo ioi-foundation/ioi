@@ -1,0 +1,125 @@
+# Hypervisor Kernel Substrate Migration Matrix
+
+Status: implementation migration matrix.
+Canonical owner: this file tracks live/current/final ownership for the Hypervisor kernel substrate unification migration; doctrine remains owned by the subject docs and the master guide.
+Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
+Superseded by: none.
+Last alignment pass: 2026-06-04.
+
+## Purpose
+
+This matrix is the Phase 0 inventory for
+[`hypervisor-kernel-substrate-unification-master-guide.md`](./hypervisor-kernel-substrate-unification-master-guide.md).
+It keeps each route family honest about current live authority, target owner,
+truth path, conformance tier, and cleanup condition.
+
+Terminal status is not claimed here. The migration is open until
+`hypervisor-conformance` passes and the terminal conditions in the master guide
+are all true.
+
+## Implementation Slice 0
+
+```yaml
+ImplementationSlice:
+  objective: restore the canonical guide, record the live-vs-target inventory,
+    and wire the fail-closed conformance command contract
+  owner_boundary:
+    route_or_surface: migration/conformance surface
+    authority_gate: Hypervisor Daemon plus wallet.network, not bypassed by this slice
+    execution_backend: not changed; JS remains current live path until Phase 1+
+    truth_path: documentation inventory only; no accepted runtime transition
+    projection_path: conformance reporting only
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+      - docs/architecture/_meta/source-of-truth-map.md
+      - docs/architecture/_meta/implementation-matrix.md
+    daemon: []
+    rust_core: []
+    ide: []
+    tests:
+      - scripts/conformance/hypervisor-conformance.mjs
+      - package.json
+  conformance_checks:
+    - no bypass of daemon execution ownership
+    - no bypass of wallet.network authority where applicable
+    - no accepted transition without receipt/ref/state-root binding
+    - no cTEE plaintext-custody regression
+  verification:
+    commands:
+      - npm run hypervisor-conformance:docs
+      - node scripts/conformance/hypervisor-conformance.mjs abi
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: false
+    compatibility_shims_remaining:
+      - JS daemon execution paths remain current live implementation until the
+        Step/Module ABI, bridge, receipts, and Rust core phases prove parity
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
+## Route-Family Owner Map
+
+| Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `coding-tools` | `packages/runtime-daemon/src/coding-tools.mjs` | JS daemon tool dispatch | Rust core `step_router` plus workload/WASM backend | Agentgres admitted operation with receipt, refs, heads, and state roots | `abi`, `bridge`, `receipts`, `negative` | live JS authoritative path | Rust path passes shadow, gated, and live parity for each migrated tool; JS can no longer append authoritative effects. |
+| `approvals-gates` | `packages/runtime-daemon/src/runtime-route-handlers.mjs` | JS daemon routes plus local approval state | Rust core `authority` with wallet.network handoff | authority grant and approval receipt before effect boundary | `bridge`, `negative` | live JS authority surface | JS can only request/render approvals; grants and gate decisions are issued by Rust authority core and wallet.network. |
+| `runtime-events-replay-trace` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | JS daemon envelope/projection code | Rust core `projection` plus Agentgres projection watermarks | replayable projection over admitted operations and receipts | `receipts`, `compositor` | JS projection source | Rust emits canonical projection records consumed by IDE/CLI/SDK. |
+| `model-mounting` | `packages/runtime-daemon/src/model-mounting/*` | JS daemon model-mounting store and route policy | Rust core `model_mount` | model invocation receipts, route/custody refs, Agentgres operation | `bridge`, `receipts`, `ctee` | live product daemon state | Rust records route decisions and receipts; JS surfaces are non-authoritative clients. |
+| `agentgres-admission` | `packages/runtime-daemon/src/service/runtime-daemon-service.mjs`, `.ioi/agentgres` local state, `docs/architecture/components/agentgres/*` | daemon-local operation-like records plus target canon | Rust core `agentgres_admission` | expected heads, state-root validation, accepted operation admission | `receipts`, `negative` | partial target, split truth risk | no JS path can append accepted operations directly or mutate durable truth without expected heads/state-root binding. |
+| `receipt-binding` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/ipc/proto/public/v1/public.proto` | JS receipts plus Rust/workload receipts | Rust core `receipt_binder` | one binder for invocation, result, artifact refs, payload refs, and state roots | `receipts`, `negative` | duplicate receipt shapes | every meaningful route family emits receipts through one Rust binder. |
+| `ctee-private-workspace` | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md` | canon plus partial product routing | Rust core `ctee` | custody proof, leakage profile, declassification receipt, plaintext-free mount failure | `ctee`, `negative` | planned runtime path | untrusted node plaintext mount fails closed; declassification and private operator paths are receipt-bound. |
+| `workload-client-wasm` | `crates/client/src/workload_client/mod.rs`, `crates/vm/wasm/src/lib.rs`, `crates/validator/src/standard/workload/*` | Rust workload/kernel substrate exists below daemon | Rust core `workload_client` plus WASM/service backend | StepModuleResult with workload receipt and state-root binding | `bridge`, `receipts` | substrate exists, not default daemon backend | daemon routes admitted work through StepModuleRunner into Rust/WASM or workload backend. |
+| `workflow-compositor` | `packages/agent-ide/src/runtime/*`, `packages/runtime-daemon/src/runtime-event-envelopes.mjs` | IDE/daemon projection shaping | Rust core `projection` consumed by IDE/CLI/SDK | projection checkpoints rebuilt from Agentgres admitted truth | `compositor`, `negative` | rich projection, not final truth source | compositor cannot create accepted truth directly and only renders/replays canonical projections. |
+| `worker-service-packages` | `docs/architecture/foundations/common-objects-and-envelopes.md`, `docs/architecture/domains/aiagent/worker-endpoints.md`, `docs/architecture/domains/sas/service-endpoints.md` | target canon plus service/module concepts | Rust core `step_router` plus workload/WASM/AIIP backends | package invocation receipt, authority grant, artifacts, projection | `bridge`, `receipts`, `compositor` | target only | service and worker package invocation uses the shared Step/Module ABI. |
+| `meta-improvement` | `crates/services/src/agentic/runtime/kernel/*`, workflow/evaluation docs | partial Rust/IDE signals | Rust core authority plus proposal/eval/approval path | proposal object, eval receipts, approval grant, committed mutation | `receipts`, `negative` | target only | agents cannot self-modify directly; all improvements are proposal-mediated. |
+| `rust-daemon-core` | target layout in master guide | not yet extracted as one authoritative core | Rust modules: `authority`, `step_router`, `workload_client`, `model_mount`, `ctee`, `receipt_binder`, `agentgres_admission`, `projection`, `conformance` | one Rust owner for hot-path semantics | all tiers | not extracted | hot-path execution, authority, receipt/state-root binding, cTEE, replay, and conformance are owned by Rust core. |
+| `js-facade-retirement` | `packages/runtime-daemon/src/*` | JS is current live daemon implementation | non-authoritative product/API/client facade only where useful | stable protocol APIs into Rust core | `negative`, terminal `hypervisor-conformance` | not retired | every migrated route family removes or demotes old JS authoritative paths and compatibility shims. |
+
+## Cleanup Targets Found In Phase 0
+
+These are not deletions for Slice 0. They are the long-term cleanup targets that
+must be retired as the corresponding route family reaches verified parity:
+
+| Cleanup target | Why it must not be permanent | Removal trigger |
+| --- | --- | --- |
+| Direct JS coding tool dispatch for consequential effects | It is the current split-brain authoritative execution path. | Each tool has ABI coverage, Rust/WASM or workload execution, receipts/state roots, and compositor parity. |
+| Daemon-local operation-like truth outside Rust Agentgres admission | It risks duplicate accepted truth. | Agentgres admission enforces expected heads and state-root binding for meaningful transitions. |
+| Receipt emission in multiple owners | Duplicate receipt paths make replay and failure analysis ambiguous. | `receipt_binder` owns all accepted receipt/result binding. |
+| Model/provider fallback routes outside daemon-owned model mounting | Earlier parity work established daemon-owned mounting/routing as source of truth. | Rust `model_mount` owns route decisions and receipts. |
+| Compatibility adapters that can mutate state or emit accepted receipts | Alpha has no need to preserve old route behavior after migration. | Stable protocol APIs exist and migrated route families pass negative conformance. |
+| Workflow compositor accepted-truth shortcuts | The IDE should compose and inspect, not admit truth. | compositor projections rebuild from Agentgres operations and Rust projection watermarks. |
+| cTEE language without runtime plaintext-failure tests | cTEE is no-plaintext-custody private workspace execution, not encryption-at-rest. | private workspace module path and leakage/declassification tests pass. |
+
+## Command State
+
+The command contract is wired at the repo task-runner layer:
+
+```text
+hypervisor-conformance
+hypervisor-conformance:docs
+hypervisor-conformance:abi
+hypervisor-conformance:bridge
+hypervisor-conformance:receipts
+hypervisor-conformance:ctee
+hypervisor-conformance:compositor
+hypervisor-conformance:negative
+```
+
+Current expected behavior after Slice 0:
+
+| Command | Expected status now | Reason |
+| --- | --- | --- |
+| `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
+| `hypervisor-conformance:abi` | fail closed | Step/Module schemas are not yet implemented in code. |
+| `hypervisor-conformance:bridge` | fail closed | daemon route to Rust core/workload backend is not yet implemented. |
+| `hypervisor-conformance:receipts` | fail closed | one Rust receipt/state-root binder is not yet authoritative. |
+| `hypervisor-conformance:ctee` | fail closed | cTEE private workspace module path and plaintext-failure tests are not yet implemented. |
+| `hypervisor-conformance:compositor` | fail closed | IDE/CLI/SDK are not yet backed by Rust projection records. |
+| `hypervisor-conformance:negative` | fail closed | forbidden-path fixtures are not yet implemented. |
+| `hypervisor-conformance` | fail closed | terminal migration is not complete. |
