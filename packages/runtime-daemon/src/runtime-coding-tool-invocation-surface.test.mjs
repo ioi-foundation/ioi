@@ -452,6 +452,125 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 
+test("coding tool invocation surface runs lsp.diagnostics through rust workload live path", () => {
+  const runnerCalls = [];
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool(input) {
+      runnerCalls.push(input);
+      return {
+        backend: "rust_workload_live",
+        mode: "live",
+        blocking: true,
+        source: "rust_workload_command",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://rust-live/lsp.diagnostics",
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: "invocation://rust-live/lsp.diagnostics",
+          status: "success",
+          execution_result_ref: "result://rust-live/lsp.diagnostics",
+          normalized_observation_ref: "observation://rust-live/lsp.diagnostics",
+          receipt_refs: ["receipt://rust-live/lsp.diagnostics"],
+          artifact_refs: [],
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: null,
+          resulting_head: null,
+          workflow_projection: {
+            workflow_graph_id: "graph_alpha",
+            workflow_node_id: "node_diagnostics",
+            component_kind: "LspDiagnosticsNode",
+            status: "live",
+            attempt_id: "attempt://rust-live/lsp.diagnostics",
+            evidence_refs: [],
+            receipt_refs: ["receipt://rust-live/lsp.diagnostics"],
+          },
+          next: {
+            model_reentry_required: false,
+            verifier_required: false,
+          },
+        },
+        bridge_result: {
+          router_admission: {
+            schema_version: "ioi.step_module_router_admission.v1",
+            backend: "workload_grpc",
+          },
+          shadow_observation: {
+            tool: "lsp.diagnostics",
+            result: {
+              schemaVersion: "ioi.runtime.coding-tool-result.v1",
+              workspaceRoot: "/tmp/workspace",
+              commandId: "node.check",
+              requestedCommandId: "node.check",
+              resolvedCommandId: "node.check",
+              command: "node --check",
+              cwd: ".",
+              backend: "node.check",
+              backendStatus: "available",
+              backendReason: null,
+              fallbackUsed: false,
+              fallbackFrom: null,
+              projectContext: {
+                schemaVersion: "ioi.runtime.diagnostics-project-context.v1",
+                workspaceRoot: "/tmp/workspace",
+                cwd: ".",
+                paths: ["src/index.mjs"],
+              },
+              diagnosticStatus: "clean",
+              diagnostics: [],
+              diagnosticCount: 0,
+              paths: ["src/index.mjs"],
+              exitCode: 0,
+              timedOut: false,
+              durationMs: 12,
+              timeoutMs: 30000,
+              stdout: "",
+              stderr: "",
+              outputBytes: 0,
+              outputHash: "abc123",
+              truncated: false,
+              spilloverRecommended: false,
+              artifactDrafts: [],
+              allowedCommandIds: ["auto", "node.check", "typescript.check"],
+              shellFallbackUsed: false,
+            },
+          },
+        },
+      };
+    },
+  };
+  const surface = createSurface({
+    stepModuleRunner: liveRunner,
+    executeCodingTool() {
+      throw new Error("daemon JS execution must not run");
+    },
+  });
+  const store = createStore();
+
+  const result = surface.invokeThreadTool(store, "thread_alpha", "lsp.diagnostics", {
+    toolCallId: "tool_diagnostics",
+    workflowGraphId: "graph_alpha",
+    workflowNodeId: "node_diagnostics",
+    input: { commandId: "node.check", path: "src/index.mjs" },
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(runnerCalls.length, 1);
+  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.backend, "node.check");
+  assert.equal(result.result.diagnosticStatus, "clean");
+  assert.equal(result.result.diagnosticCount, 0);
+  assert.deepEqual(result.result.paths, ["src/index.mjs"]);
+  assert.equal(result.step_module.backend, "rust_workload_live");
+  assert.ok(result.receipt_refs.includes("receipt://rust-live/lsp.diagnostics"));
+  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+});
+
 test("coding tool invocation surface keeps non-migrated tools blocked in rust workload live mode", () => {
   const surface = createSurface({
     stepModuleRunner: {

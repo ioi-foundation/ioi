@@ -10,15 +10,22 @@ use serde_json::{json, Value};
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Component, Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 const COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_bridge.v1";
 const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 const DEFAULT_PREVIEW_BYTES: u64 = 16 * 1024;
 const MAX_PREVIEW_BYTES: u64 = 64 * 1024;
 const MAX_DIFF_BYTES: u64 = 64 * 1024;
+const DIAGNOSTIC_DEFAULT_TIMEOUT_MS: u64 = 30 * 1000;
+const DIAGNOSTIC_MAX_TIMEOUT_MS: u64 = 2 * 60 * 1000;
+const DIAGNOSTIC_DEFAULT_OUTPUT_BYTES: u64 = 64 * 1024;
+const DIAGNOSTIC_MAX_OUTPUT_BYTES: u64 = 64 * 1024;
 const DEFAULT_PREVIEW_LINES: usize = 200;
 const MAX_PREVIEW_LINES: usize = 500;
+const DIAGNOSTIC_COMMAND_IDS: [&str; 3] = ["auto", "node.check", "typescript.check"];
 
 #[derive(Debug, Deserialize)]
 struct StepModuleBridgeRequest {
@@ -77,6 +84,7 @@ fn run_bridge() -> Result<Value, BridgeError> {
         "workspace.status" => workspace_status_response(request),
         "git.diff" => git_diff_response(request),
         "file.inspect" => file_inspect_response(request),
+        "lsp.diagnostics" => lsp_diagnostics_response(request),
         other => Err(BridgeError::new(
             "tool_unsupported",
             format!("unsupported StepModule tool {}", other),
@@ -149,6 +157,25 @@ fn file_inspect_response(request: StepModuleBridgeRequest) -> Result<Value, Brid
         json!({
             "tool": "file.inspect",
             "result": inspected,
+        }),
+    ))
+}
+
+fn lsp_diagnostics_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
+    let workspace_root = request.workspace_root.clone().ok_or_else(|| {
+        BridgeError::new(
+            "workspace_root_required",
+            "workspace_root is required".to_string(),
+        )
+    })?;
+    let diagnostics_result = inspect_lsp_diagnostics(&workspace_root, &request.input)?;
+    let result = successful_step_module_result(&request, "lsp.diagnostics", "LspDiagnosticsNode");
+    Ok(step_module_response(
+        request,
+        result,
+        json!({
+            "tool": "lsp.diagnostics",
+            "result": diagnostics_result,
         }),
     ))
 }
@@ -263,6 +290,125 @@ fn step_module_response(
         "projection_record": projection_record,
         "shadow_observation": shadow_observation,
     })
+}
+
+fn inspect_lsp_diagnostics(workspace_root: &str, input: &Value) -> Result<Value, BridgeError> {
+    let root = fs::canonicalize(workspace_root)
+        .map_err(|error| BridgeError::new("workspace_root_invalid", error.to_string()))?;
+    let command_id = input
+        .get("commandId")
+        .or_else(|| input.get("command_id"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("auto");
+    if !DIAGNOSTIC_COMMAND_IDS.contains(&command_id) {
+        return Err(BridgeError::new(
+            "lsp_diagnostics_command_not_allowed",
+            format!("lsp.diagnostics commandId is not allowlisted: {command_id}"),
+        ));
+    }
+    if command_id != "node.check" {
+        return Err(BridgeError::new(
+            "lsp_diagnostics_backend_unsupported",
+            format!("{command_id} is not live in the Rust bridge yet"),
+        ));
+    }
+    let cwd = input
+        .get("cwd")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(".");
+    let run_cwd = workspace_directory(&root, cwd, "lsp_diagnostics_cwd_missing")?;
+    let paths = workspace_tool_paths(&root, input)?;
+    if paths.is_empty() {
+        return Err(BridgeError::new(
+            "lsp_diagnostics_path_required",
+            "lsp.diagnostics requires path or paths".to_string(),
+        ));
+    }
+    let timeout_ms = bounded_u64(
+        input
+            .get("timeoutMs")
+            .or_else(|| input.get("timeout_ms"))
+            .and_then(Value::as_u64),
+        DIAGNOSTIC_DEFAULT_TIMEOUT_MS,
+        1,
+        DIAGNOSTIC_MAX_TIMEOUT_MS,
+    );
+    let max_output_bytes = bounded_u64(
+        input
+            .get("maxOutputBytes")
+            .or_else(|| input.get("max_output_bytes"))
+            .and_then(Value::as_u64),
+        DIAGNOSTIC_DEFAULT_OUTPUT_BYTES,
+        1,
+        DIAGNOSTIC_MAX_OUTPUT_BYTES,
+    ) as usize;
+    let started = Instant::now();
+    let run = run_node_check(&run_cwd.absolute_path, &paths, timeout_ms)?;
+    let duration_ms = started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+    let (stdout, stdout_truncated) = utf8_preview(&run.stdout, max_output_bytes);
+    let (stderr, stderr_truncated) = utf8_preview(&run.stderr, max_output_bytes);
+    let output_text = format!("{}\n{}", run.stdout, run.stderr);
+    let output_hash = ioi_crypto::algorithms::hash::sha256(output_text.as_bytes())
+        .map(|hash| hex::encode(hash))
+        .map_err(|error| BridgeError::new("lsp_diagnostics_hash_failed", error.to_string()))?;
+    let truncated = stdout_truncated || stderr_truncated;
+    let diagnostics = run.diagnostics;
+    let diagnostic_status = if run.backend_status == "degraded" {
+        "degraded"
+    } else if diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.get("severity").and_then(Value::as_str) == Some("error"))
+    {
+        "findings"
+    } else {
+        "clean"
+    };
+    let diagnostic_count = diagnostics.len();
+    let path_refs = paths
+        .iter()
+        .map(|path| path.relative_path.clone())
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspaceRoot": workspace_root,
+        "commandId": command_id,
+        "requestedCommandId": command_id,
+        "resolvedCommandId": "node.check",
+        "command": "node --check",
+        "cwd": run_cwd.relative_path.clone(),
+        "backend": "node.check",
+        "backendStatus": run.backend_status,
+        "backendReason": run.backend_reason,
+        "fallbackUsed": false,
+        "fallbackFrom": null,
+        "projectContext": {
+            "schemaVersion": "ioi.runtime.diagnostics-project-context.v1",
+            "workspaceRoot": workspace_root,
+            "cwd": run_cwd.relative_path,
+            "paths": path_refs.clone(),
+        },
+        "diagnosticStatus": diagnostic_status,
+        "diagnostics": diagnostics,
+        "diagnosticCount": diagnostic_count,
+        "paths": path_refs,
+        "exitCode": run.exit_code,
+        "timedOut": run.timed_out,
+        "durationMs": duration_ms,
+        "timeoutMs": timeout_ms,
+        "stdout": stdout,
+        "stderr": stderr,
+        "outputBytes": run.stdout.len() + run.stderr.len(),
+        "outputHash": output_hash,
+        "truncated": truncated,
+        "spilloverRecommended": truncated,
+        "artifactDrafts": [],
+        "allowedCommandIds": DIAGNOSTIC_COMMAND_IDS,
+        "shellFallbackUsed": false,
+    }))
 }
 
 fn inspect_workspace_status(workspace_root: &str, input: &Value) -> Result<Value, BridgeError> {
@@ -525,6 +671,13 @@ fn workspace_diff_paths(root: &Path, input: &Value) -> Result<Vec<String>, Bridg
         .collect()
 }
 
+fn workspace_tool_paths(root: &Path, input: &Value) -> Result<Vec<WorkspacePath>, BridgeError> {
+    selected_workspace_paths(input)
+        .iter()
+        .map(|selected_path| workspace_path_allow_missing(root, selected_path))
+        .collect()
+}
+
 fn selected_workspace_paths(input: &Value) -> Vec<String> {
     let mut paths = Vec::new();
     if let Some(values) = input.get("paths").and_then(Value::as_array) {
@@ -552,11 +705,14 @@ fn workspace_relative_path_allow_missing(
     root: &Path,
     selected_path: &str,
 ) -> Result<String, BridgeError> {
-    let candidate = if Path::new(selected_path).is_absolute() {
-        PathBuf::from(selected_path)
-    } else {
-        root.join(selected_path)
-    };
+    Ok(workspace_path_allow_missing(root, selected_path)?.relative_path)
+}
+
+fn workspace_path_allow_missing(
+    root: &Path,
+    selected_path: &str,
+) -> Result<WorkspacePath, BridgeError> {
+    let candidate = path_candidate(root, selected_path);
     let normalized_root = normalize_path_lexically(root);
     let normalized_candidate = normalize_path_lexically(&candidate);
     if !normalized_candidate.starts_with(&normalized_root) {
@@ -586,14 +742,35 @@ fn workspace_relative_path_allow_missing(
         .to_string_lossy()
         .replace('\\', "/");
     Ok(if relative.is_empty() {
-        ".".to_string()
+        WorkspacePath {
+            absolute_path: normalized_candidate,
+            relative_path: ".".to_string(),
+        }
     } else {
-        relative
+        WorkspacePath {
+            absolute_path: normalized_candidate,
+            relative_path: relative,
+        }
     })
 }
 
+fn workspace_directory(
+    root: &Path,
+    selected_path: &str,
+    error_code: &'static str,
+) -> Result<WorkspacePath, BridgeError> {
+    let path = workspace_path_allow_missing(root, selected_path)?;
+    if !path.absolute_path.is_dir() {
+        return Err(BridgeError::new(
+            error_code,
+            "workspace directory must exist".to_string(),
+        ));
+    }
+    Ok(path)
+}
+
 fn workspace_target(root: &Path, selected_path: &str) -> Result<PathBuf, BridgeError> {
-    let candidate = root.join(selected_path);
+    let candidate = path_candidate(root, selected_path);
     let canonical = fs::canonicalize(&candidate)
         .map_err(|error| BridgeError::new("not_found", error.to_string()))?;
     if !canonical.starts_with(root) {
@@ -603,6 +780,14 @@ fn workspace_target(root: &Path, selected_path: &str) -> Result<PathBuf, BridgeE
         ));
     }
     Ok(canonical)
+}
+
+fn path_candidate(root: &Path, selected_path: &str) -> PathBuf {
+    if Path::new(selected_path).is_absolute() {
+        PathBuf::from(selected_path)
+    } else {
+        root.join(selected_path)
+    }
 }
 
 fn nearest_existing_path(path: &Path) -> Option<PathBuf> {
@@ -635,6 +820,217 @@ struct CommandOutput {
     ok: bool,
     stdout: String,
     stderr: String,
+}
+
+struct WorkspacePath {
+    absolute_path: PathBuf,
+    relative_path: String,
+}
+
+struct DiagnosticRun {
+    stdout: String,
+    stderr: String,
+    exit_code: i32,
+    timed_out: bool,
+    backend_status: &'static str,
+    backend_reason: Option<&'static str>,
+    diagnostics: Vec<Value>,
+}
+
+struct CapturedCommand {
+    stdout: String,
+    stderr: String,
+    exit_code: i32,
+    timed_out: bool,
+}
+
+fn run_node_check(
+    cwd: &Path,
+    paths: &[WorkspacePath],
+    timeout_ms: u64,
+) -> Result<DiagnosticRun, BridgeError> {
+    let mut stdout_parts = Vec::new();
+    let mut stderr_parts = Vec::new();
+    let mut diagnostics = Vec::new();
+    let mut exit_code = 0;
+    let mut timed_out = false;
+    let mut unsupported_count = 0usize;
+    for target in paths {
+        if !node_check_path_supported(&target.relative_path) {
+            unsupported_count += 1;
+            diagnostics.push(json!({
+                "path": target.relative_path,
+                "severity": "warning",
+                "source": "node.check",
+                "code": "unsupported_path",
+                "message": "node.check only supports .js, .mjs, and .cjs files.",
+                "line": null,
+                "column": null,
+            }));
+            continue;
+        }
+        let run = run_command_with_timeout(
+            "node",
+            &[
+                "--check".to_string(),
+                target.absolute_path.to_string_lossy().to_string(),
+            ],
+            cwd,
+            timeout_ms,
+        )?;
+        if !run.stdout.is_empty() {
+            stdout_parts.push(run.stdout.clone());
+        }
+        let stderr_entry = ["# ".to_string() + &target.relative_path, run.stderr.clone()]
+            .into_iter()
+            .filter(|entry| !entry.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        if !stderr_entry.is_empty() {
+            stderr_parts.push(stderr_entry);
+        }
+        exit_code = exit_code.max(run.exit_code);
+        timed_out = timed_out || run.timed_out;
+        if run.exit_code != 0 || run.timed_out {
+            diagnostics.extend(node_check_output_diagnostics(target, &run));
+        }
+    }
+    let backend_status = if unsupported_count == paths.len() {
+        "degraded"
+    } else if timed_out {
+        "timed_out"
+    } else {
+        "available"
+    };
+    Ok(DiagnosticRun {
+        stdout: stdout_parts.join("\n"),
+        stderr: stderr_parts.join("\n"),
+        exit_code: if timed_out { 124 } else { exit_code },
+        timed_out,
+        backend_status,
+        backend_reason: if backend_status == "degraded" {
+            Some("unsupported_path")
+        } else {
+            None
+        },
+        diagnostics,
+    })
+}
+
+fn node_check_path_supported(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    lower.ends_with(".js") || lower.ends_with(".mjs") || lower.ends_with(".cjs")
+}
+
+fn run_command_with_timeout(
+    command: &str,
+    args: &[String],
+    cwd: &Path,
+    timeout_ms: u64,
+) -> Result<CapturedCommand, BridgeError> {
+    let mut child = Command::new(command)
+        .args(args)
+        .current_dir(cwd)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| BridgeError::new("diagnostic_command_spawn_failed", error.to_string()))?;
+    let started = Instant::now();
+    let timeout = Duration::from_millis(timeout_ms);
+    let mut timed_out = false;
+    loop {
+        match child.try_wait().map_err(|error| {
+            BridgeError::new("diagnostic_command_wait_failed", error.to_string())
+        })? {
+            Some(_) => break,
+            None if started.elapsed() >= timeout => {
+                timed_out = true;
+                let _ = child.kill();
+                break;
+            }
+            None => thread::sleep(Duration::from_millis(10)),
+        }
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|error| BridgeError::new("diagnostic_command_output_failed", error.to_string()))?;
+    Ok(CapturedCommand {
+        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        exit_code: if timed_out {
+            124
+        } else {
+            output.status.code().unwrap_or(1)
+        },
+        timed_out,
+    })
+}
+
+fn node_check_output_diagnostics(target: &WorkspacePath, run: &CapturedCommand) -> Vec<Value> {
+    if run.timed_out {
+        return vec![json!({
+            "path": target.relative_path,
+            "severity": "error",
+            "source": "node.check",
+            "code": "timeout",
+            "message": "node.check timed out.",
+            "line": null,
+            "column": null,
+        })];
+    }
+    let message = run
+        .stderr
+        .lines()
+        .find(|line| {
+            let trimmed = line.trim();
+            trimmed.starts_with("SyntaxError")
+                || trimmed.starts_with("TypeError")
+                || trimmed.starts_with("ReferenceError")
+                || trimmed.starts_with("Error:")
+        })
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| {
+            run.stderr
+                .lines()
+                .rev()
+                .map(str::trim)
+                .find(|line| !line.is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .unwrap_or_else(|| "node.check reported a diagnostic.".to_string());
+    vec![json!({
+        "path": target.relative_path,
+        "severity": "error",
+        "source": "node.check",
+        "code": diagnostic_code(&message),
+        "message": message,
+        "line": null,
+        "column": null,
+    })]
+}
+
+fn diagnostic_code(message: &str) -> String {
+    let head = message.split(':').next().unwrap_or("diagnostic");
+    let code = head
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_string();
+    if code.is_empty() {
+        "diagnostic".to_string()
+    } else {
+        code
+    }
 }
 
 fn run_git_read_only(root: &Path, args: &[String]) -> Result<CommandOutput, BridgeError> {
@@ -786,6 +1182,77 @@ mod tests {
         assert_eq!(result["changedFiles"], json!([]));
         assert_eq!(result["counts"]["changed"], 0);
         assert_eq!(result["shellFallbackUsed"], false);
+    }
+
+    #[test]
+    fn lsp_diagnostics_node_check_reports_clean_javascript() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+        fs::write(workspace.join("ok.mjs"), "const value = 1;\n").expect("fixture file");
+
+        let result = inspect_lsp_diagnostics(
+            workspace.to_str().expect("utf8 path"),
+            &json!({
+                "commandId": "node.check",
+                "path": "ok.mjs",
+                "timeoutMs": 5000
+            }),
+        )
+        .expect("diagnostics result");
+
+        assert_eq!(result["schemaVersion"], CODING_TOOL_RESULT_SCHEMA_VERSION);
+        assert_eq!(result["backend"], "node.check");
+        assert_eq!(result["resolvedCommandId"], "node.check");
+        assert_eq!(result["diagnosticStatus"], "clean");
+        assert_eq!(result["diagnosticCount"], 0);
+        assert_eq!(result["paths"], json!(["ok.mjs"]));
+        assert_eq!(result["exitCode"], 0);
+        assert_eq!(result["shellFallbackUsed"], false);
+    }
+
+    #[test]
+    fn lsp_diagnostics_node_check_reports_syntax_error() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+        fs::write(workspace.join("broken.mjs"), "const = ;\n").expect("fixture file");
+
+        let result = inspect_lsp_diagnostics(
+            workspace.to_str().expect("utf8 path"),
+            &json!({
+                "commandId": "node.check",
+                "path": "broken.mjs",
+                "timeoutMs": 5000
+            }),
+        )
+        .expect("diagnostics result");
+
+        assert_eq!(result["backend"], "node.check");
+        assert_eq!(result["diagnosticStatus"], "findings");
+        assert_eq!(result["diagnosticCount"], 1);
+        assert_ne!(result["exitCode"], 0);
+        assert_eq!(result["diagnostics"][0]["path"], "broken.mjs");
+        assert_eq!(result["diagnostics"][0]["severity"], "error");
+    }
+
+    #[test]
+    fn lsp_diagnostics_auto_fails_closed_until_backend_is_live() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+        fs::write(workspace.join("ok.mjs"), "const value = 1;\n").expect("fixture file");
+
+        let error = inspect_lsp_diagnostics(
+            workspace.to_str().expect("utf8 path"),
+            &json!({
+                "commandId": "auto",
+                "path": "ok.mjs"
+            }),
+        )
+        .expect_err("auto should fail closed until migrated");
+
+        assert_eq!(error.code, "lsp_diagnostics_backend_unsupported");
     }
 
     #[test]

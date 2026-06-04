@@ -360,6 +360,8 @@ function runBridge() {
       !/workspace_status_shadow_response/.test(bridgeModule) &&
       /git\.diff/.test(bridgeModule) &&
       /file\.inspect/.test(bridgeModule) &&
+      /lsp\.diagnostics/.test(bridgeModule) &&
+      /inspect_lsp_diagnostics/.test(bridgeModule) &&
       /ioi\.step_module\.command_bridge\.v1/.test(bridgeModule) &&
       /StepModuleRouterCore/.test(bridgeModule) &&
       /router_admission/.test(bridgeModule) &&
@@ -367,6 +369,7 @@ function runBridge() {
       /workspace\.status/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /git\.diff/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /file\.inspect/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
+      /lsp\.diagnostics/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /rust_workload_live/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")),
     [
       "crates/node/src/bin/ioi-step-module-bridge.rs",
