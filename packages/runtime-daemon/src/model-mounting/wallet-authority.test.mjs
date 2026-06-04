@@ -25,19 +25,18 @@ function token(fields = {}) {
   };
 }
 
-test("wallet authority creates grants and records authorization use", () => {
+test("wallet authority creates grants and records authorization use without local operation append", () => {
   const operations = [];
   const wallet = authority(operations);
   const grant = wallet.createGrant(token());
 
   assert.equal(grant.authority, "agentgres_wallet_authority");
   assert.equal(grant.walletNetworkShape.grantId, "grant-a");
-  assert.equal(operations[0].kind, "wallet.grant.create");
 
   const authorized = wallet.authorizeScope(grant, "model.chat:complete");
   assert.equal(authorized.lastUsedAt, "2026-06-03T00:00:00.000Z");
   assert.equal(authorized.lastUsedScope, "model.chat:complete");
-  assert.ok(operations.some((operation) => operation.kind === "wallet.scope.authorize"));
+  assert.deepEqual(operations, []);
 });
 
 test("wallet authority rejects denied, expired, and revoked grants", () => {
@@ -72,7 +71,7 @@ test("wallet authority rejects denied, expired, and revoked grants", () => {
   );
 });
 
-test("wallet authority revokes grants and redacts vault refs in audit operations", () => {
+test("wallet authority revokes grants and resolves vault refs without local operation append", () => {
   const operations = [];
   const wallet = authority(operations);
   const revoked = wallet.revokeGrant(token());
@@ -83,11 +82,8 @@ test("wallet authority revokes grants and redacts vault refs in audit operations
   const vault = wallet.resolveVaultRef("vault://provider.openai/api-key");
   assert.equal(typeof vault.vaultRefHash, "string");
   assert.equal(vault.resolvedMaterial, false);
-
-  const audit = operations.find((operation) => operation.kind === "wallet.vault.resolve");
-  assert.ok(audit);
-  assert.match(audit.payload.objectId, /^vault_ref_[a-f0-9]+$/);
-  assert.equal(JSON.stringify(audit).includes("vault://provider.openai/api-key"), false);
+  assert.equal(JSON.stringify(vault).includes("vault://provider.openai/api-key"), false);
+  assert.deepEqual(operations, []);
 });
 
 test("wallet authority adapter status reflects remote boundary", () => {

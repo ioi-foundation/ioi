@@ -382,7 +382,6 @@ export class ModelMountingState {
     });
     this.walletAuthority = new AgentgresWalletAuthority({
       now: this.now,
-      appendOperation: (kind, payload) => this.appendOperation?.(kind, payload),
     });
     this.vault = new AgentgresVaultPort({
       now: this.now,

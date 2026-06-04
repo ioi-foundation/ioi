@@ -858,6 +858,9 @@ function runReceipts() {
   const providerTransport = exists("packages/runtime-daemon/src/model-mounting/provider-transport.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-transport.mjs")
     : "";
+  const walletAuthority = exists("packages/runtime-daemon/src/model-mounting/wallet-authority.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/wallet-authority.mjs")
+    : "";
   const modelMountStore = exists("packages/runtime-daemon/src/model-mounting/store.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.mjs")
     : "";
@@ -1345,6 +1348,19 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs",
     ],
     "Phase 5/11 is pending: provider transport retry traces must not append JS operation-like records outside Rust Agentgres admission",
+  );
+  assertCheck(
+    result,
+    "model-mount-wallet-authority-audit-append-retired",
+    !/\bappendOperation\b/.test(walletAuthority) &&
+      /wallet authority creates grants and records authorization use without local operation append/.test(
+        read("packages/runtime-daemon/src/model-mounting/wallet-authority.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/wallet-authority.mjs",
+      "packages/runtime-daemon/src/model-mounting/wallet-authority.test.mjs",
+    ],
+    "Phase 7/11 is pending: wallet authority audit mirroring must not append JS operation-like records outside wallet.network and admitted receipt paths",
   );
   assertCheck(
     result,

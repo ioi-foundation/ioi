@@ -9,9 +9,8 @@ import {
 const SECRET_REDACTION = "[REDACTED]";
 
 export class AgentgresWalletAuthority {
-  constructor({ now, appendOperation }) {
+  constructor({ now }) {
     this.now = now;
-    this.appendOperation = appendOperation;
   }
 
   createGrant(token) {
@@ -125,10 +124,6 @@ export class AgentgresWalletAuthority {
       port: "WalletAuthorityPort",
       kind,
       ...safePayload,
-    });
-    this.appendOperation?.(`wallet.${kind}`, {
-      ...safePayload,
-      details: safePayload,
     });
   }
 
