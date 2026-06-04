@@ -1085,6 +1085,27 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-instance-map-direct-write-guard",
+    /assertModelInstanceMapRustBound/.test(
+      read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+    ) &&
+      /model_mount_instance_map_direct_write_forbidden/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      /rust_model_mount_instance_lifecycle/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      /model instance map writes require Rust lifecycle binding/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
+    ],
+    "Phase 9/10 is pending: direct JS model-instance map persistence for migrated local providers must fail closed without Rust model_mount instance lifecycle binding",
+  );
+  assertCheck(
+    result,
     "model-mount-provider-result-admission-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
       /MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION/.test(

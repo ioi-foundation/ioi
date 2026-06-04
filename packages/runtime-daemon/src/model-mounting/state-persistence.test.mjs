@@ -100,3 +100,48 @@ test("writeModelMountingMap delegates through the configured store", () => {
 
   assert.deepEqual(state.writes, [["model-artifacts", ["artifact_a"]]]);
 });
+
+test("model instance map writes require Rust lifecycle binding for migrated local providers", () => {
+  const state = fakeState();
+  state.providers.set("provider.local", { id: "provider.local", kind: "ioi_native_local" });
+  const map = new Map([
+    ["instance.local", {
+      id: "instance.local",
+      providerId: "provider.local",
+      status: "loaded",
+    }],
+  ]);
+
+  assert.throws(
+    () => writeModelMountingMap(state, "model-instances", map),
+    (error) =>
+      error.code === "model_mount_instance_map_direct_write_forbidden" &&
+      error.details.missing.includes("instance.local:modelMountInstanceLifecycleHash"),
+  );
+  assert.deepEqual(state.writes, []);
+});
+
+test("model instance map writes allow Rust-bound local and non-migrated provider records", () => {
+  const state = fakeState();
+  state.providers.set("provider.local", { id: "provider.local", kind: "local_folder" });
+  state.providers.set("provider.remote", { id: "provider.remote", kind: "openai_compatible" });
+  const map = new Map([
+    ["instance.local", {
+      id: "instance.local",
+      providerId: "provider.local",
+      status: "loaded",
+      providerLifecycleHash: "sha256:provider-lifecycle",
+      modelMountInstanceLifecycleHash: "sha256:instance-lifecycle",
+      modelMountInstanceLifecycleEvidenceRefs: ["rust_model_mount_instance_lifecycle"],
+    }],
+    ["instance.remote", {
+      id: "instance.remote",
+      providerId: "provider.remote",
+      status: "loaded",
+    }],
+  ]);
+
+  writeModelMountingMap(state, "model-instances", map);
+
+  assert.deepEqual(state.writes, [["model-instances", ["instance.local", "instance.remote"]]]);
+});
