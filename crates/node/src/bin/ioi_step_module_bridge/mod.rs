@@ -1,3 +1,6 @@
+use ioi_services::agentic::runtime::kernel::agentgres_admission::{
+    AgentgresAdmissionCore, AgentgresOperationProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
+};
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::ReceiptBinder;
 use ioi_services::agentic::runtime::kernel::step_module::{
@@ -28,6 +31,9 @@ const TEST_DEFAULT_TIMEOUT_MS: u64 = 60 * 1000;
 const TEST_MAX_TIMEOUT_MS: u64 = 5 * 60 * 1000;
 const TEST_DEFAULT_OUTPUT_BYTES: u64 = 64 * 1024;
 const TEST_MAX_OUTPUT_BYTES: u64 = 64 * 1024;
+const APPLY_PATCH_MAX_FILE_BYTES: u64 = 1024 * 1024;
+const APPLY_PATCH_MAX_DIFF_BYTES: usize = 32 * 1024;
+const APPLY_PATCH_MAX_EDITS: usize = 20;
 const DEFAULT_PREVIEW_LINES: usize = 200;
 const MAX_PREVIEW_LINES: usize = 500;
 const DIAGNOSTIC_COMMAND_IDS: [&str; 3] = ["auto", "node.check", "typescript.check"];
@@ -90,6 +96,7 @@ fn run_bridge() -> Result<Value, BridgeError> {
         "workspace.status" => workspace_status_response(request),
         "git.diff" => git_diff_response(request),
         "file.inspect" => file_inspect_response(request),
+        "file.apply_patch" => file_apply_patch_response(request),
         "test.run" => test_run_response(request),
         "lsp.diagnostics" => lsp_diagnostics_response(request),
         other => Err(BridgeError::new(
@@ -165,6 +172,46 @@ fn file_inspect_response(request: StepModuleBridgeRequest) -> Result<Value, Brid
             "tool": "file.inspect",
             "result": inspected,
         }),
+    ))
+}
+
+fn file_apply_patch_response(mut request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
+    let workspace_root = request.workspace_root.clone().ok_or_else(|| {
+        BridgeError::new(
+            "workspace_root_required",
+            "workspace_root is required".to_string(),
+        )
+    })?;
+    let patch = apply_workspace_patch(&workspace_root, &request.input)?;
+    let mut expected_heads = vec![];
+    if let Some(transition) = patch.transition.as_ref() {
+        request.invocation.input.state_root_before = Some(transition.state_root_before.clone());
+        request.invocation.input.projection_watermark = Some(format!(
+            "projection://agentgres/{}",
+            transition.resulting_head
+        ));
+        expected_heads = transition.expected_heads.clone();
+    }
+    let mut result =
+        successful_step_module_result(&request, "file.apply_patch", "FilesystemPatchNode");
+    if let Some(transition) = patch.transition.as_ref() {
+        result.agentgres_operation_refs = vec![transition.operation_ref.clone()];
+        result.payload_refs = vec![transition.payload_ref.clone()];
+        result.state_root_after = Some(transition.state_root_after.clone());
+        result.resulting_head = Some(transition.resulting_head.clone());
+        result.workflow_projection.evidence_refs.push(format!(
+            "evidence://agentgres/{}",
+            safe_ref_path(&transition.operation_ref)
+        ));
+    }
+    Ok(step_module_response_with_expected_heads(
+        request,
+        result,
+        json!({
+            "tool": "file.apply_patch",
+            "result": patch.observation,
+        }),
+        expected_heads,
     ))
 }
 
@@ -255,6 +302,15 @@ fn step_module_response(
     result: StepModuleResult,
     shadow_observation: Value,
 ) -> Value {
+    step_module_response_with_expected_heads(request, result, shadow_observation, vec![])
+}
+
+fn step_module_response_with_expected_heads(
+    request: StepModuleBridgeRequest,
+    result: StepModuleResult,
+    shadow_observation: Value,
+    expected_heads: Vec<String>,
+) -> Value {
     if let Err(errors) = result.validate() {
         return json!({
             "source": "rust_workload_command",
@@ -278,7 +334,7 @@ fn step_module_response(
         }
     };
     let receipt_binding =
-        match ReceiptBinder.bind_step_module_result(&request.invocation, &result, vec![]) {
+        match ReceiptBinder.bind_step_module_result(&request.invocation, &result, expected_heads) {
             Ok(binding) => binding,
             Err(error) => {
                 return json!({
@@ -290,6 +346,39 @@ fn step_module_response(
                 });
             }
         };
+    let agentgres_admission = if result.agentgres_operation_refs.is_empty() {
+        Value::Null
+    } else {
+        let proposal = AgentgresOperationProposal {
+            schema_version: AGENTGRES_ADMISSION_SCHEMA_VERSION.to_string(),
+            operation_ref: result
+                .agentgres_operation_refs
+                .first()
+                .cloned()
+                .unwrap_or_default(),
+            invocation_id: result.invocation_id.clone(),
+            receipt_binding_ref: receipt_binding.binding_hash.clone(),
+            receipt_refs: result.receipt_refs.clone(),
+            artifact_refs: result.artifact_refs.clone(),
+            payload_refs: result.payload_refs.clone(),
+            expected_heads: receipt_binding.expected_heads.clone(),
+            state_root_before: receipt_binding.state_root_before.clone(),
+            state_root_after: result.state_root_after.clone(),
+            resulting_head: result.resulting_head.clone(),
+        };
+        match AgentgresAdmissionCore.admit(&proposal, &receipt_binding) {
+            Ok(record) => json!(record),
+            Err(error) => {
+                return json!({
+                    "source": "rust_workload_command",
+                    "error": {
+                        "code": "agentgres_admission_invalid",
+                        "message": format!("{error:?}"),
+                    }
+                });
+            }
+        }
+    };
     let projection_record = match RustProjectionCore.project_step_module_result(
         &request.invocation,
         &result,
@@ -313,6 +402,7 @@ fn step_module_response(
         "result": result,
         "router_admission": router_admission,
         "receipt_binding": receipt_binding,
+        "agentgres_admission": agentgres_admission,
         "projection_record": projection_record,
         "shadow_observation": shadow_observation,
     })
@@ -782,6 +872,168 @@ fn inspect_workspace_path(
     }))
 }
 
+fn apply_workspace_patch(workspace_root: &str, input: &Value) -> Result<PatchOutcome, BridgeError> {
+    let root = fs::canonicalize(workspace_root)
+        .map_err(|error| BridgeError::new("workspace_root_invalid", error.to_string()))?;
+    let selected_path = input
+        .get("path")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            BridgeError::new(
+                "file_apply_patch_path_required",
+                "file.apply_patch requires a workspace-relative path.".to_string(),
+            )
+        })?;
+    let target = workspace_path_allow_missing(&root, selected_path)?;
+    let dry_run = input
+        .get("dryRun")
+        .or_else(|| input.get("dry_run"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let create = input
+        .get("create")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let exists = target.absolute_path.exists();
+    let before_metadata = if exists {
+        Some(fs::metadata(&target.absolute_path).map_err(|error| {
+            BridgeError::new("file_apply_patch_metadata_failed", error.to_string())
+        })?)
+    } else {
+        None
+    };
+    if !exists && !create {
+        return Err(BridgeError::new(
+            "not_found",
+            format!("File not found: {}", target.relative_path),
+        ));
+    }
+    if let Some(metadata) = before_metadata.as_ref() {
+        if !metadata.is_file() {
+            return Err(BridgeError::new(
+                "file_apply_patch_not_file",
+                "file.apply_patch can only edit regular files.".to_string(),
+            ));
+        }
+        if metadata.len() > APPLY_PATCH_MAX_FILE_BYTES {
+            return Err(BridgeError::new(
+                "file_apply_patch_file_too_large",
+                "file.apply_patch refused a file over the edit size limit.".to_string(),
+            ));
+        }
+    } else if let Some(parent) = target.absolute_path.parent() {
+        if !parent.exists() || !parent.is_dir() {
+            return Err(BridgeError::new(
+                "file_apply_patch_parent_missing",
+                "file.apply_patch create mode requires an existing parent directory.".to_string(),
+            ));
+        }
+    }
+    let before = if exists {
+        fs::read_to_string(&target.absolute_path)
+            .map_err(|error| BridgeError::new("file_apply_patch_read_failed", error.to_string()))?
+    } else {
+        String::new()
+    };
+    let edits = normalize_patch_edits(input)?;
+    if edits.is_empty() {
+        return Err(BridgeError::new(
+            "file_apply_patch_empty",
+            "file.apply_patch requires at least one edit.".to_string(),
+        ));
+    }
+    let mut after = before.clone();
+    let mut applied_edits = Vec::new();
+    for edit in &edits {
+        let applied = apply_patch_edit(&after, edit, &target.relative_path)?;
+        after = applied.text;
+        applied_edits.push(applied.summary);
+    }
+    let before_hash = sha256_hex(before.as_bytes())?;
+    let after_hash = sha256_hex(after.as_bytes())?;
+    let changed = before_hash != after_hash;
+    let diff = text_diff_preview(&target.relative_path, &before, &after)?;
+    if !dry_run && changed {
+        fs::write(&target.absolute_path, after.as_bytes()).map_err(|error| {
+            BridgeError::new("file_apply_patch_write_failed", error.to_string())
+        })?;
+    }
+    let after_metadata = if !dry_run && target.absolute_path.exists() {
+        fs::metadata(&target.absolute_path).ok()
+    } else {
+        None
+    };
+    let before_bytes = before.len();
+    let after_bytes = after.len();
+    let changed_file = json!({
+        "path": target.relative_path,
+        "beforeHash": before_hash,
+        "afterHash": after_hash,
+        "beforeExists": exists,
+        "afterExists": if !dry_run { true } else { exists },
+        "beforeSizeBytes": if exists { before_bytes } else { 0 },
+        "afterSizeBytes": after_bytes,
+        "beforeMtimeMs": before_metadata.as_ref().and_then(metadata_mtime_ms),
+        "afterMtimeMs": after_metadata.as_ref().and_then(metadata_mtime_ms),
+        "created": !exists,
+        "diagnosticsRecommended": !dry_run,
+    });
+    let transition = if changed && !dry_run {
+        Some(patch_transition(
+            &target.relative_path,
+            &before_hash,
+            &after_hash,
+        )?)
+    } else {
+        None
+    };
+    let transition_payload_ref = transition
+        .as_ref()
+        .map(|transition| transition.payload_ref.clone());
+    let observation = json!({
+        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspaceRoot": workspace_root,
+        "path": target.relative_path,
+        "dryRun": dry_run,
+        "applied": !dry_run && changed,
+        "changed": changed,
+        "created": !exists,
+        "editCount": applied_edits.len(),
+        "edits": applied_edits,
+        "beforeHash": before_hash,
+        "afterHash": after_hash,
+        "diff": diff.text,
+        "diffBytes": diff.bytes,
+        "diffHash": diff.hash,
+        "truncated": diff.truncated,
+        "changedFiles": if changed { vec![changed_file] } else { vec![] },
+        "workspaceSnapshotDrafts": if changed && !dry_run {
+            vec![json!({
+                "path": target.relative_path,
+                "encoding": "utf8",
+                "beforeExists": exists,
+                "afterExists": true,
+                "beforeContent": if exists { Some(before.clone()) } else { None },
+                "afterContent": after,
+            })]
+        } else {
+            vec![]
+        },
+        "diagnosticsRecommended": changed && !dry_run,
+        "receiptRefs": [
+            format!("receipt_file_apply_patch_{}_{}", safe_ref_path(&target.relative_path), after_hash.chars().take(12).collect::<String>())
+        ],
+        "payloadRefs": transition_payload_ref.into_iter().collect::<Vec<_>>(),
+        "shellFallbackUsed": false,
+    });
+    Ok(PatchOutcome {
+        observation,
+        transition,
+    })
+}
+
 fn workspace_diff_paths(root: &Path, input: &Value) -> Result<Vec<String>, BridgeError> {
     let selected_paths = selected_workspace_paths(input);
     selected_paths
@@ -973,6 +1225,46 @@ struct CommandOutput {
 struct WorkspacePath {
     absolute_path: PathBuf,
     relative_path: String,
+}
+
+struct PatchOutcome {
+    observation: Value,
+    transition: Option<PatchTransition>,
+}
+
+struct PatchTransition {
+    operation_ref: String,
+    payload_ref: String,
+    expected_heads: Vec<String>,
+    state_root_before: String,
+    state_root_after: String,
+    resulting_head: String,
+}
+
+struct PatchDiffPreview {
+    text: String,
+    bytes: usize,
+    hash: String,
+    truncated: bool,
+}
+
+struct PatchEditApplication {
+    text: String,
+    summary: Value,
+}
+
+enum PatchEdit {
+    Replace {
+        old_text: String,
+        new_text: String,
+        occurrence: String,
+    },
+    Append {
+        text: String,
+    },
+    Prepend {
+        text: String,
+    },
 }
 
 struct DiagnosticRun {
@@ -1346,6 +1638,200 @@ fn workspace_relative_from_absolute(root: &Path, target: &Path) -> String {
         .unwrap_or_else(|| normalized_target.to_string_lossy().replace('\\', "/"))
 }
 
+fn normalize_patch_edits(input: &Value) -> Result<Vec<PatchEdit>, BridgeError> {
+    let mut edits = Vec::new();
+    if let Some(values) = input.get("edits").and_then(Value::as_array) {
+        for value in values.iter().take(APPLY_PATCH_MAX_EDITS) {
+            edits.push(patch_edit_from_value(value)?);
+        }
+    }
+    if input.get("oldText").is_some() || input.get("old_text").is_some() {
+        edits.push(PatchEdit::Replace {
+            old_text: string_field(input, &["oldText", "old_text"]).unwrap_or_default(),
+            new_text: string_field(input, &["newText", "new_text"]).unwrap_or_default(),
+            occurrence: string_field(input, &["occurrence"]).unwrap_or_else(|| "only".to_string()),
+        });
+    }
+    if input.get("appendText").is_some() || input.get("append_text").is_some() {
+        edits.push(PatchEdit::Append {
+            text: string_field(input, &["appendText", "append_text"]).unwrap_or_default(),
+        });
+    }
+    if input.get("prependText").is_some() || input.get("prepend_text").is_some() {
+        edits.push(PatchEdit::Prepend {
+            text: string_field(input, &["prependText", "prepend_text"]).unwrap_or_default(),
+        });
+    }
+    edits.truncate(APPLY_PATCH_MAX_EDITS);
+    Ok(edits)
+}
+
+fn patch_edit_from_value(value: &Value) -> Result<PatchEdit, BridgeError> {
+    let object = value.as_object().ok_or_else(|| {
+        BridgeError::new(
+            "file_apply_patch_unknown_edit",
+            "Patch edit entries must be objects.".to_string(),
+        )
+    })?;
+    let edit_value = Value::Object(object.clone());
+    let edit_type = string_field(&edit_value, &["type"]).unwrap_or_default();
+    match edit_type.as_str() {
+        "append" => Ok(PatchEdit::Append {
+            text: string_field(&edit_value, &["text"]).unwrap_or_default(),
+        }),
+        "prepend" => Ok(PatchEdit::Prepend {
+            text: string_field(&edit_value, &["text"]).unwrap_or_default(),
+        }),
+        "replace" => Ok(PatchEdit::Replace {
+            old_text: string_field(&edit_value, &["oldText", "old_text"]).unwrap_or_default(),
+            new_text: string_field(&edit_value, &["newText", "new_text"]).unwrap_or_default(),
+            occurrence: string_field(&edit_value, &["occurrence"])
+                .unwrap_or_else(|| "only".to_string()),
+        }),
+        _ => Err(BridgeError::new(
+            "file_apply_patch_unknown_edit",
+            "Unsupported file.apply_patch edit type.".to_string(),
+        )),
+    }
+}
+
+fn apply_patch_edit(
+    text: &str,
+    edit: &PatchEdit,
+    relative_path: &str,
+) -> Result<PatchEditApplication, BridgeError> {
+    match edit {
+        PatchEdit::Append { text: addition } => Ok(PatchEditApplication {
+            text: format!("{text}{addition}"),
+            summary: json!({
+                "type": "append",
+                "bytesAdded": addition.len(),
+            }),
+        }),
+        PatchEdit::Prepend { text: addition } => Ok(PatchEditApplication {
+            text: format!("{addition}{text}"),
+            summary: json!({
+                "type": "prepend",
+                "bytesAdded": addition.len(),
+            }),
+        }),
+        PatchEdit::Replace {
+            old_text,
+            new_text,
+            occurrence,
+        } => {
+            if old_text.is_empty() {
+                return Err(BridgeError::new(
+                    "file_apply_patch_empty_old_text",
+                    "Replace edits require non-empty oldText.".to_string(),
+                ));
+            }
+            let count = count_occurrences(text, old_text);
+            if count == 0 {
+                return Err(BridgeError::new(
+                    "file_apply_patch_old_text_missing",
+                    format!("file.apply_patch could not find oldText in {relative_path}."),
+                ));
+            }
+            if occurrence == "only" && count != 1 {
+                return Err(BridgeError::new(
+                    "file_apply_patch_old_text_ambiguous",
+                    format!("file.apply_patch oldText matched more than once in {relative_path}."),
+                ));
+            }
+            let next_text = if occurrence == "all" {
+                text.replace(old_text, new_text)
+            } else {
+                text.replacen(old_text, new_text, 1)
+            };
+            Ok(PatchEditApplication {
+                text: next_text,
+                summary: json!({
+                    "type": "replace",
+                    "occurrence": occurrence,
+                    "matches": if occurrence == "all" { count } else { 1 },
+                    "oldHash": sha256_hex(old_text.as_bytes())?,
+                    "newHash": sha256_hex(new_text.as_bytes())?,
+                }),
+            })
+        }
+    }
+}
+
+fn count_occurrences(text: &str, needle: &str) -> usize {
+    if needle.is_empty() {
+        return 0;
+    }
+    let mut count = 0;
+    let mut offset = 0;
+    while let Some(found) = text[offset..].find(needle) {
+        count += 1;
+        offset += found + needle.len();
+        if offset > text.len() {
+            break;
+        }
+    }
+    count
+}
+
+fn text_diff_preview(
+    relative_path: &str,
+    before: &str,
+    after: &str,
+) -> Result<PatchDiffPreview, BridgeError> {
+    if before == after {
+        return Ok(PatchDiffPreview {
+            text: String::new(),
+            bytes: 0,
+            hash: sha256_hex(b"")?,
+            truncated: false,
+        });
+    }
+    let raw = format!("--- a/{relative_path}\n+++ b/{relative_path}\n@@\n-{before}\n+{after}\n");
+    let bytes = raw.len();
+    let (text, truncated) = utf8_preview(&raw, APPLY_PATCH_MAX_DIFF_BYTES);
+    let hash = sha256_hex(raw.as_bytes())?;
+    Ok(PatchDiffPreview {
+        text,
+        bytes,
+        hash,
+        truncated,
+    })
+}
+
+fn patch_transition(
+    relative_path: &str,
+    before_hash: &str,
+    after_hash: &str,
+) -> Result<PatchTransition, BridgeError> {
+    let path_ref = safe_ref_path(relative_path);
+    Ok(PatchTransition {
+        operation_ref: format!(
+            "agentgres://operation/file.apply_patch/{}/{}",
+            path_ref,
+            &after_hash[..12]
+        ),
+        payload_ref: format!(
+            "payload://workspace/file.apply_patch/{path_ref}/{}",
+            &after_hash[..12]
+        ),
+        expected_heads: vec![format!(
+            "head://workspace/{path_ref}/{}",
+            &before_hash[..12]
+        )],
+        state_root_before: format!("state://workspace/{path_ref}/{}", &before_hash[..12]),
+        state_root_after: format!("state://workspace/{path_ref}/{}", &after_hash[..12]),
+        resulting_head: format!("head://workspace/{path_ref}/{}", &after_hash[..12]),
+    })
+}
+
+fn string_field(value: &Value, keys: &[&str]) -> Option<String> {
+    keys.iter()
+        .find_map(|key| value.get(*key))
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned)
+}
+
 fn run_node_check(
     cwd: &Path,
     paths: &[WorkspacePath],
@@ -1672,6 +2158,39 @@ fn nonempty_command_error(output: &CommandOutput, fallback: &str) -> String {
     fallback.to_string()
 }
 
+fn sha256_hex(bytes: &[u8]) -> Result<String, BridgeError> {
+    ioi_crypto::algorithms::hash::sha256(bytes)
+        .map(hex::encode)
+        .map_err(|error| BridgeError::new("sha256_failed", error.to_string()))
+}
+
+fn safe_ref_path(value: &str) -> String {
+    let safe = value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .take(48)
+        .collect::<String>();
+    if safe.is_empty() {
+        "file".to_string()
+    } else {
+        safe
+    }
+}
+
+fn metadata_mtime_ms(metadata: &fs::Metadata) -> Option<u128> {
+    metadata
+        .modified()
+        .ok()
+        .and_then(|modified| modified.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis())
+}
+
 fn utf8_preview(text: &str, max_bytes: usize) -> (String, bool) {
     if text.len() <= max_bytes {
         return (text.to_string(), false);
@@ -1979,6 +2498,93 @@ mod tests {
     }
 
     #[test]
+    fn file_apply_patch_writes_and_binds_agentgres_admission() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+        fs::write(workspace.join("README.md"), "before\n").expect("fixture file");
+        let request = bridge_request(
+            "file.apply_patch",
+            workspace.to_str().expect("utf8 path"),
+            json!({
+                "path": "README.md",
+                "oldText": "before",
+                "newText": "after"
+            }),
+        );
+
+        let response = file_apply_patch_response(request).expect("patch response");
+
+        assert_eq!(
+            fs::read_to_string(workspace.join("README.md")).expect("updated file"),
+            "after\n"
+        );
+        assert_eq!(response["shadow_observation"]["result"]["applied"], true);
+        assert_eq!(response["shadow_observation"]["result"]["changed"], true);
+        assert_eq!(
+            response["router_admission"]["authoritative_transition"],
+            true
+        );
+        assert_eq!(
+            response["result"]["agentgres_operation_refs"][0],
+            response["agentgres_admission"]["operation_ref"],
+        );
+        assert!(response["result"]["state_root_after"]
+            .as_str()
+            .expect("state root")
+            .starts_with("state://workspace/"));
+        assert!(response["receipt_binding"]["expected_heads"]
+            .as_array()
+            .expect("expected heads")
+            .first()
+            .and_then(Value::as_str)
+            .expect("expected head")
+            .starts_with("head://workspace/"));
+        assert_eq!(
+            response["agentgres_admission"]["state_root_after"],
+            response["result"]["state_root_after"],
+        );
+        assert_eq!(
+            response["projection_record"]["status"],
+            response["result"]["workflow_projection"]["status"],
+        );
+    }
+
+    #[test]
+    fn file_apply_patch_dry_run_has_no_agentgres_transition() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().join("workspace");
+        fs::create_dir(&workspace).expect("workspace dir");
+        fs::write(workspace.join("README.md"), "before\n").expect("fixture file");
+        let request = bridge_request(
+            "file.apply_patch",
+            workspace.to_str().expect("utf8 path"),
+            json!({
+                "path": "README.md",
+                "oldText": "before",
+                "newText": "after",
+                "dryRun": true
+            }),
+        );
+
+        let response = file_apply_patch_response(request).expect("patch response");
+
+        assert_eq!(
+            fs::read_to_string(workspace.join("README.md")).expect("original file"),
+            "before\n"
+        );
+        assert_eq!(response["shadow_observation"]["result"]["applied"], false);
+        assert_eq!(response["shadow_observation"]["result"]["changed"], true);
+        assert_eq!(
+            response["router_admission"]["authoritative_transition"],
+            true
+        );
+        assert_eq!(response["result"]["agentgres_operation_refs"], json!([]));
+        assert_eq!(response["agentgres_admission"], Value::Null);
+        assert_eq!(response["result"]["state_root_after"], Value::Null);
+    }
+
+    #[test]
     fn lsp_diagnostics_node_check_reports_clean_javascript() {
         let temp = tempfile::tempdir().expect("tempdir");
         let workspace = temp.path().join("workspace");
@@ -2245,6 +2851,77 @@ mod tests {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr),
         );
+    }
+
+    fn bridge_request(
+        tool_id: &str,
+        workspace_root: &str,
+        input: Value,
+    ) -> StepModuleBridgeRequest {
+        let invocation = serde_json::from_value(json!({
+            "schema_version": "ioi.step_module_invocation.v1",
+            "invocation_id": format!("invocation://test/{tool_id}"),
+            "run_id": "run:test",
+            "task_id": "task:test",
+            "thread_id": "thread:test",
+            "workflow_graph_id": "graph:test",
+            "workflow_node_id": format!("node:test:{tool_id}"),
+            "context_chamber_ref": null,
+            "action_proposal_ref": format!("action:test:{tool_id}"),
+            "gate_result_ref": format!("gate:test:{tool_id}"),
+            "module_ref": {
+                "kind": "workload_job",
+                "id": tool_id,
+                "version": "test",
+                "manifest_ref": null
+            },
+            "actor": {
+                "actor_id": "runtime:hypervisor-daemon",
+                "runtime_node_ref": "node://local"
+            },
+            "authority": {
+                "authority_grant_refs": [],
+                "policy_hash": "sha256:policy",
+                "primitive_capabilities": ["prim:fs.apply_patch", "prim:fs.write"],
+                "authority_scopes": ["scope:workspace.write"],
+                "approval_ref": "approval:test"
+            },
+            "input": {
+                "input_hash": "sha256:input",
+                "expected_schema_ref": format!("schema://coding-tool/{tool_id}/input"),
+                "context_refs": [],
+                "artifact_refs": [],
+                "payload_refs": [],
+                "state_root_before": null,
+                "projection_watermark": null,
+                "data_plane_handle": null
+            },
+            "custody": {
+                "privacy_profile": "internal",
+                "plaintext_policy": {
+                    "node_plaintext_allowed": true,
+                    "declassification_required": false
+                },
+                "custody_proof_ref": null,
+                "leakage_profile_ref": null
+            },
+            "execution": {
+                "backend": "workload_grpc",
+                "idempotency_key": format!("idempotency:test:{tool_id}"),
+                "deadline_ms": 60000,
+                "resource_lease_ref": null,
+                "retry_policy_ref": null
+            }
+        }))
+        .expect("test invocation");
+        StepModuleBridgeRequest {
+            schema_version: COMMAND_SCHEMA_VERSION.to_string(),
+            operation: "run_coding_tool_step_module".to_string(),
+            backend: "rust_workload_live".to_string(),
+            invocation,
+            workspace_root: Some(workspace_root.to_string()),
+            input,
+        }
     }
 
     #[cfg(unix)]

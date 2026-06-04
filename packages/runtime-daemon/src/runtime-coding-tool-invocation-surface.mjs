@@ -34,6 +34,7 @@ const RUST_WORKLOAD_LIVE_TOOL_IDS = new Set([
   "workspace.status",
   "git.diff",
   "file.inspect",
+  "file.apply_patch",
   "test.run",
   "lsp.diagnostics",
 ]);
@@ -252,6 +253,46 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
           ...normalizeArray(stepModuleProjection?.bridge_result?.receipt_refs),
         );
         result = codingToolResultForRustLiveStepModule(normalizedToolId, stepModuleProjection);
+        receiptRefs.push(...normalizeArray(result.receiptRefs));
+        artifactRefs.push(...normalizeArray(result.artifactRefs));
+        const liveArtifactDrafts = [
+          ...normalizeArray(result?.artifactDrafts),
+          ...normalizeArray(result?.artifact_drafts),
+        ];
+        if (liveArtifactDrafts.length) {
+          const materializedArtifacts = store.materializeCodingToolArtifactDrafts({
+            threadId,
+            toolId: normalizedToolId,
+            toolCallId,
+            workspaceRoot: agent.cwd,
+            result,
+            receiptId,
+          });
+          result = codingToolResultWithoutDrafts(result, materializedArtifacts);
+          artifactRefs.push(...normalizeArray(result.artifactRefs));
+        }
+        if (normalizedToolId === "file.apply_patch") {
+          workspaceSnapshot = store.prepareWorkspaceSnapshotForPatch({
+            threadId,
+            turnId,
+            workspaceRoot: agent.cwd,
+            toolCallId,
+            workflowGraphId,
+            workflowNodeId,
+            result,
+          });
+          if (workspaceSnapshot) {
+            result = {
+              ...codingToolResultWithoutDrafts(result, []),
+              workspaceSnapshot: workspaceSnapshot.record,
+              workspace_snapshot: workspaceSnapshot.record,
+              workspaceSnapshotId: workspaceSnapshot.record.snapshotId,
+              workspace_snapshot_id: workspaceSnapshot.record.snapshotId,
+            };
+            artifactRefs.push(...workspaceSnapshot.record.artifactRefs);
+            receiptRefs.push(...workspaceSnapshot.record.receiptRefs);
+          }
+        }
       } catch (caught) {
         status = "failed";
         stepModuleError = {

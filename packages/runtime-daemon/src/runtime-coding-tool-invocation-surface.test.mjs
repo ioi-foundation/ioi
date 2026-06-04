@@ -679,6 +679,145 @@ test("coding tool invocation surface runs test.run through rust workload live pa
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 
+test("coding tool invocation surface runs file.apply_patch through rust workload live path", () => {
+  const runnerCalls = [];
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool(input) {
+      runnerCalls.push(input);
+      return {
+        backend: "rust_workload_live",
+        mode: "live",
+        blocking: true,
+        source: "rust_workload_command",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://rust-live/file.apply_patch",
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: "invocation://rust-live/file.apply_patch",
+          status: "success",
+          execution_result_ref: "result://rust-live/file.apply_patch",
+          normalized_observation_ref: "observation://rust-live/file.apply_patch",
+          receipt_refs: ["receipt://rust-live/file.apply_patch"],
+          artifact_refs: [],
+          payload_refs: ["payload://workspace/file.apply_patch/README.md/after"],
+          agentgres_operation_refs: ["agentgres://operation/file.apply_patch/README.md/after"],
+          state_root_after: "state://workspace/README.md/after",
+          resulting_head: "head://workspace/README.md/after",
+          workflow_projection: {
+            workflow_graph_id: "graph_alpha",
+            workflow_node_id: "node_patch",
+            component_kind: "FilesystemPatchNode",
+            status: "live",
+            attempt_id: "attempt://rust-live/file.apply_patch",
+            evidence_refs: ["evidence://agentgres/file.apply_patch"],
+            receipt_refs: ["receipt://rust-live/file.apply_patch"],
+          },
+          next: {
+            model_reentry_required: false,
+            verifier_required: false,
+          },
+        },
+        bridge_result: {
+          router_admission: {
+            schema_version: "ioi.step_module_router_admission.v1",
+            backend: "workload_grpc",
+            authoritative_transition: true,
+          },
+          agentgres_admission: {
+            schema_version: "ioi.agentgres_admission.v1",
+            operation_ref: "agentgres://operation/file.apply_patch/README.md/after",
+            state_root_after: "state://workspace/README.md/after",
+            resulting_head: "head://workspace/README.md/after",
+          },
+          shadow_observation: {
+            tool: "file.apply_patch",
+            result: {
+              schemaVersion: "ioi.runtime.coding-tool-result.v1",
+              workspaceRoot: "/tmp/workspace",
+              path: "README.md",
+              dryRun: false,
+              applied: true,
+              changed: true,
+              created: false,
+              editCount: 1,
+              edits: [{ type: "replace", occurrence: "only", matches: 1 }],
+              beforeHash: "beforehash",
+              afterHash: "afterhash",
+              diff: "--- a/README.md\n+++ b/README.md",
+              diffBytes: 32,
+              diffHash: "diffhash",
+              truncated: false,
+              changedFiles: [
+                {
+                  path: "README.md",
+                  beforeHash: "beforehash",
+                  afterHash: "afterhash",
+                  beforeExists: true,
+                  afterExists: true,
+                  beforeSizeBytes: 7,
+                  afterSizeBytes: 6,
+                  beforeMtimeMs: 1,
+                  afterMtimeMs: 2,
+                  created: false,
+                  diagnosticsRecommended: true,
+                },
+              ],
+              workspaceSnapshotDrafts: [
+                {
+                  path: "README.md",
+                  encoding: "utf8",
+                  beforeExists: true,
+                  afterExists: true,
+                  beforeContent: "before\n",
+                  afterContent: "after\n",
+                },
+              ],
+              diagnosticsRecommended: true,
+              receiptRefs: ["receipt_file_apply_patch_README.md_after"],
+              payloadRefs: ["payload://workspace/file.apply_patch/README.md/after"],
+              shellFallbackUsed: false,
+            },
+          },
+        },
+      };
+    },
+  };
+  const surface = createSurface({
+    stepModuleRunner: liveRunner,
+    executeCodingTool() {
+      throw new Error("daemon JS execution must not run");
+    },
+  });
+  const store = createStore();
+
+  const result = surface.invokeThreadTool(store, "thread_alpha", "file.apply_patch", {
+    toolCallId: "tool_patch",
+    workflowGraphId: "graph_alpha",
+    workflowNodeId: "node_patch",
+    input: { path: "README.md", oldText: "before", newText: "after" },
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(runnerCalls.length, 1);
+  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.applied, true);
+  assert.equal(result.result.workspaceSnapshotId, "snapshot_alpha");
+  assert.ok(result.receipt_refs.includes("receipt://rust-live/file.apply_patch"));
+  assert.ok(result.receipt_refs.includes("receipt_snapshot"));
+  assert.ok(result.artifact_refs.includes("artifact_snapshot"));
+  assert.equal(result.workspace_snapshot.snapshotId, "snapshot_alpha");
+  assert.equal(result.workspace_snapshot_event.event_id, "event_snapshot");
+  assert.equal(result.auto_diagnostics.status, "completed");
+  assert.equal(result.step_module.result.agentgres_operation_refs[0], "agentgres://operation/file.apply_patch/README.md/after");
+  assert.ok(store.calls.some((call) => call.name === "prepareSnapshot"));
+  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+});
+
 test("coding tool invocation surface keeps non-migrated tools blocked in rust workload live mode", () => {
   const surface = createSurface({
     stepModuleRunner: {
@@ -693,9 +832,9 @@ test("coding tool invocation surface keeps non-migrated tools blocked in rust wo
 
   assert.throws(
     () =>
-      surface.invokeThreadTool(store, "thread_alpha", "file.apply_patch", {
-        toolCallId: "tool_patch",
-        input: { path: "README.md", oldText: "a", newText: "b" },
+      surface.invokeThreadTool(store, "thread_alpha", "artifact.read", {
+        toolCallId: "tool_artifact",
+        input: { artifactId: "artifact_alpha" },
       }),
     (error) => {
       assert.equal(error.status, 403);

@@ -360,6 +360,9 @@ function runBridge() {
       !/workspace_status_shadow_response/.test(bridgeModule) &&
       /git\.diff/.test(bridgeModule) &&
       /file\.inspect/.test(bridgeModule) &&
+      /file\.apply_patch/.test(bridgeModule) &&
+      /apply_workspace_patch/.test(bridgeModule) &&
+      /AgentgresAdmissionCore/.test(bridgeModule) &&
       /test\.run/.test(bridgeModule) &&
       /inspect_test_run/.test(bridgeModule) &&
       /npm\.test/.test(bridgeModule) &&
@@ -377,6 +380,7 @@ function runBridge() {
       /workspace\.status/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /git\.diff/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /file\.inspect/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
+      /file\.apply_patch/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /test\.run/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /lsp\.diagnostics/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
       /rust_workload_live/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")),
