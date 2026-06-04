@@ -158,6 +158,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/runtime-rail-rows.js`.
 - Moved simple Studio runtime rail renderers for timeline, receipts, history, approvals, terminal, replay, and parity-plus panels out of `extension.js` while preserving fallback rows, escaping, and recent-item bounds.
 - Added focused runtime-rail row tests for safe escaping, fallback receipt/replay rows, parity delegation, and recent receipt slicing.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/work-run-rows.js`.
+- Moved assistant work-run status bar renderers for command labels, sanitized work-summary rows, command-output details, and diff-hunk controls out of `extension.js` while preserving public data-testids and approval/hunk command payloads.
+- Added focused work-run row tests for command surface/action labels, sanitized work summaries, settled command-output rows, and hunk control affordances.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.

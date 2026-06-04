@@ -48,6 +48,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/policy-lease-lifecycle.js",
   workRecordProjection:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/work-record-projection.js",
+  workRunRows:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/work-run-rows.js",
   responseMetrics:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/response-metrics.js",
   receiptRefs:
@@ -153,6 +155,7 @@ async function readStudioComposite() {
       paths.turnPolicy,
       paths.policyLeaseLifecycle,
       paths.workRecordProjection,
+      paths.workRunRows,
       paths.responseMetrics,
       paths.receiptRefs,
       paths.toolResponseProjection,
