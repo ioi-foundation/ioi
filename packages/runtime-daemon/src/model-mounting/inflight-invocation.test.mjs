@@ -69,7 +69,7 @@ function mockModelMountAdmissionRunner() {
     },
     executeProviderInvocation(request) {
       return {
-        source: "rust_model_mount_fixture_provider_invocation_command",
+        source: "rust_model_mount_provider_invocation_command",
         backend: "rust_model_mount_fixture",
         result: {
           ...request,

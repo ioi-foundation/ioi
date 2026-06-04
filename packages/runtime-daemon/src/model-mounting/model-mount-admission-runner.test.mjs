@@ -267,7 +267,7 @@ test("Rust model_mount admission runner sends provider execution bridge request"
   assert.equal(result.record.provider_execution_hash, "sha256:provider-execution-test");
 });
 
-test("Rust model_mount admission runner sends fixture provider invocation bridge request", () => {
+test("Rust model_mount admission runner sends provider invocation bridge request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
     command: "mock-model-mount-bridge",
@@ -279,7 +279,7 @@ test("Rust model_mount admission runner sends fixture provider invocation bridge
         stdout: JSON.stringify({
           ok: true,
           result: {
-            source: "rust_model_mount_fixture_provider_invocation_command",
+            source: "rust_model_mount_provider_invocation_command",
             backend: "rust_model_mount_fixture",
             result: {
               ...request.request,
@@ -312,7 +312,7 @@ test("Rust model_mount admission runner sends fixture provider invocation bridge
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "execute_model_mount_fixture_provider_invocation");
+  assert.equal(calls[0].request.operation, "execute_model_mount_provider_invocation");
   assert.equal(calls[0].request.backend, "rust_model_mount_fixture");
   assert.equal(calls[0].request.request.provider_execution_ref, "model_mount://provider_execution/test");
   assert.equal(result.outputText.startsWith("IOI model router fixture response"), true);

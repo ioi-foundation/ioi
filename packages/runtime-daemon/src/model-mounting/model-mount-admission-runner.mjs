@@ -5,6 +5,7 @@ export const MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV = "IOI_MODEL_MOUNT_ADMISSION
 export const MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
 export const RUST_MODEL_MOUNT_ADMISSION_BACKEND = "rust_model_mount_live";
 export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
+export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_local";
 
 export function createModelMountAdmissionRunnerFromEnv(env = process.env, options = {}) {
   return new RustModelMountAdmissionRunner({
@@ -56,8 +57,8 @@ export class RustModelMountAdmissionRunner {
   executeProviderInvocation(request) {
     const bridgeRequest = {
       schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
-      operation: "execute_model_mount_fixture_provider_invocation",
-      backend: RUST_MODEL_MOUNT_FIXTURE_BACKEND,
+      operation: "execute_model_mount_provider_invocation",
+      backend: request?.execution_backend ?? RUST_MODEL_MOUNT_FIXTURE_BACKEND,
       request,
     };
     return normalizeProviderInvocationBridgeResult(this.invokeBridge(bridgeRequest));
@@ -204,8 +205,8 @@ function normalizeProviderInvocationBridgeResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const record = result.result && typeof result.result === "object" ? result.result : {};
   return {
-    source: result.source ?? "rust_model_mount_fixture_provider_invocation_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_FIXTURE_BACKEND,
+    source: result.source ?? "rust_model_mount_provider_invocation_command",
+    backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_FIXTURE_BACKEND,
     result: record,
     outputText: result.outputText ?? result.output_text ?? record.output_text ?? "",
     tokenCount: result.tokenCount ?? result.token_count ?? record.token_count ?? null,

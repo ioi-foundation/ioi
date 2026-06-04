@@ -250,7 +250,7 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     policy: body.model_policy ?? body.modelPolicy ?? {},
   });
   const continuationSafety = state.validateContinuationSafety({ previousState, selection, body });
-  if (modelMountProviderInvocationRequiresRust(selection)) {
+  if (modelMountProviderInvocationRequiresRust(selection, { stream: true })) {
     const error = new Error("Native model stream requires a Rust model_mount stream backend for the selected provider.");
     error.status = 501;
     error.code = "model_mount_native_stream_backend_required";
@@ -644,7 +644,7 @@ export function modelMountProviderInvocationRequestForExecution({
     invocation_kind: requiredStringRef("providerExecution.invocation_kind", record.invocation_kind ?? kind),
     input: String(input ?? ""),
     request_hash: requiredStringRef("providerExecution.request_hash", record.request_hash),
-    execution_backend: "rust_model_mount_fixture",
+    execution_backend: modelMountProviderInvocationExecutionBackend(selection),
     api_format: optionalRef(endpoint.apiFormat ?? provider.apiFormat),
     driver: optionalRef(endpoint.driver ?? provider.driver ?? driverNameForProvider(provider)),
     backend_ref: optionalRef(instance.backendId ?? endpoint.backendId),
@@ -931,11 +931,30 @@ async function executeModelProviderInvocation({
   return withModelMountProviderResultAdmission(providerResult, modelMountProviderResultAdmission);
 }
 
-export function modelMountProviderInvocationRequiresRust(selection = {}) {
+export function modelMountProviderInvocationRequiresRust(selection = {}, options = {}) {
+  const stream = Boolean(options.stream);
+  return fixtureProviderInvocationSelected(selection) || (!stream && nativeLocalProviderInvocationSelected(selection));
+}
+
+function modelMountProviderInvocationExecutionBackend(selection = {}) {
+  if (nativeLocalProviderInvocationSelected(selection)) {
+    return "rust_model_mount_native_local";
+  }
+  return "rust_model_mount_fixture";
+}
+
+function fixtureProviderInvocationSelected(selection = {}) {
   const provider = selection.provider ?? {};
   const endpoint = selection.endpoint ?? {};
   const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
   return provider.kind === "local_folder" || driver === "fixture" || endpoint.apiFormat === "ioi_fixture";
+}
+
+function nativeLocalProviderInvocationSelected(selection = {}) {
+  const provider = selection.provider ?? {};
+  const endpoint = selection.endpoint ?? {};
+  const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
+  return provider.kind === "ioi_native_local" || driver === "native_local" || endpoint.apiFormat === "ioi_native";
 }
 
 function rejectProviderCompatTranslation(providerResult = {}) {
@@ -950,7 +969,7 @@ function rejectProviderCompatTranslation(providerResult = {}) {
 
 function executeModelMountProviderInvocation(state, request) {
   if (typeof state.executeModelMountProviderInvocation !== "function") {
-    const error = new Error("Fixture model provider execution requires Rust model_mount provider invocation execution.");
+    const error = new Error("Migrated model provider execution requires Rust model_mount provider invocation execution.");
     error.status = 500;
     error.code = "model_mount_provider_invocation_execution_required";
     throw error;

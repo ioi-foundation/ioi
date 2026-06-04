@@ -134,11 +134,11 @@ impl RuntimeKernelService {
         ModelMountCore.admit_provider_execution(request)
     }
 
-    pub fn invoke_model_mount_fixture_provider(
+    pub fn invoke_model_mount_provider(
         &self,
         request: &ModelMountProviderInvocationRequest,
     ) -> Result<ModelMountProviderInvocationResult, ModelMountError> {
-        ModelMountCore.invoke_fixture_provider(request)
+        ModelMountCore.invoke_provider(request)
     }
 
     pub fn admit_model_mount_provider_result(

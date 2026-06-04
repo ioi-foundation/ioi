@@ -190,11 +190,11 @@ fn run_bridge() -> Result<Value, BridgeError> {
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             admit_model_mount_provider_execution(request)
         }
-        "execute_model_mount_fixture_provider_invocation" => {
+        "execute_model_mount_provider_invocation" => {
             let request: ModelMountProviderInvocationBridgeRequest =
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
-            execute_model_mount_fixture_provider_invocation(request)
+            execute_model_mount_provider_invocation(request)
         }
         "admit_model_mount_provider_result" => {
             let request: ModelMountProviderResultAdmissionBridgeRequest =
@@ -367,7 +367,7 @@ fn admit_model_mount_provider_execution(
     }))
 }
 
-fn execute_model_mount_fixture_provider_invocation(
+fn execute_model_mount_provider_invocation(
     request: ModelMountProviderInvocationBridgeRequest,
 ) -> Result<Value, BridgeError> {
     if request.schema_version != COMMAND_SCHEMA_VERSION {
@@ -379,14 +379,14 @@ fn execute_model_mount_fixture_provider_invocation(
             ),
         ));
     }
-    if request.operation != "execute_model_mount_fixture_provider_invocation" {
+    if request.operation != "execute_model_mount_provider_invocation" {
         return Err(BridgeError::new(
             "operation_unsupported",
             format!("unsupported operation {}", request.operation),
         ));
     }
     let result = ModelMountCore
-        .invoke_fixture_provider(&request.request)
+        .invoke_provider(&request.request)
         .map_err(|error| {
             BridgeError::new(
                 "model_mount_provider_invocation_rejected",
@@ -403,8 +403,8 @@ fn execute_model_mount_fixture_provider_invocation(
     let invocation_hash = result.invocation_hash.clone();
     let evidence_refs = result.evidence_refs.clone();
     Ok(json!({
-        "source": "rust_model_mount_fixture_provider_invocation_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_fixture".to_string()),
+        "source": "rust_model_mount_provider_invocation_command",
+        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
         "result": result,
         "outputText": output_text.clone(),
         "output_text": output_text,
@@ -3105,7 +3105,7 @@ mod tests {
     }
 
     #[test]
-    fn bridge_executes_model_mount_fixture_provider_invocation_through_rust_core() {
+    fn bridge_executes_model_mount_provider_invocation_through_rust_core() {
         let provider_execution_request: ModelMountProviderExecutionBridgeRequest =
             serde_json::from_value(json!({
                 "schema_version": COMMAND_SCHEMA_VERSION,
@@ -3149,7 +3149,7 @@ mod tests {
 
         let request: ModelMountProviderInvocationBridgeRequest = serde_json::from_value(json!({
             "schema_version": COMMAND_SCHEMA_VERSION,
-            "operation": "execute_model_mount_fixture_provider_invocation",
+            "operation": "execute_model_mount_provider_invocation",
             "backend": "rust_model_mount_fixture",
             "request": {
                 "schema_version": "ioi.model_mount.provider_invocation.v1",
@@ -3177,12 +3177,11 @@ mod tests {
         }))
         .expect("provider invocation bridge request");
 
-        let response =
-            execute_model_mount_fixture_provider_invocation(request).expect("fixture executed");
+        let response = execute_model_mount_provider_invocation(request).expect("fixture executed");
 
         assert_eq!(
             response["source"],
-            "rust_model_mount_fixture_provider_invocation_command"
+            "rust_model_mount_provider_invocation_command"
         );
         assert_eq!(response["backend"], "rust_model_mount_fixture");
         assert_eq!(response["execution_backend"], "rust_model_mount_fixture");
@@ -3199,6 +3198,114 @@ mod tests {
             .as_str()
             .expect("invocation hash")
             .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn bridge_executes_native_local_model_mount_provider_invocation_through_rust_core() {
+        let provider_execution_request: ModelMountProviderExecutionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": COMMAND_SCHEMA_VERSION,
+                "operation": "admit_model_mount_provider_execution",
+                "backend": "rust_model_mount_live",
+                "request": {
+                    "schema_version": "ioi.model_mount.provider_execution.v1",
+                    "invocation_ref": "model-provider-execution://native-local/response/test",
+                    "route_decision_ref": "model_mount://route_decision/native-local/test",
+                    "route_receipt_ref": "receipt://route/native-local/test",
+                    "route_ref": "route.native-local",
+                    "provider_ref": "provider.autopilot.local",
+                    "endpoint_ref": "endpoint.native-local",
+                    "model_ref": "model://qwen/qwen3.5-9b",
+                    "capability": "responses",
+                    "invocation_kind": "responses",
+                    "policy_hash": "sha256:policy",
+                    "input_hash": "sha256:input",
+                    "request_hash": "sha256:request",
+                    "idempotency_key": "model_provider_execution:native-local:test",
+                    "receipt_refs": ["receipt://route/native-local/test"],
+                    "authority_grant_refs": ["grant://wallet/model-responses"],
+                    "authority_receipt_refs": ["receipt://wallet/model-responses"],
+                    "provider_auth_evidence_refs": [],
+                    "backend_evidence_refs": ["backend.autopilot.native-local.fixture"],
+                    "tool_receipt_refs": [],
+                    "privacy_profile": "local_private",
+                    "node_plaintext_allowed": false
+                }
+            }))
+            .expect("native-local provider execution request");
+        let admission_response =
+            admit_model_mount_provider_execution(provider_execution_request).expect("admitted");
+        let admission = admission_response["record"].clone();
+        let provider_execution_ref = admission["provider_execution_ref"]
+            .as_str()
+            .expect("provider execution ref");
+        let provider_execution_hash = admission["provider_execution_hash"]
+            .as_str()
+            .expect("provider execution hash");
+
+        let request: ModelMountProviderInvocationBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "execute_model_mount_provider_invocation",
+            "backend": "rust_model_mount_native_local",
+            "request": {
+                "schema_version": "ioi.model_mount.provider_invocation.v1",
+                "provider_execution_ref": provider_execution_ref,
+                "provider_execution_hash": provider_execution_hash,
+                "route_decision_ref": "model_mount://route_decision/native-local/test",
+                "route_receipt_ref": "receipt://route/native-local/test",
+                "route_ref": "route.native-local",
+                "provider_ref": "provider.autopilot.local",
+                "provider_kind": "ioi_native_local",
+                "endpoint_ref": "endpoint.native-local",
+                "model_ref": "model://qwen/qwen3.5-9b",
+                "capability": "responses",
+                "invocation_kind": "responses",
+                "input": "user: hello",
+                "request_hash": "sha256:request",
+                "execution_backend": "rust_model_mount_native_local",
+                "api_format": "ioi_native",
+                "driver": "native_local",
+                "backend_ref": "backend.autopilot.native-local.fixture",
+                "receipt_refs": ["receipt://route/native-local/test"],
+                "evidence_refs": [provider_execution_ref],
+                "admitted_provider_execution": admission.clone()
+            }
+        }))
+        .expect("native-local provider invocation bridge request");
+
+        let response = execute_model_mount_provider_invocation(request)
+            .expect("native-local provider invocation executed");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_provider_invocation_command"
+        );
+        assert_eq!(response["backend"], "rust_model_mount_native_local");
+        assert_eq!(
+            response["execution_backend"],
+            "rust_model_mount_native_local"
+        );
+        assert_eq!(
+            response["result"]["backend"],
+            "autopilot.native_local.fixture"
+        );
+        assert_eq!(
+            response["backendId"],
+            "backend.autopilot.native-local.fixture"
+        );
+        assert_eq!(
+            response["providerResponseKind"],
+            "rust_model_mount.native_local"
+        );
+        assert!(response["outputText"]
+            .as_str()
+            .expect("output text")
+            .starts_with("Autopilot native local model response from model://qwen/qwen3.5-9b."));
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_model_mount_native_local_backend"));
     }
 
     #[test]

@@ -133,32 +133,9 @@ function fakeState(overrides = {}) {
     },
     executeModelMountProviderInvocation(request) {
       this.providerInvocationRequests.push(request);
-      return {
-        source: "rust_model_mount_fixture_provider_invocation_command",
-        backend: "rust_model_mount_fixture",
-        result: {
-          ...request,
-          output_text: "provider answer",
-          token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
-          provider_response_kind: "rust_model_mount.fixture",
-          backend: "ioi_fixture",
-          backend_id: "backend.fixture",
-          execution_backend: "rust_model_mount_fixture",
-          evidence_refs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
-          invocation_hash: `sha256:provider-invocation-${this.providerInvocationRequests.length}`,
-        },
-        outputText: "provider answer",
-        tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
-        providerResponse: null,
-        providerResponseKind: "rust_model_mount.fixture",
-        executionBackend: "rust_model_mount_fixture",
-        backendId: "backend.fixture",
-        provider_execution_ref: request.provider_execution_ref,
-        provider_execution_hash: request.provider_execution_hash,
-        invocation_hash: `sha256:provider-invocation-${this.providerInvocationRequests.length}`,
-        evidence_refs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
-        backendEvidenceRefs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
-      };
+      return providerInvocationBridgeResult(request, {
+        invocationHash: `sha256:provider-invocation-${this.providerInvocationRequests.length}`,
+      });
     },
     bindModelMountInvocationReceipt(request) {
       this.receiptBindingRequests.push(request);
@@ -288,6 +265,53 @@ function deps(overrides = {}) {
   };
 }
 
+function providerInvocationBridgeResult(request, options = {}) {
+  const nativeLocal = request.execution_backend === "rust_model_mount_native_local";
+  const outputText =
+    options.outputText ??
+    (nativeLocal
+      ? `Autopilot native local model response from ${request.model_ref}. input_hash=test`
+      : "provider answer");
+  const providerResponseKind = nativeLocal ? "rust_model_mount.native_local" : "rust_model_mount.fixture";
+  const backend = nativeLocal ? "autopilot.native_local.fixture" : "ioi_fixture";
+  const backendId = nativeLocal ? request.backend_ref ?? "backend.autopilot.native-local.fixture" : "backend.fixture";
+  const executionBackend = request.execution_backend ?? "rust_model_mount_fixture";
+  const evidenceRefs = [
+    "rust_model_mount_provider_invocation",
+    request.provider_execution_ref,
+    ...(nativeLocal
+      ? ["rust_model_mount_native_local_backend", "deterministic_native_local_fixture"]
+      : ["rust_model_mount_fixture_backend", "deterministic_fixture"]),
+  ];
+  const invocationHash = options.invocationHash ?? "sha256:provider-invocation-test";
+  return {
+    source: "rust_model_mount_provider_invocation_command",
+    backend: executionBackend,
+    result: {
+      ...request,
+      output_text: outputText,
+      token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+      provider_response_kind: providerResponseKind,
+      backend,
+      backend_id: backendId,
+      execution_backend: executionBackend,
+      evidence_refs: evidenceRefs,
+      invocation_hash: invocationHash,
+    },
+    outputText,
+    tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+    providerResponse: null,
+    providerResponseKind,
+    executionBackend,
+    backendId,
+    provider_execution_ref: request.provider_execution_ref,
+    provider_execution_hash: request.provider_execution_hash,
+    invocation_hash: invocationHash,
+    evidence_refs: evidenceRefs,
+    backendEvidenceRefs: evidenceRefs,
+  };
+}
+
 test("capabilityForInvocationKind maps model APIs to route capabilities", () => {
   assert.equal(capabilityForInvocationKind("embeddings"), "embeddings");
   assert.equal(capabilityForInvocationKind("rerank"), "rerank");
@@ -350,6 +374,73 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(state.writes.at(-1)[0], "model-routes");
 });
 
+test("invokeModel routes native-local non-stream provider invocation through Rust model_mount", async () => {
+  let providerCalls = 0;
+  const state = fakeState({
+    async ensureLoaded(endpoint) {
+      this.loadedEndpointId = endpoint.id;
+      return {
+        id: "instance.native-local",
+        backendId: "backend.autopilot.native-local.fixture",
+      };
+    },
+    selectRoute(payload) {
+      this.selectRoutePayload = payload;
+      return selection({
+        route: { id: "route.native-local" },
+        endpoint: {
+          id: "endpoint.native-local",
+          apiFormat: "ioi_native",
+          driver: "native_local",
+          modelId: "model://qwen/qwen3.5-9b",
+          providerId: "provider.autopilot.local",
+          backendId: "backend.autopilot.native-local.fixture",
+        },
+        provider: {
+          id: "provider.autopilot.local",
+          kind: "ioi_native_local",
+          driver: "native_local",
+        },
+      });
+    },
+    driver: {
+      async invoke() {
+        providerCalls += 1;
+        return { outputText: "should not run" };
+      },
+    },
+  });
+
+  const result = await invokeModel(
+    state,
+    {
+      authorization: "Bearer token",
+      requiredScope: "model.responses:*",
+      kind: "responses",
+      body: { model: "model://qwen/qwen3.5-9b", response_id: "resp.native-local" },
+    },
+    deps(),
+  );
+
+  assert.equal(providerCalls, 0);
+  assert.equal(result.outputText.startsWith("Autopilot native local model response"), true);
+  assert.equal(result.providerResponseKind, "rust_model_mount.native_local");
+  assert.equal(state.providerInvocationRequests.length, 1);
+  assert.equal(state.providerResultRequests.length, 0);
+  assert.equal(state.providerInvocationRequests[0].execution_backend, "rust_model_mount_native_local");
+  assert.equal(state.providerInvocationRequests[0].provider_kind, "ioi_native_local");
+  assert.equal(state.providerInvocationRequests[0].api_format, "ioi_native");
+  assert.equal(state.providerInvocationRequests[0].driver, "native_local");
+  assert.equal(
+    state.providerInvocationRequests[0].backend_ref,
+    "backend.autopilot.native-local.fixture",
+  );
+  assert.equal(result.receipt.details.providerResponseKind, "rust_model_mount.native_local");
+  assert.equal(result.receipt.details.backendId, "backend.autopilot.native-local.fixture");
+  assert.equal(result.receipt.details.selectedBackend, "backend.autopilot.native-local.fixture");
+  assert.ok(result.receipt.details.backendEvidenceRefs.includes("rust_model_mount_native_local_backend"));
+});
+
 test("invokeModel reuses identical in-flight provider execution and marks coalesced receipts", async () => {
   let resolveProvider;
   let providerInvocationCalls = 0;
@@ -360,32 +451,10 @@ test("invokeModel reuses identical in-flight provider execution and marks coales
       await new Promise((resolve) => {
         resolveProvider = resolve;
       });
-      return {
-        source: "rust_model_mount_fixture_provider_invocation_command",
-        backend: "rust_model_mount_fixture",
-        result: {
-          ...request,
-          output_text: "shared answer",
-          token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
-          provider_response_kind: "rust_model_mount.fixture",
-          backend: "ioi_fixture",
-          backend_id: "backend.fixture",
-          execution_backend: "rust_model_mount_fixture",
-          evidence_refs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
-          invocation_hash: "sha256:provider-invocation-shared",
-        },
+      return providerInvocationBridgeResult(request, {
         outputText: "shared answer",
-        tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
-        providerResponse: null,
-        providerResponseKind: "rust_model_mount.fixture",
-        executionBackend: "rust_model_mount_fixture",
-        backendId: "backend.fixture",
-        provider_execution_ref: request.provider_execution_ref,
-        provider_execution_hash: request.provider_execution_hash,
-        invocation_hash: "sha256:provider-invocation-shared",
-        evidence_refs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
-        backendEvidenceRefs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
-      };
+        invocationHash: "sha256:provider-invocation-shared",
+      });
     },
   });
   const operation = { authorization: "Bearer token", requiredScope: "model.chat:*", kind: "chat.completions", body: { model: "model.local" } };
@@ -919,6 +988,23 @@ test("modelMountProviderInvocationRequestForExecution binds fixture execution to
   assert.deepEqual(request.receipt_refs, ["receipt://route"]);
   assert.equal(request.admitted_provider_execution.provider_execution_hash, "sha256:provider-execution-test");
   assert.equal(modelMountProviderInvocationRequiresRust({ provider: { kind: "local_folder" }, endpoint: {} }), true);
+  assert.equal(
+    modelMountProviderInvocationRequiresRust({
+      provider: { kind: "ioi_native_local", driver: "native_local" },
+      endpoint: { apiFormat: "ioi_native", driver: "native_local" },
+    }),
+    true,
+  );
+  assert.equal(
+    modelMountProviderInvocationRequiresRust(
+      {
+        provider: { kind: "ioi_native_local", driver: "native_local" },
+        endpoint: { apiFormat: "ioi_native", driver: "native_local" },
+      },
+      { stream: true },
+    ),
+    false,
+  );
   assert.equal(modelMountProviderInvocationRequiresRust({ provider: { kind: "openai" }, endpoint: {} }), false);
 });
 
