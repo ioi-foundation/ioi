@@ -1233,6 +1233,32 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-provider-control-receipt-direct-write-guard",
+    /model_mount_provider_control_lifecycle_planning_required/.test(
+      read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+    ) &&
+      /assertProviderControlReceiptBound/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+      ) &&
+      /model_mount_provider_control_receipt_direct_append_forbidden/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.mjs"),
+      ) &&
+      /local provider start and stop fail closed without Rust lifecycle bindings/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /provider control receipt writes fail closed without provider kind/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
+    ],
+    "Phase 9/10 is pending: migrated local provider start/stop control must fail closed unless backed by Rust model_mount lifecycle binding",
+  );
+  assertCheck(
+    result,
     "model-mount-provider-result-admission-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
       /MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION/.test(

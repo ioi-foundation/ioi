@@ -369,4 +369,30 @@ test("provider start and stop preserve stateless defaults and receipts", async (
   assert.equal(stopped.status, "stopped");
   assert.equal(state.providers.get("provider.custom").discovery.lastStop.status, "stopped");
   assert.deepEqual(state.receipts.map((receipt) => receipt.kind), ["provider_start", "provider_stop"]);
+  assert.deepEqual(state.receipts.map((receipt) => receipt.details.providerKind), ["custom_http", "custom_http"]);
+});
+
+test("local provider start and stop fail closed without Rust lifecycle bindings", async () => {
+  const state = fakeState();
+  state.providers.set("provider.local", {
+    id: "provider.local",
+    kind: "ioi_native_local",
+    label: "Native",
+    status: "configured",
+    discovery: { evidenceRefs: ["native_provider"] },
+  });
+  state.drivers.set("provider.local", {});
+
+  await assert.rejects(
+    () => startProvider(state, "provider.local", providerDeps()),
+    (error) => error.code === "model_mount_provider_control_lifecycle_planning_required" &&
+      error.details.operation === "provider_start",
+  );
+  await assert.rejects(
+    () => stopProvider(state, "provider.local", providerDeps()),
+    (error) => error.code === "model_mount_provider_control_lifecycle_planning_required" &&
+      error.details.operation === "provider_stop",
+  );
+  assert.deepEqual(state.writes, []);
+  assert.deepEqual(state.receipts, []);
 });

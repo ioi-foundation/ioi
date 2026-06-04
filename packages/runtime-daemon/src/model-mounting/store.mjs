@@ -135,6 +135,7 @@ export class AgentgresModelMountingStore {
     assertAcceptedModelInvocationReceiptBound(receipt);
     assertModelInstanceLifecycleReceiptBound(receipt);
     assertProviderInventoryReceiptBound(receipt);
+    assertProviderControlReceiptBound(receipt);
     assertProviderHealthReceiptBound(receipt);
     writeJson(path.join(this.stateDir, "receipts", `${receipt.id}.json`), receipt);
     emitRemoteBoundaryEvent(process.env.IOI_AGENTGRES_URL, "/operations", {
@@ -216,6 +217,11 @@ const MODEL_INSTANCE_LIFECYCLE_RECEIPT_STATUSES = new Map([
 const PROVIDER_INVENTORY_RECEIPT_ACTIONS = new Map([
   ["provider_models_list", "list_models"],
   ["provider_loaded_list", "list_loaded"],
+]);
+
+const PROVIDER_CONTROL_RECEIPT_ACTIONS = new Map([
+  ["provider_start", "start"],
+  ["provider_stop", "stop"],
 ]);
 
 const PROVIDER_HEALTH_LIFECYCLE_STATUSES = new Set(["available", "blocked"]);
@@ -394,6 +400,72 @@ function assertProviderInventoryReceiptBound(receipt) {
       status: 409,
       code: "model_mount_provider_inventory_receipt_direct_append_forbidden",
       message: "Provider inventory receipts for migrated local providers require Rust model_mount inventory bindings before JS store persistence.",
+      details: {
+        receiptId: receipt?.id ?? null,
+        receiptKind: receipt?.kind ?? null,
+        operation: details.operation ?? null,
+        providerKind,
+        missing,
+        mismatches,
+      },
+    });
+  }
+}
+
+function assertProviderControlReceiptBound(receipt) {
+  if (receipt?.kind !== "model_lifecycle") return;
+  const details = receipt?.details && typeof receipt.details === "object" ? receipt.details : {};
+  const expectedAction = PROVIDER_CONTROL_RECEIPT_ACTIONS.get(details.operation);
+  if (!expectedAction) return;
+  const providerKind = optionalNonEmptyString(details.providerKind ?? details.provider_kind);
+  const missing = [];
+  const mismatches = [];
+  if (!providerKind && optionalNonEmptyString(details.providerId)) {
+    missing.push("providerKind");
+  }
+  if (!providerKind || !modelMountProviderKindRequiresRustInstanceLifecycle(providerKind)) {
+    if (missing.length > 0) {
+      throw runtimeError({
+        status: 409,
+        code: "model_mount_provider_control_receipt_direct_append_forbidden",
+        message: "Provider control receipts require provider kind before JS store persistence.",
+        details: {
+          receiptId: receipt?.id ?? null,
+          receiptKind: receipt?.kind ?? null,
+          operation: details.operation ?? null,
+          missing,
+          mismatches,
+        },
+      });
+    }
+    return;
+  }
+  if (!optionalNonEmptyString(details.providerLifecycleHash)) {
+    missing.push("providerLifecycleHash");
+  }
+  if (!Array.isArray(details.modelMountProviderLifecycleEvidenceRefs) ||
+    !details.modelMountProviderLifecycleEvidenceRefs.includes("rust_model_mount_provider_lifecycle")) {
+    missing.push("modelMountProviderLifecycleEvidenceRefs");
+  }
+  if (!optionalNonEmptyString(details.modelMountProviderLifecycleAction)) {
+    missing.push("modelMountProviderLifecycleAction");
+  } else if (details.modelMountProviderLifecycleAction !== expectedAction) {
+    mismatches.push("modelMountProviderLifecycleAction");
+  }
+  const expectedStatus = optionalNonEmptyString(details.state);
+  if (!expectedStatus) {
+    missing.push("state");
+  }
+  if (!optionalNonEmptyString(details.modelMountProviderLifecycleStatus)) {
+    missing.push("modelMountProviderLifecycleStatus");
+  } else if (details.modelMountProviderLifecycleStatus !== expectedStatus) {
+    mismatches.push("modelMountProviderLifecycleStatus");
+  }
+  if (missing.length > 0 || mismatches.length > 0) {
+    throw runtimeError({
+      status: 409,
+      code: "model_mount_provider_control_receipt_direct_append_forbidden",
+      message: "Provider control receipts for migrated local providers require Rust model_mount lifecycle bindings before JS store persistence.",
       details: {
         receiptId: receipt?.id ?? null,
         receiptKind: receipt?.kind ?? null,

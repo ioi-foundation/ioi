@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { modelMountProviderKindRequiresRustInstanceLifecycle } from "./model-instance-lifecycle.mjs";
+
 export function upsertProvider(state, body = {}, deps = {}) {
   const {
     driverForProviderKind,
@@ -270,6 +272,7 @@ export async function startProvider(state, providerId, deps = {}) {
   const result = typeof driver.start === "function"
     ? await driver.start({ state, provider })
     : { status: provider.status === "blocked" ? "blocked" : "available", evidenceRefs: ["provider_stateless_start"] };
+  assertProviderControlLifecycleBound(provider, result, "provider_start");
   const updated = {
     ...provider,
     status: result.status ?? "available",
@@ -286,9 +289,11 @@ export async function startProvider(state, providerId, deps = {}) {
   state.writeMap("model-providers", state.providers);
   state.lifecycleReceipt("provider_start", {
     providerId,
+    providerKind: provider.kind,
     modelId: provider.label,
     state: updated.status,
     evidenceRefs: result.evidenceRefs ?? [],
+    ...providerLifecycleReceiptFields(result.modelMountProviderLifecycle),
   });
   return publicProvider(updated);
 }
@@ -300,6 +305,7 @@ export async function stopProvider(state, providerId, deps = {}) {
   const result = typeof driver.stop === "function"
     ? await driver.stop({ state, provider })
     : { status: "stopped", evidenceRefs: ["provider_stateless_stop"] };
+  assertProviderControlLifecycleBound(provider, result, "provider_stop");
   const updated = {
     ...provider,
     status: result.status ?? "stopped",
@@ -316,9 +322,25 @@ export async function stopProvider(state, providerId, deps = {}) {
   state.writeMap("model-providers", state.providers);
   state.lifecycleReceipt("provider_stop", {
     providerId,
+    providerKind: provider.kind,
     modelId: provider.label,
     state: updated.status,
     evidenceRefs: result.evidenceRefs ?? [],
+    ...providerLifecycleReceiptFields(result.modelMountProviderLifecycle),
   });
   return publicProvider(updated);
+}
+
+function assertProviderControlLifecycleBound(provider, result, operation) {
+  if (!modelMountProviderKindRequiresRustInstanceLifecycle(provider?.kind)) return;
+  if (result?.modelMountProviderLifecycle) return;
+  const error = new Error("Provider start/stop for migrated local providers requires Rust model_mount lifecycle planning.");
+  error.status = 502;
+  error.code = "model_mount_provider_control_lifecycle_planning_required";
+  error.details = {
+    operation,
+    providerId: provider?.id ?? null,
+    providerKind: provider?.kind ?? null,
+  };
+  throw error;
 }

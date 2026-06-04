@@ -100,6 +100,23 @@ function providerHealthReceipt(details = {}) {
   };
 }
 
+function providerControlReceipt(details = {}) {
+  return {
+    id: details.id ?? "receipt.provider-control",
+    kind: "model_lifecycle",
+    redaction: "redacted",
+    evidenceRefs: ["model_registry", "agentgres_canonical_operation_log", details.operation ?? "provider_start"],
+    details: {
+      operation: "provider_start",
+      providerId: "provider.local",
+      providerKind: "ioi_native_local",
+      modelId: "Local",
+      state: "available",
+      ...details,
+    },
+  };
+}
+
 test("model invocation receipt writes fail closed without Rust receipt and Agentgres admission", () => {
   const { appended, stateDir, store } = testStore();
 
@@ -312,5 +329,50 @@ test("provider health receipt writes allow Rust-bound local and remote provider 
   assert.deepEqual(appended.map((item) => item.payload.receiptId), [
     "receipt.health-local-bound",
     "receipt.health-remote",
+  ]);
+});
+
+test("provider control receipt writes fail closed without provider kind and Rust lifecycle binding", () => {
+  const { appended, stateDir, store } = testStore();
+
+  assert.throws(
+    () => store.writeReceipt(providerControlReceipt({ providerKind: undefined })),
+    (error) =>
+      error.code === "model_mount_provider_control_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("providerKind"),
+  );
+  assert.throws(
+    () => store.writeReceipt(providerControlReceipt()),
+    (error) =>
+      error.code === "model_mount_provider_control_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("providerLifecycleHash"),
+  );
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.provider-control.json")), false);
+  assert.deepEqual(appended, []);
+});
+
+test("provider control receipt writes allow Rust-bound local and remote provider records", () => {
+  const { appended, stateDir, store } = testStore();
+  const localReceipt = providerControlReceipt({
+    id: "receipt.control-local-bound",
+    providerLifecycleHash: "sha256:start",
+    modelMountProviderLifecycleAction: "start",
+    modelMountProviderLifecycleStatus: "available",
+    modelMountProviderLifecycleEvidenceRefs: ["rust_model_mount_provider_lifecycle"],
+  });
+  const remoteReceipt = providerControlReceipt({
+    id: "receipt.control-remote",
+    providerId: "provider.remote",
+    providerKind: "openai_compatible",
+  });
+
+  store.writeReceipt(localReceipt);
+  store.writeReceipt(remoteReceipt);
+
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.control-local-bound.json")), true);
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.control-remote.json")), true);
+  assert.deepEqual(appended.map((item) => item.payload.receiptId), [
+    "receipt.control-local-bound",
+    "receipt.control-remote",
   ]);
 });
