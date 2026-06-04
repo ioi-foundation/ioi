@@ -360,6 +360,16 @@ function runBridge() {
   const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     : "";
+  const openAiCompatibleDriver = exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
+    : "";
+  const openAiBackendDrivers = exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs")
+    : "";
+  const lmStudioDriver = exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs")
+    : "";
+  const openAiCompatibleProviderDrivers = [openAiCompatibleDriver, openAiBackendDrivers, lmStudioDriver].join("\n");
   const retiredRouteDecisionEnvPattern = new RegExp("MODEL_MOUNT_" + "ROUTE_DECISION_COMMAND_ENV");
   assertCheck(
     result,
@@ -532,6 +542,21 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 9/10 is pending: non-migrated provider driver results must be Rust-admitted before accepted model invocation receipts",
+  );
+  assertCheck(
+    result,
+    "model-mount-provider-responses-chat-fallback-retired",
+    /\/responses/.test(openAiCompatibleDriver) &&
+      !/allowResponsesFallback/.test(openAiCompatibleProviderDrivers) &&
+      !/compatTranslation:\s*"chat_completions"/.test(openAiCompatibleProviderDrivers) &&
+      !/kind:\s*"chat\.completions"[\s\S]*body:\s*responseBody/.test(openAiCompatibleDriver),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs",
+    ],
+    "Phase 9/10 is pending: responses provider calls must fail closed instead of downgrading to chat completions",
   );
   assertCheck(
     result,

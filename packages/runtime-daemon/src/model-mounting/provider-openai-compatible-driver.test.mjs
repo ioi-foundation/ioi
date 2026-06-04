@@ -97,21 +97,22 @@ test("OpenAI-compatible driver lists and invokes chat completion models", async 
   });
 });
 
-test("OpenAI-compatible driver falls back from responses to chat completions", async () => {
+test("OpenAI-compatible driver fails closed when responses endpoint is unavailable", async () => {
   await withOpenAiCompatibleServer(async ({ baseUrl, requests }) => {
     const driver = new OpenAICompatibleModelProviderDriver({ label: "compat" });
-    const result = await driver.invoke({
-      provider: provider(baseUrl),
-      endpoint: endpoint(),
-      kind: "responses",
-      body: { input: "hello" },
-      input: "hello",
-      state: null,
-    });
+    await assert.rejects(
+      () =>
+        driver.invoke({
+          provider: provider(baseUrl),
+          endpoint: endpoint(),
+          kind: "responses",
+          body: { input: "hello" },
+          input: "hello",
+          state: null,
+        }),
+      (error) => error.code === "external_blocker",
+    );
 
-    assert.equal(result.outputText, "hello from compatible chat");
-    assert.equal(result.providerResponseKind, "chat.completions");
-    assert.equal(result.compatTranslation, "chat_completions");
-    assert.deepEqual(requests.map((request) => request.url), ["/responses", "/chat/completions"]);
+    assert.deepEqual(requests.map((request) => request.url), ["/responses"]);
   });
 });

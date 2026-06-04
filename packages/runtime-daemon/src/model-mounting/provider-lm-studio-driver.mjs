@@ -117,7 +117,7 @@ export class LmStudioModelProviderDriver {
   }
 
   async invoke(args) {
-    const result = await this.openAi.invoke({ ...args, providerLabel: "lm_studio", allowResponsesFallback: true });
+    const result = await this.openAi.invoke({ ...args, providerLabel: "lm_studio" });
     return { ...result, backend: "lm_studio", backendId: args.endpoint?.backendId ?? "backend.lmstudio" };
   }
 

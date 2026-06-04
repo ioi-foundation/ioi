@@ -140,7 +140,7 @@ export class VllmModelProviderDriver {
           })
         : null;
     const processSnapshot = args.state.backendProcessSnapshot(processRecord);
-    const result = await this.openAi.invoke({ ...args, provider, allowResponsesFallback: true });
+    const result = await this.openAi.invoke({ ...args, provider });
     return {
       ...result,
       backend: "vllm",
@@ -291,7 +291,7 @@ export class LlamaCppModelProviderDriver {
       reason: "llama_cpp_model_invoke",
     });
     const processSnapshot = args.state.backendProcessSnapshot(processRecord);
-    const result = await this.openAi.invoke({ ...args, provider, allowResponsesFallback: true });
+    const result = await this.openAi.invoke({ ...args, provider });
     return {
       ...result,
       backend: "llama_cpp",

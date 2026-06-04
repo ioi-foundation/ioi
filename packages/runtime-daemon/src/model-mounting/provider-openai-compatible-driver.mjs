@@ -116,7 +116,7 @@ export class OpenAICompatibleModelProviderDriver {
     };
   }
 
-  async invoke({ state, provider, endpoint, kind, body, input, allowResponsesFallback = true }) {
+  async invoke({ state, provider, endpoint, kind, body, input }) {
     if (kind === "embeddings") {
       const requestBody = { ...body, model: body.model ?? endpoint.modelId };
       const result = await fetchProviderJson(provider, "/embeddings", { method: "POST", body: requestBody, state });
@@ -139,7 +139,7 @@ export class OpenAICompatibleModelProviderDriver {
       const result = await fetchProviderJson(provider, "/responses", {
         method: "POST",
         body: responseBody,
-        tolerateHttpError: allowResponsesFallback,
+        tolerateHttpError: true,
         state,
       });
       if (result.ok) {
@@ -156,21 +156,7 @@ export class OpenAICompatibleModelProviderDriver {
           providerAuthHeaderNames: result.authEvidence?.headerNames ?? [],
         };
       }
-      if (!allowResponsesFallback || !responsesFallbackStatus(result.status)) {
-        throw providerHttpError(provider, "OpenAI-compatible responses call failed.", result);
-      }
-      const fallback = await this.invoke({
-        provider,
-        endpoint,
-        kind: "chat.completions",
-        body: responseBody,
-        input,
-        state,
-      });
-      return {
-        ...fallback,
-        compatTranslation: "chat_completions",
-      };
+      throw providerHttpError(provider, "OpenAI-compatible responses call failed.", result);
     }
 
     const requestBody = chatCompletionRequestBody(body, endpoint.modelId);
