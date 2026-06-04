@@ -167,6 +167,13 @@ import {
   runtimeSurvey as runtimeSurveyState,
 } from "./model-mounting/runtime-survey.mjs";
 import {
+  backend as backendState,
+  backendProcessArgs as backendProcessArgsState,
+  backendProcessSnapshot as backendProcessSnapshotState,
+  backendProcessSpawnArgs as backendProcessSpawnArgsState,
+  backendSupportsSupervision as backendSupportsSupervisionState,
+} from "./model-mounting/backend-processes.mjs";
+import {
   FixtureModelProviderDriver,
   NativeLocalModelProviderDriver,
 } from "./model-mounting/provider-local-drivers.mjs";
@@ -3643,107 +3650,26 @@ export class ModelMountingState {
   }
 
   backend(backendId) {
-    const backend = this.backendRegistry().find((item) => item.id === backendId);
-    if (!backend) throw notFound(`Model backend not found: ${backendId}`, { backendId });
-    return backend;
+    return backendState(this, backendId, { notFound });
   }
 
   backendProcessSnapshot(processRecord) {
-    if (!processRecord) {
-      return {
-        status: "not_started",
-        processStatus: "not_started",
-        evidenceRefs: ["supervisor_process_not_started"],
-      };
-    }
-    return {
-      id: processRecord.id,
-      backendId: processRecord.backendId,
-      backendKind: processRecord.backendKind,
-      status: processRecord.status,
-      processStatus: processRecord.processStatus ?? processRecord.status,
-      pidHash: processRecord.pidHash ?? null,
-      pidTracked: processRecord.pidTracked ?? "process_ref_hash",
-      supervisorKind: processRecord.supervisorKind ?? null,
-      spawned: Boolean(processRecord.spawned),
-      spawnStatus: processRecord.spawnStatus ?? null,
-      startedAt: processRecord.startedAt ?? null,
-      stoppedAt: processRecord.stoppedAt ?? null,
-      lastHealthAt: processRecord.lastHealthAt ?? null,
-      argsHash: processRecord.argsHash ?? null,
-      argsRedacted: processRecord.argsRedacted ?? [],
-      startupTimeoutMs: processRecord.startupTimeoutMs ?? null,
-      healthProbe: processRecord.healthProbe ?? null,
-      stale: Boolean(processRecord.stale),
-      staleReason: processRecord.staleReason ?? null,
-      evidenceRefs: processRecord.evidenceRefs ?? [],
-    };
+    return backendProcessSnapshotState(processRecord);
   }
 
-  backendProcessArgs(backend, { endpoint = null, loadOptions = {} } = {}) {
-    const artifactPathHash = endpoint?.artifactPath ? stableHash(endpoint.artifactPath).slice(0, 16) : null;
-    const modelArg = endpoint?.modelId ?? "runtime-engine-profile";
-    const contextLength = loadOptions.contextLength ?? this.runtimeDefaultLoadOptions(backend.id).contextLength ?? null;
-    const parallel = loadOptions.parallel ?? this.runtimeDefaultLoadOptions(backend.id).parallel ?? null;
-    const gpu = loadOptions.gpu ?? this.runtimeDefaultLoadOptions(backend.id).gpu ?? null;
-    const identifier = loadOptions.identifier ?? this.runtimeDefaultLoadOptions(backend.id).identifier ?? null;
-    const args = [];
-    if (backend.kind === "llama_cpp") {
-      args.push("llama-server", "--model", artifactPathHash ? `artifact:${artifactPathHash}` : modelArg);
-      if (contextLength) args.push("--ctx-size", String(contextLength));
-      if (parallel) args.push("--parallel", String(parallel));
-      if (gpu) args.push("--gpu-layers", llamaCppGpuLayersArg(gpu));
-    } else if (backend.kind === "vllm") {
-      args.push("vllm", "serve", artifactPathHash ? `artifact:${artifactPathHash}` : modelArg);
-      if (contextLength) args.push("--max-model-len", String(contextLength));
-      if (parallel) args.push("--tensor-parallel-size", String(parallel));
-      if (loadOptions.dtype) args.push("--dtype", String(loadOptions.dtype));
-      if (loadOptions.gpuMemoryUtilization) args.push("--gpu-memory-utilization", String(loadOptions.gpuMemoryUtilization));
-    } else if (backend.kind === "ollama") {
-      args.push("ollama", "serve");
-    } else if (backend.kind === "native_local") {
-      args.push("ioi-native-local-fixture", "--model", modelArg);
-      if (contextLength) args.push("--context", String(contextLength));
-      if (parallel) args.push("--parallel", String(parallel));
-      if (gpu) args.push("--gpu", String(gpu));
-    } else {
-      args.push(String(backend.kind ?? "backend"), "--model", modelArg);
-    }
-    if (identifier) args.push("--identifier", stableHash(identifier).slice(0, 12));
-    return args;
+  backendProcessArgs(backend, options = {}) {
+    return backendProcessArgsState(this, backend, options, {
+      llamaCppGpuLayersArg,
+      stableHash,
+    });
   }
 
-  backendProcessSpawnArgs(backend, { endpoint = null, loadOptions = {} } = {}) {
-    if (backend.kind === "ollama") return ["serve"];
-    if (backend.kind === "vllm") {
-      const args = ["serve", endpoint?.artifactPath ?? loadOptions.modelPath ?? loadOptions.model_path ?? endpoint?.modelId ?? loadOptions.model ?? "runtime-engine-profile"];
-      const bind = backendBindAddress(backend.baseUrl);
-      if (bind.host) args.push("--host", bind.host);
-      if (bind.port) args.push("--port", String(bind.port));
-      const contextLength = loadOptions.contextLength ?? loadOptions.maxModelLen ?? this.runtimeDefaultLoadOptions(backend.id).contextLength ?? null;
-      const parallel = loadOptions.parallel ?? loadOptions.tensorParallelSize ?? this.runtimeDefaultLoadOptions(backend.id).parallel ?? null;
-      if (contextLength) args.push("--max-model-len", String(contextLength));
-      if (parallel) args.push("--tensor-parallel-size", String(parallel));
-      if (loadOptions.dtype) args.push("--dtype", String(loadOptions.dtype));
-      if (loadOptions.gpuMemoryUtilization) args.push("--gpu-memory-utilization", String(loadOptions.gpuMemoryUtilization));
-      return args;
-    }
-    if (backend.kind !== "llama_cpp") return this.backendProcessArgs(backend, { endpoint, loadOptions }).slice(1);
-    const args = [];
-    const modelPath = endpoint?.artifactPath ?? loadOptions.modelPath ?? loadOptions.model_path ?? null;
-    if (modelPath) args.push("--model", modelPath);
-    const contextLength = loadOptions.contextLength ?? this.runtimeDefaultLoadOptions(backend.id).contextLength ?? null;
-    const parallel = loadOptions.parallel ?? this.runtimeDefaultLoadOptions(backend.id).parallel ?? null;
-    const gpu = loadOptions.gpu ?? this.runtimeDefaultLoadOptions(backend.id).gpu ?? null;
-    if (contextLength) args.push("--ctx-size", String(contextLength));
-    if (parallel) args.push("--parallel", String(parallel));
-    if (gpu) args.push("--n-gpu-layers", llamaCppGpuLayersArg(gpu));
-    const embeddingEnabled = loadOptions.embeddings ?? loadOptions.embedding ?? false;
-    if (embeddingEnabled) args.push("--embedding");
-    const bind = backendBindAddress(backend.baseUrl);
-    if (bind.host) args.push("--host", bind.host);
-    if (bind.port) args.push("--port", String(bind.port));
-    return args;
+  backendProcessSpawnArgs(backend, options = {}) {
+    return backendProcessSpawnArgsState(this, backend, options, {
+      backendBindAddress,
+      llamaCppGpuLayersArg,
+      stableHash,
+    });
   }
 
   ensureBackendProcess(backendId, { endpoint = null, loadOptions = {}, reason = "runtime_control" } = {}) {
@@ -3759,7 +3685,7 @@ export class ModelMountingState {
   }
 
   backendSupportsSupervision(backend) {
-    return ["native_local", "llama_cpp", "ollama", "vllm"].includes(backend.kind);
+    return backendSupportsSupervisionState(backend);
   }
 
   touchBackendProcess(processRecord, { endpoint = null, loadOptions = {}, reason = "health_probe" } = {}) {

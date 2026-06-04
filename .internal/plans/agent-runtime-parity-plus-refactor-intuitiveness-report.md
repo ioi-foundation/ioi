@@ -307,8 +307,11 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added `packages/runtime-daemon/src/model-mounting/default-discovery.mjs`.
 - Moved native-local fixture artifact materialization, LM Studio provider discovery, LM Studio artifact discovery, LM Studio public projection pruning, and internal fixture projection pruning out of `model-mounting.mjs` behind existing default-seeding compatibility methods.
 - Added focused default-discovery tests for fixture artifact metadata/materialization, disabled/running/configured LM Studio provider states, LM Studio artifact discovery gates, and pruning of LM Studio/fixture artifacts, endpoints, and instances.
+- Added `packages/runtime-daemon/src/model-mounting/backend-processes.mjs`.
+- Moved backend registry lookup, public backend-process snapshot projection, redacted backend command args, supervised spawn args, and supervision support predicates out of `model-mounting.mjs` behind existing compatibility methods.
+- Added focused backend-process tests for missing-backend errors, snapshot defaults, redacted artifact args, native/vLLM args, raw supervised spawn paths, unsupported-backend fallback args, and supervision support boundaries.
 
-Status: `model-mounting.mjs` still owns route persistence wrappers, backend process lifecycle, provider/catalog operation glue, and some product projection glue. Safe next extractions are backend lifecycle slices, provider/catalog operation slices, and remaining route HTTP glue.
+Status: `model-mounting.mjs` still owns route persistence wrappers, backend process start/stop lifecycle, provider/catalog operation glue, and some product projection glue. Safe next extractions are backend lifecycle slices, provider/catalog operation slices, and remaining route HTTP glue.
 
 ### Rust Runtime Hot Spot
 
@@ -377,6 +380,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, backend proc
   - `model-mounting/projections`
   - `model-mounting/runtime-engines`
   - `model-mounting/runtime-survey`
+  - `model-mounting/backend-processes`
   - `decision_loop/retry_limits`
   - `live-gui-proof-harness`
 - Deferred disruptive mass renames until after larger ownership modules are extracted and compatibility shims can be added deliberately.
