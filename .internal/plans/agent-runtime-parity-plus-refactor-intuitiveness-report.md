@@ -124,6 +124,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/code-mode-panel.js`.
 - Moved the Code mode repository-gate projection, repository row rendering, SVG affordances, CSP nonce wiring, and full Code mode panel HTML out of `extension.js` while preserving existing command ids and product data-testids.
 - Added focused code-mode panel tests for current-workspace projection, escaping, command affordances, data-testids, CSP nonce handling, and empty repository fallbacks.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/overview-panel.js`.
+- Moved Autopilot Overview panel HTML, overview status projection, command affordance layout, CSP nonce usage, and daemon-owned console copy out of `extension.js`; `extension.js` retains only nonce lifecycle and panel wiring.
+- Added focused overview-panel tests for nonce wiring, daemon-owned attributes, command/data-payload affordances, workspace/item escaping, disconnected daemon fallback, connector readiness, receipt posture, and policy issue projection.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.
