@@ -46,6 +46,7 @@ const {
 const { createStudioPanelHtml } = require("./studio/studio-panel-html");
 const { createStudioModelCompletion } = require("./studio/model-completion");
 const { createStudioOperationalSurface } = require("./studio/operational-surface");
+const { createStudioPromptPolicy } = require("./studio/prompt-policy");
 const { createModelSurfaceRenderer } = require("./studio/model-surface");
 const { createStudioAgentAnswerStreamProjector } = require("./studio/agent-answer-stream");
 const { createStudioAgentFinalHandoffStreamer } = require("./studio/agent-final-handoff-stream");
@@ -336,13 +337,18 @@ function stringValue(value, fallback = "") {
   return trimmed || fallback;
 }
 
-const STUDIO_TOOLCAT_MARKER_RE = /\bTOOLCAT_(?:SINGLE_TOOL|STAGE\d+_[A-Z0-9_]+)\b/i;
-const STUDIO_TOOLCAT_TOOL_RE = /\btoolcat_tool=([a-z0-9_.]+(?:__[a-z0-9_]+)?)/i;
-const STUDIO_TOOLCAT_SINGLE_TOOL_RE = /\bTOOLCAT_SINGLE_TOOL\s+([a-z0-9_.]+(?:__[a-z0-9_]+)?)/i;
-
-function compactStudioWhitespace(value = "") {
-  return String(value || "").replace(/\s+/g, " ").trim();
-}
+const {
+  compactStudioWhitespace,
+  isAutoStudioModelSelector,
+  promptIsInternalHarnessProbe,
+  promptRequiresRetrieval,
+  promptRequiresWorkspaceContext,
+  promptTargetsLocalWorkspace,
+} = createStudioPromptPolicy({
+  normalizeStudioExecutionMode,
+  stringValue,
+  studioModeAgent: STUDIO_MODE_AGENT,
+});
 
 const {
   humanizeStudioToolName,
@@ -353,18 +359,6 @@ const {
   compactStudioWhitespace,
   studioTextIndicatesApprovalPause,
 });
-
-function isAutoStudioModelSelector(value) {
-  const normalized = stringValue(value, "auto").toLowerCase();
-  return normalized === "auto" || normalized === "local:auto" || normalized === "default";
-}
-
-function promptTargetsLocalWorkspace(prompt = "") {
-  const text = stringValue(prompt).toLowerCase();
-  return /\b(repository|repo|workspace|project|codebase|source tree|current workspace|local source|inspect\b.*workspace|files?)\b/.test(text) ||
-    /(?:^|\s|["'`])(?:\.\/|\.\.\/|\/)?(?:\.internal|apps|crates|docs|examples|ide|packages|scripts|src|tests?)\//.test(text) ||
-    /workspace_fixture_|daemon_endpoint=|computer_use_providers_url=|current trace history/.test(text);
-}
 
 function workspaceTargetsForPrompt(prompt = "") {
   const raw = compactText(prompt);
@@ -400,41 +394,6 @@ function workspaceTargetsForPrompt(prompt = "") {
     .slice(0, 8);
   const query = terms.length > 0 ? terms.join(" ") : raw.slice(0, 120);
   return query ? [{ kind: "search", query, reason: "workspace_context_query" }] : [];
-}
-
-function promptIsInternalHarnessProbe(prompt = "") {
-  const text = stringValue(prompt);
-  return STUDIO_TOOLCAT_MARKER_RE.test(text) ||
-    /workspace_fixture_|daemon_endpoint=|computer_use_providers_url=|live IDE Rust\/provider tool row/i.test(text);
-}
-
-function promptRequiresRetrieval(prompt = "") {
-  if (promptIsInternalHarnessProbe(prompt)) {
-    return false;
-  }
-  const text = stringValue(prompt).toLowerCase();
-  const targetsLocalWorkspace = promptTargetsLocalWorkspace(text);
-  const asksForExternalFact = /\b(today|right now|latest|recent|news|price|market|market cap|investment|invest|better|akt|akash|filecoin|fil|crypto|stock|exchange rate|weather)\b/.test(text);
-  const asksForPublicSource = /\b(cite|citation|sources?|web|internet|online|public)\b/.test(text);
-  const asksForCurrentExternalState =
-    /\b(current|currently)\b/.test(text) &&
-    /\b(price|market|news|investment|crypto|stock|exchange rate|weather|public|web|online)\b/.test(text);
-  if (targetsLocalWorkspace && !asksForExternalFact && !asksForCurrentExternalState) {
-    return false;
-  }
-  return asksForExternalFact || asksForPublicSource || asksForCurrentExternalState;
-}
-
-function promptRequiresWorkspaceContext(prompt = "", executionMode = STUDIO_MODE_AGENT) {
-  if (promptIsInternalHarnessProbe(prompt) || normalizeStudioExecutionMode(executionMode) !== STUDIO_MODE_AGENT) {
-    return false;
-  }
-  const text = stringValue(prompt).toLowerCase();
-  if (!promptTargetsLocalWorkspace(text)) {
-    return false;
-  }
-  return /\b(audit|check|decides?|explain|explore|find|how|inspect|list|locate|look like|progress|read|review|scan|search|summari[sz]e|where|which|what)\b/.test(text) ||
-    /(?:^|\s|["'`])(?:\.\/|\.\.\/|\/)?(?:\.internal|apps|crates|docs|examples|ide|packages|scripts|src|tests?)\//.test(text);
 }
 
 function firstArray(value) {

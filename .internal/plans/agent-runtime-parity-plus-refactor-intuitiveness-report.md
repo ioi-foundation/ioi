@@ -130,6 +130,9 @@ Scope: first refactor leg after the parity-plus audit guide. This pass prioritiz
 - Added `apps/autopilot/openvscode-extension/ioi-workbench/workbench/workflow-composer-panel.js`.
 - Moved Workflow Composer webview HTML, workflow asset URI construction, composer CSP, daemon initial-state serialization, and shell-header embedding out of `extension.js`; `extension.js` retains only panel lifecycle and message handling.
 - Added focused workflow-composer panel tests for asset URI construction, nonce/CSP handling, daemon connect-source escaping, shell-header preservation, daemon-owned initial state, and `<` escaping inside serialized bootstrap state.
+- Added `apps/autopilot/openvscode-extension/ioi-workbench/studio/prompt-policy.js`.
+- Moved Studio prompt/model policy helpers for whitespace compaction, auto-model selector detection, local-workspace prompt detection, harness-probe exclusion, retrieval routing, and workspace-context routing out of `extension.js`.
+- Added focused prompt-policy tests for whitespace/model selector normalization, workspace-vs-external retrieval decisions, Ask/Agent workspace context gating, and internal harness probe suppression.
 - Kept compatibility wrappers in `extension.js` where existing tests or local call sites expect the old function names.
 
 Status: `extension.js` is still a composition-heavy file and remains larger than the guide's ideal target. The safe next extractions are Studio projection events, remaining test hooks, panel lifecycle, and command grouping by Studio/workflows/models/runs.

@@ -24,6 +24,8 @@ const paths = {
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/operational-surface.js",
   modelCompletion:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/model-completion.js",
+  promptPolicy:
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/prompt-policy.js",
   answerStream:
     "apps/autopilot/openvscode-extension/ioi-workbench/studio/agent-answer-stream.js",
   finalHandoffStream:
@@ -123,6 +125,7 @@ async function readStudioComposite() {
       paths.modelSurface,
       paths.operationalSurface,
       paths.modelCompletion,
+      paths.promptPolicy,
       paths.answerStream,
       paths.finalHandoffStream,
       paths.turnEvents,
