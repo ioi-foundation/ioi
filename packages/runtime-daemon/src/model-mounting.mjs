@@ -60,6 +60,12 @@ import {
   unloadModel as unloadModelState,
 } from "./model-mounting/model-loading-operations.mjs";
 import {
+  cancelDownload as cancelDownloadState,
+  cleanupModelStorage as cleanupModelStorageState,
+  deleteModelArtifact as deleteModelArtifactState,
+  downloadStatus as downloadStatusState,
+} from "./model-mounting/storage-operations.mjs";
+import {
   catalogVariantForSource,
   enrichCatalogEntry,
   huggingFaceCatalogEntries,
@@ -1417,196 +1423,40 @@ export class ModelMountingState {
   }
 
   cancelDownload(jobId, body = {}) {
-    const job = this.downloadStatus(jobId);
-    if (["completed", "failed", "canceled"].includes(job.status)) {
-      return job;
-    }
-    const cleanupPartial = truthy(body.cleanup_partial ?? body.cleanupPartial ?? true);
-    const destructiveConfirmation = destructiveConfirmationState(body, { required: cleanupPartial, action: "download_cancel_cleanup" });
-    const partialPath = job.targetPath ? `${job.targetPath}.part` : null;
-    const metadataPath = partialPath ? `${partialPath}.json` : null;
-    const projectedFreedBytes = cleanupPartial
-      ? fileSizeIfExists(job.targetPath) + fileSizeIfExists(partialPath) + fileSizeIfExists(metadataPath)
-      : 0;
-    let cleanupState = cleanupPartial ? "not_needed" : "retained_partial";
-    if (cleanupPartial && job.targetPath) {
-      cleanupState = cleanupPartialDownload(job.targetPath);
-    }
-    const receipt = this.lifecycleReceipt("model_download_canceled", {
-      jobId,
-      modelId: job.modelId,
-      providerId: job.providerId,
-      bytesCompleted: job.bytesCompleted,
-      bytesTotal: job.bytesTotal,
-      cleanupPartial,
-      cleanupState,
-      projectedFreedBytes,
-      destructiveConfirmation,
-      downloadPolicy: job.downloadPolicy ?? null,
+    return cancelDownloadState(this, jobId, body, {
+      cleanupPartialDownload,
+      destructiveConfirmationState,
+      fileSizeIfExists,
+      truthy,
     });
-    const canceled = {
-      ...job,
-      status: "canceled",
-      cleanupState,
-      projectedFreedBytes,
-      destructiveConfirmation,
-      updatedAt: this.nowIso(),
-      receiptId: receipt.id,
-      receiptIds: [...(job.receiptIds ?? []), receipt.id],
-    };
-    this.downloads.set(jobId, canceled);
-    this.writeMap("model-downloads", this.downloads);
-    this.writeProjection();
-    return canceled;
   }
 
   downloadStatus(jobId) {
-    const job = this.downloads.get(jobId);
-    if (!job) throw notFound(`Download job not found: ${jobId}`, { jobId });
-    return job;
+    return downloadStatusState(this, jobId, { notFound });
   }
 
   deleteModelArtifact(id, body = {}) {
-    const artifact = this.getModel(id);
-    const endpointIds = [...this.endpoints.values()].filter((endpoint) => endpoint.artifactId === artifact.id).map((endpoint) => endpoint.id);
-    const instanceIds = [...this.instances.values()]
-      .filter((instance) => endpointIds.includes(instance.endpointId) && instance.status === "loaded")
-      .map((instance) => instance.id);
-    const projectedFreedBytes = fileSizeIfExists(artifact.artifactPath);
-    const destructiveConfirmation = destructiveConfirmationState(body, { required: projectedFreedBytes > 0 || endpointIds.length > 0, action: "model_artifact_delete" });
-    if (truthy(body.dry_run ?? body.dryRun)) {
-      const receipt = this.lifecycleReceipt("model_artifact_delete_dry_run", {
-        artifactId: artifact.id,
-        modelId: artifact.modelId,
-        providerId: artifact.providerId,
-        artifactPathHash: artifact.artifactPath ? stableHash(artifact.artifactPath) : null,
-        affectedEndpointIds: endpointIds,
-        affectedInstanceIds: instanceIds,
-        projectedFreedBytes,
-        destructiveConfirmation,
-      });
-      return {
-        schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-        status: "dry_run",
-        artifactId: artifact.id,
-        modelId: artifact.modelId,
-        affectedEndpointIds: endpointIds,
-        affectedInstanceIds: instanceIds,
-        projectedFreedBytes,
-        destructiveConfirmation,
-        receiptId: receipt.id,
-      };
-    }
-    if (instanceIds.length > 0) {
-      throw runtimeError({
-        status: 409,
-        code: "conflict",
-        message: "Model artifact is loaded. Unload linked instances before deleting it.",
-        details: { artifactId: artifact.id, instanceIds },
-      });
-    }
-    for (const endpointId of endpointIds) {
-      const endpoint = this.endpoints.get(endpointId);
-      this.endpoints.set(endpointId, { ...endpoint, status: "deleted_with_artifact", deletedAt: this.nowIso() });
-    }
-    this.artifacts.delete(artifact.id);
-    fs.rmSync(path.join(this.stateDir, "model-artifacts", `${safeFileName(artifact.id)}.json`), { force: true });
-    let cleanupState = "not_applicable";
-    if (artifact.artifactPath && artifact.artifactPath.startsWith(this.modelRoot)) {
-      try {
-        fs.rmSync(artifact.artifactPath, { force: true });
-        cleanupState = "removed";
-      } catch {
-        cleanupState = "failed";
-      }
-    }
-    const receipt = this.lifecycleReceipt("model_artifact_delete", {
-      artifactId: artifact.id,
-      modelId: artifact.modelId,
-      providerId: artifact.providerId,
-      artifactPathHash: artifact.artifactPath ? stableHash(artifact.artifactPath) : null,
-      endpointIds,
-      affectedEndpointIds: endpointIds,
-      affectedInstanceIds: instanceIds,
-      projectedFreedBytes,
-      cleanupState,
-      destructiveConfirmation,
-    });
-    this.writeMap("model-artifacts", this.artifacts);
-    this.writeMap("model-endpoints", this.endpoints);
-    this.writeProjection();
-    return {
+    return deleteModelArtifactState(this, id, body, {
+      destructiveConfirmationState,
+      fileSizeIfExists,
+      runtimeError,
+      safeFileName,
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      status: "deleted",
-      artifactId: artifact.id,
-      modelId: artifact.modelId,
-      cleanupState,
-      affectedEndpointIds: endpointIds,
-      affectedInstanceIds: instanceIds,
-      projectedFreedBytes,
-      destructiveConfirmation,
-      receiptId: receipt.id,
-    };
+      stableHash,
+      truthy,
+    });
   }
 
   cleanupModelStorage(body = {}) {
-    const knownPaths = new Set([...this.artifacts.values()].map((artifact) => artifact.artifactPath).filter(Boolean));
-    const files = listModelFiles(this.modelRoot);
-    const orphans = files.filter((filePath) => !knownPaths.has(filePath));
-    const orphanBytes = orphans.reduce((total, filePath) => total + fileSizeIfExists(filePath), 0);
-    const removeOrphans = truthy(body.remove_orphans ?? body.removeOrphans ?? false);
-    const destructiveConfirmation = destructiveConfirmationState(body, { required: removeOrphans && orphans.length > 0, action: "model_storage_cleanup" });
-    if (removeOrphans && destructiveConfirmation.required && !destructiveConfirmation.confirmed) {
-      throw runtimeError({
-        status: 409,
-        code: "destructive_confirmation_required",
-        message: "Confirm destructive cleanup before removing orphan model files.",
-        details: { orphanCount: orphans.length, projectedFreedBytes: orphanBytes },
-      });
-    }
-    let cleanupState = "scan_only";
-    let cleanedBytes = 0;
-    let removedOrphanCount = 0;
-    if (removeOrphans) {
-      cleanupState = "removed_orphans";
-      for (const orphan of orphans) {
-        const size = fileSizeIfExists(orphan);
-        try {
-          fs.rmSync(orphan, { force: true });
-          cleanedBytes += size;
-          removedOrphanCount += 1;
-        } catch {
-          cleanupState = "partial_cleanup_failed";
-        }
-      }
-    }
-    const receipt = this.lifecycleReceipt("model_storage_cleanup", {
-      modelId: "model-storage",
-      scannedFileCount: files.length,
-      orphanCount: orphans.length,
-      orphanPathHashes: orphans.map((filePath) => stableHash(filePath)),
-      orphanBytes,
-      removeOrphans,
-      cleanedBytes,
-      removedOrphanCount,
-      projectedFreedBytes: orphanBytes,
-      cleanupState,
-      destructiveConfirmation,
-    });
-    return {
+    return cleanupModelStorageState(this, body, {
+      destructiveConfirmationState,
+      fileSizeIfExists,
+      listModelFiles,
+      runtimeError,
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      status: removeOrphans ? "cleaned" : "scanned",
-      scannedFileCount: files.length,
-      orphanCount: orphans.length,
-      orphanBytes,
-      removeOrphans,
-      cleanedBytes,
-      removedOrphanCount,
-      projectedFreedBytes: orphanBytes,
-      cleanupState,
-      destructiveConfirmation,
-      receiptId: receipt.id,
-    };
+      stableHash,
+      truthy,
+    });
   }
 
   bindVaultRef(body = {}) {

@@ -1,0 +1,225 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+
+import {
+  cancelDownload,
+  cleanupModelStorage,
+  deleteModelArtifact,
+  downloadStatus,
+} from "./storage-operations.mjs";
+
+function tempRoot() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-storage-"));
+}
+
+function fakeState(root = tempRoot()) {
+  return {
+    artifacts: new Map(),
+    downloads: new Map(),
+    endpoints: new Map(),
+    instances: new Map(),
+    modelRoot: path.join(root, "models"),
+    receipts: [],
+    stateDir: path.join(root, "state"),
+    writes: [],
+    projections: 0,
+    now: "2026-06-04T01:00:00.000Z",
+    downloadStatus(jobId) {
+      return downloadStatus(this, jobId, { notFound: deps.notFound });
+    },
+    getModel(id) {
+      const artifact = this.artifacts.get(id) ?? [...this.artifacts.values()].find((candidate) => candidate.modelId === id);
+      if (!artifact) throw new Error(`missing artifact ${id}`);
+      return artifact;
+    },
+    lifecycleReceipt(kind, details) {
+      const receipt = { id: `receipt.${kind}.${this.receipts.length + 1}`, kind, details };
+      this.receipts.push(receipt);
+      return receipt;
+    },
+    nowIso() {
+      return this.now;
+    },
+    writeMap(name, map) {
+      this.writes.push([name, [...map.values()].map((record) => ({ ...record }))]);
+    },
+    writeProjection() {
+      this.projections += 1;
+    },
+  };
+}
+
+const deps = {
+  cleanupPartialDownload(targetPath) {
+    fs.rmSync(targetPath, { force: true });
+    fs.rmSync(`${targetPath}.part`, { force: true });
+    fs.rmSync(`${targetPath}.part.json`, { force: true });
+    return "removed_partial";
+  },
+  destructiveConfirmationState(body = {}, { required, action }) {
+    const confirmed = Boolean(body.confirm_destructive ?? body.confirmDestructive);
+    return {
+      required,
+      confirmed: required ? confirmed : true,
+      action,
+      source: confirmed ? "operator_confirmation" : required ? "not_provided" : "not_required",
+    };
+  },
+  fileSizeIfExists(filePath) {
+    try {
+      return filePath ? fs.statSync(filePath).size : 0;
+    } catch {
+      return 0;
+    }
+  },
+  listModelFiles(root) {
+    const files = [];
+    if (!fs.existsSync(root)) return files;
+    for (const name of fs.readdirSync(root)) {
+      const filePath = path.join(root, name);
+      if (fs.statSync(filePath).isFile()) files.push(filePath);
+    }
+    return files;
+  },
+  notFound(message, details) {
+    const error = new Error(message);
+    error.status = 404;
+    error.details = details;
+    return error;
+  },
+  runtimeError({ status, code, message, details }) {
+    const error = new Error(message);
+    error.status = status;
+    error.code = code;
+    error.details = details;
+    return error;
+  },
+  safeFileName(value) {
+    return String(value).replace(/[^a-z0-9._-]+/gi, "_");
+  },
+  schemaVersion: "schema.storage.test",
+  stableHash(value) {
+    return `hash:${value}`;
+  },
+  truthy(value) {
+    if (typeof value === "boolean") return value;
+    if (value == null) return false;
+    return !["0", "false", "no", "off"].includes(String(value).toLowerCase());
+  },
+};
+
+test("downloadStatus returns jobs and fails closed for missing ids", () => {
+  const state = fakeState();
+  state.downloads.set("job.1", { id: "job.1", status: "queued" });
+
+  assert.equal(downloadStatus(state, "job.1", { notFound: deps.notFound }).id, "job.1");
+  assert.throws(
+    () => downloadStatus(state, "missing", { notFound: deps.notFound }),
+    (error) => error.status === 404 && error.details.jobId === "missing",
+  );
+});
+
+test("cancelDownload records cleanup and preserves terminal jobs", () => {
+  const root = tempRoot();
+  const state = fakeState(root);
+  const targetPath = path.join(root, "model.gguf");
+  fs.writeFileSync(`${targetPath}.part`, "partial");
+  fs.writeFileSync(`${targetPath}.part.json`, "{}");
+  state.downloads.set("job.active", {
+    id: "job.active",
+    status: "running",
+    modelId: "llama-test",
+    providerId: "provider.local",
+    targetPath,
+    bytesCompleted: 7,
+    bytesTotal: 10,
+    receiptIds: ["receipt.previous"],
+  });
+  state.downloads.set("job.done", { id: "job.done", status: "completed" });
+
+  const canceled = cancelDownload(state, "job.active", {}, deps);
+
+  assert.equal(canceled.status, "canceled");
+  assert.equal(canceled.cleanupState, "removed_partial");
+  assert.equal(canceled.projectedFreedBytes, 9);
+  assert.deepEqual(canceled.receiptIds, ["receipt.previous", "receipt.model_download_canceled.1"]);
+  assert.equal(state.writes.at(-1)[0], "model-downloads");
+  assert.equal(state.projections, 1);
+  assert.equal(cancelDownload(state, "job.done", {}, deps).status, "completed");
+});
+
+test("deleteModelArtifact supports dry-run, loaded conflict, and deletion cleanup", () => {
+  const root = tempRoot();
+  const state = fakeState(root);
+  fs.mkdirSync(path.join(state.stateDir, "model-artifacts"), { recursive: true });
+  fs.mkdirSync(state.modelRoot, { recursive: true });
+  const artifactPath = path.join(state.modelRoot, "model.gguf");
+  fs.writeFileSync(artifactPath, "model-bytes");
+  fs.writeFileSync(path.join(state.stateDir, "model-artifacts", "artifact.llama.json"), "{}");
+  state.artifacts.set("artifact.llama", {
+    id: "artifact.llama",
+    modelId: "llama-test",
+    providerId: "provider.local",
+    artifactPath,
+  });
+  state.endpoints.set("endpoint.llama", {
+    id: "endpoint.llama",
+    artifactId: "artifact.llama",
+    status: "mounted",
+  });
+
+  const dryRun = deleteModelArtifact(state, "artifact.llama", { dry_run: true }, deps);
+  assert.equal(dryRun.status, "dry_run");
+  assert.equal(dryRun.projectedFreedBytes, 11);
+  assert.deepEqual(dryRun.affectedEndpointIds, ["endpoint.llama"]);
+
+  state.instances.set("instance.loaded", {
+    id: "instance.loaded",
+    endpointId: "endpoint.llama",
+    status: "loaded",
+  });
+  assert.throws(
+    () => deleteModelArtifact(state, "artifact.llama", {}, deps),
+    (error) => error.status === 409 && error.code === "conflict",
+  );
+  state.instances.clear();
+
+  const deleted = deleteModelArtifact(state, "llama-test", {}, deps);
+  assert.equal(deleted.status, "deleted");
+  assert.equal(deleted.cleanupState, "removed");
+  assert.equal(state.artifacts.has("artifact.llama"), false);
+  assert.equal(state.endpoints.get("endpoint.llama").status, "deleted_with_artifact");
+  assert.equal(fs.existsSync(artifactPath), false);
+  assert.equal(state.writes.at(-2)[0], "model-artifacts");
+  assert.equal(state.writes.at(-1)[0], "model-endpoints");
+});
+
+test("cleanupModelStorage scans, gates destructive cleanup, and removes confirmed orphans", () => {
+  const root = tempRoot();
+  const state = fakeState(root);
+  fs.mkdirSync(state.modelRoot, { recursive: true });
+  const knownPath = path.join(state.modelRoot, "known.gguf");
+  const orphanPath = path.join(state.modelRoot, "orphan.gguf");
+  fs.writeFileSync(knownPath, "known");
+  fs.writeFileSync(orphanPath, "orphan");
+  state.artifacts.set("artifact.known", { id: "artifact.known", artifactPath: knownPath });
+
+  const scan = cleanupModelStorage(state, {}, deps);
+  assert.equal(scan.status, "scanned");
+  assert.equal(scan.orphanCount, 1);
+  assert.equal(scan.orphanBytes, 6);
+
+  assert.throws(
+    () => cleanupModelStorage(state, { remove_orphans: true }, deps),
+    (error) => error.status === 409 && error.code === "destructive_confirmation_required",
+  );
+
+  const cleaned = cleanupModelStorage(state, { remove_orphans: true, confirm_destructive: true }, deps);
+  assert.equal(cleaned.status, "cleaned");
+  assert.equal(cleaned.cleanedBytes, 6);
+  assert.equal(cleaned.removedOrphanCount, 1);
+  assert.equal(fs.existsSync(orphanPath), false);
+});
