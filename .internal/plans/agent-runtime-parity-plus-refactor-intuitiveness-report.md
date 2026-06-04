@@ -282,6 +282,8 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Moved thread/agent memory projection, memory policy/path lookup, memory writes/edits/deletes, policy mutation adapter behavior, memory control event projection, memory status projection, and memory validation out of `index.mjs` behind existing `AgentgresRuntimeStateStore` method names.
 - Added `packages/runtime-daemon/src/threads/workspace-trust-state.mjs`.
 - Moved workspace trust warning emission and acknowledgement lookup/event projection out of `index.mjs` behind existing `appendWorkspaceTrustWarningEvent` and `acknowledgeWorkspaceTrustWarning` store methods.
+- Added `packages/runtime-daemon/src/threads/thread-fork-state.mjs`.
+- Moved thread fork idempotency handling, fork-agent creation options, and `thread.forked` event projection out of `index.mjs` behind the existing `forkThread` store method.
 - Added `packages/runtime-daemon/src/runtime-run-helpers.mjs`.
 - Moved run result text, mode-to-task-family/strategy mapping, capability sequence construction, and run-event id/cursor construction out of `index.mjs` behind dependency-injected helper exports.
 - Added focused runtime run helper tests for mode vocabulary, memory-specific result text, capability sequence additions, and stable event id/cursor shaping.
