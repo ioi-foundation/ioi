@@ -16,21 +16,8 @@ import {
   workflowMemoryWriteBlockReason,
 } from "./model-mounting/workflow-memory.mjs";
 import {
-  artifactList,
-  downloadList,
-  endpointList,
-  instanceList,
-  legacyModelList as legacyModelListProjection,
-  modelCapabilityList,
-  modelMountingSnapshot,
-  oauthSessionList,
-  oauthStateList,
-  openAiModelList as openAiModelListProjection,
-  productArtifactList,
-  providerHealthList,
-  providerList,
-  routeList,
-} from "./model-mounting/read-model.mjs";
+  createModelMountingReadProjectionFacade,
+} from "./model-mounting/read-projection-facade.mjs";
 import {
   isFixtureEndpointCandidate,
   isFixtureModelRecord,
@@ -263,14 +250,6 @@ import {
   AgentgresVaultPort,
   configuredVaultMaterialAdapter,
 } from "./model-mounting/vault-port.mjs";
-import {
-  buildAdapterBoundaries,
-  buildAuthoritySnapshot,
-  buildModelMountingProjection,
-  buildModelRouteDecisions,
-  buildProjectionSummary,
-  buildReceiptReplay,
-} from "./model-mounting/projections.mjs";
 export {
   anthropicMessage,
   openAiChatCompletion,
@@ -440,6 +419,19 @@ export class ModelMountingState {
     this.mcpServers = new Map();
     this.conversations = new Map();
     this.inflightModelInvocations = new Map();
+    this.readProjectionFacade = createModelMountingReadProjectionFacade({
+      buildModelCapabilities,
+      internalFixtureModelsEnabled,
+      isFixtureModelRecord,
+      listJson,
+      modelMountSchemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      path,
+      providerHasVaultRef,
+      publicOAuthSession,
+      publicOAuthState,
+      publicProvider,
+      readJson,
+    });
     this.ensureDirs();
     this.load();
     this.vault.loadMetadata([...this.vaultRefs.values()]);
@@ -593,93 +585,75 @@ export class ModelMountingState {
   }
 
   legacyModelList() {
-    return legacyModelListProjection(this);
+    return this.readProjectionFacade.legacyModelList(this);
   }
 
   openAiModelList() {
-    return openAiModelListProjection(this);
+    return this.readProjectionFacade.openAiModelList(this);
   }
 
   listArtifacts() {
-    return artifactList(this);
+    return this.readProjectionFacade.listArtifacts(this);
   }
 
   listProductArtifacts() {
-    return productArtifactList(this, {
-      internalFixtureModelsEnabled,
-      isFixtureModelRecord,
-    });
+    return this.readProjectionFacade.listProductArtifacts(this);
   }
 
   listProviders() {
-    return providerList(this, {
-      providerHasVaultRef,
-      publicProvider,
-    });
+    return this.readProjectionFacade.listProviders(this);
   }
 
   listEndpoints() {
-    return endpointList(this);
+    return this.readProjectionFacade.listEndpoints(this);
   }
 
   listInstances() {
-    return instanceList(this);
+    return this.readProjectionFacade.listInstances(this);
   }
 
   listRoutes() {
-    return routeList(this);
+    return this.readProjectionFacade.listRoutes(this);
   }
 
   listModelCapabilities() {
-    return modelCapabilityList(this, {
-      buildModelCapabilities,
-    });
+    return this.readProjectionFacade.listModelCapabilities(this);
   }
 
   listDownloads() {
-    return downloadList(this);
+    return this.readProjectionFacade.listDownloads(this);
   }
 
   listOAuthSessions() {
-    return oauthSessionList(this, {
-      publicOAuthSession,
-    });
+    return this.readProjectionFacade.listOAuthSessions(this);
   }
 
   listOAuthStates() {
-    return oauthStateList(this, {
-      publicOAuthState,
-    });
+    return this.readProjectionFacade.listOAuthStates(this);
   }
 
   listProviderHealth() {
-    return providerHealthList(this, {
-      listJson,
-      path,
-      readJson,
-    });
+    return this.readProjectionFacade.listProviderHealth(this);
   }
 
   snapshot(baseUrl) {
-    return modelMountingSnapshot(this, baseUrl, {
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-    });
+    return this.readProjectionFacade.snapshot(this, baseUrl);
   }
 
   authoritySnapshot(baseUrl) {
-    return buildAuthoritySnapshot(this, baseUrl, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
+    return this.readProjectionFacade.authoritySnapshot(this, baseUrl);
   }
 
   projectionSummary() {
-    return buildProjectionSummary(this.projection());
+    return this.readProjectionFacade.projectionSummary(this);
   }
 
   projection() {
-    return buildModelMountingProjection(this, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
+    return this.readProjectionFacade.projection(this);
   }
 
   adapterBoundaries() {
-    return buildAdapterBoundaries(this);
+    return this.readProjectionFacade.adapterBoundaries(this);
   }
 
   writeProjection() {
@@ -693,11 +667,11 @@ export class ModelMountingState {
   }
 
   receiptReplay(receiptId) {
-    return buildReceiptReplay(this, receiptId, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
+    return this.readProjectionFacade.receiptReplay(this, receiptId);
   }
 
   modelRouteDecisions() {
-    return buildModelRouteDecisions(this);
+    return this.readProjectionFacade.modelRouteDecisions(this);
   }
 
   latestProviderHealth(providerId) {

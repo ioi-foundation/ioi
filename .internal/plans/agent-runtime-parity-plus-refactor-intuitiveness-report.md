@@ -446,6 +446,9 @@ Status: `index.mjs` still owns the large state store and public route compositio
 - Added focused projection tests for category bucketing, operation watermarking, authority summaries, adapter boundaries, receipt replay links, and route-decision derivation.
 - Added `packages/runtime-daemon/src/model-mounting/read-model.mjs`.
 - Moved read-only model-mounting list accessors, product/OpenAI model list projections, provider health listing, and snapshot category assembly out of `model-mounting.mjs` behind existing `ModelMountingState` methods.
+- Added `packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs`.
+- Moved model-mounting read-list, snapshot, authority snapshot, projection, adapter-boundary, receipt replay, and route-decision compatibility wrappers out of `model-mounting.mjs` while preserving product artifact filtering, vault-safe provider projection, schema versions, and receipt replay links.
+- Added focused read-projection-facade tests for product-safe list delegation, capability projection, snapshots, projection summary, receipt replay, and authority snapshot composition.
 - Added `packages/runtime-daemon/src/model-mounting/provider-registry.mjs`.
 - Moved hosted provider shaping, public provider redaction/vault-boundary projection, and route string validation helpers out of `model-mounting.mjs` behind compatibility wrappers.
 - Added `packages/runtime-daemon/src/model-mounting/provider-registry-bindings.mjs`.
@@ -593,6 +596,7 @@ Status: `model-mounting.mjs` still owns route persistence wrappers, catalog impo
   - `substrate/semantic_impact`
   - `substrate/session_lifecycle`
   - `model-mounting/projections`
+  - `model-mounting/read-projection-facade`
   - `model-mounting/runtime-engines`
   - `model-mounting/runtime-survey`
   - `model-mounting/backend-processes`
