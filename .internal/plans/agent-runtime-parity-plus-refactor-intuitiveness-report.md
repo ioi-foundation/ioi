@@ -171,6 +171,9 @@ Status: `extension.js` is still a composition-heavy file and remains larger than
 - Added `packages/runtime-daemon/src/runtime-event-envelopes.mjs`.
 - Moved runtime bridge computer-use derived-event insertion, derived computer-use event envelope construction, TTI envelope construction, and normalized runtime event envelope projection out of `index.mjs`.
 - Added focused runtime event-envelope tests for computer-use derived insertion/de-duping, diagnostics/computer-use TTI envelope schema selection, and normalized replay compatibility fields.
+- Added `packages/runtime-daemon/src/runtime-event-payloads.mjs`.
+- Moved run-event payload summary projection out of `index.mjs` behind a dependency-injected helper factory.
+- Added focused runtime event-payload tests for computer-use, memory, diagnostics, policy gate, repository, runtime task, usage telemetry, context-pressure alert, and model route summaries.
 - Added `packages/runtime-daemon/src/runtime-coding-tool-results.mjs`.
 - Moved coding-tool public result draft stripping, command-stream request/chunk helpers, coding artifact metadata/read-result projection, and terminal-event counting out of `index.mjs` behind dependency-injected helper exports while preserving existing public artifact schema behavior.
 - Added focused runtime coding-tool result tests for draft stripping, artifact metadata/read slicing, command stream chunking, and terminal-event vocabulary injection.
