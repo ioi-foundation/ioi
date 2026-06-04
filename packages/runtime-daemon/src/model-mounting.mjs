@@ -88,6 +88,14 @@ import {
   recordModelStreamCompleted as recordModelStreamCompletedState,
 } from "./model-mounting/conversation-operations.mjs";
 import {
+  endpoint as endpointState,
+  ensureLoaded as ensureLoadedState,
+  instance as instanceState,
+  provider as providerState,
+  resolveEndpoint as resolveEndpointState,
+  route as routeState,
+} from "./model-mounting/state-accessors.mjs";
+import {
   catalogVariantForSource,
   enrichCatalogEntry,
   huggingFaceCatalogEntries,
@@ -2215,46 +2223,23 @@ export class ModelMountingState {
   }
 
   provider(providerId) {
-    const provider = this.providers.get(providerId);
-    if (!provider) throw notFound(`Provider not found: ${providerId}`, { providerId });
-    return provider;
+    return providerState(this, providerId, { notFound });
   }
 
   endpoint(endpointId) {
-    const endpoint = this.endpoints.get(endpointId);
-    if (!endpoint || endpoint.status === "unmounted") {
-      throw notFound(`Endpoint not found: ${endpointId}`, { endpointId });
-    }
-    return endpoint;
+    return endpointState(this, endpointId, { notFound });
   }
 
   instance(instanceId) {
-    const instance = this.instances.get(instanceId);
-    if (!instance) throw notFound(`Model instance not found: ${instanceId}`, { instanceId });
-    return instance;
+    return instanceState(this, instanceId, { notFound });
   }
 
   route(routeId) {
-    const route = this.routes.get(routeId);
-    if (!route) throw notFound(`Route not found: ${routeId}`, { routeId });
-    return route;
+    return routeState(this, routeId, { notFound });
   }
 
   resolveEndpoint(endpointId, modelId) {
-    if (endpointId) return this.endpoint(endpointId);
-    if (modelId) {
-      const endpoint = [...this.endpoints.values()].find(
-        (candidate) => candidate.status !== "unmounted" && candidate.modelId === modelId,
-      );
-      if (endpoint) return endpoint;
-      return this.mountEndpoint({ model_id: modelId });
-    }
-    throw runtimeError({
-      status: 424,
-      code: "product_model_unavailable",
-      message: "No model endpoint was specified and no product model route fallback is configured.",
-      details: { required: "endpoint_id_or_model_id" },
-    });
+    return resolveEndpointState(this, endpointId, modelId, { runtimeError });
   }
 
   endpointIdsForExplicitModel(route, modelId) {
@@ -2286,19 +2271,7 @@ export class ModelMountingState {
   }
 
   async ensureLoaded(endpoint) {
-    this.evictExpiredInstances();
-    const existing = this.loadedInstanceForEndpoint(endpoint.id, false);
-    if (existing) {
-      const updated = {
-        ...existing,
-        lastUsedAt: this.nowIso(),
-        expiresAt: expiresAt(this.nowIso(), existing.loadPolicy),
-      };
-      this.instances.set(updated.id, updated);
-      this.writeMap("model-instances", this.instances);
-      return updated;
-    }
-    return this.loadModel({ endpoint_id: endpoint.id, load_policy: endpoint.loadPolicy });
+    return ensureLoadedState(this, endpoint, { expiresAt });
   }
 
   loadedInstanceForEndpoint(endpointId, failIfMissing = true) {
