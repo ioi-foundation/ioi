@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  RUNTIME_AGENTGRES_COMMAND_ENV,
   RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
-  RUNTIME_AGENTGRES_FALLBACK_COMMAND_ENV,
   RUST_AGENTGRES_STORAGE_BACKEND,
   RUST_RUNTIME_AGENTGRES_BACKEND,
   RuntimeAgentgresAdmissionRunnerError,
@@ -126,12 +126,12 @@ test("runtime Agentgres runner sends storage write admission bridge request", ()
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_storage_write_admission"]);
 });
 
-test("runtime Agentgres runner can reuse the generic admission command env", () => {
+test("runtime Agentgres runner requires explicit runtime admission command env", () => {
   const runner = createRuntimeAgentgresAdmissionRunnerFromEnv({
-    [RUNTIME_AGENTGRES_FALLBACK_COMMAND_ENV]: "mock-shared-bridge",
+    [RUNTIME_AGENTGRES_COMMAND_ENV]: "mock-runtime-bridge",
   });
 
-  assert.equal(runner.command, "mock-shared-bridge");
+  assert.equal(runner.command, "mock-runtime-bridge");
 });
 
 test("runtime Agentgres runner fails closed without command", () => {

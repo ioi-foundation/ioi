@@ -2,18 +2,16 @@ import { spawnSync } from "node:child_process";
 
 export const RUNTIME_AGENTGRES_COMMAND_ENV = "IOI_RUNTIME_AGENTGRES_COMMAND";
 export const RUNTIME_AGENTGRES_COMMAND_ARGS_ENV = "IOI_RUNTIME_AGENTGRES_COMMAND_ARGS";
-export const RUNTIME_AGENTGRES_FALLBACK_COMMAND_ENV = "IOI_MODEL_MOUNT_ADMISSION_COMMAND";
-export const RUNTIME_AGENTGRES_FALLBACK_COMMAND_ARGS_ENV = "IOI_MODEL_MOUNT_ADMISSION_COMMAND_ARGS";
 export const RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
 export const RUST_RUNTIME_AGENTGRES_BACKEND = "rust_runtime_agentgres";
 export const RUST_AGENTGRES_STORAGE_BACKEND = "rust_agentgres_storage";
 
 export function createRuntimeAgentgresAdmissionRunnerFromEnv(env = process.env, options = {}) {
   return new RustRuntimeAgentgresAdmissionRunner({
-    command: options.command ?? env[RUNTIME_AGENTGRES_COMMAND_ENV] ?? env[RUNTIME_AGENTGRES_FALLBACK_COMMAND_ENV] ?? null,
+    command: options.command ?? env[RUNTIME_AGENTGRES_COMMAND_ENV] ?? null,
     args:
       options.args ??
-      parseCommandArgs(env[RUNTIME_AGENTGRES_COMMAND_ARGS_ENV] ?? env[RUNTIME_AGENTGRES_FALLBACK_COMMAND_ARGS_ENV]),
+      parseCommandArgs(env[RUNTIME_AGENTGRES_COMMAND_ARGS_ENV]),
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
@@ -63,8 +61,6 @@ export class RustRuntimeAgentgresAdmissionRunner {
         {
           env: RUNTIME_AGENTGRES_COMMAND_ENV,
           argsEnv: RUNTIME_AGENTGRES_COMMAND_ARGS_ENV,
-          fallbackEnv: RUNTIME_AGENTGRES_FALLBACK_COMMAND_ENV,
-          fallbackArgsEnv: RUNTIME_AGENTGRES_FALLBACK_COMMAND_ARGS_ENV,
         },
       );
     }

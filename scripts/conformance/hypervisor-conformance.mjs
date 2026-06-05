@@ -1571,6 +1571,7 @@ function runReceipts() {
       /RustRuntimeAgentgresAdmissionRunner/.test(runtimeAgentgresRunner) &&
       /planRunStateTransition/.test(runtimeAgentgresRunner) &&
       /runtime_agentgres_admission_bridge_unconfigured/.test(runtimeAgentgresRunner) &&
+      !/RUNTIME_AGENTGRES_FALLBACK/.test(runtimeAgentgresRunner) &&
       /createRuntimeAgentgresAdmissionRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /currentRunStateTransition/.test(runtimeDaemonIndex) &&
       /planRunStateTransition\(request\)/.test(runtimeDaemonIndex) &&
@@ -1580,6 +1581,9 @@ function runReceipts() {
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
       /runtime Agentgres runner sends run-state transition bridge request/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /runtime Agentgres runner requires explicit runtime admission command env/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ),
     [
