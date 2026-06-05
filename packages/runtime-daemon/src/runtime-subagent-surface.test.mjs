@@ -489,6 +489,38 @@ test("subagent surface sends input, persists history, and returns event", () => 
   assert.ok(saved.evidence_refs.includes("run_created_3"));
 });
 
+test("subagent surface ignores retired usageTelemetry previous usage fallback", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T12:50:00.000Z",
+    nowMs: () => 1780587600000,
+  });
+  store.surface = surface;
+  store.subagents.set("subagent_1", {
+    ...store.subagents.get("subagent_1"),
+    budget: { max_tokens: 20 },
+    usageTelemetry: {
+      cumulative_total_tokens: 999,
+      cumulative_cost_estimate_usd: 10,
+    },
+  });
+
+  const result = surface.sendSubagentInput(store, "thread_1", "subagent_1", {
+    message: "short",
+  });
+  const saved = store.subagents.get("subagent_1");
+
+  assert.equal(result.budget_status, "within_budget");
+  assert.equal(saved.budget_status, "within_budget");
+  assert.equal(result.budget_usage_telemetry, null);
+  assert.equal(saved.budget_usage_telemetry, null);
+  assert.ok(result.usage_telemetry.cumulative_total_tokens < 20);
+  assertCanonicalSubagentBudgetUsageTelemetry(result);
+  assertCanonicalSubagentUsageTelemetry(result);
+  assertCanonicalSubagentBudgetUsageTelemetry(saved);
+  assertCanonicalSubagentUsageTelemetry(saved);
+});
+
 test("subagent surface rejects missing input and canceled subagents", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface();

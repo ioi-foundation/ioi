@@ -3677,6 +3677,19 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-subagent-surface-usage-input-alias-retired",
+    !/record\.usageTelemetry/.test(runtimeSubagentSurface) &&
+      /subagent surface ignores retired usageTelemetry previous usage fallback/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent surface must ignore retired usageTelemetry record input fallback",
+  );
+  assertCheck(
+    result,
     "runtime-subagent-budget-usage-output-alias-retired",
     !/^\s*budgetUsageTelemetry,?\s*$/m.test(runtimeSubagentSurface) &&
       /budget_usage_telemetry:\s*budgetUsageTelemetry/.test(runtimeSubagentSurface) &&

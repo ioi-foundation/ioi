@@ -33,6 +33,11 @@ import {
   validateSubagentOutputContract,
 } from "./subagent-manager.mjs";
 
+function withoutRetiredSubagentUsageTelemetry(record = {}) {
+  const { usageTelemetry: _retiredUsageTelemetry, ...canonicalRecord } = record;
+  return canonicalRecord;
+}
+
 export function createRuntimeSubagentSurface({
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
   fixtureProfileForAgent: fixtureProfileForAgentDep = fixtureProfileForAgent,
@@ -455,7 +460,6 @@ export function createRuntimeSubagentSurface({
       const budgetUsageTelemetry =
         subagentBudgetUsageTelemetryForRequestDep(request) ??
         record.usage_telemetry ??
-        record.usageTelemetry ??
         null;
       const budgetStatus = subagentBudgetStatusForRunDep({
         budget,
@@ -487,7 +491,7 @@ export function createRuntimeSubagentSurface({
       const lifecycleStatus =
         budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRunDep(run.status);
       const updated = {
-        ...record,
+        ...withoutRetiredSubagentUsageTelemetry(record),
         run_id: run.id,
         runId: run.id,
         previous_run_ids: uniqueStringsDep([
@@ -628,7 +632,6 @@ export function createRuntimeSubagentSurface({
       const budgetUsageTelemetry =
         subagentBudgetUsageTelemetryForRequestDep(request) ??
         record.usage_telemetry ??
-        record.usageTelemetry ??
         null;
       const budgetStatus = subagentBudgetStatusForRunDep({
         budget,
@@ -672,7 +675,7 @@ export function createRuntimeSubagentSurface({
       const lifecycleStatus =
         budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRunDep(run.status);
       const updated = {
-        ...record,
+        ...withoutRetiredSubagentUsageTelemetry(record),
         role,
         run_id: run.id,
         runId: run.id,
@@ -942,7 +945,6 @@ export function createRuntimeSubagentSurface({
       const budgetUsageTelemetry =
         subagentBudgetUsageTelemetryForRequestDep(request) ??
         record.usage_telemetry ??
-        record.usageTelemetry ??
         null;
       const prompt = optionalStringDep(record.prompt ?? record.objective ?? record.task) ?? "";
       const budgetStatus = subagentBudgetStatusForRunDep({
@@ -953,7 +955,7 @@ export function createRuntimeSubagentSurface({
       });
       const now = nowIso();
       const updated = {
-        ...record,
+        ...withoutRetiredSubagentUsageTelemetry(record),
         lifecycle_status: "canceled",
         lifecycleStatus: "canceled",
         status: "canceled",
