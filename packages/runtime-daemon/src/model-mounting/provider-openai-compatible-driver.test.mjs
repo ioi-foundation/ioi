@@ -116,3 +116,25 @@ test("OpenAI-compatible driver fails closed when responses endpoint is unavailab
     assert.deepEqual(requests.map((request) => request.url), ["/responses"]);
   });
 });
+
+test("OpenAI-compatible driver stream responses fail closed without chat fallback", async () => {
+  await withOpenAiCompatibleServer(async ({ baseUrl, requests }) => {
+    const driver = new OpenAICompatibleModelProviderDriver({ label: "compat" });
+    await assert.rejects(
+      () =>
+        driver.streamInvoke({
+          provider: provider(baseUrl),
+          endpoint: endpoint(),
+          kind: "responses",
+          body: { input: "hello" },
+          state: null,
+        }),
+      (error) =>
+        error.code === "external_blocker" &&
+        error.details.http_status === 404 &&
+        Object.hasOwn(error.details, "httpStatus") === false,
+    );
+
+    assert.deepEqual(requests.map((request) => request.url), ["/responses"]);
+  });
+});

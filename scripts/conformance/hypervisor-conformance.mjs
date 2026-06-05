@@ -1884,6 +1884,8 @@ function runBridge() {
     result,
     "model-mount-provider-responses-chat-fallback-retired",
     /\/responses/.test(openAiCompatibleDriver) &&
+      !/responsesFallbackStatus/.test(openAiCompatibleDriver) &&
+      !/error\?\.details\?\.httpStatus/.test(openAiCompatibleDriver) &&
       !/allowResponsesFallback/.test(openAiCompatibleProviderDrivers) &&
       !/compatTranslation:\s*"chat_completions"/.test(openAiCompatibleProviderDrivers) &&
       !/kind:\s*"chat\.completions"[\s\S]*body:\s*responseBody/.test(openAiCompatibleDriver),

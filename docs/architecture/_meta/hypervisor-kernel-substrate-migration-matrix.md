@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 284:
+Current expected behavior after Slice 285:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11742,6 +11742,11 @@ provider-result feature.
 Slice 284 extends receipts proof for OpenAI-compatible stream-completion
 metadata: stream tail metadata now reads canonical receipt `token_count`
 details instead of the retired `tokenCount` receipt-detail alias.
+
+Slice 285 extends bridge proof for OpenAI-compatible provider response
+handling: responses stream failures now fail closed directly, with the retired
+`httpStatus` error-detail fallback branch removed instead of preserved as a
+compatibility shim.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

@@ -6,7 +6,6 @@ import {
   outputTextFromChat,
   outputTextFromResponse,
 } from "./provider-protocol.mjs";
-import { responsesFallbackStatus } from "./provider-transport-policy.mjs";
 import {
   fetchProviderJson,
   fetchProviderStream,
@@ -73,28 +72,23 @@ export class OpenAICompatibleModelProviderDriver {
     if (!this.supportsStream(kind)) return null;
     if (kind === "responses") {
       const responseBody = { ...body, model: body.model ?? endpoint.modelId, stream: true };
-      try {
-        const result = await fetchProviderStream(provider, "/responses", {
-          method: "POST",
-          body: responseBody,
-          state,
-        });
-        return {
-          stream: result.stream,
-          abort: result.abort,
-          status: result.status,
-          providerResponseKind: "responses.stream",
-          backend: endpoint.apiFormat,
-          backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
-          authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
-          providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
-          providerAuthHeaderNames: result.authEvidence?.headerNames ?? [],
-          backendEvidenceRefs: [`${this.label}_responses_provider_native_stream`],
-        };
-      } catch (error) {
-        if (responsesFallbackStatus(error?.details?.httpStatus)) return null;
-        throw error;
-      }
+      const result = await fetchProviderStream(provider, "/responses", {
+        method: "POST",
+        body: responseBody,
+        state,
+      });
+      return {
+        stream: result.stream,
+        abort: result.abort,
+        status: result.status,
+        providerResponseKind: "responses.stream",
+        backend: endpoint.apiFormat,
+        backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
+        authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
+        providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
+        providerAuthHeaderNames: result.authEvidence?.headerNames ?? [],
+        backendEvidenceRefs: [`${this.label}_responses_provider_native_stream`],
+      };
     }
     const requestBody = chatCompletionRequestBody({ ...body, stream: true }, endpoint.modelId);
     const result = await fetchProviderStream(provider, "/chat/completions", {
