@@ -973,9 +973,9 @@ export interface ModelRouteDecision {
     provider_id: string;
     reason: string | null;
   }>;
-  workflowGraphId: string | null;
-  workflowNodeId: string | null;
-  workflowNodeType: string | null;
+  workflow_graph_id: string | null;
+  workflow_node_id: string | null;
+  workflow_node_type: string | null;
   response_id: string | null;
   previous_response_id: string | null;
   policyHash?: string;

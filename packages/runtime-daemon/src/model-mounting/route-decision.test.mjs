@@ -91,6 +91,11 @@ test("route decisions honor canonical fallback request metadata", () => {
     requestedModel: "auto",
     responseId: "resp-1",
     previousResponseId: "resp-0",
+    workflow: {
+      workflowGraphId: "graph-1",
+      workflowNodeId: "node-1",
+      workflowNodeType: "model-router",
+    },
     evaluatedCandidates: [
       { status: "accepted", endpointId: "endpoint.hosted", providerId: "provider.hosted", reason: null },
       { status: "rejected", endpointId: "endpoint.local", providerId: "provider.local", reason: "privacy_mismatch" },
@@ -141,6 +146,12 @@ test("route decisions honor canonical fallback request metadata", () => {
   assert.equal(decision.previous_response_id, "resp-0");
   assert.equal(Object.hasOwn(decision, "responseId"), false);
   assert.equal(Object.hasOwn(decision, "previousResponseId"), false);
+  assert.equal(decision.workflow_graph_id, "graph-1");
+  assert.equal(decision.workflow_node_id, "node-1");
+  assert.equal(decision.workflow_node_type, "model-router");
+  assert.equal(Object.hasOwn(decision, "workflowGraphId"), false);
+  assert.equal(Object.hasOwn(decision, "workflowNodeId"), false);
+  assert.equal(Object.hasOwn(decision, "workflowNodeType"), false);
   assert.equal(decision.fallback_allowed, true);
   assert.equal(decision.fallback_triggered, true);
   assert.equal(decision.fallback_reason, "primary_route_unavailable");

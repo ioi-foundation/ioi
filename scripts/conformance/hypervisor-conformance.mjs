@@ -1077,6 +1077,27 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-route-decision-workflow-aliases-retired",
+    /^ {4}workflow_graph_id:\s*workflow\.workflowGraphId/m.test(modelRouteDecisionObject) &&
+      /^ {4}workflow_node_id:\s*workflow\.workflowNodeId/m.test(modelRouteDecisionObject) &&
+      /^ {4}workflow_node_type:\s*workflow\.workflowNodeType/m.test(modelRouteDecisionObject) &&
+      !/^ {4}(?:workflowGraphId|workflowNodeId|workflowNodeType)\s*[:,]/m.test(modelRouteDecisionObject) &&
+      /^\s*workflow_graph_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*workflow_node_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*workflow_node_type:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      !/^\s*(?:workflowGraphId|workflowNodeId|workflowNodeType)\s*[:?]/m.test(agentSdkModelRouteDecisionType) &&
+      /Object\.hasOwn\(decision,\s*"workflowGraphId"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"workflowNodeId"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"workflowNodeType"\),\s*false/.test(modelRouteDecisionTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
+      "packages/agent-sdk/src/messages.ts",
+    ],
+    "Phase 3/10 is pending: accepted model route-decision workflow metadata must use canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "runtime-thread-hosted-fallback-alias-retired",
     /allow_hosted_fallback/.test(threadRuntimeControls) &&
       /allow_hosted_fallback/.test(runtimeThreadControlSurface) &&
