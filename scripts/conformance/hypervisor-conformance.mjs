@@ -2594,6 +2594,12 @@ function runReceipts() {
   const mcpWorkflowOperationsTest = exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
     : "";
+  const catalogHelpers = exists("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs")
+    : "";
+  const catalogHelpersTest = exists("packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs")
+    : "";
   const catalogDownloadOperations = exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs")
     : "";
@@ -3323,6 +3329,19 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
     ],
     "Phase 9/11 is pending: catalog import/download receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-catalog-helper-error-detail-aliases-retired",
+    /details:\s*\{ import_mode: mode \}/.test(catalogHelpers) &&
+      !/details:\s*\{ importMode: mode \}/.test(catalogHelpers) &&
+      /assert\.equal\(error\.details\.import_mode,\s*"side_load"\)/.test(catalogHelpersTest) &&
+      /Object\.hasOwn\(error\.details,\s*"importMode"\),\s*false/.test(catalogHelpersTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs",
+    ],
+    "Phase 9/11 is pending: catalog helper fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

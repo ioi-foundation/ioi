@@ -254,7 +254,7 @@ export function normalizeImportMode(value) {
     status: 400,
     code: "bad_request",
     message: "Import mode must be copy, move, hardlink, symlink, dry_run, or reference.",
-    details: { importMode: mode },
+    details: { import_mode: mode },
   });
 }
 
