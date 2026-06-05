@@ -106,10 +106,10 @@ test("idle TTL eviction writes changed instances and emits lifecycle receipts", 
   assert.equal(state.instances.get("instance_fresh").status, "loaded");
   assert.deepEqual(state.receipts, [
     ["model_idle_evict", {
-      instanceId: "instance_old",
-      endpointId: "endpoint_a",
-      modelId: "model_a",
-      providerId: "provider_a",
+      instance_id: "instance_old",
+      endpoint_id: "endpoint_a",
+      model_id: "model_a",
+      provider_id: "provider_a",
     }],
   ]);
   assert.equal(state.writes.length, 1);
@@ -145,8 +145,13 @@ test("idle TTL eviction plans Rust lifecycle for migrated local providers", () =
   assert.equal(evicted.model_mount_instance_lifecycle_hash, "sha256:evict:instance_old");
   assert.equal(state.transitionRequests.at(-1).action, "evict");
   assert.equal(state.transitionRequests.at(-1).target_status, "evicted");
-  assert.equal(state.receipts.at(-1)[1].providerKind, "ioi_native_local");
+  assert.equal(state.receipts.at(-1)[1].provider_kind, "ioi_native_local");
   assert.equal(state.receipts.at(-1)[1].model_mount_instance_lifecycle_action, "evict");
+  assert.equal(Object.hasOwn(state.receipts.at(-1)[1], "providerKind"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1)[1], "instanceId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1)[1], "endpointId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1)[1], "modelId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1)[1], "providerId"), false);
 });
 
 test("idle TTL eviction skips writes when no loaded instances expire", () => {
@@ -234,5 +239,8 @@ test("explicit supersede plans Rust lifecycle for migrated local providers", () 
   assert.equal(state.transitionRequests.at(-1).action, "supersede");
   assert.equal(state.transitionRequests.at(-1).target_status, "superseded");
   assert.equal(state.receipts.at(-1)[0], "model_supersede");
-  assert.equal(state.receipts.at(-1)[1].providerKind, "local_folder");
+  assert.equal(state.receipts.at(-1)[1].provider_kind, "local_folder");
+  assert.equal(state.receipts.at(-1)[1].superseded_by, "instance_keep");
+  assert.equal(Object.hasOwn(state.receipts.at(-1)[1], "providerKind"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1)[1], "supersededBy"), false);
 });

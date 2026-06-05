@@ -92,10 +92,10 @@ function modelLifecycleReceipt(details = {}) {
     evidenceRefs: ["model_registry", "agentgres_receipt_projection_boundary", details.operation ?? "model_load"],
     details: {
       operation: "model_load",
-      instanceId: "instance.local",
-      modelId: "model.local",
-      providerId: "provider.local",
-      providerKind: "ioi_native_local",
+      instance_id: "instance.local",
+      model_id: "model.local",
+      provider_id: "provider.local",
+      provider_kind: "ioi_native_local",
       ...details,
     },
   };
@@ -243,11 +243,25 @@ test("model lifecycle receipt writes fail closed without provider kind and Rust 
   assert.throws(
     () =>
       store.writeReceipt(modelLifecycleReceipt({
-        providerKind: undefined,
+        provider_kind: undefined,
       })),
     (error) =>
       error.code === "model_mount_instance_lifecycle_receipt_direct_append_forbidden" &&
       error.details.missing.includes("provider_kind"),
+  );
+  assert.throws(
+    () =>
+      store.writeReceipt(modelLifecycleReceipt({
+        id: "receipt.legacy-model-lifecycle",
+        provider_id: undefined,
+        provider_kind: undefined,
+        providerId: "provider.local",
+        providerKind: "ioi_native_local",
+      })),
+    (error) =>
+      error.code === "model_mount_instance_lifecycle_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("provider_kind") &&
+      Object.hasOwn(error.details, "providerKind") === false,
   );
   assert.throws(
     () => store.writeReceipt(modelLifecycleReceipt()),
@@ -271,8 +285,8 @@ test("model lifecycle receipt writes allow Rust-bound local and remote provider 
   });
   const remoteReceipt = modelLifecycleReceipt({
     id: "receipt.remote",
-    providerId: "provider.remote",
-    providerKind: "openai_compatible",
+    provider_id: "provider.remote",
+    provider_kind: "openai_compatible",
   });
 
   store.writeReceipt(localReceipt);

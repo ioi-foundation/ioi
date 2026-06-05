@@ -37,10 +37,10 @@ export function evictExpiredInstances(state) {
     state.instances.set(instance.id, evicted);
     changed = true;
     state.lifecycleReceipt("model_idle_evict", {
-      instanceId: instance.id,
-      endpointId: instance.endpointId,
-      modelId: instance.modelId,
-      providerId: instance.providerId,
+      instance_id: instance.id,
+      endpoint_id: instance.endpointId,
+      model_id: instance.modelId,
+      provider_id: instance.providerId,
       ...lifecycleReceiptFields(state, evicted, instanceLifecycle),
     });
   }
@@ -78,11 +78,11 @@ export function coalesceLoadedInstances(state) {
     };
     state.instances.set(instance.id, superseded);
     state.lifecycleReceipt("model_supersede", {
-      instanceId: instance.id,
-      endpointId: instance.endpointId,
-      modelId: instance.modelId,
-      providerId: instance.providerId,
-      supersededBy: keeper.id,
+      instance_id: instance.id,
+      endpoint_id: instance.endpointId,
+      model_id: instance.modelId,
+      provider_id: instance.providerId,
+      superseded_by: keeper.id,
       ...lifecycleReceiptFields(state, superseded, instanceLifecycle),
     });
     changed = true;
@@ -111,11 +111,11 @@ export function supersedeLoadedInstances(state, endpointId, keepInstanceId) {
     };
     state.instances.set(instance.id, superseded);
     state.lifecycleReceipt("model_supersede", {
-      instanceId: instance.id,
-      endpointId: instance.endpointId,
-      modelId: instance.modelId,
-      providerId: instance.providerId,
-      supersededBy: keepInstanceId,
+      instance_id: instance.id,
+      endpoint_id: instance.endpointId,
+      model_id: instance.modelId,
+      provider_id: instance.providerId,
+      superseded_by: keepInstanceId,
       ...lifecycleReceiptFields(state, superseded, instanceLifecycle),
     });
     changed = true;
@@ -170,7 +170,7 @@ function endpointForInstance(state, instance) {
 function lifecycleReceiptFields(state, instance, instanceLifecycle) {
   if (!instanceLifecycle) return {};
   return {
-    providerKind: providerForInstance(state, instance)?.kind ?? null,
+    provider_kind: providerForInstance(state, instance)?.kind ?? null,
     model_mount_provider_lifecycle_hash: instance.model_mount_provider_lifecycle_hash ?? null,
     ...modelMountInstanceLifecycleFields(instanceLifecycle),
   };

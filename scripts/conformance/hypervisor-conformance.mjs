@@ -2502,6 +2502,27 @@ function runReceipts() {
   const modelMountReceiptOperationsTest = exists("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs")
     : "";
+  const modelLoadingOperations = exists("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")
+    : "";
+  const modelLoadingOperationsTest = exists("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs")
+    : "";
+  const loadedInstances = exists("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")
+    : "";
+  const loadedInstancesTest = exists("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs")
+    : "";
+  const modelMountStoreTest = exists("packages/runtime-daemon/src/model-mounting/store.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/store.test.mjs")
+    : "";
+  const modelInstanceLifecycleReceiptBlocks = [
+    modelLoadingOperations.match(/state\.lifecycleReceipt\("model_load",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+    modelLoadingOperations.match(/state\.lifecycleReceipt\("model_unload",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+    loadedInstances.match(/state\.lifecycleReceipt\("model_idle_evict",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+    loadedInstances.match(/state\.lifecycleReceipt\("model_supersede",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+  ].join("\n");
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
@@ -2889,8 +2910,8 @@ function runReceipts() {
       /providerLifecycleHash/.test(
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
       ) &&
-      /providerKind/.test(read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")) &&
-      /providerKind/.test(read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")) &&
+      /provider_kind:\s*provider\.kind/.test(modelLoadingOperations) &&
+      /provider_kind:\s*providerForInstance\(state,\s*instance\)\?\.kind/.test(loadedInstances) &&
       /model instance lifecycle receipts require Rust binding/.test(
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
       ) &&
@@ -2907,6 +2928,43 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
     ],
     "Phase 9/10 is pending: direct JS model-instance lifecycle receipt persistence for migrated local providers must fail closed without provider kind and Rust model_mount instance lifecycle binding",
+  );
+  assertCheck(
+    result,
+    "model-mount-instance-lifecycle-detail-aliases-retired",
+    /instance_id:\s*instance\.id/.test(modelLoadingOperations) &&
+      /endpoint_id:\s*endpoint\.id/.test(modelLoadingOperations) &&
+      /model_id:\s*endpoint\.modelId/.test(modelLoadingOperations) &&
+      /provider_id:\s*endpoint\.providerId/.test(modelLoadingOperations) &&
+      /provider_kind:\s*provider\.kind/.test(modelLoadingOperations) &&
+      /backend_process:\s*driverResult\.process/.test(modelLoadingOperations) &&
+      /command_args_hash:\s*driverResult\.commandArgsHash/.test(modelLoadingOperations) &&
+      /instance_id:\s*instance\.id/.test(loadedInstances) &&
+      /superseded_by:\s*keepInstanceId/.test(loadedInstances) &&
+      /provider_kind:\s*providerForInstance\(state,\s*instance\)\?\.kind/.test(loadedInstances) &&
+      /const providerId = details\.provider_id;/.test(modelMountReceiptOperations) &&
+      /provider_id:\s*providerId \?\? null/.test(modelMountReceiptOperations) &&
+      /const providerKind = optionalNonEmptyString\(details\.provider_kind\)/.test(modelMountReceiptWriteGuards) &&
+      /provider_kind:\s*providerKind/.test(modelMountReceiptWriteGuards) &&
+      !/\b(?:instanceId|endpointId|modelId|providerId|providerKind|backendId|runtimeEngineId|providerEvidenceRefs|backendProcess|commandArgsHash|supersededBy)\s*:/.test(
+        modelInstanceLifecycleReceiptBlocks,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"providerKind"\),\s*false/.test(modelLoadingOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\[1\],\s*"providerKind"\),\s*false/.test(loadedInstancesTest) &&
+      /Object\.hasOwn\(error\.details,\s*"providerId"\) === false/.test(modelMountReceiptOperationsTest) &&
+      /receipt\.legacy-model-lifecycle/.test(modelMountStoreTest) &&
+      /Object\.hasOwn\(error\.details,\s*"providerKind"\) === false/.test(modelMountStoreTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
+    ],
+    "Phase 9/11 is pending: model-instance lifecycle receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

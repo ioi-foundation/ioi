@@ -32,10 +32,11 @@ export function lifecycleReceipt(state, operation, details = {}) {
 function assertModelInstanceLifecycleReceiptRustBound(state, operation, details = {}) {
   const status = MODEL_INSTANCE_LIFECYCLE_RECEIPT_STATUSES.get(operation);
   if (!status) return;
-  const provider = state.providers?.get?.(details.providerId);
+  const providerId = details.provider_id;
+  const provider = state.providers?.get?.(providerId);
   if (!modelMountInstanceLifecycleRequiresRust(provider)) return;
   const issues = modelMountInstanceLifecycleBindingIssues(details, {
-    prefix: details.instanceId ?? operation,
+    prefix: details.instance_id ?? operation,
     status,
   });
   if (issues.missing.length > 0 || issues.mismatches.length > 0) {
@@ -44,7 +45,7 @@ function assertModelInstanceLifecycleReceiptRustBound(state, operation, details 
     error.code = "model_mount_instance_lifecycle_receipt_direct_write_forbidden";
     error.details = {
       operation,
-      providerId: details.providerId ?? null,
+      provider_id: providerId ?? null,
       missing: issues.missing,
       mismatches: issues.mismatches,
     };

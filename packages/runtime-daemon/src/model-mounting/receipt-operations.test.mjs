@@ -32,8 +32,8 @@ test("receipt operations create lifecycle receipt envelopes through the state de
   };
 
   const record = lifecycleReceipt(state, "model_mount", {
-    modelId: "model.local",
-    endpointId: "endpoint.local",
+    model_id: "model.local",
+    endpoint_id: "endpoint.local",
   });
 
   assert.equal(record.kind, "model_lifecycle");
@@ -41,8 +41,8 @@ test("receipt operations create lifecycle receipt envelopes through the state de
   assert.deepEqual(record.evidenceRefs, ["model_registry", "agentgres_receipt_projection_boundary", "model_mount"]);
   assert.deepEqual(created[0].details, {
     operation: "model_mount",
-    modelId: "model.local",
-    endpointId: "endpoint.local",
+    model_id: "model.local",
+    endpoint_id: "endpoint.local",
   });
 });
 
@@ -80,20 +80,22 @@ test("model instance lifecycle receipts require Rust binding for migrated local 
 
   assert.throws(
     () => lifecycleReceipt(state, "model_load", {
-      instanceId: "instance.local",
-      modelId: "model.local",
-      providerId: "provider.local",
+      instance_id: "instance.local",
+      model_id: "model.local",
+      provider_id: "provider.local",
     }),
     (error) =>
       error.code === "model_mount_instance_lifecycle_receipt_direct_write_forbidden" &&
+      error.details.provider_id === "provider.local" &&
+      Object.hasOwn(error.details, "providerId") === false &&
       error.details.missing.includes("instance.local:model_mount_instance_lifecycle_hash"),
   );
 
   assert.throws(
     () => lifecycleReceipt(state, "model_load", {
-      instanceId: "instance.local",
-      modelId: "model.local",
-      providerId: "provider.local",
+      instance_id: "instance.local",
+      model_id: "model.local",
+      provider_id: "provider.local",
       providerLifecycleHash: "sha256:provider-lifecycle",
       modelMountInstanceLifecycleAction: "load",
       modelMountInstanceLifecycleStatus: "loaded",
@@ -108,9 +110,9 @@ test("model instance lifecycle receipts require Rust binding for migrated local 
   );
 
   const record = lifecycleReceipt(state, "model_load", {
-    instanceId: "instance.local",
-    modelId: "model.local",
-    providerId: "provider.local",
+    instance_id: "instance.local",
+    model_id: "model.local",
+    provider_id: "provider.local",
     model_mount_provider_lifecycle_hash: "sha256:provider-lifecycle",
     model_mount_instance_lifecycle_action: "load",
     model_mount_instance_lifecycle_status: "loaded",
@@ -142,7 +144,7 @@ test("receipt operations write redacted receipts and refresh projection", () => 
     redaction: "redacted",
     evidenceRefs: ["provider.health"],
     details: {
-      providerId: "provider.local",
+      provider_id: "provider.local",
       apiKey: "secret",
     },
   }, {
@@ -155,7 +157,7 @@ test("receipt operations write redacted receipts and refresh projection", () => 
   assert.equal(record.createdAt, "2026-06-04T12:00:00.000Z");
   assert.equal(record.schemaVersion, "schema.v1");
   assert.deepEqual(record.details, {
-    providerId: "provider.local",
+    provider_id: "provider.local",
     apiKey: "[REDACTED]",
   });
   assert.equal(writes[0], record);

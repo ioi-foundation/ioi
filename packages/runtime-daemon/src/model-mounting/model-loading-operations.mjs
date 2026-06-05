@@ -111,20 +111,20 @@ export async function loadModel(state, body = {}, deps = {}) {
   state.supersedeLoadedInstances(endpoint.id, instance.id);
   state.writeMap("model-instances", state.instances);
   state.lifecycleReceipt("model_load", {
-    instanceId: instance.id,
-    endpointId: endpoint.id,
-    modelId: endpoint.modelId,
-    providerId: endpoint.providerId,
-    providerKind: provider.kind,
-    backendId: instance.backendId,
-    runtimeEngineId: runtimePreference.selectedEngineId,
-    loadPolicy,
-    loadOptions,
+    instance_id: instance.id,
+    endpoint_id: endpoint.id,
+    model_id: endpoint.modelId,
+    provider_id: endpoint.providerId,
+    provider_kind: provider.kind,
+    backend_id: instance.backendId,
+    runtime_engine_id: runtimePreference.selectedEngineId,
+    load_policy: loadPolicy,
+    load_options: loadOptions,
     estimate: instance.estimate,
-    providerEvidenceRefs: driverResult.evidenceRefs ?? [],
+    provider_evidence_refs: driverResult.evidenceRefs ?? [],
     ...modelMountInstanceLifecycleFields(instanceLifecycle),
-    backendProcess: driverResult.process ?? null,
-    commandArgsHash: driverResult.commandArgsHash ?? null,
+    backend_process: driverResult.process ?? null,
+    command_args_hash: driverResult.commandArgsHash ?? null,
   });
   return instance;
 }
@@ -187,14 +187,14 @@ export async function unloadModel(state, body = {}, deps = {}) {
   state.instances.set(instance.id, updated);
   state.writeMap("model-instances", state.instances);
   state.lifecycleReceipt("model_unload", {
-    instanceId: instance.id,
-    endpointId: instance.endpointId,
-    modelId: instance.modelId,
-    providerId: instance.providerId,
-    providerKind: provider.kind,
-    providerEvidenceRefs: driverResult.evidenceRefs ?? [],
+    instance_id: instance.id,
+    endpoint_id: instance.endpointId,
+    model_id: instance.modelId,
+    provider_id: instance.providerId,
+    provider_kind: provider.kind,
+    provider_evidence_refs: driverResult.evidenceRefs ?? [],
     ...modelMountInstanceLifecycleFields(instanceLifecycle),
-    backendProcess: driverResult.process ?? null,
+    backend_process: driverResult.process ?? null,
   });
   return updated;
 }

@@ -116,7 +116,7 @@ function assertModelInstanceLifecycleReceiptBound(receipt) {
   const details = receipt?.details && typeof receipt.details === "object" ? receipt.details : {};
   const status = MODEL_INSTANCE_LIFECYCLE_RECEIPT_STATUSES.get(details.operation);
   if (!status) return;
-  const providerKind = optionalNonEmptyString(details.providerKind ?? details.provider_kind);
+  const providerKind = optionalNonEmptyString(details.provider_kind);
   const missing = [];
   const mismatches = [];
   if (!providerKind && optionalNonEmptyString(details.providerId ?? details.provider_id)) {
@@ -140,7 +140,7 @@ function assertModelInstanceLifecycleReceiptBound(receipt) {
     return;
   }
   const issues = modelMountInstanceLifecycleBindingIssues(details, {
-    prefix: details.instanceId ?? details.operation ?? "model_lifecycle",
+    prefix: details.instance_id ?? details.operation ?? "model_lifecycle",
     status,
   });
   missing.push(...issues.missing);
@@ -154,7 +154,7 @@ function assertModelInstanceLifecycleReceiptBound(receipt) {
         receiptId: receipt?.id ?? null,
         receiptKind: receipt?.kind ?? null,
         operation: details.operation ?? null,
-        providerKind,
+        provider_kind: providerKind,
         missing,
         mismatches,
       },
@@ -216,7 +216,7 @@ function assertProviderInventoryReceiptBound(receipt) {
         receiptId: receipt?.id ?? null,
         receiptKind: receipt?.kind ?? null,
         operation: details.operation ?? null,
-        providerKind,
+        provider_kind: providerKind,
         missing,
         mismatches,
       },
@@ -282,7 +282,7 @@ function assertProviderControlReceiptBound(receipt) {
         receiptId: receipt?.id ?? null,
         receiptKind: receipt?.kind ?? null,
         operation: details.operation ?? null,
-        providerKind,
+        provider_kind: providerKind,
         missing,
         mismatches,
       },
@@ -346,7 +346,7 @@ function assertProviderHealthReceiptBound(receipt) {
       details: {
         receiptId: receipt?.id ?? null,
         receiptKind: receipt?.kind ?? null,
-        providerKind,
+        provider_kind: providerKind,
         missing,
         mismatches,
       },
