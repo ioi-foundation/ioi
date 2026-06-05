@@ -953,9 +953,9 @@ export interface ModelRouteDecision {
   costEstimateSource: string;
   fallbackModel: string | null;
   fallbackEndpointId: string | null;
-  fallbackAllowed: boolean;
-  fallbackTriggered?: boolean;
-  fallbackReason?: string | null;
+  fallback_allowed: boolean;
+  fallback_triggered?: boolean;
+  fallback_reason?: string | null;
   rationale: string;
   policyConstraints: Record<string, unknown>;
   evaluatedCandidateCount: number;

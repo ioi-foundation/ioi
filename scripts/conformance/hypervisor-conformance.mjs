@@ -366,6 +366,8 @@ function runBridge() {
   const modelRouteDecisionModule = exists("packages/runtime-daemon/src/model-mounting/route-decision.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/route-decision.mjs")
     : "";
+  const modelRouteDecisionObject =
+    modelRouteDecisionModule.match(/const decision = \{[\s\S]*?\n  \};/)?.[0] ?? "";
   const modelRouteDecisionTest = exists("packages/runtime-daemon/src/model-mounting/route-decision.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/route-decision.test.mjs")
     : "";
@@ -481,6 +483,8 @@ function runBridge() {
   const agentSdkMessages = exists("packages/agent-sdk/src/messages.ts")
     ? read("packages/agent-sdk/src/messages.ts")
     : "";
+  const agentSdkModelRouteDecisionType =
+    agentSdkMessages.match(/export interface ModelRouteDecision \{[\s\S]*?\n}\n/)?.[0] ?? "";
   const agentSdkOptions = exists("packages/agent-sdk/src/options.ts")
     ? read("packages/agent-sdk/src/options.ts")
     : "";
@@ -842,6 +846,31 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 3/9 is pending: model-mounting route decisions must call Rust model_mount core and fail closed before provider invocation",
+  );
+  assertCheck(
+    result,
+    "model-mount-route-decision-fallback-aliases-retired",
+    /fallback_allowed:\s*Boolean\(fallback\.endpointId\)/.test(modelRouteDecisionObject) &&
+      /fallback_triggered:\s*fallbackTriggered/.test(modelRouteDecisionObject) &&
+      /fallback_reason:\s*fallbackReason/.test(modelRouteDecisionObject) &&
+      !/fallbackAllowed\s*:/.test(modelRouteDecisionObject) &&
+      !/^ {4}fallbackTriggered,\s*$/m.test(modelRouteDecisionObject) &&
+      !/^ {4}fallbackReason,\s*$/m.test(modelRouteDecisionObject) &&
+      /fallback_allowed:\s*boolean/.test(agentSdkModelRouteDecisionType) &&
+      /fallback_triggered\?:\s*boolean/.test(agentSdkModelRouteDecisionType) &&
+      /fallback_reason\?:\s*string \| null/.test(agentSdkModelRouteDecisionType) &&
+      !/fallbackAllowed/.test(agentSdkModelRouteDecisionType) &&
+      !/fallbackTriggered/.test(agentSdkModelRouteDecisionType) &&
+      !/fallbackReason/.test(agentSdkModelRouteDecisionType) &&
+      /Object\.hasOwn\(decision,\s*"fallbackAllowed"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"fallbackTriggered"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"fallbackReason"\),\s*false/.test(modelRouteDecisionTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
+      "packages/agent-sdk/src/messages.ts",
+    ],
+    "Phase 3/10 is pending: model route decisions must emit canonical fallback metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

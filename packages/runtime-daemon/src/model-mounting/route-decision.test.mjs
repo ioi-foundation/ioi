@@ -42,7 +42,7 @@ test("provider request body resolves auto and strips Autopilot-only route fields
 
 test("route decisions use canonical hosted fallback policy constraint", () => {
   const decision = createModelRouteDecision({
-    route: { id: "route.local-first", privacy: "local_or_enterprise", fallback: ["endpoint.hosted"] },
+    route: { id: "route.local-first", privacy: "local_or_enterprise", fallback: ["endpoint.local"] },
     endpoint: { id: "endpoint.hosted", modelId: "model.hosted", providerId: "provider.hosted" },
     provider: { id: "provider.hosted", kind: "openai", privacyClass: "hosted" },
     policy: { allow_hosted_fallback: true },
@@ -56,7 +56,7 @@ test("route decisions use canonical hosted fallback policy constraint", () => {
 
 test("route decisions honor canonical fallback request metadata", () => {
   const decision = createModelRouteDecision({
-    route: { id: "route.local-first", privacy: "local_or_enterprise", fallback: ["endpoint.hosted"] },
+    route: { id: "route.local-first", privacy: "local_or_enterprise", fallback: ["endpoint.local"] },
     endpoint: { id: "endpoint.hosted", modelId: "model.hosted", providerId: "provider.hosted" },
     provider: { id: "provider.hosted", kind: "openai", privacyClass: "hosted" },
     request: {
@@ -67,8 +67,12 @@ test("route decisions honor canonical fallback request metadata", () => {
     requestedModel: "auto",
   });
 
-  assert.equal(decision.fallbackTriggered, true);
-  assert.equal(decision.fallbackReason, "primary_route_unavailable");
+  assert.equal(decision.fallback_allowed, true);
+  assert.equal(decision.fallback_triggered, true);
+  assert.equal(decision.fallback_reason, "primary_route_unavailable");
+  assert.equal(Object.hasOwn(decision, "fallbackAllowed"), false);
+  assert.equal(Object.hasOwn(decision, "fallbackTriggered"), false);
+  assert.equal(Object.hasOwn(decision, "fallbackReason"), false);
   assert.equal(decision.evidenceRefs.includes("model_route_fallback_selected"), true);
   assert.match(decision.rationale, /primary_route_unavailable/);
 });
@@ -86,8 +90,10 @@ test("route decisions ignore retired camelCase fallback request aliases", () => 
     requestedModel: "auto",
   });
 
-  assert.equal(decision.fallbackTriggered, false);
-  assert.equal(decision.fallbackReason, null);
+  assert.equal(decision.fallback_triggered, false);
+  assert.equal(decision.fallback_reason, null);
+  assert.equal(Object.hasOwn(decision, "fallbackTriggered"), false);
+  assert.equal(Object.hasOwn(decision, "fallbackReason"), false);
   assert.equal(decision.evidenceRefs.includes("model_route_fallback_selected"), false);
   assert.doesNotMatch(decision.rationale, /legacy_route_unavailable/);
 });

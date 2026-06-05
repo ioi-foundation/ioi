@@ -65,9 +65,9 @@ export function createModelRouteDecision({
     costEstimateSource: costEstimate.source,
     fallbackModel: fallback.model,
     fallbackEndpointId: fallback.endpointId,
-    fallbackAllowed: Boolean(fallback.endpointId),
-    fallbackTriggered,
-    fallbackReason,
+    fallback_allowed: Boolean(fallback.endpointId),
+    fallback_triggered: fallbackTriggered,
+    fallback_reason: fallbackReason,
     rationale: routeRationale({
       route,
       endpoint,
