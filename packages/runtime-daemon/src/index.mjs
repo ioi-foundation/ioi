@@ -160,6 +160,7 @@ import {
 } from "./runtime-value-helpers.mjs";
 import { createRuntimeAgentOptionsHelpers } from "./runtime-agent-options.mjs";
 import { createRuntimeAgentgresAdmissionRunnerFromEnv } from "./runtime-agentgres-admission-runner.mjs";
+import { createGovernedImprovementRunnerFromEnv } from "./runtime-governed-improvement-runner.mjs";
 import {
   createAgent as createAgentState,
   createRun as createRunState,
@@ -700,6 +701,8 @@ export class AgentgresRuntimeStateStore {
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
     this.runtimeAgentgresAdmissionRunner =
       options.runtimeAgentgresAdmissionRunner ?? createRuntimeAgentgresAdmissionRunnerFromEnv(process.env);
+    this.governedImprovementRunner =
+      options.governedImprovementRunner ?? createGovernedImprovementRunnerFromEnv(process.env);
     this.schemaVersion = "ioi.agentgres.runtime.v0";
     this.ensureDirs();
     this.modelMounting = new ModelMountingState({

@@ -384,6 +384,9 @@ function runBridge() {
   const governedImprovementRunnerTest = exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs")
     : "";
+  const governedImprovementStoreTest = exists("packages/runtime-daemon/src/runtime-governed-improvement-store.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-governed-improvement-store.test.mjs")
+    : "";
   const retiredCodingToolJsBodyPattern =
     /function (?:computerUseLeaseRequestTool|workspaceStatusTool|gitDiffTool|fileInspectTool|fileApplyPatchTool|testRunTool|lspDiagnosticsTool|artifactReadTool|toolRetrieveResultTool)\(/;
   const retiredCodingToolJsImportPattern =
@@ -921,16 +924,21 @@ function runBridge() {
       /IOI_GOVERNED_IMPROVEMENT_COMMAND/.test(governedImprovementRunner) &&
       /RustGovernedImprovementRunner/.test(governedImprovementRunner) &&
       /createGovernedImprovementRunnerFromEnv/.test(governedImprovementRunner) &&
+      /createGovernedImprovementRunnerFromEnv/.test(runtimeDaemonIndex) &&
+      /this\.governedImprovementRunner/.test(runtimeDaemonIndex) &&
       /admitProposal/.test(governedImprovementRunner) &&
       /admit_governed_runtime_improvement_proposal/.test(governedImprovementRunner) &&
       /rust_governed_evolution/.test(governedImprovementRunner) &&
       /governed_improvement_bridge_unconfigured/.test(governedImprovementRunner) &&
       /governed improvement runner sends proposal admission bridge request/.test(governedImprovementRunnerTest) &&
       /governed improvement runner fails closed without command/.test(governedImprovementRunnerTest) &&
-      /governed improvement runner surfaces Rust proposal rejection/.test(governedImprovementRunnerTest),
+      /governed improvement runner surfaces Rust proposal rejection/.test(governedImprovementRunnerTest) &&
+      /runtime store mounts governed improvement runner from options/.test(governedImprovementStoreTest),
     [
       "packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs",
       "packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-store.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 9 is pending: daemon meta-improvement facade must call the Rust governed proposal bridge and fail closed when unconfigured",
   );
