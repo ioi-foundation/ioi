@@ -112,9 +112,9 @@ export function routeDecisionProjectionFromReceipt(receipt) {
   if (!decision || typeof decision !== "object") return null;
   return {
     ...decision,
-    receiptId: receipt.id,
-    receiptCreatedAt: receipt.createdAt,
-    receiptKind: receipt.kind,
+    receipt_id: receipt.id,
+    receipt_created_at: receipt.createdAt,
+    receipt_kind: receipt.kind,
   };
 }
 

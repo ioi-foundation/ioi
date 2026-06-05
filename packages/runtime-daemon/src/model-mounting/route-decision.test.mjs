@@ -205,10 +205,21 @@ test("route decision projections ignore retired legacy model route decision deta
   }), {
     route_id: "route.local-first",
     selected_model: "model.local",
-    receiptId: "receipt-route",
-    receiptCreatedAt: "2026-06-05T00:00:00.000Z",
-    receiptKind: "model_route_selection",
+    receipt_id: "receipt-route",
+    receipt_created_at: "2026-06-05T00:00:00.000Z",
+    receipt_kind: "model_route_selection",
   });
+  const projection = routeDecisionProjectionFromReceipt({
+    id: "receipt-route",
+    createdAt: "2026-06-05T00:00:00.000Z",
+    kind: "model_route_selection",
+    details: {
+      model_route_decision: { route_id: "route.local-first", selected_model: "model.local" },
+    },
+  });
+  assert.equal(Object.hasOwn(projection, "receiptId"), false);
+  assert.equal(Object.hasOwn(projection, "receiptCreatedAt"), false);
+  assert.equal(Object.hasOwn(projection, "receiptKind"), false);
 
   assert.equal(routeDecisionProjectionFromReceipt({
     id: "receipt-route-legacy",

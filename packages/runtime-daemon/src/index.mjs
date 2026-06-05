@@ -3837,7 +3837,7 @@ function buildRun({
     toolSequence.push("computer_use_harness");
   }
   const modelRouteReceiptId =
-    modelRoute?.receiptId ?? modelRouteDecision?.receiptId ?? `receipt_${runId}_model_route`;
+    modelRoute?.receiptId ?? modelRouteDecision?.receipt_id ?? `receipt_${runId}_model_route`;
   const memoryRecords = normalizeArray(memory.records);
   const memoryWrites = normalizeArray(memory.writes);
   const memoryMutations = normalizeArray(memory.mutations).length > 0
@@ -4774,7 +4774,7 @@ function buildRun({
   if (modelRouteDecision) {
     addEvent("model_route_decision", "Model route decision recorded", {
       ...modelRouteDecision,
-      receiptId: modelRouteReceiptId,
+      receipt_id: modelRouteReceiptId,
     });
   }
   if (computerUseProjection) {

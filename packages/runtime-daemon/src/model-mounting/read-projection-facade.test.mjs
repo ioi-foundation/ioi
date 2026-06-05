@@ -9,7 +9,7 @@ function createState() {
       id: "receipt-route",
       kind: "model_route_selection",
       details: {
-        model_route_decision: { routeId: "route.local-first", selectedModel: "model.local" },
+        model_route_decision: { route_id: "route.local-first", selected_model: "model.local" },
         routeId: "route.local-first",
         endpointId: "endpoint.local",
         providerId: "provider.local",
@@ -164,7 +164,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(replay.route.id, "route.local-first");
   assert.equal(replay.endpoint.id, "endpoint.local");
   assert.equal(replay.provider.id, "provider.local");
-  assert.equal(replay.model_route_decision.selectedModel, "model.local");
+  assert.equal(replay.model_route_decision.selected_model, "model.local");
   assert.equal(Object.hasOwn(replay, "modelRouteDecision"), false);
 
   const authority = facade.authoritySnapshot(state, "http://127.0.0.1:3200");

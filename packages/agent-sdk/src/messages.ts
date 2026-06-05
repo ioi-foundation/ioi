@@ -980,7 +980,9 @@ export interface ModelRouteDecision {
   previous_response_id: string | null;
   policy_hash?: string;
   evidence_refs: string[];
-  receiptId?: string;
+  receipt_id?: string;
+  receipt_created_at?: string;
+  receipt_kind?: string;
 }
 
 export interface AgentMemoryRecord {

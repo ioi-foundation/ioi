@@ -1124,6 +1124,34 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-route-decision-projection-receipt-aliases-retired",
+    /receipt_id:\s*receipt\.id/.test(modelRouteDecisionModule) &&
+      /receipt_created_at:\s*receipt\.createdAt/.test(modelRouteDecisionModule) &&
+      /receipt_kind:\s*receipt\.kind/.test(modelRouteDecisionModule) &&
+      !/(?:receiptId|receiptCreatedAt|receiptKind):\s*receipt\./.test(modelRouteDecisionModule) &&
+      /^\s*receipt_id\?:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*receipt_created_at\?:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*receipt_kind\?:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
+      !/^\s*(?:receiptId|receiptCreatedAt|receiptKind)\?:/m.test(agentSdkModelRouteDecisionType) &&
+      /modelRouteDecision\?\.receipt_id/.test(runtimeDaemonIndex) &&
+      !/modelRouteDecision\?\.receiptId/.test(runtimeDaemonIndex) &&
+      /receipt_id:\s*modelRouteReceiptId/.test(runtimeDaemonIndex) &&
+      !/receiptId:\s*modelRouteReceiptId/.test(runtimeDaemonIndex) &&
+      /Object\.hasOwn\(projection,\s*"receiptId"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(projection,\s*"receiptCreatedAt"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(projection,\s*"receiptKind"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decisions\[0\],\s*"receiptId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/projections.test.mjs")),
+    [
+      "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/projections.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/agent-sdk/src/messages.ts",
+    ],
+    "Phase 3/10 is pending: model route-decision projection receipt metadata and direct run readers must use canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "runtime-thread-model-route-decision-reader-aliases-retired",
     /modelRoute\.decision\?\.reasoning_effort/.test(threadRuntimeControls) &&
       /modelRoute\.decision\?\.workflow_graph_id/.test(threadRuntimeControls) &&
