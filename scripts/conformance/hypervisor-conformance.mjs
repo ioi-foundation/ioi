@@ -2436,6 +2436,12 @@ function runReceipts() {
   const providerAuthTest = exists("packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs")
     : "";
+  const providerOperations = exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs")
+    : "";
+  const providerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs")
+    : "";
   const catalogProviderConfig = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs")
     : "";
@@ -3279,6 +3285,38 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
     ],
     "Phase 10/11 is pending: backend lifecycle receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-provider-operation-detail-aliases-retired",
+    /provider_id:\s*providerId/.test(providerOperations) &&
+      /provider_kind:\s*provider\.kind/.test(providerOperations) &&
+      /http_status:\s*driverResult\.httpStatus/.test(providerOperations) &&
+      /auth_vault_ref_hash:\s*driverResult\.authEvidence\?\.vaultRefHash/.test(providerOperations) &&
+      /provider_auth_evidence_refs:\s*driverResult\.authEvidence\?\.evidenceRefs/.test(providerOperations) &&
+      /failure_code:\s*error\?\.code/.test(providerOperations) &&
+      /provider_health_status:\s*status/.test(providerOperations) &&
+      /provider_health_receipt_id:\s*receipt\.id/.test(providerOperations) &&
+      /model_count:\s*resolved\.length/.test(providerOperations) &&
+      /loaded_count:\s*resolved\.length/.test(providerOperations) &&
+      !/details:\s*\{[^}]*\b(?:providerId|providerKind|httpStatus|authVaultRefHash|providerAuthEvidenceRefs|providerAuthHeaderNames|failureCode|failureStatus|providerErrorHash|vaultRefConfigured|resolvedMaterial|modelId|modelCount|loadedCount|evidenceRefs|providerHealthStatus|providerHealthReceiptId)\s*:/.test(
+        providerOperations,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.payload\.details,\s*"providerId"\),\s*false/.test(providerOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.payload\.details,\s*"httpStatus"\),\s*false/.test(providerOperationsTest) &&
+      /Object\.hasOwn\(error\.details,\s*"providerHealthStatus"\),\s*false/.test(providerOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-2\)\.details,\s*"modelCount"\),\s*false/.test(providerOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"loadedCount"\),\s*false/.test(providerOperationsTest) &&
+      /Object\.hasOwn\(error\.details,\s*"providerId"\)\s*===\s*false/.test(providerOperationsTest) &&
+      /Object\.hasOwn\(receipt\.details,\s*"providerKind"\)/.test(providerOperationsTest) &&
+      /details\.providerId \?\? details\.provider_id/.test(modelMountReceiptWriteGuards) &&
+      /missing\.push\("provider_kind"\)/.test(modelMountReceiptWriteGuards),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
+    ],
+    "Phase 9/11 is pending: provider operation receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

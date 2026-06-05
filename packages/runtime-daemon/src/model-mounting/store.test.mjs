@@ -109,10 +109,10 @@ function providerInventoryReceipt(details = {}) {
     evidenceRefs: ["model_registry", "agentgres_receipt_projection_boundary", details.operation ?? "provider_models_list"],
     details: {
       operation: "provider_models_list",
-      providerId: "provider.local",
-      providerKind: "ioi_native_local",
-      modelId: "Local",
-      modelCount: 1,
+      provider_id: "provider.local",
+      provider_kind: "ioi_native_local",
+      model_id: "Local",
+      model_count: 1,
       ...details,
     },
   };
@@ -125,8 +125,8 @@ function providerHealthReceipt(details = {}) {
     redaction: "redacted",
     evidenceRefs: ["provider_health_check"],
     details: {
-      providerId: "provider.local",
-      providerKind: "ioi_native_local",
+      provider_id: "provider.local",
+      provider_kind: "ioi_native_local",
       status: "available",
       ...details,
     },
@@ -141,9 +141,9 @@ function providerControlReceipt(details = {}) {
     evidenceRefs: ["model_registry", "agentgres_receipt_projection_boundary", details.operation ?? "provider_start"],
     details: {
       operation: "provider_start",
-      providerId: "provider.local",
-      providerKind: "ioi_native_local",
-      modelId: "Local",
+      provider_id: "provider.local",
+      provider_kind: "ioi_native_local",
+      model_id: "Local",
       state: "available",
       ...details,
     },
@@ -247,7 +247,7 @@ test("model lifecycle receipt writes fail closed without provider kind and Rust 
       })),
     (error) =>
       error.code === "model_mount_instance_lifecycle_receipt_direct_append_forbidden" &&
-      error.details.missing.includes("providerKind"),
+      error.details.missing.includes("provider_kind"),
   );
   assert.throws(
     () => store.writeReceipt(modelLifecycleReceipt()),
@@ -287,10 +287,10 @@ test("provider inventory receipt writes fail closed without provider kind and Ru
   const { appended, stateDir, store } = testStore();
 
   assert.throws(
-    () => store.writeReceipt(providerInventoryReceipt({ providerKind: undefined })),
+    () => store.writeReceipt(providerInventoryReceipt({ provider_kind: undefined })),
     (error) =>
       error.code === "model_mount_provider_inventory_receipt_direct_append_forbidden" &&
-      error.details.missing.includes("providerKind"),
+      error.details.missing.includes("provider_kind"),
   );
   assert.throws(
     () => store.writeReceipt(providerInventoryReceipt()),
@@ -325,8 +325,8 @@ test("provider inventory receipt writes allow Rust-bound local and remote provid
   });
   const remoteReceipt = providerInventoryReceipt({
     id: "receipt.inventory-remote",
-    providerId: "provider.remote",
-    providerKind: "openai_compatible",
+    provider_id: "provider.remote",
+    provider_kind: "openai_compatible",
   });
 
   store.writeReceipt(localReceipt);
@@ -341,10 +341,10 @@ test("provider health receipt writes fail closed without provider kind and Rust 
   const { appended, stateDir, store } = testStore();
 
   assert.throws(
-    () => store.writeReceipt(providerHealthReceipt({ providerKind: undefined })),
+    () => store.writeReceipt(providerHealthReceipt({ provider_kind: undefined })),
     (error) =>
       error.code === "model_mount_provider_health_receipt_direct_append_forbidden" &&
-      error.details.missing.includes("providerKind"),
+      error.details.missing.includes("provider_kind"),
   );
   assert.throws(
     () => store.writeReceipt(providerHealthReceipt()),
@@ -379,8 +379,8 @@ test("provider health receipt writes allow Rust-bound local and remote provider 
   });
   const remoteReceipt = providerHealthReceipt({
     id: "receipt.health-remote",
-    providerId: "provider.remote",
-    providerKind: "openai_compatible",
+    provider_id: "provider.remote",
+    provider_kind: "openai_compatible",
   });
 
   store.writeReceipt(localReceipt);
@@ -395,10 +395,10 @@ test("provider control receipt writes fail closed without provider kind and Rust
   const { appended, stateDir, store } = testStore();
 
   assert.throws(
-    () => store.writeReceipt(providerControlReceipt({ providerKind: undefined })),
+    () => store.writeReceipt(providerControlReceipt({ provider_kind: undefined })),
     (error) =>
       error.code === "model_mount_provider_control_receipt_direct_append_forbidden" &&
-      error.details.missing.includes("providerKind"),
+      error.details.missing.includes("provider_kind"),
   );
   assert.throws(
     () => store.writeReceipt(providerControlReceipt()),
@@ -421,8 +421,8 @@ test("provider control receipt writes allow Rust-bound local and remote provider
   });
   const remoteReceipt = providerControlReceipt({
     id: "receipt.control-remote",
-    providerId: "provider.remote",
-    providerKind: "openai_compatible",
+    provider_id: "provider.remote",
+    provider_kind: "openai_compatible",
   });
 
   store.writeReceipt(localReceipt);

@@ -80,13 +80,13 @@ export async function providerHealth(state, providerId, deps = {}) {
       redaction: "redacted",
       evidenceRefs: driverResult.evidenceRefs ?? provider.discovery?.evidenceRefs ?? [],
       details: {
-        providerId,
-        providerKind: provider.kind,
+        provider_id: providerId,
+        provider_kind: provider.kind,
         status,
-        httpStatus: driverResult.httpStatus ?? null,
-        authVaultRefHash: driverResult.authEvidence?.vaultRefHash ?? null,
-        providerAuthEvidenceRefs: driverResult.authEvidence?.evidenceRefs ?? [],
-        providerAuthHeaderNames: driverResult.authEvidence?.headerNames ?? [],
+        http_status: driverResult.httpStatus ?? null,
+        auth_vault_ref_hash: driverResult.authEvidence?.vaultRefHash ?? null,
+        provider_auth_evidence_refs: driverResult.authEvidence?.evidenceRefs ?? [],
+        provider_auth_header_names: driverResult.authEvidence?.headerNames ?? [],
         ...providerLifecycleReceiptFields(driverResult.model_mount_provider_lifecycle),
       },
     });
@@ -144,22 +144,22 @@ function providerHealthFailure(state, provider, providerId, error, deps) {
   const checkedAt = state.nowIso();
   const status = providerHealthFailureStatus(error);
   const failureDetails = error?.details && typeof error.details === "object" ? error.details : {};
-  const evidenceRefs = normalizeScopes(failureDetails.evidenceRefs, [`provider_health_${error?.code ?? "runtime_error"}`]);
+  const evidenceRefs = normalizeScopes(failureDetails.evidence_refs, [`provider_health_${error?.code ?? "runtime_error"}`]);
   const receipt = state.receipt("provider_health", {
     summary: `Provider ${providerId} health failed closed as ${status}.`,
     redaction: "redacted",
     evidenceRefs,
     details: {
-      providerId,
-      providerKind: provider.kind,
+      provider_id: providerId,
+      provider_kind: provider.kind,
       status,
-      failureCode: error?.code ?? "runtime",
-      failureStatus: error?.status ?? 500,
-      httpStatus: failureDetails.httpStatus ?? null,
-      providerErrorHash: failureDetails.providerErrorHash ?? null,
-      vaultRefConfigured: failureDetails.vaultRefConfigured ?? providerHasVaultRef(provider),
-      authVaultRefHash: failureDetails.vaultRefHash ?? null,
-      resolvedMaterial: failureDetails.resolvedMaterial ?? null,
+      failure_code: error?.code ?? "runtime",
+      failure_status: error?.status ?? 500,
+      http_status: failureDetails.http_status ?? null,
+      provider_error_hash: failureDetails.provider_error_hash ?? null,
+      vault_ref_configured: failureDetails.vault_ref_configured ?? providerHasVaultRef(provider),
+      auth_vault_ref_hash: failureDetails.vault_ref_hash ?? null,
+      resolved_material: failureDetails.resolved_material ?? null,
     },
   });
   const updated = {
@@ -171,11 +171,11 @@ function providerHealthFailure(state, provider, providerId, error, deps) {
       lastHealthCheck: {
         status,
         evidenceRefs,
-        httpStatus: failureDetails.httpStatus ?? null,
-        authVaultRefHash: failureDetails.vaultRefHash ?? null,
+        httpStatus: failureDetails.http_status ?? null,
+        authVaultRefHash: failureDetails.vault_ref_hash ?? null,
         failureCode: error?.code ?? "runtime",
         failureStatus: error?.status ?? 500,
-        resolvedMaterial: failureDetails.resolvedMaterial ?? null,
+        resolvedMaterial: failureDetails.resolved_material ?? null,
         receiptId: receipt.id,
       },
     },
@@ -194,9 +194,18 @@ function providerHealthFailure(state, provider, providerId, error, deps) {
   });
   state.writeProjection();
   error.details = {
-    ...failureDetails,
-    providerHealthStatus: status,
-    providerHealthReceiptId: receipt.id,
+    provider_id: providerId,
+    provider_kind: provider.kind,
+    provider_health_status: status,
+    provider_health_receipt_id: receipt.id,
+    failure_code: error?.code ?? "runtime",
+    failure_status: error?.status ?? 500,
+    http_status: failureDetails.http_status ?? null,
+    provider_error_hash: failureDetails.provider_error_hash ?? null,
+    vault_ref_configured: failureDetails.vault_ref_configured ?? providerHasVaultRef(provider),
+    auth_vault_ref_hash: failureDetails.vault_ref_hash ?? null,
+    resolved_material: failureDetails.resolved_material ?? null,
+    evidence_refs: evidenceRefs,
   };
   throw error;
 }
@@ -224,12 +233,12 @@ export async function listProviderModels(state, providerId) {
     ? models
     : state.listArtifacts().filter((artifact) => artifact.providerId === providerId);
   state.lifecycleReceipt("provider_models_list", {
-    providerId,
-    providerKind: provider.kind,
-    modelId: provider.label,
+    provider_id: providerId,
+    provider_kind: provider.kind,
+    model_id: provider.label,
     state: provider.status,
-    modelCount: resolved.length,
-    evidenceRefs: provider.discovery?.evidenceRefs ?? [],
+    model_count: resolved.length,
+    evidence_refs: provider.discovery?.evidenceRefs ?? [],
     ...providerInventoryReceiptFields(models.model_mount_provider_inventory),
   });
   return resolved;
@@ -242,12 +251,12 @@ export async function listProviderLoaded(state, providerId) {
     ? loaded
     : state.listInstances().filter((instance) => instance.providerId === providerId && instance.status === "loaded");
   state.lifecycleReceipt("provider_loaded_list", {
-    providerId,
-    providerKind: provider.kind,
-    modelId: provider.label,
+    provider_id: providerId,
+    provider_kind: provider.kind,
+    model_id: provider.label,
     state: provider.status,
-    loadedCount: resolved.length,
-    evidenceRefs: provider.discovery?.evidenceRefs ?? [],
+    loaded_count: resolved.length,
+    evidence_refs: provider.discovery?.evidenceRefs ?? [],
     ...providerInventoryReceiptFields(loaded.model_mount_provider_inventory),
   });
   return resolved;
@@ -288,11 +297,11 @@ export async function startProvider(state, providerId, deps = {}) {
   state.providers.set(providerId, updated);
   state.writeMap("model-providers", state.providers);
   state.lifecycleReceipt("provider_start", {
-    providerId,
-    providerKind: provider.kind,
-    modelId: provider.label,
+    provider_id: providerId,
+    provider_kind: provider.kind,
+    model_id: provider.label,
     state: updated.status,
-    evidenceRefs: result.evidenceRefs ?? [],
+    evidence_refs: result.evidenceRefs ?? [],
     ...providerLifecycleReceiptFields(result.model_mount_provider_lifecycle),
   });
   return publicProvider(updated);
@@ -321,11 +330,11 @@ export async function stopProvider(state, providerId, deps = {}) {
   state.providers.set(providerId, updated);
   state.writeMap("model-providers", state.providers);
   state.lifecycleReceipt("provider_stop", {
-    providerId,
-    providerKind: provider.kind,
-    modelId: provider.label,
+    provider_id: providerId,
+    provider_kind: provider.kind,
+    model_id: provider.label,
     state: updated.status,
-    evidenceRefs: result.evidenceRefs ?? [],
+    evidence_refs: result.evidenceRefs ?? [],
     ...providerLifecycleReceiptFields(result.model_mount_provider_lifecycle),
   });
   return publicProvider(updated);
@@ -339,8 +348,8 @@ function assertProviderControlLifecycleBound(provider, result, operation) {
   error.code = "model_mount_provider_control_lifecycle_planning_required";
   error.details = {
     operation,
-    providerId: provider?.id ?? null,
-    providerKind: provider?.kind ?? null,
+    provider_id: provider?.id ?? null,
+    provider_kind: provider?.kind ?? null,
   };
   throw error;
 }

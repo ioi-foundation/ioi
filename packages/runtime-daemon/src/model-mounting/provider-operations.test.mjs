@@ -200,6 +200,18 @@ test("provider health success persists public health and vault metadata boundary
   assert.equal(result.vaultBoundary.runtimeBound, true);
   assert.equal(state.providers.get("provider.openai").discovery.lastHealthCheck.httpStatus, 200);
   assert.equal(state.receipts.at(-1).kind, "provider_health");
+  assert.equal(state.receipts.at(-1).payload.details.provider_id, "provider.openai");
+  assert.equal(state.receipts.at(-1).payload.details.provider_kind, "openai");
+  assert.equal(state.receipts.at(-1).payload.details.http_status, 200);
+  assert.equal(state.receipts.at(-1).payload.details.auth_vault_ref_hash, "vault-hash:provider");
+  assert.deepEqual(state.receipts.at(-1).payload.details.provider_auth_evidence_refs, ["VaultPort.resolveVaultRef"]);
+  assert.deepEqual(state.receipts.at(-1).payload.details.provider_auth_header_names, ["authorization"]);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerKind"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "httpStatus"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "authVaultRefHash"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerAuthEvidenceRefs"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerAuthHeaderNames"), false);
   assert.equal(currentDeps.healthWrites[0].value.status, "available");
   assert.equal(state.projections, 1);
 });
@@ -219,9 +231,9 @@ test("provider health failure updates provider status and augments thrown detail
       error.status = 403;
       error.code = "policy";
       error.details = {
-        httpStatus: 401,
-        providerErrorHash: "hash:error",
-        evidenceRefs: ["provider_auth_fail_closed"],
+        http_status: 401,
+        provider_error_hash: "hash:error",
+        evidence_refs: ["provider_auth_fail_closed"],
       };
       throw error;
     },
@@ -230,8 +242,38 @@ test("provider health failure updates provider status and augments thrown detail
 
   await assert.rejects(
     () => providerHealth(state, "provider.remote", currentDeps),
-    (error) => error.details.providerHealthStatus === "blocked" && error.details.providerHealthReceiptId === "receipt.provider_health.1",
+    (error) => {
+      assert.equal(error.details.provider_health_status, "blocked");
+      assert.equal(error.details.provider_health_receipt_id, "receipt.provider_health.1");
+      assert.equal(error.details.provider_id, "provider.remote");
+      assert.equal(error.details.provider_kind, "custom_http");
+      assert.equal(error.details.failure_code, "policy");
+      assert.equal(error.details.failure_status, 403);
+      assert.equal(error.details.http_status, 401);
+      assert.equal(error.details.provider_error_hash, "hash:error");
+      assert.equal(Object.hasOwn(error.details, "providerHealthStatus"), false);
+      assert.equal(Object.hasOwn(error.details, "providerHealthReceiptId"), false);
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "providerKind"), false);
+      assert.equal(Object.hasOwn(error.details, "failureCode"), false);
+      assert.equal(Object.hasOwn(error.details, "failureStatus"), false);
+      assert.equal(Object.hasOwn(error.details, "httpStatus"), false);
+      assert.equal(Object.hasOwn(error.details, "providerErrorHash"), false);
+      return true;
+    },
   );
+  assert.equal(state.receipts.at(-1).payload.details.provider_id, "provider.remote");
+  assert.equal(state.receipts.at(-1).payload.details.provider_kind, "custom_http");
+  assert.equal(state.receipts.at(-1).payload.details.failure_code, "policy");
+  assert.equal(state.receipts.at(-1).payload.details.failure_status, 403);
+  assert.equal(state.receipts.at(-1).payload.details.http_status, 401);
+  assert.equal(state.receipts.at(-1).payload.details.provider_error_hash, "hash:error");
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerKind"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "failureCode"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "failureStatus"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "httpStatus"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerErrorHash"), false);
   assert.equal(state.providers.get("provider.remote").status, "blocked");
   assert.equal(currentDeps.healthWrites[0].value.failureCode, "policy");
   assert.equal(state.projections, 1);
@@ -267,11 +309,12 @@ test("local provider health receipts carry Rust lifecycle bindings", async () =>
   await providerHealth(state, "provider.local", providerDeps());
 
   const details = state.receipts.at(-1).payload.details;
-  assert.equal(details.providerKind, "ioi_native_local");
+  assert.equal(details.provider_kind, "ioi_native_local");
   assert.equal(details.model_mount_provider_lifecycle_action, "health");
   assert.equal(details.model_mount_provider_lifecycle_status, "available");
   assert.equal(details.model_mount_provider_lifecycle_hash, "sha256:health");
   assert.deepEqual(details.model_mount_provider_lifecycle_evidence_refs, ["rust_model_mount_provider_lifecycle"]);
+  assert.equal(Object.hasOwn(details, "providerKind"), false);
 });
 
 test("provider model and loaded lists use driver results or local fallbacks", async () => {
@@ -299,10 +342,18 @@ test("provider model and loaded lists use driver results or local fallbacks", as
 
   assert.deepEqual(models.map((record) => record.id), ["artifact.local"]);
   assert.deepEqual(loaded.map((record) => record.id), ["instance.local"]);
-  assert.equal(state.receipts.at(-2).details.providerKind, "fixture");
-  assert.equal(state.receipts.at(-2).details.modelCount, 1);
-  assert.equal(state.receipts.at(-1).details.providerKind, "fixture");
-  assert.equal(state.receipts.at(-1).details.loadedCount, 1);
+  assert.equal(state.receipts.at(-2).details.provider_kind, "fixture");
+  assert.equal(state.receipts.at(-2).details.model_id, "Fixture");
+  assert.equal(state.receipts.at(-2).details.model_count, 1);
+  assert.equal(Object.hasOwn(state.receipts.at(-2).details, "providerKind"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-2).details, "modelId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-2).details, "modelCount"), false);
+  assert.equal(state.receipts.at(-1).details.provider_kind, "fixture");
+  assert.equal(state.receipts.at(-1).details.model_id, "Fixture");
+  assert.equal(state.receipts.at(-1).details.loaded_count, 1);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerKind"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "loadedCount"), false);
 });
 
 test("local provider model and loaded list receipts carry Rust inventory bindings", async () => {
@@ -344,11 +395,13 @@ test("local provider model and loaded list receipts carry Rust inventory binding
   await listProviderModels(state, "provider.local");
   await listProviderLoaded(state, "provider.local");
 
-  assert.equal(state.receipts.at(-2).details.providerKind, "ioi_native_local");
+  assert.equal(state.receipts.at(-2).details.provider_kind, "ioi_native_local");
   assert.equal(state.receipts.at(-2).details.model_mount_provider_inventory_action, "list_models");
   assert.equal(state.receipts.at(-2).details.model_mount_provider_inventory_hash, "sha256:list-models");
+  assert.equal(Object.hasOwn(state.receipts.at(-2).details, "providerKind"), false);
   assert.equal(state.receipts.at(-1).details.model_mount_provider_inventory_action, "list_loaded");
   assert.equal(state.receipts.at(-1).details.model_mount_provider_inventory_hash, "sha256:list-loaded");
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerKind"), false);
 });
 
 test("provider start and stop preserve stateless defaults and receipts", async () => {
@@ -369,7 +422,14 @@ test("provider start and stop preserve stateless defaults and receipts", async (
   assert.equal(stopped.status, "stopped");
   assert.equal(state.providers.get("provider.custom").discovery.lastStop.status, "stopped");
   assert.deepEqual(state.receipts.map((receipt) => receipt.kind), ["provider_start", "provider_stop"]);
-  assert.deepEqual(state.receipts.map((receipt) => receipt.details.providerKind), ["custom_http", "custom_http"]);
+  assert.deepEqual(state.receipts.map((receipt) => receipt.details.provider_id), ["provider.custom", "provider.custom"]);
+  assert.deepEqual(state.receipts.map((receipt) => receipt.details.provider_kind), ["custom_http", "custom_http"]);
+  assert.deepEqual(state.receipts.map((receipt) => receipt.details.model_id), ["Custom", "Custom"]);
+  assert.deepEqual(state.receipts.map((receipt) => receipt.details.evidence_refs), [["provider_stateless_start"], ["provider_stateless_stop"]]);
+  assert.deepEqual(state.receipts.map((receipt) => Object.hasOwn(receipt.details, "providerId")), [false, false]);
+  assert.deepEqual(state.receipts.map((receipt) => Object.hasOwn(receipt.details, "providerKind")), [false, false]);
+  assert.deepEqual(state.receipts.map((receipt) => Object.hasOwn(receipt.details, "modelId")), [false, false]);
+  assert.deepEqual(state.receipts.map((receipt) => Object.hasOwn(receipt.details, "evidenceRefs")), [false, false]);
 });
 
 test("local provider start and stop fail closed without Rust lifecycle bindings", async () => {
@@ -386,12 +446,20 @@ test("local provider start and stop fail closed without Rust lifecycle bindings"
   await assert.rejects(
     () => startProvider(state, "provider.local", providerDeps()),
     (error) => error.code === "model_mount_provider_control_lifecycle_planning_required" &&
-      error.details.operation === "provider_start",
+      error.details.operation === "provider_start" &&
+      error.details.provider_id === "provider.local" &&
+      error.details.provider_kind === "ioi_native_local" &&
+      Object.hasOwn(error.details, "providerId") === false &&
+      Object.hasOwn(error.details, "providerKind") === false,
   );
   await assert.rejects(
     () => stopProvider(state, "provider.local", providerDeps()),
     (error) => error.code === "model_mount_provider_control_lifecycle_planning_required" &&
-      error.details.operation === "provider_stop",
+      error.details.operation === "provider_stop" &&
+      error.details.provider_id === "provider.local" &&
+      error.details.provider_kind === "ioi_native_local" &&
+      Object.hasOwn(error.details, "providerId") === false &&
+      Object.hasOwn(error.details, "providerKind") === false,
   );
   assert.deepEqual(state.writes, []);
   assert.deepEqual(state.receipts, []);

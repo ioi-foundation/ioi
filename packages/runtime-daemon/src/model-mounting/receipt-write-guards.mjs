@@ -119,8 +119,8 @@ function assertModelInstanceLifecycleReceiptBound(receipt) {
   const providerKind = optionalNonEmptyString(details.providerKind ?? details.provider_kind);
   const missing = [];
   const mismatches = [];
-  if (!providerKind && optionalNonEmptyString(details.providerId)) {
-    missing.push("providerKind");
+  if (!providerKind && optionalNonEmptyString(details.providerId ?? details.provider_id)) {
+    missing.push("provider_kind");
   }
   if (!providerKind || !modelMountProviderKindRequiresRustInstanceLifecycle(providerKind)) {
     if (missing.length > 0) {
@@ -170,8 +170,8 @@ function assertProviderInventoryReceiptBound(receipt) {
   const providerKind = optionalNonEmptyString(details.providerKind ?? details.provider_kind);
   const missing = [];
   const mismatches = [];
-  if (!providerKind && optionalNonEmptyString(details.providerId)) {
-    missing.push("providerKind");
+  if (!providerKind && optionalNonEmptyString(details.providerId ?? details.provider_id)) {
+    missing.push("provider_kind");
   }
   if (!providerKind || !modelMountProviderKindRequiresRustInstanceLifecycle(providerKind)) {
     if (missing.length > 0) {
@@ -232,8 +232,8 @@ function assertProviderControlReceiptBound(receipt) {
   const providerKind = optionalNonEmptyString(details.providerKind ?? details.provider_kind);
   const missing = [];
   const mismatches = [];
-  if (!providerKind && optionalNonEmptyString(details.providerId)) {
-    missing.push("providerKind");
+  if (!providerKind && optionalNonEmptyString(details.providerId ?? details.provider_id)) {
+    missing.push("provider_kind");
   }
   if (!providerKind || !modelMountProviderKindRequiresRustInstanceLifecycle(providerKind)) {
     if (missing.length > 0) {
@@ -296,8 +296,8 @@ function assertProviderHealthReceiptBound(receipt) {
   const providerKind = optionalNonEmptyString(details.providerKind ?? details.provider_kind);
   const missing = [];
   const mismatches = [];
-  if (!providerKind && optionalNonEmptyString(details.providerId)) {
-    missing.push("providerKind");
+  if (!providerKind && optionalNonEmptyString(details.providerId ?? details.provider_id)) {
+    missing.push("provider_kind");
   }
   if (!providerKind || !modelMountProviderKindRequiresRustInstanceLifecycle(providerKind)) {
     if (missing.length > 0) {
