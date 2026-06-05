@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 291:
+Current expected behavior after Slice 292:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11777,6 +11777,11 @@ model-mount route records remain deterministic and cannot be switched by
 Slice 291 extends bridge proof for JS facade retirement hygiene: daemon source
 surfaces cannot reintroduce static scan-marker comment blocks as compatibility
 shims for conformance evidence.
+
+Slice 292 extends receipts and bridge proof for model-mounting contract
+repair: provider health failures preserve canonical adapter-boundary detail,
+native-local runtime catalog rows expose the daemon-local provider label, and
+live contract helpers share the subprocess input bridge explicitly.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

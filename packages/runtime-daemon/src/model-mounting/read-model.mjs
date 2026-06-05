@@ -21,7 +21,7 @@ export function runtimeModelCatalogList(state, deps = {}) {
     .sort((left, right) => left.modelId.localeCompare(right.modelId))
     .map((artifact) => ({
       id: artifact.modelId,
-      provider: artifact.providerId === "provider.local.folder" ? "ioi-daemon-local" : artifact.providerId,
+      provider: (artifact.providerId === "provider.local.folder" || artifact.providerId === "provider.autopilot.local") ? "ioi-daemon-local" : artifact.providerId,
       cost: artifact.privacyClass === "local_private" ? "local" : "metered",
       quality: artifact.family === "fixture" ? "adaptive" : "provider",
       capabilities: artifact.capabilities,

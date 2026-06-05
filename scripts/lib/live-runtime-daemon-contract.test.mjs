@@ -10,6 +10,7 @@ import { promisify } from "node:util";
 import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/index.mjs";
 import {
   cryptoRandomSuffix,
+  execFileWithInput,
   largeMcpFixtureTools,
   startMcpRemoteFixtureServer,
 } from "./live-runtime-daemon-contract/mcp-fixtures.mjs";

@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { execFile } from "node:child_process";
 import http from "node:http";
 
 const mcpFixtureTools = [
@@ -53,7 +54,7 @@ export function largeMcpFixtureTools(count = 80) {
   });
 }
 
-async function execFileWithInput(file, args, input, options = {}) {
+export async function execFileWithInput(file, args, input, options = {}) {
   const mergedOptions = { maxBuffer: 10 * 1024 * 1024, ...options };
   return new Promise((resolve, reject) => {
     const child = execFile(file, args, mergedOptions, (error, stdout, stderr) => {

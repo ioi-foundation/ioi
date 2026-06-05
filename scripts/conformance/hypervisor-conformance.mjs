@@ -2021,6 +2021,8 @@ function runBridge() {
       /runtimeModelCatalogList/.test(modelMountingReadModel) &&
       /runtimeModelCatalogList/.test(modelMountingReadProjectionFacade) &&
       /runtimeModelCatalogList/.test(modelMountingReadModelTest) &&
+      /providerId:\s*"provider\.autopilot\.local"/.test(modelMountingReadModelTest) &&
+      /assert\.equal\(nativeModel\.provider,\s*"ioi-daemon-local"\)/.test(modelMountingReadModelTest) &&
       /runtimeModelCatalogList/.test(modelMountingReadProjectionFacadeTest),
     [
       "packages/runtime-daemon/src/index.mjs",
@@ -4040,6 +4042,7 @@ function runReceipts() {
       /failure_code:\s*error\?\.code/.test(providerOperations) &&
       /provider_health_status:\s*status/.test(providerOperations) &&
       /provider_health_receipt_id:\s*receipt\.id/.test(providerOperations) &&
+      /adapter:\s*failureDetails\.adapter/.test(providerOperations) &&
       /model_count:\s*resolved\.length/.test(providerOperations) &&
       /loaded_count:\s*resolved\.length/.test(providerOperations) &&
       !/details:\s*\{[^}]*\b(?:providerId|providerKind|httpStatus|authVaultRefHash|providerAuthEvidenceRefs|providerAuthHeaderNames|failureCode|failureStatus|providerErrorHash|vaultRefConfigured|resolvedMaterial|modelId|modelCount|loadedCount|evidenceRefs|providerHealthStatus|providerHealthReceiptId)\s*:/.test(
@@ -4047,6 +4050,8 @@ function runReceipts() {
       ) &&
       /Object\.hasOwn\(state\.receipts\.at\(-1\)\.payload\.details,\s*"providerId"\),\s*false/.test(providerOperationsTest) &&
       /Object\.hasOwn\(state\.receipts\.at\(-1\)\.payload\.details,\s*"httpStatus"\),\s*false/.test(providerOperationsTest) &&
+      /assert\.equal\(error\.details\.adapter,\s*"remote_provider_adapter"\)/.test(providerOperationsTest) &&
+      /assert\.equal\(state\.receipts\.at\(-1\)\.payload\.details\.adapter,\s*"remote_provider_adapter"\)/.test(providerOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerHealthStatus"\),\s*false/.test(providerOperationsTest) &&
       /Object\.hasOwn\(state\.receipts\.at\(-2\)\.details,\s*"modelCount"\),\s*false/.test(providerOperationsTest) &&
       /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"loadedCount"\),\s*false/.test(providerOperationsTest) &&
@@ -5294,6 +5299,9 @@ function runCompositor() {
     : "";
   const liveRuntimeDaemonContract = exists("scripts/lib/live-runtime-daemon-contract.test.mjs")
     ? read("scripts/lib/live-runtime-daemon-contract.test.mjs")
+    : "";
+  const liveRuntimeDaemonMcpFixtures = exists("scripts/lib/live-runtime-daemon-contract/mcp-fixtures.mjs")
+    ? read("scripts/lib/live-runtime-daemon-contract/mcp-fixtures.mjs")
     : "";
   function blockBetween(text, startMarker, endMarker) {
     const startIndex = text.indexOf(startMarker);
@@ -7363,6 +7371,19 @@ function runCompositor() {
       "scripts/lib/cursor-sdk-parity-contract.mjs",
     ],
     "Phase 10/11 is pending: SDK testing and evidence paths must not retain the retired mock runtime client helper",
+  );
+  assertCheck(
+    result,
+    "live-runtime-daemon-exec-helper-boundary",
+    /execFileWithInput/.test(liveRuntimeDaemonContract) &&
+      /export async function execFileWithInput/.test(liveRuntimeDaemonMcpFixtures) &&
+      /from "node:child_process"/.test(liveRuntimeDaemonMcpFixtures) &&
+      !/function execFileWithInput/.test(liveRuntimeDaemonContract),
+    [
+      "scripts/lib/live-runtime-daemon-contract.test.mjs",
+      "scripts/lib/live-runtime-daemon-contract/mcp-fixtures.mjs",
+    ],
+    "Phase 10/11 is pending: live runtime daemon contract tests must share subprocess input helpers through the fixture boundary instead of duplicating local helper bodies",
   );
   assertCheck(
     result,

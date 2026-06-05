@@ -461,10 +461,11 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
     fs.readFileSync(path.join(root, "packages", "runtime-daemon", "src", fileName), "utf8"),
   ).join("\n");
   const liveGate = fs.readFileSync(path.join(root, "scripts", "live-model-mounting-gate.mjs"), "utf8");
-  const workbenchExtension = fs.readFileSync(
-    path.join(root, "apps", "autopilot", "openvscode-extension", "ioi-workbench", "extension.js"),
-    "utf8",
-  );
+  const workbenchExtension = [
+    fs.readFileSync(path.join(root, "apps", "autopilot", "openvscode-extension", "ioi-workbench", "extension.js"), "utf8"),
+    fs.readFileSync(path.join(root, "apps", "autopilot", "openvscode-extension", "ioi-workbench", "bridge", "client.js"), "utf8"),
+    fs.readFileSync(path.join(root, "apps", "autopilot", "openvscode-extension", "ioi-workbench", "commands", "models.js"), "utf8"),
+  ].join("\n");
   const workbenchPackage = JSON.parse(
     fs.readFileSync(
       path.join(root, "apps", "autopilot", "openvscode-extension", "ioi-workbench", "package.json"),

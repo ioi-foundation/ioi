@@ -164,6 +164,19 @@ test("model mounting read model builds product and protocol model lists", () => 
   assert.deepEqual(productArtifactList(state, { isFixtureModelRecord: (artifact) => artifact.family === "fixture" }).map((artifact) => artifact.id), ["artifact_b"]);
   assert.deepEqual(runtimeModelCatalogList(state).map((model) => model.id), ["model_b"]);
   assert.deepEqual(openAiModelList(state).data.map((model) => model.id), ["model_b"]);
+
+  state.artifacts.set("artifact_native", {
+    id: "artifact_native",
+    modelId: "model_native",
+    providerId: "provider.autopilot.local",
+    privacyClass: "local_private",
+    family: "native_local",
+    capabilities: ["chat"],
+    discoveredAt: "2026-06-03T00:00:03.000Z",
+  });
+  const nativeModel = runtimeModelCatalogList(state)
+    .find((model) => model.id === "model_native");
+  assert.equal(nativeModel.provider, "ioi-daemon-local");
 });
 
 test("model mounting read model builds workflow node bindings", () => {

@@ -160,6 +160,7 @@ function providerHealthFailure(state, provider, providerId, error, deps) {
       vault_ref_configured: failureDetails.vault_ref_configured ?? providerHasVaultRef(provider),
       auth_vault_ref_hash: failureDetails.vault_ref_hash ?? null,
       resolved_material: failureDetails.resolved_material ?? null,
+      adapter: failureDetails.adapter ?? null,
     },
   });
   const updated = {
@@ -206,6 +207,7 @@ function providerHealthFailure(state, provider, providerId, error, deps) {
     auth_vault_ref_hash: failureDetails.vault_ref_hash ?? null,
     resolved_material: failureDetails.resolved_material ?? null,
     evidence_refs: evidenceRefs,
+    adapter: failureDetails.adapter ?? null,
   };
   throw error;
 }

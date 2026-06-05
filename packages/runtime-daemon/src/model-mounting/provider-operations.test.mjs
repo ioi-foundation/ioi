@@ -233,6 +233,7 @@ test("provider health failure updates provider status and augments thrown detail
       error.details = {
         http_status: 401,
         provider_error_hash: "hash:error",
+        adapter: "remote_provider_adapter",
         evidence_refs: ["provider_auth_fail_closed"],
       };
       throw error;
@@ -251,6 +252,7 @@ test("provider health failure updates provider status and augments thrown detail
       assert.equal(error.details.failure_status, 403);
       assert.equal(error.details.http_status, 401);
       assert.equal(error.details.provider_error_hash, "hash:error");
+      assert.equal(error.details.adapter, "remote_provider_adapter");
       assert.equal(Object.hasOwn(error.details, "providerHealthStatus"), false);
       assert.equal(Object.hasOwn(error.details, "providerHealthReceiptId"), false);
       assert.equal(Object.hasOwn(error.details, "providerId"), false);
@@ -268,6 +270,7 @@ test("provider health failure updates provider status and augments thrown detail
   assert.equal(state.receipts.at(-1).payload.details.failure_status, 403);
   assert.equal(state.receipts.at(-1).payload.details.http_status, 401);
   assert.equal(state.receipts.at(-1).payload.details.provider_error_hash, "hash:error");
+  assert.equal(state.receipts.at(-1).payload.details.adapter, "remote_provider_adapter");
   assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerId"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerKind"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "failureCode"), false);
