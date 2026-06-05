@@ -75,7 +75,7 @@ export async function loadModel(state, body = {}, deps = {}) {
     provider,
     backendId: driverResult.backendId ?? backendId,
     driver: driverNameForProvider(provider),
-    providerLifecycleHash: driverResult.lifecycleHash,
+    model_mount_provider_lifecycle_hash: driverResult.lifecycleHash,
     evidenceRefs: driverResult.evidenceRefs ?? [],
   });
   const instance = {
@@ -105,7 +105,6 @@ export async function loadModel(state, body = {}, deps = {}) {
     workflowScope: body.workflow_scope ?? body.workflowScope ?? null,
     agentScope: body.agent_scope ?? body.agentScope ?? null,
     providerEvidenceRefs: driverResult.evidenceRefs ?? [],
-    providerLifecycleHash: driverResult.lifecycleHash ?? null,
     ...modelMountInstanceLifecycleFields(instanceLifecycle),
   };
   state.instances.set(instance.id, instance);
@@ -123,7 +122,6 @@ export async function loadModel(state, body = {}, deps = {}) {
     loadOptions,
     estimate: instance.estimate,
     providerEvidenceRefs: driverResult.evidenceRefs ?? [],
-    providerLifecycleHash: driverResult.lifecycleHash ?? null,
     ...modelMountInstanceLifecycleFields(instanceLifecycle),
     backendProcess: driverResult.process ?? null,
     commandArgsHash: driverResult.commandArgsHash ?? null,
@@ -176,7 +174,7 @@ export async function unloadModel(state, body = {}, deps = {}) {
     provider,
     backendId: driverResult.backendId ?? instance.backendId ?? endpoint.backendId,
     driver: driverResult.driver ?? instance.driver ?? deps.driverNameForProvider?.(provider) ?? provider.driver ?? "fixture",
-    providerLifecycleHash: driverResult.lifecycleHash,
+    model_mount_provider_lifecycle_hash: driverResult.lifecycleHash,
     evidenceRefs: driverResult.evidenceRefs ?? [],
   });
   const updated = {
@@ -184,7 +182,6 @@ export async function unloadModel(state, body = {}, deps = {}) {
     status: "unloaded",
     unloadedAt: state.nowIso(),
     providerEvidenceRefs: driverResult.evidenceRefs ?? instance.providerEvidenceRefs ?? [],
-    providerLifecycleHash: driverResult.lifecycleHash ?? instance.providerLifecycleHash ?? null,
     ...modelMountInstanceLifecycleFields(instanceLifecycle),
   };
   state.instances.set(instance.id, updated);
@@ -196,7 +193,6 @@ export async function unloadModel(state, body = {}, deps = {}) {
     providerId: instance.providerId,
     providerKind: provider.kind,
     providerEvidenceRefs: driverResult.evidenceRefs ?? [],
-    providerLifecycleHash: driverResult.lifecycleHash ?? null,
     ...modelMountInstanceLifecycleFields(instanceLifecycle),
     backendProcess: driverResult.process ?? null,
   });

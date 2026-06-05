@@ -22,6 +22,7 @@ export function expectedModelMountInstanceLifecycleAction(status) {
 export function modelMountInstanceLifecycleFields(instanceLifecycle) {
   if (!instanceLifecycle) return {};
   return {
+    model_mount_provider_lifecycle_hash: instanceLifecycle.provider_lifecycle_hash,
     model_mount_instance_lifecycle_action: instanceLifecycle.action,
     model_mount_instance_lifecycle_status: instanceLifecycle.status,
     model_mount_instance_lifecycle_hash: instanceLifecycle.instance_lifecycle_hash,
@@ -37,8 +38,8 @@ export function modelMountInstanceLifecycleBindingIssues(record = {}, { prefix =
     : [];
   const missing = [];
   const mismatches = [];
-  if (!record.providerLifecycleHash) {
-    missing.push(`${prefix}:providerLifecycleHash`);
+  if (!record.model_mount_provider_lifecycle_hash) {
+    missing.push(`${prefix}:model_mount_provider_lifecycle_hash`);
   }
   if (!record.model_mount_instance_lifecycle_hash) {
     missing.push(`${prefix}:model_mount_instance_lifecycle_hash`);
@@ -68,11 +69,11 @@ export function planModelMountInstanceLifecycleForMigratedProvider({
   provider,
   backendId,
   driver,
-  providerLifecycleHash,
+  model_mount_provider_lifecycle_hash,
   evidenceRefs = [],
 }) {
   if (!modelMountInstanceLifecycleRequiresRust(provider)) return null;
-  if (!providerLifecycleHash) {
+  if (!model_mount_provider_lifecycle_hash) {
     const error = new Error("Model instance lifecycle transition requires a Rust provider lifecycle hash.");
     error.status = 502;
     error.code = "model_mount_instance_lifecycle_provider_hash_required";
@@ -97,9 +98,9 @@ export function planModelMountInstanceLifecycleForMigratedProvider({
     execution_backend: RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
     backend_ref: backendId,
     driver,
-    provider_lifecycle_hash: providerLifecycleHash,
+    provider_lifecycle_hash: model_mount_provider_lifecycle_hash,
     evidence_refs: normalizeRefs(evidenceRefs),
-  }), { action, targetStatus, backendId, driver, providerLifecycleHash });
+  }), { action, targetStatus, backendId, driver, model_mount_provider_lifecycle_hash });
 }
 
 function requireModelMountInstanceLifecycleResult(value, {
@@ -107,7 +108,7 @@ function requireModelMountInstanceLifecycleResult(value, {
   targetStatus,
   backendId,
   driver,
-  providerLifecycleHash,
+  model_mount_provider_lifecycle_hash,
 }) {
   if (
     !value ||
@@ -116,7 +117,7 @@ function requireModelMountInstanceLifecycleResult(value, {
     value.backendId !== backendId ||
     value.driver !== driver ||
     value.executionBackend !== RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND ||
-    value.providerLifecycleHash !== providerLifecycleHash ||
+    value.provider_lifecycle_hash !== model_mount_provider_lifecycle_hash ||
     !value.instance_lifecycle_hash
   ) {
     const error = new Error("Model instance lifecycle transition requires a Rust model_mount instance lifecycle result.");

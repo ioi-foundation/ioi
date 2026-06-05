@@ -136,7 +136,7 @@ function planStateInstanceLifecycle(state, instance, { action, targetStatus, evi
     provider,
     backendId: instance.backendId ?? endpoint.backendId ?? null,
     driver: instance.driver ?? provider.driver ?? "fixture",
-    providerLifecycleHash: instance.providerLifecycleHash,
+    model_mount_provider_lifecycle_hash: instance.model_mount_provider_lifecycle_hash,
     evidenceRefs: [
       ...(Array.isArray(instance.providerEvidenceRefs) ? instance.providerEvidenceRefs : []),
       ...(Array.isArray(instance.model_mount_instance_lifecycle_evidence_refs)
@@ -171,7 +171,7 @@ function lifecycleReceiptFields(state, instance, instanceLifecycle) {
   if (!instanceLifecycle) return {};
   return {
     providerKind: providerForInstance(state, instance)?.kind ?? null,
-    providerLifecycleHash: instance.providerLifecycleHash ?? null,
+    model_mount_provider_lifecycle_hash: instance.model_mount_provider_lifecycle_hash ?? null,
     ...modelMountInstanceLifecycleFields(instanceLifecycle),
   };
 }

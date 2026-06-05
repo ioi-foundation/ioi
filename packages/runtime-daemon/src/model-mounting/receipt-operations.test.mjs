@@ -81,6 +81,7 @@ test("model instance lifecycle receipts require Rust binding for migrated local 
     }),
     (error) =>
       error.code === "model_mount_instance_lifecycle_receipt_direct_write_forbidden" &&
+      error.details.missing.includes("instance.local:model_mount_provider_lifecycle_hash") &&
       error.details.missing.includes("instance.local:model_mount_instance_lifecycle_hash") &&
       error.details.missing.includes("instance.local:model_mount_instance_lifecycle_evidence_refs"),
   );
@@ -89,7 +90,7 @@ test("model instance lifecycle receipts require Rust binding for migrated local 
     instanceId: "instance.local",
     modelId: "model.local",
     providerId: "provider.local",
-    providerLifecycleHash: "sha256:provider-lifecycle",
+    model_mount_provider_lifecycle_hash: "sha256:provider-lifecycle",
     model_mount_instance_lifecycle_action: "load",
     model_mount_instance_lifecycle_status: "loaded",
     model_mount_instance_lifecycle_hash: "sha256:instance-lifecycle",

@@ -798,7 +798,6 @@ fn plan_model_mount_instance_lifecycle(
         "backend_id": backend_id,
         "driver": driver,
         "execution_backend": execution_backend,
-        "providerLifecycleHash": provider_lifecycle_hash.clone(),
         "provider_lifecycle_hash": provider_lifecycle_hash,
         "instance_lifecycle_hash": instance_lifecycle_hash,
         "evidence_refs": evidence_refs,
@@ -4400,9 +4399,10 @@ mod tests {
         );
         assert_eq!(response["driver"], "native_local");
         assert_eq!(
-            response["providerLifecycleHash"],
+            response["provider_lifecycle_hash"],
             "sha256:provider-lifecycle"
         );
+        assert!(response.get("providerLifecycleHash").is_none());
         assert!(response["instance_lifecycle_hash"]
             .as_str()
             .expect("instance lifecycle hash")

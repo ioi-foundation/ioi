@@ -263,7 +263,7 @@ test("model lifecycle receipt writes allow Rust-bound local and remote provider 
   const { appended, stateDir, store } = testStore();
   const localReceipt = modelLifecycleReceipt({
     id: "receipt.local-bound",
-    providerLifecycleHash: "sha256:provider-lifecycle",
+    model_mount_provider_lifecycle_hash: "sha256:provider-lifecycle",
     model_mount_instance_lifecycle_action: "load",
     model_mount_instance_lifecycle_status: "loaded",
     model_mount_instance_lifecycle_hash: "sha256:instance-lifecycle",

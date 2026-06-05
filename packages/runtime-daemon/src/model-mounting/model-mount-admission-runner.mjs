@@ -357,8 +357,7 @@ function normalizeInstanceLifecycleBridgeResult(value = {}) {
     backendId: result.backendId ?? result.backend_id ?? record.backend_id ?? null,
     driver: result.driver ?? record.driver ?? null,
     executionBackend: result.execution_backend ?? record.execution_backend ?? null,
-    providerLifecycleHash:
-      result.providerLifecycleHash ?? result.provider_lifecycle_hash ?? record.provider_lifecycle_hash ?? null,
+    provider_lifecycle_hash: result.provider_lifecycle_hash ?? record.provider_lifecycle_hash ?? null,
     instance_lifecycle_hash: result.instance_lifecycle_hash ?? record.instance_lifecycle_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
     backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],

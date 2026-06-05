@@ -598,7 +598,7 @@ test("Rust model_mount admission runner sends model instance lifecycle bridge re
             backendId: "backend.autopilot.native-local.fixture",
             driver: "native_local",
             execution_backend: "rust_model_mount_instance_lifecycle",
-            providerLifecycleHash: "sha256:provider-lifecycle",
+            provider_lifecycle_hash: "sha256:provider-lifecycle",
             instance_lifecycle_hash: "sha256:instance-lifecycle",
             evidence_refs: ["rust_model_mount_instance_lifecycle"],
           },
@@ -618,7 +618,8 @@ test("Rust model_mount admission runner sends model instance lifecycle bridge re
   assert.equal(result.status, "loaded");
   assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
   assert.equal(result.executionBackend, "rust_model_mount_instance_lifecycle");
-  assert.equal(result.providerLifecycleHash, "sha256:provider-lifecycle");
+  assert.equal(result.provider_lifecycle_hash, "sha256:provider-lifecycle");
+  assert.equal(result.providerLifecycleHash, undefined);
   assert.equal(result.instance_lifecycle_hash, "sha256:instance-lifecycle");
 });
 

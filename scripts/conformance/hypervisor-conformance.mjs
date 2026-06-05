@@ -861,6 +861,10 @@ function runBridge() {
       /planInstanceLifecycle/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_instance_lifecycle_command/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND/.test(modelMountAdmissionRunner) &&
+      /provider_lifecycle_hash/.test(modelMountAdmissionRunner) &&
+      !/providerLifecycleHash/.test(modelMountAdmissionRunner) &&
+      /provider_lifecycle_hash/.test(bridgeModule) &&
+      /response\.get\("providerLifecycleHash"\)\.is_none/.test(bridgeModule) &&
       /planModelMountInstanceLifecycle/.test(modelMountingState) &&
       /planModelMountInstanceLifecycleForMigratedProvider/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
@@ -877,11 +881,29 @@ function runBridge() {
       /model_mount_instance_lifecycle_action/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
-      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
+      /model_mount_provider_lifecycle_hash/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+      ) &&
+      !/providerLifecycleHash/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+      ) &&
+      /model_mount_provider_lifecycle_hash/.test(
         read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs"),
+      ) &&
+      !/providerLifecycleHash/.test(
+        read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs"),
+      ) &&
+      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
+        read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs"),
+      ) &&
+      /model_mount_provider_lifecycle_hash/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
+      ) &&
+      !/providerLifecycleHash/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
       ) &&
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
@@ -1884,8 +1906,17 @@ function runReceipts() {
       /model_mount_instance_lifecycle_status/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
+      /model_mount_provider_lifecycle_hash/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+      ) &&
+      !/providerLifecycleHash/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      /model_mount_provider_lifecycle_hash/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
       /model instance map writes require Rust lifecycle binding/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
@@ -1920,8 +1951,17 @@ function runReceipts() {
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
       ) &&
+      !/providerLifecycleHash/.test(
+        read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
+      ) &&
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
         modelMountReceiptWriteGuards,
+      ) &&
+      /model_mount_provider_lifecycle_hash/.test(
+        read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
+      ) &&
+      /providerLifecycleHash/.test(
+        read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
       ) &&
       /providerKind/.test(read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")) &&
       /providerKind/.test(read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")) &&

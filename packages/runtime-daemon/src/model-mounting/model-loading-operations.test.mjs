@@ -92,7 +92,7 @@ function fakeState() {
         backendId: request.backend_ref,
         driver: request.driver,
         executionBackend: request.execution_backend,
-        providerLifecycleHash: request.provider_lifecycle_hash,
+        provider_lifecycle_hash: request.provider_lifecycle_hash,
         instance_lifecycle_hash: `sha256:${request.action}:${request.instance_ref}`,
         evidence_refs: [
           "rust_model_mount_instance_lifecycle",
@@ -215,7 +215,7 @@ test("loadModel persists loaded instance, supersedes previous instances, and rec
   assert.equal(instance.runtimeEngineId, "engine.native");
   assert.equal(instance.backendProcessId, "process.1");
   assert.deepEqual(instance.providerEvidenceRefs, ["driver.load"]);
-  assert.equal(instance.providerLifecycleHash, "sha256:provider-load");
+  assert.equal(instance.model_mount_provider_lifecycle_hash, "sha256:provider-load");
   assert.equal(instance.model_mount_instance_lifecycle_action, "load");
   assert.equal(instance.model_mount_instance_lifecycle_status, "loaded");
   assert.equal(instance.model_mount_instance_lifecycle_hash, "sha256:load:instance.explicit");
@@ -226,7 +226,7 @@ test("loadModel persists loaded instance, supersedes previous instances, and rec
   assert.equal(state.receipts.at(-1).kind, "model_load");
   assert.equal(state.receipts.at(-1).details.commandArgsHash, "args.hash");
   assert.equal(state.receipts.at(-1).details.providerKind, "ioi_native_local");
-  assert.equal(state.receipts.at(-1).details.providerLifecycleHash, "sha256:provider-load");
+  assert.equal(state.receipts.at(-1).details.model_mount_provider_lifecycle_hash, "sha256:provider-load");
   assert.equal(state.receipts.at(-1).details.model_mount_instance_lifecycle_action, "load");
   assert.equal(state.receipts.at(-1).details.model_mount_instance_lifecycle_status, "loaded");
   assert.equal(state.receipts.at(-1).details.model_mount_instance_lifecycle_hash, "sha256:load:instance.explicit");
@@ -269,7 +269,7 @@ test("unloadModel updates loaded instance and records provider evidence", async 
   assert.equal(result.status, "unloaded");
   assert.equal(result.unloadedAt, state.now);
   assert.deepEqual(result.providerEvidenceRefs, ["driver.unload"]);
-  assert.equal(result.providerLifecycleHash, "sha256:provider-unload");
+  assert.equal(result.model_mount_provider_lifecycle_hash, "sha256:provider-unload");
   assert.equal(result.model_mount_instance_lifecycle_action, "unload");
   assert.equal(result.model_mount_instance_lifecycle_status, "unloaded");
   assert.equal(result.model_mount_instance_lifecycle_hash, "sha256:unload:instance.loaded");
@@ -278,7 +278,7 @@ test("unloadModel updates loaded instance and records provider evidence", async 
   assert.equal(state.receipts.at(-1).kind, "model_unload");
   assert.equal(state.receipts.at(-1).details.backendProcess.id, "process.1");
   assert.equal(state.receipts.at(-1).details.providerKind, "ioi_native_local");
-  assert.equal(state.receipts.at(-1).details.providerLifecycleHash, "sha256:provider-unload");
+  assert.equal(state.receipts.at(-1).details.model_mount_provider_lifecycle_hash, "sha256:provider-unload");
   assert.equal(state.receipts.at(-1).details.model_mount_instance_lifecycle_action, "unload");
   assert.equal(state.receipts.at(-1).details.model_mount_instance_lifecycle_status, "unloaded");
   assert.equal(state.receipts.at(-1).details.model_mount_instance_lifecycle_hash, "sha256:unload:instance.loaded");
