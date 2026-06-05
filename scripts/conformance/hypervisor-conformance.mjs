@@ -3369,6 +3369,23 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-usage-telemetry-input-aliases-retired",
+    !/(?:run|explicit|providerUsage|route|agent|record|usage|thread|subagent)(?:\?\.|\.)(?:usageTelemetry|runtimeUsage|providerUsage|modelRouteDecision|modelRouteId|routeId|selectedModel|providerId|inputTokens|outputTokens|promptTokens|completionTokens|reasoningTokens|cachedInputTokens|toolResultTokens|compactedTokens|totalTokens|estimatedCostUsd|estimatedCostMicros|costEstimateUsd|contextWindowTokens|modelContextWindowTokens|maxContextTokens|contextUsedTokens|contextPressure|contextPressureStatus|latencyMs|sourceCounts|sourceRefs|parentThreadId|parentTurnId|subagentId|runId|agentId|threadId|turnId)/.test(
+      usageTelemetry,
+    ) &&
+      /retiredUsageTelemetryInputAliasKeys/.test(usageTelemetryTest) &&
+      /runtime run usage telemetry ignores retired input aliases/.test(usageTelemetryTest) &&
+      /runtime thread usage telemetry ignores retired aggregate and subagent aliases/.test(
+        usageTelemetryTest,
+      ),
+    [
+      "packages/runtime-daemon/src/usage-telemetry.mjs",
+      "packages/runtime-daemon/src/usage-telemetry.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime usage telemetry producers must ignore retired camelCase input data aliases",
+  );
+  assertCheck(
+    result,
     "agent-sdk-runtime-event-dead-mock-helpers-retired",
     /runtimeThreadEventFromEnvelope/.test(agentSdkRuntimeEvents) &&
       !/mockRuntime(?:CursorSeq|EnvelopeForSdkEvent|EventEnvelope)|runtimePayloadStringRecord|runtimeEventKindForSdkMessage|runtimeEventStatusForSdkMessage|componentKindForSdkMessage|workflowNodeIdForSdkMessage|sourceEventKindForSdkMessage|payloadSchemaVersionForSdkMessage|turnIdForRun|eventStreamIdForThread|runtimeTurnStatusForRun|\(event as \{ id\?: string \}\)\.id/.test(

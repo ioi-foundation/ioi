@@ -49,6 +49,45 @@ const retiredUsageTelemetryListAliasKeys = [
   "generatedAt",
 ];
 
+const retiredUsageTelemetryInputAliasKeys = [
+  "usageTelemetry",
+  "runtimeUsage",
+  "providerUsage",
+  "modelRouteDecision",
+  "modelRouteId",
+  "routeId",
+  "selectedModel",
+  "providerId",
+  "inputTokens",
+  "outputTokens",
+  "promptTokens",
+  "completionTokens",
+  "reasoningTokens",
+  "cachedInputTokens",
+  "toolResultTokens",
+  "compactedTokens",
+  "totalTokens",
+  "estimatedCostUsd",
+  "estimatedCostMicros",
+  "costEstimateUsd",
+  "contextWindowTokens",
+  "modelContextWindowTokens",
+  "maxContextTokens",
+  "contextUsedTokens",
+  "contextPressure",
+  "contextPressureStatus",
+  "latencyMs",
+  "sourceCounts",
+  "sourceRefs",
+  "parentThreadId",
+  "parentTurnId",
+  "subagentId",
+  "runId",
+  "agentId",
+  "threadId",
+  "turnId",
+];
+
 function assertMissingKeys(record, keys) {
   for (const key of keys) {
     assert.equal(Object.hasOwn(record, key), false, `retired alias key ${key} must be absent`);
@@ -61,8 +100,8 @@ test("runtime run usage telemetry emits canonical fields only", () => {
     agent: { id: "agent-one" },
     run: {
       id: "run-one",
-      agentId: "agent-one",
-      turnId: "turn-one",
+      agent_id: "agent-one",
+      turn_id: "turn-one",
       objective: "hello",
       result: "done",
       usage_telemetry: {
@@ -103,6 +142,70 @@ test("runtime run usage telemetry emits canonical fields only", () => {
   assert.equal(summary.context_pressure_status, "elevated");
   assert.deepEqual(summary.source_counts, { runs: 1, subagents: 0 });
   assertMissingKeys(summary, retiredUsageTelemetrySummaryAliasKeys);
+});
+
+test("runtime run usage telemetry ignores retired input aliases", () => {
+  const usage = runtimeUsageTelemetryForRun({
+    run: {
+      runId: "legacy-run",
+      agentId: "legacy-agent",
+      threadId: "legacy-thread",
+      turnId: "legacy-turn",
+      usageTelemetry: {
+        inputTokens: 30,
+        outputTokens: 70,
+        totalTokens: 100,
+        estimatedCostUsd: 0.0123456,
+        contextWindowTokens: 200,
+        contextUsedTokens: 160,
+        latencyMs: 42,
+        provider: "legacy-provider",
+        model: "legacy-model",
+        routeId: "route.legacy",
+      },
+      providerUsage: {
+        totalTokens: 500,
+      },
+      modelRouteDecision: {
+        routeId: "route.legacy-decision",
+        selectedModel: "legacy-route-model",
+        providerId: "legacy-route-provider",
+        contextWindowTokens: 99,
+      },
+      trace: {
+        usageTelemetry: {
+          totalTokens: 700,
+        },
+        runtimeUsage: {
+          totalTokens: 800,
+        },
+        providerUsage: {
+          totalTokens: 900,
+        },
+        modelRouteDecision: {
+          routeId: "route.legacy-trace",
+        },
+      },
+    },
+  });
+
+  assert.equal(usage.thread_id, null);
+  assert.equal(usage.turn_id, null);
+  assert.equal(usage.run_id, null);
+  assert.equal(usage.agent_id, null);
+  assert.equal(usage.provider, "local");
+  assert.equal(usage.model, "unknown");
+  assert.equal(usage.route_id, null);
+  assert.equal(usage.total_tokens, 0);
+  assert.equal(usage.estimated_cost_usd, 0);
+  assert.equal(usage.context_window_tokens, 128000);
+  assert.equal(usage.context_used_tokens, 0);
+  assert.equal(usage.context_pressure, 0);
+  assert.equal(usage.latency_ms, 0);
+  assert.equal(usage.estimated, true);
+  assert.deepEqual(usage.source_refs, []);
+  assertMissingKeys(usage, retiredUsageTelemetryInputAliasKeys);
+  assertMissingKeys(usage, retiredUsageTelemetryOutputAliasKeys);
 });
 
 test("runtime thread usage telemetry aggregate emits canonical fields only", () => {
@@ -148,6 +251,60 @@ test("runtime thread usage telemetry aggregate emits canonical fields only", () 
   assert.deepEqual(usage.source_counts, { runs: 1, subagents: 1 });
   assert.deepEqual(usage.source_refs, ["run-one", "subagent-one", "subagent-run"]);
   assertMissingKeys(usage, retiredUsageTelemetryOutputAliasKeys);
+});
+
+test("runtime thread usage telemetry ignores retired aggregate and subagent aliases", () => {
+  const usage = runtimeUsageTelemetryForThread({
+    thread: { threadId: "legacy-thread", agentId: "legacy-agent" },
+    runs: [
+      {
+        runId: "legacy-run",
+        agentId: "legacy-agent",
+        threadId: "legacy-thread",
+        usageTelemetry: {
+          totalTokens: 25,
+          estimatedCostUsd: 0.000025,
+          contextWindowTokens: 100,
+          contextUsedTokens: 25,
+        },
+      },
+    ],
+    subagents: [
+      {
+        subagentId: "legacy-subagent",
+        runId: "legacy-subagent-run",
+        parentThreadId: "legacy-thread",
+        usageTelemetry: {
+          cumulativeTotalTokens: 40,
+          cumulativeCostEstimateUsd: 0.00004,
+        },
+      },
+    ],
+  });
+
+  assert.equal(usage.thread_id, null);
+  assert.equal(usage.agent_id, null);
+  assert.equal(usage.total_tokens, 0);
+  assert.equal(usage.estimated_cost_usd, 0);
+  assert.deepEqual(usage.source_counts, { runs: 1, subagents: 0 });
+  assert.deepEqual(usage.source_refs, []);
+  assertMissingKeys(usage, retiredUsageTelemetryInputAliasKeys);
+  assertMissingKeys(usage, retiredUsageTelemetryOutputAliasKeys);
+
+  const summary = runtimeUsageTelemetrySummary({
+    totalTokens: 100,
+    estimatedCostUsd: 0.5,
+    contextPressure: 0.9,
+    contextPressureStatus: "high",
+    sourceCounts: { runs: 1, subagents: 1 },
+  });
+
+  assert.equal(summary.total_tokens, 0);
+  assert.equal(summary.estimated_cost_usd, 0);
+  assert.equal(summary.context_pressure, 0);
+  assert.equal(summary.context_pressure_status, "nominal");
+  assert.equal(summary.source_counts, null);
+  assertMissingKeys(summary, retiredUsageTelemetrySummaryAliasKeys);
 });
 
 test("runtime usage telemetry list envelope emits canonical fields only", () => {
