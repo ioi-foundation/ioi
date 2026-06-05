@@ -27,7 +27,26 @@ const CANONICAL_ROUTE_SELECTION_REQUEST_FIELDS = [
   "node_plaintext_allowed",
 ];
 
+const RETIRED_ROUTE_UPSERT_REQUEST_ALIASES = [
+  "maxCostUsd",
+  "maxLatencyMs",
+  "providerEligibility",
+  "deniedProviders",
+  "lastSelectedModel",
+  "lastReceiptId",
+];
+
+const CANONICAL_ROUTE_UPSERT_REQUEST_FIELDS = [
+  "max_cost_usd",
+  "max_latency_ms",
+  "provider_eligibility",
+  "denied_providers",
+  "last_selected_model",
+  "last_receipt_id",
+];
+
 export function upsertRouteRecord(body = {}, { normalizeScopes, safeId } = {}) {
+  assertCanonicalRouteUpsertRequestBody(body);
   const id = body.id ?? `route.${safeId(body.role ?? "custom")}`;
   return {
     id,
@@ -35,14 +54,14 @@ export function upsertRouteRecord(body = {}, { normalizeScopes, safeId } = {}) {
     description: body.description ?? "Operator-defined model route.",
     privacy: body.privacy ?? "local_or_enterprise",
     quality: body.quality ?? "adaptive",
-    maxCostUsd: Number(body.max_cost_usd ?? body.maxCostUsd ?? 0.25),
-    maxLatencyMs: Number(body.max_latency_ms ?? body.maxLatencyMs ?? 30000),
-    providerEligibility: normalizeScopes(body.provider_eligibility ?? body.providerEligibility, []),
+    maxCostUsd: Number(body.max_cost_usd ?? 0.25),
+    maxLatencyMs: Number(body.max_latency_ms ?? 30000),
+    providerEligibility: normalizeScopes(body.provider_eligibility, []),
     fallback: normalizeScopes(body.fallback, []),
-    deniedProviders: normalizeScopes(body.denied_providers ?? body.deniedProviders, []),
+    deniedProviders: normalizeScopes(body.denied_providers, []),
     status: body.status ?? "active",
-    lastSelectedModel: body.last_selected_model ?? body.lastSelectedModel ?? null,
-    lastReceiptId: body.last_receipt_id ?? body.lastReceiptId ?? null,
+    lastSelectedModel: body.last_selected_model ?? null,
+    lastReceiptId: body.last_receipt_id ?? null,
   };
 }
 
@@ -406,6 +425,23 @@ function assertCanonicalRouteSelectionRequestBody(body = {}) {
   error.details = {
     retired_aliases: presentAliases,
     canonical_fields: CANONICAL_ROUTE_SELECTION_REQUEST_FIELDS,
+  };
+  throw error;
+}
+
+function assertCanonicalRouteUpsertRequestBody(body = {}) {
+  const presentAliases = RETIRED_ROUTE_UPSERT_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (presentAliases.length === 0) return;
+  const error = new Error(
+    "Model route upsert request aliases are retired; use canonical snake_case route fields.",
+  );
+  error.status = 400;
+  error.code = "model_mount_route_upsert_request_aliases_retired";
+  error.details = {
+    retired_aliases: presentAliases,
+    canonical_fields: CANONICAL_ROUTE_UPSERT_REQUEST_FIELDS,
   };
   throw error;
 }

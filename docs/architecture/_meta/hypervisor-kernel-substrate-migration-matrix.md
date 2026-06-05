@@ -11870,6 +11870,14 @@ before endpoint or instance lookup, while canonical `endpoint_id`, `model_id`,
 `load_policy`, `load_options`, `workflow_scope`, `agent_scope`, and
 `instance_id` remain accepted.
 
+Slice 306 retires model route upsert request aliases: `upsertRouteRecord`
+now fails closed on retired `maxCostUsd`, `maxLatencyMs`,
+`providerEligibility`, `deniedProviders`, `lastSelectedModel`, and
+`lastReceiptId` before normalization or route state writes, while canonical
+`max_cost_usd`, `max_latency_ms`, `provider_eligibility`,
+`denied_providers`, `last_selected_model`, and `last_receipt_id` remain the
+accepted request boundary and the internal route record shape remains stable.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

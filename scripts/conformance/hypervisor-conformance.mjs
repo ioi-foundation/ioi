@@ -1389,6 +1389,34 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-route-upsert-request-aliases-retired",
+    /RETIRED_ROUTE_UPSERT_REQUEST_ALIASES/.test(modelRoutes) &&
+      /model_mount_route_upsert_request_aliases_retired/.test(modelRoutes) &&
+      /assertCanonicalRouteUpsertRequestBody\(body\);/.test(modelRoutes) &&
+      /maxCostUsd:\s*Number\(body\.max_cost_usd \?\? 0\.25\)/.test(modelRoutes) &&
+      /maxLatencyMs:\s*Number\(body\.max_latency_ms \?\? 30000\)/.test(modelRoutes) &&
+      /providerEligibility:\s*normalizeScopes\(body\.provider_eligibility,\s*\[\]\)/.test(modelRoutes) &&
+      /deniedProviders:\s*normalizeScopes\(body\.denied_providers,\s*\[\]\)/.test(modelRoutes) &&
+      /lastSelectedModel:\s*body\.last_selected_model \?\? null/.test(modelRoutes) &&
+      /lastReceiptId:\s*body\.last_receipt_id \?\? null/.test(modelRoutes) &&
+      !/body\.(?:maxCostUsd|maxLatencyMs|providerEligibility|deniedProviders|lastSelectedModel|lastReceiptId)\b/.test(
+        modelRoutes,
+      ) &&
+      /route upsert rejects retired request aliases before state write/.test(modelRoutesTest) &&
+      /retired_aliases,\s*\[\s*"maxCostUsd",\s*"maxLatencyMs",\s*"providerEligibility",\s*"deniedProviders",\s*"lastSelectedModel",\s*"lastReceiptId",\s*\]/.test(
+        modelRoutesTest,
+      ) &&
+      /canonical_fields,\s*\[\s*"max_cost_usd",\s*"max_latency_ms",\s*"provider_eligibility",\s*"denied_providers",\s*"last_selected_model",\s*"last_receipt_id",\s*\]/.test(
+        modelRoutesTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/routes.mjs",
+      "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
+    ],
+    "Phase 3/10 is pending: model route upsert request bodies must fail closed on retired camelCase policy/status aliases before route state writes",
+  );
+  assertCheck(
+    result,
     "model-mount-native-response-route-decision-aliases-retired",
     /model_route_decision:\s*\{\s*route_id:\s*"route\.local-first",\s*selected_model:\s*"model\.local"\s*\}/.test(
       modelWorkflowNodeTest,

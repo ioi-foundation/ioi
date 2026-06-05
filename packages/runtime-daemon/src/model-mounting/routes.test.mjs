@@ -81,6 +81,63 @@ test("model mounting route helpers normalize route records", () => {
   });
 });
 
+test("model mounting route upsert rejects retired request aliases before state write", () => {
+  const calls = [];
+  const state = {
+    routes: new Map(),
+    writeMap(...args) {
+      calls.push(["writeMap", ...args]);
+    },
+  };
+  const error = captureError(() =>
+    upsertRoute(
+      state,
+      {
+        role: "Research Route",
+        maxCostUsd: "0.5",
+        maxLatencyMs: "1500",
+        providerEligibility: ["local_folder"],
+        deniedProviders: ["openai"],
+        lastSelectedModel: "local:auto",
+        lastReceiptId: "receipt-1",
+      },
+      {
+        normalizeScopes(...args) {
+          calls.push(["normalizeScopes", ...args]);
+          return [];
+        },
+        safeId(...args) {
+          calls.push(["safeId", ...args]);
+          return "route";
+        },
+      },
+    ),
+  );
+
+  assert.equal(error.status, 400);
+  assert.equal(error.code, "model_mount_route_upsert_request_aliases_retired");
+  assert.deepEqual(error.details.retired_aliases, [
+    "maxCostUsd",
+    "maxLatencyMs",
+    "providerEligibility",
+    "deniedProviders",
+    "lastSelectedModel",
+    "lastReceiptId",
+  ]);
+  assert.deepEqual(error.details.canonical_fields, [
+    "max_cost_usd",
+    "max_latency_ms",
+    "provider_eligibility",
+    "denied_providers",
+    "last_selected_model",
+    "last_receipt_id",
+  ]);
+  assert.equal(Object.hasOwn(error.details, "maxCostUsd"), false);
+  assert.equal(Object.hasOwn(error.details, "providerEligibility"), false);
+  assert.deepEqual(calls, []);
+  assert.equal(state.routes.size, 0);
+});
+
 test("model mounting route helpers order explicit model endpoints by route fallback", () => {
   const endpoints = new Map([
     ["endpoint.b", { id: "endpoint.b", modelId: "model.local", status: "mounted" }],
