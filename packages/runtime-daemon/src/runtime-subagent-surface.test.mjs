@@ -1156,7 +1156,7 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
     source: "agent_studio",
     prompt: "Try again",
     role: "Worker",
-    modelRouteId: "route.resume",
+    model_route_id: "route.resume",
     actor: "operator_1",
     workflow_graph_id: "graph_resume",
     workflow_node_id: "node_resume",
@@ -1207,6 +1207,51 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
   assertCanonicalSubagentStoreWrites(store);
   assert.ok(saved.evidence_refs.includes("runtime.subagent.resume"));
   assert.ok(saved.evidence_refs.includes("run_created_3"));
+});
+
+test("subagent resume ignores retired camelCase request aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T13:12:00.000Z",
+    nowMs: () => 1780588320000,
+  });
+  store.surface = surface;
+  store.subagents.set("subagent_1", {
+    ...store.subagents.get("subagent_1"),
+    lifecycle_status: "canceled",
+    model_route_id: "route.resume.record",
+    restart_count: 1,
+  });
+
+  const result = surface.resumeSubagent(store, "thread_1", "subagent_1", {
+    source: "agent_studio",
+    resume_prompt: "Canonical resume prompt",
+    resumePrompt: "Alias resume prompt",
+    role: "Worker",
+    subagentRole: "AliasRole",
+    model_route_id: "route.resume.canonical",
+    modelRouteId: "route.resume.alias",
+    subagentModelRoute: "route.resume.subagent.alias",
+    workflow_graph_id: "graph_resume_canonical",
+    workflow_node_id: "node_resume_canonical",
+    workflowGraphId: "graph_resume_alias",
+    workflowNodeId: "node_resume_alias",
+  });
+  const saved = store.subagents.get("subagent_1");
+  const createdRun = store.runs.get("run_created_3");
+
+  assert.equal(result.resume.prompt, "Canonical resume prompt");
+  assert.equal(result.resume.role, "worker");
+  assert.equal(result.resume.model_route_id, "route.resume.canonical");
+  assert.equal(result.resume.workflow_graph_id, "graph_resume_canonical");
+  assert.equal(result.resume.workflow_node_id, "node_resume_canonical");
+  assert.equal(result.event.workflow_graph_id, "graph_resume_canonical");
+  assert.equal(result.event.workflow_node_id, "node_resume_canonical");
+  assert.equal(createdRun.request.prompt, "Canonical resume prompt");
+  assert.equal(createdRun.request.options.receiver, "worker");
+  assert.equal(createdRun.request.options.model.routeId, "route.resume.canonical");
+  assert.equal(saved.resume_history[0].prompt, "Canonical resume prompt");
+  assertNoOwnKeys(result.resume, retiredSubagentNestedResumeAliasKeys);
 });
 
 test("subagent resume ignores retired camelCase record aliases", () => {

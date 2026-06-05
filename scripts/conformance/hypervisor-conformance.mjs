@@ -3362,6 +3362,8 @@ function runCompositor() {
     /request\.(?:subagentPrompt|subagentRole|maxConcurrency|subagentMaxConcurrency|modelRouteId|subagentModelRoute|outputContract|subagentOutputContract|workflowGraphId|workflowNodeId|parentTurnId|turnId|contextPressureAction|contextPressure|pressureStatus|alertId|sourceEventId|receiptRefs|policyDecisionRefs|toolPack|subagentToolPack|forkContext|mergePolicy|cancellationInheritance)\b/;
   const runtimeSubagentSendInputRequestAliasReadPattern =
     /request\.(?:subagentInput|workflowGraphId|workflowNodeId)\b/;
+  const runtimeSubagentResumeRequestAliasReadPattern =
+    /request\.(?:subagentRole|modelRouteId|subagentModelRoute|resumePrompt|workflowGraphId|workflowNodeId)\b/;
   const runtimeSubagentProjectionBlock =
     runtimeSubagentSurface.match(
       /subagentProjection\(record = \{\}\) \{[\s\S]*?\n    \},\n    appendThreadSubagentControlEvent/,
@@ -4252,6 +4254,30 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent resume lifecycle must ignore retired camelCase persisted record aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-resume-request-aliases-retired",
+    runtimeSubagentResumeBlock.length > 0 &&
+      !runtimeSubagentResumeRequestAliasReadPattern.test(
+        runtimeSubagentResumeBlock,
+      ) &&
+      /subagent resume ignores retired camelCase request aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /resumePrompt: "Alias resume prompt"/.test(runtimeSubagentSurfaceTest) &&
+      /subagentRole: "AliasRole"/.test(runtimeSubagentSurfaceTest) &&
+      /modelRouteId: "route\.resume\.alias"/.test(runtimeSubagentSurfaceTest) &&
+      /subagentModelRoute: "route\.resume\.subagent\.alias"/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /workflowGraphId: "graph_resume_alias"/.test(runtimeSubagentSurfaceTest) &&
+      /workflowNodeId: "node_resume_alias"/.test(runtimeSubagentSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent resume lifecycle must ignore retired camelCase request aliases",
   );
   assertCheck(
     result,

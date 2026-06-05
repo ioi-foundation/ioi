@@ -575,10 +575,10 @@ export function createRuntimeSubagentSurface({
       const previousStatus = record.lifecycle_status ?? record.status ?? null;
       const childAgentId = record.agent_id ?? subagentId;
       const role = normalizeSubagentRoleDep(
-        request.role ?? request.subagentRole ?? request.subagent_role ?? record.role,
+        request.role ?? request.subagent_role ?? record.role,
       );
       const modelRouteId =
-        optionalStringDep(request.model_route_id ?? request.modelRouteId ?? request.subagentModelRoute) ??
+        optionalStringDep(request.model_route_id) ??
         record.model_route_id ??
         "route.local-first";
       const prompt =
@@ -586,8 +586,7 @@ export function createRuntimeSubagentSurface({
           request.prompt ??
             request.message ??
             request.input ??
-            request.resume_prompt ??
-            request.resumePrompt,
+            request.resume_prompt,
         ) ?? `Resume subagent ${role}.`;
       const resumeId = `subagent_resume_${doctorHash(`${threadId}:${subagentId}:${nowMs()}`).slice(0, 12)}`;
       const run = store.createRun(childAgentId, {
@@ -632,8 +631,8 @@ export function createRuntimeSubagentSurface({
         created_at: now,
         actor: optionalStringDep(request.actor) ?? "operator",
         source: operatorControlSourceDep(request.source),
-        workflow_graph_id: optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
-        workflow_node_id: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
+        workflow_graph_id: optionalStringDep(request.workflow_graph_id) ?? null,
+        workflow_node_id: optionalStringDep(request.workflow_node_id) ?? null,
       };
       const resumeHistory = [...normalizeArray(record.resume_history), resumeRecord];
       const cancellationHistory = [
