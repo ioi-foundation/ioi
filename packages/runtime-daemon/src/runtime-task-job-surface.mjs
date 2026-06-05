@@ -41,16 +41,17 @@ export function createRuntimeTaskJobSurface({
         .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
     },
     createTask(store, body = {}) {
-      const agentId = optionalStringDep(body.agentId ?? body.agent_id);
+      const agentId = optionalStringDep(body.agent_id);
+      const agentOptions = body.agent ?? body.agent_options ?? {};
       const agent = agentId
         ? store.getAgent(agentId)
         : store.createAgent({
-            ...(body.agent ?? body.agent_options ?? body.agentOptions ?? {}),
+            ...agentOptions,
             local: {
-              cwd: body.cwd ?? body.workspace ?? store.defaultCwd,
-              ...((body.agent ?? body.agent_options ?? body.agentOptions ?? {}).local ?? {}),
+              cwd: body.cwd ?? store.defaultCwd,
+              ...(agentOptions.local ?? {}),
             },
-            model: body.model ?? (body.agent ?? body.agent_options ?? body.agentOptions ?? {}).model,
+            model: body.model ?? agentOptions.model,
           });
       const options = body.options && typeof body.options === "object" ? body.options : {};
       const run = store.createRun(agent.id, {

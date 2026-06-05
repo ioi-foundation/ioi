@@ -92,19 +92,33 @@ test("runtime task job surface creates task with existing or synthesized agent",
 
   assert.equal(surface.createTask(store, { agent_id: "agent-one", objective: "Do it" }).taskId, "task-run-created");
   assert.equal(surface.createTask(store, {
-    workspace: "/workspace/custom",
+    cwd: "/workspace/custom",
     model: "route.local-first",
     goal: "Make it so",
     options: "ignored",
+  }).taskId, "task-run-created");
+  assert.equal(surface.createTask(store, {
+    agentId: "legacy-agent",
+    agentOptions: {
+      local: { cwd: "/workspace/legacy-options" },
+      model: "route.legacy-options",
+    },
+    workspace: "/workspace/legacy",
+    prompt: "Legacy aliases ignored",
   }).taskId, "task-run-created");
 
   assert.deepEqual(calls.filter((call) => call.name === "getAgent"), [
     { name: "getAgent", agentId: "agent-one" },
   ]);
-  assert.deepEqual(calls.find((call) => call.name === "createAgent").input, {
-    local: { cwd: "/workspace/custom" },
-    model: "route.local-first",
-  });
+  const createAgentCalls = calls.filter((call) => call.name === "createAgent");
+  assert.deepEqual(createAgentCalls.map((call) => call.input.local), [
+    { cwd: "/workspace/custom" },
+    { cwd: "/workspace/default" },
+  ]);
+  assert.deepEqual(createAgentCalls.map((call) => call.input.model), [
+    "route.local-first",
+    undefined,
+  ]);
   assert.deepEqual(calls.filter((call) => call.name === "createRun").map((call) => ({
     agentId: call.agentId,
     mode: call.input.mode,
@@ -113,6 +127,7 @@ test("runtime task job surface creates task with existing or synthesized agent",
   })), [
     { agentId: "agent-one", mode: "send", prompt: "Do it", options: {} },
     { agentId: "agent-created", mode: "send", prompt: "Make it so", options: {} },
+    { agentId: "agent-created", mode: "send", prompt: "Legacy aliases ignored", options: {} },
   ]);
 });
 

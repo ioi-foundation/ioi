@@ -3574,6 +3574,11 @@ function runCompositor() {
     "export interface RuntimeTaskListOptions",
     "export interface RuntimeTaskCreateOptions",
   );
+  const runtimeTaskSdkCreateOptionsBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeTaskCreateOptions",
+    "export interface RuntimeJobRecord",
+  );
   const runtimeJobSdkListOptionsBlock = blockBetween(
     agentSdkSubstrateClient,
     "export interface RuntimeJobListOptions",
@@ -3593,6 +3598,11 @@ function runCompositor() {
     runtimeTaskJobSurface,
     "listJobs(store, options = {})",
     "createTask(store",
+  );
+  const runtimeTaskJobCreateTaskBlock = blockBetween(
+    runtimeTaskJobSurface,
+    "createTask(store, body = {})",
+    "listTasks(store",
   );
   const runtimeTaskJobListTasksBlock = blockBetween(
     runtimeTaskJobSurface,
@@ -4894,6 +4904,35 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime task/job list request types, query helpers, and daemon list surfaces must not advertise or read retired agentId aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-task-create-request-aliases-retired",
+    runtimeTaskSdkCreateOptionsBlock.length > 0 &&
+      runtimeTaskJobCreateTaskBlock.length > 0 &&
+      /^\s*agent_id\?: string;/m.test(runtimeTaskSdkCreateOptionsBlock) &&
+      /^\s*agent_options\?: Record<string, unknown>;/m.test(
+        runtimeTaskSdkCreateOptionsBlock,
+      ) &&
+      /^\s*cwd\?: string;/m.test(runtimeTaskSdkCreateOptionsBlock) &&
+      /body\.agent_id/.test(runtimeTaskJobCreateTaskBlock) &&
+      /body\.agent_options/.test(runtimeTaskJobCreateTaskBlock) &&
+      /body\.cwd/.test(runtimeTaskJobCreateTaskBlock) &&
+      /legacy-agent/.test(runtimeTaskJobSurfaceTest) &&
+      /route\.legacy-options/.test(runtimeTaskJobSurfaceTest) &&
+      !/^\s*(?:agentId|agentOptions|workspace)\?:/m.test(
+        runtimeTaskSdkCreateOptionsBlock,
+      ) &&
+      !/^\s*\[key: string\]: unknown;/m.test(runtimeTaskSdkCreateOptionsBlock) &&
+      !/body\.(?:agentId|agentOptions|workspace)/.test(
+        runtimeTaskJobCreateTaskBlock,
+      ),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime task create request types and daemon create surfaces must not advertise or read retired identity/options/workspace aliases",
   );
   assertCheck(
     result,

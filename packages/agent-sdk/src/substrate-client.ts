@@ -280,7 +280,6 @@ export interface RuntimeTaskListOptions {
 }
 
 export interface RuntimeTaskCreateOptions {
-  agentId?: string;
   agent_id?: string;
   prompt?: string;
   objective?: string;
@@ -288,12 +287,9 @@ export interface RuntimeTaskCreateOptions {
   mode?: string;
   options?: Record<string, unknown>;
   agent?: Record<string, unknown>;
-  agentOptions?: Record<string, unknown>;
   agent_options?: Record<string, unknown>;
   model?: Record<string, unknown>;
   cwd?: string;
-  workspace?: string;
-  [key: string]: unknown;
 }
 
 export interface RuntimeJobRecord {
