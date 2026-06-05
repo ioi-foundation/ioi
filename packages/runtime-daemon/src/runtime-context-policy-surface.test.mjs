@@ -22,7 +22,7 @@ function harness({ contextResult = baseResult(), compactionResult = null } = {})
   const surface = createRuntimeContextPolicySurface({
     contextBudgetUsageTelemetryFromRequest(request) {
       calls.push({ name: "contextBudgetUsageTelemetryFromRequest", request });
-      return request.runtime_usage_meter ?? null;
+      return request.usage_telemetry ?? null;
     },
     evaluateContextBudgetPolicy(input) {
       calls.push({ name: "evaluateContextBudgetPolicy", input });
@@ -161,7 +161,7 @@ test("context policy surface can evaluate workflow-only budget without appending
   const { events, store, surface } = harness();
 
   const result = surface.evaluateContextBudget(store, {
-    request: { runtime_usage_meter: { totalTokens: 12 } },
+    request: { usage_telemetry: { total_tokens: 12 } },
   });
 
   assert.equal(result.status, "passed");

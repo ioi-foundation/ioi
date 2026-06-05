@@ -11,9 +11,19 @@ import {
   evaluateContextBudgetPolicy,
 } from "./context-budget-policy.mjs";
 
-test("context budget telemetry and thresholds normalize request aliases", () => {
-  const telemetry = { totalTokens: 12, estimatedCostUsd: 0.02, contextPressure: 0.3 };
-  assert.equal(contextBudgetUsageTelemetryFromRequest({ runtime_usage_meter: telemetry }), telemetry);
+const retiredContextBudgetUsageInputAliasKeys = [
+  "usageTelemetry",
+  "runtimeUsageMeter",
+  "runtime_usage_meter",
+  "budgetUsageTelemetry",
+  "runtimeTelemetrySummary",
+  "runtime_telemetry_summary",
+];
+
+test("context budget telemetry and thresholds normalize canonical request fields", () => {
+  const telemetry = { total_tokens: 12, estimated_cost_usd: 0.02, context_pressure: 0.3 };
+  assert.equal(contextBudgetUsageTelemetryFromRequest({ usage_telemetry: telemetry }), telemetry);
+  assert.equal(contextBudgetUsageTelemetryFromRequest({ usage: telemetry }), telemetry);
 
   assert.deepEqual(contextBudgetThresholds({
     thresholds: {
@@ -35,6 +45,22 @@ test("context budget telemetry and thresholds normalize request aliases", () => 
 
   assert.equal(contextBudgetNumber(undefined, "", -1, "42"), 42);
   assert.equal(contextBudgetNumber(undefined, "nope"), null);
+});
+
+test("context budget usage telemetry ignores retired request aliases", () => {
+  const telemetry = { total_tokens: 99, estimated_cost_usd: 0.2, context_pressure: 0.7 };
+  for (const key of retiredContextBudgetUsageInputAliasKeys) {
+    assert.equal(contextBudgetUsageTelemetryFromRequest({ [key]: telemetry }), null);
+    assert.equal(
+      codingToolBudgetPolicyForRequest({
+        request: {
+          [key]: telemetry,
+          max_total_tokens: 1,
+        },
+      }),
+      null,
+    );
+  }
 });
 
 test("context budget policy warns in simulate mode and blocks in block mode", () => {
@@ -80,9 +106,9 @@ test("context budget policy warns in simulate mode and blocks in block mode", ()
 test("usage summary aggregates workflow usage rows", () => {
   const summary = contextBudgetUsageSummary({
     scope: "workflow",
-    threadId: "thread-1",
+    thread_id: "thread-1",
     usage: [
-      { totalTokens: 10, estimatedCostUsd: 0.1, contextPressure: 0.2 },
+      { total_tokens: 10, estimated_cost_usd: 0.1, context_pressure: 0.2 },
       { total_tokens: 20, estimated_cost_usd: 0.05, context_pressure: 0.45 },
     ],
   });
@@ -94,14 +120,41 @@ test("usage summary aggregates workflow usage rows", () => {
   assert.equal(summary.thread_id, "thread-1");
 });
 
-test("coding tool budget policy reads tool pack aliases and annotates runtime context", () => {
+test("context budget usage summary ignores retired data aliases", () => {
+  const summary = contextBudgetUsageSummary({
+    scope: "workflow",
+    threadId: "retired-thread",
+    usage: [
+      { totalTokens: 10, estimatedCostUsd: 0.1, contextPressure: 0.2 },
+      { total_tokens: 20, estimated_cost_usd: 0.05, context_pressure: 0.45 },
+    ],
+  });
+
+  assert.equal(summary.total_tokens, 20);
+  assert.equal(summary.estimated_cost_usd, 0.05);
+  assert.equal(summary.context_pressure, 0.45);
+  assert.equal(summary.thread_id, null);
+
+  const direct = contextBudgetUsageSummary({
+    totalTokens: 99,
+    estimatedCostUsd: 0.4,
+    contextPressure: 0.8,
+    threadId: "retired-thread",
+  });
+  assert.equal(direct.total_tokens, 0);
+  assert.equal(direct.estimated_cost_usd, 0);
+  assert.equal(direct.context_pressure, 0);
+  assert.equal(direct.thread_id, null);
+});
+
+test("coding tool budget policy reads canonical tool pack fields and annotates runtime context", () => {
   const result = codingToolBudgetPolicyForRequest({
     request: {
       source: "react_flow",
       options: {
         toolPack: {
           coding: {
-            budgetUsageTelemetry: {
+            budget_usage_telemetry: {
               total_tokens: 90,
               estimated_cost_usd: 0.03,
               context_pressure: 0.2,
@@ -132,7 +185,7 @@ test("coding tool budget policy returns null without telemetry or limits", () =>
   assert.equal(codingToolBudgetPolicyForRequest({ request: {} }), null);
   assert.equal(codingToolBudgetPolicyForRequest({
     request: {
-      budgetUsageTelemetry: { total_tokens: 10 },
+      budget_usage_telemetry: { total_tokens: 10 },
     },
   }), null);
 });

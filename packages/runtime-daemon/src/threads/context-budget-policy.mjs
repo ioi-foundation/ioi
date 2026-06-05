@@ -10,10 +10,7 @@ import {
 
 export function contextBudgetUsageTelemetryFromRequest(request = {}) {
   return contextBudgetFirstObject(
-    request.usageTelemetry,
     request.usage_telemetry,
-    request.runtimeUsageMeter,
-    request.runtime_usage_meter,
     request.usage,
   );
 }
@@ -29,13 +26,8 @@ export function codingToolBudgetPolicyForRequest({
   const codingPack = codingToolBudgetConfigForRequest(request);
   const usageTelemetry = contextBudgetFirstObject(
     request.budget_usage_telemetry,
-    request.budgetUsageTelemetry,
     request.usage_telemetry,
-    request.usageTelemetry,
-    request.runtime_telemetry_summary,
-    request.runtimeTelemetrySummary,
     codingPack.budget_usage_telemetry,
-    codingPack.budgetUsageTelemetry,
   );
   if (!usageTelemetry) return null;
 
@@ -278,17 +270,17 @@ export function contextBudgetUsageSummary(usageTelemetry = {}) {
   if (Array.isArray(usageTelemetry?.usage)) {
     const usage = usageTelemetry.usage;
     const totalTokens = usage.reduce(
-      (total, entry) => total + (contextBudgetNumber(entry.total_tokens, entry.totalTokens) ?? 0),
+      (total, entry) => total + (contextBudgetNumber(entry.total_tokens) ?? 0),
       0,
     );
     const costUsd = usage.reduce(
       (total, entry) =>
-        total + (contextBudgetNumber(entry.estimated_cost_usd, entry.estimatedCostUsd) ?? 0),
+        total + (contextBudgetNumber(entry.estimated_cost_usd) ?? 0),
       0,
     );
     const pressure = usage.reduce(
       (max, entry) =>
-        Math.max(max, contextBudgetNumber(entry.context_pressure, entry.contextPressure) ?? 0),
+        Math.max(max, contextBudgetNumber(entry.context_pressure) ?? 0),
       0,
     );
     return {
@@ -299,16 +291,16 @@ export function contextBudgetUsageSummary(usageTelemetry = {}) {
         source_counts: { runs: usage.length, subagents: 0 },
       }),
       scope: usageTelemetry.scope ?? "workflow",
-      thread_id: usageTelemetry.thread_id ?? usageTelemetry.threadId ?? null,
-      run_id: usageTelemetry.run_id ?? usageTelemetry.runId ?? null,
+      thread_id: usageTelemetry.thread_id ?? null,
+      run_id: usageTelemetry.run_id ?? null,
     };
   }
   const summary = runtimeUsageTelemetrySummary(usageTelemetry ?? {});
   return {
     ...summary,
     scope: usageTelemetry?.scope ?? "thread",
-    thread_id: usageTelemetry?.thread_id ?? usageTelemetry?.threadId ?? null,
-    run_id: usageTelemetry?.run_id ?? usageTelemetry?.runId ?? null,
+    thread_id: usageTelemetry?.thread_id ?? null,
+    run_id: usageTelemetry?.run_id ?? null,
   };
 }
 

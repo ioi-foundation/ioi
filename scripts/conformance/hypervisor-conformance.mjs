@@ -3149,6 +3149,14 @@ function runCompositor() {
   const usageTelemetryTest = exists("packages/runtime-daemon/src/usage-telemetry.test.mjs")
     ? read("packages/runtime-daemon/src/usage-telemetry.test.mjs")
     : "";
+  const contextBudgetPolicy = exists("packages/runtime-daemon/src/threads/context-budget-policy.mjs")
+    ? read("packages/runtime-daemon/src/threads/context-budget-policy.mjs")
+    : "";
+  const contextBudgetPolicyTest = exists(
+    "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/threads/context-budget-policy.test.mjs")
+    : "";
   const runtimeEventEnvelopes = exists("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     : "";
@@ -3492,6 +3500,31 @@ function runCompositor() {
       /model_route_decision:\s*modelRouteDecision/.test(runtimeDaemonIndex),
     ["packages/runtime-daemon/src/index.mjs"],
     "Phase 10/11 is pending: monolithic daemon run/trace assembly must not accept or emit retired usage telemetry aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-context-budget-usage-input-aliases-retired",
+    !/(?:request|codingPack)(?:\?\.|\.)(?:usageTelemetry|runtimeUsageMeter|runtime_usage_meter|budgetUsageTelemetry|runtimeTelemetrySummary|runtime_telemetry_summary)/.test(
+      contextBudgetPolicy,
+    ) &&
+      !/entry\.(?:totalTokens|estimatedCostUsd|contextPressure)/.test(
+        contextBudgetPolicy,
+      ) &&
+      !/usageTelemetry(?:\?\.|\.)(?:threadId|runId)/.test(
+        contextBudgetPolicy,
+      ) &&
+      /retiredContextBudgetUsageInputAliasKeys/.test(contextBudgetPolicyTest) &&
+      /context budget usage telemetry ignores retired request aliases/.test(
+        contextBudgetPolicyTest,
+      ) &&
+      /context budget usage summary ignores retired data aliases/.test(
+        contextBudgetPolicyTest,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
+      "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
+    ],
+    "Phase 10/11 is pending: context-budget usage telemetry must ignore retired request and data aliases before policy evaluation",
   );
   assertCheck(
     result,
