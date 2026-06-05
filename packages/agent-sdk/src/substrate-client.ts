@@ -495,16 +495,11 @@ export interface RuntimeSubagentRecord {
   workflow_graph_id?: string | null;
   workflow_node_id?: string | null;
   lifecycle_status?: RuntimeSubagentLifecycleStatus;
-  lifecycleStatus?: RuntimeSubagentLifecycleStatus;
   status?: RuntimeSubagentLifecycleStatus;
   restart_status?: string | null;
-  restartStatus?: string | null;
   restart_count?: number;
-  restartCount?: number;
   input_count?: number;
-  inputCount?: number;
   assignment_count?: number;
-  assignmentCount?: number;
   cancellation_inheritance?: string | null;
   cancellationInheritance?: string | null;
   cancellation_reason?: string | null;
