@@ -174,7 +174,10 @@ export function createRuntimeSubagentSurface({
     getSubagent(store, threadId, subagentId) {
       const record = store.subagents.get(subagentId);
       if (!record || (record.parent_thread_id ?? record.parentThreadId) !== threadId) {
-        throw notFoundDep(`Subagent not found: ${subagentId}`, { threadId, subagentId });
+        throw notFoundDep(`Subagent not found: ${subagentId}`, {
+          thread_id: threadId,
+          subagent_id: subagentId,
+        });
       }
       return record;
     },
@@ -189,7 +192,7 @@ export function createRuntimeSubagentSurface({
           status: 400,
           code: "subagent_prompt_required",
           message: "Subagent spawn requires a prompt.",
-          details: { threadId },
+          details: { thread_id: threadId },
         });
       }
       const role = normalizeSubagentRoleDep(request.role ?? request.subagentRole ?? request.subagent_role);
@@ -201,10 +204,10 @@ export function createRuntimeSubagentSurface({
           .filter(subagentIsActiveDep).length;
         if (activeForRole >= maxConcurrency) {
           throw policyErrorDep("Subagent role concurrency limit reached.", {
-            threadId,
+            thread_id: threadId,
             role,
-            activeForRole,
-            maxConcurrency,
+            active_for_role: activeForRole,
+            max_concurrency: maxConcurrency,
           });
         }
       }
@@ -399,18 +402,14 @@ export function createRuntimeSubagentSurface({
       store.writeSubagent(saved, "subagent.spawn");
       if (budgetStatus.status === "exceeded") {
         throw policyErrorDep("Subagent budget limit exceeded.", {
-          threadId,
+          thread_id: threadId,
           role,
-          subagentId,
+          subagent_id: subagentId,
           reason: "subagent_budget_exceeded",
-          budgetStatus,
           budget_status: budgetStatus.status,
           subagent: this.subagentProjection(saved),
-          eventId: event.event_id,
           event_id: event.event_id,
-          receiptRefs: event.receipt_refs,
           receipt_refs: event.receipt_refs,
-          policyDecisionRefs: event.policy_decision_refs,
           policy_decision_refs: event.policy_decision_refs,
         });
       }
@@ -488,7 +487,10 @@ export function createRuntimeSubagentSurface({
     sendSubagentInput(store, threadId, subagentId, request = {}) {
       const record = store.getSubagent(threadId, subagentId);
       if ((record.lifecycle_status ?? record.lifecycleStatus ?? record.status) === "canceled") {
-        throw policyErrorDep("Cannot send input to a canceled subagent.", { threadId, subagentId });
+        throw policyErrorDep("Cannot send input to a canceled subagent.", {
+          thread_id: threadId,
+          subagent_id: subagentId,
+        });
       }
       const message = optionalStringDep(
         request.input ??
@@ -503,7 +505,7 @@ export function createRuntimeSubagentSurface({
           status: 400,
           code: "subagent_input_required",
           message: "Subagent input requires a message.",
-          details: { threadId, subagentId },
+          details: { thread_id: threadId, subagent_id: subagentId },
         });
       }
 
@@ -619,17 +621,13 @@ export function createRuntimeSubagentSurface({
       store.writeSubagent(saved, "subagent.input");
       if (budgetStatus.status === "exceeded") {
         throw policyErrorDep("Subagent budget limit exceeded.", {
-          threadId,
-          subagentId,
+          thread_id: threadId,
+          subagent_id: subagentId,
           reason: "subagent_budget_exceeded",
-          budgetStatus,
           budget_status: budgetStatus.status,
           subagent: this.subagentProjection(saved),
-          eventId: event.event_id,
           event_id: event.event_id,
-          receiptRefs: event.receipt_refs,
           receipt_refs: event.receipt_refs,
-          policyDecisionRefs: event.policy_decision_refs,
           policy_decision_refs: event.policy_decision_refs,
         });
       }
@@ -791,17 +789,13 @@ export function createRuntimeSubagentSurface({
       store.writeSubagent(saved, "subagent.resume");
       if (budgetStatus.status === "exceeded") {
         throw policyErrorDep("Subagent budget limit exceeded.", {
-          threadId,
-          subagentId,
+          thread_id: threadId,
+          subagent_id: subagentId,
           reason: "subagent_budget_exceeded",
-          budgetStatus,
           budget_status: budgetStatus.status,
           subagent: this.subagentProjection(saved),
-          eventId: event.event_id,
           event_id: event.event_id,
-          receiptRefs: event.receipt_refs,
           receipt_refs: event.receipt_refs,
-          policyDecisionRefs: event.policy_decision_refs,
           policy_decision_refs: event.policy_decision_refs,
         });
       }

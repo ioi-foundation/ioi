@@ -339,6 +339,17 @@ const retiredSubagentNestedCancellationAliasKeys = [
   "propagatedFromThreadId",
 ];
 
+const retiredSubagentErrorDetailAliasKeys = [
+  "threadId",
+  "subagentId",
+  "activeForRole",
+  "maxConcurrency",
+  "budgetStatus",
+  "eventId",
+  "receiptRefs",
+  "policyDecisionRefs",
+];
+
 test("subagent surface lists, filters, and projects thread subagents", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface();
@@ -366,8 +377,9 @@ test("subagent surface gets records and preserves not-found details", () => {
     (error) =>
       error.status === 404 &&
       error.code === "not_found" &&
-      error.details.threadId === "thread_1" &&
-      error.details.subagentId === "subagent_other",
+      error.details.thread_id === "thread_1" &&
+      error.details.subagent_id === "subagent_other" &&
+      (assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys), true),
   );
 });
 
@@ -503,7 +515,8 @@ test("subagent surface rejects missing prompt and role concurrency overflow", ()
     (error) =>
       error.status === 400 &&
       error.code === "subagent_prompt_required" &&
-      error.details.threadId === "thread_1",
+      error.details.thread_id === "thread_1" &&
+      (assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys), true),
   );
   assert.throws(
     () =>
@@ -516,8 +529,9 @@ test("subagent surface rejects missing prompt and role concurrency overflow", ()
       assert.equal(error.status, 403);
       assert.equal(error.code, "policy");
       assert.equal(error.details.role, "reviewer");
-      assert.equal(error.details.activeForRole, 1);
-      assert.equal(error.details.maxConcurrency, 1);
+      assert.equal(error.details.active_for_role, 1);
+      assert.equal(error.details.max_concurrency, 1);
+      assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys);
       return true;
     },
   );
@@ -549,8 +563,12 @@ test("subagent surface persists blocked spawn and throws budget policy error", (
       assert.equal(error.details.reason, "subagent_budget_exceeded");
       assert.equal(error.details.role, "auditor");
       assert.equal(error.details.subagent.status, "blocked");
-      assert.equal(error.details.eventId, "evt_1");
-      assert.deepEqual(error.details.receiptRefs, store.events[0].receipt_refs);
+      assert.equal(error.details.thread_id, "thread_1");
+      assert.equal(error.details.subagent_id, "agent_spawn_1");
+      assert.equal(error.details.event_id, "evt_1");
+      assert.deepEqual(error.details.receipt_refs, store.events[0].receipt_refs);
+      assert.deepEqual(error.details.policy_decision_refs, store.events[0].policy_decision_refs);
+      assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys);
       assertCanonicalSubagentBudgetUsageTelemetry(error.details.subagent);
       assertCanonicalSubagentUsageTelemetry(error.details.subagent);
       assertCanonicalSubagentRecordOutput(error.details.subagent);
@@ -711,8 +729,9 @@ test("subagent surface rejects missing input and canceled subagents", () => {
     (error) =>
       error.status === 400 &&
       error.code === "subagent_input_required" &&
-      error.details.threadId === "thread_1" &&
-      error.details.subagentId === "subagent_1",
+      error.details.thread_id === "thread_1" &&
+      error.details.subagent_id === "subagent_1" &&
+      (assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys), true),
   );
 
   store.subagents.get("subagent_1").lifecycle_status = "canceled";
@@ -721,10 +740,15 @@ test("subagent surface rejects missing input and canceled subagents", () => {
       surface.sendSubagentInput(store, "thread_1", "subagent_1", {
         message: "Can you keep going?",
       }),
-    (error) =>
-      error.status === 403 &&
-      error.code === "policy" &&
-      error.message === "Cannot send input to a canceled subagent.",
+    (error) => {
+      assert.equal(error.status, 403);
+      assert.equal(error.code, "policy");
+      assert.equal(error.message, "Cannot send input to a canceled subagent.");
+      assert.equal(error.details.thread_id, "thread_1");
+      assert.equal(error.details.subagent_id, "subagent_1");
+      assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys);
+      return true;
+    },
   );
 });
 
@@ -822,8 +846,12 @@ test("subagent surface persists blocked resume and throws budget policy error", 
       assert.equal(error.code, "policy");
       assert.equal(error.details.reason, "subagent_budget_exceeded");
       assert.equal(error.details.subagent.status, "blocked");
-      assert.equal(error.details.eventId, "evt_1");
-      assert.deepEqual(error.details.receiptRefs, store.events[0].receipt_refs);
+      assert.equal(error.details.thread_id, "thread_1");
+      assert.equal(error.details.subagent_id, "subagent_1");
+      assert.equal(error.details.event_id, "evt_1");
+      assert.deepEqual(error.details.receipt_refs, store.events[0].receipt_refs);
+      assert.deepEqual(error.details.policy_decision_refs, store.events[0].policy_decision_refs);
+      assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys);
       assertCanonicalSubagentBudgetUsageTelemetry(error.details.subagent);
       assertCanonicalSubagentUsageTelemetry(error.details.subagent);
       assertCanonicalSubagentRecordOutput(error.details.subagent);

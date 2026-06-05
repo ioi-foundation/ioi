@@ -3241,6 +3241,26 @@ function runCompositor() {
     runtimeSubagentSurface.match(
       /cancellation:\s*\{[\s\S]*?\n        \},\n        updated_at:/,
     )?.[0] ?? "";
+  const runtimeSubagentBudgetErrorDetailBlocks =
+    runtimeSubagentSurface.match(
+      /throw policyErrorDep\("Subagent budget limit exceeded\.", \{[\s\S]*?\n        \}\);/g,
+    ) ?? [];
+  const runtimeSubagentErrorDetailBlocks = [
+    runtimeSubagentSurface.match(
+      /throw notFoundDep\(`Subagent not found: \$\{subagentId\}`,[\s\S]*?\n        \}\);/,
+    )?.[0] ?? "",
+    runtimeSubagentSurface.match(/code: "subagent_prompt_required"[\s\S]*?\n        \}\);/)?.[0] ?? "",
+    runtimeSubagentSurface.match(
+      /throw policyErrorDep\("Subagent role concurrency limit reached\.", \{[\s\S]*?\n          \}\);/,
+    )?.[0] ?? "",
+    ...runtimeSubagentBudgetErrorDetailBlocks,
+    runtimeSubagentSurface.match(
+      /throw policyErrorDep\("Cannot send input to a canceled subagent\.", \{[\s\S]*?\n        \}\);/,
+    )?.[0] ?? "",
+    runtimeSubagentSurface.match(/code: "subagent_input_required"[\s\S]*?\n        \}\);/)?.[0] ?? "",
+  ]
+    .filter(Boolean)
+    .join("\n");
   const runtimeSubagentListEnvelopeAliasPattern =
     /^\s*(?:schemaVersion|threadId|parentAgentId|activeCount)\s*[:,]/m;
   const runtimeSubagentPropagationEnvelopeAliasPattern =
@@ -3253,6 +3273,8 @@ function runCompositor() {
     /^\s*(?:schemaVersion|assignmentId|previousRole|targetAgentId|toolPack|modelRouteId|mergePolicy|cancellationInheritance|assignmentCount|createdAt|workflowGraphId|workflowNodeId)\s*[:,]/m;
   const runtimeSubagentNestedCancellationAliasPattern =
     /^\s*(?:previousStatus|requestedBy|propagatedFromThreadId)\s*[:,]/m;
+  const runtimeSubagentErrorDetailAliasPattern =
+    /^\s*(?:threadId|subagentId|activeForRole|maxConcurrency|budgetStatus|eventId|receiptRefs|policyDecisionRefs)\s*[:,]/m;
   const runtimeSubagentProjectionBlock =
     runtimeSubagentSurface.match(
       /subagentProjection\(record = \{\}\) \{[\s\S]*?\n    \},\n    appendThreadSubagentControlEvent/,
@@ -3985,6 +4007,31 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent nested helper objects must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-error-detail-aliases-retired",
+    runtimeSubagentErrorDetailBlocks.length > 0 &&
+      runtimeSubagentBudgetErrorDetailBlocks.length === 3 &&
+      !runtimeSubagentErrorDetailAliasPattern.test(
+        runtimeSubagentErrorDetailBlocks,
+      ) &&
+      /retiredSubagentErrorDetailAliasKeys/.test(runtimeSubagentSurfaceTest) &&
+      /assertNoOwnKeys\(error\.details,\s*retiredSubagentErrorDetailAliasKeys\)/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /error\.details\.thread_id/.test(runtimeSubagentSurfaceTest) &&
+      /error\.details\.subagent_id/.test(runtimeSubagentSurfaceTest) &&
+      /error\.details\.event_id/.test(runtimeSubagentSurfaceTest) &&
+      /error\.details\.receipt_refs/.test(runtimeSubagentSurfaceTest) &&
+      /error\.details\.policy_decision_refs/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent error details must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,
