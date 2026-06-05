@@ -4861,6 +4861,20 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "agent-sdk-subagent-record-route-output-aliases-retired",
+    runtimeSubagentSdkRecordBlock.length > 0 &&
+      /^\s*tool_pack\?: string \| null;/m.test(runtimeSubagentSdkRecordBlock) &&
+      /^\s*model_route_id\?: string \| null;/m.test(runtimeSubagentSdkRecordBlock) &&
+      /^\s*workflow_graph_id\?: string \| null;/m.test(runtimeSubagentSdkRecordBlock) &&
+      /^\s*workflow_node_id\?: string \| null;/m.test(runtimeSubagentSdkRecordBlock) &&
+      !/^\s*(?:toolPack|modelRouteId|workflowGraphId|workflowNodeId)\?:/m.test(
+        runtimeSubagentSdkRecordBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent record types must not advertise retired route/workflow output aliases",
+  );
+  assertCheck(
+    result,
     "agent-sdk-runtime-event-dead-mock-helpers-retired",
     /runtimeThreadEventFromEnvelope/.test(agentSdkRuntimeEvents) &&
       !/mockRuntime(?:CursorSeq|EnvelopeForSdkEvent|EventEnvelope)|runtimePayloadStringRecord|runtimeEventKindForSdkMessage|runtimeEventStatusForSdkMessage|componentKindForSdkMessage|workflowNodeIdForSdkMessage|sourceEventKindForSdkMessage|payloadSchemaVersionForSdkMessage|turnIdForRun|eventStreamIdForThread|runtimeTurnStatusForRun|\(event as \{ id\?: string \}\)\.id/.test(

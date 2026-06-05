@@ -491,13 +491,9 @@ export interface RuntimeSubagentRecord {
   parent_turn_id?: string | null;
   role?: string;
   tool_pack?: string | null;
-  toolPack?: string | null;
   model_route_id?: string | null;
-  modelRouteId?: string | null;
   workflow_graph_id?: string | null;
-  workflowGraphId?: string | null;
   workflow_node_id?: string | null;
-  workflowNodeId?: string | null;
   lifecycle_status?: RuntimeSubagentLifecycleStatus;
   lifecycleStatus?: RuntimeSubagentLifecycleStatus;
   status?: RuntimeSubagentLifecycleStatus;
