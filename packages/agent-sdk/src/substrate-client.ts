@@ -275,7 +275,6 @@ export interface RuntimeTaskRecord {
 }
 
 export interface RuntimeTaskListOptions {
-  agentId?: string;
   agent_id?: string;
   status?: string;
 }
@@ -339,7 +338,6 @@ export interface RuntimeJobRecord {
 }
 
 export interface RuntimeJobListOptions {
-  agentId?: string;
   agent_id?: string;
   status?: string;
 }
@@ -2166,8 +2164,8 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async listTasks(options: RuntimeTaskListOptions = {}): Promise<RuntimeTaskRecord[]> {
     const params = new URLSearchParams();
-    const agentId = options.agentId ?? options.agent_id;
-    if (agentId) params.set("agentId", agentId);
+    const agentId = options.agent_id;
+    if (agentId) params.set("agent_id", agentId);
     if (options.status) params.set("status", options.status);
     const query = params.toString() ? `?${params}` : "";
     return this.request("listTasks", "GET", `/v1/tasks${query}`);
@@ -2183,8 +2181,8 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async listJobs(options: RuntimeJobListOptions = {}): Promise<RuntimeJobRecord[]> {
     const params = new URLSearchParams();
-    const agentId = options.agentId ?? options.agent_id;
-    if (agentId) params.set("agentId", agentId);
+    const agentId = options.agent_id;
+    if (agentId) params.set("agent_id", agentId);
     if (options.status) params.set("status", options.status);
     const query = params.toString() ? `?${params}` : "";
     return this.request("listJobs", "GET", `/v1/jobs${query}`);

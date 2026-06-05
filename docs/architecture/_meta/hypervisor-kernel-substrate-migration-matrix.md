@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 222:
+Current expected behavior after Slice 223:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11384,6 +11384,11 @@ Slice 222 adds compositor proof for
 request/result types expose canonical list grouping, identity, schema, and
 timestamp fields, and the SDK query helper emits canonical query keys without
 duplicate camelCase aliases.
+
+Slice 223 adds compositor proof for
+`runtime-task-job-list-request-aliases-retired`: SDK runtime task/job list
+request types and query helpers use canonical `agent_id`, and the daemon
+task/job list surface ignores the retired `agentId` request alias.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

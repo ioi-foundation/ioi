@@ -65,7 +65,7 @@ function harness() {
   return { calls, store, surface };
 }
 
-test("runtime task job surface lists and filters task and job projections", () => {
+test("runtime task job surface lists and filters task and job projections with canonical request fields", () => {
   const { calls, store, surface } = harness();
 
   assert.deepEqual(surface.listTasks(store).map((task) => task.taskId), ["task-run-a", "task-run-b"]);
@@ -77,8 +77,12 @@ test("runtime task job surface lists and filters task and job projections", () =
       createdAt: "2026-06-04T00:00:02.000Z",
     },
   ]);
+  assert.deepEqual(surface.listTasks(store, { agent_id: "agent-two" }).map((task) => task.taskId), ["task-run-a", "task-run-b"]);
+  assert.deepEqual(surface.listJobs(store, { agentId: "legacy-agent", status: "running" }).map((job) => job.jobId), ["job-run-a"]);
   assert.deepEqual(calls, [
     { name: "listRuns", agentId: undefined },
+    { name: "listRuns", agentId: undefined },
+    { name: "listRuns", agentId: "agent-two" },
     { name: "listRuns", agentId: undefined },
   ]);
 });

@@ -3153,6 +3153,12 @@ function runCompositor() {
   const runtimeRunReadSurfaceTest = exists("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
     : "";
+  const runtimeTaskJobSurface = exists("packages/runtime-daemon/src/runtime-task-job-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-task-job-surface.mjs")
+    : "";
+  const runtimeTaskJobSurfaceTest = exists("packages/runtime-daemon/src/runtime-task-job-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-task-job-surface.test.mjs")
+    : "";
   const runtimeAgentRunLifecycle = exists("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     : "";
@@ -3562,6 +3568,36 @@ function runCompositor() {
     agentSdkSubstrateClient,
     "function runtimeUsageListQuery",
     "function memoryListQuery",
+  );
+  const runtimeTaskSdkListOptionsBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeTaskListOptions",
+    "export interface RuntimeTaskCreateOptions",
+  );
+  const runtimeJobSdkListOptionsBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeJobListOptions",
+    "export type RuntimeSubagentLifecycleStatus",
+  );
+  const runtimeTaskSdkListMethodBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "async listTasks",
+    "async getTask",
+  );
+  const runtimeJobSdkListMethodBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "async listJobs",
+    "async getJob",
+  );
+  const runtimeTaskJobListJobsBlock = blockBetween(
+    runtimeTaskJobSurface,
+    "listJobs(store, options = {})",
+    "createTask(store",
+  );
+  const runtimeTaskJobListTasksBlock = blockBetween(
+    runtimeTaskJobSurface,
+    "listTasks(store, options = {})",
+    "getTask(store",
   );
   const runtimeSubagentSdkControlInputBlock = blockBetween(
     agentSdkSubstrateClient,
@@ -4827,6 +4863,37 @@ function runCompositor() {
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK runtime usage list request/result types and query helpers must not advertise or emit retired aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-task-job-list-request-aliases-retired",
+    runtimeTaskSdkListOptionsBlock.length > 0 &&
+      runtimeJobSdkListOptionsBlock.length > 0 &&
+      runtimeTaskSdkListMethodBlock.length > 0 &&
+      runtimeJobSdkListMethodBlock.length > 0 &&
+      runtimeTaskJobListJobsBlock.length > 0 &&
+      runtimeTaskJobListTasksBlock.length > 0 &&
+      /^\s*agent_id\?: string;/m.test(runtimeTaskSdkListOptionsBlock) &&
+      /^\s*agent_id\?: string;/m.test(runtimeJobSdkListOptionsBlock) &&
+      /options\.agent_id/.test(runtimeTaskSdkListMethodBlock) &&
+      /options\.agent_id/.test(runtimeJobSdkListMethodBlock) &&
+      /params\.set\("agent_id",/.test(runtimeTaskSdkListMethodBlock) &&
+      /params\.set\("agent_id",/.test(runtimeJobSdkListMethodBlock) &&
+      /options\.agent_id/.test(runtimeTaskJobListJobsBlock) &&
+      /options\.agent_id/.test(runtimeTaskJobListTasksBlock) &&
+      /legacy-agent/.test(runtimeTaskJobSurfaceTest) &&
+      !/^\s*agentId\?: string;/m.test(runtimeTaskSdkListOptionsBlock) &&
+      !/^\s*agentId\?: string;/m.test(runtimeJobSdkListOptionsBlock) &&
+      !/options\.agentId|params\.set\("agentId"/.test(runtimeTaskSdkListMethodBlock) &&
+      !/options\.agentId|params\.set\("agentId"/.test(runtimeJobSdkListMethodBlock) &&
+      !/options\.agentId/.test(runtimeTaskJobListJobsBlock) &&
+      !/options\.agentId/.test(runtimeTaskJobListTasksBlock),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime task/job list request types, query helpers, and daemon list surfaces must not advertise or read retired agentId aliases",
   );
   assertCheck(
     result,

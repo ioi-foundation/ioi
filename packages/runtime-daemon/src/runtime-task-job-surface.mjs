@@ -33,7 +33,7 @@ export function createRuntimeTaskJobSurface({
 } = {}) {
   return {
     listJobs(store, options = {}) {
-      const agentId = options.agentId ?? options.agent_id ?? undefined;
+      const agentId = options.agent_id ?? undefined;
       const status = options.status ?? undefined;
       return store.listRuns(agentId)
         .map((run) => runtimeJobRecordForRunDep(run))
@@ -62,7 +62,7 @@ export function createRuntimeTaskJobSurface({
       return runtimeTaskRecordForRunDep(run);
     },
     listTasks(store, options = {}) {
-      const agentId = options.agentId ?? options.agent_id ?? undefined;
+      const agentId = options.agent_id ?? undefined;
       const status = options.status ?? undefined;
       return store.listRuns(agentId)
         .map((run) => runtimeTaskRecordForRunDep(run))
