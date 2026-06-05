@@ -15,7 +15,7 @@ export async function fetchProviderJson(provider, route, { method = "GET", body,
       status: 424,
       code: "external_blocker",
       message: "Provider does not expose an HTTP model endpoint.",
-      details: { providerId: provider.id, providerKind: provider.kind },
+      details: { provider_id: provider.id, provider_kind: provider.kind },
     });
   }
   const timeoutMs = providerRequestTimeoutMs(provider);
@@ -64,10 +64,10 @@ export async function fetchProviderJson(provider, route, { method = "GET", body,
         code: "external_blocker",
         message: "OpenAI-compatible provider request failed.",
         details: {
-          providerId: provider.id,
-          providerKind: provider.kind,
+          provider_id: provider.id,
+          provider_kind: provider.kind,
           error: String(error?.name ?? error?.message ?? error),
-          timeoutMs,
+          timeout_ms: timeoutMs,
         },
       });
     }
@@ -81,7 +81,7 @@ export async function fetchProviderStream(provider, route, { method = "GET", bod
       status: 424,
       code: "external_blocker",
       message: "Provider does not expose an HTTP model endpoint.",
-      details: { providerId: provider.id, providerKind: provider.kind },
+      details: { provider_id: provider.id, provider_kind: provider.kind },
     });
   }
   const timeoutMs = providerStreamRequestTimeoutMs(provider);
@@ -122,7 +122,7 @@ export async function fetchProviderStream(provider, route, { method = "GET", bod
           status: 424,
           code: "external_blocker",
           message: "OpenAI-compatible provider did not return a stream body.",
-          details: { providerId: provider.id, providerKind: provider.kind },
+          details: { provider_id: provider.id, provider_kind: provider.kind },
         });
       }
       return {
@@ -144,10 +144,10 @@ export async function fetchProviderStream(provider, route, { method = "GET", bod
         code: "external_blocker",
         message: "OpenAI-compatible provider stream failed.",
         details: {
-          providerId: provider.id,
-          providerKind: provider.kind,
+          provider_id: provider.id,
+          provider_kind: provider.kind,
           error: String(error?.name ?? error?.message ?? error),
-          timeoutMs,
+          timeout_ms: timeoutMs,
         },
       });
     }
@@ -166,14 +166,14 @@ export function providerHttpError(provider, message, result) {
     code: "external_blocker",
     message,
     details: {
-      providerId: provider.id,
-      providerKind: provider.kind,
-      httpStatus: result.status ?? null,
-      providerErrorHash: stableHash(result.body ?? {}),
-      providerErrorCode: providerError.code,
-      providerErrorType: providerError.type,
-      providerErrorMessage: providerError.message,
-      providerErrorText: providerError.text,
+      provider_id: provider.id,
+      provider_kind: provider.kind,
+      http_status: result.status ?? null,
+      provider_error_hash: stableHash(result.body ?? {}),
+      provider_error_code: providerError.code,
+      provider_error_type: providerError.type,
+      provider_error_message: providerError.message,
+      provider_error_text: providerError.text,
     },
   });
 }
@@ -184,10 +184,10 @@ export function providerCommandError(provider, message, result) {
     code: "external_blocker",
     message,
     details: {
-      providerId: provider.id,
-      providerKind: provider.kind,
-      commandExitCode: result.status ?? null,
-      stderrHash: stableHash(result.stderr ?? ""),
+      provider_id: provider.id,
+      provider_kind: provider.kind,
+      command_exit_code: result.status ?? null,
+      stderr_hash: stableHash(result.stderr ?? ""),
     },
   });
 }

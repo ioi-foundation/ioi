@@ -52,9 +52,9 @@ export function assertProviderVaultBoundary(provider) {
     code: "policy",
     message: "Hosted and custom HTTP providers fail closed until auth is bound to a wallet.network vault ref.",
     details: {
-      providerId: provider.id,
-      providerKind: provider.kind,
-      vaultRefConfigured: false,
+      provider_id: provider.id,
+      provider_kind: provider.kind,
+      vault_ref_configured: false,
     },
   });
 }
@@ -76,10 +76,10 @@ export function providerAuthHeaders(provider, state) {
       code: "policy",
       message: "Provider vault ref is configured, but no runtime vault material is available.",
       details: {
-        providerId: provider.id,
-        providerKind: provider.kind,
-        vaultRefHash: stableHash(provider.secretRef),
-        resolvedMaterial: false,
+        provider_id: provider.id,
+        provider_kind: provider.kind,
+        vault_ref_hash: stableHash(provider.secretRef),
+        resolved_material: false,
       },
     });
   }
@@ -111,7 +111,7 @@ export function normalizeProviderAuthScheme(value) {
     status: 400,
     code: "validation",
     message: "Provider auth scheme must be bearer, raw, or api_key.",
-    details: { authScheme: scheme },
+    details: { auth_scheme: scheme },
   });
 }
 
@@ -122,7 +122,7 @@ export function normalizeProviderAuthHeaderName(value) {
       status: 400,
       code: "validation",
       message: "Provider auth header name must be a valid HTTP header token.",
-      details: { authHeaderName: SECRET_REDACTION },
+      details: { auth_header_name: SECRET_REDACTION },
     });
   }
   const forbidden = new Set([
@@ -141,7 +141,7 @@ export function normalizeProviderAuthHeaderName(value) {
       status: 400,
       code: "validation",
       message: "Provider auth header name is not allowed for vault-backed auth injection.",
-      details: { authHeaderName: headerName },
+      details: { auth_header_name: headerName },
     });
   }
   return headerName;

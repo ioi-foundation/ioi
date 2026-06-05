@@ -19,7 +19,16 @@ test("provider auth helpers keep hosted providers fail-closed on vault refs", ()
 
   assert.throws(
     () => assertProviderVaultBoundary({ id: "provider.openai", kind: "openai" }),
-    /fail closed/,
+    (error) => {
+      assert.match(error.message, /fail closed/);
+      assert.equal(error.details.provider_id, "provider.openai");
+      assert.equal(error.details.provider_kind, "openai");
+      assert.equal(error.details.vault_ref_configured, false);
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "providerKind"), false);
+      assert.equal(Object.hasOwn(error.details, "vaultRefConfigured"), false);
+      return true;
+    },
   );
   assert.doesNotThrow(() =>
     assertProviderVaultBoundary({ id: "provider.openai", kind: "openai", secretRef: "vault://provider/openai" }),
@@ -33,9 +42,33 @@ test("provider auth validation rejects plaintext secrets and unsafe headers", ()
   );
   assert.equal(normalizeProviderAuthScheme("api-key"), "api_key");
   assert.equal(normalizeProviderAuthHeaderName("X-API-Key"), "x-api-key");
-  assert.throws(() => normalizeProviderAuthScheme("digest"), /bearer, raw, or api_key/);
-  assert.throws(() => normalizeProviderAuthHeaderName("cookie"), /not allowed/);
-  assert.throws(() => normalizeProviderAuthHeaderName("bad header"), /valid HTTP header token/);
+  assert.throws(
+    () => normalizeProviderAuthScheme("digest"),
+    (error) => {
+      assert.match(error.message, /bearer, raw, or api_key/);
+      assert.equal(error.details.auth_scheme, "digest");
+      assert.equal(Object.hasOwn(error.details, "authScheme"), false);
+      return true;
+    },
+  );
+  assert.throws(
+    () => normalizeProviderAuthHeaderName("cookie"),
+    (error) => {
+      assert.match(error.message, /not allowed/);
+      assert.equal(error.details.auth_header_name, "cookie");
+      assert.equal(Object.hasOwn(error.details, "authHeaderName"), false);
+      return true;
+    },
+  );
+  assert.throws(
+    () => normalizeProviderAuthHeaderName("bad header"),
+    (error) => {
+      assert.match(error.message, /valid HTTP header token/);
+      assert.equal(error.details.auth_header_name, "[REDACTED]");
+      assert.equal(Object.hasOwn(error.details, "authHeaderName"), false);
+      return true;
+    },
+  );
 });
 
 test("provider auth headers resolve vault material without exposing secrets", () => {
@@ -72,6 +105,28 @@ test("provider auth headers resolve vault material without exposing secrets", ()
     headerNames: ["x-provider-token"],
     authScheme: "bearer",
   });
+
+  assert.throws(
+    () => providerAuthHeaders(
+      {
+        id: "provider.custom",
+        kind: "custom_http",
+        secretRef: "vault://provider/custom",
+      },
+      { vault: { resolveVaultRef: () => ({ vaultRefHash: "hash-provider-custom" }) } },
+    ),
+    (error) => {
+      assert.match(error.message, /no runtime vault material/);
+      assert.equal(error.details.provider_id, "provider.custom");
+      assert.equal(error.details.provider_kind, "custom_http");
+      assert.equal(error.details.resolved_material, false);
+      assert.equal(typeof error.details.vault_ref_hash, "string");
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "vaultRefHash"), false);
+      assert.equal(Object.hasOwn(error.details, "resolvedMaterial"), false);
+      return true;
+    },
+  );
 });
 
 test("vault ref sanitizer redacts non-vault inputs", () => {

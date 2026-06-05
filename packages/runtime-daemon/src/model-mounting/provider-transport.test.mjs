@@ -118,7 +118,10 @@ test("provider transport rejects local-only providers without HTTP endpoints", a
     (error) => {
       assert.equal(error.status, 424);
       assert.equal(error.code, "external_blocker");
-      assert.equal(error.details.providerId, "provider.local");
+      assert.equal(error.details.provider_id, "provider.local");
+      assert.equal(error.details.provider_kind, "llama_cpp");
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "providerKind"), false);
       return true;
     },
   );
@@ -142,11 +145,17 @@ test("provider transport errors redact provider body and command details", () =>
   );
 
   assert.equal(httpError.status, 424);
-  assert.equal(httpError.details.httpStatus, 503);
-  assert.equal(httpError.details.providerErrorCode, "overloaded");
-  assert.equal(httpError.details.providerErrorMessage.length, 503);
-  assert.match(httpError.details.providerErrorMessage, /^x{500}\.\.\.$/);
-  assert.equal(typeof httpError.details.providerErrorHash, "string");
+  assert.equal(httpError.details.provider_id, "provider.test");
+  assert.equal(httpError.details.provider_kind, "openai");
+  assert.equal(httpError.details.http_status, 503);
+  assert.equal(httpError.details.provider_error_code, "overloaded");
+  assert.equal(httpError.details.provider_error_message.length, 503);
+  assert.match(httpError.details.provider_error_message, /^x{500}\.\.\.$/);
+  assert.equal(typeof httpError.details.provider_error_hash, "string");
+  assert.equal(Object.hasOwn(httpError.details, "providerId"), false);
+  assert.equal(Object.hasOwn(httpError.details, "httpStatus"), false);
+  assert.equal(Object.hasOwn(httpError.details, "providerErrorCode"), false);
+  assert.equal(Object.hasOwn(httpError.details, "providerErrorMessage"), false);
 
   const commandError = providerCommandError(
     { id: "provider.lmstudio", kind: "lm_studio" },
@@ -154,7 +163,9 @@ test("provider transport errors redact provider body and command details", () =>
     { status: 17, stderr: "secret-ish stderr" },
   );
 
-  assert.equal(commandError.details.commandExitCode, 17);
-  assert.equal(commandError.details.stderrHash.length, 64);
+  assert.equal(commandError.details.command_exit_code, 17);
+  assert.equal(commandError.details.stderr_hash.length, 64);
+  assert.equal(Object.hasOwn(commandError.details, "commandExitCode"), false);
+  assert.equal(Object.hasOwn(commandError.details, "stderrHash"), false);
   assert.equal(commandError.details.stderr, undefined);
 });

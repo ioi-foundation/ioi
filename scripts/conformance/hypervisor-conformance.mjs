@@ -2427,6 +2427,15 @@ function runReceipts() {
   const providerTransport = exists("packages/runtime-daemon/src/model-mounting/provider-transport.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-transport.mjs")
     : "";
+  const providerTransportTest = exists("packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs")
+    : "";
+  const providerAuth = exists("packages/runtime-daemon/src/model-mounting/provider-auth.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-auth.mjs")
+    : "";
+  const providerAuthTest = exists("packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs")
+    : "";
   const walletAuthority = exists("packages/runtime-daemon/src/model-mounting/wallet-authority.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/wallet-authority.mjs")
     : "";
@@ -3057,6 +3066,45 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs",
     ],
     "Phase 5/11 is pending: provider transport retry traces must not append JS operation-like records outside Rust Agentgres admission",
+  );
+  assertCheck(
+    result,
+    "model-mount-provider-transport-auth-error-aliases-retired",
+    /details:\s*\{\s*provider_id:\s*provider\.id,\s*provider_kind:\s*provider\.kind\s*\}/.test(providerTransport) &&
+      /provider_id:\s*provider\.id/.test(providerTransport) &&
+      /provider_kind:\s*provider\.kind/.test(providerTransport) &&
+      /http_status:\s*result\.status/.test(providerTransport) &&
+      /provider_error_hash:\s*stableHash/.test(providerTransport) &&
+      /provider_error_code:\s*providerError\.code/.test(providerTransport) &&
+      /command_exit_code:\s*result\.status/.test(providerTransport) &&
+      /stderr_hash:\s*stableHash/.test(providerTransport) &&
+      !/(?:providerId|providerKind|httpStatus|providerErrorHash|providerErrorCode|providerErrorType|providerErrorMessage|providerErrorText|commandExitCode|stderrHash)\s*:/.test(
+        providerTransport,
+      ) &&
+      /provider_id:\s*provider\.id/.test(providerAuth) &&
+      /provider_kind:\s*provider\.kind/.test(providerAuth) &&
+      /vault_ref_configured:\s*false/.test(providerAuth) &&
+      /vault_ref_hash:\s*stableHash/.test(providerAuth) &&
+      /resolved_material:\s*false/.test(providerAuth) &&
+      /auth_scheme:\s*scheme/.test(providerAuth) &&
+      /auth_header_name:\s*SECRET_REDACTION/.test(providerAuth) &&
+      /auth_header_name:\s*headerName/.test(providerAuth) &&
+      !/(?:providerId:\s*provider\.id|providerKind:\s*provider\.kind|vaultRefConfigured:\s*false|vaultRefHash:\s*stableHash|resolvedMaterial:\s*false|authScheme:\s*scheme|authHeaderName:\s*(?:SECRET_REDACTION|headerName))/.test(
+        providerAuth,
+      ) &&
+      /Object\.hasOwn\(httpError\.details,\s*"providerId"\),\s*false/.test(providerTransportTest) &&
+      /Object\.hasOwn\(httpError\.details,\s*"httpStatus"\),\s*false/.test(providerTransportTest) &&
+      /Object\.hasOwn\(commandError\.details,\s*"commandExitCode"\),\s*false/.test(providerTransportTest) &&
+      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(providerAuthTest) &&
+      /Object\.hasOwn\(error\.details,\s*"vaultRefHash"\),\s*false/.test(providerAuthTest) &&
+      /Object\.hasOwn\(error\.details,\s*"authHeaderName"\),\s*false/.test(providerAuthTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-transport.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-auth.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs",
+    ],
+    "Phase 5/11 is pending: provider transport and auth fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,
