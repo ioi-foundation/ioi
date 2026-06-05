@@ -87,6 +87,13 @@ test("route decisions honor canonical fallback request metadata", () => {
   assert.equal(decision.endpoint_id, "endpoint.hosted");
   assert.equal(decision.provider_id, "provider.hosted");
   assert.equal(decision.provider_kind, "openai");
+  assert.equal(decision.reasoning_effort, "provider_default");
+  assert.equal(decision.local_remote_placement, "remote");
+  assert.equal(decision.privacy_posture, "local_or_enterprise");
+  assert.equal(decision.cost_estimate_usd, 0.01);
+  assert.equal(decision.cost_estimate_source, "hosted_default");
+  assert.equal(decision.fallback_model, null);
+  assert.equal(decision.fallback_endpoint_id, "endpoint.local");
   assert.equal(Object.hasOwn(decision, "routeId"), false);
   assert.equal(Object.hasOwn(decision, "requestedModel"), false);
   assert.equal(Object.hasOwn(decision, "requestedModelMode"), false);
@@ -97,6 +104,13 @@ test("route decisions honor canonical fallback request metadata", () => {
   assert.equal(Object.hasOwn(decision, "endpointId"), false);
   assert.equal(Object.hasOwn(decision, "providerId"), false);
   assert.equal(Object.hasOwn(decision, "providerKind"), false);
+  assert.equal(Object.hasOwn(decision, "reasoningEffort"), false);
+  assert.equal(Object.hasOwn(decision, "localRemotePlacement"), false);
+  assert.equal(Object.hasOwn(decision, "privacyPosture"), false);
+  assert.equal(Object.hasOwn(decision, "costEstimateUsd"), false);
+  assert.equal(Object.hasOwn(decision, "costEstimateSource"), false);
+  assert.equal(Object.hasOwn(decision, "fallbackModel"), false);
+  assert.equal(Object.hasOwn(decision, "fallbackEndpointId"), false);
   assert.equal(decision.response_id, "resp-1");
   assert.equal(decision.previous_response_id, "resp-0");
   assert.equal(Object.hasOwn(decision, "responseId"), false);

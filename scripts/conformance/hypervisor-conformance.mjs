@@ -996,6 +996,40 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-route-decision-descriptor-aliases-retired",
+    /^ {4}reasoning_effort:\s*reasoningEffort/m.test(modelRouteDecisionObject) &&
+      /^ {4}local_remote_placement:\s*placement/m.test(modelRouteDecisionObject) &&
+      /^ {4}privacy_posture:\s*privacyPosture/m.test(modelRouteDecisionObject) &&
+      /^ {4}cost_estimate_usd:\s*costEstimate\.value/m.test(modelRouteDecisionObject) &&
+      /^ {4}cost_estimate_source:\s*costEstimate\.source/m.test(modelRouteDecisionObject) &&
+      /^ {4}fallback_model:\s*fallback\.model/m.test(modelRouteDecisionObject) &&
+      /^ {4}fallback_endpoint_id:\s*fallback\.endpointId/m.test(modelRouteDecisionObject) &&
+      !/^ {4}(?:reasoningEffort|localRemotePlacement|privacyPosture|costEstimateUsd|costEstimateSource|fallbackModel|fallbackEndpointId)\s*[:,]/m.test(modelRouteDecisionObject) &&
+      /^\s*reasoning_effort:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*local_remote_placement:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*privacy_posture:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*cost_estimate_usd:\s*number;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*cost_estimate_source:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*fallback_model:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*fallback_endpoint_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      !/^\s*(?:reasoningEffort|localRemotePlacement|privacyPosture|costEstimateUsd|costEstimateSource|fallbackModel|fallbackEndpointId)\s*[:?]/m.test(agentSdkModelRouteDecisionType) &&
+      /agent\.modelRouteDecision\?\.reasoning_effort/.test(threadTurnProjection) &&
+      !/agent\.modelRouteDecision\?\.reasoningEffort/.test(threadTurnProjection) &&
+      /Object\.hasOwn\(decision,\s*"reasoningEffort"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"costEstimateUsd"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"fallbackModel"\),\s*false/.test(modelRouteDecisionTest) &&
+      /modelRouteDecision:\s*\{\s*reasoning_effort:\s*"medium"\s*\}/.test(read("packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs")),
+    [
+      "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
+      "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
+      "packages/agent-sdk/src/messages.ts",
+    ],
+    "Phase 3/10 is pending: accepted model route decisions and direct reasoning readers must use canonical descriptor fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "runtime-thread-hosted-fallback-alias-retired",
     /allow_hosted_fallback/.test(threadRuntimeControls) &&
       /allow_hosted_fallback/.test(runtimeThreadControlSurface) &&
