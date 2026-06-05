@@ -28,7 +28,7 @@ export function compileEphemeralMcpIntegrations(state, { authorization, body = {
       summary: `Ephemeral MCP server ${label} registered for one model request.`,
       redaction: "redacted",
       evidenceRefs: ["ephemeral_mcp", "RuntimeToolContract", stored.id],
-      details: stored,
+      details: mcpServerReceiptDetails(stored),
     });
     evidenceRefs.push(serverReceipt.id, stored.id);
     const allowedTools = stored.allowedTools.length > 0 ? stored.allowedTools : [];
@@ -66,7 +66,7 @@ export function importMcpJson(state, body = {}) {
       summary: `MCP server ${label} imported with governed tool narrowing.`,
       redaction: "redacted",
       evidenceRefs: ["mcp.json", "RuntimeToolContract", server.id],
-      details: server,
+      details: mcpServerReceiptDetails(server),
     });
   }
   state.writeMap("mcp-servers", state.mcpServers);
@@ -136,7 +136,7 @@ export function invokeMcpTool(state, { authorization, body = {} }, deps = {}) {
   } = deps;
   const serverId = body.server_id ?? body.serverId ?? `mcp.${safeId(body.server_label ?? body.serverLabel ?? "")}`;
   const server = state.mcpServers.get(serverId);
-  if (!server) throw notFound(`MCP server not found: ${serverId}`, { serverId });
+  if (!server) throw notFound(`MCP server not found: ${serverId}`, { server_id: serverId });
   const tool = requiredString(body.tool, "tool");
   state.authorize(authorization, `mcp.call:${server.label}.${tool}`);
   if (server.allowedTools.length > 0 && !server.allowedTools.includes(tool)) {
@@ -144,7 +144,7 @@ export function invokeMcpTool(state, { authorization, body = {} }, deps = {}) {
       status: 403,
       code: "policy",
       message: "MCP tool is not included in allowed_tools.",
-      details: { serverId, tool },
+      details: { server_id: serverId, tool },
     });
   }
   const receipt = state.receipt("mcp_tool_invocation", {
@@ -152,10 +152,10 @@ export function invokeMcpTool(state, { authorization, body = {} }, deps = {}) {
     redaction: "redacted",
     evidenceRefs: ["RuntimeToolContract", server.id, `tool:${tool}`],
     details: {
-      serverId,
+      server_id: serverId,
       tool,
-      inputHash: stableHash(body.input ?? {}),
-      outputHash: stableHash({ ok: true, tool }),
+      input_hash: stableHash(body.input ?? {}),
+      output_hash: stableHash({ ok: true, tool }),
     },
   });
   return {
@@ -163,6 +163,23 @@ export function invokeMcpTool(state, { authorization, body = {} }, deps = {}) {
     tool,
     result: { ok: true, fixture: true, tool },
     receipt,
+  };
+}
+
+function mcpServerReceiptDetails(server) {
+  return {
+    id: server.id,
+    label: server.label,
+    transport: server.transport,
+    command: server.command ?? null,
+    args: Array.isArray(server.args) ? [...server.args] : [],
+    server_url: server.serverUrl ?? null,
+    allowed_tools: Array.isArray(server.allowedTools) ? [...server.allowedTools] : [],
+    secret_refs: { ...(server.secretRefs ?? {}) },
+    redacted_headers: { ...(server.redactedHeaders ?? {}) },
+    status: server.status,
+    source: server.source ?? null,
+    imported_at: server.importedAt ?? null,
   };
 }
 
@@ -232,7 +249,7 @@ export async function executeWorkflowNode(state, { authorization, body = {} }, d
       details: {
         reason: memoryWriteBlockReason,
         memory: memoryOptions,
-        workflowNodeId: base.workflow_node_id ?? null,
+        workflow_node_id: base.workflow_node_id ?? null,
       },
     });
   }

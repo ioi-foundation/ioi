@@ -2570,6 +2570,12 @@ function runReceipts() {
   const storageOperationsTest = exists("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
     : "";
+  const mcpWorkflowOperations = exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs")
+    : "";
+  const mcpWorkflowOperationsTest = exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
+    : "";
   const modelMountStoreTest = exists("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     : "";
@@ -2593,6 +2599,10 @@ function runReceipts() {
     storageOperations.match(/state\.lifecycleReceipt\("model_artifact_delete",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
     storageOperations.match(/state\.lifecycleReceipt\("model_storage_cleanup",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
   ].join("\n");
+  const mcpServerReceiptDetailsHelper =
+    mcpWorkflowOperations.match(/function mcpServerReceiptDetails\(server\) \{[\s\S]*?\n\}/)?.[0] ?? "";
+  const mcpToolReceiptDetailsObject =
+    mcpWorkflowOperations.match(/details:\s*\{\n\s+server_id:\s*serverId,[\s\S]*?\n\s+\},/)?.[0] ?? "";
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
@@ -3110,6 +3120,43 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs",
     ],
     "Phase 9/11 is pending: model storage lifecycle receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-mcp-receipt-detail-aliases-retired",
+    /details:\s*mcpServerReceiptDetails\(stored\)/.test(mcpWorkflowOperations) &&
+      /details:\s*mcpServerReceiptDetails\(server\)/.test(mcpWorkflowOperations) &&
+      /server_url:\s*server\.serverUrl/.test(mcpServerReceiptDetailsHelper) &&
+      /allowed_tools:\s*Array\.isArray\(server\.allowedTools\)/.test(mcpServerReceiptDetailsHelper) &&
+      /secret_refs:\s*\{ \.\.\.\(server\.secretRefs/.test(mcpServerReceiptDetailsHelper) &&
+      /redacted_headers:\s*\{ \.\.\.\(server\.redactedHeaders/.test(mcpServerReceiptDetailsHelper) &&
+      /imported_at:\s*server\.importedAt/.test(mcpServerReceiptDetailsHelper) &&
+      /server_id:\s*serverId/.test(mcpToolReceiptDetailsObject) &&
+      /input_hash:\s*stableHash\(body\.input/.test(mcpToolReceiptDetailsObject) &&
+      /output_hash:\s*stableHash\(\{ ok: true, tool \}\)/.test(mcpToolReceiptDetailsObject) &&
+      /notFound\(`MCP server not found: \$\{serverId\}`,\s*\{ server_id: serverId \}\)/.test(mcpWorkflowOperations) &&
+      /details:\s*\{ server_id: serverId, tool \}/.test(mcpWorkflowOperations) &&
+      /workflow_node_id:\s*base\.workflow_node_id/.test(mcpWorkflowOperations) &&
+      !/\b(?:serverUrl|allowedTools|secretRefs|redactedHeaders|importedAt)\s*:/.test(mcpServerReceiptDetailsHelper) &&
+      !/\b(?:serverId|inputHash|outputHash)\s*:/.test(mcpToolReceiptDetailsObject) &&
+      !/details:\s*\{ serverId/.test(mcpWorkflowOperations) &&
+      !/details:\s*\{\s*serverId/m.test(mcpWorkflowOperations) &&
+      !/workflowNodeId:\s*base\.workflow_node_id/.test(mcpWorkflowOperations) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.payload\.details,\s*"allowedTools"\),\s*false/.test(
+        mcpWorkflowOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\[1\]\.payload\.details,\s*"serverUrl"\),\s*false/.test(
+        mcpWorkflowOperationsTest,
+      ) &&
+      /Object\.hasOwn\(result\.receipt\.payload\.details,\s*"serverId"\),\s*false/.test(mcpWorkflowOperationsTest) &&
+      /Object\.hasOwn\(result\.receipt\.payload\.details,\s*"inputHash"\),\s*false/.test(mcpWorkflowOperationsTest) &&
+      /Object\.hasOwn\(error\.details,\s*"serverId"\)\s*===\s*false/.test(mcpWorkflowOperationsTest) &&
+      /Object\.hasOwn\(error\.details,\s*"workflowNodeId"\)\s*===\s*false/.test(mcpWorkflowOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: MCP registration, import, tool invocation receipts, and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

@@ -152,6 +152,12 @@ test("importMcpJson stores servers, emits receipts, and listMcpServers projects 
   assert.equal(result.empty, false);
   assert.equal(state.mcpServers.size, 2);
   assert.equal(state.receipts.length, 2);
+  assert.deepEqual(state.receipts[0].payload.details.allowed_tools, ["run"]);
+  assert.equal(state.receipts[1].payload.details.server_url, "https://example.test/mcp");
+  assert.equal(state.receipts[0].payload.details.imported_at, "2026-06-04T02:00:00.000Z");
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "allowedTools"), false);
+  assert.equal(Object.hasOwn(state.receipts[1].payload.details, "serverUrl"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "importedAt"), false);
   assert.equal(state.writes.at(-1)[0], "mcp-servers");
   assert.deepEqual(listMcpServers(state, deps).map((server) => server.id), ["mcp.Local", "mcp.Remote"]);
 });
@@ -173,11 +179,19 @@ test("invokeMcpTool enforces allowed tools and emits redacted fixture result", (
   assert.equal(result.server, "Local");
   assert.deepEqual(result.result, { ok: true, fixture: true, tool: "run" });
   assert.deepEqual(state.authorizations.at(-1), ["auth", "mcp.call:Local.run"]);
-  assert.equal(result.receipt.payload.details.inputHash, 'hash:{"prompt":"hello"}');
+  assert.equal(result.receipt.payload.details.server_id, "mcp.Local");
+  assert.equal(result.receipt.payload.details.input_hash, 'hash:{"prompt":"hello"}');
+  assert.equal(Object.hasOwn(result.receipt.payload.details, "serverId"), false);
+  assert.equal(Object.hasOwn(result.receipt.payload.details, "inputHash"), false);
+  assert.equal(Object.hasOwn(result.receipt.payload.details, "outputHash"), false);
 
   assert.throws(
     () => invokeMcpTool(state, { authorization: "auth", body: { server_id: "mcp.Local", tool: "delete" } }, deps),
-    (error) => error.status === 403 && error.code === "policy",
+    (error) =>
+      error.status === 403 &&
+      error.code === "policy" &&
+      error.details.server_id === "mcp.Local" &&
+      Object.hasOwn(error.details, "serverId") === false,
   );
 });
 
@@ -208,6 +222,10 @@ test("compileEphemeralMcpIntegrations registers ephemeral servers and invokes al
   assert.equal(result.toolReceiptIds.length, 2);
   assert.equal(result.evidenceRefs.length, 4);
   assert.equal(state.mcpServers.get(result.serverIds[0]).status, "ephemeral_registered");
+  assert.equal(state.receipts[0].payload.details.server_url, "https://example.test/mcp");
+  assert.deepEqual(state.receipts[0].payload.details.allowed_tools, ["search", "read"]);
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "serverUrl"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "allowedTools"), false);
   assert.equal(state.writes.at(-1)[0], "mcp-servers");
 });
 
@@ -253,6 +271,9 @@ test("executeWorkflowNode dispatches router, MCP, receipt gate, model, and memor
 
   await assert.rejects(
     () => executeWorkflowNode(state, { authorization: "auth", body: { node: "Model", memory: { write: true } } }, deps),
-    (error) => error.status === 403 && error.code === "policy",
+    (error) =>
+      error.status === 403 &&
+      error.code === "policy" &&
+      Object.hasOwn(error.details, "workflowNodeId") === false,
   );
 });
