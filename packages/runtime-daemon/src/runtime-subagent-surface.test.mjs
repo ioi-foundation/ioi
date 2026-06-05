@@ -827,6 +827,50 @@ test("subagent surface sends input, persists history, and returns event", () => 
   assert.ok(saved.evidence_refs.includes("run_created_3"));
 });
 
+test("subagent send input ignores retired camelCase record aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T12:47:00.000Z",
+    nowMs: () => 1780587420000,
+  });
+  store.surface = surface;
+  store.subagents.set("subagent_1", {
+    ...store.subagents.get("subagent_1"),
+    output_contract: ["SUMMARY"],
+    input_history: [],
+    previous_run_ids: [],
+    evidence_refs: ["evidence_canonical"],
+    lifecycleStatus: "canceled",
+    runId: "run_2",
+    agentId: "agent_alias_child",
+    outputContract: ["MISSING_SECTION"],
+    inputHistory: [{ input_id: "input_alias" }],
+    previousRunIds: ["run_alias"],
+    evidenceRefs: ["evidence_alias"],
+  });
+
+  const result = surface.sendSubagentInput(store, "thread_1", "subagent_1", {
+    source: "agent_studio",
+    message: "Canonical follow up",
+  });
+  const saved = store.subagents.get("subagent_1");
+  const createdRun = store.runs.get("run_created_3");
+
+  assert.equal(result.status, "completed");
+  assert.equal(result.input.previous_run_id, "run_1");
+  assert.equal(result.previous_run_ids.includes("run_alias"), false);
+  assert.deepEqual(saved.previous_run_ids, ["run_1"]);
+  assert.equal(saved.input_count, 1);
+  assert.equal(saved.input_history[0].message, "Canonical follow up");
+  assert.equal(saved.output_contract_status, "passed");
+  assert.equal(createdRun.agentId, "agent_child_1");
+  assert.ok(saved.evidence_refs.includes("evidence_canonical"));
+  assert.equal(saved.evidence_refs.includes("evidence_alias"), false);
+  assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
+  assertCanonicalSubagentRecordOutput(saved);
+  assertCanonicalSubagentStoreWrites(store);
+});
+
 test("subagent surface ignores retired usageTelemetry previous usage fallback", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface({

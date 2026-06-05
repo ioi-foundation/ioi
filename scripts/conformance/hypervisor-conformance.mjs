@@ -3241,6 +3241,10 @@ function runCompositor() {
   ]
     .filter(Boolean)
     .join("\n");
+  const runtimeSubagentSendInputBlock =
+    runtimeSubagentSurface.match(
+      /sendSubagentInput\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?\n    \},\n    resumeSubagent/,
+    )?.[0] ?? "";
   const runtimeSubagentPropagationEnvelopeBlock =
     runtimeSubagentSurface.match(
       /propagateSubagentCancellation\(store, threadId, request = \{\}\) \{[\s\S]*?\n    \},\n    subagentProjection/,
@@ -3318,6 +3322,8 @@ function runCompositor() {
     /(?:record\.(?:parentThreadId|subagentId|agentId|cancellationInheritance|lifecycleStatus)|(?:left|right)\.createdAt)\b/;
   const runtimeSubagentWaitResultRecordAliasReadPattern =
     /record\.(?:runId|outputContract|lifecycleStatus)\b|^\s*outputContractStatus\s*[:,]/m;
+  const runtimeSubagentSendInputRecordAliasReadPattern =
+    /record\.(?:lifecycleStatus|runId|agentId|outputContract|inputHistory|previousRunIds)\b|updated\.evidenceRefs\b/;
   const runtimeSubagentControlEventRecordAliasReadPattern =
     /record\.(?:subagentId|workflowGraphId|workflowNodeId|budgetPolicyDecision|budgetStatus|parentTurnId)\b/;
   const runtimeSubagentProjectionBlock =
@@ -4079,6 +4085,30 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent wait/result reads must ignore retired camelCase persisted record aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-send-input-record-aliases-retired",
+    runtimeSubagentSendInputBlock.length > 0 &&
+      !runtimeSubagentSendInputRecordAliasReadPattern.test(
+        runtimeSubagentSendInputBlock,
+      ) &&
+      /subagent send input ignores retired camelCase record aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /lifecycleStatus: "canceled"/.test(runtimeSubagentSurfaceTest) &&
+      /runId: "run_2"/.test(runtimeSubagentSurfaceTest) &&
+      /agentId: "agent_alias_child"/.test(runtimeSubagentSurfaceTest) &&
+      /inputHistory: \[\{ input_id: "input_alias" \}\]/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /previousRunIds: \["run_alias"\]/.test(runtimeSubagentSurfaceTest) &&
+      /evidenceRefs: \["evidence_alias"\]/.test(runtimeSubagentSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent send-input lifecycle must ignore retired camelCase persisted record aliases",
   );
   assertCheck(
     result,

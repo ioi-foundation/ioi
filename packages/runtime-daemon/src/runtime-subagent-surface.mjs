@@ -431,7 +431,7 @@ export function createRuntimeSubagentSurface({
     },
     sendSubagentInput(store, threadId, subagentId, request = {}) {
       const record = store.getSubagent(threadId, subagentId);
-      if ((record.lifecycle_status ?? record.lifecycleStatus ?? record.status) === "canceled") {
+      if ((record.lifecycle_status ?? record.status) === "canceled") {
         throw policyErrorDep("Cannot send input to a canceled subagent.", {
           thread_id: threadId,
           subagent_id: subagentId,
@@ -454,8 +454,8 @@ export function createRuntimeSubagentSurface({
         });
       }
 
-      const previousRunId = record.run_id ?? record.runId;
-      const childAgentId = record.agent_id ?? record.agentId ?? subagentId;
+      const previousRunId = record.run_id;
+      const childAgentId = record.agent_id ?? subagentId;
       const inputId = `subagent_input_${doctorHash(`${threadId}:${subagentId}:${nowMs()}`).slice(0, 12)}`;
       const run = store.createRun(childAgentId, {
         mode: "send",
@@ -465,10 +465,10 @@ export function createRuntimeSubagentSurface({
           memory: request.memory ?? request.options?.memory ?? {},
         },
       });
-      const output = subagentContractOutputForRunDep(run, record.output_contract ?? record.outputContract);
+      const output = subagentContractOutputForRunDep(run, record.output_contract);
       const outputContractStatus = validateSubagentOutputContractDep(
         output,
-        record.output_contract ?? record.outputContract,
+        record.output_contract,
       );
       const budget = subagentBudgetForRequestDep(request) ?? subagentBudgetForRequestDep(record);
       const budgetUsageTelemetry =
@@ -494,14 +494,17 @@ export function createRuntimeSubagentSurface({
         workflow_graph_id: optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
         workflow_node_id: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
       };
-      const inputHistory = [...normalizeArray(record.input_history ?? record.inputHistory), inputRecord];
+      const inputHistory = [...normalizeArray(record.input_history), inputRecord];
       const lifecycleStatus =
         budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRunDep(run.status);
+      const canonicalRecord = withoutRetiredSubagentRecordOutputAliases(
+        withoutRetiredSubagentUsageTelemetry(record),
+      );
       const updated = {
-        ...withoutRetiredSubagentUsageTelemetry(record),
+        ...canonicalRecord,
         run_id: run.id,
         previous_run_ids: uniqueStringsDep([
-          ...normalizeArray(record.previous_run_ids ?? record.previousRunIds),
+          ...normalizeArray(record.previous_run_ids),
           previousRunId,
         ]),
         lifecycle_status: lifecycleStatus,
@@ -539,7 +542,7 @@ export function createRuntimeSubagentSurface({
           ...event.receipt_refs,
         ]),
         evidence_refs: uniqueStringsDep([
-          ...normalizeArray(updated.evidence_refs ?? updated.evidenceRefs),
+          ...normalizeArray(updated.evidence_refs),
           "runtime.subagent.input",
           run.id,
         ]),
