@@ -130,9 +130,9 @@ export async function fetchOAuthToken(tokenEndpoint, payload) {
       code: "policy",
       message: "OAuth token endpoint rejected the credential exchange.",
       details: {
-        tokenEndpointHash: stableHash(tokenEndpoint),
-        errorHash: stableHash(`oauth:${response.status}`),
-        evidenceRefs: ["OAuthCredentialProvider.tokenEndpoint", "oauth_exchange_fail_closed"],
+        token_endpoint_hash: stableHash(tokenEndpoint),
+        error_hash: stableHash(`oauth:${response.status}`),
+        evidence_refs: ["OAuthCredentialProvider.tokenEndpoint", "oauth_exchange_fail_closed"],
       },
     });
   }
@@ -146,7 +146,7 @@ export async function parseOAuthTokenResponse(response) {
       status: 502,
       code: "provider_error",
       message: "OAuth token endpoint did not return an access token.",
-      details: { evidenceRefs: ["OAuthCredentialProvider.tokenEndpoint", "oauth_access_token_required"] },
+      details: { evidence_refs: ["OAuthCredentialProvider.tokenEndpoint", "oauth_access_token_required"] },
     });
   }
   return payload;

@@ -2442,6 +2442,18 @@ function runReceipts() {
   const catalogProviderConfigTest = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs")
     : "";
+  const oauthCredentialProvider = exists("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs")
+    : "";
+  const oauthCredentialProviderTest = exists("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs")
+    : "";
+  const oauthBoundary = exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs")
+    : "";
+  const oauthBoundaryTest = exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs")
+    : "";
   const capabilityTokenOperations = exists("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
     : "";
@@ -3153,6 +3165,54 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
     ],
     "Phase 7/11 is pending: catalog provider auth/config fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-oauth-error-detail-aliases-retired",
+    /details:\s*\{\s*provider_id:\s*providerId\s*\}/.test(oauthCredentialProvider) &&
+      /state_provider_id:\s*stateRecord\.providerId/.test(oauthCredentialProvider) &&
+      /oauth_state_hash:\s*stableHash\(stateRecord\.id\)/.test(oauthCredentialProvider) &&
+      /callback_state_hash:\s*stableHash\(callbackState\)/.test(oauthCredentialProvider) &&
+      /client_secret:\s*SECRET_REDACTION/.test(oauthCredentialProvider) &&
+      /client_secret_vault_ref_hash:\s*clientSecret\?\.vaultRefHash/.test(oauthCredentialProvider) &&
+      /oauth_session_hash:\s*stableHash\(session\.id\)/.test(oauthCredentialProvider) &&
+      /auth_vault_ref_hash:\s*access\?\.vaultRefHash/.test(oauthCredentialProvider) &&
+      /resolved_material:\s*false/.test(oauthCredentialProvider) &&
+      /catalog_auth_scheme:\s*"oauth2"/.test(oauthCredentialProvider) &&
+      /catalog_auth_header_name_hash:\s*stableHash\(headerName\)/.test(oauthCredentialProvider) &&
+      /oauth_boundary:\s*oauthBoundaryForSession/.test(oauthCredentialProvider) &&
+      /evidence_refs:\s*normalizeScopes/.test(oauthCredentialProvider) &&
+      /token_endpoint_hash:\s*stableHash\(tokenEndpoint\)/.test(oauthBoundary) &&
+      /error_hash:\s*stableHash\(`oauth:\$\{response\.status\}`\)/.test(oauthBoundary) &&
+      /details:\s*\{\s*evidence_refs:\s*\["OAuthCredentialProvider\.tokenEndpoint",\s*"oauth_access_token_required"\]\s*\}/.test(
+        oauthBoundary,
+      ) &&
+      !/details:\s*\{\s*(?:providerId|clientSecret|oauthSessionHash|tokenEndpointHash|evidenceRefs)\b/.test(
+        `${oauthCredentialProvider}\n${oauthBoundary}`,
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"stateProviderId"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"oauthStateHash"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"callbackStateHash"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"clientSecret"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"clientSecretVaultRefHash"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"oauthSessionHash"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"authVaultRefHash"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"resolvedMaterial"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"catalogAuthScheme"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"catalogAuthHeaderNameHash"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"oauthBoundary"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"tokenEndpointHash"\),\s*false/.test(oauthBoundaryTest) &&
+      /Object\.hasOwn\(error\.details,\s*"errorHash"\),\s*false/.test(oauthBoundaryTest) &&
+      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(oauthBoundaryTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs",
+      "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs",
+      "packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs",
+    ],
+    "Phase 7/11 is pending: OAuth credential and token-endpoint fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

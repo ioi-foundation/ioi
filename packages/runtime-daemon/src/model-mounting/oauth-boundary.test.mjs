@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  fetchOAuthToken,
   oauthBoundaryForSession,
   oauthExpiresAt,
   oauthSessionNeedsRefresh,
@@ -101,10 +102,37 @@ test("OAuth boundary status and refresh timing stay product-safe", () => {
 test("OAuth token response parsing requires an access token", async () => {
   await assert.rejects(
     () => parseOAuthTokenResponse({ json: async () => ({ token_type: "bearer" }) }),
-    /did not return an access token/,
+    (error) => {
+      assert.match(error.message, /did not return an access token/);
+      assert.deepEqual(error.details.evidence_refs, ["OAuthCredentialProvider.tokenEndpoint", "oauth_access_token_required"]);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    },
   );
   assert.deepEqual(
     await parseOAuthTokenResponse({ json: async () => ({ access_token: "token", expires_in: 10 }) }),
     { access_token: "token", expires_in: 10 },
   );
+});
+
+test("OAuth token endpoint failures use canonical detail metadata", async () => {
+  const previousFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => ({ ok: false, status: 401 });
+    await assert.rejects(
+      () => fetchOAuthToken("https://auth.example.test/token", { grant_type: "authorization_code" }),
+      (error) => {
+        assert.match(error.message, /token endpoint rejected/);
+        assert.equal(typeof error.details.token_endpoint_hash, "string");
+        assert.equal(typeof error.details.error_hash, "string");
+        assert.deepEqual(error.details.evidence_refs, ["OAuthCredentialProvider.tokenEndpoint", "oauth_exchange_fail_closed"]);
+        assert.equal(Object.hasOwn(error.details, "tokenEndpointHash"), false);
+        assert.equal(Object.hasOwn(error.details, "errorHash"), false);
+        assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+        return true;
+      },
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
 });

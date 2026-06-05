@@ -157,14 +157,14 @@ export class OAuthCredentialProvider {
 
   async completeAuthorization({ providerId, stateRecord, body = {} }) {
     if (!stateRecord) {
-      throw runtimeError({ status: 404, code: "not_found", message: "OAuth authorization state not found.", details: { providerId } });
+      throw runtimeError({ status: 404, code: "not_found", message: "OAuth authorization state not found.", details: { provider_id: providerId } });
     }
     if (stateRecord.providerId !== providerId) {
       throw runtimeError({
         status: 403,
         code: "policy",
         message: "OAuth authorization state does not belong to the requested provider.",
-        details: { providerId, stateProviderId: stateRecord.providerId, oauthStateHash: stableHash(stateRecord.id) },
+        details: { provider_id: providerId, state_provider_id: stateRecord.providerId, oauth_state_hash: stableHash(stateRecord.id) },
       });
     }
     if (stateRecord.status !== "pending") {
@@ -172,7 +172,7 @@ export class OAuthCredentialProvider {
         status: 403,
         code: "policy",
         message: "OAuth authorization state is not pending.",
-        details: { providerId, status: stateRecord.status, oauthStateHash: stableHash(stateRecord.id) },
+        details: { provider_id: providerId, status: stateRecord.status, oauth_state_hash: stableHash(stateRecord.id) },
       });
     }
     const expiresAt = Date.parse(stateRecord.expiresAt ?? "");
@@ -181,7 +181,7 @@ export class OAuthCredentialProvider {
         status: 403,
         code: "policy",
         message: "OAuth authorization state expired.",
-        details: { providerId, oauthStateHash: stableHash(stateRecord.id), status: "expired" },
+        details: { provider_id: providerId, oauth_state_hash: stableHash(stateRecord.id), status: "expired" },
       });
     }
     const callbackState = requiredString(body.state ?? body.oauth_state ?? body.oauthState, "state");
@@ -206,10 +206,10 @@ export class OAuthCredentialProvider {
         code: "policy",
         message: "OAuth callback requires vault material that is not currently available.",
         details: {
-          providerId,
-          oauthStateHash: stableHash(stateRecord.id),
+          provider_id: providerId,
+          oauth_state_hash: stableHash(stateRecord.id),
           missing,
-          evidenceRefs: ["oauth_callback_fail_closed", "VaultPort.resolveVaultRef"],
+          evidence_refs: ["oauth_callback_fail_closed", "VaultPort.resolveVaultRef"],
         },
       });
     }
@@ -219,10 +219,10 @@ export class OAuthCredentialProvider {
         code: "policy",
         message: "OAuth callback state mismatch.",
         details: {
-          providerId,
-          oauthStateHash: stableHash(stateRecord.id),
-          callbackStateHash: stableHash(callbackState),
-          evidenceRefs: ["oauth_callback_state_mismatch", "OAuthCredentialProvider.completeAuthorization"],
+          provider_id: providerId,
+          oauth_state_hash: stableHash(stateRecord.id),
+          callback_state_hash: stableHash(callbackState),
+          evidence_refs: ["oauth_callback_state_mismatch", "OAuthCredentialProvider.completeAuthorization"],
         },
       });
     }
@@ -278,7 +278,7 @@ export class OAuthCredentialProvider {
         status: 403,
         code: "policy",
         message: "OAuth client secrets must be provided through vault refs.",
-        details: { clientSecret: SECRET_REDACTION },
+        details: { client_secret: SECRET_REDACTION },
       });
     }
     const tokenEndpointVaultRef = body.token_endpoint_vault_ref ?? body.tokenEndpointVaultRef ?? oauthSessionVaultRef(providerId, sessionId, "token-endpoint");
@@ -308,8 +308,8 @@ export class OAuthCredentialProvider {
         code: "policy",
         message: "OAuth client secret vault ref is configured, but no runtime vault material is available.",
         details: {
-          clientSecretVaultRefHash: clientSecret?.vaultRefHash ?? stableHash(clientSecretVaultRef),
-          evidenceRefs: normalizeScopes(clientSecret?.evidenceRefs, ["VaultPort.resolveVaultRef", "oauth_client_secret_fail_closed"]),
+          client_secret_vault_ref_hash: clientSecret?.vaultRefHash ?? stableHash(clientSecretVaultRef),
+          evidence_refs: normalizeScopes(clientSecret?.evidenceRefs, ["VaultPort.resolveVaultRef", "oauth_client_secret_fail_closed"]),
         },
       });
     }
@@ -388,7 +388,7 @@ export class OAuthCredentialProvider {
         status: 403,
         code: "policy",
         message: "OAuth session is not active.",
-        details: { oauthSessionHash: session?.id ? stableHash(session.id) : null, status: session?.status ?? "missing" },
+        details: { oauth_session_hash: session?.id ? stableHash(session.id) : null, status: session?.status ?? "missing" },
       });
     }
     if (!session.refreshVaultRef) {
@@ -396,7 +396,7 @@ export class OAuthCredentialProvider {
         status: 403,
         code: "policy",
         message: "OAuth session has no refresh token vault ref.",
-        details: { oauthSessionHash: stableHash(session.id), evidenceRefs: ["oauth_refresh_fail_closed", "refresh_vault_ref_required"] },
+        details: { oauth_session_hash: stableHash(session.id), evidence_refs: ["oauth_refresh_fail_closed", "refresh_vault_ref_required"] },
       });
     }
     const refresh = this.vault.resolveVaultRef(session.refreshVaultRef, `oauth.refresh_token:${session.providerId}`);
@@ -419,9 +419,9 @@ export class OAuthCredentialProvider {
         code: "policy",
         message: "OAuth refresh requires vault material that is not currently available.",
         details: {
-          oauthSessionHash: stableHash(session.id),
+          oauth_session_hash: stableHash(session.id),
           missing,
-          evidenceRefs: ["oauth_refresh_fail_closed", "VaultPort.resolveVaultRef"],
+          evidence_refs: ["oauth_refresh_fail_closed", "VaultPort.resolveVaultRef"],
         },
       });
     }
@@ -498,12 +498,12 @@ export class OAuthCredentialProvider {
         code: "policy",
         message: "OAuth session is not active.",
         details: {
-          oauthSessionHash: current?.id ? stableHash(current.id) : null,
+          oauth_session_hash: current?.id ? stableHash(current.id) : null,
           status: current?.status ?? "missing",
-          catalogAuthScheme: "oauth2",
-          catalogAuthHeaderNameHash: stableHash(headerName),
-          oauthBoundary: oauthBoundaryForSession(current),
-          evidenceRefs: ["OAuthCredentialProvider.resolveAccessHeader", "oauth_session_inactive"],
+          catalog_auth_scheme: "oauth2",
+          catalog_auth_header_name_hash: stableHash(headerName),
+          oauth_boundary: oauthBoundaryForSession(current),
+          evidence_refs: ["OAuthCredentialProvider.resolveAccessHeader", "oauth_session_inactive"],
         },
       });
     }
@@ -518,13 +518,13 @@ export class OAuthCredentialProvider {
         code: "policy",
         message: "OAuth access token vault ref is configured, but no runtime vault material is available.",
         details: {
-          oauthSessionHash: stableHash(current.id),
-          authVaultRefHash: access?.vaultRefHash ?? current.accessVaultRefHash ?? null,
-          resolvedMaterial: false,
-          catalogAuthScheme: "oauth2",
-          catalogAuthHeaderNameHash: stableHash(headerName),
-          oauthBoundary: oauthBoundaryForSession(current),
-          evidenceRefs: normalizeScopes(access?.evidenceRefs, ["OAuthCredentialProvider.resolveAccessHeader", "oauth_access_fail_closed"]),
+          oauth_session_hash: stableHash(current.id),
+          auth_vault_ref_hash: access?.vaultRefHash ?? current.accessVaultRefHash ?? null,
+          resolved_material: false,
+          catalog_auth_scheme: "oauth2",
+          catalog_auth_header_name_hash: stableHash(headerName),
+          oauth_boundary: oauthBoundaryForSession(current),
+          evidence_refs: normalizeScopes(access?.evidenceRefs, ["OAuthCredentialProvider.resolveAccessHeader", "oauth_access_fail_closed"]),
         },
       });
     }
