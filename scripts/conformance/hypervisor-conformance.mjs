@@ -399,6 +399,15 @@ function runBridge() {
   const runtimeRouteHandlersTest = exists("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     : "";
+  const workerServicePackageRunner = exists("packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs")
+    : "";
+  const workerServicePackageRunnerTest = exists("packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs")
+    : "";
+  const workerServicePackageStoreTest = exists("packages/runtime-daemon/src/runtime-worker-service-package-store.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-worker-service-package-store.test.mjs")
+    : "";
   const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
     ? read("packages/agent-sdk/src/substrate-client.ts")
     : "";
@@ -938,6 +947,39 @@ function runBridge() {
       /bridge_admits_worker_service_package_invocation_through_rust_core/.test(bridgeModule),
     ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
     "Phase 8 is pending: worker/service package invocation admission must be exposed through the daemon command bridge",
+  );
+  assertCheck(
+    result,
+    "worker-service-package-daemon-runner",
+    /WORKER_SERVICE_PACKAGE_COMMAND_ENV/.test(workerServicePackageRunner) &&
+      /IOI_WORKER_SERVICE_PACKAGE_COMMAND/.test(workerServicePackageRunner) &&
+      /RustWorkerServicePackageRunner/.test(workerServicePackageRunner) &&
+      /createWorkerServicePackageRunnerFromEnv/.test(workerServicePackageRunner) &&
+      /createWorkerServicePackageRunnerFromEnv/.test(runtimeDaemonIndex) &&
+      /this\.workerServicePackageRunner/.test(runtimeDaemonIndex) &&
+      /admitInvocation/.test(workerServicePackageRunner) &&
+      /admit_worker_service_package_invocation/.test(workerServicePackageRunner) &&
+      /rust_package_invocation/.test(workerServicePackageRunner) &&
+      /worker_service_package_bridge_unconfigured/.test(workerServicePackageRunner) &&
+      /worker\/service package runner sends invocation admission bridge request/.test(
+        workerServicePackageRunnerTest,
+      ) &&
+      /worker\/service package runner fails closed without command/.test(
+        workerServicePackageRunnerTest,
+      ) &&
+      /worker\/service package runner surfaces Rust package rejection/.test(
+        workerServicePackageRunnerTest,
+      ) &&
+      /runtime store mounts worker\/service package runner from options/.test(
+        workerServicePackageStoreTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs",
+      "packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-worker-service-package-store.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 8 is pending: daemon worker/service package facade must call the Rust package admission bridge and fail closed when unconfigured",
   );
   assertCheck(
     result,

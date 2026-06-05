@@ -6308,6 +6308,66 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 101
+
+```yaml
+slice: 101
+phase: 8-service-package-and-worker-package-invocation-path
+objective: add a daemon-side worker/service package runner that calls the Rust
+  package invocation admission bridge
+owner_boundary:
+  route_or_surface: daemon store dependency injection for worker/service package
+    invocation admission
+  authority_gate: runner only forwards package StepModule requests to the Rust
+    bridge; missing wallet/daemon authority grants still fail in Rust
+  execution_backend: rust_package_invocation through the command bridge
+  truth_path: bridge result remains the owner of router admission, receipt
+    binding, accepted receipt append, Agentgres admission, projection, artifact
+    refs, payload refs, and authority grant refs
+  projection_path: daemon callers can now depend on one mounted Rust package
+    admission facade before product/SDK/IDE routes are added
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/index.mjs
+    - packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs
+    - packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs
+    - packages/runtime-daemon/src/runtime-worker-service-package-store.test.mjs
+  rust_core: []
+  ide: []
+  tests:
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance fails unless the daemon runner sends
+    `admit_worker_service_package_invocation`
+  - bridge conformance fails unless the runner fails closed without
+    `IOI_WORKER_SERVICE_PACKAGE_COMMAND`
+  - bridge conformance fails unless the runtime store mounts the injected
+    worker/service package runner
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs
+    - node --test packages/runtime-daemon/src/runtime-worker-service-package-store.test.mjs
+    - node --check packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs
+    - node --check packages/runtime-daemon/src/index.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: daemon package callers now share one
+    fail-closed Rust bridge runner; no product route or JS admission shim can
+    bypass Rust package admission
+cleanup:
+  legacy_paths_removed: false
+  compatibility_shims_remaining:
+    - product daemon routes, IDE/SDK callers, and AIIP delivery surfaces still
+      need to invoke the mounted runner for live package work
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -6321,7 +6381,7 @@ closeout:
 | `ctee-private-workspace` | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md`, `crates/services/src/agentic/runtime/kernel/ctee.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs` | canon plus Rust StepModule validation, execution, receipt-binding, Agentgres admission, projection bundle, and daemon command bridge exposure | Rust core `ctee` | custody proof, leakage profile, declassification receipt, plaintext-free mount failure | `ctee`, `negative` | Rust validation and execution/admission/projection bundle implemented and exposed through `execute_private_workspace_ctee_action`; product daemon/IDE private workspace callers still pending | untrusted node plaintext mount fails closed; declassification and private operator paths are receipt-bound. |
 | `workload-client-wasm` | `crates/client/src/workload_client/mod.rs`, `crates/vm/wasm/src/lib.rs`, `crates/validator/src/standard/workload/*` | Rust workload/kernel substrate exists below daemon | Rust core `workload_client` plus WASM/service backend | StepModuleResult with workload receipt and state-root binding | `bridge`, `receipts` | substrate exists, not default daemon backend | daemon routes admitted work through StepModuleRunner into Rust/WASM or workload backend. |
 | `workflow-compositor` | `packages/agent-ide/src/runtime/*`, `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/services/src/agentic/runtime/kernel/projection.rs` | IDE/daemon projection shaping plus Rust projection record primitive | Rust core `projection` consumed by IDE/CLI/SDK | projection checkpoints rebuilt from Agentgres admitted truth | `compositor`, `negative` | Rust projection record and accepted-truth guard implemented; IDE/SDK consumption still pending | compositor cannot create accepted truth directly and only renders/replays canonical projections. |
-| `worker-service-packages` | `docs/architecture/foundations/common-objects-and-envelopes.md`, `docs/architecture/domains/aiagent/worker-endpoints.md`, `docs/architecture/domains/sas/service-endpoints.md`, `crates/services/src/agentic/runtime/kernel/marketplace.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs` | target canon plus Rust worker/service package invocation admission primitive over StepModuleRouter, receipt_binder, Agentgres admission, projection, and command bridge exposure | Rust core `step_router` plus workload/WASM/AIIP backends | package invocation receipt, authority grant, artifacts, projection | `bridge`, `receipts`, `compositor` | Rust package invocation admission primitive implemented and exposed through `admit_worker_service_package_invocation`; product/IDE callers still pending | service and worker package invocation uses the shared Step/Module ABI. |
+| `worker-service-packages` | `docs/architecture/foundations/common-objects-and-envelopes.md`, `docs/architecture/domains/aiagent/worker-endpoints.md`, `docs/architecture/domains/sas/service-endpoints.md`, `crates/services/src/agentic/runtime/kernel/marketplace.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs`, `packages/runtime-daemon/src/index.mjs` | target canon plus Rust worker/service package invocation admission primitive over StepModuleRouter, receipt_binder, Agentgres admission, projection, command bridge exposure, and mounted daemon runner | Rust core `step_router` plus workload/WASM/AIIP backends | package invocation receipt, authority grant, artifacts, projection | `bridge`, `receipts`, `compositor` | Rust package invocation admission primitive implemented and exposed through `admit_worker_service_package_invocation`; daemon `RustWorkerServicePackageRunner` now calls that bridge and is mounted on `AgentgresRuntimeStateStore`; product/IDE/SDK callers still pending | service and worker package invocation uses the shared Step/Module ABI. |
 | `l1-settlement` | `docs/architecture/foundations/ioi-l1-mainnet.md`, `crates/services/src/agentic/runtime/kernel/settlement.rs` | canon plus Rust trigger guard | Rust settlement/admission core under daemon-owned execution | sparse public/economic/cross-domain commitment by trigger only | `negative` | Rust trigger guard implemented; product settlement surfaces still pending | L1 settlement attempts without marketplace/public/economic/cross-domain/operator trigger fail closed. |
 | `meta-improvement` | `crates/services/src/agentic/runtime/kernel/*`, `crates/services/src/agentic/evolution.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs`, `packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs`, `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `packages/runtime-daemon/src/index.mjs`, `packages/agent-sdk/src/substrate-client.ts`, `packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts`, workflow/evaluation docs | partial Rust/IDE signals plus governed runtime-improvement proposal admission primitive, command bridge exposure, mounted non-authoritative daemon runner, product/API proposal admission route, and stable SDK/IDE review clients requiring eval/verifier receipts, approval, rollback, Agentgres operation refs, expected heads, and state roots; legacy direct `EvolutionService::evolve` manifest mutation now fails closed | Rust core authority plus proposal/eval/approval path | proposal object, eval receipts, approval grant, committed mutation | `bridge`, `receipts`, `negative` | Rust governed proposal admission primitive implemented, exposed through `admit_governed_runtime_improvement_proposal`, reachable via daemon `RustGovernedImprovementRunner`, mounted on `AgentgresRuntimeStateStore`, exposed at `POST /v1/threads/{thread_id}/governed-improvement-proposals`, consumable through SDK `admitGovernedImprovementProposal`, and composable from IDE governed-improvement control nodes without a JS apply shortcut; direct `EvolutionService::evolve` manifest mutation retired; full IDE review UI, rollback application, and live mutation commit path still pending | agents cannot self-modify directly; all improvements are proposal-mediated. |
 | `rust-daemon-core` | target layout in master guide plus `crates/services/src/agentic/runtime/kernel/*` | partial Rust primitives for authority, step_router, cTEE, receipts, Agentgres admission, runtime-state transition planning, run/task hash derivation, helper record materialization, storage write-set planning, runtime-state persistence planning, runtime run-state commit planning, projection, settlement, Step/Module ABI, model_mount provider-execution admission, fixture/native-local non-stream provider-invocation execution, native-local stream invocation planning/chunks, and provider-result admission for non-migrated driver observations | Rust modules: `authority`, `step_router`, `workload_client`, `model_mount`, `ctee`, `receipt_binder`, `agentgres_admission`, `projection`, `conformance` | one Rust owner for hot-path semantics | all tiers | partial primitives, not extracted as one authoritative core; coding tools now execute through Rust workload live instead of the daemon JS invocation body; model_mount now admits provider-execution envelopes before JS provider driver calls, executes migrated fixture/native-local non-stream provider backends and native-local stream chunk planning, rejects retired direct JS local provider non-stream/stream execution shims, admits non-migrated JS provider results before receipts, and runtime run persistence now sends one commit request through `RuntimeKernelService`, where Rust derives prior transition binding, transition hashes, materialized state records, storage write sets, persistence hashes, commit hashes, and Rust-written local state records; the external bridge exposes the commit operation instead of separate transition/materialization/storage/persistence commands | hot-path execution, authority, receipt/state-root binding, cTEE, replay, and conformance are owned by Rust core. |

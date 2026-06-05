@@ -162,6 +162,7 @@ import {
 import { createRuntimeAgentOptionsHelpers } from "./runtime-agent-options.mjs";
 import { createRuntimeAgentgresAdmissionRunnerFromEnv } from "./runtime-agentgres-admission-runner.mjs";
 import { createGovernedImprovementRunnerFromEnv } from "./runtime-governed-improvement-runner.mjs";
+import { createWorkerServicePackageRunnerFromEnv } from "./runtime-worker-service-package-runner.mjs";
 import {
   createAgent as createAgentState,
   createRun as createRunState,
@@ -704,6 +705,8 @@ export class AgentgresRuntimeStateStore {
       options.runtimeAgentgresAdmissionRunner ?? createRuntimeAgentgresAdmissionRunnerFromEnv(process.env);
     this.governedImprovementRunner =
       options.governedImprovementRunner ?? createGovernedImprovementRunnerFromEnv(process.env);
+    this.workerServicePackageRunner =
+      options.workerServicePackageRunner ?? createWorkerServicePackageRunnerFromEnv(process.env);
     this.schemaVersion = "ioi.agentgres.runtime.v0";
     this.ensureDirs();
     this.modelMounting = new ModelMountingState({
