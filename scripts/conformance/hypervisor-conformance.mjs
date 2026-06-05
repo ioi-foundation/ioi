@@ -2576,6 +2576,12 @@ function runReceipts() {
   const mcpWorkflowOperationsTest = exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
     : "";
+  const catalogDownloadOperations = exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs")
+    : "";
+  const catalogDownloadOperationsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs")
+    : "";
   const modelMountStoreTest = exists("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     : "";
@@ -2603,6 +2609,23 @@ function runReceipts() {
     mcpWorkflowOperations.match(/function mcpServerReceiptDetails\(server\) \{[\s\S]*?\n\}/)?.[0] ?? "";
   const mcpToolReceiptDetailsObject =
     mcpWorkflowOperations.match(/details:\s*\{\n\s+server_id:\s*serverId,[\s\S]*?\n\s+\},/)?.[0] ?? "";
+  const catalogImportUrlReceiptDetailsObject =
+    catalogDownloadOperations.match(/state\.lifecycleReceipt\("model_catalog_import_url",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "";
+  const catalogDownloadReceiptBlocks = [
+    ...catalogDownloadOperations.matchAll(/state\.lifecycleReceipt\("model_download_(?:queued|failed|running|completed)",\s*\{[\s\S]*?\n\s+\}\);/g),
+  ].map((match) => match[0]).join("\n");
+  const catalogDownloadTransferReceiptObject =
+    catalogDownloadOperations.match(/state\.lifecycleReceipt\(operation,\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "";
+  const catalogDownloadErrorDetailsHelper =
+    catalogDownloadOperations.match(/function catalogDownloadErrorDetails\(sourceHash,\s*evidenceRefs\) \{[\s\S]*?\n\}/)?.[0] ?? "";
+  const catalogAuthReceiptDetailsHelper =
+    catalogDownloadOperations.match(/function catalogAuthReceiptDetails\(evidence\) \{[\s\S]*?\n\}/)?.[0] ?? "";
+  const catalogDownloadPolicyReceiptDetailsHelper =
+    catalogDownloadOperations.match(/function downloadPolicyReceiptDetails\(policy\) \{[\s\S]*?\n\}/)?.[0] ?? "";
+  const catalogDownloadTransferReceiptDetailsHelper =
+    catalogDownloadOperations.match(/function transferReceiptDetails\(transfer\) \{[\s\S]*?\n\}/)?.[0] ?? "";
+  const catalogDownloadTransferEventDetailsHelper =
+    catalogDownloadOperations.match(/function transferEventReceiptDetails\(details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "";
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
@@ -3157,6 +3180,97 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
     ],
     "Phase 9/11 is pending: MCP registration, import, tool invocation receipts, and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-catalog-download-receipt-detail-aliases-retired",
+    /source_url_hash:\s*sourceHash/.test(catalogDownloadErrorDetailsHelper) &&
+      /evidence_refs:\s*evidenceRefs/.test(catalogDownloadErrorDetailsHelper) &&
+      /auth_vault_ref_hash:\s*evidence\.authVaultRefHash/.test(catalogAuthReceiptDetailsHelper) &&
+      /resolved_material:\s*Boolean/.test(catalogAuthReceiptDetailsHelper) &&
+      /evidence_refs:\s*evidence\.evidenceRefs/.test(catalogAuthReceiptDetailsHelper) &&
+      /max_bytes:\s*policy\.maxBytes/.test(catalogDownloadPolicyReceiptDetailsHelper) &&
+      /bandwidth_limit_bps:\s*policy\.bandwidthLimitBps/.test(catalogDownloadPolicyReceiptDetailsHelper) &&
+      /retry_limit:\s*policy\.retryLimit/.test(catalogDownloadPolicyReceiptDetailsHelper) &&
+      /approval_decision:\s*policy\.approvalDecision/.test(catalogDownloadPolicyReceiptDetailsHelper) &&
+      /attempt_count:\s*transfer\.attemptCount/.test(catalogDownloadTransferReceiptDetailsHelper) &&
+      /resume_metadata_path_hash:\s*transfer\.resumeMetadataPathHash/.test(catalogDownloadTransferReceiptDetailsHelper) &&
+      /next_attempt:\s*details\.nextAttempt/.test(catalogDownloadTransferEventDetailsHelper) &&
+      /retry_count:\s*details\.retryCount/.test(catalogDownloadTransferEventDetailsHelper) &&
+      /model_id:\s*modelId/.test(catalogImportUrlReceiptDetailsObject) &&
+      /provider_id:\s*body\.provider_id/.test(catalogImportUrlReceiptDetailsObject) &&
+      /source_url_hash:\s*hash\(sourceUrl\)/.test(catalogImportUrlReceiptDetailsObject) &&
+      /source_label:\s*variant\.sourceLabel/.test(catalogImportUrlReceiptDetailsObject) &&
+      /parameter_count:\s*variant\.parameterCount/.test(catalogImportUrlReceiptDetailsObject) &&
+      /backend_compatibility:\s*variant\.backendCompatibility/.test(catalogImportUrlReceiptDetailsObject) &&
+      /download_risk:\s*variant\.downloadRisk/.test(catalogImportUrlReceiptDetailsObject) &&
+      /benchmark_readiness:\s*variant\.benchmarkReadiness/.test(catalogImportUrlReceiptDetailsObject) &&
+      /selection_receipt_fields:\s*variant\.selectionReceiptFields/.test(catalogImportUrlReceiptDetailsObject) &&
+      /catalog_provider_id:\s*variant\.catalogProviderId/.test(catalogImportUrlReceiptDetailsObject) &&
+      /catalog_auth:\s*catalogAuthReceiptDetails/.test(catalogImportUrlReceiptDetailsObject) &&
+      /approval_decision:\s*approvalDecision/.test(catalogImportUrlReceiptDetailsObject) &&
+      /live_download_gate:/.test(catalogImportUrlReceiptDetailsObject) &&
+      /job_id:\s*jobBase\.id/.test(catalogDownloadReceiptBlocks) &&
+      /model_id:\s*modelId/.test(catalogDownloadReceiptBlocks) &&
+      /provider_id:\s*providerId/.test(catalogDownloadReceiptBlocks) &&
+      /source_hash:\s*hash\(source\)/.test(catalogDownloadReceiptBlocks) &&
+      /target_path_hash:\s*hash\(targetPath\)/.test(catalogDownloadReceiptBlocks) &&
+      /max_bytes:\s*maxBytes/.test(catalogDownloadReceiptBlocks) &&
+      /download_mode:/.test(catalogDownloadReceiptBlocks) &&
+      /download_policy:\s*downloadPolicyReceiptDetails/.test(catalogDownloadReceiptBlocks) &&
+      /failure_reason:\s*failureReason/.test(catalogDownloadReceiptBlocks) &&
+      /cleanup_state:\s*cleanupState/.test(catalogDownloadReceiptBlocks) &&
+      /error_hash:\s*hash/.test(catalogDownloadReceiptBlocks) &&
+      /artifact_id:\s*artifact\.id/.test(catalogDownloadReceiptBlocks) &&
+      /bytes_completed:\s*completedBytes/.test(catalogDownloadReceiptBlocks) &&
+      /resume_offset:\s*materialized\.resumeOffset/.test(catalogDownloadReceiptBlocks) &&
+      /attempt_count:\s*materialized\.attemptCount/.test(catalogDownloadReceiptBlocks) &&
+      /retry_count:\s*materialized\.retryCount/.test(catalogDownloadReceiptBlocks) &&
+      /resume_metadata_path_hash:\s*materialized\.resumeMetadataPathHash/.test(catalogDownloadReceiptBlocks) &&
+      /transfer:\s*transferReceiptDetails/.test(catalogDownloadReceiptBlocks) &&
+      /\.\.\.transferEventReceiptDetails\(details\)/.test(catalogDownloadTransferReceiptObject) &&
+      !/\b(?:modelId|providerId|sourceUrlHash|sourceLabel|parameterCount|backendCompatibility|downloadRisk|benchmarkReadiness|selectionReceiptFields|catalogProviderId|catalogAuth|approvalDecision|liveDownloadGate)\s*:/.test(
+        catalogImportUrlReceiptDetailsObject,
+      ) &&
+      !/\b(?:jobId|modelId|providerId|sourceHash|sourceLabel|targetPathHash|maxBytes|downloadMode|downloadPolicy|failureReason|cleanupState|errorHash|artifactId|bytesCompleted|bytesTotal|resumeOffset|attemptCount|retryCount|resumeMetadataPathHash|backendCompatibility|downloadRisk|benchmarkReadiness|selectionReceiptFields|catalogProviderId|catalogAuth|approvalDecision)\s*:/.test(
+        `${catalogDownloadReceiptBlocks}\n${catalogDownloadTransferReceiptObject}`,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"sourceUrlHash"\),\s*false/.test(catalogDownloadOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"modelId"\),\s*false/.test(catalogDownloadOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details\.catalog_auth,\s*"resolvedMaterial"\),\s*false/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\) === false/.test(catalogDownloadOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"jobId"\),\s*false/.test(catalogDownloadOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"downloadPolicy"\),\s*false/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details\.download_policy,\s*"maxBytes"\),\s*false/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\[2\]\.details,\s*"failureReason"\),\s*false/.test(catalogDownloadOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"artifactId"\),\s*false/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"bytesCompleted"\),\s*false/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"resumeOffset"\),\s*false/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\[2\]\.details,\s*"retryCount"\),\s*false/.test(catalogDownloadOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\[3\]\.details,\s*"attemptCount"\),\s*false/.test(catalogDownloadOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\[3\]\.details,\s*"resumeMetadataPathHash"\),\s*false/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\[3\]\.details\.transfer,\s*"attemptCount"\),\s*false/.test(
+        catalogDownloadOperationsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: catalog import/download receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

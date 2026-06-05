@@ -138,7 +138,12 @@ test("catalogImportUrl records the catalog receipt and forwards fixture metadata
   assert.equal(result.status, "queued");
   assert.equal(result.catalogReceiptId, "receipt.1.model_catalog_import_url");
   assert.equal(state.receipts[0].kind, "model_catalog_import_url");
-  assert.equal(state.receipts[0].details.sourceUrlHash, "hash:fixture://qwen/q4");
+  assert.equal(state.receipts[0].details.source_url_hash, "hash:fixture://qwen/q4");
+  assert.equal(state.receipts[0].details.model_id, "qwen-test");
+  assert.equal(state.receipts[0].details.catalog_auth.resolved_material, false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "sourceUrlHash"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "modelId"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details.catalog_auth, "resolvedMaterial"), false);
   assert.equal(state.downloadBody.model_id, "qwen-test");
   assert.equal(state.downloadBody.source_url, "fixture://qwen/q4");
   assert.equal(state.downloadBody.transfer_approved, true);
@@ -151,7 +156,13 @@ test("catalogImportUrl fails closed when a live source is not catalog-gated", as
 
   await assert.rejects(
     () => catalogImportUrl(state, { source_url: "https://example.test/model.gguf" }, deps()),
-    (error) => error.status === 424 && error.code === "external_blocker" && error.details.sourceUrlHash === "hash:https://example.test/model.gguf",
+    (error) =>
+      error.status === 424 &&
+      error.code === "external_blocker" &&
+      error.details.source_url_hash === "hash:https://example.test/model.gguf" &&
+      error.details.evidence_refs[0] === "network_access_opt_in" &&
+      Object.hasOwn(error.details, "sourceUrlHash") === false &&
+      Object.hasOwn(error.details, "evidenceRefs") === false,
   );
 });
 
@@ -163,6 +174,12 @@ test("downloadModel can queue and simulate failed fixture jobs without materiali
   assert.equal(queued.id, "download_job_uuid-1");
   assert.equal(queued.receiptId, "receipt.1.model_download_queued");
   assert.equal(queued.maxBytes, 100);
+  assert.equal(state.receipts[0].details.job_id, "download_job_uuid-1");
+  assert.equal(state.receipts[0].details.max_bytes, 100);
+  assert.equal(state.receipts[0].details.download_policy.max_bytes, 100);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "jobId"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "downloadPolicy"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details.download_policy, "maxBytes"), false);
   assert.equal(state.writes.at(-1)[0], "model-downloads");
   assert.equal(state.projections, 1);
 
@@ -170,6 +187,8 @@ test("downloadModel can queue and simulate failed fixture jobs without materiali
   assert.equal(failed.status, "failed");
   assert.equal(failed.failureReason, "deterministic_fixture_failure");
   assert.deepEqual(failed.receiptIds, ["receipt.2.model_download_queued", "receipt.3.model_download_failed"]);
+  assert.equal(state.receipts[2].details.failure_reason, "deterministic_fixture_failure");
+  assert.equal(Object.hasOwn(state.receipts[2].details, "failureReason"), false);
   assert.equal(state.projections, 2);
 });
 
@@ -199,6 +218,12 @@ test("downloadModel materializes completed fixture jobs, artifacts, receipts, an
   assert.equal(completed.artifactId, "download.qwen.test");
   assert.equal(completed.receiptId, "receipt.3.model_download_completed");
   assert.equal(completed.receiptIds.length, 3);
+  assert.equal(state.receipts.at(-1).details.artifact_id, "download.qwen.test");
+  assert.equal(state.receipts.at(-1).details.bytes_completed, Buffer.byteLength(materialized[0].fixtureContent));
+  assert.equal(state.receipts.at(-1).details.resume_offset, 0);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "artifactId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "bytesCompleted"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "resumeOffset"), false);
   assert.equal(state.artifacts.get("download.qwen.test").source, "fixture://redacted");
   assert.deepEqual(state.artifacts.get("download.qwen.test").capabilities, ["chat", "tools"]);
   assert.equal(state.writes.at(-2)[0], "model-artifacts");
@@ -232,6 +257,15 @@ test("downloadModel records transfer metadata when live materialization fails", 
   assert.equal(failed.failureReason, "network_timeout");
   assert.equal(failed.attemptCount, 2);
   assert.equal(failed.retryCount, 1);
+  assert.equal(state.receipts[2].details.retry_count, 1);
+  assert.equal(Object.hasOwn(state.receipts[2].details, "retryCount"), false);
+  assert.equal(state.receipts[3].details.attempt_count, 2);
+  assert.equal(state.receipts[3].details.retry_count, 1);
+  assert.equal(state.receipts[3].details.resume_metadata_path_hash, "hash:resume");
+  assert.equal(state.receipts[3].details.transfer.attempt_count, 2);
+  assert.equal(Object.hasOwn(state.receipts[3].details, "attemptCount"), false);
+  assert.equal(Object.hasOwn(state.receipts[3].details, "resumeMetadataPathHash"), false);
+  assert.equal(Object.hasOwn(state.receipts[3].details.transfer, "attemptCount"), false);
   assert.deepEqual(failed.receiptIds, [
     "receipt.1.model_download_queued",
     "receipt.2.model_download_running",

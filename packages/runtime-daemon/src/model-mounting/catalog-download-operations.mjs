@@ -37,6 +37,76 @@ import {
 import { parseLocalModelMetadata } from "./local-system-probes.mjs";
 import { requiredString } from "./provider-registry.mjs";
 
+function catalogDownloadErrorDetails(sourceHash, evidenceRefs) {
+  return { source_url_hash: sourceHash, evidence_refs: evidenceRefs };
+}
+
+function catalogAuthReceiptDetails(evidence) {
+  if (!evidence) return null;
+  return {
+    auth_vault_ref_hash: evidence.authVaultRefHash ?? evidence.auth_vault_ref_hash ?? null,
+    resolved_material: Boolean(evidence.resolvedMaterial ?? evidence.resolved_material ?? evidence.catalogAuthResolved ?? evidence.catalog_auth_resolved),
+    catalog_auth_scheme: evidence.catalogAuthScheme ?? evidence.catalog_auth_scheme ?? "bearer",
+    catalog_auth_header_name_hash: evidence.catalogAuthHeaderNameHash ?? evidence.catalog_auth_header_name_hash ?? null,
+    evidence_refs: evidence.evidenceRefs ?? evidence.evidence_refs ?? [],
+    oauth_boundary: evidence.oauthBoundary ?? evidence.oauth_boundary ?? null,
+  };
+}
+
+function downloadPolicyReceiptDetails(policy) {
+  if (!policy) return null;
+  return {
+    max_bytes: policy.maxBytes ?? policy.max_bytes ?? null,
+    bandwidth_limit_bps: policy.bandwidthLimitBps ?? policy.bandwidth_limit_bps ?? null,
+    retry_limit: policy.retryLimit ?? policy.retry_limit ?? null,
+    resume: Boolean(policy.resume),
+    approval_decision: policy.approvalDecision ?? policy.approval_decision ?? null,
+    source: policy.source ?? null,
+    status: policy.status ?? null,
+  };
+}
+
+function transferReceiptDetails(transfer) {
+  if (!transfer) return null;
+  return {
+    source_hash: transfer.sourceHash ?? transfer.source_hash ?? null,
+    partial_path_hash: transfer.partialPathHash ?? transfer.partial_path_hash ?? null,
+    target_path_hash: transfer.targetPathHash ?? transfer.target_path_hash ?? null,
+    resume_metadata_path_hash: transfer.resumeMetadataPathHash ?? transfer.resume_metadata_path_hash ?? null,
+    retry_limit: transfer.retryLimit ?? transfer.retry_limit ?? null,
+    resume: transfer.resume ?? null,
+    bandwidth_limit_bps: transfer.bandwidthLimitBps ?? transfer.bandwidth_limit_bps ?? null,
+    status: transfer.status ?? null,
+    attempt_count: transfer.attemptCount ?? transfer.attempt_count ?? null,
+    retry_count: transfer.retryCount ?? transfer.retry_count ?? null,
+    failure_reason: transfer.failureReason ?? transfer.failure_reason ?? null,
+    bytes_completed: transfer.bytesCompleted ?? transfer.bytes_completed ?? null,
+    bytes_total: transfer.bytesTotal ?? transfer.bytes_total ?? null,
+    resumed: transfer.resumed ?? null,
+    resume_offset: transfer.resumeOffset ?? transfer.resume_offset ?? null,
+  };
+}
+
+function transferEventReceiptDetails(details = {}) {
+  const canonical = {
+    ...(details.attempt !== undefined ? { attempt: details.attempt } : {}),
+    ...(details.nextAttempt !== undefined ? { next_attempt: details.nextAttempt } : {}),
+    ...(details.retryLimit !== undefined ? { retry_limit: details.retryLimit } : {}),
+    ...(details.retryCount !== undefined ? { retry_count: details.retryCount } : {}),
+    ...(details.failureReason !== undefined ? { failure_reason: details.failureReason } : {}),
+    ...(details.bytesCompleted !== undefined ? { bytes_completed: details.bytesCompleted } : {}),
+    ...(details.bytesTotal !== undefined ? { bytes_total: details.bytesTotal } : {}),
+    ...(details.partialPathHash !== undefined ? { partial_path_hash: details.partialPathHash } : {}),
+    ...(details.resumeMetadataPathHash !== undefined ? { resume_metadata_path_hash: details.resumeMetadataPathHash } : {}),
+    ...(details.resumeEnabled !== undefined ? { resume_enabled: details.resumeEnabled } : {}),
+    ...(details.resumeOffset !== undefined ? { resume_offset: details.resumeOffset } : {}),
+  };
+  for (const [key, value] of Object.entries(details)) {
+    if (/^[a-z0-9_]+$/.test(key) && !Object.hasOwn(canonical, key)) canonical[key] = value;
+  }
+  return canonical;
+}
+
 export async function catalogImportUrl(state, body = {}, deps = {}) {
   const {
     catalogApprovalDecision: approvalDecision = catalogApprovalDecision,
@@ -58,7 +128,7 @@ export async function catalogImportUrl(state, body = {}, deps = {}) {
       status: 424,
       code: "external_blocker",
       message: "Live catalog imports are gated. Use fixture:// URLs or set IOI_LIVE_MODEL_CATALOG=1.",
-      details: { sourceUrlHash: hash(sourceUrl), evidenceRefs: ["network_access_opt_in"] },
+      details: catalogDownloadErrorDetails(hash(sourceUrl), ["network_access_opt_in"]),
     });
   }
   if (!isFixture && !downloadEnabled()) {
@@ -66,32 +136,32 @@ export async function catalogImportUrl(state, body = {}, deps = {}) {
       status: 424,
       code: "external_blocker",
       message: "Live catalog downloads are gated. Set IOI_LIVE_MODEL_DOWNLOAD=1 to materialize remote artifacts.",
-      details: { sourceUrlHash: hash(sourceUrl), evidenceRefs: ["network_download_opt_in"] },
+      details: catalogDownloadErrorDetails(hash(sourceUrl), ["network_download_opt_in"]),
     });
   }
   const modelId = body.model_id ?? body.modelId ?? modelIdForSource(sourceUrl);
   const lastCatalogEntry = state.lastCatalogSearch?.results?.find((entry) => entry.sourceUrl === sourceUrl || entry.sourceUrlHash === hash(sourceUrl));
   const variant = variantForSource(sourceUrl, { ...(lastCatalogEntry ?? {}), ...body });
   const receipt = state.lifecycleReceipt("model_catalog_import_url", {
-    modelId,
-    providerId: body.provider_id ?? body.providerId ?? "provider.autopilot.local",
-    sourceUrlHash: hash(sourceUrl),
-    sourceLabel: variant.sourceLabel,
+    model_id: modelId,
+    provider_id: body.provider_id ?? body.providerId ?? "provider.autopilot.local",
+    source_url_hash: hash(sourceUrl),
+    source_label: variant.sourceLabel,
     format: variant.format,
     quantization: variant.quantization,
     license: variant.license,
     compatibility: variant.compatibility,
     architecture: variant.architecture,
-    parameterCount: variant.parameterCount,
+    parameter_count: variant.parameterCount,
     recommendation: variant.recommendation,
-    backendCompatibility: variant.backendCompatibility,
-    downloadRisk: variant.downloadRisk,
-    benchmarkReadiness: variant.benchmarkReadiness,
-    selectionReceiptFields: variant.selectionReceiptFields,
-    catalogProviderId: variant.catalogProviderId,
-    catalogAuth: publicCatalogAuth(variant.catalogAuth),
-    approvalDecision: approvalDecision({ isFixture, body }),
-    liveDownloadGate: isFixture ? "fixture" : "IOI_LIVE_MODEL_DOWNLOAD",
+    backend_compatibility: variant.backendCompatibility,
+    download_risk: variant.downloadRisk,
+    benchmark_readiness: variant.benchmarkReadiness,
+    selection_receipt_fields: variant.selectionReceiptFields,
+    catalog_provider_id: variant.catalogProviderId,
+    catalog_auth: catalogAuthReceiptDetails(publicCatalogAuth(variant.catalogAuth)),
+    approval_decision: approvalDecision({ isFixture, body }),
+    live_download_gate: isFixture ? "fixture" : "IOI_LIVE_MODEL_DOWNLOAD",
   });
   const download = await state.downloadModel({
     ...body,
@@ -173,7 +243,7 @@ export async function downloadModel(state, body = {}, deps = {}) {
       status: 424,
       code: "external_blocker",
       message: "Live model downloads are gated. Set IOI_LIVE_MODEL_DOWNLOAD=1.",
-      details: { sourceUrlHash: hash(source), evidenceRefs: ["network_download_opt_in"] },
+      details: catalogDownloadErrorDetails(hash(source), ["network_download_opt_in"]),
     });
   }
   const sourceLabel = body.source_label ?? body.sourceLabel ?? labelForSource(source);
@@ -215,24 +285,24 @@ export async function downloadModel(state, body = {}, deps = {}) {
     receiptId: null,
   };
   const queuedReceipt = state.lifecycleReceipt("model_download_queued", {
-    jobId: jobBase.id,
-    modelId,
-    providerId,
-    sourceHash: hash(source),
-    sourceLabel,
+    job_id: jobBase.id,
+    model_id: modelId,
+    provider_id: providerId,
+    source_hash: hash(source),
+    source_label: sourceLabel,
     variant: variantMetadata,
-    catalogProviderId,
-    catalogAuth: catalogAuthReceipt,
+    catalog_provider_id: catalogProviderId,
+    catalog_auth: catalogAuthReceiptDetails(catalogAuthReceipt),
     recommendation: variantMetadata.recommendation,
-    backendCompatibility: variantMetadata.backendCompatibility,
-    downloadRisk: variantMetadata.downloadRisk,
-    benchmarkReadiness: variantMetadata.benchmarkReadiness,
-    selectionReceiptFields: variantMetadata.selectionReceiptFields,
-    approvalDecision: downloadPolicy.approvalDecision,
-    downloadPolicy,
-    targetPathHash: hash(targetPath),
-    maxBytes,
-    downloadMode: isFixture ? "fixture" : "live_network",
+    backend_compatibility: variantMetadata.backendCompatibility,
+    download_risk: variantMetadata.downloadRisk,
+    benchmark_readiness: variantMetadata.benchmarkReadiness,
+    selection_receipt_fields: variantMetadata.selectionReceiptFields,
+    approval_decision: downloadPolicy.approvalDecision,
+    download_policy: downloadPolicyReceiptDetails(downloadPolicy),
+    target_path_hash: hash(targetPath),
+    max_bytes: maxBytes,
+    download_mode: isFixture ? "fixture" : "live_network",
   });
   if (isTruthy(body.fail ?? body.simulate_failure ?? body.simulateFailure)) {
     const failed = {
@@ -245,11 +315,11 @@ export async function downloadModel(state, body = {}, deps = {}) {
       receiptId: queuedReceipt.id,
     };
     const failedReceipt = state.lifecycleReceipt("model_download_failed", {
-      jobId: failed.id,
-      modelId,
-      providerId,
-      failureReason: failed.failureReason,
-      downloadPolicy,
+      job_id: failed.id,
+      model_id: modelId,
+      provider_id: providerId,
+      failure_reason: failed.failureReason,
+      download_policy: downloadPolicyReceiptDetails(downloadPolicy),
     });
     const storedFailed = { ...failed, receiptIds: [...failed.receiptIds, failedReceipt.id], receiptId: failedReceipt.id };
     state.downloads.set(storedFailed.id, storedFailed);
@@ -272,33 +342,33 @@ export async function downloadModel(state, body = {}, deps = {}) {
   }
   mkdirSync(targetDir, { recursive: true });
   const runningReceipt = state.lifecycleReceipt("model_download_running", {
-    jobId: jobBase.id,
-    modelId,
-    providerId,
-    bytesTotal,
-    bytesCompleted: 0,
-    maxBytes,
-    sourceHash: hash(source),
-    sourceLabel,
-    downloadMode: isFixture ? "fixture" : "live_network",
-    downloadPolicy,
-    catalogProviderId,
-    catalogAuth: catalogAuthReceipt,
+    job_id: jobBase.id,
+    model_id: modelId,
+    provider_id: providerId,
+    bytes_total: bytesTotal,
+    bytes_completed: 0,
+    max_bytes: maxBytes,
+    source_hash: hash(source),
+    source_label: sourceLabel,
+    download_mode: isFixture ? "fixture" : "live_network",
+    download_policy: downloadPolicyReceiptDetails(downloadPolicy),
+    catalog_provider_id: catalogProviderId,
+    catalog_auth: catalogAuthReceiptDetails(catalogAuthReceipt),
   });
   const transferReceiptIds = [];
   const recordTransferEvent = (operation, details = {}) => {
     const receipt = state.lifecycleReceipt(operation, {
-      jobId: jobBase.id,
-      modelId,
-      providerId,
-      sourceHash: hash(source),
-      sourceLabel,
-      targetPathHash: hash(targetPath),
-      downloadMode: isFixture ? "fixture" : "live_network",
-      downloadPolicy,
-      catalogProviderId,
-      catalogAuth: catalogAuthReceipt,
-      ...details,
+      job_id: jobBase.id,
+      model_id: modelId,
+      provider_id: providerId,
+      source_hash: hash(source),
+      source_label: sourceLabel,
+      target_path_hash: hash(targetPath),
+      download_mode: isFixture ? "fixture" : "live_network",
+      download_policy: downloadPolicyReceiptDetails(downloadPolicy),
+      catalog_provider_id: catalogProviderId,
+      catalog_auth: catalogAuthReceiptDetails(catalogAuthReceipt),
+      ...transferEventReceiptDetails(details),
     });
     transferReceiptIds.push(receipt.id);
     return receipt;
@@ -326,21 +396,21 @@ export async function downloadModel(state, body = {}, deps = {}) {
       retainPartial: shouldRetainPartial(downloadPolicy, failureReason),
     });
     const failedReceipt = state.lifecycleReceipt("model_download_failed", {
-      jobId: jobBase.id,
-      modelId,
-      providerId,
-      failureReason,
-      sourceHash: hash(source),
-      sourceLabel,
-      errorHash: hash(error?.message ?? "download failed"),
-      cleanupState,
-      transfer,
-      catalogProviderId,
-      catalogAuth: catalogAuthReceipt,
-      attemptCount: transfer?.attemptCount ?? null,
-      retryCount: transfer?.retryCount ?? null,
-      resumeMetadataPathHash: transfer?.resumeMetadataPathHash ?? hash(`${targetPath}.part.json`),
-      downloadPolicy,
+      job_id: jobBase.id,
+      model_id: modelId,
+      provider_id: providerId,
+      failure_reason: failureReason,
+      source_hash: hash(source),
+      source_label: sourceLabel,
+      error_hash: hash(error?.message ?? "download failed"),
+      cleanup_state: cleanupState,
+      transfer: transferReceiptDetails(transfer),
+      catalog_provider_id: catalogProviderId,
+      catalog_auth: catalogAuthReceiptDetails(catalogAuthReceipt),
+      attempt_count: transfer?.attemptCount ?? null,
+      retry_count: transfer?.retryCount ?? null,
+      resume_metadata_path_hash: transfer?.resumeMetadataPathHash ?? hash(`${targetPath}.part.json`),
+      download_policy: downloadPolicyReceiptDetails(downloadPolicy),
     });
     const failed = {
       ...jobBase,
@@ -407,32 +477,32 @@ export async function downloadModel(state, body = {}, deps = {}) {
   state.artifacts.set(artifact.id, artifact);
   state.downloads.set(job.id, job);
   const receipt = state.lifecycleReceipt("model_download_completed", {
-    jobId: job.id,
-    artifactId: artifact.id,
-    modelId,
-    providerId: artifact.providerId,
-    bytesTotal: materialized.bytesTotal || completedBytes,
-    bytesCompleted: completedBytes,
-    maxBytes,
+    job_id: job.id,
+    artifact_id: artifact.id,
+    model_id: modelId,
+    provider_id: artifact.providerId,
+    bytes_total: materialized.bytesTotal || completedBytes,
+    bytes_completed: completedBytes,
+    max_bytes: maxBytes,
     checksum,
-    sourceHash: hash(source),
-    sourceLabel,
+    source_hash: hash(source),
+    source_label: sourceLabel,
     variant: variantMetadata,
     recommendation: variantMetadata.recommendation,
-    backendCompatibility: variantMetadata.backendCompatibility,
-    downloadRisk: variantMetadata.downloadRisk,
-    benchmarkReadiness: variantMetadata.benchmarkReadiness,
-    selectionReceiptFields: variantMetadata.selectionReceiptFields,
-    approvalDecision: downloadPolicy.approvalDecision,
-    downloadPolicy,
-    resumeOffset: materialized.resumeOffset ?? 0,
-    attemptCount: materialized.attemptCount ?? 1,
-    retryCount: materialized.retryCount ?? 0,
-    resumeMetadataPathHash: materialized.resumeMetadataPathHash ?? hash(`${targetPath}.part.json`),
-    transfer: materialized.transfer ?? null,
-    downloadMode: isFixture ? "fixture" : "live_network",
-    catalogProviderId,
-    catalogAuth: catalogAuthReceipt,
+    backend_compatibility: variantMetadata.backendCompatibility,
+    download_risk: variantMetadata.downloadRisk,
+    benchmark_readiness: variantMetadata.benchmarkReadiness,
+    selection_receipt_fields: variantMetadata.selectionReceiptFields,
+    approval_decision: downloadPolicy.approvalDecision,
+    download_policy: downloadPolicyReceiptDetails(downloadPolicy),
+    resume_offset: materialized.resumeOffset ?? 0,
+    attempt_count: materialized.attemptCount ?? 1,
+    retry_count: materialized.retryCount ?? 0,
+    resume_metadata_path_hash: materialized.resumeMetadataPathHash ?? hash(`${targetPath}.part.json`),
+    transfer: transferReceiptDetails(materialized.transfer),
+    download_mode: isFixture ? "fixture" : "live_network",
+    catalog_provider_id: catalogProviderId,
+    catalog_auth: catalogAuthReceiptDetails(catalogAuthReceipt),
   });
   const completed = { ...job, receiptId: receipt.id, receiptIds: [...job.receiptIds, receipt.id] };
   state.downloads.set(completed.id, completed);
