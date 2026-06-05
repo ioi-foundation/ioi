@@ -146,6 +146,12 @@ test("cancelDownload records cleanup and preserves terminal jobs", () => {
   assert.equal(canceled.cleanupState, "removed_partial");
   assert.equal(canceled.projectedFreedBytes, 9);
   assert.deepEqual(canceled.receiptIds, ["receipt.previous", "receipt.model_download_canceled.1"]);
+  assert.equal(state.receipts.at(-1).details.job_id, "job.active");
+  assert.equal(state.receipts.at(-1).details.model_id, "llama-test");
+  assert.equal(state.receipts.at(-1).details.projected_freed_bytes, 9);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "jobId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "projectedFreedBytes"), false);
   assert.equal(state.writes.at(-1)[0], "model-downloads");
   assert.equal(state.projections, 1);
   assert.equal(cancelDownload(state, "job.done", {}, deps).status, "completed");
@@ -175,6 +181,12 @@ test("deleteModelArtifact supports dry-run, loaded conflict, and deletion cleanu
   assert.equal(dryRun.status, "dry_run");
   assert.equal(dryRun.projectedFreedBytes, 11);
   assert.deepEqual(dryRun.affectedEndpointIds, ["endpoint.llama"]);
+  assert.equal(state.receipts.at(-1).details.artifact_id, "artifact.llama");
+  assert.equal(state.receipts.at(-1).details.artifact_path_hash, `hash:${artifactPath}`);
+  assert.deepEqual(state.receipts.at(-1).details.affected_endpoint_ids, ["endpoint.llama"]);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "artifactId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "artifactPathHash"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "affectedEndpointIds"), false);
 
   state.instances.set("instance.loaded", {
     id: "instance.loaded",
@@ -183,7 +195,11 @@ test("deleteModelArtifact supports dry-run, loaded conflict, and deletion cleanu
   });
   assert.throws(
     () => deleteModelArtifact(state, "artifact.llama", {}, deps),
-    (error) => error.status === 409 && error.code === "conflict",
+    (error) =>
+      error.status === 409 &&
+      error.code === "conflict" &&
+      error.details.artifact_id === "artifact.llama" &&
+      Object.hasOwn(error.details, "artifactId") === false,
   );
   state.instances.clear();
 
@@ -193,6 +209,12 @@ test("deleteModelArtifact supports dry-run, loaded conflict, and deletion cleanu
   assert.equal(state.artifacts.has("artifact.llama"), false);
   assert.equal(state.endpoints.get("endpoint.llama").status, "deleted_with_artifact");
   assert.equal(fs.existsSync(artifactPath), false);
+  assert.equal(state.receipts.at(-1).details.cleanup_state, "removed");
+  assert.deepEqual(state.receipts.at(-1).details.endpoint_ids, ["endpoint.llama"]);
+  assert.equal(state.receipts.at(-1).details.projected_freed_bytes, 11);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "cleanupState"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "endpointIds"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "projectedFreedBytes"), false);
   assert.equal(state.writes.at(-2)[0], "model-artifacts");
   assert.equal(state.writes.at(-1)[0], "model-endpoints");
 });
@@ -211,15 +233,31 @@ test("cleanupModelStorage scans, gates destructive cleanup, and removes confirme
   assert.equal(scan.status, "scanned");
   assert.equal(scan.orphanCount, 1);
   assert.equal(scan.orphanBytes, 6);
+  assert.equal(state.receipts.at(-1).details.scanned_file_count, 2);
+  assert.equal(state.receipts.at(-1).details.orphan_count, 1);
+  assert.equal(state.receipts.at(-1).details.orphan_bytes, 6);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "scannedFileCount"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "orphanCount"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "orphanBytes"), false);
 
   assert.throws(
     () => cleanupModelStorage(state, { remove_orphans: true }, deps),
-    (error) => error.status === 409 && error.code === "destructive_confirmation_required",
+    (error) =>
+      error.status === 409 &&
+      error.code === "destructive_confirmation_required" &&
+      error.details.orphan_count === 1 &&
+      Object.hasOwn(error.details, "orphanCount") === false,
   );
 
   const cleaned = cleanupModelStorage(state, { remove_orphans: true, confirm_destructive: true }, deps);
   assert.equal(cleaned.status, "cleaned");
   assert.equal(cleaned.cleanedBytes, 6);
   assert.equal(cleaned.removedOrphanCount, 1);
+  assert.equal(state.receipts.at(-1).details.cleaned_bytes, 6);
+  assert.equal(state.receipts.at(-1).details.removed_orphan_count, 1);
+  assert.equal(state.receipts.at(-1).details.remove_orphans, true);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "cleanedBytes"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "removedOrphanCount"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "removeOrphans"), false);
   assert.equal(fs.existsSync(orphanPath), false);
 });

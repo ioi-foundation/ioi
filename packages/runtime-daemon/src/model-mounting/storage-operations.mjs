@@ -24,16 +24,16 @@ export function cancelDownload(state, jobId, body = {}, deps = {}) {
     cleanupState = cleanupPartialDownload(job.targetPath);
   }
   const receipt = state.lifecycleReceipt("model_download_canceled", {
-    jobId,
-    modelId: job.modelId,
-    providerId: job.providerId,
-    bytesCompleted: job.bytesCompleted,
-    bytesTotal: job.bytesTotal,
-    cleanupPartial,
-    cleanupState,
-    projectedFreedBytes,
-    destructiveConfirmation,
-    downloadPolicy: job.downloadPolicy ?? null,
+    job_id: jobId,
+    model_id: job.modelId,
+    provider_id: job.providerId,
+    bytes_completed: job.bytesCompleted,
+    bytes_total: job.bytesTotal,
+    cleanup_partial: cleanupPartial,
+    cleanup_state: cleanupState,
+    projected_freed_bytes: projectedFreedBytes,
+    destructive_confirmation: destructiveConfirmation,
+    download_policy: job.downloadPolicy ?? null,
   });
   const canceled = {
     ...job,
@@ -77,14 +77,14 @@ export function deleteModelArtifact(state, id, body = {}, deps = {}) {
   const destructiveConfirmation = destructiveConfirmationState(body, { required: projectedFreedBytes > 0 || endpointIds.length > 0, action: "model_artifact_delete" });
   if (truthy(body.dry_run ?? body.dryRun)) {
     const receipt = state.lifecycleReceipt("model_artifact_delete_dry_run", {
-      artifactId: artifact.id,
-      modelId: artifact.modelId,
-      providerId: artifact.providerId,
-      artifactPathHash: artifact.artifactPath ? stableHash(artifact.artifactPath) : null,
-      affectedEndpointIds: endpointIds,
-      affectedInstanceIds: instanceIds,
-      projectedFreedBytes,
-      destructiveConfirmation,
+      artifact_id: artifact.id,
+      model_id: artifact.modelId,
+      provider_id: artifact.providerId,
+      artifact_path_hash: artifact.artifactPath ? stableHash(artifact.artifactPath) : null,
+      affected_endpoint_ids: endpointIds,
+      affected_instance_ids: instanceIds,
+      projected_freed_bytes: projectedFreedBytes,
+      destructive_confirmation: destructiveConfirmation,
     });
     return {
       schemaVersion,
@@ -103,7 +103,7 @@ export function deleteModelArtifact(state, id, body = {}, deps = {}) {
       status: 409,
       code: "conflict",
       message: "Model artifact is loaded. Unload linked instances before deleting it.",
-      details: { artifactId: artifact.id, instanceIds },
+      details: { artifact_id: artifact.id, instance_ids: instanceIds },
     });
   }
   for (const endpointId of endpointIds) {
@@ -122,16 +122,16 @@ export function deleteModelArtifact(state, id, body = {}, deps = {}) {
     }
   }
   const receipt = state.lifecycleReceipt("model_artifact_delete", {
-    artifactId: artifact.id,
-    modelId: artifact.modelId,
-    providerId: artifact.providerId,
-    artifactPathHash: artifact.artifactPath ? stableHash(artifact.artifactPath) : null,
-    endpointIds,
-    affectedEndpointIds: endpointIds,
-    affectedInstanceIds: instanceIds,
-    projectedFreedBytes,
-    cleanupState,
-    destructiveConfirmation,
+    artifact_id: artifact.id,
+    model_id: artifact.modelId,
+    provider_id: artifact.providerId,
+    artifact_path_hash: artifact.artifactPath ? stableHash(artifact.artifactPath) : null,
+    endpoint_ids: endpointIds,
+    affected_endpoint_ids: endpointIds,
+    affected_instance_ids: instanceIds,
+    projected_freed_bytes: projectedFreedBytes,
+    cleanup_state: cleanupState,
+    destructive_confirmation: destructiveConfirmation,
   });
   state.writeMap("model-artifacts", state.artifacts);
   state.writeMap("model-endpoints", state.endpoints);
@@ -171,7 +171,7 @@ export function cleanupModelStorage(state, body = {}, deps = {}) {
       status: 409,
       code: "destructive_confirmation_required",
       message: "Confirm destructive cleanup before removing orphan model files.",
-      details: { orphanCount: orphans.length, projectedFreedBytes: orphanBytes },
+      details: { orphan_count: orphans.length, projected_freed_bytes: orphanBytes },
     });
   }
   let cleanupState = "scan_only";
@@ -191,17 +191,17 @@ export function cleanupModelStorage(state, body = {}, deps = {}) {
     }
   }
   const receipt = state.lifecycleReceipt("model_storage_cleanup", {
-    modelId: "model-storage",
-    scannedFileCount: files.length,
-    orphanCount: orphans.length,
-    orphanPathHashes: orphans.map((filePath) => stableHash(filePath)),
-    orphanBytes,
-    removeOrphans,
-    cleanedBytes,
-    removedOrphanCount,
-    projectedFreedBytes: orphanBytes,
-    cleanupState,
-    destructiveConfirmation,
+    model_id: "model-storage",
+    scanned_file_count: files.length,
+    orphan_count: orphans.length,
+    orphan_path_hashes: orphans.map((filePath) => stableHash(filePath)),
+    orphan_bytes: orphanBytes,
+    remove_orphans: removeOrphans,
+    cleaned_bytes: cleanedBytes,
+    removed_orphan_count: removedOrphanCount,
+    projected_freed_bytes: orphanBytes,
+    cleanup_state: cleanupState,
+    destructive_confirmation: destructiveConfirmation,
   });
   return {
     schemaVersion,

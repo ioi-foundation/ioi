@@ -2564,6 +2564,12 @@ function runReceipts() {
   const loadedInstancesTest = exists("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs")
     : "";
+  const storageOperations = exists("packages/runtime-daemon/src/model-mounting/storage-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/storage-operations.mjs")
+    : "";
+  const storageOperationsTest = exists("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
+    : "";
   const modelMountStoreTest = exists("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     : "";
@@ -2581,6 +2587,12 @@ function runReceipts() {
   ].join("\n");
   const modelTokenizerReceiptDetailsObject =
     modelTokenizerOperations.match(/details:\s*\{[\s\S]*?context_window:\s*contextWindow,\n\s+\},/)?.[0] ?? "";
+  const storageLifecycleReceiptBlocks = [
+    storageOperations.match(/state\.lifecycleReceipt\("model_download_canceled",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+    storageOperations.match(/state\.lifecycleReceipt\("model_artifact_delete_dry_run",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+    storageOperations.match(/state\.lifecycleReceipt\("model_artifact_delete",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+    storageOperations.match(/state\.lifecycleReceipt\("model_storage_cleanup",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+  ].join("\n");
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
@@ -3052,6 +3064,52 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
     ],
     "Phase 9/11 is pending: tokenizer and context-fit receipts must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-storage-lifecycle-detail-aliases-retired",
+    /job_id:\s*jobId/.test(storageLifecycleReceiptBlocks) &&
+      /model_id:\s*job\.modelId/.test(storageLifecycleReceiptBlocks) &&
+      /provider_id:\s*job\.providerId/.test(storageLifecycleReceiptBlocks) &&
+      /bytes_completed:\s*job\.bytesCompleted/.test(storageLifecycleReceiptBlocks) &&
+      /bytes_total:\s*job\.bytesTotal/.test(storageLifecycleReceiptBlocks) &&
+      /cleanup_partial:\s*cleanupPartial/.test(storageLifecycleReceiptBlocks) &&
+      /cleanup_state:\s*cleanupState/.test(storageLifecycleReceiptBlocks) &&
+      /projected_freed_bytes:\s*projectedFreedBytes/.test(storageLifecycleReceiptBlocks) &&
+      /artifact_id:\s*artifact\.id/.test(storageLifecycleReceiptBlocks) &&
+      /artifact_path_hash:\s*artifact\.artifactPath/.test(storageLifecycleReceiptBlocks) &&
+      /affected_endpoint_ids:\s*endpointIds/.test(storageLifecycleReceiptBlocks) &&
+      /affected_instance_ids:\s*instanceIds/.test(storageLifecycleReceiptBlocks) &&
+      /endpoint_ids:\s*endpointIds/.test(storageLifecycleReceiptBlocks) &&
+      /scanned_file_count:\s*files\.length/.test(storageLifecycleReceiptBlocks) &&
+      /orphan_count:\s*orphans\.length/.test(storageLifecycleReceiptBlocks) &&
+      /orphan_path_hashes:\s*orphans\.map/.test(storageLifecycleReceiptBlocks) &&
+      /orphan_bytes:\s*orphanBytes/.test(storageLifecycleReceiptBlocks) &&
+      /remove_orphans:\s*removeOrphans/.test(storageLifecycleReceiptBlocks) &&
+      /cleaned_bytes:\s*cleanedBytes/.test(storageLifecycleReceiptBlocks) &&
+      /removed_orphan_count:\s*removedOrphanCount/.test(storageLifecycleReceiptBlocks) &&
+      /destructive_confirmation:\s*destructiveConfirmation/.test(storageLifecycleReceiptBlocks) &&
+      /details:\s*\{\s*artifact_id:\s*artifact\.id,\s*instance_ids:\s*instanceIds\s*\}/.test(storageOperations) &&
+      /details:\s*\{\s*orphan_count:\s*orphans\.length,\s*projected_freed_bytes:\s*orphanBytes\s*\}/.test(
+        storageOperations,
+      ) &&
+      !/\b(?:jobId|modelId|providerId|bytesCompleted|bytesTotal|cleanupPartial|cleanupState|projectedFreedBytes|downloadPolicy|artifactId|artifactPathHash|affectedEndpointIds|affectedInstanceIds|endpointIds|scannedFileCount|orphanCount|orphanPathHashes|orphanBytes|removeOrphans|cleanedBytes|removedOrphanCount|destructiveConfirmation)\s*:/.test(
+        storageLifecycleReceiptBlocks,
+      ) &&
+      !/details:\s*\{\s*(?:artifactId|orphanCount)\b/.test(storageOperations) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"projectedFreedBytes"\),\s*false/.test(
+        storageOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"artifactPathHash"\),\s*false/.test(
+        storageOperationsTest,
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*"artifactId"\)\s*===\s*false/.test(storageOperationsTest) &&
+      /Object\.hasOwn\(error\.details,\s*"orphanCount"\)\s*===\s*false/.test(storageOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/storage-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: model storage lifecycle receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,
