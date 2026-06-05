@@ -114,7 +114,7 @@ export function selectRoute({
     if (
       candidateProvider.privacyClass === "hosted" &&
       route.privacy === "local_or_enterprise" &&
-      !truthy(policy?.allow_hosted_fallback ?? policy?.allowHostedFallback)
+      !truthy(policy?.allow_hosted_fallback)
     ) {
       candidate.reason = "hosted_fallback_not_allowed";
       evaluatedCandidates.push(candidate);

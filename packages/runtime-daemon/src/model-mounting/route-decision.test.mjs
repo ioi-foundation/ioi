@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { providerRequestBodyForRoute } from "./route-decision.mjs";
+import { createModelRouteDecision, providerRequestBodyForRoute } from "./route-decision.mjs";
 
 test("provider request body resolves auto and strips Autopilot-only route fields", () => {
   const body = providerRequestBodyForRoute(
@@ -26,6 +26,20 @@ test("provider request body resolves auto and strips Autopilot-only route fields
   assert.equal(body.model_policy, undefined);
   assert.equal(body.modelPolicy, undefined);
   assert.equal(body.workflow_node_id, undefined);
+});
+
+test("route decisions use canonical hosted fallback policy constraint", () => {
+  const decision = createModelRouteDecision({
+    route: { id: "route.local-first", privacy: "local_or_enterprise", fallback: ["endpoint.hosted"] },
+    endpoint: { id: "endpoint.hosted", modelId: "model.hosted", providerId: "provider.hosted" },
+    provider: { id: "provider.hosted", kind: "openai", privacyClass: "hosted" },
+    policy: { allow_hosted_fallback: true },
+    policyHash: "sha256:policy",
+    requestedModel: "auto",
+  });
+
+  assert.equal(decision.policyConstraints.allow_hosted_fallback, true);
+  assert.equal(decision.policyConstraints.allowHostedFallback, undefined);
 });
 
 test("provider request body maps Autopilot reasoning off to llama.cpp enable_thinking false", () => {

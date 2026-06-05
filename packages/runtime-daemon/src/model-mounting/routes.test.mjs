@@ -162,6 +162,50 @@ test("model mounting route helpers select policy-allowed endpoints after rejecte
   ]);
 });
 
+test("model mounting route helpers ignore retired hosted fallback policy alias", () => {
+  const routes = new Map([["route.local-first", {
+    id: "route.local-first",
+    fallback: ["endpoint.hosted", "endpoint.local"],
+    deniedProviders: [],
+    providerEligibility: [],
+    privacy: "local_or_enterprise",
+    maxCostUsd: 1,
+  }]]);
+  const endpoints = new Map([
+    ["endpoint.hosted", {
+      id: "endpoint.hosted",
+      providerId: "provider.hosted",
+      modelId: "model.hosted",
+      capabilities: ["chat"],
+    }],
+    ["endpoint.local", {
+      id: "endpoint.local",
+      providerId: "provider.local",
+      modelId: "model.local",
+      capabilities: ["chat"],
+    }],
+  ]);
+  const providers = new Map([
+    ["provider.hosted", { id: "provider.hosted", kind: "openai", privacyClass: "hosted" }],
+    ["provider.local", { id: "provider.local", kind: "local_folder", privacyClass: "local_private" }],
+  ]);
+  const base = {
+    endpoint: (id) => endpoints.get(id),
+    endpointIdsForExplicitModel: () => [],
+    isAutoModelSelector: () => true,
+    isFixtureEndpointCandidate: () => false,
+    modelId: "auto",
+    provider: (id) => providers.get(id),
+    route: (id) => routes.get(id),
+    routes,
+    runtimeError,
+    truthy: Boolean,
+  };
+
+  assert.equal(selectRoute({ ...base, policy: { allow_hosted_fallback: true } }).endpoint.id, "endpoint.hosted");
+  assert.equal(selectRoute({ ...base, policy: { allowHostedFallback: true } }).endpoint.id, "endpoint.local");
+});
+
 test("model mounting route helpers report blocker details when no endpoint satisfies policy", () => {
   const routes = new Map([["route.local-first", {
     id: "route.local-first",

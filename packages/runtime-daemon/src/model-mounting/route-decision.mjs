@@ -304,7 +304,7 @@ function routePolicyConstraints(route = {}, policy = {}) {
     deniedProviders: Array.isArray(route.deniedProviders) ? [...route.deniedProviders] : [],
     maxCostUsd: Number(policy.max_cost_usd ?? policy.maxCostUsd ?? route.maxCostUsd ?? 0),
     maxLatencyMs: Number(policy.max_latency_ms ?? policy.maxLatencyMs ?? route.maxLatencyMs ?? 0),
-    allowHostedFallback: truthy(policy.allow_hosted_fallback ?? policy.allowHostedFallback),
+    allow_hosted_fallback: truthy(policy.allow_hosted_fallback),
     localOnly: policy.privacy === "local_only" || route.privacy === "local_only",
   };
 }

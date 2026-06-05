@@ -675,11 +675,28 @@ function runBridge() {
       /model_mount_route_decision_receipt_id_required/.test(modelRoutes) &&
       /model_mount_route_decision_ref/.test(modelRoutes) &&
       !/modelMountRouteDecision(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs)?\s*:/.test(modelRoutes) &&
+      /allow_hosted_fallback/.test(modelRoutes) &&
+      !/allowHostedFallback/.test(modelRoutes) &&
+      /allow_hosted_fallback/.test(
+        read("packages/runtime-daemon/src/model-mounting/route-decision.mjs"),
+      ) &&
+      !/allowHostedFallback/.test(
+        read("packages/runtime-daemon/src/model-mounting/route-decision.mjs"),
+      ) &&
+      /ignore retired hosted fallback policy alias/.test(
+        read("packages/runtime-daemon/src/model-mounting/routes.test.mjs"),
+      ) &&
+      /canonical hosted fallback policy constraint/.test(
+        read("packages/runtime-daemon/src/model-mounting/route-decision.test.mjs"),
+      ) &&
       !/modelMountRouteDecisionRef/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
+      "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 3/9 is pending: model-mounting route decisions must call Rust model_mount core and fail closed before provider invocation",
