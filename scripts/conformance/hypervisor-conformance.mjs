@@ -673,6 +673,8 @@ function runBridge() {
   const openAiCompatRoutesTest = exists("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
     : "";
+  const modelStreamCancelDetailsObject =
+    openAiCompatRoutes.match(/details: \{\n {6}stream_kind[\s\S]*?\n {4}\},/)?.[0] ?? "";
   const retiredRouteDecisionEnvPattern = new RegExp("MODEL_MOUNT_" + "ROUTE_DECISION_COMMAND_ENV");
   assertCheck(
     result,
@@ -1348,6 +1350,36 @@ function runBridge() {
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
     ],
     "Phase 3/10 is pending: model invocation and stream-completion receipt details must serialize canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-stream-cancel-receipt-detail-aliases-retired",
+    /^ {6}stream_kind:\s*streamKind/m.test(modelStreamCancelDetailsObject) &&
+      /^ {6}invocation_receipt_id:\s*invocation\.receipt\.id/m.test(modelStreamCancelDetailsObject) &&
+      /^ {6}route_id:\s*invocation\.route\.id/m.test(modelStreamCancelDetailsObject) &&
+      /^ {6}selected_model:\s*invocation\.model/m.test(modelStreamCancelDetailsObject) &&
+      /^ {6}endpoint_id:\s*invocation\.endpoint\.id/m.test(modelStreamCancelDetailsObject) &&
+      /^ {6}provider_id:\s*invocation\.endpoint\.providerId/m.test(modelStreamCancelDetailsObject) &&
+      /^ {6}instance_id:\s*invocation\.instance\.id/m.test(modelStreamCancelDetailsObject) &&
+      /^ {6}backend_id:\s*invocation\.instance\.backendId/m.test(modelStreamCancelDetailsObject) &&
+      /^ {6}selected_backend:\s*invocation\.receipt\.details\?\.selected_backend/m.test(modelStreamCancelDetailsObject) &&
+      /^ {6}stream_source:\s*invocation\.receipt\.details\?\.stream_source/m.test(modelStreamCancelDetailsObject) &&
+      /^ {6}provider_response_kind:\s*invocation\.providerResponseKind/m.test(modelStreamCancelDetailsObject) &&
+      /^ {6}backend_evidence_refs:\s*invocation\.receipt\.details\?\.backend_evidence_refs/m.test(modelStreamCancelDetailsObject) &&
+      /^ {6}tool_receipt_ids:\s*invocation\.toolReceiptIds/m.test(modelStreamCancelDetailsObject) &&
+      /^ {6}frames_written:\s*framesWritten/m.test(modelStreamCancelDetailsObject) &&
+      !/^ {6}(?:streamKind|invocationReceiptId|routeId|selectedModel|endpointId|providerId|instanceId|backendId|selectedBackend|streamSource|providerResponseKind|backendEvidenceRefs|toolReceiptIds|framesWritten)\s*[:,]/m.test(
+        modelStreamCancelDetailsObject,
+      ) &&
+      /stream cancellation receipts use canonical detail metadata/.test(openAiCompatRoutesTest) &&
+      /Object\.hasOwn\(receipts\[0\]\.payload\.details,\s*"streamKind"\),\s*false/.test(openAiCompatRoutesTest) &&
+      /Object\.hasOwn\(receipts\[0\]\.payload\.details,\s*"providerResponseKind"\),\s*false/.test(openAiCompatRoutesTest) &&
+      /Object\.hasOwn\(receipts\[0\]\.payload\.details,\s*"framesWritten"\),\s*false/.test(openAiCompatRoutesTest),
+    [
+      "packages/runtime-daemon/src/openai-compat-routes.mjs",
+      "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
+    ],
+    "Phase 3/10 is pending: stream cancellation receipts must serialize canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

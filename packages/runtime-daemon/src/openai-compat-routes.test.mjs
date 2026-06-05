@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   nativeInvocationResponse,
+  recordModelStreamCanceled,
   writeOpenAiProviderChatCompletionStream,
 } from "./openai-compat-routes.mjs";
 
@@ -55,8 +56,11 @@ function invocationFixture() {
       receipt: {
         id: "receipt.invocation",
         details: {
-          backendId: "backend.native",
-          selectedBackend: "backend.native",
+          backend_id: "backend.native",
+          selected_backend: "backend.native",
+          stream_source: "provider_native",
+          provider_response_kind: "openai.chat.stream",
+          backend_evidence_refs: ["backend.native"],
         },
       },
       responseId: "resp.native",
@@ -93,8 +97,8 @@ test("OpenAI provider stream shape is bound to the stream receipt without operat
       return {
         id: "receipt.stream",
         details: {
-          tokenCount: requested.providerUsage,
-          providerStreamShapeSummary: requested.providerStreamShapeSummary,
+          token_count: requested.providerUsage,
+          provider_stream_shape_summary: requested.providerStreamShapeSummary,
         },
       };
     },
@@ -112,6 +116,49 @@ test("OpenAI provider stream shape is bound to the stream receipt without operat
   assert.equal("_deltaToolArgumentBuffers" in completed[0].providerStreamShapeSummary, false);
   assert.equal(response.headers["x-ioi-stream-source"], "provider_native");
   assert.equal(response.frames.some((frame) => frame.includes('"stream_receipt_id":"receipt.stream"')), true);
+});
+
+test("stream cancellation receipts use canonical detail metadata", () => {
+  const { invocation } = invocationFixture();
+  const receipts = [];
+  const mounts = {
+    receipt(kind, payload) {
+      receipts.push({ kind, payload });
+      return { id: "receipt.cancel", kind, ...payload };
+    },
+  };
+
+  recordModelStreamCanceled({
+    mounts,
+    invocation,
+    streamKind: "chat.completions",
+    framesWritten: 2,
+  });
+
+  assert.equal(receipts.length, 1);
+  assert.equal(receipts[0].kind, "model_invocation_stream_canceled");
+  assert.equal(receipts[0].payload.details.stream_kind, "chat.completions");
+  assert.equal(receipts[0].payload.details.invocation_receipt_id, "receipt.invocation");
+  assert.equal(receipts[0].payload.details.route_id, "route.native");
+  assert.equal(receipts[0].payload.details.selected_model, "model.native");
+  assert.equal(receipts[0].payload.details.backend_id, "backend.native");
+  assert.equal(receipts[0].payload.details.selected_backend, "backend.native");
+  assert.equal(receipts[0].payload.details.stream_source, "provider_native");
+  assert.equal(receipts[0].payload.details.provider_response_kind, "openai.chat.stream");
+  assert.deepEqual(receipts[0].payload.details.backend_evidence_refs, ["backend.native"]);
+  assert.deepEqual(receipts[0].payload.details.tool_receipt_ids, []);
+  assert.equal(receipts[0].payload.details.frames_written, 2);
+  assert.equal(Object.hasOwn(receipts[0].payload.details, "streamKind"), false);
+  assert.equal(Object.hasOwn(receipts[0].payload.details, "invocationReceiptId"), false);
+  assert.equal(Object.hasOwn(receipts[0].payload.details, "routeId"), false);
+  assert.equal(Object.hasOwn(receipts[0].payload.details, "selectedModel"), false);
+  assert.equal(Object.hasOwn(receipts[0].payload.details, "backendId"), false);
+  assert.equal(Object.hasOwn(receipts[0].payload.details, "selectedBackend"), false);
+  assert.equal(Object.hasOwn(receipts[0].payload.details, "streamSource"), false);
+  assert.equal(Object.hasOwn(receipts[0].payload.details, "providerResponseKind"), false);
+  assert.equal(Object.hasOwn(receipts[0].payload.details, "backendEvidenceRefs"), false);
+  assert.equal(Object.hasOwn(receipts[0].payload.details, "toolReceiptIds"), false);
+  assert.equal(Object.hasOwn(receipts[0].payload.details, "framesWritten"), false);
 });
 
 test("native invocation response reads canonical route decision details", () => {
