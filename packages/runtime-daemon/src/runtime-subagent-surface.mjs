@@ -38,6 +38,80 @@ function withoutRetiredSubagentUsageTelemetry(record = {}) {
   return canonicalRecord;
 }
 
+const retiredSubagentRecordOutputAliasKeys = new Set([
+  "schemaVersion",
+  "subagentId",
+  "agentId",
+  "childThreadId",
+  "runId",
+  "parentThreadId",
+  "parentAgentId",
+  "parentTurnId",
+  "toolPack",
+  "modelRouteId",
+  "workflowGraphId",
+  "workflowNodeId",
+  "sessionBootId",
+  "lifecycleStatus",
+  "restartStatus",
+  "restartCount",
+  "forkContext",
+  "contextMode",
+  "maxConcurrency",
+  "budgetUsageTelemetry",
+  "budgetStatus",
+  "budgetPolicyDecision",
+  "blockReason",
+  "outputContract",
+  "outputContractStatus",
+  "outputContractValidation",
+  "mergePolicy",
+  "cancellationInheritance",
+  "contextPressureAction",
+  "contextPressure",
+  "pressure",
+  "pressureStatus",
+  "alertId",
+  "sourceEventId",
+  "sourceReceiptRefs",
+  "sourcePolicyDecisionRefs",
+  "createdAt",
+  "updatedAt",
+  "receiptRefs",
+  "policyDecisionRefs",
+  "evidenceRefs",
+  "waitEventId",
+  "inputId",
+  "inputCount",
+  "inputHistory",
+  "inputEventId",
+  "lastInput",
+  "lastInputAt",
+  "previousRunIds",
+  "resumeId",
+  "resumeHistory",
+  "resumeEventId",
+  "resumedAt",
+  "cancellationReason",
+  "cancellationInherited",
+  "propagatedFromThreadId",
+  "cancellationClearedAt",
+  "cancellationHistory",
+  "assignmentId",
+  "assignmentCount",
+  "assignmentHistory",
+  "assignEventId",
+  "targetAgentId",
+  "cancelEventId",
+  "canceledAt",
+]);
+
+function withoutRetiredSubagentRecordOutputAliases(record = {}) {
+  return Object.fromEntries(
+    Object.entries(record).filter(([key]) => !retiredSubagentRecordOutputAliasKeys.has(key)),
+  );
+}
+
 export function createRuntimeSubagentSurface({
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
   fixtureProfileForAgent: fixtureProfileForAgentDep = fixtureProfileForAgent,
@@ -1123,28 +1197,14 @@ export function createRuntimeSubagentSurface({
       };
     },
     subagentProjection(record = {}) {
+      const projection = withoutRetiredSubagentRecordOutputAliases(record);
       return {
-        ...record,
-        schema_version: record.schema_version ?? schemaVersion,
-        schemaVersion: record.schemaVersion ?? schemaVersion,
-        object: record.object ?? "ioi.runtime_subagent",
-        subagent_id: record.subagent_id ?? record.subagentId ?? record.agent_id ?? record.agentId,
-        subagentId: record.subagentId ?? record.subagent_id ?? record.agentId ?? record.agent_id,
-        agent_id: record.agent_id ?? record.agentId,
-        agentId: record.agentId ?? record.agent_id,
-        parent_thread_id: record.parent_thread_id ?? record.parentThreadId,
-        parentThreadId: record.parentThreadId ?? record.parent_thread_id,
-        lifecycle_status: record.lifecycle_status ?? record.lifecycleStatus ?? record.status,
-        lifecycleStatus: record.lifecycleStatus ?? record.lifecycle_status ?? record.status,
+        ...projection,
+        schema_version: projection.schema_version ?? schemaVersion,
+        object: projection.object ?? "ioi.runtime_subagent",
         output_contract_status:
-          record.output_contract_status ??
-          record.outputContractStatus?.status ??
-          record.output_contract_validation?.status ??
-          null,
-        outputContractStatus:
-          record.outputContractStatus ??
-          record.output_contract_validation ??
-          record.output_contract_status ??
+          projection.output_contract_status ??
+          projection.output_contract_validation?.status ??
           null,
       };
     },

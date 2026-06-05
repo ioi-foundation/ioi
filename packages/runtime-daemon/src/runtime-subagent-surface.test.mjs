@@ -49,15 +49,16 @@ function createStore() {
         created_at: "2026-06-04T12:00:02.000Z",
       }],
       ["subagent_1", {
-        subagentId: "subagent_1",
-        agentId: "agent_child_1",
-        runId: "run_1",
-        parentTurnId: "turn_1",
-        parentThreadId: "thread_1",
+        subagent_id: "subagent_1",
+        agent_id: "agent_child_1",
+        run_id: "run_1",
+        parent_turn_id: "turn_1",
+        parent_thread_id: "thread_1",
         role: "reviewer",
-        lifecycleStatus: "running",
-        outputContractStatus: { status: "passed" },
-        createdAt: "2026-06-04T12:00:01.000Z",
+        lifecycle_status: "running",
+        output_contract_status: "passed",
+        output_contract_validation: { status: "passed" },
+        created_at: "2026-06-04T12:00:01.000Z",
       }],
       ["subagent_other", {
         subagent_id: "subagent_other",
@@ -179,6 +180,80 @@ function assertCanonicalSubagentUsageTelemetry(record) {
   );
 }
 
+const retiredSubagentRecordOutputAliasKeys = [
+  "schemaVersion",
+  "subagentId",
+  "agentId",
+  "childThreadId",
+  "runId",
+  "parentThreadId",
+  "parentAgentId",
+  "parentTurnId",
+  "toolPack",
+  "modelRouteId",
+  "workflowGraphId",
+  "workflowNodeId",
+  "sessionBootId",
+  "lifecycleStatus",
+  "restartStatus",
+  "restartCount",
+  "forkContext",
+  "contextMode",
+  "maxConcurrency",
+  "budgetUsageTelemetry",
+  "budgetStatus",
+  "budgetPolicyDecision",
+  "blockReason",
+  "outputContract",
+  "outputContractStatus",
+  "outputContractValidation",
+  "mergePolicy",
+  "cancellationInheritance",
+  "contextPressureAction",
+  "contextPressure",
+  "pressure",
+  "pressureStatus",
+  "alertId",
+  "sourceEventId",
+  "sourceReceiptRefs",
+  "sourcePolicyDecisionRefs",
+  "createdAt",
+  "updatedAt",
+  "receiptRefs",
+  "policyDecisionRefs",
+  "evidenceRefs",
+  "waitEventId",
+  "inputId",
+  "inputCount",
+  "inputHistory",
+  "inputEventId",
+  "lastInput",
+  "lastInputAt",
+  "previousRunIds",
+  "resumeId",
+  "resumeHistory",
+  "resumeEventId",
+  "resumedAt",
+  "cancellationReason",
+  "cancellationInherited",
+  "propagatedFromThreadId",
+  "cancellationClearedAt",
+  "cancellationHistory",
+  "assignmentId",
+  "assignmentCount",
+  "assignmentHistory",
+  "assignEventId",
+  "targetAgentId",
+  "cancelEventId",
+  "canceledAt",
+];
+
+function assertCanonicalSubagentRecordOutput(record) {
+  for (const key of retiredSubagentRecordOutputAliasKeys) {
+    assert.equal(Object.prototype.hasOwnProperty.call(record, key), false);
+  }
+}
+
 test("subagent surface lists, filters, and projects thread subagents", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface();
@@ -191,14 +266,15 @@ test("subagent surface lists, filters, and projects thread subagents", () => {
   assert.equal(listed.active_count, 1);
   assert.deepEqual(listed.subagents.map((record) => record.subagent_id), ["subagent_1", "subagent_2"]);
   assert.equal(listed.subagents[0].output_contract_status, "passed");
-  assert.equal(listed.subagents[0].outputContractStatus.status, "passed");
+  assertCanonicalSubagentRecordOutput(listed.subagents[0]);
+  assertCanonicalSubagentRecordOutput(listed.subagents[1]);
 });
 
 test("subagent surface gets records and preserves not-found details", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface();
 
-  assert.equal(surface.getSubagent(store, "thread_1", "subagent_1").agentId, "agent_child_1");
+  assert.equal(surface.getSubagent(store, "thread_1", "subagent_1").agent_id, "agent_child_1");
   assert.throws(
     () => surface.getSubagent(store, "thread_1", "subagent_other"),
     (error) =>
@@ -321,6 +397,7 @@ test("subagent surface spawns subagents with source and context metadata", () =>
     "receipt_subagent_spawn_09332d1abadc",
   ]);
   assertCanonicalSubagentBudgetUsageTelemetry(result);
+  assertCanonicalSubagentRecordOutput(result);
   assertCanonicalSubagentBudgetUsageTelemetry(saved);
   assertCanonicalSubagentUsageTelemetry(result);
   assertCanonicalSubagentUsageTelemetry(saved);
@@ -388,6 +465,7 @@ test("subagent surface persists blocked spawn and throws budget policy error", (
       assert.deepEqual(error.details.receiptRefs, store.events[0].receipt_refs);
       assertCanonicalSubagentBudgetUsageTelemetry(error.details.subagent);
       assertCanonicalSubagentUsageTelemetry(error.details.subagent);
+      assertCanonicalSubagentRecordOutput(error.details.subagent);
       return true;
     },
   );
@@ -419,6 +497,7 @@ test("subagent surface waits, persists status, and returns result envelope", () 
   assert.equal(result.status, "completed");
   assert.equal(result.subagent.lifecycle_status, "completed");
   assert.equal(result.subagent.wait_event_id, "evt_1");
+  assertCanonicalSubagentRecordOutput(result.subagent);
   assert.equal(result.event.event_kind, "subagent.wait_completed");
   assert.equal(result.event.source_event_kind, "OperatorControl.SubagentWait");
   assert.equal(result.event.receipt_refs[0], "receipt_wait_request");
@@ -438,6 +517,7 @@ test("subagent surface reads result with validated output contract projection", 
   assert.equal(result.result, "Subagent two completed.");
   assert.equal(result.output_contract_status, "passed");
   assert.equal(result.subagent.output_contract_status, "passed");
+  assertCanonicalSubagentRecordOutput(result.subagent);
   assert.deepEqual(result.receipt_refs, ["receipt_run_2"]);
 });
 
@@ -482,6 +562,7 @@ test("subagent surface sends input, persists history, and returns event", () => 
     ...result.event.receipt_refs,
   ]);
   assertCanonicalSubagentBudgetUsageTelemetry(result);
+  assertCanonicalSubagentRecordOutput(result);
   assertCanonicalSubagentBudgetUsageTelemetry(saved);
   assertCanonicalSubagentUsageTelemetry(result);
   assertCanonicalSubagentUsageTelemetry(saved);
@@ -517,6 +598,7 @@ test("subagent surface ignores retired usageTelemetry previous usage fallback", 
   assert.ok(result.usage_telemetry.cumulative_total_tokens < 20);
   assertCanonicalSubagentBudgetUsageTelemetry(result);
   assertCanonicalSubagentUsageTelemetry(result);
+  assertCanonicalSubagentRecordOutput(result);
   assertCanonicalSubagentBudgetUsageTelemetry(saved);
   assertCanonicalSubagentUsageTelemetry(saved);
 });
@@ -535,7 +617,7 @@ test("subagent surface rejects missing input and canceled subagents", () => {
       error.details.subagentId === "subagent_1",
   );
 
-  store.subagents.get("subagent_1").lifecycleStatus = "canceled";
+  store.subagents.get("subagent_1").lifecycle_status = "canceled";
   assert.throws(
     () =>
       surface.sendSubagentInput(store, "thread_1", "subagent_1", {
@@ -557,8 +639,8 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
   store.surface = surface;
   const canceledRecord = {
     ...store.subagents.get("subagent_1"),
-    lifecycleStatus: "canceled",
-    restartCount: 1,
+    lifecycle_status: "canceled",
+    restart_count: 1,
     cancellation: {
       reason: "operator_cancel",
       previous_status: "running",
@@ -612,6 +694,7 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
   assertCanonicalSubagentBudgetUsageTelemetry(saved);
   assertCanonicalSubagentUsageTelemetry(result.subagent);
   assertCanonicalSubagentUsageTelemetry(saved);
+  assertCanonicalSubagentRecordOutput(result.subagent);
   assert.ok(saved.evidence_refs.includes("runtime.subagent.resume"));
   assert.ok(saved.evidence_refs.includes("run_created_3"));
 });
@@ -641,6 +724,7 @@ test("subagent surface persists blocked resume and throws budget policy error", 
       assert.deepEqual(error.details.receiptRefs, store.events[0].receipt_refs);
       assertCanonicalSubagentBudgetUsageTelemetry(error.details.subagent);
       assertCanonicalSubagentUsageTelemetry(error.details.subagent);
+      assertCanonicalSubagentRecordOutput(error.details.subagent);
       return true;
     },
   );
@@ -686,6 +770,7 @@ test("subagent surface assigns role metadata and persists assignment history", (
   assert.equal(result.assignment.created_at, "2026-06-04T13:00:00.000Z");
   assert.equal(result.assignment_history.length, 1);
   assert.equal(result.assign_event_id, "evt_1");
+  assertCanonicalSubagentRecordOutput(result);
   assert.equal(result.event.event_kind, "subagent.assigned");
   assert.equal(result.event.source_event_kind, "OperatorControl.SubagentAssign");
   assert.equal(result.event.receipt_refs[0], "receipt_assign_request");
@@ -716,6 +801,7 @@ test("subagent surface cancels subagents with inherited cancellation metadata", 
   assert.equal(result.subagent.lifecycle_status, "canceled");
   assert.equal(result.subagent.cancel_event_id, "evt_1");
   assert.equal(result.subagent.canceled_at, "2026-06-04T13:30:00.000Z");
+  assertCanonicalSubagentRecordOutput(result.subagent);
   assert.equal(result.cancellation.reason, "parent_cancel");
   assert.equal(result.cancellation.previous_status, "running");
   assert.equal(result.cancellation.requested_by, "operator_1");
@@ -767,6 +853,7 @@ test("subagent surface propagates parent cancellation and reports skipped childr
   assert.equal(result.canceled_count, 1);
   assert.equal(result.skipped_count, 2);
   assert.deepEqual(result.canceled_subagents.map((record) => record.subagent_id), ["subagent_1"]);
+  assertCanonicalSubagentRecordOutput(result.canceled_subagents[0]);
   assert.deepEqual(result.skipped_subagents.map((record) => record.skip_reason), [
     "cancellation_inheritance_not_propagate",
     "already_canceled",

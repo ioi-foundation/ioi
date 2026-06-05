@@ -3223,6 +3223,12 @@ function runCompositor() {
   const runtimeSubagentSurfaceTest = exists("packages/runtime-daemon/src/runtime-subagent-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-subagent-surface.test.mjs")
     : "";
+  const runtimeSubagentProjectionBlock =
+    runtimeSubagentSurface.match(
+      /subagentProjection\(record = \{\}\) \{[\s\S]*?\n    \},\n    appendThreadSubagentControlEvent/,
+    )?.[0] ?? "";
+  const runtimeSubagentRecordOutputAliasPattern =
+    /^\s*(?:schemaVersion|subagentId|agentId|childThreadId|runId|parentThreadId|parentAgentId|parentTurnId|toolPack|modelRouteId|workflowGraphId|workflowNodeId|sessionBootId|lifecycleStatus|restartStatus|restartCount|forkContext|contextMode|maxConcurrency|budgetUsageTelemetry|budgetStatus|budgetPolicyDecision|blockReason|outputContract|outputContractStatus|outputContractValidation|mergePolicy|cancellationInheritance|contextPressureAction|contextPressure|pressure|pressureStatus|alertId|sourceEventId|sourceReceiptRefs|sourcePolicyDecisionRefs|createdAt|updatedAt|receiptRefs|policyDecisionRefs|evidenceRefs|waitEventId|inputId|inputCount|inputHistory|inputEventId|lastInput|lastInputAt|previousRunIds|resumeId|resumeHistory|resumeEventId|resumedAt|cancellationReason|cancellationInherited|propagatedFromThreadId|cancellationClearedAt|cancellationHistory|assignmentId|assignmentCount|assignmentHistory|assignEventId|targetAgentId|cancelEventId|canceledAt)\s*[:,]/m;
   const runtimeEventEnvelopes = exists("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     : "";
@@ -3845,6 +3851,24 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent records must expose canonical usage_telemetry without duplicate usageTelemetry",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-record-output-aliases-retired",
+    runtimeSubagentProjectionBlock.length > 0 &&
+      !runtimeSubagentRecordOutputAliasPattern.test(runtimeSubagentProjectionBlock) &&
+      /retiredSubagentRecordOutputAliasKeys/.test(runtimeSubagentSurface) &&
+      /withoutRetiredSubagentRecordOutputAliases/.test(runtimeSubagentSurface) &&
+      /retiredSubagentRecordOutputAliasKeys/.test(runtimeSubagentSurfaceTest) &&
+      /assertCanonicalSubagentRecordOutput/.test(runtimeSubagentSurfaceTest) &&
+      /assertCanonicalSubagentRecordOutput\(result\.canceled_subagents\[0\]\)/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent record projections must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,
