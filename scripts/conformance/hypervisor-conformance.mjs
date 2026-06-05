@@ -3121,6 +3121,12 @@ function runCompositor() {
   const runtimeEventPayloadsTest = exists("packages/runtime-daemon/src/runtime-event-payloads.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-payloads.test.mjs")
     : "";
+  const runtimeUsageEvents = exists("packages/runtime-daemon/src/runtime-usage-events.mjs")
+    ? read("packages/runtime-daemon/src/runtime-usage-events.mjs")
+    : "";
+  const runtimeUsageEventsTest = exists("packages/runtime-daemon/src/runtime-usage-events.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-usage-events.test.mjs")
+    : "";
   const runtimeEventEnvelopes = exists("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     : "";
@@ -3259,6 +3265,33 @@ function runCompositor() {
       "packages/agent-sdk/test/sdk.test.mjs",
     ],
     "Phase 10/11 is pending: runtime event payloads and SDK projection must use canonical envelope ids/kinds instead of legacy payload aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-usage-event-producer-aliases-retired",
+    !/schemaVersion:\s*RUNTIME_(?:USAGE_DELTA|CONTEXT_PRESSURE_(?:DELTA|ALERT))_SCHEMA_VERSION/.test(
+      runtimeUsageEvents,
+    ) &&
+      !/eventKind:\s*"Runtime(?:UsageTelemetry|ContextPressure)\.(?:Delta|Alert)"/.test(
+        runtimeUsageEvents,
+      ) &&
+      !/workflowNodeId:\s*"runtime\./.test(runtimeUsageEvents) &&
+      !/componentKind:\s*"(?:usage_telemetry|context_pressure|context_pressure_alert)"/.test(
+        runtimeUsageEvents,
+      ) &&
+      !/contextPressureSummary:/.test(runtimeUsageEvents) &&
+      !/(?:inputTokens|outputTokens|totalTokens|estimatedCostUsd|contextWindowTokens|contextUsedTokens|contextPressure|contextPressureStatus|usageTotalTokens|usageCostEstimateUsd|usageContextPressure|usageContextPressureStatus|recommendedAction|sourceUsageDeltaRef|receiptRefs|policyDecisionRefs):/.test(
+        runtimeUsageEvents,
+      ) &&
+      /retiredUsagePayloadAliasKeys/.test(runtimeUsageEventsTest) &&
+      /retiredContextPressurePayloadAliasKeys/.test(runtimeUsageEventsTest) &&
+      /retiredContextPressureAlertAliasKeys/.test(runtimeUsageEventsTest) &&
+      /retiredContextPressureAlertActionAliasKeys/.test(runtimeUsageEventsTest),
+    [
+      "packages/runtime-daemon/src/runtime-usage-events.mjs",
+      "packages/runtime-daemon/src/runtime-usage-events.test.mjs",
+    ],
+    "Phase 10/11 is pending: daemon runtime usage event producers must emit canonical snake_case payload fields without compatibility aliases",
   );
   assertCheck(
     result,

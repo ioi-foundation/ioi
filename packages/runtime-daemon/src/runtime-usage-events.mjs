@@ -206,102 +206,65 @@ export function createRuntimeUsageEventHelpers({
         `${stage.cumulative_total_tokens} tokens, context ${stage.context_pressure}.`;
       return {
         schema_version: RUNTIME_USAGE_DELTA_SCHEMA_VERSION,
-        schemaVersion: RUNTIME_USAGE_DELTA_SCHEMA_VERSION,
         object: "ioi.runtime_usage_delta",
-        eventKind: "RuntimeUsageTelemetry.Delta",
-        workflowNodeId: "runtime.usage-telemetry",
-        componentKind: "usage_telemetry",
         run_id: runId,
-        runId,
         agent_id: agentId,
-        agentId,
         thread_id: threadId,
-        threadId,
         turn_id: turnId,
-        turnId,
         provider,
         model,
         route_id: routeId,
-        routeId,
         status: "running",
         summary,
-        contextPressureSummary:
-          `Context pressure delta ${stage.delta_index}/${stage.delta_total}: ` +
-          `${stage.context_pressure_status} at ${stage.context_pressure}.`,
         ...stage,
         input_tokens: stage.cumulative_input_tokens,
-        inputTokens: stage.cumulative_input_tokens,
         output_tokens: stage.cumulative_output_tokens,
-        outputTokens: stage.cumulative_output_tokens,
         total_tokens: stage.cumulative_total_tokens,
-        totalTokens: stage.cumulative_total_tokens,
         estimated_cost_usd: stage.cumulative_cost_estimate_usd,
-        estimatedCostUsd: stage.cumulative_cost_estimate_usd,
         context_window_tokens: contextWindowTokens,
-        contextWindowTokens,
         context_used_tokens: stage.context_used_tokens,
-        contextUsedTokens: stage.context_used_tokens,
-        contextPressure: stage.context_pressure,
-        contextPressureStatus: stage.context_pressure_status,
         generated_at: new Date().toISOString(),
       };
     });
   }
 
   function contextPressureDeltaPayload(usageDelta = {}) {
+    const pressureStatus = usageDelta.context_pressure_status ?? "nominal";
+    const pressure = usageDelta.context_pressure ?? 0;
+    const deltaIndex = usageDelta.delta_index ?? null;
+    const deltaTotal = usageDelta.delta_total ?? null;
+    const summary = deltaIndex !== null && deltaTotal !== null
+      ? `Context pressure delta ${deltaIndex}/${deltaTotal}: ${pressureStatus} at ${pressure}.`
+      : usageDelta.summary ?? null;
     return {
       schema_version: RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION,
-      schemaVersion: RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION,
       object: "ioi.runtime_context_pressure_delta",
-      eventKind: "RuntimeContextPressure.Delta",
-      workflowNodeId: "runtime.context-budget",
-      componentKind: "context_pressure",
-      run_id: usageDelta.run_id ?? usageDelta.runId ?? null,
-      runId: usageDelta.runId ?? usageDelta.run_id ?? null,
-      thread_id: usageDelta.thread_id ?? usageDelta.threadId ?? null,
-      threadId: usageDelta.threadId ?? usageDelta.thread_id ?? null,
-      turn_id: usageDelta.turn_id ?? usageDelta.turnId ?? null,
-      turnId: usageDelta.turnId ?? usageDelta.turn_id ?? null,
-      status: usageDelta.context_pressure_status === "high" ? "blocked" : "running",
-      summary: usageDelta.contextPressureSummary ?? usageDelta.summary ?? null,
+      run_id: usageDelta.run_id ?? null,
+      thread_id: usageDelta.thread_id ?? null,
+      turn_id: usageDelta.turn_id ?? null,
+      status: pressureStatus === "high" ? "blocked" : "running",
+      summary,
       stage: usageDelta.stage ?? null,
-      delta_index: usageDelta.delta_index ?? null,
-      delta_total: usageDelta.delta_total ?? null,
-      usage_delta_ref: `${usageDelta.run_id ?? usageDelta.runId ?? "run"}:${usageDelta.stage ?? "delta"}`,
-      usage_total_tokens: usageDelta.total_tokens ?? usageDelta.totalTokens ?? 0,
-      usageTotalTokens: usageDelta.totalTokens ?? usageDelta.total_tokens ?? 0,
-      usage_cost_estimate_usd:
-        usageDelta.estimated_cost_usd ?? usageDelta.estimatedCostUsd ?? 0,
-      usageCostEstimateUsd:
-        usageDelta.estimatedCostUsd ?? usageDelta.estimated_cost_usd ?? 0,
-      usage_context_pressure:
-        usageDelta.context_pressure ?? usageDelta.contextPressure ?? 0,
-      usageContextPressure:
-        usageDelta.contextPressure ?? usageDelta.context_pressure ?? 0,
-      usage_context_pressure_status:
-        usageDelta.context_pressure_status ??
-        usageDelta.contextPressureStatus ??
-        "nominal",
-      usageContextPressureStatus:
-        usageDelta.contextPressureStatus ??
-        usageDelta.context_pressure_status ??
-        "nominal",
+      delta_index: deltaIndex,
+      delta_total: deltaTotal,
+      usage_delta_ref: `${usageDelta.run_id ?? "run"}:${usageDelta.stage ?? "delta"}`,
+      usage_total_tokens: usageDelta.total_tokens ?? 0,
+      usage_cost_estimate_usd: usageDelta.estimated_cost_usd ?? 0,
+      usage_context_pressure: pressure,
+      usage_context_pressure_status: pressureStatus,
       generated_at: new Date().toISOString(),
     };
   }
 
   function contextPressureAlertPayload(usageDelta = {}) {
-    const pressureStatus =
-      usageDelta.context_pressure_status ??
-      usageDelta.contextPressureStatus ??
-      "nominal";
+    const pressureStatus = usageDelta.context_pressure_status ?? "nominal";
     if (pressureStatus !== "elevated" && pressureStatus !== "high") return null;
-    const pressure = usageDelta.context_pressure ?? usageDelta.contextPressure ?? 0;
-    const threadId = usageDelta.thread_id ?? usageDelta.threadId ?? null;
-    const turnId = usageDelta.turn_id ?? usageDelta.turnId ?? null;
-    const runId = usageDelta.run_id ?? usageDelta.runId ?? null;
+    const pressure = usageDelta.context_pressure ?? 0;
+    const threadId = usageDelta.thread_id ?? null;
+    const turnId = usageDelta.turn_id ?? null;
+    const runId = usageDelta.run_id ?? null;
     const scope =
-      Number(usageDelta.usage_subagent_count ?? usageDelta.usageSubagentCount ?? 0) > 0
+      Number(usageDelta.usage_subagent_count ?? 0) > 0
         ? "subagent_aggregate"
         : "turn";
     const alertLevel = pressureStatus === "high" ? "blocked" : "warn";
@@ -313,14 +276,10 @@ export function createRuntimeUsageEventHelpers({
     const actionBase = {
       pressure,
       pressure_status: pressureStatus,
-      pressureStatus,
       scope,
       thread_id: threadId,
-      threadId,
       turn_id: turnId,
-      turnId,
       run_id: runId,
-      runId,
     };
     const actions = [
       {
@@ -330,7 +289,6 @@ export function createRuntimeUsageEventHelpers({
         status: "available",
         executable: true,
         workflow_node_id: "runtime.context-compact",
-        workflowNodeId: "runtime.context-compact",
         summary: `Compact ${scope.replace(/_/g, " ")} context at pressure ${pressure}.`,
       },
       {
@@ -340,7 +298,6 @@ export function createRuntimeUsageEventHelpers({
         status: pressureStatus === "high" ? "recommended" : "available",
         executable: true,
         workflow_node_id: "runtime.subagent.delegate-summary",
-        workflowNodeId: "runtime.subagent.delegate-summary",
         summary: "Create a summarization delegate before continuing the long-running turn.",
       },
     ];
@@ -353,7 +310,6 @@ export function createRuntimeUsageEventHelpers({
           status: "available",
           executable: true,
           workflow_node_id: "runtime.approval.context-pressure",
-          workflowNodeId: "runtime.approval.context-pressure",
           summary: "Ask the operator to approve continuing despite high context pressure.",
         },
         {
@@ -363,7 +319,6 @@ export function createRuntimeUsageEventHelpers({
           status: stopExecutable ? "available" : "missing_turn",
           executable: stopExecutable,
           workflow_node_id: "runtime.operator-interrupt",
-          workflowNodeId: "runtime.operator-interrupt",
           summary: "Stop the turn through the runtime operator interrupt control.",
         },
       );
@@ -374,45 +329,27 @@ export function createRuntimeUsageEventHelpers({
         : `Context pressure warning for ${scope.replace(/_/g, " ")} at ${pressure}; compact or delegate a summary.`;
     return {
       schema_version: RUNTIME_CONTEXT_PRESSURE_ALERT_SCHEMA_VERSION,
-      schemaVersion: RUNTIME_CONTEXT_PRESSURE_ALERT_SCHEMA_VERSION,
       object: "ioi.runtime_context_pressure_alert",
-      eventKind: "RuntimeContextPressure.Alert",
-      workflowNodeId: "runtime.context-pressure-alert",
-      componentKind: "context_pressure_alert",
       alert_id: alertId,
-      alertId,
       alert_level: alertLevel,
-      alertLevel,
       status: alertLevel === "blocked" ? "blocked" : "warning",
       scope,
       pressure,
       pressure_status: pressureStatus,
-      pressureStatus,
       recommended_action: primaryAction,
-      recommendedAction: primaryAction,
       actions,
       source_usage_delta_ref: `${runId ?? "run"}:${usageDelta.stage ?? "delta"}`,
-      sourceUsageDeltaRef: `${runId ?? "run"}:${usageDelta.stage ?? "delta"}`,
       stage: usageDelta.stage ?? null,
       delta_index: usageDelta.delta_index ?? null,
       delta_total: usageDelta.delta_total ?? null,
-      usage_total_tokens: usageDelta.total_tokens ?? usageDelta.totalTokens ?? 0,
-      usageTotalTokens: usageDelta.totalTokens ?? usageDelta.total_tokens ?? 0,
-      usage_cost_estimate_usd:
-        usageDelta.estimated_cost_usd ?? usageDelta.estimatedCostUsd ?? 0,
-      usageCostEstimateUsd:
-        usageDelta.estimatedCostUsd ?? usageDelta.estimated_cost_usd ?? 0,
+      usage_total_tokens: usageDelta.total_tokens ?? 0,
+      usage_cost_estimate_usd: usageDelta.estimated_cost_usd ?? 0,
       thread_id: threadId,
-      threadId,
       turn_id: turnId,
-      turnId,
       run_id: runId,
-      runId,
       summary,
       receipt_refs: [receiptId],
-      receiptRefs: [receiptId],
       policy_decision_refs: [policyDecisionId],
-      policyDecisionRefs: [policyDecisionId],
       generated_at: new Date().toISOString(),
     };
   }

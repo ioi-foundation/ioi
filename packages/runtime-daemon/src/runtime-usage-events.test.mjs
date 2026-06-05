@@ -33,7 +33,75 @@ function helpers() {
   });
 }
 
-test("runtime usage deltas preserve telemetry aliases and context pressure rows", () => {
+const retiredUsagePayloadAliasKeys = [
+  "schemaVersion",
+  "eventKind",
+  "workflowNodeId",
+  "componentKind",
+  "runId",
+  "agentId",
+  "threadId",
+  "turnId",
+  "routeId",
+  "contextPressureSummary",
+  "inputTokens",
+  "outputTokens",
+  "totalTokens",
+  "estimatedCostUsd",
+  "contextWindowTokens",
+  "contextUsedTokens",
+  "contextPressure",
+  "contextPressureStatus",
+];
+
+const retiredContextPressurePayloadAliasKeys = [
+  "schemaVersion",
+  "eventKind",
+  "workflowNodeId",
+  "componentKind",
+  "runId",
+  "threadId",
+  "turnId",
+  "usageTotalTokens",
+  "usageCostEstimateUsd",
+  "usageContextPressure",
+  "usageContextPressureStatus",
+];
+
+const retiredContextPressureAlertAliasKeys = [
+  "schemaVersion",
+  "eventKind",
+  "workflowNodeId",
+  "componentKind",
+  "alertId",
+  "alertLevel",
+  "pressureStatus",
+  "recommendedAction",
+  "sourceUsageDeltaRef",
+  "usageTotalTokens",
+  "usageCostEstimateUsd",
+  "threadId",
+  "turnId",
+  "runId",
+  "receiptRefs",
+  "policyDecisionRefs",
+];
+
+const retiredContextPressureAlertActionAliasKeys = [
+  "pressureStatus",
+  "threadId",
+  "turnId",
+  "runId",
+  "workflowNodeId",
+];
+
+function assertMissingKeys(record, keys) {
+  for (const key of keys) {
+    assert.equal(Object.hasOwn(record, key), false, `retired alias key ${key} must be absent`);
+  }
+}
+
+test("runtime usage deltas emit canonical telemetry payloads and context pressure rows", () => {
   const runtime = helpers();
   const [prompt, completion] = runtime.runtimeUsageTelemetryDeltaPayloads(
     {
@@ -59,13 +127,16 @@ test("runtime usage deltas preserve telemetry aliases and context pressure rows"
   assert.equal(prompt.context_pressure_status, "nominal");
   assert.equal(completion.stage, "completion_streamed");
   assert.equal(completion.context_pressure_status, "high");
-  assert.equal(completion.totalTokens, 1000);
+  assert.equal(completion.total_tokens, 1000);
   assert.equal(completion.estimated_cost_usd, 0.123457);
+  assertMissingKeys(completion, retiredUsagePayloadAliasKeys);
 
   const pressure = runtime.contextPressureDeltaPayload(completion);
   assert.equal(pressure.object, "ioi.runtime_context_pressure_delta");
   assert.equal(pressure.status, "blocked");
+  assert.equal(pressure.summary, "Context pressure delta 2/2: high at 0.9.");
   assert.equal(pressure.usage_context_pressure_status, "high");
+  assertMissingKeys(pressure, retiredContextPressurePayloadAliasKeys);
 
   const alert = runtime.contextPressureAlertPayload(completion);
   assert.equal(alert.object, "ioi.runtime_context_pressure_alert");
@@ -75,6 +146,10 @@ test("runtime usage deltas preserve telemetry aliases and context pressure rows"
     "policy_context_pressure_turn_run-one_completion_streamed_compact",
   ]);
   assert.equal(alert.actions.some((action) => action.action === "stop" && action.executable), true);
+  assertMissingKeys(alert, retiredContextPressureAlertAliasKeys);
+  for (const action of alert.actions) {
+    assertMissingKeys(action, retiredContextPressureAlertActionAliasKeys);
+  }
 });
 
 test("runtime bridge usage events are inserted after turn start and keep public event kinds", () => {
