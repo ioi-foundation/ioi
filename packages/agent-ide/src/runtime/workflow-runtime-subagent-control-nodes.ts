@@ -86,7 +86,6 @@ export interface RuntimeSubagentControlRequestBody {
   waitTimeoutMs: number | null;
   budget: Record<string, unknown> | null;
   budget_usage_telemetry: unknown | null;
-  budgetUsageTelemetry: unknown | null;
   output_contract: unknown[];
   outputContract: unknown[];
   merge_policy: string;
@@ -368,7 +367,6 @@ export function createRuntimeSubagentControlRequest(
       waitTimeoutMs: numberOrNull(params.waitTimeoutMs),
       budget,
       budget_usage_telemetry: budgetUsageTelemetry,
-      budgetUsageTelemetry,
       output_contract: outputContract,
       outputContract,
       merge_policy: cleanString(params.mergePolicy) ?? "manual",

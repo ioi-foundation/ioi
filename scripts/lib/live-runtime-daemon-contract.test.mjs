@@ -7069,11 +7069,11 @@ test("React Flow subagent budget and cost caps block delegated child runs with p
       { workflowGraphId, actor: "workflow-author" },
     );
     assert.equal(
-      summaryBlockedRequest.body.budgetUsageTelemetry.total_tokens,
+      summaryBlockedRequest.body.budget_usage_telemetry.total_tokens,
       telemetrySummary.totalTokens,
     );
     assert.equal(
-      summaryBlockedRequest.body.budgetUsageTelemetry.source_counts.subagents,
+      summaryBlockedRequest.body.budget_usage_telemetry.source_counts.subagents,
       1,
     );
     const summaryBlocked = await fetchJsonStatus(
@@ -7111,9 +7111,9 @@ test("React Flow subagent budget and cost caps block delegated child runs with p
         }),
         { threadId: thread.thread_id, runtimeTelemetrySummary: telemetrySummary },
         { workflowGraphId, actor: "workflow-author" },
-      );
+    );
     assert.equal(
-      continuationBlockedRequest.body.budgetUsageTelemetry.total_tokens,
+      continuationBlockedRequest.body.budget_usage_telemetry.total_tokens,
       telemetrySummary.totalTokens,
     );
     const continuationBlocked = await fetchJsonStatus(
@@ -14449,6 +14449,18 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeSubagentControlNodes, /subagentBudgetUsageField/);
   assert.match(workflowRuntimeSubagentControlNodes, /budgetUsageTelemetry/);
   assert.match(workflowRuntimeSubagentControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
+  assert.doesNotMatch(
+    workflowRuntimeSubagentControlNodes,
+    /^\s*budgetUsageTelemetry:\s*unknown \| null;$/m,
+  );
+  assert.doesNotMatch(
+    workflowRuntimeSubagentControlNodes,
+    /^\s*budgetUsageTelemetry,?\s*$/m,
+  );
+  assert.match(
+    workflowRuntimeSubagentControlNodes,
+    /budget_usage_telemetry:\s*budgetUsageTelemetry/,
+  );
   assert.match(workflowRuntimeUsageControlNodes, /createRuntimeUsageMeterControlRequestFromWorkflowNode/);
   assert.match(workflowRuntimeUsageControlNodes, /runtime_usage_meter/);
   assert.match(workflowRuntimeUsageControlNodes, /RuntimeUsageTelemetry\.Read/);

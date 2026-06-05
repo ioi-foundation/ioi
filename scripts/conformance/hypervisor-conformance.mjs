@@ -3250,6 +3250,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts")
     : "";
+  const agentIdeSubagentControlNodes = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts")
+    : "";
+  const agentIdeSubagentControlNodesTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts")
+    : "";
   const agentIdeTelemetrySourceBinding = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
   )
@@ -3664,6 +3674,27 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts",
     ],
     "Phase 10/11 is pending: IDE coding-tool control request bodies must emit canonical budget_usage_telemetry without duplicate budgetUsageTelemetry",
+  );
+  assertCheck(
+    result,
+    "ide-subagent-budget-usage-request-output-alias-retired",
+    !/^\s*budgetUsageTelemetry:\s*unknown \| null;$/m.test(
+      agentIdeSubagentControlNodes,
+    ) &&
+      !/^\s*budgetUsageTelemetry,?\s*$/m.test(
+        agentIdeSubagentControlNodes,
+      ) &&
+      /budget_usage_telemetry:\s*budgetUsageTelemetry/.test(
+        agentIdeSubagentControlNodes,
+      ) &&
+      /hasOwnProperty\.call\(request\.body,\s*"budgetUsageTelemetry"\)/.test(
+        agentIdeSubagentControlNodesTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE subagent control request bodies must emit canonical budget_usage_telemetry without duplicate budgetUsageTelemetry",
   );
   assertCheck(
     result,

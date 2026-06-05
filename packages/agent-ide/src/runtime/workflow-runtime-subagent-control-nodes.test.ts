@@ -173,7 +173,7 @@ test("subagent spawn state node normalizes runtime telemetry summary as budget u
   );
 
   assert.deepEqual(request.body?.budget, { maxTokens: 750, maxCostUsd: 0.01 });
-  const budgetUsageTelemetry = request.body?.budgetUsageTelemetry as Record<
+  const budgetUsageTelemetry = request.body?.budget_usage_telemetry as Record<
     string,
     unknown
   >;
@@ -184,7 +184,10 @@ test("subagent spawn state node normalizes runtime telemetry summary as budget u
     (budgetUsageTelemetry.source_counts as Record<string, unknown>).subagents,
     1,
   );
-  assert.deepEqual(request.body?.budget_usage_telemetry, request.body?.budgetUsageTelemetry);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(request.body, "budgetUsageTelemetry"),
+    false,
+  );
 });
 
 test("subagent join state node builds a wait request with output contract gates", () => {
