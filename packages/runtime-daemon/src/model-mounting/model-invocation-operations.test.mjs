@@ -464,6 +464,47 @@ test("model invocations reject retired camelCase request aliases before authoriz
   assert.deepEqual(state.authorizationCalls, []);
 });
 
+test("model invocations reject retired authority request aliases before authorization", async () => {
+  const state = fakeState();
+  const body = {
+    model: "model.local",
+    authorityGrantRefs: ["grant://model-chat"],
+    authorityReceiptRefs: ["receipt://wallet/model-chat"],
+    custodyRef: "ctee://custody/private-workspace",
+    privacyProfile: "private_workspace_ctee",
+    nodePlaintextAllowed: true,
+  };
+
+  await assert.rejects(
+    () =>
+      invokeModel(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.responses:*",
+          kind: "responses",
+          body,
+        },
+        deps(),
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_invocation_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "authorityGrantRefs",
+        "authorityReceiptRefs",
+        "custodyRef",
+        "privacyProfile",
+        "nodePlaintextAllowed",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "authorityGrantRefs"), false);
+      assert.equal(Object.hasOwn(error.details, "privacyProfile"), false);
+      return true;
+    },
+  );
+  assert.deepEqual(state.authorizationCalls, []);
+});
+
 test("invokeModel routes provider calls, records receipts, updates route state, and finalizes response state", async () => {
   const state = fakeState();
 
@@ -1114,6 +1155,33 @@ test("modelMountInvocationAdmissionRequestForReceipt rejects retired route-decis
   );
 });
 
+test("modelMountInvocationAdmissionRequestForReceipt rejects retired authority aliases before ref validation", () => {
+  assert.throws(
+    () =>
+      modelMountInvocationAdmissionRequestForReceipt({
+        body: {
+          authorityGrantRefs: ["grant://model-chat"],
+          authorityReceiptRefs: ["receipt://wallet/model-chat"],
+          custodyRef: "ctee://custody/private-workspace",
+          privacyProfile: "private_workspace_ctee",
+          nodePlaintextAllowed: true,
+        },
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_invocation_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "authorityGrantRefs",
+        "authorityReceiptRefs",
+        "custodyRef",
+        "privacyProfile",
+        "nodePlaintextAllowed",
+      ]);
+      return true;
+    },
+  );
+});
+
 test("modelMountProviderExecutionRequestForInvocation gates provider driver execution", () => {
   const request = modelMountProviderExecutionRequestForInvocation({
     body: {
@@ -1164,6 +1232,78 @@ test("modelMountProviderExecutionRequestForInvocation gates provider driver exec
   assert.equal(request.privacy_profile, "private_workspace_ctee");
   assert.equal(request.response_ref, "resp.1");
   assert.equal(request.previous_response_ref, "resp.previous");
+});
+
+test("modelMountProviderExecutionRequestForInvocation rejects retired authority aliases before route receipt validation", () => {
+  assert.throws(
+    () =>
+      modelMountProviderExecutionRequestForInvocation({
+        body: {
+          authorityGrantRefs: ["grant://model-chat"],
+          authorityReceiptRefs: ["receipt://wallet/model-chat"],
+          custodyRef: "ctee://custody/private-workspace",
+          privacyProfile: "private_workspace_ctee",
+          nodePlaintextAllowed: true,
+        },
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_invocation_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "authorityGrantRefs",
+        "authorityReceiptRefs",
+        "custodyRef",
+        "privacyProfile",
+        "nodePlaintextAllowed",
+      ]);
+      return true;
+    },
+  );
+});
+
+test("model mount invocation admission builders ignore retired policy privacy profile alias", () => {
+  const routeReceipt = {
+    id: "receipt.route",
+    details: {
+      model_mount_route_decision_ref: "model_mount://route_decision/test",
+    },
+  };
+  const selected = selection({ route: { privacy: "local_or_enterprise" } });
+  const invocationAdmission = modelMountInvocationAdmissionRequestForReceipt({
+    body: { model: "model.local", model_policy: { privacyProfile: "private_workspace_ctee" } },
+    capability: "chat",
+    kind: "responses",
+    receiptDetails: {
+      route_id: "route.local-first",
+      provider_id: "provider.local",
+      endpoint_id: "endpoint.local",
+      selected_model: "model.local",
+      policy_hash: "policy",
+      input_hash: "input",
+      output_hash: "output",
+    },
+    receiptId: "receipt.invoke",
+    receiptKind: "model_invocation",
+    routeReceipt,
+    selection: selected,
+  });
+  const providerExecution = modelMountProviderExecutionRequestForInvocation({
+    body: { model: "model.local", model_policy: { privacyProfile: "private_workspace_ctee" } },
+    capability: "chat",
+    hash: (value) => `hash:${JSON.stringify(value)}`,
+    input: "hello",
+    instance: { id: "instance.local", backendId: "backend.local" },
+    kind: "responses",
+    providerBody: { model: "model.local" },
+    routeReceipt,
+    selection: selected,
+    token: { grantId: "grant://model-chat" },
+  });
+
+  assert.equal(invocationAdmission.privacy_profile, "local_or_enterprise");
+  assert.equal(providerExecution.privacy_profile, "local_or_enterprise");
+  assert.equal(Object.hasOwn(invocationAdmission, "privacyProfile"), false);
+  assert.equal(Object.hasOwn(providerExecution, "privacyProfile"), false);
 });
 
 test("modelMountProviderInvocationRequestForExecution binds fixture execution to provider admission", () => {

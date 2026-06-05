@@ -11836,6 +11836,16 @@ canonical `authority_grant_refs`, `authority_receipt_refs`, `custody_ref`,
 `privacy_profile`, and `node_plaintext_allowed` from request bodies while
 ignoring the retired nested `privacyProfile` policy alias.
 
+Slice 301 retires model invocation authority/custody request aliases at the
+daemon entry point and Rust admission-request builders: non-stream and stream
+model invocation bodies, invocation-admission requests, and provider-execution
+requests now fail closed on retired `authorityGrantRefs`,
+`authorityReceiptRefs`, `custodyRef`, `privacyProfile`, and
+`nodePlaintextAllowed`, while canonical `authority_grant_refs`,
+`authority_receipt_refs`, `custody_ref`, `privacy_profile`, and
+`node_plaintext_allowed` remain the accepted binding shape and nested
+`privacyProfile` model-policy fallbacks are ignored.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

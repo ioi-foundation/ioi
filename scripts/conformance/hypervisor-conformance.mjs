@@ -1514,6 +1514,49 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-invocation-authority-request-aliases-retired",
+    /"authorityGrantRefs"/.test(modelInvocationOps) &&
+      /"authorityReceiptRefs"/.test(modelInvocationOps) &&
+      /"custodyRef"/.test(modelInvocationOps) &&
+      /"privacyProfile"/.test(modelInvocationOps) &&
+      /"nodePlaintextAllowed"/.test(modelInvocationOps) &&
+      (modelInvocationOps.match(/assertCanonicalModelInvocationRequestBody\(body\)/g) ?? []).length >= 4 &&
+      /authority_grant_refs:\s*uniqueRefs\(\[\s*optionalRef\(receiptDetails\.grant_id\),\s*\.\.\.\(Array\.isArray\(body\.authority_grant_refs\)/.test(
+        modelInvocationOps,
+      ) &&
+      /authority_grant_refs:\s*uniqueRefs\(\[\s*optionalRef\(token\.grantId\),\s*\.\.\.\(Array\.isArray\(body\.authority_grant_refs\)/.test(
+        modelInvocationOps,
+      ) &&
+      /authority_receipt_refs:\s*uniqueRefs\(\[\s*\.\.\.\(Array\.isArray\(body\.authority_receipt_refs\)/.test(
+        modelInvocationOps,
+      ) &&
+      /body\.custody_ref \?\?\s*selection\?\.endpoint\?\.custodyRef/.test(modelInvocationOps) &&
+      /body\.privacy_profile \?\?\s*policy\.privacy_profile/.test(modelInvocationOps) &&
+      /body\.node_plaintext_allowed \?\?\s*selection\?\.endpoint\?\.nodePlaintextAllowed/.test(
+        modelInvocationOps,
+      ) &&
+      !/body\.(?:authorityGrantRefs|authorityReceiptRefs|custodyRef|privacyProfile|nodePlaintextAllowed)\b/.test(
+        modelInvocationOps,
+      ) &&
+      !/policy\.privacyProfile\b/.test(modelInvocationOps) &&
+      /model invocations reject retired authority request aliases before authorization/.test(modelInvocationOpsTest) &&
+      /modelMountInvocationAdmissionRequestForReceipt rejects retired authority aliases before ref validation/.test(
+        modelInvocationOpsTest,
+      ) &&
+      /modelMountProviderExecutionRequestForInvocation rejects retired authority aliases before route receipt validation/.test(
+        modelInvocationOpsTest,
+      ) &&
+      /model mount invocation admission builders ignore retired policy privacy profile alias/.test(
+        modelInvocationOpsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+    ],
+    "Phase 10/11 is pending: model invocation admission/provider-execution request bodies must fail closed on retired authority/custody aliases and ignore retired nested privacyProfile policy aliases",
+  );
+  assertCheck(
+    result,
     "model-mount-sdk-receipt-metadata-aliases-retired",
     /route_id:\s*string/.test(agentSdkModelInvocationReceiptType) &&
       /route_receipt_id\?:\s*string/.test(agentSdkModelInvocationReceiptType) &&

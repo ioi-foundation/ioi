@@ -20,6 +20,11 @@ const RETIRED_MODEL_INVOCATION_REQUEST_ALIASES = [
   "responseId",
   "previousResponseId",
   "sendOptions",
+  "authorityGrantRefs",
+  "authorityReceiptRefs",
+  "custodyRef",
+  "privacyProfile",
+  "nodePlaintextAllowed",
 ];
 
 export async function invokeModel(state, { authorization, requiredScope, kind, body = {} }, deps = {}) {
@@ -471,6 +476,7 @@ export function modelMountInvocationAdmissionRequestForReceipt({
   selection,
   streamStatus = null,
 } = {}) {
+  assertCanonicalModelInvocationRequestBody(body);
   const routeReceiptRef = receiptRef(requiredStringRef("routeReceipt.id", routeReceipt?.id));
   const invocationReceiptRef = receiptRef(requiredStringRef("receiptId", receiptId));
   const routeDecisionRef = requiredStringRef(
@@ -502,18 +508,15 @@ export function modelMountInvocationAdmissionRequestForReceipt({
     authority_grant_refs: uniqueRefs([
       optionalRef(receiptDetails.grant_id),
       ...(Array.isArray(body.authority_grant_refs) ? body.authority_grant_refs : []),
-      ...(Array.isArray(body.authorityGrantRefs) ? body.authorityGrantRefs : []),
     ]),
     authority_receipt_refs: uniqueRefs([
       ...(Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : []),
-      ...(Array.isArray(body.authorityReceiptRefs) ? body.authorityReceiptRefs : []),
     ]),
     provider_auth_evidence_refs: uniqueRefs(receiptDetails.provider_auth_evidence_refs ?? []),
     backend_evidence_refs: uniqueRefs(receiptDetails.backend_evidence_refs ?? []),
     tool_receipt_refs: uniqueRefs(receiptDetails.tool_receipt_ids ?? []),
     custody_ref: optionalRef(
       body.custody_ref ??
-        body.custodyRef ??
         selection?.endpoint?.custodyRef ??
         selection?.endpoint?.custody_ref ??
         selection?.provider?.custodyRef ??
@@ -521,16 +524,13 @@ export function modelMountInvocationAdmissionRequestForReceipt({
     ),
     privacy_profile: optionalRef(
       body.privacy_profile ??
-        body.privacyProfile ??
         policy.privacy_profile ??
-        policy.privacyProfile ??
         policy.privacy ??
         selection?.route?.privacy ??
         selection?.provider?.privacyClass,
     ),
     node_plaintext_allowed: Boolean(
       body.node_plaintext_allowed ??
-        body.nodePlaintextAllowed ??
         selection?.endpoint?.nodePlaintextAllowed ??
         selection?.provider?.nodePlaintextAllowed ??
         false,
@@ -559,6 +559,7 @@ export function modelMountProviderExecutionRequestForInvocation({
   streamStatus = null,
   token = {},
 } = {}) {
+  assertCanonicalModelInvocationRequestBody(body);
   const routeReceiptRef = receiptRef(requiredStringRef("routeReceipt.id", routeReceipt?.id));
   const routeDecisionRef = requiredStringRef(
     "routeReceipt.details.model_mount_route_decision_ref",
@@ -596,11 +597,9 @@ export function modelMountProviderExecutionRequestForInvocation({
     authority_grant_refs: uniqueRefs([
       optionalRef(token.grantId),
       ...(Array.isArray(body.authority_grant_refs) ? body.authority_grant_refs : []),
-      ...(Array.isArray(body.authorityGrantRefs) ? body.authorityGrantRefs : []),
     ]),
     authority_receipt_refs: uniqueRefs([
       ...(Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : []),
-      ...(Array.isArray(body.authorityReceiptRefs) ? body.authorityReceiptRefs : []),
     ]),
     provider_auth_evidence_refs: [],
     backend_evidence_refs: uniqueRefs([
@@ -610,7 +609,6 @@ export function modelMountProviderExecutionRequestForInvocation({
     tool_receipt_refs: uniqueRefs(ephemeralMcp.toolReceiptIds ?? []),
     custody_ref: optionalRef(
       body.custody_ref ??
-        body.custodyRef ??
         selection?.endpoint?.custodyRef ??
         selection?.endpoint?.custody_ref ??
         selection?.provider?.custodyRef ??
@@ -618,16 +616,13 @@ export function modelMountProviderExecutionRequestForInvocation({
     ),
     privacy_profile: optionalRef(
       body.privacy_profile ??
-        body.privacyProfile ??
         policy.privacy_profile ??
-        policy.privacyProfile ??
         policy.privacy ??
         selection?.route?.privacy ??
         selection?.provider?.privacyClass,
     ),
     node_plaintext_allowed: Boolean(
       body.node_plaintext_allowed ??
-        body.nodePlaintextAllowed ??
         selection?.endpoint?.nodePlaintextAllowed ??
         selection?.provider?.nodePlaintextAllowed ??
         false,
@@ -1194,7 +1189,18 @@ function assertCanonicalModelInvocationRequestBody(body = {}) {
   error.code = "model_mount_invocation_request_aliases_retired";
   error.details = {
     retired_aliases: retiredAliases,
-    canonical_fields: ["route_id", "model_policy", "response_id", "previous_response_id", "send_options"],
+    canonical_fields: [
+      "route_id",
+      "model_policy",
+      "response_id",
+      "previous_response_id",
+      "send_options",
+      "authority_grant_refs",
+      "authority_receipt_refs",
+      "custody_ref",
+      "privacy_profile",
+      "node_plaintext_allowed",
+    ],
   };
   throw error;
 }
