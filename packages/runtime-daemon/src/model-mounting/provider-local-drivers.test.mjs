@@ -180,8 +180,8 @@ test("native-local provider driver plans health through Rust model_mount", async
 
   assert.equal(health.status, "available");
   assert.equal(health.lifecycleHash, "sha256:health");
-  assert.equal(health.modelMountProviderLifecycle.action, "health");
-  assert.equal(health.modelMountProviderLifecycle.lifecycleHash, "sha256:health");
+  assert.equal(health.model_mount_provider_lifecycle.action, "health");
+  assert.equal(health.model_mount_provider_lifecycle.lifecycle_hash, "sha256:health");
   assert.ok(health.evidenceRefs.includes("rust_model_mount_provider_lifecycle"));
   assert.equal(state.lifecycleRequests.at(-1).action, "health");
   assert.equal(state.lifecycleRequests.at(-1).provider_status, "configured");
@@ -210,8 +210,8 @@ test("fixture provider driver plans health and lifecycle through Rust model_moun
   const health = await driver.health(provider, { state });
   assert.equal(health.status, "available");
   assert.equal(health.lifecycleHash, "sha256:health");
-  assert.equal(health.modelMountProviderLifecycle.action, "health");
-  assert.equal(health.modelMountProviderLifecycle.lifecycleHash, "sha256:health");
+  assert.equal(health.model_mount_provider_lifecycle.action, "health");
+  assert.equal(health.model_mount_provider_lifecycle.lifecycle_hash, "sha256:health");
   assert.equal(state.lifecycleRequests.at(-1).execution_backend, "rust_model_mount_fixture_lifecycle");
   assert.ok(health.evidenceRefs.includes("rust_model_mount_fixture_lifecycle_backend"));
 

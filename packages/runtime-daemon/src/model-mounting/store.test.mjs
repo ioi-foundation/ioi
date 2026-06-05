@@ -338,7 +338,19 @@ test("provider health receipt writes fail closed without provider kind and Rust 
     () => store.writeReceipt(providerHealthReceipt()),
     (error) =>
       error.code === "model_mount_provider_health_receipt_direct_append_forbidden" &&
-      error.details.missing.includes("providerLifecycleHash"),
+      error.details.missing.includes("model_mount_provider_lifecycle_hash"),
+  );
+  assert.throws(
+    () => store.writeReceipt(providerHealthReceipt({
+      providerLifecycleHash: "sha256:health",
+      modelMountProviderLifecycleAction: "health",
+      modelMountProviderLifecycleStatus: "available",
+      modelMountProviderLifecycleEvidenceRefs: ["rust_model_mount_provider_lifecycle"],
+    })),
+    (error) =>
+      error.code === "model_mount_provider_health_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("model_mount_provider_lifecycle_hash") &&
+      error.details.missing.includes("model_mount_provider_lifecycle_evidence_refs"),
   );
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.provider-health.json")), false);
   assert.deepEqual(appended, []);
@@ -348,10 +360,10 @@ test("provider health receipt writes allow Rust-bound local and remote provider 
   const { appended, stateDir, store } = testStore();
   const localReceipt = providerHealthReceipt({
     id: "receipt.health-local-bound",
-    providerLifecycleHash: "sha256:health",
-    modelMountProviderLifecycleAction: "health",
-    modelMountProviderLifecycleStatus: "available",
-    modelMountProviderLifecycleEvidenceRefs: ["rust_model_mount_provider_lifecycle"],
+    model_mount_provider_lifecycle_hash: "sha256:health",
+    model_mount_provider_lifecycle_action: "health",
+    model_mount_provider_lifecycle_status: "available",
+    model_mount_provider_lifecycle_evidence_refs: ["rust_model_mount_provider_lifecycle"],
   });
   const remoteReceipt = providerHealthReceipt({
     id: "receipt.health-remote",
@@ -380,7 +392,7 @@ test("provider control receipt writes fail closed without provider kind and Rust
     () => store.writeReceipt(providerControlReceipt()),
     (error) =>
       error.code === "model_mount_provider_control_receipt_direct_append_forbidden" &&
-      error.details.missing.includes("providerLifecycleHash"),
+      error.details.missing.includes("model_mount_provider_lifecycle_hash"),
   );
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.provider-control.json")), false);
   assert.deepEqual(appended, []);
@@ -390,10 +402,10 @@ test("provider control receipt writes allow Rust-bound local and remote provider
   const { appended, stateDir, store } = testStore();
   const localReceipt = providerControlReceipt({
     id: "receipt.control-local-bound",
-    providerLifecycleHash: "sha256:start",
-    modelMountProviderLifecycleAction: "start",
-    modelMountProviderLifecycleStatus: "available",
-    modelMountProviderLifecycleEvidenceRefs: ["rust_model_mount_provider_lifecycle"],
+    model_mount_provider_lifecycle_hash: "sha256:start",
+    model_mount_provider_lifecycle_action: "start",
+    model_mount_provider_lifecycle_status: "available",
+    model_mount_provider_lifecycle_evidence_refs: ["rust_model_mount_provider_lifecycle"],
   });
   const remoteReceipt = providerControlReceipt({
     id: "receipt.control-remote",

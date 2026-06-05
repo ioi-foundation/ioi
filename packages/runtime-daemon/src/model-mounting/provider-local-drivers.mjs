@@ -27,7 +27,7 @@ export class NativeLocalModelProviderDriver {
       status: lifecycle.status,
       evidenceRefs: lifecycle.evidence_refs ?? [],
       lifecycleHash: lifecycle.lifecycle_hash ?? null,
-      modelMountProviderLifecycle: providerLifecycleMetadata(lifecycle, "health"),
+      model_mount_provider_lifecycle: providerLifecycleMetadata(lifecycle, "health"),
     };
   }
 
@@ -162,7 +162,7 @@ export class FixtureModelProviderDriver {
       status: lifecycle.status,
       evidenceRefs: lifecycle.evidence_refs ?? [],
       lifecycleHash: lifecycle.lifecycle_hash ?? null,
-      modelMountProviderLifecycle: providerLifecycleMetadata(lifecycle, "health"),
+      model_mount_provider_lifecycle: providerLifecycleMetadata(lifecycle, "health"),
     };
   }
 
@@ -378,10 +378,10 @@ function providerLifecycleMetadata(lifecycle, action) {
   return {
     action: lifecycle.result?.action ?? lifecycle.action ?? action,
     status: lifecycle.status ?? null,
-    executionBackend: lifecycle.executionBackend ?? null,
-    lifecycleHash: lifecycle.lifecycle_hash ?? null,
-    evidenceRefs: lifecycle.evidence_refs ?? [],
-    backendId: lifecycle.backendId ?? null,
+    execution_backend: lifecycle.executionBackend ?? null,
+    lifecycle_hash: lifecycle.lifecycle_hash ?? null,
+    evidence_refs: lifecycle.evidence_refs ?? [],
+    backend_id: lifecycle.backendId ?? null,
   };
 }
 

@@ -252,13 +252,13 @@ test("local provider health receipts carry Rust lifecycle bindings", async () =>
         status: "available",
         evidenceRefs: ["rust_model_mount_provider_lifecycle"],
         lifecycleHash: "sha256:health",
-        modelMountProviderLifecycle: {
+        model_mount_provider_lifecycle: {
           action: "health",
           status: "available",
-          lifecycleHash: "sha256:health",
-          evidenceRefs: ["rust_model_mount_provider_lifecycle"],
-          executionBackend: "rust_model_mount_native_local_lifecycle",
-          backendId: "backend.native",
+          lifecycle_hash: "sha256:health",
+          evidence_refs: ["rust_model_mount_provider_lifecycle"],
+          execution_backend: "rust_model_mount_native_local_lifecycle",
+          backend_id: "backend.native",
         },
       };
     },
@@ -268,10 +268,10 @@ test("local provider health receipts carry Rust lifecycle bindings", async () =>
 
   const details = state.receipts.at(-1).payload.details;
   assert.equal(details.providerKind, "ioi_native_local");
-  assert.equal(details.modelMountProviderLifecycleAction, "health");
-  assert.equal(details.modelMountProviderLifecycleStatus, "available");
-  assert.equal(details.providerLifecycleHash, "sha256:health");
-  assert.deepEqual(details.modelMountProviderLifecycleEvidenceRefs, ["rust_model_mount_provider_lifecycle"]);
+  assert.equal(details.model_mount_provider_lifecycle_action, "health");
+  assert.equal(details.model_mount_provider_lifecycle_status, "available");
+  assert.equal(details.model_mount_provider_lifecycle_hash, "sha256:health");
+  assert.deepEqual(details.model_mount_provider_lifecycle_evidence_refs, ["rust_model_mount_provider_lifecycle"]);
 });
 
 test("provider model and loaded lists use driver results or local fallbacks", async () => {

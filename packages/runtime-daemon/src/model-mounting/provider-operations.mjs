@@ -87,7 +87,7 @@ export async function providerHealth(state, providerId, deps = {}) {
         authVaultRefHash: driverResult.authEvidence?.vaultRefHash ?? null,
         providerAuthEvidenceRefs: driverResult.authEvidence?.evidenceRefs ?? [],
         providerAuthHeaderNames: driverResult.authEvidence?.headerNames ?? [],
-        ...providerLifecycleReceiptFields(driverResult.modelMountProviderLifecycle),
+        ...providerLifecycleReceiptFields(driverResult.model_mount_provider_lifecycle),
       },
     });
     const updated = {
@@ -204,12 +204,12 @@ function providerHealthFailure(state, provider, providerId, error, deps) {
 function providerLifecycleReceiptFields(lifecycle) {
   if (!lifecycle) return {};
   return {
-    modelMountProviderLifecycleAction: lifecycle.action,
-    modelMountProviderLifecycleStatus: lifecycle.status,
-    providerLifecycleHash: lifecycle.lifecycleHash,
-    modelMountProviderLifecycleEvidenceRefs: lifecycle.evidenceRefs ?? [],
-    modelMountProviderLifecycleExecutionBackend: lifecycle.executionBackend,
-    modelMountProviderLifecycleBackendId: lifecycle.backendId,
+    model_mount_provider_lifecycle_action: lifecycle.action,
+    model_mount_provider_lifecycle_status: lifecycle.status,
+    model_mount_provider_lifecycle_hash: lifecycle.lifecycle_hash,
+    model_mount_provider_lifecycle_evidence_refs: lifecycle.evidence_refs ?? [],
+    model_mount_provider_lifecycle_execution_backend: lifecycle.execution_backend,
+    model_mount_provider_lifecycle_backend_id: lifecycle.backend_id,
   };
 }
 
@@ -293,7 +293,7 @@ export async function startProvider(state, providerId, deps = {}) {
     modelId: provider.label,
     state: updated.status,
     evidenceRefs: result.evidenceRefs ?? [],
-    ...providerLifecycleReceiptFields(result.modelMountProviderLifecycle),
+    ...providerLifecycleReceiptFields(result.model_mount_provider_lifecycle),
   });
   return publicProvider(updated);
 }
@@ -326,14 +326,14 @@ export async function stopProvider(state, providerId, deps = {}) {
     modelId: provider.label,
     state: updated.status,
     evidenceRefs: result.evidenceRefs ?? [],
-    ...providerLifecycleReceiptFields(result.modelMountProviderLifecycle),
+    ...providerLifecycleReceiptFields(result.model_mount_provider_lifecycle),
   });
   return publicProvider(updated);
 }
 
 function assertProviderControlLifecycleBound(provider, result, operation) {
   if (!modelMountProviderKindRequiresRustInstanceLifecycle(provider?.kind)) return;
-  if (result?.modelMountProviderLifecycle) return;
+  if (result?.model_mount_provider_lifecycle) return;
   const error = new Error("Provider start/stop for migrated local providers requires Rust model_mount lifecycle planning.");
   error.status = 502;
   error.code = "model_mount_provider_control_lifecycle_planning_required";

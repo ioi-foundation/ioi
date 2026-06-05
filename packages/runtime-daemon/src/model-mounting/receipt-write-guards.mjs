@@ -252,26 +252,26 @@ function assertProviderControlReceiptBound(receipt) {
     }
     return;
   }
-  if (!optionalNonEmptyString(details.providerLifecycleHash)) {
-    missing.push("providerLifecycleHash");
+  if (!optionalNonEmptyString(details.model_mount_provider_lifecycle_hash)) {
+    missing.push("model_mount_provider_lifecycle_hash");
   }
-  if (!Array.isArray(details.modelMountProviderLifecycleEvidenceRefs) ||
-    !details.modelMountProviderLifecycleEvidenceRefs.includes("rust_model_mount_provider_lifecycle")) {
-    missing.push("modelMountProviderLifecycleEvidenceRefs");
+  if (!Array.isArray(details.model_mount_provider_lifecycle_evidence_refs) ||
+    !details.model_mount_provider_lifecycle_evidence_refs.includes("rust_model_mount_provider_lifecycle")) {
+    missing.push("model_mount_provider_lifecycle_evidence_refs");
   }
-  if (!optionalNonEmptyString(details.modelMountProviderLifecycleAction)) {
-    missing.push("modelMountProviderLifecycleAction");
-  } else if (details.modelMountProviderLifecycleAction !== expectedAction) {
-    mismatches.push("modelMountProviderLifecycleAction");
+  if (!optionalNonEmptyString(details.model_mount_provider_lifecycle_action)) {
+    missing.push("model_mount_provider_lifecycle_action");
+  } else if (details.model_mount_provider_lifecycle_action !== expectedAction) {
+    mismatches.push("model_mount_provider_lifecycle_action");
   }
   const expectedStatus = optionalNonEmptyString(details.state);
   if (!expectedStatus) {
     missing.push("state");
   }
-  if (!optionalNonEmptyString(details.modelMountProviderLifecycleStatus)) {
-    missing.push("modelMountProviderLifecycleStatus");
-  } else if (details.modelMountProviderLifecycleStatus !== expectedStatus) {
-    mismatches.push("modelMountProviderLifecycleStatus");
+  if (!optionalNonEmptyString(details.model_mount_provider_lifecycle_status)) {
+    missing.push("model_mount_provider_lifecycle_status");
+  } else if (details.model_mount_provider_lifecycle_status !== expectedStatus) {
+    mismatches.push("model_mount_provider_lifecycle_status");
   }
   if (missing.length > 0 || mismatches.length > 0) {
     throw runtimeError({
@@ -321,22 +321,22 @@ function assertProviderHealthReceiptBound(receipt) {
   } else if (!PROVIDER_HEALTH_LIFECYCLE_STATUSES.has(expectedStatus)) {
     mismatches.push("status");
   }
-  if (!optionalNonEmptyString(details.providerLifecycleHash)) {
-    missing.push("providerLifecycleHash");
+  if (!optionalNonEmptyString(details.model_mount_provider_lifecycle_hash)) {
+    missing.push("model_mount_provider_lifecycle_hash");
   }
-  if (!Array.isArray(details.modelMountProviderLifecycleEvidenceRefs) ||
-    !details.modelMountProviderLifecycleEvidenceRefs.includes("rust_model_mount_provider_lifecycle")) {
-    missing.push("modelMountProviderLifecycleEvidenceRefs");
+  if (!Array.isArray(details.model_mount_provider_lifecycle_evidence_refs) ||
+    !details.model_mount_provider_lifecycle_evidence_refs.includes("rust_model_mount_provider_lifecycle")) {
+    missing.push("model_mount_provider_lifecycle_evidence_refs");
   }
-  if (!optionalNonEmptyString(details.modelMountProviderLifecycleAction)) {
-    missing.push("modelMountProviderLifecycleAction");
-  } else if (details.modelMountProviderLifecycleAction !== "health") {
-    mismatches.push("modelMountProviderLifecycleAction");
+  if (!optionalNonEmptyString(details.model_mount_provider_lifecycle_action)) {
+    missing.push("model_mount_provider_lifecycle_action");
+  } else if (details.model_mount_provider_lifecycle_action !== "health") {
+    mismatches.push("model_mount_provider_lifecycle_action");
   }
-  if (!optionalNonEmptyString(details.modelMountProviderLifecycleStatus)) {
-    missing.push("modelMountProviderLifecycleStatus");
-  } else if (details.modelMountProviderLifecycleStatus !== expectedStatus) {
-    mismatches.push("modelMountProviderLifecycleStatus");
+  if (!optionalNonEmptyString(details.model_mount_provider_lifecycle_status)) {
+    missing.push("model_mount_provider_lifecycle_status");
+  } else if (details.model_mount_provider_lifecycle_status !== expectedStatus) {
+    mismatches.push("model_mount_provider_lifecycle_status");
   }
   if (missing.length > 0 || mismatches.length > 0) {
     throw runtimeError({

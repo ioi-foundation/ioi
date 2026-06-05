@@ -797,6 +797,9 @@ function runBridge() {
       /RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND/.test(providerLocalDrivers) &&
       /state\.planModelMountProviderLifecycle/.test(providerLocalDrivers) &&
       /provider_status/.test(providerLocalDrivers) &&
+      /model_mount_provider_lifecycle/.test(providerLocalDrivers) &&
+      /lifecycle_hash/.test(providerLocalDrivers) &&
+      !/modelMountProviderLifecycle/.test(providerLocalDrivers) &&
       /model_mount_provider_lifecycle_planning_required/.test(providerLocalDrivers) &&
       /model_mount_fixture_provider_lifecycle_planning_required/.test(providerLocalDrivers) &&
       /plans health through Rust model_mount/.test(read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs")) &&
@@ -1968,7 +1971,7 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-health-receipt-direct-write-guard",
-    /modelMountProviderLifecycle/.test(
+    /model_mount_provider_lifecycle/.test(
       read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs"),
     ) &&
       /providerLifecycleReceiptFields/.test(
@@ -1981,6 +1984,14 @@ function runReceipts() {
       /model_mount_provider_health_receipt_direct_append_forbidden/.test(
         modelMountReceiptWriteGuards,
       ) &&
+      /model_mount_provider_lifecycle_hash/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      /model_mount_provider_lifecycle_hash/.test(modelMountReceiptWriteGuards) &&
+      !/modelMountProviderLifecycle|providerLifecycleHash/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      !/modelMountProviderLifecycle|providerLifecycleHash/.test(modelMountReceiptWriteGuards) &&
       /local provider health receipts carry Rust lifecycle bindings/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
@@ -2010,6 +2021,14 @@ function runReceipts() {
       /model_mount_provider_control_receipt_direct_append_forbidden/.test(
         modelMountReceiptWriteGuards,
       ) &&
+      /model_mount_provider_lifecycle_hash/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      /model_mount_provider_lifecycle_hash/.test(modelMountReceiptWriteGuards) &&
+      !/modelMountProviderLifecycle|providerLifecycleHash/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      !/modelMountProviderLifecycle|providerLifecycleHash/.test(modelMountReceiptWriteGuards) &&
       /local provider start and stop fail closed without Rust lifecycle bindings/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
