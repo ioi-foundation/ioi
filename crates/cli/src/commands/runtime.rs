@@ -25,11 +25,89 @@ pub struct RuntimeArgs {
 
 #[derive(Subcommand, Debug)]
 pub enum RuntimeCommands {
+    /// Submit worker/service package invocations to the daemon.
+    WorkerServicePackage {
+        #[clap(subcommand)]
+        command: WorkerServicePackageCommands,
+    },
+
+    /// Submit cTEE Private Workspace actions to the daemon.
+    CteePrivateWorkspace {
+        #[clap(subcommand)]
+        command: CteePrivateWorkspaceCommands,
+    },
+
+    /// Submit governed runtime-improvement proposals to the daemon.
+    GovernedImprovement {
+        #[clap(subcommand)]
+        command: GovernedImprovementCommands,
+    },
+
     /// Submit trigger-required sparse L1 settlement attempts to the daemon.
     L1Settlement {
         #[clap(subcommand)]
         command: L1SettlementCommands,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum WorkerServicePackageCommands {
+    /// Admit an invocation through the daemon-mounted Rust package guard.
+    Admit(WorkerServicePackageAdmitArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct WorkerServicePackageAdmitArgs {
+    /// Runtime thread id that owns the admission request.
+    pub thread_id: String,
+
+    /// Worker/service package invocation JSON object.
+    #[clap(long, conflicts_with = "invocation_file")]
+    pub invocation_json: Option<String>,
+
+    /// Path to a worker/service package invocation JSON file.
+    #[clap(long, conflicts_with = "invocation_json")]
+    pub invocation_file: Option<PathBuf>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum CteePrivateWorkspaceCommands {
+    /// Execute/admit an action through the daemon-mounted Rust cTEE guard.
+    Execute(CteePrivateWorkspaceExecuteArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct CteePrivateWorkspaceExecuteArgs {
+    /// Runtime thread id that owns the admission request.
+    pub thread_id: String,
+
+    /// cTEE Private Workspace action JSON object.
+    #[clap(long, conflicts_with = "action_file")]
+    pub action_json: Option<String>,
+
+    /// Path to a cTEE Private Workspace action JSON file.
+    #[clap(long, conflicts_with = "action_json")]
+    pub action_file: Option<PathBuf>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum GovernedImprovementCommands {
+    /// Admit a governed improvement proposal through the daemon-mounted Rust guard.
+    Admit(GovernedImprovementAdmitArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct GovernedImprovementAdmitArgs {
+    /// Runtime thread id that owns the admission request.
+    pub thread_id: String,
+
+    /// Governed improvement proposal JSON object.
+    #[clap(long, conflicts_with = "proposal_file")]
+    pub proposal_json: Option<String>,
+
+    /// Path to a governed improvement proposal JSON file.
+    #[clap(long, conflicts_with = "proposal_json")]
+    pub proposal_file: Option<PathBuf>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -56,12 +134,71 @@ pub async fn run(args: RuntimeArgs) -> Result<()> {
     let endpoint = args.endpoint.as_deref();
     let token = args.token.as_deref();
     let value = match args.command {
+        RuntimeCommands::WorkerServicePackage { command } => match command {
+            WorkerServicePackageCommands::Admit(admit_args) => {
+                let invocation = parse_json_input(
+                    admit_args.invocation_json.as_deref(),
+                    admit_args.invocation_file.as_ref(),
+                    "worker/service package invocation",
+                    "--invocation-json",
+                    "--invocation-file",
+                )?;
+                daemon_request(
+                    endpoint,
+                    token,
+                    Method::POST,
+                    &worker_service_package_invocations_route(&admit_args.thread_id),
+                    Some(worker_service_package_admission_body(invocation)),
+                )
+                .await?
+            }
+        },
+        RuntimeCommands::CteePrivateWorkspace { command } => match command {
+            CteePrivateWorkspaceCommands::Execute(execute_args) => {
+                let action = parse_json_input(
+                    execute_args.action_json.as_deref(),
+                    execute_args.action_file.as_ref(),
+                    "cTEE private workspace action",
+                    "--action-json",
+                    "--action-file",
+                )?;
+                daemon_request(
+                    endpoint,
+                    token,
+                    Method::POST,
+                    &ctee_private_workspace_actions_route(&execute_args.thread_id),
+                    Some(ctee_private_workspace_action_body(action)),
+                )
+                .await?
+            }
+        },
+        RuntimeCommands::GovernedImprovement { command } => match command {
+            GovernedImprovementCommands::Admit(admit_args) => {
+                let proposal = parse_json_input(
+                    admit_args.proposal_json.as_deref(),
+                    admit_args.proposal_file.as_ref(),
+                    "governed improvement proposal",
+                    "--proposal-json",
+                    "--proposal-file",
+                )?;
+                daemon_request(
+                    endpoint,
+                    token,
+                    Method::POST,
+                    &governed_improvement_proposals_route(&admit_args.thread_id),
+                    Some(governed_improvement_proposal_admission_body(proposal)),
+                )
+                .await?
+            }
+        },
         RuntimeCommands::L1Settlement { command } => match command {
             L1SettlementCommands::Admit(admit_args) => {
                 let attempt = parse_json_input(
                     admit_args.attempt_json.as_deref(),
                     admit_args.attempt_file.as_ref(),
                     "L1 settlement attempt",
+                    "--attempt-json",
+                    "--attempt-file",
                 )?;
                 daemon_request(
                     endpoint,
@@ -77,11 +214,53 @@ pub async fn run(args: RuntimeArgs) -> Result<()> {
     print_value(&value, args.json)
 }
 
+pub(crate) fn worker_service_package_invocations_route(thread_id: &str) -> String {
+    format!(
+        "/v1/threads/{}/worker-service-package-invocations",
+        encode_path_segment(thread_id)
+    )
+}
+
+pub(crate) fn ctee_private_workspace_actions_route(thread_id: &str) -> String {
+    format!(
+        "/v1/threads/{}/ctee-private-workspace-actions",
+        encode_path_segment(thread_id)
+    )
+}
+
+pub(crate) fn governed_improvement_proposals_route(thread_id: &str) -> String {
+    format!(
+        "/v1/threads/{}/governed-improvement-proposals",
+        encode_path_segment(thread_id)
+    )
+}
+
 pub(crate) fn l1_settlement_attempts_route(thread_id: &str) -> String {
     format!(
         "/v1/threads/{}/l1-settlement-attempts",
         encode_path_segment(thread_id)
     )
+}
+
+fn worker_service_package_admission_body(invocation: Value) -> Value {
+    json!({
+        "source": "cli_client",
+        "invocation": invocation,
+    })
+}
+
+fn ctee_private_workspace_action_body(action: Value) -> Value {
+    json!({
+        "source": "cli_client",
+        "action": action,
+    })
+}
+
+fn governed_improvement_proposal_admission_body(proposal: Value) -> Value {
+    json!({
+        "source": "cli_client",
+        "proposal": proposal,
+    })
 }
 
 fn l1_settlement_admission_body(attempt: Value) -> Value {
@@ -91,10 +270,16 @@ fn l1_settlement_admission_body(attempt: Value) -> Value {
     })
 }
 
-fn parse_json_input(inline: Option<&str>, file: Option<&PathBuf>, label: &str) -> Result<Value> {
+fn parse_json_input(
+    inline: Option<&str>,
+    file: Option<&PathBuf>,
+    label: &str,
+    inline_flag: &str,
+    file_flag: &str,
+) -> Result<Value> {
     match (inline, file) {
         (Some(_), Some(_)) => Err(anyhow!(
-            "{label} accepts either --attempt-json or --attempt-file, not both."
+            "{label} accepts either {inline_flag} or {file_flag}, not both."
         )),
         (Some(value), None) => serde_json::from_str(value)
             .with_context(|| format!("{label} JSON argument must be a JSON object.")),
@@ -108,9 +293,7 @@ fn parse_json_input(inline: Option<&str>, file: Option<&PathBuf>, label: &str) -
                 )
             })
         }
-        (None, None) => Err(anyhow!(
-            "{label} requires --attempt-json or --attempt-file."
-        )),
+        (None, None) => Err(anyhow!("{label} requires {inline_flag} or {file_flag}.")),
     }
     .and_then(|value: Value| {
         if value.is_object() {
@@ -139,11 +322,111 @@ mod tests {
     use super::*;
 
     #[test]
+    fn worker_service_package_route_encodes_thread_id() {
+        assert_eq!(
+            worker_service_package_invocations_route("thread/with spaces"),
+            "/v1/threads/thread%2Fwith%20spaces/worker-service-package-invocations"
+        );
+    }
+
+    #[test]
+    fn ctee_private_workspace_route_encodes_thread_id() {
+        assert_eq!(
+            ctee_private_workspace_actions_route("thread/with spaces"),
+            "/v1/threads/thread%2Fwith%20spaces/ctee-private-workspace-actions"
+        );
+    }
+
+    #[test]
+    fn governed_improvement_route_encodes_thread_id() {
+        assert_eq!(
+            governed_improvement_proposals_route("thread/with spaces"),
+            "/v1/threads/thread%2Fwith%20spaces/governed-improvement-proposals"
+        );
+    }
+
+    #[test]
     fn l1_settlement_route_encodes_thread_id() {
         assert_eq!(
             l1_settlement_attempts_route("thread/with spaces"),
             "/v1/threads/thread%2Fwith%20spaces/l1-settlement-attempts"
         );
+    }
+
+    #[test]
+    fn worker_service_package_body_is_cli_admission_only() -> Result<()> {
+        let invocation = serde_json::json!({
+            "schema_version": "ioi.worker_service_package_invocation.v1",
+            "package_kind": "worker_package",
+            "package_ref": "package://worker/cli",
+            "manifest_ref": "artifact://package-manifest/cli",
+            "invocation": { "invocation_id": "worker-service-package-cli" },
+            "expected_heads": ["agentgres://worker-service-package/head/before"]
+        });
+        let body = worker_service_package_admission_body(invocation);
+
+        assert_eq!(
+            body.get("source"),
+            Some(&Value::String("cli_client".to_string()))
+        );
+        assert!(body.get("invocation").is_some());
+        assert!(body.get("invocation_admitted").is_none());
+        assert!(body.get("accepted_receipt_append").is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn ctee_private_workspace_body_is_cli_admission_only() -> Result<()> {
+        let action = serde_json::json!({
+            "schema_version": "ioi.ctee_private_workspace_action.v1",
+            "invocation": { "invocation_id": "ctee-cli" },
+            "node_trust": {
+                "plaintext_allowed": false,
+                "trusted_execution_profile": "ctee_private_workspace"
+            },
+            "expected_heads": ["agentgres://ctee/head/before"]
+        });
+        let body = ctee_private_workspace_action_body(action);
+
+        assert_eq!(
+            body.get("source"),
+            Some(&Value::String("cli_client".to_string()))
+        );
+        assert!(body.get("action").is_some());
+        assert!(body.get("action_executed").is_none());
+        assert!(body.get("accepted_receipt_append").is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn governed_improvement_body_is_cli_admission_only() -> Result<()> {
+        let proposal = serde_json::json!({
+            "schema_version": "ioi.governed_runtime_improvement.v1",
+            "proposal_id": "governed-improvement-cli",
+            "target_ref": "runtime://route/cli",
+            "candidate_ref": "artifact://candidate/cli",
+            "surface": "route",
+            "source_trace_ref": "trace://cli",
+            "eval_receipt_refs": ["receipt://eval/cli"],
+            "verifier_receipt_refs": ["receipt://verifier/cli"],
+            "approval_ref": "wallet://approval/cli",
+            "rollback_ref": "artifact://rollback/cli",
+            "agentgres_operation_ref": "agentgres://operations/cli",
+            "expected_heads": ["agentgres://head/before"],
+            "state_root_before": "sha256:before",
+            "state_root_after": "sha256:after",
+            "resulting_head": "agentgres://head/after"
+        });
+        let body = governed_improvement_proposal_admission_body(proposal);
+
+        assert_eq!(
+            body.get("source"),
+            Some(&Value::String("cli_client".to_string()))
+        );
+        assert!(body.get("proposal").is_some());
+        assert!(body.get("proposal_admitted").is_none());
+        assert!(body.get("mutation_executed").is_none());
+        Ok(())
     }
 
     #[test]

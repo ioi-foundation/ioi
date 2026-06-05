@@ -1092,6 +1092,26 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "worker-service-package-cli-admission-surface",
+    /Runtime\(runtime::RuntimeArgs\)/.test(cliMain) &&
+      /runtime::run\(args\)\.await/.test(cliMain) &&
+      /WorkerServicePackageCommands::Admit/.test(cliRuntime) &&
+      /worker_service_package_invocations_route/.test(cliRuntime) &&
+      /worker-service-package-invocations/.test(cliRuntime) &&
+      /"source":\s*"cli_client"/.test(cliRuntime) &&
+      /"invocation":\s*invocation/.test(cliRuntime) &&
+      /worker_service_package_route_encodes_thread_id/.test(cliRuntime) &&
+      /worker_service_package_body_is_cli_admission_only/.test(cliRuntime) &&
+      !/invocation_admitted:\s*true/.test(cliRuntime),
+    [
+      "crates/cli/src/main.rs",
+      "crates/cli/src/commands/mod.rs",
+      "crates/cli/src/commands/runtime.rs",
+    ],
+    "Phase 8/11 is pending: CLI worker/service package client must post invocations to the daemon route without minting accepted truth",
+  );
+  assertCheck(
+    result,
     "l1-settlement-admission-live-bridge",
     /admit_l1_settlement_attempt/.test(bridgeModule) &&
       /L1SettlementAdmissionBridgeRequest/.test(bridgeModule) &&
@@ -1204,6 +1224,26 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "ctee-private-workspace-cli-admission-surface",
+    /Runtime\(runtime::RuntimeArgs\)/.test(cliMain) &&
+      /runtime::run\(args\)\.await/.test(cliMain) &&
+      /CteePrivateWorkspaceCommands::Execute/.test(cliRuntime) &&
+      /ctee_private_workspace_actions_route/.test(cliRuntime) &&
+      /ctee-private-workspace-actions/.test(cliRuntime) &&
+      /"source":\s*"cli_client"/.test(cliRuntime) &&
+      /"action":\s*action/.test(cliRuntime) &&
+      /ctee_private_workspace_route_encodes_thread_id/.test(cliRuntime) &&
+      /ctee_private_workspace_body_is_cli_admission_only/.test(cliRuntime) &&
+      !/action_executed:\s*true/.test(cliRuntime),
+    [
+      "crates/cli/src/main.rs",
+      "crates/cli/src/commands/mod.rs",
+      "crates/cli/src/commands/runtime.rs",
+    ],
+    "Phase 7/11 is pending: CLI cTEE Private Workspace client must post actions to the daemon route without minting accepted truth",
+  );
+  assertCheck(
+    result,
     "governed-meta-improvement-proposal-live-bridge",
     /admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
       /GovernedRuntimeImprovementBridgeRequest/.test(bridgeModule) &&
@@ -1296,6 +1336,27 @@ function runBridge() {
       "packages/agent-ide/src/index.ts",
     ],
     "Phase 9 is pending: SDK and IDE review clients must consume the governed-improvement proposal route without exposing a JS apply shortcut",
+  );
+  assertCheck(
+    result,
+    "governed-meta-improvement-cli-admission-surface",
+    /Runtime\(runtime::RuntimeArgs\)/.test(cliMain) &&
+      /runtime::run\(args\)\.await/.test(cliMain) &&
+      /GovernedImprovementCommands::Admit/.test(cliRuntime) &&
+      /governed_improvement_proposals_route/.test(cliRuntime) &&
+      /governed-improvement-proposals/.test(cliRuntime) &&
+      /"source":\s*"cli_client"/.test(cliRuntime) &&
+      /"proposal":\s*proposal/.test(cliRuntime) &&
+      /governed_improvement_route_encodes_thread_id/.test(cliRuntime) &&
+      /governed_improvement_body_is_cli_admission_only/.test(cliRuntime) &&
+      !/proposal_admitted:\s*true/.test(cliRuntime) &&
+      !/mutation_executed:\s*true/.test(cliRuntime),
+    [
+      "crates/cli/src/main.rs",
+      "crates/cli/src/commands/mod.rs",
+      "crates/cli/src/commands/runtime.rs",
+    ],
+    "Phase 9/11 is pending: CLI governed-improvement client must post proposals to the daemon route without minting accepted truth or applying mutations",
   );
   return result;
 }
