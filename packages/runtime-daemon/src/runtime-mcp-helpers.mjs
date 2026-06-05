@@ -201,7 +201,7 @@ export function mcpServeToolCallResult(invocation = {}) {
       receipt_refs: normalizeArray(invocation.receipt_refs),
       policy_decision_refs: normalizeArray(invocation.policy_decision_refs),
       artifact_refs: normalizeArray(invocation.artifact_refs),
-      event_id: invocation.event?.event_id ?? invocation.event?.id ?? null,
+      event_id: invocation.event?.event_id ?? null,
       result: invocation.result ?? null,
       error: invocation.error ?? null,
     },

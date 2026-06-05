@@ -72,12 +72,19 @@ test("runtime MCP helpers shape serve descriptors and tool results", () => {
     tool_name: "file.inspect",
     status: "failed",
     receipt_refs: ["receipt-1"],
-    event: { id: "event-1", payload_summary: { summary: "Could not inspect file." } },
+    event: { event_id: "event-1", payload_summary: { summary: "Could not inspect file." } },
     error: { code: "blocked" },
   });
   assert.equal(result.isError, true);
   assert.equal(result.content[0].text, "Could not inspect file.");
+  assert.equal(result.structuredContent.event_id, "event-1");
   assert.deepEqual(result.structuredContent.receipt_refs, ["receipt-1"]);
+
+  const retiredAlias = mcpServeToolCallResult({
+    tool_name: "file.inspect",
+    event: { id: "legacy-event-id", payload_summary: { summary: "Inspect complete." } },
+  });
+  assert.equal(retiredAlias.structuredContent.event_id, null);
 });
 
 test("runtime MCP helpers shape JSON-RPC envelopes and transport metadata", () => {

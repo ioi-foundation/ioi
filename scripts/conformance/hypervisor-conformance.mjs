@@ -2721,6 +2721,12 @@ function runCompositor() {
   const threadReplay = exists("packages/runtime-daemon/src/threads/thread-replay.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-replay.mjs")
     : "";
+  const runtimeMcpHelpers = exists("packages/runtime-daemon/src/runtime-mcp-helpers.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-helpers.mjs")
+    : "";
+  const runtimeMcpHelpersTest = exists("packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs")
+    : "";
   const agentSdkRuntimeEvents = exists("packages/agent-sdk/src/runtime-events.ts")
     ? read("packages/agent-sdk/src/runtime-events.ts")
     : "";
@@ -2811,6 +2817,20 @@ function runCompositor() {
       "packages/runtime-daemon/src/threads/thread-replay.mjs",
     ],
     "Phase 10/11 is pending: daemon runtime event envelopes must not emit legacy id/event/timestamp aliases, and SSE/cursors must use canonical event_id",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-event-id-alias-retired",
+    /event_id:\s*invocation\.event\?\.event_id\s*\?\?\s*null/.test(runtimeMcpHelpers) &&
+      !/event_id:\s*invocation\.event\?\.event_id\s*\?\?\s*invocation\.event\?\.id/.test(
+        runtimeMcpHelpers,
+      ) &&
+      /retiredAlias\.structuredContent\.event_id,\s*null/.test(runtimeMcpHelpersTest),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP serve result projection must use canonical runtime event_id and ignore retired event.id aliases",
   );
   return result;
 }
