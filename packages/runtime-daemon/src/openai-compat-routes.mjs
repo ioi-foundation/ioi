@@ -843,7 +843,7 @@ export async function writeOpenAiProviderChatCompletionStream(request, response,
       route_id: invocation.route.id,
       tool_receipt_ids: invocation.toolReceiptIds ?? [],
       provider_stream: "native",
-      usage: completionReceipt.details?.tokenCount ?? providerUsage ?? null,
+      usage: completionReceipt.details?.token_count ?? providerUsage ?? null,
       finish_reason: finishReason,
       choices: [{ index: 0, delta: {}, finish_reason: null }],
     };
@@ -964,7 +964,7 @@ export async function writeOllamaChatCompletionStream(request, response, streamI
       `data: ${JSON.stringify({
         ...base,
         stream_receipt_id: completionReceipt.id,
-        usage: completionReceipt.details?.tokenCount ?? providerUsage ?? null,
+        usage: completionReceipt.details?.token_count ?? providerUsage ?? null,
         choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
       })}\n\n`,
     );

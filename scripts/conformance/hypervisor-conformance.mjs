@@ -4109,7 +4109,12 @@ function runReceipts() {
     "openai-provider-stream-shape-append-retired",
     !/appendOperation\?\.\(\s*"model\.provider_stream_shape_summary"/.test(openAiCompatRoutes) &&
       /providerStreamShapeSummary: finalizeOpenAiProviderStreamShape/.test(openAiCompatRoutes) &&
+      /completionReceipt\.details\?\.token_count/.test(openAiCompatRoutes) &&
+      !/completionReceipt\.details\?\.tokenCount/.test(openAiCompatRoutes) &&
       /provider_stream_shape_summary/.test(conversationOps) &&
+      /Object\.hasOwn\(finalPayload\.usage,\s*"tokenCount"\),\s*false/.test(
+        read("packages/runtime-daemon/src/openai-compat-routes.test.mjs"),
+      ) &&
       /OpenAI provider stream shape is bound to the stream receipt without operation append/.test(
         read("packages/runtime-daemon/src/openai-compat-routes.test.mjs"),
       ),

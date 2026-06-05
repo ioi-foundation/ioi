@@ -97,7 +97,7 @@ test("OpenAI provider stream shape is bound to the stream receipt without operat
       return {
         id: "receipt.stream",
         details: {
-          token_count: requested.providerUsage,
+          token_count: { prompt_tokens: 7, completion_tokens: 11, total_tokens: 18 },
           provider_stream_shape_summary: requested.providerStreamShapeSummary,
         },
       };
@@ -115,7 +115,11 @@ test("OpenAI provider stream shape is bound to the stream receipt without operat
   assert.equal(completed[0].providerStreamShapeSummary.delta.contentChunks, 1);
   assert.equal("_deltaToolArgumentBuffers" in completed[0].providerStreamShapeSummary, false);
   assert.equal(response.headers["x-ioi-stream-source"], "provider_native");
-  assert.equal(response.frames.some((frame) => frame.includes('"stream_receipt_id":"receipt.stream"')), true);
+  const finalFrame = response.frames.find((frame) => frame.includes('"stream_receipt_id":"receipt.stream"'));
+  assert.ok(finalFrame);
+  const finalPayload = JSON.parse(finalFrame.replace(/^data: /, "").trim());
+  assert.deepEqual(finalPayload.usage, { prompt_tokens: 7, completion_tokens: 11, total_tokens: 18 });
+  assert.equal(Object.hasOwn(finalPayload.usage, "tokenCount"), false);
 });
 
 test("stream cancellation receipts use canonical detail metadata", () => {
