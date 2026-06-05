@@ -3315,6 +3315,31 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-tokenizer-request-aliases-retired",
+    /RETIRED_MODEL_TOKENIZER_REQUEST_ALIASES/.test(modelTokenizerOperations) &&
+      /model_mount_tokenizer_request_aliases_retired/.test(modelTokenizerOperations) &&
+      /assertCanonicalModelTokenizerRequestBody\(body\);/.test(modelTokenizerOperations) &&
+      /routeId:\s*body\.route_id/.test(modelTokenizerOperations) &&
+      /policy:\s*body\.model_policy \?\? \{\}/.test(modelTokenizerOperations) &&
+      /body\.max_output_tokens,\s*\n\s*0/.test(modelTokenizerOperations) &&
+      /const explicit = Number\(body\.context_length\);/.test(modelTokenizerOperations) &&
+      !/body\.(?:routeId|modelPolicy|contextLength|contextWindow|maxOutputTokens|reserveOutputTokens|reserve_output_tokens)\b/.test(
+        modelTokenizerOperations,
+      ) &&
+      /modelTokenizerUtility rejects retired request aliases before authorization/.test(
+        modelTokenizerOperationsTest,
+      ) &&
+      /retired_aliases,\s*\[\s*"routeId",\s*"modelPolicy",\s*"contextLength",\s*"contextWindow",\s*"maxOutputTokens",\s*"reserveOutputTokens",\s*"reserve_output_tokens",\s*\]/.test(
+        modelTokenizerOperationsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
+    ],
+    "Phase 10/11 is pending: tokenizer and context-fit request bodies must fail closed on retired route, policy, context-window, and output-token aliases",
+  );
+  assertCheck(
+    result,
     "model-mount-artifact-endpoint-receipt-detail-aliases-retired",
     /model_id:\s*modelId/.test(artifactEndpointReceiptBlocks) &&
       /provider_id:\s*body\.provider_id/.test(artifactEndpointReceiptBlocks) &&

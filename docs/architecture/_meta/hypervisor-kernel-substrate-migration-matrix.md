@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 296:
+Current expected behavior after Slice 297:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11802,6 +11802,13 @@ Slice 296 retires model invocation request aliases at the daemon entry point:
 non-stream and stream model invocation bodies now fail closed on camelCase
 `routeId`, `modelPolicy`, `responseId`, `previousResponseId`, and `sendOptions`
 before authorization, and bridge conformance rejects those body reads.
+
+Slice 297 retires tokenizer/context-fit request aliases at the daemon entry
+point: tokenizer, token-count, and context-fit bodies now fail closed on
+retired `routeId`, `modelPolicy`, `contextLength`, `contextWindow`,
+`maxOutputTokens`, `reserveOutputTokens`, and `reserve_output_tokens` request
+aliases before authorization, while canonical `route_id`, `model_policy`,
+`context_length`, and `max_output_tokens` remain the accepted request shape.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

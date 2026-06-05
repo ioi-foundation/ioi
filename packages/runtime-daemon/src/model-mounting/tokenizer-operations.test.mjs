@@ -29,11 +29,13 @@ function fakeState() {
         contextWindow: 4,
       }],
     ]),
+    authorizationCalls: [],
     receipts: [],
     routeReceiptCount: 0,
     routes: new Map([[route.id, route]]),
     writes: [],
     authorize(authorization, requiredScope) {
+      this.authorizationCalls.push({ authorization, requiredScope });
       return { authorization, requiredScope, grantId: `grant.${requiredScope}` };
     },
     contextWindowForEndpoint(endpointRecord, body) {
@@ -133,6 +135,57 @@ test("modelTokenizerUtility records route and redacted tokenization receipt", ()
   assert.equal(state.writes.at(-1)[0], "model-routes");
 });
 
+test("modelTokenizerUtility rejects retired request aliases before authorization", () => {
+  const state = fakeState();
+
+  assert.throws(
+    () =>
+      modelTokenizerUtility(
+        state,
+        {
+          authorization: "auth",
+          requiredScope: "model.tokenize:*",
+          body: {
+            input: "legacy tokenizer aliases",
+            routeId: "route.local-first",
+            modelPolicy: { privacy: "legacy" },
+            contextLength: 8,
+            contextWindow: 8,
+            maxOutputTokens: 2,
+            reserveOutputTokens: 2,
+            reserve_output_tokens: 2,
+          },
+          operation: "tokenize",
+        },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_tokenizer_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "routeId",
+        "modelPolicy",
+        "contextLength",
+        "contextWindow",
+        "maxOutputTokens",
+        "reserveOutputTokens",
+        "reserve_output_tokens",
+      ]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "route_id",
+        "model_policy",
+        "context_length",
+        "max_output_tokens",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "routeId"), false);
+      return true;
+    },
+  );
+  assert.deepEqual(state.authorizationCalls, []);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.writes, []);
+});
+
 test("tokenizeModel and countModelTokens preserve public response envelopes", () => {
   const state = fakeState();
 
@@ -161,7 +214,7 @@ test("fitModelContext reports fit and keep-tail truncation", () => {
 
   const result = fitModelContext(
     state,
-    { authorization: "auth", body: { input: "one two three four five", reserve_output_tokens: 1 } },
+    { authorization: "auth", body: { input: "one two three four five", max_output_tokens: 1 } },
     deps,
   );
 
@@ -184,7 +237,7 @@ test("fitModelContext reports fit and keep-tail truncation", () => {
 test("contextWindowForEndpoint honors explicit, artifact, metadata, and default fallbacks", () => {
   const state = fakeState();
 
-  assert.equal(contextWindowForEndpoint(state, { modelId: "missing" }, { context_window: 16 }), 16);
+  assert.equal(contextWindowForEndpoint(state, { modelId: "missing" }, { context_length: 16 }), 16);
   assert.equal(contextWindowForEndpoint(state, { modelId: "llama-test", artifactId: "artifact.llama" }, {}), 4);
 
   state.artifacts.set("artifact.meta", {

@@ -1,16 +1,27 @@
+const RETIRED_MODEL_TOKENIZER_REQUEST_ALIASES = [
+  "routeId",
+  "modelPolicy",
+  "contextLength",
+  "contextWindow",
+  "maxOutputTokens",
+  "reserveOutputTokens",
+  "reserve_output_tokens",
+];
+
 export function modelTokenizerUtility(state, { authorization, requiredScope, body = {}, operation }, deps = {}) {
   const {
     deterministicTokenizeText,
     inputText,
     stableHash,
   } = deps;
+  assertCanonicalModelTokenizerRequestBody(body);
   const token = state.authorize(authorization, requiredScope);
   const input = inputText(body);
   const selection = state.selectRoute({
     modelId: body.model,
-    routeId: body.route_id ?? body.routeId,
+    routeId: body.route_id,
     capability: "chat",
-    policy: body.model_policy ?? body.modelPolicy ?? {},
+    policy: body.model_policy ?? {},
   });
   const routeReceipt = state.routeSelectionReceipt(selection, {
     body,
@@ -113,7 +124,7 @@ export function fitModelContext(state, { authorization, requiredScope = "model.c
   } = deps;
   const utility = state.modelTokenizerUtility({ authorization, requiredScope, body, operation: "context_fit" });
   const reservedOutputTokens = normalizeNonNegativeInteger(
-    body.max_output_tokens ?? body.maxOutputTokens ?? body.reserve_output_tokens ?? body.reserveOutputTokens,
+    body.max_output_tokens,
     0,
   );
   const contextWindow = utility.contextWindow;
@@ -148,7 +159,7 @@ export function fitModelContext(state, { authorization, requiredScope = "model.c
 }
 
 export function contextWindowForEndpoint(state, endpoint, body = {}) {
-  const explicit = Number(body.context_length ?? body.contextLength ?? body.context_window ?? body.contextWindow);
+  const explicit = Number(body.context_length);
   if (Number.isFinite(explicit) && explicit > 0) return Math.floor(explicit);
   const artifact =
     (endpoint.artifactId ? state.artifacts.get(endpoint.artifactId) : null) ??
@@ -156,4 +167,21 @@ export function contextWindowForEndpoint(state, endpoint, body = {}) {
   const artifactContext = Number(artifact?.contextWindow ?? artifact?.metadata?.contextWindow ?? artifact?.metadata?.context);
   if (Number.isFinite(artifactContext) && artifactContext > 0) return Math.floor(artifactContext);
   return 4096;
+}
+
+function assertCanonicalModelTokenizerRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MODEL_TOKENIZER_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model tokenizer request aliases are retired; use canonical snake_case request fields.",
+  );
+  error.status = 400;
+  error.code = "model_mount_tokenizer_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: ["route_id", "model_policy", "context_length", "max_output_tokens"],
+  };
+  throw error;
 }
