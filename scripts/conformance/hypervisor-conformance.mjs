@@ -4915,24 +4915,32 @@ function runCompositor() {
         runtimeTaskSdkCreateOptionsBlock,
       ) &&
       /^\s*cwd\?: string;/m.test(runtimeTaskSdkCreateOptionsBlock) &&
+      /^\s*prompt\?: string;/m.test(runtimeTaskSdkCreateOptionsBlock) &&
       /body\.agent_id/.test(runtimeTaskJobCreateTaskBlock) &&
       /body\.agent_options/.test(runtimeTaskJobCreateTaskBlock) &&
       /body\.cwd/.test(runtimeTaskJobCreateTaskBlock) &&
+      /prompt: body\.prompt \?\? ""/.test(runtimeTaskJobCreateTaskBlock) &&
       /legacy-agent/.test(runtimeTaskJobSurfaceTest) &&
       /route\.legacy-options/.test(runtimeTaskJobSurfaceTest) &&
+      /Retired objective ignored/.test(runtimeTaskJobSurfaceTest) &&
+      /Retired goal ignored/.test(runtimeTaskJobSurfaceTest) &&
       !/^\s*(?:agentId|agentOptions|workspace)\?:/m.test(
         runtimeTaskSdkCreateOptionsBlock,
       ) &&
+      !/^\s*(?:objective|goal)\?: string;/m.test(
+        runtimeTaskSdkCreateOptionsBlock,
+      ) &&
       !/^\s*\[key: string\]: unknown;/m.test(runtimeTaskSdkCreateOptionsBlock) &&
-      !/body\.(?:agentId|agentOptions|workspace)/.test(
+      !/body\.(?:agentId|agentOptions|workspace|objective|goal)/.test(
         runtimeTaskJobCreateTaskBlock,
-      ),
+      ) &&
+      !/\.\.\.body/.test(runtimeTaskJobCreateTaskBlock),
     [
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
       "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime task create request types and daemon create surfaces must not advertise or read retired identity/options/workspace aliases",
+    "Phase 10/11 is pending: runtime task create request types and daemon create surfaces must not advertise, read, or forward retired identity/options/workspace/prompt aliases",
   );
   assertCheck(
     result,

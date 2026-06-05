@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 224:
+Current expected behavior after Slice 225:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11395,6 +11395,12 @@ Slice 224 adds compositor proof for
 types and the daemon task create surface use canonical `agent_id`,
 `agent_options`, and `cwd`, and ignore retired identity/options/workspace
 aliases.
+
+Slice 225 extends compositor proof for
+`runtime-task-create-request-aliases-retired`: SDK runtime task create request
+types and the daemon task create surface now use canonical `prompt` only, ignore
+retired `objective`/`goal` prompt aliases, and avoid forwarding retired request
+keys into run creation.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

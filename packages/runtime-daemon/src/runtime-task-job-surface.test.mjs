@@ -90,11 +90,11 @@ test("runtime task job surface lists and filters task and job projections with c
 test("runtime task job surface creates task with existing or synthesized agent", () => {
   const { calls, store, surface } = harness();
 
-  assert.equal(surface.createTask(store, { agent_id: "agent-one", objective: "Do it" }).taskId, "task-run-created");
+  assert.equal(surface.createTask(store, { agent_id: "agent-one", prompt: "Do it" }).taskId, "task-run-created");
   assert.equal(surface.createTask(store, {
     cwd: "/workspace/custom",
     model: "route.local-first",
-    goal: "Make it so",
+    prompt: "Make it so",
     options: "ignored",
   }).taskId, "task-run-created");
   assert.equal(surface.createTask(store, {
@@ -105,6 +105,8 @@ test("runtime task job surface creates task with existing or synthesized agent",
     },
     workspace: "/workspace/legacy",
     prompt: "Legacy aliases ignored",
+    objective: "Retired objective ignored",
+    goal: "Retired goal ignored",
   }).taskId, "task-run-created");
 
   assert.deepEqual(calls.filter((call) => call.name === "getAgent"), [

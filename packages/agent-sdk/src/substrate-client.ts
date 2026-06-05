@@ -282,8 +282,6 @@ export interface RuntimeTaskListOptions {
 export interface RuntimeTaskCreateOptions {
   agent_id?: string;
   prompt?: string;
-  objective?: string;
-  goal?: string;
   mode?: string;
   options?: Record<string, unknown>;
   agent?: Record<string, unknown>;

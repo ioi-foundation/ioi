@@ -55,9 +55,8 @@ export function createRuntimeTaskJobSurface({
           });
       const options = body.options && typeof body.options === "object" ? body.options : {};
       const run = store.createRun(agent.id, {
-        ...body,
         mode: body.mode ?? "send",
-        prompt: body.prompt ?? body.objective ?? body.goal ?? "",
+        prompt: body.prompt ?? "",
         options,
       });
       return runtimeTaskRecordForRunDep(run);
