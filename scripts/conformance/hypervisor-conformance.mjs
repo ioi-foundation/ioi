@@ -3231,10 +3231,28 @@ function runCompositor() {
     runtimeSubagentSurface.match(
       /propagateSubagentCancellation\(store, threadId, request = \{\}\) \{[\s\S]*?\n    \},\n    subagentProjection/,
     )?.[0] ?? "";
+  const runtimeSubagentInputRecordBlock =
+    runtimeSubagentSurface.match(/const inputRecord = \{[\s\S]*?\n      \};/)?.[0] ?? "";
+  const runtimeSubagentResumeRecordBlock =
+    runtimeSubagentSurface.match(/const resumeRecord = \{[\s\S]*?\n      \};/)?.[0] ?? "";
+  const runtimeSubagentAssignmentRecordBlock =
+    runtimeSubagentSurface.match(/const assignmentRecord = \{[\s\S]*?\n      \};/)?.[0] ?? "";
+  const runtimeSubagentCancellationObjectBlock =
+    runtimeSubagentSurface.match(
+      /cancellation:\s*\{[\s\S]*?\n        \},\n        updated_at:/,
+    )?.[0] ?? "";
   const runtimeSubagentListEnvelopeAliasPattern =
     /^\s*(?:schemaVersion|threadId|parentAgentId|activeCount)\s*[:,]/m;
   const runtimeSubagentPropagationEnvelopeAliasPattern =
     /^\s*(?:schemaVersion|threadId|parentAgentId|propagationPolicy|candidateCount|canceledCount|skippedCount|canceledSubagents|skippedSubagents|eventRefs|receiptRefs|skipReason|cancellationInheritance)\s*[:,]/m;
+  const runtimeSubagentNestedInputAliasPattern =
+    /^\s*(?:schemaVersion|inputId|runId|previousRunId|createdAt|workflowGraphId|workflowNodeId)\s*[:,]/m;
+  const runtimeSubagentNestedResumeAliasPattern =
+    /^\s*(?:schemaVersion|resumeId|runId|previousRunId|previousStatus|modelRouteId|restartCount|createdAt|workflowGraphId|workflowNodeId)\s*[:,]/m;
+  const runtimeSubagentNestedAssignmentAliasPattern =
+    /^\s*(?:schemaVersion|assignmentId|previousRole|targetAgentId|toolPack|modelRouteId|mergePolicy|cancellationInheritance|assignmentCount|createdAt|workflowGraphId|workflowNodeId)\s*[:,]/m;
+  const runtimeSubagentNestedCancellationAliasPattern =
+    /^\s*(?:previousStatus|requestedBy|propagatedFromThreadId)\s*[:,]/m;
   const runtimeSubagentProjectionBlock =
     runtimeSubagentSurface.match(
       /subagentProjection\(record = \{\}\) \{[\s\S]*?\n    \},\n    appendThreadSubagentControlEvent/,
@@ -3928,6 +3946,45 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent list and propagation envelopes must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-nested-helper-output-aliases-retired",
+    runtimeSubagentInputRecordBlock.length > 0 &&
+      runtimeSubagentResumeRecordBlock.length > 0 &&
+      runtimeSubagentAssignmentRecordBlock.length > 0 &&
+      runtimeSubagentCancellationObjectBlock.length > 0 &&
+      !runtimeSubagentNestedInputAliasPattern.test(runtimeSubagentInputRecordBlock) &&
+      !runtimeSubagentNestedResumeAliasPattern.test(runtimeSubagentResumeRecordBlock) &&
+      !runtimeSubagentNestedAssignmentAliasPattern.test(
+        runtimeSubagentAssignmentRecordBlock,
+      ) &&
+      !runtimeSubagentNestedCancellationAliasPattern.test(
+        runtimeSubagentCancellationObjectBlock,
+      ) &&
+      /retiredSubagentNestedInputAliasKeys/.test(runtimeSubagentSurfaceTest) &&
+      /retiredSubagentNestedResumeAliasKeys/.test(runtimeSubagentSurfaceTest) &&
+      /retiredSubagentNestedAssignmentAliasKeys/.test(runtimeSubagentSurfaceTest) &&
+      /retiredSubagentNestedCancellationAliasKeys/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /assertNoOwnKeys\(result\.input,\s*retiredSubagentNestedInputAliasKeys\)/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /assertNoOwnKeys\(saved\.resume_history\[0\],\s*retiredSubagentNestedResumeAliasKeys\)/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /assertNoOwnKeys\(saved\.assignment_history\[0\],\s*retiredSubagentNestedAssignmentAliasKeys\)/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /assertNoOwnKeys\(saved\.cancellation,\s*retiredSubagentNestedCancellationAliasKeys\)/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent nested helper objects must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

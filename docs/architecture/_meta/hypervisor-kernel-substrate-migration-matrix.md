@@ -10186,6 +10186,60 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 170
+
+```yaml
+slice: 170
+phase: 10-authoritative-js-facade-retirement
+objective: retire runtime subagent nested helper output aliases
+owner_boundary:
+  route_or_surface: runtime-daemon subagent input, resume, assignment, and
+    cancellation helper response objects
+  authority_gate: unchanged; helper records still come from daemon-owned
+    subagent lifecycle operations
+  execution_backend: unchanged
+  truth_path: nested helper objects expose canonical snake_case fields only
+    and no longer persist duplicate camelCase aliases into subagent histories
+    or cancellation metadata
+  projection_path: compositor conformance scopes helper construction blocks and
+    rejects duplicate camelCase helper aliases
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-subagent-surface.mjs
+    - packages/runtime-daemon/src/runtime-subagent-surface.test.mjs
+  tests:
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - compositor conformance rejects duplicate camelCase fields in `inputRecord`,
+    `resumeRecord`, `assignmentRecord`, and nested `cancellation` objects
+  - focused daemon tests prove returned helper objects and persisted
+    `input_history`, `resume_history`, `assignment_history`, and `cancellation`
+    metadata omit retired helper aliases
+verification:
+  commands:
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - node --test packages/runtime-daemon/src/runtime-subagent-surface.test.mjs
+    - npm run hypervisor-conformance:compositor
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: runtime subagent surface tests compare returned
+    and persisted helper objects against canonical snake_case fields
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - runtime subagent surface still accepts broader camelCase request and raw
+      record input fields while producing canonical writes, envelopes, and
+      helper outputs
+    - error details still expose broader camelCase response aliases outside
+      this helper-object boundary
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -10236,12 +10290,17 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 169:
+Current expected behavior after Slice 170:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
 list and cancellation-propagation envelopes expose canonical snake_case fields
 without duplicate camelCase response aliases.
+
+Slice 170 adds compositor proof for
+`runtime-subagent-nested-helper-output-aliases-retired`: runtime subagent
+input, resume, assignment, and cancellation helper objects expose canonical
+snake_case fields without duplicate camelCase response aliases.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

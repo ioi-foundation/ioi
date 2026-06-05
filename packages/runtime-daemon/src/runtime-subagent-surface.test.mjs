@@ -295,6 +295,50 @@ const retiredSubagentSkippedRecordAliasKeys = [
   "cancellationInheritance",
 ];
 
+const retiredSubagentNestedInputAliasKeys = [
+  "schemaVersion",
+  "inputId",
+  "runId",
+  "previousRunId",
+  "createdAt",
+  "workflowGraphId",
+  "workflowNodeId",
+];
+
+const retiredSubagentNestedResumeAliasKeys = [
+  "schemaVersion",
+  "resumeId",
+  "runId",
+  "previousRunId",
+  "previousStatus",
+  "modelRouteId",
+  "restartCount",
+  "createdAt",
+  "workflowGraphId",
+  "workflowNodeId",
+];
+
+const retiredSubagentNestedAssignmentAliasKeys = [
+  "schemaVersion",
+  "assignmentId",
+  "previousRole",
+  "targetAgentId",
+  "toolPack",
+  "modelRouteId",
+  "mergePolicy",
+  "cancellationInheritance",
+  "assignmentCount",
+  "createdAt",
+  "workflowGraphId",
+  "workflowNodeId",
+];
+
+const retiredSubagentNestedCancellationAliasKeys = [
+  "previousStatus",
+  "requestedBy",
+  "propagatedFromThreadId",
+];
+
 test("subagent surface lists, filters, and projects thread subagents", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface();
@@ -591,6 +635,7 @@ test("subagent surface sends input, persists history, and returns event", () => 
   assert.match(result.input.input_id, /^subagent_input_/);
   assert.equal(result.input.run_id, "run_created_3");
   assert.equal(result.input.previous_run_id, "run_1");
+  assertNoOwnKeys(result.input, retiredSubagentNestedInputAliasKeys);
   assert.equal(result.run_id, "run_created_3");
   assert.equal(result.previous_run_ids[0], "run_1");
   assert.equal(result.input_count, 1);
@@ -604,6 +649,7 @@ test("subagent surface sends input, persists history, and returns event", () => 
   assert.equal(result.result.result, "Created response: Follow up");
   assert.equal(store.writes[0].operationKind, "subagent.input");
   assert.equal(saved.input_history[0].message, "Follow up");
+  assertNoOwnKeys(saved.input_history[0], retiredSubagentNestedInputAliasKeys);
   assert.equal(saved.last_input_at, "2026-06-04T12:45:00.000Z");
   assert.deepEqual(saved.receipt_refs, [
     "receipt_run_created_3",
@@ -724,6 +770,7 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
   assert.equal(result.resume.role, "worker");
   assert.equal(result.resume.model_route_id, "route.resume");
   assert.equal(result.resume.created_at, "2026-06-04T13:10:00.000Z");
+  assertNoOwnKeys(result.resume, retiredSubagentNestedResumeAliasKeys);
   assert.equal(result.event.event_kind, "subagent.resumed");
   assert.equal(result.event.source_event_kind, "OperatorControl.SubagentResume");
   assert.equal(result.event.workflow_graph_id, "graph_resume");
@@ -737,6 +784,7 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
   assert.equal(saved.cancellation_cleared_at, "2026-06-04T13:10:00.000Z");
   assert.equal(saved.cancellation_history.length, 1);
   assert.equal(saved.resume_history[0].prompt, "Try again");
+  assertNoOwnKeys(saved.resume_history[0], retiredSubagentNestedResumeAliasKeys);
   assert.deepEqual(saved.previous_run_ids, ["run_1"]);
   assert.deepEqual(saved.receipt_refs, [
     "receipt_run_created_3",
@@ -825,6 +873,7 @@ test("subagent surface assigns role metadata and persists assignment history", (
   assert.match(result.assignment.assignment_id, /^subagent_assignment_/);
   assert.equal(result.assignment.previous_role, "reviewer");
   assert.equal(result.assignment.created_at, "2026-06-04T13:00:00.000Z");
+  assertNoOwnKeys(result.assignment, retiredSubagentNestedAssignmentAliasKeys);
   assert.equal(result.assignment_history.length, 1);
   assert.equal(result.assign_event_id, "evt_1");
   assertCanonicalSubagentRecordOutput(result);
@@ -835,6 +884,7 @@ test("subagent surface assigns role metadata and persists assignment history", (
   assert.equal(store.writes[0].operationKind, "subagent.assign");
   assert.equal(saved.role, "auditor");
   assert.ok(saved.evidence_refs.includes("runtime.subagent.assign"));
+  assertNoOwnKeys(saved.assignment_history[0], retiredSubagentNestedAssignmentAliasKeys);
   assertCanonicalSubagentRecordOutput(saved);
   assertCanonicalSubagentStoreWrites(store);
 });
@@ -867,6 +917,7 @@ test("subagent surface cancels subagents with inherited cancellation metadata", 
   assert.equal(result.cancellation.requested_by, "operator_1");
   assert.equal(result.cancellation.inherited, true);
   assert.equal(result.cancellation.propagated_from_thread_id, "thread_parent");
+  assertNoOwnKeys(result.cancellation, retiredSubagentNestedCancellationAliasKeys);
   assert.equal(result.event.event_kind, "subagent.canceled");
   assert.equal(result.event.source_event_kind, "OperatorControl.SubagentCancel");
   assert.equal(result.event.receipt_refs[0], "receipt_cancel_request");
@@ -878,6 +929,7 @@ test("subagent surface cancels subagents with inherited cancellation metadata", 
     ...result.event.receipt_refs,
   ]);
   assert.ok(saved.evidence_refs.includes("runtime.subagent.cancel"));
+  assertNoOwnKeys(saved.cancellation, retiredSubagentNestedCancellationAliasKeys);
   assertCanonicalSubagentRecordOutput(saved);
   assertCanonicalSubagentStoreWrites(store);
 });
@@ -929,6 +981,7 @@ test("subagent surface propagates parent cancellation and reports skipped childr
   assert.equal(saved.cancellation_inherited, true);
   assert.equal(saved.propagated_from_thread_id, "thread_1");
   assert.equal(saved.cancellation.reason, "parent stopped");
+  assertNoOwnKeys(saved.cancellation, retiredSubagentNestedCancellationAliasKeys);
   assertCanonicalSubagentRecordOutput(saved);
   assertCanonicalSubagentStoreWrites(store);
   assert.equal(store.events[0].workflow_node_id, "runtime.subagent.cancel.propagated.reviewer");

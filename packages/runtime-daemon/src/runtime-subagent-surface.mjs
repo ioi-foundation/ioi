@@ -537,22 +537,15 @@ export function createRuntimeSubagentSurface({
       const now = nowIso();
       const inputRecord = {
         schema_version: "ioi.runtime.subagent-input.v1",
-        schemaVersion: "ioi.runtime.subagent-input.v1",
         input_id: inputId,
-        inputId,
         message,
         run_id: run.id,
-        runId: run.id,
         previous_run_id: previousRunId ?? null,
-        previousRunId: previousRunId ?? null,
         created_at: now,
-        createdAt: now,
         actor: optionalStringDep(request.actor) ?? "operator",
         source: operatorControlSourceDep(request.source),
         workflow_graph_id: optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
-        workflowGraphId: optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
         workflow_node_id: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
-        workflowNodeId: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
       };
       const inputHistory = [...normalizeArray(record.input_history ?? record.inputHistory), inputRecord];
       const lifecycleStatus =
@@ -698,29 +691,19 @@ export function createRuntimeSubagentSurface({
       const restartCount = Number(record.restart_count ?? record.restartCount ?? 0) + 1;
       const resumeRecord = {
         schema_version: "ioi.runtime.subagent-resume.v1",
-        schemaVersion: "ioi.runtime.subagent-resume.v1",
         resume_id: resumeId,
-        resumeId,
         run_id: run.id,
-        runId: run.id,
         previous_run_id: previousRunId ?? null,
-        previousRunId: previousRunId ?? null,
         previous_status: previousStatus,
-        previousStatus,
         prompt,
         role,
         model_route_id: modelRouteId,
-        modelRouteId,
         restart_count: restartCount,
-        restartCount,
         created_at: now,
-        createdAt: now,
         actor: optionalStringDep(request.actor) ?? "operator",
         source: operatorControlSourceDep(request.source),
         workflow_graph_id: optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
-        workflowGraphId: optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
         workflow_node_id: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
-        workflowNodeId: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
       };
       const resumeHistory = [...normalizeArray(record.resume_history ?? record.resumeHistory), resumeRecord];
       const cancellationHistory = [
@@ -867,32 +850,20 @@ export function createRuntimeSubagentSurface({
       const assignmentCount = Number(record.assignment_count ?? record.assignmentCount ?? 0) + 1;
       const assignmentRecord = {
         schema_version: "ioi.runtime.subagent-assignment.v1",
-        schemaVersion: "ioi.runtime.subagent-assignment.v1",
         assignment_id: assignmentId,
-        assignmentId,
         previous_role: previousRole,
-        previousRole,
         role,
         target_agent_id: targetAgentId,
-        targetAgentId,
         tool_pack: toolPack,
-        toolPack,
         model_route_id: modelRouteId,
-        modelRouteId,
         merge_policy: mergePolicy,
-        mergePolicy,
         cancellation_inheritance: cancellationInheritance,
-        cancellationInheritance,
         assignment_count: assignmentCount,
-        assignmentCount,
         created_at: now,
-        createdAt: now,
         actor: optionalStringDep(request.actor) ?? "operator",
         source: operatorControlSourceDep(request.source),
         workflow_graph_id: optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
-        workflowGraphId: optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
         workflow_node_id: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
-        workflowNodeId: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
       };
       const assignmentHistory = [
         ...normalizeArray(record.assignment_history ?? record.assignmentHistory),
@@ -1009,12 +980,9 @@ export function createRuntimeSubagentSurface({
         cancellation: {
           reason,
           previous_status: previousStatus,
-          previousStatus,
           requested_by: optionalStringDep(request.actor) ?? "operator",
-          requestedBy: optionalStringDep(request.actor) ?? "operator",
           inherited: cancellationInherited,
           propagated_from_thread_id: propagatedFromThreadId,
-          propagatedFromThreadId,
           source: operatorControlSourceDep(request.source),
         },
         updated_at: now,
