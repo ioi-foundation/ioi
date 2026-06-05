@@ -1014,20 +1014,20 @@ export function createRuntimeSubagentSurface({
         `${threadId}:${operation}:${record.subagent_id}:${nowMs()}`,
       ).slice(0, 12);
       const workflowGraphId =
-        optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ??
+        optionalStringDep(request.workflow_graph_id) ??
         record.workflow_graph_id ??
         null;
       const workflowNodeId =
-        optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ??
+        optionalStringDep(request.workflow_node_id) ??
         record.workflow_node_id ??
         `runtime.subagent.${operation}`;
       const payload = subagentManagerEventPayloadDep({ record, operation, status });
       const budgetPolicyDecision = record.budget_policy_decision ?? null;
       const budgetStatus =
         record.budget_status ?? budgetPolicyDecision?.reason ?? null;
-      const requestReceiptRefs = uniqueStringsDep(request.receipt_refs ?? request.receiptRefs);
+      const requestReceiptRefs = uniqueStringsDep(request.receipt_refs);
       const requestPolicyDecisionRefs = uniqueStringsDep(
-        request.policy_decision_refs ?? request.policyDecisionRefs,
+        request.policy_decision_refs,
       );
       const policyDecisionRefs = uniqueStringsDep([
         ...requestPolicyDecisionRefs,
@@ -1041,7 +1041,7 @@ export function createRuntimeSubagentSurface({
         turn_id: record.parent_turn_id ?? thread.latest_turn_id ?? "",
         item_id: `${record.parent_turn_id ?? threadId}:item:subagent:${safeIdDep(operation)}:${safeIdDep(record.subagent_id)}`,
         idempotency_key:
-          optionalStringDep(request.idempotency_key ?? request.idempotencyKey) ??
+          optionalStringDep(request.idempotency_key) ??
           `thread:${threadId}:subagent.${operation}:${record.subagent_id}:${eventHash}`,
         source,
         source_event_kind: subagentOperatorControlKindDep(operation),

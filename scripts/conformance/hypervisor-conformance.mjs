@@ -3346,6 +3346,8 @@ function runCompositor() {
     /subagentBudgetForRequestDep\(record\)/;
   const runtimeSubagentControlEventRecordAliasReadPattern =
     /record\.(?:subagentId|workflowGraphId|workflowNodeId|budgetPolicyDecision|budgetStatus|parentTurnId)\b/;
+  const runtimeSubagentControlEventRequestAliasReadPattern =
+    /request\.(?:workflowGraphId|workflowNodeId|receiptRefs|policyDecisionRefs|idempotencyKey)\b/;
   const runtimeSubagentProjectionBlock =
     runtimeSubagentSurface.match(
       /subagentProjection\(record = \{\}\) \{[\s\S]*?\n    \},\n    appendThreadSubagentControlEvent/,
@@ -4378,6 +4380,27 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent control event construction must ignore retired camelCase record aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-control-event-request-aliases-retired",
+    runtimeSubagentControlEventBlock.length > 0 &&
+      !runtimeSubagentControlEventRequestAliasReadPattern.test(
+        runtimeSubagentControlEventBlock,
+      ) &&
+      /subagent control event ignores retired camelCase request aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /workflowGraphId: "graph_alias"/.test(runtimeSubagentSurfaceTest) &&
+      /workflowNodeId: "node_alias"/.test(runtimeSubagentSurfaceTest) &&
+      /receiptRefs: \["receipt_alias"\]/.test(runtimeSubagentSurfaceTest) &&
+      /policyDecisionRefs: \["policy_alias"\]/.test(runtimeSubagentSurfaceTest) &&
+      /idempotencyKey: "idempotency_alias"/.test(runtimeSubagentSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent control event construction must ignore retired camelCase request aliases",
   );
   assertCheck(
     result,

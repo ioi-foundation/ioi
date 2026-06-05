@@ -468,9 +468,9 @@ test("subagent surface appends daemon-owned control event envelopes", () => {
     record,
     request: {
       source: "agent_studio",
-      workflowGraphId: "graph_1",
-      receiptRefs: ["receipt_request"],
-      policyDecisionRefs: ["policy_request"],
+      workflow_graph_id: "graph_1",
+      receipt_refs: ["receipt_request"],
+      policy_decision_refs: ["policy_request"],
     },
     operation: "cancel",
     status: "canceled",
@@ -527,6 +527,48 @@ test("subagent control event ignores retired camelCase record aliases", () => {
   assert.deepEqual(event.policy_decision_refs, ["policy_subagent_cancel_allow_887392bcf20c"]);
 });
 
+test("subagent control event ignores retired camelCase request aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowMs: () => 1780586400000,
+  });
+
+  const event = surface.appendThreadSubagentControlEvent(store, {
+    threadId: "thread_1",
+    parentAgent: store.parentAgent,
+    record: {
+      subagent_id: "subagent_1",
+      agent_id: "agent_child_1",
+      parent_thread_id: "thread_1",
+      role: "reviewer",
+      lifecycle_status: "running",
+    },
+    request: {
+      source: "agent_studio",
+      workflow_graph_id: "graph_canonical",
+      workflowGraphId: "graph_alias",
+      workflow_node_id: "node_canonical",
+      workflowNodeId: "node_alias",
+      receipt_refs: ["receipt_canonical"],
+      receiptRefs: ["receipt_alias"],
+      policy_decision_refs: ["policy_canonical"],
+      policyDecisionRefs: ["policy_alias"],
+      idempotency_key: "idempotency_canonical",
+      idempotencyKey: "idempotency_alias",
+    },
+    operation: "cancel",
+    status: "canceled",
+  });
+
+  assert.equal(event.workflow_graph_id, "graph_canonical");
+  assert.equal(event.workflow_node_id, "node_canonical");
+  assert.equal(event.idempotency_key, "idempotency_canonical");
+  assert.equal(event.receipt_refs.includes("receipt_canonical"), true);
+  assert.equal(event.receipt_refs.includes("receipt_alias"), false);
+  assert.equal(event.policy_decision_refs.includes("policy_canonical"), true);
+  assert.equal(event.policy_decision_refs.includes("policy_alias"), false);
+});
+
 test("subagent surface spawns subagents with source and context metadata", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface({
@@ -546,15 +588,15 @@ test("subagent surface spawns subagents with source and context metadata", () =>
     mergePolicy: "auto",
     cancellationInheritance: "detach",
     outputContract: ["SUMMARY"],
-    workflowGraphId: "graph_spawn",
-    workflowNodeId: "node_spawn",
+    workflow_graph_id: "graph_spawn",
+    workflow_node_id: "node_spawn",
     contextPressureAction: "delegate",
     contextPressure: 0.82,
     pressureStatus: "high",
     alertId: "alert_context",
     sourceEventId: "evt_source",
-    receiptRefs: ["receipt_spawn_request"],
-    policyDecisionRefs: ["policy_spawn_request"],
+    receipt_refs: ["receipt_spawn_request"],
+    policy_decision_refs: ["policy_spawn_request"],
   });
   const saved = store.subagents.get("agent_spawn_1");
 
@@ -655,7 +697,7 @@ test("subagent surface persists blocked spawn and throws budget policy error", (
         prompt: "This delegated task should exceed a tiny token budget.",
         role: "auditor",
         budget: { maxTokens: 1 },
-        receiptRefs: ["receipt_spawn_budget_request"],
+        receipt_refs: ["receipt_spawn_budget_request"],
       }),
     (error) => {
       assert.equal(error.status, 403);
@@ -700,7 +742,7 @@ test("subagent surface waits, persists status, and returns result envelope", () 
 
   const result = surface.waitSubagent(store, "thread_1", "subagent_1", {
     source: "agent_studio",
-    receiptRefs: ["receipt_wait_request"],
+    receipt_refs: ["receipt_wait_request"],
   });
 
   assert.equal(result.status, "completed");
@@ -785,9 +827,9 @@ test("subagent surface sends input, persists history, and returns event", () => 
     source: "agent_studio",
     message: "Follow up",
     actor: "operator_1",
-    workflowGraphId: "graph_input",
-    workflowNodeId: "node_input",
-    receiptRefs: ["receipt_input_request"],
+    workflow_graph_id: "graph_input",
+    workflow_node_id: "node_input",
+    receipt_refs: ["receipt_input_request"],
   });
   const saved = store.subagents.get("subagent_1");
 
@@ -967,9 +1009,9 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
     role: "Worker",
     modelRouteId: "route.resume",
     actor: "operator_1",
-    workflowGraphId: "graph_resume",
-    workflowNodeId: "node_resume",
-    receiptRefs: ["receipt_resume_request"],
+    workflow_graph_id: "graph_resume",
+    workflow_node_id: "node_resume",
+    receipt_refs: ["receipt_resume_request"],
   });
   const saved = store.subagents.get("subagent_1");
 
@@ -1093,7 +1135,7 @@ test("subagent surface persists blocked resume and throws budget policy error", 
         source: "agent_studio",
         prompt: "This resume should exceed a tiny token budget.",
         budget: { maxTokens: 1 },
-        receiptRefs: ["receipt_resume_budget_request"],
+        receipt_refs: ["receipt_resume_budget_request"],
       }),
     (error) => {
       assert.equal(error.status, 403);
@@ -1143,7 +1185,7 @@ test("subagent surface assigns role metadata and persists assignment history", (
     mergePolicy: "auto",
     cancellationInheritance: "detach",
     targetAgentId: "agent_auditor",
-    receiptRefs: ["receipt_assign_request"],
+    receipt_refs: ["receipt_assign_request"],
   });
   const saved = store.subagents.get("subagent_1");
 
@@ -1241,7 +1283,7 @@ test("subagent surface cancels subagents with inherited cancellation metadata", 
     actor: "operator_1",
     inherited: true,
     propagatedFromThreadId: "thread_parent",
-    receiptRefs: ["receipt_cancel_request"],
+    receipt_refs: ["receipt_cancel_request"],
   });
   const saved = store.subagents.get("subagent_1");
 
@@ -1349,7 +1391,7 @@ test("subagent surface propagates parent cancellation and ignores retired record
     source: "runtime_auto",
     reason: "parent stopped",
     actor: "operator_1",
-    receiptRefs: ["receipt_parent_cancel"],
+    receipt_refs: ["receipt_parent_cancel"],
   });
   const saved = store.subagents.get("subagent_1");
 
