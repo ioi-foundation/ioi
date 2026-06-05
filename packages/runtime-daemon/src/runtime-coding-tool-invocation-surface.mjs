@@ -549,7 +549,6 @@ function codingToolResultForRustLiveStepModule(toolId, stepModuleProjection = {}
     execution_result_ref: stepResult.execution_result_ref ?? null,
     normalizedObservationRef: stepResult.normalized_observation_ref ?? null,
     normalized_observation_ref: stepResult.normalized_observation_ref ?? null,
-    routerAdmission: stepModuleProjection?.bridge_result?.router_admission ?? null,
     router_admission: stepModuleProjection?.bridge_result?.router_admission ?? null,
     receiptRefs: normalizeArray(stepResult.receipt_refs),
     receipt_refs: normalizeArray(stepResult.receipt_refs),

@@ -643,6 +643,22 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "coding-tool-result-router-admission-alias-retired",
+    !/\brouterAdmission\s*:/.test(runtimeCodingToolInvocationSurface) &&
+      /result\.result\.router_admission\.schema_version/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"routerAdmission"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: Rust live coding-tool results must expose canonical router_admission without the retired routerAdmission response alias",
+  );
+  assertCheck(
+    result,
     "model-mount-route-decision-live-bridge",
     /admit_model_mount_route_decision/.test(bridgeModule) &&
       /ModelMountCore/.test(bridgeModule) &&

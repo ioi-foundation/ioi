@@ -7746,6 +7746,57 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 126
+
+```yaml
+slice: 126
+phase: 10-authoritative-js-facade-retirement
+objective: retire the coding-tool result `routerAdmission` response alias
+owner_boundary:
+  route_or_surface: runtime coding-tool invocation result projection
+  authority_gate: unchanged; coding-tool execution remains Rust workload live
+    and StepModuleRouter-admitted
+  execution_backend: unchanged; migrated coding tools continue through the Rust
+    command bridge and live workload runner
+  truth_path: canonical `router_admission` only; the duplicate camelCase
+    `routerAdmission` wrapper no longer mirrors router admission truth
+  projection_path: unchanged; established public coding-tool result fields remain
+    intact while router admission uses the canonical Rust field name
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance fails if Rust live coding-tool results reintroduce the
+    `routerAdmission` response alias
+  - focused daemon test asserts `router_admission` is present and
+    `routerAdmission` is absent
+verification:
+  commands:
+    - node --check packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs scripts/conformance/hypervisor-conformance.mjs
+    - node --test packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: live-path daemon test stubs a Rust
+    StepModuleRouter admission and verifies only the canonical
+    `router_admission` field is emitted
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - broader coding-tool result payloads still use established public
+      camelCase result fields; this slice retires only the duplicate router
+      admission truth wrapper
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -7796,7 +7847,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 125:
+Current expected behavior after Slice 126:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

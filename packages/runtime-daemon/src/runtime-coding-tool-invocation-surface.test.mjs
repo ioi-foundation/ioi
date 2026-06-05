@@ -309,7 +309,8 @@ test("coding tool invocation surface runs workspace.status through rust workload
   assert.deepEqual(result.result.changedFiles, [{ status: "M", path: "README.md" }]);
   assert.equal(result.result.counts.changed, 1);
   assert.equal(result.result.executionResultRef, "result://rust-live/workspace.status");
-  assert.equal(result.result.routerAdmission.schema_version, "ioi.step_module_router_admission.v1");
+  assert.equal(result.result.router_admission.schema_version, "ioi.step_module_router_admission.v1");
+  assert.equal(Object.hasOwn(result.result, "routerAdmission"), false);
   assert.equal(result.step_module.backend, "rust_workload_live");
   assert.equal(result.event.payload_summary.step_module_backend, "rust_workload_live");
   assert.ok(result.receipt_refs.includes("receipt://rust-live/workspace.status"));
