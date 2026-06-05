@@ -135,6 +135,26 @@ function store() {
   };
 }
 
+const WORKER_SERVICE_PACKAGE_ADMISSION_CAMEL_ALIASES = [
+  "schemaVersion",
+  "invocationAdmitted",
+  "threadId",
+  "agentId",
+  "packageKind",
+  "packageRef",
+  "manifestRef",
+  "invocationId",
+  "routerAdmission",
+  "receiptBinding",
+  "acceptedReceiptAppend",
+  "agentgresAdmission",
+  "projectionRecord",
+  "receiptRefs",
+  "artifactRefs",
+  "payloadRefs",
+  "authorityGrantRefs",
+];
+
 test("worker/service package surface admits nested invocation through Rust runner", () => {
   const runtimeStore = store();
   const surface = createRuntimeWorkerServicePackageSurface();
@@ -165,6 +185,18 @@ test("worker/service package surface admits nested invocation through Rust runne
   assert.deepEqual(result.payload_refs, ["payload://worker-package/output"]);
   assert.deepEqual(result.authority_grant_refs, ["grant://wallet/worker-package"]);
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "admitInvocation"]);
+});
+
+test("worker/service package surface exposes only canonical snake_case admission fields", () => {
+  const result = createRuntimeWorkerServicePackageSurface().admitWorkerServicePackageInvocation(
+    store(),
+    "thread_surface",
+    { invocation: packageInvocation() },
+  );
+
+  for (const key of WORKER_SERVICE_PACKAGE_ADMISSION_CAMEL_ALIASES) {
+    assert.equal(Object.hasOwn(result, key), false, `${key} must not be emitted`);
+  }
 });
 
 test("worker/service package surface fails closed without invocation payload", () => {

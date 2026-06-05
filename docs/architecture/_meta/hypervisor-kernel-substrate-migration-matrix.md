@@ -7626,6 +7626,67 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 124
+
+```yaml
+slice: 124
+phase: 10-authoritative-js-facade-retirement
+objective: retire worker/service package and cTEE admission response camelCase aliases
+owner_boundary:
+  route_or_surface:
+    - runtime worker/service package admission response
+    - runtime cTEE Private Workspace admission response
+  authority_gate: unchanged; responses remain daemon-exposed views over Rust
+    runner admission outputs
+  execution_backend: unchanged; worker/service packages route through the Rust
+    package invocation bridge, and cTEE actions route through the Rust cTEE
+    bridge
+  truth_path: canonical snake_case fields only; duplicate camelCase response
+    wrappers no longer advertise or mirror accepted admission truth
+  projection_path: unchanged; response records still carry canonical admission,
+    receipt, Agentgres, and projection refs
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs
+    - packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs
+  sdk:
+    - packages/agent-sdk/src/substrate-client.ts
+  tests:
+    - packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs
+    - packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance fails if worker/service package admission responses or
+    SDK result types reintroduce camelCase response aliases
+  - cTEE conformance fails if cTEE Private Workspace admission responses or SDK
+    result types reintroduce camelCase response aliases
+  - focused daemon tests assert the retired alias keys are absent from emitted
+    response objects
+verification:
+  commands:
+    - node --check packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs scripts/conformance/hypervisor-conformance.mjs
+    - node --test packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs
+    - npm run build --workspace=@ioi/agent-sdk
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:ctee
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: focused daemon tests compare canonical admitted
+    response fields against the Rust runner stub while negative alias assertions
+    prove the duplicate wrappers are not emitted
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - request builders still accept camelCase UI/client input convenience fields
+      in adjacent IDE surfaces; this slice retires admitted response aliases only
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -7676,7 +7737,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 115:
+Current expected behavior after Slice 124:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

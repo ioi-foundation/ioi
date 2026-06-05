@@ -431,6 +431,14 @@ function runBridge() {
   const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
     ? read("packages/agent-sdk/src/substrate-client.ts")
     : "";
+  const workerServicePackageAdmissionResultType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeWorkerServicePackageInvocationAdmissionResult[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const workerServicePackageAdmissionCamelAliasPropertyPattern =
+    /\b(?:schemaVersion|invocationAdmitted|threadId|agentId|packageKind|packageRef|manifestRef|invocationId|routerAdmission|receiptBinding|acceptedReceiptAppend|agentgresAdmission|projectionRecord|receiptRefs|artifactRefs|payloadRefs|authorityGrantRefs)\s*:/;
+  const workerServicePackageAdmissionCamelAliasTypePattern =
+    /\b(?:schemaVersion|invocationAdmitted|threadId|agentId|packageKind|packageRef|manifestRef|invocationId|routerAdmission|receiptBinding|acceptedReceiptAppend|agentgresAdmission|projectionRecord|receiptRefs|artifactRefs|payloadRefs|authorityGrantRefs)\?:/;
   const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
     ? read("packages/agent-sdk/test/sdk.test.mjs")
     : "";
@@ -1094,6 +1102,25 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 8 is pending: product/API worker-service package route must call Rust package admission and expose no JS apply shortcut",
+  );
+  assertCheck(
+    result,
+    "worker-service-package-admission-response-aliases-retired",
+    !workerServicePackageAdmissionCamelAliasPropertyPattern.test(workerServicePackageSurface) &&
+      !workerServicePackageAdmissionCamelAliasTypePattern.test(
+        workerServicePackageAdmissionResultType,
+      ) &&
+      /worker\/service package surface exposes only canonical snake_case admission fields/.test(
+        workerServicePackageSurfaceTest,
+      ) &&
+      /WORKER_SERVICE_PACKAGE_ADMISSION_CAMEL_ALIASES/.test(workerServicePackageSurfaceTest) &&
+      /Object\.hasOwn\(result, key\)/.test(workerServicePackageSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs",
+      "packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 8/11 is pending: worker/service package admission responses must not preserve camelCase compatibility aliases after the canonical route is verified",
   );
   assertCheck(
     result,
@@ -2520,6 +2547,14 @@ function runCtee() {
   const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
     ? read("packages/agent-sdk/src/substrate-client.ts")
     : "";
+  const cteePrivateWorkspaceActionResultType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeCteePrivateWorkspaceActionResult[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const cteePrivateWorkspaceAdmissionCamelAliasPropertyPattern =
+    /\b(?:schemaVersion|actionExecuted|threadId|agentId|invocationId|receiptRef|receiptBinding|acceptedReceiptAppend|agentgresAdmission|projectionRecord|receiptRefs|evidenceRefs)\s*:/;
+  const cteePrivateWorkspaceAdmissionCamelAliasTypePattern =
+    /\b(?:schemaVersion|actionExecuted|threadId|agentId|invocationId|receiptRef|receiptBinding|acceptedReceiptAppend|agentgresAdmission|projectionRecord|receiptRefs|evidenceRefs)\?:/;
   const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
     ? read("packages/agent-sdk/test/sdk.test.mjs")
     : "";
@@ -2645,6 +2680,25 @@ function runCtee() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 7 is pending: product/API cTEE Private Workspace route must call Rust cTEE admission and expose no JS apply shortcut",
+  );
+  assertCheck(
+    result,
+    "ctee-admission-response-aliases-retired",
+    !cteePrivateWorkspaceAdmissionCamelAliasPropertyPattern.test(cteePrivateWorkspaceSurface) &&
+      !cteePrivateWorkspaceAdmissionCamelAliasTypePattern.test(
+        cteePrivateWorkspaceActionResultType,
+      ) &&
+      /cTEE private workspace surface exposes only canonical snake_case admission fields/.test(
+        cteePrivateWorkspaceSurfaceTest,
+      ) &&
+      /CTEE_PRIVATE_WORKSPACE_ADMISSION_CAMEL_ALIASES/.test(cteePrivateWorkspaceSurfaceTest) &&
+      /Object\.hasOwn\(result, key\)/.test(cteePrivateWorkspaceSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 7/11 is pending: cTEE Private Workspace admission responses must not preserve camelCase compatibility aliases after the canonical route is verified",
   );
   assertCheck(
     result,

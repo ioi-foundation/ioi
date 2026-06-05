@@ -103,6 +103,21 @@ function store() {
   };
 }
 
+const CTEE_PRIVATE_WORKSPACE_ADMISSION_CAMEL_ALIASES = [
+  "schemaVersion",
+  "actionExecuted",
+  "threadId",
+  "agentId",
+  "invocationId",
+  "receiptRef",
+  "receiptBinding",
+  "acceptedReceiptAppend",
+  "agentgresAdmission",
+  "projectionRecord",
+  "receiptRefs",
+  "evidenceRefs",
+];
+
 test("cTEE private workspace surface executes nested action through Rust runner", () => {
   const runtimeStore = store();
   const surface = createRuntimeCteePrivateWorkspaceSurface();
@@ -129,6 +144,18 @@ test("cTEE private workspace surface executes nested action through Rust runner"
   assert.deepEqual(result.receipt_refs, ["receipt://ctee/private-workspace/surface"]);
   assert.deepEqual(result.evidence_refs, ["receipt://ctee/private-workspace/surface"]);
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "executeAction"]);
+});
+
+test("cTEE private workspace surface exposes only canonical snake_case admission fields", () => {
+  const result = createRuntimeCteePrivateWorkspaceSurface().executeCteePrivateWorkspaceAction(
+    store(),
+    "thread_surface",
+    { action: cteeAction() },
+  );
+
+  for (const key of CTEE_PRIVATE_WORKSPACE_ADMISSION_CAMEL_ALIASES) {
+    assert.equal(Object.hasOwn(result, key), false, `${key} must not be emitted`);
+  }
 });
 
 test("cTEE private workspace surface fails closed without action payload", () => {

@@ -1400,41 +1400,24 @@ export interface RuntimeWorkerServicePackageInvocationAdmissionInput extends Rec
 
 export interface RuntimeWorkerServicePackageInvocationAdmissionResult extends Record<string, unknown> {
   schema_version?: "ioi.runtime.worker_service_package_admission.v1" | string;
-  schemaVersion?: "ioi.runtime.worker_service_package_admission.v1" | string;
   object?: "ioi.runtime_worker_service_package_admission" | string;
   status: "admitted" | string;
   invocation_admitted?: boolean;
-  invocationAdmitted?: boolean;
   thread_id?: string;
-  threadId?: string;
   agent_id?: string;
-  agentId?: string;
   package_kind?: string | null;
-  packageKind?: string | null;
   package_ref?: string | null;
-  packageRef?: string | null;
   manifest_ref?: string | null;
-  manifestRef?: string | null;
   invocation_id?: string | null;
-  invocationId?: string | null;
   router_admission?: Record<string, unknown> | null;
-  routerAdmission?: Record<string, unknown> | null;
   receipt_binding?: Record<string, unknown> | null;
-  receiptBinding?: Record<string, unknown> | null;
   accepted_receipt_append?: Record<string, unknown> | null;
-  acceptedReceiptAppend?: Record<string, unknown> | null;
   agentgres_admission?: Record<string, unknown> | null;
-  agentgresAdmission?: Record<string, unknown> | null;
   projection_record?: Record<string, unknown> | null;
-  projectionRecord?: Record<string, unknown> | null;
   receipt_refs?: string[];
-  receiptRefs?: string[];
   artifact_refs?: string[];
-  artifactRefs?: string[];
   payload_refs?: string[];
-  payloadRefs?: string[];
   authority_grant_refs?: string[];
-  authorityGrantRefs?: string[];
   admission?: Record<string, unknown>;
   record?: Record<string, unknown>;
 }
@@ -1509,33 +1492,21 @@ export interface RuntimeCteePrivateWorkspaceActionInput extends Record<string, u
 
 export interface RuntimeCteePrivateWorkspaceActionResult extends Record<string, unknown> {
   schema_version?: "ioi.runtime.ctee_private_workspace_admission.v1" | string;
-  schemaVersion?: "ioi.runtime.ctee_private_workspace_admission.v1" | string;
   object?: "ioi.runtime_ctee_private_workspace_admission" | string;
   status: "admitted" | string;
   action_executed?: boolean;
-  actionExecuted?: boolean;
   thread_id?: string;
-  threadId?: string;
   agent_id?: string;
-  agentId?: string;
   invocation_id?: string | null;
-  invocationId?: string | null;
   receipt_ref?: string | null;
-  receiptRef?: string | null;
   receipt?: Record<string, unknown> | null;
   result?: Record<string, unknown> | null;
   receipt_binding?: Record<string, unknown> | null;
-  receiptBinding?: Record<string, unknown> | null;
   accepted_receipt_append?: Record<string, unknown> | null;
-  acceptedReceiptAppend?: Record<string, unknown> | null;
   agentgres_admission?: Record<string, unknown> | null;
-  agentgresAdmission?: Record<string, unknown> | null;
   projection_record?: Record<string, unknown> | null;
-  projectionRecord?: Record<string, unknown> | null;
   receipt_refs?: string[];
-  receiptRefs?: string[];
   evidence_refs?: string[];
-  evidenceRefs?: string[];
   admission?: Record<string, unknown>;
   record?: Record<string, unknown>;
 }
