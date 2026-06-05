@@ -967,8 +967,8 @@ export interface ModelRouteDecision {
   workflowGraphId: string | null;
   workflowNodeId: string | null;
   workflowNodeType: string | null;
-  responseId: string | null;
-  previousResponseId: string | null;
+  response_id: string | null;
+  previous_response_id: string | null;
   policyHash?: string;
   evidenceRefs: string[];
   receiptId?: string;

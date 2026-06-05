@@ -363,6 +363,8 @@ function runBridge() {
   const modelRoutes = exists("packages/runtime-daemon/src/model-mounting/routes.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/routes.mjs")
     : "";
+  const modelRouteSelectionDetailsObject =
+    modelRoutes.match(/const payload = \{[\s\S]*?details: \{([\s\S]*?)\n    \},\n  \};/)?.[1] ?? "";
   const modelRouteDecisionModule = exists("packages/runtime-daemon/src/model-mounting/route-decision.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/route-decision.mjs")
     : "";
@@ -871,6 +873,34 @@ function runBridge() {
       "packages/agent-sdk/src/messages.ts",
     ],
     "Phase 3/10 is pending: model route decisions must emit canonical fallback metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-route-decision-lineage-aliases-retired",
+    /response_id:\s*responseId/.test(modelRouteDecisionObject) &&
+      /previous_response_id:\s*previousResponseId/.test(modelRouteDecisionObject) &&
+      !/^ {4}responseId,\s*$/m.test(modelRouteDecisionObject) &&
+      !/^ {4}previousResponseId,\s*$/m.test(modelRouteDecisionObject) &&
+      /response_id:\s*responseId/.test(modelRouteSelectionDetailsObject) &&
+      /previous_response_id:\s*previousResponseId/.test(modelRouteSelectionDetailsObject) &&
+      !/^ {6}responseId,\s*$/m.test(modelRouteSelectionDetailsObject) &&
+      !/^ {6}previousResponseId,\s*$/m.test(modelRouteSelectionDetailsObject) &&
+      /response_id:\s*string \| null/.test(agentSdkModelRouteDecisionType) &&
+      /previous_response_id:\s*string \| null/.test(agentSdkModelRouteDecisionType) &&
+      !/responseId/.test(agentSdkModelRouteDecisionType) &&
+      !/previousResponseId/.test(agentSdkModelRouteDecisionType) &&
+      /Object\.hasOwn\(decision,\s*"responseId"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"previousResponseId"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(created\[0\]\.details,\s*"responseId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
+      /Object\.hasOwn\(created\[0\]\.details,\s*"previousResponseId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")),
+    [
+      "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/routes.mjs",
+      "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
+      "packages/agent-sdk/src/messages.ts",
+    ],
+    "Phase 3/10 is pending: model route decisions and route-selection receipts must emit canonical response lineage fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

@@ -65,8 +65,14 @@ test("route decisions honor canonical fallback request metadata", () => {
     },
     policyHash: "sha256:policy",
     requestedModel: "auto",
+    responseId: "resp-1",
+    previousResponseId: "resp-0",
   });
 
+  assert.equal(decision.response_id, "resp-1");
+  assert.equal(decision.previous_response_id, "resp-0");
+  assert.equal(Object.hasOwn(decision, "responseId"), false);
+  assert.equal(Object.hasOwn(decision, "previousResponseId"), false);
   assert.equal(decision.fallback_allowed, true);
   assert.equal(decision.fallback_triggered, true);
   assert.equal(decision.fallback_reason, "primary_route_unavailable");

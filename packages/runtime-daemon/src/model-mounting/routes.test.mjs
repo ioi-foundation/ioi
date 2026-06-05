@@ -288,6 +288,8 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
   assert.equal(created[0].details.model_route_decision_event_kind, "model_route_decision");
   assert.equal(created[0].details.model_route_decision_id, "decision-1");
   assert.equal(created[0].details.model_route_decision.decisionId, "decision-1");
+  assert.equal(created[0].details.response_id, "resp-1");
+  assert.equal(created[0].details.previous_response_id, "resp-0");
   assert.equal(created[0].details.model_mount_route_decision_ref, "model_mount://route_decision/test");
   assert.equal(created[0].details.model_mount_route_decision_hash, "sha256:test");
   assert.equal(created[0].details.model_mount_route_decision.route_ref, "route.local-first");
@@ -296,6 +298,8 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
   assert.equal(Object.hasOwn(created[0].details, "modelRouteDecisionEventKind"), false);
   assert.equal(Object.hasOwn(created[0].details, "modelRouteDecisionId"), false);
   assert.equal(Object.hasOwn(created[0].details, "modelRouteDecision"), false);
+  assert.equal(Object.hasOwn(created[0].details, "responseId"), false);
+  assert.equal(Object.hasOwn(created[0].details, "previousResponseId"), false);
   assert.equal(Object.hasOwn(created[0].details, "modelMountRouteDecisionRef"), false);
   assert.equal(Object.hasOwn(created[0].details, "modelMountRouteDecision"), false);
   assert.equal(created[0].details.workflowNodeId, "node-1");
