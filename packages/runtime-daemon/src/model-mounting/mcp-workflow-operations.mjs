@@ -1,3 +1,16 @@
+const RETIRED_WORKFLOW_NODE_EXECUTION_REQUEST_ALIASES = [
+  "nodeType",
+  "modelId",
+  "routeId",
+  "modelPolicy",
+  "maxTokens",
+  "workflowGraphId",
+  "workflowNodeId",
+  "nodeId",
+  "node_id",
+  "workflowNodeType",
+];
+
 export function compileEphemeralMcpIntegrations(state, { authorization, body = {}, input }, deps = {}) {
   const {
     requiredString,
@@ -193,20 +206,21 @@ export async function executeWorkflowNode(state, { authorization, body = {} }, d
     workflowMemoryOptionsFromBody,
     workflowMemoryWriteBlockReason,
   } = deps;
-  const node = requiredString(body.node ?? body.node_type ?? body.nodeType, "node");
+  assertCanonicalWorkflowNodeExecutionRequestBody(body);
+  const node = requiredString(body.node ?? body.node_type, "node");
   const capability = body.capability ?? capabilityForWorkflowNode(node);
   const memoryOptions = workflowMemoryOptionsFromBody(body);
   const base = {
-    model: body.model_id ?? body.modelId ?? body.model,
-    route_id: body.route_id ?? body.routeId,
-    model_policy: body.model_policy ?? body.modelPolicy ?? {},
+    model: body.model_id ?? body.model,
+    route_id: body.route_id,
+    model_policy: body.model_policy ?? {},
     input: body.input ?? body.prompt ?? "",
     messages: body.messages,
-    max_tokens: body.max_tokens ?? body.maxTokens,
+    max_tokens: body.max_tokens,
     temperature: body.temperature,
-    workflow_graph_id: body.workflow_graph_id ?? body.workflowGraphId,
-    workflow_node_id: body.workflow_node_id ?? body.workflowNodeId ?? body.node_id ?? body.nodeId,
-    workflow_node_type: body.workflow_node_type ?? body.workflowNodeType ?? node,
+    workflow_graph_id: body.workflow_graph_id,
+    workflow_node_id: body.workflow_node_id,
+    workflow_node_type: body.workflow_node_type ?? node,
   };
   if (memoryOptions) {
     base.memory = memoryOptions;
@@ -267,4 +281,32 @@ export async function executeWorkflowNode(state, { authorization, body = {} }, d
     receipt: invocation.receipt,
     routeReceipt: invocation.routeReceipt,
   };
+}
+
+function assertCanonicalWorkflowNodeExecutionRequestBody(body = {}) {
+  const retiredAliases = RETIRED_WORKFLOW_NODE_EXECUTION_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Workflow node execution request aliases are retired; use canonical request fields.",
+  );
+  error.status = 400;
+  error.code = "model_mount_workflow_node_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: [
+      "node",
+      "node_type",
+      "model",
+      "model_id",
+      "route_id",
+      "model_policy",
+      "max_tokens",
+      "workflow_graph_id",
+      "workflow_node_id",
+      "workflow_node_type",
+    ],
+  };
+  throw error;
 }

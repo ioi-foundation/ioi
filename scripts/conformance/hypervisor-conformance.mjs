@@ -3461,6 +3461,40 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-workflow-node-request-aliases-retired",
+    /RETIRED_WORKFLOW_NODE_EXECUTION_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
+      /model_mount_workflow_node_request_aliases_retired/.test(mcpWorkflowOperations) &&
+      /assertCanonicalWorkflowNodeExecutionRequestBody\(body\);/.test(mcpWorkflowOperations) &&
+      /const node = requiredString\(body\.node \?\? body\.node_type,\s*"node"\);/.test(
+        mcpWorkflowOperations,
+      ) &&
+      /model:\s*body\.model_id \?\? body\.model/.test(mcpWorkflowOperations) &&
+      /route_id:\s*body\.route_id/.test(mcpWorkflowOperations) &&
+      /model_policy:\s*body\.model_policy \?\? \{\}/.test(mcpWorkflowOperations) &&
+      /max_tokens:\s*body\.max_tokens/.test(mcpWorkflowOperations) &&
+      /workflow_graph_id:\s*body\.workflow_graph_id/.test(mcpWorkflowOperations) &&
+      /workflow_node_id:\s*body\.workflow_node_id/.test(mcpWorkflowOperations) &&
+      /workflow_node_type:\s*body\.workflow_node_type \?\? node/.test(mcpWorkflowOperations) &&
+      !/body\.(?:nodeType|modelId|routeId|modelPolicy|maxTokens|workflowGraphId|workflowNodeId|nodeId|node_id|workflowNodeType)\b/.test(
+        mcpWorkflowOperations,
+      ) &&
+      /executeWorkflowNode rejects retired request aliases before authorization/.test(
+        mcpWorkflowOperationsTest,
+      ) &&
+      /retired_aliases,\s*\[\s*"nodeType",\s*"modelId",\s*"routeId",\s*"modelPolicy",\s*"maxTokens",\s*"workflowGraphId",\s*"workflowNodeId",\s*"nodeId",\s*"node_id",\s*"workflowNodeType",\s*\]/.test(
+        mcpWorkflowOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.modelInvocations\.at\(-1\)\.body,\s*"workflowNodeId"\),\s*false/.test(
+        mcpWorkflowOperationsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
+    ],
+    "Phase 10/11 is pending: workflow node execution request bodies must fail closed on retired model-route and workflow-node aliases",
+  );
+  assertCheck(
+    result,
     "model-mount-catalog-download-receipt-detail-aliases-retired",
     /source_url_hash:\s*sourceHash/.test(catalogDownloadErrorDetailsHelper) &&
       /evidence_refs:\s*evidenceRefs/.test(catalogDownloadErrorDetailsHelper) &&

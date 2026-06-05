@@ -14,6 +14,7 @@ function fakeState() {
   return {
     authorizations: [],
     mcpServers: new Map(),
+    modelInvocations: [],
     receipts: [],
     routeTests: [],
     writes: [],
@@ -30,13 +31,16 @@ function fakeState() {
     invokeMcpTool(args) {
       return invokeMcpTool(this, args, deps);
     },
-    invokeModel: async ({ requiredScope, kind, body }) => ({
-      kind,
-      body,
-      receipt: { id: "receipt.model" },
-      routeReceipt: { id: "receipt.route" },
-      outputText: `invoked:${requiredScope}`,
-    }),
+    async invokeModel({ requiredScope, kind, body }) {
+      this.modelInvocations.push({ requiredScope, kind, body });
+      return {
+        kind,
+        body,
+        receipt: { id: "receipt.model" },
+        routeReceipt: { id: "receipt.route" },
+        outputText: `invoked:${requiredScope}`,
+      };
+    },
     normalizeMcpServer(label, config) {
       return normalizeMcpServer(this, label, config, deps);
     },
@@ -239,11 +243,21 @@ test("executeWorkflowNode dispatches router, MCP, receipt gate, model, and memor
 
   const router = await executeWorkflowNode(
     state,
-    { authorization: "auth", body: { node: "Model Router", route_id: "route.local-first", model: "llama-test" } },
+    {
+      authorization: "auth",
+      body: {
+        node: "Model Router",
+        route_id: "route.local-first",
+        model: "llama-test",
+        model_policy: { privacy: "local_only" },
+      },
+    },
     deps,
   );
   assert.equal(router.status, "selected");
   assert.deepEqual(state.authorizations.at(-1), ["auth", "route.use:route.local-first"]);
+  assert.equal(state.routeTests.at(-1)[1].model_policy.privacy, "local_only");
+  assert.equal(Object.hasOwn(state.routeTests.at(-1)[1], "modelPolicy"), false);
 
   const mcp = await executeWorkflowNode(
     state,
@@ -262,12 +276,39 @@ test("executeWorkflowNode dispatches router, MCP, receipt gate, model, and memor
 
   const model = await executeWorkflowNode(
     state,
-    { authorization: "auth", body: { node: "Embed", input: "hello" } },
+    {
+      authorization: "auth",
+      body: {
+        node: "Embed",
+        model_id: "embedding.local",
+        route_id: "route.local-first",
+        input: "hello",
+        max_tokens: 32,
+        workflow_graph_id: "graph.workflow",
+        workflow_node_id: "node.embed",
+        workflow_node_type: "Embedding",
+      },
+    },
     deps,
   );
   assert.equal(model.status, "executed");
   assert.equal(model.capability, "embeddings");
   assert.deepEqual(model.invocation, { outputText: "invoked:model.embeddings:*", kind: "embeddings" });
+  assert.deepEqual(state.modelInvocations.at(-1).body, {
+    model: "embedding.local",
+    route_id: "route.local-first",
+    model_policy: {},
+    input: "hello",
+    messages: undefined,
+    max_tokens: 32,
+    temperature: undefined,
+    workflow_graph_id: "graph.workflow",
+    workflow_node_id: "node.embed",
+    workflow_node_type: "Embedding",
+  });
+  assert.equal(Object.hasOwn(state.modelInvocations.at(-1).body, "routeId"), false);
+  assert.equal(Object.hasOwn(state.modelInvocations.at(-1).body, "modelPolicy"), false);
+  assert.equal(Object.hasOwn(state.modelInvocations.at(-1).body, "workflowNodeId"), false);
 
   await assert.rejects(
     () => executeWorkflowNode(state, { authorization: "auth", body: { node: "Model", memory: { write: true } } }, deps),
@@ -276,4 +317,65 @@ test("executeWorkflowNode dispatches router, MCP, receipt gate, model, and memor
       error.code === "policy" &&
       Object.hasOwn(error.details, "workflowNodeId") === false,
   );
+});
+
+test("executeWorkflowNode rejects retired request aliases before authorization", async () => {
+  const state = fakeState();
+
+  await assert.rejects(
+    () =>
+      executeWorkflowNode(
+        state,
+        {
+          authorization: "auth",
+          body: {
+            nodeType: "Model Call",
+            modelId: "model.local",
+            routeId: "route.local-first",
+            modelPolicy: { privacy: "legacy" },
+            maxTokens: 16,
+            workflowGraphId: "graph.legacy",
+            workflowNodeId: "node.legacy",
+            nodeId: "node.alias",
+            node_id: "node.snake-alias",
+            workflowNodeType: "Model Call",
+            input: "legacy workflow node aliases",
+          },
+        },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_workflow_node_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "nodeType",
+        "modelId",
+        "routeId",
+        "modelPolicy",
+        "maxTokens",
+        "workflowGraphId",
+        "workflowNodeId",
+        "nodeId",
+        "node_id",
+        "workflowNodeType",
+      ]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "node",
+        "node_type",
+        "model",
+        "model_id",
+        "route_id",
+        "model_policy",
+        "max_tokens",
+        "workflow_graph_id",
+        "workflow_node_id",
+        "workflow_node_type",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "routeId"), false);
+      return true;
+    },
+  );
+  assert.deepEqual(state.authorizations, []);
+  assert.deepEqual(state.routeTests, []);
+  assert.deepEqual(state.modelInvocations, []);
 });

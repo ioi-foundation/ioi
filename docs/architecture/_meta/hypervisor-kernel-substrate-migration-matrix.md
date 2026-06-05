@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 297:
+Current expected behavior after Slice 298:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11809,6 +11809,15 @@ retired `routeId`, `modelPolicy`, `contextLength`, `contextWindow`,
 `maxOutputTokens`, `reserveOutputTokens`, and `reserve_output_tokens` request
 aliases before authorization, while canonical `route_id`, `model_policy`,
 `context_length`, and `max_output_tokens` remain the accepted request shape.
+
+Slice 298 retires workflow-node execution request aliases at the daemon entry
+point: `/api/v1/workflows/nodes/execute` now fails closed on retired
+`nodeType`, `modelId`, `routeId`, `modelPolicy`, `maxTokens`,
+`workflowGraphId`, `workflowNodeId`, `nodeId`, `node_id`, and
+`workflowNodeType` before route authorization or model invocation, while
+canonical `node`, `node_type`, `model`, `model_id`, `route_id`,
+`model_policy`, `max_tokens`, `workflow_graph_id`, `workflow_node_id`, and
+`workflow_node_type` remain the accepted workflow-node request shape.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
