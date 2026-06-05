@@ -90,12 +90,18 @@ assert(
   "Agent SDK testing subpath must not retain the retired mock projection client.",
 );
 
+const activeTauriRuntimeProjection = "apps/autopilot/src-tauri/src/runtime_projection.rs";
+assert(
+  !fs.existsSync(path.join(root, activeTauriRuntimeProjection)),
+  "Active Autopilot Tauri runtime projection must stay retired; legacy extraction inventory lives under internal-docs/legacy.",
+);
+
 const tsSubstrate = read("packages/agent-ide/src/runtime/runtime-projection-adapter.ts");
-const rustSubstrate = read("apps/autopilot/src-tauri/src/runtime_projection.rs");
+const rustSubstrate = read("internal-docs/legacy/autopilot-tauri-src/src/runtime_projection.rs");
 const actionSchema = readJson("internal-docs/implementation/runtime-action-schema.json");
 const generatedTsActionSchema = read("packages/agent-ide/src/runtime/generated/action-schema.ts");
 const generatedRustActionSchema = read(
-  "apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs",
+  "internal-docs/legacy/autopilot-tauri-src/src/generated/runtime_action_schema.rs",
 );
 for (const nodeKind of actionSchema.actionKinds) {
   assert(

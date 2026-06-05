@@ -4017,7 +4017,7 @@ implementation_slice:
   objective: retire wallet authority local audit operation-like append
   owner_boundary:
     route_or_surface: model-mounting wallet authority audit mirroring
-    authority_gate: unchanged; capability grants, revocation, and scope checks
+    authority_gate: unchanged; authority leases, revocation, and scope checks
       still execute through the wallet authority adapter and wallet.network
       remote boundary mirror
     execution_backend: unchanged
@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 234:
+Current expected behavior after Slice 235:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11450,6 +11450,12 @@ Slice 234 adds compositor proof for
 evidence/parity scripts no longer expose or call the retired
 `createMockRuntimeSubstrateClient` compatibility helper and use the canonical
 daemon-backed `createRuntimeSubstrateClient` path instead.
+
+Slice 235 adds compositor proof for
+`autopilot-tauri-active-runtime-paths-retired`: active pre-next/runtime-layout
+gates no longer require the retired `apps/autopilot/src-tauri/src` runtime
+projection path, and any Tauri Rust projection/schema checks are explicitly
+scoped to legacy extraction inventory under `internal-docs/legacy`.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

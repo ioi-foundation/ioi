@@ -16,7 +16,7 @@ carry raw comparisons, sensitive sequencing, and transitional language; any
 durable architectural decision they produce must be distilled into the canonical
 owner below or into an accepted ADR before other docs or code treat it as canon.
 
-New readers should start with [`../START_HERE.md`](../START_HERE.md). Builders
+New readers should start with [`start-here.md`](./start-here.md). Builders
 who already know the stack can use [`implementation-matrix.md`](./implementation-matrix.md)
 to map each concept to its durable form, owner doc, code anchor, and conformance
 hook.
@@ -42,9 +42,11 @@ Conflict rule:
      reproducibility, and policy enforcement, but it is not a peer runtime and
      does not replace cTEE no-plaintext-custody;
    - Hypervisor IDE is the IDE-grade operator console, not runtime truth;
+   - legacy naming bridge: Autopilot Workbench is the IDE-grade operator console;
    - Hypervisor is the flagship product surface for building, deploying, and
      governing autonomous systems through daemon/runtime contracts;
    - the Electron/VS Code fork is the canonical Hypervisor app shell;
+   - legacy naming bridge: the Electron/VS Code fork is the canonical Autopilot app shell;
    - IOI Authority Gateway is the daemon sidecar/compatibility profile for
      existing IDE, CLI, browser, hosted-agent, and MCP/tool ecosystems; it is
      not a separate runtime;
@@ -132,10 +134,10 @@ Conflict rule:
 
 | Subject | Canonical Owner | Low-Level Reference | Supporting Context |
 | --- | --- | --- | --- |
-| First-read architecture path | [`START_HERE.md`](../START_HERE.md) | [`source-of-truth-map.md`](./source-of-truth-map.md), [`implementation-matrix.md`](./implementation-matrix.md), [`vocabulary.md`](./vocabulary.md) | role-based onboarding paths |
+| First-read architecture path | [`start-here.md`](./start-here.md) | [`source-of-truth-map.md`](./source-of-truth-map.md), [`implementation-matrix.md`](./implementation-matrix.md), [`vocabulary.md`](./vocabulary.md) | role-based onboarding paths |
 | Concept implementation status and durable form | [`implementation-matrix.md`](./implementation-matrix.md) | subject owner docs listed per row | code anchors, conformance hooks, promotion guidance |
 | Hypervisor kernel substrate unification migration, Step/Module ABI, route-family owner map, Rust core extraction target, JS facade retirement, and terminal conformance command contract | [`hypervisor-kernel-substrate-unification-master-guide.md`](./hypervisor-kernel-substrate-unification-master-guide.md) | [`hypervisor-kernel-substrate-migration-matrix.md`](./hypervisor-kernel-substrate-migration-matrix.md), [`implementation-matrix.md`](./implementation-matrix.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md), [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md), [`private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | `hypervisor-conformance`, Rust core module targets, and route-family cleanup conditions |
-| Canon readability and enterability workplan | [`canon-readability-audit.md`](./canon-readability-audit.md) | [`START_HERE.md`](../START_HERE.md), [`implementation-matrix.md`](./implementation-matrix.md) | cleanup backlog and terminology watchlist |
+| Canon readability and enterability workplan | [`canon-readability-audit.md`](./canon-readability-audit.md) | [`start-here.md`](./start-here.md), [`implementation-matrix.md`](./implementation-matrix.md) | cleanup backlog and terminology watchlist |
 | Web4 category and IOI stack | [`web4-and-ioi-stack.md`](../foundations/web4-and-ioi-stack.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | architectural-improvements plans |
 | AIIP, bounded execution domains, work interop, and cross-system handoffs | [`aiip.md`](../foundations/aiip.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | autonomous-system settlement layer synthesis, IBC comparison notes, marketplace interop docs |
 | Governed autonomous-system chains, Hypervisor Nodes, and machine-economy stack | [`governed-autonomous-systems.md`](../foundations/governed-autonomous-systems.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | Hypervisor Node, local settlement, interop, and machine-economy strategy docs |

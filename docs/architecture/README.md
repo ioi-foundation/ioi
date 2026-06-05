@@ -12,7 +12,7 @@ This pack distills the IOI / canonical Web4 architecture into separate
 authority documents so each facet has a clear role, boundary, and dependency
 surface.
 
-If you are new to the canon, start with [`START_HERE.md`](./START_HERE.md). It
+If you are new to the canon, start with [`start-here.md`](./_meta/start-here.md). It
 gives the five-minute stack model, role-based reading paths, common boundary
 mistakes, and links to the implementation matrix.
 
@@ -30,12 +30,15 @@ The Hypervisor/autonomous-execution canon is:
 
 ```text
 Hypervisor Daemon = hypervisor/control plane for autonomous execution
+IOI daemon = hypervisor/control plane for autonomous execution
 HypervisorOS = bare-metal node profile where daemon is node root
 Default Harness Profile = daemon-executed loop-native orchestration profile
 Hypervisor Node = local autonomous-system settlement and interop domain
 Hypervisor IDE = IDE-grade operator console
+legacy naming bridge: Autopilot Workbench = IDE-grade operator console
 Electron/VS Code fork = canonical app shell
 IOI Authority Gateway = compatibility adapter profile for existing IDEs/agents
+IOI Authority Gateway = compatibility adapter profile
 Private Workspace backed by cTEE = user-facing private workspace for persistent untrusted GPU nodes; Plaintext-Free Runtime Mounting is the daemon boundary; CLPD is the default protected-agency strategy
 Workers/models/tools/connectors = guest workloads/capabilities
 Policy/receipts/replay = trust and audit substrate

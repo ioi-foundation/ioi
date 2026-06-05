@@ -129,15 +129,15 @@ projections, or daemon-executed profiles.
 
 Start here:
 
-1. [`components/daemon-runtime/default-harness-profile.md`](./components/daemon-runtime/default-harness-profile.md)
-2. [`components/daemon-runtime/private-workspace-ctee.md`](./components/daemon-runtime/private-workspace-ctee.md)
-3. [`components/daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md)
-4. [`components/daemon-runtime/hypervisoros.md`](./components/daemon-runtime/hypervisoros.md)
-5. [`components/daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md)
-6. [`components/daemon-runtime/api.md`](./components/daemon-runtime/api.md)
-7. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](./components/daemon-runtime/events-receipts-delivery-bundles.md)
-8. [`../conformance/agentic-runtime/CIRC.md`](../conformance/agentic-runtime/CIRC.md)
-9. [`../conformance/agentic-runtime/CEC.md`](../conformance/agentic-runtime/CEC.md)
+1. [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md)
+2. [`components/daemon-runtime/private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md)
+3. [`components/daemon-runtime/runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md)
+4. [`components/daemon-runtime/hypervisoros.md`](../components/daemon-runtime/hypervisoros.md)
+5. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
+6. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
+7. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
+8. [`../conformance/agentic-runtime/CIRC.md`](../../conformance/agentic-runtime/CIRC.md)
+9. [`../conformance/agentic-runtime/CEC.md`](../../conformance/agentic-runtime/CEC.md)
 
 Build for: intent resolution, action proposals, policy/authority gates,
 execution, normalized observations, receipts, context topology, output
@@ -158,19 +158,19 @@ bypass around the Hypervisor Daemon.
 
 Start here:
 
-1. [`components/agentgres/doctrine.md`](./components/agentgres/doctrine.md)
-2. [`components/agentgres/api-object-model.md`](./components/agentgres/api-object-model.md)
-3. [`components/agentgres/artifact-ref-plane.md`](./components/agentgres/artifact-ref-plane.md)
-4. [`components/agentgres/postgres-bridge-and-readiness-contract.md`](./components/agentgres/postgres-bridge-and-readiness-contract.md)
-5. [`components/agentgres/projection-system-reference.md`](./components/agentgres/projection-system-reference.md)
-6. [`components/storage-backends/doctrine.md`](./components/storage-backends/doctrine.md)
+1. [`components/agentgres/doctrine.md`](../components/agentgres/doctrine.md)
+2. [`components/agentgres/api-object-model.md`](../components/agentgres/api-object-model.md)
+3. [`components/agentgres/artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md)
+4. [`components/agentgres/postgres-bridge-and-readiness-contract.md`](../components/agentgres/postgres-bridge-and-readiness-contract.md)
+5. [`components/agentgres/projection-system-reference.md`](../components/agentgres/projection-system-reference.md)
+6. [`components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md)
 
 Build for: accepted operations, object heads, state roots, projections,
 artifact refs, archive refs, receipt refs, restore/import operations, and
 Postgres-compatible read surfaces.
 
 Storage backend implementers should then read
-[`components/storage-backends/filecoin-cas.md`](./components/storage-backends/filecoin-cas.md)
+[`components/storage-backends/filecoin-cas.md`](../components/storage-backends/filecoin-cas.md)
 or another backend profile. Backend profiles explain byte availability; they do
 not own artifact meaning.
 
@@ -178,10 +178,10 @@ not own artifact meaning.
 
 Start here:
 
-1. [`components/agentgres/doctrine.md#memory-and-agent-wiki-boundary`](./components/agentgres/doctrine.md#memory-and-agent-wiki-boundary)
-2. [`foundations/common-objects-and-envelopes.md`](./foundations/common-objects-and-envelopes.md)
-3. [`components/daemon-runtime/api.md#memory-api`](./components/daemon-runtime/api.md#memory-api)
-4. [`components/agentgres/api-object-model.md`](./components/agentgres/api-object-model.md)
+1. [`components/agentgres/doctrine.md#memory-and-agent-wiki-boundary`](../components/agentgres/doctrine.md#memory-and-agent-wiki-boundary)
+2. [`foundations/common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)
+3. [`components/daemon-runtime/api.md#memory-api`](../components/daemon-runtime/api.md#memory-api)
+4. [`components/agentgres/api-object-model.md`](../components/agentgres/api-object-model.md)
 
 Build for: Agent Wiki / `ioi-memory` as the semantic memory plane and
 Agentgres `ContextMutation` or equivalent operations as the admission path for
@@ -191,10 +191,10 @@ durable behavior-affecting memory.
 
 Start here:
 
-1. [`components/wallet-network/doctrine.md`](./components/wallet-network/doctrine.md)
-2. [`components/wallet-network/api-authority-scopes.md`](./components/wallet-network/api-authority-scopes.md)
-3. [`foundations/security-privacy-policy-invariants.md`](./foundations/security-privacy-policy-invariants.md)
-4. [`components/daemon-runtime/api.md#action-mediation--authority-gateway-api`](./components/daemon-runtime/api.md#action-mediation--authority-gateway-api)
+1. [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md)
+2. [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md)
+3. [`foundations/security-privacy-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md)
+4. [`components/daemon-runtime/api.md#action-mediation--authority-gateway-api`](../components/daemon-runtime/api.md#action-mediation--authority-gateway-api)
 
 Build for: `scope:*` authority scopes, `prim:*` primitive capabilities,
 grants, approvals, exact request hashes, revocation epochs, decryption leases,
@@ -204,11 +204,11 @@ and payment authority.
 
 Start here:
 
-1. [`foundations/mixture-of-workers.md`](./foundations/mixture-of-workers.md)
-2. [`domains/marketplace-neutrality.md`](./domains/marketplace-neutrality.md)
-3. [`domains/aiagent/worker-marketplace.md`](./domains/aiagent/worker-marketplace.md)
-4. [`domains/sas/service-marketplace.md`](./domains/sas/service-marketplace.md)
-5. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](./components/daemon-runtime/events-receipts-delivery-bundles.md)
+1. [`foundations/mixture-of-workers.md`](../foundations/mixture-of-workers.md)
+2. [`domains/marketplace-neutrality.md`](../domains/marketplace-neutrality.md)
+3. [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md)
+4. [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
+5. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
 
 Build for: worker packages, service packages, MoW routing, contribution
 receipts, routing receipts, marketplace neutrality, and optional L1 settlement
@@ -218,11 +218,11 @@ for listings, escrows, disputes, rights, and reputation.
 
 Start here:
 
-1. [`components/daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md)
-2. [`components/daemon-runtime/api.md`](./components/daemon-runtime/api.md)
-3. [`domains/ioi-ai/control-plane.md`](./domains/ioi-ai/control-plane.md)
-4. [`domains/aiagent/worker-marketplace.md`](./domains/aiagent/worker-marketplace.md)
-5. [`domains/sas/service-marketplace.md`](./domains/sas/service-marketplace.md)
+1. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
+2. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
+3. [`domains/ioi-ai/control-plane.md`](../domains/ioi-ai/control-plane.md)
+4. [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md)
+5. [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
 
 Build for: operator controls, approval cards, run graphs, context topology
 views, receipt timelines, artifact viewers, package install/publish flows, and
@@ -233,10 +233,10 @@ Agentgres, and L1.
 
 Start here:
 
-1. [`foundations/aiip.md`](./foundations/aiip.md)
-2. [`foundations/ioi-l1-mainnet.md`](./foundations/ioi-l1-mainnet.md)
-3. [`foundations/common-objects-and-envelopes.md`](./foundations/common-objects-and-envelopes.md)
-4. [`components/wallet-network/doctrine.md`](./components/wallet-network/doctrine.md)
+1. [`foundations/aiip.md`](../foundations/aiip.md)
+2. [`foundations/ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md)
+3. [`foundations/common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)
+4. [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md)
 
 Build for: bounded execution domains, AIIP envelopes, profiles, channels,
 authority leases, receipt commitments, settlement intents, disputes, and
@@ -246,13 +246,13 @@ cross-domain finality.
 
 Use these meta docs while building:
 
-- [`_meta/source-of-truth-map.md`](./_meta/source-of-truth-map.md): where each
+- [`_meta/source-of-truth-map.md`](./source-of-truth-map.md): where each
   concept is canonically owned.
-- [`_meta/vocabulary.md`](./_meta/vocabulary.md): canonical names and deprecated
+- [`_meta/vocabulary.md`](./vocabulary.md): canonical names and deprecated
   wording.
-- [`_meta/implementation-matrix.md`](./_meta/implementation-matrix.md): concept
+- [`_meta/implementation-matrix.md`](./implementation-matrix.md): concept
   to durable form, owner, code anchor, and conformance hook.
-- [`_meta/canon-readability-audit.md`](./_meta/canon-readability-audit.md):
+- [`_meta/canon-readability-audit.md`](./canon-readability-audit.md):
   current readability gaps and cleanup priorities.
 
 ## Most Common Boundary Mistakes

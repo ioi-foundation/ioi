@@ -403,15 +403,25 @@ compliance acronyms for hidden audit material.
   second runtime inside the VS Code extension host. It is also not the full
   Hypervisor Node; the node includes daemon, Agentgres, wallet.network authority
   paths, local registries, receipts, replay, and runtime profiles.
+- `AutopilotWorkbench`: legacy naming bridge term for the IDE-grade operator console during the Autopilot to
+  Hypervisor naming bridge. It composes, inspects, approves, and replays through
+  daemon/runtime contracts; it is not runtime truth and not an authority layer.
 - `HypervisorGuard`: developer-facing packaging for IOI Authority Gateway
   adapters. It can describe "bring IOI alignment security to Cursor, VS Code,
   Codex, Claude Code, JetBrains, OpenHands, hosted agents, and similar tools,"
   but canonical runtime authority still belongs to the Hypervisor Daemon.
+- `AutopilotGuard`: legacy naming bridge term for the Autopilot product-facing name for IOI Authority Gateway
+  and Hypervisor Guard compatibility-adapter behavior. It mediates existing IDE,
+  CLI, browser, hosted-agent, and tool surfaces through daemon policy,
+  wallet.network authority, receipts, and replay.
 - `HypervisorAppShell`: the Electron/VS Code fork that hosts Hypervisor IDE and
   local runtime surfaces. It owns shell affordances such as windows, deep links,
   tray, shortcuts, updater, auth handoff, and daemon supervision.
   Tauri/OpenVSCode embedding is legacy extraction inventory, not the target
   shell.
+- `AutopilotAppShell`: legacy naming bridge term for the Electron/VS Code fork as the canonical Autopilot app
+  shell during the naming bridge. It hosts the workbench UI and daemon-adjacent
+  operator controls, but it does not own execution semantics or durable truth.
 - `HypervisorDesktop`: the local/private device automation mode within the
   Hypervisor product. It may launch, manage, or project a local Hypervisor Daemon runtime
   profile, but it does not define a separate canonical runtime path.

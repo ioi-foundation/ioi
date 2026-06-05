@@ -25,7 +25,7 @@ This audit tracks the cleanup needed to make the canon:
 
 | Finding | Impact | Fix |
 | --- | --- | --- |
-| Reader path was implicit | New readers had to reconstruct the stack from doctrine docs | Added [`START_HERE.md`](../START_HERE.md) |
+| Reader path was implicit | New readers had to reconstruct the stack from doctrine docs | Added [`start-here.md`](./start-here.md) |
 | Concept-to-durable-form mapping was scattered | Implementers could not quickly tell event vs receipt vs object vs projection | Added [`implementation-matrix.md`](./implementation-matrix.md) |
 | Runtime profile naming was too easy to overread as a peer runtime | Risk of reintroducing a runtime beside the daemon | Canonicalized `Default Harness Profile` |
 | Older docs mix canon and long former-spec modules | Correctness is high, but first-read clarity suffers | Mark supporting context clearly and keep top canon sections crisp |
@@ -36,7 +36,7 @@ This audit tracks the cleanup needed to make the canon:
 
 | Doc | Primary reader | Current strength | Gap | Priority fix |
 | --- | --- | --- | --- | --- |
-| [`START_HERE.md`](../START_HERE.md) | everyone | guided entry point | new file; keep synchronized with source map | maintain as first-read map |
+| [`start-here.md`](./start-here.md) | everyone | guided entry point | new file; keep synchronized with source map | maintain as first-read map |
 | [`_meta/source-of-truth-map.md`](./source-of-truth-map.md) | architects, implementers | strong owner table | must include new profile and matrix docs | keep owner rows complete |
 | [`_meta/vocabulary.md`](./vocabulary.md) | everyone | strong naming reference | stale terms must remain qualified only | keep `DefaultHarnessProfile`, `AgentWiki`, `ioi-memory` current |
 | [`_meta/implementation-matrix.md`](./implementation-matrix.md) | implementers | maps concept to durable form | new file; needs code anchors maintained | update whenever objects promote |
@@ -98,7 +98,7 @@ capability as authority
 
 ## Refactor Backlog
 
-1. Keep [`START_HERE.md`](../START_HERE.md) as the primary entry link from
+1. Keep [`start-here.md`](./start-here.md) as the primary entry link from
    `README.md`.
 2. Add explicit anti-pattern sections to Agentgres, daemon runtime,
    wallet.network, AIIP, and marketplace docs.

@@ -314,7 +314,7 @@ docs/architecture/foundations/common-objects-and-envelopes.md
 docs/architecture/_meta/implementation-matrix.md
 docs/architecture/_meta/source-of-truth-map.md
 docs/architecture/_meta/vocabulary.md
-docs/architecture/START_HERE.md
+docs/architecture/_meta/start-here.md
 docs/architecture/README.md
 ```
 
@@ -428,7 +428,7 @@ Use risky examples such as poker bots, real-time competitive game bots, gambling
 5. Add `managed-agent-console-contract.md`.
 6. Update `worker-marketplace.md` and `worker-endpoints.md`.
 7. Update shared objects and envelopes.
-8. Update `_meta/source-of-truth-map.md`, `_meta/implementation-matrix.md`, `_meta/vocabulary.md`, `START_HERE.md`, and `README.md`.
+8. Update `_meta/source-of-truth-map.md`, `_meta/implementation-matrix.md`, `_meta/vocabulary.md`, `_meta/start-here.md`, and `README.md`.
 9. Add example vertical packs or appendices.
 10. Run stale terminology and whitespace checks.
 
@@ -447,7 +447,7 @@ Target end state:
 - Managed Worker Instance lifecycle is first-class, including install, initialize, runtime assignment, authority grants, run, pause, resume, upgrade, payment lapse, zero-to-idle, archive, restore, migrate, delete, and forget.
 - Integration Surface Taxonomy makes special-treatment verticals explicit without creating bespoke runtimes, including physical-action and embodied-system surfaces.
 - Managed Agent Console Contract defines the default web/API projection for rented or persistent agents.
-- Worker manifests, endpoints, shared object envelopes, source-of-truth map, implementation matrix, vocabulary, START_HERE, and README all agree.
+- Worker manifests, endpoints, shared object envelopes, source-of-truth map, implementation matrix, vocabulary, start-here, and README all agree.
 
 Primary deliverables:
 1. Add `docs/architecture/domains/aiagent/digital-worker-ontology.md`.
@@ -461,7 +461,7 @@ Primary deliverables:
 9. Update `docs/architecture/_meta/source-of-truth-map.md`.
 10. Update `docs/architecture/_meta/implementation-matrix.md`.
 11. Update `docs/architecture/_meta/vocabulary.md`.
-12. Update `docs/architecture/START_HERE.md` and `docs/architecture/README.md`.
+12. Update `docs/architecture/_meta/start-here.md` and `docs/architecture/README.md`.
 
 Constraints:
 - Do not weaken or flatten the architecture.
@@ -484,7 +484,7 @@ Acceptance criteria:
 - Game, Discord/community, finance/trading, and platform automation examples are handled through policy and risk classes rather than bespoke runtime exceptions.
 - Physical-action examples such as open-source robot runtimes, humanoid facility assistants, carwash-prep robots, warehouse robots, drones, and field-service inspection agents are handled through `PhysicalActionPolicy`, `SafetyEnvelope`, `EmergencyStopAuthority`, `HumanSupervisionPolicy`, `SensorEvidenceReceipt`, `ActuatorCommandReceipt`, and incident/dispute hooks.
 - Managed Agent Console Contract states that the console is a projection over daemon, Agentgres, wallet.network, and aiagent APIs, not a hidden runtime.
-- Source-of-truth map, implementation matrix, vocabulary, START_HERE, and README agree with the new canon.
+- Source-of-truth map, implementation matrix, vocabulary, start-here, and README agree with the new canon.
 - No stale owner claims or live-architecture terminology conflicts remain.
 - `git diff --check -- docs/architecture` passes.
 ```

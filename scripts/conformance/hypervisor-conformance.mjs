@@ -3554,6 +3554,12 @@ function runCompositor() {
   const preNextLegReadiness = exists("scripts/check-pre-next-leg-readiness.mjs")
     ? read("scripts/check-pre-next-leg-readiness.mjs")
     : "";
+  const runtimeLayoutCheck = exists("scripts/check-runtime-layout.mjs")
+    ? read("scripts/check-runtime-layout.mjs")
+    : "";
+  const runtimeActionContractsGenerator = exists("scripts/generate-runtime-action-contracts.mjs")
+    ? read("scripts/generate-runtime-action-contracts.mjs")
+    : "";
   const executionSurfaceLeg = exists("scripts/check-execution-surface-leg.mjs")
     ? read("scripts/check-execution-surface-leg.mjs")
     : "";
@@ -5628,6 +5634,37 @@ function runCompositor() {
       "scripts/lib/cursor-sdk-parity-contract.mjs",
     ],
     "Phase 10/11 is pending: SDK testing and evidence paths must not retain the retired mock runtime client helper",
+  );
+  assertCheck(
+    result,
+    "autopilot-tauri-active-runtime-paths-retired",
+    /internal-docs/.test(runtimeActionContractsGenerator) &&
+      /legacy/.test(runtimeActionContractsGenerator) &&
+      /autopilot-tauri-src/.test(runtimeActionContractsGenerator) &&
+      !/"apps",\s*"autopilot",\s*"src-tauri",\s*"src",\s*"generated"/s.test(
+        runtimeActionContractsGenerator,
+      ) &&
+      /activeTauriRuntimeProjection/.test(preNextLegReadiness) &&
+      /internal-docs\/legacy\/autopilot-tauri-src\/src\/runtime_projection\.rs/.test(
+        preNextLegReadiness,
+      ) &&
+      /internal-docs\/legacy\/autopilot-tauri-src\/src\/generated\/runtime_action_schema\.rs/.test(
+        preNextLegReadiness,
+      ) &&
+      /const activeTauriSrc = "apps\/autopilot\/src-tauri\/src"/.test(
+        runtimeLayoutCheck,
+      ) &&
+      /const legacyTauriSrc = "internal-docs\/legacy\/autopilot-tauri-src\/src"/.test(
+        runtimeLayoutCheck,
+      ) &&
+      /!exists\(activeTauriSrc\)/.test(runtimeLayoutCheck) &&
+      /Tauri Rust projection must stay legacy-only/.test(runtimeLayoutCheck),
+    [
+      "scripts/generate-runtime-action-contracts.mjs",
+      "scripts/check-pre-next-leg-readiness.mjs",
+      "scripts/check-runtime-layout.mjs",
+    ],
+    "Phase 10/11 is pending: active gates must not require retired Autopilot Tauri Rust runtime paths",
   );
   assertCheck(
     result,

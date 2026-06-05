@@ -35,7 +35,9 @@ const daemonSource = read("packages/runtime-daemon/src/index.mjs");
 const sdkSubstrate = read("packages/agent-sdk/src/substrate-client.ts");
 const sdkIndex = read("packages/agent-sdk/src/index.ts");
 const ideRuntimeFiles = allFiles("packages/agent-ide/src/runtime", (file) => /\.(ts|tsx)$/.test(file));
-const autopilotRootProofFiles = allFiles("apps/autopilot/src-tauri/src", (file) =>
+const activeTauriSrc = "apps/autopilot/src-tauri/src";
+const legacyTauriSrc = "internal-docs/legacy/autopilot-tauri-src/src";
+const autopilotRootProofFiles = allFiles(legacyTauriSrc, (file) =>
   /_proof\.rs$/.test(file) && !file.includes(`${path.sep}bin${path.sep}`) && !file.includes(`${path.sep}proofs${path.sep}`),
 );
 const builtinFiles = allFiles("crates/services/src/agentic/runtime/tools/builtins", (file) =>
@@ -46,15 +48,11 @@ const runtimeServiceFiles = allFiles("crates/services/src/agentic/runtime/servic
 );
 const activeRuntimeSwarmFiles = [
   ...allFiles("apps/autopilot/src", (file) => /\.(ts|tsx|css)$/.test(file)),
-  ...allFiles("apps/autopilot/src-tauri/src", (file) => file.endsWith(".rs")),
   ...allFiles("crates/api/src", (file) => file.endsWith(".rs")),
   ...allFiles("crates/services/src/agentic/runtime", (file) => file.endsWith(".rs")),
   "crates/types/src/app/chat.rs",
 ].filter((file) => exists(file));
 const allowedSwarmCompatibilityFiles = new Set([
-  "apps/autopilot/src-tauri/src/models/chat.rs",
-  "apps/autopilot/src-tauri/src/models/runtime_view_tests.rs",
-  "apps/autopilot/src-tauri/src/models/session.rs",
   "apps/autopilot/src/types/work-graph-compat.ts",
   "crates/api/src/chat/types.rs",
   "crates/services/src/agentic/runtime/service/memory/context.rs",
@@ -62,7 +60,7 @@ const allowedSwarmCompatibilityFiles = new Set([
   "crates/types/src/app/chat.rs",
 ]);
 const generatedTs = read("packages/agent-ide/src/runtime/generated/action-schema.ts");
-const generatedRust = read("apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs");
+const generatedRust = read(`${legacyTauriSrc}/generated/runtime_action_schema.rs`);
 const actionSchema = JSON.parse(read("internal-docs/implementation/runtime-action-schema.json"));
 
 assert(
@@ -167,11 +165,12 @@ assert(
 );
 assert(
   "proofs-isolated",
+  !exists(activeTauriSrc) &&
   autopilotRootProofFiles.length === 0 &&
-    exists("apps/autopilot/src-tauri/src/proofs/mod.rs") &&
-    read("apps/autopilot/src-tauri/src/lib.rs").includes("pub mod proofs;"),
-  ["apps/autopilot/src-tauri/src/proofs/mod.rs", "apps/autopilot/src-tauri/src/lib.rs"],
-  "Autopilot proof modules must live under proofs/ rather than root product modules",
+    exists(`${legacyTauriSrc}/proofs/mod.rs`) &&
+    read(`${legacyTauriSrc}/lib.rs`).includes("pub mod proofs;"),
+  [activeTauriSrc, `${legacyTauriSrc}/proofs/mod.rs`, `${legacyTauriSrc}/lib.rs`],
+  "Autopilot Tauri Rust must stay retired from active app paths; legacy proof modules must remain isolated under proofs/",
 );
 assert(
   "sdk-no-gui-harness-imports",
@@ -183,10 +182,15 @@ assert(
   "projection-adapter-names",
   exists("packages/agent-ide/src/runtime/runtime-projection-adapter.ts") &&
     !exists("packages/agent-ide/src/runtime/agent-execution-substrate.ts") &&
-    exists("apps/autopilot/src-tauri/src/runtime_projection.rs") &&
-    !exists("apps/autopilot/src-tauri/src/agent_runtime_substrate.rs"),
-  ["packages/agent-ide/src/runtime/runtime-projection-adapter.ts", "apps/autopilot/src-tauri/src/runtime_projection.rs"],
-  "client projection adapters must not be named as canonical execution substrates",
+    !exists(`${activeTauriSrc}/runtime_projection.rs`) &&
+    exists(`${legacyTauriSrc}/runtime_projection.rs`) &&
+    !exists(`${activeTauriSrc}/agent_runtime_substrate.rs`),
+  [
+    "packages/agent-ide/src/runtime/runtime-projection-adapter.ts",
+    `${activeTauriSrc}/runtime_projection.rs`,
+    `${legacyTauriSrc}/runtime_projection.rs`,
+  ],
+  "client projection adapters must not be named as canonical execution substrates, and Tauri Rust projection must stay legacy-only",
 );
 assert(
   "ide-projection-boundary",
@@ -210,7 +214,7 @@ assert(
   [
     "internal-docs/implementation/runtime-action-schema.json",
     "packages/agent-ide/src/runtime/generated/action-schema.ts",
-    "apps/autopilot/src-tauri/src/generated/runtime_action_schema.rs",
+    `${legacyTauriSrc}/generated/runtime_action_schema.rs`,
   ],
   "generated action schema projections must match shared runtime-action-schema.json",
 );
