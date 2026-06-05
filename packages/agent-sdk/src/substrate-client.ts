@@ -373,17 +373,13 @@ export interface RuntimeSubagentUsageTelemetry {
 
 export interface RuntimeSubagentBudgetStatus {
   schema_version?: string;
-  schemaVersion?: string;
   object?: "ioi.runtime_subagent_budget_status" | string;
   status?: "not_configured" | "within_budget" | "exceeded" | string;
   budget?: Record<string, unknown> | null;
   usage?: RuntimeSubagentUsageTelemetry | null;
   violations?: Record<string, unknown>[];
   policy_decision?: Record<string, unknown> | null;
-  policyDecision?: Record<string, unknown> | null;
   checked_at?: string;
-  checkedAt?: string;
-  [key: string]: unknown;
 }
 
 export interface RuntimeSubagentControlInput {

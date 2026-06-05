@@ -3619,6 +3619,11 @@ function runCompositor() {
     "export interface RuntimeSubagentUsageTelemetry",
     "export interface RuntimeSubagentBudgetStatus",
   );
+  const runtimeSubagentSdkBudgetStatusBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentBudgetStatus",
+    "export interface RuntimeSubagentControlInput",
+  );
   const runtimeSubagentSdkControlInputBlock = blockBetween(
     agentSdkSubstrateClient,
     "export interface RuntimeSubagentControlInput",
@@ -5014,6 +5019,24 @@ function runCompositor() {
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent usage telemetry type must not advertise retired camelCase aliases or arbitrary-key escape hatches",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-subagent-budget-status-aliases-retired",
+    runtimeSubagentSdkBudgetStatusBlock.length > 0 &&
+      /^\s*schema_version\?: string;/m.test(runtimeSubagentSdkBudgetStatusBlock) &&
+      /^\s*policy_decision\?: Record<string, unknown> \| null;/m.test(
+        runtimeSubagentSdkBudgetStatusBlock,
+      ) &&
+      /^\s*checked_at\?: string;/m.test(runtimeSubagentSdkBudgetStatusBlock) &&
+      !/^\s*(?:schemaVersion|policyDecision|checkedAt)\?:/m.test(
+        runtimeSubagentSdkBudgetStatusBlock,
+      ) &&
+      !/^\s*\[key: string\]: unknown;/m.test(
+        runtimeSubagentSdkBudgetStatusBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent budget status type must not advertise retired camelCase aliases or arbitrary-key escape hatches",
   );
   assertCheck(
     result,
