@@ -275,10 +275,11 @@ test("model lifecycle receipt writes fail closed without provider kind and Rust 
         provider_kind: undefined,
         providerId: "provider.local",
         providerKind: "ioi_native_local",
-      })),
+    })),
     (error) =>
       error.code === "model_mount_instance_lifecycle_receipt_direct_append_forbidden" &&
-      error.details.missing.includes("provider_kind") &&
+      error.details.retired_aliases.includes("providerId") &&
+      error.details.retired_aliases.includes("providerKind") &&
       Object.hasOwn(error.details, "providerKind") === false,
   );
   assert.throws(
@@ -323,6 +324,20 @@ test("provider inventory receipt writes fail closed without provider kind and Ru
     (error) =>
       error.code === "model_mount_provider_inventory_receipt_direct_append_forbidden" &&
       error.details.missing.includes("provider_kind"),
+  );
+  assert.throws(
+    () =>
+      store.writeReceipt(providerInventoryReceipt({
+        provider_id: undefined,
+        provider_kind: undefined,
+        providerId: "provider.local",
+        providerKind: "ioi_native_local",
+      })),
+    (error) =>
+      error.code === "model_mount_provider_inventory_receipt_direct_append_forbidden" &&
+      error.details.retired_aliases.includes("providerId") &&
+      error.details.retired_aliases.includes("providerKind") &&
+      Object.hasOwn(error.details, "providerKind") === false,
   );
   assert.throws(
     () => store.writeReceipt(providerInventoryReceipt()),
@@ -379,6 +394,20 @@ test("provider health receipt writes fail closed without provider kind and Rust 
       error.details.missing.includes("provider_kind"),
   );
   assert.throws(
+    () =>
+      store.writeReceipt(providerHealthReceipt({
+        provider_id: undefined,
+        provider_kind: undefined,
+        providerId: "provider.local",
+        providerKind: "ioi_native_local",
+      })),
+    (error) =>
+      error.code === "model_mount_provider_health_receipt_direct_append_forbidden" &&
+      error.details.retired_aliases.includes("providerId") &&
+      error.details.retired_aliases.includes("providerKind") &&
+      Object.hasOwn(error.details, "providerKind") === false,
+  );
+  assert.throws(
     () => store.writeReceipt(providerHealthReceipt()),
     (error) =>
       error.code === "model_mount_provider_health_receipt_direct_append_forbidden" &&
@@ -431,6 +460,20 @@ test("provider control receipt writes fail closed without provider kind and Rust
     (error) =>
       error.code === "model_mount_provider_control_receipt_direct_append_forbidden" &&
       error.details.missing.includes("provider_kind"),
+  );
+  assert.throws(
+    () =>
+      store.writeReceipt(providerControlReceipt({
+        provider_id: undefined,
+        provider_kind: undefined,
+        providerId: "provider.local",
+        providerKind: "ioi_native_local",
+      })),
+    (error) =>
+      error.code === "model_mount_provider_control_receipt_direct_append_forbidden" &&
+      error.details.retired_aliases.includes("providerId") &&
+      error.details.retired_aliases.includes("providerKind") &&
+      Object.hasOwn(error.details, "providerKind") === false,
   );
   assert.throws(
     () => store.writeReceipt(providerControlReceipt()),

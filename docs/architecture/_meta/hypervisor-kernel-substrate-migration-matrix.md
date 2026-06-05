@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 280:
+Current expected behavior after Slice 281:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11724,6 +11724,10 @@ Slice 280 extends receipts proof for
 `model-mount-runtime-survey-receipt-detail-aliases-retired`: runtime survey
 receipts and readback now use canonical snake_case metadata without duplicate
 camelCase aliases.
+
+Slice 281 extends receipts proof for provider receipt direct-write guards:
+retired provider metadata aliases (`providerId` / `providerKind`) now fail
+closed instead of being accepted as compatibility fallbacks.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

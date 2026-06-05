@@ -3118,6 +3118,10 @@ function runReceipts() {
       /provider_id:\s*providerId \?\? null/.test(modelMountReceiptOperations) &&
       /const providerKind = optionalNonEmptyString\(details\.provider_kind\)/.test(modelMountReceiptWriteGuards) &&
       /provider_kind:\s*providerKind/.test(modelMountReceiptWriteGuards) &&
+      /assertNoRetiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
+      /retiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
+      !/details\.providerId \?\? details\.provider_id/.test(modelMountReceiptWriteGuards) &&
+      !/details\.providerKind \?\? details\.provider_kind/.test(modelMountReceiptWriteGuards) &&
       !/\b(?:instanceId|endpointId|modelId|providerId|providerKind|backendId|runtimeEngineId|providerEvidenceRefs|backendProcess|commandArgsHash|supersededBy)\s*:/.test(
         modelInstanceLifecycleReceiptBlocks,
       ) &&
@@ -3130,6 +3134,7 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"endpointId"\),\s*false/.test(loadedInstancesTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerId"\) === false/.test(modelMountReceiptOperationsTest) &&
       /receipt\.legacy-model-lifecycle/.test(modelMountStoreTest) &&
+      /retired_aliases\.includes\("providerKind"\)/.test(modelMountStoreTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerKind"\) === false/.test(modelMountStoreTest),
     [
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
@@ -3505,6 +3510,10 @@ function runReceipts() {
       /model_mount_provider_inventory_receipt_direct_append_forbidden/.test(
         modelMountReceiptWriteGuards,
       ) &&
+      /assertNoRetiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
+      /retired_aliases\.includes\("providerKind"\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+      ) &&
       /local provider model and loaded list receipts carry Rust inventory bindings/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
@@ -3544,10 +3553,14 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
       /model_mount_provider_lifecycle_hash/.test(modelMountReceiptWriteGuards) &&
+      /assertNoRetiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
       !/modelMountProviderLifecycle|providerLifecycleHash/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
       !/modelMountProviderLifecycle|providerLifecycleHash/.test(modelMountReceiptWriteGuards) &&
+      /retired_aliases\.includes\("providerKind"\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+      ) &&
       /local provider health receipts carry Rust lifecycle bindings/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
@@ -3581,10 +3594,14 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
       /model_mount_provider_lifecycle_hash/.test(modelMountReceiptWriteGuards) &&
+      /assertNoRetiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
       !/modelMountProviderLifecycle|providerLifecycleHash/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
       !/modelMountProviderLifecycle|providerLifecycleHash/.test(modelMountReceiptWriteGuards) &&
+      /retired_aliases\.includes\("providerKind"\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+      ) &&
       /local provider start and stop fail closed without Rust lifecycle bindings/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
@@ -3954,8 +3971,9 @@ function runReceipts() {
       /Object\.hasOwn\(state\.receipts\.at\(-2\)\.details,\s*"modelCount"\),\s*false/.test(providerOperationsTest) &&
       /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"loadedCount"\),\s*false/.test(providerOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerId"\)\s*===\s*false/.test(providerOperationsTest) &&
-      /Object\.hasOwn\(receipt\.details,\s*"providerKind"\)/.test(providerOperationsTest) &&
-      /details\.providerId \?\? details\.provider_id/.test(modelMountReceiptWriteGuards) &&
+      /retiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
+      !/details\.providerId \?\? details\.provider_id/.test(modelMountReceiptWriteGuards) &&
+      !/details\.providerKind \?\? details\.provider_kind/.test(modelMountReceiptWriteGuards) &&
       /missing\.push\("provider_kind"\)/.test(modelMountReceiptWriteGuards),
     [
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",

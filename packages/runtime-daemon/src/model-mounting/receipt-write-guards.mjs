@@ -116,10 +116,16 @@ function assertModelInstanceLifecycleReceiptBound(receipt) {
   const details = receipt?.details && typeof receipt.details === "object" ? receipt.details : {};
   const status = MODEL_INSTANCE_LIFECYCLE_RECEIPT_STATUSES.get(details.operation);
   if (!status) return;
+  assertNoRetiredProviderDetailAliases(
+    receipt,
+    details,
+    "model_mount_instance_lifecycle_receipt_direct_append_forbidden",
+    "Model instance lifecycle receipt provider metadata must use canonical snake_case fields before JS store persistence.",
+  );
   const providerKind = optionalNonEmptyString(details.provider_kind);
   const missing = [];
   const mismatches = [];
-  if (!providerKind && optionalNonEmptyString(details.providerId ?? details.provider_id)) {
+  if (!providerKind && optionalNonEmptyString(details.provider_id)) {
     missing.push("provider_kind");
   }
   if (!providerKind || !modelMountProviderKindRequiresRustInstanceLifecycle(providerKind)) {
@@ -167,10 +173,16 @@ function assertProviderInventoryReceiptBound(receipt) {
   const details = receipt?.details && typeof receipt.details === "object" ? receipt.details : {};
   const expectedAction = PROVIDER_INVENTORY_RECEIPT_ACTIONS.get(details.operation);
   if (!expectedAction) return;
-  const providerKind = optionalNonEmptyString(details.providerKind ?? details.provider_kind);
+  assertNoRetiredProviderDetailAliases(
+    receipt,
+    details,
+    "model_mount_provider_inventory_receipt_direct_append_forbidden",
+    "Provider inventory receipt provider metadata must use canonical snake_case fields before JS store persistence.",
+  );
+  const providerKind = optionalNonEmptyString(details.provider_kind);
   const missing = [];
   const mismatches = [];
-  if (!providerKind && optionalNonEmptyString(details.providerId ?? details.provider_id)) {
+  if (!providerKind && optionalNonEmptyString(details.provider_id)) {
     missing.push("provider_kind");
   }
   if (!providerKind || !modelMountProviderKindRequiresRustInstanceLifecycle(providerKind)) {
@@ -229,10 +241,16 @@ function assertProviderControlReceiptBound(receipt) {
   const details = receipt?.details && typeof receipt.details === "object" ? receipt.details : {};
   const expectedAction = PROVIDER_CONTROL_RECEIPT_ACTIONS.get(details.operation);
   if (!expectedAction) return;
-  const providerKind = optionalNonEmptyString(details.providerKind ?? details.provider_kind);
+  assertNoRetiredProviderDetailAliases(
+    receipt,
+    details,
+    "model_mount_provider_control_receipt_direct_append_forbidden",
+    "Provider control receipt provider metadata must use canonical snake_case fields before JS store persistence.",
+  );
+  const providerKind = optionalNonEmptyString(details.provider_kind);
   const missing = [];
   const mismatches = [];
-  if (!providerKind && optionalNonEmptyString(details.providerId ?? details.provider_id)) {
+  if (!providerKind && optionalNonEmptyString(details.provider_id)) {
     missing.push("provider_kind");
   }
   if (!providerKind || !modelMountProviderKindRequiresRustInstanceLifecycle(providerKind)) {
@@ -293,10 +311,16 @@ function assertProviderControlReceiptBound(receipt) {
 function assertProviderHealthReceiptBound(receipt) {
   if (receipt?.kind !== "provider_health") return;
   const details = receipt?.details && typeof receipt.details === "object" ? receipt.details : {};
-  const providerKind = optionalNonEmptyString(details.providerKind ?? details.provider_kind);
+  assertNoRetiredProviderDetailAliases(
+    receipt,
+    details,
+    "model_mount_provider_health_receipt_direct_append_forbidden",
+    "Provider health receipt provider metadata must use canonical snake_case fields before JS store persistence.",
+  );
+  const providerKind = optionalNonEmptyString(details.provider_kind);
   const missing = [];
   const mismatches = [];
-  if (!providerKind && optionalNonEmptyString(details.providerId ?? details.provider_id)) {
+  if (!providerKind && optionalNonEmptyString(details.provider_id)) {
     missing.push("provider_kind");
   }
   if (!providerKind || !modelMountProviderKindRequiresRustInstanceLifecycle(providerKind)) {
@@ -360,6 +384,26 @@ function runtimeError({ status, code, message, details }) {
   error.code = code;
   error.details = details;
   return error;
+}
+
+function assertNoRetiredProviderDetailAliases(receipt, details, code, message) {
+  const retiredAliases = retiredProviderDetailAliases(details);
+  if (retiredAliases.length === 0) return;
+  throw runtimeError({
+    status: 409,
+    code,
+    message,
+    details: {
+      receiptId: receipt?.id ?? null,
+      receiptKind: receipt?.kind ?? null,
+      operation: details.operation ?? null,
+      retired_aliases: retiredAliases,
+    },
+  });
+}
+
+function retiredProviderDetailAliases(details) {
+  return ["providerId", "providerKind"].filter((field) => Object.hasOwn(details, field));
 }
 
 function optionalNonEmptyString(value) {
