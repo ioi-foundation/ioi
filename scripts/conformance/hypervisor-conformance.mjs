@@ -3206,6 +3206,35 @@ function runCompositor() {
   const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
     ? read("packages/agent-sdk/test/sdk.test.mjs")
     : "";
+  function blockBetween(text, startMarker, endMarker) {
+    const startIndex = text.indexOf(startMarker);
+    if (startIndex < 0) return "";
+    const remainder = text.slice(startIndex);
+    const endIndex = remainder.indexOf(endMarker, startMarker.length);
+    return endIndex < 0 ? remainder : remainder.slice(0, endIndex);
+  }
+  const runtimeUsagePayloadSummaryBlocks = [
+    blockBetween(
+      runtimeEventPayloads,
+      'if (event.type === "usage_delta")',
+      'if (event.type === "context_pressure_delta")',
+    ),
+    blockBetween(
+      runtimeEventPayloads,
+      'if (event.type === "context_pressure_delta")',
+      'if (event.type === "context_pressure_alert")',
+    ),
+    blockBetween(
+      runtimeEventPayloads,
+      'if (event.type === "context_pressure_alert")',
+      'if (event.type === "usage_final")',
+    ),
+    blockBetween(
+      runtimeEventPayloads,
+      'if (event.type === "usage_final")',
+      'if (event.type !== "model_route_decision")',
+    ),
+  ].join("\n");
   assertCheck(
     result,
     "rust-projection-core",
@@ -3265,6 +3294,23 @@ function runCompositor() {
       "packages/agent-sdk/test/sdk.test.mjs",
     ],
     "Phase 10/11 is pending: runtime event payloads and SDK projection must use canonical envelope ids/kinds instead of legacy payload aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-event-usage-summary-reader-aliases-retired",
+    runtimeUsagePayloadSummaryBlocks.length > 0 &&
+      !/event\.data\?\.(?:eventKind|schemaVersion|runId|threadId|turnId|totalTokens|inputTokens|outputTokens|estimatedCostUsd|contextPressure|contextPressureStatus|workflowNodeId|componentKind|usageTotalTokens|usageCostEstimateUsd|usageContextPressure|usageContextPressureStatus|alertId|alertLevel|pressureStatus|recommendedAction)/.test(
+        runtimeUsagePayloadSummaryBlocks,
+      ) &&
+      /retiredUsageSummaryReaderAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredContextPressureDeltaSummaryReaderAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredContextPressureAlertSummaryReaderAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredUsageFinalSummaryReaderAliasKeys/.test(runtimeEventPayloadsTest),
+    [
+      "packages/runtime-daemon/src/runtime-event-payloads.mjs",
+      "packages/runtime-daemon/src/runtime-event-payloads.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime event payload summaries must ignore retired camelCase usage/context-pressure payload data aliases",
   );
   assertCheck(
     result,

@@ -13,6 +13,68 @@ function uniqueStrings(values) {
 
 const retiredPayloadKeys = ["id", "type"].map((suffix) => ["legacy", "event", suffix].join("_"));
 
+const retiredUsageSummaryReaderAliasKeys = [
+  "eventKind",
+  "schemaVersion",
+  "runId",
+  "threadId",
+  "turnId",
+  "totalTokens",
+  "inputTokens",
+  "outputTokens",
+  "estimatedCostUsd",
+  "contextPressure",
+  "contextPressureStatus",
+  "workflowNodeId",
+  "componentKind",
+];
+
+const retiredContextPressureDeltaSummaryReaderAliasKeys = [
+  "eventKind",
+  "schemaVersion",
+  "runId",
+  "threadId",
+  "turnId",
+  "usageTotalTokens",
+  "usageCostEstimateUsd",
+  "usageContextPressure",
+  "usageContextPressureStatus",
+  "workflowNodeId",
+  "componentKind",
+];
+
+const retiredContextPressureAlertSummaryReaderAliasKeys = [
+  "eventKind",
+  "schemaVersion",
+  "alertId",
+  "alertLevel",
+  "pressureStatus",
+  "recommendedAction",
+  "runId",
+  "threadId",
+  "turnId",
+  "workflowNodeId",
+  "componentKind",
+];
+
+const retiredUsageFinalSummaryReaderAliasKeys = [
+  "eventKind",
+  "schemaVersion",
+  "threadId",
+  "turnId",
+  "totalTokens",
+  "inputTokens",
+  "outputTokens",
+  "estimatedCostUsd",
+  "contextPressure",
+  "contextPressureStatus",
+  "workflowNodeId",
+];
+
+function legacyDataFor(keys) {
+  return Object.fromEntries(keys.map((key) => [key, "legacy"]));
+}
+
 function helpers() {
   return createRuntimeEventPayloadHelpers({
     COMPUTER_USE_CONTRACT_SCHEMA_VERSION: "computer.v1",
@@ -199,7 +261,7 @@ test("runtime event payloads preserve usage and model route summaries", () => {
       input_tokens: 30,
       output_tokens: 12,
       context_pressure: 0.4,
-      workflowNodeId: "runtime.usage-telemetry",
+      workflow_node_id: "runtime.usage-telemetry",
     },
   });
 
@@ -210,6 +272,21 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   assert.equal(usage.context_pressure, 0.4);
   assert.equal(usage.redaction, "usage_telemetry_safe");
   assert.equal(Object.hasOwn(usage, "eventKind"), false);
+
+  const legacyUsage = runtime.payloadSummaryForRunEvent({
+    id: "event-legacy-usage",
+    type: "usage_delta",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: legacyDataFor(retiredUsageSummaryReaderAliasKeys),
+  });
+
+  assert.equal(legacyUsage.event_kind, "RuntimeUsageTelemetry.Delta");
+  assert.equal(legacyUsage.schema_version, "usage.delta.v1");
+  assert.equal(legacyUsage.run_id, null);
+  assert.equal(legacyUsage.total_tokens, 0);
+  assert.equal(legacyUsage.context_pressure, 0);
+  assert.equal(legacyUsage.workflow_node_id, "runtime.usage-telemetry");
 
   const contextDelta = runtime.payloadSummaryForRunEvent({
     id: "event-context-delta",
@@ -226,6 +303,21 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   assert.equal(contextDelta.schema_version, "context.delta.v1");
   assert.equal(contextDelta.usage_total_tokens, 42);
   assert.equal(Object.hasOwn(contextDelta, "eventKind"), false);
+
+  const legacyContextDelta = runtime.payloadSummaryForRunEvent({
+    id: "event-legacy-context-delta",
+    type: "context_pressure_delta",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: legacyDataFor(retiredContextPressureDeltaSummaryReaderAliasKeys),
+  });
+
+  assert.equal(legacyContextDelta.event_kind, "RuntimeContextPressure.Delta");
+  assert.equal(legacyContextDelta.schema_version, "context.delta.v1");
+  assert.equal(legacyContextDelta.run_id, null);
+  assert.equal(legacyContextDelta.usage_total_tokens, 0);
+  assert.equal(legacyContextDelta.usage_context_pressure, 0);
+  assert.equal(legacyContextDelta.workflow_node_id, "runtime.context-budget");
 
   const alert = runtime.payloadSummaryForRunEvent({
     id: "event-two",
@@ -244,6 +336,21 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   assert.deepEqual(alert.actions, ["compact"]);
   assert.equal(Object.hasOwn(alert, "eventKind"), false);
 
+  const legacyAlert = runtime.payloadSummaryForRunEvent({
+    id: "event-legacy-alert",
+    type: "context_pressure_alert",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: legacyDataFor(retiredContextPressureAlertSummaryReaderAliasKeys),
+  });
+
+  assert.equal(legacyAlert.event_kind, "RuntimeContextPressure.Alert");
+  assert.equal(legacyAlert.schema_version, "context.alert.v1");
+  assert.equal(legacyAlert.alert_id, null);
+  assert.equal(legacyAlert.pressure_status, null);
+  assert.equal(legacyAlert.recommended_action, null);
+  assert.equal(legacyAlert.workflow_node_id, "runtime.context-pressure-alert");
+
   const usageFinal = runtime.payloadSummaryForRunEvent({
     id: "event-usage-final",
     type: "usage_final",
@@ -260,6 +367,21 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   assert.equal(usageFinal.schema_version, "usage.final.v1");
   assert.equal(usageFinal.total_tokens, 42);
   assert.equal(Object.hasOwn(usageFinal, "eventKind"), false);
+
+  const legacyUsageFinal = runtime.payloadSummaryForRunEvent({
+    id: "event-legacy-usage-final",
+    type: "usage_final",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: legacyDataFor(retiredUsageFinalSummaryReaderAliasKeys),
+  });
+
+  assert.equal(legacyUsageFinal.event_kind, "RuntimeUsageTelemetry");
+  assert.equal(legacyUsageFinal.schema_version, "usage.final.v1");
+  assert.equal(legacyUsageFinal.thread_id, null);
+  assert.equal(legacyUsageFinal.total_tokens, 0);
+  assert.equal(legacyUsageFinal.context_pressure, null);
+  assert.equal(legacyUsageFinal.workflow_node_id, "runtime.usage-telemetry");
 
   const route = runtime.payloadSummaryForRunEvent({
     id: "event-three",

@@ -468,128 +468,93 @@ function payloadSummaryForRunEvent(event) {
     if (event.type === "usage_delta") {
       return {
         ...summary,
-        event_kind: event.data?.eventKind ?? "RuntimeUsageTelemetry.Delta",
+        event_kind: "RuntimeUsageTelemetry.Delta",
         schema_version:
           event.data?.schema_version ??
-          event.data?.schemaVersion ??
           RUNTIME_USAGE_DELTA_SCHEMA_VERSION,
         stage: event.data?.stage ?? null,
         delta_index: event.data?.delta_index ?? null,
         delta_total: event.data?.delta_total ?? null,
-        run_id: event.data?.run_id ?? event.data?.runId ?? null,
-        thread_id: event.data?.thread_id ?? event.data?.threadId ?? null,
-        turn_id: event.data?.turn_id ?? event.data?.turnId ?? null,
-        total_tokens: event.data?.total_tokens ?? event.data?.totalTokens ?? 0,
-        input_tokens: event.data?.input_tokens ?? event.data?.inputTokens ?? 0,
-        output_tokens: event.data?.output_tokens ?? event.data?.outputTokens ?? 0,
+        run_id: event.data?.run_id ?? null,
+        thread_id: event.data?.thread_id ?? null,
+        turn_id: event.data?.turn_id ?? null,
+        total_tokens: event.data?.total_tokens ?? 0,
+        input_tokens: event.data?.input_tokens ?? 0,
+        output_tokens: event.data?.output_tokens ?? 0,
         total_tokens_delta: event.data?.total_tokens_delta ?? 0,
         input_tokens_delta: event.data?.input_tokens_delta ?? 0,
         output_tokens_delta: event.data?.output_tokens_delta ?? 0,
-        estimated_cost_usd:
-          event.data?.estimated_cost_usd ??
-          event.data?.estimatedCostUsd ??
-          0,
-        context_pressure:
-          event.data?.context_pressure ??
-          event.data?.contextPressure ??
-          0,
-        context_pressure_status:
-          event.data?.context_pressure_status ??
-          event.data?.contextPressureStatus ??
-          "nominal",
-        workflow_node_id: event.data?.workflowNodeId ?? "runtime.usage-telemetry",
-        component_kind: event.data?.componentKind ?? "usage_telemetry",
+        estimated_cost_usd: event.data?.estimated_cost_usd ?? 0,
+        context_pressure: event.data?.context_pressure ?? 0,
+        context_pressure_status: event.data?.context_pressure_status ?? "nominal",
+        workflow_node_id: event.data?.workflow_node_id ?? "runtime.usage-telemetry",
+        component_kind: event.data?.component_kind ?? "usage_telemetry",
         redaction: "usage_telemetry_safe",
       };
     }
     if (event.type === "context_pressure_delta") {
       return {
         ...summary,
-        event_kind: event.data?.eventKind ?? "RuntimeContextPressure.Delta",
+        event_kind: "RuntimeContextPressure.Delta",
         schema_version:
           event.data?.schema_version ??
-          event.data?.schemaVersion ??
           RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION,
         stage: event.data?.stage ?? null,
         delta_index: event.data?.delta_index ?? null,
         delta_total: event.data?.delta_total ?? null,
-        run_id: event.data?.run_id ?? event.data?.runId ?? null,
-        thread_id: event.data?.thread_id ?? event.data?.threadId ?? null,
-        turn_id: event.data?.turn_id ?? event.data?.turnId ?? null,
-        usage_total_tokens:
-          event.data?.usage_total_tokens ??
-          event.data?.usageTotalTokens ??
-          0,
-        usage_cost_estimate_usd:
-          event.data?.usage_cost_estimate_usd ??
-          event.data?.usageCostEstimateUsd ??
-          0,
-        usage_context_pressure:
-          event.data?.usage_context_pressure ??
-          event.data?.usageContextPressure ??
-          0,
+        run_id: event.data?.run_id ?? null,
+        thread_id: event.data?.thread_id ?? null,
+        turn_id: event.data?.turn_id ?? null,
+        usage_total_tokens: event.data?.usage_total_tokens ?? 0,
+        usage_cost_estimate_usd: event.data?.usage_cost_estimate_usd ?? 0,
+        usage_context_pressure: event.data?.usage_context_pressure ?? 0,
         usage_context_pressure_status:
-          event.data?.usage_context_pressure_status ??
-          event.data?.usageContextPressureStatus ??
-          "nominal",
-        workflow_node_id: event.data?.workflowNodeId ?? "runtime.context-budget",
-        component_kind: event.data?.componentKind ?? "context_pressure",
+          event.data?.usage_context_pressure_status ?? "nominal",
+        workflow_node_id: event.data?.workflow_node_id ?? "runtime.context-budget",
+        component_kind: event.data?.component_kind ?? "context_pressure",
         redaction: "usage_telemetry_safe",
       };
     }
     if (event.type === "context_pressure_alert") {
       return {
         ...summary,
-        event_kind: event.data?.eventKind ?? "RuntimeContextPressure.Alert",
+        event_kind: "RuntimeContextPressure.Alert",
         schema_version:
           event.data?.schema_version ??
-          event.data?.schemaVersion ??
           RUNTIME_CONTEXT_PRESSURE_ALERT_SCHEMA_VERSION,
-        alert_id: event.data?.alert_id ?? event.data?.alertId ?? null,
-        alert_level: event.data?.alert_level ?? event.data?.alertLevel ?? null,
+        alert_id: event.data?.alert_id ?? null,
+        alert_level: event.data?.alert_level ?? null,
         scope: event.data?.scope ?? "turn",
         pressure: event.data?.pressure ?? null,
-        pressure_status:
-          event.data?.pressure_status ?? event.data?.pressureStatus ?? null,
-        recommended_action:
-          event.data?.recommended_action ?? event.data?.recommendedAction ?? null,
+        pressure_status: event.data?.pressure_status ?? null,
+        recommended_action: event.data?.recommended_action ?? null,
         actions: normalizeArray(event.data?.actions),
-        run_id: event.data?.run_id ?? event.data?.runId ?? null,
-        thread_id: event.data?.thread_id ?? event.data?.threadId ?? null,
-        turn_id: event.data?.turn_id ?? event.data?.turnId ?? null,
+        run_id: event.data?.run_id ?? null,
+        thread_id: event.data?.thread_id ?? null,
+        turn_id: event.data?.turn_id ?? null,
         workflow_node_id:
-          event.data?.workflowNodeId ?? "runtime.context-pressure-alert",
-        component_kind: event.data?.componentKind ?? "context_pressure_alert",
+          event.data?.workflow_node_id ?? "runtime.context-pressure-alert",
+        component_kind: event.data?.component_kind ?? "context_pressure_alert",
         redaction: "usage_telemetry_safe",
       };
     }
     if (event.type === "usage_final") {
       return {
         ...summary,
-        event_kind: event.data?.eventKind ?? "RuntimeUsageTelemetry",
+        event_kind: "RuntimeUsageTelemetry",
         schema_version:
           event.data?.schema_version ??
-          event.data?.schemaVersion ??
           RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
         scope: event.data?.scope ?? "run",
-        thread_id: event.data?.thread_id ?? event.data?.threadId ?? null,
-        turn_id: event.data?.turn_id ?? event.data?.turnId ?? null,
-        total_tokens: event.data?.total_tokens ?? event.data?.totalTokens ?? 0,
-        input_tokens: event.data?.input_tokens ?? event.data?.inputTokens ?? 0,
-        output_tokens: event.data?.output_tokens ?? event.data?.outputTokens ?? 0,
-        estimated_cost_usd:
-          event.data?.estimated_cost_usd ??
-          event.data?.estimatedCostUsd ??
-          null,
-        context_pressure:
-          event.data?.context_pressure ??
-          event.data?.contextPressure ??
-          null,
-        context_pressure_status:
-          event.data?.context_pressure_status ??
-          event.data?.contextPressureStatus ??
-          null,
-        workflow_node_id: event.data?.workflowNodeId ?? "runtime.usage-telemetry",
+        thread_id: event.data?.thread_id ?? null,
+        turn_id: event.data?.turn_id ?? null,
+        total_tokens: event.data?.total_tokens ?? 0,
+        input_tokens: event.data?.input_tokens ?? 0,
+        output_tokens: event.data?.output_tokens ?? 0,
+        estimated_cost_usd: event.data?.estimated_cost_usd ?? null,
+        context_pressure: event.data?.context_pressure ?? null,
+        context_pressure_status: event.data?.context_pressure_status ?? null,
+        workflow_node_id: event.data?.workflow_node_id ?? "runtime.usage-telemetry",
         redaction: "usage_telemetry_safe",
       };
     }
