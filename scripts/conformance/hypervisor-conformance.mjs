@@ -455,6 +455,12 @@ function runBridge() {
   const l1SettlementStoreTest = exists("packages/runtime-daemon/src/runtime-l1-settlement-store.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-l1-settlement-store.test.mjs")
     : "";
+  const l1SettlementSurface = exists("packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs")
+    : "";
+  const l1SettlementSurfaceTest = exists("packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs")
+    : "";
   const retiredCodingToolJsBodyPattern =
     /function (?:computerUseLeaseRequestTool|workspaceStatusTool|gitDiffTool|fileInspectTool|fileApplyPatchTool|testRunTool|lspDiagnosticsTool|artifactReadTool|toolRetrieveResultTool)\(/;
   const retiredCodingToolJsImportPattern =
@@ -1107,6 +1113,30 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 8/11 is pending: daemon L1 settlement facade must call the Rust trigger guard bridge and fail closed when unconfigured",
+  );
+  assertCheck(
+    result,
+    "l1-settlement-product-route",
+    /createRuntimeL1SettlementSurface/.test(runtimeDaemonIndex) &&
+      /this\.l1SettlementSurface/.test(runtimeDaemonIndex) &&
+      /admitL1SettlementAttempt/.test(runtimeDaemonIndex) &&
+      /L1_SETTLEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(l1SettlementSurface) &&
+      /settlement_admitted:\s*true/.test(l1SettlementSurface) &&
+      /store\.l1SettlementRunner\.admitAttempt/.test(l1SettlementSurface) &&
+      /l1-settlement-attempts/.test(runtimeRouteHandlers) &&
+      /store\.admitL1SettlementAttempt/.test(runtimeRouteHandlers) &&
+      /thread route admits L1 settlement attempts through store facade/.test(runtimeRouteHandlersTest) &&
+      /thread route does not expose L1 settlement apply shortcut/.test(runtimeRouteHandlersTest) &&
+      /L1 settlement surface admits nested attempt through Rust runner/.test(l1SettlementSurfaceTest) &&
+      /L1 settlement surface fails closed without attempt payload/.test(l1SettlementSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 8/11 is pending: product/API L1 settlement route must call Rust trigger admission and expose no JS apply shortcut",
   );
   assertCheck(
     result,

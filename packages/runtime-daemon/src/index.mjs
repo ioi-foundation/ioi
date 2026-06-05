@@ -144,6 +144,7 @@ import { createRuntimeTaskJobSurface } from "./runtime-task-job-surface.mjs";
 import { createRuntimeGovernedImprovementSurface } from "./runtime-governed-improvement-surface.mjs";
 import { createRuntimeWorkerServicePackageSurface } from "./runtime-worker-service-package-surface.mjs";
 import { createRuntimeCteePrivateWorkspaceSurface } from "./runtime-ctee-private-workspace-surface.mjs";
+import { createRuntimeL1SettlementSurface } from "./runtime-l1-settlement-surface.mjs";
 import { createRuntimeThreadControlSurface } from "./runtime-thread-control-surface.mjs";
 import { createRuntimeThreadEventSurface } from "./runtime-thread-event-surface.mjs";
 import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
@@ -766,6 +767,9 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
     });
     this.cteePrivateWorkspaceSurface = createRuntimeCteePrivateWorkspaceSurface({
+      runtimeError,
+    });
+    this.l1SettlementSurface = createRuntimeL1SettlementSurface({
       runtimeError,
     });
     this.codingToolBudgetRecoverySurface = createRuntimeCodingToolBudgetRecoverySurface({
@@ -1779,6 +1783,10 @@ export class AgentgresRuntimeStateStore {
 
   executeCteePrivateWorkspaceAction(threadId, request = {}) {
     return this.cteePrivateWorkspaceSurface.executeCteePrivateWorkspaceAction(this, threadId, request);
+  }
+
+  admitL1SettlementAttempt(threadId, request = {}) {
+    return this.l1SettlementSurface.admitL1SettlementAttempt(this, threadId, request);
   }
 
   latestWorkflowEditProposalEvent(threadId, proposalId) {

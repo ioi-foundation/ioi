@@ -194,6 +194,52 @@ test("thread route executes cTEE private workspace actions through store facade"
   });
 });
 
+test("thread route admits L1 settlement attempts through store facade", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const response = responseRecorder();
+  const calls = [];
+  const body = {
+    attempt: {
+      schema_version: "ioi.l1_settlement_admission.v1",
+      settlement_ref: "l1://settlement/route",
+      domain_ref: "domain://marketplace/services",
+      state_root_ref: "state-root://agentgres/marketplace/after",
+      trigger_refs: ["l1-trigger://service-contract/payment"],
+      receipt_refs: ["receipt://local-settlement/payment"],
+    },
+  };
+  const store = {
+    admitL1SettlementAttempt(threadId, requestBody) {
+      calls.push({ threadId, requestBody });
+      return {
+        status: "admitted",
+        settlement_ref: requestBody.attempt.settlement_ref,
+        settlement_admitted: true,
+      };
+    },
+  };
+
+  await handleThreadRoute({
+    request: request({
+      method: "POST",
+      url: "/v1/threads/thread_route/l1-settlement-attempts",
+      body,
+    }),
+    response,
+    store,
+    url: new URL("/v1/threads/thread_route/l1-settlement-attempts", "http://daemon.test"),
+    segments: ["v1", "threads", "thread_route", "l1-settlement-attempts"],
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(calls, [{ threadId: "thread_route", requestBody: body }]);
+  assert.deepEqual(JSON.parse(response.body), {
+    status: "admitted",
+    settlement_ref: "l1://settlement/route",
+    settlement_admitted: true,
+  });
+});
+
 test("thread route does not expose governed improvement apply shortcut", async () => {
   const { handleThreadRoute } = routeHandlers();
   const response = responseRecorder();
@@ -222,6 +268,37 @@ test("thread route does not expose governed improvement apply shortcut", async (
     (error) =>
       error.code === "not_found" &&
       error.details.action === "governed-improvement-proposals",
+  );
+});
+
+test("thread route does not expose L1 settlement apply shortcut", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const response = responseRecorder();
+
+  await assert.rejects(
+    () => handleThreadRoute({
+      request: request({
+        method: "POST",
+        url: "/v1/threads/thread_route/l1-settlement-attempts/settlement_1/apply",
+      }),
+      response,
+      store: {},
+      url: new URL(
+        "/v1/threads/thread_route/l1-settlement-attempts/settlement_1/apply",
+        "http://daemon.test",
+      ),
+      segments: [
+        "v1",
+        "threads",
+        "thread_route",
+        "l1-settlement-attempts",
+        "settlement_1",
+        "apply",
+      ],
+    }),
+    (error) =>
+      error.code === "not_found" &&
+      error.details.action === "l1-settlement-attempts",
   );
 });
 
