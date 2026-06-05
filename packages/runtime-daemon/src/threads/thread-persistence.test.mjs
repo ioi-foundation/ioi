@@ -261,7 +261,7 @@ test("thread persistence loads agents, runs, subagents, coding artifacts, and re
   assert.deepEqual(store.registeredEvents, [{ seq: 1 }, { seq: 2 }]);
 });
 
-test("thread persistence writes run projections without operation entries and admits canonical storage writes", () => {
+test("thread persistence writes run projections without operation entries and admits canonical storage writes plus sidecars", () => {
   const store = fakeStore();
   const run = {
     id: "run_1",
@@ -317,14 +317,12 @@ test("thread persistence writes run projections without operation entries and ad
     "quality/run_1.json",
     "projections/run_1.json",
   ]);
-  assert.equal(store.storageWriteAdmissions.length, 3);
+  assert.equal(store.storageWriteAdmissions.length, files.length);
   assert.deepEqual(
-    store.storageWriteAdmissions.map((admission) => admission.object_ref),
-    [
-      "agentgres://runtime-state/runs/run_1/records/runs/run_1.json",
-      "agentgres://runtime-state/runs/run_1/records/tasks/run_1.json",
-      "agentgres://runtime-state/runs/run_1/records/projections/run_1.json",
-    ],
+    store.storageWriteAdmissions.map((admission) =>
+      admission.object_ref.replace("agentgres://runtime-state/runs/run_1/records/", ""),
+    ),
+    files,
   );
   for (const admission of store.storageWriteAdmissions) {
     assert.equal(admission.schema_version, "ioi.storage_backend_write_admission.v1");
@@ -334,11 +332,8 @@ test("thread persistence writes run projections without operation entries and ad
     assert.equal(admission.payload_refs.length, 1);
     assert.match(admission.payload_refs[0], /^payload:\/\/runtime\/runs\/run_1\/records\//);
   }
-  for (const [objectRef, filePath] of [
-    ["agentgres://runtime-state/runs/run_1/records/runs/run_1.json", "runs/run_1.json"],
-    ["agentgres://runtime-state/runs/run_1/records/tasks/run_1.json", "tasks/run_1.json"],
-    ["agentgres://runtime-state/runs/run_1/records/projections/run_1.json", "projections/run_1.json"],
-  ]) {
+  for (const filePath of files) {
+    const objectRef = `agentgres://runtime-state/runs/run_1/records/${filePath}`;
     const admissionIndex = store.persistenceEvents.findIndex(
       (event) => event.type === "storage_admission" && event.objectRef === objectRef,
     );

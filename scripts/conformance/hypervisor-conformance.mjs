@@ -917,6 +917,8 @@ function runReceipts() {
     threadPersistence.match(/export function writeAgentRecord[\s\S]*?\n}\n/)?.[0] ?? "";
   const writeSubagentRecordBody =
     threadPersistence.match(/export function writeSubagentRecord[\s\S]*?\n}\n/)?.[0] ?? "";
+  const writeRunRecordBody =
+    threadPersistence.match(/export function writeRunRecord[\s\S]*$/)?.[0] ?? "";
   const modelMountReceiptWriteGuards = exists("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
     : "";
@@ -1620,6 +1622,33 @@ function runReceipts() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 5/11 is pending: canonical run/task/projection state writes must obtain Rust storage admission with Agentgres PayloadRef/receipt refs before local JSON persistence",
+  );
+  assertCheck(
+    result,
+    "thread-run-state-sidecar-storage-write-rust-admitted",
+    /writeRunRecord/.test(writeRunRecordBody) &&
+      !/\bwriteJson\(store\.pathFor/.test(writeRunRecordBody) &&
+      /`jobs\/\$\{runtimeJob\.jobId\}\.json`/.test(writeRunRecordBody) &&
+      /`checklists\/\$\{runtimeChecklist\.checklistId\}\.json`/.test(writeRunRecordBody) &&
+      /`receipts\/\$\{receipt\.id\}\.json`/.test(writeRunRecordBody) &&
+      /`artifacts\/\$\{artifact\.id\}\.json`/.test(writeRunRecordBody) &&
+      /`policy-decisions\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
+      /`authority-decisions\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
+      /`stop-conditions\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
+      /`scorecards\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
+      /`ledgers\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
+      /`quality\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
+      /storageWriteAdmissions\.length, files\.length/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /admits canonical storage writes plus sidecars/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/threads/thread-persistence.mjs",
+      "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
+    ],
+    "Phase 5/11 is pending: run-state sidecar records must not bypass Rust storage admission before local JSON persistence",
   );
   assertCheck(
     result,

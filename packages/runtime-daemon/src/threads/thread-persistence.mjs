@@ -397,33 +397,39 @@ export function writeRunRecord(store, run, operationKind, deps = {}) {
     agentgresTransition,
   };
   writeJsonWithStorageAdmission(store, `tasks/${run.id}.json`, taskRecord, run, writeJson);
-  writeJson(store.pathFor("jobs", `${runtimeJob.jobId}.json`), runtimeJob);
-  writeJson(store.pathFor("checklists", `${runtimeChecklist.checklistId}.json`), runtimeChecklist);
+  writeJsonWithStorageAdmission(store, `jobs/${runtimeJob.jobId}.json`, runtimeJob, run, writeJson);
+  writeJsonWithStorageAdmission(
+    store,
+    `checklists/${runtimeChecklist.checklistId}.json`,
+    runtimeChecklist,
+    run,
+    writeJson,
+  );
   for (const receipt of run.receipts) {
-    writeJson(store.pathFor("receipts", `${receipt.id}.json`), { runId: run.id, ...receipt });
+    writeJsonWithStorageAdmission(store, `receipts/${receipt.id}.json`, { runId: run.id, ...receipt }, run, writeJson);
   }
   for (const artifact of run.artifacts) {
-    writeJson(store.pathFor("artifacts", `${artifact.id}.json`), artifact);
+    writeJsonWithStorageAdmission(store, `artifacts/${artifact.id}.json`, artifact, run, writeJson);
   }
-  writeJson(store.pathFor("policy-decisions", `${run.id}.json`), {
+  writeJsonWithStorageAdmission(store, `policy-decisions/${run.id}.json`, {
     runId: run.id,
     decision: "allowed",
     rationale: "Local daemon run stayed inside bounded local/private runtime contract.",
     primitiveCapabilities: ["prim:model.invoke"],
     authorityScopes: [],
     receiptId: run.receipts.find((receipt) => receipt.kind === "policy_decision")?.id,
-  });
-  writeJson(store.pathFor("authority-decisions", `${run.id}.json`), {
+  }, run, writeJson);
+  writeJsonWithStorageAdmission(store, `authority-decisions/${run.id}.json`, {
     runId: run.id,
     decision: "allowed",
     authorityScopes: [],
     walletLayer: "wallet.network",
     receiptId: run.receipts.find((receipt) => receipt.kind === "authority_decision")?.id,
-  });
-  writeJson(store.pathFor("stop-conditions", `${run.id}.json`), run.trace.stopCondition);
-  writeJson(store.pathFor("scorecards", `${run.id}.json`), run.trace.scorecard);
-  writeJson(store.pathFor("ledgers", `${run.id}.json`), run.trace.qualityLedger);
-  writeJson(store.pathFor("quality", `${run.id}.json`), {
+  }, run, writeJson);
+  writeJsonWithStorageAdmission(store, `stop-conditions/${run.id}.json`, run.trace.stopCondition, run, writeJson);
+  writeJsonWithStorageAdmission(store, `scorecards/${run.id}.json`, run.trace.scorecard, run, writeJson);
+  writeJsonWithStorageAdmission(store, `ledgers/${run.id}.json`, run.trace.qualityLedger, run, writeJson);
+  writeJsonWithStorageAdmission(store, `quality/${run.id}.json`, {
     runId: run.id,
     scorecard: run.trace.scorecard,
     qualityLedger: run.trace.qualityLedger,
@@ -433,7 +439,7 @@ export function writeRunRecord(store, run, operationKind, deps = {}) {
       evidenceOnlyMode: true,
       humanReviewThreshold: "high_risk",
     },
-  });
+  }, run, writeJson);
   const projectionRecord = {
     ...store.canonicalProjection(run.id),
     agentgresTransition,
