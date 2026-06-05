@@ -1439,6 +1439,61 @@ export interface RuntimeWorkerServicePackageInvocationAdmissionResult extends Re
   record?: Record<string, unknown>;
 }
 
+export interface RuntimeCteePrivateWorkspaceNodeTrust extends Record<string, unknown> {
+  runtime_node_ref: string;
+  trusted_for_plaintext: boolean;
+  attestation_ref?: string | null;
+}
+
+export interface RuntimeCteePrivateWorkspaceAction extends Record<string, unknown> {
+  invocation: Record<string, unknown>;
+  node_trust: RuntimeCteePrivateWorkspaceNodeTrust | Record<string, unknown>;
+  expected_heads: string[];
+}
+
+export interface RuntimeCteePrivateWorkspaceActionInput extends Record<string, unknown> {
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  actor?: string;
+  workflowGraphId?: string;
+  workflow_graph_id?: string;
+  workflowNodeId?: string;
+  workflow_node_id?: string;
+  action: RuntimeCteePrivateWorkspaceAction | Record<string, unknown>;
+}
+
+export interface RuntimeCteePrivateWorkspaceActionResult extends Record<string, unknown> {
+  schema_version?: "ioi.runtime.ctee_private_workspace_admission.v1" | string;
+  schemaVersion?: "ioi.runtime.ctee_private_workspace_admission.v1" | string;
+  object?: "ioi.runtime_ctee_private_workspace_admission" | string;
+  status: "admitted" | string;
+  action_executed?: boolean;
+  actionExecuted?: boolean;
+  thread_id?: string;
+  threadId?: string;
+  agent_id?: string;
+  agentId?: string;
+  invocation_id?: string | null;
+  invocationId?: string | null;
+  receipt_ref?: string | null;
+  receiptRef?: string | null;
+  receipt?: Record<string, unknown> | null;
+  result?: Record<string, unknown> | null;
+  receipt_binding?: Record<string, unknown> | null;
+  receiptBinding?: Record<string, unknown> | null;
+  accepted_receipt_append?: Record<string, unknown> | null;
+  acceptedReceiptAppend?: Record<string, unknown> | null;
+  agentgres_admission?: Record<string, unknown> | null;
+  agentgresAdmission?: Record<string, unknown> | null;
+  projection_record?: Record<string, unknown> | null;
+  projectionRecord?: Record<string, unknown> | null;
+  receipt_refs?: string[];
+  receiptRefs?: string[];
+  evidence_refs?: string[];
+  evidenceRefs?: string[];
+  admission?: Record<string, unknown>;
+  record?: Record<string, unknown>;
+}
+
 export interface RuntimeEventStreamOptions {
   sinceSeq?: number;
   lastEventId?: string;
@@ -1560,6 +1615,10 @@ export interface RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeWorkerServicePackageInvocationAdmissionInput,
   ): Promise<RuntimeWorkerServicePackageInvocationAdmissionResult>;
+  executeCteePrivateWorkspaceAction(
+    threadId: string,
+    input: RuntimeCteePrivateWorkspaceActionInput,
+  ): Promise<RuntimeCteePrivateWorkspaceActionResult>;
   submitTurn(threadId: string, input: RuntimeTurnCreateInput): Promise<RuntimeTurnRecord>;
   listTurns(threadId: string): Promise<RuntimeTurnRecord[]>;
   getTurn(threadId: string, turnId: string): Promise<RuntimeTurnRecord>;
@@ -1897,6 +1956,21 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "admitWorkerServicePackageInvocation",
       "POST",
       `/v1/threads/${encodePath(threadId)}/worker-service-package-invocations`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async executeCteePrivateWorkspaceAction(
+    threadId: string,
+    input: RuntimeCteePrivateWorkspaceActionInput,
+  ): Promise<RuntimeCteePrivateWorkspaceActionResult> {
+    return this.request(
+      "executeCteePrivateWorkspaceAction",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/ctee-private-workspace-actions`,
       {
         source: "sdk_client",
         ...input,

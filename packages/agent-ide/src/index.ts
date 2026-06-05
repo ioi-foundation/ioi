@@ -290,6 +290,15 @@ export {
   createRuntimeWorkerServicePackageControlRequestFromWorkflowNode,
 } from "./runtime/workflow-runtime-worker-service-package-control-nodes";
 export {
+  RUNTIME_CTEE_PRIVATE_WORKSPACE_COMPONENT_KIND,
+  RUNTIME_CTEE_PRIVATE_WORKSPACE_SOURCE,
+  RUNTIME_CTEE_PRIVATE_WORKSPACE_SOURCE_EVENT_KIND,
+  RUNTIME_CTEE_PRIVATE_WORKSPACE_WORKFLOW_NODE_ID,
+  WORKFLOW_RUNTIME_CTEE_PRIVATE_WORKSPACE_CONTROL_SCHEMA_VERSION,
+  createRuntimeCteePrivateWorkspaceControlRequest,
+  createRuntimeCteePrivateWorkspaceControlRequestFromWorkflowNode,
+} from "./runtime/workflow-runtime-ctee-private-workspace-control-nodes";
+export {
   RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND,
   RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION,
   RUNTIME_CONTEXT_COMPACT_SOURCE,
@@ -749,6 +758,14 @@ export type {
   RuntimeWorkerServicePackageKind,
   RuntimeWorkerServicePackageWorkflowNodeOptions,
 } from "./runtime/workflow-runtime-worker-service-package-control-nodes";
+export type {
+  RuntimeCteePrivateWorkspaceAction,
+  RuntimeCteePrivateWorkspaceControlRequest,
+  RuntimeCteePrivateWorkspaceControlRequestBody,
+  RuntimeCteePrivateWorkspaceControlRequestInput,
+  RuntimeCteePrivateWorkspaceNodeTrust,
+  RuntimeCteePrivateWorkspaceWorkflowNodeOptions,
+} from "./runtime/workflow-runtime-ctee-private-workspace-control-nodes";
 export type {
   RuntimeCodingToolControlRequest,
   RuntimeCodingToolControlRequestBody,

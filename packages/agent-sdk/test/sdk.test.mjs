@@ -186,6 +186,85 @@ test("SDK admits worker/service package invocations through the thread route", a
   }
 });
 
+test("SDK executes cTEE private workspace actions through the thread route", async () => {
+  const requests = [];
+  const action = {
+    invocation: {
+      schema_version: "ioi.step_module_invocation.v1",
+      invocation_id: "invocation://ctee/sdk",
+      module_ref: {
+        kind: "private_workspace_ctee_action",
+        id: "private_workspace.mount",
+        manifest_ref: "module://ctee/private-workspace@1",
+      },
+      custody: {
+        privacy_profile: "private_workspace_ctee",
+        plaintext_policy: {
+          node_plaintext_allowed: false,
+          declassification_required: true,
+        },
+        custody_proof_ref: "artifact://custody-proof",
+        leakage_profile_ref: "artifact://leakage-profile",
+      },
+      execution: {
+        backend: "ctee_operator",
+      },
+    },
+    node_trust: {
+      runtime_node_ref: "node://rented-untrusted",
+      trusted_for_plaintext: false,
+      attestation_ref: null,
+    },
+    expected_heads: ["agentgres://ctee/private-workspace/head/before"],
+  };
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    requests.push(`${request.method} ${url.pathname}`);
+    response.setHeader("content-type", "application/json");
+    if (
+      request.method === "POST" &&
+      url.pathname === "/v1/threads/thread_sdk/ctee-private-workspace-actions"
+    ) {
+      const body = await readBody(request);
+      assert.equal(body.source, "sdk_client");
+      assert.equal(body.action.invocation.invocation_id, "invocation://ctee/sdk");
+      assert.equal(body.action.node_trust.trusted_for_plaintext, false);
+      response.statusCode = 201;
+      response.end(JSON.stringify({
+        schema_version: "ioi.runtime.ctee_private_workspace_admission.v1",
+        object: "ioi.runtime_ctee_private_workspace_admission",
+        status: "admitted",
+        action_executed: true,
+        thread_id: "thread_sdk",
+        agent_id: "agent_sdk",
+        invocation_id: action.invocation.invocation_id,
+        receipt_ref: "receipt://ctee/private-workspace/sdk",
+        receipt_refs: ["receipt://ctee/private-workspace/sdk"],
+        evidence_refs: ["receipt://ctee/private-workspace/sdk"],
+        record: action,
+      }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: { code: "not_found", message: "missing route" } }));
+  });
+  await listen(server);
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
+    const result = await client.executeCteePrivateWorkspaceAction("thread_sdk", { action });
+
+    assert.equal(result.status, "admitted");
+    assert.equal(result.action_executed, true);
+    assert.equal(result.invocation_id, "invocation://ctee/sdk");
+    assert.equal(result.receipt_ref, "receipt://ctee/private-workspace/sdk");
+    assert.ok(requests.includes("POST /v1/threads/thread_sdk/ctee-private-workspace-actions"));
+  } finally {
+    await close(server);
+  }
+});
+
 test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
   const now = new Date().toISOString();
   const events = [

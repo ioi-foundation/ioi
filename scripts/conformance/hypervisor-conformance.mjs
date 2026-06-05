@@ -2274,6 +2274,28 @@ function runCtee() {
   const runtimeRouteHandlersTest = exists("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     : "";
+  const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
+    ? read("packages/agent-sdk/src/substrate-client.ts")
+    : "";
+  const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
+    ? read("packages/agent-sdk/test/sdk.test.mjs")
+    : "";
+  const agentIdeIndex = exists("packages/agent-ide/src/index.ts")
+    ? read("packages/agent-ide/src/index.ts")
+    : "";
+  const graphRuntimeTypes = exists("packages/agent-ide/src/runtime/graph-runtime-types.ts")
+    ? read("packages/agent-ide/src/runtime/graph-runtime-types.ts")
+    : "";
+  const cteePrivateWorkspaceControlNodes = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts")
+    : "";
+  const cteePrivateWorkspaceControlNodesTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts")
+    : "";
   assertCheck(
     result,
     "ctee-core-module",
@@ -2380,6 +2402,40 @@ function runCtee() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 7 is pending: product/API cTEE Private Workspace route must call Rust cTEE admission and expose no JS apply shortcut",
+  );
+  assertCheck(
+    result,
+    "ctee-sdk-ide-admission-surface",
+    /executeCteePrivateWorkspaceAction/.test(agentSdkSubstrateClient) &&
+      /RuntimeCteePrivateWorkspaceActionInput/.test(agentSdkSubstrateClient) &&
+      /ctee-private-workspace-actions/.test(agentSdkSubstrateClient) &&
+      /SDK executes cTEE private workspace actions through the thread route/.test(agentSdkTest) &&
+      /WORKFLOW_RUNTIME_CTEE_PRIVATE_WORKSPACE_CONTROL_SCHEMA_VERSION/.test(
+        cteePrivateWorkspaceControlNodes,
+      ) &&
+      /createRuntimeCteePrivateWorkspaceControlRequest/.test(cteePrivateWorkspaceControlNodes) &&
+      /ctee-private-workspace-actions/.test(cteePrivateWorkspaceControlNodes) &&
+      /admission_only:\s*true/.test(cteePrivateWorkspaceControlNodes) &&
+      /direct_truth_write_allowed:\s*false/.test(cteePrivateWorkspaceControlNodes) &&
+      /plaintext_custody_checked_by_rust:\s*true/.test(cteePrivateWorkspaceControlNodes) &&
+      !/\/apply/.test(cteePrivateWorkspaceControlNodes) &&
+      /builds cTEE private workspace controls for daemon admission/.test(
+        cteePrivateWorkspaceControlNodesTest,
+      ) &&
+      /cTEE private workspace controls fail closed without admission refs/.test(
+        cteePrivateWorkspaceControlNodesTest,
+      ) &&
+      /createRuntimeCteePrivateWorkspaceControlRequest/.test(agentIdeIndex) &&
+      /RuntimeCteePrivateWorkspaceControlRequest/.test(graphRuntimeTypes),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+      "packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts",
+      "packages/agent-ide/src/runtime/graph-runtime-types.ts",
+      "packages/agent-ide/src/index.ts",
+    ],
+    "Phase 7 is pending: SDK and IDE cTEE Private Workspace clients must consume the cTEE route without exposing a JS apply shortcut",
   );
   return result;
 }
