@@ -334,7 +334,6 @@ export interface ModelInvocationReceipt {
     latencyMs: number;
     inputHash: string;
     outputHash: string;
-    compatTranslation?: "chat_completions" | null;
     providerResponseKind?: string | null;
     backendEvidenceRefs?: string[];
     toolReceiptIds?: string[];

@@ -473,6 +473,9 @@ function runBridge() {
   const agentSdkOptions = exists("packages/agent-sdk/src/options.ts")
     ? read("packages/agent-sdk/src/options.ts")
     : "";
+  const agentSdkModelMounts = exists("packages/agent-sdk/src/model-mounts.ts")
+    ? read("packages/agent-sdk/src/model-mounts.ts")
+    : "";
   const workflowStructuredPolicyComposer = exists(
     "packages/agent-ide/src/runtime/workflow-structured-policy-composer.ts",
   )
@@ -1199,6 +1202,7 @@ function runBridge() {
     /model_mount_provider_compat_translation_forbidden/.test(modelInvocationOps) &&
       !/compatTranslation:\s*providerResult\.compatTranslation/.test(modelInvocationOps) &&
       !/compat_translation:\s*invocation\.compatTranslation/.test(openAiCompatRoutes) &&
+      !/compatTranslation\??:/.test(agentSdkModelMounts) &&
       /rejects provider compatibility translations before result admission/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
@@ -1209,8 +1213,9 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
+      "packages/agent-sdk/src/model-mounts.ts",
     ],
-    "Phase 9/11 is pending: provider compatibility translation markers must fail closed instead of entering accepted receipts or native protocol responses",
+    "Phase 9/11 is pending: provider compatibility translation markers must fail closed instead of entering accepted receipts, native protocol responses, or SDK receipt types",
   );
   assertCheck(
     result,

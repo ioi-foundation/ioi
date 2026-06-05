@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 235:
+Current expected behavior after Slice 236:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11456,6 +11456,13 @@ Slice 235 adds compositor proof for
 gates no longer require the retired `apps/autopilot/src-tauri/src` runtime
 projection path, and any Tauri Rust projection/schema checks are explicitly
 scoped to legacy extraction inventory under `internal-docs/legacy`.
+
+Slice 236 extends bridge proof for
+`model-mount-provider-compat-translation-receipt-retired`: the SDK
+`ModelInvocationReceipt` type no longer advertises the retired
+`compatTranslation` field after daemon provider compatibility-translation
+markers are verified fail-closed before accepted receipts or protocol
+responses.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
