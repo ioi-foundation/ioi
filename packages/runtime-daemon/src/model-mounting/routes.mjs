@@ -139,7 +139,7 @@ export function selectRoute({
     status: 424,
     code: "external_blocker",
     message: "No model endpoint satisfied the route policy.",
-    details: { routeId: route.id, capability, policy, evaluatedCandidates },
+    details: { route_id: route.id, capability, policy, evaluated_candidates: evaluatedCandidates },
   });
 }
 

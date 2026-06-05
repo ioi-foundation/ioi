@@ -1196,9 +1196,17 @@ function runBridge() {
       /receipt\.details\?\.endpoint_id/.test(modelProjections) &&
       /receipt\.details\?\.provider_id/.test(modelProjections) &&
       !/receipt\.details\?\.(?:routeId|endpointId|providerId)/.test(modelProjections) &&
+      /details:\s*\{\s*route_id:\s*route\.id,\s*capability,\s*policy,\s*evaluated_candidates:\s*evaluatedCandidates\s*\}/.test(
+        modelRoutes,
+      ) &&
+      !/details:\s*\{\s*routeId:\s*route\.id,\s*capability,\s*policy,\s*evaluatedCandidates\s*\}/.test(
+        modelRoutes,
+      ) &&
       /routeReceipt\?\.details\?\.workflow_graph_id/.test(modelInvocationOps) &&
       /routeReceipt\?\.details\?\.workflow_node_id/.test(modelInvocationOps) &&
       !/routeReceipt\?\.details\?\.(?:workflowGraphId|workflowNodeId)/.test(modelInvocationOps) &&
+      /Object\.hasOwn\(error\.details,\s*"routeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
+      /Object\.hasOwn\(error\.details,\s*"evaluatedCandidates"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
       /Object\.hasOwn\(created\[0\]\.details,\s*"routeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
       /Object\.hasOwn\(created\[0\]\.details,\s*"policyHash"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
       /Object\.hasOwn\(created\[0\]\.details,\s*"workflowNodeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&

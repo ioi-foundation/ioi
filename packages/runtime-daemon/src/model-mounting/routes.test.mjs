@@ -242,7 +242,10 @@ test("model mounting route helpers report blocker details when no endpoint satis
   }));
 
   assert.equal(error.status, 424);
-  assert.equal(error.details.evaluatedCandidates[0].reason, "provider_not_eligible_for_route");
+  assert.equal(error.details.route_id, "route.local-first");
+  assert.equal(error.details.evaluated_candidates[0].reason, "provider_not_eligible_for_route");
+  assert.equal(Object.hasOwn(error.details, "routeId"), false);
+  assert.equal(Object.hasOwn(error.details, "evaluatedCandidates"), false);
 });
 
 test("model mounting route helpers preserve route-selection receipt metadata", () => {
