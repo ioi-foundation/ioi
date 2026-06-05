@@ -49,6 +49,7 @@ import type {
 } from "./workflow-runtime-control-nodes";
 import type { RuntimeCodingToolControlRequest } from "./workflow-runtime-coding-tool-control-nodes";
 import type { RuntimeCodingToolBudgetRecoveryControlRequest } from "./workflow-runtime-coding-tool-budget-recovery-control-nodes";
+import type { RuntimeGovernedImprovementControlRequest } from "./workflow-runtime-governed-improvement-control-nodes";
 import type { RuntimeSubagentControlRequest } from "./workflow-runtime-subagent-control-nodes";
 import type { WorkflowCapabilityRunLaunchAnnotation } from "./workflow-capability-preflight";
 import type {
@@ -66,6 +67,7 @@ export type WorkflowRuntimeControlRequest =
   | RuntimeCodingToolControlRequest
   | RuntimeContextCompactControlRequest
   | RuntimeDiagnosticsRepairControlRequest
+  | RuntimeGovernedImprovementControlRequest
   | RuntimeOperatorInterruptControlRequest
   | RuntimeThreadModeControlRequest
   | RuntimeWorkspaceTrustAcknowledgementControlRequest

@@ -1303,6 +1303,76 @@ export interface RuntimeThreadThinkingInput {
   [key: string]: unknown;
 }
 
+export type RuntimeGovernedImprovementSurface =
+  | "skill"
+  | "module"
+  | "workflow"
+  | "route"
+  | "schema"
+  | "policy"
+  | string;
+
+export interface RuntimeGovernedImprovementProposal extends Record<string, unknown> {
+  schema_version: "ioi.governed_runtime_improvement.v1" | string;
+  proposal_id: string;
+  target_ref: string;
+  candidate_ref: string;
+  surface: RuntimeGovernedImprovementSurface;
+  source_trace_ref: string;
+  eval_receipt_refs: string[];
+  verifier_receipt_refs: string[];
+  approval_ref: string;
+  rollback_ref: string;
+  agentgres_operation_ref: string;
+  expected_heads: string[];
+  state_root_before: string;
+  state_root_after: string;
+  resulting_head: string;
+}
+
+export interface RuntimeGovernedImprovementProposalAdmissionInput extends Record<string, unknown> {
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  actor?: string;
+  workflowGraphId?: string;
+  workflow_graph_id?: string;
+  workflowNodeId?: string;
+  workflow_node_id?: string;
+  proposal: RuntimeGovernedImprovementProposal | Record<string, unknown>;
+}
+
+export interface RuntimeGovernedImprovementProposalAdmissionResult extends Record<string, unknown> {
+  schema_version?: "ioi.runtime.governed_improvement_admission.v1" | string;
+  schemaVersion?: "ioi.runtime.governed_improvement_admission.v1" | string;
+  object?: "ioi.runtime_governed_improvement_admission" | string;
+  status: "admitted" | string;
+  proposal_admitted?: boolean;
+  proposalAdmitted?: boolean;
+  mutation_executed?: boolean;
+  mutationExecuted?: boolean;
+  thread_id?: string;
+  threadId?: string;
+  agent_id?: string;
+  agentId?: string;
+  proposal_id?: string | null;
+  proposalId?: string | null;
+  admission_hash?: string | null;
+  admissionHash?: string | null;
+  agentgres_operation_ref?: string | null;
+  agentgresOperationRef?: string | null;
+  state_root_before?: string | null;
+  stateRootBefore?: string | null;
+  state_root_after?: string | null;
+  stateRootAfter?: string | null;
+  resulting_head?: string | null;
+  resultingHead?: string | null;
+  approval_ref?: string | null;
+  approvalRef?: string | null;
+  rollback_ref?: string | null;
+  rollbackRef?: string | null;
+  admission?: Record<string, unknown>;
+  record?: Record<string, unknown>;
+}
+
 export interface RuntimeEventStreamOptions {
   sinceSeq?: number;
   lastEventId?: string;
@@ -1416,6 +1486,10 @@ export interface RuntimeSubstrateClient {
   updateThreadMode(threadId: string, input: RuntimeThreadModeInput): Promise<RuntimeThreadRecord>;
   updateThreadModel(threadId: string, input: RuntimeThreadModelInput): Promise<RuntimeThreadRecord>;
   updateThreadThinking(threadId: string, input: RuntimeThreadThinkingInput): Promise<RuntimeThreadRecord>;
+  admitGovernedImprovementProposal(
+    threadId: string,
+    input: RuntimeGovernedImprovementProposalAdmissionInput,
+  ): Promise<RuntimeGovernedImprovementProposalAdmissionResult>;
   submitTurn(threadId: string, input: RuntimeTurnCreateInput): Promise<RuntimeTurnRecord>;
   listTurns(threadId: string): Promise<RuntimeTurnRecord[]>;
   getTurn(threadId: string, turnId: string): Promise<RuntimeTurnRecord>;
@@ -1723,6 +1797,21 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "updateThreadThinking",
       "POST",
       `/v1/threads/${encodePath(threadId)}/thinking`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async admitGovernedImprovementProposal(
+    threadId: string,
+    input: RuntimeGovernedImprovementProposalAdmissionInput,
+  ): Promise<RuntimeGovernedImprovementProposalAdmissionResult> {
+    return this.request(
+      "admitGovernedImprovementProposal",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/governed-improvement-proposals`,
       {
         source: "sdk_client",
         ...input,

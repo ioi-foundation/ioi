@@ -6238,6 +6238,76 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 100
+
+```yaml
+slice: 100
+phase: 9-meta-improvement-proposal-path
+objective: expose governed runtime-improvement proposal admission through stable
+  SDK and IDE review client surfaces without adding a JS apply path
+owner_boundary:
+  route_or_surface: SDK `admitGovernedImprovementProposal` and IDE
+    `createRuntimeGovernedImprovementControlRequest`
+  authority_gate: clients can only submit the proposal envelope to the daemon
+    route and mark `mutation_executed: false`
+  execution_backend: rust_governed_evolution through the existing daemon route,
+    runner, bridge, and Rust core admission
+  truth_path: Rust governed-improvement admission remains the owner of proposal
+    records, eval/verifier receipts, wallet approval refs, rollback refs,
+    Agentgres operation refs, expected heads, and state roots
+  projection_path: Hypervisor IDE/SDK can now compose review/admission requests
+    against the stable route; rollback application and live mutation commit
+    remain separate later authority surfaces
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon: []
+  rust_core: []
+  sdk:
+    - packages/agent-sdk/src/substrate-client.ts
+    - packages/agent-sdk/src/index.ts
+    - packages/agent-sdk/test/sdk.test.mjs
+  ide:
+    - packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts
+    - packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts
+    - packages/agent-ide/src/runtime/graph-runtime-types.ts
+    - packages/agent-ide/src/index.ts
+  tests:
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance fails unless the SDK posts to
+    `/v1/threads/{thread_id}/governed-improvement-proposals`
+  - bridge conformance fails unless the IDE builder emits an admission-only
+    request with `mutation_executed: false`
+  - bridge conformance fails if the IDE governed-improvement client exposes an
+    apply shortcut
+verification:
+  commands:
+    - node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts
+    - npm run build --workspace=@ioi/agent-sdk
+    - node --test --test-concurrency=1 --test-name-pattern "SDK admits governed improvement proposals" packages/agent-sdk/test/sdk.test.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance
+    - git diff --check
+  blocked_full_builds:
+    - `npm run build --workspace=@ioi/agent-ide` remains blocked by
+      pre-existing TypeScript errors in workflow computer-use replay/context
+      lifecycle/signed replay/trajectory import files; the new governed
+      improvement control-node test passes under `node --import tsx --test`
+  replay_or_shadow_comparison: SDK and IDE clients now converge on the same
+    daemon admission route; no client can directly apply or commit the proposal
+cleanup:
+  legacy_paths_removed: false
+  compatibility_shims_remaining:
+    - Rollback application and live mutation commit path remain pending.
+    - IDE review UI can now build the request but still needs a full review
+      panel/flow.
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -6253,7 +6323,7 @@ closeout:
 | `workflow-compositor` | `packages/agent-ide/src/runtime/*`, `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/services/src/agentic/runtime/kernel/projection.rs` | IDE/daemon projection shaping plus Rust projection record primitive | Rust core `projection` consumed by IDE/CLI/SDK | projection checkpoints rebuilt from Agentgres admitted truth | `compositor`, `negative` | Rust projection record and accepted-truth guard implemented; IDE/SDK consumption still pending | compositor cannot create accepted truth directly and only renders/replays canonical projections. |
 | `worker-service-packages` | `docs/architecture/foundations/common-objects-and-envelopes.md`, `docs/architecture/domains/aiagent/worker-endpoints.md`, `docs/architecture/domains/sas/service-endpoints.md`, `crates/services/src/agentic/runtime/kernel/marketplace.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs` | target canon plus Rust worker/service package invocation admission primitive over StepModuleRouter, receipt_binder, Agentgres admission, projection, and command bridge exposure | Rust core `step_router` plus workload/WASM/AIIP backends | package invocation receipt, authority grant, artifacts, projection | `bridge`, `receipts`, `compositor` | Rust package invocation admission primitive implemented and exposed through `admit_worker_service_package_invocation`; product/IDE callers still pending | service and worker package invocation uses the shared Step/Module ABI. |
 | `l1-settlement` | `docs/architecture/foundations/ioi-l1-mainnet.md`, `crates/services/src/agentic/runtime/kernel/settlement.rs` | canon plus Rust trigger guard | Rust settlement/admission core under daemon-owned execution | sparse public/economic/cross-domain commitment by trigger only | `negative` | Rust trigger guard implemented; product settlement surfaces still pending | L1 settlement attempts without marketplace/public/economic/cross-domain/operator trigger fail closed. |
-| `meta-improvement` | `crates/services/src/agentic/runtime/kernel/*`, `crates/services/src/agentic/evolution.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs`, `packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs`, `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `packages/runtime-daemon/src/index.mjs`, workflow/evaluation docs | partial Rust/IDE signals plus governed runtime-improvement proposal admission primitive, command bridge exposure, mounted non-authoritative daemon runner, and product/API proposal admission route requiring eval/verifier receipts, approval, rollback, Agentgres operation refs, expected heads, and state roots; legacy direct `EvolutionService::evolve` manifest mutation now fails closed | Rust core authority plus proposal/eval/approval path | proposal object, eval receipts, approval grant, committed mutation | `bridge`, `receipts`, `negative` | Rust governed proposal admission primitive implemented, exposed through `admit_governed_runtime_improvement_proposal`, reachable via daemon `RustGovernedImprovementRunner`, mounted on `AgentgresRuntimeStateStore`, and exposed at `POST /v1/threads/{thread_id}/governed-improvement-proposals`; direct `EvolutionService::evolve` manifest mutation retired; IDE review, rollback application, and live mutation commit path still pending | agents cannot self-modify directly; all improvements are proposal-mediated. |
+| `meta-improvement` | `crates/services/src/agentic/runtime/kernel/*`, `crates/services/src/agentic/evolution.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs`, `packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs`, `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `packages/runtime-daemon/src/index.mjs`, `packages/agent-sdk/src/substrate-client.ts`, `packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts`, workflow/evaluation docs | partial Rust/IDE signals plus governed runtime-improvement proposal admission primitive, command bridge exposure, mounted non-authoritative daemon runner, product/API proposal admission route, and stable SDK/IDE review clients requiring eval/verifier receipts, approval, rollback, Agentgres operation refs, expected heads, and state roots; legacy direct `EvolutionService::evolve` manifest mutation now fails closed | Rust core authority plus proposal/eval/approval path | proposal object, eval receipts, approval grant, committed mutation | `bridge`, `receipts`, `negative` | Rust governed proposal admission primitive implemented, exposed through `admit_governed_runtime_improvement_proposal`, reachable via daemon `RustGovernedImprovementRunner`, mounted on `AgentgresRuntimeStateStore`, exposed at `POST /v1/threads/{thread_id}/governed-improvement-proposals`, consumable through SDK `admitGovernedImprovementProposal`, and composable from IDE governed-improvement control nodes without a JS apply shortcut; direct `EvolutionService::evolve` manifest mutation retired; full IDE review UI, rollback application, and live mutation commit path still pending | agents cannot self-modify directly; all improvements are proposal-mediated. |
 | `rust-daemon-core` | target layout in master guide plus `crates/services/src/agentic/runtime/kernel/*` | partial Rust primitives for authority, step_router, cTEE, receipts, Agentgres admission, runtime-state transition planning, run/task hash derivation, helper record materialization, storage write-set planning, runtime-state persistence planning, runtime run-state commit planning, projection, settlement, Step/Module ABI, model_mount provider-execution admission, fixture/native-local non-stream provider-invocation execution, native-local stream invocation planning/chunks, and provider-result admission for non-migrated driver observations | Rust modules: `authority`, `step_router`, `workload_client`, `model_mount`, `ctee`, `receipt_binder`, `agentgres_admission`, `projection`, `conformance` | one Rust owner for hot-path semantics | all tiers | partial primitives, not extracted as one authoritative core; coding tools now execute through Rust workload live instead of the daemon JS invocation body; model_mount now admits provider-execution envelopes before JS provider driver calls, executes migrated fixture/native-local non-stream provider backends and native-local stream chunk planning, rejects retired direct JS local provider non-stream/stream execution shims, admits non-migrated JS provider results before receipts, and runtime run persistence now sends one commit request through `RuntimeKernelService`, where Rust derives prior transition binding, transition hashes, materialized state records, storage write sets, persistence hashes, commit hashes, and Rust-written local state records; the external bridge exposes the commit operation instead of separate transition/materialization/storage/persistence commands | hot-path execution, authority, receipt/state-root binding, cTEE, replay, and conformance are owned by Rust core. |
 | `js-facade-retirement` | `packages/runtime-daemon/src/*`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS is current live daemon implementation, with Rust guard forbidding authoritative daemon_js mutation | non-authoritative product/API/client facade only where useful | stable protocol APIs into Rust core | `negative`, terminal `hypervisor-conformance` | direct JS authoritative mutation guard implemented; coding-tool ABI projections no longer default to `daemon_js`; StepModule runner no longer defaults to or accepts `daemon_js`; runtime coding-tool invocation no longer imports or calls the JS `executeCodingTool` body, daemon construction no longer imports or injects that retired dispatcher, and the private JS coding-tool implementation bodies are removed; model-mounting protocol response compatibility re-export retired; broad live facade retirement still pending | every migrated route family removes or demotes old JS authoritative paths and compatibility shims. |
 

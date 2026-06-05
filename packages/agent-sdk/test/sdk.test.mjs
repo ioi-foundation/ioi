@@ -27,6 +27,83 @@ test("default SDK client is daemon-backed and fails closed without transport", a
   );
 });
 
+test("SDK admits governed improvement proposals through the thread route", async () => {
+  const requests = [];
+  const proposal = {
+    schema_version: "ioi.governed_runtime_improvement.v1",
+    proposal_id: "proposal://runtime-improvement/sdk",
+    target_ref: "skill://runtime-auditor/current",
+    candidate_ref: "skill-candidate://runtime-auditor/from-trace",
+    surface: "skill",
+    source_trace_ref: "trace://runtime-improvement/high-fitness",
+    eval_receipt_refs: ["receipt://eval/sdk-holdout-pass"],
+    verifier_receipt_refs: ["receipt://verifier/sdk-regression-pass"],
+    approval_ref: "approval://wallet/runtime-improvement/sdk",
+    rollback_ref: "rollback://skill/runtime-auditor/current",
+    agentgres_operation_ref: "agentgres://runtime-improvement/operations/sdk",
+    expected_heads: ["agentgres://runtime-improvement/head/before"],
+    state_root_before: "sha256:runtime-improvement-before",
+    state_root_after: "sha256:runtime-improvement-after",
+    resulting_head: "agentgres://runtime-improvement/head/after",
+  };
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    requests.push(`${request.method} ${url.pathname}`);
+    response.setHeader("content-type", "application/json");
+    if (
+      request.method === "POST" &&
+      url.pathname === "/v1/threads/thread_sdk/governed-improvement-proposals"
+    ) {
+      const body = await readBody(request);
+      assert.equal(body.source, "sdk_client");
+      assert.equal(body.proposal.proposal_id, "proposal://runtime-improvement/sdk");
+      assert.equal(body.proposal.approval_ref, "approval://wallet/runtime-improvement/sdk");
+      response.statusCode = 201;
+      response.end(JSON.stringify({
+        schema_version: "ioi.runtime.governed_improvement_admission.v1",
+        object: "ioi.runtime_governed_improvement_admission",
+        status: "admitted",
+        proposal_admitted: true,
+        mutation_executed: false,
+        thread_id: "thread_sdk",
+        agent_id: "agent_sdk",
+        proposal_id: proposal.proposal_id,
+        admission_hash: "sha256:sdk-admission",
+        agentgres_operation_ref: proposal.agentgres_operation_ref,
+        state_root_before: proposal.state_root_before,
+        state_root_after: proposal.state_root_after,
+        resulting_head: proposal.resulting_head,
+        approval_ref: proposal.approval_ref,
+        rollback_ref: proposal.rollback_ref,
+        record: {
+          ...proposal,
+          admission_hash: "sha256:sdk-admission",
+        },
+      }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: { code: "not_found", message: "missing route" } }));
+  });
+  await listen(server);
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
+    const result = await client.admitGovernedImprovementProposal("thread_sdk", { proposal });
+
+    assert.equal(result.status, "admitted");
+    assert.equal(result.proposal_admitted, true);
+    assert.equal(result.mutation_executed, false);
+    assert.equal(result.proposal_id, "proposal://runtime-improvement/sdk");
+    assert.equal(result.admission_hash, "sha256:sdk-admission");
+    assert.equal(result.agentgres_operation_ref, "agentgres://runtime-improvement/operations/sdk");
+    assert.ok(requests.includes("POST /v1/threads/thread_sdk/governed-improvement-proposals"));
+  } finally {
+    await close(server);
+  }
+});
+
 test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
   const now = new Date().toISOString();
   const events = [

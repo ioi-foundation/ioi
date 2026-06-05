@@ -1,0 +1,101 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  RUNTIME_GOVERNED_IMPROVEMENT_PROPOSAL_SCHEMA_VERSION,
+  createRuntimeGovernedImprovementControlRequest,
+  createRuntimeGovernedImprovementControlRequestFromWorkflowNode,
+  type RuntimeGovernedImprovementProposal,
+} from "./workflow-runtime-governed-improvement-control-nodes";
+
+function proposal(): RuntimeGovernedImprovementProposal {
+  return {
+    schema_version: RUNTIME_GOVERNED_IMPROVEMENT_PROPOSAL_SCHEMA_VERSION,
+    proposal_id: "proposal://runtime-improvement/ide",
+    target_ref: "skill://runtime-auditor/current",
+    candidate_ref: "skill-candidate://runtime-auditor/from-trace",
+    surface: "skill",
+    source_trace_ref: "trace://runtime-improvement/high-fitness",
+    eval_receipt_refs: ["receipt://eval/ide-holdout-pass"],
+    verifier_receipt_refs: ["receipt://verifier/ide-regression-pass"],
+    approval_ref: "approval://wallet/runtime-improvement/ide",
+    rollback_ref: "rollback://skill/runtime-auditor/current",
+    agentgres_operation_ref: "agentgres://runtime-improvement/operations/ide",
+    expected_heads: ["agentgres://runtime-improvement/head/before"],
+    state_root_before: "sha256:runtime-improvement-before",
+    state_root_after: "sha256:runtime-improvement-after",
+    resulting_head: "agentgres://runtime-improvement/head/after",
+  };
+}
+
+test("builds governed improvement proposal controls for daemon admission", () => {
+  const request = createRuntimeGovernedImprovementControlRequest({
+    threadId: "thread-ide",
+    workflowGraphId: "workflow-governed-improvement",
+    workflowNodeId: "runtime.governed-improvement-proposal.ide",
+    proposal: {
+      ...proposal(),
+      eval_receipt_refs: [
+        "receipt://eval/ide-holdout-pass",
+        "receipt://eval/ide-holdout-pass",
+      ],
+    },
+  });
+
+  assert.equal(request.endpoint, "/v1/threads/thread-ide/governed-improvement-proposals");
+  assert.equal(request.method, "POST");
+  assert.equal(request.nodeType, "governed_improvement_proposal");
+  assert.equal(request.body.source, "react_flow");
+  assert.equal(request.body.payload_schema_version, RUNTIME_GOVERNED_IMPROVEMENT_PROPOSAL_SCHEMA_VERSION);
+  assert.equal(request.body.proposal_id, "proposal://runtime-improvement/ide");
+  assert.equal(request.body.target_ref, "skill://runtime-auditor/current");
+  assert.equal(request.body.candidate_ref, "skill-candidate://runtime-auditor/from-trace");
+  assert.equal(request.body.approval_mode, "human_required");
+  assert.equal(request.body.proposal_only, true);
+  assert.equal(request.body.mutation_allowed, false);
+  assert.equal(request.body.mutation_executed, false);
+  assert.deepEqual(request.body.eval_receipt_refs, ["receipt://eval/ide-holdout-pass"]);
+  assert.deepEqual(request.body.verifier_receipt_refs, ["receipt://verifier/ide-regression-pass"]);
+  assert.equal(request.body.proposal_payload.proposal_id, "proposal://runtime-improvement/ide");
+  assert.equal(request.body.proposalPayload.approval_ref, "approval://wallet/runtime-improvement/ide");
+});
+
+test("builds governed improvement controls from workflow proposal nodes", () => {
+  const request = createRuntimeGovernedImprovementControlRequestFromWorkflowNode(
+    {
+      id: "governed-improvement-node",
+      type: "proposal",
+      config: {
+        logic: {
+          governedImprovement: proposal(),
+        } as any,
+        law: {},
+      },
+    },
+    { threadId: "thread-from-node" },
+    { workflowGraphId: "workflow-from-node", actor: "runtime-reviewer" },
+  );
+
+  assert.equal(request.threadId, "thread-from-node");
+  assert.equal(request.proposalId, "proposal://runtime-improvement/ide");
+  assert.equal(
+    request.body.workflowNodeId,
+    "runtime.governed-improvement-proposal.governed-improvement-node",
+  );
+  assert.equal(request.body.workflowGraphId, "workflow-from-node");
+  assert.equal(request.body.actor, "runtime-reviewer");
+});
+
+test("governed improvement controls fail closed without admission refs", () => {
+  assert.throws(
+    () =>
+      createRuntimeGovernedImprovementControlRequest({
+        threadId: "thread-ide",
+        proposal: {
+          ...proposal(),
+          expected_heads: [],
+        },
+      }),
+    /expected_heads/,
+  );
+});

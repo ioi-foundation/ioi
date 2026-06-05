@@ -268,6 +268,17 @@ export {
   createRuntimeWorkflowEditProposalControlRequestFromWorkflowNode,
 } from "./runtime/workflow-runtime-edit-proposal-control-nodes";
 export {
+  RUNTIME_GOVERNED_IMPROVEMENT_COMPONENT_KIND,
+  RUNTIME_GOVERNED_IMPROVEMENT_PROPOSAL_SCHEMA_VERSION,
+  RUNTIME_GOVERNED_IMPROVEMENT_SOURCE,
+  RUNTIME_GOVERNED_IMPROVEMENT_SOURCE_EVENT_KIND,
+  RUNTIME_GOVERNED_IMPROVEMENT_SURFACES,
+  RUNTIME_GOVERNED_IMPROVEMENT_WORKFLOW_NODE_ID,
+  WORKFLOW_RUNTIME_GOVERNED_IMPROVEMENT_CONTROL_SCHEMA_VERSION,
+  createRuntimeGovernedImprovementControlRequest,
+  createRuntimeGovernedImprovementControlRequestFromWorkflowNode,
+} from "./runtime/workflow-runtime-governed-improvement-control-nodes";
+export {
   RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND,
   RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION,
   RUNTIME_CONTEXT_COMPACT_SOURCE,
@@ -711,6 +722,14 @@ export type {
   RuntimeWorkspaceTrustAcknowledgementControlRequestBody,
   RuntimeWorkspaceTrustAcknowledgementControlRequestInput,
 } from "./runtime/workflow-runtime-control-nodes";
+export type {
+  RuntimeGovernedImprovementControlRequest,
+  RuntimeGovernedImprovementControlRequestBody,
+  RuntimeGovernedImprovementControlRequestInput,
+  RuntimeGovernedImprovementProposal,
+  RuntimeGovernedImprovementSurface,
+  RuntimeGovernedImprovementWorkflowNodeOptions,
+} from "./runtime/workflow-runtime-governed-improvement-control-nodes";
 export type {
   RuntimeCodingToolControlRequest,
   RuntimeCodingToolControlRequestBody,

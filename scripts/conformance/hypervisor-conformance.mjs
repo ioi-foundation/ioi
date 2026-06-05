@@ -399,6 +399,28 @@ function runBridge() {
   const runtimeRouteHandlersTest = exists("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     : "";
+  const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
+    ? read("packages/agent-sdk/src/substrate-client.ts")
+    : "";
+  const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
+    ? read("packages/agent-sdk/test/sdk.test.mjs")
+    : "";
+  const agentIdeIndex = exists("packages/agent-ide/src/index.ts")
+    ? read("packages/agent-ide/src/index.ts")
+    : "";
+  const graphRuntimeTypes = exists("packages/agent-ide/src/runtime/graph-runtime-types.ts")
+    ? read("packages/agent-ide/src/runtime/graph-runtime-types.ts")
+    : "";
+  const governedImprovementControlNodes = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts")
+    : "";
+  const governedImprovementControlNodesTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts")
+    : "";
   const retiredCodingToolJsBodyPattern =
     /function (?:computerUseLeaseRequestTool|workspaceStatusTool|gitDiffTool|fileInspectTool|fileApplyPatchTool|testRunTool|lspDiagnosticsTool|artifactReadTool|toolRetrieveResultTool)\(/;
   const retiredCodingToolJsImportPattern =
@@ -976,6 +998,41 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 9 is pending: product/API governed-improvement route must call Rust proposal admission and expose no JS apply shortcut",
+  );
+  assertCheck(
+    result,
+    "governed-meta-improvement-sdk-ide-review-surface",
+    /admitGovernedImprovementProposal/.test(agentSdkSubstrateClient) &&
+      /RuntimeGovernedImprovementProposalAdmissionInput/.test(agentSdkSubstrateClient) &&
+      /governed-improvement-proposals/.test(agentSdkSubstrateClient) &&
+      /SDK admits governed improvement proposals through the thread route/.test(agentSdkTest) &&
+      /WORKFLOW_RUNTIME_GOVERNED_IMPROVEMENT_CONTROL_SCHEMA_VERSION/.test(
+        governedImprovementControlNodes,
+      ) &&
+      /createRuntimeGovernedImprovementControlRequest/.test(governedImprovementControlNodes) &&
+      /RUNTIME_GOVERNED_IMPROVEMENT_PROPOSAL_SCHEMA_VERSION/.test(
+        governedImprovementControlNodes,
+      ) &&
+      /governed-improvement-proposals/.test(governedImprovementControlNodes) &&
+      /mutation_executed:\s*false/.test(governedImprovementControlNodes) &&
+      !/\/apply/.test(governedImprovementControlNodes) &&
+      /builds governed improvement proposal controls for daemon admission/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /governed improvement controls fail closed without admission refs/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /createRuntimeGovernedImprovementControlRequest/.test(agentIdeIndex) &&
+      /RuntimeGovernedImprovementControlRequest/.test(graphRuntimeTypes),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
+      "packages/agent-ide/src/runtime/graph-runtime-types.ts",
+      "packages/agent-ide/src/index.ts",
+    ],
+    "Phase 9 is pending: SDK and IDE review clients must consume the governed-improvement proposal route without exposing a JS apply shortcut",
   );
   return result;
 }
