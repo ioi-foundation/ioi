@@ -3157,6 +3157,12 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/threads/context-budget-policy.test.mjs")
     : "";
+  const subagentManager = exists("packages/runtime-daemon/src/subagent-manager.mjs")
+    ? read("packages/runtime-daemon/src/subagent-manager.mjs")
+    : "";
+  const subagentManagerTest = exists("packages/runtime-daemon/src/subagent-manager.test.mjs")
+    ? read("packages/runtime-daemon/src/subagent-manager.test.mjs")
+    : "";
   const runtimeEventEnvelopes = exists("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     : "";
@@ -3525,6 +3531,32 @@ function runCompositor() {
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
     ],
     "Phase 10/11 is pending: context-budget usage telemetry must ignore retired request and data aliases before policy evaluation",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-usage-input-aliases-retired",
+    !/(?:request|request\.options)(?:\?\.|\.)(?:budgetUsageTelemetry|runtimeTelemetrySummary|runtime_telemetry_summary)/.test(
+      subagentManager,
+    ) &&
+      !/(?:usage|previousUsage)(?:\?\.|\.)(?:cumulativeInputTokens|inputTokens|cumulativeOutputTokens|outputTokens|cumulativeTotalTokens|totalTokens|cumulativeCostEstimateUsd|costEstimateUsd|estimatedCostUsd|sourceCounts|sourceRefs|receiptRefs|policyDecisionRefs|runtimeTelemetrySummarySchemaVersion)/.test(
+        subagentManager,
+      ) &&
+      !/run\.modelRouteDecision/.test(subagentManager) &&
+      /retiredSubagentBudgetUsageRequestAliasKeys/.test(subagentManagerTest) &&
+      /subagent budget usage telemetry ignores retired request aliases/.test(
+        subagentManagerTest,
+      ) &&
+      /subagent budget usage telemetry ignores retired data aliases/.test(
+        subagentManagerTest,
+      ) &&
+      /subagent usage telemetry ignores retired previous usage aliases/.test(
+        subagentManagerTest,
+      ),
+    [
+      "packages/runtime-daemon/src/subagent-manager.mjs",
+      "packages/runtime-daemon/src/subagent-manager.test.mjs",
+    ],
+    "Phase 10/11 is pending: subagent budget usage telemetry must ignore retired request and data aliases before budget policy evaluation",
   );
   assertCheck(
     result,

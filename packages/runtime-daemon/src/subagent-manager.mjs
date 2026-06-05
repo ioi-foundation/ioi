@@ -44,11 +44,7 @@ export function subagentBudgetForRequest(request = {}) {
 export function subagentBudgetUsageTelemetryForRequest(request = {}) {
   return normalizeSubagentBudgetUsageTelemetry(
     request.budget_usage_telemetry ??
-      request.budgetUsageTelemetry ??
-      request.runtime_telemetry_summary ??
-      request.runtimeTelemetrySummary ??
       request.options?.budget_usage_telemetry ??
-      request.options?.budgetUsageTelemetry ??
       null,
   );
 }
@@ -58,33 +54,24 @@ export function normalizeSubagentBudgetUsageTelemetry(usage = null) {
   const inputTokens =
     optionalPositiveInteger(
       usage.cumulative_input_tokens ??
-        usage.cumulativeInputTokens ??
-        usage.input_tokens ??
-        usage.inputTokens,
+        usage.input_tokens,
     ) ?? 0;
   const outputTokens =
     optionalPositiveInteger(
       usage.cumulative_output_tokens ??
-        usage.cumulativeOutputTokens ??
-        usage.output_tokens ??
-        usage.outputTokens,
+        usage.output_tokens,
     ) ?? 0;
   const totalTokens =
     optionalPositiveInteger(
       usage.cumulative_total_tokens ??
-        usage.cumulativeTotalTokens ??
-        usage.total_tokens ??
-        usage.totalTokens,
+        usage.total_tokens,
     ) ??
     inputTokens + outputTokens;
   const costEstimateUsd =
     optionalPositiveNumber(
       usage.cumulative_cost_estimate_usd ??
-        usage.cumulativeCostEstimateUsd ??
         usage.cost_estimate_usd ??
-        usage.costEstimateUsd ??
-        usage.estimated_cost_usd ??
-        usage.estimatedCostUsd,
+        usage.estimated_cost_usd,
     ) ?? 0;
   return {
     schema_version: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
@@ -98,26 +85,22 @@ export function normalizeSubagentBudgetUsageTelemetry(usage = null) {
     cumulativeTotalTokens: totalTokens,
     cumulative_cost_estimate_usd: roundUsd(costEstimateUsd),
     cumulativeCostEstimateUsd: roundUsd(costEstimateUsd),
-    source_counts: usage.source_counts ?? usage.sourceCounts ?? null,
-    sourceCounts: usage.sourceCounts ?? usage.source_counts ?? null,
-    source_refs: normalizeArray(usage.source_refs ?? usage.sourceRefs),
-    sourceRefs: normalizeArray(usage.sourceRefs ?? usage.source_refs),
-    receipt_refs: normalizeArray(usage.receipt_refs ?? usage.receiptRefs),
-    receiptRefs: normalizeArray(usage.receiptRefs ?? usage.receipt_refs),
+    source_counts: usage.source_counts ?? null,
+    sourceCounts: usage.source_counts ?? null,
+    source_refs: normalizeArray(usage.source_refs),
+    sourceRefs: normalizeArray(usage.source_refs),
+    receipt_refs: normalizeArray(usage.receipt_refs),
+    receiptRefs: normalizeArray(usage.receipt_refs),
     policy_decision_refs: normalizeArray(
-      usage.policy_decision_refs ?? usage.policyDecisionRefs,
+      usage.policy_decision_refs,
     ),
     policyDecisionRefs: normalizeArray(
-      usage.policyDecisionRefs ?? usage.policy_decision_refs,
+      usage.policy_decision_refs,
     ),
     runtime_telemetry_summary_schema_version:
-      usage.runtime_telemetry_summary_schema_version ??
-      usage.runtimeTelemetrySummarySchemaVersion ??
-      null,
+      usage.runtime_telemetry_summary_schema_version ?? null,
     runtimeTelemetrySummarySchemaVersion:
-      usage.runtimeTelemetrySummarySchemaVersion ??
-      usage.runtime_telemetry_summary_schema_version ??
-      null,
+      usage.runtime_telemetry_summary_schema_version ?? null,
   };
 }
 
@@ -166,30 +149,21 @@ export function subagentUsageTelemetryForRun(run = {}, prompt = "", previousUsag
   const totalTokens = inputTokens + outputTokens;
   const previousInputTokens = optionalPositiveInteger(
     previousUsage.cumulative_input_tokens ??
-      previousUsage.cumulativeInputTokens ??
-      previousUsage.input_tokens ??
-      previousUsage.inputTokens,
+      previousUsage.input_tokens,
   ) ?? 0;
   const previousOutputTokens = optionalPositiveInteger(
     previousUsage.cumulative_output_tokens ??
-      previousUsage.cumulativeOutputTokens ??
-      previousUsage.output_tokens ??
-      previousUsage.outputTokens,
+      previousUsage.output_tokens,
   ) ?? 0;
   const previousTotalTokens = optionalPositiveInteger(
     previousUsage.cumulative_total_tokens ??
-      previousUsage.cumulativeTotalTokens ??
-      previousUsage.total_tokens ??
-      previousUsage.totalTokens,
+      previousUsage.total_tokens,
   ) ?? 0;
   const costEstimateUsd = costEstimateUsdForRun(run, totalTokens);
   const previousCostEstimateUsd = optionalPositiveNumber(
     previousUsage.cumulative_cost_estimate_usd ??
-      previousUsage.cumulativeCostEstimateUsd ??
       previousUsage.cost_estimate_usd ??
-      previousUsage.costEstimateUsd ??
-      previousUsage.estimated_cost_usd ??
-      previousUsage.estimatedCostUsd,
+      previousUsage.estimated_cost_usd,
   ) ?? 0;
   return {
     schema_version: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
@@ -214,8 +188,8 @@ export function subagentUsageTelemetryForRun(run = {}, prompt = "", previousUsag
     costEstimateUsd,
     cumulative_cost_estimate_usd: roundUsd(previousCostEstimateUsd + costEstimateUsd),
     cumulativeCostEstimateUsd: roundUsd(previousCostEstimateUsd + costEstimateUsd),
-    model_route_id: run.modelRouteDecision?.routeId ?? run.modelRouteDecision?.route_id ?? null,
-    modelRouteId: run.modelRouteDecision?.routeId ?? run.modelRouteDecision?.route_id ?? null,
+    model_route_id: run.model_route_decision?.route_id ?? null,
+    modelRouteId: run.model_route_decision?.route_id ?? null,
   };
 }
 
@@ -579,7 +553,7 @@ function estimatedTokenCount(value) {
 
 function costEstimateUsdForRun(run = {}, totalTokens = 0) {
   const decisionCost = optionalPositiveNumber(
-    run.modelRouteDecision?.costEstimateUsd ?? run.modelRouteDecision?.cost_estimate_usd,
+    run.model_route_decision?.cost_estimate_usd,
   );
   if (decisionCost !== null) return roundUsd(decisionCost);
   return roundUsd(totalTokens * 0.000001);
