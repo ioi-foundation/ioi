@@ -3335,7 +3335,11 @@ function runCompositor() {
       !/(?:inputTokens|outputTokens|totalTokens|estimatedCostUsd|contextWindowTokens|contextUsedTokens|contextPressure|contextPressureStatus|usageTotalTokens|usageCostEstimateUsd|usageContextPressure|usageContextPressureStatus|recommendedAction|sourceUsageDeltaRef|receiptRefs|policyDecisionRefs):/.test(
         runtimeUsageEvents,
       ) &&
+      !/usageTelemetry\.(?:inputTokens|outputTokens|totalTokens|estimatedCostUsd|contextWindowTokens|contextUsedTokens|contextPressure|contextPressureStatus|routeId)/.test(
+        runtimeUsageEvents,
+      ) &&
       /retiredUsagePayloadAliasKeys/.test(runtimeUsageEventsTest) &&
+      /retiredUsageTelemetryInputAliasKeys/.test(runtimeUsageEventsTest) &&
       /retiredContextPressurePayloadAliasKeys/.test(runtimeUsageEventsTest) &&
       /retiredContextPressureAlertAliasKeys/.test(runtimeUsageEventsTest) &&
       /retiredContextPressureAlertActionAliasKeys/.test(runtimeUsageEventsTest),

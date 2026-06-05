@@ -54,6 +54,18 @@ const retiredUsagePayloadAliasKeys = [
   "contextPressureStatus",
 ];
 
+const retiredUsageTelemetryInputAliasKeys = [
+  "totalTokens",
+  "inputTokens",
+  "outputTokens",
+  "estimatedCostUsd",
+  "contextWindowTokens",
+  "contextUsedTokens",
+  "contextPressure",
+  "contextPressureStatus",
+  "routeId",
+];
+
 const retiredContextPressurePayloadAliasKeys = [
   "schemaVersion",
   "eventKind",
@@ -150,6 +162,43 @@ test("runtime usage deltas emit canonical telemetry payloads and context pressur
   for (const action of alert.actions) {
     assertMissingKeys(action, retiredContextPressureAlertActionAliasKeys);
   }
+});
+
+test("runtime usage deltas ignore retired telemetry input aliases", () => {
+  const runtime = helpers();
+  const [prompt, completion] = runtime.runtimeUsageTelemetryDeltaPayloads(
+    {
+      totalTokens: 1000,
+      inputTokens: 250,
+      outputTokens: 750,
+      estimatedCostUsd: 0.1234567,
+      contextWindowTokens: 1000,
+      contextUsedTokens: 900,
+      contextPressure: 0.9,
+      contextPressureStatus: "high",
+      provider: "local",
+      model: "qwen",
+      routeId: "route.legacy",
+    },
+    {
+      runId: "run-one",
+      agentId: "agent-one",
+      threadId: "thread-one",
+      turnId: "turn-one",
+    },
+  );
+
+  assert.equal(prompt.total_tokens, 1);
+  assert.equal(prompt.context_pressure_status, "nominal");
+  assert.equal(completion.total_tokens, 0);
+  assert.equal(completion.estimated_cost_usd, 0);
+  assert.equal(completion.context_window_tokens, 128000);
+  assert.equal(completion.context_used_tokens, 0);
+  assert.equal(completion.context_pressure, 0);
+  assert.equal(completion.context_pressure_status, "nominal");
+  assert.equal(completion.route_id, null);
+  assertMissingKeys(completion, retiredUsageTelemetryInputAliasKeys);
+  assertMissingKeys(completion, retiredUsagePayloadAliasKeys);
 });
 
 test("runtime bridge usage events are inserted after turn start and keep public event kinds", () => {

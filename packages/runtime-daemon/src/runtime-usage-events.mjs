@@ -128,41 +128,33 @@ export function createRuntimeUsageEventHelpers({
   } = {}) {
     const totalTokens = contextBudgetNumber(
       usageTelemetry.total_tokens,
-      usageTelemetry.totalTokens,
     ) ?? 0;
     const inputTokens = contextBudgetNumber(
       usageTelemetry.input_tokens,
-      usageTelemetry.inputTokens,
     ) ?? 0;
     const outputTokens = contextBudgetNumber(
       usageTelemetry.output_tokens,
-      usageTelemetry.outputTokens,
     ) ?? Math.max(0, totalTokens - inputTokens);
     const costUsd = contextBudgetNumber(
       usageTelemetry.estimated_cost_usd,
-      usageTelemetry.estimatedCostUsd,
     ) ?? 0;
     const contextUsedTokens = contextBudgetNumber(
       usageTelemetry.context_used_tokens,
-      usageTelemetry.contextUsedTokens,
     ) ?? totalTokens;
     const contextWindowTokens = contextBudgetNumber(
       usageTelemetry.context_window_tokens,
-      usageTelemetry.contextWindowTokens,
     ) ?? 128000;
     const contextPressure = contextBudgetNumber(
       usageTelemetry.context_pressure,
-      usageTelemetry.contextPressure,
     ) ?? (contextWindowTokens > 0 ? roundRuntimeRatio(contextUsedTokens / contextWindowTokens) : 0);
     const contextPressureStatus =
       optionalString(
-        usageTelemetry.context_pressure_status ??
-          usageTelemetry.contextPressureStatus,
+        usageTelemetry.context_pressure_status,
       ) ?? runtimeContextPressureStatus(contextPressure);
     const provider = optionalString(usageTelemetry.provider) ?? "local";
     const model = optionalString(usageTelemetry.model) ?? "unknown";
     const routeId =
-      optionalString(usageTelemetry.route_id ?? usageTelemetry.routeId) ?? null;
+      optionalString(usageTelemetry.route_id) ?? null;
     const promptTotal = Math.max(1, inputTokens);
     const promptCost = totalTokens > 0 ? costUsd * (promptTotal / totalTokens) : 0;
     const promptPressure = contextWindowTokens > 0
