@@ -378,6 +378,12 @@ function runBridge() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
+  const governedImprovementRunner = exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs")
+    : "";
+  const governedImprovementRunnerTest = exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs")
+    : "";
   const retiredCodingToolJsBodyPattern =
     /function (?:computerUseLeaseRequestTool|workspaceStatusTool|gitDiffTool|fileInspectTool|fileApplyPatchTool|testRunTool|lspDiagnosticsTool|artifactReadTool|toolRetrieveResultTool)\(/;
   const retiredCodingToolJsImportPattern =
@@ -907,6 +913,26 @@ function runBridge() {
       /bridge_admits_governed_runtime_improvement_proposal_through_rust_core/.test(bridgeModule),
     ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
     "Phase 9 is pending: governed meta-improvement proposal admission must be exposed through the daemon command bridge",
+  );
+  assertCheck(
+    result,
+    "governed-meta-improvement-daemon-runner",
+    /GOVERNED_IMPROVEMENT_COMMAND_ENV/.test(governedImprovementRunner) &&
+      /IOI_GOVERNED_IMPROVEMENT_COMMAND/.test(governedImprovementRunner) &&
+      /RustGovernedImprovementRunner/.test(governedImprovementRunner) &&
+      /createGovernedImprovementRunnerFromEnv/.test(governedImprovementRunner) &&
+      /admitProposal/.test(governedImprovementRunner) &&
+      /admit_governed_runtime_improvement_proposal/.test(governedImprovementRunner) &&
+      /rust_governed_evolution/.test(governedImprovementRunner) &&
+      /governed_improvement_bridge_unconfigured/.test(governedImprovementRunner) &&
+      /governed improvement runner sends proposal admission bridge request/.test(governedImprovementRunnerTest) &&
+      /governed improvement runner fails closed without command/.test(governedImprovementRunnerTest) &&
+      /governed improvement runner surfaces Rust proposal rejection/.test(governedImprovementRunnerTest),
+    [
+      "packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs",
+    ],
+    "Phase 9 is pending: daemon meta-improvement facade must call the Rust governed proposal bridge and fail closed when unconfigured",
   );
   return result;
 }
