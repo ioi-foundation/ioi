@@ -4800,6 +4800,20 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "agent-sdk-subagent-context-routing-request-type-aliases-retired",
+    runtimeSubagentSdkControlInputBlock.length > 0 &&
+      /^\s*fork_context\?: boolean;/m.test(runtimeSubagentSdkControlInputBlock) &&
+      /^\s*parent_turn_id\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+      /^\s*turn_id\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+      /^\s*target_agent_id\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+      !/^\s*(?:forkContext|parentTurnId|turnId|targetAgentId)\?:/m.test(
+        runtimeSubagentSdkControlInputBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent control request types must not advertise retired context routing aliases",
+  );
+  assertCheck(
+    result,
     "agent-sdk-runtime-event-dead-mock-helpers-retired",
     /runtimeThreadEventFromEnvelope/.test(agentSdkRuntimeEvents) &&
       !/mockRuntime(?:CursorSeq|EnvelopeForSdkEvent|EventEnvelope)|runtimePayloadStringRecord|runtimeEventKindForSdkMessage|runtimeEventStatusForSdkMessage|componentKindForSdkMessage|workflowNodeIdForSdkMessage|sourceEventKindForSdkMessage|payloadSchemaVersionForSdkMessage|turnIdForRun|eventStreamIdForThread|runtimeTurnStatusForRun|\(event as \{ id\?: string \}\)\.id/.test(

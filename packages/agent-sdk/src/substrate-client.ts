@@ -462,13 +462,9 @@ export interface RuntimeSubagentControlInput {
   inherited?: boolean;
   cancellation_inherited?: boolean;
   propagated_from_thread_id?: string;
-  forkContext?: boolean;
   fork_context?: boolean;
-  parentTurnId?: string;
   parent_turn_id?: string;
-  turnId?: string;
   turn_id?: string;
-  targetAgentId?: string;
   target_agent_id?: string;
   memory?: Record<string, unknown>;
   options?: Record<string, unknown>;
