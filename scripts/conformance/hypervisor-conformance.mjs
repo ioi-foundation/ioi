@@ -2706,6 +2706,21 @@ function runCompositor() {
   const runtimeEventPayloadsTest = exists("packages/runtime-daemon/src/runtime-event-payloads.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-payloads.test.mjs")
     : "";
+  const runtimeEventEnvelopes = exists("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
+    ? read("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
+    : "";
+  const runtimeEventEnvelopesTest = exists("packages/runtime-daemon/src/runtime-event-envelopes.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-event-envelopes.test.mjs")
+    : "";
+  const runtimeHttpUtils = exists("packages/runtime-daemon/src/runtime-http-utils.mjs")
+    ? read("packages/runtime-daemon/src/runtime-http-utils.mjs")
+    : "";
+  const runtimeHttpUtilsTest = exists("packages/runtime-daemon/src/runtime-http-utils.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-http-utils.test.mjs")
+    : "";
+  const threadReplay = exists("packages/runtime-daemon/src/threads/thread-replay.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-replay.mjs")
+    : "";
   const agentSdkRuntimeEvents = exists("packages/agent-sdk/src/runtime-events.ts")
     ? read("packages/agent-sdk/src/runtime-events.ts")
     : "";
@@ -2777,6 +2792,25 @@ function runCompositor() {
       ),
     ["packages/agent-sdk/src/runtime-events.ts"],
     "Phase 10/11 is pending: SDK runtime event projection must not retain dead mock-envelope helpers or noncanonical event.id cursor fallback",
+  );
+  assertCheck(
+    result,
+    "runtime-event-envelope-compat-aliases-retired",
+    !/\bid:\s*String\(seq\)|timestamp_ms:|event:\s*eventKind/.test(runtimeEventEnvelopes) &&
+      /retiredEnvelopeAliasKeys/.test(runtimeEventEnvelopesTest) &&
+      /event\.event_id\s*\?\?\s*event\.seq/.test(runtimeHttpUtils) &&
+      !/event\.id\s*\?\?\s*event\.seq/.test(runtimeHttpUtils) &&
+      /writeSse uses canonical runtime event ids/.test(runtimeHttpUtilsTest) &&
+      /event\.event_id === lastEventId/.test(threadReplay) &&
+      !/event\.id === lastEventId/.test(threadReplay),
+    [
+      "packages/runtime-daemon/src/runtime-event-envelopes.mjs",
+      "packages/runtime-daemon/src/runtime-event-envelopes.test.mjs",
+      "packages/runtime-daemon/src/runtime-http-utils.mjs",
+      "packages/runtime-daemon/src/runtime-http-utils.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-replay.mjs",
+    ],
+    "Phase 10/11 is pending: daemon runtime event envelopes must not emit legacy id/event/timestamp aliases, and SSE/cursors must use canonical event_id",
   );
   return result;
 }

@@ -171,7 +171,7 @@ test("tti envelopes preserve diagnostics and computer-use public envelopes", () 
   assert.equal(computerUse.component_kind, "computer_use_harness");
 });
 
-test("runtime event envelope normalization preserves compatibility fields", () => {
+test("runtime event envelope normalization preserves canonical fields", () => {
   const runtime = helpers();
 
   const normalized = runtime.normalizeRuntimeEventEnvelope({
@@ -201,7 +201,8 @@ test("runtime event envelope normalization preserves compatibility fields", () =
   assert.deepEqual(normalized.artifact_refs, ["artifact-one"]);
   assert.deepEqual(normalized.receipt_refs, ["receipt-one"]);
   assert.equal(normalized.fixture_profile, null);
-  assert.equal(normalized.id, "7");
-  assert.equal(normalized.event, "message.delta");
-  assert.equal(normalized.timestamp_ms, Date.parse("2026-06-03T00:00:00.000Z"));
+  const retiredEnvelopeAliasKeys = ["id", "event", "timestamp_ms"];
+  for (const key of retiredEnvelopeAliasKeys) {
+    assert.equal(Object.hasOwn(normalized, key), false);
+  }
 });

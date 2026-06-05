@@ -223,9 +223,6 @@ export function createRuntimeEventEnvelopeHelpers({
       payload: stringRecord(payloadSummary),
       redaction_profile: event.redaction_profile ?? "internal",
       fixture_profile: Object.hasOwn(event, "fixture_profile") ? event.fixture_profile : DAEMON_FIXTURE_PROFILE,
-      id: String(seq),
-      timestamp_ms: Date.parse(createdAt) || 0,
-      event: eventKind,
       payload_summary: payloadSummary,
     };
   }

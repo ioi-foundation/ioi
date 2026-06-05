@@ -15,7 +15,7 @@ export function writeSse(response, events) {
   response.setHeader("cache-control", "no-cache");
   response.end(
     events
-      .map((event) => `id: ${event.id ?? event.seq}\nevent: runtime.event\ndata: ${JSON.stringify(event)}\n\n`)
+      .map((event) => `id: ${event.event_id ?? event.seq}\nevent: runtime.event\ndata: ${JSON.stringify(event)}\n\n`)
       .join(""),
   );
 }

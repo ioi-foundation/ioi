@@ -145,7 +145,7 @@ export function runtimeCursorSeq(store, stream, cursor = {}, deps = {}) {
       lastEventId,
     });
   }
-  const match = stream.events.find((event) => event.event_id === lastEventId || event.id === lastEventId);
+  const match = stream.events.find((event) => event.event_id === lastEventId);
   if (match) return match.seq;
   throw runtimeError({
     status: 409,
