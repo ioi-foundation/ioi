@@ -37,7 +37,7 @@ export function subagentIsActive(record = {}) {
 }
 
 export function subagentBudgetForRequest(request = {}) {
-  const budget = request.budget ?? request.subagentBudget ?? request.options?.budget ?? null;
+  const budget = request.budget ?? request.options?.budget ?? null;
   return budget && typeof budget === "object" && !Array.isArray(budget) ? budget : null;
 }
 

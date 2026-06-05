@@ -3198,6 +3198,10 @@ function runCompositor() {
   const subagentManager = exists("packages/runtime-daemon/src/subagent-manager.mjs")
     ? read("packages/runtime-daemon/src/subagent-manager.mjs")
     : "";
+  const subagentBudgetForRequestBlock =
+    subagentManager.match(
+      /export function subagentBudgetForRequest[\s\S]*?\n}\n\nexport function subagentBudgetUsageTelemetryForRequest/,
+    )?.[0] ?? "";
   const subagentBudgetUsageTelemetryNormalizer =
     subagentManager.match(
       /export function normalizeSubagentBudgetUsageTelemetry[\s\S]*?\n}\n\nexport function normalizeSubagentBudget/,
@@ -3824,6 +3828,21 @@ function runCompositor() {
       "packages/runtime-daemon/src/subagent-manager.test.mjs",
     ],
     "Phase 10/11 is pending: subagent budget usage telemetry must ignore retired request and data aliases before budget policy evaluation",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-budget-request-aliases-retired",
+    subagentBudgetForRequestBlock.length > 0 &&
+      !/request\.subagentBudget/.test(subagentBudgetForRequestBlock) &&
+      /retiredSubagentBudgetRequestAliasKeys/.test(subagentManagerTest) &&
+      /subagent budget ignores retired request aliases/.test(
+        subagentManagerTest,
+      ),
+    [
+      "packages/runtime-daemon/src/subagent-manager.mjs",
+      "packages/runtime-daemon/src/subagent-manager.test.mjs",
+    ],
+    "Phase 10/11 is pending: subagent budget request parsing must ignore the retired subagentBudget alias before budget policy evaluation",
   );
   assertCheck(
     result,

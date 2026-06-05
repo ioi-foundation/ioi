@@ -4,11 +4,15 @@ import test from "node:test";
 import {
   normalizeSubagentBudgetUsageTelemetry,
   subagentManagerEventPayload,
+  subagentBudgetForRequest,
   subagentBudgetUsageTelemetryForRequest,
   subagentResultForRun,
   subagentUsageTelemetryForRun,
 } from "./subagent-manager.mjs";
 
+const retiredSubagentBudgetRequestAliasKeys = [
+  "subagentBudget",
+];
 const retiredSubagentBudgetUsageRequestAliasKeys = [
   "budgetUsageTelemetry",
   "runtime_telemetry_summary",
@@ -182,6 +186,31 @@ function assertCanonicalSubagentManagerEventOutput(event) {
     assert.equal(Object.prototype.hasOwnProperty.call(event, key), false);
   }
 }
+
+test("subagent budget accepts canonical request fields", () => {
+  const budget = { max_tokens: 12, max_cost_usd: 0.5 };
+
+  assert.equal(subagentBudgetForRequest({ budget }), budget);
+  assert.equal(subagentBudgetForRequest({ options: { budget } }), budget);
+});
+
+test("subagent budget ignores retired request aliases", () => {
+  for (const key of retiredSubagentBudgetRequestAliasKeys) {
+    assert.equal(
+      subagentBudgetForRequest({
+        [key]: { max_tokens: 1 },
+      }),
+      null,
+    );
+    assert.equal(
+      subagentBudgetForRequest({
+        budget: { max_tokens: 10 },
+        [key]: { max_tokens: 1 },
+      })?.max_tokens,
+      10,
+    );
+  }
+});
 
 test("subagent budget usage telemetry accepts canonical request fields", () => {
   const telemetry = {
