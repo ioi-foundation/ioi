@@ -75,31 +75,18 @@ export function normalizeSubagentBudgetUsageTelemetry(usage = null) {
     ) ?? 0;
   return {
     schema_version: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
     object: "ioi.runtime_subagent_previous_usage_telemetry",
     cumulative_input_tokens: inputTokens,
-    cumulativeInputTokens: inputTokens,
     cumulative_output_tokens: outputTokens,
-    cumulativeOutputTokens: outputTokens,
     cumulative_total_tokens: totalTokens,
-    cumulativeTotalTokens: totalTokens,
     cumulative_cost_estimate_usd: roundUsd(costEstimateUsd),
-    cumulativeCostEstimateUsd: roundUsd(costEstimateUsd),
     source_counts: usage.source_counts ?? null,
-    sourceCounts: usage.source_counts ?? null,
     source_refs: normalizeArray(usage.source_refs),
-    sourceRefs: normalizeArray(usage.source_refs),
     receipt_refs: normalizeArray(usage.receipt_refs),
-    receiptRefs: normalizeArray(usage.receipt_refs),
     policy_decision_refs: normalizeArray(
       usage.policy_decision_refs,
     ),
-    policyDecisionRefs: normalizeArray(
-      usage.policy_decision_refs,
-    ),
     runtime_telemetry_summary_schema_version:
-      usage.runtime_telemetry_summary_schema_version ?? null,
-    runtimeTelemetrySummarySchemaVersion:
       usage.runtime_telemetry_summary_schema_version ?? null,
   };
 }

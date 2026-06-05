@@ -14,6 +14,18 @@ const retiredSubagentBudgetUsageRequestAliasKeys = [
   "runtime_telemetry_summary",
   "runtimeTelemetrySummary",
 ];
+const retiredSubagentBudgetUsageOutputAliasKeys = [
+  "schemaVersion",
+  "cumulativeInputTokens",
+  "cumulativeOutputTokens",
+  "cumulativeTotalTokens",
+  "cumulativeCostEstimateUsd",
+  "sourceCounts",
+  "sourceRefs",
+  "receiptRefs",
+  "policyDecisionRefs",
+  "runtimeTelemetrySummarySchemaVersion",
+];
 
 const retiredSubagentUsageDataAliasInput = {
   cumulativeInputTokens: 5,
@@ -43,6 +55,12 @@ function assertCanonicalSubagentManagerUsageTelemetry(record) {
   );
 }
 
+function assertCanonicalSubagentBudgetUsageOutput(telemetry) {
+  for (const key of retiredSubagentBudgetUsageOutputAliasKeys) {
+    assert.equal(Object.prototype.hasOwnProperty.call(telemetry, key), false);
+  }
+}
+
 test("subagent budget usage telemetry accepts canonical request fields", () => {
   const telemetry = {
     cumulative_input_tokens: 3,
@@ -70,6 +88,8 @@ test("subagent budget usage telemetry accepts canonical request fields", () => {
   assert.deepEqual(direct.receipt_refs, ["receipt-usage"]);
   assert.deepEqual(direct.policy_decision_refs, ["policy-usage"]);
   assert.equal(direct.runtime_telemetry_summary_schema_version, "summary.v1");
+  assertCanonicalSubagentBudgetUsageOutput(direct);
+  assertCanonicalSubagentBudgetUsageOutput(nested);
   assert.equal(nested.cumulative_total_tokens, 10);
 });
 
