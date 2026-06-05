@@ -3,6 +3,26 @@ import {
   planModelMountInstanceLifecycleForMigratedProvider,
 } from "./model-instance-lifecycle.mjs";
 
+const RETIRED_MODEL_LOADING_REQUEST_ALIASES = [
+  "endpointId",
+  "modelId",
+  "loadPolicy",
+  "loadOptions",
+  "workflowScope",
+  "agentScope",
+  "instanceId",
+];
+
+const CANONICAL_MODEL_LOADING_REQUEST_FIELDS = [
+  "endpoint_id",
+  "model_id",
+  "load_policy",
+  "load_options",
+  "workflow_scope",
+  "agent_scope",
+  "instance_id",
+];
+
 export async function loadModel(state, body = {}, deps = {}) {
   const {
     defaultBackendForProvider,
@@ -14,13 +34,14 @@ export async function loadModel(state, body = {}, deps = {}) {
     safeId,
     schemaVersion,
   } = deps;
-  const endpoint = state.resolveEndpoint(body.endpoint_id ?? body.endpointId, body.model_id ?? body.modelId);
+  assertCanonicalModelLoadingRequestBody(body);
+  const endpoint = state.resolveEndpoint(body.endpoint_id, body.model_id);
   const provider = state.provider(endpoint.providerId);
-  const loadPolicy = normalizeLoadPolicy(body.load_policy ?? body.loadPolicy ?? endpoint.loadPolicy);
+  const loadPolicy = normalizeLoadPolicy(body.load_policy ?? endpoint.loadPolicy);
   const runtimePreference = state.runtimePreferenceForEndpoint(endpoint);
-  const requestLoadOptions = body.load_options ?? body.loadOptions ?? {};
+  const requestLoadOptions = body.load_options ?? {};
   const runtimeDefaults = { ...state.runtimeDefaultLoadOptions(runtimePreference.selectedEngineId) };
-  if ((body.load_policy ?? body.loadPolicy) && !hasExplicitTtlOption(body) && !hasExplicitTtlOption(requestLoadOptions)) {
+  if (body.load_policy && !hasExplicitTtlOption(body) && !hasExplicitTtlOption(requestLoadOptions)) {
     delete runtimeDefaults.ttlSeconds;
   }
   const loadOptions = normalizeLoadOptions(
@@ -102,8 +123,8 @@ export async function loadModel(state, body = {}, deps = {}) {
     loadedAt: now,
     lastUsedAt: now,
     expiresAt: expiresAt(now, loadPolicy),
-    workflowScope: body.workflow_scope ?? body.workflowScope ?? null,
-    agentScope: body.agent_scope ?? body.agentScope ?? null,
+    workflowScope: body.workflow_scope ?? null,
+    agentScope: body.agent_scope ?? null,
     providerEvidenceRefs: driverResult.evidenceRefs ?? [],
     ...modelMountInstanceLifecycleFields(instanceLifecycle),
   };
@@ -158,10 +179,11 @@ export function loadEstimate(state, endpoint, loadOptions = {}, runtimePreferenc
 }
 
 export async function unloadModel(state, body = {}, deps = {}) {
-  const instanceId = body.instance_id ?? body.instanceId ?? body.id;
+  assertCanonicalModelLoadingRequestBody(body);
+  const instanceId = body.instance_id ?? body.id;
   const instance = instanceId
     ? state.instance(instanceId)
-    : state.loadedInstanceForEndpoint(state.resolveEndpoint(body.endpoint_id ?? body.endpointId, body.model_id ?? body.modelId).id);
+    : state.loadedInstanceForEndpoint(state.resolveEndpoint(body.endpoint_id, body.model_id).id);
   const endpoint = state.endpoint(instance.endpointId);
   const provider = state.provider(instance.providerId);
   const driverResult = await state.driverForProvider(provider).unload({ state, provider, endpoint, instance, body });
@@ -197,4 +219,21 @@ export async function unloadModel(state, body = {}, deps = {}) {
     backend_process: driverResult.process ?? null,
   });
   return updated;
+}
+
+function assertCanonicalModelLoadingRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MODEL_LOADING_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model loading request aliases are retired; use canonical snake_case request fields.",
+  );
+  error.status = 400;
+  error.code = "model_mount_loading_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_MODEL_LOADING_REQUEST_FIELDS,
+  };
+  throw error;
 }

@@ -3426,6 +3426,30 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-loading-request-aliases-retired",
+    /RETIRED_MODEL_LOADING_REQUEST_ALIASES/.test(modelLoadingOperations) &&
+      /model_mount_loading_request_aliases_retired/.test(modelLoadingOperations) &&
+      (modelLoadingOperations.match(/assertCanonicalModelLoadingRequestBody\(body\);/g) ?? []).length >= 2 &&
+      /state\.resolveEndpoint\(body\.endpoint_id,\s*body\.model_id\)/.test(modelLoadingOperations) &&
+      /normalizeLoadPolicy\(body\.load_policy \?\? endpoint\.loadPolicy\)/.test(modelLoadingOperations) &&
+      /const requestLoadOptions = body\.load_options \?\? \{\};/.test(modelLoadingOperations) &&
+      /const instanceId = body\.instance_id \?\? body\.id;/.test(modelLoadingOperations) &&
+      !/body\.(?:endpointId|modelId|loadPolicy|loadOptions|workflowScope|agentScope|instanceId)\b/.test(
+        modelLoadingOperations,
+      ) &&
+      /loadModel rejects retired request aliases before endpoint resolution/.test(modelLoadingOperationsTest) &&
+      /unloadModel rejects retired request aliases before instance lookup/.test(modelLoadingOperationsTest) &&
+      /retired_aliases,\s*\[\s*"endpointId",\s*"modelId",\s*"loadPolicy",\s*"loadOptions",\s*"workflowScope",\s*"agentScope",\s*"instanceId",\s*\]/.test(
+        modelLoadingOperationsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: model loading/unloading request bodies must fail closed on retired camelCase endpoint/model/load/scope/instance aliases",
+  );
+  assertCheck(
+    result,
     "model-mount-tokenizer-receipt-detail-aliases-retired",
     /route_id:\s*selection\.route\.id/.test(modelTokenizerReceiptDetailsObject) &&
       /route_receipt_id:\s*routeReceipt\.id/.test(modelTokenizerReceiptDetailsObject) &&

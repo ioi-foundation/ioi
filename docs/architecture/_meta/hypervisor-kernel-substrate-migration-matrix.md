@@ -11863,6 +11863,13 @@ llama.cpp reasoning controls now read canonical `model_policy` only, so a
 retired top-level `modelPolicy` object cannot affect provider-bound request
 translation after the daemon entry-point guard has already retired that alias.
 
+Slice 305 retires model loading/unloading request aliases: `loadModel` and
+`unloadModel` now fail closed on retired `endpointId`, `modelId`,
+`loadPolicy`, `loadOptions`, `workflowScope`, `agentScope`, and `instanceId`
+before endpoint or instance lookup, while canonical `endpoint_id`, `model_id`,
+`load_policy`, `load_options`, `workflow_scope`, `agent_scope`, and
+`instance_id` remain accepted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

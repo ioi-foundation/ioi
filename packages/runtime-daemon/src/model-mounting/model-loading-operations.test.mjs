@@ -181,6 +181,98 @@ const deps = {
   schemaVersion: "schema.model-loading.test",
 };
 
+test("loadModel rejects retired request aliases before endpoint resolution", async () => {
+  const state = fakeState();
+  const calls = [];
+  state.resolveEndpoint = (...args) => {
+    calls.push(args);
+    throw new Error("resolveEndpoint should not run");
+  };
+
+  await assert.rejects(
+    () =>
+      loadModel(
+        state,
+        {
+          endpointId: "endpoint.local.llama",
+          modelId: "llama-test",
+          loadPolicy: "resident",
+          loadOptions: { estimate_only: true },
+          workflowScope: "workflow-1",
+          agentScope: "agent-1",
+          instanceId: "instance.legacy",
+        },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_loading_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "endpointId",
+        "modelId",
+        "loadPolicy",
+        "loadOptions",
+        "workflowScope",
+        "agentScope",
+        "instanceId",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "endpointId"), false);
+      assert.equal(Object.hasOwn(error.details, "loadPolicy"), false);
+      return true;
+    },
+  );
+  assert.deepEqual(calls, []);
+  assert.deepEqual(state.driverCalls, []);
+  assert.equal(state.receipts.length, 0);
+});
+
+test("unloadModel rejects retired request aliases before instance lookup", async () => {
+  const state = fakeState();
+  const calls = [];
+  state.instance = (...args) => {
+    calls.push(["instance", ...args]);
+    throw new Error("instance lookup should not run");
+  };
+  state.resolveEndpoint = (...args) => {
+    calls.push(["resolveEndpoint", ...args]);
+    throw new Error("endpoint lookup should not run");
+  };
+
+  await assert.rejects(
+    () =>
+      unloadModel(
+        state,
+        {
+          endpointId: "endpoint.local.llama",
+          modelId: "llama-test",
+          loadPolicy: "resident",
+          loadOptions: { estimate_only: true },
+          workflowScope: "workflow-1",
+          agentScope: "agent-1",
+          instanceId: "instance.legacy",
+        },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_loading_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "endpointId",
+        "modelId",
+        "loadPolicy",
+        "loadOptions",
+        "workflowScope",
+        "agentScope",
+        "instanceId",
+      ]);
+      return true;
+    },
+  );
+  assert.deepEqual(calls, []);
+  assert.deepEqual(state.driverCalls, []);
+  assert.equal(state.receipts.length, 0);
+});
+
 test("loadModel returns estimate-only envelope without invoking provider driver", async () => {
   const state = fakeState();
 
