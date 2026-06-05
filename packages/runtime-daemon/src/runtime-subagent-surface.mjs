@@ -573,13 +573,7 @@ export function createRuntimeSubagentSurface({
         optionalStringDep(request.model_route_id) ??
         record.model_route_id ??
         "route.local-first";
-      const prompt =
-        optionalStringDep(
-          request.prompt ??
-            request.message ??
-            request.input ??
-            request.resume_prompt,
-        ) ?? `Resume subagent ${role}.`;
+      const prompt = optionalStringDep(request.prompt) ?? `Resume subagent ${role}.`;
       const resumeId = `subagent_resume_${doctorHash(`${threadId}:${subagentId}:${nowMs()}`).slice(0, 12)}`;
       const run = store.createRun(childAgentId, {
         mode: "send",

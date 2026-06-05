@@ -3371,7 +3371,7 @@ function runCompositor() {
   const runtimeSubagentSendInputRequestAliasReadPattern =
     /request\.(?:message|prompt|text|subagent_input|subagentInput|workflowGraphId|workflowNodeId)\b/;
   const runtimeSubagentResumeRequestAliasReadPattern =
-    /request\.(?:subagentRole|modelRouteId|subagentModelRoute|resumePrompt|workflowGraphId|workflowNodeId)\b/;
+    /request\.(?:message|input|resume_prompt|resumePrompt|subagentRole|modelRouteId|subagentModelRoute|workflowGraphId|workflowNodeId)\b/;
   const runtimeSubagentAssignRequestAliasReadPattern =
     /request\.(?:subagentRole|toolPack|subagentToolPack|modelRouteId|subagentModelRoute|mergePolicy|cancellationInheritance|targetAgentId|workflowGraphId|workflowNodeId)\b/;
   const runtimeSubagentCancelRequestAliasReadPattern =
@@ -4412,7 +4412,27 @@ function runCompositor() {
       /subagent resume ignores retired camelCase request aliases/.test(
         runtimeSubagentSurfaceTest,
       ) &&
-      /resumePrompt: "Alias resume prompt"/.test(runtimeSubagentSurfaceTest) &&
+      /message: "Message alias-only resume prompt"/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /input: "Input alias-only resume prompt"/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /resume_prompt: "Snake alias-only resume prompt"/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /resumePrompt: "Camel alias-only resume prompt"/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /prompt: "Canonical resume prompt"/.test(runtimeSubagentSurfaceTest) &&
+      /message: "Message alias resume prompt"/.test(runtimeSubagentSurfaceTest) &&
+      /input: "Input alias resume prompt"/.test(runtimeSubagentSurfaceTest) &&
+      /resume_prompt: "Snake alias resume prompt"/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /resumePrompt: "Camel alias resume prompt"/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
       /subagentRole: "AliasRole"/.test(runtimeSubagentSurfaceTest) &&
       /modelRouteId: "route\.resume\.alias"/.test(runtimeSubagentSurfaceTest) &&
       /subagentModelRoute: "route\.resume\.subagent\.alias"/.test(

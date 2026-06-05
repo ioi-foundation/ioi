@@ -1221,6 +1221,36 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
 });
 
 test("subagent resume ignores retired camelCase request aliases", () => {
+  const aliasOnlyStore = createStore();
+  const aliasOnlySurface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T13:11:00.000Z",
+    nowMs: () => 1780588260000,
+  });
+  aliasOnlyStore.surface = aliasOnlySurface;
+  aliasOnlyStore.subagents.set("subagent_1", {
+    ...aliasOnlyStore.subagents.get("subagent_1"),
+    lifecycle_status: "canceled",
+    restart_count: 1,
+  });
+
+  const aliasOnlyResult = aliasOnlySurface.resumeSubagent(
+    aliasOnlyStore,
+    "thread_1",
+    "subagent_1",
+    {
+      source: "agent_studio",
+      message: "Message alias-only resume prompt",
+      input: "Input alias-only resume prompt",
+      resume_prompt: "Snake alias-only resume prompt",
+      resumePrompt: "Camel alias-only resume prompt",
+      role: "Worker",
+    },
+  );
+  const aliasOnlyRun = aliasOnlyStore.runs.get("run_created_3");
+
+  assert.equal(aliasOnlyResult.resume.prompt, "Resume subagent worker.");
+  assert.equal(aliasOnlyRun.request.prompt, "Resume subagent worker.");
+
   const store = createStore();
   const surface = createRuntimeSubagentSurface({
     nowIso: () => "2026-06-04T13:12:00.000Z",
@@ -1236,8 +1266,11 @@ test("subagent resume ignores retired camelCase request aliases", () => {
 
   const result = surface.resumeSubagent(store, "thread_1", "subagent_1", {
     source: "agent_studio",
-    resume_prompt: "Canonical resume prompt",
-    resumePrompt: "Alias resume prompt",
+    prompt: "Canonical resume prompt",
+    message: "Message alias resume prompt",
+    input: "Input alias resume prompt",
+    resume_prompt: "Snake alias resume prompt",
+    resumePrompt: "Camel alias resume prompt",
     role: "Worker",
     subagentRole: "AliasRole",
     model_route_id: "route.resume.canonical",
