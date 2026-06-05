@@ -2768,6 +2768,16 @@ function runCompositor() {
     ],
     "Phase 10/11 is pending: runtime event payloads and SDK projection must use canonical envelope ids/kinds instead of legacy payload aliases",
   );
+  assertCheck(
+    result,
+    "agent-sdk-runtime-event-dead-mock-helpers-retired",
+    /runtimeThreadEventFromEnvelope/.test(agentSdkRuntimeEvents) &&
+      !/mockRuntime(?:CursorSeq|EnvelopeForSdkEvent|EventEnvelope)|runtimePayloadStringRecord|runtimeEventKindForSdkMessage|runtimeEventStatusForSdkMessage|componentKindForSdkMessage|workflowNodeIdForSdkMessage|sourceEventKindForSdkMessage|payloadSchemaVersionForSdkMessage|turnIdForRun|eventStreamIdForThread|runtimeTurnStatusForRun|\(event as \{ id\?: string \}\)\.id/.test(
+        agentSdkRuntimeEvents,
+      ),
+    ["packages/agent-sdk/src/runtime-events.ts"],
+    "Phase 10/11 is pending: SDK runtime event projection must not retain dead mock-envelope helpers or noncanonical event.id cursor fallback",
+  );
   return result;
 }
 
