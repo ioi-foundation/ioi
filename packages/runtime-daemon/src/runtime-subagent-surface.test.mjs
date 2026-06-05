@@ -735,6 +735,44 @@ test("subagent surface reads result with validated output contract projection", 
   assert.deepEqual(result.receipt_refs, ["receipt_run_2"]);
 });
 
+test("subagent wait and result reads ignore retired camelCase record aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T12:35:00.000Z",
+    nowMs: () => 1780587100000,
+  });
+  store.surface = surface;
+  store.subagents.set("subagent_1", {
+    ...store.subagents.get("subagent_1"),
+    output_contract: ["SUMMARY"],
+    runId: "run_2",
+    outputContract: ["MISSING_SECTION"],
+    lifecycleStatus: "blocked",
+  });
+  store.subagents.set("subagent_2", {
+    ...store.subagents.get("subagent_2"),
+    output_contract: ["SUMMARY"],
+    runId: "run_1",
+    outputContract: ["MISSING_SECTION"],
+  });
+
+  const waited = surface.waitSubagent(store, "thread_1", "subagent_1", {
+    source: "agent_studio",
+  });
+  const read = surface.getSubagentResult(store, "thread_1", "subagent_2");
+
+  assert.equal(waited.status, "completed");
+  assert.equal(waited.output_contract_status, "passed");
+  assert.equal(waited.result, "Subagent one completed.");
+  assert.equal(store.subagents.get("subagent_1").waited_at, "2026-06-04T12:35:00.000Z");
+  assert.equal(read.result, "Subagent two completed.");
+  assert.equal(read.output_contract_status, "passed");
+  assert.equal(read.subagent.output_contract_status, "passed");
+  assertCanonicalSubagentRecordOutput(waited.subagent);
+  assertCanonicalSubagentRecordOutput(read.subagent);
+  assertCanonicalSubagentStoreWrites(store);
+});
+
 test("subagent surface sends input, persists history, and returns event", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface({

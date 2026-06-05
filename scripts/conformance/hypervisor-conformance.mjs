@@ -3231,6 +3231,16 @@ function runCompositor() {
     runtimeSubagentSurface.match(
       /getSubagent\(store, threadId, subagentId\) \{[\s\S]*?\n    \},\n    spawnSubagent/,
     )?.[0] ?? "";
+  const runtimeSubagentWaitResultReadBlocks = [
+    runtimeSubagentSurface.match(
+      /waitSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?\n    \},\n    getSubagentResult/,
+    )?.[0] ?? "",
+    runtimeSubagentSurface.match(
+      /getSubagentResult\(store, threadId, subagentId\) \{[\s\S]*?\n    \},\n    sendSubagentInput/,
+    )?.[0] ?? "",
+  ]
+    .filter(Boolean)
+    .join("\n");
   const runtimeSubagentPropagationEnvelopeBlock =
     runtimeSubagentSurface.match(
       /propagateSubagentCancellation\(store, threadId, request = \{\}\) \{[\s\S]*?\n    \},\n    subagentProjection/,
@@ -3306,6 +3316,8 @@ function runCompositor() {
     /(?:record\.parentThreadId|(?:left|right)\.createdAt)\b/;
   const runtimeSubagentPropagationRecordAliasReadPattern =
     /(?:record\.(?:parentThreadId|subagentId|agentId|cancellationInheritance|lifecycleStatus)|(?:left|right)\.createdAt)\b/;
+  const runtimeSubagentWaitResultRecordAliasReadPattern =
+    /record\.(?:runId|outputContract|lifecycleStatus)\b|^\s*outputContractStatus\s*[:,]/m;
   const runtimeSubagentControlEventRecordAliasReadPattern =
     /record\.(?:subagentId|workflowGraphId|workflowNodeId|budgetPolicyDecision|budgetStatus|parentTurnId)\b/;
   const runtimeSubagentProjectionBlock =
@@ -4047,6 +4059,26 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent cancellation propagation must ignore retired camelCase persisted record aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-wait-result-record-aliases-retired",
+    runtimeSubagentWaitResultReadBlocks.length > 0 &&
+      !runtimeSubagentWaitResultRecordAliasReadPattern.test(
+        runtimeSubagentWaitResultReadBlocks,
+      ) &&
+      /subagent wait and result reads ignore retired camelCase record aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /runId: "run_2"/.test(runtimeSubagentSurfaceTest) &&
+      /runId: "run_1"/.test(runtimeSubagentSurfaceTest) &&
+      /outputContract: \["MISSING_SECTION"\]/.test(runtimeSubagentSurfaceTest) &&
+      /lifecycleStatus: "blocked"/.test(runtimeSubagentSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent wait/result reads must ignore retired camelCase persisted record aliases",
   );
   assertCheck(
     result,

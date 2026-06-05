@@ -371,13 +371,13 @@ export function createRuntimeSubagentSurface({
     },
     waitSubagent(store, threadId, subagentId, request = {}) {
       const record = store.getSubagent(threadId, subagentId);
-      const run = store.getRun(record.run_id ?? record.runId);
-      const output = subagentContractOutputForRunDep(run, record.output_contract ?? record.outputContract);
+      const run = store.getRun(record.run_id);
+      const output = subagentContractOutputForRunDep(run, record.output_contract);
       const outputContractStatus = validateSubagentOutputContractDep(
         output,
-        record.output_contract ?? record.outputContract,
+        record.output_contract,
       );
-      const previousLifecycleStatus = record.lifecycle_status ?? record.lifecycleStatus ?? record.status;
+      const previousLifecycleStatus = record.lifecycle_status ?? record.status;
       const lifecycleStatus =
         previousLifecycleStatus === "blocked" ? "blocked" : lifecycleStatusForRunDep(run.status);
       const waitedAt = nowIso();
@@ -415,18 +415,17 @@ export function createRuntimeSubagentSurface({
     },
     getSubagentResult(store, threadId, subagentId) {
       const record = store.getSubagent(threadId, subagentId);
-      const run = store.getRun(record.run_id ?? record.runId);
-      const output = subagentContractOutputForRunDep(run, record.output_contract ?? record.outputContract);
+      const run = store.getRun(record.run_id);
+      const output = subagentContractOutputForRunDep(run, record.output_contract);
       const outputContractStatus = validateSubagentOutputContractDep(
         output,
-        record.output_contract ?? record.outputContract,
+        record.output_contract,
       );
       return {
         ...subagentResultForRunDep({ record, run, output, outputContractStatus }),
         subagent: this.subagentProjection({
           ...record,
           output_contract_status: outputContractStatus.status,
-          outputContractStatus,
         }),
       };
     },
