@@ -1374,11 +1374,13 @@ test("subagent surface assigns role metadata and persists assignment history", (
   const result = surface.assignSubagent(store, "thread_1", "subagent_1", {
     source: "agent_studio",
     role: "Auditor",
-    toolPack: "review-tools",
-    modelRouteId: "route.audit",
-    mergePolicy: "auto",
-    cancellationInheritance: "detach",
-    targetAgentId: "agent_auditor",
+    tool_pack: "review-tools",
+    model_route_id: "route.audit",
+    merge_policy: "auto",
+    cancellation_inheritance: "detach",
+    target_agent_id: "agent_auditor",
+    workflow_graph_id: "graph_assign",
+    workflow_node_id: "node_assign",
     receipt_refs: ["receipt_assign_request"],
   });
   const saved = store.subagents.get("subagent_1");
@@ -1398,6 +1400,8 @@ test("subagent surface assigns role metadata and persists assignment history", (
   assertCanonicalSubagentRecordOutput(result);
   assert.equal(result.event.event_kind, "subagent.assigned");
   assert.equal(result.event.source_event_kind, "OperatorControl.SubagentAssign");
+  assert.equal(result.event.workflow_graph_id, "graph_assign");
+  assert.equal(result.event.workflow_node_id, "node_assign");
   assert.equal(result.event.receipt_refs[0], "receipt_assign_request");
   assert.match(result.event.receipt_refs[1], /^receipt_subagent_assign_/);
   assert.equal(store.writes[0].operationKind, "subagent.assign");
@@ -1407,6 +1411,51 @@ test("subagent surface assigns role metadata and persists assignment history", (
   assertNoOwnKeys(saved.assignment_history[0], retiredSubagentNestedAssignmentAliasKeys);
   assertCanonicalSubagentRecordOutput(saved);
   assertCanonicalSubagentStoreWrites(store);
+});
+
+test("subagent assign ignores retired camelCase request aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T13:03:00.000Z",
+    nowMs: () => 1780587780000,
+  });
+  store.surface = surface;
+
+  const result = surface.assignSubagent(store, "thread_1", "subagent_1", {
+    source: "agent_studio",
+    subagent_role: "Auditor",
+    subagentRole: "AliasRole",
+    tool_pack: "canonical-tools",
+    toolPack: "alias-tools",
+    subagentToolPack: "subagent-alias-tools",
+    model_route_id: "route.assign.canonical",
+    modelRouteId: "route.assign.alias",
+    subagentModelRoute: "route.assign.subagent.alias",
+    merge_policy: "canonical-merge",
+    mergePolicy: "alias-merge",
+    cancellation_inheritance: "detach",
+    cancellationInheritance: "propagate",
+    target_agent_id: "agent_canonical_assign",
+    targetAgentId: "agent_alias_assign",
+    workflow_graph_id: "graph_assign_canonical",
+    workflow_node_id: "node_assign_canonical",
+    workflowGraphId: "graph_assign_alias",
+    workflowNodeId: "node_assign_alias",
+  });
+  const saved = store.subagents.get("subagent_1");
+
+  assert.equal(result.role, "auditor");
+  assert.equal(result.target_agent_id, "agent_canonical_assign");
+  assert.equal(result.tool_pack, "canonical-tools");
+  assert.equal(result.model_route_id, "route.assign.canonical");
+  assert.equal(result.merge_policy, "canonical-merge");
+  assert.equal(result.cancellation_inheritance, "detach");
+  assert.equal(result.assignment.workflow_graph_id, "graph_assign_canonical");
+  assert.equal(result.assignment.workflow_node_id, "node_assign_canonical");
+  assert.equal(result.event.workflow_graph_id, "graph_assign_canonical");
+  assert.equal(result.event.workflow_node_id, "node_assign_canonical");
+  assert.equal(saved.assignment_history[0].tool_pack, "canonical-tools");
+  assertNoOwnKeys(result.assignment, retiredSubagentNestedAssignmentAliasKeys);
 });
 
 test("subagent assign ignores retired camelCase record aliases", () => {

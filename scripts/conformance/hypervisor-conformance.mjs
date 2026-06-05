@@ -3364,6 +3364,8 @@ function runCompositor() {
     /request\.(?:subagentInput|workflowGraphId|workflowNodeId)\b/;
   const runtimeSubagentResumeRequestAliasReadPattern =
     /request\.(?:subagentRole|modelRouteId|subagentModelRoute|resumePrompt|workflowGraphId|workflowNodeId)\b/;
+  const runtimeSubagentAssignRequestAliasReadPattern =
+    /request\.(?:subagentRole|toolPack|subagentToolPack|modelRouteId|subagentModelRoute|mergePolicy|cancellationInheritance|targetAgentId|workflowGraphId|workflowNodeId)\b/;
   const runtimeSubagentProjectionBlock =
     runtimeSubagentSurface.match(
       /subagentProjection\(record = \{\}\) \{[\s\S]*?\n    \},\n    appendThreadSubagentControlEvent/,
@@ -4324,6 +4326,36 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent assign lifecycle must ignore retired camelCase persisted record aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-assign-request-aliases-retired",
+    runtimeSubagentAssignBlock.length > 0 &&
+      !runtimeSubagentAssignRequestAliasReadPattern.test(
+        runtimeSubagentAssignBlock,
+      ) &&
+      /subagent assign ignores retired camelCase request aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /subagentRole: "AliasRole"/.test(runtimeSubagentSurfaceTest) &&
+      /toolPack: "alias-tools"/.test(runtimeSubagentSurfaceTest) &&
+      /subagentToolPack: "subagent-alias-tools"/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /modelRouteId: "route\.assign\.alias"/.test(runtimeSubagentSurfaceTest) &&
+      /subagentModelRoute: "route\.assign\.subagent\.alias"/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /mergePolicy: "alias-merge"/.test(runtimeSubagentSurfaceTest) &&
+      /cancellationInheritance: "propagate"/.test(runtimeSubagentSurfaceTest) &&
+      /targetAgentId: "agent_alias_assign"/.test(runtimeSubagentSurfaceTest) &&
+      /workflowGraphId: "graph_assign_alias"/.test(runtimeSubagentSurfaceTest) &&
+      /workflowNodeId: "node_assign_alias"/.test(runtimeSubagentSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent assign lifecycle must ignore retired camelCase request aliases",
   );
   assertCheck(
     result,

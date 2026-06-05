@@ -724,26 +724,26 @@ export function createRuntimeSubagentSurface({
       const record = store.getSubagent(threadId, subagentId);
       const previousRole = record.role ?? "general";
       const role = normalizeSubagentRoleDep(
-        request.role ?? request.subagentRole ?? request.subagent_role ?? previousRole,
+        request.role ?? request.subagent_role ?? previousRole,
       );
       const toolPack =
-        optionalStringDep(request.tool_pack ?? request.toolPack ?? request.subagentToolPack) ??
+        optionalStringDep(request.tool_pack) ??
         record.tool_pack ??
         null;
       const modelRouteId =
-        optionalStringDep(request.model_route_id ?? request.modelRouteId ?? request.subagentModelRoute) ??
+        optionalStringDep(request.model_route_id) ??
         record.model_route_id ??
         null;
       const mergePolicy =
-        optionalStringDep(request.merge_policy ?? request.mergePolicy) ??
+        optionalStringDep(request.merge_policy) ??
         record.merge_policy ??
         "manual";
       const cancellationInheritance =
-        optionalStringDep(request.cancellation_inheritance ?? request.cancellationInheritance) ??
+        optionalStringDep(request.cancellation_inheritance) ??
         record.cancellation_inheritance ??
         "propagate";
       const targetAgentId =
-        optionalStringDep(request.target_agent_id ?? request.targetAgentId) ??
+        optionalStringDep(request.target_agent_id) ??
         record.agent_id ??
         subagentId;
       const assignmentId = `subagent_assignment_${doctorHash(`${threadId}:${subagentId}:${nowMs()}`).slice(0, 12)}`;
@@ -763,8 +763,8 @@ export function createRuntimeSubagentSurface({
         created_at: now,
         actor: optionalStringDep(request.actor) ?? "operator",
         source: operatorControlSourceDep(request.source),
-        workflow_graph_id: optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
-        workflow_node_id: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
+        workflow_graph_id: optionalStringDep(request.workflow_graph_id) ?? null,
+        workflow_node_id: optionalStringDep(request.workflow_node_id) ?? null,
       };
       const assignmentHistory = [
         ...normalizeArray(record.assignment_history),
