@@ -916,13 +916,17 @@ export function createRuntimeSubagentSurface({
         "parent_cancel";
       const source = operatorControlSourceDep(request.source);
       const requestBase = {
-        ...request,
         source,
         reason,
+        actor: request.actor,
+        workflow_graph_id: request.workflow_graph_id,
+        receipt_refs: request.receipt_refs,
+        policy_decision_refs: request.policy_decision_refs,
+        budget: request.budget,
+        budget_usage_telemetry: request.budget_usage_telemetry,
         inherited: true,
         propagated_from_thread_id: threadId,
       };
-      delete requestBase.idempotency_key;
       const candidates = [...store.subagents.values()]
         .filter((record) => record.parent_thread_id === threadId)
         .sort((left, right) =>
@@ -954,12 +958,11 @@ export function createRuntimeSubagentSurface({
           continue;
         }
         const workflowNodeId =
-          optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ??
+          optionalStringDep(request.workflow_node_id) ??
           `runtime.subagent.cancel.propagated.${safeIdDep(record.role ?? "general")}`;
         const childRequest = {
           ...requestBase,
           workflow_node_id: workflowNodeId,
-          workflowNodeId,
         };
         const result = this.cancelSubagent(store, threadId, String(targetId), childRequest);
         canceled.push(result);

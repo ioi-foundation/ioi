@@ -1660,6 +1660,8 @@ test("subagent surface propagates parent cancellation and ignores retired record
     source: "runtime_auto",
     reason: "parent stopped",
     actor: "operator_1",
+    workflow_node_id: "node_parent_cancel",
+    workflowNodeId: "node_parent_cancel_alias",
     receipt_refs: ["receipt_parent_cancel"],
   });
   const saved = store.subagents.get("subagent_1");
@@ -1695,6 +1697,10 @@ test("subagent surface propagates parent cancellation and ignores retired record
   assertCanonicalSubagentRecordOutput(saved);
   assertCanonicalSubagentStoreWrites(store);
   assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
-  assert.equal(store.events[0].workflow_node_id, "runtime.subagent.cancel.propagated.reviewer");
+  assert.equal(store.events[0].workflow_node_id, "node_parent_cancel");
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(store.eventInputs[0].request, "workflowNodeId"),
+    false,
+  );
   assert.equal(store.writes[0].operationKind, "subagent.cancel");
 });

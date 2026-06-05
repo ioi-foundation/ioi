@@ -3338,6 +3338,8 @@ function runCompositor() {
     /^\s*receiptRefs\s*[:,]/m;
   const runtimeSubagentListRequestAliasReadPattern =
     /options\.subagentRole\b/;
+  const runtimeSubagentPropagationRequestAliasPattern =
+    /request\.workflowNodeId\b|^\s*workflowNodeId\s*[:,]/m;
   const runtimeSubagentListLookupRecordAliasReadPattern =
     /(?:record\.parentThreadId|(?:left|right)\.createdAt)\b/;
   const runtimeSubagentPropagationRecordAliasReadPattern =
@@ -4139,6 +4141,25 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent cancellation propagation must ignore retired camelCase persisted record aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-propagation-request-aliases-retired",
+    runtimeSubagentPropagationEnvelopeBlock.length > 0 &&
+      !runtimeSubagentPropagationRequestAliasPattern.test(
+        runtimeSubagentPropagationEnvelopeBlock,
+      ) &&
+      /workflowNodeId: "node_parent_cancel_alias"/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /hasOwnProperty\.call\(store\.eventInputs\[0\]\.request, "workflowNodeId"\)/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent cancellation propagation must ignore retired camelCase request aliases",
   );
   assertCheck(
     result,
