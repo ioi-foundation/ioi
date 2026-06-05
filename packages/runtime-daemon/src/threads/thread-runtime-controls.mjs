@@ -30,12 +30,12 @@ export function initialThreadRuntimeControls(options = {}, modelRoute = {}, now 
       endpointId: modelRoute.endpointId ?? null,
       providerId: modelRoute.providerId ?? null,
       receiptId: modelRoute.receiptId ?? null,
-      reasoningEffort: modelRoute.decision?.reasoningEffort ?? options.model?.reasoningEffort ?? options.model?.thinking ?? null,
+      reasoningEffort: modelRoute.decision?.reasoning_effort ?? options.model?.reasoningEffort ?? options.model?.thinking ?? null,
       privacy: options.model?.privacy ?? null,
       maxCostUsd: options.model?.maxCostUsd ?? options.model?.max_cost_usd ?? null,
       allow_hosted_fallback: options.model?.allow_hosted_fallback ?? null,
-      workflowGraphId: modelRoute.decision?.workflowGraphId ?? options.model?.workflowGraphId ?? null,
-      workflowNodeId: modelRoute.decision?.workflowNodeId ?? options.model?.workflowNodeId ?? "runtime.model-router",
+      workflowGraphId: modelRoute.decision?.workflow_graph_id ?? options.model?.workflowGraphId ?? null,
+      workflowNodeId: modelRoute.decision?.workflow_node_id ?? options.model?.workflowNodeId ?? "runtime.model-router",
       updatedAt: now,
     },
     updatedAt: now,
@@ -63,12 +63,12 @@ export function normalizedAgentRuntimeControls(agent = {}) {
       endpointId: model.endpointId ?? model.endpoint_id ?? agent.modelRouteEndpointId ?? null,
       providerId: model.providerId ?? model.provider_id ?? agent.modelRouteProviderId ?? null,
       receiptId: model.receiptId ?? model.receipt_id ?? agent.modelRouteReceiptId ?? null,
-      reasoningEffort: model.reasoningEffort ?? model.reasoning_effort ?? agent.modelRouteDecision?.reasoningEffort ?? null,
+      reasoningEffort: model.reasoningEffort ?? model.reasoning_effort ?? agent.modelRouteDecision?.reasoning_effort ?? null,
       privacy: model.privacy ?? null,
       maxCostUsd: model.maxCostUsd ?? model.max_cost_usd ?? null,
       allow_hosted_fallback: model.allow_hosted_fallback ?? null,
-      workflowGraphId: model.workflowGraphId ?? model.workflow_graph_id ?? agent.modelRouteDecision?.workflowGraphId ?? null,
-      workflowNodeId: model.workflowNodeId ?? model.workflow_node_id ?? agent.modelRouteDecision?.workflowNodeId ?? "runtime.model-router",
+      workflowGraphId: model.workflowGraphId ?? model.workflow_graph_id ?? agent.modelRouteDecision?.workflow_graph_id ?? null,
+      workflowNodeId: model.workflowNodeId ?? model.workflow_node_id ?? agent.modelRouteDecision?.workflow_node_id ?? "runtime.model-router",
       updatedAt: model.updatedAt ?? model.updated_at ?? source.updatedAt ?? source.updated_at ?? agent.updatedAt ?? null,
     },
     updatedAt: source.updatedAt ?? source.updated_at ?? agent.updatedAt ?? null,
@@ -168,7 +168,7 @@ export function threadRuntimeControlModelInput(request = {}, controls = {}, agen
       request.effort ??
       existingModel.reasoningEffort ??
       existingModel.reasoning_effort ??
-      agent.modelRouteDecision?.reasoningEffort ??
+      agent.modelRouteDecision?.reasoning_effort ??
       null,
     true,
   );
@@ -263,11 +263,11 @@ export function modelWorkflowContext({ model = {}, options = {}, context = {} } 
 export function modelRouteBindingFromReceipt(receipt, requestedModelId) {
   const decision = routeDecision.routeDecisionProjectionFromReceipt(receipt);
   return {
-    requestedModelId: decision?.requestedModel ?? requestedModelId ?? "auto",
-    selectedModel: decision?.selectedModel ?? requestedModelId ?? null,
-    routeId: decision?.routeId ?? null,
-    endpointId: decision?.endpointId ?? null,
-    providerId: decision?.providerId ?? null,
+    requestedModelId: decision?.requested_model ?? requestedModelId ?? "auto",
+    selectedModel: decision?.selected_model ?? requestedModelId ?? null,
+    routeId: decision?.route_id ?? null,
+    endpointId: decision?.endpoint_id ?? null,
+    providerId: decision?.provider_id ?? null,
     receiptId: receipt.id,
     decision,
   };

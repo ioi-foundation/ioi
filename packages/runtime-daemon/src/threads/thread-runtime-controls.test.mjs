@@ -43,7 +43,14 @@ test("initial and normalized runtime controls preserve schema and model route fi
       endpointId: "endpoint-1",
       providerId: "provider-1",
       receiptId: "receipt-1",
-      decision: { reasoningEffort: "low", workflowGraphId: "graph-1", workflowNodeId: "node-1" },
+      decision: {
+        reasoning_effort: "low",
+        reasoningEffort: "legacy-high",
+        workflow_graph_id: "graph-1",
+        workflow_node_id: "node-1",
+        workflowGraphId: "legacy-graph",
+        workflowNodeId: "legacy-node",
+      },
     },
     "2026-06-03T00:00:00.000Z",
   );
@@ -53,6 +60,22 @@ test("initial and normalized runtime controls preserve schema and model route fi
   assert.equal(controls.approvalMode, "human_required");
   assert.equal(controls.model.selectedModel, "local-model");
   assert.equal(controls.model.reasoningEffort, "low");
+  assert.equal(controls.model.workflowGraphId, "graph-1");
+  assert.equal(controls.model.workflowNodeId, "node-1");
+
+  const normalizedFromCanonicalDecision = normalizedAgentRuntimeControls({
+    modelRouteDecision: {
+      reasoning_effort: "medium",
+      reasoningEffort: "legacy-high",
+      workflow_graph_id: "graph-decision",
+      workflow_node_id: "node-decision",
+      workflowGraphId: "legacy-graph",
+      workflowNodeId: "legacy-node",
+    },
+  });
+  assert.equal(normalizedFromCanonicalDecision.model.reasoningEffort, "medium");
+  assert.equal(normalizedFromCanonicalDecision.model.workflowGraphId, "graph-decision");
+  assert.equal(normalizedFromCanonicalDecision.model.workflowNodeId, "node-decision");
 
   assert.deepEqual(normalizedAgentRuntimeControls({
     mode: "chat",
@@ -185,15 +208,23 @@ test("model policy, workflow context, reasoning effort, and route receipt bindin
     id: "receipt-1",
     details: {
       model_route_decision: {
-        requestedModel: "auto",
-        selectedModel: "local-model",
-        routeId: "route.local-first",
-        endpointId: "endpoint-1",
-        providerId: "provider-1",
+        requested_model: "auto",
+        requestedModel: "legacy-requested",
+        selected_model: "local-model",
+        selectedModel: "legacy-selected",
+        route_id: "route.local-first",
+        routeId: "route.legacy",
+        endpoint_id: "endpoint-1",
+        endpointId: "endpoint-legacy",
+        provider_id: "provider-1",
+        providerId: "provider-legacy",
       },
     },
   }, "fallback-model");
   assert.equal(binding.requestedModelId, "auto");
   assert.equal(binding.selectedModel, "local-model");
+  assert.equal(binding.routeId, "route.local-first");
+  assert.equal(binding.endpointId, "endpoint-1");
+  assert.equal(binding.providerId, "provider-1");
   assert.equal(binding.receiptId, "receipt-1");
 });

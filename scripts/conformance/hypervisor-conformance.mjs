@@ -1098,6 +1098,36 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "runtime-thread-model-route-decision-reader-aliases-retired",
+    /modelRoute\.decision\?\.reasoning_effort/.test(threadRuntimeControls) &&
+      /modelRoute\.decision\?\.workflow_graph_id/.test(threadRuntimeControls) &&
+      /modelRoute\.decision\?\.workflow_node_id/.test(threadRuntimeControls) &&
+      /agent\.modelRouteDecision\?\.reasoning_effort/.test(threadRuntimeControls) &&
+      /agent\.modelRouteDecision\?\.workflow_graph_id/.test(threadRuntimeControls) &&
+      /agent\.modelRouteDecision\?\.workflow_node_id/.test(threadRuntimeControls) &&
+      /decision\?\.requested_model/.test(threadRuntimeControls) &&
+      /decision\?\.selected_model/.test(threadRuntimeControls) &&
+      /decision\?\.route_id/.test(threadRuntimeControls) &&
+      /decision\?\.endpoint_id/.test(threadRuntimeControls) &&
+      /decision\?\.provider_id/.test(threadRuntimeControls) &&
+      !/modelRoute\.decision\?\.(?:reasoningEffort|workflowGraphId|workflowNodeId|workflowNodeType)/.test(
+        threadRuntimeControls,
+      ) &&
+      !/agent\.modelRouteDecision\?\.(?:reasoningEffort|workflowGraphId|workflowNodeId|workflowNodeType)/.test(
+        threadRuntimeControls,
+      ) &&
+      !/decision\?\.(?:requestedModel|selectedModel|routeId|endpointId|providerId)/.test(threadRuntimeControls) &&
+      /reasoningEffort:\s*"legacy-high"/.test(threadRuntimeControlsTest) &&
+      /requestedModel:\s*"legacy-requested"/.test(threadRuntimeControlsTest) &&
+      /assert\.equal\(binding\.routeId,\s*"route\.local-first"\)/.test(threadRuntimeControlsTest),
+    [
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
+    ],
+    "Phase 3/10 is pending: runtime thread-control model-route readers must consume canonical route-decision fields without retired camelCase fallbacks",
+  );
+  assertCheck(
+    result,
     "runtime-thread-hosted-fallback-alias-retired",
     /allow_hosted_fallback/.test(threadRuntimeControls) &&
       /allow_hosted_fallback/.test(runtimeThreadControlSurface) &&
