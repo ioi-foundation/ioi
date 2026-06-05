@@ -51,7 +51,7 @@ test("model mounting validation preserves continuation safety modes", () => {
     body: {},
     runtimeError,
     truthy: Boolean,
-  }), { mode: "new", previousResponseId: null, fallbackAllowed: false, mismatchFields: [] });
+  }), { mode: "new", previous_response_id: null, fallback_allowed: false, mismatch_fields: [] });
 
   assert.deepEqual(validateContinuationSafety({
     previousState: {
@@ -64,7 +64,7 @@ test("model mounting validation preserves continuation safety modes", () => {
     body: {},
     runtimeError,
     truthy: Boolean,
-  }), { mode: "matched", previousResponseId: "resp-1", fallbackAllowed: false, mismatchFields: [] });
+  }), { mode: "matched", previous_response_id: "resp-1", fallback_allowed: false, mismatch_fields: [] });
 
   assert.deepEqual(validateContinuationSafety({
     previousState: {
@@ -79,9 +79,9 @@ test("model mounting validation preserves continuation safety modes", () => {
     truthy: Boolean,
   }), {
     mode: "fallback_allowed",
-    previousResponseId: "resp-1",
-    fallbackAllowed: true,
-    mismatchFields: ["route_id", "endpoint_id", "model"],
+    previous_response_id: "resp-1",
+    fallback_allowed: true,
+    mismatch_fields: ["route_id", "endpoint_id", "model"],
   });
 });
 

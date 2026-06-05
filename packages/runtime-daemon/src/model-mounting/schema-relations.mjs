@@ -77,7 +77,7 @@ export function modelMountingRelationSchemas() {
     mcpServers: ["id", "transport", "allowedTools", "secretRefs", "status"],
     modelConversationStates: [
       "id",
-      "previousResponseId",
+      "previous_response_id",
       "routeId",
       "endpointId",
       "selectedModel",

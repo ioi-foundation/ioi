@@ -173,7 +173,7 @@ test("recordConversationState stores redacted replay metadata and message lineag
   const state = fakeState();
   const previousState = {
     id: "resp_previous",
-    rootResponseId: "resp_root",
+    root_response_id: "resp_root",
     messageCount: 4,
   };
 
@@ -196,11 +196,16 @@ test("recordConversationState stores redacted replay metadata and message lineag
     deps,
   );
 
-  assert.equal(record.rootResponseId, "resp_root");
+  assert.equal(record.previous_response_id, "resp_previous");
+  assert.equal(record.root_response_id, "resp_root");
   assert.equal(record.messageCount, 6);
   assert.equal(record.inputHash, "hash:secret prompt");
   assert.equal(record.outputHash, "hash:public answer");
+  assert.equal(record.replay.previous_response_id, "resp_previous");
   assert.equal(record.replay.plaintextPersisted, false);
+  assert.equal(Object.hasOwn(record, "previousResponseId"), false);
+  assert.equal(Object.hasOwn(record, "rootResponseId"), false);
+  assert.equal(Object.hasOwn(record.replay, "previousResponseId"), false);
   assert.equal(state.conversations.get("resp_current"), record);
   assert.equal(state.writes.at(-1)[0], "model-conversations");
 });
@@ -258,6 +263,8 @@ test("recordModelStreamCompleted emits stream receipt and finalizes conversation
   assert.equal(receipt.kind, "model_invocation_stream_completed");
   assert.equal(receipt.id, "receipt.1.model_invocation_stream_completed");
   assert.equal(receipt.details.outputHash, "hash:stream answer");
+  assert.equal(receipt.details.previous_response_id, null);
+  assert.equal(Object.hasOwn(receipt.details, "previousResponseId"), false);
   assert.deepEqual(receipt.details.toolReceiptIds, ["receipt.tool"]);
   assert.equal(receipt.details.providerStreamShapeSummary.framesForwarded, 3);
   assert.equal(receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/1");
@@ -270,6 +277,7 @@ test("recordModelStreamCompleted emits stream receipt and finalizes conversation
   ]);
   assert.equal(invocation.conversationState.id, "resp_stream");
   assert.equal(invocation.conversationState.streamReceiptId, receipt.id);
+  assert.equal(Object.hasOwn(invocation.conversationState, "previousResponseId"), false);
   assert.equal(state.conversations.get("resp_stream"), invocation.conversationState);
 });
 

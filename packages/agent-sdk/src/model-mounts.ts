@@ -339,12 +339,12 @@ export interface ModelInvocationReceipt {
     toolReceiptIds?: string[];
     ephemeralMcpServerIds?: string[];
     responseId?: string | null;
-    previousResponseId?: string | null;
+    previous_response_id?: string | null;
     continuation?: {
       mode: "new" | "matched" | "fallback_allowed" | string;
-      previousResponseId?: string | null;
-      fallbackAllowed?: boolean;
-      mismatchFields?: string[];
+      previous_response_id?: string | null;
+      fallback_allowed?: boolean;
+      mismatch_fields?: string[];
     } | null;
   };
 }
@@ -355,8 +355,8 @@ export interface ModelConversationState {
   status: "completed" | "canceled" | "failed" | string;
   redaction: "redacted";
   createdAt: string;
-  previousResponseId: string | null;
-  rootResponseId: string;
+  previous_response_id: string | null;
+  root_response_id: string;
   kind: string;
   routeId: string;
   endpointId: string;
@@ -377,14 +377,14 @@ export interface ModelConversationState {
   messageCount: number;
   continuation?: {
     mode: "new" | "matched" | "fallback_allowed" | string;
-    previousResponseId?: string | null;
-    fallbackAllowed?: boolean;
-    mismatchFields?: string[];
+    previous_response_id?: string | null;
+    fallback_allowed?: boolean;
+    mismatch_fields?: string[];
   } | null;
   replay: {
     source: "redacted_conversation_state" | string;
     plaintextPersisted: false;
-    previousResponseId: string | null;
+    previous_response_id: string | null;
   };
 }
 

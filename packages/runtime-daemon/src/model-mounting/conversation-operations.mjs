@@ -62,8 +62,8 @@ export function recordConversationState(state, {
     status,
     redaction: "redacted",
     createdAt: now,
-    previousResponseId: previousState?.id ?? null,
-    rootResponseId: previousState?.rootResponseId ?? previousState?.id ?? responseId,
+    previous_response_id: previousState?.id ?? null,
+    root_response_id: previousState?.root_response_id ?? previousState?.id ?? responseId,
     kind,
     routeId: selection.route.id,
     endpointId: selection.endpoint.id,
@@ -82,7 +82,7 @@ export function recordConversationState(state, {
     replay: {
       source: "redacted_conversation_state",
       plaintextPersisted: false,
-      previousResponseId: previousState?.id ?? null,
+      previous_response_id: previousState?.id ?? null,
     },
   };
   state.conversations.set(record.id, record);
@@ -131,7 +131,7 @@ export function recordModelStreamCompleted(state, {
     finishReason,
     providerStreamShapeSummary,
     responseId: invocation.responseId ?? null,
-    previousResponseId: invocation.previousResponseId ?? null,
+    previous_response_id: invocation.previousResponseId ?? null,
   };
   const admissionRequest = modelMountInvocationAdmissionRequestForReceipt({
     body: {},

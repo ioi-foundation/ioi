@@ -6,7 +6,7 @@ export function validateContinuationSafety({
   truthy,
 } = {}) {
   if (!previousState) {
-    return { mode: "new", previousResponseId: null, fallbackAllowed: false, mismatchFields: [] };
+    return { mode: "new", previous_response_id: null, fallback_allowed: false, mismatch_fields: [] };
   }
   const allowFallback = truthy(
     body.allow_continuation_fallback ??
@@ -32,9 +32,9 @@ export function validateContinuationSafety({
   }
   return {
     mode: mismatchFields.length > 0 ? "fallback_allowed" : "matched",
-    previousResponseId: previousState.id,
-    fallbackAllowed: allowFallback,
-    mismatchFields,
+    previous_response_id: previousState.id,
+    fallback_allowed: allowFallback,
+    mismatch_fields: mismatchFields,
   };
 }
 

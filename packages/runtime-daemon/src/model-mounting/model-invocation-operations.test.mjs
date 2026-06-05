@@ -435,8 +435,10 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(result.receipt.details.model_mount_agentgres_admission.operation_ref, "agentgres://model-mounting/operation-log/op_00000001_model_invocation");
   assert.equal(result.receipt.details.model_mount_step_module_invocation.module_ref.kind, "model_mount");
   assert.equal(result.receipt.details.model_mount_step_module_result.workflow_projection.status, "live");
+  assert.equal(result.receipt.details.previous_response_id, null);
   assert.equal(Object.hasOwn(result, "compatTranslation"), false);
   assert.equal(Object.hasOwn(result.receipt.details, "compatTranslation"), false);
+  assert.equal(Object.hasOwn(result.receipt.details, "previousResponseId"), false);
   assert.equal(Object.hasOwn(result.receipt.details, "modelMountReceiptBindingRef"), false);
   assert.equal(Object.hasOwn(result.receipt.details, "modelMountAgentgresAdmission"), false);
   assert.equal(Object.hasOwn(result.receipt.details, "modelMountStepModuleResult"), false);
@@ -960,6 +962,7 @@ test("modelMountInvocationAdmissionRequestForReceipt binds route decision and in
       providerAuthEvidenceRefs: ["provider.auth"],
       backendEvidenceRefs: ["backend.evidence"],
       responseId: "resp.1",
+      previous_response_id: "resp.0",
     },
     receiptId: "receipt.invoke",
     receiptKind: "model_invocation",
@@ -995,6 +998,7 @@ test("modelMountInvocationAdmissionRequestForReceipt binds route decision and in
   assert.equal(request.workflow_graph_ref, "graph.1");
   assert.equal(request.workflow_node_ref, "node.1");
   assert.equal(request.response_ref, "resp.1");
+  assert.equal(request.previous_response_ref, "resp.0");
 });
 
 test("modelMountInvocationAdmissionRequestForReceipt rejects retired route-decision detail alias", () => {

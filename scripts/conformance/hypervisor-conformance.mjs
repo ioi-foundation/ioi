@@ -384,6 +384,17 @@ function runBridge() {
   const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     : "";
+  const modelInvocationReceiptDetailsObject =
+    modelInvocationOps.match(/const details = \{[\s\S]*?\n  \};/)?.[0] ?? "";
+  const modelMountingValidation = exists("packages/runtime-daemon/src/model-mounting/validation.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/validation.mjs")
+    : "";
+  const modelConversationOps = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
+    : "";
+  const modelSchemaRelations = exists("packages/runtime-daemon/src/model-mounting/schema-relations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/schema-relations.mjs")
+    : "";
   const modelMountingReadModel = exists("packages/runtime-daemon/src/model-mounting/read-model.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/read-model.mjs")
     : "";
@@ -940,6 +951,47 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 9/10 is pending: provider execution must be admitted by Rust model_mount core before JS provider driver calls",
+  );
+  assertCheck(
+    result,
+    "model-mount-continuation-lineage-aliases-retired",
+    /previous_response_id:\s*null/.test(modelMountingValidation) &&
+      /fallback_allowed:\s*false/.test(modelMountingValidation) &&
+      /mismatch_fields:\s*\[\]/.test(modelMountingValidation) &&
+      /previous_response_id:\s*previousState\.id/.test(modelMountingValidation) &&
+      /fallback_allowed:\s*allowFallback/.test(modelMountingValidation) &&
+      /mismatch_fields:\s*mismatchFields/.test(modelMountingValidation) &&
+      !/previousResponseId:\s*previousState\.id/.test(modelMountingValidation) &&
+      !/fallbackAllowed:\s*allowFallback/.test(modelMountingValidation) &&
+      !/mismatchFields:\s*mismatchFields/.test(modelMountingValidation) &&
+      /previous_response_ref:\s*optionalRef\(receiptDetails\.previous_response_id\)/.test(modelInvocationOps) &&
+      /previous_response_id:\s*previousResponseId/.test(modelInvocationReceiptDetailsObject) &&
+      !/previous_response_ref:\s*optionalRef\(receiptDetails\.previousResponseId\)/.test(modelInvocationOps) &&
+      !/^\s*previousResponseId,\s*$/m.test(modelInvocationReceiptDetailsObject) &&
+      /previous_response_id:\s*previousState\?\.id/.test(modelConversationOps) &&
+      /root_response_id:\s*previousState\?\.root_response_id/.test(modelConversationOps) &&
+      /previous_response_id:\s*invocation\.previousResponseId/.test(modelConversationOps) &&
+      !/previousResponseId:\s*previousState\?\.id/.test(modelConversationOps) &&
+      !/rootResponseId:\s*previousState/.test(modelConversationOps) &&
+      !/previousResponseId:\s*invocation\.previousResponseId/.test(modelConversationOps) &&
+      /"previous_response_id"/.test(modelSchemaRelations) &&
+      !/"previousResponseId"/.test(modelSchemaRelations) &&
+      /previous_response_id\?:\s*string \| null/.test(agentSdkModelMounts) &&
+      /root_response_id:\s*string/.test(agentSdkModelMounts) &&
+      /fallback_allowed\?:\s*boolean/.test(agentSdkModelMounts) &&
+      /mismatch_fields\?:\s*string\[\]/.test(agentSdkModelMounts) &&
+      !/previousResponseId/.test(agentSdkModelMounts) &&
+      !/rootResponseId/.test(agentSdkModelMounts) &&
+      !/fallbackAllowed/.test(agentSdkModelMounts) &&
+      !/mismatchFields/.test(agentSdkModelMounts),
+    [
+      "packages/runtime-daemon/src/model-mounting/validation.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/schema-relations.mjs",
+      "packages/agent-sdk/src/model-mounts.ts",
+    ],
+    "Phase 4/10 is pending: model-mount continuation and response-lineage metadata must use canonical snake_case accepted fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

@@ -528,7 +528,7 @@ export function modelMountInvocationAdmissionRequestForReceipt({
     workflow_graph_ref: optionalRef(routeReceipt?.details?.workflowGraphId),
     workflow_node_ref: optionalRef(routeReceipt?.details?.workflowNodeId),
     response_ref: optionalRef(receiptDetails.responseId),
-    previous_response_ref: optionalRef(receiptDetails.previousResponseId),
+    previous_response_ref: optionalRef(receiptDetails.previous_response_id),
     stream_status: optionalRef(streamStatus ?? receiptDetails.streamStatus),
   };
 }
@@ -1254,7 +1254,7 @@ function invocationReceiptDetails({
     toolReceiptIds: ephemeralMcp.toolReceiptIds,
     ephemeralMcpServerIds: ephemeralMcp.serverIds,
     responseId,
-    previousResponseId,
+    previous_response_id: previousResponseId,
     continuation: continuationSafety,
   };
   if (includeInvocationFields) {
