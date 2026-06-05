@@ -3172,6 +3172,14 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs")
     : "";
+  const runtimeBridgeThread = exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
+    ? read("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
+    : "";
+  const runtimeBridgeThreadTest = exists(
+    "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs")
+    : "";
   const runtimeMcpHelpers = exists("packages/runtime-daemon/src/runtime-mcp-helpers.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-helpers.mjs")
     : "";
@@ -3458,6 +3466,22 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
     ],
     "Phase 10/11 is pending: runtime bridge run records must not emit retired usage telemetry aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-bridge-turn-usage-aliases-retired",
+    !/bridgeResult\?\.(?:usageTelemetry|runtime_usage|runtimeUsage)/.test(
+      runtimeBridgeThread,
+    ) &&
+      /retiredRuntimeBridgeTurnUsageAliasKeys/.test(runtimeBridgeThreadTest) &&
+      /runtime bridge turn submit normalization ignores retired usage aliases/.test(
+        runtimeBridgeThreadTest,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
+      "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime bridge turn normalization must not read retired usage telemetry aliases",
   );
   assertCheck(
     result,

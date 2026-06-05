@@ -279,9 +279,6 @@ export function normalizeRuntimeBridgeTurnSubmit({ bridgeResult, agent, threadId
     stopReason: bridgeResult?.stop_reason ?? bridgeResult?.stopReason ?? "runtime_bridge_completed",
     usage:
       bridgeResult?.usage_telemetry ??
-      bridgeResult?.usageTelemetry ??
-      bridgeResult?.runtime_usage ??
-      bridgeResult?.runtimeUsage ??
       bridgeResult?.usage ??
       null,
     events: events.map((event) => ({

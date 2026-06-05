@@ -10,6 +10,12 @@ import {
   normalizeRuntimeBridgeTurnSubmit,
 } from "./runtime-bridge-thread.mjs";
 
+const retiredRuntimeBridgeTurnUsageAliasKeys = [
+  "usageTelemetry",
+  "runtime_usage",
+  "runtimeUsage",
+];
+
 class BridgeUnavailableError extends Error {
   constructor(details = {}) {
     super("bridge unavailable");
@@ -409,6 +415,10 @@ test("runtime bridge turn submit normalization fills run and event defaults", ()
     bridgeResult: {
       turn_id: "turn_runtime",
       result: "done",
+      usage_telemetry: { total_tokens: 42 },
+      usageTelemetry: { total_tokens: 100 },
+      runtime_usage: { total_tokens: 200 },
+      runtimeUsage: { total_tokens: 300 },
       events: [{ event_kind: "turn.started", payload_summary: { step: "submit" } }],
     },
     agent: {
@@ -425,6 +435,7 @@ test("runtime bridge turn submit normalization fills run and event defaults", ()
   assert.equal(projection.runId, "run_turn_runtime");
   assert.equal(projection.status, "completed");
   assert.equal(projection.result, "done");
+  assert.deepEqual(projection.usage, { total_tokens: 42 });
   assert.equal(projection.mode, "send");
   assert.equal(projection.prompt, "hello");
   assert.equal(projection.stopReason, "runtime_bridge_completed");
@@ -439,6 +450,30 @@ test("runtime bridge turn submit normalization fills run and event defaults", ()
     session_id: "session_runtime",
     step: "submit",
   });
+});
+
+test("runtime bridge turn submit normalization ignores retired usage aliases", () => {
+  const bridgeResult = {
+    turn_id: "turn_runtime",
+    events: [{ event_kind: "turn.started" }],
+  };
+  for (const key of retiredRuntimeBridgeTurnUsageAliasKeys) {
+    bridgeResult[key] = { total_tokens: 100 };
+  }
+
+  const projection = normalizeRuntimeBridgeTurnSubmit({
+    bridgeResult,
+    agent: {
+      id: "agent_runtime",
+      cwd: "/workspace",
+      runtimeProfile: "runtime_service",
+      runtimeSessionId: "session_runtime",
+    },
+    threadId: "thread_agent_runtime",
+    request: { mode: "send", prompt: "hello" },
+  }, deps());
+
+  assert.equal(projection.usage, null);
 });
 
 test("runtime bridge turn submit normalization rejects missing turn id", () => {
