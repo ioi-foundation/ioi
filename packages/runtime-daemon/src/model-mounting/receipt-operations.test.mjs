@@ -38,7 +38,7 @@ test("receipt operations create lifecycle receipt envelopes through the state de
 
   assert.equal(record.kind, "model_lifecycle");
   assert.equal(record.summary, "model_mount recorded for model.local.");
-  assert.deepEqual(record.evidenceRefs, ["model_registry", "agentgres_canonical_operation_log", "model_mount"]);
+  assert.deepEqual(record.evidenceRefs, ["model_registry", "agentgres_receipt_projection_boundary", "model_mount"]);
   assert.deepEqual(created[0].details, {
     operation: "model_mount",
     modelId: "model.local",

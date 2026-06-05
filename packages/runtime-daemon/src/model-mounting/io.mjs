@@ -233,13 +233,6 @@ export function hashToken(tokenValue) {
   return crypto.createHash("sha256").update(tokenValue).digest("hex");
 }
 
-export function operationCount(stateDir) {
-  const logPath = path.join(stateDir, "operation-log.jsonl");
-  if (!fs.existsSync(logPath)) return 0;
-  const text = fs.readFileSync(logPath, "utf8").trim();
-  return text ? text.split(/\n/).length : 0;
-}
-
 export function publicVaultRefs(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return Object.fromEntries(

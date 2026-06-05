@@ -177,11 +177,11 @@ export class AgentgresModelMountingStore {
   adapterStatus() {
     return {
       port: "AgentgresModelMountingStorePort",
-      implementation: "local_operation_log",
+      implementation: "local_receipt_projection_store",
       remoteAdapter: process.env.IOI_AGENTGRES_URL
         ? { configured: true, urlHash: stableHash(process.env.IOI_AGENTGRES_URL) }
         : { configured: false, failClosed: true },
-      evidenceRefs: ["agentgres_canonical_operation_log", "typed_agentgres_projection_boundary"],
+      evidenceRefs: ["agentgres_receipt_projection_boundary", "typed_agentgres_projection_boundary"],
     };
   }
 }

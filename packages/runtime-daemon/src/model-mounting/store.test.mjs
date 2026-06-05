@@ -56,7 +56,7 @@ function modelLifecycleReceipt(details = {}) {
     id: details.id ?? "receipt.model-lifecycle",
     kind: "model_lifecycle",
     redaction: "redacted",
-    evidenceRefs: ["model_registry", "agentgres_canonical_operation_log", details.operation ?? "model_load"],
+    evidenceRefs: ["model_registry", "agentgres_receipt_projection_boundary", details.operation ?? "model_load"],
     details: {
       operation: "model_load",
       instanceId: "instance.local",
@@ -73,7 +73,7 @@ function providerInventoryReceipt(details = {}) {
     id: details.id ?? "receipt.provider-inventory",
     kind: "model_lifecycle",
     redaction: "redacted",
-    evidenceRefs: ["model_registry", "agentgres_canonical_operation_log", details.operation ?? "provider_models_list"],
+    evidenceRefs: ["model_registry", "agentgres_receipt_projection_boundary", details.operation ?? "provider_models_list"],
     details: {
       operation: "provider_models_list",
       providerId: "provider.local",
@@ -105,7 +105,7 @@ function providerControlReceipt(details = {}) {
     id: details.id ?? "receipt.provider-control",
     kind: "model_lifecycle",
     redaction: "redacted",
-    evidenceRefs: ["model_registry", "agentgres_canonical_operation_log", details.operation ?? "provider_start"],
+    evidenceRefs: ["model_registry", "agentgres_receipt_projection_boundary", details.operation ?? "provider_start"],
     details: {
       operation: "provider_start",
       providerId: "provider.local",

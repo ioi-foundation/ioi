@@ -913,6 +913,12 @@ function runReceipts() {
   const modelMountStore = exists("packages/runtime-daemon/src/model-mounting/store.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.mjs")
     : "";
+  const modelMountIo = exists("packages/runtime-daemon/src/model-mounting/io.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/io.mjs")
+    : "";
+  const modelMountReceiptOperations = exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
+    : "";
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
@@ -1483,6 +1489,11 @@ function runReceipts() {
     result,
     "model-mount-receipt-store-operation-append-retired",
     !/\bappendOperation\b/.test(modelMountStore) &&
+      !/operationCount|operation-log\.jsonl/.test(modelMountIo) &&
+      !/local_operation_log|agentgres_canonical_operation_log/.test(modelMountStore) &&
+      !/agentgres_canonical_operation_log/.test(modelMountReceiptOperations) &&
+      /local_receipt_projection_store/.test(modelMountStore) &&
+      /agentgres_receipt_projection_boundary/.test(modelMountReceiptOperations) &&
       /model invocation receipt writes persist only after Rust receipt and Agentgres admission without operation append/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ) &&

@@ -23,7 +23,7 @@ export function lifecycleReceipt(state, operation, details = {}) {
   return state.receipt("model_lifecycle", {
     summary: `${operation} recorded for ${details.modelId ?? details.endpointId ?? "model registry"}.`,
     redaction: "redacted",
-    evidenceRefs: ["model_registry", "agentgres_canonical_operation_log", operation],
+    evidenceRefs: ["model_registry", "agentgres_receipt_projection_boundary", operation],
     details: { operation, ...details },
   });
 }
