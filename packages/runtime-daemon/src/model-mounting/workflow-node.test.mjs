@@ -23,12 +23,14 @@ test("native workflow invocation response reads canonical route decision details
     routeReceipt: {
       id: "receipt.route",
       details: {
-        model_route_decision: { routeId: "route.local-first", selectedModel: "model.local" },
+        model_route_decision: { route_id: "route.local-first", selected_model: "model.local" },
       },
     },
   });
 
-  assert.deepEqual(response.route_decision, { routeId: "route.local-first", selectedModel: "model.local" });
+  assert.deepEqual(response.route_decision, { route_id: "route.local-first", selected_model: "model.local" });
+  assert.equal(Object.hasOwn(response.route_decision, "routeId"), false);
+  assert.equal(Object.hasOwn(response.route_decision, "selectedModel"), false);
 
   const legacyOnly = nativeInvocationResponseShape({
     ...baseInvocation,

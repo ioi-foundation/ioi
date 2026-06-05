@@ -121,12 +121,14 @@ test("native invocation response reads canonical route decision details", () => 
     routeReceipt: {
       id: "receipt.route",
       details: {
-        model_route_decision: { routeId: "route.native", selectedModel: "model.native" },
+        model_route_decision: { route_id: "route.native", selected_model: "model.native" },
       },
     },
   });
 
-  assert.deepEqual(response.route_decision, { routeId: "route.native", selectedModel: "model.native" });
+  assert.deepEqual(response.route_decision, { route_id: "route.native", selected_model: "model.native" });
+  assert.equal(Object.hasOwn(response.route_decision, "routeId"), false);
+  assert.equal(Object.hasOwn(response.route_decision, "selectedModel"), false);
 
   const legacyOnly = nativeInvocationResponse({
     ...invocation,

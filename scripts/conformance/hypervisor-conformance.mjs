@@ -647,6 +647,9 @@ function runBridge() {
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
+  const openAiCompatRoutesTest = exists("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
+    ? read("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
+    : "";
   const retiredRouteDecisionEnvPattern = new RegExp("MODEL_MOUNT_" + "ROUTE_DECISION_COMMAND_ENV");
   assertCheck(
     result,
@@ -1184,6 +1187,27 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
     ],
     "Phase 3/10 is pending: model route-selection receipt details and direct readers must use canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-native-response-route-decision-aliases-retired",
+    /model_route_decision:\s*\{\s*route_id:\s*"route\.local-first",\s*selected_model:\s*"model\.local"\s*\}/.test(
+      modelWorkflowNodeTest,
+    ) &&
+      /model_route_decision:\s*\{\s*route_id:\s*"route\.native",\s*selected_model:\s*"model\.native"\s*\}/.test(
+        openAiCompatRoutesTest,
+      ) &&
+      /Object\.hasOwn\(response\.route_decision,\s*"routeId"\),\s*false/.test(modelWorkflowNodeTest) &&
+      /Object\.hasOwn\(response\.route_decision,\s*"selectedModel"\),\s*false/.test(modelWorkflowNodeTest) &&
+      /Object\.hasOwn\(response\.route_decision,\s*"routeId"\),\s*false/.test(openAiCompatRoutesTest) &&
+      /Object\.hasOwn\(response\.route_decision,\s*"selectedModel"\),\s*false/.test(openAiCompatRoutesTest) &&
+      !/model_route_decision:\s*\{\s*(?:routeId|selectedModel)/.test(modelWorkflowNodeTest) &&
+      !/model_route_decision:\s*\{\s*(?:routeId|selectedModel)/.test(openAiCompatRoutesTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs",
+      "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
+    ],
+    "Phase 3/10 is pending: native response route-decision projections must use canonical snake_case fixtures without duplicate camelCase aliases",
   );
   assertCheck(
     result,
