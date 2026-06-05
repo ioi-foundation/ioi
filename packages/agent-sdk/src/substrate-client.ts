@@ -468,11 +468,8 @@ export interface RuntimeSubagentControlInput {
   target_agent_id?: string;
   memory?: Record<string, unknown>;
   options?: Record<string, unknown>;
-  workflowGraphId?: string;
   workflow_graph_id?: string;
-  workflowNodeId?: string;
   workflow_node_id?: string;
-  idempotencyKey?: string;
   idempotency_key?: string;
   [key: string]: unknown;
 }
