@@ -58,6 +58,18 @@ function createStore({ agent, runs = [], events = [] }) {
   };
 }
 
+const retiredUsageProjectionAliasKeys = [
+  "usageTelemetry",
+  "runtime_usage",
+  "runtimeUsage",
+];
+
+function assertMissingKeys(record, keys) {
+  for (const key of keys) {
+    assert.equal(Object.hasOwn(record, key), false, `retired alias key ${key} must be absent`);
+  }
+}
+
 test("thread projection includes latest run, usage, memory, and interrupted status", () => {
   const agent = {
     id: "agent_one",
@@ -92,6 +104,8 @@ test("thread projection includes latest run, usage, memory, and interrupted stat
   assert.equal(thread.memory_count, 2);
   assert.equal(thread.reasoning_effort, "medium");
   assert.deepEqual(thread.usage.subagentIds, ["sub_one"]);
+  assert.equal(thread.usage_telemetry, thread.usage);
+  assertMissingKeys(thread, retiredUsageProjectionAliasKeys);
   assert.equal(store.projectThreadEventsCalled, true);
 });
 
@@ -131,6 +145,8 @@ test("turn projection distinguishes closed and open turns", () => {
   assert.equal(completed.stop_reason, "final");
   assert.deepEqual(completed.memory_refs, ["memory-one"]);
   assert.equal(completed.active_skill_hook_manifest_ref, "manifest-one");
+  assert.equal(completed.usage_telemetry, completed.usage);
+  assertMissingKeys(completed, retiredUsageProjectionAliasKeys);
 
   const open = projection.turnForRun(store, {
     id: "run_open",
@@ -145,5 +161,35 @@ test("turn projection distinguishes closed and open turns", () => {
   assert.equal(open.seq_end, null);
   assert.equal(open.completed_at, null);
   assert.equal(open.mode, "custom");
+  assertMissingKeys(open, retiredUsageProjectionAliasKeys);
   assert.equal(store.projectRunEventsCalled, true);
+});
+
+test("turn projection ignores retired run usage aliases", () => {
+  const agent = {
+    id: "agent_one",
+    cwd: "/workspace",
+    runtimeControls: { mode: "agent", approvalMode: "review" },
+  };
+  const store = createStore({ agent });
+  const turn = createProjection().turnForRun(store, {
+    id: "run_legacy_usage",
+    agentId: "agent_one",
+    status: "completed",
+    mode: "send",
+    createdAt: "2026-06-03T00:00:00.000Z",
+    updatedAt: "2026-06-03T00:00:05.000Z",
+    usageTelemetry: { total_tokens: 100 },
+    runtimeUsage: { total_tokens: 200 },
+  });
+
+  assert.deepEqual(turn.usage_telemetry, {
+    scope: "run",
+    runId: "run_legacy_usage",
+    threadId: "thread_one",
+  });
+  assert.equal(turn.usage_telemetry, turn.usage);
+  assert.notEqual(turn.usage_telemetry.total_tokens, 100);
+  assert.notEqual(turn.usage_telemetry.total_tokens, 200);
+  assertMissingKeys(turn, retiredUsageProjectionAliasKeys);
 });

@@ -80,9 +80,6 @@ export function createThreadTurnProjection({
       runtime_bridge_source: agent.runtimeBridgeSource ?? null,
       usage: usageTelemetry,
       usage_telemetry: usageTelemetry,
-      usageTelemetry,
-      runtime_usage: usageTelemetry,
-      runtimeUsage: usageTelemetry,
     };
   }
 
@@ -98,8 +95,6 @@ export function createThreadTurnProjection({
     const completedAt = isOpen ? null : run.updatedAt;
     const usageTelemetry =
       run.usage_telemetry ??
-      run.usageTelemetry ??
-      run.runtimeUsage ??
       run.usage ??
       runtimeUsageTelemetryForRun({ run, agent, threadId: threadIdForAgent(run.agentId) });
     return {
@@ -125,9 +120,6 @@ export function createThreadTurnProjection({
       model_route_decision_id: run.modelRouteDecision?.decisionId ?? run.trace?.modelRouteDecision?.decisionId ?? null,
       usage: usageTelemetry,
       usage_telemetry: usageTelemetry,
-      usageTelemetry,
-      runtime_usage: usageTelemetry,
-      runtimeUsage: usageTelemetry,
       result: run.result ?? "",
       output: run.result ?? "",
       text: run.result ?? "",

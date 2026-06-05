@@ -3148,6 +3148,14 @@ function runCompositor() {
   const threadReplay = exists("packages/runtime-daemon/src/threads/thread-replay.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-replay.mjs")
     : "";
+  const threadTurnProjection = exists("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
+    : "";
+  const threadTurnProjectionTest = exists(
+    "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs")
+    : "";
   const runtimeMcpHelpers = exists("packages/runtime-daemon/src/runtime-mcp-helpers.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-helpers.mjs")
     : "";
@@ -3383,6 +3391,21 @@ function runCompositor() {
       "packages/runtime-daemon/src/usage-telemetry.test.mjs",
     ],
     "Phase 10/11 is pending: runtime usage telemetry producers must ignore retired camelCase input data aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-thread-turn-usage-aliases-retired",
+    !/^\s*usageTelemetry,?\s*$/m.test(threadTurnProjection) &&
+      !/^\s*runtime_usage:\s*usageTelemetry,?\s*$/m.test(threadTurnProjection) &&
+      !/^\s*runtimeUsage:\s*usageTelemetry,?\s*$/m.test(threadTurnProjection) &&
+      !/run\.(?:usageTelemetry|runtimeUsage)/.test(threadTurnProjection) &&
+      /retiredUsageProjectionAliasKeys/.test(threadTurnProjectionTest) &&
+      /turn projection ignores retired run usage aliases/.test(threadTurnProjectionTest),
+    [
+      "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
+      "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
+    ],
+    "Phase 10/11 is pending: thread/turn usage projections must not emit or read retired usage telemetry aliases",
   );
   assertCheck(
     result,
