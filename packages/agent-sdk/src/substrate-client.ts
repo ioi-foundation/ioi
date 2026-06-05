@@ -481,22 +481,14 @@ export interface RuntimeSubagentListInput {
 
 export interface RuntimeSubagentRecord {
   schema_version?: string;
-  schemaVersion?: string;
   object?: "ioi.runtime_subagent" | string;
   subagent_id?: string;
-  subagentId?: string;
   agent_id?: string;
-  agentId?: string;
   child_thread_id?: string;
-  childThreadId?: string;
   run_id?: string;
-  runId?: string;
   parent_thread_id?: string;
-  parentThreadId?: string;
   parent_agent_id?: string;
-  parentAgentId?: string;
   parent_turn_id?: string | null;
-  parentTurnId?: string | null;
   role?: string;
   tool_pack?: string | null;
   toolPack?: string | null;
