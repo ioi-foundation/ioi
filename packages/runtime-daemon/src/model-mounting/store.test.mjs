@@ -253,7 +253,7 @@ test("model lifecycle receipt writes fail closed without provider kind and Rust 
     () => store.writeReceipt(modelLifecycleReceipt()),
     (error) =>
       error.code === "model_mount_instance_lifecycle_receipt_direct_append_forbidden" &&
-      error.details.missing.includes("instance.local:modelMountInstanceLifecycleHash"),
+      error.details.missing.includes("instance.local:model_mount_instance_lifecycle_hash"),
   );
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.model-lifecycle.json")), false);
   assert.deepEqual(appended, []);
@@ -264,10 +264,10 @@ test("model lifecycle receipt writes allow Rust-bound local and remote provider 
   const localReceipt = modelLifecycleReceipt({
     id: "receipt.local-bound",
     providerLifecycleHash: "sha256:provider-lifecycle",
-    modelMountInstanceLifecycleAction: "load",
-    modelMountInstanceLifecycleStatus: "loaded",
-    modelMountInstanceLifecycleHash: "sha256:instance-lifecycle",
-    modelMountInstanceLifecycleEvidenceRefs: ["rust_model_mount_instance_lifecycle"],
+    model_mount_instance_lifecycle_action: "load",
+    model_mount_instance_lifecycle_status: "loaded",
+    model_mount_instance_lifecycle_hash: "sha256:instance-lifecycle",
+    model_mount_instance_lifecycle_evidence_refs: ["rust_model_mount_instance_lifecycle"],
   });
   const remoteReceipt = modelLifecycleReceipt({
     id: "receipt.remote",

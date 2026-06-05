@@ -130,7 +130,7 @@ test("idle TTL eviction plans Rust lifecycle for migrated local providers", () =
         expiresAt: "2026-06-03T11:59:59.000Z",
         providerLifecycleHash: "sha256:provider-load",
         providerEvidenceRefs: ["driver.load"],
-        modelMountInstanceLifecycleEvidenceRefs: ["rust_model_mount_instance_lifecycle"],
+        model_mount_instance_lifecycle_evidence_refs: ["rust_model_mount_instance_lifecycle"],
       },
     ],
   });
@@ -140,13 +140,13 @@ test("idle TTL eviction plans Rust lifecycle for migrated local providers", () =
 
   const evicted = state.instances.get("instance_old");
   assert.equal(evicted.status, "evicted");
-  assert.equal(evicted.modelMountInstanceLifecycleAction, "evict");
-  assert.equal(evicted.modelMountInstanceLifecycleStatus, "evicted");
-  assert.equal(evicted.modelMountInstanceLifecycleHash, "sha256:evict:instance_old");
+  assert.equal(evicted.model_mount_instance_lifecycle_action, "evict");
+  assert.equal(evicted.model_mount_instance_lifecycle_status, "evicted");
+  assert.equal(evicted.model_mount_instance_lifecycle_hash, "sha256:evict:instance_old");
   assert.equal(state.transitionRequests.at(-1).action, "evict");
   assert.equal(state.transitionRequests.at(-1).target_status, "evicted");
   assert.equal(state.receipts.at(-1)[1].providerKind, "ioi_native_local");
-  assert.equal(state.receipts.at(-1)[1].modelMountInstanceLifecycleAction, "evict");
+  assert.equal(state.receipts.at(-1)[1].model_mount_instance_lifecycle_action, "evict");
 });
 
 test("idle TTL eviction skips writes when no loaded instances expire", () => {
@@ -218,7 +218,7 @@ test("explicit supersede plans Rust lifecycle for migrated local providers", () 
         driver: "native_local",
         providerLifecycleHash: "sha256:provider-load",
         providerEvidenceRefs: ["driver.load"],
-        modelMountInstanceLifecycleEvidenceRefs: ["rust_model_mount_instance_lifecycle"],
+        model_mount_instance_lifecycle_evidence_refs: ["rust_model_mount_instance_lifecycle"],
       },
     ],
   });
@@ -228,9 +228,9 @@ test("explicit supersede plans Rust lifecycle for migrated local providers", () 
 
   const superseded = state.instances.get("instance_old");
   assert.equal(superseded.status, "superseded");
-  assert.equal(superseded.modelMountInstanceLifecycleAction, "supersede");
-  assert.equal(superseded.modelMountInstanceLifecycleStatus, "superseded");
-  assert.equal(superseded.modelMountInstanceLifecycleHash, "sha256:supersede:instance_old");
+  assert.equal(superseded.model_mount_instance_lifecycle_action, "supersede");
+  assert.equal(superseded.model_mount_instance_lifecycle_status, "superseded");
+  assert.equal(superseded.model_mount_instance_lifecycle_hash, "sha256:supersede:instance_old");
   assert.equal(state.transitionRequests.at(-1).action, "supersede");
   assert.equal(state.transitionRequests.at(-1).target_status, "superseded");
   assert.equal(state.receipts.at(-1)[0], "model_supersede");

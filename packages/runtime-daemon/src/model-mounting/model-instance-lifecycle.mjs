@@ -22,39 +22,39 @@ export function expectedModelMountInstanceLifecycleAction(status) {
 export function modelMountInstanceLifecycleFields(instanceLifecycle) {
   if (!instanceLifecycle) return {};
   return {
-    modelMountInstanceLifecycleAction: instanceLifecycle.action,
-    modelMountInstanceLifecycleStatus: instanceLifecycle.status,
-    modelMountInstanceLifecycleHash: instanceLifecycle.instance_lifecycle_hash,
-    modelMountInstanceLifecycleEvidenceRefs: instanceLifecycle.evidence_refs ?? [],
+    model_mount_instance_lifecycle_action: instanceLifecycle.action,
+    model_mount_instance_lifecycle_status: instanceLifecycle.status,
+    model_mount_instance_lifecycle_hash: instanceLifecycle.instance_lifecycle_hash,
+    model_mount_instance_lifecycle_evidence_refs: instanceLifecycle.evidence_refs ?? [],
   };
 }
 
 export function modelMountInstanceLifecycleBindingIssues(record = {}, { prefix = record.id ?? record.instanceId ?? "model-instance", status = record.status } = {}) {
   const expectedAction = expectedModelMountInstanceLifecycleAction(status);
   if (!expectedAction) return { missing: [], mismatches: [] };
-  const evidenceRefs = Array.isArray(record.modelMountInstanceLifecycleEvidenceRefs)
-    ? record.modelMountInstanceLifecycleEvidenceRefs
+  const evidenceRefs = Array.isArray(record.model_mount_instance_lifecycle_evidence_refs)
+    ? record.model_mount_instance_lifecycle_evidence_refs
     : [];
   const missing = [];
   const mismatches = [];
   if (!record.providerLifecycleHash) {
     missing.push(`${prefix}:providerLifecycleHash`);
   }
-  if (!record.modelMountInstanceLifecycleHash) {
-    missing.push(`${prefix}:modelMountInstanceLifecycleHash`);
+  if (!record.model_mount_instance_lifecycle_hash) {
+    missing.push(`${prefix}:model_mount_instance_lifecycle_hash`);
   }
   if (!evidenceRefs.includes(RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND)) {
-    missing.push(`${prefix}:modelMountInstanceLifecycleEvidenceRefs`);
+    missing.push(`${prefix}:model_mount_instance_lifecycle_evidence_refs`);
   }
-  if (!record.modelMountInstanceLifecycleAction) {
-    missing.push(`${prefix}:modelMountInstanceLifecycleAction`);
-  } else if (record.modelMountInstanceLifecycleAction !== expectedAction) {
-    mismatches.push(`${prefix}:modelMountInstanceLifecycleAction`);
+  if (!record.model_mount_instance_lifecycle_action) {
+    missing.push(`${prefix}:model_mount_instance_lifecycle_action`);
+  } else if (record.model_mount_instance_lifecycle_action !== expectedAction) {
+    mismatches.push(`${prefix}:model_mount_instance_lifecycle_action`);
   }
-  if (!record.modelMountInstanceLifecycleStatus) {
-    missing.push(`${prefix}:modelMountInstanceLifecycleStatus`);
-  } else if (record.modelMountInstanceLifecycleStatus !== status) {
-    mismatches.push(`${prefix}:modelMountInstanceLifecycleStatus`);
+  if (!record.model_mount_instance_lifecycle_status) {
+    missing.push(`${prefix}:model_mount_instance_lifecycle_status`);
+  } else if (record.model_mount_instance_lifecycle_status !== status) {
+    mismatches.push(`${prefix}:model_mount_instance_lifecycle_status`);
   }
   return { missing, mismatches };
 }

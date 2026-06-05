@@ -116,7 +116,7 @@ test("model instance map writes require Rust lifecycle binding for migrated loca
     () => writeModelMountingMap(state, "model-instances", map),
     (error) =>
       error.code === "model_mount_instance_map_direct_write_forbidden" &&
-      error.details.missing.includes("instance.local:modelMountInstanceLifecycleHash"),
+      error.details.missing.includes("instance.local:model_mount_instance_lifecycle_hash"),
   );
   assert.deepEqual(state.writes, []);
 });
@@ -131,10 +131,10 @@ test("model instance map writes allow Rust-bound local and non-migrated provider
       providerId: "provider.local",
       status: "loaded",
       providerLifecycleHash: "sha256:provider-lifecycle",
-      modelMountInstanceLifecycleAction: "load",
-      modelMountInstanceLifecycleStatus: "loaded",
-      modelMountInstanceLifecycleHash: "sha256:instance-lifecycle",
-      modelMountInstanceLifecycleEvidenceRefs: ["rust_model_mount_instance_lifecycle"],
+      model_mount_instance_lifecycle_action: "load",
+      model_mount_instance_lifecycle_status: "loaded",
+      model_mount_instance_lifecycle_hash: "sha256:instance-lifecycle",
+      model_mount_instance_lifecycle_evidence_refs: ["rust_model_mount_instance_lifecycle"],
     }],
     ["instance.remote", {
       id: "instance.remote",
@@ -157,10 +157,10 @@ test("model instance map writes reject lifecycle action/status drift for migrate
       providerId: "provider.local",
       status: "evicted",
       providerLifecycleHash: "sha256:provider-lifecycle",
-      modelMountInstanceLifecycleAction: "load",
-      modelMountInstanceLifecycleStatus: "loaded",
-      modelMountInstanceLifecycleHash: "sha256:instance-lifecycle",
-      modelMountInstanceLifecycleEvidenceRefs: ["rust_model_mount_instance_lifecycle"],
+      model_mount_instance_lifecycle_action: "load",
+      model_mount_instance_lifecycle_status: "loaded",
+      model_mount_instance_lifecycle_hash: "sha256:instance-lifecycle",
+      model_mount_instance_lifecycle_evidence_refs: ["rust_model_mount_instance_lifecycle"],
     }],
   ]);
 
@@ -168,7 +168,7 @@ test("model instance map writes reject lifecycle action/status drift for migrate
     () => writeModelMountingMap(state, "model-instances", map),
     (error) =>
       error.code === "model_mount_instance_map_direct_write_forbidden" &&
-      error.details.mismatches.includes("instance.local:modelMountInstanceLifecycleAction") &&
-      error.details.mismatches.includes("instance.local:modelMountInstanceLifecycleStatus"),
+      error.details.mismatches.includes("instance.local:model_mount_instance_lifecycle_action") &&
+      error.details.mismatches.includes("instance.local:model_mount_instance_lifecycle_status"),
   );
 });

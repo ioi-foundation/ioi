@@ -139,8 +139,8 @@ function planStateInstanceLifecycle(state, instance, { action, targetStatus, evi
     providerLifecycleHash: instance.providerLifecycleHash,
     evidenceRefs: [
       ...(Array.isArray(instance.providerEvidenceRefs) ? instance.providerEvidenceRefs : []),
-      ...(Array.isArray(instance.modelMountInstanceLifecycleEvidenceRefs)
-        ? instance.modelMountInstanceLifecycleEvidenceRefs
+      ...(Array.isArray(instance.model_mount_instance_lifecycle_evidence_refs)
+        ? instance.model_mount_instance_lifecycle_evidence_refs
         : []),
       ...evidenceRefs,
     ],

@@ -862,11 +862,20 @@ function runBridge() {
       /model_mount_instance_lifecycle_planning_required/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
-      /modelMountInstanceLifecycleHash/.test(
+      /model_mount_instance_lifecycle_hash/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
-      /modelMountInstanceLifecycleAction/.test(
+      /model_mount_instance_lifecycle_action/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+      ) &&
+      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+      ) &&
+      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
+        read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs"),
+      ) &&
+      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
       ) &&
       /action: "evict"/.test(read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")) &&
       /action: "supersede"/.test(read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")) &&
@@ -1860,11 +1869,14 @@ function runReceipts() {
       /RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
-      /modelMountInstanceLifecycleAction/.test(
+      /model_mount_instance_lifecycle_action/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
-      /modelMountInstanceLifecycleStatus/.test(
+      /model_mount_instance_lifecycle_status/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+      ) &&
+      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&
       /model instance map writes require Rust lifecycle binding/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
@@ -1894,6 +1906,12 @@ function runReceipts() {
         modelMountReceiptWriteGuards,
       ) &&
       /model_mount_instance_lifecycle_receipt_direct_append_forbidden/.test(
+        modelMountReceiptWriteGuards,
+      ) &&
+      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
+        read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
+      ) &&
+      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
         modelMountReceiptWriteGuards,
       ) &&
       /providerKind/.test(read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")) &&

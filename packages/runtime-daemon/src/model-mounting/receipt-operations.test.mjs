@@ -65,7 +65,24 @@ test("model instance lifecycle receipts require Rust binding for migrated local 
     }),
     (error) =>
       error.code === "model_mount_instance_lifecycle_receipt_direct_write_forbidden" &&
-      error.details.missing.includes("instance.local:modelMountInstanceLifecycleHash"),
+      error.details.missing.includes("instance.local:model_mount_instance_lifecycle_hash"),
+  );
+
+  assert.throws(
+    () => lifecycleReceipt(state, "model_load", {
+      instanceId: "instance.local",
+      modelId: "model.local",
+      providerId: "provider.local",
+      providerLifecycleHash: "sha256:provider-lifecycle",
+      modelMountInstanceLifecycleAction: "load",
+      modelMountInstanceLifecycleStatus: "loaded",
+      modelMountInstanceLifecycleHash: "sha256:instance-lifecycle",
+      modelMountInstanceLifecycleEvidenceRefs: ["rust_model_mount_instance_lifecycle"],
+    }),
+    (error) =>
+      error.code === "model_mount_instance_lifecycle_receipt_direct_write_forbidden" &&
+      error.details.missing.includes("instance.local:model_mount_instance_lifecycle_hash") &&
+      error.details.missing.includes("instance.local:model_mount_instance_lifecycle_evidence_refs"),
   );
 
   const record = lifecycleReceipt(state, "model_load", {
@@ -73,10 +90,10 @@ test("model instance lifecycle receipts require Rust binding for migrated local 
     modelId: "model.local",
     providerId: "provider.local",
     providerLifecycleHash: "sha256:provider-lifecycle",
-    modelMountInstanceLifecycleAction: "load",
-    modelMountInstanceLifecycleStatus: "loaded",
-    modelMountInstanceLifecycleHash: "sha256:instance-lifecycle",
-    modelMountInstanceLifecycleEvidenceRefs: ["rust_model_mount_instance_lifecycle"],
+    model_mount_instance_lifecycle_action: "load",
+    model_mount_instance_lifecycle_status: "loaded",
+    model_mount_instance_lifecycle_hash: "sha256:instance-lifecycle",
+    model_mount_instance_lifecycle_evidence_refs: ["rust_model_mount_instance_lifecycle"],
   });
 
   assert.equal(record.kind, "model_lifecycle");
