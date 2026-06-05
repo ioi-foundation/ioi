@@ -1439,6 +1439,52 @@ export interface RuntimeWorkerServicePackageInvocationAdmissionResult extends Re
   record?: Record<string, unknown>;
 }
 
+export interface RuntimeL1SettlementAttempt extends Record<string, unknown> {
+  schema_version: "ioi.l1_settlement_admission.v1" | string;
+  settlement_ref: string;
+  domain_ref: string;
+  state_root_ref: string;
+  trigger_refs: string[];
+  receipt_refs: string[];
+}
+
+export interface RuntimeL1SettlementAttemptAdmissionInput extends Record<string, unknown> {
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  actor?: string;
+  workflowGraphId?: string;
+  workflow_graph_id?: string;
+  workflowNodeId?: string;
+  workflow_node_id?: string;
+  attempt: RuntimeL1SettlementAttempt | Record<string, unknown>;
+}
+
+export interface RuntimeL1SettlementAttemptAdmissionResult extends Record<string, unknown> {
+  schema_version?: "ioi.runtime.l1_settlement_admission.v1" | string;
+  schemaVersion?: "ioi.runtime.l1_settlement_admission.v1" | string;
+  object?: "ioi.runtime_l1_settlement_admission" | string;
+  status: "admitted" | string;
+  settlement_admitted?: boolean;
+  settlementAdmitted?: boolean;
+  thread_id?: string;
+  threadId?: string;
+  agent_id?: string;
+  agentId?: string;
+  settlement_ref?: string | null;
+  settlementRef?: string | null;
+  domain_ref?: string | null;
+  domainRef?: string | null;
+  state_root_ref?: string | null;
+  stateRootRef?: string | null;
+  trigger_refs?: string[];
+  triggerRefs?: string[];
+  receipt_refs?: string[];
+  receiptRefs?: string[];
+  admission_hash?: string | number[] | null;
+  admissionHash?: string | number[] | null;
+  admission?: Record<string, unknown>;
+  record?: Record<string, unknown>;
+}
+
 export interface RuntimeCteePrivateWorkspaceNodeTrust extends Record<string, unknown> {
   runtime_node_ref: string;
   trusted_for_plaintext: boolean;
@@ -1615,6 +1661,10 @@ export interface RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeWorkerServicePackageInvocationAdmissionInput,
   ): Promise<RuntimeWorkerServicePackageInvocationAdmissionResult>;
+  admitL1SettlementAttempt(
+    threadId: string,
+    input: RuntimeL1SettlementAttemptAdmissionInput,
+  ): Promise<RuntimeL1SettlementAttemptAdmissionResult>;
   executeCteePrivateWorkspaceAction(
     threadId: string,
     input: RuntimeCteePrivateWorkspaceActionInput,
@@ -1956,6 +2006,21 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "admitWorkerServicePackageInvocation",
       "POST",
       `/v1/threads/${encodePath(threadId)}/worker-service-package-invocations`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async admitL1SettlementAttempt(
+    threadId: string,
+    input: RuntimeL1SettlementAttemptAdmissionInput,
+  ): Promise<RuntimeL1SettlementAttemptAdmissionResult> {
+    return this.request(
+      "admitL1SettlementAttempt",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/l1-settlement-attempts`,
       {
         source: "sdk_client",
         ...input,

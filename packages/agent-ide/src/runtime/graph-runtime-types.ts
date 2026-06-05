@@ -51,6 +51,7 @@ import type { RuntimeCodingToolControlRequest } from "./workflow-runtime-coding-
 import type { RuntimeCodingToolBudgetRecoveryControlRequest } from "./workflow-runtime-coding-tool-budget-recovery-control-nodes";
 import type { RuntimeCteePrivateWorkspaceControlRequest } from "./workflow-runtime-ctee-private-workspace-control-nodes";
 import type { RuntimeGovernedImprovementControlRequest } from "./workflow-runtime-governed-improvement-control-nodes";
+import type { RuntimeL1SettlementControlRequest } from "./workflow-runtime-l1-settlement-control-nodes";
 import type { RuntimeWorkerServicePackageControlRequest } from "./workflow-runtime-worker-service-package-control-nodes";
 import type { RuntimeSubagentControlRequest } from "./workflow-runtime-subagent-control-nodes";
 import type { WorkflowCapabilityRunLaunchAnnotation } from "./workflow-capability-preflight";
@@ -71,6 +72,7 @@ export type WorkflowRuntimeControlRequest =
   | RuntimeContextCompactControlRequest
   | RuntimeDiagnosticsRepairControlRequest
   | RuntimeGovernedImprovementControlRequest
+  | RuntimeL1SettlementControlRequest
   | RuntimeWorkerServicePackageControlRequest
   | RuntimeOperatorInterruptControlRequest
   | RuntimeThreadModeControlRequest

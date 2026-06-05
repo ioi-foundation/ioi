@@ -461,6 +461,16 @@ function runBridge() {
   const l1SettlementSurfaceTest = exists("packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs")
     : "";
+  const l1SettlementControlNodes = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts")
+    : "";
+  const l1SettlementControlNodesTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts")
+    : "";
   const retiredCodingToolJsBodyPattern =
     /function (?:computerUseLeaseRequestTool|workspaceStatusTool|gitDiffTool|fileInspectTool|fileApplyPatchTool|testRunTool|lspDiagnosticsTool|artifactReadTool|toolRetrieveResultTool)\(/;
   const retiredCodingToolJsImportPattern =
@@ -1137,6 +1147,36 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 8/11 is pending: product/API L1 settlement route must call Rust trigger admission and expose no JS apply shortcut",
+  );
+  assertCheck(
+    result,
+    "l1-settlement-sdk-ide-admission-surface",
+    /admitL1SettlementAttempt/.test(agentSdkSubstrateClient) &&
+      /RuntimeL1SettlementAttemptAdmissionInput/.test(agentSdkSubstrateClient) &&
+      /l1-settlement-attempts/.test(agentSdkSubstrateClient) &&
+      /SDK admits L1 settlement attempts through the thread route/.test(agentSdkTest) &&
+      /WORKFLOW_RUNTIME_L1_SETTLEMENT_CONTROL_SCHEMA_VERSION/.test(l1SettlementControlNodes) &&
+      /createRuntimeL1SettlementControlRequest/.test(l1SettlementControlNodes) &&
+      /RUNTIME_L1_SETTLEMENT_ATTEMPT_SCHEMA_VERSION/.test(l1SettlementControlNodes) &&
+      /l1-settlement-attempts/.test(l1SettlementControlNodes) &&
+      /admission_only:\s*true/.test(l1SettlementControlNodes) &&
+      /direct_truth_write_allowed:\s*false/.test(l1SettlementControlNodes) &&
+      /default_runtime_settlement_allowed:\s*false/.test(l1SettlementControlNodes) &&
+      /settlement_trigger_checked_by_rust:\s*true/.test(l1SettlementControlNodes) &&
+      !/\/apply/.test(l1SettlementControlNodes) &&
+      /builds L1 settlement controls for daemon admission/.test(l1SettlementControlNodesTest) &&
+      /L1 settlement controls fail closed without trigger refs/.test(l1SettlementControlNodesTest) &&
+      /createRuntimeL1SettlementControlRequest/.test(agentIdeIndex) &&
+      /RuntimeL1SettlementControlRequest/.test(graphRuntimeTypes),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+      "packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts",
+      "packages/agent-ide/src/runtime/graph-runtime-types.ts",
+      "packages/agent-ide/src/index.ts",
+    ],
+    "Phase 8/11 is pending: SDK and IDE L1 settlement clients must consume the L1 route without exposing a JS apply shortcut",
   );
   assertCheck(
     result,

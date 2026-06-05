@@ -265,6 +265,67 @@ test("SDK executes cTEE private workspace actions through the thread route", asy
   }
 });
 
+test("SDK admits L1 settlement attempts through the thread route", async () => {
+  const requests = [];
+  const attempt = {
+    schema_version: "ioi.l1_settlement_admission.v1",
+    settlement_ref: "l1://settlement/sdk-marketplace-payment",
+    domain_ref: "domain://marketplace/services",
+    state_root_ref: "state-root://agentgres/marketplace/after",
+    trigger_refs: ["l1-trigger://service-contract/payment"],
+    receipt_refs: ["receipt://local-settlement/payment"],
+  };
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    requests.push(`${request.method} ${url.pathname}`);
+    response.setHeader("content-type", "application/json");
+    if (
+      request.method === "POST" &&
+      url.pathname === "/v1/threads/thread_sdk/l1-settlement-attempts"
+    ) {
+      const body = await readBody(request);
+      assert.equal(body.source, "sdk_client");
+      assert.equal(body.attempt.settlement_ref, "l1://settlement/sdk-marketplace-payment");
+      assert.deepEqual(body.attempt.trigger_refs, ["l1-trigger://service-contract/payment"]);
+      response.statusCode = 201;
+      response.end(JSON.stringify({
+        schema_version: "ioi.runtime.l1_settlement_admission.v1",
+        object: "ioi.runtime_l1_settlement_admission",
+        status: "admitted",
+        settlement_admitted: true,
+        thread_id: "thread_sdk",
+        agent_id: "agent_sdk",
+        settlement_ref: attempt.settlement_ref,
+        domain_ref: attempt.domain_ref,
+        state_root_ref: attempt.state_root_ref,
+        trigger_refs: attempt.trigger_refs,
+        receipt_refs: attempt.receipt_refs,
+        admission_hash: "sha256:l1-settlement-sdk-admission",
+        record: attempt,
+      }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: { code: "not_found", message: "missing route" } }));
+  });
+  await listen(server);
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
+    const result = await client.admitL1SettlementAttempt("thread_sdk", { attempt });
+
+    assert.equal(result.status, "admitted");
+    assert.equal(result.settlement_admitted, true);
+    assert.equal(result.settlement_ref, "l1://settlement/sdk-marketplace-payment");
+    assert.deepEqual(result.trigger_refs, ["l1-trigger://service-contract/payment"]);
+    assert.equal(result.admission_hash, "sha256:l1-settlement-sdk-admission");
+    assert.ok(requests.includes("POST /v1/threads/thread_sdk/l1-settlement-attempts"));
+  } finally {
+    await close(server);
+  }
+});
+
 test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
   const now = new Date().toISOString();
   const events = [
