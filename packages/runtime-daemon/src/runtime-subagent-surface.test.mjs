@@ -688,6 +688,9 @@ test("subagent spawn ignores retired camelCase request aliases", () => {
   const result = surface.spawnSubagent(store, "thread_1", {
     source: "agent_studio",
     prompt: "Canonical spawn request",
+    message: "Message alias spawn request",
+    input: "Input alias spawn request",
+    subagent_prompt: "Snake alias spawn request",
     subagentPrompt: "Alias spawn request",
     role: "Planner",
     subagentRole: "Reviewer",

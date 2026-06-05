@@ -182,9 +182,7 @@ export function createRuntimeSubagentSurface({
     spawnSubagent(store, threadId, request = {}) {
       const parentAgent = store.agentForThread(threadId);
       const parentThread = store.threadForAgent(parentAgent);
-      const prompt = optionalStringDep(
-        request.prompt ?? request.message ?? request.input ?? request.subagent_prompt,
-      );
+      const prompt = optionalStringDep(request.prompt);
       if (!prompt) {
         throw runtimeErrorDep({
           status: 400,

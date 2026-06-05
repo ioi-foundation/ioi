@@ -3367,7 +3367,7 @@ function runCompositor() {
   const runtimeSubagentControlEventRequestAliasReadPattern =
     /request\.(?:workflowGraphId|workflowNodeId|receiptRefs|policyDecisionRefs|idempotencyKey)\b/;
   const runtimeSubagentSpawnRequestAliasReadPattern =
-    /request\.(?:subagentPrompt|subagentRole|maxConcurrency|subagentMaxConcurrency|modelRouteId|subagentModelRoute|outputContract|subagentOutputContract|workflowGraphId|workflowNodeId|parentTurnId|turnId|contextPressureAction|contextPressure|pressureStatus|alertId|sourceEventId|receiptRefs|policyDecisionRefs|toolPack|subagentToolPack|forkContext|mergePolicy|cancellationInheritance)\b/;
+    /request\.(?:message|input|subagent_prompt|subagentPrompt|subagentRole|maxConcurrency|subagentMaxConcurrency|modelRouteId|subagentModelRoute|outputContract|subagentOutputContract|workflowGraphId|workflowNodeId|parentTurnId|turnId|contextPressureAction|contextPressure|pressureStatus|alertId|sourceEventId|receiptRefs|policyDecisionRefs|toolPack|subagentToolPack|forkContext|mergePolicy|cancellationInheritance)\b/;
   const runtimeSubagentSendInputRequestAliasReadPattern =
     /request\.(?:subagentInput|workflowGraphId|workflowNodeId)\b/;
   const runtimeSubagentResumeRequestAliasReadPattern =
@@ -4300,6 +4300,11 @@ function runCompositor() {
         runtimeSubagentSpawnBlock,
       ) &&
       /subagent spawn ignores retired camelCase request aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /message: "Message alias spawn request"/.test(runtimeSubagentSurfaceTest) &&
+      /input: "Input alias spawn request"/.test(runtimeSubagentSurfaceTest) &&
+      /subagent_prompt: "Snake alias spawn request"/.test(
         runtimeSubagentSurfaceTest,
       ) &&
       /subagentPrompt: "Alias spawn request"/.test(runtimeSubagentSurfaceTest) &&
