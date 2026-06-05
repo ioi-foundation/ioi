@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const RUNTIME_STATE_TRANSITION_SCHEMA_VERSION = "ioi.agentgres_runtime_state_transition.v1";
-const RUNTIME_STATE_STORAGE_ADMISSION_SCHEMA_VERSION = "ioi.storage_backend_write_admission.v1";
+const RUNTIME_STATE_STORAGE_WRITE_SET_SCHEMA_VERSION = "ioi.runtime_state_storage_write_set.v1";
 const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
 
 export function terminalEventCount(events = [], terminalEventTypes = new Set()) {
@@ -163,13 +163,6 @@ function safeAgentgresComponent(value) {
   return safe || "runtime";
 }
 
-function safeAgentgresPath(value) {
-  return String(value ?? "runtime")
-    .split("/")
-    .map((segment) => safeAgentgresComponent(segment))
-    .join("/");
-}
-
 function previousRunStateTransition(store, runId) {
   const current = typeof store.currentRunStateTransition === "function"
     ? store.currentRunStateTransition(runId)
@@ -238,72 +231,99 @@ function planRunStateTransition(store, run, operationKind, {
   return normalizeRunStateTransition(transition);
 }
 
-function admitRunStateStorageWrite(store, run, recordPath, value) {
-  if (typeof store.admitRuntimeStateStorageWrite !== "function") {
-    throw new Error("Run persistence requires Rust Agentgres storage write admission.");
+function planRunStateStorageWrites(store, run, records) {
+  if (typeof store.planRuntimeStateStorageWrites !== "function") {
+    throw new Error("Run persistence requires Rust Agentgres storage write-set planning.");
   }
-  const safeRunId = safeAgentgresComponent(run.id);
-  const safeRecordPath = safeAgentgresPath(recordPath);
   const request = {
-    schema_version: RUNTIME_STATE_STORAGE_ADMISSION_SCHEMA_VERSION,
+    schema_version: RUNTIME_STATE_STORAGE_WRITE_SET_SCHEMA_VERSION,
+    run_id: run.id,
     storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
-    object_ref: `agentgres://runtime-state/runs/${safeRunId}/records/${safeRecordPath}`,
-    content_hash: runStateHash(value),
-    artifact_refs: [],
-    payload_refs: [`payload://runtime/runs/${safeRunId}/records/${safeRecordPath}`],
     receipt_refs: run.receipts.map((receipt) => receipt.id).filter(Boolean),
+    records: records.map((record) => ({
+      record_path: record.recordPath,
+      payload: record.value,
+      artifact_refs: record.artifactRefs ?? [],
+      payload_refs: record.payloadRefs ?? [],
+    })),
   };
-  return normalizeStorageAdmission(store.admitRuntimeStateStorageWrite(request));
+  return normalizeStorageWriteSet(store.planRuntimeStateStorageWrites(request), records);
 }
 
-function normalizeStorageAdmission(admission) {
-  const record = admission?.record && typeof admission.record === "object" ? admission.record : admission;
+function normalizeStorageWriteSet(writeSet, expectedRecords) {
+  const record = writeSet?.record && typeof writeSet.record === "object" ? writeSet.record : writeSet;
+  const records = Array.isArray(writeSet?.records)
+    ? writeSet.records
+    : Array.isArray(record?.records)
+      ? record.records
+      : [];
   const normalized = {
-    source: normalizeTransitionRef(admission?.source) ?? "rust_agentgres_storage_write_admission_command",
-    admission_hash: normalizeTransitionRef(admission?.admission_hash) ?? normalizeTransitionRef(record?.admission_hash),
+    source: normalizeTransitionRef(writeSet?.source) ?? "rust_agentgres_runtime_state_storage_write_set_command",
+    write_set_hash: normalizeTransitionRef(writeSet?.write_set_hash) ?? normalizeTransitionRef(record?.write_set_hash),
     storage_backend_ref:
-      normalizeTransitionRef(admission?.storage_backend_ref) ?? normalizeTransitionRef(record?.storage_backend_ref),
-    object_ref: normalizeTransitionRef(admission?.object_ref) ?? normalizeTransitionRef(record?.object_ref),
-    content_hash: normalizeTransitionRef(admission?.content_hash) ?? normalizeTransitionRef(record?.content_hash),
-    artifact_refs: Array.isArray(admission?.artifact_refs)
-      ? admission.artifact_refs
-      : Array.isArray(record?.artifact_refs)
-        ? record.artifact_refs
-        : [],
-    payload_refs: Array.isArray(admission?.payload_refs)
-      ? admission.payload_refs
-      : Array.isArray(record?.payload_refs)
-        ? record.payload_refs
-        : [],
-    receipt_refs: Array.isArray(admission?.receipt_refs)
-      ? admission.receipt_refs
-      : Array.isArray(record?.receipt_refs)
-        ? record.receipt_refs
-        : [],
-    evidence_refs: Array.isArray(admission?.evidence_refs) ? admission.evidence_refs : [],
+      normalizeTransitionRef(writeSet?.storage_backend_ref) ?? normalizeTransitionRef(record?.storage_backend_ref),
+    records,
+    evidence_refs: Array.isArray(writeSet?.evidence_refs) ? writeSet.evidence_refs : [],
     record: record ?? null,
   };
   const missing = [
-    ["admission_hash", normalized.admission_hash],
+    ["write_set_hash", normalized.write_set_hash],
     ["storage_backend_ref", normalized.storage_backend_ref],
-    ["object_ref", normalized.object_ref],
-    ["content_hash", normalized.content_hash],
-    ["payload_refs", normalized.payload_refs.length > 0 ? normalized.payload_refs : null],
-    ["receipt_refs", normalized.receipt_refs.length > 0 ? normalized.receipt_refs : null],
+    ["records", normalized.records.length > 0 ? normalized.records : null],
   ]
     .filter(([, value]) => !value)
     .map(([name]) => name);
   if (missing.length > 0) {
-    throw new Error(`Rust Agentgres storage write admission is missing ${missing.join(", ")}.`);
+    throw new Error(`Rust Agentgres storage write set is missing ${missing.join(", ")}.`);
+  }
+  const byPath = new Map();
+  for (const entry of normalized.records) {
+    const planned = normalizeStorageWriteSetRecord(entry);
+    byPath.set(planned.record_path, planned);
+  }
+  for (const expected of expectedRecords) {
+    if (!byPath.has(expected.recordPath)) {
+      throw new Error(`Rust Agentgres storage write set is missing record ${expected.recordPath}.`);
+    }
+  }
+  normalized.recordsByPath = byPath;
+  return normalized;
+}
+
+function normalizeStorageWriteSetRecord(record) {
+  const admission = record?.admission && typeof record.admission === "object" ? record.admission : {};
+  const normalized = {
+    record_path: normalizeTransitionRef(record?.record_path),
+    object_ref: normalizeTransitionRef(record?.object_ref),
+    content_hash: normalizeTransitionRef(record?.content_hash),
+    artifact_refs: Array.isArray(record?.artifact_refs) ? record.artifact_refs : [],
+    payload_refs: Array.isArray(record?.payload_refs) ? record.payload_refs : [],
+    receipt_refs: Array.isArray(record?.receipt_refs) ? record.receipt_refs : [],
+    admission,
+  };
+  const missing = [
+    ["record_path", normalized.record_path],
+    ["object_ref", normalized.object_ref],
+    ["content_hash", normalized.content_hash],
+    ["payload_refs", normalized.payload_refs.length > 0 ? normalized.payload_refs : null],
+    ["receipt_refs", normalized.receipt_refs.length > 0 ? normalized.receipt_refs : null],
+    ["admission_hash", normalizeTransitionRef(admission.admission_hash)],
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+  if (missing.length > 0) {
+    throw new Error(`Rust Agentgres storage write set record is missing ${missing.join(", ")}.`);
   }
   return normalized;
 }
 
-function writeJsonWithStorageAdmission(store, recordPath, value, run, writeJson) {
-  const filePath = store.pathFor(...recordPath.split("/"));
-  const storageAdmission = admitRunStateStorageWrite(store, run, recordPath, value);
-  writeJson(filePath, value);
-  return storageAdmission;
+function writeJsonWithPlannedStorage(store, record, plannedStorage, writeJson) {
+  const planned = plannedStorage.recordsByPath.get(record.recordPath);
+  if (!planned) {
+    throw new Error(`Run persistence missing planned storage admission for ${record.recordPath}.`);
+  }
+  writeJson(store.pathFor(...record.recordPath.split("/")), record.value);
+  return planned;
 }
 
 function normalizeRunStateTransition(transition) {
@@ -384,7 +404,9 @@ export function writeRunRecord(store, run, operationKind, deps = {}) {
     runtimeChecklist,
     terminalEventTypes,
   });
-  writeJsonWithStorageAdmission(store, `runs/${run.id}.json`, run, run, writeJson);
+  const stateRecords = [
+    { recordPath: `runs/${run.id}.json`, value: run },
+  ];
   const taskRecord = {
     runId: run.id,
     agentId: run.agentId,
@@ -396,40 +418,34 @@ export function writeRunRecord(store, run, operationKind, deps = {}) {
     projectionWatermark: agentgresTransition.projection_watermark,
     agentgresTransition,
   };
-  writeJsonWithStorageAdmission(store, `tasks/${run.id}.json`, taskRecord, run, writeJson);
-  writeJsonWithStorageAdmission(store, `jobs/${runtimeJob.jobId}.json`, runtimeJob, run, writeJson);
-  writeJsonWithStorageAdmission(
-    store,
-    `checklists/${runtimeChecklist.checklistId}.json`,
-    runtimeChecklist,
-    run,
-    writeJson,
-  );
+  stateRecords.push({ recordPath: `tasks/${run.id}.json`, value: taskRecord });
+  stateRecords.push({ recordPath: `jobs/${runtimeJob.jobId}.json`, value: runtimeJob });
+  stateRecords.push({ recordPath: `checklists/${runtimeChecklist.checklistId}.json`, value: runtimeChecklist });
   for (const receipt of run.receipts) {
-    writeJsonWithStorageAdmission(store, `receipts/${receipt.id}.json`, { runId: run.id, ...receipt }, run, writeJson);
+    stateRecords.push({ recordPath: `receipts/${receipt.id}.json`, value: { runId: run.id, ...receipt } });
   }
   for (const artifact of run.artifacts) {
-    writeJsonWithStorageAdmission(store, `artifacts/${artifact.id}.json`, artifact, run, writeJson);
+    stateRecords.push({ recordPath: `artifacts/${artifact.id}.json`, value: artifact });
   }
-  writeJsonWithStorageAdmission(store, `policy-decisions/${run.id}.json`, {
+  stateRecords.push({ recordPath: `policy-decisions/${run.id}.json`, value: {
     runId: run.id,
     decision: "allowed",
     rationale: "Local daemon run stayed inside bounded local/private runtime contract.",
     primitiveCapabilities: ["prim:model.invoke"],
     authorityScopes: [],
     receiptId: run.receipts.find((receipt) => receipt.kind === "policy_decision")?.id,
-  }, run, writeJson);
-  writeJsonWithStorageAdmission(store, `authority-decisions/${run.id}.json`, {
+  } });
+  stateRecords.push({ recordPath: `authority-decisions/${run.id}.json`, value: {
     runId: run.id,
     decision: "allowed",
     authorityScopes: [],
     walletLayer: "wallet.network",
     receiptId: run.receipts.find((receipt) => receipt.kind === "authority_decision")?.id,
-  }, run, writeJson);
-  writeJsonWithStorageAdmission(store, `stop-conditions/${run.id}.json`, run.trace.stopCondition, run, writeJson);
-  writeJsonWithStorageAdmission(store, `scorecards/${run.id}.json`, run.trace.scorecard, run, writeJson);
-  writeJsonWithStorageAdmission(store, `ledgers/${run.id}.json`, run.trace.qualityLedger, run, writeJson);
-  writeJsonWithStorageAdmission(store, `quality/${run.id}.json`, {
+  } });
+  stateRecords.push({ recordPath: `stop-conditions/${run.id}.json`, value: run.trace.stopCondition });
+  stateRecords.push({ recordPath: `scorecards/${run.id}.json`, value: run.trace.scorecard });
+  stateRecords.push({ recordPath: `ledgers/${run.id}.json`, value: run.trace.qualityLedger });
+  stateRecords.push({ recordPath: `quality/${run.id}.json`, value: {
     runId: run.id,
     scorecard: run.trace.scorecard,
     qualityLedger: run.trace.qualityLedger,
@@ -439,10 +455,15 @@ export function writeRunRecord(store, run, operationKind, deps = {}) {
       evidenceOnlyMode: true,
       humanReviewThreshold: "high_risk",
     },
-  }, run, writeJson);
+  } });
   const projectionRecord = {
     ...store.canonicalProjection(run.id),
     agentgresTransition,
   };
-  writeJsonWithStorageAdmission(store, `projections/${run.id}.json`, projectionRecord, run, writeJson);
+  stateRecords.push({ recordPath: `projections/${run.id}.json`, value: projectionRecord });
+
+  const plannedStorage = planRunStateStorageWrites(store, run, stateRecords);
+  for (const record of stateRecords) {
+    writeJsonWithPlannedStorage(store, record, plannedStorage, writeJson);
+  }
 }

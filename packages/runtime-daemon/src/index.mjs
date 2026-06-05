@@ -3760,8 +3760,8 @@ export class AgentgresRuntimeStateStore {
     return this.runtimeAgentgresAdmissionRunner.planRunStateTransition(request);
   }
 
-  admitRuntimeStateStorageWrite(request) {
-    return this.runtimeAgentgresAdmissionRunner.admitStorageBackendWrite(request);
+  planRuntimeStateStorageWrites(request) {
+    return this.runtimeAgentgresAdmissionRunner.planRuntimeStateStorageWrites(request);
   }
 
   writeSubagent(subagent, operationKind) {

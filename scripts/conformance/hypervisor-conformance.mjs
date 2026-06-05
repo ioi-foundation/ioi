@@ -1601,19 +1601,32 @@ function runReceipts() {
     result,
     "thread-run-state-storage-write-rust-admitted",
     /StorageBackendWriteProposal/.test(agentgresAdmissionCore) &&
+      /RuntimeStateStorageWriteSetRequest/.test(agentgresAdmissionCore) &&
+      /plan_runtime_state_storage_writes/.test(agentgresAdmissionCore) &&
+      /plans_runtime_state_storage_write_set_with_rust_content_hash_and_admissions/.test(agentgresAdmissionCore) &&
       /admit_storage_backend_write/.test(bridgeModule) &&
+      /plan_runtime_state_storage_writes/.test(bridgeModule) &&
       /rust_agentgres_storage_write_admission_command/.test(bridgeModule) &&
+      /rust_agentgres_runtime_state_storage_write_set_command/.test(bridgeModule) &&
       /bridge_admits_storage_backend_write_through_rust_core/.test(bridgeModule) &&
+      /bridge_plans_runtime_state_storage_writes_through_rust_core/.test(bridgeModule) &&
       /admitStorageBackendWrite/.test(runtimeAgentgresRunner) &&
+      /planRuntimeStateStorageWrites/.test(runtimeAgentgresRunner) &&
       /RUST_AGENTGRES_STORAGE_BACKEND/.test(runtimeAgentgresRunner) &&
       /runtime Agentgres runner sends storage write admission bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
-      /admitRuntimeStateStorageWrite\(request\)/.test(runtimeDaemonIndex) &&
-      /writeJsonWithStorageAdmission/.test(threadPersistence) &&
+      /runtime Agentgres runner sends runtime-state storage write-set bridge request/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /planRuntimeStateStorageWrites\(request\)/.test(runtimeDaemonIndex) &&
+      !/admitRuntimeStateStorageWrite/.test(runtimeDaemonIndex) &&
+      /planRunStateStorageWrites/.test(threadPersistence) &&
+      /writeJsonWithPlannedStorage/.test(threadPersistence) &&
+      /RUNTIME_STATE_STORAGE_WRITE_SET_SCHEMA_VERSION/.test(threadPersistence) &&
       /RUNTIME_STATE_STORAGE_BACKEND_REF/.test(threadPersistence) &&
-      /storageWriteAdmissions/.test(read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs")) &&
-      /admits canonical storage writes/.test(
+      /storageWriteSetRequests/.test(read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs")) &&
+      /plans storage write set in Rust/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ),
     [
@@ -1625,7 +1638,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 5/11 is pending: canonical run/task/projection state writes must obtain Rust storage admission with Agentgres PayloadRef/receipt refs before local JSON persistence",
+    "Phase 5/11 is pending: run-state writes must obtain a Rust-planned storage write set with Rust content hashes, Agentgres PayloadRefs, and receipt refs before local JSON persistence",
   );
   assertCheck(
     result,
@@ -1642,10 +1655,10 @@ function runReceipts() {
       /`scorecards\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
       /`ledgers\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
       /`quality\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
-      /storageWriteAdmissions\.length, files\.length/.test(
+      /storageWriteSetRequests\[0\]\.records\.map/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
-      /admits canonical storage writes plus sidecars/.test(
+      /plans storage write set in Rust/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ),
     [

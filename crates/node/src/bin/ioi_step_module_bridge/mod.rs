@@ -1,6 +1,6 @@
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
-    AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeStateTransitionRequest,
-    StorageBackendWriteProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
+    AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeStateStorageWriteSetRequest,
+    RuntimeStateTransitionRequest, StorageBackendWriteProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountCore, ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
@@ -187,6 +187,16 @@ struct StorageBackendWriteBridgeRequest {
     request: StorageBackendWriteProposal,
 }
 
+#[derive(Debug, Deserialize)]
+struct RuntimeStateStorageWriteSetBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: RuntimeStateStorageWriteSetRequest,
+}
+
 pub fn run_bridge_response_from_stdin() -> Value {
     match run_bridge() {
         Ok(response) => json!({ "ok": true, "result": response }),
@@ -293,6 +303,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             admit_storage_backend_write(request)
+        }
+        "plan_runtime_state_storage_writes" => {
+            let request: RuntimeStateStorageWriteSetBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_runtime_state_storage_writes(request)
         }
         other => Err(BridgeError::new(
             "operation_unsupported",
@@ -966,6 +982,52 @@ fn admit_storage_backend_write(
         "evidence_refs": [
             "rust_agentgres_storage_write_admission",
             record.admission_hash,
+        ],
+    }))
+}
+
+fn plan_runtime_state_storage_writes(
+    request: RuntimeStateStorageWriteSetBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_runtime_state_storage_writes" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = AgentgresAdmissionCore
+        .plan_runtime_state_storage_writes(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "runtime_state_storage_write_set_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    let storage_admissions = record
+        .records
+        .iter()
+        .map(|entry| entry.admission.clone())
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "source": "rust_agentgres_runtime_state_storage_write_set_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "record": record.clone(),
+        "write_set_hash": record.write_set_hash.clone(),
+        "storage_backend_ref": record.storage_backend_ref.clone(),
+        "records": record.records.clone(),
+        "storage_admissions": storage_admissions,
+        "evidence_refs": [
+            "rust_agentgres_runtime_state_storage_write_set",
+            record.write_set_hash,
         ],
     }))
 }
@@ -4283,6 +4345,67 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_agentgres_storage_write_admission"));
+    }
+
+    #[test]
+    fn bridge_plans_runtime_state_storage_writes_through_rust_core() {
+        let request: RuntimeStateStorageWriteSetBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_runtime_state_storage_writes",
+            "backend": "rust_agentgres_storage",
+            "request": {
+                "schema_version": "ioi.runtime_state_storage_write_set.v1",
+                "run_id": "run_1",
+                "storage_backend_ref": "storage://runtime-agentgres/local-json",
+                "receipt_refs": ["receipt_policy"],
+                "records": [
+                    {
+                        "record_path": "runs/run_1.json",
+                        "payload": {
+                            "id": "run_1",
+                            "status": "completed"
+                        }
+                    },
+                    {
+                        "record_path": "tasks/run_1.json",
+                        "payload": {
+                            "runId": "run_1",
+                            "taskState": {
+                                "state": "done"
+                            }
+                        }
+                    }
+                ]
+            }
+        }))
+        .expect("runtime storage write-set bridge request");
+
+        let response =
+            plan_runtime_state_storage_writes(request).expect("runtime storage writes planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_agentgres_runtime_state_storage_write_set_command"
+        );
+        assert_eq!(response["backend"], "rust_agentgres_storage");
+        assert!(response["write_set_hash"]
+            .as_str()
+            .expect("write-set hash")
+            .starts_with("sha256:"));
+        assert_eq!(response["records"].as_array().expect("records").len(), 2);
+        assert_eq!(
+            response["records"][0]["object_ref"],
+            "agentgres://runtime-state/runs/run_1/records/runs/run_1.json"
+        );
+        assert!(response["records"][0]["admission"]["admission_hash"]
+            .as_str()
+            .expect("admission hash")
+            .starts_with("sha256:"));
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_agentgres_runtime_state_storage_write_set"));
     }
 
     #[test]

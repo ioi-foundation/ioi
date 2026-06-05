@@ -40,6 +40,25 @@ function storageWriteRequest() {
   };
 }
 
+function storageWriteSetRequest() {
+  return {
+    schema_version: "ioi.runtime_state_storage_write_set.v1",
+    run_id: "run_1",
+    storage_backend_ref: "storage://runtime-agentgres/local-json",
+    receipt_refs: ["receipt_policy"],
+    records: [
+      {
+        record_path: "runs/run_1.json",
+        payload: { id: "run_1", status: "completed" },
+      },
+      {
+        record_path: "tasks/run_1.json",
+        payload: { runId: "run_1", taskState: { state: "done" } },
+      },
+    ],
+  };
+}
+
 test("runtime Agentgres runner sends run-state transition bridge request", () => {
   const calls = [];
   const runner = new RustRuntimeAgentgresAdmissionRunner({
@@ -124,6 +143,70 @@ test("runtime Agentgres runner sends storage write admission bridge request", ()
   assert.equal(result.admission_hash, "sha256:storage-admission");
   assert.equal(result.object_ref, "agentgres://runtime-state/runs/run_1/records/runs/run_1.json");
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_storage_write_admission"]);
+});
+
+test("runtime Agentgres runner sends runtime-state storage write-set bridge request", () => {
+  const calls = [];
+  const runner = new RustRuntimeAgentgresAdmissionRunner({
+    command: "mock-runtime-agentgres-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_agentgres_runtime_state_storage_write_set_command",
+            backend: RUST_AGENTGRES_STORAGE_BACKEND,
+            record: {
+              ...request.request,
+              records: request.request.records.map((record) => ({
+                record_path: record.record_path,
+                object_ref: `agentgres://runtime-state/runs/run_1/records/${record.record_path}`,
+                content_hash: "sha256:content",
+                artifact_refs: [],
+                payload_refs: [`payload://runtime/runs/run_1/records/${record.record_path}`],
+                receipt_refs: request.request.receipt_refs,
+                admission: {
+                  schema_version: "ioi.storage_backend_write_admission.v1",
+                  storage_backend_ref: request.request.storage_backend_ref,
+                  object_ref: `agentgres://runtime-state/runs/run_1/records/${record.record_path}`,
+                  content_hash: "sha256:content",
+                  artifact_refs: [],
+                  payload_refs: [`payload://runtime/runs/run_1/records/${record.record_path}`],
+                  receipt_refs: request.request.receipt_refs,
+                  admission_hash: "sha256:admission",
+                },
+              })),
+              write_set_hash: "sha256:write-set",
+            },
+            write_set_hash: "sha256:write-set",
+            records: [
+              {
+                record_path: "runs/run_1.json",
+                object_ref: "agentgres://runtime-state/runs/run_1/records/runs/run_1.json",
+              },
+            ],
+            evidence_refs: ["rust_agentgres_runtime_state_storage_write_set"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planRuntimeStateStorageWrites(storageWriteSetRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, "mock-runtime-agentgres-bridge");
+  assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_runtime_state_storage_writes");
+  assert.equal(calls[0].request.backend, RUST_AGENTGRES_STORAGE_BACKEND);
+  assert.equal(calls[0].request.request.records.length, 2);
+  assert.equal(result.write_set_hash, "sha256:write-set");
+  assert.equal(result.records[0].record_path, "runs/run_1.json");
+  assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_state_storage_write_set"]);
 });
 
 test("runtime Agentgres runner requires explicit runtime admission command env", () => {

@@ -45,6 +45,16 @@ export class RustRuntimeAgentgresAdmissionRunner {
     return normalizeStorageBackendWriteBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
+  planRuntimeStateStorageWrites(request) {
+    const bridgeRequest = {
+      schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
+      operation: "plan_runtime_state_storage_writes",
+      backend: RUST_AGENTGRES_STORAGE_BACKEND,
+      request,
+    };
+    return normalizeRuntimeStateStorageWriteSetBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
   invokeBridge(request) {
     if (this.mockResult) {
       const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
@@ -152,6 +162,21 @@ export function normalizeStorageBackendWriteBridgeResult(value = {}) {
     artifact_refs: Array.isArray(result.artifact_refs) ? result.artifact_refs : record.artifact_refs ?? [],
     payload_refs: Array.isArray(result.payload_refs) ? result.payload_refs : record.payload_refs ?? [],
     receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+  };
+}
+
+export function normalizeRuntimeStateStorageWriteSetBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.record && typeof result.record === "object" ? result.record : {};
+  return {
+    source: result.source ?? "rust_agentgres_runtime_state_storage_write_set_command",
+    backend: result.backend ?? RUST_AGENTGRES_STORAGE_BACKEND,
+    record,
+    write_set_hash: result.write_set_hash ?? record.write_set_hash ?? null,
+    storage_backend_ref: result.storage_backend_ref ?? record.storage_backend_ref ?? null,
+    records: Array.isArray(result.records) ? result.records : record.records ?? [],
+    storage_admissions: Array.isArray(result.storage_admissions) ? result.storage_admissions : [],
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
   };
 }

@@ -32,6 +32,7 @@ function fakeStore() {
     runs: new Map(),
     schemaVersion: "ioi.agentgres.runtime.v0",
     storageWriteAdmissions: [],
+    storageWriteSetRequests: [],
     subagents: new Map(),
     persistenceEvents: [],
     transitionRequests: [],
@@ -77,29 +78,48 @@ function fakeStore() {
         evidence_refs: ["rust_agentgres_runtime_state_transition"],
       };
     },
-    admitRuntimeStateStorageWrite(request) {
-      this.storageWriteAdmissions.push(request);
-      this.persistenceEvents.push({ type: "storage_admission", objectRef: request.object_ref });
-      return {
-        source: "rust_agentgres_storage_write_admission_command",
-        record: {
+    planRuntimeStateStorageWrites(request) {
+      this.storageWriteSetRequests.push(request);
+      const records = request.records.map((record, index) => {
+        const objectRef = `agentgres://runtime-state/runs/${request.run_id}/records/${record.record_path}`;
+        const payloadRefs = [`payload://runtime/runs/${request.run_id}/records/${record.record_path}`];
+        const admission = {
           schema_version: "ioi.storage_backend_write_admission.v1",
           storage_backend_ref: request.storage_backend_ref,
-          object_ref: request.object_ref,
-          content_hash: request.content_hash,
-          artifact_refs: request.artifact_refs,
-          payload_refs: request.payload_refs,
+          object_ref: objectRef,
+          content_hash: `sha256:content-${index}`,
+          artifact_refs: record.artifact_refs,
+          payload_refs: payloadRefs,
           receipt_refs: request.receipt_refs,
-          admission_hash: `sha256:storage-${this.storageWriteAdmissions.length}`,
+          admission_hash: `sha256:storage-${index}`,
+        };
+        this.storageWriteAdmissions.push(admission);
+        this.persistenceEvents.push({ type: "storage_admission", objectRef });
+        return {
+          record_path: record.record_path,
+          object_ref: objectRef,
+          content_hash: admission.content_hash,
+          artifact_refs: record.artifact_refs,
+          payload_refs: payloadRefs,
+          receipt_refs: request.receipt_refs,
+          admission,
+        };
+      });
+      return {
+        source: "rust_agentgres_runtime_state_storage_write_set_command",
+        record: {
+          schema_version: "ioi.runtime_state_storage_write_set.v1",
+          run_id: request.run_id,
+          storage_backend_ref: request.storage_backend_ref,
+          receipt_refs: request.receipt_refs,
+          records,
+          write_set_hash: `sha256:write-set-${this.storageWriteSetRequests.length}`,
         },
-        admission_hash: `sha256:storage-${this.storageWriteAdmissions.length}`,
+        write_set_hash: `sha256:write-set-${this.storageWriteSetRequests.length}`,
         storage_backend_ref: request.storage_backend_ref,
-        object_ref: request.object_ref,
-        content_hash: request.content_hash,
-        artifact_refs: request.artifact_refs,
-        payload_refs: request.payload_refs,
-        receipt_refs: request.receipt_refs,
-        evidence_refs: ["rust_agentgres_storage_write_admission"],
+        records,
+        storage_admissions: records.map((record) => record.admission),
+        evidence_refs: ["rust_agentgres_runtime_state_storage_write_set"],
       };
     },
     registerRuntimeEvent(record) {
@@ -261,7 +281,7 @@ test("thread persistence loads agents, runs, subagents, coding artifacts, and re
   assert.deepEqual(store.registeredEvents, [{ seq: 1 }, { seq: 2 }]);
 });
 
-test("thread persistence writes run projections without operation entries and admits canonical storage writes plus sidecars", () => {
+test("thread persistence writes run projections without operation entries and plans storage write set in Rust", () => {
   const store = fakeStore();
   const run = {
     id: "run_1",
@@ -317,6 +337,16 @@ test("thread persistence writes run projections without operation entries and ad
     "quality/run_1.json",
     "projections/run_1.json",
   ]);
+  assert.equal(store.storageWriteSetRequests.length, 1);
+  assert.equal(store.storageWriteSetRequests[0].schema_version, "ioi.runtime_state_storage_write_set.v1");
+  assert.equal(store.storageWriteSetRequests[0].run_id, "run_1");
+  assert.equal(store.storageWriteSetRequests[0].storage_backend_ref, "storage://runtime-agentgres/local-json");
+  assert.deepEqual(store.storageWriteSetRequests[0].receipt_refs, ["receipt_policy", "receipt_authority"]);
+  assert.deepEqual(
+    store.storageWriteSetRequests[0].records.map((record) => record.record_path),
+    files,
+  );
+  assert.deepEqual(store.storageWriteSetRequests[0].records[0].payload, run);
   assert.equal(store.storageWriteAdmissions.length, files.length);
   assert.deepEqual(
     store.storageWriteAdmissions.map((admission) =>
