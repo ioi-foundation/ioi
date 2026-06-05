@@ -13014,7 +13014,7 @@ test("React Flow delegate-summary context-pressure action spawns a daemon-owned 
     assert.equal(sdkSpawnEvent.sourceEventKind, "OperatorControl.SubagentSpawn");
     assert.equal(sdkSpawnEvent.workflowGraphId, workflowGraphId);
     assert.equal(sdkSpawnEvent.workflowNodeId, workflowNodeId);
-    assert.equal(sdkSpawnEvent.payload.contextPressureAction, "delegate_summary");
+    assert.equal(sdkSpawnEvent.payload.context_pressure_action, "delegate_summary");
 
     const reactFlowProjection = projectRuntimeThreadEventsToWorkflowProjection(sdkEvents);
     const subagentNode = reactFlowProjection.nodes.find((node) =>

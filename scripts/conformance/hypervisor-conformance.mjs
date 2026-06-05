@@ -3210,6 +3210,10 @@ function runCompositor() {
     subagentManager.match(
       /export function subagentResultForRun[\s\S]*?\n}\n\nexport function subagentManagerEventPayload/,
     )?.[0] ?? "";
+  const subagentManagerEventPayloadBlock =
+    subagentManager.match(
+      /export function subagentManagerEventPayload[\s\S]*?\n}\n\nexport function subagentOperatorControlKind/,
+    )?.[0] ?? "";
   const subagentManagerTest = exists("packages/runtime-daemon/src/subagent-manager.test.mjs")
     ? read("packages/runtime-daemon/src/subagent-manager.test.mjs")
     : "";
@@ -3316,6 +3320,11 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts")
     : "";
+  const agentIdeDelegationMatrix = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts")
+    : "";
   const agentIdeTelemetrySourceBinding = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
   )
@@ -3364,6 +3373,9 @@ function runCompositor() {
   const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
     ? read("packages/agent-sdk/test/sdk.test.mjs")
     : "";
+  const liveRuntimeDaemonContract = exists("scripts/lib/live-runtime-daemon-contract.test.mjs")
+    ? read("scripts/lib/live-runtime-daemon-contract.test.mjs")
+    : "";
   function blockBetween(text, startMarker, endMarker) {
     const startIndex = text.indexOf(startMarker);
     if (startIndex < 0) return "";
@@ -3371,6 +3383,11 @@ function runCompositor() {
     const endIndex = remainder.indexOf(endMarker, startMarker.length);
     return endIndex < 0 ? remainder : remainder.slice(0, endIndex);
   }
+  const agentIdeSubagentDelegationMatrixBlock = blockBetween(
+    agentIdeDelegationMatrix,
+    'if (payloadObject === "ioi.runtime_subagent_manager_event")',
+    'if (payloadEventKind === "SubagentMemoryInheritance")',
+  );
   const runtimeUsagePayloadSummaryBlocks = [
     blockBetween(
       runtimeEventPayloads,
@@ -3732,6 +3749,34 @@ function runCompositor() {
       "packages/runtime-daemon/src/subagent-manager.test.mjs",
     ],
     "Phase 10/11 is pending: subagent result output must expose canonical snake_case fields only",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-manager-event-output-aliases-retired",
+    !/^\s*(?:schemaVersion|eventKind|threadId|parentThreadId|parentTurnId|childThreadId|subagentId|agentId|runId|toolPack|modelRouteId|lifecycleStatus|outputContractStatus|maxConcurrency|budgetStatus|costEstimateUsd|tokenEstimate|mergePolicy|cancellationInheritance|contextPressureAction|contextPressure|pressure|pressureStatus|alertId|sourceEventId|sourceReceiptRefs|sourcePolicyDecisionRefs|inputId|inputCount|cancellationReason|cancellationInherited|propagatedFromThreadId|restartStatus|restartCount|resumeId|assignmentId|assignmentCount|targetAgentId)\s*[:,]/m.test(
+      subagentManagerEventPayloadBlock,
+    ) &&
+      /retiredSubagentManagerEventOutputAliasKeys/.test(
+        subagentManagerTest,
+      ) &&
+      /assertCanonicalSubagentManagerEventOutput/.test(
+        subagentManagerTest,
+      ) &&
+      !/stringField\(payload,\s*"(?:lifecycleStatus|parentThreadId|parentTurnId|childThreadId|runId|subagentId|mergePolicy|cancellationInheritance|cancellationReason)"/.test(
+        agentIdeSubagentDelegationMatrixBlock,
+      ) &&
+      !/(?:arrayField|objectField|stringField)\(payload,\s*"(?:outputContractStatus|receiptRefs|sourceReceiptRefs|policyDecisionRefs|sourcePolicyDecisionRefs)"/.test(
+        agentIdeDelegationMatrix,
+      ) &&
+      /payload\.context_pressure_action/.test(liveRuntimeDaemonContract) &&
+      !/payload\.contextPressureAction/.test(liveRuntimeDaemonContract),
+    [
+      "packages/runtime-daemon/src/subagent-manager.mjs",
+      "packages/runtime-daemon/src/subagent-manager.test.mjs",
+      "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
+      "scripts/lib/live-runtime-daemon-contract.test.mjs",
+    ],
+    "Phase 10/11 is pending: subagent manager event payloads must expose canonical snake_case fields only and IDE/SDK proofs must not consume retired raw payload aliases",
   );
   assertCheck(
     result,

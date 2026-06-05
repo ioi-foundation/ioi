@@ -109,23 +109,23 @@ function delegationMatrixRowForEvent(
 ): WorkflowRuntimeDelegationMatrixRow | null {
   const payload = eventPayload(event);
   const payloadObject = stringField(payload, "object");
-  const payloadEventKind = stringField(payload, "eventKind", "event_kind");
+  const payloadEventKind = stringField(payload, "event_kind", "eventKind");
   if (payloadObject === "ioi.runtime_subagent_manager_event") {
     return baseRow(event, payload, {
       rowKind: "subagent_lane",
-      status: stringField(payload, "lifecycleStatus", "lifecycle_status") ?? eventStatus(event) ?? "unknown",
+      status: stringField(payload, "lifecycle_status") ?? eventStatus(event) ?? "unknown",
       operation: stringField(payload, "operation"),
-      parentThreadId: stringField(payload, "parentThreadId", "parent_thread_id"),
-      parentTurnId: stringField(payload, "parentTurnId", "parent_turn_id"),
-      childThreadId: stringField(payload, "childThreadId", "child_thread_id"),
-      childRunId: stringField(payload, "runId", "run_id"),
-      subagentId: stringField(payload, "subagentId", "subagent_id"),
+      parentThreadId: stringField(payload, "parent_thread_id"),
+      parentTurnId: stringField(payload, "parent_turn_id"),
+      childThreadId: stringField(payload, "child_thread_id"),
+      childRunId: stringField(payload, "run_id"),
+      subagentId: stringField(payload, "subagent_id"),
       role: stringField(payload, "role"),
-      lifecycleStatus: stringField(payload, "lifecycleStatus", "lifecycle_status"),
+      lifecycleStatus: stringField(payload, "lifecycle_status"),
       outputContractStatus: outputContractStatus(payload),
-      mergePolicy: stringField(payload, "mergePolicy", "merge_policy"),
-      cancellationInheritance: stringField(payload, "cancellationInheritance", "cancellation_inheritance"),
-      cancellationReason: stringField(payload, "cancellationReason", "cancellation_reason"),
+      mergePolicy: stringField(payload, "merge_policy"),
+      cancellationInheritance: stringField(payload, "cancellation_inheritance"),
+      cancellationReason: stringField(payload, "cancellation_reason"),
     });
   }
   if (payloadEventKind === "SubagentMemoryInheritance") {
@@ -178,13 +178,13 @@ function baseRow(
     workflowNodeId: eventWorkflowNodeId(event),
     receiptRefs: uniqueStrings([
       ...arrayField(event, "receiptRefs", "receipt_refs"),
-      ...arrayField(payload, "receiptRefs", "receipt_refs"),
-      ...arrayField(payload, "sourceReceiptRefs", "source_receipt_refs"),
+      ...arrayField(payload, "receipt_refs"),
+      ...arrayField(payload, "source_receipt_refs"),
     ]),
     policyDecisionRefs: uniqueStrings([
       ...arrayField(event, "policyDecisionRefs", "policy_decision_refs"),
-      ...arrayField(payload, "policyDecisionRefs", "policy_decision_refs"),
-      ...arrayField(payload, "sourcePolicyDecisionRefs", "source_policy_decision_refs"),
+      ...arrayField(payload, "policy_decision_refs"),
+      ...arrayField(payload, "source_policy_decision_refs"),
     ]),
   };
 }
@@ -200,8 +200,8 @@ function memoryWriteBlockReason(payload: Record<string, unknown>): string | null
 }
 
 function outputContractStatus(payload: Record<string, unknown>): string | null {
-  const objectStatus = objectField(payload, "outputContractStatus", "output_contract_status");
-  return stringField(objectStatus, "status") ?? stringField(payload, "outputContractStatus", "output_contract_status");
+  const objectStatus = objectField(payload, "output_contract_status");
+  return stringField(objectStatus, "status") ?? stringField(payload, "output_contract_status");
 }
 
 function eventPayload(event: RuntimeEventInput): Record<string, unknown> {

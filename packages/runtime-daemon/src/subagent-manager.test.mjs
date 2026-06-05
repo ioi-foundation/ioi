@@ -49,6 +49,46 @@ const retiredSubagentResultOutputAliasKeys = [
   "budgetStatus",
   "receiptRefs",
 ];
+const retiredSubagentManagerEventOutputAliasKeys = [
+  "schemaVersion",
+  "eventKind",
+  "threadId",
+  "parentThreadId",
+  "parentTurnId",
+  "childThreadId",
+  "subagentId",
+  "agentId",
+  "runId",
+  "toolPack",
+  "modelRouteId",
+  "lifecycleStatus",
+  "outputContractStatus",
+  "maxConcurrency",
+  "budgetStatus",
+  "costEstimateUsd",
+  "tokenEstimate",
+  "mergePolicy",
+  "cancellationInheritance",
+  "contextPressureAction",
+  "contextPressure",
+  "pressure",
+  "pressureStatus",
+  "alertId",
+  "sourceEventId",
+  "sourceReceiptRefs",
+  "sourcePolicyDecisionRefs",
+  "inputId",
+  "inputCount",
+  "cancellationReason",
+  "cancellationInherited",
+  "propagatedFromThreadId",
+  "restartStatus",
+  "restartCount",
+  "resumeId",
+  "assignmentId",
+  "assignmentCount",
+  "targetAgentId",
+];
 
 const retiredSubagentUsageDataAliasInput = {
   cumulativeInputTokens: 5,
@@ -93,6 +133,12 @@ function assertCanonicalSubagentUsageTelemetryOutput(telemetry) {
 function assertCanonicalSubagentResultOutput(result) {
   for (const key of retiredSubagentResultOutputAliasKeys) {
     assert.equal(Object.prototype.hasOwnProperty.call(result, key), false);
+  }
+}
+
+function assertCanonicalSubagentManagerEventOutput(event) {
+  for (const key of retiredSubagentManagerEventOutputAliasKeys) {
+    assert.equal(Object.prototype.hasOwnProperty.call(event, key), false);
   }
 }
 
@@ -248,7 +294,13 @@ test("subagent result and manager events emit canonical usage telemetry only", (
   });
 
   assertCanonicalSubagentManagerUsageTelemetry(event);
+  assertCanonicalSubagentManagerEventOutput(event);
   assert.equal(event.usage_telemetry, usage);
+  assert.equal(event.schema_version, "ioi.runtime.subagent-manager.v1");
+  assert.equal(event.event_kind, "OperatorControl.SubagentResume");
+  assert.equal(event.thread_id, "thread-one");
+  assert.equal(event.parent_thread_id, "thread-one");
+  assert.equal(event.subagent_id, "subagent-one");
   assert.equal(event.cost_estimate_usd, 0.42);
   assert.equal(event.token_estimate, 14);
 
@@ -269,6 +321,7 @@ test("subagent result and manager events emit canonical usage telemetry only", (
   assertCanonicalSubagentManagerUsageTelemetry(retiredResult);
   assertCanonicalSubagentManagerUsageTelemetry(retiredEvent);
   assertCanonicalSubagentResultOutput(retiredResult);
+  assertCanonicalSubagentManagerEventOutput(retiredEvent);
   assert.equal(retiredResult.usage_telemetry, null);
   assert.equal(retiredEvent.usage_telemetry, null);
   assert.equal(retiredEvent.cost_estimate_usd, null);

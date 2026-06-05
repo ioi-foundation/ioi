@@ -334,114 +334,61 @@ export function subagentResultForRun({ record, run = {}, output, outputContractS
 export function subagentManagerEventPayload({ record = {}, operation, status }) {
   return {
     schema_version: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
     object: "ioi.runtime_subagent_manager_event",
     event_kind: subagentOperatorControlKind(operation),
-    eventKind: subagentOperatorControlKind(operation),
     operation,
     thread_id: record.parent_thread_id ?? record.parentThreadId ?? null,
-    threadId: record.parentThreadId ?? record.parent_thread_id ?? null,
     parent_thread_id: record.parent_thread_id ?? record.parentThreadId ?? null,
-    parentThreadId: record.parentThreadId ?? record.parent_thread_id ?? null,
     parent_turn_id: record.parent_turn_id ?? record.parentTurnId ?? null,
-    parentTurnId: record.parentTurnId ?? record.parent_turn_id ?? null,
     child_thread_id: record.child_thread_id ?? record.childThreadId ?? null,
-    childThreadId: record.childThreadId ?? record.child_thread_id ?? null,
     subagent_id: record.subagent_id ?? record.subagentId ?? null,
-    subagentId: record.subagentId ?? record.subagent_id ?? null,
     agent_id: record.agent_id ?? record.agentId ?? null,
-    agentId: record.agentId ?? record.agent_id ?? null,
     run_id: record.run_id ?? record.runId ?? null,
-    runId: record.runId ?? record.run_id ?? null,
     role: record.role ?? "general",
     tool_pack: record.tool_pack ?? record.toolPack ?? null,
-    toolPack: record.toolPack ?? record.tool_pack ?? null,
     model_route_id: record.model_route_id ?? record.modelRouteId ?? null,
-    modelRouteId: record.modelRouteId ?? record.model_route_id ?? null,
     lifecycle_status: status ?? record.lifecycle_status ?? record.lifecycleStatus ?? record.status,
-    lifecycleStatus: status ?? record.lifecycleStatus ?? record.lifecycle_status ?? record.status,
     output_contract_status:
       record.output_contract_status ??
       record.outputContractStatus?.status ??
       record.output_contract_validation?.status ??
       null,
-    outputContractStatus:
-      record.outputContractStatus ??
-      record.output_contract_validation ??
-      record.output_contract_status ??
-      null,
     max_concurrency: record.max_concurrency ?? record.maxConcurrency ?? null,
-    maxConcurrency: record.maxConcurrency ?? record.max_concurrency ?? null,
     budget_status: record.budget_status ?? record.budgetStatus?.status ?? null,
-    budgetStatus: record.budgetStatus ?? record.budget_status ?? null,
     usage_telemetry: record.usage_telemetry ?? null,
     cost_estimate_usd:
       record.usage_telemetry?.cumulative_cost_estimate_usd ?? null,
-    costEstimateUsd:
-      record.usage_telemetry?.cumulative_cost_estimate_usd ?? null,
     token_estimate:
       record.usage_telemetry?.cumulative_total_tokens ?? null,
-    tokenEstimate:
-      record.usage_telemetry?.cumulative_total_tokens ?? null,
     merge_policy: record.merge_policy ?? record.mergePolicy ?? null,
-    mergePolicy: record.mergePolicy ?? record.merge_policy ?? null,
     cancellation_inheritance: record.cancellation_inheritance ?? record.cancellationInheritance ?? null,
-    cancellationInheritance: record.cancellationInheritance ?? record.cancellation_inheritance ?? null,
     context_pressure_action:
       record.context_pressure_action ?? record.contextPressureAction ?? null,
-    contextPressureAction:
-      record.contextPressureAction ?? record.context_pressure_action ?? null,
     context_pressure:
       record.context_pressure ?? record.contextPressure ?? record.pressure ?? null,
-    contextPressure:
-      record.contextPressure ?? record.context_pressure ?? record.pressure ?? null,
-    pressure: record.pressure ?? record.context_pressure ?? record.contextPressure ?? null,
     pressure_status: record.pressure_status ?? record.pressureStatus ?? null,
-    pressureStatus: record.pressureStatus ?? record.pressure_status ?? null,
     alert_id: record.alert_id ?? record.alertId ?? null,
-    alertId: record.alertId ?? record.alert_id ?? null,
     source_event_id: record.source_event_id ?? record.sourceEventId ?? null,
-    sourceEventId: record.sourceEventId ?? record.source_event_id ?? null,
     source_receipt_refs: uniqueStrings(
       record.source_receipt_refs ?? record.sourceReceiptRefs,
-    ),
-    sourceReceiptRefs: uniqueStrings(
-      record.sourceReceiptRefs ?? record.source_receipt_refs,
     ),
     source_policy_decision_refs:
       uniqueStrings(
         record.source_policy_decision_refs ?? record.sourcePolicyDecisionRefs,
       ),
-    sourcePolicyDecisionRefs:
-      uniqueStrings(
-        record.sourcePolicyDecisionRefs ?? record.source_policy_decision_refs,
-      ),
     input_id: record.input_id ?? record.inputId ?? null,
-    inputId: record.inputId ?? record.input_id ?? null,
     input_count: record.input_count ?? record.inputCount ?? null,
-    inputCount: record.inputCount ?? record.input_count ?? null,
     cancellation_reason: record.cancellation_reason ?? record.cancellationReason ?? record.cancellation?.reason ?? null,
-    cancellationReason: record.cancellationReason ?? record.cancellation_reason ?? record.cancellation?.reason ?? null,
     cancellation_inherited:
       record.cancellation_inherited ?? record.cancellationInherited ?? record.cancellation?.inherited ?? null,
-    cancellationInherited:
-      record.cancellationInherited ?? record.cancellation_inherited ?? record.cancellation?.inherited ?? null,
     propagated_from_thread_id:
       record.propagated_from_thread_id ?? record.propagatedFromThreadId ?? record.cancellation?.propagated_from_thread_id ?? null,
-    propagatedFromThreadId:
-      record.propagatedFromThreadId ?? record.propagated_from_thread_id ?? record.cancellation?.propagatedFromThreadId ?? null,
     restart_status: record.restart_status ?? record.restartStatus ?? null,
-    restartStatus: record.restartStatus ?? record.restart_status ?? null,
     restart_count: record.restart_count ?? record.restartCount ?? null,
-    restartCount: record.restartCount ?? record.restart_count ?? null,
     resume_id: record.resume_id ?? record.resumeId ?? null,
-    resumeId: record.resumeId ?? record.resume_id ?? null,
     assignment_id: record.assignment_id ?? record.assignmentId ?? null,
-    assignmentId: record.assignmentId ?? record.assignment_id ?? null,
     assignment_count: record.assignment_count ?? record.assignmentCount ?? null,
-    assignmentCount: record.assignmentCount ?? record.assignment_count ?? null,
     target_agent_id: record.target_agent_id ?? record.targetAgentId ?? null,
-    targetAgentId: record.targetAgentId ?? record.target_agent_id ?? null,
   };
 }
 
