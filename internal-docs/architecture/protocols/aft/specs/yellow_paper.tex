@@ -443,35 +443,39 @@ checkable.
 
 \begin{figure}[t]
 \centering
+\resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[
-  node distance=1.35cm and 0.9cm,
+  node distance=1.28cm and 0.95cm,
   >=Latex,
-  block/.style={draw, rounded corners, align=center, minimum width=2.5cm, minimum height=0.95cm, fill=blue!4},
-  abort/.style={draw, rounded corners, align=center, minimum width=2.5cm, minimum height=0.95cm, fill=red!6},
-  labelbox/.style={draw, rounded corners, align=left, inner sep=6pt, fill=gray!5}
+  font=\small,
+  block/.style={draw, rounded corners, align=center, text width=2.42cm, minimum height=0.98cm, inner sep=4pt, fill=blue!4},
+  abort/.style={draw, rounded corners, align=center, text width=2.42cm, minimum height=0.98cm, inner sep=4pt, fill=red!6},
+  labelbox/.style={draw, rounded corners, align=left, text width=5.25cm, inner sep=6pt, fill=gray!5},
+  flowlabel/.style={font=\scriptsize, align=center, inner sep=1.5pt, fill=white, fill opacity=0.88, text opacity=1}
 ]
 \node[block] (board) {Public manifest\\board};
 \node[block, right=of board] (cutoff) {Certified\\closing bell};
 \node[block, right=of cutoff] (lottery) {Public lottery\\and docket};
 \node[block, right=of lottery] (base) {Base berth\\assignment};
-\node[block, below=1.5cm of base] (sealed) {Inspector or observer\\release evidence};
-\node[abort, right=of sealed] (abort) {Abort release\\on valid veto};
-\node[block, above=1.5cm of abort] (release) {Hazardous cargo\\release};
+\node[block, below=1.45cm of base] (sealed) {Inspector or observer\\release evidence};
+\node[block, right=1.35cm of base] (release) {Hazardous cargo\\release};
+\node[abort, below=1.45cm of release] (abort) {Abort release\\on valid veto};
 
 \draw[->] (board) -- (cutoff);
 \draw[->] (cutoff) -- (lottery);
-\draw[->] (lottery) -- node[above, font=\small] {canonical docket} (base);
+\draw[->] (lottery) -- node[above=2pt, flowlabel] {canonical\\docket} (base);
 \draw[->] (base) -- (sealed);
-\draw[->] (sealed) -- node[above, font=\small] {all clear} (release);
-\draw[->, thick, red!70!black] (sealed) -- node[above, font=\small] {valid veto} (abort);
+\draw[->] (sealed) -- node[pos=0.42, above, sloped, flowlabel] {all clear} (release);
+\draw[->, thick, red!70!black] (sealed) -- node[midway, above=1pt, flowlabel, text=red!70!black] {valid veto} (abort);
 
-\node[labelbox, below=1.0cm of lottery, xshift=-2.0cm] (omit) {
+\node[labelbox, below=1.08cm of lottery, xshift=-1.45cm] (omit) {
 \textbf{Omission rule:}\\
 Any omitted admissible manifest\\
 invalidates the docket.
 };
 \draw[->, dashed] (omit.north) -- (lottery.south);
 \end{tikzpicture}
+}
 \caption{The thought experiment behind \AFT{}: public admission, canonical
 ordering, base progress, and fail-closed release.}
 \end{figure}
@@ -1449,26 +1453,29 @@ reconstructable ordered set.
 
 \begin{figure}[t]
 \centering
+\resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[
   >=Latex,
-  node distance=1.4cm and 1.5cm,
-  stage/.style={draw, rounded corners, minimum width=3.05cm, minimum height=1.15cm, align=center, fill=blue!4},
-  bad/.style={draw, rounded corners, minimum width=3.05cm, minimum height=1.15cm, align=center, fill=red!8},
-  good/.style={draw, rounded corners, minimum width=3.05cm, minimum height=1.15cm, align=center, fill=green!8},
-  note/.style={font=\small, align=center}
+  node distance=1.65cm and 2.0cm,
+  font=\small,
+  stage/.style={draw, rounded corners, text width=3.62cm, minimum height=1.18cm, align=center, inner sep=4pt, fill=blue!4},
+  bad/.style={draw, rounded corners, text width=3.48cm, minimum height=1.18cm, align=center, inner sep=4pt, fill=red!8},
+  good/.style={draw, rounded corners, text width=3.62cm, minimum height=1.18cm, align=center, inner sep=4pt, fill=green!8},
+  note/.style={font=\scriptsize, align=center, inner sep=1.6pt, fill=white, fill opacity=0.9, text opacity=1}
 ]
-\node[bad] (attackers) {\textbf{\(99\%\) Byzantine}\\suppress bulletin entries\\or publish \(C_{\mathrm{bad}}\)};
-\node[stage, right=of attackers] (bulletin) {\textbf{Public surface}\\canonical cutoff \(\tau_h\)\\bulletin \(B_h\) fixed};
-\node[good, below=of bulletin] (recoverer) {\textbf{Any honest validator}\\extracts \(B_h\)\\derives \(OCert_h\) or \(\Omega(h, tx)\)};
-\node[stage, right=of bulletin] (verifier) {\textbf{Public verifier}\\checks proof soundness\\checks omission dominance};
-\node[good, right=of verifier] (outcome) {\textbf{Safe outcome}\\unique valid order admitted\\or bad candidate rejected};
+\node[bad] (attackers) {\textbf{\(99\%\) Byzantine}\\suppress bulletin\\entries\\or publish \(C_{\mathrm{bad}}\)};
+\node[stage, right=2.45cm of attackers] (bulletin) {\textbf{Public surface}\\canonical cutoff \(\tau_h\)\\bulletin \(B_h\) fixed};
+\node[stage, right=2.45cm of bulletin] (verifier) {\textbf{Public verifier}\\checks proof soundness\\checks omission\\dominance};
+\node[good, below=1.82cm of bulletin] (recoverer) {\textbf{Any honest}\\\textbf{validator}\\extracts \(B_h\)\\derives \(OCert_h\) or \(\Omega(h, tx)\)};
+\node[good, below=1.82cm of verifier] (outcome) {\textbf{Safe outcome}\\unique valid\\order admitted\\or bad candidate\\rejected};
 
-\draw[->, thick] (attackers) -- node[above, note] {suppression or incomplete certificate} (bulletin);
-\draw[->, thick] (bulletin) -- node[right, note] {recoverable by any equal-authority validator} (recoverer);
-\draw[->, thick] (recoverer) -- node[below, note] {\(OCert_h\)} (verifier);
-\draw[->, thick] (recoverer) |- node[pos=0.28, left, note] {\(\Omega(h, tx)\)} (verifier);
-\draw[->, thick] (verifier) -- node[above, note] {objective acceptance rule} (outcome);
+\draw[->, thick] (attackers) -- node[above=4pt, note] {suppression or\\incomplete certificate} (bulletin);
+\draw[->, thick] (bulletin) -- node[above=3pt, note] {candidate\\proof surface} (verifier);
+\draw[->, thick] (bulletin) -- node[left=3pt, note, text width=2.45cm] {recoverable by any\\equal-authority validator} (recoverer);
+\draw[->, thick] (recoverer) -- node[above=2pt, sloped, note] {\(OCert_h\) or \(\Omega(h, tx)\)} (verifier);
+\draw[->, thick] (verifier) -- node[right=3pt, note, text width=2.2cm] {objective\\acceptance rule} (outcome);
 \end{tikzpicture}
+}
 \caption{Omission-dominance attack and deterministic extraction. Even if a
 suppressing supermajority tries to hide admissible bulletin entries or promote
 an incomplete candidate certificate, any honest validator that reconstructs the
