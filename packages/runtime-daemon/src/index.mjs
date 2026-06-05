@@ -143,6 +143,7 @@ import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs"
 import { createRuntimeTaskJobSurface } from "./runtime-task-job-surface.mjs";
 import { createRuntimeGovernedImprovementSurface } from "./runtime-governed-improvement-surface.mjs";
 import { createRuntimeWorkerServicePackageSurface } from "./runtime-worker-service-package-surface.mjs";
+import { createRuntimeCteePrivateWorkspaceSurface } from "./runtime-ctee-private-workspace-surface.mjs";
 import { createRuntimeThreadControlSurface } from "./runtime-thread-control-surface.mjs";
 import { createRuntimeThreadEventSurface } from "./runtime-thread-event-surface.mjs";
 import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
@@ -759,6 +760,9 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
     });
     this.workerServicePackageSurface = createRuntimeWorkerServicePackageSurface({
+      runtimeError,
+    });
+    this.cteePrivateWorkspaceSurface = createRuntimeCteePrivateWorkspaceSurface({
       runtimeError,
     });
     this.codingToolBudgetRecoverySurface = createRuntimeCodingToolBudgetRecoverySurface({
@@ -1768,6 +1772,10 @@ export class AgentgresRuntimeStateStore {
 
   admitWorkerServicePackageInvocation(threadId, request = {}) {
     return this.workerServicePackageSurface.admitWorkerServicePackageInvocation(this, threadId, request);
+  }
+
+  executeCteePrivateWorkspaceAction(threadId, request = {}) {
+    return this.cteePrivateWorkspaceSurface.executeCteePrivateWorkspaceAction(this, threadId, request);
   }
 
   latestWorkflowEditProposalEvent(threadId, proposalId) {

@@ -981,6 +981,10 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, store.admitWorkerServicePackageInvocation(threadId, await readBody(request)), 201);
       return;
     }
+    if (request.method === "POST" && action === "ctee-private-workspace-actions" && !segments[4]) {
+      writeJsonResponse(response, store.executeCteePrivateWorkspaceAction(threadId, await readBody(request)), 201);
+      return;
+    }
     if (
       request.method === "POST" &&
       action === "workflow-edit-proposals" &&

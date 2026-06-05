@@ -2262,6 +2262,18 @@ function runCtee() {
   const cteePrivateWorkspaceStoreTest = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-store.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-store.test.mjs")
     : "";
+  const cteePrivateWorkspaceSurface = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs")
+    : "";
+  const cteePrivateWorkspaceSurfaceTest = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs")
+    : "";
+  const runtimeRouteHandlers = exists("packages/runtime-daemon/src/runtime-route-handlers.mjs")
+    ? read("packages/runtime-daemon/src/runtime-route-handlers.mjs")
+    : "";
+  const runtimeRouteHandlersTest = exists("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
+    : "";
   assertCheck(
     result,
     "ctee-core-module",
@@ -2336,6 +2348,38 @@ function runCtee() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 7 is pending: daemon cTEE Private Workspace facade must call the Rust cTEE bridge and fail closed when unconfigured",
+  );
+  assertCheck(
+    result,
+    "ctee-product-route",
+    /createRuntimeCteePrivateWorkspaceSurface/.test(runtimeDaemonIndex) &&
+      /this\.cteePrivateWorkspaceSurface/.test(runtimeDaemonIndex) &&
+      /executeCteePrivateWorkspaceAction/.test(runtimeDaemonIndex) &&
+      /CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(cteePrivateWorkspaceSurface) &&
+      /action_executed:\s*true/.test(cteePrivateWorkspaceSurface) &&
+      /store\.cteePrivateWorkspaceRunner\.executeAction/.test(cteePrivateWorkspaceSurface) &&
+      /ctee-private-workspace-actions/.test(runtimeRouteHandlers) &&
+      /store\.executeCteePrivateWorkspaceAction/.test(runtimeRouteHandlers) &&
+      /thread route executes cTEE private workspace actions through store facade/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /thread route does not expose cTEE private workspace apply shortcut/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /cTEE private workspace surface executes nested action through Rust runner/.test(
+        cteePrivateWorkspaceSurfaceTest,
+      ) &&
+      /cTEE private workspace surface fails closed without action payload/.test(
+        cteePrivateWorkspaceSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 7 is pending: product/API cTEE Private Workspace route must call Rust cTEE admission and expose no JS apply shortcut",
   );
   return result;
 }

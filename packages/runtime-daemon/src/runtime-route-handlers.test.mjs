@@ -145,6 +145,55 @@ test("thread route admits worker/service package invocations through store facad
   });
 });
 
+test("thread route executes cTEE private workspace actions through store facade", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const response = responseRecorder();
+  const calls = [];
+  const body = {
+    action: {
+      invocation: {
+        schema_version: "ioi.step_module_invocation.v1",
+        invocation_id: "invocation://ctee/route",
+      },
+      node_trust: {
+        runtime_node_ref: "node://rented-untrusted",
+        trusted_for_plaintext: false,
+      },
+      expected_heads: ["agentgres://ctee/private-workspace/head/before"],
+    },
+  };
+  const store = {
+    executeCteePrivateWorkspaceAction(threadId, requestBody) {
+      calls.push({ threadId, requestBody });
+      return {
+        status: "admitted",
+        invocation_id: requestBody.action.invocation.invocation_id,
+        action_executed: true,
+      };
+    },
+  };
+
+  await handleThreadRoute({
+    request: request({
+      method: "POST",
+      url: "/v1/threads/thread_route/ctee-private-workspace-actions",
+      body,
+    }),
+    response,
+    store,
+    url: new URL("/v1/threads/thread_route/ctee-private-workspace-actions", "http://daemon.test"),
+    segments: ["v1", "threads", "thread_route", "ctee-private-workspace-actions"],
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(calls, [{ threadId: "thread_route", requestBody: body }]);
+  assert.deepEqual(JSON.parse(response.body), {
+    status: "admitted",
+    invocation_id: "invocation://ctee/route",
+    action_executed: true,
+  });
+});
+
 test("thread route does not expose governed improvement apply shortcut", async () => {
   const { handleThreadRoute } = routeHandlers();
   const response = responseRecorder();
@@ -173,6 +222,37 @@ test("thread route does not expose governed improvement apply shortcut", async (
     (error) =>
       error.code === "not_found" &&
       error.details.action === "governed-improvement-proposals",
+  );
+});
+
+test("thread route does not expose cTEE private workspace apply shortcut", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const response = responseRecorder();
+
+  await assert.rejects(
+    () => handleThreadRoute({
+      request: request({
+        method: "POST",
+        url: "/v1/threads/thread_route/ctee-private-workspace-actions/invocation_1/apply",
+      }),
+      response,
+      store: {},
+      url: new URL(
+        "/v1/threads/thread_route/ctee-private-workspace-actions/invocation_1/apply",
+        "http://daemon.test",
+      ),
+      segments: [
+        "v1",
+        "threads",
+        "thread_route",
+        "ctee-private-workspace-actions",
+        "invocation_1",
+        "apply",
+      ],
+    }),
+    (error) =>
+      error.code === "not_found" &&
+      error.details.action === "ctee-private-workspace-actions",
   );
 });
 
