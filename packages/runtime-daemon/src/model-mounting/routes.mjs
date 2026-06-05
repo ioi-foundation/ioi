@@ -6,6 +6,11 @@ const RETIRED_ROUTE_SELECTION_REQUEST_ALIASES = [
   "nodeId",
   "node_id",
   "workflowNodeType",
+  "authorityGrantRefs",
+  "authorityReceiptRefs",
+  "custodyRef",
+  "privacyProfile",
+  "nodePlaintextAllowed",
 ];
 
 const CANONICAL_ROUTE_SELECTION_REQUEST_FIELDS = [
@@ -15,6 +20,11 @@ const CANONICAL_ROUTE_SELECTION_REQUEST_FIELDS = [
   "workflow_graph_id",
   "workflow_node_id",
   "workflow_node_type",
+  "authority_grant_refs",
+  "authority_receipt_refs",
+  "custody_ref",
+  "privacy_profile",
+  "node_plaintext_allowed",
 ];
 
 export function upsertRouteRecord(body = {}, { normalizeScopes, safeId } = {}) {
@@ -333,6 +343,7 @@ export function modelMountRouteDecisionRequestForSelection({
   selection,
   workflow = {},
 } = {}) {
+  assertCanonicalRouteSelectionRequestBody(body);
   return {
     schema_version: "ioi.model_mount.route_decision.v1",
     route_ref: requiredRef("route_ref", selection?.route?.id),
@@ -343,11 +354,10 @@ export function modelMountRouteDecisionRequestForSelection({
     policy_hash: policyHashRef(policyHash),
     idempotency_key: `model_route_decision:${requiredRef("decision_id", modelRouteDecision.decision_id)}`,
     receipt_refs: [`receipt://${requiredRef("receiptId", receiptId)}`],
-    authority_grant_refs: normalizeRefs(body.authority_grant_refs ?? body.authorityGrantRefs),
-    authority_receipt_refs: normalizeRefs(body.authority_receipt_refs ?? body.authorityReceiptRefs),
+    authority_grant_refs: normalizeRefs(body.authority_grant_refs),
+    authority_receipt_refs: normalizeRefs(body.authority_receipt_refs),
     custody_ref: optionalRef(
       body.custody_ref ??
-        body.custodyRef ??
         selection?.endpoint?.custodyRef ??
         selection?.endpoint?.custody_ref ??
         selection?.provider?.custodyRef ??
@@ -355,16 +365,13 @@ export function modelMountRouteDecisionRequestForSelection({
     ),
     privacy_profile: optionalRef(
       body.privacy_profile ??
-        body.privacyProfile ??
         policy.privacy_profile ??
-        policy.privacyProfile ??
         policy.privacy ??
         selection?.route?.privacy ??
         selection?.provider?.privacyClass,
     ),
     node_plaintext_allowed: Boolean(
       body.node_plaintext_allowed ??
-        body.nodePlaintextAllowed ??
         selection?.endpoint?.nodePlaintextAllowed ??
         selection?.provider?.nodePlaintextAllowed ??
         false,

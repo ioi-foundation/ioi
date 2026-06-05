@@ -367,9 +367,47 @@ test("model mounting route receipt rejects retired request aliases before receip
     "workflow_graph_id",
     "workflow_node_id",
     "workflow_node_type",
+    "authority_grant_refs",
+    "authority_receipt_refs",
+    "custody_ref",
+    "privacy_profile",
+    "node_plaintext_allowed",
   ]);
   assert.equal(Object.hasOwn(error.details, "modelId"), false);
   assert.equal(Object.hasOwn(error.details, "modelPolicy"), false);
+  assert.deepEqual(calls, []);
+});
+
+test("model mounting route receipt rejects retired authority request aliases before receipt allocation", () => {
+  const calls = [];
+  const error = captureError(() =>
+    routeSelectionReceipt({
+      body: {
+        authorityGrantRefs: ["grant://model-route"],
+        authorityReceiptRefs: ["receipt://wallet/model-route"],
+        custodyRef: "ctee://custody/private-workspace",
+        privacyProfile: "private_workspace_ctee",
+        nodePlaintextAllowed: true,
+      },
+      nextReceiptId: () => {
+        calls.push("nextReceiptId");
+        return "receipt-route";
+      },
+      receipt: () => ({ id: "receipt-route" }),
+    }),
+  );
+
+  assert.equal(error.status, 400);
+  assert.equal(error.code, "model_mount_route_selection_request_aliases_retired");
+  assert.deepEqual(error.details.retired_aliases, [
+    "authorityGrantRefs",
+    "authorityReceiptRefs",
+    "custodyRef",
+    "privacyProfile",
+    "nodePlaintextAllowed",
+  ]);
+  assert.equal(Object.hasOwn(error.details, "authorityGrantRefs"), false);
+  assert.equal(Object.hasOwn(error.details, "privacyProfile"), false);
   assert.deepEqual(calls, []);
 });
 
@@ -454,6 +492,50 @@ test("model mounting route request resolves auto before Rust admission", () => {
   assert.equal(request.node_plaintext_allowed, false);
   assert.equal(request.workflow_graph_ref, "graph-1");
   assert.equal(request.workflow_node_ref, "node-1");
+});
+
+test("model mounting route request rejects retired authority aliases before Rust admission request build", () => {
+  const error = captureError(() =>
+    modelMountRouteDecisionRequestForSelection({
+      body: {
+        authorityGrantRefs: ["grant://model-route"],
+        authorityReceiptRefs: ["receipt://wallet/model-route"],
+        custodyRef: "ctee://custody/private-workspace",
+        privacyProfile: "private_workspace_ctee",
+        nodePlaintextAllowed: true,
+      },
+    }),
+  );
+
+  assert.equal(error.status, 400);
+  assert.equal(error.code, "model_mount_route_selection_request_aliases_retired");
+  assert.deepEqual(error.details.retired_aliases, [
+    "authorityGrantRefs",
+    "authorityReceiptRefs",
+    "custodyRef",
+    "privacyProfile",
+    "nodePlaintextAllowed",
+  ]);
+});
+
+test("model mounting route request ignores retired policy privacy profile alias", () => {
+  const request = modelMountRouteDecisionRequestForSelection({
+    body: { model: "auto" },
+    capability: "chat",
+    modelRouteDecision: { decision_id: "decision-1" },
+    policy: { privacyProfile: "private_workspace_ctee" },
+    policyHash: "policy-hash",
+    receiptId: "receipt-route",
+    selection: {
+      route: { id: "route.local-first", privacy: "local_or_enterprise" },
+      endpoint: { id: "endpoint.local", modelId: "model.local", providerId: "provider.local" },
+      provider: { id: "provider.local", privacyClass: "local_private" },
+    },
+    workflow: {},
+  });
+
+  assert.equal(request.privacy_profile, "local_or_enterprise");
+  assert.equal(Object.hasOwn(request, "privacyProfile"), false);
 });
 
 test("model mounting route state operations preserve delegate wiring", () => {

@@ -1328,6 +1328,33 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-route-selection-authority-request-aliases-retired",
+    (modelRoutes.match(/assertCanonicalRouteSelectionRequestBody\(body\);/g) ?? []).length >= 3 &&
+      /"authorityGrantRefs"/.test(modelRoutes) &&
+      /"authorityReceiptRefs"/.test(modelRoutes) &&
+      /"custodyRef"/.test(modelRoutes) &&
+      /"privacyProfile"/.test(modelRoutes) &&
+      /"nodePlaintextAllowed"/.test(modelRoutes) &&
+      /authority_grant_refs:\s*normalizeRefs\(body\.authority_grant_refs\)/.test(modelRoutes) &&
+      /authority_receipt_refs:\s*normalizeRefs\(body\.authority_receipt_refs\)/.test(modelRoutes) &&
+      /body\.custody_ref \?\?\s*selection\?\.endpoint\?\.custodyRef/.test(modelRoutes) &&
+      /body\.privacy_profile \?\?\s*policy\.privacy_profile/.test(modelRoutes) &&
+      /body\.node_plaintext_allowed \?\?\s*selection\?\.endpoint\?\.nodePlaintextAllowed/.test(modelRoutes) &&
+      !/body\.(?:authorityGrantRefs|authorityReceiptRefs|custodyRef|privacyProfile|nodePlaintextAllowed)\b/.test(
+        modelRoutes,
+      ) &&
+      !/policy\.privacyProfile\b/.test(modelRoutes) &&
+      /route receipt rejects retired authority request aliases before receipt allocation/.test(modelRoutesTest) &&
+      /route request rejects retired authority aliases before Rust admission request build/.test(modelRoutesTest) &&
+      /route request ignores retired policy privacy profile alias/.test(modelRoutesTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/routes.mjs",
+      "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
+    ],
+    "Phase 3/10 is pending: model route-selection Rust admission request fields must fail closed on retired authority/custody aliases and ignore retired nested privacyProfile policy aliases",
+  );
+  assertCheck(
+    result,
     "model-mount-native-response-route-decision-aliases-retired",
     /model_route_decision:\s*\{\s*route_id:\s*"route\.local-first",\s*selected_model:\s*"model\.local"\s*\}/.test(
       modelWorkflowNodeTest,

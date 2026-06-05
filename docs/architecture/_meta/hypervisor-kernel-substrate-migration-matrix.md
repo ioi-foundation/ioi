@@ -11827,6 +11827,15 @@ allocation/admission or route lookup, while canonical `model`, `model_id`,
 `model_policy`, `workflow_graph_id`, `workflow_node_id`, and
 `workflow_node_type` remain the accepted route-selection request shape.
 
+Slice 300 retires route-selection authority/custody request aliases at the
+daemon entry point and Rust admission-request builder: route-selection bodies
+now fail closed on retired `authorityGrantRefs`, `authorityReceiptRefs`,
+`custodyRef`, `privacyProfile`, and `nodePlaintextAllowed` before receipt
+allocation, and model-mount route-decision admission requests read only
+canonical `authority_grant_refs`, `authority_receipt_refs`, `custody_ref`,
+`privacy_profile`, and `node_plaintext_allowed` from request bodies while
+ignoring the retired nested `privacyProfile` policy alias.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
