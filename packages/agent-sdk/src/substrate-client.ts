@@ -515,7 +515,6 @@ export interface RuntimeSubagentRecord {
   evidence_refs?: string[];
   created_at?: string;
   updated_at?: string;
-  [key: string]: unknown;
 }
 
 export interface RuntimeSubagentListResult {
