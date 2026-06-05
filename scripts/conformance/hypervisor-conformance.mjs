@@ -3671,6 +3671,23 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-subagent-usage-output-alias-retired",
+    !/^\s*usageTelemetry:\s*budgetStatus\.usage,?\s*$/m.test(
+      runtimeSubagentSurface,
+    ) &&
+      /usage_telemetry:\s*budgetStatus\.usage/.test(runtimeSubagentSurface) &&
+      /assertCanonicalSubagentUsageTelemetry/.test(runtimeSubagentSurfaceTest) &&
+      /hasOwnProperty\.call\(record,\s*"usageTelemetry"\)/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent records must expose canonical usage_telemetry without duplicate usageTelemetry",
+  );
+  assertCheck(
+    result,
     "ide-context-budget-usage-request-aliases-retired",
     !/(?:usageTelemetryField|params\.usageTelemetry|params\.runtimeTelemetrySummary|body\.usageTelemetry|runtimeContextBudgetUsageField: "runtimeUsageMeter"|runtimeContextBudgetUsageField: "usageTelemetry"|runtimeContextBudgetUsageField: "runtimeTelemetrySummary")/.test(
       agentIdeContextBudgetControlNodes,

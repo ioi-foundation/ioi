@@ -168,6 +168,17 @@ function assertCanonicalSubagentBudgetUsageTelemetry(record) {
   );
 }
 
+function assertCanonicalSubagentUsageTelemetry(record) {
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(record, "usage_telemetry"),
+    true,
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(record, "usageTelemetry"),
+    false,
+  );
+}
+
 test("subagent surface lists, filters, and projects thread subagents", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface();
@@ -311,6 +322,8 @@ test("subagent surface spawns subagents with source and context metadata", () =>
   ]);
   assertCanonicalSubagentBudgetUsageTelemetry(result);
   assertCanonicalSubagentBudgetUsageTelemetry(saved);
+  assertCanonicalSubagentUsageTelemetry(result);
+  assertCanonicalSubagentUsageTelemetry(saved);
   assert.ok(saved.evidence_refs.includes("runtime.subagent.spawn"));
   assert.ok(saved.evidence_refs.includes("policy_spawn_request"));
 });
@@ -374,6 +387,7 @@ test("subagent surface persists blocked spawn and throws budget policy error", (
       assert.equal(error.details.eventId, "evt_1");
       assert.deepEqual(error.details.receiptRefs, store.events[0].receipt_refs);
       assertCanonicalSubagentBudgetUsageTelemetry(error.details.subagent);
+      assertCanonicalSubagentUsageTelemetry(error.details.subagent);
       return true;
     },
   );
@@ -384,6 +398,7 @@ test("subagent surface persists blocked spawn and throws budget policy error", (
   assert.equal(saved.block_reason, "subagent_budget_exceeded");
   assert.equal(saved.event_id, "evt_1");
   assertCanonicalSubagentBudgetUsageTelemetry(saved);
+  assertCanonicalSubagentUsageTelemetry(saved);
   assert.equal(store.events[0].event_kind, "subagent.spawned");
   assert.ok(store.events[0].policy_decision_refs.includes(saved.budget_policy_decision.id));
 });
@@ -468,6 +483,8 @@ test("subagent surface sends input, persists history, and returns event", () => 
   ]);
   assertCanonicalSubagentBudgetUsageTelemetry(result);
   assertCanonicalSubagentBudgetUsageTelemetry(saved);
+  assertCanonicalSubagentUsageTelemetry(result);
+  assertCanonicalSubagentUsageTelemetry(saved);
   assert.ok(saved.evidence_refs.includes("runtime.subagent.input"));
   assert.ok(saved.evidence_refs.includes("run_created_3"));
 });
@@ -561,6 +578,8 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
   ]);
   assertCanonicalSubagentBudgetUsageTelemetry(result.subagent);
   assertCanonicalSubagentBudgetUsageTelemetry(saved);
+  assertCanonicalSubagentUsageTelemetry(result.subagent);
+  assertCanonicalSubagentUsageTelemetry(saved);
   assert.ok(saved.evidence_refs.includes("runtime.subagent.resume"));
   assert.ok(saved.evidence_refs.includes("run_created_3"));
 });
@@ -589,6 +608,7 @@ test("subagent surface persists blocked resume and throws budget policy error", 
       assert.equal(error.details.eventId, "evt_1");
       assert.deepEqual(error.details.receiptRefs, store.events[0].receipt_refs);
       assertCanonicalSubagentBudgetUsageTelemetry(error.details.subagent);
+      assertCanonicalSubagentUsageTelemetry(error.details.subagent);
       return true;
     },
   );
@@ -599,6 +619,7 @@ test("subagent surface persists blocked resume and throws budget policy error", 
   assert.equal(saved.block_reason, "subagent_budget_exceeded");
   assert.equal(saved.resume_event_id, "evt_1");
   assertCanonicalSubagentBudgetUsageTelemetry(saved);
+  assertCanonicalSubagentUsageTelemetry(saved);
   assert.equal(store.events[0].event_kind, "subagent.resumed");
   assert.ok(store.events[0].policy_decision_refs.includes(saved.budget_policy_decision.id));
 });
