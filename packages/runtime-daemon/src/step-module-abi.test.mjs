@@ -33,9 +33,9 @@ test("every coding tool contract can project into the Step/Module ABI", () => {
 
     assert.equal(invocation.schema_version, STEP_MODULE_INVOCATION_SCHEMA_VERSION);
     assert.equal(result.schema_version, STEP_MODULE_RESULT_SCHEMA_VERSION);
-    assert.equal(invocation.module_ref.kind, "daemon_native_tool");
+    assert.equal(invocation.module_ref.kind, "workload_job");
     assert.equal(invocation.module_ref.id, contract.stableToolId);
-    assert.equal(invocation.execution.backend, "daemon_js");
+    assert.equal(invocation.execution.backend, "workload_grpc");
     assert.deepEqual(
       invocation.authority.primitive_capabilities,
       contract.primitiveCapabilities,
