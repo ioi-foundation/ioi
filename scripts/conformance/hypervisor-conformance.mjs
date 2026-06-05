@@ -832,6 +832,18 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "daemon-static-scan-marker-comments-retired",
+    !/Static scan pattern compliance markers|Static check markers to satisfy/.test(
+      `${runtimeDaemonIndex}\n${modelMountingState}`,
+    ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+    ],
+    "Phase 11 is pending: daemon JS surfaces must not retain static scan-marker comment blocks as compatibility shims for conformance evidence",
+  );
+  assertCheck(
+    result,
     "model-mount-route-decision-live-bridge",
     /admit_model_mount_route_decision/.test(bridgeModule) &&
       /ModelMountCore/.test(bridgeModule) &&

@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 290:
+Current expected behavior after Slice 291:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11773,6 +11773,10 @@ that emits duplicate camelCase identity aliases.
 Slice 290 extends bridge proof for route-default fallback retirement: default
 model-mount route records remain deterministic and cannot be switched by
 `IOI_ENABLE_INTERNAL_FIXTURE_MODELS` into fixture endpoint fallback lists.
+
+Slice 291 extends bridge proof for JS facade retirement hygiene: daemon source
+surfaces cannot reintroduce static scan-marker comment blocks as compatibility
+shims for conformance evidence.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
