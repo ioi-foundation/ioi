@@ -958,6 +958,9 @@ function runReceipts() {
   const marketplaceCore = exists("crates/services/src/agentic/runtime/kernel/marketplace.rs")
     ? read("crates/services/src/agentic/runtime/kernel/marketplace.rs")
     : "";
+  const evolutionCore = exists("crates/services/src/agentic/evolution.rs")
+    ? read("crates/services/src/agentic/evolution.rs")
+    : "";
   const runtimeKernelModule = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
     ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
     : "";
@@ -1934,6 +1937,24 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
     "Phase 8 is pending: worker/service package invocations must use shared StepModule ABI, receipt binding, Agentgres admission, and Rust projection",
+  );
+  assertCheck(
+    result,
+    "governed-meta-improvement-proposal-core",
+    /GOVERNED_RUNTIME_IMPROVEMENT_SCHEMA_VERSION/.test(evolutionCore) &&
+      /GovernedRuntimeImprovementProposal/.test(evolutionCore) &&
+      /GovernedRuntimeImprovementAdmissionRecord/.test(evolutionCore) &&
+      /GovernedEvolutionCore/.test(evolutionCore) &&
+      /eval_receipt_refs/.test(evolutionCore) &&
+      /verifier_receipt_refs/.test(evolutionCore) &&
+      /approval_ref/.test(evolutionCore) &&
+      /rollback_ref/.test(evolutionCore) &&
+      /agentgres_operation_ref/.test(evolutionCore) &&
+      /expected_heads/.test(evolutionCore) &&
+      /governed_improvement_proposal_admits_eval_approval_rollback_and_agentgres/.test(evolutionCore) &&
+      /direct_self_mutation_without_governed_proposal_fails_closed/.test(evolutionCore),
+    ["crates/services/src/agentic/evolution.rs"],
+    "Phase 9 is pending: meta-improvement must be proposal-mediated with eval receipts, approval, rollback, and Agentgres binding",
   );
   assertCheck(
     result,
