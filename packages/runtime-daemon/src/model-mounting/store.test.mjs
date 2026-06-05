@@ -237,6 +237,24 @@ test("model invocation receipt writes persist only after Rust receipt and Agentg
   assert.deepEqual(appended, []);
 });
 
+test("receipt lookup returns persisted receipts and fails closed with canonical details", () => {
+  const { store } = testStore();
+  const receipt = boundModelInvocationReceipt();
+
+  store.writeReceipt(receipt);
+
+  assert.equal(store.getReceipt("receipt.model-invocation").id, "receipt.model-invocation");
+  assert.throws(
+    () => store.getReceipt("receipt.missing"),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.receipt_id, "receipt.missing");
+      assert.equal(Object.hasOwn(error.details, "receiptId"), false);
+      return true;
+    },
+  );
+});
+
 test("model lifecycle receipt writes fail closed without provider kind and Rust instance lifecycle binding", () => {
   const { appended, stateDir, store } = testStore();
 

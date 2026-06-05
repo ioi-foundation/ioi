@@ -3911,8 +3911,19 @@ function runReceipts() {
       !/local_operation_log|agentgres_canonical_operation_log/.test(modelMountStore) &&
       !/agentgres_canonical_operation_log/.test(modelMountReceiptOperations) &&
       /local_receipt_projection_store/.test(modelMountStore) &&
+      /notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receipt_id: receiptId \}\)/.test(modelMountStore) &&
+      !/notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receiptId \}\)/.test(modelMountStore) &&
       /agentgres_receipt_projection_boundary/.test(modelMountReceiptOperations) &&
       /model invocation receipt writes persist only after Rust receipt and Agentgres admission without operation append/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+      ) &&
+      /receipt lookup returns persisted receipts and fails closed with canonical details/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+      ) &&
+      /assert\.equal\(error\.details\.receipt_id,\s*"receipt\.missing"\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*"receiptId"\),\s*false/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ) &&
       /const sequence = this\.listReceipts\(\)\.length/.test(read("packages/runtime-daemon/src/model-mounting.mjs")) &&

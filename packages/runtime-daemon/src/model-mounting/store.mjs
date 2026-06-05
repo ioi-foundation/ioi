@@ -150,7 +150,7 @@ export class AgentgresModelMountingStore {
 
   getReceipt(receiptId) {
     const receipt = this.listReceipts().find((item) => item.id === receiptId);
-    if (!receipt) throw notFound(`Receipt not found: ${receiptId}`, { receiptId });
+    if (!receipt) throw notFound(`Receipt not found: ${receiptId}`, { receipt_id: receiptId });
     return receipt;
   }
 
