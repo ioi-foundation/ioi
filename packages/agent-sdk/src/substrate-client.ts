@@ -455,9 +455,7 @@ export interface RuntimeSubagentControlInput {
   max_concurrency?: number;
   budget?: Record<string, unknown>;
   output_contract?: string[] | Record<string, unknown>;
-  mergePolicy?: string;
   merge_policy?: string;
-  cancellationInheritance?: "propagate" | "isolated" | string;
   cancellation_inheritance?: "propagate" | "isolated" | string;
   cancellationReason?: string;
   cancellation_reason?: string;

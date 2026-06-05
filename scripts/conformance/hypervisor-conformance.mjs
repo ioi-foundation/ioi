@@ -4766,6 +4766,20 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "agent-sdk-subagent-policy-request-type-aliases-retired",
+    runtimeSubagentSdkControlInputBlock.length > 0 &&
+      /^\s*merge_policy\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+      /^\s*cancellation_inheritance\?: "propagate" \| "isolated" \| string;/m.test(
+        runtimeSubagentSdkControlInputBlock,
+      ) &&
+      !/^\s*(?:mergePolicy|cancellationInheritance)\?:/m.test(
+        runtimeSubagentSdkControlInputBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent control request types must not advertise retired mergePolicy/cancellationInheritance aliases",
+  );
+  assertCheck(
+    result,
     "agent-sdk-runtime-event-dead-mock-helpers-retired",
     /runtimeThreadEventFromEnvelope/.test(agentSdkRuntimeEvents) &&
       !/mockRuntime(?:CursorSeq|EnvelopeForSdkEvent|EventEnvelope)|runtimePayloadStringRecord|runtimeEventKindForSdkMessage|runtimeEventStatusForSdkMessage|componentKindForSdkMessage|workflowNodeIdForSdkMessage|sourceEventKindForSdkMessage|payloadSchemaVersionForSdkMessage|turnIdForRun|eventStreamIdForThread|runtimeTurnStatusForRun|\(event as \{ id\?: string \}\)\.id/.test(
