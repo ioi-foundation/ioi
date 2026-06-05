@@ -1915,6 +1915,9 @@ function runCtee() {
   const cteeModule = exists("crates/services/src/agentic/runtime/kernel/ctee.rs")
     ? read("crates/services/src/agentic/runtime/kernel/ctee.rs")
     : "";
+  const kernelModule = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+    : "";
   assertCheck(
     result,
     "ctee-core-module",
@@ -1934,6 +1937,22 @@ function runCtee() {
       /UntrustedNodePlaintextMountForbidden|CteePlaintextCustodyForbidden/.test(cteeModule),
     ["crates/services/src/agentic/runtime/kernel/ctee.rs"],
     "Phase 6/11 is pending: untrusted-node plaintext mount must fail closed in executable tests",
+  );
+  assertCheck(
+    result,
+    "ctee-execution-admission-projection-bundle",
+    /CteePrivateWorkspaceExecutionRecord/.test(cteeModule) &&
+      /execute_and_admit/.test(cteeModule) &&
+      /ReceiptBinder/.test(cteeModule) &&
+      /AgentgresAdmissionCore/.test(cteeModule) &&
+      /RustProjectionCore/.test(cteeModule) &&
+      /StepModuleProjectionStatus::Live/.test(cteeModule) &&
+      /execute_private_workspace_ctee_action/.test(kernelModule),
+    [
+      "crates/services/src/agentic/runtime/kernel/ctee.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+    ],
+    "Phase 6 is pending: cTEE execution must bind receipts, admit Agentgres truth, and emit Rust projection records",
   );
   return result;
 }

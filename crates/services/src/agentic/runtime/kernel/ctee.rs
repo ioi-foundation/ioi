@@ -1,10 +1,20 @@
+use super::agentgres_admission::{
+    AgentgresAdmissionCore, AgentgresAdmissionError, AgentgresAdmissionRecord,
+    AgentgresOperationProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
+};
+use super::projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
+use super::receipt_binder::{ReceiptBinder, ReceiptBindingError, StepModuleReceiptBinding};
 use super::step_module::{
-    StepModuleBackend, StepModuleInvocation, StepModuleKind, StepModulePrivacyProfile,
-    StepModuleValidationError,
+    StepModuleBackend, StepModuleInvocation, StepModuleKind, StepModuleNext,
+    StepModulePrivacyProfile, StepModuleProjectionStatus, StepModuleResult, StepModuleStatus,
+    StepModuleValidationError, StepModuleWorkflowProjection, STEP_MODULE_RESULT_SCHEMA_VERSION,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 pub const CTEE_PRIVATE_WORKSPACE_MODULE_PATH: &str = "ctee_private_workspace_module_path";
+pub const CTEE_PRIVATE_WORKSPACE_EXECUTION_SCHEMA_VERSION: &str =
+    "ioi.ctee_private_workspace_execution.v1";
 pub const CTEE_PRIVATE_WORKSPACE_RECEIPT_SCHEMA_VERSION: &str =
     "ioi.ctee_private_workspace_receipt.v1";
 pub const CTEE_PLAINTEXT_UNTRUSTED_NEGATIVE_CONFORMANCE: &str =
@@ -19,7 +29,12 @@ pub enum CteePrivateWorkspaceError {
     MissingCustodyProof,
     MissingLeakageProfile,
     MissingDeclassificationApproval,
+    MissingStateRootBefore,
     UntrustedNodePlaintextMountForbidden,
+    ReceiptBinding(ReceiptBindingError),
+    AgentgresAdmission(AgentgresAdmissionError),
+    Projection(ProjectionError),
+    HashFailed(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,12 +58,53 @@ pub struct CteePrivateWorkspaceReceipt {
     pub receipt_ref: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CteePrivateWorkspaceExecutionRecord {
+    pub schema_version: String,
+    pub receipt: CteePrivateWorkspaceReceipt,
+    pub result: StepModuleResult,
+    pub receipt_binding: StepModuleReceiptBinding,
+    pub agentgres_admission: AgentgresAdmissionRecord,
+    pub projection: StepModuleProjectionRecord,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct PrivateWorkspaceCteeModule;
 
 pub type CteePrivateWorkspaceRunner = PrivateWorkspaceCteeModule;
 
 impl PrivateWorkspaceCteeModule {
+    pub fn execute_and_admit(
+        &self,
+        invocation: &StepModuleInvocation,
+        node_trust: &CteeNodeTrust,
+        expected_heads: Vec<String>,
+    ) -> Result<CteePrivateWorkspaceExecutionRecord, CteePrivateWorkspaceError> {
+        let receipt = self.validate_invocation(invocation, node_trust)?;
+        let result = ctee_step_module_result(invocation, &receipt)?;
+        let receipt_binding = ReceiptBinder
+            .bind_step_module_result(invocation, &result, expected_heads)
+            .map_err(CteePrivateWorkspaceError::ReceiptBinding)?;
+        let agentgres_admission = AgentgresAdmissionCore
+            .admit(
+                &ctee_agentgres_operation_proposal(&result, &receipt_binding),
+                &receipt_binding,
+            )
+            .map_err(CteePrivateWorkspaceError::AgentgresAdmission)?;
+        let projection = RustProjectionCore
+            .project_step_module_result(invocation, &result, &receipt_binding)
+            .map_err(CteePrivateWorkspaceError::Projection)?;
+
+        Ok(CteePrivateWorkspaceExecutionRecord {
+            schema_version: CTEE_PRIVATE_WORKSPACE_EXECUTION_SCHEMA_VERSION.to_string(),
+            receipt,
+            result,
+            receipt_binding,
+            agentgres_admission,
+            projection,
+        })
+    }
+
     pub fn validate_invocation(
         &self,
         invocation: &StepModuleInvocation,
@@ -113,6 +169,112 @@ impl PrivateWorkspaceCteeModule {
     }
 }
 
+fn ctee_step_module_result(
+    invocation: &StepModuleInvocation,
+    receipt: &CteePrivateWorkspaceReceipt,
+) -> Result<StepModuleResult, CteePrivateWorkspaceError> {
+    let state_root_before = invocation
+        .input
+        .state_root_before
+        .clone()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or(CteePrivateWorkspaceError::MissingStateRootBefore)?;
+    let suffix = stable_receipt_suffix(&invocation.invocation_id);
+    let state_root_after = ctee_state_root_after(&state_root_before, invocation, receipt)?;
+    let head_suffix = state_root_after
+        .trim_start_matches("sha256:")
+        .chars()
+        .take(24)
+        .collect::<String>();
+    let receipt_refs = vec![receipt.receipt_ref.clone()];
+    let artifact_refs = vec![
+        receipt.custody_proof_ref.clone(),
+        receipt.leakage_profile_ref.clone(),
+    ];
+    let evidence_refs = ctee_projection_evidence_refs(receipt);
+
+    Ok(StepModuleResult {
+        schema_version: STEP_MODULE_RESULT_SCHEMA_VERSION.to_string(),
+        invocation_id: invocation.invocation_id.clone(),
+        status: StepModuleStatus::Success,
+        execution_result_ref: format!("ctee://private-workspace/result/{suffix}"),
+        normalized_observation_ref: format!("ctee://private-workspace/observation/{suffix}"),
+        receipt_refs: receipt_refs.clone(),
+        artifact_refs,
+        payload_refs: invocation.input.payload_refs.clone(),
+        agentgres_operation_refs: vec![format!(
+            "agentgres://ctee/private-workspace/operations/{suffix}"
+        )],
+        state_root_after: Some(state_root_after),
+        resulting_head: Some(format!(
+            "agentgres://ctee/private-workspace/head/{head_suffix}"
+        )),
+        workflow_projection: StepModuleWorkflowProjection {
+            workflow_graph_id: invocation
+                .workflow_graph_id
+                .clone()
+                .unwrap_or_else(|| format!("workflow://ctee/private-workspace/{suffix}")),
+            workflow_node_id: invocation
+                .workflow_node_id
+                .clone()
+                .unwrap_or_else(|| format!("node://ctee/private-workspace/{suffix}")),
+            component_kind: "PrivateWorkspaceCteeAction".to_string(),
+            status: StepModuleProjectionStatus::Live,
+            attempt_id: format!("attempt://ctee/private-workspace/{suffix}"),
+            evidence_refs,
+            receipt_refs,
+        },
+        next: StepModuleNext {
+            model_reentry_required: false,
+            verifier_required: false,
+        },
+    })
+}
+
+fn ctee_agentgres_operation_proposal(
+    result: &StepModuleResult,
+    binding: &StepModuleReceiptBinding,
+) -> AgentgresOperationProposal {
+    AgentgresOperationProposal {
+        schema_version: AGENTGRES_ADMISSION_SCHEMA_VERSION.to_string(),
+        operation_ref: result
+            .agentgres_operation_refs
+            .first()
+            .cloned()
+            .unwrap_or_default(),
+        invocation_id: result.invocation_id.clone(),
+        receipt_binding_ref: binding.binding_hash.clone(),
+        receipt_refs: result.receipt_refs.clone(),
+        artifact_refs: result.artifact_refs.clone(),
+        payload_refs: result.payload_refs.clone(),
+        expected_heads: binding.expected_heads.clone(),
+        state_root_before: binding.state_root_before.clone(),
+        state_root_after: binding.state_root_after.clone(),
+        resulting_head: binding.resulting_head.clone(),
+    }
+}
+
+fn ctee_projection_evidence_refs(receipt: &CteePrivateWorkspaceReceipt) -> Vec<String> {
+    let mut refs = vec![
+        receipt.custody_proof_ref.clone(),
+        receipt.leakage_profile_ref.clone(),
+    ];
+    if let Some(declassification_ref) = receipt.declassification_ref.clone() {
+        refs.push(declassification_ref);
+    }
+    refs
+}
+
+fn ctee_state_root_after(
+    state_root_before: &str,
+    invocation: &StepModuleInvocation,
+    receipt: &CteePrivateWorkspaceReceipt,
+) -> Result<String, CteePrivateWorkspaceError> {
+    let bytes = serde_json::to_vec(&(state_root_before, invocation, receipt))
+        .map_err(|error| CteePrivateWorkspaceError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
 fn stable_receipt_suffix(value: &str) -> String {
     let suffix = value
         .chars()
@@ -129,10 +291,11 @@ fn stable_receipt_suffix(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agentic::runtime::kernel::receipt_binder::ReceiptBindingError;
     use crate::agentic::runtime::kernel::step_module::{
         StepModuleActor, StepModuleAuthority, StepModuleCustody, StepModuleExecution,
-        StepModuleInput, StepModulePlaintextPolicy, StepModuleRef,
-        STEP_MODULE_INVOCATION_SCHEMA_VERSION,
+        StepModuleInput, StepModulePlaintextPolicy, StepModuleProjectionStatus, StepModuleRef,
+        StepModuleStatus, STEP_MODULE_INVOCATION_SCHEMA_VERSION,
     };
 
     fn ctee_invocation() -> StepModuleInvocation {
@@ -239,6 +402,62 @@ mod tests {
         assert_eq!(
             receipt.declassification_ref.as_deref(),
             Some("approval://declassify")
+        );
+    }
+
+    #[test]
+    fn ctee_private_workspace_executes_with_receipt_admission_and_projection() {
+        let record = PrivateWorkspaceCteeModule
+            .execute_and_admit(
+                &ctee_invocation(),
+                &untrusted_node(),
+                vec!["agentgres://ctee/private-workspace/head/before".to_string()],
+            )
+            .expect("ctee execution record");
+
+        assert_eq!(
+            record.schema_version,
+            CTEE_PRIVATE_WORKSPACE_EXECUTION_SCHEMA_VERSION
+        );
+        assert_eq!(record.result.status, StepModuleStatus::Success);
+        assert_eq!(
+            record.result.receipt_refs,
+            vec![record.receipt.receipt_ref.clone()]
+        );
+        assert_eq!(
+            record.agentgres_admission.operation_ref,
+            record.result.agentgres_operation_refs[0]
+        );
+        assert_eq!(
+            record.agentgres_admission.receipt_binding_ref,
+            record.receipt_binding.binding_hash
+        );
+        assert_eq!(
+            record.agentgres_admission.projection_watermark.as_deref(),
+            Some("domain_seq:ctee")
+        );
+        assert_eq!(
+            record.projection.component_kind,
+            "PrivateWorkspaceCteeAction"
+        );
+        assert_eq!(record.projection.status, StepModuleProjectionStatus::Live);
+        assert_eq!(
+            record.projection.agentgres_operation_refs,
+            record.result.agentgres_operation_refs
+        );
+    }
+
+    #[test]
+    fn ctee_private_workspace_agentgres_admission_requires_expected_heads() {
+        let error = PrivateWorkspaceCteeModule
+            .execute_and_admit(&ctee_invocation(), &untrusted_node(), vec![])
+            .expect_err("ctee Agentgres admission must require expected heads");
+
+        assert_eq!(
+            error,
+            CteePrivateWorkspaceError::ReceiptBinding(
+                ReceiptBindingError::AgentgresOperationMissingExpectedHeads
+            )
         );
     }
 

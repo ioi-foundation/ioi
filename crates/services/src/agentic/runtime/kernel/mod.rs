@@ -43,8 +43,8 @@ use authority::{
 };
 use capability::CapabilityLeaseDecision;
 use ctee::{
-    CteeNodeTrust, CteePrivateWorkspaceError, CteePrivateWorkspaceReceipt,
-    PrivateWorkspaceCteeModule,
+    CteeNodeTrust, CteePrivateWorkspaceError, CteePrivateWorkspaceExecutionRecord,
+    CteePrivateWorkspaceReceipt, PrivateWorkspaceCteeModule,
 };
 use evidence::ReceiptManifestKind;
 use invocation::ToolInvocationEnvelope;
@@ -297,6 +297,15 @@ impl RuntimeKernelService {
         node_trust: &CteeNodeTrust,
     ) -> Result<CteePrivateWorkspaceReceipt, CteePrivateWorkspaceError> {
         PrivateWorkspaceCteeModule.validate_invocation(invocation, node_trust)
+    }
+
+    pub fn execute_private_workspace_ctee_action(
+        &self,
+        invocation: &StepModuleInvocation,
+        node_trust: &CteeNodeTrust,
+        expected_heads: Vec<String>,
+    ) -> Result<CteePrivateWorkspaceExecutionRecord, CteePrivateWorkspaceError> {
+        PrivateWorkspaceCteeModule.execute_and_admit(invocation, node_trust, expected_heads)
     }
 
     pub fn project_step_module_result(
