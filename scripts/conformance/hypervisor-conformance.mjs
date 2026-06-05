@@ -3127,6 +3127,12 @@ function runCompositor() {
   const runtimeUsageEventsTest = exists("packages/runtime-daemon/src/runtime-usage-events.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-usage-events.test.mjs")
     : "";
+  const usageTelemetry = exists("packages/runtime-daemon/src/usage-telemetry.mjs")
+    ? read("packages/runtime-daemon/src/usage-telemetry.mjs")
+    : "";
+  const usageTelemetryTest = exists("packages/runtime-daemon/src/usage-telemetry.test.mjs")
+    ? read("packages/runtime-daemon/src/usage-telemetry.test.mjs")
+    : "";
   const runtimeEventEnvelopes = exists("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     : "";
@@ -3338,6 +3344,24 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-usage-events.test.mjs",
     ],
     "Phase 10/11 is pending: daemon runtime usage event producers must emit canonical snake_case payload fields without compatibility aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-usage-telemetry-output-aliases-retired",
+    !/schemaVersion:\s*RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION/.test(usageTelemetry) &&
+      !/^\s*generatedAt\s*:/m.test(usageTelemetry) &&
+      !/^\s*groupBy\s*[:,]/m.test(usageTelemetry) &&
+      /retiredUsageTelemetryOutputAliasKeys/.test(usageTelemetryTest) &&
+      /retiredUsageTelemetrySummaryAliasKeys/.test(usageTelemetryTest) &&
+      /retiredUsageTelemetryListAliasKeys/.test(usageTelemetryTest) &&
+      /runtime run usage telemetry emits canonical fields only/.test(usageTelemetryTest) &&
+      /runtime thread usage telemetry aggregate emits canonical fields only/.test(usageTelemetryTest) &&
+      /runtime usage telemetry list envelope emits canonical fields only/.test(usageTelemetryTest),
+    [
+      "packages/runtime-daemon/src/usage-telemetry.mjs",
+      "packages/runtime-daemon/src/usage-telemetry.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime usage telemetry producers must emit canonical snake_case output fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

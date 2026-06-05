@@ -102,59 +102,35 @@ export function runtimeUsageTelemetryForRun({ run = {}, agent = null, threadId =
     ) ?? null;
   const record = {
     schema_version: RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
     object: "ioi.runtime_usage_telemetry",
     scope: "run",
     thread_id: threadId ?? run.threadId ?? run.thread_id ?? (run.agentId ? `thread_${run.agentId}` : null),
-    threadId: threadId ?? run.threadId ?? run.thread_id ?? (run.agentId ? `thread_${run.agentId}` : null),
     turn_id: run.turnId ?? run.turn_id ?? (run.id ? `turn_${run.id}` : null),
-    turnId: run.turnId ?? run.turn_id ?? (run.id ? `turn_${run.id}` : null),
     run_id: run.id ?? run.run_id ?? run.runId ?? null,
-    runId: run.id ?? run.runId ?? run.run_id ?? null,
     agent_id: run.agentId ?? run.agent_id ?? agent?.id ?? null,
-    agentId: run.agentId ?? run.agent_id ?? agent?.id ?? null,
     provider,
     model,
     route_id: routeId,
-    routeId,
     model_route_id: routeId,
-    modelRouteId: routeId,
     input_tokens: inputTokens,
-    inputTokens,
     output_tokens: outputTokens,
-    outputTokens,
     reasoning_tokens: reasoningTokens,
-    reasoningTokens,
     cached_input_tokens: cachedInputTokens,
-    cachedInputTokens,
     tool_result_tokens: toolResultTokens,
-    toolResultTokens,
     compacted_tokens: compactedTokens,
-    compactedTokens,
     total_tokens: totalTokens,
-    totalTokens,
     estimated_cost_micros: estimatedCostMicros,
-    estimatedCostMicros,
     estimated_cost_usd: roundUsd(estimatedCostUsd),
-    estimatedCostUsd: roundUsd(estimatedCostUsd),
     currency: stringValue(explicit?.currency ?? providerUsage.currency) ?? "USD",
     context_window_tokens: contextWindowTokens,
-    contextWindowTokens,
     context_used_tokens: contextUsedTokens,
-    contextUsedTokens,
     context_pressure: contextPressure,
-    contextPressure,
     context_pressure_status: status,
-    contextPressureStatus: status,
     latency_ms: positiveInteger(providerUsage.latency_ms ?? providerUsage.latencyMs) ?? 0,
-    latencyMs: positiveInteger(providerUsage.latency_ms ?? providerUsage.latencyMs) ?? 0,
     estimated: !explicit || Object.keys(providerUsage).length === 0,
     source_counts: { runs: 1, subagents: 0 },
-    sourceCounts: { runs: 1, subagents: 0 },
     source_refs: [run.id ?? run.run_id ?? run.runId].filter(Boolean),
-    sourceRefs: [run.id ?? run.run_id ?? run.runId].filter(Boolean),
     generated_at: generatedAt,
-    generatedAt,
   };
   return record;
 }
@@ -179,7 +155,7 @@ export function runtimeUsageTelemetryForThread({
     scope: "thread",
     threadId: resolvedThreadId,
     agentId: agent?.id ?? thread?.agent_id ?? thread?.agentId ?? null,
-    sourceCounts: { runs: runRecords.length, subagents: subagentRecords.length },
+    source_counts: { runs: runRecords.length, subagents: subagentRecords.length },
   });
 }
 
@@ -200,7 +176,7 @@ export function runtimeUsageTelemetryList({ runs = [], subagents = [], groupBy =
       groups.set(threadId, entry);
     }
     return usageListEnvelope({
-      groupBy: "thread",
+      group_by: "thread",
       usage: [...groups.values()].map((group) =>
         runtimeUsageTelemetryForThread({
           threadId: group.threadId,
@@ -211,7 +187,7 @@ export function runtimeUsageTelemetryList({ runs = [], subagents = [], groupBy =
     });
   }
   return usageListEnvelope({
-    groupBy: "run",
+    group_by: "run",
     usage: normalizeArray(runs).map((run) => runtimeUsageTelemetryForRun({ run })),
   });
 }
@@ -231,15 +207,10 @@ export function runtimeUsageTelemetrySummary(record = {}) {
     contextPressureStatus(contextPressure);
   return {
     total_tokens: totalTokens,
-    totalTokens,
     estimated_cost_usd: roundUsd(costUsd),
-    estimatedCostUsd: roundUsd(costUsd),
     context_pressure: roundRatio(contextPressure),
-    contextPressure: roundRatio(contextPressure),
     context_pressure_status: status,
-    contextPressureStatus: status,
     source_counts: record.source_counts ?? record.sourceCounts ?? null,
-    sourceCounts: record.sourceCounts ?? record.source_counts ?? null,
   };
 }
 
@@ -248,7 +219,7 @@ function aggregateUsageRecords({
   scope,
   threadId = null,
   agentId = null,
-  sourceCounts = null,
+  source_counts = null,
 } = {}) {
   const generatedAt = new Date().toISOString();
   const totals = normalizeArray(records).reduce(
@@ -290,58 +261,36 @@ function aggregateUsageRecords({
   const contextPressure = totals.contextWindowTokens > 0
     ? roundRatio(totals.contextUsedTokens / totals.contextWindowTokens)
     : 0;
-  const counts = sourceCounts ?? { runs: records.length, subagents: 0 };
+  const counts = source_counts ?? { runs: records.length, subagents: 0 };
   return {
     schema_version: RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
     object: "ioi.runtime_usage_telemetry",
     scope,
     thread_id: threadId,
-    threadId,
     agent_id: agentId,
-    agentId,
     provider: "aggregate",
     model: "aggregate",
     route_id: null,
-    routeId: null,
     model_route_id: null,
-    modelRouteId: null,
     input_tokens: totals.inputTokens,
-    inputTokens: totals.inputTokens,
     output_tokens: totals.outputTokens,
-    outputTokens: totals.outputTokens,
     reasoning_tokens: totals.reasoningTokens,
-    reasoningTokens: totals.reasoningTokens,
     cached_input_tokens: totals.cachedInputTokens,
-    cachedInputTokens: totals.cachedInputTokens,
     tool_result_tokens: totals.toolResultTokens,
-    toolResultTokens: totals.toolResultTokens,
     compacted_tokens: totals.compactedTokens,
-    compactedTokens: totals.compactedTokens,
     total_tokens: totals.totalTokens,
-    totalTokens: totals.totalTokens,
     estimated_cost_micros: totals.estimatedCostMicros || Math.round(totals.estimatedCostUsd * 1_000_000),
-    estimatedCostMicros: totals.estimatedCostMicros || Math.round(totals.estimatedCostUsd * 1_000_000),
     estimated_cost_usd: roundUsd(totals.estimatedCostUsd),
-    estimatedCostUsd: roundUsd(totals.estimatedCostUsd),
     currency: "USD",
     context_window_tokens: totals.contextWindowTokens,
-    contextWindowTokens: totals.contextWindowTokens,
     context_used_tokens: totals.contextUsedTokens,
-    contextUsedTokens: totals.contextUsedTokens,
     context_pressure: contextPressure,
-    contextPressure,
     context_pressure_status: contextPressureStatus(contextPressure),
-    contextPressureStatus: contextPressureStatus(contextPressure),
     latency_ms: totals.latencyMs,
-    latencyMs: totals.latencyMs,
     estimated: true,
     source_counts: counts,
-    sourceCounts: counts,
     source_refs: uniqueStrings(totals.refs),
-    sourceRefs: uniqueStrings(totals.refs),
     generated_at: generatedAt,
-    generatedAt,
   };
 }
 
@@ -380,73 +329,46 @@ function usageTelemetryFromSubagent(record = {}) {
   const contextPressure = roundRatio(totalTokens / DEFAULT_CONTEXT_WINDOW_TOKENS);
   return {
     schema_version: RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
     object: "ioi.runtime_usage_telemetry",
     scope: "subagent",
     thread_id: record.parent_thread_id ?? record.parentThreadId ?? null,
-    threadId: record.parentThreadId ?? record.parent_thread_id ?? null,
     turn_id: record.parent_turn_id ?? record.parentTurnId ?? null,
-    turnId: record.parentTurnId ?? record.parent_turn_id ?? null,
     run_id: record.run_id ?? record.runId ?? usage.run_id ?? usage.runId ?? null,
-    runId: record.runId ?? record.run_id ?? usage.runId ?? usage.run_id ?? null,
     agent_id: record.agent_id ?? record.agentId ?? null,
-    agentId: record.agentId ?? record.agent_id ?? null,
     provider: "subagent",
     model: "subagent",
     route_id: record.model_route_id ?? record.modelRouteId ?? usage.model_route_id ?? usage.modelRouteId ?? null,
-    routeId: record.modelRouteId ?? record.model_route_id ?? usage.modelRouteId ?? usage.model_route_id ?? null,
     model_route_id: record.model_route_id ?? record.modelRouteId ?? usage.model_route_id ?? usage.modelRouteId ?? null,
-    modelRouteId: record.modelRouteId ?? record.model_route_id ?? usage.modelRouteId ?? usage.model_route_id ?? null,
     input_tokens: inputTokens,
-    inputTokens,
     output_tokens: outputTokens,
-    outputTokens,
     reasoning_tokens: 0,
-    reasoningTokens: 0,
     cached_input_tokens: 0,
-    cachedInputTokens: 0,
     tool_result_tokens: 0,
-    toolResultTokens: 0,
     compacted_tokens: 0,
-    compactedTokens: 0,
     total_tokens: totalTokens,
-    totalTokens,
     estimated_cost_micros: costMicros,
-    estimatedCostMicros: costMicros,
     estimated_cost_usd: roundUsd(costUsd),
-    estimatedCostUsd: roundUsd(costUsd),
     currency: "USD",
     context_window_tokens: DEFAULT_CONTEXT_WINDOW_TOKENS,
-    contextWindowTokens: DEFAULT_CONTEXT_WINDOW_TOKENS,
     context_used_tokens: totalTokens,
-    contextUsedTokens: totalTokens,
     context_pressure: contextPressure,
-    contextPressure,
     context_pressure_status: contextPressureStatus(contextPressure),
-    contextPressureStatus: contextPressureStatus(contextPressure),
     latency_ms: 0,
-    latencyMs: 0,
     estimated: true,
     source_counts: { runs: 0, subagents: 1 },
-    sourceCounts: { runs: 0, subagents: 1 },
     source_refs: [record.subagent_id ?? record.subagentId, record.run_id ?? record.runId].filter(Boolean),
-    sourceRefs: [record.subagentId ?? record.subagent_id, record.runId ?? record.run_id].filter(Boolean),
     generated_at: new Date().toISOString(),
-    generatedAt: new Date().toISOString(),
   };
 }
 
-function usageListEnvelope({ groupBy, usage }) {
+function usageListEnvelope({ group_by, usage }) {
   return {
     schema_version: RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
     object: "ioi.runtime_usage_list",
-    group_by: groupBy,
-    groupBy,
+    group_by,
     count: usage.length,
     usage,
     generated_at: new Date().toISOString(),
-    generatedAt: new Date().toISOString(),
   };
 }
 
