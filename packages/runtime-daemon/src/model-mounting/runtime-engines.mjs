@@ -59,7 +59,7 @@ export function runtimeDefaultLoadOptions(state, engineId) {
 export function runtimeEngine(state, engineId, deps = {}) {
   const { notFound } = deps;
   const engine = listRuntimeEngines(state).find((item) => item.id === engineId);
-  if (!engine) throw notFound(`Runtime engine not found: ${engineId}`, { engineId });
+  if (!engine) throw notFound(`Runtime engine not found: ${engineId}`, { engine_id: engineId });
   const preference = runtimePreference(state);
   return {
     ...engine,
@@ -67,7 +67,11 @@ export function runtimeEngine(state, engineId, deps = {}) {
     preference: preference.selectedEngineId === engineId ? preference : null,
     loadedInstances: state.listInstances().filter((instance) => instance.runtimeEngineId === engineId || instance.backendId === engineId),
     latestReceipts: state.listReceipts()
-      .filter((receipt) => receipt.details?.runtimeEngineId === engineId || receipt.details?.engineId === engineId || receipt.details?.backendId === engineId)
+      .filter((receipt) =>
+        receipt.details?.runtime_engine_id === engineId ||
+        receipt.details?.engine_id === engineId ||
+        receipt.details?.backend_id === engineId
+      )
       .slice(-8),
   };
 }
@@ -78,23 +82,23 @@ export function selectRuntimeEngine(state, body = {}, deps = {}) {
   const checkedAt = state.nowIso();
   const engines = listRuntimeEngines(state);
   const engine = engines.find((item) => item.id === engineId);
-  if (!engine) throw deps.notFound(`Runtime engine not found: ${engineId}`, { engineId });
+  if (!engine) throw deps.notFound(`Runtime engine not found: ${engineId}`, { engine_id: engineId });
   if (engine.operatorProfile?.disabled) {
     throw runtimeError({
       status: 409,
       code: "runtime_engine_disabled",
       message: "Runtime engine is disabled by its operator profile.",
-      details: { engineId, receiptId: engine.operatorProfile.receiptId ?? null },
+      details: { engine_id: engineId, receipt_id: engine.operatorProfile.receiptId ?? null },
     });
   }
   const receipt = state.lifecycleReceipt("runtime_engine_select", {
-    engineId,
-    engineKind: engine.kind,
-    engineStatus: engine.status,
+    engine_id: engineId,
+    engine_kind: engine.kind,
+    engine_status: engine.status,
     source: engine.source,
-    modelFormat: engine.modelFormat,
-    defaultLoadOptions: engine.operatorProfile?.defaultLoadOptions ?? {},
-    checkedAt,
+    model_format: engine.modelFormat,
+    default_load_options: engine.operatorProfile?.defaultLoadOptions ?? {},
+    checked_at: checkedAt,
   });
   const preference = {
     id: "default",
@@ -130,13 +134,13 @@ export function updateRuntimeEngine(state, engineId, body = {}, deps = {}) {
     body.default_load_options ?? body.defaultLoadOptions ?? body.load_options ?? body.loadOptions ?? existing.defaultLoadOptions ?? {},
   );
   const receipt = state.lifecycleReceipt("runtime_engine_update", {
-    engineId,
-    engineKind: engine.kind,
-    previousProfileHash: stableHash(existing),
+    engine_id: engineId,
+    engine_kind: engine.kind,
+    previous_profile_hash: stableHash(existing),
     disabled: Boolean(disabledValue),
     priority: body.priority ?? existing.priority ?? null,
-    defaultLoadOptions,
-    evidenceRefs: ["operator_runtime_engine_profile", "runtime_engine_default_load_options"],
+    default_load_options: defaultLoadOptions,
+    evidence_refs: ["operator_runtime_engine_profile", "runtime_engine_default_load_options"],
   });
   const profile = {
     id: engineId,
@@ -171,10 +175,10 @@ export function removeRuntimeEngineOverride(state, engineId, deps = {}) {
   runtimeEngine(state, engineId, deps);
   const existing = runtimeEngineProfile(state, engineId);
   const receipt = state.lifecycleReceipt("runtime_engine_profile_remove", {
-    engineId,
-    hadProfile: Boolean(existing),
-    previousProfileHash: stableHash(existing ?? {}),
-    evidenceRefs: ["operator_runtime_engine_profile_remove"],
+    engine_id: engineId,
+    had_profile: Boolean(existing),
+    previous_profile_hash: stableHash(existing ?? {}),
+    evidence_refs: ["operator_runtime_engine_profile_remove"],
   });
   state.runtimeEngineProfiles.delete(engineId);
   fs.rmSync(path.join(state.stateDir, "runtime-engine-profiles", `${safeFileName(engineId)}.json`), { force: true });

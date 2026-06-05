@@ -2582,6 +2582,12 @@ function runReceipts() {
   const catalogDownloadOperationsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs")
     : "";
+  const runtimeEngines = exists("packages/runtime-daemon/src/model-mounting/runtime-engines.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/runtime-engines.mjs")
+    : "";
+  const runtimeEnginesTest = exists("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs")
+    : "";
   const modelMountStoreTest = exists("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     : "";
@@ -2626,6 +2632,11 @@ function runReceipts() {
     catalogDownloadOperations.match(/function transferReceiptDetails\(transfer\) \{[\s\S]*?\n\}/)?.[0] ?? "";
   const catalogDownloadTransferEventDetailsHelper =
     catalogDownloadOperations.match(/function transferEventReceiptDetails\(details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "";
+  const runtimeEngineReceiptBlocks = [
+    ...runtimeEngines.matchAll(/state\.lifecycleReceipt\("runtime_engine_(?:select|update|profile_remove)",\s*\{[\s\S]*?\n\s+\}\);/g),
+  ].map((match) => match[0]).join("\n");
+  const runtimeEngineLatestReceiptFilter =
+    runtimeEngines.match(/latestReceipts:\s*state\.listReceipts\(\)[\s\S]*?\.slice\(-8\),/)?.[0] ?? "";
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
@@ -3271,6 +3282,42 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
     ],
     "Phase 9/11 is pending: catalog import/download receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-runtime-engine-detail-aliases-retired",
+    /engine_id:\s*engineId/.test(runtimeEngineReceiptBlocks) &&
+      /engine_kind:\s*engine\.kind/.test(runtimeEngineReceiptBlocks) &&
+      /engine_status:\s*engine\.status/.test(runtimeEngineReceiptBlocks) &&
+      /model_format:\s*engine\.modelFormat/.test(runtimeEngineReceiptBlocks) &&
+      /default_load_options:\s*engine\.operatorProfile/.test(runtimeEngineReceiptBlocks) &&
+      /checked_at:\s*checkedAt/.test(runtimeEngineReceiptBlocks) &&
+      /previous_profile_hash:\s*stableHash/.test(runtimeEngineReceiptBlocks) &&
+      /had_profile:\s*Boolean/.test(runtimeEngineReceiptBlocks) &&
+      /evidence_refs:\s*\["operator_runtime_engine_profile/.test(runtimeEngineReceiptBlocks) &&
+      /notFound\(`Runtime engine not found: \$\{engineId\}`,\s*\{ engine_id: engineId \}\)/.test(runtimeEngines) &&
+      /details:\s*\{ engine_id: engineId,\s*receipt_id: engine\.operatorProfile\.receiptId/.test(runtimeEngines) &&
+      /details\?\.runtime_engine_id === engineId/.test(runtimeEngineLatestReceiptFilter) &&
+      /details\?\.engine_id === engineId/.test(runtimeEngineLatestReceiptFilter) &&
+      /details\?\.backend_id === engineId/.test(runtimeEngineLatestReceiptFilter) &&
+      !/\b(?:engineId|engineKind|engineStatus|modelFormat|defaultLoadOptions|checkedAt|previousProfileHash|hadProfile|evidenceRefs)\s*:/.test(
+        runtimeEngineReceiptBlocks,
+      ) &&
+      !/details:\s*\{\s*engineId\b/.test(runtimeEngines) &&
+      !/details\?\.(?:runtimeEngineId|engineId|backendId)\b/.test(runtimeEngineLatestReceiptFilter) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"engineId"\),\s*false/.test(runtimeEnginesTest) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"defaultLoadOptions"\),\s*false/.test(runtimeEnginesTest) &&
+      /Object\.hasOwn\(state\.receipts\[1\]\.details,\s*"previousProfileHash"\),\s*false/.test(runtimeEnginesTest) &&
+      /Object\.hasOwn\(error\.details,\s*"engineId"\),\s*false/.test(runtimeEnginesTest) &&
+      /Object\.hasOwn\(error\.details,\s*"receiptId"\),\s*false/.test(runtimeEnginesTest) &&
+      /receipt_legacy/.test(runtimeEnginesTest) &&
+      /details:\s*\{ runtime_engine_id:\s*"backend\.llama-cpp" \}/.test(runtimeEnginesTest) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"hadProfile"\),\s*false/.test(runtimeEnginesTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/runtime-engines.mjs",
+      "packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs",
+    ],
+    "Phase 9/11 is pending: runtime-engine receipts, fail-closed errors, and latest-receipt readers must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

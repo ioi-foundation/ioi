@@ -144,6 +144,13 @@ test("selecting runtime engine persists preference and writes projection", () =>
   assert.equal(state.writes[0][0], "runtime-preferences");
   assert.equal(state.projections, 1);
   assert.equal(state.receipts[0].kind, "runtime_engine_select");
+  assert.equal(state.receipts[0].details.engine_id, "backend.llama-cpp");
+  assert.equal(state.receipts[0].details.engine_kind, "llama_cpp");
+  assert.deepEqual(state.receipts[0].details.default_load_options, {});
+  assert.equal(Object.hasOwn(state.receipts[0].details, "engineId"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "engineKind"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "defaultLoadOptions"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "checkedAt"), false);
 });
 
 test("disabled selected runtime engine resets preference to native fixture", () => {
@@ -158,14 +165,54 @@ test("disabled selected runtime engine resets preference to native fixture", () 
   assert.equal(result.profile.disabled, true);
   assert.equal(state.runtimeSelections.get("default").selectedEngineId, "backend.autopilot.native-local.fixture");
   assert.equal(state.runtimeSelections.get("default").source, "operator_runtime_disable_reset");
+  assert.equal(state.receipts[1].details.engine_id, "backend.llama-cpp");
+  assert.equal(state.receipts[1].details.previous_profile_hash, "hash:{}");
+  assert.deepEqual(state.receipts[1].details.default_load_options, { gpu: "off", normalized: true });
+  assert.equal(Object.hasOwn(state.receipts[1].details, "engineId"), false);
+  assert.equal(Object.hasOwn(state.receipts[1].details, "previousProfileHash"), false);
+  assert.equal(Object.hasOwn(state.receipts[1].details, "defaultLoadOptions"), false);
+  assert.equal(Object.hasOwn(state.receipts[1].details, "evidenceRefs"), false);
   assert.equal(state.writes.some(([dir]) => dir === "runtime-engine-profiles"), true);
+});
+
+test("runtime engine errors use canonical details without retired aliases", () => {
+  const state = fakeState();
+  state.runtimeEngineProfiles.set("backend.llama-cpp", {
+    id: "backend.llama-cpp",
+    disabled: true,
+    receiptId: "receipt.disable",
+  });
+
+  assert.throws(
+    () => selectRuntimeEngine(state, { engineId: "backend.llama-cpp" }, deps),
+    (error) => {
+      assert.equal(error.status, 409);
+      assert.equal(error.code, "runtime_engine_disabled");
+      assert.equal(error.details.engine_id, "backend.llama-cpp");
+      assert.equal(error.details.receipt_id, "receipt.disable");
+      assert.equal(Object.hasOwn(error.details, "engineId"), false);
+      assert.equal(Object.hasOwn(error.details, "receiptId"), false);
+      return true;
+    },
+  );
+
+  assert.throws(
+    () => runtimeEngine(state, "backend.missing", deps),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.engine_id, "backend.missing");
+      assert.equal(Object.hasOwn(error.details, "engineId"), false);
+      return true;
+    },
+  );
 });
 
 test("runtime engine detail includes profile, preference, instances, and latest receipts", () => {
   const state = fakeState();
   selectRuntimeEngine(state, { engineId: "backend.llama-cpp" }, deps);
   state.runtimeEngineProfiles.set("backend.llama-cpp", { id: "backend.llama-cpp", disabled: false });
-  state.receipts.push({ id: "receipt_runtime", details: { runtimeEngineId: "backend.llama-cpp" } });
+  state.receipts.push({ id: "receipt_legacy", details: { runtimeEngineId: "backend.llama-cpp" } });
+  state.receipts.push({ id: "receipt_runtime", details: { runtime_engine_id: "backend.llama-cpp" } });
 
   const detail = runtimeEngine(state, "backend.llama-cpp", deps);
 
@@ -173,6 +220,7 @@ test("runtime engine detail includes profile, preference, instances, and latest 
   assert.equal(detail.profile.id, "backend.llama-cpp");
   assert.deepEqual(detail.loadedInstances.map((instance) => instance.id), ["instance_a"]);
   assert.equal(detail.latestReceipts.at(-1).id, "receipt_runtime");
+  assert.equal(detail.latestReceipts.some((receipt) => receipt.id === "receipt_legacy"), false);
 });
 
 test("removing runtime engine override clears profile and reports removal", () => {
@@ -183,6 +231,12 @@ test("removing runtime engine override clears profile and reports removal", () =
 
   assert.equal(result.removed, true);
   assert.equal(state.runtimeEngineProfiles.has("backend.llama-cpp"), false);
+  assert.equal(state.receipts[0].details.engine_id, "backend.llama-cpp");
+  assert.equal(state.receipts[0].details.had_profile, true);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "engineId"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "hadProfile"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "previousProfileHash"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "evidenceRefs"), false);
   assert.equal(state.writes.some(([dir]) => dir === "runtime-engine-profiles"), true);
   assert.equal(state.projections, 1);
 });
