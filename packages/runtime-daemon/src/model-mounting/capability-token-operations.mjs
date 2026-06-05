@@ -72,7 +72,7 @@ export function revokeToken(state, tokenId, deps = {}) {
     publicToken: publicTokenDep = publicToken,
   } = deps;
   const token = state.tokens.get(tokenId);
-  if (!token) throw notFoundDep(`Token not found: ${tokenId}`, { tokenId });
+  if (!token) throw notFoundDep(`Token not found: ${tokenId}`, { token_id: tokenId });
   const revoked = state.walletAuthority.revokeGrant(token);
   state.tokens.set(tokenId, revoked);
   state.writeMap("tokens", state.tokens);
@@ -95,7 +95,7 @@ export function authorize(state, authorization, requiredScope, deps = {}) {
       status: 401,
       code: "auth",
       message: "Bearer capability token is required for this model mounting operation.",
-      details: { requiredScope },
+      details: { required_scope: requiredScope },
     });
   }
   const tokenHash = hashTokenDep(authorization.slice("Bearer ".length).trim());
@@ -105,7 +105,7 @@ export function authorize(state, authorization, requiredScope, deps = {}) {
       status: 401,
       code: "auth",
       message: "Capability token was not recognized.",
-      details: { requiredScope },
+      details: { required_scope: requiredScope },
     });
   }
   const authorized = state.walletAuthority.authorizeScope(token, requiredScope);

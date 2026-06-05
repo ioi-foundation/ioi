@@ -148,23 +148,33 @@ test("capability token operations preserve auth and not-found errors", () => {
 
   assert.throws(
     () => authorize(state, "", "model.chat:complete", { hashToken: (value) => `hash:${value}` }),
-    (error) =>
-      error.status === 401 &&
-      error.code === "auth" &&
-      error.details.requiredScope === "model.chat:complete",
+    (error) => {
+      assert.equal(error.status, 401);
+      assert.equal(error.code, "auth");
+      assert.equal(error.details.required_scope, "model.chat:complete");
+      assert.equal(Object.hasOwn(error.details, "requiredScope"), false);
+      return true;
+    },
   );
   assert.throws(
     () => authorize(state, "Bearer missing", "model.chat:complete", { hashToken: (value) => `hash:${value}` }),
-    (error) =>
-      error.status === 401 &&
-      error.code === "auth" &&
-      error.message === "Capability token was not recognized.",
+    (error) => {
+      assert.equal(error.status, 401);
+      assert.equal(error.code, "auth");
+      assert.equal(error.message, "Capability token was not recognized.");
+      assert.equal(error.details.required_scope, "model.chat:complete");
+      assert.equal(Object.hasOwn(error.details, "requiredScope"), false);
+      return true;
+    },
   );
   assert.throws(
     () => revokeToken(state, "missing-token"),
-    (error) =>
-      error.status === 404 &&
-      error.code === "not_found" &&
-      error.details.tokenId === "missing-token",
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.code, "not_found");
+      assert.equal(error.details.token_id, "missing-token");
+      assert.equal(Object.hasOwn(error.details, "tokenId"), false);
+      return true;
+    },
   );
 });

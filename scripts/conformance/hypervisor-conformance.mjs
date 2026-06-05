@@ -2436,6 +2436,12 @@ function runReceipts() {
   const providerAuthTest = exists("packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs")
     : "";
+  const capabilityTokenOperations = exists("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
+    : "";
+  const capabilityTokenOperationsTest = exists("packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs")
+    : "";
   const walletAuthority = exists("packages/runtime-daemon/src/model-mounting/wallet-authority.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/wallet-authority.mjs")
     : "";
@@ -3122,6 +3128,25 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/wallet-authority.test.mjs",
     ],
     "Phase 7/11 is pending: wallet authority audit mirroring must not append JS operation-like records outside wallet.network and admitted receipt paths",
+  );
+  assertCheck(
+    result,
+    "model-mount-capability-token-error-detail-aliases-retired",
+    /details:\s*\{\s*required_scope:\s*requiredScope\s*\}/.test(capabilityTokenOperations) &&
+      /notFoundDep\(`Token not found: \$\{tokenId\}`,\s*\{\s*token_id:\s*tokenId\s*\}\)/.test(
+        capabilityTokenOperations,
+      ) &&
+      !/details:\s*\{\s*requiredScope\s*\}/.test(capabilityTokenOperations) &&
+      !/notFoundDep\(`Token not found: \$\{tokenId\}`,\s*\{\s*tokenId\s*\}\)/.test(
+        capabilityTokenOperations,
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*"requiredScope"\),\s*false/.test(capabilityTokenOperationsTest) &&
+      /Object\.hasOwn\(error\.details,\s*"tokenId"\),\s*false/.test(capabilityTokenOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs",
+    ],
+    "Phase 7/11 is pending: capability token fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,
