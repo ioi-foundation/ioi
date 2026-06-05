@@ -118,7 +118,12 @@ test("downloadStatus returns jobs and fails closed for missing ids", () => {
   assert.equal(downloadStatus(state, "job.1", { notFound: deps.notFound }).id, "job.1");
   assert.throws(
     () => downloadStatus(state, "missing", { notFound: deps.notFound }),
-    (error) => error.status === 404 && error.details.jobId === "missing",
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.job_id, "missing");
+      assert.equal(Object.hasOwn(error.details, "jobId"), false);
+      return true;
+    },
   );
 });
 

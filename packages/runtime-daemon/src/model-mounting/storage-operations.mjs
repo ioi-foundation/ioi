@@ -54,7 +54,7 @@ export function cancelDownload(state, jobId, body = {}, deps = {}) {
 export function downloadStatus(state, jobId, deps = {}) {
   const { notFound } = deps;
   const job = state.downloads.get(jobId);
-  if (!job) throw notFound(`Download job not found: ${jobId}`, { jobId });
+  if (!job) throw notFound(`Download job not found: ${jobId}`, { job_id: jobId });
   return job;
 }
 

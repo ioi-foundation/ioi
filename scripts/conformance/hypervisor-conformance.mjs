@@ -3160,9 +3160,11 @@ function runReceipts() {
       /details:\s*\{\s*orphan_count:\s*orphans\.length,\s*projected_freed_bytes:\s*orphanBytes\s*\}/.test(
         storageOperations,
       ) &&
+      /notFound\(`Download job not found: \$\{jobId\}`,\s*\{ job_id: jobId \}\)/.test(storageOperations) &&
       !/\b(?:jobId|modelId|providerId|bytesCompleted|bytesTotal|cleanupPartial|cleanupState|projectedFreedBytes|downloadPolicy|artifactId|artifactPathHash|affectedEndpointIds|affectedInstanceIds|endpointIds|scannedFileCount|orphanCount|orphanPathHashes|orphanBytes|removeOrphans|cleanedBytes|removedOrphanCount|destructiveConfirmation)\s*:/.test(
         storageLifecycleReceiptBlocks,
       ) &&
+      !/notFound\(`Download job not found: \$\{jobId\}`,\s*\{ jobId \}\)/.test(storageOperations) &&
       !/details:\s*\{\s*(?:artifactId|orphanCount)\b/.test(storageOperations) &&
       /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"projectedFreedBytes"\),\s*false/.test(
         storageOperationsTest,
@@ -3170,6 +3172,8 @@ function runReceipts() {
       /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"artifactPathHash"\),\s*false/.test(
         storageOperationsTest,
       ) &&
+      /assert\.equal\(error\.details\.job_id,\s*"missing"\)/.test(storageOperationsTest) &&
+      /Object\.hasOwn\(error\.details,\s*"jobId"\),\s*false/.test(storageOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"artifactId"\)\s*===\s*false/.test(storageOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"orphanCount"\)\s*===\s*false/.test(storageOperationsTest),
     [
