@@ -1417,6 +1417,24 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-anthropic-messages-request-aliases-retired",
+    /RETIRED_ANTHROPIC_MESSAGES_REQUEST_ALIASES/.test(openAiCompatRoutes) &&
+      /model_mount_anthropic_messages_request_aliases_retired/.test(openAiCompatRoutes) &&
+      /assertCanonicalAnthropicMessagesRequestBody\(body\);/.test(openAiCompatRoutes) &&
+      /max_tokens:\s*body\.max_tokens/.test(openAiCompatRoutes) &&
+      !/body\.maxTokens\b/.test(openAiCompatRoutes) &&
+      /Anthropic messages canonical body preserves canonical max_tokens/.test(openAiCompatRoutesTest) &&
+      /Anthropic messages canonical body rejects retired maxTokens alias/.test(openAiCompatRoutesTest) &&
+      /retired_aliases,\s*\[\s*"maxTokens"\s*\]/.test(openAiCompatRoutesTest) &&
+      /canonical_fields,\s*\[\s*"max_tokens"\s*\]/.test(openAiCompatRoutesTest),
+    [
+      "packages/runtime-daemon/src/openai-compat-routes.mjs",
+      "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
+    ],
+    "Phase 10/11 is pending: Anthropic-compatible messages requests must fail closed on the retired maxTokens alias and forward canonical max_tokens only",
+  );
+  assertCheck(
+    result,
     "model-mount-native-response-route-decision-aliases-retired",
     /model_route_decision:\s*\{\s*route_id:\s*"route\.local-first",\s*selected_model:\s*"model\.local"\s*\}/.test(
       modelWorkflowNodeTest,

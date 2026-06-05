@@ -11878,6 +11878,11 @@ now fails closed on retired `maxCostUsd`, `maxLatencyMs`,
 `denied_providers`, `last_selected_model`, and `last_receipt_id` remain the
 accepted request boundary and the internal route record shape remains stable.
 
+Slice 307 retires the Anthropic-compatible messages `maxTokens` request alias:
+`anthropicMessagesToCanonicalBody` now fails closed on retired `maxTokens`
+before daemon invocation routing and forwards only canonical `max_tokens` into
+the model invocation body.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

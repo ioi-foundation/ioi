@@ -15,6 +15,8 @@ import {
 } from "./runtime-http-utils.mjs";
 
 const STREAM_SHAPE_SAMPLE_LIMIT = 8;
+const RETIRED_ANTHROPIC_MESSAGES_REQUEST_ALIASES = ["maxTokens"];
+const CANONICAL_ANTHROPIC_MESSAGES_REQUEST_FIELDS = ["max_tokens"];
 
 export async function handleOpenAiCompatibilityRoute({ request, response, store, url }) {
   const mounts = store.modelMounting;
@@ -154,12 +156,30 @@ export function firstHeader(value) {
 }
 
 export function anthropicMessagesToCanonicalBody(body = {}) {
+  assertCanonicalAnthropicMessagesRequestBody(body);
   return {
     ...body,
     messages: canonicalAnthropicMessages(body),
-    max_tokens: body.max_tokens ?? body.maxTokens,
+    max_tokens: body.max_tokens,
     stream: false,
   };
+}
+
+function assertCanonicalAnthropicMessagesRequestBody(body = {}) {
+  const retiredAliases = RETIRED_ANTHROPIC_MESSAGES_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Anthropic-compatible messages request aliases are retired; use canonical request fields.",
+  );
+  error.status = 400;
+  error.code = "model_mount_anthropic_messages_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_ANTHROPIC_MESSAGES_REQUEST_FIELDS,
+  };
+  throw error;
 }
 
 export function canonicalAnthropicMessages(body = {}) {

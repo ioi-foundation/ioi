@@ -3,6 +3,7 @@ import { EventEmitter } from "node:events";
 import test from "node:test";
 
 import {
+  anthropicMessagesToCanonicalBody,
   nativeInvocationResponse,
   recordModelStreamCanceled,
   writeOpenAiProviderChatCompletionStream,
@@ -73,6 +74,38 @@ function invocationFixture() {
     },
   };
 }
+
+test("Anthropic messages canonical body preserves canonical max_tokens", () => {
+  const body = anthropicMessagesToCanonicalBody({
+    model: "claude-compatible",
+    max_tokens: 128,
+    messages: [{ role: "user", content: [{ type: "text", text: "hello" }] }],
+  });
+
+  assert.equal(body.max_tokens, 128);
+  assert.deepEqual(body.messages, [{ role: "user", content: "hello" }]);
+  assert.equal(body.stream, false);
+  assert.equal(Object.hasOwn(body, "maxTokens"), false);
+});
+
+test("Anthropic messages canonical body rejects retired maxTokens alias", () => {
+  assert.throws(
+    () =>
+      anthropicMessagesToCanonicalBody({
+        model: "claude-compatible",
+        maxTokens: 128,
+        messages: [{ role: "user", content: "hello" }],
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_anthropic_messages_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["maxTokens"]);
+      assert.deepEqual(error.details.canonical_fields, ["max_tokens"]);
+      assert.equal(Object.hasOwn(error.details, "maxTokens"), false);
+      return true;
+    },
+  );
+});
 
 test("OpenAI provider stream shape is bound to the stream receipt without operation append", async () => {
   const request = new EventEmitter();
