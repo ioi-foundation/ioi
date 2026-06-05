@@ -3123,6 +3123,14 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs")
     : "";
+  const runtimeRecordProjections = exists("packages/runtime-daemon/src/runtime-record-projections.mjs")
+    ? read("packages/runtime-daemon/src/runtime-record-projections.mjs")
+    : "";
+  const runtimeRecordProjectionsTest = exists(
+    "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-record-projections.test.mjs")
+    : "";
   const runtimeEventPayloads = exists("packages/runtime-daemon/src/runtime-event-payloads.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-payloads.mjs")
     : "";
@@ -3432,6 +3440,24 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
     ],
     "Phase 10/11 is pending: runtime agent run lifecycle records must not emit retired usage telemetry aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-bridge-run-record-usage-aliases-retired",
+    !/^\s*usageTelemetry,?\s*$/m.test(runtimeRecordProjections) &&
+      !/^\s*runtimeUsage:\s*usageTelemetry,?\s*$/m.test(runtimeRecordProjections) &&
+      /retiredRuntimeBridgeUsageAliasKeys/.test(runtimeRecordProjectionsTest) &&
+      /runtime bridge run record emits canonical usage telemetry only/.test(
+        runtimeRecordProjectionsTest,
+      ) &&
+      /assertMissingKeys\(run\.trace,\s*retiredRuntimeBridgeUsageAliasKeys\)/.test(
+        runtimeRecordProjectionsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-record-projections.mjs",
+      "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime bridge run records must not emit retired usage telemetry aliases",
   );
   assertCheck(
     result,

@@ -194,8 +194,6 @@ function runtimeBridgeRunRecord({ agent, request, projection }) {
     ...trace,
     usage: usageTelemetry,
     usage_telemetry: usageTelemetry,
-    usageTelemetry,
-    runtimeUsage: usageTelemetry,
   };
   const artifacts = [
     artifact(
@@ -260,8 +258,6 @@ function runtimeBridgeRunRecord({ agent, request, projection }) {
     result: projection.result,
     usage: usageTelemetry,
     usage_telemetry: usageTelemetry,
-    usageTelemetry,
-    runtimeUsage: usageTelemetry,
     events: bridgeEvents,
     conversation: [
       { role: "user", content: projection.prompt, createdAt: projection.createdAt },
