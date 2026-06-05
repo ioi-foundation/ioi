@@ -29,8 +29,8 @@ export function createModelRouteDecision({
   const privacyPosture = privacyPostureFor(route, provider, policy);
   const reasoningEffort = reasoningEffortFor(policy, request);
   const selectedModel = endpoint?.modelId ?? null;
-  const fallbackTriggered = truthy(request.fallback_triggered ?? request.fallbackTriggered);
-  const fallbackReason = optionalString(request.fallback_reason ?? request.fallbackReason);
+  const fallbackTriggered = truthy(request.fallback_triggered);
+  const fallbackReason = optionalString(request.fallback_reason);
   const decision = {
     schemaVersion: MODEL_ROUTE_DECISION_SCHEMA_VERSION,
     object: "ioi.model_route_decision",

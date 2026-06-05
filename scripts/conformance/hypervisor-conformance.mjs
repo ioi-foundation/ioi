@@ -750,10 +750,17 @@ function runBridge() {
         modelRouteDecisionModule,
       ) &&
       !/allowHostedFallback/.test(modelRouteDecisionModule) &&
+      /request\.fallback_triggered/.test(modelRouteDecisionModule) &&
+      /request\.fallback_reason/.test(modelRouteDecisionModule) &&
+      !/request\.fallbackTriggered/.test(modelRouteDecisionModule) &&
+      !/request\.fallbackReason/.test(modelRouteDecisionModule) &&
       /ignore retired hosted fallback policy alias/.test(
         read("packages/runtime-daemon/src/model-mounting/routes.test.mjs"),
       ) &&
       /canonical hosted fallback policy constraint/.test(
+        modelRouteDecisionTest,
+      ) &&
+      /ignore retired camelCase fallback request aliases/.test(
         modelRouteDecisionTest,
       ) &&
       /ignore retired legacy model route decision detail/.test(

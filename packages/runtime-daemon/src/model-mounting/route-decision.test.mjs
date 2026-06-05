@@ -17,6 +17,10 @@ test("provider request body resolves auto and strips Autopilot-only route fields
       metadata: { workspaceRoot: "/tmp/workspace" },
       model_policy: { deny_fixture_models: true },
       modelPolicy: { denyFixtureModels: true },
+      fallback_triggered: true,
+      fallbackTriggered: true,
+      fallback_reason: "primary_route_unavailable",
+      fallbackReason: "legacy_route_unavailable",
       workflow_node_id: "runtime.model-router",
     },
     { modelId: "qwen/qwen3.5-9b", providerId: "provider.llama-cpp", driver: "llama_cpp" },
@@ -29,6 +33,10 @@ test("provider request body resolves auto and strips Autopilot-only route fields
   assert.equal(body.metadata, undefined);
   assert.equal(body.model_policy, undefined);
   assert.equal(body.modelPolicy, undefined);
+  assert.equal(body.fallback_triggered, undefined);
+  assert.equal(body.fallbackTriggered, undefined);
+  assert.equal(body.fallback_reason, undefined);
+  assert.equal(body.fallbackReason, undefined);
   assert.equal(body.workflow_node_id, undefined);
 });
 
@@ -44,6 +52,44 @@ test("route decisions use canonical hosted fallback policy constraint", () => {
 
   assert.equal(decision.policyConstraints.allow_hosted_fallback, true);
   assert.equal(decision.policyConstraints.allowHostedFallback, undefined);
+});
+
+test("route decisions honor canonical fallback request metadata", () => {
+  const decision = createModelRouteDecision({
+    route: { id: "route.local-first", privacy: "local_or_enterprise", fallback: ["endpoint.hosted"] },
+    endpoint: { id: "endpoint.hosted", modelId: "model.hosted", providerId: "provider.hosted" },
+    provider: { id: "provider.hosted", kind: "openai", privacyClass: "hosted" },
+    request: {
+      fallback_triggered: true,
+      fallback_reason: "primary_route_unavailable",
+    },
+    policyHash: "sha256:policy",
+    requestedModel: "auto",
+  });
+
+  assert.equal(decision.fallbackTriggered, true);
+  assert.equal(decision.fallbackReason, "primary_route_unavailable");
+  assert.equal(decision.evidenceRefs.includes("model_route_fallback_selected"), true);
+  assert.match(decision.rationale, /primary_route_unavailable/);
+});
+
+test("route decisions ignore retired camelCase fallback request aliases", () => {
+  const decision = createModelRouteDecision({
+    route: { id: "route.local-first", privacy: "local_or_enterprise", fallback: ["endpoint.hosted"] },
+    endpoint: { id: "endpoint.hosted", modelId: "model.hosted", providerId: "provider.hosted" },
+    provider: { id: "provider.hosted", kind: "openai", privacyClass: "hosted" },
+    request: {
+      fallbackTriggered: true,
+      fallbackReason: "legacy_route_unavailable",
+    },
+    policyHash: "sha256:policy",
+    requestedModel: "auto",
+  });
+
+  assert.equal(decision.fallbackTriggered, false);
+  assert.equal(decision.fallbackReason, null);
+  assert.equal(decision.evidenceRefs.includes("model_route_fallback_selected"), false);
+  assert.doesNotMatch(decision.rationale, /legacy_route_unavailable/);
 });
 
 test("route decision projections ignore retired legacy model route decision detail", () => {
