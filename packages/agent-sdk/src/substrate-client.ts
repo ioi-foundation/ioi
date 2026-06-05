@@ -449,7 +449,6 @@ export interface RuntimeSubagentControlInput {
   input?: string;
   text?: string;
   role?: string;
-  subagentRole?: string;
   subagent_role?: string;
   toolPack?: string;
   tool_pack?: string;
@@ -497,7 +496,6 @@ export interface RuntimeSubagentControlInput {
 
 export interface RuntimeSubagentListInput {
   role?: string;
-  subagentRole?: string;
   subagent_role?: string;
   status?: string;
   [key: string]: unknown;

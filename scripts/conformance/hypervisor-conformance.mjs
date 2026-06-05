@@ -3548,6 +3548,11 @@ function runCompositor() {
     "export interface RuntimeSubagentControlInput",
     "export interface RuntimeSubagentListInput",
   );
+  const runtimeSubagentSdkListInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentListInput",
+    "export interface RuntimeSubagentRecord",
+  );
   const agentIdeSubagentDelegationMatrixBlock = blockBetween(
     agentIdeDelegationMatrix,
     'if (payloadObject === "ioi.runtime_subagent_manager_event")',
@@ -4697,6 +4702,21 @@ function runCompositor() {
       !/^\s*subagentBudget\?:/m.test(runtimeSubagentSdkControlInputBlock),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent control request types must not advertise the retired subagentBudget alias",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-subagent-role-request-type-alias-retired",
+    runtimeSubagentSdkControlInputBlock.length > 0 &&
+      runtimeSubagentSdkListInputBlock.length > 0 &&
+      /^\s*role\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+      /^\s*subagent_role\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+      /^\s*role\?: string;/m.test(runtimeSubagentSdkListInputBlock) &&
+      /^\s*subagent_role\?: string;/m.test(runtimeSubagentSdkListInputBlock) &&
+      !/^\s*subagentRole\?:/m.test(
+        `${runtimeSubagentSdkControlInputBlock}\n${runtimeSubagentSdkListInputBlock}`,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent request types must not advertise the retired subagentRole alias",
   );
   assertCheck(
     result,
