@@ -18,7 +18,6 @@ const RAW_SCREENSHOT_CANARY = "RAW_SCREENSHOT_BYTES_MUST_NOT_ENTER_REPLAY_TIMELI
 
 function computerUseEvent({ id, seq, lane, eventKind, step, payload = {} }) {
   return {
-    id,
     event_id: id,
     seq,
     thread_id: threadId,
@@ -176,6 +175,24 @@ const visualTimeline = buildWorkflowComputerUseReplayTimeline(events, {
   workflowGraphId,
   lane: "visual_gui",
 });
+const legacyAliasTimeline = buildWorkflowComputerUseReplayTimeline(
+  [
+    {
+      id: "legacy-only-computer-use-event",
+      seq: 11,
+      thread_id: threadId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: "runtime.native_browser.cleanup",
+      event_kind: "computer_use.cleanup",
+      payload_summary: {
+        event_kind: "computer_use.cleanup",
+        computer_use_lane: "native_browser",
+        computer_use_step: "cleanup",
+      },
+    },
+  ],
+  { workflowGraphId },
+);
 
 assert.equal(timeline.status, "ready");
 assert.equal(timeline.frameCount, 10);
@@ -196,6 +213,7 @@ assert.ok(timeline.frames.filter((frame) => frame.step === "observe").every((fra
 assert.ok(timeline.frames.some((frame) => frame.policyDecisionRef === "approval-visual-gui-run-button"));
 assert.ok(timeline.frames.every((frame) => frame.redaction === "computer_use_trace_safe"));
 assert.ok(!JSON.stringify(timeline).includes(RAW_SCREENSHOT_CANARY));
+assert.equal(legacyAliasTimeline.frames[0]?.eventId, null);
 
 const proof = {
   schemaVersion: "ioi.autopilot.stage18.computer-use-replay-timeline-proof.v1",
@@ -214,6 +232,7 @@ const proof = {
     targetAndAffordanceRefsPresent:
       timeline.targetIndexRefs.length === 2 && timeline.affordanceGraphRefs.length === 2,
     visualApprovalVisible: timeline.frames.some((frame) => frame.policyDecisionRef === "approval-visual-gui-run-button"),
+    legacyEventIdAliasIgnored: legacyAliasTimeline.frames[0]?.eventId === null,
   },
   summary: {
     frameCount: timeline.frameCount,

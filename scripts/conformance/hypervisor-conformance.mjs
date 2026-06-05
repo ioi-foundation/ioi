@@ -2737,6 +2737,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts")
     : "";
+  const agentIdeComputerUseReplayTimeline = exists(
+    "packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts")
+    : "";
+  const computerUseReplayTimelineProof = exists(
+    "scripts/lib/workflow-computer-use-replay-timeline-proof.mjs",
+  )
+    ? read("scripts/lib/workflow-computer-use-replay-timeline-proof.mjs")
+    : "";
   const agentSdkRuntimeEvents = exists("packages/agent-sdk/src/runtime-events.ts")
     ? read("packages/agent-sdk/src/runtime-events.ts")
     : "";
@@ -2856,6 +2866,25 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts",
     ],
     "Phase 10/11 is pending: IDE terminal coding-loop run launch must ignore retired runtime event id aliases",
+  );
+  assertCheck(
+    result,
+    "ide-computer-use-replay-event-id-alias-retired",
+    /function eventIdForEvent\(event: RuntimeEventInput\): string \| null \{\s*return stringField\(event, "event_id"\);\s*\}/.test(
+      agentIdeComputerUseReplayTimeline,
+    ) &&
+      !/return stringField\(event,\s*"event_id",\s*"eventId",\s*"id"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /legacy-only-computer-use-event/.test(computerUseReplayTimelineProof) &&
+      /legacyAliasTimeline\.frames\[0\]\?\.eventId,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts",
+      "scripts/lib/workflow-computer-use-replay-timeline-proof.mjs",
+    ],
+    "Phase 10/11 is pending: IDE computer-use replay timeline must ignore retired runtime event id aliases",
   );
   return result;
 }

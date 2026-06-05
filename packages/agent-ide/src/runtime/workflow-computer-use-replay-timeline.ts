@@ -262,7 +262,7 @@ function labelForStep(step: string | null, eventKind: string): string {
 }
 
 function eventIdForEvent(event: RuntimeEventInput): string | null {
-  return stringField(event, "event_id", "eventId", "id");
+  return stringField(event, "event_id");
 }
 
 function eventKindForEvent(event: RuntimeEventInput): string {
