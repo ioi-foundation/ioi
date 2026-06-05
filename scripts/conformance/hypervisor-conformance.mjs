@@ -1063,6 +1063,19 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "l1-settlement-admission-live-bridge",
+    /admit_l1_settlement_attempt/.test(bridgeModule) &&
+      /L1SettlementAdmissionBridgeRequest/.test(bridgeModule) &&
+      /L1SettlementTriggerGuard/.test(bridgeModule) &&
+      /rust_l1_settlement_guard_command/.test(bridgeModule) &&
+      /l1_settlement_guard/.test(bridgeModule) &&
+      /l1_settlement_admission_invalid/.test(bridgeModule) &&
+      /bridge_admits_l1_settlement_attempt_through_rust_core/.test(bridgeModule),
+    ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
+    "Phase 8/11 is pending: L1 settlement attempts must be admitted through the Rust trigger guard before any product surface can settle",
+  );
+  assertCheck(
+    result,
     "governed-meta-improvement-proposal-live-bridge",
     /admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
       /GovernedRuntimeImprovementBridgeRequest/.test(bridgeModule) &&

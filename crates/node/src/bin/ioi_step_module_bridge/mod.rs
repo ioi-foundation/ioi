@@ -18,6 +18,9 @@ use ioi_services::agentic::runtime::kernel::receipt_binder::{
     AcceptedReceiptAppendIssuer, AcceptedReceiptAppendRequest, ReceiptBinder,
     ACCEPTED_RECEIPT_APPEND_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::settlement::{
+    L1SettlementAttempt, L1SettlementTriggerGuard,
+};
 use ioi_services::agentic::runtime::kernel::step_module::{
     StepModuleBackend, StepModuleInvocation, StepModuleKind, StepModuleNext,
     StepModuleProjectionStatus, StepModuleResult, StepModuleStatus, StepModuleWorkflowProjection,
@@ -196,6 +199,16 @@ struct WorkerServicePackageInvocationBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct L1SettlementAdmissionBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    attempt: L1SettlementAttempt,
+}
+
+#[derive(Debug, Deserialize)]
 struct GovernedRuntimeImprovementBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -333,6 +346,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             admit_worker_service_package_invocation(request)
+        }
+        "admit_l1_settlement_attempt" => {
+            let request: L1SettlementAdmissionBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            admit_l1_settlement_attempt(request)
         }
         "admit_governed_runtime_improvement_proposal" => {
             let request: GovernedRuntimeImprovementBridgeRequest =
@@ -1072,6 +1091,42 @@ fn admit_worker_service_package_invocation(
         "artifact_refs": record.artifact_refs.clone(),
         "payload_refs": record.payload_refs.clone(),
         "authority_grant_refs": record.authority_grant_refs.clone(),
+    }))
+}
+
+fn admit_l1_settlement_attempt(
+    request: L1SettlementAdmissionBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "admit_l1_settlement_attempt" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = L1SettlementTriggerGuard
+        .admit(&request.attempt)
+        .map_err(|error| {
+            BridgeError::new("l1_settlement_admission_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_l1_settlement_guard_command",
+        "backend": request.backend.unwrap_or_else(|| "l1_settlement_guard".to_string()),
+        "record": record.clone(),
+        "settlement_ref": record.settlement_ref,
+        "domain_ref": record.domain_ref,
+        "state_root_ref": record.state_root_ref,
+        "trigger_refs": record.trigger_refs,
+        "receipt_refs": record.receipt_refs,
+        "admission_hash": record.admission_hash,
     }))
 }
 
@@ -4804,6 +4859,44 @@ mod tests {
             response["authority_grant_refs"][0],
             "grant://wallet/worker-package"
         );
+    }
+
+    #[test]
+    fn bridge_admits_l1_settlement_attempt_through_rust_core() {
+        let request: L1SettlementAdmissionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": COMMAND_SCHEMA_VERSION,
+                "operation": "admit_l1_settlement_attempt",
+                "backend": "l1_settlement_guard",
+                "attempt": {
+                    "schema_version": "ioi.l1_settlement_admission.v1",
+                    "settlement_ref": "l1://settlement/marketplace-transaction",
+                    "domain_ref": "domain://marketplace/services",
+                    "state_root_ref": "state-root://agentgres/marketplace/after",
+                    "trigger_refs": ["l1-trigger://service-contract/payment"],
+                    "receipt_refs": ["receipt://local-settlement/payment"]
+                }
+            }))
+            .expect("L1 settlement bridge request");
+
+        let response =
+            admit_l1_settlement_attempt(request).expect("L1 settlement admitted");
+
+        assert_eq!(response["source"], "rust_l1_settlement_guard_command");
+        assert_eq!(response["backend"], "l1_settlement_guard");
+        assert_eq!(
+            response["settlement_ref"],
+            "l1://settlement/marketplace-transaction"
+        );
+        assert_eq!(
+            response["trigger_refs"][0],
+            "l1-trigger://service-contract/payment"
+        );
+        assert_eq!(
+            response["record"]["receipt_refs"][0],
+            "receipt://local-settlement/payment"
+        );
+        assert_ne!(response["admission_hash"][0], 0);
     }
 
     #[test]
