@@ -514,9 +514,7 @@ export interface RuntimeSubagentRecord {
   receipt_refs?: string[];
   evidence_refs?: string[];
   created_at?: string;
-  createdAt?: string;
   updated_at?: string;
-  updatedAt?: string;
   [key: string]: unknown;
 }
 
