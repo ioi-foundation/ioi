@@ -891,6 +891,9 @@ function runReceipts() {
   const agentgresAdmissionCore = exists("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     ? read("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     : "";
+  const runtimeKernelModule = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+    : "";
   const runtimeRunReadSurface = exists("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     : "";
@@ -1600,9 +1603,12 @@ function runReceipts() {
   assertCheck(
     result,
     "thread-run-state-storage-write-rust-admitted",
-    /StorageBackendWriteProposal/.test(agentgresAdmissionCore) &&
+      /StorageBackendWriteProposal/.test(agentgresAdmissionCore) &&
       /RuntimeStateStorageWriteSetRequest/.test(agentgresAdmissionCore) &&
       /plan_runtime_state_storage_writes/.test(agentgresAdmissionCore) &&
+      /RuntimeStateStorageWriteSetRequest/.test(runtimeKernelModule) &&
+      /RuntimeStateStorageWriteSetRecord/.test(runtimeKernelModule) &&
+      /pub fn plan_runtime_state_storage_writes/.test(runtimeKernelModule) &&
       /plans_runtime_state_storage_write_set_with_rust_content_hash_and_admissions/.test(agentgresAdmissionCore) &&
       /admit_storage_backend_write/.test(bridgeModule) &&
       /plan_runtime_state_storage_writes/.test(bridgeModule) &&
@@ -1631,6 +1637,7 @@ function runReceipts() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
       "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",

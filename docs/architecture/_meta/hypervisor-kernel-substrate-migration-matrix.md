@@ -4913,6 +4913,51 @@ implementation_slice:
     push: required after verification
 ```
 
+## Implementation Slice 77
+
+```yaml
+implementation_slice:
+  id: hypervisor-kernel-substrate-slice-77
+  phase: 10
+  objective: expose runtime run-state storage write-set planning through the
+    Rust kernel service facade
+  owner_boundary:
+    route_or_surface: Rust `RuntimeKernelService` API
+    authority_gate: unchanged
+    execution_backend: Rust Agentgres admission core
+    truth_path: unchanged from Slice 76
+    projection_path: unchanged from Slice 76
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    daemon: []
+    rust_core:
+      - crates/services/src/agentic/runtime/kernel/mod.rs
+    ide: []
+    tests:
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - `RuntimeKernelService` imports `RuntimeStateStorageWriteSetRequest`
+    - `RuntimeKernelService` imports `RuntimeStateStorageWriteSetRecord`
+    - `RuntimeKernelService` exposes `plan_runtime_state_storage_writes`
+  verification:
+    commands:
+      - cargo test -p ioi-services agentgres_admission
+      - npm run hypervisor-conformance:receipts
+      - npm run hypervisor-conformance
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: false
+    compatibility_shims_remaining:
+      - runtime Agentgres admission remains command-bridge based until the Rust
+        daemon core owns the hot path in-process
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -4929,7 +4974,7 @@ implementation_slice:
 | `worker-service-packages` | `docs/architecture/foundations/common-objects-and-envelopes.md`, `docs/architecture/domains/aiagent/worker-endpoints.md`, `docs/architecture/domains/sas/service-endpoints.md` | target canon plus service/module concepts | Rust core `step_router` plus workload/WASM/AIIP backends | package invocation receipt, authority grant, artifacts, projection | `bridge`, `receipts`, `compositor` | target only | service and worker package invocation uses the shared Step/Module ABI. |
 | `l1-settlement` | `docs/architecture/foundations/ioi-l1-mainnet.md`, `crates/services/src/agentic/runtime/kernel/settlement.rs` | canon plus Rust trigger guard | Rust settlement/admission core under daemon-owned execution | sparse public/economic/cross-domain commitment by trigger only | `negative` | Rust trigger guard implemented; product settlement surfaces still pending | L1 settlement attempts without marketplace/public/economic/cross-domain/operator trigger fail closed. |
 | `meta-improvement` | `crates/services/src/agentic/runtime/kernel/*`, workflow/evaluation docs | partial Rust/IDE signals | Rust core authority plus proposal/eval/approval path | proposal object, eval receipts, approval grant, committed mutation | `receipts`, `negative` | target only | agents cannot self-modify directly; all improvements are proposal-mediated. |
-| `rust-daemon-core` | target layout in master guide plus `crates/services/src/agentic/runtime/kernel/*` | partial Rust primitives for authority, step_router, cTEE, receipts, Agentgres admission, runtime-state transition planning, storage write-set planning, projection, settlement, Step/Module ABI, model_mount provider-execution admission, fixture/native-local non-stream provider-invocation execution, native-local stream invocation planning/chunks, and provider-result admission for non-migrated driver observations | Rust modules: `authority`, `step_router`, `workload_client`, `model_mount`, `ctee`, `receipt_binder`, `agentgres_admission`, `projection`, `conformance` | one Rust owner for hot-path semantics | all tiers | partial primitives, not extracted as one authoritative core; model_mount now admits provider-execution envelopes before JS provider driver calls, executes migrated fixture/native-local non-stream provider backends and native-local stream chunk planning, rejects retired direct JS local provider non-stream/stream execution shims, admits non-migrated JS provider results before receipts, and runtime run persistence now obtains Rust-planned Agentgres state heads/state roots plus Rust-planned storage write sets before JS local state writes | hot-path execution, authority, receipt/state-root binding, cTEE, replay, and conformance are owned by Rust core. |
+| `rust-daemon-core` | target layout in master guide plus `crates/services/src/agentic/runtime/kernel/*` | partial Rust primitives for authority, step_router, cTEE, receipts, Agentgres admission, runtime-state transition planning, storage write-set planning, projection, settlement, Step/Module ABI, model_mount provider-execution admission, fixture/native-local non-stream provider-invocation execution, native-local stream invocation planning/chunks, and provider-result admission for non-migrated driver observations | Rust modules: `authority`, `step_router`, `workload_client`, `model_mount`, `ctee`, `receipt_binder`, `agentgres_admission`, `projection`, `conformance` | one Rust owner for hot-path semantics | all tiers | partial primitives, not extracted as one authoritative core; model_mount now admits provider-execution envelopes before JS provider driver calls, executes migrated fixture/native-local non-stream provider backends and native-local stream chunk planning, rejects retired direct JS local provider non-stream/stream execution shims, admits non-migrated JS provider results before receipts, and runtime run persistence now obtains Rust-planned Agentgres state heads/state roots plus Rust-planned storage write sets through `RuntimeKernelService` before JS local state writes | hot-path execution, authority, receipt/state-root binding, cTEE, replay, and conformance are owned by Rust core. |
 | `js-facade-retirement` | `packages/runtime-daemon/src/*`, `crates/services/src/agentic/runtime/kernel/step_router.rs` | JS is current live daemon implementation, with Rust guard forbidding authoritative daemon_js mutation | non-authoritative product/API/client facade only where useful | stable protocol APIs into Rust core | `negative`, terminal `hypervisor-conformance` | direct JS authoritative mutation guard implemented; model-mounting protocol response compatibility re-export retired; broad live facade retirement still pending | every migrated route family removes or demotes old JS authoritative paths and compatibility shims. |
 
 ## Cleanup Targets Found In Phase 0
@@ -4963,14 +5008,14 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 76:
+Current expected behavior after Slice 77:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
 | `hypervisor-conformance:abi` | pass | Step/Module schemas and current coding-tool projection wrappers exist. |
 | `hypervisor-conformance:bridge` | pass | daemon StepModuleRunner boundary, fail-closed Rust workload runner selection, live Rust model_mount provider-execution admission bridge, shared Rust provider invocation bridge for fixture and native-local non-stream execution, Rust native-local stream invocation bridge and returned-chunk adapter, Rust local-provider lifecycle planner bridge for fixture/native-local health/load/unload result envelopes, Rust local-provider inventory planner bridge for fixture/native-local model/list-loaded result envelopes, Rust instance lifecycle planner bridge for migrated local-provider model load/unload/evict/supersede state transitions, retired direct JS local provider non-stream invoke and native-local stream production shims, removed dead JS native-local stream helper exports, obsolete output wrapper, and retired fixture response modules, Rust provider-result admission bridge, stream-start provider-result admission guard, native-stream no-downgrade guards, OpenAI-compatible responses no-fallback guard, provider compatibility-translation fail-closed guard, and protocol response facade re-export retirement guard exist without a duplicate JS request-shape append. |
-| `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists, model provider execution is admitted before driver calls, fixture and native-local non-stream provider invocation execute in Rust, native-local stream frame planning/chunks execute in Rust, local-provider health/load/unload lifecycle status/backend/evidence envelopes are planned and hash-bound in Rust, local-provider model/list-loaded inventory status/backend/evidence envelopes are planned and hash-bound in Rust, migrated local-provider model load/unload/evict/supersede instance lifecycle transitions are planned and hash-bound in Rust to provider lifecycle hashes, direct migrated local-provider model-instance map and lifecycle receipt helper/store persistence without provider kind and Rust instance lifecycle action/status hashes now fails closed, direct migrated local-provider provider-health receipt persistence without provider kind and Rust lifecycle action/status/hash/evidence now fails closed, migrated local-provider provider start/stop fails closed without Rust lifecycle binding and direct provider-control receipt persistence requires the same binding, direct migrated local-provider provider-inventory receipt persistence without provider kind and Rust inventory action/status/hash/evidence now fails closed, the direct receipt-write guards now live outside the JS store adapter in `model-mounting/receipt-write-guards.mjs`, non-migrated provider results and native stream-start observations are Rust-admitted observations, runtime run-state persistence requires Rust-planned Agentgres heads/state roots/resulting head/projection watermark before JS local state writes, every `writeRunRecord` JSON write is covered by a Rust-planned storage write set where Rust computes content hash, object ref, PayloadRef, storage admission, and write-set hash before `writeJson`, runtime Agentgres admission requires the explicit `IOI_RUNTIME_AGENTGRES_COMMAND` env without model-mount env fallback, stream request-shape evidence, provider-open retry handling, wallet authority audit mirroring, vault audit mirroring, receipt persistence, OpenAI provider stream-shape recording, stale model-mounting append callback injection, memory record/policy operation mirroring, runtime bridge turn budget/error mirroring, agent delete operation mirroring, agent/subagent persistence operation mirroring, and run persistence/read-surface operation-log exposure no longer create duplicate JS operation-like records; model-mounting local heads and projection watermarks derive from persisted receipt count; model invocation and stream-completion receipts carry Rust Agentgres admission, and direct unbound model invocation store appends fail closed. |
+| `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists, model provider execution is admitted before driver calls, fixture and native-local non-stream provider invocation execute in Rust, native-local stream frame planning/chunks execute in Rust, local-provider health/load/unload lifecycle status/backend/evidence envelopes are planned and hash-bound in Rust, local-provider model/list-loaded inventory status/backend/evidence envelopes are planned and hash-bound in Rust, migrated local-provider model load/unload/evict/supersede instance lifecycle transitions are planned and hash-bound in Rust to provider lifecycle hashes, direct migrated local-provider model-instance map and lifecycle receipt helper/store persistence without provider kind and Rust instance lifecycle action/status hashes now fails closed, direct migrated local-provider provider-health receipt persistence without provider kind and Rust lifecycle action/status/hash/evidence now fails closed, migrated local-provider provider start/stop fails closed without Rust lifecycle binding and direct provider-control receipt persistence requires the same binding, direct migrated local-provider provider-inventory receipt persistence without provider kind and Rust inventory action/status/hash/evidence now fails closed, the direct receipt-write guards now live outside the JS store adapter in `model-mounting/receipt-write-guards.mjs`, non-migrated provider results and native stream-start observations are Rust-admitted observations, runtime run-state persistence requires Rust-planned Agentgres heads/state roots/resulting head/projection watermark before JS local state writes, every `writeRunRecord` JSON write is covered by a Rust-planned storage write set exposed through `RuntimeKernelService`, where Rust computes content hash, object ref, PayloadRef, storage admission, and write-set hash before `writeJson`, runtime Agentgres admission requires the explicit `IOI_RUNTIME_AGENTGRES_COMMAND` env without model-mount env fallback, stream request-shape evidence, provider-open retry handling, wallet authority audit mirroring, vault audit mirroring, receipt persistence, OpenAI provider stream-shape recording, stale model-mounting append callback injection, memory record/policy operation mirroring, runtime bridge turn budget/error mirroring, agent delete operation mirroring, agent/subagent persistence operation mirroring, and run persistence/read-surface operation-log exposure no longer create duplicate JS operation-like records; model-mounting local heads and projection watermarks derive from persisted receipt count; model invocation and stream-completion receipts carry Rust Agentgres admission, and direct unbound model invocation store appends fail closed. |
 | `hypervisor-conformance:ctee` | pass | Rust cTEE Private Workspace module validation exists and untrusted plaintext custody fails closed. |
 | `hypervisor-conformance:compositor` | pass | Rust projection records exist, the shadow bridge emits them, and compositor accepted-truth attempts fail closed. |
 | `hypervisor-conformance:negative` | pass | All required forbidden-path negative fixtures are implemented at the Rust guard level. |
