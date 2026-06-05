@@ -183,7 +183,7 @@ export function createRuntimeSubagentSurface({
       const parentAgent = store.agentForThread(threadId);
       const parentThread = store.threadForAgent(parentAgent);
       const prompt = optionalStringDep(
-        request.prompt ?? request.message ?? request.input ?? request.subagentPrompt ?? request.subagent_prompt,
+        request.prompt ?? request.message ?? request.input ?? request.subagent_prompt,
       );
       if (!prompt) {
         throw runtimeErrorDep({
@@ -193,9 +193,9 @@ export function createRuntimeSubagentSurface({
           details: { thread_id: threadId },
         });
       }
-      const role = normalizeSubagentRoleDep(request.role ?? request.subagentRole ?? request.subagent_role);
+      const role = normalizeSubagentRoleDep(request.role ?? request.subagent_role);
       const maxConcurrency = optionalPositiveIntegerDep(
-        request.max_concurrency ?? request.maxConcurrency ?? request.subagentMaxConcurrency,
+        request.max_concurrency,
       );
       if (maxConcurrency) {
         const activeForRole = this.listSubagents(store, threadId, { role }).subagents
@@ -211,7 +211,7 @@ export function createRuntimeSubagentSurface({
       }
 
       const modelRouteId =
-        optionalStringDep(request.model_route_id ?? request.modelRouteId ?? request.subagentModelRoute) ??
+        optionalStringDep(request.model_route_id) ??
         parentAgent.modelRouteId ??
         "route.local-first";
       const childAgent = store.createAgent({
@@ -232,7 +232,7 @@ export function createRuntimeSubagentSurface({
       const now = nowIso();
       const subagentId = childAgent.id;
       const outputContract = normalizeSubagentOutputContractDep(
-        request.output_contract ?? request.outputContract ?? request.subagentOutputContract,
+        request.output_contract,
       );
       const output = subagentContractOutputForRunDep(run, outputContract);
       const outputContractStatus = validateSubagentOutputContractDep(output, outputContract);
@@ -247,31 +247,30 @@ export function createRuntimeSubagentSurface({
       const subagentLifecycleStatus =
         budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRunDep(run.status);
       const workflowGraphId =
-        optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+        optionalStringDep(request.workflow_graph_id) ?? null;
       const workflowNodeId =
-        optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ??
+        optionalStringDep(request.workflow_node_id) ??
         `runtime.subagent.spawn.${safeIdDep(role)}`;
       const parentTurnId =
-        optionalStringDep(request.parent_turn_id ?? request.parentTurnId ?? request.turn_id ?? request.turnId) ??
+        optionalStringDep(request.parent_turn_id ?? request.turn_id) ??
         parentThread.latest_turn_id ??
         null;
       const contextPressureAction =
-        optionalStringDep(request.context_pressure_action ?? request.contextPressureAction) ?? null;
+        optionalStringDep(request.context_pressure_action) ?? null;
       const contextPressure = contextBudgetNumberDep(
         request.context_pressure,
-        request.contextPressure,
         request.pressure,
       );
       const pressureStatus =
-        optionalStringDep(request.pressure_status ?? request.pressureStatus) ?? null;
-      const alertId = optionalStringDep(request.alert_id ?? request.alertId) ?? null;
+        optionalStringDep(request.pressure_status) ?? null;
+      const alertId = optionalStringDep(request.alert_id) ?? null;
       const sourceEventId =
-        optionalStringDep(request.source_event_id ?? request.sourceEventId) ?? null;
+        optionalStringDep(request.source_event_id) ?? null;
       const requestReceiptRefs = uniqueStringsDep(
-        request.receipt_refs ?? request.receiptRefs,
+        request.receipt_refs,
       );
       const requestPolicyDecisionRefs = uniqueStringsDep(
-        request.policy_decision_refs ?? request.policyDecisionRefs,
+        request.policy_decision_refs,
       );
       const runReceiptRefs = normalizeArray(run.receipts).map((receipt) => receipt.id);
       const record = {
@@ -285,7 +284,7 @@ export function createRuntimeSubagentSurface({
         parent_agent_id: parentAgent.id,
         parent_turn_id: parentTurnId,
         role,
-        tool_pack: optionalStringDep(request.tool_pack ?? request.toolPack ?? request.subagentToolPack) ?? null,
+        tool_pack: optionalStringDep(request.tool_pack) ?? null,
         model_route_id: modelRouteId,
         workflow_graph_id: workflowGraphId,
         workflow_node_id: workflowNodeId,
@@ -293,8 +292,8 @@ export function createRuntimeSubagentSurface({
         lifecycle_status: subagentLifecycleStatus,
         status: subagentLifecycleStatus,
         restart_status: "not_restarted",
-        fork_context: request.fork_context === true || request.forkContext === true,
-        context_mode: request.fork_context === true || request.forkContext === true ? "forked" : "fresh",
+        fork_context: request.fork_context === true,
+        context_mode: request.fork_context === true ? "forked" : "fresh",
         max_concurrency: maxConcurrency,
         budget,
         budget_usage_telemetry: budgetUsageTelemetry,
@@ -305,9 +304,9 @@ export function createRuntimeSubagentSurface({
         output_contract: outputContract,
         output_contract_status: outputContractStatus.status,
         output_contract_validation: outputContractStatus,
-        merge_policy: optionalStringDep(request.merge_policy ?? request.mergePolicy) ?? "manual",
+        merge_policy: optionalStringDep(request.merge_policy) ?? "manual",
         cancellation_inheritance:
-          optionalStringDep(request.cancellation_inheritance ?? request.cancellationInheritance) ?? "propagate",
+          optionalStringDep(request.cancellation_inheritance) ?? "propagate",
         context_pressure_action: contextPressureAction,
         context_pressure: contextPressure,
         pressure_status: pressureStatus,

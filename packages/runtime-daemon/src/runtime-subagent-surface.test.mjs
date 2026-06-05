@@ -581,20 +581,20 @@ test("subagent surface spawns subagents with source and context metadata", () =>
     source: "agent_studio",
     prompt: "Research the risky change",
     role: "Planner",
-    toolPack: "planning-tools",
-    modelRouteId: "route.spawn",
-    maxConcurrency: 2,
-    forkContext: true,
-    mergePolicy: "auto",
-    cancellationInheritance: "detach",
-    outputContract: ["SUMMARY"],
+    tool_pack: "planning-tools",
+    model_route_id: "route.spawn",
+    max_concurrency: 2,
+    fork_context: true,
+    merge_policy: "auto",
+    cancellation_inheritance: "detach",
+    output_contract: ["SUMMARY"],
     workflow_graph_id: "graph_spawn",
     workflow_node_id: "node_spawn",
-    contextPressureAction: "delegate",
-    contextPressure: 0.82,
-    pressureStatus: "high",
-    alertId: "alert_context",
-    sourceEventId: "evt_source",
+    context_pressure_action: "delegate",
+    context_pressure: 0.82,
+    pressure_status: "high",
+    alert_id: "alert_context",
+    source_event_id: "evt_source",
     receipt_refs: ["receipt_spawn_request"],
     policy_decision_refs: ["policy_spawn_request"],
   });
@@ -647,6 +647,88 @@ test("subagent surface spawns subagents with source and context metadata", () =>
   assert.ok(saved.evidence_refs.includes("policy_spawn_request"));
 });
 
+test("subagent spawn ignores retired camelCase request aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T12:17:00.000Z",
+    nowMs: () => 1780586220000,
+  });
+  store.surface = surface;
+
+  const result = surface.spawnSubagent(store, "thread_1", {
+    source: "agent_studio",
+    prompt: "Canonical spawn request",
+    subagentPrompt: "Alias spawn request",
+    role: "Planner",
+    subagentRole: "Reviewer",
+    tool_pack: "canonical-tools",
+    toolPack: "alias-tools",
+    model_route_id: "route.spawn.canonical",
+    modelRouteId: "route.spawn.alias",
+    max_concurrency: 3,
+    maxConcurrency: 1,
+    fork_context: true,
+    forkContext: false,
+    merge_policy: "canonical-merge",
+    mergePolicy: "alias-merge",
+    cancellation_inheritance: "detach",
+    cancellationInheritance: "propagate",
+    output_contract: ["SUMMARY"],
+    outputContract: ["MISSING_SECTION"],
+    workflow_graph_id: "graph_spawn_canonical",
+    workflowGraphId: "graph_spawn_alias",
+    workflow_node_id: "node_spawn_canonical",
+    workflowNodeId: "node_spawn_alias",
+    parent_turn_id: "turn_spawn_canonical",
+    parentTurnId: "turn_spawn_alias",
+    context_pressure_action: "delegate",
+    contextPressureAction: "alias-action",
+    context_pressure: 0.42,
+    contextPressure: 0.99,
+    pressure_status: "medium",
+    pressureStatus: "alias-pressure",
+    alert_id: "alert_canonical",
+    alertId: "alert_alias",
+    source_event_id: "evt_canonical",
+    sourceEventId: "evt_alias",
+    receipt_refs: ["receipt_spawn_canonical"],
+    receiptRefs: ["receipt_spawn_alias"],
+    policy_decision_refs: ["policy_spawn_canonical"],
+    policyDecisionRefs: ["policy_spawn_alias"],
+  });
+  const saved = store.subagents.get("agent_spawn_1");
+  const createdRun = store.runs.get("run_created_3");
+
+  assert.equal(createdRun.request.prompt, "Canonical spawn request");
+  assert.equal(result.role, "planner");
+  assert.equal(result.tool_pack, "canonical-tools");
+  assert.equal(result.model_route_id, "route.spawn.canonical");
+  assert.equal(result.max_concurrency, 3);
+  assert.equal(result.context_mode, "forked");
+  assert.equal(result.merge_policy, "canonical-merge");
+  assert.equal(result.cancellation_inheritance, "detach");
+  assert.equal(result.output_contract_status, "passed");
+  assert.equal(result.workflow_graph_id, "graph_spawn_canonical");
+  assert.equal(result.workflow_node_id, "node_spawn_canonical");
+  assert.equal(result.parent_turn_id, "turn_spawn_canonical");
+  assert.equal(result.context_pressure_action, "delegate");
+  assert.equal(result.context_pressure, 0.42);
+  assert.equal(result.pressure_status, "medium");
+  assert.equal(result.alert_id, "alert_canonical");
+  assert.equal(result.source_event_id, "evt_canonical");
+  assert.deepEqual(result.source_receipt_refs, ["receipt_spawn_canonical"]);
+  assert.deepEqual(result.source_policy_decision_refs, ["policy_spawn_canonical"]);
+  assert.equal(result.event.receipt_refs.includes("receipt_spawn_canonical"), true);
+  assert.equal(result.event.receipt_refs.includes("receipt_spawn_alias"), false);
+  assert.equal(result.event.policy_decision_refs.includes("policy_spawn_canonical"), true);
+  assert.equal(result.event.policy_decision_refs.includes("policy_spawn_alias"), false);
+  assert.equal(saved.evidence_refs.includes("receipt_spawn_canonical"), true);
+  assert.equal(saved.evidence_refs.includes("receipt_spawn_alias"), false);
+  assertCanonicalSpawnSubagentStagingRecord(store.eventInputs[0].record);
+  assertCanonicalSubagentRecordOutput(saved);
+  assertCanonicalSubagentStoreWrites(store);
+});
+
 test("subagent surface rejects missing prompt and role concurrency overflow", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface();
@@ -665,7 +747,7 @@ test("subagent surface rejects missing prompt and role concurrency overflow", ()
       surface.spawnSubagent(store, "thread_1", {
         prompt: "Another reviewer",
         role: "reviewer",
-        maxConcurrency: 1,
+        max_concurrency: 1,
       }),
     (error) => {
       assert.equal(error.status, 403);

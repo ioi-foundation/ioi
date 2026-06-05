@@ -3241,6 +3241,10 @@ function runCompositor() {
   ]
     .filter(Boolean)
     .join("\n");
+  const runtimeSubagentSpawnBlock =
+    runtimeSubagentSurface.match(
+      /spawnSubagent\(store, threadId, request = \{\}\) \{[\s\S]*?\n    \},\n    waitSubagent/,
+    )?.[0] ?? "";
   const runtimeSubagentSendInputBlock =
     runtimeSubagentSurface.match(
       /sendSubagentInput\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?\n    \},\n    resumeSubagent/,
@@ -3348,6 +3352,8 @@ function runCompositor() {
     /record\.(?:subagentId|workflowGraphId|workflowNodeId|budgetPolicyDecision|budgetStatus|parentTurnId)\b/;
   const runtimeSubagentControlEventRequestAliasReadPattern =
     /request\.(?:workflowGraphId|workflowNodeId|receiptRefs|policyDecisionRefs|idempotencyKey)\b/;
+  const runtimeSubagentSpawnRequestAliasReadPattern =
+    /request\.(?:subagentPrompt|subagentRole|maxConcurrency|subagentMaxConcurrency|modelRouteId|subagentModelRoute|outputContract|subagentOutputContract|workflowGraphId|workflowNodeId|parentTurnId|turnId|contextPressureAction|contextPressure|pressureStatus|alertId|sourceEventId|receiptRefs|policyDecisionRefs|toolPack|subagentToolPack|forkContext|mergePolicy|cancellationInheritance)\b/;
   const runtimeSubagentProjectionBlock =
     runtimeSubagentSurface.match(
       /subagentProjection\(record = \{\}\) \{[\s\S]*?\n    \},\n    appendThreadSubagentControlEvent/,
@@ -4107,6 +4113,32 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent wait/result reads must ignore retired camelCase persisted record aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-spawn-request-aliases-retired",
+    runtimeSubagentSpawnBlock.length > 0 &&
+      !runtimeSubagentSpawnRequestAliasReadPattern.test(
+        runtimeSubagentSpawnBlock,
+      ) &&
+      /subagent spawn ignores retired camelCase request aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /subagentPrompt: "Alias spawn request"/.test(runtimeSubagentSurfaceTest) &&
+      /subagentRole: "Reviewer"/.test(runtimeSubagentSurfaceTest) &&
+      /toolPack: "alias-tools"/.test(runtimeSubagentSurfaceTest) &&
+      /modelRouteId: "route\.spawn\.alias"/.test(runtimeSubagentSurfaceTest) &&
+      /outputContract: \["MISSING_SECTION"\]/.test(runtimeSubagentSurfaceTest) &&
+      /workflowGraphId: "graph_spawn_alias"/.test(runtimeSubagentSurfaceTest) &&
+      /receiptRefs: \["receipt_spawn_alias"\]/.test(runtimeSubagentSurfaceTest) &&
+      /policyDecisionRefs: \["policy_spawn_alias"\]/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent spawn must ignore retired camelCase request aliases",
   );
   assertCheck(
     result,
