@@ -184,7 +184,7 @@ function stripAutopilotOnlyProviderFields(body = {}) {
 
 function applyProviderNativeReasoningControls(requestBody = {}, originalBody = {}, endpoint = {}) {
   if (!isLlamaCppEndpoint(endpoint)) return;
-  const policy = originalBody.model_policy ?? originalBody.modelPolicy ?? {};
+  const policy = originalBody.model_policy ?? {};
   const effort = normalizeReasoningEffortValue(
     originalBody.reasoning_effort ??
       originalBody.reasoningEffort ??

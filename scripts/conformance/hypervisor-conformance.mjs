@@ -1169,6 +1169,18 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-provider-request-policy-alias-retired",
+    /const policy = originalBody\.model_policy \?\? \{\};/.test(modelRouteDecisionModule) &&
+      !/originalBody\.modelPolicy\b/.test(modelRouteDecisionModule) &&
+      /provider request body ignores retired modelPolicy reasoning alias/.test(modelRouteDecisionTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
+    ],
+    "Phase 10/11 is pending: provider-native request shaping must read canonical model_policy only and ignore retired modelPolicy request aliases",
+  );
+  assertCheck(
+    result,
     "model-mount-route-decision-workflow-aliases-retired",
     /^ {4}workflow_graph_id:\s*workflow\.workflowGraphId/m.test(modelRouteDecisionObject) &&
       /^ {4}workflow_node_id:\s*workflow\.workflowNodeId/m.test(modelRouteDecisionObject) &&

@@ -11858,6 +11858,11 @@ low-variance invocation coalescing now hashes canonical `model_policy` only,
 so retired `modelPolicy` request data cannot alter admission grouping or
 reintroduce a split request-shape path.
 
+Slice 304 retires the provider-native request-shaping `modelPolicy` fallback:
+llama.cpp reasoning controls now read canonical `model_policy` only, so a
+retired top-level `modelPolicy` object cannot affect provider-bound request
+translation after the daemon entry-point guard has already retired that alias.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

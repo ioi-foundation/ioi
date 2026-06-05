@@ -293,6 +293,21 @@ test("provider request body maps enabled Autopilot reasoning to llama.cpp enable
   assert.deepEqual(body.chat_template_kwargs, { enable_thinking: true });
 });
 
+test("provider request body ignores retired modelPolicy reasoning alias", () => {
+  const body = providerRequestBodyForRoute(
+    {
+      model: "qwen/qwen3.5-9b",
+      modelPolicy: { reasoning_effort: "none" },
+      messages: [{ role: "user", content: "answer directly" }],
+    },
+    { modelId: "qwen/qwen3.5-9b", providerId: "provider.llama-cpp", driver: "llama_cpp" },
+  );
+
+  assert.equal(body.reasoning_effort, undefined);
+  assert.equal(body.chat_template_kwargs, undefined);
+  assert.equal(body.modelPolicy, undefined);
+});
+
 test("provider request body coalesces multiple system messages for llama.cpp chat templates", () => {
   const body = providerRequestBodyForRoute(
     {
