@@ -413,6 +413,18 @@ function runBridge() {
   )
     ? read("packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs")
     : "";
+  const runtimeRecordProjections = exists("packages/runtime-daemon/src/runtime-record-projections.mjs")
+    ? read("packages/runtime-daemon/src/runtime-record-projections.mjs")
+    : "";
+  const threadTurnProjection = exists("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
+    : "";
+  const agentTuiCli = exists("crates/cli/src/commands/agent_tui.rs")
+    ? read("crates/cli/src/commands/agent_tui.rs")
+    : "";
+  const agentgresAdmissionCoreForBridge = exists("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
+    : "";
   const stepModuleRunner = exists("packages/runtime-daemon/src/step-module-runner.mjs")
     ? read("packages/runtime-daemon/src/step-module-runner.mjs")
     : "";
@@ -901,6 +913,45 @@ function runBridge() {
       "packages/agent-sdk/src/messages.ts",
     ],
     "Phase 3/10 is pending: model route decisions and route-selection receipts must emit canonical response lineage fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-route-decision-identity-aliases-retired",
+    /schema_version:\s*MODEL_ROUTE_DECISION_SCHEMA_VERSION/.test(modelRouteDecisionObject) &&
+      /event_kind:\s*MODEL_ROUTE_DECISION_EVENT_KIND/.test(modelRouteDecisionObject) &&
+      /decision_id:\s*stableHash/.test(modelRouteDecisionObject) &&
+      !/schemaVersion\s*:/.test(modelRouteDecisionObject) &&
+      !/eventKind\s*:/.test(modelRouteDecisionObject) &&
+      !/decisionId\s*:/.test(modelRouteDecisionObject) &&
+      /model_route_decision_id:\s*modelRouteDecision\.decision_id/.test(modelRoutes) &&
+      /requiredRef\("decision_id",\s*modelRouteDecision\.decision_id\)/.test(modelRoutes) &&
+      !/modelRouteDecision\.decisionId/.test(modelRoutes) &&
+      /schema_version:\s*"ioi\.model-route-decision\.v1"/.test(agentSdkModelRouteDecisionType) &&
+      /event_kind:\s*"ModelRouteDecision"/.test(agentSdkModelRouteDecisionType) &&
+      /decision_id:\s*string/.test(agentSdkModelRouteDecisionType) &&
+      !/schemaVersion/.test(agentSdkModelRouteDecisionType) &&
+      !/eventKind/.test(agentSdkModelRouteDecisionType) &&
+      !/decisionId/.test(agentSdkModelRouteDecisionType) &&
+      /modelRouteDecision\?\.decision_id/.test(runtimeRecordProjections) &&
+      /modelRouteDecision\?\.decision_id/.test(threadTurnProjection) &&
+      /json_path_string\(value,\s*"\/decision_id"\)/.test(agentTuiCli) &&
+      /json_string\(value,\s*"decision_id"\)/.test(agentgresAdmissionCoreForBridge) &&
+      /Object\.hasOwn\(decision,\s*"schemaVersion"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"eventKind"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"decisionId"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(created\[0\]\.details\.model_route_decision,\s*"decisionId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")),
+    [
+      "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/routes.mjs",
+      "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
+      "packages/runtime-daemon/src/runtime-record-projections.mjs",
+      "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
+      "packages/agent-sdk/src/messages.ts",
+      "crates/cli/src/commands/agent_tui.rs",
+      "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+    ],
+    "Phase 3/10 is pending: model route decisions and direct model-route decision id readers must use canonical identity fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

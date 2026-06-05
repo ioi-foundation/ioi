@@ -930,10 +930,10 @@ export interface RuntimeReceipt {
 }
 
 export interface ModelRouteDecision {
-  schemaVersion: "ioi.model-route-decision.v1";
+  schema_version: "ioi.model-route-decision.v1";
   object: "ioi.model_route_decision";
-  eventKind: "ModelRouteDecision";
-  decisionId: string;
+  event_kind: "ModelRouteDecision";
+  decision_id: string;
   routeId: string | null;
   capability: string;
   requestedModel: string | null;

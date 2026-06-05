@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  MODEL_ROUTE_DECISION_EVENT_KIND,
+  MODEL_ROUTE_DECISION_SCHEMA_VERSION,
   createModelRouteDecision,
   providerRequestBodyForRoute,
   routeDecisionProjectionFromReceipt,
@@ -69,6 +71,12 @@ test("route decisions honor canonical fallback request metadata", () => {
     previousResponseId: "resp-0",
   });
 
+  assert.equal(decision.schema_version, MODEL_ROUTE_DECISION_SCHEMA_VERSION);
+  assert.equal(decision.event_kind, MODEL_ROUTE_DECISION_EVENT_KIND);
+  assert.equal(typeof decision.decision_id, "string");
+  assert.equal(Object.hasOwn(decision, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(decision, "eventKind"), false);
+  assert.equal(Object.hasOwn(decision, "decisionId"), false);
   assert.equal(decision.response_id, "resp-1");
   assert.equal(decision.previous_response_id, "resp-0");
   assert.equal(Object.hasOwn(decision, "responseId"), false);

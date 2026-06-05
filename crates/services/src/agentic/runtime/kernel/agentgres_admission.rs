@@ -1124,7 +1124,7 @@ fn runtime_task_record_for_run(run: &Value) -> Result<Value, AgentgresAdmissionE
         "promptHash": sha256_hex(json_string(run, "objective").unwrap_or("")),
         "promptIncluded": false,
         "objectivePreviewIncluded": false,
-        "modelRouteDecisionId": model_route_decision.and_then(|value| json_string(value, "decisionId")).map(|value| Value::String(value.to_string())).unwrap_or(Value::Null),
+        "modelRouteDecisionId": model_route_decision.and_then(|value| json_string(value, "decision_id")).map(|value| Value::String(value.to_string())).unwrap_or(Value::Null),
         "activeSkillHookManifestId": active_skill_hook_manifest.and_then(|value| json_string(value, "manifestId")).map(|value| Value::String(value.to_string())).unwrap_or(Value::Null),
         "createdAt": json_field(run, "createdAt"),
         "updatedAt": if run.get("updatedAt").is_some() { json_field(run, "updatedAt") } else { json_field(run, "createdAt") },

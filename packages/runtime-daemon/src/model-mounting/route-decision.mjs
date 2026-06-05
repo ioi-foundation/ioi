@@ -32,10 +32,10 @@ export function createModelRouteDecision({
   const fallbackTriggered = truthy(request.fallback_triggered);
   const fallbackReason = optionalString(request.fallback_reason);
   const decision = {
-    schemaVersion: MODEL_ROUTE_DECISION_SCHEMA_VERSION,
+    schema_version: MODEL_ROUTE_DECISION_SCHEMA_VERSION,
     object: "ioi.model_route_decision",
-    eventKind: MODEL_ROUTE_DECISION_EVENT_KIND,
-    decisionId: stableHash({
+    event_kind: MODEL_ROUTE_DECISION_EVENT_KIND,
+    decision_id: stableHash({
       routeId: route?.id ?? null,
       endpointId: endpoint?.id ?? null,
       providerId: provider?.id ?? null,

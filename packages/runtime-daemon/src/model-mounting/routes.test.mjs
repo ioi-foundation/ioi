@@ -269,7 +269,7 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
       MODEL_ROUTE_DECISION_EVENT_KIND: "model_route_decision",
       workflowContextFromRouteRequest: () => ({ workflowNodeId: "node-1" }),
       createModelRouteDecision: ({ evaluatedCandidates }) => ({
-        decisionId: "decision-1",
+        decision_id: "decision-1",
         evaluatedCandidates,
       }),
     },
@@ -287,7 +287,8 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
   assert.equal(created[0].details.model_route_decision_schema_version, "v1");
   assert.equal(created[0].details.model_route_decision_event_kind, "model_route_decision");
   assert.equal(created[0].details.model_route_decision_id, "decision-1");
-  assert.equal(created[0].details.model_route_decision.decisionId, "decision-1");
+  assert.equal(created[0].details.model_route_decision.decision_id, "decision-1");
+  assert.equal(Object.hasOwn(created[0].details.model_route_decision, "decisionId"), false);
   assert.equal(created[0].details.response_id, "resp-1");
   assert.equal(created[0].details.previous_response_id, "resp-0");
   assert.equal(created[0].details.model_mount_route_decision_ref, "model_mount://route_decision/test");
@@ -324,7 +325,7 @@ test("model mounting route receipt fails closed without Rust admission", () => {
         MODEL_ROUTE_DECISION_SCHEMA_VERSION: "v1",
         MODEL_ROUTE_DECISION_EVENT_KIND: "model_route_decision",
         workflowContextFromRouteRequest: () => ({}),
-        createModelRouteDecision: () => ({ decisionId: "decision-1" }),
+        createModelRouteDecision: () => ({ decision_id: "decision-1" }),
       },
       selection: {
         route: { id: "route.local-first" },
@@ -349,7 +350,7 @@ test("model mounting route receipt requires a precomputed receipt id", () => {
         MODEL_ROUTE_DECISION_SCHEMA_VERSION: "v1",
         MODEL_ROUTE_DECISION_EVENT_KIND: "model_route_decision",
         workflowContextFromRouteRequest: () => ({}),
-        createModelRouteDecision: () => ({ decisionId: "decision-1" }),
+        createModelRouteDecision: () => ({ decision_id: "decision-1" }),
       },
       selection: {
         route: { id: "route.local-first" },
@@ -372,7 +373,7 @@ test("model mounting route request resolves auto before Rust admission", () => {
       privacy_profile: "private_workspace_ctee",
     },
     capability: "chat",
-    modelRouteDecision: { decisionId: "decision-1" },
+    modelRouteDecision: { decision_id: "decision-1" },
     policy: { privacy: "private_workspace_ctee" },
     policyHash: "policy-hash",
     receiptId: "receipt-route",
@@ -473,7 +474,7 @@ test("model mounting route state operations preserve delegate wiring", () => {
       MODEL_ROUTE_DECISION_SCHEMA_VERSION: "v1",
       MODEL_ROUTE_DECISION_EVENT_KIND: "model_route_decision",
       workflowContextFromRouteRequest: () => ({}),
-      createModelRouteDecision: () => ({ decisionId: "decision-1" }),
+      createModelRouteDecision: () => ({ decision_id: "decision-1" }),
     },
     stableHash: () => "policy-hash",
   });

@@ -2268,7 +2268,7 @@ pub(crate) fn tui_mode_status(thread: &Value, current_turn_id: Option<&str>) -> 
         "model_route_receipt_id": json_path_string(thread, "/model_route_receipt_id")
             .or_else(|| model_controls.and_then(|value| json_path_string(value, "/receiptId"))),
         "model_route_decision_id": model_route_decision
-            .and_then(|value| json_path_string(value, "/decisionId")),
+            .and_then(|value| json_path_string(value, "/decision_id")),
         "reasoning_effort": json_path_string(thread, "/reasoning_effort")
             .or_else(|| model_route_decision.and_then(|value| json_path_string(value, "/reasoningEffort")))
             .or_else(|| model_controls.and_then(|value| json_path_string(value, "/reasoningEffort"))),

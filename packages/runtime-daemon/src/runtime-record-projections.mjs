@@ -50,7 +50,7 @@ function runtimeTaskRecord({
     promptHash,
     promptIncluded: false,
     objectivePreviewIncluded: false,
-    modelRouteDecisionId: modelRouteDecision?.decisionId ?? null,
+    modelRouteDecisionId: modelRouteDecision?.decision_id ?? null,
     activeSkillHookManifestId: activeSkillHookManifest?.manifestId ?? null,
     createdAt: createdAt ?? new Date().toISOString(),
     updatedAt: updatedAt ?? createdAt ?? new Date().toISOString(),
