@@ -296,7 +296,19 @@ test("provider inventory receipt writes fail closed without provider kind and Ru
     () => store.writeReceipt(providerInventoryReceipt()),
     (error) =>
       error.code === "model_mount_provider_inventory_receipt_direct_append_forbidden" &&
-      error.details.missing.includes("modelMountProviderInventoryHash"),
+      error.details.missing.includes("model_mount_provider_inventory_hash"),
+  );
+  assert.throws(
+    () => store.writeReceipt(providerInventoryReceipt({
+      modelMountProviderInventoryAction: "list_models",
+      modelMountProviderInventoryStatus: "listed",
+      modelMountProviderInventoryHash: "sha256:inventory",
+      modelMountProviderInventoryEvidenceRefs: ["rust_model_mount_provider_inventory"],
+    })),
+    (error) =>
+      error.code === "model_mount_provider_inventory_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("model_mount_provider_inventory_hash") &&
+      error.details.missing.includes("model_mount_provider_inventory_evidence_refs"),
   );
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.provider-inventory.json")), false);
   assert.deepEqual(appended, []);
@@ -306,10 +318,10 @@ test("provider inventory receipt writes allow Rust-bound local and remote provid
   const { appended, stateDir, store } = testStore();
   const localReceipt = providerInventoryReceipt({
     id: "receipt.inventory-local-bound",
-    modelMountProviderInventoryAction: "list_models",
-    modelMountProviderInventoryStatus: "listed",
-    modelMountProviderInventoryHash: "sha256:inventory",
-    modelMountProviderInventoryEvidenceRefs: ["rust_model_mount_provider_inventory"],
+    model_mount_provider_inventory_action: "list_models",
+    model_mount_provider_inventory_status: "listed",
+    model_mount_provider_inventory_hash: "sha256:inventory",
+    model_mount_provider_inventory_evidence_refs: ["rust_model_mount_provider_inventory"],
   });
   const remoteReceipt = providerInventoryReceipt({
     id: "receipt.inventory-remote",

@@ -347,17 +347,17 @@ function attachInventoryMetadata(records, inventory, action) {
       ...(record.backendEvidenceRefs ?? []),
       ...(inventory.evidence_refs ?? []),
     ], []),
-    inventoryEvidenceRefs: inventory.evidence_refs ?? [],
-    inventoryHash: inventory.inventory_hash ?? null,
-    inventoryItemCount: inventory.itemCount ?? inventory.itemRefs?.length ?? records.length,
+    inventory_evidence_refs: inventory.evidence_refs ?? [],
+    inventory_hash: inventory.inventory_hash ?? null,
+    inventory_item_count: inventory.itemCount ?? inventory.itemRefs?.length ?? records.length,
   }));
-  enriched.modelMountProviderInventory = {
+  enriched.model_mount_provider_inventory = {
     action: inventory.result?.action ?? inventory.action ?? action,
     status: inventory.status ?? null,
-    executionBackend: inventory.executionBackend ?? null,
-    inventoryHash: inventory.inventory_hash ?? null,
-    evidenceRefs: inventory.evidence_refs ?? [],
-    itemCount: inventory.itemCount ?? inventory.itemRefs?.length ?? records.length,
+    execution_backend: inventory.executionBackend ?? null,
+    inventory_hash: inventory.inventory_hash ?? null,
+    evidence_refs: inventory.evidence_refs ?? [],
+    item_count: inventory.itemCount ?? inventory.itemRefs?.length ?? records.length,
   };
   return enriched;
 }

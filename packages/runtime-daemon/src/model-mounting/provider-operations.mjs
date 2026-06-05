@@ -230,7 +230,7 @@ export async function listProviderModels(state, providerId) {
     state: provider.status,
     modelCount: resolved.length,
     evidenceRefs: provider.discovery?.evidenceRefs ?? [],
-    ...providerInventoryReceiptFields(models.modelMountProviderInventory),
+    ...providerInventoryReceiptFields(models.model_mount_provider_inventory),
   });
   return resolved;
 }
@@ -248,7 +248,7 @@ export async function listProviderLoaded(state, providerId) {
     state: provider.status,
     loadedCount: resolved.length,
     evidenceRefs: provider.discovery?.evidenceRefs ?? [],
-    ...providerInventoryReceiptFields(loaded.modelMountProviderInventory),
+    ...providerInventoryReceiptFields(loaded.model_mount_provider_inventory),
   });
   return resolved;
 }
@@ -256,12 +256,12 @@ export async function listProviderLoaded(state, providerId) {
 function providerInventoryReceiptFields(inventory) {
   if (!inventory) return {};
   return {
-    modelMountProviderInventoryAction: inventory.action,
-    modelMountProviderInventoryStatus: inventory.status,
-    modelMountProviderInventoryHash: inventory.inventoryHash,
-    modelMountProviderInventoryEvidenceRefs: inventory.evidenceRefs ?? [],
-    modelMountProviderInventoryExecutionBackend: inventory.executionBackend,
-    modelMountProviderInventoryItemCount: inventory.itemCount,
+    model_mount_provider_inventory_action: inventory.action,
+    model_mount_provider_inventory_status: inventory.status,
+    model_mount_provider_inventory_hash: inventory.inventory_hash,
+    model_mount_provider_inventory_evidence_refs: inventory.evidence_refs ?? [],
+    model_mount_provider_inventory_execution_backend: inventory.execution_backend,
+    model_mount_provider_inventory_item_count: inventory.item_count,
   };
 }
 

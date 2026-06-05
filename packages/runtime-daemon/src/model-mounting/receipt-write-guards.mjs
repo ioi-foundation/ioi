@@ -190,22 +190,22 @@ function assertProviderInventoryReceiptBound(receipt) {
     }
     return;
   }
-  if (!optionalNonEmptyString(details.modelMountProviderInventoryHash)) {
-    missing.push("modelMountProviderInventoryHash");
+  if (!optionalNonEmptyString(details.model_mount_provider_inventory_hash)) {
+    missing.push("model_mount_provider_inventory_hash");
   }
-  if (!Array.isArray(details.modelMountProviderInventoryEvidenceRefs) ||
-    !details.modelMountProviderInventoryEvidenceRefs.includes("rust_model_mount_provider_inventory")) {
-    missing.push("modelMountProviderInventoryEvidenceRefs");
+  if (!Array.isArray(details.model_mount_provider_inventory_evidence_refs) ||
+    !details.model_mount_provider_inventory_evidence_refs.includes("rust_model_mount_provider_inventory")) {
+    missing.push("model_mount_provider_inventory_evidence_refs");
   }
-  if (!optionalNonEmptyString(details.modelMountProviderInventoryAction)) {
-    missing.push("modelMountProviderInventoryAction");
-  } else if (details.modelMountProviderInventoryAction !== expectedAction) {
-    mismatches.push("modelMountProviderInventoryAction");
+  if (!optionalNonEmptyString(details.model_mount_provider_inventory_action)) {
+    missing.push("model_mount_provider_inventory_action");
+  } else if (details.model_mount_provider_inventory_action !== expectedAction) {
+    mismatches.push("model_mount_provider_inventory_action");
   }
-  if (!optionalNonEmptyString(details.modelMountProviderInventoryStatus)) {
-    missing.push("modelMountProviderInventoryStatus");
-  } else if (details.modelMountProviderInventoryStatus !== "listed") {
-    mismatches.push("modelMountProviderInventoryStatus");
+  if (!optionalNonEmptyString(details.model_mount_provider_inventory_status)) {
+    missing.push("model_mount_provider_inventory_status");
+  } else if (details.model_mount_provider_inventory_status !== "listed") {
+    mismatches.push("model_mount_provider_inventory_status");
   }
   if (missing.length > 0 || mismatches.length > 0) {
     throw runtimeError({

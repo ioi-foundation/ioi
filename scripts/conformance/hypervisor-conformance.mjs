@@ -829,6 +829,12 @@ function runBridge() {
       /RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND/.test(providerLocalDrivers) &&
       /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(providerLocalDrivers) &&
       /state\??\.planModelMountProviderInventory/.test(providerLocalDrivers) &&
+      /model_mount_provider_inventory/.test(providerLocalDrivers) &&
+      /inventory_hash/.test(providerLocalDrivers) &&
+      !/modelMountProviderInventory/.test(providerLocalDrivers) &&
+      !/\binventoryHash\b/.test(providerLocalDrivers) &&
+      !/\binventoryEvidenceRefs\b/.test(providerLocalDrivers) &&
+      !/\binventoryItemCount\b/.test(providerLocalDrivers) &&
       /model_mount_provider_inventory_planning_required/.test(providerLocalDrivers) &&
       /model_mount_fixture_provider_inventory_planning_required/.test(providerLocalDrivers) &&
       /plan model and loaded inventory through Rust model_mount/.test(
@@ -1939,14 +1945,38 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-inventory-receipt-direct-write-guard",
-    /modelMountProviderInventory/.test(
+    /model_mount_provider_inventory/.test(
       read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs"),
     ) &&
+      /inventory_hash/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs"),
+      ) &&
+      !/modelMountProviderInventory/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs"),
+      ) &&
+      !/\binventoryHash\b/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs"),
+      ) &&
       /providerInventoryReceiptFields/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      /model_mount_provider_inventory_hash/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      !/modelMountProviderInventory/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      !/\binventoryHash\b/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
       /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
       /assertProviderInventoryReceiptBound/.test(
+        modelMountReceiptWriteGuards,
+      ) &&
+      /model_mount_provider_inventory_hash/.test(
+        modelMountReceiptWriteGuards,
+      ) &&
+      !/modelMountProviderInventory/.test(
         modelMountReceiptWriteGuards,
       ) &&
       /model_mount_provider_inventory_receipt_direct_append_forbidden/.test(
@@ -1954,6 +1984,9 @@ function runReceipts() {
       ) &&
       /local provider model and loaded list receipts carry Rust inventory bindings/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /modelMountProviderInventoryHash/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ) &&
       /provider inventory receipt writes fail closed without provider kind/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
