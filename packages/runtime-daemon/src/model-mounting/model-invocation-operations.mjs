@@ -14,6 +14,14 @@ import {
   createModelMountStepModuleProjection,
 } from "../step-module-abi.mjs";
 
+const RETIRED_MODEL_INVOCATION_REQUEST_ALIASES = [
+  "routeId",
+  "modelPolicy",
+  "responseId",
+  "previousResponseId",
+  "sendOptions",
+];
+
 export async function invokeModel(state, { authorization, requiredScope, kind, body = {} }, deps = {}) {
   const {
     estimateTokens: estimateTokenCounts = estimateTokens,
@@ -24,19 +32,20 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
     stableHash: hash = stableHash,
     supportsResponseState: responseStateSupported = supportsResponseState,
   } = deps;
+  assertCanonicalModelInvocationRequestBody(body);
   const token = state.authorize(authorization, requiredScope);
   const started = state.now().getTime();
   const input = textFromInput(body);
   const statefulInvocation = responseStateSupported(kind);
-  const previousResponseId = statefulInvocation ? optional(body.previous_response_id ?? body.previousResponseId) : null;
+  const previousResponseId = statefulInvocation ? optional(body.previous_response_id) : null;
   const previousState = previousResponseId ? state.conversationState(previousResponseId) : null;
-  const responseId = statefulInvocation ? state.nextResponseId(body.response_id ?? body.responseId) : null;
+  const responseId = statefulInvocation ? state.nextResponseId(body.response_id) : null;
   const capability = capabilityForInvocationKind(kind);
   const selection = state.selectRoute({
     modelId: body.model,
-    routeId: body.route_id ?? body.routeId,
+    routeId: body.route_id,
     capability,
-    policy: body.model_policy ?? body.modelPolicy ?? {},
+    policy: body.model_policy ?? {},
   });
   const continuationSafety = state.validateContinuationSafety({ previousState, selection, body });
   const routeReceipt = state.routeSelectionReceipt(selection, { body, capability, responseId, previousResponseId });
@@ -235,19 +244,20 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     stableHash: hash = stableHash,
     supportsResponseState: responseStateSupported = supportsResponseState,
   } = deps;
+  assertCanonicalModelInvocationRequestBody(body);
   const token = state.authorize(authorization, requiredScope);
   const started = state.now().getTime();
   const input = textFromInput(body);
   const statefulInvocation = responseStateSupported(kind);
-  const previousResponseId = statefulInvocation ? optional(body.previous_response_id ?? body.previousResponseId) : null;
+  const previousResponseId = statefulInvocation ? optional(body.previous_response_id) : null;
   const previousState = previousResponseId ? state.conversationState(previousResponseId) : null;
-  const responseId = statefulInvocation ? state.nextResponseId(body.response_id ?? body.responseId) : null;
+  const responseId = statefulInvocation ? state.nextResponseId(body.response_id) : null;
   const capability = capabilityForInvocationKind(kind);
   const selection = state.selectRoute({
     modelId: body.model,
-    routeId: body.route_id ?? body.routeId,
+    routeId: body.route_id,
     capability,
-    policy: body.model_policy ?? body.modelPolicy ?? {},
+    policy: body.model_policy ?? {},
   });
   const continuationSafety = state.validateContinuationSafety({ previousState, selection, body });
   const rustProviderStream = modelMountProviderStreamInvocationRequiresRust(selection);
@@ -467,7 +477,7 @@ export function modelMountInvocationAdmissionRequestForReceipt({
     "routeReceipt.details.model_mount_route_decision_ref",
     routeReceipt?.details?.model_mount_route_decision_ref,
   );
-  const policy = body.model_policy ?? body.modelPolicy ?? {};
+  const policy = body.model_policy ?? {};
   return {
     schema_version: "ioi.model_mount.invocation_admission.v1",
     invocation_ref: `model-invocation://${requiredStringRef("receiptId", receiptId)}`,
@@ -563,7 +573,7 @@ export function modelMountProviderExecutionRequestForInvocation({
     }),
     "request_hash",
   );
-  const policy = body.model_policy ?? body.modelPolicy ?? {};
+  const policy = body.model_policy ?? {};
   return {
     schema_version: "ioi.model_mount.provider_execution.v1",
     invocation_ref: `model-provider-execution://${requestHash.replace(/^sha256:/, "sha256/")}`,
@@ -1172,6 +1182,23 @@ function optionalRef(value) {
   return trimmed ? trimmed : null;
 }
 
+function assertCanonicalModelInvocationRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MODEL_INVOCATION_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model invocation request aliases are retired; use canonical snake_case request fields.",
+  );
+  error.status = 400;
+  error.code = "model_mount_invocation_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: ["route_id", "model_policy", "response_id", "previous_response_id", "send_options"],
+  };
+  throw error;
+}
+
 function policyHashRef(value) {
   const normalized = requiredStringRef("policy_hash", value);
   return normalized.startsWith("sha256:") ? normalized : `sha256:${normalized}`;
@@ -1233,7 +1260,7 @@ function invocationReceiptDetails({
     backend: providerResult.backend ?? selection.endpoint.apiFormat,
     backend_id: providerResult.backendId ?? instance.backendId ?? selection.endpoint.backendId ?? null,
     selected_backend: providerResult.backendId ?? instance.backendId ?? selection.endpoint.backendId ?? null,
-    policy_hash: hash(body.model_policy ?? body.modelPolicy ?? {}),
+    policy_hash: hash(body.model_policy ?? {}),
     grant_id: token.grantId,
     token_count: tokenCount,
     latency_ms: latencyMs,
@@ -1265,8 +1292,8 @@ function invocationReceiptDetails({
     continuation: continuationSafety,
   };
   if (includeInvocationFields) {
-    details.send_options = body.send_options ?? body.sendOptions ?? null;
-    details.memory = body.memory ?? body.send_options?.memory ?? body.sendOptions?.memory ?? null;
+    details.send_options = body.send_options ?? null;
+    details.memory = body.memory ?? body.send_options?.memory ?? null;
     details.coalesced = coalesced;
     details.coalesce_key_hash = coalesceKey ? hash(coalesceKey) : null;
   }

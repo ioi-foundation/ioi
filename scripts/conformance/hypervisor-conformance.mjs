@@ -1442,6 +1442,27 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-invocation-request-aliases-retired",
+    /RETIRED_MODEL_INVOCATION_REQUEST_ALIASES/.test(modelInvocationOps) &&
+      /model_mount_invocation_request_aliases_retired/.test(modelInvocationOps) &&
+      (modelInvocationOps.match(/assertCanonicalModelInvocationRequestBody\(body\)/g) ?? []).length >= 2 &&
+      !/body\.(?:routeId|modelPolicy|responseId|previousResponseId|sendOptions)\b/.test(
+        modelInvocationOps,
+      ) &&
+      /model invocations reject retired camelCase request aliases before authorization/.test(
+        modelInvocationOpsTest,
+      ) &&
+      /retired_aliases,\s*\[\s*"routeId",\s*"modelPolicy",\s*"responseId",\s*"previousResponseId",\s*"sendOptions",\s*\]/.test(
+        modelInvocationOpsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+    ],
+    "Phase 10/11 is pending: model invocation request bodies must fail closed on retired camelCase routing, policy, response, and send-option aliases",
+  );
+  assertCheck(
+    result,
     "model-mount-sdk-receipt-metadata-aliases-retired",
     /route_id:\s*string/.test(agentSdkModelInvocationReceiptType) &&
       /route_receipt_id\?:\s*string/.test(agentSdkModelInvocationReceiptType) &&

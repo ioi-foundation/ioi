@@ -404,6 +404,66 @@ test("capabilityForInvocationKind maps model APIs to route capabilities", () => 
   assert.equal(capabilityForInvocationKind("chat.completions"), "chat");
 });
 
+test("model invocations reject retired camelCase request aliases before authorization", async () => {
+  const state = fakeState();
+  const body = {
+    model: "model.local",
+    routeId: "route.local-first",
+    modelPolicy: { privacy: "legacy" },
+    responseId: "resp.legacy",
+    previousResponseId: "resp.previous",
+    sendOptions: { memory: { enabled: true } },
+  };
+
+  await assert.rejects(
+    () =>
+      invokeModel(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.responses:*",
+          kind: "responses",
+          body,
+        },
+        deps(),
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_invocation_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "routeId",
+        "modelPolicy",
+        "responseId",
+        "previousResponseId",
+        "sendOptions",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "routeId"), false);
+      return true;
+    },
+  );
+  assert.deepEqual(state.authorizationCalls, []);
+
+  await assert.rejects(
+    () =>
+      startModelStream(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.responses:*",
+          kind: "responses",
+          body: { model: "model.local", routeId: "route.local-first", stream: true },
+        },
+        deps(),
+      ),
+    (error) => {
+      assert.equal(error.code, "model_mount_invocation_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["routeId"]);
+      return true;
+    },
+  );
+  assert.deepEqual(state.authorizationCalls, []);
+});
+
 test("invokeModel routes provider calls, records receipts, updates route state, and finalizes response state", async () => {
   const state = fakeState();
 
