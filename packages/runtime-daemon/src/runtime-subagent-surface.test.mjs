@@ -1167,6 +1167,60 @@ test("subagent surface assigns role metadata and persists assignment history", (
   assertCanonicalSubagentStoreWrites(store);
 });
 
+test("subagent assign ignores retired camelCase record aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T13:05:00.000Z",
+    nowMs: () => 1780587900000,
+  });
+  store.surface = surface;
+  store.subagents.set("subagent_1", {
+    ...store.subagents.get("subagent_1"),
+    tool_pack: "canonical-tools",
+    model_route_id: "route.assign.canonical",
+    merge_policy: "canonical-merge",
+    cancellation_inheritance: "detach",
+    agent_id: "agent_child_1",
+    assignment_count: 1,
+    assignment_history: [],
+    output_contract: ["SUMMARY"],
+    evidence_refs: ["evidence_assign_canonical"],
+    toolPack: "alias-tools",
+    modelRouteId: "route.assign.alias",
+    mergePolicy: "alias-merge",
+    cancellationInheritance: "propagate",
+    agentId: "agent_alias_assign",
+    assignmentCount: 99,
+    assignmentHistory: [{ assignment_id: "assignment_alias" }],
+    runId: "run_2",
+    outputContract: ["MISSING_SECTION"],
+    evidenceRefs: ["evidence_assign_alias"],
+  });
+
+  const result = surface.assignSubagent(store, "thread_1", "subagent_1", {
+    source: "agent_studio",
+    role: "Lead",
+  });
+  const saved = store.subagents.get("subagent_1");
+
+  assert.equal(result.role, "lead");
+  assert.equal(result.target_agent_id, "agent_child_1");
+  assert.equal(result.tool_pack, "canonical-tools");
+  assert.equal(result.model_route_id, "route.assign.canonical");
+  assert.equal(result.merge_policy, "canonical-merge");
+  assert.equal(result.cancellation_inheritance, "detach");
+  assert.equal(result.assignment.assignment_count, 2);
+  assert.equal(result.result.result, "Subagent one completed.");
+  assert.equal(saved.output_contract_status, "passed");
+  assert.equal(saved.assignment_history.length, 1);
+  assert.equal(saved.evidence_refs.includes("evidence_assign_canonical"), true);
+  assert.equal(saved.evidence_refs.includes("evidence_assign_alias"), false);
+  assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
+  assertNoOwnKeys(saved.assignment_history[0], retiredSubagentNestedAssignmentAliasKeys);
+  assertCanonicalSubagentRecordOutput(saved);
+  assertCanonicalSubagentStoreWrites(store);
+});
+
 test("subagent surface cancels subagents with inherited cancellation metadata", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface({

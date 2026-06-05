@@ -728,31 +728,26 @@ export function createRuntimeSubagentSurface({
       const toolPack =
         optionalStringDep(request.tool_pack ?? request.toolPack ?? request.subagentToolPack) ??
         record.tool_pack ??
-        record.toolPack ??
         null;
       const modelRouteId =
         optionalStringDep(request.model_route_id ?? request.modelRouteId ?? request.subagentModelRoute) ??
         record.model_route_id ??
-        record.modelRouteId ??
         null;
       const mergePolicy =
         optionalStringDep(request.merge_policy ?? request.mergePolicy) ??
         record.merge_policy ??
-        record.mergePolicy ??
         "manual";
       const cancellationInheritance =
         optionalStringDep(request.cancellation_inheritance ?? request.cancellationInheritance) ??
         record.cancellation_inheritance ??
-        record.cancellationInheritance ??
         "propagate";
       const targetAgentId =
         optionalStringDep(request.target_agent_id ?? request.targetAgentId) ??
         record.agent_id ??
-        record.agentId ??
         subagentId;
       const assignmentId = `subagent_assignment_${doctorHash(`${threadId}:${subagentId}:${nowMs()}`).slice(0, 12)}`;
       const now = nowIso();
-      const assignmentCount = Number(record.assignment_count ?? record.assignmentCount ?? 0) + 1;
+      const assignmentCount = Number(record.assignment_count ?? 0) + 1;
       const assignmentRecord = {
         schema_version: "ioi.runtime.subagent-assignment.v1",
         assignment_id: assignmentId,
@@ -771,17 +766,18 @@ export function createRuntimeSubagentSurface({
         workflow_node_id: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
       };
       const assignmentHistory = [
-        ...normalizeArray(record.assignment_history ?? record.assignmentHistory),
+        ...normalizeArray(record.assignment_history),
         assignmentRecord,
       ];
-      const run = store.getRun(record.run_id ?? record.runId);
-      const output = subagentContractOutputForRunDep(run, record.output_contract ?? record.outputContract);
+      const run = store.getRun(record.run_id);
+      const output = subagentContractOutputForRunDep(run, record.output_contract);
       const outputContractStatus = validateSubagentOutputContractDep(
         output,
-        record.output_contract ?? record.outputContract,
+        record.output_contract,
       );
+      const canonicalRecord = withoutRetiredSubagentRecordOutputAliases(record);
       const updated = {
-        ...record,
+        ...canonicalRecord,
         role,
         target_agent_id: targetAgentId,
         tool_pack: toolPack,
@@ -810,7 +806,7 @@ export function createRuntimeSubagentSurface({
         assign_event_id: event.event_id,
         receipt_refs: uniqueStringsDep([...normalizeArray(updated.receipt_refs), ...event.receipt_refs]),
         evidence_refs: uniqueStringsDep([
-          ...normalizeArray(updated.evidence_refs ?? updated.evidenceRefs),
+          ...normalizeArray(updated.evidence_refs),
           "runtime.subagent.assign",
           assignmentId,
         ]),
