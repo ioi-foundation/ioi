@@ -1970,6 +1970,19 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "direct-evolution-manifest-mutation-retired",
+    /DIRECT_EVOLUTION_MUTATION_RETIRED/.test(evolutionCore) &&
+      /direct_evolve_manifest_mutation_is_retired_fail_closed/.test(evolutionCore) &&
+      !/evolution::manifest::/.test(evolutionCore) &&
+      !/evolution::latest::/.test(evolutionCore) &&
+      !/evolution::rationale::/.test(evolutionCore) &&
+      !/active_service_key/.test(evolutionCore) &&
+      !/AgentManifest/.test(evolutionCore),
+    ["crates/services/src/agentic/evolution.rs"],
+    "Phase 9 is pending: direct EvolutionService::evolve manifest mutation must be retired behind governed proposal admission",
+  );
+  assertCheck(
+    result,
     "agentgres-expected-heads",
     codeCorpusContains(/expected_heads|projection_watermark|resulting_head/),
     ["crates/services/src/agentic/runtime", "packages/runtime-daemon/src"],

@@ -11,16 +11,14 @@ use ioi_api::services::UpgradableService;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_macros::service_interface;
-use ioi_types::app::agentic::AgentManifest;
-use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
-use ioi_types::keys::active_service_key;
-use ioi_types::service_configs::ActiveServiceMeta;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub const GOVERNED_RUNTIME_IMPROVEMENT_SCHEMA_VERSION: &str = "ioi.governed_runtime_improvement.v1";
+pub const DIRECT_EVOLUTION_MUTATION_RETIRED: &str =
+    "direct EvolutionService::evolve manifest mutation is retired; use governed runtime-improvement proposal admission";
 
 /// Parameters to evolve a specific agent.
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
@@ -130,85 +128,17 @@ impl UpgradableService for EvolutionService {
     capabilities = ""
 )]
 impl EvolutionService {
-    /// Atomically upgrades an agent if the signer is the owner/author.
+    /// Legacy direct mutation entry point retained only as a fail-closed service boundary.
     #[method]
     pub fn evolve(
         &self,
-        state: &mut dyn StateAccess,
-        params: EvolveAgentParams,
-        ctx: &TxContext,
+        _state: &mut dyn StateAccess,
+        _params: EvolveAgentParams,
+        _ctx: &TxContext,
     ) -> Result<(), TransactionError> {
-        let service_id = &params.target_service_id;
-
-        // 1. Fetch Current Metadata
-        let meta_key = active_service_key(service_id);
-        let meta_bytes = state
-            .get(&meta_key)?
-            .ok_or(TransactionError::Invalid(format!(
-                "Target service '{}' not found",
-                service_id
-            )))?;
-
-        let mut meta: ActiveServiceMeta = codec::from_bytes_canonical(&meta_bytes)?;
-
-        // 2. Authorization Check (Sovereignty)
-        // Only the documented author can evolve the agent.
-        if let Some(author) = meta.author {
-            if author != ctx.signer_account_id {
-                return Err(TransactionError::UnauthorizedByCredentials);
-            }
-        } else {
-            // If no author is set (e.g. system service), we default to fail-safe or governance check.
-            // For now, strict fail-safe: unowned agents cannot be evolved by users.
-            return Err(TransactionError::Invalid("Service has no owner".into()));
-        }
-
-        // 3. Verify Manifest Validity & Parse
-        // We enforce that the new config parses as a valid AgentManifest.
-        let _new_manifest_struct: AgentManifest = serde_json::from_str(&params.new_manifest)
-            .map_err(|e| TransactionError::Invalid(format!("Invalid new manifest JSON: {}", e)))?;
-
-        // 4. Update Evolution State (Versioned Storage)
-        let new_gen = meta.generation_id + 1;
-
-        // Canonical Key: evolution::manifest::{service_id}::{gen}
-        let manifest_key = [
-            b"evolution::manifest::",
-            service_id.as_bytes(),
-            b"::",
-            &new_gen.to_le_bytes(),
-        ]
-        .concat();
-        state.insert(&manifest_key, params.new_manifest.as_bytes())?;
-
-        // Pointer Key: evolution::latest::{service_id} -> gen
-        let latest_key = [b"evolution::latest::", service_id.as_bytes()].concat();
-        state.insert(&latest_key, &new_gen.to_le_bytes())?;
-
-        // Rationale Key: evolution::rationale::{service_id}::{gen}
-        let rationale_key = [
-            b"evolution::rationale::",
-            service_id.as_bytes(),
-            b"::",
-            &new_gen.to_le_bytes(),
-        ]
-        .concat();
-        state.insert(&rationale_key, params.rationale.as_bytes())?;
-
-        // 5. Update Active Metadata
-        meta.generation_id = new_gen;
-        // In a real system, we'd hash the manifest. For now, we update the meta record.
-        // Ideally, `artifact_hash` should reflect the new logic if code changed, but here we just update manifest.
-        state.insert(&meta_key, &codec::to_bytes_canonical(&meta)?)?;
-
-        log::info!(
-            "Evolution: Evolved agent '{}' to Gen {}. Owner: 0x{}",
-            service_id,
-            new_gen,
-            hex::encode(ctx.signer_account_id)
-        );
-
-        Ok(())
+        Err(TransactionError::Invalid(
+            DIRECT_EVOLUTION_MUTATION_RETIRED.to_string(),
+        ))
     }
 }
 
@@ -363,6 +293,59 @@ fn governed_improvement_admission_hash(
 #[cfg(test)]
 mod governed_improvement_tests {
     use super::*;
+    use ioi_api::services::access::ServiceDirectory;
+    use ioi_api::state::StateScanIter;
+    use ioi_types::app::{AccountId, ChainId};
+    use ioi_types::error::StateError;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[derive(Default)]
+    struct CountingState {
+        reads: AtomicUsize,
+        writes: AtomicUsize,
+    }
+
+    impl StateAccess for CountingState {
+        fn get(&self, _key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+            self.reads.fetch_add(1, Ordering::SeqCst);
+            Ok(None)
+        }
+
+        fn insert(&mut self, _key: &[u8], _value: &[u8]) -> Result<(), StateError> {
+            self.writes.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+
+        fn delete(&mut self, _key: &[u8]) -> Result<(), StateError> {
+            self.writes.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+
+        fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+            self.writes.fetch_add(updates.len(), Ordering::SeqCst);
+            Ok(())
+        }
+
+        fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+            self.reads.fetch_add(keys.len(), Ordering::SeqCst);
+            Ok(vec![None; keys.len()])
+        }
+
+        fn batch_apply(
+            &mut self,
+            inserts: &[(Vec<u8>, Vec<u8>)],
+            deletes: &[Vec<u8>],
+        ) -> Result<(), StateError> {
+            self.writes
+                .fetch_add(inserts.len() + deletes.len(), Ordering::SeqCst);
+            Ok(())
+        }
+
+        fn prefix_scan(&self, _prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
+            self.reads.fetch_add(1, Ordering::SeqCst);
+            Ok(Box::new(std::iter::empty()))
+        }
+    }
 
     fn proposal() -> GovernedRuntimeImprovementProposal {
         GovernedRuntimeImprovementProposal {
@@ -434,5 +417,41 @@ mod governed_improvement_tests {
         assert!(errors.contains(&GovernedRuntimeImprovementError::MissingApprovalRef));
         assert!(errors.contains(&GovernedRuntimeImprovementError::MissingRollbackRef));
         assert!(errors.contains(&GovernedRuntimeImprovementError::MissingExpectedHeads));
+    }
+
+    #[test]
+    fn direct_evolve_manifest_mutation_is_retired_fail_closed() {
+        let mut state = CountingState::default();
+        let services = ServiceDirectory::default();
+        let ctx = TxContext {
+            block_height: 1,
+            block_timestamp: 1,
+            chain_id: ChainId(1),
+            signer_account_id: AccountId([7; 32]),
+            services: &services,
+            simulation: false,
+            is_internal: false,
+        };
+
+        let error = EvolutionService
+            .evolve(
+                &mut state,
+                EvolveAgentParams {
+                    target_service_id: "agent://legacy-evolve".to_string(),
+                    new_manifest: "{}".to_string(),
+                    rationale: "legacy direct mutation should fail closed".to_string(),
+                },
+                &ctx,
+            )
+            .expect_err("direct evolve mutation must be retired");
+
+        match error {
+            TransactionError::Invalid(message) => {
+                assert_eq!(message, DIRECT_EVOLUTION_MUTATION_RETIRED);
+            }
+            other => panic!("unexpected direct evolve error: {other:?}"),
+        }
+        assert_eq!(state.reads.load(Ordering::SeqCst), 0);
+        assert_eq!(state.writes.load(Ordering::SeqCst), 0);
     }
 }
