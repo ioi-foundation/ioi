@@ -11846,6 +11846,13 @@ requests now fail closed on retired `authorityGrantRefs`,
 `node_plaintext_allowed` remain the accepted binding shape and nested
 `privacyProfile` model-policy fallbacks are ignored.
 
+Slice 302 retires direct model route-decision workflow request aliases:
+`workflowContextFromRouteRequest` now reads only canonical
+`workflow_graph_id`, `workflow_node_id`, and `workflow_node_type`, ignoring
+retired `workflowGraphId`, `workflowNodeId`, `nodeId`, `node_id`,
+`workflowNodeType`, and `node` inputs while the accepted route-decision record
+continues to emit canonical workflow metadata.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -7,6 +7,7 @@ import {
   createModelRouteDecision,
   providerRequestBodyForRoute,
   routeDecisionProjectionFromReceipt,
+  workflowContextFromRouteRequest,
 } from "./route-decision.mjs";
 
 test("provider request body resolves auto and strips Autopilot-only route fields", () => {
@@ -192,6 +193,36 @@ test("route decisions ignore retired camelCase fallback request aliases", () => 
   assert.equal(decision.evidence_refs.includes("model_route_fallback_selected"), false);
   assert.equal(Object.hasOwn(decision, "evidenceRefs"), false);
   assert.doesNotMatch(decision.rationale, /legacy_route_unavailable/);
+});
+
+test("route decision workflow context ignores retired request aliases", () => {
+  assert.deepEqual(workflowContextFromRouteRequest({
+    workflow_graph_id: "graph-1",
+    workflow_node_id: "node-1",
+    workflow_node_type: "model-router",
+    workflowGraphId: "graph-legacy",
+    workflowNodeId: "node-legacy",
+    node_id: "node-snake-legacy",
+    nodeId: "node-camel-legacy",
+    workflowNodeType: "type-legacy",
+    node: "node-type-legacy",
+  }), {
+    workflowGraphId: "graph-1",
+    workflowNodeId: "node-1",
+    workflowNodeType: "model-router",
+  });
+  assert.deepEqual(workflowContextFromRouteRequest({
+    workflowGraphId: "graph-legacy",
+    workflowNodeId: "node-legacy",
+    node_id: "node-snake-legacy",
+    nodeId: "node-camel-legacy",
+    workflowNodeType: "type-legacy",
+    node: "node-type-legacy",
+  }), {
+    workflowGraphId: null,
+    workflowNodeId: null,
+    workflowNodeType: null,
+  });
 });
 
 test("route decision projections ignore retired legacy model route decision detail", () => {

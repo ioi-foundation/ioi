@@ -131,9 +131,9 @@ export function providerRequestBodyForRoute(body = {}, endpoint = {}) {
 
 export function workflowContextFromRouteRequest(body = {}) {
   return {
-    workflowGraphId: optionalString(body.workflow_graph_id ?? body.workflowGraphId),
-    workflowNodeId: optionalString(body.workflow_node_id ?? body.workflowNodeId ?? body.node_id ?? body.nodeId),
-    workflowNodeType: optionalString(body.workflow_node_type ?? body.workflowNodeType ?? body.node),
+    workflowGraphId: optionalString(body.workflow_graph_id),
+    workflowNodeId: optionalString(body.workflow_node_id),
+    workflowNodeType: optionalString(body.workflow_node_type),
   };
 }
 

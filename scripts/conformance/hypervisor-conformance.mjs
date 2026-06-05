@@ -1184,6 +1184,22 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-route-decision-workflow-request-aliases-retired",
+    /workflowGraphId:\s*optionalString\(body\.workflow_graph_id\)/.test(modelRouteDecisionModule) &&
+      /workflowNodeId:\s*optionalString\(body\.workflow_node_id\)/.test(modelRouteDecisionModule) &&
+      /workflowNodeType:\s*optionalString\(body\.workflow_node_type\)/.test(modelRouteDecisionModule) &&
+      !/body\.(?:workflowGraphId|workflowNodeId|node_id|nodeId|workflowNodeType|node)\b/.test(
+        modelRouteDecisionModule,
+      ) &&
+      /route decision workflow context ignores retired request aliases/.test(modelRouteDecisionTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
+    ],
+    "Phase 3/10 is pending: model route-decision workflow context extraction must ignore retired workflow request aliases",
+  );
+  assertCheck(
+    result,
     "model-mount-route-decision-ref-aliases-retired",
     /^ {6}policy_hash:\s*policyHash/m.test(modelRouteDecisionObject) &&
       /^ {4}policy_hash:\s*policyHash/m.test(modelRouteDecisionObject) &&
