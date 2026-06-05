@@ -4780,6 +4780,26 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "agent-sdk-subagent-cancellation-metadata-request-type-aliases-retired",
+    runtimeSubagentSdkControlInputBlock.length > 0 &&
+      /^\s*cancellation_reason\?: string;/m.test(
+        runtimeSubagentSdkControlInputBlock,
+      ) &&
+      /^\s*inherited\?: boolean;/m.test(runtimeSubagentSdkControlInputBlock) &&
+      /^\s*cancellation_inherited\?: boolean;/m.test(
+        runtimeSubagentSdkControlInputBlock,
+      ) &&
+      /^\s*propagated_from_thread_id\?: string;/m.test(
+        runtimeSubagentSdkControlInputBlock,
+      ) &&
+      !/^\s*(?:cancellationReason|cancellationInherited|propagatedFromThreadId)\?:/m.test(
+        runtimeSubagentSdkControlInputBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent control request types must not advertise retired cancellation metadata aliases",
+  );
+  assertCheck(
+    result,
     "agent-sdk-runtime-event-dead-mock-helpers-retired",
     /runtimeThreadEventFromEnvelope/.test(agentSdkRuntimeEvents) &&
       !/mockRuntime(?:CursorSeq|EnvelopeForSdkEvent|EventEnvelope)|runtimePayloadStringRecord|runtimeEventKindForSdkMessage|runtimeEventStatusForSdkMessage|componentKindForSdkMessage|workflowNodeIdForSdkMessage|sourceEventKindForSdkMessage|payloadSchemaVersionForSdkMessage|turnIdForRun|eventStreamIdForThread|runtimeTurnStatusForRun|\(event as \{ id\?: string \}\)\.id/.test(

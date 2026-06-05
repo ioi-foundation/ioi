@@ -457,13 +457,10 @@ export interface RuntimeSubagentControlInput {
   output_contract?: string[] | Record<string, unknown>;
   merge_policy?: string;
   cancellation_inheritance?: "propagate" | "isolated" | string;
-  cancellationReason?: string;
   cancellation_reason?: string;
   reason?: string;
   inherited?: boolean;
-  cancellationInherited?: boolean;
   cancellation_inherited?: boolean;
-  propagatedFromThreadId?: string;
   propagated_from_thread_id?: string;
   forkContext?: boolean;
   fork_context?: boolean;
