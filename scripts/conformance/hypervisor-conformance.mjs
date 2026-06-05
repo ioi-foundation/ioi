@@ -2439,8 +2439,14 @@ function runReceipts() {
   const walletAuthority = exists("packages/runtime-daemon/src/model-mounting/wallet-authority.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/wallet-authority.mjs")
     : "";
+  const walletAuthorityTest = exists("packages/runtime-daemon/src/model-mounting/wallet-authority.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/wallet-authority.test.mjs")
+    : "";
   const vaultPort = exists("packages/runtime-daemon/src/model-mounting/vault-port.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/vault-port.mjs")
+    : "";
+  const vaultPortTest = exists("packages/runtime-daemon/src/model-mounting/vault-port.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/vault-port.test.mjs")
     : "";
   const modelMountStore = exists("packages/runtime-daemon/src/model-mounting/store.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.mjs")
@@ -3110,9 +3116,7 @@ function runReceipts() {
     result,
     "model-mount-wallet-authority-audit-append-retired",
     !/\bappendOperation\b/.test(walletAuthority) &&
-      /wallet authority creates grants and records authorization use without local operation append/.test(
-        read("packages/runtime-daemon/src/model-mounting/wallet-authority.test.mjs"),
-      ),
+      /wallet authority creates grants and records authorization use without local operation append/.test(walletAuthorityTest),
     [
       "packages/runtime-daemon/src/model-mounting/wallet-authority.mjs",
       "packages/runtime-daemon/src/model-mounting/wallet-authority.test.mjs",
@@ -3121,11 +3125,41 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-wallet-vault-error-detail-aliases-retired",
+    /details:\s*\{\s*required_scope:\s*requiredScope,\s*grant_id:\s*token\.grantId,\s*revocation_epoch:\s*token\.revocationEpoch\s*\}/.test(
+      walletAuthority,
+    ) &&
+      /details:\s*\{\s*required_scope:\s*requiredScope,\s*grant_id:\s*token\.grantId\s*\}/.test(walletAuthority) &&
+      /details:\s*\{\s*vault_ref:\s*SECRET_REDACTION\s*\}/.test(walletAuthority) &&
+      !/details:\s*\{[^}]*\b(?:requiredScope|grantId|revocationEpoch|vaultRef)\s*:/.test(walletAuthority) &&
+      /details:\s*\{\s*adapter:\s*"encrypted_keychain_vault_adapter",\s*path_hash:\s*stableHash\(this\.filePath\),\s*error:/.test(
+        vaultPort,
+      ) &&
+      /path_configured:\s*Boolean\(this\.filePath\)/.test(vaultPort) &&
+      /key_configured:\s*Boolean\(this\.keyMaterial\)/.test(vaultPort) &&
+      /details:\s*\{\s*vault_ref:\s*SECRET_REDACTION,\s*purpose\s*\}/.test(vaultPort) &&
+      /details:\s*\{\s*vault_ref:\s*SECRET_REDACTION,\s*material:\s*SECRET_REDACTION\s*\}/.test(vaultPort) &&
+      !/details:\s*\{[^}]*\b(?:pathHash|pathConfigured|keyConfigured|vaultRef)\s*:/.test(vaultPort) &&
+      /Object\.hasOwn\(error\.details,\s*"requiredScope"\),\s*false/.test(walletAuthorityTest) &&
+      /Object\.hasOwn\(error\.details,\s*"grantId"\),\s*false/.test(walletAuthorityTest) &&
+      /Object\.hasOwn\(error\.details,\s*"revocationEpoch"\),\s*false/.test(walletAuthorityTest) &&
+      /Object\.hasOwn\(error\.details,\s*"vaultRef"\),\s*false/.test(walletAuthorityTest) &&
+      /Object\.hasOwn\(error\.details,\s*"pathConfigured"\),\s*false/.test(vaultPortTest) &&
+      /Object\.hasOwn\(error\.details,\s*"keyConfigured"\),\s*false/.test(vaultPortTest) &&
+      /Object\.hasOwn\(error\.details,\s*"vaultRef"\),\s*false/.test(vaultPortTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/wallet-authority.mjs",
+      "packages/runtime-daemon/src/model-mounting/wallet-authority.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/vault-port.mjs",
+      "packages/runtime-daemon/src/model-mounting/vault-port.test.mjs",
+    ],
+    "Phase 7/11 is pending: wallet authority and vault fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "model-mount-vault-audit-append-retired",
     !/\bappendOperation\b/.test(vaultPort) &&
-      /vault port resolves environment aliases and keeps metadata public without local operation append/.test(
-        read("packages/runtime-daemon/src/model-mounting/vault-port.test.mjs"),
-      ),
+      /vault port resolves environment aliases and keeps metadata public without local operation append/.test(vaultPortTest),
     [
       "packages/runtime-daemon/src/model-mounting/vault-port.mjs",
       "packages/runtime-daemon/src/model-mounting/vault-port.test.mjs",

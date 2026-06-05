@@ -40,7 +40,7 @@ export class AgentgresWalletAuthority {
         status: 403,
         code: "policy",
         message: "Capability token has been revoked.",
-        details: { requiredScope, grantId: token.grantId, revocationEpoch: token.revocationEpoch },
+        details: { required_scope: requiredScope, grant_id: token.grantId, revocation_epoch: token.revocationEpoch },
       });
     }
     if (Date.parse(token.expiresAt) <= this.now().getTime()) {
@@ -48,7 +48,7 @@ export class AgentgresWalletAuthority {
         status: 403,
         code: "policy",
         message: "Capability token has expired.",
-        details: { requiredScope, grantId: token.grantId },
+        details: { required_scope: requiredScope, grant_id: token.grantId },
       });
     }
     if (matchesAny(requiredScope, token.denied) || !matchesAny(requiredScope, token.allowed)) {
@@ -56,7 +56,7 @@ export class AgentgresWalletAuthority {
         status: 403,
         code: "policy",
         message: "Capability token does not grant the required scope.",
-        details: { requiredScope, grantId: token.grantId },
+        details: { required_scope: requiredScope, grant_id: token.grantId },
       });
     }
     this.auditEvent("scope.authorize", {
@@ -103,7 +103,7 @@ export class AgentgresWalletAuthority {
         status: 403,
         code: "policy",
         message: "Secrets must be referenced through wallet.network vault refs.",
-        details: { vaultRef: SECRET_REDACTION },
+        details: { vault_ref: SECRET_REDACTION },
       });
     }
     this.auditEvent("vault.resolve", {

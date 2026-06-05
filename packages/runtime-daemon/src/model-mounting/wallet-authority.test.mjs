@@ -48,6 +48,10 @@ test("wallet authority rejects denied, expired, and revoked grants", () => {
       assert.equal(error.status, 403);
       assert.equal(error.code, "policy");
       assert.match(error.message, /does not grant/);
+      assert.equal(error.details.required_scope, "shell.exec");
+      assert.equal(error.details.grant_id, "grant-a");
+      assert.equal(Object.hasOwn(error.details, "requiredScope"), false);
+      assert.equal(Object.hasOwn(error.details, "grantId"), false);
       return true;
     },
   );
@@ -57,6 +61,10 @@ test("wallet authority rejects denied, expired, and revoked grants", () => {
     (error) => {
       assert.equal(error.status, 403);
       assert.match(error.message, /expired/);
+      assert.equal(error.details.required_scope, "model.chat:complete");
+      assert.equal(error.details.grant_id, "grant-a");
+      assert.equal(Object.hasOwn(error.details, "requiredScope"), false);
+      assert.equal(Object.hasOwn(error.details, "grantId"), false);
       return true;
     },
   );
@@ -66,6 +74,12 @@ test("wallet authority rejects denied, expired, and revoked grants", () => {
     (error) => {
       assert.equal(error.status, 403);
       assert.match(error.message, /revoked/);
+      assert.equal(error.details.required_scope, "model.chat:complete");
+      assert.equal(error.details.grant_id, "grant-a");
+      assert.equal(error.details.revocation_epoch, 0);
+      assert.equal(Object.hasOwn(error.details, "requiredScope"), false);
+      assert.equal(Object.hasOwn(error.details, "grantId"), false);
+      assert.equal(Object.hasOwn(error.details, "revocationEpoch"), false);
       return true;
     },
   );
@@ -83,6 +97,15 @@ test("wallet authority revokes grants and resolves vault refs without local oper
   assert.equal(typeof vault.vaultRefHash, "string");
   assert.equal(vault.resolvedMaterial, false);
   assert.equal(JSON.stringify(vault).includes("vault://provider.openai/api-key"), false);
+  assert.throws(
+    () => wallet.resolveVaultRef("plain-secret"),
+    (error) => {
+      assert.match(error.message, /wallet\.network vault refs/);
+      assert.equal(error.details.vault_ref, "[REDACTED]");
+      assert.equal(Object.hasOwn(error.details, "vaultRef"), false);
+      return true;
+    },
+  );
   assert.deepEqual(operations, []);
 });
 

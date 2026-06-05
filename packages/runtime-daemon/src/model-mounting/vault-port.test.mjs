@@ -58,7 +58,17 @@ test("configured vault material adapter fails closed when only partial env is pr
     assert.equal(adapter.configured, false);
     assert.equal(adapter.requested, true);
     assert.equal(adapter.status().failClosed, true);
-    assert.throws(() => adapter.health(), /Vault material adapter is configured but unavailable/);
+    assert.throws(
+      () => adapter.health(),
+      (error) => {
+        assert.match(error.message, /Vault material adapter is configured but unavailable/);
+        assert.equal(error.details.path_configured, true);
+        assert.equal(error.details.key_configured, false);
+        assert.equal(Object.hasOwn(error.details, "pathConfigured"), false);
+        assert.equal(Object.hasOwn(error.details, "keyConfigured"), false);
+        return true;
+      },
+    );
   } finally {
     if (priorPath === undefined) delete process.env.IOI_KEYCHAIN_VAULT_PATH;
     else process.env.IOI_KEYCHAIN_VAULT_PATH = priorPath;
@@ -84,6 +94,15 @@ test("vault port resolves environment aliases and keeps metadata public without 
     assert.equal(resolved.material, "openai-env-secret");
     assert.equal(resolved.materialSource, "environment_alias");
     assert.equal(JSON.stringify(resolved).includes("vault://provider.openai/api-key"), false);
+    assert.throws(
+      () => vault.resolveVaultRef("plain-secret", "provider.auth:provider.openai"),
+      (error) => {
+        assert.match(error.message, /wallet\.network vault refs/);
+        assert.equal(error.details.vault_ref, "[REDACTED]");
+        assert.equal(Object.hasOwn(error.details, "vaultRef"), false);
+        return true;
+      },
+    );
     assert.deepEqual(operations, []);
   } finally {
     if (priorOpenAi === undefined) delete process.env.OPENAI_API_KEY;
@@ -115,6 +134,17 @@ test("vault port binds, lists, removes, and serializes redacted metadata", () =>
   assert.equal(metadata.materialSource, "runtime_memory_not_persisted");
   assert.equal(metadata.resolvedMaterial, false);
   assert.equal(JSON.stringify(metadata).includes(vaultRef), false);
+
+  assert.throws(
+    () => vault.bindVaultRef({ vaultRef, material: "" }),
+    (error) => {
+      assert.match(error.message, /Vault material is required/);
+      assert.equal(error.details.vault_ref, "[REDACTED]");
+      assert.equal(error.details.material, "[REDACTED]");
+      assert.equal(Object.hasOwn(error.details, "vaultRef"), false);
+      return true;
+    },
+  );
 
   const removed = vault.removeVaultRef(vaultRef);
   assert.equal(removed.configured, false);

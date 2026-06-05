@@ -126,7 +126,7 @@ export class EncryptedKeychainVaultMaterialAdapter {
         status: 424,
         code: "external_blocker",
         message: "Vault material adapter is configured but unavailable.",
-        details: { adapter: "encrypted_keychain_vault_adapter", pathHash: stableHash(this.filePath), error: String(error?.message ?? error) },
+        details: { adapter: "encrypted_keychain_vault_adapter", path_hash: stableHash(this.filePath), error: String(error?.message ?? error) },
       });
     }
   }
@@ -140,7 +140,7 @@ export class EncryptedKeychainVaultMaterialAdapter {
         status: 424,
         code: "external_blocker",
         message: "Vault material adapter is configured but unavailable.",
-        details: { adapter: "encrypted_keychain_vault_adapter", pathHash: stableHash(this.filePath), error: String(error?.message ?? error) },
+        details: { adapter: "encrypted_keychain_vault_adapter", path_hash: stableHash(this.filePath), error: String(error?.message ?? error) },
       });
     }
   }
@@ -153,8 +153,8 @@ export class EncryptedKeychainVaultMaterialAdapter {
         message: "Vault material adapter is configured but unavailable.",
         details: {
           adapter: "encrypted_keychain_vault_adapter",
-          pathConfigured: Boolean(this.filePath),
-          keyConfigured: Boolean(this.keyMaterial),
+          path_configured: Boolean(this.filePath),
+          key_configured: Boolean(this.keyMaterial),
         },
       });
     }
@@ -222,7 +222,7 @@ export class AgentgresVaultPort {
         status: 403,
         code: "policy",
         message: "Vault material must be referenced through wallet.network vault refs.",
-        details: { vaultRef: SECRET_REDACTION, purpose },
+        details: { vault_ref: SECRET_REDACTION, purpose },
       });
     }
     const materialResult = this.materialFor(vaultRef);
@@ -288,7 +288,7 @@ export class AgentgresVaultPort {
         status: 400,
         code: "validation",
         message: "Vault material is required for local vault binding.",
-        details: { vaultRef: SECRET_REDACTION, material: SECRET_REDACTION },
+        details: { vault_ref: SECRET_REDACTION, material: SECRET_REDACTION },
       });
     }
     const now = this.now().toISOString();
@@ -447,7 +447,7 @@ export class AgentgresVaultPort {
         status: 403,
         code: "policy",
         message: "Vault material must be referenced through wallet.network vault refs.",
-        details: { vaultRef: SECRET_REDACTION },
+        details: { vault_ref: SECRET_REDACTION },
       });
     }
   }
