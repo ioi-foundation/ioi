@@ -124,7 +124,6 @@ export function mockRuntimeEnvelopeForSdkEvent({
       run_id: run.id,
       turn_id: turnId,
       summary: event.summary,
-      legacy_event_type: event.type,
     },
     createdAt: event.createdAt,
     componentKind: componentKindForSdkMessage(event.type),

@@ -11,6 +11,8 @@ function uniqueStrings(values) {
   return [...new Set(normalizeArray(values).filter(Boolean).map(String))];
 }
 
+const retiredPayloadKeys = ["id", "type"].map((suffix) => ["legacy", "event", suffix].join("_"));
+
 function helpers() {
   return createRuntimeEventPayloadHelpers({
     COMPUTER_USE_CONTRACT_SCHEMA_VERSION: "computer.v1",
@@ -52,6 +54,9 @@ test("runtime event payloads preserve computer-use and memory summaries", () => 
   assert.deepEqual(computerUse.workflow_node_ids, ["node-one"]);
   assert.equal(computerUse.fail_closed_when_unavailable, true);
   assert.equal(computerUse.redaction, "computer_use_trace_safe");
+  for (const key of retiredPayloadKeys) {
+    assert.equal(Object.hasOwn(computerUse, key), false);
+  }
 
   const memory = runtime.payloadSummaryForRunEvent({
     id: "event-two",
@@ -241,4 +246,7 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   assert.equal(route.route_id, "route.local-first");
   assert.equal(route.provider_kind, "llama.cpp");
   assert.equal(route.fallback_triggered, false);
+  for (const key of retiredPayloadKeys) {
+    assert.equal(Object.hasOwn(route, key), false);
+  }
 });

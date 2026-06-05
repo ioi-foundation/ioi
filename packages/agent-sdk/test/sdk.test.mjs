@@ -804,6 +804,10 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     assert.equal(toolEvent.toolName, "system::intent_clarification");
     assert.equal(toolEvent.agentStatus, "Paused");
     assert.equal(toolEvent.stepIndex, 0);
+    const retiredPayloadKeys = ["id", "type"].map((suffix) => ["legacy", "event", suffix].join("_"));
+    for (const key of retiredPayloadKeys) {
+      assert.equal(Object.hasOwn(toolEvent.payload, key), false);
+    }
 
     const turnEvents = [];
     for await (const item of turn.events()) turnEvents.push(item);

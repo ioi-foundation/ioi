@@ -13,8 +13,6 @@ export function createRuntimeEventPayloadHelpers({
 } = {}) {
 function payloadSummaryForRunEvent(event) {
     const summary = {
-      legacy_event_id: event.id,
-      legacy_event_type: event.type,
       run_id: event.runId,
       agent_id: event.agentId,
       summary: event.summary,

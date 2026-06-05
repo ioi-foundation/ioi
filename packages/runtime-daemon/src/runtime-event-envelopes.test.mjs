@@ -40,7 +40,6 @@ function helpers() {
     normalizeArray,
     payloadSummaryForRunEvent: (event) => ({
       event_kind: event.data?.eventKind ?? `Run.${event.type}`,
-      legacy_event_id: event.id,
     }),
     policyDecisionRefsForRunEvent: (event) => normalizeArray(event.data?.policyDecisionRefs),
     receiptRefsForRunEvent: (event) => normalizeArray(event.data?.receiptRefs),

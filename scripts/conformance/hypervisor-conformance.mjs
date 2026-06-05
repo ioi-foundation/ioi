@@ -2700,6 +2700,21 @@ function runCompositor() {
   const runtimeRunReadSurfaceTest = exists("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
     : "";
+  const runtimeEventPayloads = exists("packages/runtime-daemon/src/runtime-event-payloads.mjs")
+    ? read("packages/runtime-daemon/src/runtime-event-payloads.mjs")
+    : "";
+  const runtimeEventPayloadsTest = exists("packages/runtime-daemon/src/runtime-event-payloads.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-event-payloads.test.mjs")
+    : "";
+  const agentSdkRuntimeEvents = exists("packages/agent-sdk/src/runtime-events.ts")
+    ? read("packages/agent-sdk/src/runtime-events.ts")
+    : "";
+  const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
+    ? read("packages/agent-sdk/src/substrate-client.ts")
+    : "";
+  const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
+    ? read("packages/agent-sdk/test/sdk.test.mjs")
+    : "";
   assertCheck(
     result,
     "rust-projection-core",
@@ -2735,6 +2750,23 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-run-read-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime run reads must use canonical replay/projection APIs instead of the legacy event alias",
+  );
+  assertCheck(
+    result,
+    "runtime-event-legacy-payload-aliases-retired",
+    !/legacy_event_(?:id|type)/.test(
+      `${runtimeEventPayloads}\n${agentSdkRuntimeEvents}\n${agentSdkSubstrateClient}`,
+    ) &&
+      /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredPayloadKeys/.test(agentSdkTest),
+    [
+      "packages/runtime-daemon/src/runtime-event-payloads.mjs",
+      "packages/runtime-daemon/src/runtime-event-payloads.test.mjs",
+      "packages/agent-sdk/src/runtime-events.ts",
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime event payloads and SDK projection must use canonical envelope ids/kinds instead of legacy payload aliases",
   );
   return result;
 }

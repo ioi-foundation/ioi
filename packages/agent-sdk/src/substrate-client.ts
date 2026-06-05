@@ -3675,8 +3675,6 @@ function isRuntimeTerminalEvent(event: RuntimeEventEnvelope): boolean {
 }
 
 function sdkMessageTypeFromRuntimeEvent(event: RuntimeEventEnvelope): IOISDKMessage["type"] {
-  const legacyType = event.payload?.legacy_event_type;
-  if (typeof legacyType === "string" && isSdkMessageType(legacyType)) return legacyType;
   if (event.event_kind.startsWith("computer_use.")) {
     const computerUseType = event.event_kind.replace(/\./g, "_");
     if (isSdkMessageType(computerUseType)) return computerUseType;
