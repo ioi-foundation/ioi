@@ -3077,6 +3077,9 @@ function runReceipts() {
       /backend_process:\s*driverResult\.process/.test(modelLoadingOperations) &&
       /command_args_hash:\s*driverResult\.commandArgsHash/.test(modelLoadingOperations) &&
       /instance_id:\s*instance\.id/.test(loadedInstances) &&
+      /notFound\(`No loaded model instance for endpoint: \$\{endpointId\}`,\s*\{ endpoint_id: endpointId \}\)/.test(
+        loadedInstances,
+      ) &&
       /superseded_by:\s*keepInstanceId/.test(loadedInstances) &&
       /provider_kind:\s*providerForInstance\(state,\s*instance\)\?\.kind/.test(loadedInstances) &&
       /const providerId = details\.provider_id;/.test(modelMountReceiptOperations) &&
@@ -3086,8 +3089,13 @@ function runReceipts() {
       !/\b(?:instanceId|endpointId|modelId|providerId|providerKind|backendId|runtimeEngineId|providerEvidenceRefs|backendProcess|commandArgsHash|supersededBy)\s*:/.test(
         modelInstanceLifecycleReceiptBlocks,
       ) &&
+      !/notFound\(`No loaded model instance for endpoint: \$\{endpointId\}`,\s*\{ endpointId \}\)/.test(
+        loadedInstances,
+      ) &&
       /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"providerKind"\),\s*false/.test(modelLoadingOperationsTest) &&
+      /assert\.equal\(error\.details\.endpoint_id,\s*"endpoint_missing"\)/.test(loadedInstancesTest) &&
       /Object\.hasOwn\(state\.receipts\.at\(-1\)\[1\],\s*"providerKind"\),\s*false/.test(loadedInstancesTest) &&
+      /Object\.hasOwn\(error\.details,\s*"endpointId"\),\s*false/.test(loadedInstancesTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerId"\) === false/.test(modelMountReceiptOperationsTest) &&
       /receipt\.legacy-model-lifecycle/.test(modelMountStoreTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerKind"\) === false/.test(modelMountStoreTest),

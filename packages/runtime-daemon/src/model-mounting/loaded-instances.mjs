@@ -10,7 +10,7 @@ export function loadedInstanceForEndpoint(state, endpointId, failIfMissing = tru
     (candidate) => candidate.endpointId === endpointId && candidate.status === "loaded",
   );
   if (!instance && failIfMissing) {
-    throw notFound(`No loaded model instance for endpoint: ${endpointId}`, { endpointId });
+    throw notFound(`No loaded model instance for endpoint: ${endpointId}`, { endpoint_id: endpointId });
   }
   return instance ?? null;
 }

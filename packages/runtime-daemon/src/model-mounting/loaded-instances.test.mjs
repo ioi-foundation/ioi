@@ -75,7 +75,12 @@ test("loaded instance lookup preserves fail and nullable modes", () => {
   assert.equal(loadedInstanceForEndpoint(state, "endpoint_b", false, { notFound }), null);
   assert.throws(
     () => loadedInstanceForEndpoint(state, "endpoint_missing", true, { notFound }),
-    (error) => error.status === 404 && error.details.endpointId === "endpoint_missing",
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.endpoint_id, "endpoint_missing");
+      assert.equal(Object.hasOwn(error.details, "endpointId"), false);
+      return true;
+    },
   );
 });
 
