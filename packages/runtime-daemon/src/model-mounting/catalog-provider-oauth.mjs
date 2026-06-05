@@ -48,11 +48,11 @@ export function startCatalogProviderOAuth(state, providerId, body = {}, deps = {
     redaction: "redacted",
     evidenceRefs: ["OAuthCredentialProvider.startAuthorization", "VaultOAuthAuthorizationState", providerId],
     details: {
-      providerId,
-      oauthState: started.evidence,
-      authorizationUrlHash: started.authorizationUrlHash,
-      authorizationUrlRedacted: started.authorizationUrlRedacted,
-      catalogProvider: publicRecord,
+      provider_id: providerId,
+      oauth_state: started.evidence,
+      authorization_url_hash: started.authorizationUrlHash,
+      authorization_url_redacted: started.authorizationUrlRedacted,
+      catalog_provider: publicRecord,
     },
   });
   state.writeProjection();
@@ -116,10 +116,10 @@ export async function completeCatalogProviderOAuth(state, providerId, body = {},
     redaction: "redacted",
     evidenceRefs: ["OAuthCredentialProvider.completeAuthorization", "VaultOAuthAuthorizationState", "VaultOAuthSession", providerId],
     details: {
-      providerId,
-      oauthState: completed.stateEvidence,
-      oauthSession: completed.sessionEvidence,
-      catalogProvider: publicRecord,
+      provider_id: providerId,
+      oauth_state: completed.stateEvidence,
+      oauth_session: completed.sessionEvidence,
+      catalog_provider: publicRecord,
     },
   });
   state.writeProjection();
@@ -167,9 +167,9 @@ export async function exchangeCatalogProviderOAuth(state, providerId, body = {},
     redaction: "redacted",
     evidenceRefs: ["OAuthCredentialProvider.exchangeAuthorizationCode", "VaultOAuthSession", providerId],
     details: {
-      providerId,
-      oauthSession: evidence,
-      catalogProvider: publicRecord,
+      provider_id: providerId,
+      oauth_session: evidence,
+      catalog_provider: publicRecord,
     },
   });
   state.writeProjection();
@@ -197,7 +197,7 @@ export async function refreshCatalogProviderOAuth(state, providerId, deps = {}) 
       status: 404,
       code: "not_found",
       message: `OAuth session not found for catalog provider: ${providerId}`,
-      details: { providerId, oauthSessionHash: config?.oauthSessionId ? stableHash(config.oauthSessionId) : null },
+      details: { provider_id: providerId, oauth_session_hash: config?.oauthSessionId ? stableHash(config.oauthSessionId) : null },
     });
   }
   const refreshed = await state.oauthCredentialProvider.refreshAccessToken(session);
@@ -215,8 +215,8 @@ export async function refreshCatalogProviderOAuth(state, providerId, deps = {}) 
     redaction: "redacted",
     evidenceRefs: ["OAuthCredentialProvider.refreshAccessToken", "VaultOAuthSession", providerId],
     details: {
-      providerId,
-      oauthSession: publicOAuthSession(refreshed),
+      provider_id: providerId,
+      oauth_session: publicOAuthSession(refreshed),
     },
   });
   state.writeProjection();
@@ -239,7 +239,7 @@ export function revokeCatalogProviderOAuth(state, providerId, deps = {}) {
       status: 404,
       code: "not_found",
       message: `OAuth session not found for catalog provider: ${providerId}`,
-      details: { providerId, oauthSessionHash: config?.oauthSessionId ? stableHash(config.oauthSessionId) : null },
+      details: { provider_id: providerId, oauth_session_hash: config?.oauthSessionId ? stableHash(config.oauthSessionId) : null },
     });
   }
   const revoked = state.oauthCredentialProvider.revokeSession(session);
@@ -257,8 +257,8 @@ export function revokeCatalogProviderOAuth(state, providerId, deps = {}) {
     redaction: "redacted",
     evidenceRefs: ["OAuthCredentialProvider.revokeSession", "VaultOAuthSession", providerId],
     details: {
-      providerId,
-      oauthSession: publicOAuthSession(revoked),
+      provider_id: providerId,
+      oauth_session: publicOAuthSession(revoked),
     },
   });
   state.writeProjection();

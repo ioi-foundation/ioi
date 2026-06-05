@@ -2454,6 +2454,12 @@ function runReceipts() {
   const oauthBoundaryTest = exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs")
     : "";
+  const catalogProviderOAuth = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs")
+    : "";
+  const catalogProviderOAuthTest = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs")
+    : "";
   const capabilityTokenOperations = exists("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
     : "";
@@ -3213,6 +3219,31 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs",
     ],
     "Phase 7/11 is pending: OAuth credential and token-endpoint fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-catalog-oauth-receipt-detail-aliases-retired",
+    /provider_id:\s*providerId/.test(catalogProviderOAuth) &&
+      /oauth_state:\s*started\.evidence/.test(catalogProviderOAuth) &&
+      /authorization_url_hash:\s*started\.authorizationUrlHash/.test(catalogProviderOAuth) &&
+      /authorization_url_redacted:\s*started\.authorizationUrlRedacted/.test(catalogProviderOAuth) &&
+      /catalog_provider:\s*publicRecord/.test(catalogProviderOAuth) &&
+      /oauth_session:\s*(?:completed\.sessionEvidence|evidence|publicOAuthSession)/.test(catalogProviderOAuth) &&
+      /oauth_session_hash:\s*config\?\.oauthSessionId/.test(catalogProviderOAuth) &&
+      !/details:\s*\{\s*providerId\b/.test(catalogProviderOAuth) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.payload\.details,\s*"providerId"\),\s*false/.test(catalogProviderOAuthTest) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.payload\.details,\s*"oauthState"\),\s*false/.test(catalogProviderOAuthTest) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.payload\.details,\s*"authorizationUrlHash"\),\s*false/.test(catalogProviderOAuthTest) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.payload\.details,\s*"authorizationUrlRedacted"\),\s*false/.test(catalogProviderOAuthTest) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.payload\.details,\s*"catalogProvider"\),\s*false/.test(catalogProviderOAuthTest) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.payload\.details,\s*"oauthSession"\),\s*false/.test(catalogProviderOAuthTest) &&
+      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(catalogProviderOAuthTest) &&
+      /Object\.hasOwn\(error\.details,\s*"oauthSessionHash"\),\s*false/.test(catalogProviderOAuthTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs",
+    ],
+    "Phase 7/11 is pending: catalog OAuth accepted receipts and missing-session errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

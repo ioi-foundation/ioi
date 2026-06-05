@@ -182,6 +182,16 @@ test("catalog OAuth start persists pending state, config boundary, and public re
   assert.equal(result.authorizationUrlHash, "hash:authorization-url");
   assert.equal(result.receiptId, "receipt.catalog_oauth_start.1");
   assert.equal(result.provider.status, "available");
+  assert.equal(state.receipts[0].payload.details.provider_id, "catalog.huggingface");
+  assert.equal(state.receipts[0].payload.details.oauth_state.oauthStateHash, "hash:oauth-state-1");
+  assert.equal(state.receipts[0].payload.details.authorization_url_hash, "hash:authorization-url");
+  assert.equal(state.receipts[0].payload.details.authorization_url_redacted, "https://auth.example.test/authorize?state=[REDACTED]");
+  assert.equal(state.receipts[0].payload.details.catalog_provider.id, "catalog.huggingface");
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "providerId"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "oauthState"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "authorizationUrlHash"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "authorizationUrlRedacted"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "catalogProvider"), false);
   assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthBoundary.status, "pending_authorization");
   assert.deepEqual(state.writes.map(([name]) => name), ["oauth-states", "model-catalog-providers"]);
   assert.equal(state.vaultWrites, 1);
@@ -197,6 +207,14 @@ test("catalog OAuth callback finds pending state by hash and binds completed ses
   assert.equal(result.oauthState.status, "completed");
   assert.equal(result.oauthSession.status, "active");
   assert.equal(result.receiptId, "receipt.catalog_oauth_callback.2");
+  assert.equal(state.receipts.at(-1).payload.details.provider_id, "catalog.huggingface");
+  assert.equal(state.receipts.at(-1).payload.details.oauth_state.status, "completed");
+  assert.equal(state.receipts.at(-1).payload.details.oauth_session.status, "active");
+  assert.equal(state.receipts.at(-1).payload.details.catalog_provider.id, "catalog.huggingface");
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "oauthState"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "oauthSession"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "catalogProvider"), false);
   assert.equal(state.oauthStates.get("oauth-state-1").status, "completed");
   assert.equal(state.oauthSessions.get("oauth-session-1").accessVaultRef, "vault://oauth/access");
   assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthSessionId, "oauth-session-1");
@@ -210,6 +228,12 @@ test("catalog OAuth exchange persists session and provider config", async () => 
 
   assert.equal(result.oauthSession.id, "oauth-session-exchange");
   assert.equal(result.receiptId, "receipt.catalog_oauth_exchange.1");
+  assert.equal(state.receipts[0].payload.details.provider_id, "catalog.huggingface");
+  assert.equal(state.receipts[0].payload.details.oauth_session.id, "oauth-session-exchange");
+  assert.equal(state.receipts[0].payload.details.catalog_provider.id, "catalog.huggingface");
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "providerId"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "oauthSession"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "catalogProvider"), false);
   assert.equal(state.oauthSessions.has("oauth-session-exchange"), true);
   assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthSessionId, "oauth-session-exchange");
   assert.deepEqual(state.writes.map(([name]) => name), ["oauth-sessions", "model-catalog-providers"]);
@@ -223,11 +247,19 @@ test("catalog OAuth refresh and revoke update session boundary records", async (
   const refreshed = await refreshCatalogProviderOAuth(state, "catalog.huggingface", deps);
   assert.equal(refreshed.oauthSession.refreshCount, 1);
   assert.equal(refreshed.receiptId, "receipt.catalog_oauth_refresh.1");
+  assert.equal(state.receipts[0].payload.details.provider_id, "catalog.huggingface");
+  assert.equal(state.receipts[0].payload.details.oauth_session.refreshCount, 1);
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "providerId"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "oauthSession"), false);
   assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthBoundary.status, "refreshed");
 
   const revoked = revokeCatalogProviderOAuth(state, "catalog.huggingface", deps);
   assert.equal(revoked.oauthSession.status, "revoked");
   assert.equal(revoked.receiptId, "receipt.catalog_oauth_revoke.2");
+  assert.equal(state.receipts.at(-1).payload.details.provider_id, "catalog.huggingface");
+  assert.equal(state.receipts.at(-1).payload.details.oauth_session.status, "revoked");
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "oauthSession"), false);
   assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthBoundary.status, "revoked");
   assert.equal(state.vaultWrites, 2);
 });
@@ -238,6 +270,27 @@ test("catalog OAuth refresh fails closed when configured session is missing", as
 
   await assert.rejects(
     () => refreshCatalogProviderOAuth(state, "catalog.huggingface", deps),
-    (error) => error.status === 404 && error.code === "not_found" && error.details.oauthSessionHash === "hash:missing-session",
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.code, "not_found");
+      assert.equal(error.details.provider_id, "catalog.huggingface");
+      assert.equal(error.details.oauth_session_hash, "hash:missing-session");
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "oauthSessionHash"), false);
+      return true;
+    },
+  );
+
+  assert.throws(
+    () => revokeCatalogProviderOAuth(state, "catalog.huggingface", deps),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.code, "not_found");
+      assert.equal(error.details.provider_id, "catalog.huggingface");
+      assert.equal(error.details.oauth_session_hash, "hash:missing-session");
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "oauthSessionHash"), false);
+      return true;
+    },
   );
 });
