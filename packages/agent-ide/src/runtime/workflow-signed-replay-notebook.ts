@@ -222,7 +222,7 @@ function cellForRestoreResult(value: unknown): WorkflowSignedReplayNotebookCell 
 function cellForSnapshotListItem(value: unknown): WorkflowSignedReplayNotebookCell | null {
   const snapshot = objectValue(value);
   const snapshotId = stringField(snapshot, "snapshotId", "snapshot_id");
-  if (!snapshotId) return null;
+  if (!snapshot || !snapshotId) return null;
   return {
     id: `signed-replay-snapshot-list-${safeId(snapshotId)}`,
     cellKind: "snapshot",

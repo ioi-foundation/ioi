@@ -79,7 +79,7 @@ export function buildWorkflowComputerUseReplayTimeline(
       const lane = computerUseLane(payload);
       return (!graphFilter || !graphId || graphId === graphFilter) && (!laneFilter || !lane || lane === laneFilter);
     })
-    .sort((left, right) => eventSeq(left) - eventSeq(right))
+    .sort((left, right) => (eventSeq(left) ?? 0) - (eventSeq(right) ?? 0))
     .map((event, index) => replayFrameForEvent(event, index));
   return {
     schemaVersion: WORKFLOW_COMPUTER_USE_REPLAY_TIMELINE_SCHEMA_VERSION,
@@ -92,7 +92,7 @@ export function buildWorkflowComputerUseReplayTimeline(
     affordanceGraphRefs: uniqueStrings(frames.map((frame) => frame.affordanceGraphRef)),
     replayRange: {
       firstSeq: frames[0]?.eventSeq ?? null,
-      lastSeq: frames.at(-1)?.eventSeq ?? null,
+      lastSeq: frames[frames.length - 1]?.eventSeq ?? null,
     },
     scrubber: {
       scrubbable: frames.some((frame) => Boolean(frame.screenshotRef || frame.observationRef)),

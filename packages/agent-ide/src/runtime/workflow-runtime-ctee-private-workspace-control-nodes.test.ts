@@ -73,7 +73,7 @@ test("builds cTEE private workspace controls from workflow nodes", () => {
         logic: {
           cteePrivateWorkspace: cteeAction(),
         },
-      },
+      } as any,
     },
     { threadId: "thread-node" },
     { workflowGraphId: "workflow.ctee-node", actor: "runtime-composer" },

@@ -71,7 +71,7 @@ test("builds worker/service package controls from workflow package nodes", () =>
         logic: {
           workerServicePackage: packageInvocation(),
         },
-      },
+      } as any,
     },
     { threadId: "thread-node" },
     { workflowGraphId: "workflow.package-node", actor: "runtime-composer" },

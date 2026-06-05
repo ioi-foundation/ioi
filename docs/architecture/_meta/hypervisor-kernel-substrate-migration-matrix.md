@@ -6914,6 +6914,61 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 111
+
+```yaml
+slice: 111
+phase: 12-full-conformance-suite
+objective: restore the Hypervisor IDE package build gate for migrated runtime
+  protocol-client surfaces
+owner_boundary:
+  route_or_surface: IDE runtime protocol-client helpers and tests for
+    cTEE, worker/service package, L1 settlement, replay, context lifecycle, and
+    signed replay/audit panels
+  authority_gate: no authority semantics changed; this slice only removes
+    TypeScript target/nullability blockers so the IDE facade can be package-build
+    verified
+  execution_backend: unchanged
+  truth_path: unchanged; migrated control nodes remain admission-only clients of
+    daemon routes
+  projection_path: IDE projection/client helpers compile under the current
+    package target without relying on unconfigured ES2022 APIs
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  ide:
+    - packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts
+    - packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts
+    - packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts
+    - packages/agent-ide/src/runtime/workflow-trajectory-import-audit.ts
+    - packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts
+    - packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts
+  tests: []
+conformance_checks:
+  - IDE package build fails if migrated protocol-client tests or projection
+    helpers drift outside the current TypeScript target/nullability contract
+verification:
+  commands:
+    - npm run build --workspace=@ioi/agent-ide
+    - node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts
+    - node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts
+    - node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: no runtime behavior changed; this slice proves
+    the IDE migrated client/projection surface can build and test as a stable
+    facade over daemon-owned admission routes
+cleanup:
+  legacy_paths_removed: false
+  compatibility_shims_remaining:
+    - broader IDE product integration for sparse L1 settlement and replay panels
+      remains outside this build-gate cleanup
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -6964,7 +7019,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 110:
+Current expected behavior after Slice 111:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
@@ -6976,3 +7031,4 @@ Current expected behavior after Slice 110:
 | `hypervisor-conformance:compositor` | pass | Rust projection records exist, the shadow bridge emits them, and compositor accepted-truth attempts fail closed. |
 | `hypervisor-conformance:negative` | pass | All required forbidden-path negative fixtures are implemented at the Rust guard level. |
 | `hypervisor-conformance` | pass at current tier surface | Current wired tiers pass; terminal migration is still not claimed until live route families are routed through Rust core and JS facade retirement is complete. |
+| `npm run build --workspace=@ioi/agent-ide` | pass | Migrated IDE protocol-client helpers and adjacent replay/projection surfaces compile under the current package TypeScript target. |

@@ -286,7 +286,9 @@ function receiptRefsFromPayload(value: unknown): string[] {
 function hasWorkspaceEscape(workspaceUris: readonly string[], currentWorkspaceRoot: string): boolean {
   if (!currentWorkspaceRoot) return false;
   return workspaceUris.some((uri) => {
-    const fsPath = normalizeFsPath(fileUriPath(uri));
+    const uriPath = fileUriPath(uri);
+    if (!uriPath) return false;
+    const fsPath = normalizeFsPath(uriPath);
     return fsPath ? fsPath !== currentWorkspaceRoot && !fsPath.startsWith(`${currentWorkspaceRoot}/`) : false;
   });
 }

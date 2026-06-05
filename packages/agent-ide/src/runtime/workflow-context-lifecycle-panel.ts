@@ -76,8 +76,8 @@ export function buildWorkflowContextLifecyclePanel(
   const budgetRows = rows.filter((row) => row.rowKind === "context_budget");
   const policyRows = rows.filter((row) => row.rowKind === "compaction_policy");
   const compactRows = rows.filter((row) => row.rowKind === "context_compaction");
-  const latestBudget = budgetRows.at(-1) ?? null;
-  const latestPolicy = policyRows.at(-1) ?? null;
+  const latestBudget = budgetRows[budgetRows.length - 1] ?? null;
+  const latestPolicy = policyRows[policyRows.length - 1] ?? null;
   const latestUsage = [...rows].reverse().find((row) => row.totalTokens !== null) ?? null;
   const blockedBudgetCount = budgetRows.filter((row) => row.status === "blocked").length;
   const compactedCount = compactRows.length;
