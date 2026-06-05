@@ -94,6 +94,60 @@ test("catalog provider auth headers resolve vault material without plaintext per
   assert.equal(auth.evidence.resolvedMaterial, true);
   assert.deepEqual(auth.evidence.headerNames, ["x-catalog-key"]);
   assert.equal(state.writeVaultRefsCount(), 1);
+
+  state.catalogProviderConfig = () => ({
+    id: "catalog.custom_http",
+    authVaultRefHash: "hash:vault://catalog/auth",
+    catalogAuthScheme: "api_key",
+    catalogAuthHeaderName: "X-Catalog-Key",
+  });
+  await assert.rejects(
+    () => catalogProviderAuthHeaders("catalog.custom_http", state),
+    (error) => {
+      assert.match(error.message, /configured by hash only/);
+      assert.equal(error.details.catalog_provider_id, "catalog.custom_http");
+      assert.equal(error.details.auth_vault_ref_hash, "hash:vault://catalog/auth");
+      assert.equal(error.details.resolved_material, false);
+      assert.deepEqual(error.details.evidence_refs, ["catalog_auth_fail_closed", "vault_ref_required"]);
+      assert.equal(Object.hasOwn(error.details, "catalogProviderId"), false);
+      assert.equal(Object.hasOwn(error.details, "authVaultRefHash"), false);
+      assert.equal(Object.hasOwn(error.details, "resolvedMaterial"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    },
+  );
+
+  state.catalogProviderConfig = () => ({
+    id: "catalog.custom_http",
+    authVaultRef: "vault://catalog/missing-auth",
+    authVaultRefHash: "hash:vault://catalog/missing-auth",
+    catalogAuthScheme: "api_key",
+    catalogAuthHeaderName: "X-Catalog-Key",
+  });
+  state.vault.resolveVaultRef = () => ({
+    vaultRefHash: "hash:vault://catalog/missing-auth",
+    resolvedMaterial: false,
+    evidenceRefs: ["VaultPort.resolveVaultRef"],
+  });
+  await assert.rejects(
+    () => catalogProviderAuthHeaders("catalog.custom_http", state),
+    (error) => {
+      assert.match(error.message, /no runtime vault material/);
+      assert.equal(error.details.catalog_provider_id, "catalog.custom_http");
+      assert.equal(error.details.auth_vault_ref_hash, "hash:vault://catalog/missing-auth");
+      assert.equal(error.details.resolved_material, false);
+      assert.equal(error.details.catalog_auth_scheme, "api_key");
+      assert.equal(typeof error.details.catalog_auth_header_name_hash, "string");
+      assert.deepEqual(error.details.evidence_refs, ["VaultPort.resolveVaultRef"]);
+      assert.equal(Object.hasOwn(error.details, "catalogProviderId"), false);
+      assert.equal(Object.hasOwn(error.details, "authVaultRefHash"), false);
+      assert.equal(Object.hasOwn(error.details, "resolvedMaterial"), false);
+      assert.equal(Object.hasOwn(error.details, "catalogAuthScheme"), false);
+      assert.equal(Object.hasOwn(error.details, "catalogAuthHeaderNameHash"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    },
+  );
 });
 
 test("catalog provider auth supports OAuth session refresh projections", async () => {
@@ -139,9 +193,25 @@ test("catalog provider auth supports OAuth session refresh projections", async (
 
 test("catalog provider config validates provider ids and auth schemes", () => {
   assert.doesNotThrow(() => assertConfigurableCatalogProvider("catalog.huggingface"));
-  assert.throws(() => assertConfigurableCatalogProvider("catalog.fixture"), /not configurable/);
+  assert.throws(
+    () => assertConfigurableCatalogProvider("catalog.fixture"),
+    (error) => {
+      assert.match(error.message, /not configurable/);
+      assert.equal(error.details.provider_id, "catalog.fixture");
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      return true;
+    },
+  );
   assert.equal(normalizeCatalogAuthScheme("api-key"), "api_key");
-  assert.throws(() => normalizeCatalogAuthScheme("digest"), /bearer, raw, api_key, or oauth2/);
+  assert.throws(
+    () => normalizeCatalogAuthScheme("digest"),
+    (error) => {
+      assert.match(error.message, /bearer, raw, api_key, or oauth2/);
+      assert.equal(error.details.auth_scheme, "digest");
+      assert.equal(Object.hasOwn(error.details, "authScheme"), false);
+      return true;
+    },
+  );
   assert.equal(
     catalogProviderRuntimeMaterialFromValue("catalog.local_manifest", "./manifest.json").manifestPath,
     path.resolve("./manifest.json"),

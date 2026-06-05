@@ -2436,6 +2436,12 @@ function runReceipts() {
   const providerAuthTest = exists("packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs")
     : "";
+  const catalogProviderConfig = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs")
+    : "";
+  const catalogProviderConfigTest = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs")
+    : "";
   const capabilityTokenOperations = exists("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
     : "";
@@ -3117,6 +3123,36 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs",
     ],
     "Phase 5/11 is pending: provider transport and auth fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-catalog-provider-auth-error-detail-aliases-retired",
+    /details:\s*\{\s*provider_id:\s*providerId\s*\}/.test(catalogProviderConfig) &&
+      /details:\s*\{\s*auth_scheme:\s*scheme\s*\}/.test(catalogProviderConfig) &&
+      /catalog_provider_id:\s*providerId/.test(catalogProviderConfig) &&
+      /auth_vault_ref_hash:\s*config\.authVaultRefHash/.test(catalogProviderConfig) &&
+      /auth_vault_ref_hash:\s*resolved\?\.vaultRefHash/.test(catalogProviderConfig) &&
+      /resolved_material:\s*false/.test(catalogProviderConfig) &&
+      /catalog_auth_scheme:\s*authScheme/.test(catalogProviderConfig) &&
+      /catalog_auth_header_name_hash:\s*stableHash\(headerName\)/.test(catalogProviderConfig) &&
+      /evidence_refs:\s*\["catalog_auth_fail_closed",\s*"vault_ref_required"\]/.test(catalogProviderConfig) &&
+      /evidence_refs:\s*normalizeScopes/.test(catalogProviderConfig) &&
+      !/details:\s*\{[^}]*\b(?:providerId|authScheme|catalogProviderId|authVaultRefHash|resolvedMaterial|catalogAuthScheme|catalogAuthHeaderNameHash|evidenceRefs)\s*:/.test(
+        catalogProviderConfig,
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(catalogProviderConfigTest) &&
+      /Object\.hasOwn\(error\.details,\s*"authScheme"\),\s*false/.test(catalogProviderConfigTest) &&
+      /Object\.hasOwn\(error\.details,\s*"catalogProviderId"\),\s*false/.test(catalogProviderConfigTest) &&
+      /Object\.hasOwn\(error\.details,\s*"authVaultRefHash"\),\s*false/.test(catalogProviderConfigTest) &&
+      /Object\.hasOwn\(error\.details,\s*"resolvedMaterial"\),\s*false/.test(catalogProviderConfigTest) &&
+      /Object\.hasOwn\(error\.details,\s*"catalogAuthScheme"\),\s*false/.test(catalogProviderConfigTest) &&
+      /Object\.hasOwn\(error\.details,\s*"catalogAuthHeaderNameHash"\),\s*false/.test(catalogProviderConfigTest) &&
+      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(catalogProviderConfigTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
+    ],
+    "Phase 7/11 is pending: catalog provider auth/config fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

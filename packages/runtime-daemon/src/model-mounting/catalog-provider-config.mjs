@@ -24,7 +24,7 @@ export function assertConfigurableCatalogProvider(providerId) {
       status: 404,
       code: "not_found",
       message: `Catalog provider is not configurable: ${providerId}`,
-      details: { providerId },
+      details: { provider_id: providerId },
     });
   }
 }
@@ -211,7 +211,7 @@ export function normalizeCatalogAuthScheme(value) {
     status: 400,
     code: "validation",
     message: "Catalog auth scheme must be bearer, raw, api_key, or oauth2.",
-    details: { authScheme: scheme },
+    details: { auth_scheme: scheme },
   });
 }
 
@@ -274,10 +274,10 @@ export async function catalogProviderAuthHeaders(providerId, state) {
       code: "policy",
       message: "Catalog auth is configured by hash only; request-time vault ref resolution requires a vault ref.",
       details: {
-        catalogProviderId: providerId,
-        authVaultRefHash: config.authVaultRefHash ?? null,
-        resolvedMaterial: false,
-        evidenceRefs: ["catalog_auth_fail_closed", "vault_ref_required"],
+        catalog_provider_id: providerId,
+        auth_vault_ref_hash: config.authVaultRefHash ?? null,
+        resolved_material: false,
+        evidence_refs: ["catalog_auth_fail_closed", "vault_ref_required"],
       },
     });
   }
@@ -289,12 +289,12 @@ export async function catalogProviderAuthHeaders(providerId, state) {
       code: "policy",
       message: "Catalog auth vault ref is configured, but no runtime vault material is available.",
       details: {
-        catalogProviderId: providerId,
-        authVaultRefHash: resolved?.vaultRefHash ?? config.authVaultRefHash ?? stableHash(config.authVaultRef),
-        resolvedMaterial: false,
-        catalogAuthScheme: authScheme,
-        catalogAuthHeaderNameHash: stableHash(headerName),
-        evidenceRefs: normalizeScopes(resolved?.evidenceRefs, ["VaultPort.resolveVaultRef", "catalog_auth_fail_closed"]),
+        catalog_provider_id: providerId,
+        auth_vault_ref_hash: resolved?.vaultRefHash ?? config.authVaultRefHash ?? stableHash(config.authVaultRef),
+        resolved_material: false,
+        catalog_auth_scheme: authScheme,
+        catalog_auth_header_name_hash: stableHash(headerName),
+        evidence_refs: normalizeScopes(resolved?.evidenceRefs, ["VaultPort.resolveVaultRef", "catalog_auth_fail_closed"]),
       },
     });
   }
