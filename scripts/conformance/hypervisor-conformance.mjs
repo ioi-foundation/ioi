@@ -477,6 +477,16 @@ function runBridge() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-structured-policy-composer.test.ts")
     : "";
+  const workflowModelCapabilityBinding = exists(
+    "packages/agent-ide/src/runtime/workflow-model-capability-binding.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-model-capability-binding.ts")
+    : "";
+  const workflowModelCapabilityBindingTest = exists(
+    "packages/agent-ide/src/runtime/workflow-model-capability-binding.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-model-capability-binding.test.ts")
+    : "";
   const workerServicePackageAdmissionResultType =
     agentSdkSubstrateClient.match(
       /export interface RuntimeWorkerServicePackageInvocationAdmissionResult[\s\S]*?\n}\n/,
@@ -819,6 +829,27 @@ function runBridge() {
       "packages/agent-ide/src/runtime/workflow-structured-policy-composer.test.ts",
     ],
     "Phase 10 is pending: SDK/IDE model policy helper types must use canonical allow_hosted_fallback without the retired allowHostedFallback alias",
+  );
+  assertCheck(
+    result,
+    "ide-model-capability-legacy-id-projection-retired",
+    /modelCapabilityRefForRoute/.test(workflowModelCapabilityBinding) &&
+      !/legacyModelIdToModelCapabilityRef/.test(workflowModelCapabilityBinding) &&
+      !/model-capability:legacy/.test(workflowModelCapabilityBinding) &&
+      !/Legacy model id binding/.test(workflowModelCapabilityBinding) &&
+      !/Compatibility grant posture/.test(workflowModelCapabilityBinding) &&
+      /raw graph model ids do not mint legacy model capability refs/.test(
+        workflowModelCapabilityBindingTest,
+      ) &&
+      /canonical graph model capability readiness remains executable/.test(
+        workflowModelCapabilityBindingTest,
+      ) &&
+      /workflowModelBindingIsReady\(binding\),\s*false/.test(workflowModelCapabilityBindingTest),
+    [
+      "packages/agent-ide/src/runtime/workflow-model-capability-binding.ts",
+      "packages/agent-ide/src/runtime/workflow-model-capability-binding.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE model capability binding must not mint executable capability refs or readiness from raw legacy model ids",
   );
   assertCheck(
     result,

@@ -7,7 +7,7 @@ import {
   workflowModelBindingIsReady,
 } from "./workflow-model-capability-binding";
 
-test("legacy graph model ids project to canonical model capability refs", () => {
+test("raw graph model ids do not mint legacy model capability refs", () => {
   const binding = normalizeGraphModelBinding("reasoning", {
     modelId: "openai/gpt-5.4-mini",
     required: true,
@@ -15,7 +15,7 @@ test("legacy graph model ids project to canonical model capability refs", () => 
 
   assert.equal(
     binding.modelCapabilityRef,
-    "model-capability:legacy.reasoning.openai-gpt-5.4-mini",
+    "model-capability:route.local-first",
   );
   assert.equal(binding.routeId, "route.local-first");
   assert.deepEqual(binding.authorityScopes, [
@@ -23,11 +23,33 @@ test("legacy graph model ids project to canonical model capability refs", () => 
     "model.chat:*",
   ]);
   assert.equal(binding.receiptBehavior?.receiptRequired, true);
-  assert.equal(binding.credentialReadiness?.status, "ready");
+  assert.equal(binding.credentialReadiness?.status, "unknown");
   assert.equal(
     (binding.policyPosture as { status?: unknown })?.status,
-    "allowed",
+    "unknown",
   );
+  assert.equal(workflowModelBindingIsReady(binding), false);
+  assert.equal(
+    Object.values(binding).some(
+      (value) => typeof value === "string" && value.includes("model-capability:legacy"),
+    ),
+    false,
+  );
+});
+
+test("canonical graph model capability readiness remains executable", () => {
+  const binding = normalizeGraphModelBinding("reasoning", {
+    modelCapabilityRef: "model-capability:route.local-first",
+    routeId: "route.local-first",
+    credentialReadiness: { status: "ready" },
+    grantReadiness: { status: "ready" },
+    policyPosture: { status: "allowed" },
+    workflowAvailability: { available: true },
+    agentAvailability: { available: true },
+  });
+
+  assert.equal(binding.modelCapabilityRef, "model-capability:route.local-first");
+  assert.equal(binding.credentialReadiness?.status, "ready");
   assert.equal(workflowModelBindingIsReady(binding), true);
 });
 

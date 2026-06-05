@@ -38,15 +38,6 @@ function cleanText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function slug(value: string, fallback = "model"): string {
-  const result = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_.:-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return result || fallback;
-}
-
 function capabilityForModelRef(modelRef: string, explicitCapability?: string): string {
   return cleanText(explicitCapability) || DEFAULT_CAPABILITY_BY_MODEL_REF[modelRef] || "chat";
 }
@@ -57,10 +48,6 @@ function routeIdForModelRef(modelRef: string, routeId?: string): string {
 
 export function modelCapabilityRefForRoute(routeId: string): string {
   return `model-capability:${routeIdForModelRef("reasoning", routeId)}`;
-}
-
-export function legacyModelIdToModelCapabilityRef(modelId: string, modelRef = "reasoning"): string {
-  return `model-capability:legacy.${slug(modelRef, "model")}.${slug(modelId, "model")}`;
 }
 
 export function defaultModelAuthorityScopes(routeId: string, capability = "chat"): string[] {
@@ -105,12 +92,11 @@ function stringArray(value: unknown): string[] {
 }
 
 function hasReadyCredentialProjection(binding: {
-  modelId?: string | null;
   credentialReady?: boolean;
   credentialReadiness?: WorkflowCapabilityCredentialReadiness;
 }): boolean {
   const status = cleanText(binding.credentialReadiness?.status).toLowerCase();
-  return Boolean(binding.credentialReady) || status === "ready" || Boolean(cleanText(binding.modelId));
+  return Boolean(binding.credentialReady) || status === "ready";
 }
 
 export function normalizeGraphModelBinding(
@@ -121,15 +107,13 @@ export function normalizeGraphModelBinding(
   const routeId = routeIdForModelRef(modelRef, binding?.routeId);
   const capability = capabilityForModelRef(modelRef);
   const modelCapabilityRef =
-    cleanText(binding?.modelCapabilityRef) ||
-    (modelId ? legacyModelIdToModelCapabilityRef(modelId, modelRef) : modelCapabilityRefForRoute(routeId));
+    cleanText(binding?.modelCapabilityRef) || modelCapabilityRefForRoute(routeId);
   const authorityScopes = stringArray(binding?.authorityScopes).length
     ? stringArray(binding?.authorityScopes)
     : stringArray(binding?.authorityScopeRequirements).length
       ? stringArray(binding?.authorityScopeRequirements)
       : defaultModelAuthorityScopes(routeId, capability);
   const ready = hasReadyCredentialProjection({
-    modelId,
     credentialReadiness: binding?.credentialReadiness,
   });
   const evidenceRef = modelCapabilityRef;
@@ -150,7 +134,7 @@ export function normalizeGraphModelBinding(
         ready,
         evidenceRef,
         ready
-          ? "Legacy model id binding was projected into a model capability contract."
+          ? "Model binding readiness was projected from canonical credential metadata."
           : "No executable model capability readiness has been confirmed.",
       ),
     workflowAvailability:
@@ -193,7 +177,7 @@ export function normalizeGraphModelBinding(
         ready,
         evidenceRef,
         ready
-          ? "Compatibility grant posture projected from a ready model binding."
+          ? "Model capability grant posture was projected from canonical credential metadata."
           : "No model capability grant has been confirmed.",
       ),
     policyPosture:
@@ -222,7 +206,7 @@ export function normalizeWorkflowModelBinding(
   const modelCapabilityRef =
     cleanText(binding?.modelCapabilityRef) ||
     cleanText(logic.modelCapabilityRef) ||
-    (cleanText(modelId) ? legacyModelIdToModelCapabilityRef(String(modelId), modelRef) : modelCapabilityRefForRoute(routeId));
+    modelCapabilityRefForRoute(routeId);
   const authorityScopes = stringArray(binding?.authorityScopes).length
     ? stringArray(binding?.authorityScopes)
     : stringArray(binding?.authorityScopeRequirements).length
@@ -230,7 +214,6 @@ export function normalizeWorkflowModelBinding(
       : defaultModelAuthorityScopes(routeId, capability);
   const mockBinding = binding?.mockBinding ?? true;
   const ready = hasReadyCredentialProjection({
-    modelId,
     credentialReady: binding?.credentialReady,
     credentialReadiness: binding?.credentialReadiness,
   });
