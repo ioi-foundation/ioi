@@ -11,7 +11,6 @@ export const STEP_MODULE_COMMAND_ENV = "IOI_STEP_MODULE_COMMAND";
 export const STEP_MODULE_COMMAND_ARGS_ENV = "IOI_STEP_MODULE_COMMAND_ARGS";
 
 export const STEP_MODULE_BACKENDS = new Set([
-  "daemon_js",
   "rust_workload_shadow",
   "rust_workload_gated",
   "rust_workload_live",
@@ -21,11 +20,8 @@ const COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
 
 export function createStepModuleRunnerFromEnv(env = process.env, options = {}) {
   const backend = normalizeStepModuleBackend(
-    options.backend ?? env[STEP_MODULE_BACKEND_ENV] ?? "daemon_js",
+    options.backend ?? env[STEP_MODULE_BACKEND_ENV] ?? "rust_workload_live",
   );
-  if (backend === "daemon_js") {
-    return new DaemonJsStepModuleRunner({ backend });
-  }
   return new RustWorkloadStepModuleRunner({
     backend,
     command: options.command ?? env[STEP_MODULE_COMMAND_ENV] ?? null,
@@ -38,7 +34,7 @@ export function createStepModuleRunnerFromEnv(env = process.env, options = {}) {
 }
 
 export function normalizeStepModuleBackend(value) {
-  const normalized = String(value ?? "").trim().toLowerCase() || "daemon_js";
+  const normalized = String(value ?? "").trim().toLowerCase() || "rust_workload_live";
   if (!STEP_MODULE_BACKENDS.has(normalized)) {
     throw new StepModuleRunnerError(
       `Unknown StepModule backend "${value}".`,
@@ -50,7 +46,7 @@ export function normalizeStepModuleBackend(value) {
 }
 
 export class StepModuleRunner {
-  constructor({ backend = "daemon_js" } = {}) {
+  constructor({ backend = "rust_workload_live" } = {}) {
     this.backend = normalizeStepModuleBackend(backend);
   }
 
@@ -64,27 +60,6 @@ export class StepModuleRunner {
       "step_module_runner_not_implemented",
       { backend: this.backend },
     );
-  }
-}
-
-export class DaemonJsStepModuleRunner extends StepModuleRunner {
-  runCodingTool({ contract, toolId, input = {}, result = {}, context = {} } = {}) {
-    return {
-      backend: this.backend,
-      mode: "projection",
-      blocking: false,
-      source: "daemon_js_projection",
-      ...createCodingToolStepModuleProjection({
-        contract,
-        toolId,
-        input,
-        result,
-        ...context,
-        moduleKind: "daemon_native_tool",
-        executionBackend: "daemon_js",
-        workflowProjectionStatus: context.workflowProjectionStatus ?? "projected",
-      }),
-    };
   }
 }
 

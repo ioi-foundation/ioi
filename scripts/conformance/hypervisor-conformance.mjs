@@ -360,6 +360,9 @@ function runBridge() {
   const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     : "";
+  const stepModuleRunner = exists("packages/runtime-daemon/src/step-module-runner.mjs")
+    ? read("packages/runtime-daemon/src/step-module-runner.mjs")
+    : "";
   const openAiCompatibleDriver = exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
     : "";
@@ -404,9 +407,22 @@ function runBridge() {
   assertCheck(
     result,
     "rust-workload-step-module-runner",
-    codeCorpusContains(/RustWorkloadStepModuleRunner|IOI_STEP_MODULE_BACKEND|IOI_WORKLOAD_GRPC_ADDR/),
-    ["packages/runtime-daemon/src", "crates/client/src/workload_client/mod.rs"],
-    "Phase 2 is pending: add Rust workload bridge configuration and fail-closed runner",
+    /RustWorkloadStepModuleRunner/.test(stepModuleRunner) &&
+      /IOI_STEP_MODULE_BACKEND/.test(stepModuleRunner) &&
+      /IOI_WORKLOAD_GRPC_ADDR/.test(stepModuleRunner) &&
+      /options\.backend \?\? env\[STEP_MODULE_BACKEND_ENV\] \?\? "rust_workload_live"/.test(stepModuleRunner) &&
+      /String\(value \?\? ""\)\.trim\(\)\.toLowerCase\(\) \|\| "rust_workload_live"/.test(stepModuleRunner) &&
+      !/DaemonJsStepModuleRunner/.test(stepModuleRunner) &&
+      !/"daemon_js",/.test(stepModuleRunner) &&
+      /daemon-js StepModule backend selection fails closed/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/step-module-runner.mjs",
+      "packages/runtime-daemon/src/step-module-runner.test.mjs",
+      "crates/client/src/workload_client/mod.rs",
+    ],
+    "Phase 2 is pending: default StepModule execution must be Rust workload live and explicit daemon_js backend selection must fail closed",
   );
   assertCheck(
     result,

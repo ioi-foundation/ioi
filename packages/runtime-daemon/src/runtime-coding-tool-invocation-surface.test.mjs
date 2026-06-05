@@ -27,8 +27,43 @@ function createSurface(overrides = {}) {
       stdout: "patched",
       artifactDrafts: [{ name: "stdout.txt", content: "patched" }],
     }),
+    stepModuleRunner: createShadowStepModuleRunner(),
     ...overrides,
   });
+}
+
+function createShadowStepModuleRunner() {
+  return {
+    backend: "rust_workload_shadow",
+    blocksDaemonJsExecution: false,
+    runCodingTool({ toolId, context = {} }) {
+      const invocationId = `invocation://shadow/${toolId}`;
+      return {
+        backend: "rust_workload_shadow",
+        mode: "shadow",
+        blocking: false,
+        source: "rust_workload_shadow_test",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: invocationId,
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: invocationId,
+          status: "success",
+          receipt_refs: context.receiptRefs ?? [],
+          artifact_refs: context.artifactRefs ?? [],
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: null,
+          resulting_head: null,
+          workflow_projection: {
+            status: context.workflowProjectionStatus ?? "shadow",
+          },
+        },
+      };
+    },
+  };
 }
 
 function createStore() {
@@ -174,10 +209,10 @@ test("coding tool invocation surface completes apply-patch with artifacts, snaps
   assert.equal(result.auto_diagnostics.status, "completed");
   assert.equal(result.command_stream_events[0].event_id, "event_command_stream");
   assert.equal(result.event.payload_summary.diagnosticsRepairContext.toolId, "file.apply_patch");
-  assert.equal(result.step_module.backend, "daemon_js");
+  assert.equal(result.step_module.backend, "rust_workload_shadow");
   assert.equal(result.step_module.invocation.schema_version, "ioi.step_module_invocation.v1");
   assert.equal(result.step_module.result.schema_version, "ioi.step_module_result.v1");
-  assert.equal(result.event.payload_summary.step_module_backend, "daemon_js");
+  assert.equal(result.event.payload_summary.step_module_backend, "rust_workload_shadow");
   assert.equal(
     result.event.payload_summary.step_module_invocation.invocation_id,
     result.step_module.invocation.invocation_id,

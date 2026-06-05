@@ -3,7 +3,6 @@ import test from "node:test";
 
 import { codingToolContracts } from "./coding-tools.mjs";
 import {
-  DaemonJsStepModuleRunner,
   RustWorkloadStepModuleRunner,
   StepModuleRunnerError,
   createStepModuleRunnerFromEnv,
@@ -13,27 +12,32 @@ const workspaceStatusContract = codingToolContracts().find(
   (contract) => contract.stableToolId === "workspace.status",
 );
 
-test("default StepModuleRunner is daemon-js projection mode", () => {
+test("default StepModuleRunner is Rust workload live and fails closed without command", () => {
   const runner = createStepModuleRunnerFromEnv({});
-  assert.ok(runner instanceof DaemonJsStepModuleRunner);
-  const projection = runner.runCodingTool({
-    contract: workspaceStatusContract,
-    toolId: "workspace.status",
-    input: {},
-    result: {},
-    context: {
-      runId: "run:test",
-      taskId: "task:test",
-      workflowGraphId: "workflow:test",
-      workflowNodeId: "node:test",
-    },
-  });
+  assert.ok(runner instanceof RustWorkloadStepModuleRunner);
+  assert.equal(runner.backend, "rust_workload_live");
+  assert.equal(runner.blocksDaemonJsExecution, true);
+  assert.throws(
+    () =>
+      runner.runCodingTool({
+        contract: workspaceStatusContract,
+        toolId: "workspace.status",
+        input: {},
+        result: {},
+      }),
+    (error) =>
+      error instanceof StepModuleRunnerError &&
+      error.code === "rust_workload_bridge_unconfigured",
+  );
+});
 
-  assert.equal(projection.backend, "daemon_js");
-  assert.equal(projection.invocation.module_ref.kind, "daemon_native_tool");
-  assert.equal(projection.invocation.execution.backend, "daemon_js");
-  assert.equal(projection.result.workflow_projection.status, "projected");
-  assert.equal(projection.blocking, false);
+test("daemon-js StepModule backend selection fails closed", () => {
+  assert.throws(
+    () => createStepModuleRunnerFromEnv({ IOI_STEP_MODULE_BACKEND: "daemon_js" }),
+    (error) =>
+      error instanceof StepModuleRunnerError &&
+      error.code === "step_module_backend_invalid",
+  );
 });
 
 test("rust workload shadow runner produces workload invocation with mock bridge result", () => {
