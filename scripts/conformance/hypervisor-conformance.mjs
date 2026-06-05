@@ -2517,12 +2517,20 @@ function runReceipts() {
   const modelMountStoreTest = exists("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     : "";
+  const modelTokenizerOperations = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs")
+    : "";
+  const modelTokenizerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
+    : "";
   const modelInstanceLifecycleReceiptBlocks = [
     modelLoadingOperations.match(/state\.lifecycleReceipt\("model_load",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
     modelLoadingOperations.match(/state\.lifecycleReceipt\("model_unload",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
     loadedInstances.match(/state\.lifecycleReceipt\("model_idle_evict",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
     loadedInstances.match(/state\.lifecycleReceipt\("model_supersede",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
   ].join("\n");
+  const modelTokenizerReceiptDetailsObject =
+    modelTokenizerOperations.match(/details:\s*\{[\s\S]*?context_window:\s*contextWindow,\n\s+\},/)?.[0] ?? "";
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
@@ -2965,6 +2973,35 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
     "Phase 9/11 is pending: model-instance lifecycle receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-tokenizer-receipt-detail-aliases-retired",
+    /route_id:\s*selection\.route\.id/.test(modelTokenizerReceiptDetailsObject) &&
+      /route_receipt_id:\s*routeReceipt\.id/.test(modelTokenizerReceiptDetailsObject) &&
+      /selected_model:\s*selection\.endpoint\.modelId/.test(modelTokenizerReceiptDetailsObject) &&
+      /endpoint_id:\s*selection\.endpoint\.id/.test(modelTokenizerReceiptDetailsObject) &&
+      /provider_id:\s*selection\.endpoint\.providerId/.test(modelTokenizerReceiptDetailsObject) &&
+      /backend_id:\s*selection\.endpoint\.backendId/.test(modelTokenizerReceiptDetailsObject) &&
+      /selected_backend:\s*selection\.endpoint\.backendId/.test(modelTokenizerReceiptDetailsObject) &&
+      /grant_id:\s*token\.grantId/.test(modelTokenizerReceiptDetailsObject) &&
+      /tokenizer_source:\s*"deterministic_estimator"/.test(modelTokenizerReceiptDetailsObject) &&
+      /input_hash:\s*stableHash\(input\)/.test(modelTokenizerReceiptDetailsObject) &&
+      /token_count:\s*\{/.test(modelTokenizerReceiptDetailsObject) &&
+      /context_window:\s*contextWindow/.test(modelTokenizerReceiptDetailsObject) &&
+      !/\b(?:routeId|routeReceiptId|selectedModel|endpointId|providerId|backendId|selectedBackend|grantId|tokenizerSource|inputHash|tokenCount|contextWindow)\s*:/.test(
+        modelTokenizerReceiptDetailsObject,
+      ) &&
+      /Object\.hasOwn\(utility\.receipt\.payload\.details,\s*"routeId"\),\s*false/.test(modelTokenizerOperationsTest) &&
+      /Object\.hasOwn\(utility\.receipt\.payload\.details,\s*"tokenCount"\),\s*false/.test(modelTokenizerOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.payload\.details,\s*"contextWindow"\),\s*false/.test(
+        modelTokenizerOperationsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: tokenizer and context-fit receipts must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

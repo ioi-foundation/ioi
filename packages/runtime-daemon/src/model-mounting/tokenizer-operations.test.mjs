@@ -101,7 +101,34 @@ test("modelTokenizerUtility records route and redacted tokenization receipt", ()
   assert.equal(utility.promptTokens, 3);
   assert.equal(utility.contextWindow, 4);
   assert.equal(utility.receipt.kind, "model_tokenization");
-  assert.equal(utility.receipt.payload.details.inputHash, "hash:one two three");
+  assert.equal(utility.receipt.payload.details.route_id, "route.local-first");
+  assert.equal(utility.receipt.payload.details.route_receipt_id, "route-receipt.1");
+  assert.equal(utility.receipt.payload.details.selected_model, "llama-test");
+  assert.equal(utility.receipt.payload.details.endpoint_id, "endpoint.local.llama");
+  assert.equal(utility.receipt.payload.details.provider_id, "provider.local");
+  assert.equal(utility.receipt.payload.details.backend_id, "backend.native");
+  assert.equal(utility.receipt.payload.details.selected_backend, "backend.native");
+  assert.equal(utility.receipt.payload.details.grant_id, "grant.model.tokenize:*");
+  assert.equal(utility.receipt.payload.details.tokenizer_source, "deterministic_estimator");
+  assert.equal(utility.receipt.payload.details.input_hash, "hash:one two three");
+  assert.deepEqual(utility.receipt.payload.details.token_count, {
+    prompt_tokens: 3,
+    completion_tokens: 0,
+    total_tokens: 3,
+  });
+  assert.equal(utility.receipt.payload.details.context_window, 4);
+  assert.equal(Object.hasOwn(utility.receipt.payload.details, "routeId"), false);
+  assert.equal(Object.hasOwn(utility.receipt.payload.details, "routeReceiptId"), false);
+  assert.equal(Object.hasOwn(utility.receipt.payload.details, "selectedModel"), false);
+  assert.equal(Object.hasOwn(utility.receipt.payload.details, "endpointId"), false);
+  assert.equal(Object.hasOwn(utility.receipt.payload.details, "providerId"), false);
+  assert.equal(Object.hasOwn(utility.receipt.payload.details, "backendId"), false);
+  assert.equal(Object.hasOwn(utility.receipt.payload.details, "selectedBackend"), false);
+  assert.equal(Object.hasOwn(utility.receipt.payload.details, "grantId"), false);
+  assert.equal(Object.hasOwn(utility.receipt.payload.details, "tokenizerSource"), false);
+  assert.equal(Object.hasOwn(utility.receipt.payload.details, "inputHash"), false);
+  assert.equal(Object.hasOwn(utility.receipt.payload.details, "tokenCount"), false);
+  assert.equal(Object.hasOwn(utility.receipt.payload.details, "contextWindow"), false);
   assert.equal(state.routes.get("route.local-first").lastSelectedModel, "llama-test");
   assert.equal(state.writes.at(-1)[0], "model-routes");
 });
@@ -149,6 +176,9 @@ test("fitModelContext reports fit and keep-tail truncation", () => {
   assert.equal(result.fitted_input, "three four five");
   assert.equal(result.fitted_input_hash, "hash:three four five");
   assert.equal(state.receipts.at(-1).kind, "model_context_fit");
+  assert.equal(state.receipts.at(-1).payload.details.operation, "context_fit");
+  assert.equal(state.receipts.at(-1).payload.details.context_window, 4);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "contextWindow"), false);
 });
 
 test("contextWindowForEndpoint honors explicit, artifact, metadata, and default fallbacks", () => {
