@@ -22,11 +22,6 @@ function createSurface(overrides = {}) {
     },
     diagnosticsRepairContextForRequest: (request = {}) => request.diagnosticsRepairContext ?? null,
     diagnosticsRepairContextForToolPack: (_request, _input, toolId) => ({ source: "tool_pack", toolId }),
-    executeCodingTool: () => ({
-      status: "completed",
-      stdout: "patched",
-      artifactDrafts: [{ name: "stdout.txt", content: "patched" }],
-    }),
     stepModuleRunner: createShadowStepModuleRunner(),
     ...overrides,
   });
@@ -185,38 +180,30 @@ function createStore() {
   };
 }
 
-test("coding tool invocation surface completes apply-patch with artifacts, snapshot, and diagnostics", () => {
+test("coding tool invocation surface rejects non-live coding-tool runners before JS execution", () => {
   const surface = createSurface();
   const store = createStore();
 
-  const result = surface.invokeThreadTool(store, "thread_alpha", "file.apply_patch", {
-    toolCallId: "tool_alpha",
-    workflowGraphId: "graph_alpha",
-    source: "runtime_auto",
-    rollbackRefs: ["rollback_request"],
-    input: { patch: "*** Begin Patch\n*** End Patch\n" },
-  });
-
-  assert.equal(result.status, "completed");
-  assert.equal(result.tool_name, "file.apply_patch");
-  assert.equal(result.tool_call_id, "tool_alpha");
-  assert.equal(result.event.event_stream_id, "thread_alpha:events");
-  assert.equal(result.event.event_kind, "tool.completed");
-  assert.deepEqual(result.event.artifact_refs, ["artifact_stdout", "artifact_snapshot"]);
-  assert.deepEqual(result.event.rollback_refs, ["snapshot_alpha", "rollback_request"]);
-  assert.equal(result.workspace_snapshot.snapshotId, "snapshot_alpha");
-  assert.equal(result.workspace_snapshot_event.event_id, "event_snapshot");
-  assert.equal(result.auto_diagnostics.status, "completed");
-  assert.equal(result.command_stream_events[0].event_id, "event_command_stream");
-  assert.equal(result.event.payload_summary.diagnosticsRepairContext.toolId, "file.apply_patch");
-  assert.equal(result.step_module.backend, "rust_workload_shadow");
-  assert.equal(result.step_module.invocation.schema_version, "ioi.step_module_invocation.v1");
-  assert.equal(result.step_module.result.schema_version, "ioi.step_module_result.v1");
-  assert.equal(result.event.payload_summary.step_module_backend, "rust_workload_shadow");
-  assert.equal(
-    result.event.payload_summary.step_module_invocation.invocation_id,
-    result.step_module.invocation.invocation_id,
+  assert.throws(
+    () =>
+      surface.invokeThreadTool(store, "thread_alpha", "file.apply_patch", {
+        toolCallId: "tool_alpha",
+        workflowGraphId: "graph_alpha",
+        source: "runtime_auto",
+        rollbackRefs: ["rollback_request"],
+        input: { patch: "*** Begin Patch\n*** End Patch\n" },
+      }),
+    (error) => {
+      assert.equal(error.status, 403);
+      assert.equal(error.code, "policy");
+      assert.equal(error.details.reason, "coding_tool_rust_workload_live_required");
+      assert.equal(error.details.backend, "rust_workload_shadow");
+      return true;
+    },
   );
+  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+  assert.ok(!store.calls.some((call) => call.name === "commandStream"));
+  assert.ok(!store.calls.some((call) => call.name === "prepareSnapshot"));
 });
 
 test("coding tool invocation surface replays duplicate idempotent tool events", () => {
@@ -303,9 +290,6 @@ test("coding tool invocation surface runs workspace.status through rust workload
   };
   const surface = createSurface({
     stepModuleRunner: liveRunner,
-    executeCodingTool() {
-      throw new Error("daemon JS execution must not run");
-    },
   });
   const store = createStore();
 
@@ -402,9 +386,6 @@ test("coding tool invocation surface runs file.inspect through rust workload liv
   };
   const surface = createSurface({
     stepModuleRunner: liveRunner,
-    executeCodingTool() {
-      throw new Error("daemon JS execution must not run");
-    },
   });
   const store = createStore();
 
@@ -494,9 +475,6 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
   };
   const surface = createSurface({
     stepModuleRunner: liveRunner,
-    executeCodingTool() {
-      throw new Error("daemon JS execution must not run");
-    },
   });
   const store = createStore();
 
@@ -611,9 +589,6 @@ test("coding tool invocation surface runs lsp.diagnostics through rust workload 
   };
   const surface = createSurface({
     stepModuleRunner: liveRunner,
-    executeCodingTool() {
-      throw new Error("daemon JS execution must not run");
-    },
   });
   const store = createStore();
 
@@ -719,9 +694,6 @@ test("coding tool invocation surface runs test.run through rust workload live pa
   };
   const surface = createSurface({
     stepModuleRunner: liveRunner,
-    executeCodingTool() {
-      throw new Error("daemon JS execution must not run");
-    },
   });
   const store = createStore();
 
@@ -854,9 +826,6 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
   };
   const surface = createSurface({
     stepModuleRunner: liveRunner,
-    executeCodingTool() {
-      throw new Error("daemon JS execution must not run");
-    },
   });
   const store = createStore();
 
@@ -947,9 +916,6 @@ test("coding tool invocation surface runs artifact.read through rust workload li
   };
   const surface = createSurface({
     stepModuleRunner: liveRunner,
-    executeCodingTool() {
-      throw new Error("daemon JS execution must not run");
-    },
   });
   const store = createStore();
 
@@ -1038,9 +1004,6 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
   };
   const surface = createSurface({
     stepModuleRunner: liveRunner,
-    executeCodingTool() {
-      throw new Error("daemon JS execution must not run");
-    },
   });
   const store = createStore();
 
@@ -1172,9 +1135,6 @@ test("coding tool invocation surface runs computer_use.request_lease through rus
   };
   const surface = createSurface({
     stepModuleRunner: liveRunner,
-    executeCodingTool() {
-      throw new Error("daemon JS execution must not run");
-    },
   });
   const store = createStore();
 

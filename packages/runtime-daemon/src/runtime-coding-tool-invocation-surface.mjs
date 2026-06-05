@@ -27,7 +27,6 @@ import {
   codingToolResultSummary,
   codingToolSourceEventKind,
   codingToolSummary,
-  executeCodingTool as defaultExecuteCodingTool,
 } from "./coding-tools.mjs";
 import { createStepModuleRunnerFromEnv } from "./step-module-runner.mjs";
 
@@ -51,7 +50,6 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     codingToolResultWithoutDrafts,
     diagnosticsRepairContextForRequest,
     diagnosticsRepairContextForToolPack,
-    executeCodingTool = defaultExecuteCodingTool,
     stepModuleRunner = createStepModuleRunnerFromEnv(),
   } = deps;
 
@@ -202,13 +200,14 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     const rustLiveCodingTool =
       stepModuleRunner.backend === "rust_workload_live" &&
       RUST_WORKLOAD_LIVE_TOOL_IDS.has(normalizedToolId);
-    if (stepModuleRunner.blocksDaemonJsExecution && !rustLiveCodingTool) {
-      throw policyError("StepModule Rust workload backend is not live for direct execution yet.", {
+    if (!rustLiveCodingTool) {
+      throw policyError("Coding tool execution requires the Rust workload live backend.", {
         threadId,
         toolId: normalizedToolId,
         tool_call_id: toolCallId,
-        reason: "step_module_rust_workload_not_live",
+        reason: "coding_tool_rust_workload_live_required",
         backend: stepModuleRunner.backend,
+        rust_workload_live_supported: RUST_WORKLOAD_LIVE_TOOL_IDS.has(normalizedToolId),
       });
     }
     const artifactRefs = [];
@@ -238,90 +237,32 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       artifactRefs,
       workspaceRoot: agent.cwd,
     });
-    if (rustLiveCodingTool) {
-      try {
-        const rustLiveInput = rustLiveInputForCodingTool(store, threadId, normalizedToolId, input);
-        stepModuleProjection = stepModuleRunner.runCodingTool({
-          contract: toolContract,
-          toolId: normalizedToolId,
-          input: rustLiveInput,
-          result: {},
-          context: stepModuleContext({
-            status,
-            receiptRefs,
-            artifactRefs,
-            workflowProjectionStatus: "live",
-          }),
-        });
-        receiptRefs.push(
-          ...normalizeArray(stepModuleProjection?.result?.receipt_refs),
-          ...normalizeArray(stepModuleProjection?.bridge_result?.receipt_refs),
-        );
-        result = codingToolResultForRustLiveStepModule(normalizedToolId, stepModuleProjection);
-        receiptRefs.push(...normalizeArray(result.receiptRefs));
-        artifactRefs.push(...normalizeArray(result.artifactRefs));
-        const liveArtifactDrafts = [
-          ...normalizeArray(result?.artifactDrafts),
-          ...normalizeArray(result?.artifact_drafts),
-        ];
-        if (liveArtifactDrafts.length) {
-          const materializedArtifacts = store.materializeCodingToolArtifactDrafts({
-            threadId,
-            toolId: normalizedToolId,
-            toolCallId,
-            workspaceRoot: agent.cwd,
-            result,
-            receiptId,
-          });
-          result = codingToolResultWithoutDrafts(result, materializedArtifacts);
-          artifactRefs.push(...normalizeArray(result.artifactRefs));
-        }
-        if (normalizedToolId === "file.apply_patch") {
-          workspaceSnapshot = store.prepareWorkspaceSnapshotForPatch({
-            threadId,
-            turnId,
-            workspaceRoot: agent.cwd,
-            toolCallId,
-            workflowGraphId,
-            workflowNodeId,
-            result,
-          });
-          if (workspaceSnapshot) {
-            result = {
-              ...codingToolResultWithoutDrafts(result, []),
-              workspaceSnapshot: workspaceSnapshot.record,
-              workspace_snapshot: workspaceSnapshot.record,
-              workspaceSnapshotId: workspaceSnapshot.record.snapshotId,
-              workspace_snapshot_id: workspaceSnapshot.record.snapshotId,
-            };
-            artifactRefs.push(...workspaceSnapshot.record.artifactRefs);
-            receiptRefs.push(...workspaceSnapshot.record.receiptRefs);
-          }
-        }
-      } catch (caught) {
-        status = "failed";
-        stepModuleError = {
-          code: caught?.code ?? "step_module_runner_failed",
-          message: String(caught?.message ?? caught),
-          details: caught?.details ?? null,
-        };
-        error = stepModuleError;
-        result = {
-          schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
-          toolName: normalizedToolId,
+    try {
+      const rustLiveInput = rustLiveInputForCodingTool(store, threadId, normalizedToolId, input);
+      stepModuleProjection = stepModuleRunner.runCodingTool({
+        contract: toolContract,
+        toolId: normalizedToolId,
+        input: rustLiveInput,
+        result: {},
+        context: stepModuleContext({
           status,
-          error,
-        };
-      }
-    } else {
-      try {
-        result = executeCodingTool(normalizedToolId, agent.cwd, input, {
-          threadId,
-          toolId: normalizedToolId,
-          toolCallId,
-          readArtifact: (artifactId, range) => store.readCodingToolArtifact(threadId, artifactId, range),
-          retrieveToolResult: (query) => store.retrieveCodingToolResult(threadId, query),
-        });
+          receiptRefs,
+          artifactRefs,
+          workflowProjectionStatus: "live",
+        }),
+      });
+      receiptRefs.push(
+        ...normalizeArray(stepModuleProjection?.result?.receipt_refs),
+        ...normalizeArray(stepModuleProjection?.bridge_result?.receipt_refs),
+      );
+      result = codingToolResultForRustLiveStepModule(normalizedToolId, stepModuleProjection);
+      receiptRefs.push(...normalizeArray(result.receiptRefs));
+      artifactRefs.push(...normalizeArray(result.artifactRefs));
+      const liveArtifactDrafts = [
+        ...normalizeArray(result?.artifactDrafts),
+        ...normalizeArray(result?.artifact_drafts),
+      ];
+      if (liveArtifactDrafts.length) {
         const materializedArtifacts = store.materializeCodingToolArtifactDrafts({
           threadId,
           toolId: normalizedToolId,
@@ -330,23 +271,22 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
           result,
           receiptId,
         });
-        if (normalizedToolId === "file.apply_patch") {
-          workspaceSnapshot = store.prepareWorkspaceSnapshotForPatch({
-            threadId,
-            turnId,
-            workspaceRoot: agent.cwd,
-            toolCallId,
-            workflowGraphId,
-            workflowNodeId,
-            result,
-          });
-        }
         result = codingToolResultWithoutDrafts(result, materializedArtifacts);
         artifactRefs.push(...normalizeArray(result.artifactRefs));
-        receiptRefs.push(...normalizeArray(result.receiptRefs));
+      }
+      if (normalizedToolId === "file.apply_patch") {
+        workspaceSnapshot = store.prepareWorkspaceSnapshotForPatch({
+          threadId,
+          turnId,
+          workspaceRoot: agent.cwd,
+          toolCallId,
+          workflowGraphId,
+          workflowNodeId,
+          result,
+        });
         if (workspaceSnapshot) {
           result = {
-            ...result,
+            ...codingToolResultWithoutDrafts(result, []),
             workspaceSnapshot: workspaceSnapshot.record,
             workspace_snapshot: workspaceSnapshot.record,
             workspaceSnapshotId: workspaceSnapshot.record.snapshotId,
@@ -355,49 +295,27 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
           artifactRefs.push(...workspaceSnapshot.record.artifactRefs);
           receiptRefs.push(...workspaceSnapshot.record.receiptRefs);
         }
-      } catch (caught) {
-        status = "failed";
-        error = {
-          code: caught?.code ?? "coding_tool_failed",
-          message: String(caught?.message ?? caught),
-          details: caught?.details ?? null,
-        };
-        result = {
-          schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
-          toolName: normalizedToolId,
-          status,
-          error,
-        };
       }
+    } catch (caught) {
+      status = "failed";
+      stepModuleError = {
+        code: caught?.code ?? "step_module_runner_failed",
+        message: String(caught?.message ?? caught),
+        details: caught?.details ?? null,
+      };
+      error = stepModuleError;
+      result = {
+        schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
+        toolName: normalizedToolId,
+        status,
+        error,
+      };
     }
     const summary = codingToolSummary(normalizedToolId, result, status);
     const rollbackRefs = uniqueStrings([
       ...(workspaceSnapshot ? [workspaceSnapshot.record.snapshotId] : []),
       ...requestRollbackRefs,
     ]);
-    if (!stepModuleProjection && !stepModuleError) {
-      try {
-        stepModuleProjection = stepModuleRunner.runCodingTool({
-          contract: toolContract,
-          toolId: normalizedToolId,
-          input,
-          result,
-          context: stepModuleContext({
-            status,
-            receiptRefs,
-            artifactRefs,
-            workflowProjectionStatus:
-              stepModuleRunner.backend === "rust_workload_shadow" ? "shadow" : "projected",
-          }),
-        });
-      } catch (caught) {
-        stepModuleError = {
-          code: caught?.code ?? "step_module_runner_failed",
-          message: String(caught?.message ?? caught),
-          details: caught?.details ?? null,
-        };
-      }
-    }
     const payloadSummary = {
       schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
       event_kind: "CodingToolResult",

@@ -363,6 +363,12 @@ function runBridge() {
   const stepModuleRunner = exists("packages/runtime-daemon/src/step-module-runner.mjs")
     ? read("packages/runtime-daemon/src/step-module-runner.mjs")
     : "";
+  const runtimeCodingToolInvocationSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")
+    : "";
+  const runtimeCodingToolInvocationSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
+    : "";
   const openAiCompatibleDriver = exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
     : "";
@@ -457,18 +463,23 @@ function runBridge() {
       /ioi\.step_module\.command_bridge\.v1/.test(bridgeModule) &&
       /StepModuleRouterCore/.test(bridgeModule) &&
       /router_admission/.test(bridgeModule) &&
-      /RUST_WORKLOAD_LIVE_TOOL_IDS/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
-      /workspace\.status/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
-      /git\.diff/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
-      /file\.inspect/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
-      /file\.apply_patch/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
-      /test\.run/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
-      /lsp\.diagnostics/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
-      /artifact\.read/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
-      /tool\.retrieve_result/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
-      /computer_use\.request_lease/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
-      /rustWorkloadDataPlane/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")) &&
-      /rust_workload_live/.test(read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")),
+      /RUST_WORKLOAD_LIVE_TOOL_IDS/.test(runtimeCodingToolInvocationSurface) &&
+      /workspace\.status/.test(runtimeCodingToolInvocationSurface) &&
+      /git\.diff/.test(runtimeCodingToolInvocationSurface) &&
+      /file\.inspect/.test(runtimeCodingToolInvocationSurface) &&
+      /file\.apply_patch/.test(runtimeCodingToolInvocationSurface) &&
+      /test\.run/.test(runtimeCodingToolInvocationSurface) &&
+      /lsp\.diagnostics/.test(runtimeCodingToolInvocationSurface) &&
+      /artifact\.read/.test(runtimeCodingToolInvocationSurface) &&
+      /tool\.retrieve_result/.test(runtimeCodingToolInvocationSurface) &&
+      /computer_use\.request_lease/.test(runtimeCodingToolInvocationSurface) &&
+      /rustWorkloadDataPlane/.test(runtimeCodingToolInvocationSurface) &&
+      /rust_workload_live/.test(runtimeCodingToolInvocationSurface) &&
+      /coding_tool_rust_workload_live_required/.test(runtimeCodingToolInvocationSurface) &&
+      !/executeCodingTool/.test(runtimeCodingToolInvocationSurface) &&
+      /coding tool invocation surface rejects non-live coding-tool runners before JS execution/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ),
     [
       "crates/node/src/bin/ioi-step-module-bridge.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
