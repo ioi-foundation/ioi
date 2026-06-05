@@ -77,8 +77,16 @@ test("runtimeSurvey records selected engines, hardware, LM Studio survey, and re
   assert.equal(survey.engines.length, 2);
   assert.deepEqual(survey.hardware, { cpuCount: 8 });
   assert.equal(survey.lmStudio.status, "available");
-  assert.deepEqual(state.receipts[0].details.selectedEngines, ["engine_a"]);
-  assert.deepEqual(state.receipts[0].details.runtimePreference, { selectedEngineId: "engine_a" });
+  assert.equal(state.receipts[0].details.checked_at, "2026-06-03T12:00:00.000Z");
+  assert.equal(state.receipts[0].details.engine_count, 2);
+  assert.deepEqual(state.receipts[0].details.selected_engines, ["engine_a"]);
+  assert.deepEqual(state.receipts[0].details.runtime_preference, { selectedEngineId: "engine_a" });
+  assert.equal(state.receipts[0].details.lm_studio.status, "available");
+  assert.equal(Object.hasOwn(state.receipts[0].details, "checkedAt"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "engineCount"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "selectedEngines"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "runtimePreference"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "lmStudio"), false);
 });
 
 test("latestRuntimeSurvey reports not-checked state and checked receipts", () => {

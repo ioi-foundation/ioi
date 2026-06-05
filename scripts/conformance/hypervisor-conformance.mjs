@@ -2618,6 +2618,12 @@ function runReceipts() {
   const runtimeEnginesTest = exists("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs")
     : "";
+  const runtimeSurveyModule = exists("packages/runtime-daemon/src/model-mounting/runtime-survey.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/runtime-survey.mjs")
+    : "";
+  const runtimeSurveyTest = exists("packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs")
+    : "";
   const stateAccessors = exists("packages/runtime-daemon/src/model-mounting/state-accessors.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/state-accessors.mjs")
     : "";
@@ -2679,6 +2685,8 @@ function runReceipts() {
   ].map((match) => match[0]).join("\n");
   const runtimeEngineLatestReceiptFilter =
     runtimeEngines.match(/latestReceipts:\s*state\.listReceipts\(\)[\s\S]*?\.slice\(-8\),/)?.[0] ?? "";
+  const runtimeSurveyReceiptDetailsObject =
+    runtimeSurveyModule.match(/details:\s*\{[\s\S]*?lm_studio:\s*lmStudio,\n\s+\},/)?.[0] ?? "";
   const stateAccessorNotFoundBlocks = [
     ...stateAccessors.matchAll(/throw notFound\([\s\S]*?\);/g),
   ].map((match) => match[0]).join("\n");
@@ -3424,6 +3432,38 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs",
     ],
     "Phase 9/11 is pending: runtime-engine receipts, fail-closed errors, and latest-receipt readers must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-runtime-survey-receipt-detail-aliases-retired",
+    /checked_at:\s*checkedAt/.test(runtimeSurveyReceiptDetailsObject) &&
+      /engine_count:\s*engines\.length/.test(runtimeSurveyReceiptDetailsObject) &&
+      /selected_engines:\s*selectedEngines/.test(runtimeSurveyReceiptDetailsObject) &&
+      /runtime_preference:\s*runtimePreference/.test(runtimeSurveyReceiptDetailsObject) &&
+      /lm_studio:\s*lmStudio/.test(runtimeSurveyReceiptDetailsObject) &&
+      /receipt\.details\?\.checked_at/.test(runtimeSurveyModule) &&
+      /receipt\.details\?\.engine_count/.test(runtimeSurveyModule) &&
+      /receipt\.details\?\.selected_engines/.test(runtimeSurveyModule) &&
+      /receipt\.details\?\.runtime_preference/.test(runtimeSurveyModule) &&
+      /receipt\.details\?\.lm_studio/.test(runtimeSurveyModule) &&
+      !/\b(?:checkedAt|engineCount|selectedEngines|runtimePreference|lmStudio)\s*:/.test(
+        runtimeSurveyReceiptDetailsObject,
+      ) &&
+      !/receipt\.details\?\.(?:checkedAt|engineCount|selectedEngines|runtimePreference|lmStudio)\b/.test(
+        runtimeSurveyModule,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"checkedAt"\),\s*false/.test(runtimeSurveyTest) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"engineCount"\),\s*false/.test(runtimeSurveyTest) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"selectedEngines"\),\s*false/.test(runtimeSurveyTest) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"runtimePreference"\),\s*false/.test(
+        runtimeSurveyTest,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"lmStudio"\),\s*false/.test(runtimeSurveyTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/runtime-survey.mjs",
+      "packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs",
+    ],
+    "Phase 9/11 is pending: runtime survey receipts and readback must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

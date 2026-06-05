@@ -17,12 +17,12 @@ export function runtimeSurvey(state, deps = {}) {
       ...(lmStudio.status === "available" ? ["lm_studio_public_lms_runtime_survey"] : []),
     ],
     details: {
-      checkedAt,
-      engineCount: engines.length,
-      selectedEngines,
-      runtimePreference,
+      checked_at: checkedAt,
+      engine_count: engines.length,
+      selected_engines: selectedEngines,
+      runtime_preference: runtimePreference,
       hardware,
-      lmStudio,
+      lm_studio: lmStudio,
     },
   });
   return {
@@ -54,12 +54,12 @@ export function latestRuntimeSurvey(state, deps = {}) {
   return {
     status: "checked",
     receiptId: receipt.id,
-    checkedAt: receipt.details?.checkedAt ?? receipt.createdAt,
-    engineCount: receipt.details?.engineCount ?? 0,
-    selectedEngines: receipt.details?.selectedEngines ?? [],
-    runtimePreference: receipt.details?.runtimePreference ?? state.runtimePreference(),
+    checkedAt: receipt.details?.checked_at ?? receipt.createdAt,
+    engineCount: receipt.details?.engine_count ?? 0,
+    selectedEngines: receipt.details?.selected_engines ?? [],
+    runtimePreference: receipt.details?.runtime_preference ?? state.runtimePreference(),
     hardware: receipt.details?.hardware ?? hardwareSnapshot(),
-    lmStudio: receipt.details?.lmStudio ?? { status: "unknown" },
+    lmStudio: receipt.details?.lm_studio ?? { status: "unknown" },
   };
 }
 
