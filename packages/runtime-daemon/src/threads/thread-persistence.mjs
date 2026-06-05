@@ -3,8 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const RUNTIME_STATE_TRANSITION_SCHEMA_VERSION = "ioi.agentgres_runtime_state_transition.v1";
-const RUNTIME_STATE_STORAGE_WRITE_SET_SCHEMA_VERSION = "ioi.runtime_state_storage_write_set.v1";
-const RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION = "ioi.runtime_state_record_materialization.v1";
+const RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION = "ioi.runtime_state_persistence.v1";
 const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
 
 export function terminalEventCount(events = [], terminalEventTypes = new Set()) {
@@ -206,161 +205,60 @@ function planRunStateTransition(store, run, operationKind) {
   return normalizeRunStateTransition(transition);
 }
 
-function planRunStateStorageWrites(store, run, records) {
-  if (typeof store.planRuntimeStateStorageWrites !== "function") {
-    throw new Error("Run persistence requires Rust Agentgres storage write-set planning.");
+function persistRunStateRecords(store, run, {
+  agentgresTransition,
+}) {
+  if (typeof store.persistRuntimeStateRecords !== "function") {
+    throw new Error("Run persistence requires Rust Agentgres state persistence.");
   }
   const request = {
-    schema_version: RUNTIME_STATE_STORAGE_WRITE_SET_SCHEMA_VERSION,
+    schema_version: RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION,
     run_id: run.id,
     storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
     receipt_refs: run.receipts.map((receipt) => receipt.id).filter(Boolean),
-    records: records.map((record) => ({
-      record_path: record.recordPath,
-      payload: record.value,
-      artifact_refs: record.artifactRefs ?? [],
-      payload_refs: record.payloadRefs ?? [],
-    })),
-  };
-  return normalizeStorageWriteSet(store.planRuntimeStateStorageWrites(request), records);
-}
-
-function materializeRunStateRecords(store, run, {
-  agentgresTransition,
-}) {
-  if (typeof store.materializeRuntimeStateRecords !== "function") {
-    throw new Error("Run persistence requires Rust Agentgres state record materialization.");
-  }
-  const request = {
-    schema_version: RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION,
-    run_id: run.id,
     run,
     canonical_projection: store.canonicalProjection(run.id),
     agentgres_transition: agentgresTransition,
   };
-  return normalizeRecordMaterialization(store.materializeRuntimeStateRecords(request));
+  return normalizeRunStatePersistence(store.persistRuntimeStateRecords(request));
 }
 
-function normalizeRecordMaterialization(materialization) {
-  const record =
-    materialization?.record && typeof materialization.record === "object" ? materialization.record : materialization;
-  const records = Array.isArray(materialization?.records)
-    ? materialization.records
-    : Array.isArray(record?.records)
-      ? record.records
-      : [];
+function normalizeRunStatePersistence(persistence) {
+  const record = persistence?.record && typeof persistence.record === "object" ? persistence.record : persistence;
+  const materialization = persistence?.materialization && typeof persistence.materialization === "object"
+    ? persistence.materialization
+    : record?.materialization;
+  const storageWriteSet = persistence?.storage_write_set && typeof persistence.storage_write_set === "object"
+    ? persistence.storage_write_set
+    : record?.storage_write_set;
+  const writtenRecords = Array.isArray(persistence?.written_records) ? persistence.written_records : [];
   const normalized = {
-    source: normalizeTransitionRef(materialization?.source) ??
-      "rust_agentgres_runtime_state_record_materialization_command",
+    source: normalizeTransitionRef(persistence?.source) ?? "rust_agentgres_runtime_state_persistence_command",
     materialization_hash:
-      normalizeTransitionRef(materialization?.materialization_hash) ??
-      normalizeTransitionRef(record?.materialization_hash),
-    records: records.map(normalizeMaterializedRecord),
-    evidence_refs: Array.isArray(materialization?.evidence_refs) ? materialization.evidence_refs : [],
+      normalizeTransitionRef(persistence?.materialization_hash) ??
+      normalizeTransitionRef(materialization?.materialization_hash),
+    write_set_hash:
+      normalizeTransitionRef(persistence?.write_set_hash) ??
+      normalizeTransitionRef(storageWriteSet?.write_set_hash),
+    persistence_hash:
+      normalizeTransitionRef(persistence?.persistence_hash) ??
+      normalizeTransitionRef(record?.persistence_hash),
+    written_records: writtenRecords,
+    evidence_refs: Array.isArray(persistence?.evidence_refs) ? persistence.evidence_refs : [],
     record: record ?? null,
   };
   const missing = [
     ["materialization_hash", normalized.materialization_hash],
-    ["records", normalized.records.length > 0 ? normalized.records : null],
-  ]
-    .filter(([, value]) => !value)
-    .map(([name]) => name);
-  if (missing.length > 0) {
-    throw new Error(`Rust Agentgres state record materialization is missing ${missing.join(", ")}.`);
-  }
-  return normalized;
-}
-
-function normalizeMaterializedRecord(record) {
-  const recordPath = normalizeTransitionRef(record?.record_path);
-  if (!recordPath) {
-    throw new Error("Rust Agentgres materialized state record is missing record_path.");
-  }
-  if (!Object.hasOwn(record ?? {}, "payload")) {
-    throw new Error(`Rust Agentgres materialized state record ${recordPath} is missing payload.`);
-  }
-  return {
-    recordPath,
-    value: record.payload,
-    artifactRefs: Array.isArray(record.artifact_refs) ? record.artifact_refs : [],
-    payloadRefs: Array.isArray(record.payload_refs) ? record.payload_refs : [],
-  };
-}
-
-function normalizeStorageWriteSet(writeSet, expectedRecords) {
-  const record = writeSet?.record && typeof writeSet.record === "object" ? writeSet.record : writeSet;
-  const records = Array.isArray(writeSet?.records)
-    ? writeSet.records
-    : Array.isArray(record?.records)
-      ? record.records
-      : [];
-  const normalized = {
-    source: normalizeTransitionRef(writeSet?.source) ?? "rust_agentgres_runtime_state_storage_write_set_command",
-    write_set_hash: normalizeTransitionRef(writeSet?.write_set_hash) ?? normalizeTransitionRef(record?.write_set_hash),
-    storage_backend_ref:
-      normalizeTransitionRef(writeSet?.storage_backend_ref) ?? normalizeTransitionRef(record?.storage_backend_ref),
-    records,
-    evidence_refs: Array.isArray(writeSet?.evidence_refs) ? writeSet.evidence_refs : [],
-    record: record ?? null,
-  };
-  const missing = [
     ["write_set_hash", normalized.write_set_hash],
-    ["storage_backend_ref", normalized.storage_backend_ref],
-    ["records", normalized.records.length > 0 ? normalized.records : null],
+    ["persistence_hash", normalized.persistence_hash],
+    ["written_records", normalized.written_records.length > 0 ? normalized.written_records : null],
   ]
     .filter(([, value]) => !value)
     .map(([name]) => name);
   if (missing.length > 0) {
-    throw new Error(`Rust Agentgres storage write set is missing ${missing.join(", ")}.`);
-  }
-  const byPath = new Map();
-  for (const entry of normalized.records) {
-    const planned = normalizeStorageWriteSetRecord(entry);
-    byPath.set(planned.record_path, planned);
-  }
-  for (const expected of expectedRecords) {
-    if (!byPath.has(expected.recordPath)) {
-      throw new Error(`Rust Agentgres storage write set is missing record ${expected.recordPath}.`);
-    }
-  }
-  normalized.recordsByPath = byPath;
-  return normalized;
-}
-
-function normalizeStorageWriteSetRecord(record) {
-  const admission = record?.admission && typeof record.admission === "object" ? record.admission : {};
-  const normalized = {
-    record_path: normalizeTransitionRef(record?.record_path),
-    object_ref: normalizeTransitionRef(record?.object_ref),
-    content_hash: normalizeTransitionRef(record?.content_hash),
-    artifact_refs: Array.isArray(record?.artifact_refs) ? record.artifact_refs : [],
-    payload_refs: Array.isArray(record?.payload_refs) ? record.payload_refs : [],
-    receipt_refs: Array.isArray(record?.receipt_refs) ? record.receipt_refs : [],
-    admission,
-  };
-  const missing = [
-    ["record_path", normalized.record_path],
-    ["object_ref", normalized.object_ref],
-    ["content_hash", normalized.content_hash],
-    ["payload_refs", normalized.payload_refs.length > 0 ? normalized.payload_refs : null],
-    ["receipt_refs", normalized.receipt_refs.length > 0 ? normalized.receipt_refs : null],
-    ["admission_hash", normalizeTransitionRef(admission.admission_hash)],
-  ]
-    .filter(([, value]) => !value)
-    .map(([name]) => name);
-  if (missing.length > 0) {
-    throw new Error(`Rust Agentgres storage write set record is missing ${missing.join(", ")}.`);
+    throw new Error(`Rust Agentgres state persistence is missing ${missing.join(", ")}.`);
   }
   return normalized;
-}
-
-function writeJsonWithPlannedStorage(store, record, plannedStorage, writeJson) {
-  const planned = plannedStorage.recordsByPath.get(record.recordPath);
-  if (!planned) {
-    throw new Error(`Run persistence missing planned storage admission for ${record.recordPath}.`);
-  }
-  writeJson(store.pathFor(...record.recordPath.split("/")), record.value);
-  return planned;
 }
 
 function normalizeRunStateTransition(transition) {
@@ -425,17 +323,8 @@ export function writeSubagentRecord(store, subagent, operationKind, deps = {}) {
 }
 
 export function writeRunRecord(store, run, operationKind, deps = {}) {
-  const {
-    writeJson,
-  } = deps;
   const agentgresTransition = planRunStateTransition(store, run, operationKind);
-  const materializedRecords = materializeRunStateRecords(store, run, {
+  return persistRunStateRecords(store, run, {
     agentgresTransition,
   });
-  const stateRecords = materializedRecords.records;
-
-  const plannedStorage = planRunStateStorageWrites(store, run, stateRecords);
-  for (const record of stateRecords) {
-    writeJsonWithPlannedStorage(store, record, plannedStorage, writeJson);
-  }
 }

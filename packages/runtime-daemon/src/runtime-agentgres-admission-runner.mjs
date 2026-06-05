@@ -65,6 +65,17 @@ export class RustRuntimeAgentgresAdmissionRunner {
     return normalizeRuntimeStateRecordMaterializationBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
+  persistRuntimeStateRecords(stateDir, request) {
+    const bridgeRequest = {
+      schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
+      operation: "persist_runtime_state_records",
+      backend: RUST_AGENTGRES_STORAGE_BACKEND,
+      state_dir: stateDir,
+      request,
+    };
+    return normalizeRuntimeStatePersistenceBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
   invokeBridge(request) {
     if (this.mockResult) {
       const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
@@ -200,6 +211,31 @@ export function normalizeRuntimeStateRecordMaterializationBridgeResult(value = {
     record,
     records: Array.isArray(result.records) ? result.records : record.records ?? [],
     materialization_hash: result.materialization_hash ?? record.materialization_hash ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+  };
+}
+
+export function normalizeRuntimeStatePersistenceBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.record && typeof result.record === "object" ? result.record : {};
+  const materialization = result.materialization && typeof result.materialization === "object"
+    ? result.materialization
+    : record.materialization ?? {};
+  const storageWriteSet = result.storage_write_set && typeof result.storage_write_set === "object"
+    ? result.storage_write_set
+    : record.storage_write_set ?? {};
+  return {
+    source: result.source ?? "rust_agentgres_runtime_state_persistence_command",
+    backend: result.backend ?? RUST_AGENTGRES_STORAGE_BACKEND,
+    record,
+    materialization,
+    storage_write_set: storageWriteSet,
+    records: Array.isArray(result.records) ? result.records : storageWriteSet.records ?? [],
+    written_records: Array.isArray(result.written_records) ? result.written_records : [],
+    materialization_hash:
+      result.materialization_hash ?? materialization.materialization_hash ?? null,
+    write_set_hash: result.write_set_hash ?? storageWriteSet.write_set_hash ?? null,
+    persistence_hash: result.persistence_hash ?? record.persistence_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
   };
 }

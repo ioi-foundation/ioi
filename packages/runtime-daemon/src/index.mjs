@@ -3740,9 +3740,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   writeRun(run, operationKind) {
-    return writeRunRecord(this, run, operationKind, {
-      writeJson,
-    });
+    return writeRunRecord(this, run, operationKind);
   }
 
   currentRunStateTransition(runId) {
@@ -3762,6 +3760,10 @@ export class AgentgresRuntimeStateStore {
 
   materializeRuntimeStateRecords(request) {
     return this.runtimeAgentgresAdmissionRunner.materializeRuntimeStateRecords(request);
+  }
+
+  persistRuntimeStateRecords(request) {
+    return this.runtimeAgentgresAdmissionRunner.persistRuntimeStateRecords(this.stateDir, request);
   }
 
   writeSubagent(subagent, operationKind) {

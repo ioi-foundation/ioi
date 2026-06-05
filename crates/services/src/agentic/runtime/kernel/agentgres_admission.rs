@@ -12,6 +12,7 @@ pub const RUNTIME_STATE_STORAGE_WRITE_SET_SCHEMA_VERSION: &str =
     "ioi.runtime_state_storage_write_set.v1";
 pub const RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION: &str =
     "ioi.runtime_state_record_materialization.v1";
+pub const RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION: &str = "ioi.runtime_state_persistence.v1";
 pub const AGENTGRES_OPERATION_EXPECTED_HEADS_NEGATIVE_CONFORMANCE: &str =
     "Agentgres operation append without expected heads/state-root binding fails";
 pub const STORAGE_BACKEND_WRITE_AGENTGRES_REF_NEGATIVE_CONFORMANCE: &str =
@@ -206,6 +207,27 @@ pub struct RuntimeStateRecordMaterializationRecord {
     pub run_id: String,
     pub records: Vec<RuntimeStateStorageWriteInput>,
     pub materialization_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeStatePersistenceRequest {
+    pub schema_version: String,
+    pub run_id: String,
+    pub storage_backend_ref: String,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    pub run: Value,
+    pub canonical_projection: Value,
+    pub agentgres_transition: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeStatePersistenceRecord {
+    pub schema_version: String,
+    pub run_id: String,
+    pub materialization: RuntimeStateRecordMaterializationRecord,
+    pub storage_write_set: RuntimeStateStorageWriteSetRecord,
+    pub persistence_hash: String,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -536,6 +558,38 @@ impl AgentgresAdmissionCore {
         record.materialization_hash = runtime_state_record_materialization_hash(&record)?;
         Ok(record)
     }
+
+    pub fn plan_runtime_state_persistence(
+        &self,
+        request: &RuntimeStatePersistenceRequest,
+    ) -> Result<RuntimeStatePersistenceRecord, AgentgresAdmissionError> {
+        request.validate()?;
+        let materialization =
+            self.materialize_runtime_state_records(&RuntimeStateRecordMaterializationRequest {
+                schema_version: RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION.to_string(),
+                run_id: request.run_id.clone(),
+                run: request.run.clone(),
+                canonical_projection: request.canonical_projection.clone(),
+                agentgres_transition: request.agentgres_transition.clone(),
+            })?;
+        let storage_write_set =
+            self.plan_runtime_state_storage_writes(&RuntimeStateStorageWriteSetRequest {
+                schema_version: RUNTIME_STATE_STORAGE_WRITE_SET_SCHEMA_VERSION.to_string(),
+                run_id: request.run_id.clone(),
+                storage_backend_ref: request.storage_backend_ref.clone(),
+                receipt_refs: request.receipt_refs.clone(),
+                records: materialization.records.clone(),
+            })?;
+        let mut record = RuntimeStatePersistenceRecord {
+            schema_version: RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION.to_string(),
+            run_id: request.run_id.clone(),
+            materialization,
+            storage_write_set,
+            persistence_hash: String::new(),
+        };
+        record.persistence_hash = runtime_state_persistence_hash(&record)?;
+        Ok(record)
+    }
 }
 
 impl AgentgresOperationProposal {
@@ -644,6 +698,29 @@ impl RuntimeStateRecordMaterializationRequest {
         }
         require_non_empty("run_id", &self.run_id)?;
         validate_runtime_run_id(&self.run, &self.run_id)?;
+        Ok(())
+    }
+}
+
+impl RuntimeStatePersistenceRequest {
+    pub fn validate(&self) -> Result<(), AgentgresAdmissionError> {
+        if self.schema_version != RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION {
+            return Err(AgentgresAdmissionError::InvalidSchemaVersion {
+                expected: RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("run_id", &self.run_id)?;
+        require_non_empty("storage_backend_ref", &self.storage_backend_ref)?;
+        validate_runtime_run_id(&self.run, &self.run_id)?;
+        required_json_string(&self.agentgres_transition, "operation_ref")?;
+        required_json_string(&self.agentgres_transition, "state_root_after")?;
+        required_json_string(&self.agentgres_transition, "resulting_head")?;
+        required_json_string(&self.agentgres_transition, "projection_watermark")?;
+        required_json_string(&self.agentgres_transition, "transition_hash")?;
+        if self.receipt_refs.is_empty() {
+            return Err(AgentgresAdmissionError::MissingReceiptRefs);
+        }
         Ok(())
     }
 }
@@ -769,6 +846,16 @@ fn runtime_state_record_materialization_hash(
 ) -> Result<String, AgentgresAdmissionError> {
     let mut canonical = record.clone();
     canonical.materialization_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn runtime_state_persistence_hash(
+    record: &RuntimeStatePersistenceRecord,
+) -> Result<String, AgentgresAdmissionError> {
+    let mut canonical = record.clone();
+    canonical.persistence_hash.clear();
     let bytes = serde_json::to_vec(&canonical)
         .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
@@ -1531,6 +1618,33 @@ mod tests {
         }
     }
 
+    fn runtime_state_persistence() -> RuntimeStatePersistenceRequest {
+        RuntimeStatePersistenceRequest {
+            schema_version: RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION.to_string(),
+            run_id: "run_1".to_string(),
+            storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
+            receipt_refs: vec![
+                "receipt_policy".to_string(),
+                "receipt_authority".to_string(),
+            ],
+            run: runtime_run(),
+            canonical_projection: json!({
+                "runId": "run_1",
+                "projection": "canonical"
+            }),
+            agentgres_transition: json!({
+                "schema_version": "ioi.agentgres_runtime_state_transition.v1",
+                "operation_ref": "agentgres://runtime-state/runs/run_1/operations/run.create_mock",
+                "expected_heads": ["agentgres://runtime-state/runs/run_1/head/0"],
+                "state_root_before": "sha256:runtime-state-before",
+                "state_root_after": "sha256:runtime-state-after",
+                "resulting_head": "agentgres://runtime-state/runs/run_1/head/mock",
+                "projection_watermark": "runtime-state:1",
+                "transition_hash": "sha256:transition"
+            }),
+        }
+    }
+
     #[test]
     fn admits_receipt_bound_agentgres_operation() {
         let record = AgentgresAdmissionCore
@@ -1821,5 +1935,52 @@ mod tests {
             error,
             AgentgresAdmissionError::RuntimeStateRecordRunIdMismatch
         );
+    }
+
+    #[test]
+    fn plans_runtime_state_persistence_with_materialization_and_storage_write_set() {
+        let record = AgentgresAdmissionCore
+            .plan_runtime_state_persistence(&runtime_state_persistence())
+            .expect("runtime state persistence planned");
+
+        assert_eq!(
+            record.schema_version,
+            RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION
+        );
+        assert_eq!(record.run_id, "run_1");
+        assert!(record.persistence_hash.starts_with("sha256:"));
+        assert_eq!(record.materialization.records.len(), 14);
+        assert_eq!(record.storage_write_set.records.len(), 14);
+        assert_eq!(
+            record.storage_write_set.records[0].record_path,
+            "runs/run_1.json"
+        );
+        assert_eq!(
+            record.storage_write_set.records[1].object_ref,
+            "agentgres://runtime-state/runs/run_1/records/tasks/run_1.json"
+        );
+        assert_eq!(
+            record.storage_write_set.records[1].payload_refs,
+            vec!["payload://runtime/runs/run_1/records/tasks/run_1.json"]
+        );
+        assert_eq!(
+            record.storage_write_set.records[1].admission.receipt_refs,
+            vec!["receipt_policy", "receipt_authority"]
+        );
+        assert_eq!(
+            record.materialization.records[13].payload["agentgresTransition"]["resulting_head"],
+            json!("agentgres://runtime-state/runs/run_1/head/mock")
+        );
+    }
+
+    #[test]
+    fn runtime_state_persistence_requires_receipts() {
+        let mut request = runtime_state_persistence();
+        request.receipt_refs.clear();
+        let error = AgentgresAdmissionCore
+            .plan_runtime_state_persistence(&request)
+            .expect_err("receipt refs are required");
+
+        assert_eq!(error, AgentgresAdmissionError::MissingReceiptRefs);
     }
 }

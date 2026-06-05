@@ -108,6 +108,24 @@ function materializationRequest() {
   };
 }
 
+function persistenceRequest() {
+  return {
+    schema_version: "ioi.runtime_state_persistence.v1",
+    run_id: "run_1",
+    storage_backend_ref: "storage://runtime-agentgres/local-json",
+    receipt_refs: ["receipt_policy"],
+    run: materializationRequest().run,
+    canonical_projection: { runId: "run_1", projection: "canonical" },
+    agentgres_transition: {
+      operation_ref: "agentgres://runtime-state/runs/run_1/operations/run.create_abcd",
+      state_root_after: "sha256:after",
+      resulting_head: "agentgres://runtime-state/runs/run_1/head/abcd",
+      projection_watermark: "runtime-state:1",
+      transition_hash: "sha256:transition",
+    },
+  };
+}
+
 test("runtime Agentgres runner sends run-state transition bridge request", () => {
   const calls = [];
   const runner = new RustRuntimeAgentgresAdmissionRunner({
@@ -304,6 +322,69 @@ test("runtime Agentgres runner sends runtime-state record materialization bridge
   assert.equal(result.materialization_hash, "sha256:materialization");
   assert.equal(result.records[0].record_path, "runs/run_1.json");
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_state_record_materialization"]);
+});
+
+test("runtime Agentgres runner sends runtime-state persistence bridge request", () => {
+  const calls = [];
+  const runner = new RustRuntimeAgentgresAdmissionRunner({
+    command: "mock-runtime-agentgres-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_agentgres_runtime_state_persistence_command",
+            backend: RUST_AGENTGRES_STORAGE_BACKEND,
+            record: {
+              schema_version: "ioi.runtime_state_persistence.v1",
+              run_id: request.request.run_id,
+              materialization: {
+                materialization_hash: "sha256:materialization",
+                records: [{ record_path: "runs/run_1.json" }],
+              },
+              storage_write_set: {
+                write_set_hash: "sha256:write-set",
+                records: [{ record_path: "runs/run_1.json" }],
+              },
+              persistence_hash: "sha256:persistence",
+            },
+            materialization_hash: "sha256:materialization",
+            write_set_hash: "sha256:write-set",
+            persistence_hash: "sha256:persistence",
+            records: [{ record_path: "runs/run_1.json" }],
+            written_records: [
+              {
+                record_path: "runs/run_1.json",
+                object_ref: "agentgres://runtime-state/runs/run_1/records/runs/run_1.json",
+                content_hash: "sha256:content",
+              },
+            ],
+            evidence_refs: ["rust_agentgres_runtime_state_persistence"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.persistRuntimeStateRecords("/runtime-state", persistenceRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, "mock-runtime-agentgres-bridge");
+  assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "persist_runtime_state_records");
+  assert.equal(calls[0].request.backend, RUST_AGENTGRES_STORAGE_BACKEND);
+  assert.equal(calls[0].request.state_dir, "/runtime-state");
+  assert.equal(calls[0].request.request.schema_version, "ioi.runtime_state_persistence.v1");
+  assert.equal(calls[0].request.request.run_id, "run_1");
+  assert.equal(result.persistence_hash, "sha256:persistence");
+  assert.equal(result.materialization_hash, "sha256:materialization");
+  assert.equal(result.write_set_hash, "sha256:write-set");
+  assert.equal(result.written_records[0].record_path, "runs/run_1.json");
+  assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_state_persistence"]);
 });
 
 test("runtime Agentgres runner requires explicit runtime admission command env", () => {
