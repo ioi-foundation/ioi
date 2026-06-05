@@ -221,22 +221,14 @@ export interface RuntimeUsageTelemetry {
   estimated_cost_usd?: number;
   currency?: string;
   context_window_tokens?: number;
-  contextWindowTokens?: number;
   context_used_tokens?: number;
-  contextUsedTokens?: number;
   context_pressure?: number;
-  contextPressure?: number;
   context_pressure_status?: "nominal" | "elevated" | "high" | string;
-  contextPressureStatus?: "nominal" | "elevated" | "high" | string;
   latency_ms: number;
   estimated?: boolean;
   source_counts?: { runs?: number; subagents?: number; [key: string]: unknown };
-  sourceCounts?: { runs?: number; subagents?: number; [key: string]: unknown };
   source_refs?: string[];
-  sourceRefs?: string[];
   generated_at?: string;
-  generatedAt?: string;
-  [key: string]: unknown;
 }
 
 export interface RuntimeUsageListInput {

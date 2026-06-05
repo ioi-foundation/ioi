@@ -4760,6 +4760,32 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "agent-sdk-runtime-usage-telemetry-context-source-aliases-retired",
+    runtimeUsageSdkTelemetryBlock.length > 0 &&
+      /^\s*context_window_tokens\?: number;/m.test(
+        runtimeUsageSdkTelemetryBlock,
+      ) &&
+      /^\s*context_used_tokens\?: number;/m.test(
+        runtimeUsageSdkTelemetryBlock,
+      ) &&
+      /^\s*context_pressure\?: number;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*context_pressure_status\?: "nominal" \| "elevated" \| "high" \| string;/m.test(
+        runtimeUsageSdkTelemetryBlock,
+      ) &&
+      /^\s*source_counts\?: \{ runs\?: number; subagents\?: number; \[key: string\]: unknown \};/m.test(
+        runtimeUsageSdkTelemetryBlock,
+      ) &&
+      /^\s*source_refs\?: string\[\];/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*generated_at\?: string;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      !/^\s*(?:contextWindowTokens|contextUsedTokens|contextPressure|contextPressureStatus|sourceCounts|sourceRefs|generatedAt)\?:/m.test(
+        runtimeUsageSdkTelemetryBlock,
+      ) &&
+      !/^\s*\[key: string\]: unknown;/m.test(runtimeUsageSdkTelemetryBlock),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK runtime usage telemetry types must not advertise retired context/source aliases or arbitrary key escape hatches",
+  );
+  assertCheck(
+    result,
     "agent-sdk-subagent-budget-request-type-alias-retired",
     runtimeSubagentSdkControlInputBlock.length > 0 &&
       /^\s*budget\?: Record<string, unknown>;/m.test(
