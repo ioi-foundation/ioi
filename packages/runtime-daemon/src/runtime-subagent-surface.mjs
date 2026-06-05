@@ -77,10 +77,12 @@ const retiredSubagentRecordOutputAliasKeys = new Set([
   "sourcePolicyDecisionRefs",
   "createdAt",
   "updatedAt",
+  "eventId",
   "receiptRefs",
   "policyDecisionRefs",
   "evidenceRefs",
   "waitEventId",
+  "waitedAt",
   "inputId",
   "inputCount",
   "inputHistory",
@@ -101,6 +103,7 @@ const retiredSubagentRecordOutputAliasKeys = new Set([
   "assignmentCount",
   "assignmentHistory",
   "assignEventId",
+  "assignedAt",
   "targetAgentId",
   "cancelEventId",
   "canceledAt",
@@ -385,15 +388,12 @@ export function createRuntimeSubagentSurface({
         operation: "spawn",
         status: subagentLifecycleStatus,
       });
-      const saved = {
+      const saved = withoutRetiredSubagentRecordOutputAliases({
         ...record,
         event_id: event.event_id,
-        eventId: event.event_id,
         receipt_refs: uniqueStringsDep([...record.receipt_refs, ...event.receipt_refs]),
-        receiptRefs: uniqueStringsDep([...record.receiptRefs, ...event.receipt_refs]),
         updated_at: event.created_at,
-        updatedAt: event.created_at,
-      };
+      });
       saved.result = subagentResultForRunDep({
         record: saved,
         run,
@@ -456,15 +456,12 @@ export function createRuntimeSubagentSurface({
         operation: "wait",
         status: updated.status,
       });
-      const saved = {
+      const saved = withoutRetiredSubagentRecordOutputAliases({
         ...updated,
         wait_event_id: event.event_id,
-        waitEventId: event.event_id,
         receipt_refs: uniqueStringsDep([...normalizeArray(updated.receipt_refs), ...event.receipt_refs]),
-        receiptRefs: uniqueStringsDep([...normalizeArray(updated.receiptRefs), ...event.receipt_refs]),
         updated_at: event.created_at,
-        updatedAt: event.created_at,
-      };
+      });
       saved.result = subagentResultForRunDep({ record: saved, run, output, outputContractStatus });
       store.writeSubagent(saved, "subagent.wait");
       return {
@@ -614,17 +611,11 @@ export function createRuntimeSubagentSurface({
         operation: "send_input",
         status: updated.status,
       });
-      const saved = {
+      const saved = withoutRetiredSubagentRecordOutputAliases({
         ...updated,
         input_event_id: event.event_id,
-        inputEventId: event.event_id,
         receipt_refs: uniqueStringsDep([
           ...normalizeArray(updated.receipt_refs),
-          ...normalizeArray(run.receipts).map((receipt) => receipt.id),
-          ...event.receipt_refs,
-        ]),
-        receiptRefs: uniqueStringsDep([
-          ...normalizeArray(updated.receiptRefs),
           ...normalizeArray(run.receipts).map((receipt) => receipt.id),
           ...event.receipt_refs,
         ]),
@@ -633,14 +624,8 @@ export function createRuntimeSubagentSurface({
           "runtime.subagent.input",
           run.id,
         ]),
-        evidenceRefs: uniqueStringsDep([
-          ...normalizeArray(updated.evidenceRefs ?? updated.evidence_refs),
-          "runtime.subagent.input",
-          run.id,
-        ]),
         updated_at: event.created_at,
-        updatedAt: event.created_at,
-      };
+      });
       saved.result = subagentResultForRunDep({ record: saved, run, output, outputContractStatus });
       store.writeSubagent(saved, "subagent.input");
       if (budgetStatus.status === "exceeded") {
@@ -808,17 +793,11 @@ export function createRuntimeSubagentSurface({
         operation: "resume",
         status: updated.status,
       });
-      const saved = {
+      const saved = withoutRetiredSubagentRecordOutputAliases({
         ...updated,
         resume_event_id: event.event_id,
-        resumeEventId: event.event_id,
         receipt_refs: uniqueStringsDep([
           ...normalizeArray(updated.receipt_refs),
-          ...normalizeArray(run.receipts).map((receipt) => receipt.id),
-          ...event.receipt_refs,
-        ]),
-        receiptRefs: uniqueStringsDep([
-          ...normalizeArray(updated.receiptRefs),
           ...normalizeArray(run.receipts).map((receipt) => receipt.id),
           ...event.receipt_refs,
         ]),
@@ -827,14 +806,8 @@ export function createRuntimeSubagentSurface({
           "runtime.subagent.resume",
           run.id,
         ]),
-        evidenceRefs: uniqueStringsDep([
-          ...normalizeArray(updated.evidenceRefs ?? updated.evidence_refs),
-          "runtime.subagent.resume",
-          run.id,
-        ]),
         updated_at: event.created_at,
-        updatedAt: event.created_at,
-      };
+      });
       saved.result = subagentResultForRunDep({ record: saved, run, output, outputContractStatus });
       store.writeSubagent(saved, "subagent.resume");
       if (budgetStatus.status === "exceeded") {
@@ -972,25 +945,17 @@ export function createRuntimeSubagentSurface({
         operation: "assign",
         status: updated.status,
       });
-      const saved = {
+      const saved = withoutRetiredSubagentRecordOutputAliases({
         ...updated,
         assign_event_id: event.event_id,
-        assignEventId: event.event_id,
         receipt_refs: uniqueStringsDep([...normalizeArray(updated.receipt_refs), ...event.receipt_refs]),
-        receiptRefs: uniqueStringsDep([...normalizeArray(updated.receiptRefs), ...event.receipt_refs]),
         evidence_refs: uniqueStringsDep([
           ...normalizeArray(updated.evidence_refs ?? updated.evidenceRefs),
           "runtime.subagent.assign",
           assignmentId,
         ]),
-        evidenceRefs: uniqueStringsDep([
-          ...normalizeArray(updated.evidenceRefs ?? updated.evidence_refs),
-          "runtime.subagent.assign",
-          assignmentId,
-        ]),
         updated_at: event.created_at,
-        updatedAt: event.created_at,
-      };
+      });
       saved.result = subagentResultForRunDep({ record: saved, run, output, outputContractStatus });
       store.writeSubagent(saved, "subagent.assign");
       return {
@@ -1068,17 +1033,11 @@ export function createRuntimeSubagentSurface({
         operation: "cancel",
         status: "canceled",
       });
-      const saved = {
+      const saved = withoutRetiredSubagentRecordOutputAliases({
         ...updated,
         cancel_event_id: event.event_id,
-        cancelEventId: event.event_id,
         receipt_refs: uniqueStringsDep([
           ...normalizeArray(updated.receipt_refs),
-          ...normalizeArray(run.receipts).map((receipt) => receipt.id),
-          ...event.receipt_refs,
-        ]),
-        receiptRefs: uniqueStringsDep([
-          ...normalizeArray(updated.receiptRefs),
           ...normalizeArray(run.receipts).map((receipt) => receipt.id),
           ...event.receipt_refs,
         ]),
@@ -1087,14 +1046,8 @@ export function createRuntimeSubagentSurface({
           "runtime.subagent.cancel",
           run.id,
         ]),
-        evidenceRefs: uniqueStringsDep([
-          ...normalizeArray(updated.evidenceRefs ?? updated.evidence_refs),
-          "runtime.subagent.cancel",
-          run.id,
-        ]),
         updated_at: event.created_at,
-        updatedAt: event.created_at,
-      };
+      });
       saved.result = subagentResultForRunDep({ record: saved, run, output, outputContractStatus });
       store.writeSubagent(saved, "subagent.cancel");
       return {

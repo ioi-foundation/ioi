@@ -3228,7 +3228,14 @@ function runCompositor() {
       /subagentProjection\(record = \{\}\) \{[\s\S]*?\n    \},\n    appendThreadSubagentControlEvent/,
     )?.[0] ?? "";
   const runtimeSubagentRecordOutputAliasPattern =
-    /^\s*(?:schemaVersion|subagentId|agentId|childThreadId|runId|parentThreadId|parentAgentId|parentTurnId|toolPack|modelRouteId|workflowGraphId|workflowNodeId|sessionBootId|lifecycleStatus|restartStatus|restartCount|forkContext|contextMode|maxConcurrency|budgetUsageTelemetry|budgetStatus|budgetPolicyDecision|blockReason|outputContract|outputContractStatus|outputContractValidation|mergePolicy|cancellationInheritance|contextPressureAction|contextPressure|pressure|pressureStatus|alertId|sourceEventId|sourceReceiptRefs|sourcePolicyDecisionRefs|createdAt|updatedAt|receiptRefs|policyDecisionRefs|evidenceRefs|waitEventId|inputId|inputCount|inputHistory|inputEventId|lastInput|lastInputAt|previousRunIds|resumeId|resumeHistory|resumeEventId|resumedAt|cancellationReason|cancellationInherited|propagatedFromThreadId|cancellationClearedAt|cancellationHistory|assignmentId|assignmentCount|assignmentHistory|assignEventId|targetAgentId|cancelEventId|canceledAt)\s*[:,]/m;
+    /^\s*(?:schemaVersion|subagentId|agentId|childThreadId|runId|parentThreadId|parentAgentId|parentTurnId|toolPack|modelRouteId|workflowGraphId|workflowNodeId|sessionBootId|lifecycleStatus|restartStatus|restartCount|forkContext|contextMode|maxConcurrency|budgetUsageTelemetry|budgetStatus|budgetPolicyDecision|blockReason|outputContract|outputContractStatus|outputContractValidation|mergePolicy|cancellationInheritance|contextPressureAction|contextPressure|pressure|pressureStatus|alertId|sourceEventId|sourceReceiptRefs|sourcePolicyDecisionRefs|createdAt|updatedAt|eventId|receiptRefs|policyDecisionRefs|evidenceRefs|waitEventId|waitedAt|inputId|inputCount|inputHistory|inputEventId|lastInput|lastInputAt|previousRunIds|resumeId|resumeHistory|resumeEventId|resumedAt|cancellationReason|cancellationInherited|propagatedFromThreadId|cancellationClearedAt|cancellationHistory|assignmentId|assignmentCount|assignmentHistory|assignEventId|assignedAt|targetAgentId|cancelEventId|canceledAt)\s*[:,]/m;
+  const runtimeSubagentCanonicalSavedRecordWrites = (
+    runtimeSubagentSurface.match(/const saved = withoutRetiredSubagentRecordOutputAliases\(\{/g) ??
+    []
+  ).length;
+  const runtimeSubagentSavedRecordWriteCalls = (
+    runtimeSubagentSurface.match(/store\.writeSubagent\(saved,\s*"subagent\./g) ?? []
+  ).length;
   const runtimeEventEnvelopes = exists("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     : "";
@@ -3869,6 +3876,22 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent record projections must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-record-write-output-aliases-retired",
+    runtimeSubagentSavedRecordWriteCalls === 6 &&
+      runtimeSubagentCanonicalSavedRecordWrites === runtimeSubagentSavedRecordWriteCalls &&
+      /assertCanonicalSubagentStoreWrites/.test(runtimeSubagentSurfaceTest) &&
+      /assertCanonicalSubagentRecordOutput\(saved\)/.test(runtimeSubagentSurfaceTest) &&
+      /"eventId"/.test(runtimeSubagentSurfaceTest) &&
+      /"waitedAt"/.test(runtimeSubagentSurfaceTest) &&
+      /"assignedAt"/.test(runtimeSubagentSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent lifecycle writes must persist canonical snake_case records without duplicate camelCase aliases",
   );
   assertCheck(
     result,

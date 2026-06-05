@@ -10080,6 +10080,59 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 168
+
+```yaml
+slice: 168
+phase: 10-authoritative-js-facade-retirement
+objective: retire runtime subagent record write output aliases
+owner_boundary:
+  route_or_surface: runtime-daemon subagent lifecycle persistence surface
+  authority_gate: unchanged; lifecycle writes still occur only through
+    daemon-owned subagent control operations
+  execution_backend: unchanged
+  truth_path: persisted subagent records from spawn, wait, input, resume,
+    assign, and cancel writes carry canonical snake_case top-level fields only
+  projection_path: record projections already expose canonical fields; this
+    slice removes the duplicate write shape behind those projections
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-subagent-surface.mjs
+    - packages/runtime-daemon/src/runtime-subagent-surface.test.mjs
+  tests:
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - compositor conformance counts canonicalized `saved` lifecycle writes and
+    requires every `store.writeSubagent(saved, ...)` path to pass through the
+    retired-alias filter
+  - focused daemon tests prove persisted records from spawn, blocked spawn,
+    wait, input, resume, blocked resume, assign, cancel, and propagated cancel
+    omit retired top-level record aliases
+verification:
+  commands:
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - node --test packages/runtime-daemon/src/runtime-subagent-surface.test.mjs
+    - npm run hypervisor-conformance:compositor
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: runtime subagent surface tests compare stored
+    lifecycle records against canonical projection fields
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - runtime subagent surface still accepts broader camelCase request and raw
+      record input fields while producing canonical writes
+    - list/propagation envelopes, nested input/resume/assignment/cancellation
+      helper objects, and error details still expose broader camelCase response
+      aliases outside the persisted subagent record boundary
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -10130,7 +10183,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 167:
+Current expected behavior after Slice 168:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
