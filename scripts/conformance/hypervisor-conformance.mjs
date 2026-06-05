@@ -5082,6 +5082,18 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "agent-sdk-subagent-prompt-request-type-aliases-retired",
+    runtimeSubagentSdkControlInputBlock.length > 0 &&
+      /^\s*prompt\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+      /^\s*input\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+      !/^\s*(?:message|text)\?: string;/m.test(
+        runtimeSubagentSdkControlInputBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent control request types must not advertise retired message/text prompt aliases",
+  );
+  assertCheck(
+    result,
     "agent-sdk-subagent-role-request-type-alias-retired",
     runtimeSubagentSdkControlInputBlock.length > 0 &&
       runtimeSubagentSdkListInputBlock.length > 0 &&

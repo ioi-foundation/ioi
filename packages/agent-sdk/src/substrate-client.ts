@@ -386,9 +386,7 @@ export interface RuntimeSubagentControlInput {
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
   actor?: string;
   prompt?: string;
-  message?: string;
   input?: string;
-  text?: string;
   role?: string;
   subagent_role?: string;
   tool_pack?: string;

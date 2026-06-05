@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 231:
+Current expected behavior after Slice 232:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11432,6 +11432,12 @@ Slice 231 extends compositor proof for
 `runtime-subagent-resume-request-aliases-retired`: runtime subagent resume now
 reads canonical `prompt` only for resume text and ignores retired prompt aliases
 such as `message`, `input`, `resume_prompt`, and `resumePrompt`.
+
+Slice 232 adds compositor proof for
+`agent-sdk-subagent-prompt-request-type-aliases-retired`: the SDK shared
+subagent control request type keeps the canonical `prompt` and `input` fields
+but no longer advertises retired generic prompt aliases such as `message` and
+`text`.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
