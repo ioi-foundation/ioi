@@ -3342,6 +3342,8 @@ function runCompositor() {
     /record\.(?:toolPack|modelRouteId|mergePolicy|cancellationInheritance|agentId|assignmentCount|assignmentHistory|runId|outputContract)\b|updated\.evidenceRefs\b/;
   const runtimeSubagentCancelRecordAliasReadPattern =
     /record\.(?:lifecycleStatus|runId|outputContract)\b|updated\.evidenceRefs\b|subagentBudgetForRequestDep\(record\)/;
+  const runtimeSubagentBudgetRecordRequestAliasReadPattern =
+    /subagentBudgetForRequestDep\(record\)/;
   const runtimeSubagentControlEventRecordAliasReadPattern =
     /record\.(?:subagentId|workflowGraphId|workflowNodeId|budgetPolicyDecision|budgetStatus|parentTurnId)\b/;
   const runtimeSubagentProjectionBlock =
@@ -4157,6 +4159,24 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent resume lifecycle must ignore retired camelCase persisted record aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-budget-record-request-aliases-retired",
+    runtimeSubagentSendInputBlock.length > 0 &&
+      runtimeSubagentResumeBlock.length > 0 &&
+      !runtimeSubagentBudgetRecordRequestAliasReadPattern.test(
+        `${runtimeSubagentSendInputBlock}\n${runtimeSubagentResumeBlock}`,
+      ) &&
+      /subagentBudget: \{ max_tokens: 1 \}/.test(runtimeSubagentSurfaceTest) &&
+      /assert\.equal\(saved\.budget_status,\s*"within_budget"\)/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent send/resume budget lookup must ignore retired persisted request-budget aliases",
   );
   assertCheck(
     result,

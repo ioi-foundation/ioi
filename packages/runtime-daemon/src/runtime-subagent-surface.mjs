@@ -470,7 +470,9 @@ export function createRuntimeSubagentSurface({
         output,
         record.output_contract,
       );
-      const budget = subagentBudgetForRequestDep(request) ?? subagentBudgetForRequestDep(record);
+      const budget =
+        subagentBudgetForRequestDep(request) ??
+        subagentBudgetForRequestDep({ budget: record.budget });
       const budgetUsageTelemetry =
         subagentBudgetUsageTelemetryForRequestDep(request) ??
         record.usage_telemetry ??
@@ -604,7 +606,9 @@ export function createRuntimeSubagentSurface({
         output,
         record.output_contract,
       );
-      const budget = subagentBudgetForRequestDep(request) ?? subagentBudgetForRequestDep(record);
+      const budget =
+        subagentBudgetForRequestDep(request) ??
+        subagentBudgetForRequestDep({ budget: record.budget });
       const budgetUsageTelemetry =
         subagentBudgetUsageTelemetryForRequestDep(request) ??
         record.usage_telemetry ??

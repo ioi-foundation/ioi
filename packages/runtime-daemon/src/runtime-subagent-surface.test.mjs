@@ -837,6 +837,7 @@ test("subagent send input ignores retired camelCase record aliases", () => {
   store.subagents.set("subagent_1", {
     ...store.subagents.get("subagent_1"),
     output_contract: ["SUMMARY"],
+    budget: { max_tokens: 1000 },
     input_history: [],
     previous_run_ids: [],
     evidence_refs: ["evidence_canonical"],
@@ -844,6 +845,7 @@ test("subagent send input ignores retired camelCase record aliases", () => {
     runId: "run_2",
     agentId: "agent_alias_child",
     outputContract: ["MISSING_SECTION"],
+    subagentBudget: { max_tokens: 1 },
     inputHistory: [{ input_id: "input_alias" }],
     previousRunIds: ["run_alias"],
     evidenceRefs: ["evidence_alias"],
@@ -863,6 +865,7 @@ test("subagent send input ignores retired camelCase record aliases", () => {
   assert.equal(saved.input_count, 1);
   assert.equal(saved.input_history[0].message, "Canonical follow up");
   assert.equal(saved.output_contract_status, "passed");
+  assert.equal(saved.budget_status, "within_budget");
   assert.equal(createdRun.agentId, "agent_child_1");
   assert.ok(saved.evidence_refs.includes("evidence_canonical"));
   assert.equal(saved.evidence_refs.includes("evidence_alias"), false);
@@ -1027,6 +1030,7 @@ test("subagent resume ignores retired camelCase record aliases", () => {
     lifecycle_status: "canceled",
     model_route_id: "route.resume.canonical",
     output_contract: ["SUMMARY"],
+    budget: { max_tokens: 1000 },
     restart_count: 1,
     resume_history: [],
     cancellation_history: [],
@@ -1042,6 +1046,7 @@ test("subagent resume ignores retired camelCase record aliases", () => {
     agentId: "agent_alias_resume",
     modelRouteId: "route.resume.alias",
     outputContract: ["MISSING_SECTION"],
+    subagentBudget: { max_tokens: 1 },
     restartCount: 99,
     resumeHistory: [{ resume_id: "resume_alias" }],
     cancellationHistory: [{ reason: "alias_cancel" }],
@@ -1061,6 +1066,7 @@ test("subagent resume ignores retired camelCase record aliases", () => {
   assert.equal(result.resume.model_route_id, "route.resume.canonical");
   assert.equal(result.resume.restart_count, 2);
   assert.equal(result.result, "Created response: Try again canonical");
+  assert.equal(saved.budget_status, "within_budget");
   assert.equal(createdRun.agentId, "agent_child_1");
   assert.equal(createdRun.request.options.model.routeId, "route.resume.canonical");
   assert.deepEqual(saved.previous_run_ids, ["run_1"]);
