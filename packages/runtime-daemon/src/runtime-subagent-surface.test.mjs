@@ -269,6 +269,10 @@ function assertCanonicalPostSpawnSubagentLifecycleStagingRecord(record) {
   assertCanonicalSubagentRecordOutput(record);
 }
 
+function assertCanonicalSpawnSubagentStagingRecord(record) {
+  assertCanonicalSubagentRecordOutput(record);
+}
+
 function assertNoOwnKeys(record, keys) {
   for (const key of keys) {
     assert.equal(Object.prototype.hasOwnProperty.call(record, key), false);
@@ -496,6 +500,7 @@ test("subagent surface spawns subagents with source and context metadata", () =>
     "policy_spawn_request",
     "policy_subagent_spawn_allow_09332d1abadc",
   ]);
+  assertCanonicalSpawnSubagentStagingRecord(store.eventInputs[0].record);
   assert.equal(store.writes[0].operationKind, "subagent.spawn");
   assert.deepEqual(saved.receipt_refs, [
     "receipt_run_created_3",
@@ -589,6 +594,7 @@ test("subagent surface persists blocked spawn and throws budget policy error", (
   assert.equal(saved.lifecycle_status, "blocked");
   assert.equal(saved.block_reason, "subagent_budget_exceeded");
   assert.equal(saved.event_id, "evt_1");
+  assertCanonicalSpawnSubagentStagingRecord(store.eventInputs[0].record);
   assertCanonicalSubagentBudgetUsageTelemetry(saved);
   assertCanonicalSubagentUsageTelemetry(saved);
   assertCanonicalSubagentRecordOutput(saved);

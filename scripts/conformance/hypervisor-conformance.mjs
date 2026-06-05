@@ -3276,6 +3276,8 @@ function runCompositor() {
     .join("\n");
   const runtimeSubagentPostSpawnLifecycleStagingBlocks =
     runtimeSubagentSurface.match(/const updated = \{[\s\S]*?\n      \};/g) ?? [];
+  const runtimeSubagentSpawnStagingBlock =
+    runtimeSubagentSurface.match(/const record = \{[\s\S]*?\n      \};\n      record\.result =/)?.[0] ?? "";
   const runtimeSubagentListEnvelopeAliasPattern =
     /^\s*(?:schemaVersion|threadId|parentAgentId|activeCount)\s*[:,]/m;
   const runtimeSubagentPropagationEnvelopeAliasPattern =
@@ -4096,6 +4098,27 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent post-spawn lifecycle staging records must be canonical before event construction and write filtering",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-spawn-staging-aliases-retired",
+    runtimeSubagentSpawnStagingBlock.length > 0 &&
+      !runtimeSubagentRecordOutputAliasPattern.test(
+        runtimeSubagentSpawnStagingBlock,
+      ) &&
+      /assertCanonicalSpawnSubagentStagingRecord/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      (
+        runtimeSubagentSurfaceTest.match(
+          /assertCanonicalSpawnSubagentStagingRecord\(store\.eventInputs\[0\]\.record\)/g,
+        ) ?? []
+      ).length >= 2,
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent spawn staging records must be canonical before event construction and write filtering",
   );
   assertCheck(
     result,
