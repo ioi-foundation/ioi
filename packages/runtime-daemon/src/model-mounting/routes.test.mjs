@@ -328,6 +328,51 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
   ]);
 });
 
+test("model mounting route receipt rejects retired request aliases before receipt allocation", () => {
+  const calls = [];
+  const error = captureError(() =>
+    routeSelectionReceipt({
+      body: {
+        modelId: "model.local",
+        modelPolicy: { privacy: "local_only" },
+        workflowGraphId: "graph-1",
+        workflowNodeId: "node-1",
+        nodeId: "node-alias",
+        node_id: "node-snake-alias",
+        workflowNodeType: "Model Router",
+      },
+      nextReceiptId: () => {
+        calls.push("nextReceiptId");
+        return "receipt-route";
+      },
+      receipt: () => ({ id: "receipt-route" }),
+    }),
+  );
+
+  assert.equal(error.status, 400);
+  assert.equal(error.code, "model_mount_route_selection_request_aliases_retired");
+  assert.deepEqual(error.details.retired_aliases, [
+    "modelId",
+    "modelPolicy",
+    "workflowGraphId",
+    "workflowNodeId",
+    "nodeId",
+    "node_id",
+    "workflowNodeType",
+  ]);
+  assert.deepEqual(error.details.canonical_fields, [
+    "model",
+    "model_id",
+    "model_policy",
+    "workflow_graph_id",
+    "workflow_node_id",
+    "workflow_node_type",
+  ]);
+  assert.equal(Object.hasOwn(error.details, "modelId"), false);
+  assert.equal(Object.hasOwn(error.details, "modelPolicy"), false);
+  assert.deepEqual(calls, []);
+});
+
 test("model mounting route receipt fails closed without Rust admission", () => {
   const error = captureError(() =>
     routeSelectionReceipt({
@@ -557,4 +602,45 @@ test("model mounting route helpers test routes through state compatibility metho
   assert.equal(writes.length, 1);
   assert.equal(writes[0].dir, "model-routes");
   assert.equal(writes[0].map, routes);
+});
+
+test("model mounting route helpers test route rejects retired request aliases before route lookup", () => {
+  const calls = [];
+  const state = {
+    route(routeId) {
+      calls.push(["route", routeId]);
+      return { id: routeId };
+    },
+    selectRoute() {
+      calls.push(["selectRoute"]);
+    },
+    routeSelectionReceipt() {
+      calls.push(["routeSelectionReceipt"]);
+    },
+  };
+
+  const error = captureError(() =>
+    testRoute(state, "route.local-first", {
+      modelId: "model.local",
+      modelPolicy: { privacy: "local_only" },
+      workflowGraphId: "graph-1",
+      workflowNodeId: "node-1",
+      nodeId: "node-alias",
+      node_id: "node-snake-alias",
+      workflowNodeType: "Model Router",
+    }),
+  );
+
+  assert.equal(error.status, 400);
+  assert.equal(error.code, "model_mount_route_selection_request_aliases_retired");
+  assert.deepEqual(error.details.retired_aliases, [
+    "modelId",
+    "modelPolicy",
+    "workflowGraphId",
+    "workflowNodeId",
+    "nodeId",
+    "node_id",
+    "workflowNodeType",
+  ]);
+  assert.deepEqual(calls, []);
 });

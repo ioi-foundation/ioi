@@ -383,6 +383,9 @@ function runBridge() {
   const modelRoutes = exists("packages/runtime-daemon/src/model-mounting/routes.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/routes.mjs")
     : "";
+  const modelRoutesTest = exists("packages/runtime-daemon/src/model-mounting/routes.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")
+    : "";
   const modelRouteSelectionDetailsObject =
     modelRoutes.match(/const payload = \{[\s\S]*?details: \{([\s\S]*?)\n    \},\n  \};/)?.[1] ?? "";
   const modelRouteDecisionModule = exists("packages/runtime-daemon/src/model-mounting/route-decision.mjs")
@@ -1301,6 +1304,27 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
     ],
     "Phase 3/10 is pending: model route-selection receipt details and direct readers must use canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-route-selection-request-aliases-retired",
+    /RETIRED_ROUTE_SELECTION_REQUEST_ALIASES/.test(modelRoutes) &&
+      /model_mount_route_selection_request_aliases_retired/.test(modelRoutes) &&
+      (modelRoutes.match(/assertCanonicalRouteSelectionRequestBody\(body\);/g) ?? []).length >= 2 &&
+      /const policy = body\.model_policy \?\? \{\};/.test(modelRoutes) &&
+      /const requestedModel = body\.model \?\? body\.model_id \?\? null;/.test(modelRoutes) &&
+      /modelId:\s*body\.model \?\? body\.model_id/.test(modelRoutes) &&
+      /policy:\s*body\.model_policy \?\? \{\}/.test(modelRoutes) &&
+      !/body\.(?:modelId|modelPolicy|workflowGraphId|workflowNodeId|nodeId|node_id|workflowNodeType)\b/.test(modelRoutes) &&
+      /route receipt rejects retired request aliases before receipt allocation/.test(modelRoutesTest) &&
+      /test route rejects retired request aliases before route lookup/.test(modelRoutesTest) &&
+      /retired_aliases/.test(modelRoutesTest) &&
+      /canonical_fields/.test(modelRoutesTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/routes.mjs",
+      "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
+    ],
+    "Phase 3/10 is pending: model route-selection and test-route request bodies must fail closed on retired model/workflow aliases before receipt allocation or route lookup",
   );
   assertCheck(
     result,

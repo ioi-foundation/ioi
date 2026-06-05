@@ -1,3 +1,22 @@
+const RETIRED_ROUTE_SELECTION_REQUEST_ALIASES = [
+  "modelId",
+  "modelPolicy",
+  "workflowGraphId",
+  "workflowNodeId",
+  "nodeId",
+  "node_id",
+  "workflowNodeType",
+];
+
+const CANONICAL_ROUTE_SELECTION_REQUEST_FIELDS = [
+  "model",
+  "model_id",
+  "model_policy",
+  "workflow_graph_id",
+  "workflow_node_id",
+  "workflow_node_type",
+];
+
 export function upsertRouteRecord(body = {}, { normalizeScopes, safeId } = {}) {
   const id = body.id ?? `route.${safeId(body.role ?? "custom")}`;
   return {
@@ -181,8 +200,9 @@ export function routeSelectionReceipt({
   selection,
   stableHash,
 } = {}) {
-  const policy = body.model_policy ?? body.modelPolicy ?? {};
-  const requestedModel = body.model ?? body.model_id ?? body.modelId ?? null;
+  assertCanonicalRouteSelectionRequestBody(body);
+  const policy = body.model_policy ?? {};
+  const requestedModel = body.model ?? body.model_id ?? null;
   const workflow = routeDecision.workflowContextFromRouteRequest(body);
   const policyHash = stableHash(policy);
   if (typeof nextReceiptId !== "function") {
@@ -281,13 +301,14 @@ export function routeSelectionReceiptForState(state, selection, options = {}, de
 }
 
 export function testRoute(state, routeId, body = {}) {
+  assertCanonicalRouteSelectionRequestBody(body);
   const route = state.route(routeId);
   const capability = body.capability ?? "chat";
   const selection = state.selectRoute({
-    modelId: body.model ?? body.model_id ?? body.modelId,
+    modelId: body.model ?? body.model_id,
     routeId,
     capability,
-    policy: body.model_policy ?? body.modelPolicy ?? {},
+    policy: body.model_policy ?? {},
   });
   const receipt = state.routeSelectionReceipt(selection, { body: { ...body, route_id: routeId }, capability });
   const updatedRoute = {
@@ -365,6 +386,21 @@ function routeDecisionReceiptIdRequiredError() {
   error.status = 500;
   error.code = "model_mount_route_decision_receipt_id_required";
   return error;
+}
+
+function assertCanonicalRouteSelectionRequestBody(body = {}) {
+  const presentAliases = RETIRED_ROUTE_SELECTION_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (presentAliases.length === 0) return;
+  const error = new Error("Model route-selection request uses retired compatibility aliases.");
+  error.status = 400;
+  error.code = "model_mount_route_selection_request_aliases_retired";
+  error.details = {
+    retired_aliases: presentAliases,
+    canonical_fields: CANONICAL_ROUTE_SELECTION_REQUEST_FIELDS,
+  };
+  throw error;
 }
 
 function requiredRef(field, value) {

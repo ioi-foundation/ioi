@@ -11819,6 +11819,14 @@ canonical `node`, `node_type`, `model`, `model_id`, `route_id`,
 `model_policy`, `max_tokens`, `workflow_graph_id`, `workflow_node_id`, and
 `workflow_node_type` remain the accepted workflow-node request shape.
 
+Slice 299 retires route-selection/test-route request aliases at the daemon
+entry point: route-selection receipts and `/api/v1/routes/:id/test` now fail
+closed on retired `modelId`, `modelPolicy`, `workflowGraphId`,
+`workflowNodeId`, `nodeId`, `node_id`, and `workflowNodeType` before receipt
+allocation/admission or route lookup, while canonical `model`, `model_id`,
+`model_policy`, `workflow_graph_id`, `workflow_node_id`, and
+`workflow_node_type` remain the accepted route-selection request shape.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
