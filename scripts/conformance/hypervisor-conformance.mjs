@@ -1580,10 +1580,10 @@ function runReceipts() {
       /runtime_state_transition_requires_expected_heads_state_root_and_receipts/.test(agentgresAdmissionCore) &&
       /commits_runtime_run_state_with_rust_derived_transition_and_persistence/.test(agentgresAdmissionCore) &&
       /commits_runtime_run_state_from_previous_transition_head/.test(agentgresAdmissionCore) &&
-      /plan_runtime_run_state_transition/.test(bridgeModule) &&
       /commit_runtime_run_state/.test(bridgeModule) &&
-      /rust_runtime_agentgres_transition_command/.test(bridgeModule) &&
       /rust_agentgres_runtime_run_state_commit_command/.test(bridgeModule) &&
+      !/plan_runtime_run_state_transition/.test(bridgeModule) &&
+      !/rust_runtime_agentgres_transition_command/.test(bridgeModule) &&
       /bridge_commits_runtime_run_state_through_rust_core/.test(bridgeModule) &&
       /RustRuntimeAgentgresAdmissionRunner/.test(runtimeAgentgresRunner) &&
       /commitRuntimeRunState/.test(runtimeAgentgresRunner) &&
@@ -1659,17 +1659,23 @@ function runReceipts() {
       /plans_runtime_state_storage_write_set_with_rust_content_hash_and_admissions/.test(agentgresAdmissionCore) &&
       /plans_runtime_state_persistence_with_materialization_and_storage_write_set/.test(agentgresAdmissionCore) &&
       /admit_storage_backend_write/.test(bridgeModule) &&
-      /materialize_runtime_state_records/.test(bridgeModule) &&
-      /plan_runtime_state_storage_writes/.test(bridgeModule) &&
-      /persist_runtime_state_records/.test(bridgeModule) &&
+      /commit_runtime_run_state/.test(bridgeModule) &&
+      !/materialize_runtime_state_records/.test(bridgeModule) &&
+      !/plan_runtime_state_storage_writes/.test(bridgeModule) &&
+      !/persist_runtime_state_records/.test(bridgeModule) &&
+      !/plan_runtime_run_state_transition/.test(bridgeModule) &&
       /rust_agentgres_storage_write_admission_command/.test(bridgeModule) &&
-      /rust_agentgres_runtime_state_record_materialization_command/.test(bridgeModule) &&
-      /rust_agentgres_runtime_state_storage_write_set_command/.test(bridgeModule) &&
-      /rust_agentgres_runtime_state_persistence_command/.test(bridgeModule) &&
+      /rust_agentgres_runtime_run_state_commit_command/.test(bridgeModule) &&
+      !/rust_agentgres_runtime_state_record_materialization_command/.test(bridgeModule) &&
+      !/rust_agentgres_runtime_state_storage_write_set_command/.test(bridgeModule) &&
+      !/rust_agentgres_runtime_state_persistence_command/.test(bridgeModule) &&
+      !/rust_runtime_agentgres_transition_command/.test(bridgeModule) &&
       /bridge_admits_storage_backend_write_through_rust_core/.test(bridgeModule) &&
-      /bridge_materializes_runtime_state_records_through_rust_core/.test(bridgeModule) &&
-      /bridge_plans_runtime_state_storage_writes_through_rust_core/.test(bridgeModule) &&
-      /bridge_persists_runtime_state_records_through_rust_core/.test(bridgeModule) &&
+      /bridge_commits_runtime_run_state_through_rust_core/.test(bridgeModule) &&
+      !/bridge_materializes_runtime_state_records_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_runtime_state_storage_writes_through_rust_core/.test(bridgeModule) &&
+      !/bridge_persists_runtime_state_records_through_rust_core/.test(bridgeModule) &&
+      !/bridge_plans_runtime_run_state_transition_through_rust_core/.test(bridgeModule) &&
       /admitStorageBackendWrite/.test(runtimeAgentgresRunner) &&
       /commitRuntimeRunState/.test(runtimeAgentgresRunner) &&
       !/persistRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
