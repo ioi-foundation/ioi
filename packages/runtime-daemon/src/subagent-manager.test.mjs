@@ -89,6 +89,47 @@ const retiredSubagentManagerEventOutputAliasKeys = [
   "assignmentCount",
   "targetAgentId",
 ];
+const retiredSubagentManagerEventInputAliasRecord = {
+  parentThreadId: "thread-retired",
+  parentTurnId: "turn-retired",
+  childThreadId: "thread-child-retired",
+  subagentId: "subagent-retired",
+  agentId: "agent-retired",
+  runId: "run-retired",
+  toolPack: "tool-retired",
+  modelRouteId: "route-retired",
+  lifecycleStatus: "completed",
+  status: "completed",
+  outputContractStatus: { status: "valid" },
+  maxConcurrency: 2,
+  budgetStatus: { status: "ok" },
+  mergePolicy: "auto",
+  cancellationInheritance: "detach",
+  contextPressureAction: "delegate",
+  contextPressure: 0.8,
+  pressure: 0.9,
+  pressureStatus: "high",
+  alertId: "alert-retired",
+  sourceEventId: "event-retired",
+  sourceReceiptRefs: ["receipt-retired"],
+  sourcePolicyDecisionRefs: ["policy-retired"],
+  inputId: "input-retired",
+  inputCount: 3,
+  cancellationReason: "retired-cancel",
+  cancellationInherited: true,
+  propagatedFromThreadId: "thread-propagated-retired",
+  cancellation: {
+    reason: "nested-retired",
+    inherited: true,
+    propagated_from_thread_id: "thread-nested-retired",
+  },
+  restartStatus: "restarted",
+  restartCount: 4,
+  resumeId: "resume-retired",
+  assignmentId: "assignment-retired",
+  assignmentCount: 5,
+  targetAgentId: "agent-target-retired",
+};
 
 const retiredSubagentUsageDataAliasInput = {
   cumulativeInputTokens: 5,
@@ -326,4 +367,46 @@ test("subagent result and manager events emit canonical usage telemetry only", (
   assert.equal(retiredEvent.usage_telemetry, null);
   assert.equal(retiredEvent.cost_estimate_usd, null);
   assert.equal(retiredEvent.token_estimate, null);
+});
+
+test("subagent manager event payload ignores retired record input aliases", () => {
+  const event = subagentManagerEventPayload({
+    operation: "spawn",
+    record: retiredSubagentManagerEventInputAliasRecord,
+  });
+
+  assertCanonicalSubagentManagerEventOutput(event);
+  assert.equal(event.thread_id, null);
+  assert.equal(event.parent_thread_id, null);
+  assert.equal(event.parent_turn_id, null);
+  assert.equal(event.child_thread_id, null);
+  assert.equal(event.subagent_id, null);
+  assert.equal(event.agent_id, null);
+  assert.equal(event.run_id, null);
+  assert.equal(event.tool_pack, null);
+  assert.equal(event.model_route_id, null);
+  assert.equal(event.lifecycle_status, null);
+  assert.equal(event.output_contract_status, null);
+  assert.equal(event.max_concurrency, null);
+  assert.equal(event.budget_status, null);
+  assert.equal(event.merge_policy, null);
+  assert.equal(event.cancellation_inheritance, null);
+  assert.equal(event.context_pressure_action, null);
+  assert.equal(event.context_pressure, null);
+  assert.equal(event.pressure_status, null);
+  assert.equal(event.alert_id, null);
+  assert.equal(event.source_event_id, null);
+  assert.deepEqual(event.source_receipt_refs, []);
+  assert.deepEqual(event.source_policy_decision_refs, []);
+  assert.equal(event.input_id, null);
+  assert.equal(event.input_count, null);
+  assert.equal(event.cancellation_reason, null);
+  assert.equal(event.cancellation_inherited, null);
+  assert.equal(event.propagated_from_thread_id, null);
+  assert.equal(event.restart_status, null);
+  assert.equal(event.restart_count, null);
+  assert.equal(event.resume_id, null);
+  assert.equal(event.assignment_id, null);
+  assert.equal(event.assignment_count, null);
+  assert.equal(event.target_agent_id, null);
 });

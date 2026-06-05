@@ -3780,6 +3780,27 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-subagent-manager-event-input-aliases-retired",
+    !/record(?:\?\.|\.)(?:parentThreadId|parentTurnId|childThreadId|subagentId|agentId|runId|toolPack|modelRouteId|lifecycleStatus|status|outputContractStatus|maxConcurrency|budgetStatus|mergePolicy|cancellationInheritance|contextPressureAction|contextPressure|pressureStatus|pressure|alertId|sourceEventId|sourceReceiptRefs|sourcePolicyDecisionRefs|inputId|inputCount|cancellationReason|cancellationInherited|propagatedFromThreadId|restartStatus|restartCount|resumeId|assignmentId|assignmentCount|targetAgentId)(?![A-Za-z0-9_])/.test(
+      subagentManagerEventPayloadBlock,
+    ) &&
+      !/record\.cancellation\?\.(?:reason|inherited|propagated_from_thread_id|propagatedFromThreadId)/.test(
+        subagentManagerEventPayloadBlock,
+      ) &&
+      /retiredSubagentManagerEventInputAliasRecord/.test(
+        subagentManagerTest,
+      ) &&
+      /subagent manager event payload ignores retired record input aliases/.test(
+        subagentManagerTest,
+      ),
+    [
+      "packages/runtime-daemon/src/subagent-manager.mjs",
+      "packages/runtime-daemon/src/subagent-manager.test.mjs",
+    ],
+    "Phase 10/11 is pending: subagent manager event payloads must ignore retired camelCase-only record input aliases",
+  );
+  assertCheck(
+    result,
     "runtime-subagent-surface-usage-input-alias-retired",
     !/record\.usageTelemetry/.test(runtimeSubagentSurface) &&
       /subagent surface ignores retired usageTelemetry previous usage fallback/.test(
