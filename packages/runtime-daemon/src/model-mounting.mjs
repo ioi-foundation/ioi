@@ -576,8 +576,8 @@ export class ModelMountingState {
     return serverControl.writeServerLog(this, event);
   }
 
-  legacyModelList() {
-    return this.readProjectionFacade.legacyModelList(this);
+  runtimeModelCatalogList() {
+    return this.readProjectionFacade.runtimeModelCatalogList(this);
   }
 
   openAiModelList() {

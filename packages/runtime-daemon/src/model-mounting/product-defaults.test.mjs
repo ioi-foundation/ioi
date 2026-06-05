@@ -24,14 +24,13 @@ test("product model defaults do not seed fixture or local:auto models", () => {
     const allModelIds = state.listArtifacts().map((artifact) => artifact.modelId);
     const productModelIds = state.listProductArtifacts().map((artifact) => artifact.modelId);
     const endpointModelIds = state.listEndpoints().map((endpoint) => endpoint.modelId);
-    const legacyModelIds = state.legacyModelList().map((model) => model.id);
+    const runtimeModelIds = state.runtimeModelCatalogList().map((model) => model.id);
     const openAiModelIds = state.openAiModelList().data.map((model) => model.id);
 
-    for (const ids of [allModelIds, productModelIds, endpointModelIds, legacyModelIds, openAiModelIds]) {
+    for (const ids of [allModelIds, productModelIds, endpointModelIds, runtimeModelIds, openAiModelIds]) {
       assert.equal(ids.includes("local:auto"), false);
       assert.equal(ids.some((id) => String(id || "").includes("fixture")), false);
       assert.equal(ids.some((id) => String(id || "").includes("autopilot:native-fixture")), false);
     }
   });
 });
-

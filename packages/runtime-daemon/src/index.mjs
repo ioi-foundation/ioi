@@ -2101,7 +2101,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   listModels() {
-    return this.modelMounting.legacyModelList();
+    return this.modelMounting.runtimeModelCatalogList();
   }
 
   listModelCapabilities() {

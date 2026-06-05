@@ -127,7 +127,7 @@ function createState() {
 test("read projection facade delegates product-safe lists and capabilities", () => {
   const { facade, state } = createState();
 
-  assert.deepEqual(facade.legacyModelList(state).map((model) => model.id), ["model.local"]);
+  assert.deepEqual(facade.runtimeModelCatalogList(state).map((model) => model.id), ["model.local"]);
   assert.deepEqual(facade.openAiModelList(state).data.map((model) => model.id), ["model.local"]);
   assert.deepEqual(facade.listProductArtifacts(state).map((artifact) => artifact.id), ["artifact.local"]);
   assert.deepEqual(facade.listProviders(state), [

@@ -3,7 +3,6 @@ import {
   downloadList,
   endpointList,
   instanceList,
-  legacyModelList as legacyModelListProjection,
   modelCapabilityList,
   modelMountingSnapshot,
   oauthSessionList,
@@ -13,6 +12,7 @@ import {
   providerHealthList,
   providerList,
   routeList,
+  runtimeModelCatalogList as runtimeModelCatalogListProjection,
   workflowNodeBindings as workflowNodeBindingsProjection,
 } from "./read-model.mjs";
 import {
@@ -40,8 +40,8 @@ export function createModelMountingReadProjectionFacade({
   publicProvider,
   readJson,
 } = {}) {
-  function legacyModelList(state) {
-    return legacyModelListProjection(state);
+  function runtimeModelCatalogList(state) {
+    return runtimeModelCatalogListProjection(state);
   }
 
   function openAiModelList(state) {
@@ -184,7 +184,6 @@ export function createModelMountingReadProjectionFacade({
   return {
     adapterBoundaries,
     authoritySnapshot,
-    legacyModelList,
     latestProviderHealth,
     latestVaultHealth,
     listArtifacts,
@@ -203,6 +202,7 @@ export function createModelMountingReadProjectionFacade({
     projection,
     projectionSummary,
     receiptReplay,
+    runtimeModelCatalogList,
     snapshot,
     workflowNodeBindings,
   };

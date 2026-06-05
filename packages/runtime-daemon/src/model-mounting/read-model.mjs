@@ -16,7 +16,7 @@ export function productArtifactList(state, deps = {}) {
   return artifacts.filter((artifact) => !isFixtureModelRecord(artifact));
 }
 
-export function legacyModelList(state, deps = {}) {
+export function runtimeModelCatalogList(state, deps = {}) {
   return state.listProductArtifacts()
     .sort((left, right) => left.modelId.localeCompare(right.modelId))
     .map((artifact) => ({

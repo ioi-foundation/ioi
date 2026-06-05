@@ -366,6 +366,20 @@ function runBridge() {
   const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     : "";
+  const modelMountingReadModel = exists("packages/runtime-daemon/src/model-mounting/read-model.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/read-model.mjs")
+    : "";
+  const modelMountingReadModelTest = exists("packages/runtime-daemon/src/model-mounting/read-model.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/read-model.test.mjs")
+    : "";
+  const modelMountingReadProjectionFacade = exists("packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs")
+    : "";
+  const modelMountingReadProjectionFacadeTest = exists(
+    "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs")
+    : "";
   const stepModuleRunner = exists("packages/runtime-daemon/src/step-module-runner.mjs")
     ? read("packages/runtime-daemon/src/step-module-runner.mjs")
     : "";
@@ -915,6 +929,33 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs",
     ],
     "Phase 11 is pending: protocol response helpers must live behind the stable protocol module, not the broad model-mounting compatibility facade",
+  );
+  assertCheck(
+    result,
+    "model-mount-legacy-model-list-facade-retired",
+    !/legacyModelList/.test(
+      [
+        runtimeDaemonIndex,
+        modelMountingState,
+        modelMountingReadModel,
+        modelMountingReadProjectionFacade,
+      ].join("\n"),
+    ) &&
+      /runtimeModelCatalogList/.test(runtimeDaemonIndex) &&
+      /runtimeModelCatalogList/.test(modelMountingState) &&
+      /runtimeModelCatalogList/.test(modelMountingReadModel) &&
+      /runtimeModelCatalogList/.test(modelMountingReadProjectionFacade) &&
+      /runtimeModelCatalogList/.test(modelMountingReadModelTest) &&
+      /runtimeModelCatalogList/.test(modelMountingReadProjectionFacadeTest),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-model.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-model.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+    ],
+    "Phase 11 is pending: public model listing must use the runtime model catalog projection instead of a legacy model-list facade name",
   );
   assertCheck(
     result,

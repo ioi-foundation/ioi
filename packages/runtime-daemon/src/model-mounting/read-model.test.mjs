@@ -6,13 +6,13 @@ import {
   downloadList,
   endpointList,
   instanceList,
-  legacyModelList,
   modelCapabilityList,
   modelMountingSnapshot,
   openAiModelList,
   productArtifactList,
   providerList,
   routeList,
+  runtimeModelCatalogList,
   workflowNodeBindings,
 } from "./read-model.mjs";
 
@@ -162,7 +162,7 @@ test("model mounting read model sorts primitive lists", () => {
 test("model mounting read model builds product and protocol model lists", () => {
   const state = fakeState();
   assert.deepEqual(productArtifactList(state, { isFixtureModelRecord: (artifact) => artifact.family === "fixture" }).map((artifact) => artifact.id), ["artifact_b"]);
-  assert.deepEqual(legacyModelList(state).map((model) => model.id), ["model_b"]);
+  assert.deepEqual(runtimeModelCatalogList(state).map((model) => model.id), ["model_b"]);
   assert.deepEqual(openAiModelList(state).data.map((model) => model.id), ["model_b"]);
 });
 
