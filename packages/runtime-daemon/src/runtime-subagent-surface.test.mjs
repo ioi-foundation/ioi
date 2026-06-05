@@ -940,7 +940,7 @@ test("subagent surface sends input, persists history, and returns event", () => 
 
   const result = surface.sendSubagentInput(store, "thread_1", "subagent_1", {
     source: "agent_studio",
-    message: "Follow up",
+    input: "Follow up",
     actor: "operator_1",
     workflow_graph_id: "graph_input",
     workflow_node_id: "node_input",
@@ -995,6 +995,10 @@ test("subagent send input ignores retired camelCase request aliases", () => {
   assert.throws(
     () =>
       surface.sendSubagentInput(store, "thread_1", "subagent_1", {
+        message: "Message alias-only follow up",
+        prompt: "Prompt alias-only follow up",
+        text: "Text alias-only follow up",
+        subagent_input: "Snake alias-only follow up",
         subagentInput: "Alias-only follow up",
       }),
     (error) =>
@@ -1006,6 +1010,10 @@ test("subagent send input ignores retired camelCase request aliases", () => {
   const result = surface.sendSubagentInput(store, "thread_1", "subagent_1", {
     source: "agent_studio",
     input: "Canonical follow up",
+    message: "Message alias follow up",
+    prompt: "Prompt alias follow up",
+    text: "Text alias follow up",
+    subagent_input: "Snake alias follow up",
     subagentInput: "Alias follow up",
     workflow_graph_id: "graph_input_canonical",
     workflow_node_id: "node_input_canonical",
@@ -1047,7 +1055,7 @@ test("subagent send input ignores retired camelCase record aliases", () => {
 
   const result = surface.sendSubagentInput(store, "thread_1", "subagent_1", {
     source: "agent_studio",
-    message: "Canonical follow up",
+    input: "Canonical follow up",
   });
   const saved = store.subagents.get("subagent_1");
   const createdRun = store.runs.get("run_created_3");
@@ -1085,7 +1093,7 @@ test("subagent surface ignores retired usageTelemetry previous usage fallback", 
   });
 
   const result = surface.sendSubagentInput(store, "thread_1", "subagent_1", {
-    message: "short",
+    input: "short",
   });
   const saved = store.subagents.get("subagent_1");
 
@@ -1122,7 +1130,7 @@ test("subagent surface rejects missing input and canceled subagents", () => {
   assert.throws(
     () =>
       surface.sendSubagentInput(store, "thread_1", "subagent_1", {
-        message: "Can you keep going?",
+        input: "Can you keep going?",
       }),
     (error) => {
       assert.equal(error.status, 403);

@@ -3369,7 +3369,7 @@ function runCompositor() {
   const runtimeSubagentSpawnRequestAliasReadPattern =
     /request\.(?:message|input|subagent_prompt|subagentPrompt|subagentRole|maxConcurrency|subagentMaxConcurrency|modelRouteId|subagentModelRoute|outputContract|subagentOutputContract|workflowGraphId|workflowNodeId|parentTurnId|turnId|contextPressureAction|contextPressure|pressureStatus|alertId|sourceEventId|receiptRefs|policyDecisionRefs|toolPack|subagentToolPack|forkContext|mergePolicy|cancellationInheritance)\b/;
   const runtimeSubagentSendInputRequestAliasReadPattern =
-    /request\.(?:subagentInput|workflowGraphId|workflowNodeId)\b/;
+    /request\.(?:message|prompt|text|subagent_input|subagentInput|workflowGraphId|workflowNodeId)\b/;
   const runtimeSubagentResumeRequestAliasReadPattern =
     /request\.(?:subagentRole|modelRouteId|subagentModelRoute|resumePrompt|workflowGraphId|workflowNodeId)\b/;
   const runtimeSubagentAssignRequestAliasReadPattern =
@@ -4355,6 +4355,12 @@ function runCompositor() {
         runtimeSubagentSendInputBlock,
       ) &&
       /subagent send input ignores retired camelCase request aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /message: "Message alias-only follow up"/.test(runtimeSubagentSurfaceTest) &&
+      /prompt: "Prompt alias-only follow up"/.test(runtimeSubagentSurfaceTest) &&
+      /text: "Text alias-only follow up"/.test(runtimeSubagentSurfaceTest) &&
+      /subagent_input: "Snake alias-only follow up"/.test(
         runtimeSubagentSurfaceTest,
       ) &&
       /subagentInput: "Alias-only follow up"/.test(runtimeSubagentSurfaceTest) &&

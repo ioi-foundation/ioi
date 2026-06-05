@@ -434,13 +434,7 @@ export function createRuntimeSubagentSurface({
           subagent_id: subagentId,
         });
       }
-      const message = optionalStringDep(
-        request.input ??
-          request.message ??
-          request.prompt ??
-          request.text ??
-          request.subagent_input,
-      );
+      const message = optionalStringDep(request.input);
       if (!message) {
         throw runtimeErrorDep({
           status: 400,
