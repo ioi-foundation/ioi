@@ -512,9 +512,7 @@ export interface RuntimeSubagentRecord {
   result?: RuntimeSubagentResult | null;
   event?: RuntimeEventEnvelope | null;
   receipt_refs?: string[];
-  receiptRefs?: string[];
   evidence_refs?: string[];
-  evidenceRefs?: string[];
   created_at?: string;
   createdAt?: string;
   updated_at?: string;
