@@ -3253,6 +3253,10 @@ function runCompositor() {
     runtimeSubagentSurface.match(
       /assignSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?\n    \},\n    cancelSubagent/,
     )?.[0] ?? "";
+  const runtimeSubagentCancelBlock =
+    runtimeSubagentSurface.match(
+      /cancelSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?\n    \},\n    propagateSubagentCancellation/,
+    )?.[0] ?? "";
   const runtimeSubagentPropagationEnvelopeBlock =
     runtimeSubagentSurface.match(
       /propagateSubagentCancellation\(store, threadId, request = \{\}\) \{[\s\S]*?\n    \},\n    subagentProjection/,
@@ -3336,6 +3340,8 @@ function runCompositor() {
     /record\.(?:runId|lifecycleStatus|agentId|modelRouteId|outputContract|restartCount|resumeHistory|cancellationHistory|previousRunIds)\b|updated\.evidenceRefs\b/;
   const runtimeSubagentAssignRecordAliasReadPattern =
     /record\.(?:toolPack|modelRouteId|mergePolicy|cancellationInheritance|agentId|assignmentCount|assignmentHistory|runId|outputContract)\b|updated\.evidenceRefs\b/;
+  const runtimeSubagentCancelRecordAliasReadPattern =
+    /record\.(?:lifecycleStatus|runId|outputContract)\b|updated\.evidenceRefs\b|subagentBudgetForRequestDep\(record\)/;
   const runtimeSubagentControlEventRecordAliasReadPattern =
     /record\.(?:subagentId|workflowGraphId|workflowNodeId|budgetPolicyDecision|budgetStatus|parentTurnId)\b/;
   const runtimeSubagentProjectionBlock =
@@ -4179,6 +4185,26 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent assign lifecycle must ignore retired camelCase persisted record aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-cancel-record-aliases-retired",
+    runtimeSubagentCancelBlock.length > 0 &&
+      !runtimeSubagentCancelRecordAliasReadPattern.test(
+        runtimeSubagentCancelBlock,
+      ) &&
+      /subagent cancel ignores retired camelCase record aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /lifecycleStatus: "completed"/.test(runtimeSubagentSurfaceTest) &&
+      /runId: "run_2"/.test(runtimeSubagentSurfaceTest) &&
+      /outputContract: \["MISSING_SECTION"\]/.test(runtimeSubagentSurfaceTest) &&
+      /evidenceRefs: \["evidence_cancel_alias"\]/.test(runtimeSubagentSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent cancel lifecycle must ignore retired camelCase persisted record aliases",
   );
   assertCheck(
     result,

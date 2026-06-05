@@ -823,20 +823,22 @@ export function createRuntimeSubagentSurface({
     },
     cancelSubagent(store, threadId, subagentId, request = {}) {
       const record = store.getSubagent(threadId, subagentId);
-      const previousStatus = record.lifecycle_status ?? record.lifecycleStatus ?? record.status ?? null;
+      const previousStatus = record.lifecycle_status ?? record.status ?? null;
       const reason =
         optionalStringDep(request.reason ?? request.cancellation_reason ?? request.cancellationReason) ??
         "operator_cancel";
       const cancellationInherited = Boolean(request.inherited ?? request.cancellationInherited);
       const propagatedFromThreadId =
         optionalStringDep(request.propagated_from_thread_id ?? request.propagatedFromThreadId) ?? null;
-      const run = store.cancelRun(record.run_id ?? record.runId);
-      const output = subagentContractOutputForRunDep(run, record.output_contract ?? record.outputContract);
+      const run = store.cancelRun(record.run_id);
+      const output = subagentContractOutputForRunDep(run, record.output_contract);
       const outputContractStatus = validateSubagentOutputContractDep(
         output,
-        record.output_contract ?? record.outputContract,
+        record.output_contract,
       );
-      const budget = subagentBudgetForRequestDep(request) ?? subagentBudgetForRequestDep(record);
+      const budget =
+        subagentBudgetForRequestDep(request) ??
+        subagentBudgetForRequestDep({ budget: record.budget });
       const budgetUsageTelemetry =
         subagentBudgetUsageTelemetryForRequestDep(request) ??
         record.usage_telemetry ??
@@ -849,8 +851,11 @@ export function createRuntimeSubagentSurface({
         previousUsage: budgetUsageTelemetry ?? {},
       });
       const now = nowIso();
+      const canonicalRecord = withoutRetiredSubagentRecordOutputAliases(
+        withoutRetiredSubagentUsageTelemetry(record),
+      );
       const updated = {
-        ...withoutRetiredSubagentUsageTelemetry(record),
+        ...canonicalRecord,
         lifecycle_status: "canceled",
         status: "canceled",
         output_contract_status: outputContractStatus.status,
@@ -887,7 +892,7 @@ export function createRuntimeSubagentSurface({
           ...event.receipt_refs,
         ]),
         evidence_refs: uniqueStringsDep([
-          ...normalizeArray(updated.evidence_refs ?? updated.evidenceRefs),
+          ...normalizeArray(updated.evidence_refs),
           "runtime.subagent.cancel",
           run.id,
         ]),

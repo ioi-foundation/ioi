@@ -1269,6 +1269,47 @@ test("subagent surface cancels subagents with inherited cancellation metadata", 
   assertCanonicalSubagentStoreWrites(store);
 });
 
+test("subagent cancel ignores retired camelCase record aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T13:35:00.000Z",
+    nowMs: () => 1780589700000,
+  });
+  store.surface = surface;
+  store.subagents.set("subagent_1", {
+    ...store.subagents.get("subagent_1"),
+    lifecycle_status: "running",
+    run_id: "run_1",
+    output_contract: ["SUMMARY"],
+    evidence_refs: ["evidence_cancel_canonical"],
+    lifecycleStatus: "completed",
+    runId: "run_2",
+    outputContract: ["MISSING_SECTION"],
+    evidenceRefs: ["evidence_cancel_alias"],
+  });
+
+  const result = surface.cancelSubagent(store, "thread_1", "subagent_1", {
+    source: "agent_studio",
+    reason: "operator_cancel",
+    actor: "operator_1",
+  });
+  const saved = store.subagents.get("subagent_1");
+
+  assert.equal(result.status, "canceled");
+  assert.equal(result.run_id, "run_1");
+  assert.equal(result.result, "Subagent one completed. Canceled.");
+  assert.equal(result.cancellation.previous_status, "running");
+  assert.equal(saved.output_contract_status, "passed");
+  assert.equal(store.runs.get("run_1").status, "canceled");
+  assert.equal(store.runs.get("run_2").status, "completed");
+  assert.equal(saved.evidence_refs.includes("evidence_cancel_canonical"), true);
+  assert.equal(saved.evidence_refs.includes("evidence_cancel_alias"), false);
+  assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
+  assertNoOwnKeys(saved.cancellation, retiredSubagentNestedCancellationAliasKeys);
+  assertCanonicalSubagentRecordOutput(saved);
+  assertCanonicalSubagentStoreWrites(store);
+});
+
 test("subagent surface propagates parent cancellation and ignores retired record aliases", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface({
