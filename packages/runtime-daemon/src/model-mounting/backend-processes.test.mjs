@@ -55,7 +55,12 @@ test("backend lookup returns registry records and maps missing ids through notFo
   assert.equal(backend(state, "backend.llama", deps).kind, "llama_cpp");
   assert.throws(
     () => backend(state, "backend.missing", deps),
-    (error) => error.status === 404 && error.details.backendId === "backend.missing",
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.backend_id, "backend.missing");
+      assert.equal(Object.hasOwn(error.details, "backendId"), false);
+      return true;
+    },
   );
 });
 

@@ -1,7 +1,7 @@
 export function backend(state, backendId, deps = {}) {
   const { notFound } = deps;
   const record = state.backendRegistry().find((item) => item.id === backendId);
-  if (!record) throw notFound(`Model backend not found: ${backendId}`, { backendId });
+  if (!record) throw notFound(`Model backend not found: ${backendId}`, { backend_id: backendId });
   return record;
 }
 

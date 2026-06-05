@@ -2528,6 +2528,12 @@ function runReceipts() {
   const backendLifecycleTest = exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
     : "";
+  const backendProcesses = exists("packages/runtime-daemon/src/model-mounting/backend-processes.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/backend-processes.mjs")
+    : "";
+  const backendProcessesTest = exists("packages/runtime-daemon/src/model-mounting/backend-processes.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/backend-processes.test.mjs")
+    : "";
   const capabilityTokenOperations = exists("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
     : "";
@@ -3764,6 +3770,21 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
     ],
     "Phase 10/11 is pending: backend lifecycle receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-backend-process-error-aliases-retired",
+    /notFound\(`Model backend not found: \$\{backendId\}`,\s*\{ backend_id: backendId \}\)/.test(
+      backendProcesses,
+    ) &&
+      !/notFound\(`Model backend not found: \$\{backendId\}`,\s*\{ backendId \}\)/.test(backendProcesses) &&
+      /assert\.equal\(error\.details\.backend_id,\s*"backend\.missing"\)/.test(backendProcessesTest) &&
+      /Object\.hasOwn\(error\.details,\s*"backendId"\),\s*false/.test(backendProcessesTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/backend-processes.mjs",
+      "packages/runtime-daemon/src/model-mounting/backend-processes.test.mjs",
+    ],
+    "Phase 10/11 is pending: backend process lookup fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,
