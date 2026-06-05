@@ -1015,6 +1015,11 @@ function runBridge() {
       !/^\s*(?:reasoningEffort|localRemotePlacement|privacyPosture|costEstimateUsd|costEstimateSource|fallbackModel|fallbackEndpointId)\s*[:?]/m.test(agentSdkModelRouteDecisionType) &&
       /agent\.modelRouteDecision\?\.reasoning_effort/.test(threadTurnProjection) &&
       !/agent\.modelRouteDecision\?\.reasoningEffort/.test(threadTurnProjection) &&
+      /model_route_decision[\s\S]*json_path_string\(value,\s*"\/reasoning_effort"\)/.test(agentTuiCli) &&
+      !/model_route_decision\.and_then\(\|value\| json_path_string\(value,\s*"\/reasoningEffort"\)\)/.test(
+        agentTuiCli,
+      ) &&
+      /tui_mode_status_reads_canonical_model_route_decision_reasoning/.test(agentTuiCli) &&
       /Object\.hasOwn\(decision,\s*"reasoningEffort"\),\s*false/.test(modelRouteDecisionTest) &&
       /Object\.hasOwn\(decision,\s*"costEstimateUsd"\),\s*false/.test(modelRouteDecisionTest) &&
       /Object\.hasOwn\(decision,\s*"fallbackModel"\),\s*false/.test(modelRouteDecisionTest) &&
@@ -1025,6 +1030,7 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
       "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
       "packages/agent-sdk/src/messages.ts",
+      "crates/cli/src/commands/agent_tui.rs",
     ],
     "Phase 3/10 is pending: accepted model route decisions and direct reasoning readers must use canonical descriptor fields without duplicate camelCase aliases",
   );

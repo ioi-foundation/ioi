@@ -2270,7 +2270,7 @@ pub(crate) fn tui_mode_status(thread: &Value, current_turn_id: Option<&str>) -> 
         "model_route_decision_id": model_route_decision
             .and_then(|value| json_path_string(value, "/decision_id")),
         "reasoning_effort": json_path_string(thread, "/reasoning_effort")
-            .or_else(|| model_route_decision.and_then(|value| json_path_string(value, "/reasoningEffort")))
+            .or_else(|| model_route_decision.and_then(|value| json_path_string(value, "/reasoning_effort")))
             .or_else(|| model_controls.and_then(|value| json_path_string(value, "/reasoningEffort"))),
         "workflow_graph_id": json_path_string(thread, "/workflow_graph_id")
             .or_else(|| model_controls.and_then(|value| json_path_string(value, "/workflowGraphId"))),
@@ -5859,6 +5859,23 @@ mod tests {
         assert_eq!(state["last_event_id"], "event_live");
         assert_eq!(state["command_history"][0]["command"], "message");
         assert_eq!(state["command_history"][1]["command"], "interrupt");
+    }
+
+    #[test]
+    fn tui_mode_status_reads_canonical_model_route_decision_reasoning() {
+        let thread = serde_json::json!({
+            "thread_id": "thread_live",
+            "model_route_decision": {
+                "decision_id": "decision_live",
+                "reasoning_effort": "medium",
+                "reasoningEffort": "legacy-high"
+            }
+        });
+
+        let status = tui_mode_status(&thread, None);
+
+        assert_eq!(status["model_route_decision_id"], "decision_live");
+        assert_eq!(status["reasoning_effort"], "medium");
     }
 
     #[test]
