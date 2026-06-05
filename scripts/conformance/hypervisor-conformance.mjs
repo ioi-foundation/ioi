@@ -1543,7 +1543,7 @@ function runReceipts() {
     ) &&
       !/\bappendOperation\s*\(/.test(runtimeRunStateSurfaces) &&
       !/\boperationCount\s*\(/.test(runtimeRunStateSurfaces) &&
-      /runStateProjectionWatermark/.test(threadPersistence) &&
+      /commitRunState\(store, run, operationKind\)/.test(threadPersistence) &&
       /thread persistence writes run projections without operation entries/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
@@ -1566,35 +1566,56 @@ function runReceipts() {
     result,
     "thread-run-state-transition-rust-planned",
     /RUNTIME_STATE_TRANSITION_SCHEMA_VERSION/.test(agentgresAdmissionCore) &&
+      /RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION/.test(agentgresAdmissionCore) &&
       /RuntimeStateTransitionRequest/.test(agentgresAdmissionCore) &&
+      /RuntimeRunStateCommitRequest/.test(agentgresAdmissionCore) &&
+      /RuntimeRunStateCommitRecord/.test(agentgresAdmissionCore) &&
       /plan_runtime_state_transition/.test(agentgresAdmissionCore) &&
+      /commit_runtime_run_state/.test(agentgresAdmissionCore) &&
       /runtime_run_state_hash/.test(agentgresAdmissionCore) &&
       /runtime_task_state_hash/.test(agentgresAdmissionCore) &&
       /runtime_task_record_for_run/.test(agentgresAdmissionCore) &&
       /runtime_job_record_for_run/.test(agentgresAdmissionCore) &&
       /runtime_checklist_record_for_run/.test(agentgresAdmissionCore) &&
       /runtime_state_transition_requires_expected_heads_state_root_and_receipts/.test(agentgresAdmissionCore) &&
+      /commits_runtime_run_state_with_rust_derived_transition_and_persistence/.test(agentgresAdmissionCore) &&
+      /commits_runtime_run_state_from_previous_transition_head/.test(agentgresAdmissionCore) &&
       /plan_runtime_run_state_transition/.test(bridgeModule) &&
+      /commit_runtime_run_state/.test(bridgeModule) &&
       /rust_runtime_agentgres_transition_command/.test(bridgeModule) &&
+      /rust_agentgres_runtime_run_state_commit_command/.test(bridgeModule) &&
+      /bridge_commits_runtime_run_state_through_rust_core/.test(bridgeModule) &&
       /RustRuntimeAgentgresAdmissionRunner/.test(runtimeAgentgresRunner) &&
-      /planRunStateTransition/.test(runtimeAgentgresRunner) &&
+      /commitRuntimeRunState/.test(runtimeAgentgresRunner) &&
+      !/planRunStateTransition/.test(runtimeAgentgresRunner) &&
+      !/persistRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
       /runtime_agentgres_admission_bridge_unconfigured/.test(runtimeAgentgresRunner) &&
       !/RUNTIME_AGENTGRES_FALLBACK/.test(runtimeAgentgresRunner) &&
       /createRuntimeAgentgresAdmissionRunnerFromEnv/.test(runtimeDaemonIndex) &&
-      /currentRunStateTransition/.test(runtimeDaemonIndex) &&
-      /planRunStateTransition\(request\)/.test(runtimeDaemonIndex) &&
-      /planRunStateTransition\(store, run, operationKind/.test(threadPersistence) &&
-      /run,\s+projection_ref/s.test(threadPersistence) &&
+      /commitRuntimeRunState\(request\)/.test(runtimeDaemonIndex) &&
+      !/currentRunStateTransition/.test(runtimeDaemonIndex) &&
+      !/planRunStateTransition\(request\)/.test(runtimeDaemonIndex) &&
+      !/persistRuntimeStateRecords\(request\)/.test(runtimeDaemonIndex) &&
+      /commitRunState\(store, run, operationKind\)/.test(threadPersistence) &&
+      !/runStateProjectionWatermark/.test(threadPersistence) &&
+      !/initialRunStateHead/.test(threadPersistence) &&
+      !/initialRunStateRoot/.test(threadPersistence) &&
+      !/planRunStateTransition/.test(threadPersistence) &&
+      !/persistRunStateRecords/.test(threadPersistence) &&
+      !/run,\s+projection_ref/s.test(threadPersistence) &&
       !/run_state_hash:\s*runStateHash/.test(threadPersistence) &&
       !/task_state_hash:\s*runStateHash/.test(threadPersistence) &&
-      /agentgresTransition/.test(threadPersistence) &&
-      /Object\.hasOwn\(store\.transitionRequests\[0\], "run_state_hash"\), false/.test(
+      /normalizeRunStateCommit/.test(threadPersistence) &&
+      /Object\.hasOwn\(store\.commitRequests\[0\], "expected_heads"\), false/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
-      /thread persistence chains run-state transitions from the previous persisted head/.test(
+      /Object\.hasOwn\(store\.commitRequests\[0\], "receipt_refs"\), false/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
-      /runtime Agentgres runner sends run-state transition bridge request/.test(
+      /thread persistence leaves previous run-state transition lookup to Rust commit/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /runtime Agentgres runner sends runtime run-state commit bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
       /runtime Agentgres runner requires explicit runtime admission command env/.test(
@@ -1609,7 +1630,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 5/11 is pending: run persistence must require Rust Agentgres state transition planning with expected heads, state roots, resulting head, and projection watermark before JS writes local state records",
+    "Phase 5/11 is pending: run persistence must require a single Rust Agentgres run-state commit that derives expected heads, state roots, resulting head, projection watermark, refs, and durable writes before JS observes committed state",
   );
   assertCheck(
     result,
@@ -1650,7 +1671,8 @@ function runReceipts() {
       /bridge_plans_runtime_state_storage_writes_through_rust_core/.test(bridgeModule) &&
       /bridge_persists_runtime_state_records_through_rust_core/.test(bridgeModule) &&
       /admitStorageBackendWrite/.test(runtimeAgentgresRunner) &&
-      /persistRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
+      /commitRuntimeRunState/.test(runtimeAgentgresRunner) &&
+      !/persistRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
       !/materializeRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
       !/planRuntimeStateStorageWrites/.test(runtimeAgentgresRunner) &&
       !/normalizeRuntimeStateRecordMaterializationBridgeResult/.test(runtimeAgentgresRunner) &&
@@ -1665,24 +1687,28 @@ function runReceipts() {
       !/runtime Agentgres runner sends runtime-state storage write-set bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
-      /runtime Agentgres runner sends runtime-state persistence bridge request/.test(
+      /runtime Agentgres runner sends runtime run-state commit bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
-      /persistRuntimeStateRecords\(request\)/.test(runtimeDaemonIndex) &&
+      /commitRuntimeRunState\(request\)/.test(runtimeDaemonIndex) &&
+      !/persistRuntimeStateRecords\(request\)/.test(runtimeDaemonIndex) &&
       !/materializeRuntimeStateRecords\(request\)/.test(runtimeDaemonIndex) &&
       !/planRuntimeStateStorageWrites\(request\)/.test(runtimeDaemonIndex) &&
       !/admitRuntimeStateStorageWrite/.test(runtimeDaemonIndex) &&
-      /persistRunStateRecords/.test(threadPersistence) &&
+      /commitRunState/.test(threadPersistence) &&
+      !/persistRunStateRecords/.test(threadPersistence) &&
       !/materializeRunStateRecords/.test(threadPersistence) &&
       !/planRunStateStorageWrites/.test(threadPersistence) &&
       !/writeJsonWithPlannedStorage/.test(threadPersistence) &&
       !/runtime_task:/.test(threadPersistence) &&
       !/runtime_job:/.test(threadPersistence) &&
       !/runtime_checklist:/.test(threadPersistence) &&
-      /RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION/.test(threadPersistence) &&
+      /RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION/.test(threadPersistence) &&
+      !/RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION/.test(threadPersistence) &&
       !/RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION/.test(threadPersistence) &&
       !/RUNTIME_STATE_STORAGE_WRITE_SET_SCHEMA_VERSION/.test(threadPersistence) &&
       /RUNTIME_STATE_STORAGE_BACKEND_REF/.test(threadPersistence) &&
+      /commitRequests/.test(read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs")) &&
       /persistenceRequests/.test(read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs")) &&
       /Object\.hasOwn\(store\.persistenceRequests\[0\], "runtime_task"\), false/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
@@ -1716,7 +1742,8 @@ function runReceipts() {
     "thread-run-state-sidecar-storage-write-rust-admitted",
     /writeRunRecord/.test(writeRunRecordBody) &&
       !/\bwriteJson\(store\.pathFor/.test(writeRunRecordBody) &&
-      /persistRunStateRecords\(store, run/.test(writeRunRecordBody) &&
+      /commitRunState\(store, run/.test(writeRunRecordBody) &&
+      !/persistRunStateRecords\(store, run/.test(writeRunRecordBody) &&
       !/materializeRunStateRecords\(store, run/.test(writeRunRecordBody) &&
       !/planRunStateStorageWrites\(store, run/.test(writeRunRecordBody) &&
       !/writeJsonWithPlannedStorage/.test(writeRunRecordBody) &&
@@ -1724,7 +1751,7 @@ function runReceipts() {
       !/runtimeJobRecordForRun/.test(writeRunRecordBody) &&
       !/runtimeChecklistRecordForRun/.test(writeRunRecordBody) &&
       !/stateRecords\.push/.test(writeRunRecordBody) &&
-      /persistenceRequests\[0\]\.canonical_projection/.test(
+      /commitRequests\[0\]\.canonical_projection/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
       /store\.rustWrites\.map/.test(

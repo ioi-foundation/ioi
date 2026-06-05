@@ -3743,19 +3743,8 @@ export class AgentgresRuntimeStateStore {
     return writeRunRecord(this, run, operationKind);
   }
 
-  currentRunStateTransition(runId) {
-    const taskPath = this.pathFor("tasks", `${runId}.json`);
-    if (!fs.existsSync(taskPath)) return null;
-    const taskRecord = readJson(taskPath);
-    return taskRecord.agentgresTransition ?? null;
-  }
-
-  planRunStateTransition(request) {
-    return this.runtimeAgentgresAdmissionRunner.planRunStateTransition(request);
-  }
-
-  persistRuntimeStateRecords(request) {
-    return this.runtimeAgentgresAdmissionRunner.persistRuntimeStateRecords(this.stateDir, request);
+  commitRuntimeRunState(request) {
+    return this.runtimeAgentgresAdmissionRunner.commitRuntimeRunState(this.stateDir, request);
   }
 
   writeSubagent(subagent, operationKind) {

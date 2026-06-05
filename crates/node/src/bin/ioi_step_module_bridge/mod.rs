@@ -1,8 +1,8 @@
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
-    AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeStatePersistenceRecord,
-    RuntimeStatePersistenceRequest, RuntimeStateRecordMaterializationRequest,
-    RuntimeStateStorageWriteSetRequest, RuntimeStateTransitionRequest, StorageBackendWriteProposal,
-    AGENTGRES_ADMISSION_SCHEMA_VERSION,
+    AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeRunStateCommitRequest,
+    RuntimeStatePersistenceRecord, RuntimeStatePersistenceRequest,
+    RuntimeStateRecordMaterializationRequest, RuntimeStateStorageWriteSetRequest,
+    RuntimeStateTransitionRequest, StorageBackendWriteProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountCore, ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
@@ -220,6 +220,17 @@ struct RuntimeStatePersistenceBridgeRequest {
     request: RuntimeStatePersistenceRequest,
 }
 
+#[derive(Debug, Deserialize)]
+struct RuntimeRunStateCommitBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    state_dir: String,
+    request: RuntimeRunStateCommitRequest,
+}
+
 pub fn run_bridge_response_from_stdin() -> Value {
     match run_bridge() {
         Ok(response) => json!({ "ok": true, "result": response }),
@@ -343,6 +354,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
             let request: RuntimeStatePersistenceBridgeRequest = serde_json::from_value(raw_request)
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             persist_runtime_state_records(request)
+        }
+        "commit_runtime_run_state" => {
+            let request: RuntimeRunStateCommitBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            commit_runtime_run_state(request)
         }
         other => Err(BridgeError::new(
             "operation_unsupported",
@@ -1150,15 +1167,71 @@ fn persist_runtime_state_records(
     }))
 }
 
+fn commit_runtime_run_state(
+    request: RuntimeRunStateCommitBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "commit_runtime_run_state" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let state_root = ensure_runtime_state_dir(&request.state_dir)?;
+    let mut commit_request = request.request;
+    if commit_request.previous_transition.is_none() {
+        commit_request.previous_transition =
+            read_runtime_state_previous_transition(&state_root, &commit_request.run_id)?;
+    }
+    if commit_request.projection_watermark.is_none() {
+        commit_request.projection_watermark = Some(runtime_state_projection_watermark(
+            &state_root,
+            &commit_request.run_id,
+        )?);
+    }
+    let record = AgentgresAdmissionCore
+        .commit_runtime_run_state(&commit_request)
+        .map_err(|error| {
+            BridgeError::new("runtime_run_state_commit_invalid", format!("{error:?}"))
+        })?;
+    let written_records =
+        write_runtime_state_persistence_records(&request.state_dir, &record.persistence)?;
+    Ok(json!({
+        "source": "rust_agentgres_runtime_run_state_commit_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "record": record.clone(),
+        "transition": record.transition.clone(),
+        "persistence": record.persistence.clone(),
+        "operation_ref": record.transition.operation_ref.clone(),
+        "state_root_after": record.transition.state_root_after.clone(),
+        "resulting_head": record.transition.resulting_head.clone(),
+        "transition_hash": record.transition.transition_hash.clone(),
+        "materialization_hash": record.persistence.materialization.materialization_hash.clone(),
+        "write_set_hash": record.persistence.storage_write_set.write_set_hash.clone(),
+        "persistence_hash": record.persistence.persistence_hash.clone(),
+        "commit_hash": record.commit_hash.clone(),
+        "records": record.persistence.storage_write_set.records.clone(),
+        "written_records": written_records,
+        "evidence_refs": [
+            "rust_agentgres_runtime_run_state_commit",
+            record.commit_hash,
+        ],
+    }))
+}
+
 fn write_runtime_state_persistence_records(
     state_dir: &str,
     record: &RuntimeStatePersistenceRecord,
 ) -> Result<Vec<Value>, BridgeError> {
-    let state_root_input = Path::new(state_dir);
-    fs::create_dir_all(state_root_input)
-        .map_err(|error| BridgeError::new("runtime_state_dir_create_failed", error.to_string()))?;
-    let state_root = fs::canonicalize(state_root_input)
-        .map_err(|error| BridgeError::new("runtime_state_dir_invalid", error.to_string()))?;
+    let state_root = ensure_runtime_state_dir(state_dir)?;
     let mut written_records = Vec::with_capacity(record.materialization.records.len());
     for materialized in &record.materialization.records {
         let planned = record
@@ -1199,6 +1272,69 @@ fn write_runtime_state_persistence_records(
         }));
     }
     Ok(written_records)
+}
+
+fn ensure_runtime_state_dir(state_dir: &str) -> Result<PathBuf, BridgeError> {
+    let state_root_input = Path::new(state_dir);
+    fs::create_dir_all(state_root_input)
+        .map_err(|error| BridgeError::new("runtime_state_dir_create_failed", error.to_string()))?;
+    fs::canonicalize(state_root_input)
+        .map_err(|error| BridgeError::new("runtime_state_dir_invalid", error.to_string()))
+}
+
+fn read_runtime_state_previous_transition(
+    state_root: &Path,
+    run_id: &str,
+) -> Result<Option<Value>, BridgeError> {
+    let task_path = runtime_state_record_path(state_root, &format!("tasks/{run_id}.json"))?;
+    if !task_path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(&task_path).map_err(|error| {
+        BridgeError::new(
+            "runtime_state_previous_transition_read_failed",
+            error.to_string(),
+        )
+    })?;
+    let task_record: Value = serde_json::from_str(&content).map_err(|error| {
+        BridgeError::new(
+            "runtime_state_previous_transition_json_invalid",
+            error.to_string(),
+        )
+    })?;
+    match task_record.get("agentgresTransition") {
+        Some(value) if value.is_object() => Ok(Some(value.clone())),
+        _ => Ok(None),
+    }
+}
+
+fn runtime_state_projection_watermark(
+    state_root: &Path,
+    run_id: &str,
+) -> Result<String, BridgeError> {
+    let runs_dir = state_root.join("runs");
+    let mut run_count = 0usize;
+    if runs_dir.exists() {
+        for entry in fs::read_dir(&runs_dir).map_err(|error| {
+            BridgeError::new("runtime_state_runs_dir_read_failed", error.to_string())
+        })? {
+            let entry = entry.map_err(|error| {
+                BridgeError::new("runtime_state_runs_dir_entry_failed", error.to_string())
+            })?;
+            if entry
+                .file_type()
+                .map_err(|error| {
+                    BridgeError::new("runtime_state_runs_dir_entry_failed", error.to_string())
+                })?
+                .is_file()
+                && entry.path().extension().and_then(|value| value.to_str()) == Some("json")
+            {
+                run_count += 1;
+            }
+        }
+    }
+    let watermark = run_count.max(if run_id.trim().is_empty() { 0 } else { 1 });
+    Ok(format!("runtime-state:{watermark}"))
 }
 
 fn runtime_state_record_path(root: &Path, record_path: &str) -> Result<PathBuf, BridgeError> {
@@ -4852,6 +4988,109 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_agentgres_runtime_state_persistence"));
+    }
+
+    #[test]
+    fn bridge_commits_runtime_run_state_through_rust_core() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let state_dir = temp.path().join("runtime-state");
+        fs::create_dir_all(state_dir.join("tasks")).expect("tasks dir");
+        fs::write(
+            state_dir.join("tasks/run_1.json"),
+            serde_json::to_string_pretty(&json!({
+                "runId": "run_1",
+                "agentgresTransition": {
+                    "state_root_after": "sha256:previous-state-root",
+                    "resulting_head": "agentgres://runtime-state/runs/run_1/head/previous"
+                }
+            }))
+            .expect("previous transition"),
+        )
+        .expect("previous transition file");
+        let request: RuntimeRunStateCommitBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "commit_runtime_run_state",
+            "backend": "rust_agentgres_storage",
+            "state_dir": state_dir,
+            "request": {
+                "schema_version": "ioi.runtime_run_state_commit.v1",
+                "run_id": "run_1",
+                "operation_kind": "run.cancel",
+                "storage_backend_ref": "storage://runtime-agentgres/local-json",
+                "run": {
+                    "id": "run_1",
+                    "agentId": "agent_1",
+                    "status": "canceled",
+                    "mode": "send",
+                    "objective": "Ship the runtime state slice",
+                    "createdAt": "2026-06-04T00:00:00.000Z",
+                    "updatedAt": "2026-06-04T00:00:01.000Z",
+                    "events": [
+                        { "type": "started" },
+                        { "type": "canceled" }
+                    ],
+                    "receipts": [
+                        {
+                            "id": "receipt_cancel",
+                            "kind": "run_cancel"
+                        }
+                    ],
+                    "artifacts": [],
+                    "trace": {
+                        "traceBundleId": "trace_bundle_1",
+                        "taskState": {
+                            "state": "canceled"
+                        },
+                        "postconditions": [],
+                        "semanticImpact": {
+                            "impact": "local"
+                        },
+                        "stopCondition": {
+                            "reason": "operator_cancel"
+                        },
+                        "scorecard": {
+                            "score": 1
+                        },
+                        "qualityLedger": {
+                            "entries": []
+                        }
+                    }
+                },
+                "canonical_projection": {
+                    "runId": "run_1",
+                    "projection": "canonical"
+                }
+            }
+        }))
+        .expect("runtime run-state commit bridge request");
+
+        let response = commit_runtime_run_state(request).expect("run state committed");
+
+        assert_eq!(
+            response["source"],
+            "rust_agentgres_runtime_run_state_commit_command"
+        );
+        assert_eq!(
+            response["transition"]["expected_heads"][0],
+            "agentgres://runtime-state/runs/run_1/head/previous"
+        );
+        assert_eq!(
+            response["transition"]["state_root_before"],
+            "sha256:previous-state-root"
+        );
+        assert!(response["commit_hash"]
+            .as_str()
+            .expect("commit hash")
+            .starts_with("sha256:"));
+        assert!(state_dir.join("tasks/run_1.json").exists());
+        let task_record =
+            fs::read_to_string(state_dir.join("tasks/run_1.json")).expect("task record");
+        assert!(task_record.contains("\"agentgresTransition\""));
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_agentgres_runtime_run_state_commit"));
     }
 
     #[test]

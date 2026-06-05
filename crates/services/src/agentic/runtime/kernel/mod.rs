@@ -29,7 +29,8 @@ pub mod trace;
 
 use agentgres_admission::{
     AgentgresAdmissionCore, AgentgresAdmissionError, AgentgresAdmissionRecord,
-    AgentgresOperationProposal, RuntimeStatePersistenceRecord, RuntimeStatePersistenceRequest,
+    AgentgresOperationProposal, RuntimeRunStateCommitRecord, RuntimeRunStateCommitRequest,
+    RuntimeStatePersistenceRecord, RuntimeStatePersistenceRequest,
     RuntimeStateRecordMaterializationRecord, RuntimeStateRecordMaterializationRequest,
     RuntimeStateStorageWriteSetRecord, RuntimeStateStorageWriteSetRequest,
     RuntimeStateTransitionRecord, RuntimeStateTransitionRequest,
@@ -281,6 +282,13 @@ impl RuntimeKernelService {
         request: &RuntimeStatePersistenceRequest,
     ) -> Result<RuntimeStatePersistenceRecord, AgentgresAdmissionError> {
         AgentgresAdmissionCore.plan_runtime_state_persistence(request)
+    }
+
+    pub fn commit_runtime_run_state(
+        &self,
+        request: &RuntimeRunStateCommitRequest,
+    ) -> Result<RuntimeRunStateCommitRecord, AgentgresAdmissionError> {
+        AgentgresAdmissionCore.commit_runtime_run_state(request)
     }
 
     pub fn validate_private_workspace_ctee_invocation(

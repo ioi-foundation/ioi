@@ -35,6 +35,7 @@ function fakeStore() {
     storageWriteAdmissions: [],
     storageWriteSetRequests: [],
     subagents: new Map(),
+    commitRequests: [],
     persistenceEvents: [],
     persistenceRequests: [],
     rustWrites: [],
@@ -44,42 +45,13 @@ function fakeStore() {
       return { runId, projection: "canonical" };
     },
     currentRunStateTransition() {
-      return null;
+      throw new Error("legacy currentRunStateTransition path should not run");
     },
     pathFor(...segments) {
       return segments.join("/");
     },
     planRunStateTransition(request) {
-      this.transitionRequests.push(request);
-      return {
-        source: "rust_runtime_agentgres_mock",
-        record: {
-          schema_version: "ioi.agentgres_runtime_state_transition.v1",
-          run_id: request.run_id,
-          operation_kind: request.operation_kind,
-          operation_ref: `agentgres://runtime-state/runs/${request.run_id}/operations/${request.operation_kind}_mock`,
-          expected_heads: request.expected_heads,
-          state_root_before: request.state_root_before,
-          state_root_after: "sha256:state-after",
-          resulting_head: `agentgres://runtime-state/runs/${request.run_id}/head/mock`,
-          run_state_hash: "sha256:rust-run-state",
-          task_state_hash: "sha256:rust-task-state",
-          projection_ref: request.projection_ref,
-          projection_watermark: request.projection_watermark,
-          receipt_refs: request.receipt_refs,
-          artifact_refs: request.artifact_refs,
-          payload_refs: request.payload_refs,
-          transition_hash: "sha256:transition",
-        },
-        operation_ref: `agentgres://runtime-state/runs/${request.run_id}/operations/${request.operation_kind}_mock`,
-        expected_heads: request.expected_heads,
-        state_root_before: request.state_root_before,
-        state_root_after: "sha256:state-after",
-        resulting_head: `agentgres://runtime-state/runs/${request.run_id}/head/mock`,
-        projection_watermark: request.projection_watermark,
-        transition_hash: "sha256:transition",
-        evidence_refs: ["rust_agentgres_runtime_state_transition"],
-      };
+      throw new Error(`legacy transition planning path should not run for ${request.run_id}`);
     },
     materializeRuntimeStateRecords(request) {
       throw new Error(`legacy materialization path should not run for ${request.run_id}`);
@@ -88,8 +60,33 @@ function fakeStore() {
       throw new Error(`legacy storage write-set path should not run for ${request.run_id}`);
     },
     persistRuntimeStateRecords(request) {
+      throw new Error(`legacy persistence path should not run for ${request.run_id}`);
+    },
+    commitRuntimeRunState(request) {
+      this.commitRequests.push(request);
+      const receiptRefs = request.run.receipts.map((receipt) => receipt.id).filter(Boolean);
+      const artifactRefs = request.run.artifacts.map((artifact) => artifact.id).filter(Boolean);
+      const transition = {
+        schema_version: "ioi.agentgres_runtime_state_transition.v1",
+        run_id: request.run_id,
+        operation_kind: request.operation_kind,
+        operation_ref: `agentgres://runtime-state/runs/${request.run_id}/operations/${request.operation_kind}_mock`,
+        expected_heads: [`agentgres://runtime-state/runs/${request.run_id}/head/rust-derived`],
+        state_root_before: "sha256:rust-derived-before",
+        state_root_after: "sha256:state-after",
+        resulting_head: `agentgres://runtime-state/runs/${request.run_id}/head/mock`,
+        run_state_hash: "sha256:rust-run-state",
+        task_state_hash: "sha256:rust-task-state",
+        projection_ref: `projection://runtime/runs/${request.run_id}`,
+        projection_watermark: "runtime-state:rust-derived",
+        receipt_refs: receiptRefs,
+        artifact_refs: artifactRefs,
+        payload_refs: [`payload://runtime/runs/${request.run_id}`],
+        transition_hash: "sha256:transition",
+      };
       this.persistenceRequests.push(request);
-      this.persistenceEvents.push({ type: "runtime_state_persistence", runId: request.run_id });
+      this.transitionRequests.push(transition);
+      this.persistenceEvents.push({ type: "runtime_run_state_commit", runId: request.run_id });
       const files = [
         `runs/${request.run_id}.json`,
         `tasks/${request.run_id}.json`,
@@ -115,7 +112,7 @@ function fakeStore() {
           content_hash: `sha256:content-${index}`,
           artifact_refs: [],
           payload_refs: payloadRefs,
-          receipt_refs: request.receipt_refs,
+          receipt_refs: receiptRefs,
           admission_hash: `sha256:storage-${index}`,
         };
         this.storageWriteAdmissions.push(admission);
@@ -128,34 +125,48 @@ function fakeStore() {
           content_hash: admission.content_hash,
           artifact_refs: [],
           payload_refs: payloadRefs,
-          receipt_refs: request.receipt_refs,
+          receipt_refs: receiptRefs,
           admission,
         };
       });
-      return {
-        source: "rust_agentgres_runtime_state_persistence_command",
-        record: {
-          schema_version: "ioi.runtime_state_persistence.v1",
+      const persistence = {
+        schema_version: "ioi.runtime_state_persistence.v1",
+        run_id: request.run_id,
+        materialization: {
+          schema_version: "ioi.runtime_state_record_materialization.v1",
           run_id: request.run_id,
-          materialization: {
-            schema_version: "ioi.runtime_state_record_materialization.v1",
-            run_id: request.run_id,
-            records: files.map((filePath) => ({ record_path: filePath })),
-            materialization_hash: `sha256:materialization-${this.persistenceRequests.length}`,
-          },
-          storage_write_set: {
-            schema_version: "ioi.runtime_state_storage_write_set.v1",
-            run_id: request.run_id,
-            storage_backend_ref: request.storage_backend_ref,
-            receipt_refs: request.receipt_refs,
-            records,
-            write_set_hash: `sha256:write-set-${this.persistenceRequests.length}`,
-          },
-          persistence_hash: `sha256:persistence-${this.persistenceRequests.length}`,
+          records: files.map((filePath) => ({ record_path: filePath })),
+          materialization_hash: `sha256:materialization-${this.persistenceRequests.length}`,
         },
+        storage_write_set: {
+          schema_version: "ioi.runtime_state_storage_write_set.v1",
+          run_id: request.run_id,
+          storage_backend_ref: request.storage_backend_ref,
+          receipt_refs: receiptRefs,
+          records,
+          write_set_hash: `sha256:write-set-${this.persistenceRequests.length}`,
+        },
+        persistence_hash: `sha256:persistence-${this.persistenceRequests.length}`,
+      };
+      return {
+        source: "rust_agentgres_runtime_run_state_commit_command",
+        record: {
+          schema_version: "ioi.runtime_run_state_commit.v1",
+          run_id: request.run_id,
+          transition,
+          persistence,
+          commit_hash: `sha256:commit-${this.persistenceRequests.length}`,
+        },
+        transition,
+        persistence,
+        operation_ref: transition.operation_ref,
+        state_root_after: transition.state_root_after,
+        resulting_head: transition.resulting_head,
+        transition_hash: transition.transition_hash,
         materialization_hash: `sha256:materialization-${this.persistenceRequests.length}`,
         write_set_hash: `sha256:write-set-${this.persistenceRequests.length}`,
         persistence_hash: `sha256:persistence-${this.persistenceRequests.length}`,
+        commit_hash: `sha256:commit-${this.persistenceRequests.length}`,
         records,
         written_records: records.map((record) => ({
           record_path: record.record_path,
@@ -165,7 +176,7 @@ function fakeStore() {
           receipt_refs: record.receipt_refs,
           admission_hash: record.admission.admission_hash,
         })),
-        evidence_refs: ["rust_agentgres_runtime_state_persistence"],
+        evidence_refs: ["rust_agentgres_runtime_run_state_commit"],
       };
     },
     registerRuntimeEvent(record) {
@@ -346,18 +357,30 @@ test("thread persistence writes run projections without operation entries and pe
 
   writeRunRecord(store, run, "run.create", deps(store));
 
+  assert.equal(store.commitRequests.length, 1);
+  assert.equal(store.commitRequests[0].schema_version, "ioi.runtime_run_state_commit.v1");
+  assert.equal(store.commitRequests[0].run_id, "run_1");
+  assert.equal(store.commitRequests[0].operation_kind, "run.create");
+  assert.equal(store.commitRequests[0].storage_backend_ref, "storage://runtime-agentgres/local-json");
+  assert.deepEqual(store.commitRequests[0].run, run);
+  assert.deepEqual(store.commitRequests[0].canonical_projection, {
+    runId: "run_1",
+    projection: "canonical",
+  });
+  assert.equal(Object.hasOwn(store.commitRequests[0], "expected_heads"), false);
+  assert.equal(Object.hasOwn(store.commitRequests[0], "state_root_before"), false);
+  assert.equal(Object.hasOwn(store.commitRequests[0], "projection_ref"), false);
+  assert.equal(Object.hasOwn(store.commitRequests[0], "projection_watermark"), false);
+  assert.equal(Object.hasOwn(store.commitRequests[0], "receipt_refs"), false);
+  assert.equal(Object.hasOwn(store.commitRequests[0], "artifact_refs"), false);
+  assert.equal(Object.hasOwn(store.commitRequests[0], "payload_refs"), false);
   assert.equal(store.transitionRequests.length, 1);
   assert.equal(store.transitionRequests[0].schema_version, "ioi.agentgres_runtime_state_transition.v1");
-  assert.equal(store.transitionRequests[0].run_id, "run_1");
-  assert.equal(store.transitionRequests[0].operation_kind, "run.create");
   assert.deepEqual(store.transitionRequests[0].expected_heads, [
-    "agentgres://runtime-state/runs/run_1/head/0",
+    "agentgres://runtime-state/runs/run_1/head/rust-derived",
   ]);
-  assert.match(store.transitionRequests[0].state_root_before, /^sha256:/);
-  assert.deepEqual(store.transitionRequests[0].run, run);
-  assert.equal(Object.hasOwn(store.transitionRequests[0], "run_state_hash"), false);
-  assert.equal(Object.hasOwn(store.transitionRequests[0], "task_state_hash"), false);
-  assert.equal(store.transitionRequests[0].projection_watermark, "runtime-state:1");
+  assert.equal(store.transitionRequests[0].state_root_before, "sha256:rust-derived-before");
+  assert.equal(store.transitionRequests[0].projection_watermark, "runtime-state:rust-derived");
   assert.deepEqual(store.transitionRequests[0].receipt_refs, ["receipt_policy", "receipt_authority"]);
   assert.deepEqual(store.transitionRequests[0].artifact_refs, ["artifact_1"]);
 
@@ -366,10 +389,10 @@ test("thread persistence writes run projections without operation entries and pe
   assert.deepEqual(store.writes, []);
 
   assert.equal(store.persistenceRequests.length, 1);
-  assert.equal(store.persistenceRequests[0].schema_version, "ioi.runtime_state_persistence.v1");
+  assert.equal(store.persistenceRequests[0].schema_version, "ioi.runtime_run_state_commit.v1");
   assert.equal(store.persistenceRequests[0].run_id, "run_1");
   assert.equal(store.persistenceRequests[0].storage_backend_ref, "storage://runtime-agentgres/local-json");
-  assert.deepEqual(store.persistenceRequests[0].receipt_refs, ["receipt_policy", "receipt_authority"]);
+  assert.equal(Object.hasOwn(store.persistenceRequests[0], "receipt_refs"), false);
   assert.deepEqual(store.persistenceRequests[0].run, run);
   assert.equal(Object.hasOwn(store.persistenceRequests[0], "runtime_task"), false);
   assert.equal(Object.hasOwn(store.persistenceRequests[0], "runtime_job"), false);
@@ -378,10 +401,6 @@ test("thread persistence writes run projections without operation entries and pe
     runId: "run_1",
     projection: "canonical",
   });
-  assert.equal(
-    store.persistenceRequests[0].agentgres_transition.operation_ref,
-    "agentgres://runtime-state/runs/run_1/operations/run.create_mock",
-  );
 
   const files = store.rustWrites.map((write) => write.filePath);
   assert.deepEqual(files, [
@@ -405,7 +424,7 @@ test("thread persistence writes run projections without operation entries and pe
     ["receipt_policy", "receipt_authority"],
   );
   assert.equal(
-    store.persistenceEvents.findIndex((event) => event.type === "runtime_state_persistence" && event.runId === "run_1") <
+    store.persistenceEvents.findIndex((event) => event.type === "runtime_run_state_commit" && event.runId === "run_1") <
       store.persistenceEvents.findIndex((event) => event.type === "storage_admission"),
     true,
   );
@@ -439,12 +458,8 @@ test("thread persistence writes run projections without operation entries and pe
   assert.deepEqual(store.operations, []);
 });
 
-test("thread persistence chains run-state transitions from the previous persisted head", () => {
+test("thread persistence leaves previous run-state transition lookup to Rust commit", () => {
   const store = fakeStore();
-  store.currentRunStateTransition = () => ({
-    state_root_after: "sha256:previous-state-root",
-    resulting_head: "agentgres://runtime-state/runs/run_1/head/previous",
-  });
   const run = {
     id: "run_1",
     agentId: "agent_1",
@@ -465,12 +480,11 @@ test("thread persistence chains run-state transitions from the previous persiste
 
   writeRunRecord(store, run, "run.cancel", deps(store));
 
-  assert.deepEqual(store.transitionRequests[0].expected_heads, [
-    "agentgres://runtime-state/runs/run_1/head/previous",
-  ]);
-  assert.equal(store.transitionRequests[0].state_root_before, "sha256:previous-state-root");
+  assert.equal(Object.hasOwn(store.commitRequests[0], "previous_transition"), false);
+  assert.equal(Object.hasOwn(store.commitRequests[0], "expected_heads"), false);
+  assert.equal(Object.hasOwn(store.commitRequests[0], "state_root_before"), false);
   assert.equal(
-    store.persistenceRequests[0].agentgres_transition.operation_ref,
+    store.transitionRequests[0].operation_ref,
     "agentgres://runtime-state/runs/run_1/operations/run.cancel_mock",
   );
 });

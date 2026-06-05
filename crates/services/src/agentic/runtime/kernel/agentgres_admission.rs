@@ -13,6 +13,7 @@ pub const RUNTIME_STATE_STORAGE_WRITE_SET_SCHEMA_VERSION: &str =
 pub const RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION: &str =
     "ioi.runtime_state_record_materialization.v1";
 pub const RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION: &str = "ioi.runtime_state_persistence.v1";
+pub const RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION: &str = "ioi.runtime_run_state_commit.v1";
 pub const AGENTGRES_OPERATION_EXPECTED_HEADS_NEGATIVE_CONFORMANCE: &str =
     "Agentgres operation append without expected heads/state-root binding fails";
 pub const STORAGE_BACKEND_WRITE_AGENTGRES_REF_NEGATIVE_CONFORMANCE: &str =
@@ -228,6 +229,35 @@ pub struct RuntimeStatePersistenceRecord {
     pub materialization: RuntimeStateRecordMaterializationRecord,
     pub storage_write_set: RuntimeStateStorageWriteSetRecord,
     pub persistence_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeRunStateCommitRequest {
+    pub schema_version: String,
+    pub run_id: String,
+    pub operation_kind: String,
+    pub storage_backend_ref: String,
+    pub run: Value,
+    pub canonical_projection: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_transition: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub projection_watermark: Option<String>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub artifact_refs: Vec<String>,
+    #[serde(default)]
+    pub payload_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeRunStateCommitRecord {
+    pub schema_version: String,
+    pub run_id: String,
+    pub transition: RuntimeStateTransitionRecord,
+    pub persistence: RuntimeStatePersistenceRecord,
+    pub commit_hash: String,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -590,6 +620,71 @@ impl AgentgresAdmissionCore {
         record.persistence_hash = runtime_state_persistence_hash(&record)?;
         Ok(record)
     }
+
+    pub fn commit_runtime_run_state(
+        &self,
+        request: &RuntimeRunStateCommitRequest,
+    ) -> Result<RuntimeRunStateCommitRecord, AgentgresAdmissionError> {
+        request.validate()?;
+        let safe_run_id = safe_agentgres_component(&request.run_id);
+        let receipt_refs = if request.receipt_refs.is_empty() {
+            receipt_ids(&request.run)
+        } else {
+            request.receipt_refs.clone()
+        };
+        let artifact_refs = if request.artifact_refs.is_empty() {
+            artifact_ids(&request.run)
+        } else {
+            request.artifact_refs.clone()
+        };
+        let payload_refs = if request.payload_refs.is_empty() {
+            vec![format!("payload://runtime/runs/{safe_run_id}")]
+        } else {
+            request.payload_refs.clone()
+        };
+        let projection_watermark = request
+            .projection_watermark
+            .clone()
+            .unwrap_or_else(|| "runtime-state:1".to_string());
+        let transition = self.plan_runtime_state_transition(&RuntimeStateTransitionRequest {
+            schema_version: RUNTIME_STATE_TRANSITION_SCHEMA_VERSION.to_string(),
+            run_id: request.run_id.clone(),
+            operation_kind: request.operation_kind.clone(),
+            expected_heads: vec![runtime_previous_resulting_head(
+                &request.run_id,
+                request.previous_transition.as_ref(),
+            )],
+            state_root_before: runtime_previous_state_root(
+                &request.run_id,
+                request.previous_transition.as_ref(),
+            )?,
+            run: request.run.clone(),
+            projection_ref: format!("projection://runtime/runs/{safe_run_id}"),
+            projection_watermark,
+            receipt_refs: receipt_refs.clone(),
+            artifact_refs: artifact_refs.clone(),
+            payload_refs,
+        })?;
+        let persistence = self.plan_runtime_state_persistence(&RuntimeStatePersistenceRequest {
+            schema_version: RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION.to_string(),
+            run_id: request.run_id.clone(),
+            storage_backend_ref: request.storage_backend_ref.clone(),
+            receipt_refs,
+            run: request.run.clone(),
+            canonical_projection: request.canonical_projection.clone(),
+            agentgres_transition: serde_json::to_value(&transition)
+                .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?,
+        })?;
+        let mut record = RuntimeRunStateCommitRecord {
+            schema_version: RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            run_id: request.run_id.clone(),
+            transition,
+            persistence,
+            commit_hash: String::new(),
+        };
+        record.commit_hash = runtime_run_state_commit_hash(&record)?;
+        Ok(record)
+    }
 }
 
 impl AgentgresOperationProposal {
@@ -719,6 +814,30 @@ impl RuntimeStatePersistenceRequest {
         required_json_string(&self.agentgres_transition, "projection_watermark")?;
         required_json_string(&self.agentgres_transition, "transition_hash")?;
         if self.receipt_refs.is_empty() {
+            return Err(AgentgresAdmissionError::MissingReceiptRefs);
+        }
+        Ok(())
+    }
+}
+
+impl RuntimeRunStateCommitRequest {
+    pub fn validate(&self) -> Result<(), AgentgresAdmissionError> {
+        if self.schema_version != RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION {
+            return Err(AgentgresAdmissionError::InvalidSchemaVersion {
+                expected: RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("run_id", &self.run_id)?;
+        require_non_empty("operation_kind", &self.operation_kind)?;
+        require_non_empty("storage_backend_ref", &self.storage_backend_ref)?;
+        validate_runtime_run_id(&self.run, &self.run_id)?;
+        let receipt_refs = if self.receipt_refs.is_empty() {
+            receipt_ids(&self.run)
+        } else {
+            self.receipt_refs.clone()
+        };
+        if receipt_refs.is_empty() {
             return Err(AgentgresAdmissionError::MissingReceiptRefs);
         }
         Ok(())
@@ -859,6 +978,72 @@ fn runtime_state_persistence_hash(
     let bytes = serde_json::to_vec(&canonical)
         .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn runtime_run_state_commit_hash(
+    record: &RuntimeRunStateCommitRecord,
+) -> Result<String, AgentgresAdmissionError> {
+    let mut canonical = record.clone();
+    canonical.commit_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn runtime_initial_head(run_id: &str) -> String {
+    format!(
+        "agentgres://runtime-state/runs/{}/head/0",
+        safe_agentgres_component(run_id)
+    )
+}
+
+fn runtime_initial_state_root(run_id: &str) -> Result<String, AgentgresAdmissionError> {
+    runtime_state_hash(&json!({
+        "schema": "ioi.agentgres.runtime_state_root.v1",
+        "runId": run_id,
+        "sequence": 0,
+    }))
+}
+
+fn runtime_previous_resulting_head(run_id: &str, previous_transition: Option<&Value>) -> String {
+    previous_transition
+        .and_then(|transition| {
+            json_string(transition, "resulting_head")
+                .or_else(|| json_string(transition, "resultingHead"))
+        })
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| runtime_initial_head(run_id))
+}
+
+fn runtime_previous_state_root(
+    run_id: &str,
+    previous_transition: Option<&Value>,
+) -> Result<String, AgentgresAdmissionError> {
+    match previous_transition
+        .and_then(|transition| {
+            json_string(transition, "state_root_after")
+                .or_else(|| json_string(transition, "stateRootAfter"))
+        })
+        .filter(|value| !value.trim().is_empty())
+    {
+        Some(value) => Ok(value.to_string()),
+        None => runtime_initial_state_root(run_id),
+    }
+}
+
+fn receipt_ids(run: &Value) -> Vec<String> {
+    json_array(run, "receipts")
+        .into_iter()
+        .filter_map(|receipt| json_string(receipt, "id").map(str::to_string))
+        .collect()
+}
+
+fn artifact_ids(run: &Value) -> Vec<String> {
+    json_array(run, "artifacts")
+        .into_iter()
+        .filter_map(|artifact| json_string(artifact, "id").map(str::to_string))
+        .collect()
 }
 
 fn runtime_run_state_hash(run: &Value) -> Result<String, AgentgresAdmissionError> {
@@ -1645,6 +1830,25 @@ mod tests {
         }
     }
 
+    fn runtime_run_state_commit() -> RuntimeRunStateCommitRequest {
+        RuntimeRunStateCommitRequest {
+            schema_version: RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            run_id: "run_1".to_string(),
+            operation_kind: "run.create".to_string(),
+            storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
+            run: runtime_run(),
+            canonical_projection: json!({
+                "runId": "run_1",
+                "projection": "canonical"
+            }),
+            previous_transition: None,
+            projection_watermark: Some("runtime-state:1".to_string()),
+            receipt_refs: vec![],
+            artifact_refs: vec![],
+            payload_refs: vec![],
+        }
+    }
+
     #[test]
     fn admits_receipt_bound_agentgres_operation() {
         let record = AgentgresAdmissionCore
@@ -1982,5 +2186,70 @@ mod tests {
             .expect_err("receipt refs are required");
 
         assert_eq!(error, AgentgresAdmissionError::MissingReceiptRefs);
+    }
+
+    #[test]
+    fn commits_runtime_run_state_with_rust_derived_transition_and_persistence() {
+        let record = AgentgresAdmissionCore
+            .commit_runtime_run_state(&runtime_run_state_commit())
+            .expect("runtime run state committed");
+
+        assert_eq!(
+            record.schema_version,
+            RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION
+        );
+        assert_eq!(record.run_id, "run_1");
+        assert!(record.commit_hash.starts_with("sha256:"));
+        assert_eq!(
+            record.transition.expected_heads,
+            vec!["agentgres://runtime-state/runs/run_1/head/0"]
+        );
+        assert!(record.transition.state_root_before.starts_with("sha256:"));
+        assert_eq!(record.transition.projection_watermark, "runtime-state:1");
+        assert_eq!(
+            record.transition.receipt_refs,
+            vec!["receipt_policy", "receipt_authority"]
+        );
+        assert_eq!(record.transition.artifact_refs, vec!["artifact_1"]);
+        assert_eq!(
+            record.transition.payload_refs,
+            vec!["payload://runtime/runs/run_1"]
+        );
+        assert_eq!(
+            record.persistence.storage_write_set.records[1].object_ref,
+            "agentgres://runtime-state/runs/run_1/records/tasks/run_1.json"
+        );
+        assert_eq!(
+            record.persistence.materialization.records[13].payload["agentgresTransition"]
+                ["transition_hash"],
+            json!(record.transition.transition_hash)
+        );
+    }
+
+    #[test]
+    fn commits_runtime_run_state_from_previous_transition_head() {
+        let mut request = runtime_run_state_commit();
+        request.operation_kind = "run.cancel".to_string();
+        request.previous_transition = Some(json!({
+            "state_root_after": "sha256:previous-state-root",
+            "resulting_head": "agentgres://runtime-state/runs/run_1/head/previous"
+        }));
+
+        let record = AgentgresAdmissionCore
+            .commit_runtime_run_state(&request)
+            .expect("runtime run state committed");
+
+        assert_eq!(
+            record.transition.expected_heads,
+            vec!["agentgres://runtime-state/runs/run_1/head/previous"]
+        );
+        assert_eq!(
+            record.transition.state_root_before,
+            "sha256:previous-state-root"
+        );
+        assert!(record
+            .transition
+            .operation_ref
+            .contains("/operations/run.cancel_"));
     }
 }

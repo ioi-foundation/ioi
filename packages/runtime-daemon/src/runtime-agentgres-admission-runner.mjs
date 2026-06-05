@@ -25,16 +25,6 @@ export class RustRuntimeAgentgresAdmissionRunner {
     this.mockResult = options.mockResult;
   }
 
-  planRunStateTransition(request) {
-    const bridgeRequest = {
-      schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
-      operation: "plan_runtime_run_state_transition",
-      backend: RUST_RUNTIME_AGENTGRES_BACKEND,
-      request,
-    };
-    return normalizeRunStateTransitionBridgeResult(this.invokeBridge(bridgeRequest));
-  }
-
   admitStorageBackendWrite(request) {
     const bridgeRequest = {
       schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
@@ -45,15 +35,15 @@ export class RustRuntimeAgentgresAdmissionRunner {
     return normalizeStorageBackendWriteBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
-  persistRuntimeStateRecords(stateDir, request) {
+  commitRuntimeRunState(stateDir, request) {
     const bridgeRequest = {
       schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
-      operation: "persist_runtime_state_records",
+      operation: "commit_runtime_run_state",
       backend: RUST_AGENTGRES_STORAGE_BACKEND,
       state_dir: stateDir,
       request,
     };
-    return normalizeRuntimeStatePersistenceBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeRuntimeRunStateCommitBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
   invokeBridge(request) {
@@ -128,27 +118,6 @@ export class RuntimeAgentgresAdmissionRunnerError extends Error {
   }
 }
 
-export function normalizeRunStateTransitionBridgeResult(value = {}) {
-  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const record = result.record && typeof result.record === "object" ? result.record : {};
-  return {
-    source: result.source ?? "rust_runtime_agentgres_transition_command",
-    backend: result.backend ?? RUST_RUNTIME_AGENTGRES_BACKEND,
-    record,
-    operation_ref: result.operation_ref ?? record.operation_ref ?? null,
-    expected_heads: Array.isArray(result.expected_heads) ? result.expected_heads : record.expected_heads ?? [],
-    state_root_before: result.state_root_before ?? record.state_root_before ?? null,
-    state_root_after: result.state_root_after ?? record.state_root_after ?? null,
-    resulting_head: result.resulting_head ?? record.resulting_head ?? null,
-    projection_watermark: result.projection_watermark ?? record.projection_watermark ?? null,
-    transition_hash: result.transition_hash ?? record.transition_hash ?? null,
-    receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
-    artifact_refs: Array.isArray(result.artifact_refs) ? result.artifact_refs : record.artifact_refs ?? [],
-    payload_refs: Array.isArray(result.payload_refs) ? result.payload_refs : record.payload_refs ?? [],
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
-  };
-}
-
 export function normalizeStorageBackendWriteBridgeResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const record = result.record && typeof result.record === "object" ? result.record : {};
@@ -167,19 +136,31 @@ export function normalizeStorageBackendWriteBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeStatePersistenceBridgeResult(value = {}) {
+export function normalizeRuntimeRunStateCommitBridgeResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const record = result.record && typeof result.record === "object" ? result.record : {};
-  const materialization = result.materialization && typeof result.materialization === "object"
-    ? result.materialization
-    : record.materialization ?? {};
-  const storageWriteSet = result.storage_write_set && typeof result.storage_write_set === "object"
-    ? result.storage_write_set
-    : record.storage_write_set ?? {};
+  const transition = result.transition && typeof result.transition === "object"
+    ? result.transition
+    : record.transition ?? {};
+  const persistence = result.persistence && typeof result.persistence === "object"
+    ? result.persistence
+    : record.persistence ?? {};
+  const materialization = persistence.materialization && typeof persistence.materialization === "object"
+    ? persistence.materialization
+    : {};
+  const storageWriteSet = persistence.storage_write_set && typeof persistence.storage_write_set === "object"
+    ? persistence.storage_write_set
+    : {};
   return {
-    source: result.source ?? "rust_agentgres_runtime_state_persistence_command",
+    source: result.source ?? "rust_agentgres_runtime_run_state_commit_command",
     backend: result.backend ?? RUST_AGENTGRES_STORAGE_BACKEND,
     record,
+    transition,
+    persistence,
+    operation_ref: result.operation_ref ?? transition.operation_ref ?? null,
+    state_root_after: result.state_root_after ?? transition.state_root_after ?? null,
+    resulting_head: result.resulting_head ?? transition.resulting_head ?? null,
+    transition_hash: result.transition_hash ?? transition.transition_hash ?? null,
     materialization,
     storage_write_set: storageWriteSet,
     records: Array.isArray(result.records) ? result.records : storageWriteSet.records ?? [],
@@ -187,7 +168,8 @@ export function normalizeRuntimeStatePersistenceBridgeResult(value = {}) {
     materialization_hash:
       result.materialization_hash ?? materialization.materialization_hash ?? null,
     write_set_hash: result.write_set_hash ?? storageWriteSet.write_set_hash ?? null,
-    persistence_hash: result.persistence_hash ?? record.persistence_hash ?? null,
+    persistence_hash: result.persistence_hash ?? persistence.persistence_hash ?? null,
+    commit_hash: result.commit_hash ?? record.commit_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
   };
 }
