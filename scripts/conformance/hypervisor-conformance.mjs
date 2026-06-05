@@ -1051,9 +1051,9 @@ function runBridge() {
       /modelMountInvocationReceiptBindingRequestForReceipt/.test(modelInvocationOps) &&
       /model_mount_invocation_receipt_binding_required/.test(modelInvocationOps) &&
       /model_mount_agentgres_head_required/.test(modelInvocationOps) &&
-      /modelMountReceiptBindingRef/.test(modelInvocationOps) &&
-      /modelMountAgentgresAdmission/.test(modelInvocationOps) &&
-      /modelMountAcceptedReceiptAppendHash/.test(modelInvocationOps),
+      /model_mount_receipt_binding_ref/.test(modelInvocationOps) &&
+      /model_mount_agentgres_admission/.test(modelInvocationOps) &&
+      /model_mount_accepted_receipt_append_hash/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
@@ -2455,16 +2455,17 @@ function runReceipts() {
       /AgentgresAdmissionCore/.test(bridgeModule) &&
       /append_accepted_receipt/.test(bridgeModule) &&
       /RustProjectionCore/.test(bridgeModule) &&
-      /modelMountReceiptBindingRef/.test(modelInvocationOps) &&
-      /modelMountAcceptedReceiptAppend/.test(modelInvocationOps) &&
-      /modelMountAgentgresAdmission/.test(modelInvocationOps) &&
-      /modelMountAgentgresOperationRef/.test(modelInvocationOps) &&
+      /model_mount_receipt_binding_ref/.test(modelInvocationOps) &&
+      /model_mount_accepted_receipt_append/.test(modelInvocationOps) &&
+      /model_mount_agentgres_admission/.test(modelInvocationOps) &&
+      /model_mount_agentgres_operation_ref/.test(modelInvocationOps) &&
       /model_mount_agentgres_head_required/.test(modelInvocationOps) &&
       /agentgresOperationRefs/.test(modelInvocationOps) &&
       /stateRootAfter/.test(modelInvocationOps) &&
       /resultingHead/.test(modelInvocationOps) &&
-      /modelMountStepModuleInvocation/.test(modelInvocationOps) &&
-      /modelMountStepModuleResult/.test(modelInvocationOps),
+      /model_mount_step_module_invocation/.test(modelInvocationOps) &&
+      /model_mount_step_module_result/.test(modelInvocationOps) &&
+      !/(?:modelMountReceiptBinding|modelMountAcceptedReceiptAppend|modelMountStepModuleInvocation|modelMountStepModuleResult|modelMountRouterAdmission|modelMountAgentgres|modelMountProjectionRecord)/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
@@ -2478,10 +2479,10 @@ function runReceipts() {
       /AgentgresAdmissionCore/.test(bridgeModule) &&
       /agentgres_admission/.test(bridgeModule) &&
       /modelMountInvocationAgentgresTransitionForReceipt/.test(modelInvocationOps) &&
-      /modelMountAgentgresExpectedHeads/.test(modelInvocationOps) &&
-      /modelMountAgentgresStateRootBefore/.test(modelInvocationOps) &&
-      /modelMountAgentgresStateRootAfter/.test(modelInvocationOps) &&
-      /modelMountAgentgresResultingHead/.test(modelInvocationOps),
+      /model_mount_agentgres_expected_heads/.test(modelInvocationOps) &&
+      /model_mount_agentgres_state_root_before/.test(modelInvocationOps) &&
+      /model_mount_agentgres_state_root_after/.test(modelInvocationOps) &&
+      /model_mount_agentgres_resulting_head/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
@@ -2495,10 +2496,11 @@ function runReceipts() {
       /assertAcceptedModelInvocationReceiptBound/.test(modelMountReceiptWriteGuards) &&
       /model_mount_invocation_receipt_direct_append_forbidden/.test(modelMountReceiptWriteGuards) &&
       /model_invocation_stream_completed/.test(modelMountReceiptWriteGuards) &&
-      /modelMountReceiptBindingRef/.test(modelMountReceiptWriteGuards) &&
-      /modelMountAcceptedReceiptAppendHash/.test(modelMountReceiptWriteGuards) &&
-      /modelMountAgentgresOperationRef/.test(modelMountReceiptWriteGuards) &&
-      /modelMountAgentgresAdmissionHash/.test(modelMountReceiptWriteGuards),
+      /model_mount_receipt_binding_ref/.test(modelMountReceiptWriteGuards) &&
+      /model_mount_accepted_receipt_append_hash/.test(modelMountReceiptWriteGuards) &&
+      /model_mount_agentgres_operation_ref/.test(modelMountReceiptWriteGuards) &&
+      /model_mount_agentgres_admission_hash/.test(modelMountReceiptWriteGuards) &&
+      !/(?:modelMountReceiptBinding|modelMountAcceptedReceiptAppend|modelMountStepModuleInvocation|modelMountStepModuleResult|modelMountAgentgres)/.test(modelMountReceiptWriteGuards),
     [
       "packages/runtime-daemon/src/model-mounting/store.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",

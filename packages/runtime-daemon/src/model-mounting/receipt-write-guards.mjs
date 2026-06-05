@@ -39,59 +39,61 @@ export function assertModelMountingReceiptWriteBound(receipt) {
 function assertAcceptedModelInvocationReceiptBound(receipt) {
   if (!ACCEPTED_MODEL_INVOCATION_RECEIPT_KINDS.has(receipt?.kind)) return;
   const details = receipt?.details && typeof receipt.details === "object" ? receipt.details : {};
-  const operationRef = optionalNonEmptyString(details.modelMountAgentgresOperationRef);
+  const operationRef = optionalNonEmptyString(details.model_mount_agentgres_operation_ref);
   const missing = [];
-  if (!optionalNonEmptyString(details.modelMountReceiptBindingRef)) missing.push("modelMountReceiptBindingRef");
-  if (!optionalNonEmptyString(details.modelMountAcceptedReceiptAppendHash)) {
-    missing.push("modelMountAcceptedReceiptAppendHash");
+  if (!optionalNonEmptyString(details.model_mount_receipt_binding_ref)) {
+    missing.push("model_mount_receipt_binding_ref");
   }
-  if (!operationRef) missing.push("modelMountAgentgresOperationRef");
-  if (!optionalNonEmptyString(details.modelMountAgentgresAdmissionHash)) {
-    missing.push("modelMountAgentgresAdmissionHash");
+  if (!optionalNonEmptyString(details.model_mount_accepted_receipt_append_hash)) {
+    missing.push("model_mount_accepted_receipt_append_hash");
   }
-  if (!optionalNonEmptyString(details.modelMountStepModuleInvocation?.input?.state_root_before)) {
-    missing.push("modelMountStepModuleInvocation.input.state_root_before");
+  if (!operationRef) missing.push("model_mount_agentgres_operation_ref");
+  if (!optionalNonEmptyString(details.model_mount_agentgres_admission_hash)) {
+    missing.push("model_mount_agentgres_admission_hash");
   }
-  if (!Array.isArray(details.modelMountStepModuleResult?.agentgres_operation_refs)) {
-    missing.push("modelMountStepModuleResult.agentgres_operation_refs");
+  if (!optionalNonEmptyString(details.model_mount_step_module_invocation?.input?.state_root_before)) {
+    missing.push("model_mount_step_module_invocation.input.state_root_before");
   }
-  if (!optionalNonEmptyString(details.modelMountStepModuleResult?.state_root_after)) {
-    missing.push("modelMountStepModuleResult.state_root_after");
+  if (!Array.isArray(details.model_mount_step_module_result?.agentgres_operation_refs)) {
+    missing.push("model_mount_step_module_result.agentgres_operation_refs");
   }
-  if (!optionalNonEmptyString(details.modelMountStepModuleResult?.resulting_head)) {
-    missing.push("modelMountStepModuleResult.resulting_head");
+  if (!optionalNonEmptyString(details.model_mount_step_module_result?.state_root_after)) {
+    missing.push("model_mount_step_module_result.state_root_after");
+  }
+  if (!optionalNonEmptyString(details.model_mount_step_module_result?.resulting_head)) {
+    missing.push("model_mount_step_module_result.resulting_head");
   }
 
   const mismatches = [];
   if (
     operationRef &&
-    !details.modelMountStepModuleResult?.agentgres_operation_refs?.includes(operationRef)
+    !details.model_mount_step_module_result?.agentgres_operation_refs?.includes(operationRef)
   ) {
-    mismatches.push("modelMountAgentgresOperationRef");
+    mismatches.push("model_mount_agentgres_operation_ref");
   }
   if (
     operationRef &&
-    optionalNonEmptyString(details.modelMountAgentgresAdmission?.operation_ref) !== operationRef
+    optionalNonEmptyString(details.model_mount_agentgres_admission?.operation_ref) !== operationRef
   ) {
-    mismatches.push("modelMountAgentgresAdmission.operation_ref");
+    mismatches.push("model_mount_agentgres_admission.operation_ref");
   }
   if (
-    optionalNonEmptyString(details.modelMountAgentgresStateRootBefore) !==
-    optionalNonEmptyString(details.modelMountStepModuleInvocation?.input?.state_root_before)
+    optionalNonEmptyString(details.model_mount_agentgres_state_root_before) !==
+    optionalNonEmptyString(details.model_mount_step_module_invocation?.input?.state_root_before)
   ) {
-    mismatches.push("modelMountAgentgresStateRootBefore");
+    mismatches.push("model_mount_agentgres_state_root_before");
   }
   if (
-    optionalNonEmptyString(details.modelMountAgentgresStateRootAfter) !==
-    optionalNonEmptyString(details.modelMountStepModuleResult?.state_root_after)
+    optionalNonEmptyString(details.model_mount_agentgres_state_root_after) !==
+    optionalNonEmptyString(details.model_mount_step_module_result?.state_root_after)
   ) {
-    mismatches.push("modelMountAgentgresStateRootAfter");
+    mismatches.push("model_mount_agentgres_state_root_after");
   }
   if (
-    optionalNonEmptyString(details.modelMountAgentgresResultingHead) !==
-    optionalNonEmptyString(details.modelMountStepModuleResult?.resulting_head)
+    optionalNonEmptyString(details.model_mount_agentgres_resulting_head) !==
+    optionalNonEmptyString(details.model_mount_step_module_result?.resulting_head)
   ) {
-    mismatches.push("modelMountAgentgresResultingHead");
+    mismatches.push("model_mount_agentgres_resulting_head");
   }
 
   if (missing.length > 0 || mismatches.length > 0) {

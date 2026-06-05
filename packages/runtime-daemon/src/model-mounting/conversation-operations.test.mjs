@@ -261,10 +261,10 @@ test("recordModelStreamCompleted emits stream receipt and finalizes conversation
   assert.deepEqual(receipt.details.toolReceiptIds, ["receipt.tool"]);
   assert.equal(receipt.details.providerStreamShapeSummary.framesForwarded, 3);
   assert.equal(receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/1");
-  assert.equal(receipt.details.modelMountReceiptBindingRef, "sha256:binding-1");
-  assert.equal(receipt.details.modelMountAgentgresOperationRef, "agentgres://model-mounting/operation-log/op_00000001_model_invocation_stream_completed");
-  assert.equal(receipt.details.modelMountStepModuleInvocation.input.state_root_before, "sha256:state-0");
-  assert.equal(receipt.details.modelMountStepModuleResult.resulting_head, "agentgres://model-mounting/operation-log/head/1");
+  assert.equal(receipt.details.model_mount_receipt_binding_ref, "sha256:binding-1");
+  assert.equal(receipt.details.model_mount_agentgres_operation_ref, "agentgres://model-mounting/operation-log/op_00000001_model_invocation_stream_completed");
+  assert.equal(receipt.details.model_mount_step_module_invocation.input.state_root_before, "sha256:state-0");
+  assert.equal(receipt.details.model_mount_step_module_result.resulting_head, "agentgres://model-mounting/operation-log/head/1");
   assert.deepEqual(state.receiptBindingRequests[0].expectedHeads, [
     "agentgres://model-mounting/operation-log/head/0",
   ]);

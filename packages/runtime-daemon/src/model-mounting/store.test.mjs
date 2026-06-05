@@ -26,6 +26,40 @@ function boundModelInvocationReceipt(overrides = {}) {
     redaction: "redacted",
     evidenceRefs: ["rust_receipt_binder_core", "rust_agentgres_admission"],
     details: {
+      model_mount_receipt_binding_ref: "sha256:binding",
+      model_mount_accepted_receipt_append_hash: "sha256:append",
+      model_mount_agentgres_operation_ref: operationRef,
+      model_mount_agentgres_admission_hash: "sha256:agentgres",
+      model_mount_agentgres_state_root_before: "sha256:before",
+      model_mount_agentgres_state_root_after: "sha256:after",
+      model_mount_agentgres_resulting_head: resultingHead,
+      model_mount_agentgres_admission: {
+        operation_ref: operationRef,
+      },
+      model_mount_step_module_invocation: {
+        input: {
+          state_root_before: "sha256:before",
+        },
+      },
+      model_mount_step_module_result: {
+        agentgres_operation_refs: [operationRef],
+        state_root_after: "sha256:after",
+        resulting_head: resultingHead,
+      },
+    },
+    ...overrides,
+  };
+}
+
+function legacyCamelBoundModelInvocationReceipt() {
+  const operationRef = "agentgres://model-mounting/operation-log/op_00000001_model_invocation";
+  const resultingHead = "agentgres://model-mounting/operation-log/head/1";
+  return {
+    id: "receipt.legacy-camel",
+    kind: "model_invocation",
+    redaction: "redacted",
+    evidenceRefs: ["rust_receipt_binder_core", "rust_agentgres_admission"],
+    details: {
       modelMountReceiptBindingRef: "sha256:binding",
       modelMountAcceptedReceiptAppendHash: "sha256:append",
       modelMountAgentgresOperationRef: operationRef,
@@ -47,7 +81,6 @@ function boundModelInvocationReceipt(overrides = {}) {
         resulting_head: resultingHead,
       },
     },
-    ...overrides,
   };
 }
 
@@ -131,8 +164,8 @@ test("model invocation receipt writes fail closed without Rust receipt and Agent
       }),
     (error) =>
       error.code === "model_mount_invocation_receipt_direct_append_forbidden" &&
-      error.details.missing.includes("modelMountReceiptBindingRef") &&
-      error.details.missing.includes("modelMountStepModuleResult.state_root_after"),
+      error.details.missing.includes("model_mount_receipt_binding_ref") &&
+      error.details.missing.includes("model_mount_step_module_result.state_root_after"),
   );
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.direct.json")), false);
   assert.deepEqual(appended, []);
@@ -152,7 +185,7 @@ test("stream completion receipt writes fail closed without Rust receipt and Agen
       }),
     (error) =>
       error.code === "model_mount_invocation_receipt_direct_append_forbidden" &&
-      error.details.missing.includes("modelMountAgentgresOperationRef"),
+      error.details.missing.includes("model_mount_agentgres_operation_ref"),
   );
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.stream-direct.json")), false);
   assert.deepEqual(appended, []);
@@ -164,7 +197,7 @@ test("model invocation receipt writes reject mismatched Agentgres operation refs
     id: "receipt.mismatch",
     details: {
       ...boundModelInvocationReceipt().details,
-      modelMountAgentgresAdmission: {
+      model_mount_agentgres_admission: {
         operation_ref: "agentgres://model-mounting/operation-log/op_00000002_model_invocation",
       },
     },
@@ -174,9 +207,23 @@ test("model invocation receipt writes reject mismatched Agentgres operation refs
     () => store.writeReceipt(receipt),
     (error) =>
       error.code === "model_mount_invocation_receipt_direct_append_forbidden" &&
-      error.details.mismatches.includes("modelMountAgentgresAdmission.operation_ref"),
+      error.details.mismatches.includes("model_mount_agentgres_admission.operation_ref"),
   );
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.mismatch.json")), false);
+  assert.deepEqual(appended, []);
+});
+
+test("model invocation receipt writes reject legacy camelCase binding details", () => {
+  const { appended, stateDir, store } = testStore();
+
+  assert.throws(
+    () => store.writeReceipt(legacyCamelBoundModelInvocationReceipt()),
+    (error) =>
+      error.code === "model_mount_invocation_receipt_direct_append_forbidden" &&
+      error.details.missing.includes("model_mount_receipt_binding_ref") &&
+      error.details.missing.includes("model_mount_agentgres_operation_ref"),
+  );
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.legacy-camel.json")), false);
   assert.deepEqual(appended, []);
 });
 
