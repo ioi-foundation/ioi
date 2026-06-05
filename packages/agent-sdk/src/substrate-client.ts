@@ -452,9 +452,7 @@ export interface RuntimeSubagentControlInput {
   subagent_role?: string;
   tool_pack?: string;
   model_route_id?: string;
-  maxConcurrency?: number;
   max_concurrency?: number;
-  subagentMaxConcurrency?: number;
   budget?: Record<string, unknown>;
   outputContract?: string[] | Record<string, unknown>;
   output_contract?: string[] | Record<string, unknown>;
