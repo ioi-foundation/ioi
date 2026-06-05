@@ -77,6 +77,26 @@ test("route decisions honor canonical fallback request metadata", () => {
   assert.equal(Object.hasOwn(decision, "schemaVersion"), false);
   assert.equal(Object.hasOwn(decision, "eventKind"), false);
   assert.equal(Object.hasOwn(decision, "decisionId"), false);
+  assert.equal(decision.route_id, "route.local-first");
+  assert.equal(decision.requested_model, "auto");
+  assert.equal(decision.requested_model_mode, "auto");
+  assert.equal(decision.auto_resolved, true);
+  assert.equal(decision.selected_model, "model.hosted");
+  assert.equal(decision.upstream_model, "model.hosted");
+  assert.equal(decision.never_send_auto_upstream, true);
+  assert.equal(decision.endpoint_id, "endpoint.hosted");
+  assert.equal(decision.provider_id, "provider.hosted");
+  assert.equal(decision.provider_kind, "openai");
+  assert.equal(Object.hasOwn(decision, "routeId"), false);
+  assert.equal(Object.hasOwn(decision, "requestedModel"), false);
+  assert.equal(Object.hasOwn(decision, "requestedModelMode"), false);
+  assert.equal(Object.hasOwn(decision, "autoResolved"), false);
+  assert.equal(Object.hasOwn(decision, "selectedModel"), false);
+  assert.equal(Object.hasOwn(decision, "upstreamModel"), false);
+  assert.equal(Object.hasOwn(decision, "neverSendAutoUpstream"), false);
+  assert.equal(Object.hasOwn(decision, "endpointId"), false);
+  assert.equal(Object.hasOwn(decision, "providerId"), false);
+  assert.equal(Object.hasOwn(decision, "providerKind"), false);
   assert.equal(decision.response_id, "resp-1");
   assert.equal(decision.previous_response_id, "resp-0");
   assert.equal(Object.hasOwn(decision, "responseId"), false);
@@ -118,11 +138,11 @@ test("route decision projections ignore retired legacy model route decision deta
     createdAt: "2026-06-05T00:00:00.000Z",
     kind: "model_route_selection",
     details: {
-      model_route_decision: { routeId: "route.local-first", selectedModel: "model.local" },
+      model_route_decision: { route_id: "route.local-first", selected_model: "model.local" },
     },
   }), {
-    routeId: "route.local-first",
-    selectedModel: "model.local",
+    route_id: "route.local-first",
+    selected_model: "model.local",
     receiptId: "receipt-route",
     receiptCreatedAt: "2026-06-05T00:00:00.000Z",
     receiptKind: "model_route_selection",

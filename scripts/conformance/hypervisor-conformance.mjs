@@ -955,6 +955,47 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-route-decision-route-model-aliases-retired",
+      /^ {4}route_id:\s*route\?\.id/m.test(modelRouteDecisionObject) &&
+      /^ {4}requested_model:\s*requestedModel/m.test(modelRouteDecisionObject) &&
+      /^ {4}requested_model_mode:/m.test(modelRouteDecisionObject) &&
+      /^ {4}auto_resolved:\s*autoResolved/m.test(modelRouteDecisionObject) &&
+      /^ {4}selected_model:\s*selectedModel/m.test(modelRouteDecisionObject) &&
+      /^ {4}upstream_model:\s*selectedModel/m.test(modelRouteDecisionObject) &&
+      /^ {4}never_send_auto_upstream:/m.test(modelRouteDecisionObject) &&
+      /^ {4}endpoint_id:\s*endpoint\?\.id/m.test(modelRouteDecisionObject) &&
+      /^ {4}provider_id:\s*provider\?\.id/m.test(modelRouteDecisionObject) &&
+      /^ {4}provider_kind:\s*provider\?\.kind/m.test(modelRouteDecisionObject) &&
+      /^ {4}provider_label:\s*provider\?\.label/m.test(modelRouteDecisionObject) &&
+      /endpoint_id:\s*candidate\.endpointId/.test(modelRouteDecisionObject) &&
+      /provider_id:\s*candidate\.providerId/.test(modelRouteDecisionObject) &&
+      !/^ {4}(?:routeId|requestedModel|requestedModelMode|autoResolved|selectedModel|upstreamModel|neverSendAutoUpstream|endpointId|providerId|providerKind|providerLabel)\s*[:,]/m.test(modelRouteDecisionObject) &&
+      /^\s*route_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*requested_model:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*requested_model_mode:\s*"auto" \| "explicit" \| "route_default" \| string;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*auto_resolved:\s*boolean;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*selected_model:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*upstream_model:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*never_send_auto_upstream:\s*boolean;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*endpoint_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*provider_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*provider_kind:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*provider_label:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*endpoint_id:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*provider_id:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
+      !/^\s*(?:routeId|requestedModel|requestedModelMode|autoResolved|selectedModel|upstreamModel|neverSendAutoUpstream|endpointId|providerId|providerKind|providerLabel)\s*[:?]/m.test(agentSdkModelRouteDecisionType) &&
+      /Object\.hasOwn\(decision,\s*"routeId"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"selectedModel"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"providerKind"\),\s*false/.test(modelRouteDecisionTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
+      "packages/agent-sdk/src/messages.ts",
+    ],
+    "Phase 3/10 is pending: accepted model route decisions must use canonical route/model/provider identity fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "runtime-thread-hosted-fallback-alias-retired",
     /allow_hosted_fallback/.test(threadRuntimeControls) &&
       /allow_hosted_fallback/.test(runtimeThreadControlSurface) &&
