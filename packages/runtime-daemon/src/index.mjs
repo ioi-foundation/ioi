@@ -3821,7 +3821,7 @@ function buildRun({
   const toolSequence = capabilitySequenceForMode(mode, agent);
   const modelRouteDecision = modelRoute?.decision ?? null;
   const selectedModel =
-    modelRouteDecision?.selectedModel ??
+    modelRouteDecision?.selected_model ??
     modelRoute?.selectedModel ??
     request.options?.model?.id ??
     agent.modelId;
@@ -4371,7 +4371,7 @@ function buildRun({
     ? {
         id: modelRouteReceiptId,
         kind: "model_route_selection",
-        summary: `Route ${modelRouteDecision.routeId} selected ${modelRouteDecision.selectedModel}.`,
+        summary: `Route ${modelRouteDecision.route_id} selected ${modelRouteDecision.selected_model}.`,
         redaction: "none",
         evidenceRefs: normalizeArray(modelRouteDecision.evidenceRefs),
       }

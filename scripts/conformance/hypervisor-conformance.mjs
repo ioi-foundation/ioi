@@ -476,6 +476,9 @@ function runBridge() {
   const threadRuntimeControlsTest = exists("packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs")
     : "";
+  const modelRouteSelectionTest = exists("packages/runtime-daemon/src/threads/model-route-selection.test.mjs")
+    ? read("packages/runtime-daemon/src/threads/model-route-selection.test.mjs")
+    : "";
   const workerServicePackageRunner = exists("packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs")
     : "";
@@ -1125,6 +1128,27 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
     ],
     "Phase 3/10 is pending: runtime thread-control model-route readers must consume canonical route-decision fields without retired camelCase fallbacks",
+  );
+  assertCheck(
+    result,
+    "runtime-run-model-route-decision-reader-aliases-retired",
+    /modelRouteDecision\?\.selected_model/.test(runtimeDaemonIndex) &&
+      /modelRouteDecision\.route_id/.test(runtimeDaemonIndex) &&
+      /modelRouteDecision\.selected_model/.test(runtimeDaemonIndex) &&
+      !/modelRouteDecision\?\.selectedModel/.test(runtimeDaemonIndex) &&
+      !/modelRouteDecision\.(?:routeId|selectedModel)/.test(runtimeDaemonIndex) &&
+      /model_route_decision:\s*\{/.test(modelRouteSelectionTest) &&
+      /requested_model:\s*body\.model/.test(modelRouteSelectionTest) &&
+      /selected_model:\s*selection\.endpoint/.test(modelRouteSelectionTest) &&
+      /fallback_triggered:\s*Boolean\(body\.fallback_triggered\)/.test(modelRouteSelectionTest) &&
+      /assert\.equal\(route\.decision\.fallback_triggered,\s*true\)/.test(modelRouteSelectionTest) &&
+      !/details:\s*\{\s*modelRouteDecision\s*:/.test(modelRouteSelectionTest) &&
+      !/route\.decision\.fallbackTriggered/.test(modelRouteSelectionTest),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/threads/model-route-selection.test.mjs",
+    ],
+    "Phase 3/10 is pending: runtime run assembly must consume canonical route-decision fields without retired camelCase route/model fallbacks",
   );
   assertCheck(
     result,

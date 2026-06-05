@@ -9,17 +9,17 @@ function routeReceipt({ id, body, selection, capability, evidenceRefs }) {
     kind: "model_route_selection",
     createdAt: "2026-06-04T00:00:00.000Z",
     details: {
-      modelRouteDecision: {
-        requestedModel: body.model,
-        selectedModel: selection.endpoint?.modelId ?? selection.modelId ?? body.model,
-        routeId: selection.route?.id ?? selection.routeId,
-        endpointId: selection.endpoint?.id ?? selection.endpointId ?? null,
-        providerId: selection.provider?.id ?? selection.providerId ?? null,
+      model_route_decision: {
+        requested_model: body.model,
+        selected_model: selection.endpoint?.modelId ?? selection.modelId ?? body.model,
+        route_id: selection.route?.id ?? selection.routeId,
+        endpoint_id: selection.endpoint?.id ?? selection.endpointId ?? null,
+        provider_id: selection.provider?.id ?? selection.providerId ?? null,
         capability,
-        evidenceRefs,
-        fallbackTriggered: Boolean(body.fallback_triggered),
-        fallbackReason: body.fallback_reason ?? null,
-        workflowNodeId: body.workflow_node_id ?? null,
+        evidence_refs: evidenceRefs,
+        fallback_triggered: Boolean(body.fallback_triggered),
+        fallback_reason: body.fallback_reason ?? null,
+        workflow_node_id: body.workflow_node_id ?? null,
       },
     },
   };
@@ -127,7 +127,7 @@ test("model route selection falls back to local-first route with merged candidat
   assert.equal(route.requestedModelId, "auto");
   assert.equal(route.selectedModel, "qwen-fallback");
   assert.equal(route.routeId, "route.local-first");
-  assert.equal(route.decision.fallbackTriggered, true);
+  assert.equal(route.decision.fallback_triggered, true);
 });
 
 test("run model route reuses persisted agent route when request has no model override", () => {
@@ -149,7 +149,7 @@ test("run model route reuses persisted agent route when request has no model ove
     modelRouteEndpointId: "endpoint-existing",
     modelRouteProviderId: "provider-existing",
     modelRouteReceiptId: "receipt-existing",
-    modelRouteDecision: { selectedModel: "qwen-existing" },
+    modelRouteDecision: { selected_model: "qwen-existing" },
   });
 
   assert.equal(route.requestedModelId, "auto");
