@@ -2588,6 +2588,12 @@ function runReceipts() {
   const storageOperationsTest = exists("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
     : "";
+  const artifactEndpointOperations = exists("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs")
+    : "";
+  const artifactEndpointOperationsTest = exists("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs")
+    : "";
   const mcpWorkflowOperations = exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs")
     : "";
@@ -2635,6 +2641,12 @@ function runReceipts() {
   ].join("\n");
   const modelTokenizerReceiptDetailsObject =
     modelTokenizerOperations.match(/details:\s*\{[\s\S]*?context_window:\s*contextWindow,\n\s+\},/)?.[0] ?? "";
+  const artifactEndpointReceiptBlocks = [
+    artifactEndpointOperations.match(/state\.lifecycleReceipt\("model_import_dry_run",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+    artifactEndpointOperations.match(/state\.lifecycleReceipt\("model_import",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+    artifactEndpointOperations.match(/state\.lifecycleReceipt\("model_mount",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+    artifactEndpointOperations.match(/state\.lifecycleReceipt\("model_unmount",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+  ].join("\n");
   const storageLifecycleReceiptBlocks = [
     storageOperations.match(/state\.lifecycleReceipt\("model_download_canceled",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
     storageOperations.match(/state\.lifecycleReceipt\("model_artifact_delete_dry_run",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
@@ -3151,6 +3163,40 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
     ],
     "Phase 9/11 is pending: tokenizer and context-fit receipts must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-artifact-endpoint-receipt-detail-aliases-retired",
+    /model_id:\s*modelId/.test(artifactEndpointReceiptBlocks) &&
+      /provider_id:\s*body\.provider_id/.test(artifactEndpointReceiptBlocks) &&
+      /source_path_hash:\s*sourceInfo\?\.path/.test(artifactEndpointReceiptBlocks) &&
+      /target_path_hash:\s*targetPreview/.test(artifactEndpointReceiptBlocks) &&
+      /import_mode:\s*importMode/.test(artifactEndpointReceiptBlocks) &&
+      /artifact_id:\s*artifact\.id/.test(artifactEndpointReceiptBlocks) &&
+      /artifact_path_hash:\s*artifact\.artifactPath/.test(artifactEndpointReceiptBlocks) &&
+      /endpoint_id:\s*endpoint\.id/.test(artifactEndpointReceiptBlocks) &&
+      /endpoint_id:\s*endpointId/.test(artifactEndpointReceiptBlocks) &&
+      /load_policy:\s*endpoint\.loadPolicy/.test(artifactEndpointReceiptBlocks) &&
+      !/\b(?:artifactId|modelId|providerId|sourcePathHash|targetPathHash|importMode|artifactPathHash|endpointId|loadPolicy)\s*:/.test(
+        artifactEndpointReceiptBlocks,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"sourcePathHash"\),\s*false/.test(
+        artifactEndpointOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"artifactPathHash"\),\s*false/.test(
+        artifactEndpointOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"loadPolicy"\),\s*false/.test(
+        artifactEndpointOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"endpointId"\),\s*false/.test(
+        artifactEndpointOperationsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: artifact endpoint lifecycle receipts must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

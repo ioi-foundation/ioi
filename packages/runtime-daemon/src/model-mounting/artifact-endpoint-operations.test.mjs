@@ -137,6 +137,16 @@ test("model import dry-run returns hashes and receipt without mutating artifacts
   assert.equal(result.metadata.family, "llama");
   assert.equal(result.receiptId, "receipt.model_import_dry_run.1");
   assert.equal(state.artifacts.size, 0);
+  assert.equal(state.receipts[0].details.model_id, "llama-test");
+  assert.equal(state.receipts[0].details.provider_id, "provider.autopilot.local");
+  assert.equal(state.receipts[0].details.source_path_hash, "hash:/tmp/model.gguf");
+  assert.equal(state.receipts[0].details.target_path_hash, "hash:/models/llama-test/model.gguf");
+  assert.equal(state.receipts[0].details.import_mode, "dry_run");
+  assert.equal(Object.hasOwn(state.receipts[0].details, "modelId"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "providerId"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "sourcePathHash"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "targetPathHash"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "importMode"), false);
 });
 
 test("model import materializes local artifacts and writes projection", () => {
@@ -155,6 +165,18 @@ test("model import materializes local artifacts and writes projection", () => {
   assert.equal(state.artifacts.get(artifact.id), artifact);
   assert.equal(state.writes.at(-1)[0], "model-artifacts");
   assert.equal(state.receipts.at(-1).kind, "model_import");
+  assert.equal(state.receipts.at(-1).details.artifact_id, "import.llama_test");
+  assert.equal(state.receipts.at(-1).details.model_id, "llama-test");
+  assert.equal(state.receipts.at(-1).details.provider_id, "provider.autopilot.local");
+  assert.equal(state.receipts.at(-1).details.artifact_path_hash, "hash:/models/llama-test/model.gguf");
+  assert.equal(state.receipts.at(-1).details.source_path_hash, "hash:/tmp/model.gguf");
+  assert.equal(state.receipts.at(-1).details.import_mode, "copy");
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "artifactId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "artifactPathHash"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "sourcePathHash"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "importMode"), false);
   assert.equal(state.projections, 1);
 });
 
@@ -177,6 +199,14 @@ test("mount endpoint derives provider, artifact, backend, load policy, and recei
   assert.deepEqual(endpoint.loadPolicy, { mode: "resident" });
   assert.equal(state.endpoints.get(endpoint.id), endpoint);
   assert.equal(state.receipts.at(-1).kind, "model_mount");
+  assert.equal(state.receipts.at(-1).details.endpoint_id, "endpoint.provider_fixture.llama_test");
+  assert.equal(state.receipts.at(-1).details.model_id, "llama-test");
+  assert.equal(state.receipts.at(-1).details.provider_id, "provider.fixture");
+  assert.deepEqual(state.receipts.at(-1).details.load_policy, { mode: "resident" });
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "endpointId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "loadPolicy"), false);
 });
 
 test("mount endpoint validates explicit model id and supports provider mount fallback", () => {
@@ -210,4 +240,10 @@ test("unmount endpoint updates status and emits receipt", () => {
   assert.equal(state.endpoints.get("endpoint.a").status, "unmounted");
   assert.equal(state.writes.at(-1)[0], "model-endpoints");
   assert.equal(state.receipts.at(-1).kind, "model_unmount");
+  assert.equal(state.receipts.at(-1).details.endpoint_id, "endpoint.a");
+  assert.equal(state.receipts.at(-1).details.model_id, "llama-test");
+  assert.equal(state.receipts.at(-1).details.provider_id, "provider.fixture");
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "endpointId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerId"), false);
 });

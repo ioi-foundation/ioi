@@ -20,11 +20,11 @@ export function importModel(state, body = {}, deps = {}) {
     const targetPreview = sourceInfo ? importTargetPath(state.modelRoot, modelId, sourceInfo.path) : null;
     const metadata = sourceInfo ? parseLocalModelMetadata(sourceInfo.path) : {};
     const receipt = state.lifecycleReceipt("model_import_dry_run", {
-      modelId,
-      providerId: body.provider_id ?? body.providerId ?? (sourceInfo ? "provider.autopilot.local" : "provider.local.folder"),
-      sourcePathHash: sourceInfo?.path ? stableHash(sourceInfo.path) : null,
-      targetPathHash: targetPreview ? stableHash(targetPreview) : null,
-      importMode,
+      model_id: modelId,
+      provider_id: body.provider_id ?? body.providerId ?? (sourceInfo ? "provider.autopilot.local" : "provider.local.folder"),
+      source_path_hash: sourceInfo?.path ? stableHash(sourceInfo.path) : null,
+      target_path_hash: targetPreview ? stableHash(targetPreview) : null,
+      import_mode: importMode,
     });
     return {
       schemaVersion,
@@ -65,13 +65,13 @@ export function importModel(state, body = {}, deps = {}) {
   state.artifacts.set(artifact.id, artifact);
   state.writeMap("model-artifacts", state.artifacts);
   state.lifecycleReceipt("model_import", {
-    artifactId: artifact.id,
-    modelId: artifact.modelId,
-    providerId: artifact.providerId,
+    artifact_id: artifact.id,
+    model_id: artifact.modelId,
+    provider_id: artifact.providerId,
     state: artifact.state,
-    artifactPathHash: artifact.artifactPath ? stableHash(artifact.artifactPath) : null,
-    sourcePathHash: sourceInfo?.path ? stableHash(sourceInfo.path) : null,
-    importMode,
+    artifact_path_hash: artifact.artifactPath ? stableHash(artifact.artifactPath) : null,
+    source_path_hash: sourceInfo?.path ? stableHash(sourceInfo.path) : null,
+    import_mode: importMode,
     checksum: artifact.checksum,
   });
   state.writeProjection();
@@ -125,10 +125,10 @@ export function mountEndpoint(state, body = {}, deps = {}) {
   state.endpoints.set(endpoint.id, endpoint);
   state.writeMap("model-endpoints", state.endpoints);
   state.lifecycleReceipt("model_mount", {
-    endpointId: endpoint.id,
-    modelId: endpoint.modelId,
-    providerId: endpoint.providerId,
-    loadPolicy: endpoint.loadPolicy,
+    endpoint_id: endpoint.id,
+    model_id: endpoint.modelId,
+    provider_id: endpoint.providerId,
+    load_policy: endpoint.loadPolicy,
   });
   return endpoint;
 }
@@ -145,9 +145,9 @@ export function unmountEndpoint(state, body = {}, deps = {}) {
   state.endpoints.set(endpointId, updated);
   state.writeMap("model-endpoints", state.endpoints);
   state.lifecycleReceipt("model_unmount", {
-    endpointId,
-    modelId: endpoint.modelId,
-    providerId: endpoint.providerId,
+    endpoint_id: endpointId,
+    model_id: endpoint.modelId,
+    provider_id: endpoint.providerId,
   });
   return updated;
 }
