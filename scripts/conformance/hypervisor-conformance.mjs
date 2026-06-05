@@ -3261,6 +3261,19 @@ function runCompositor() {
   ]
     .filter(Boolean)
     .join("\n");
+  const runtimeSubagentLifecycleResultEnvelopeBlocks = [
+    runtimeSubagentSurface.match(
+      /waitSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?\n    \},\n    getSubagentResult/,
+    )?.[0] ?? "",
+    runtimeSubagentSurface.match(
+      /resumeSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?\n    \},\n    assignSubagent/,
+    )?.[0] ?? "",
+    runtimeSubagentSurface.match(
+      /cancelSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?\n    \},\n    propagateSubagentCancellation/,
+    )?.[0] ?? "",
+  ]
+    .filter(Boolean)
+    .join("\n");
   const runtimeSubagentListEnvelopeAliasPattern =
     /^\s*(?:schemaVersion|threadId|parentAgentId|activeCount)\s*[:,]/m;
   const runtimeSubagentPropagationEnvelopeAliasPattern =
@@ -3275,6 +3288,8 @@ function runCompositor() {
     /^\s*(?:previousStatus|requestedBy|propagatedFromThreadId)\s*[:,]/m;
   const runtimeSubagentErrorDetailAliasPattern =
     /^\s*(?:threadId|subagentId|activeForRole|maxConcurrency|budgetStatus|eventId|receiptRefs|policyDecisionRefs)\s*[:,]/m;
+  const runtimeSubagentLifecycleResultEnvelopeAliasPattern =
+    /^\s*receiptRefs\s*[:,]/m;
   const runtimeSubagentProjectionBlock =
     runtimeSubagentSurface.match(
       /subagentProjection\(record = \{\}\) \{[\s\S]*?\n    \},\n    appendThreadSubagentControlEvent/,
@@ -4032,6 +4047,32 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent error details must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-lifecycle-result-envelope-aliases-retired",
+    runtimeSubagentLifecycleResultEnvelopeBlocks.length > 0 &&
+      !runtimeSubagentLifecycleResultEnvelopeAliasPattern.test(
+        runtimeSubagentLifecycleResultEnvelopeBlocks,
+      ) &&
+      /retiredSubagentLifecycleResultEnvelopeAliasKeys/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      (
+        runtimeSubagentSurfaceTest.match(
+          /assertNoOwnKeys\(result,\s*retiredSubagentLifecycleResultEnvelopeAliasKeys\)/g,
+        ) ?? []
+      ).length >= 3 &&
+      (
+        runtimeSubagentSurfaceTest.match(
+          /assert\.deepEqual\(result\.receipt_refs,\s*result\.event\.receipt_refs\)/g,
+        ) ?? []
+      ).length >= 3,
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent lifecycle result envelopes must expose canonical receipt_refs without duplicate receiptRefs aliases",
   );
   assertCheck(
     result,

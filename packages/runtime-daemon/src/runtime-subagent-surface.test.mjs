@@ -350,6 +350,8 @@ const retiredSubagentErrorDetailAliasKeys = [
   "policyDecisionRefs",
 ];
 
+const retiredSubagentLifecycleResultEnvelopeAliasKeys = ["receiptRefs"];
+
 test("subagent surface lists, filters, and projects thread subagents", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface();
@@ -610,6 +612,8 @@ test("subagent surface waits, persists status, and returns result envelope", () 
   assert.equal(result.event.source_event_kind, "OperatorControl.SubagentWait");
   assert.equal(result.event.receipt_refs[0], "receipt_wait_request");
   assert.match(result.event.receipt_refs[1], /^receipt_subagent_wait_/);
+  assert.deepEqual(result.receipt_refs, result.event.receipt_refs);
+  assertNoOwnKeys(result, retiredSubagentLifecycleResultEnvelopeAliasKeys);
   assert.equal(store.writes[0].operationKind, "subagent.wait");
   assert.equal(store.subagents.get("subagent_1").waited_at, "2026-06-04T12:30:00.000Z");
   assertCanonicalSubagentRecordOutput(store.subagents.get("subagent_1"));
@@ -801,6 +805,8 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
   assert.equal(result.event.workflow_node_id, "node_resume");
   assert.equal(result.event.receipt_refs[0], "receipt_resume_request");
   assert.match(result.event.receipt_refs[1], /^receipt_subagent_resume_/);
+  assert.deepEqual(result.receipt_refs, result.event.receipt_refs);
+  assertNoOwnKeys(result, retiredSubagentLifecycleResultEnvelopeAliasKeys);
   assert.equal(result.result, "Created response: Try again");
   assert.equal(store.writes[0].operationKind, "subagent.resume");
   assert.equal(saved.cancellation, null);
@@ -950,6 +956,8 @@ test("subagent surface cancels subagents with inherited cancellation metadata", 
   assert.equal(result.event.source_event_kind, "OperatorControl.SubagentCancel");
   assert.equal(result.event.receipt_refs[0], "receipt_cancel_request");
   assert.match(result.event.receipt_refs[1], /^receipt_subagent_cancel_/);
+  assert.deepEqual(result.receipt_refs, result.event.receipt_refs);
+  assertNoOwnKeys(result, retiredSubagentLifecycleResultEnvelopeAliasKeys);
   assert.equal(store.writes[0].operationKind, "subagent.cancel");
   assert.deepEqual(saved.receipt_refs, [
     "receipt_run_1",

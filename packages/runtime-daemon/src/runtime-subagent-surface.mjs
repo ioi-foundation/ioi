@@ -464,7 +464,6 @@ export function createRuntimeSubagentSurface({
         subagent: this.subagentProjection(saved),
         event,
         receipt_refs: event.receipt_refs,
-        receiptRefs: event.receipt_refs,
       };
     },
     getSubagentResult(store, threadId, subagentId) {
@@ -805,7 +804,6 @@ export function createRuntimeSubagentSurface({
         resume: resumeRecord,
         event,
         receipt_refs: event.receipt_refs,
-        receiptRefs: event.receipt_refs,
       };
     },
     assignSubagent(store, threadId, subagentId, request = {}) {
@@ -1014,7 +1012,6 @@ export function createRuntimeSubagentSurface({
         event,
         cancellation: saved.cancellation,
         receipt_refs: event.receipt_refs,
-        receiptRefs: event.receipt_refs,
       };
     },
     propagateSubagentCancellation(store, threadId, request = {}) {
