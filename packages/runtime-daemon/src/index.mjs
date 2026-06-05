@@ -160,6 +160,7 @@ import {
   uniqueStrings,
 } from "./runtime-value-helpers.mjs";
 import { createRuntimeAgentOptionsHelpers } from "./runtime-agent-options.mjs";
+import { createRuntimeAgentgresAdmissionRunnerFromEnv } from "./runtime-agentgres-admission-runner.mjs";
 import {
   createAgent as createAgentState,
   createRun as createRunState,
@@ -698,6 +699,8 @@ export class AgentgresRuntimeStateStore {
     this.codingArtifacts = new Map();
     this.conversationArtifacts = new ConversationArtifactStore(this.stateDir);
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
+    this.runtimeAgentgresAdmissionRunner =
+      options.runtimeAgentgresAdmissionRunner ?? createRuntimeAgentgresAdmissionRunnerFromEnv(process.env);
     this.schemaVersion = "ioi.agentgres.runtime.v0";
     this.ensureDirs();
     this.modelMounting = new ModelMountingState({
@@ -3744,6 +3747,17 @@ export class AgentgresRuntimeStateStore {
       terminalEventTypes: TERMINAL_EVENT_TYPES,
       writeJson,
     });
+  }
+
+  currentRunStateTransition(runId) {
+    const taskPath = this.pathFor("tasks", `${runId}.json`);
+    if (!fs.existsSync(taskPath)) return null;
+    const taskRecord = readJson(taskPath);
+    return taskRecord.agentgresTransition ?? null;
+  }
+
+  planRunStateTransition(request) {
+    return this.runtimeAgentgresAdmissionRunner.planRunStateTransition(request);
   }
 
   writeSubagent(subagent, operationKind) {

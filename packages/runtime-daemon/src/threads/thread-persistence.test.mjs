@@ -32,12 +32,48 @@ function fakeStore() {
     runs: new Map(),
     schemaVersion: "ioi.agentgres.runtime.v0",
     subagents: new Map(),
+    transitionRequests: [],
     writes: [],
     canonicalProjection(runId) {
       return { runId, projection: "canonical" };
     },
+    currentRunStateTransition() {
+      return null;
+    },
     pathFor(...segments) {
       return segments.join("/");
+    },
+    planRunStateTransition(request) {
+      this.transitionRequests.push(request);
+      return {
+        source: "rust_runtime_agentgres_mock",
+        record: {
+          schema_version: "ioi.agentgres_runtime_state_transition.v1",
+          run_id: request.run_id,
+          operation_kind: request.operation_kind,
+          operation_ref: `agentgres://runtime-state/runs/${request.run_id}/operations/${request.operation_kind}_mock`,
+          expected_heads: request.expected_heads,
+          state_root_before: request.state_root_before,
+          state_root_after: "sha256:state-after",
+          resulting_head: `agentgres://runtime-state/runs/${request.run_id}/head/mock`,
+          run_state_hash: request.run_state_hash,
+          task_state_hash: request.task_state_hash,
+          projection_ref: request.projection_ref,
+          projection_watermark: request.projection_watermark,
+          receipt_refs: request.receipt_refs,
+          artifact_refs: request.artifact_refs,
+          payload_refs: request.payload_refs,
+          transition_hash: "sha256:transition",
+        },
+        operation_ref: `agentgres://runtime-state/runs/${request.run_id}/operations/${request.operation_kind}_mock`,
+        expected_heads: request.expected_heads,
+        state_root_before: request.state_root_before,
+        state_root_after: "sha256:state-after",
+        resulting_head: `agentgres://runtime-state/runs/${request.run_id}/head/mock`,
+        projection_watermark: request.projection_watermark,
+        transition_hash: "sha256:transition",
+        evidence_refs: ["rust_agentgres_runtime_state_transition"],
+      };
     },
     registerRuntimeEvent(record) {
       this.registeredEvents.push(record);
@@ -222,6 +258,20 @@ test("thread persistence writes run projections without operation entries", () =
 
   writeRunRecord(store, run, "run.create", deps(store));
 
+  assert.equal(store.transitionRequests.length, 1);
+  assert.equal(store.transitionRequests[0].schema_version, "ioi.agentgres_runtime_state_transition.v1");
+  assert.equal(store.transitionRequests[0].run_id, "run_1");
+  assert.equal(store.transitionRequests[0].operation_kind, "run.create");
+  assert.deepEqual(store.transitionRequests[0].expected_heads, [
+    "agentgres://runtime-state/runs/run_1/head/0",
+  ]);
+  assert.match(store.transitionRequests[0].state_root_before, /^sha256:/);
+  assert.match(store.transitionRequests[0].run_state_hash, /^sha256:/);
+  assert.match(store.transitionRequests[0].task_state_hash, /^sha256:/);
+  assert.equal(store.transitionRequests[0].projection_watermark, "runtime-state:1");
+  assert.deepEqual(store.transitionRequests[0].receipt_refs, ["receipt_policy", "receipt_authority"]);
+  assert.deepEqual(store.transitionRequests[0].artifact_refs, ["artifact_1"]);
+
   const files = store.writes.map((write) => write.filePath);
   assert.deepEqual(files, [
     "runs/run_1.json",
@@ -247,7 +297,77 @@ test("thread persistence writes run projections without operation entries", () =
     taskState: { state: "done" },
     postconditions: [{ id: "postcondition_1" }],
     semanticImpact: { impact: "local" },
-    projectionWatermark: 1,
+    projectionWatermark: "runtime-state:1",
+    agentgresTransition: {
+      schema_version: "ioi.agentgres_runtime_state_transition.v1",
+      operation_ref: "agentgres://runtime-state/runs/run_1/operations/run.create_mock",
+      expected_heads: ["agentgres://runtime-state/runs/run_1/head/0"],
+      state_root_before: store.transitionRequests[0].state_root_before,
+      state_root_after: "sha256:state-after",
+      resulting_head: "agentgres://runtime-state/runs/run_1/head/mock",
+      projection_watermark: "runtime-state:1",
+      transition_hash: "sha256:transition",
+      evidence_refs: ["rust_agentgres_runtime_state_transition"],
+      record: {
+        schema_version: "ioi.agentgres_runtime_state_transition.v1",
+        run_id: "run_1",
+        operation_kind: "run.create",
+        operation_ref: "agentgres://runtime-state/runs/run_1/operations/run.create_mock",
+        expected_heads: ["agentgres://runtime-state/runs/run_1/head/0"],
+        state_root_before: store.transitionRequests[0].state_root_before,
+        state_root_after: "sha256:state-after",
+        resulting_head: "agentgres://runtime-state/runs/run_1/head/mock",
+        run_state_hash: store.transitionRequests[0].run_state_hash,
+        task_state_hash: store.transitionRequests[0].task_state_hash,
+        projection_ref: "projection://runtime/runs/run_1",
+        projection_watermark: "runtime-state:1",
+        receipt_refs: ["receipt_policy", "receipt_authority"],
+        artifact_refs: ["artifact_1"],
+        payload_refs: ["payload://runtime/runs/run_1"],
+        transition_hash: "sha256:transition",
+      },
+    },
+  });
+  assert.deepEqual(store.writes.find((write) => write.filePath === "projections/run_1.json").value, {
+    runId: "run_1",
+    projection: "canonical",
+    agentgresTransition: store.writes.find((write) => write.filePath === "tasks/run_1.json").value.agentgresTransition,
   });
   assert.deepEqual(store.operations, []);
+});
+
+test("thread persistence chains run-state transitions from the previous persisted head", () => {
+  const store = fakeStore();
+  store.currentRunStateTransition = () => ({
+    state_root_after: "sha256:previous-state-root",
+    resulting_head: "agentgres://runtime-state/runs/run_1/head/previous",
+  });
+  const run = {
+    id: "run_1",
+    agentId: "agent_1",
+    status: "canceled",
+    events: [{ type: "started" }, { type: "canceled" }],
+    receipts: [{ id: "receipt_cancel", kind: "run_cancel" }],
+    artifacts: [],
+    trace: {
+      taskState: { state: "canceled" },
+      postconditions: [],
+      semanticImpact: { impact: "local" },
+      stopCondition: { reason: "operator_cancel" },
+      scorecard: { score: 1 },
+      qualityLedger: { entries: [] },
+      traceBundleId: "trace_bundle_1",
+    },
+  };
+
+  writeRunRecord(store, run, "run.cancel", deps(store));
+
+  assert.deepEqual(store.transitionRequests[0].expected_heads, [
+    "agentgres://runtime-state/runs/run_1/head/previous",
+  ]);
+  assert.equal(store.transitionRequests[0].state_root_before, "sha256:previous-state-root");
+  assert.equal(
+    store.writes.find((write) => write.filePath === "tasks/run_1.json").value.agentgresTransition.operation_ref,
+    "agentgres://runtime-state/runs/run_1/operations/run.cancel_mock",
+  );
 });

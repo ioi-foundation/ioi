@@ -5,6 +5,8 @@ use sha2::{Digest, Sha256};
 pub const AGENTGRES_ADMISSION_SCHEMA_VERSION: &str = "ioi.agentgres_admission.v1";
 pub const STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION: &str =
     "ioi.storage_backend_write_admission.v1";
+pub const RUNTIME_STATE_TRANSITION_SCHEMA_VERSION: &str =
+    "ioi.agentgres_runtime_state_transition.v1";
 pub const AGENTGRES_OPERATION_EXPECTED_HEADS_NEGATIVE_CONFORMANCE: &str =
     "Agentgres operation append without expected heads/state-root binding fails";
 pub const STORAGE_BACKEND_WRITE_AGENTGRES_REF_NEGATIVE_CONFORMANCE: &str =
@@ -29,6 +31,7 @@ pub enum AgentgresAdmissionError {
     ReceiptBindingReceiptRefsMismatch,
     ReceiptBindingArtifactRefsMismatch,
     ReceiptBindingPayloadRefsMismatch,
+    MissingReceiptRefs,
     StorageBackendWriteMissingAgentgresRef,
     StorageBackendWriteMissingReceipt,
     HashFailed(String),
@@ -100,6 +103,46 @@ pub struct StorageBackendWriteAdmissionRecord {
     pub admission_hash: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeStateTransitionRequest {
+    pub schema_version: String,
+    pub run_id: String,
+    pub operation_kind: String,
+    #[serde(default)]
+    pub expected_heads: Vec<String>,
+    pub state_root_before: String,
+    pub run_state_hash: String,
+    pub task_state_hash: String,
+    pub projection_ref: String,
+    pub projection_watermark: String,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub artifact_refs: Vec<String>,
+    #[serde(default)]
+    pub payload_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeStateTransitionRecord {
+    pub schema_version: String,
+    pub run_id: String,
+    pub operation_kind: String,
+    pub operation_ref: String,
+    pub expected_heads: Vec<String>,
+    pub state_root_before: String,
+    pub state_root_after: String,
+    pub resulting_head: String,
+    pub run_state_hash: String,
+    pub task_state_hash: String,
+    pub projection_ref: String,
+    pub projection_watermark: String,
+    pub receipt_refs: Vec<String>,
+    pub artifact_refs: Vec<String>,
+    pub payload_refs: Vec<String>,
+    pub transition_hash: String,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct AgentgresAdmissionCore;
 
@@ -159,6 +202,50 @@ impl AgentgresAdmissionCore {
         record.admission_hash = storage_write_admission_hash(&record)?;
         Ok(record)
     }
+
+    pub fn plan_runtime_state_transition(
+        &self,
+        request: &RuntimeStateTransitionRequest,
+    ) -> Result<RuntimeStateTransitionRecord, AgentgresAdmissionError> {
+        request.validate()?;
+        let state_root_after = runtime_state_root_after(request)?;
+        let head_suffix = state_root_after
+            .trim_start_matches("sha256:")
+            .chars()
+            .take(24)
+            .collect::<String>();
+        let operation_ref = format!(
+            "agentgres://runtime-state/runs/{}/operations/{}_{}",
+            safe_agentgres_component(&request.run_id),
+            safe_agentgres_component(&request.operation_kind),
+            head_suffix,
+        );
+        let resulting_head = format!(
+            "agentgres://runtime-state/runs/{}/head/{}",
+            safe_agentgres_component(&request.run_id),
+            head_suffix,
+        );
+        let mut record = RuntimeStateTransitionRecord {
+            schema_version: RUNTIME_STATE_TRANSITION_SCHEMA_VERSION.to_string(),
+            run_id: request.run_id.clone(),
+            operation_kind: request.operation_kind.clone(),
+            operation_ref,
+            expected_heads: request.expected_heads.clone(),
+            state_root_before: request.state_root_before.clone(),
+            state_root_after,
+            resulting_head,
+            run_state_hash: request.run_state_hash.clone(),
+            task_state_hash: request.task_state_hash.clone(),
+            projection_ref: request.projection_ref.clone(),
+            projection_watermark: request.projection_watermark.clone(),
+            receipt_refs: request.receipt_refs.clone(),
+            artifact_refs: request.artifact_refs.clone(),
+            payload_refs: request.payload_refs.clone(),
+            transition_hash: String::new(),
+        };
+        record.transition_hash = runtime_state_transition_hash(&record)?;
+        Ok(record)
+    }
 }
 
 impl AgentgresOperationProposal {
@@ -204,6 +291,32 @@ impl StorageBackendWriteProposal {
         }
         if self.receipt_refs.is_empty() {
             return Err(AgentgresAdmissionError::StorageBackendWriteMissingReceipt);
+        }
+        Ok(())
+    }
+}
+
+impl RuntimeStateTransitionRequest {
+    pub fn validate(&self) -> Result<(), AgentgresAdmissionError> {
+        if self.schema_version != RUNTIME_STATE_TRANSITION_SCHEMA_VERSION {
+            return Err(AgentgresAdmissionError::InvalidSchemaVersion {
+                expected: RUNTIME_STATE_TRANSITION_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("run_id", &self.run_id)?;
+        require_non_empty("operation_kind", &self.operation_kind)?;
+        require_non_empty("state_root_before", &self.state_root_before)
+            .map_err(|_| AgentgresAdmissionError::MissingStateRootBefore)?;
+        require_non_empty("run_state_hash", &self.run_state_hash)?;
+        require_non_empty("task_state_hash", &self.task_state_hash)?;
+        require_non_empty("projection_ref", &self.projection_ref)?;
+        require_non_empty("projection_watermark", &self.projection_watermark)?;
+        if self.expected_heads.is_empty() {
+            return Err(AgentgresAdmissionError::MissingExpectedHeads);
+        }
+        if self.receipt_refs.is_empty() {
+            return Err(AgentgresAdmissionError::MissingReceiptRefs);
         }
         Ok(())
     }
@@ -273,6 +386,56 @@ fn storage_write_admission_hash(
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
+fn runtime_state_root_after(
+    request: &RuntimeStateTransitionRequest,
+) -> Result<String, AgentgresAdmissionError> {
+    let canonical = serde_json::json!({
+        "schema_version": RUNTIME_STATE_TRANSITION_SCHEMA_VERSION,
+        "run_id": &request.run_id,
+        "operation_kind": &request.operation_kind,
+        "expected_heads": &request.expected_heads,
+        "state_root_before": &request.state_root_before,
+        "run_state_hash": &request.run_state_hash,
+        "task_state_hash": &request.task_state_hash,
+        "projection_ref": &request.projection_ref,
+        "projection_watermark": &request.projection_watermark,
+        "receipt_refs": &request.receipt_refs,
+        "artifact_refs": &request.artifact_refs,
+        "payload_refs": &request.payload_refs,
+    });
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn runtime_state_transition_hash(
+    record: &RuntimeStateTransitionRecord,
+) -> Result<String, AgentgresAdmissionError> {
+    let mut canonical = record.clone();
+    canonical.transition_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn safe_agentgres_component(value: &str) -> String {
+    let safe = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    if safe.is_empty() {
+        "runtime".to_string()
+    } else {
+        safe
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,6 +482,23 @@ mod tests {
             artifact_refs: vec!["artifact://agentgres/storage-test".to_string()],
             payload_refs: vec![],
             receipt_refs: vec!["receipt://storage/write".to_string()],
+        }
+    }
+
+    fn runtime_state_transition() -> RuntimeStateTransitionRequest {
+        RuntimeStateTransitionRequest {
+            schema_version: RUNTIME_STATE_TRANSITION_SCHEMA_VERSION.to_string(),
+            run_id: "run_1".to_string(),
+            operation_kind: "run.create".to_string(),
+            expected_heads: vec!["agentgres://runtime-state/runs/run_1/head/0".to_string()],
+            state_root_before: "sha256:runtime-state-before".to_string(),
+            run_state_hash: "sha256:run-state".to_string(),
+            task_state_hash: "sha256:task-state".to_string(),
+            projection_ref: "projection://runtime/runs/run_1".to_string(),
+            projection_watermark: "runtime-state:1".to_string(),
+            receipt_refs: vec!["receipt_policy".to_string()],
+            artifact_refs: vec!["artifact_1".to_string()],
+            payload_refs: vec!["payload://runtime/runs/run_1".to_string()],
         }
     }
 
@@ -453,5 +633,53 @@ mod tests {
             error,
             AgentgresAdmissionError::StorageBackendWriteMissingReceipt
         );
+    }
+
+    #[test]
+    fn plans_runtime_state_transition_with_expected_head_and_state_roots() {
+        let record = AgentgresAdmissionCore
+            .plan_runtime_state_transition(&runtime_state_transition())
+            .expect("runtime transition planned");
+
+        assert_eq!(
+            record.schema_version,
+            RUNTIME_STATE_TRANSITION_SCHEMA_VERSION
+        );
+        assert_eq!(
+            record.expected_heads,
+            vec!["agentgres://runtime-state/runs/run_1/head/0"]
+        );
+        assert_eq!(record.state_root_before, "sha256:runtime-state-before");
+        assert_eq!(record.projection_watermark, "runtime-state:1");
+        assert!(record.state_root_after.starts_with("sha256:"));
+        assert!(record
+            .resulting_head
+            .starts_with("agentgres://runtime-state/runs/run_1/head/"));
+        assert!(record.operation_ref.contains("/operations/run.create_"));
+        assert!(record.transition_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn runtime_state_transition_requires_expected_heads_state_root_and_receipts() {
+        let mut request = runtime_state_transition();
+        request.expected_heads.clear();
+        let error = AgentgresAdmissionCore
+            .plan_runtime_state_transition(&request)
+            .expect_err("expected heads are required");
+        assert_eq!(error, AgentgresAdmissionError::MissingExpectedHeads);
+
+        request = runtime_state_transition();
+        request.state_root_before.clear();
+        let error = AgentgresAdmissionCore
+            .plan_runtime_state_transition(&request)
+            .expect_err("state root before is required");
+        assert_eq!(error, AgentgresAdmissionError::MissingStateRootBefore);
+
+        request = runtime_state_transition();
+        request.receipt_refs.clear();
+        let error = AgentgresAdmissionCore
+            .plan_runtime_state_transition(&request)
+            .expect_err("receipt refs are required");
+        assert_eq!(error, AgentgresAdmissionError::MissingReceiptRefs);
     }
 }

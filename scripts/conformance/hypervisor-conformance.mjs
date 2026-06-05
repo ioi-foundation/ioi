@@ -885,6 +885,12 @@ function runReceipts() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
+  const runtimeAgentgresRunner = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
+    : "";
+  const agentgresAdmissionCore = exists("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
+    : "";
   const runtimeRunReadSurface = exists("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     : "";
@@ -1550,6 +1556,40 @@ function runReceipts() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 5/11 is pending: run persistence and read surfaces must not append or expose duplicate daemon-local operation-log records outside Agentgres state projections and admitted receipts",
+  );
+  assertCheck(
+    result,
+    "thread-run-state-transition-rust-planned",
+    /RUNTIME_STATE_TRANSITION_SCHEMA_VERSION/.test(agentgresAdmissionCore) &&
+      /RuntimeStateTransitionRequest/.test(agentgresAdmissionCore) &&
+      /plan_runtime_state_transition/.test(agentgresAdmissionCore) &&
+      /runtime_state_transition_requires_expected_heads_state_root_and_receipts/.test(agentgresAdmissionCore) &&
+      /plan_runtime_run_state_transition/.test(bridgeModule) &&
+      /rust_runtime_agentgres_transition_command/.test(bridgeModule) &&
+      /RustRuntimeAgentgresAdmissionRunner/.test(runtimeAgentgresRunner) &&
+      /planRunStateTransition/.test(runtimeAgentgresRunner) &&
+      /runtime_agentgres_admission_bridge_unconfigured/.test(runtimeAgentgresRunner) &&
+      /createRuntimeAgentgresAdmissionRunnerFromEnv/.test(runtimeDaemonIndex) &&
+      /currentRunStateTransition/.test(runtimeDaemonIndex) &&
+      /planRunStateTransition\(request\)/.test(runtimeDaemonIndex) &&
+      /planRunStateTransition\(store, run, operationKind/.test(threadPersistence) &&
+      /agentgresTransition/.test(threadPersistence) &&
+      /thread persistence chains run-state transitions from the previous persisted head/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /runtime Agentgres runner sends run-state transition bridge request/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-persistence.mjs",
+      "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 5/11 is pending: run persistence must require Rust Agentgres state transition planning with expected heads, state roots, resulting head, and projection watermark before JS writes local state records",
   );
   assertCheck(
     result,

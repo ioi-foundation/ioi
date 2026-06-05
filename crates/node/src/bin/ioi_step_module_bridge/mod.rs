@@ -1,5 +1,6 @@
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
-    AgentgresAdmissionCore, AgentgresOperationProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
+    AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeStateTransitionRequest,
+    AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountCore, ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
@@ -166,6 +167,16 @@ struct ModelMountInvocationReceiptBindingBridgeRequest {
     receipt_ref: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct RuntimeStateTransitionBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: RuntimeStateTransitionRequest,
+}
+
 pub fn run_bridge_response_from_stdin() -> Value {
     match run_bridge() {
         Ok(response) => json!({ "ok": true, "result": response }),
@@ -262,6 +273,11 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             bind_model_mount_invocation_receipt(request)
+        }
+        "plan_runtime_run_state_transition" => {
+            let request: RuntimeStateTransitionBridgeRequest = serde_json::from_value(raw_request)
+                .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_runtime_run_state_transition(request)
         }
         other => Err(BridgeError::new(
             "operation_unsupported",
@@ -850,6 +866,50 @@ fn bind_model_mount_invocation_receipt(
             "rust_receipt_binder_core",
             binding_hash,
             append_hash,
+        ],
+    }))
+}
+
+fn plan_runtime_run_state_transition(
+    request: RuntimeStateTransitionBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_runtime_run_state_transition" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = AgentgresAdmissionCore
+        .plan_runtime_state_transition(&request.request)
+        .map_err(|error| {
+            BridgeError::new("runtime_state_transition_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_runtime_agentgres_transition_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_runtime_agentgres".to_string()),
+        "record": record.clone(),
+        "operation_ref": record.operation_ref.clone(),
+        "expected_heads": record.expected_heads.clone(),
+        "state_root_before": record.state_root_before.clone(),
+        "state_root_after": record.state_root_after.clone(),
+        "resulting_head": record.resulting_head.clone(),
+        "projection_watermark": record.projection_watermark.clone(),
+        "transition_hash": record.transition_hash.clone(),
+        "receipt_refs": record.receipt_refs.clone(),
+        "artifact_refs": record.artifact_refs.clone(),
+        "payload_refs": record.payload_refs.clone(),
+        "evidence_refs": [
+            "rust_agentgres_runtime_state_transition",
+            record.transition_hash,
         ],
     }))
 }
@@ -4068,6 +4128,61 @@ mod tests {
             response["receipt_binding"]["receipt_refs"][0],
             "receipt://receipt.test"
         );
+    }
+
+    #[test]
+    fn bridge_plans_runtime_run_state_transition_through_rust_core() {
+        let request: RuntimeStateTransitionBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_runtime_run_state_transition",
+            "backend": "rust_runtime_agentgres",
+            "request": {
+                "schema_version": "ioi.agentgres_runtime_state_transition.v1",
+                "run_id": "run_1",
+                "operation_kind": "run.create",
+                "expected_heads": ["agentgres://runtime-state/runs/run_1/head/0"],
+                "state_root_before": "sha256:runtime-state-before",
+                "run_state_hash": "sha256:run-state",
+                "task_state_hash": "sha256:task-state",
+                "projection_ref": "projection://runtime/runs/run_1",
+                "projection_watermark": "runtime-state:1",
+                "receipt_refs": ["receipt_policy"],
+                "artifact_refs": ["artifact_1"],
+                "payload_refs": ["payload://runtime/runs/run_1"]
+            }
+        }))
+        .expect("runtime transition bridge request");
+
+        let response =
+            plan_runtime_run_state_transition(request).expect("runtime transition planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_runtime_agentgres_transition_command"
+        );
+        assert_eq!(response["backend"], "rust_runtime_agentgres");
+        assert_eq!(response["record"]["run_id"], "run_1");
+        assert_eq!(
+            response["expected_heads"][0],
+            "agentgres://runtime-state/runs/run_1/head/0"
+        );
+        assert!(response["state_root_after"]
+            .as_str()
+            .expect("state root after")
+            .starts_with("sha256:"));
+        assert!(response["resulting_head"]
+            .as_str()
+            .expect("resulting head")
+            .starts_with("agentgres://runtime-state/runs/run_1/head/"));
+        assert!(response["transition_hash"]
+            .as_str()
+            .expect("transition hash")
+            .starts_with("sha256:"));
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_agentgres_runtime_state_transition"));
     }
 
     #[test]

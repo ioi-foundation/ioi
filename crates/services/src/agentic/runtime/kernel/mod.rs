@@ -29,7 +29,8 @@ pub mod trace;
 
 use agentgres_admission::{
     AgentgresAdmissionCore, AgentgresAdmissionError, AgentgresAdmissionRecord,
-    AgentgresOperationProposal, StorageBackendWriteAdmissionRecord, StorageBackendWriteProposal,
+    AgentgresOperationProposal, RuntimeStateTransitionRecord, RuntimeStateTransitionRequest,
+    StorageBackendWriteAdmissionRecord, StorageBackendWriteProposal,
 };
 use approval::{ApprovalScopeContext, AuthorityScopeMatcher, ScopeMatchDecision};
 use authority::{
@@ -249,6 +250,13 @@ impl RuntimeKernelService {
         proposal: &StorageBackendWriteProposal,
     ) -> Result<StorageBackendWriteAdmissionRecord, AgentgresAdmissionError> {
         AgentgresAdmissionCore.admit_storage_backend_write(proposal)
+    }
+
+    pub fn plan_runtime_state_transition(
+        &self,
+        request: &RuntimeStateTransitionRequest,
+    ) -> Result<RuntimeStateTransitionRecord, AgentgresAdmissionError> {
+        AgentgresAdmissionCore.plan_runtime_state_transition(request)
     }
 
     pub fn validate_private_workspace_ctee_invocation(
