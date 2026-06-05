@@ -693,7 +693,8 @@ function runBridge() {
       /admitModelMountInvocation/.test(modelMountingState) &&
       /modelMountInvocationAdmissionRequestForReceipt/.test(modelInvocationOps) &&
       /model_mount_invocation_receipt_id_required/.test(modelInvocationOps) &&
-      /modelMountInvocationAdmissionRef/.test(modelInvocationOps),
+      /model_mount_invocation_admission_ref/.test(modelInvocationOps) &&
+      !/modelMountInvocationAdmission(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs)?\s*:/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
@@ -713,7 +714,8 @@ function runBridge() {
       /admitModelMountProviderExecution/.test(modelMountingState) &&
       /modelMountProviderExecutionRequestForInvocation/.test(modelInvocationOps) &&
       /model_mount_provider_execution_admission_required/.test(modelInvocationOps) &&
-      /modelMountProviderExecutionRef/.test(modelInvocationOps),
+      /model_mount_provider_execution_ref/.test(modelInvocationOps) &&
+      !/modelMountProviderExecution(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs)?\s*:/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
@@ -912,7 +914,8 @@ function runBridge() {
       /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
       /model_mount_provider_result_admission_required/.test(modelInvocationOps) &&
       /js_provider_driver_observation/.test(modelInvocationOps) &&
-      /modelMountProviderResultAdmissionRef/.test(modelInvocationOps),
+      /model_mount_provider_result_admission_ref/.test(modelInvocationOps) &&
+      !/modelMountProviderResultAdmission(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs|EvidenceRefs)?\s*:/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
@@ -1004,7 +1007,7 @@ function runBridge() {
       /requireModelMountProviderResultAdmission/.test(modelInvocationOps) &&
       /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
       /streamStatus: "started"/.test(modelInvocationOps) &&
-      /modelMountProviderResultAdmissionRef/.test(modelInvocationOps) &&
+      /model_mount_provider_result_admission_ref/.test(modelInvocationOps) &&
       /model_mount_provider_result_admission_required/.test(modelInvocationOps) &&
       !/model\.provider_stream_request_shape/.test(modelInvocationOps) &&
       !/model_provider_stream_request_shape/.test(modelInvocationOps),

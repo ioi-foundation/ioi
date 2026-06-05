@@ -260,7 +260,7 @@ test("recordModelStreamCompleted emits stream receipt and finalizes conversation
   assert.equal(receipt.details.outputHash, "hash:stream answer");
   assert.deepEqual(receipt.details.toolReceiptIds, ["receipt.tool"]);
   assert.equal(receipt.details.providerStreamShapeSummary.framesForwarded, 3);
-  assert.equal(receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/1");
+  assert.equal(receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/1");
   assert.equal(receipt.details.model_mount_receipt_binding_ref, "sha256:binding-1");
   assert.equal(receipt.details.model_mount_agentgres_operation_ref, "agentgres://model-mounting/operation-log/op_00000001_model_invocation_stream_completed");
   assert.equal(receipt.details.model_mount_step_module_invocation.input.state_root_before, "sha256:state-0");

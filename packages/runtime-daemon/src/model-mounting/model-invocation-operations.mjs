@@ -172,8 +172,8 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
       token.grantId,
       ...ephemeralMcp.evidenceRefs,
       ...(providerResult.providerAuthEvidenceRefs ?? []),
-      providerResult.modelMountProviderResultAdmissionRef,
-      ...(providerResult.modelMountProviderResultAdmissionEvidenceRefs ?? []),
+      providerResult.model_mount_provider_result_admission_ref,
+      ...(providerResult.model_mount_provider_result_admission_evidence_refs ?? []),
       "rust_model_mount_core",
       modelMountProviderExecutionAdmission.provider_execution_ref,
       ...(modelMountProviderExecutionAdmission.evidence_refs ?? []),
@@ -404,8 +404,8 @@ export async function startModelStream(state, { authorization, requiredScope, ki
       token.grantId,
       ...ephemeralMcp.evidenceRefs,
       ...(providerResult.providerAuthEvidenceRefs ?? []),
-      providerResult.modelMountProviderResultAdmissionRef,
-      ...(providerResult.modelMountProviderResultAdmissionEvidenceRefs ?? []),
+      providerResult.model_mount_provider_result_admission_ref,
+      ...(providerResult.model_mount_provider_result_admission_evidence_refs ?? []),
       "rust_model_mount_core",
       modelMountProviderExecutionAdmission.provider_execution_ref,
       ...(modelMountProviderExecutionAdmission.evidence_refs ?? []),
@@ -872,26 +872,26 @@ export function modelMountInvocationAgentgresTransitionForReceipt(
 export function withModelMountInvocationAdmission(details, admission) {
   return {
     ...details,
-    modelMountInvocationAdmissionSchemaVersion: "ioi.model_mount.invocation_admission.v1",
-    modelMountInvocationAdmissionRef: admission.invocation_admission_ref,
-    modelMountInvocationAdmissionHash: admission.invocation_admission_hash,
-    modelMountInvocationAdmissionSource: admission.source,
-    modelMountInvocationAdmissionBackend: admission.backend,
-    modelMountInvocationAdmissionReceiptRefs: admission.receipt_refs ?? [],
-    modelMountInvocationAdmission: admission.record,
+    model_mount_invocation_admission_schema_version: "ioi.model_mount.invocation_admission.v1",
+    model_mount_invocation_admission_ref: admission.invocation_admission_ref,
+    model_mount_invocation_admission_hash: admission.invocation_admission_hash,
+    model_mount_invocation_admission_source: admission.source,
+    model_mount_invocation_admission_backend: admission.backend,
+    model_mount_invocation_admission_receipt_refs: admission.receipt_refs ?? [],
+    model_mount_invocation_admission: admission.record,
   };
 }
 
 export function withModelMountProviderExecutionAdmission(details, admission) {
   return {
     ...details,
-    modelMountProviderExecutionSchemaVersion: "ioi.model_mount.provider_execution.v1",
-    modelMountProviderExecutionRef: admission.provider_execution_ref,
-    modelMountProviderExecutionHash: admission.provider_execution_hash,
-    modelMountProviderExecutionSource: admission.source,
-    modelMountProviderExecutionBackend: admission.backend,
-    modelMountProviderExecutionReceiptRefs: admission.receipt_refs ?? [],
-    modelMountProviderExecution: admission.record,
+    model_mount_provider_execution_schema_version: "ioi.model_mount.provider_execution.v1",
+    model_mount_provider_execution_ref: admission.provider_execution_ref,
+    model_mount_provider_execution_hash: admission.provider_execution_hash,
+    model_mount_provider_execution_source: admission.source,
+    model_mount_provider_execution_backend: admission.backend,
+    model_mount_provider_execution_receipt_refs: admission.receipt_refs ?? [],
+    model_mount_provider_execution: admission.record,
   };
 }
 
@@ -1096,14 +1096,14 @@ function textChunksReadableStream(chunks = []) {
 function withModelMountProviderResultAdmission(providerResult, admission) {
   return {
     ...providerResult,
-    modelMountProviderResultAdmissionSchemaVersion: "ioi.model_mount.provider_result.v1",
-    modelMountProviderResultAdmissionRef: admission.provider_result_ref,
-    modelMountProviderResultAdmissionHash: admission.provider_result_hash,
-    modelMountProviderResultAdmissionSource: admission.source,
-    modelMountProviderResultAdmissionBackend: admission.backend,
-    modelMountProviderResultAdmissionReceiptRefs: admission.receipt_refs ?? [],
-    modelMountProviderResultAdmissionEvidenceRefs: admission.evidence_refs ?? [],
-    modelMountProviderResultAdmission: admission.record,
+    model_mount_provider_result_admission_schema_version: "ioi.model_mount.provider_result.v1",
+    model_mount_provider_result_admission_ref: admission.provider_result_ref,
+    model_mount_provider_result_admission_hash: admission.provider_result_hash,
+    model_mount_provider_result_admission_source: admission.source,
+    model_mount_provider_result_admission_backend: admission.backend,
+    model_mount_provider_result_admission_receipt_refs: admission.receipt_refs ?? [],
+    model_mount_provider_result_admission_evidence_refs: admission.evidence_refs ?? [],
+    model_mount_provider_result_admission: admission.record,
     backendEvidenceRefs: uniqueRefs([
       ...(providerResult.backendEvidenceRefs ?? []),
       admission.provider_result_ref,
@@ -1240,15 +1240,17 @@ function invocationReceiptDetails({
     authVaultRefHash: providerResult.authVaultRefHash ?? null,
     providerAuthEvidenceRefs: providerResult.providerAuthEvidenceRefs ?? [],
     providerAuthHeaderNames: providerResult.providerAuthHeaderNames ?? [],
-    modelMountProviderResultAdmissionSchemaVersion: providerResult.modelMountProviderResultAdmissionSchemaVersion ?? null,
-    modelMountProviderResultAdmissionRef: providerResult.modelMountProviderResultAdmissionRef ?? null,
-    modelMountProviderResultAdmissionHash: providerResult.modelMountProviderResultAdmissionHash ?? null,
-    modelMountProviderResultAdmissionSource: providerResult.modelMountProviderResultAdmissionSource ?? null,
-    modelMountProviderResultAdmissionBackend: providerResult.modelMountProviderResultAdmissionBackend ?? null,
-    modelMountProviderResultAdmissionReceiptRefs: providerResult.modelMountProviderResultAdmissionReceiptRefs ?? [],
-    modelMountProviderResultAdmissionEvidenceRefs:
-      providerResult.modelMountProviderResultAdmissionEvidenceRefs ?? [],
-    modelMountProviderResultAdmission: providerResult.modelMountProviderResultAdmission ?? null,
+    model_mount_provider_result_admission_schema_version:
+      providerResult.model_mount_provider_result_admission_schema_version ?? null,
+    model_mount_provider_result_admission_ref: providerResult.model_mount_provider_result_admission_ref ?? null,
+    model_mount_provider_result_admission_hash: providerResult.model_mount_provider_result_admission_hash ?? null,
+    model_mount_provider_result_admission_source: providerResult.model_mount_provider_result_admission_source ?? null,
+    model_mount_provider_result_admission_backend: providerResult.model_mount_provider_result_admission_backend ?? null,
+    model_mount_provider_result_admission_receipt_refs:
+      providerResult.model_mount_provider_result_admission_receipt_refs ?? [],
+    model_mount_provider_result_admission_evidence_refs:
+      providerResult.model_mount_provider_result_admission_evidence_refs ?? [],
+    model_mount_provider_result_admission: providerResult.model_mount_provider_result_admission ?? null,
     toolReceiptIds: ephemeralMcp.toolReceiptIds,
     ephemeralMcpServerIds: ephemeralMcp.serverIds,
     responseId,

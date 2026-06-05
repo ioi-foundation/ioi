@@ -423,10 +423,10 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(result.receipt.kind, "model_invocation");
   assert.equal(result.receipt.id, "receipt.1.model_invocation");
   assert.equal(result.receipt.details.routeId, "route.local-first");
-  assert.equal(result.receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/1");
-  assert.equal(result.receipt.details.modelMountInvocationAdmission.route_decision_ref, "model_mount://route_decision/test");
-  assert.equal(result.receipt.details.modelMountProviderExecutionRef, "model_mount://provider_execution/1");
-  assert.equal(result.receipt.details.modelMountProviderExecution.request_hash.startsWith("sha256:"), true);
+  assert.equal(result.receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/1");
+  assert.equal(result.receipt.details.model_mount_invocation_admission.route_decision_ref, "model_mount://route_decision/test");
+  assert.equal(result.receipt.details.model_mount_provider_execution_ref, "model_mount://provider_execution/1");
+  assert.equal(result.receipt.details.model_mount_provider_execution.request_hash.startsWith("sha256:"), true);
   assert.equal(result.receipt.details.model_mount_receipt_binding_ref, "sha256:binding-1");
   assert.equal(result.receipt.details.model_mount_accepted_receipt_append_hash, "sha256:append-1");
   assert.equal(result.receipt.details.model_mount_step_module_invocation.input.state_root_before, "sha256:state-0");
@@ -440,6 +440,8 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(Object.hasOwn(result.receipt.details, "modelMountReceiptBindingRef"), false);
   assert.equal(Object.hasOwn(result.receipt.details, "modelMountAgentgresAdmission"), false);
   assert.equal(Object.hasOwn(result.receipt.details, "modelMountStepModuleResult"), false);
+  assert.equal(Object.hasOwn(result.receipt.details, "modelMountInvocationAdmissionRef"), false);
+  assert.equal(Object.hasOwn(result.receipt.details, "modelMountProviderExecutionRef"), false);
   assert.equal(state.receiptBindingRequests[0].receiptRef, "receipt://receipt.1.model_invocation");
   assert.equal(state.providerExecutionRequests[0].route_decision_ref, "model_mount://route_decision/test");
   assert.equal(state.providerExecutionRequests[0].route_receipt_ref, "receipt://receipt.route");
@@ -450,7 +452,7 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.deepEqual(state.receiptBindingRequests[0].expectedHeads, [
     "agentgres://model-mounting/operation-log/head/0",
   ]);
-  assert.deepEqual(result.receipt.details.modelMountInvocationAdmissionReceiptRefs, [
+  assert.deepEqual(result.receipt.details.model_mount_invocation_admission_receipt_refs, [
     "receipt://receipt.route",
     "receipt://receipt.1.model_invocation",
     "receipt://receipt.tool",
@@ -559,8 +561,8 @@ test("invokeModel reuses identical in-flight provider execution and marks coales
   assert.equal(secondResult.receipt.kind, "model_invocation_coalesced");
   assert.equal(secondResult.receipt.details.coalesced, true);
   assert.equal(secondResult.receipt.details.coalesceKeyHash, "hash:coalesce-key");
-  assert.equal(secondResult.receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/2");
-  assert.equal(secondResult.receipt.details.modelMountProviderExecutionRef, "model_mount://provider_execution/1");
+  assert.equal(secondResult.receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/2");
+  assert.equal(secondResult.receipt.details.model_mount_provider_execution_ref, "model_mount://provider_execution/1");
   assert.equal(secondResult.receipt.details.model_mount_receipt_binding_ref, "sha256:binding-2");
   assert.equal(secondResult.receipt.details.model_mount_step_module_result.agentgres_operation_refs[0], "agentgres://model-mounting/operation-log/op_00000002_model_invocation_coalesced");
   assert.equal(state.inflightModelInvocations.size, 0);
@@ -616,17 +618,18 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(result.invocation.responseId, "resp.stream");
   assert.equal(result.invocation.receipt.details.streamStatus, "started");
   assert.equal(result.invocation.receipt.details.streamSource, "provider_native");
-  assert.equal(result.invocation.receipt.details.modelMountInvocationAdmissionRef, "model_mount://invocation_admission/1");
-  assert.equal(result.invocation.receipt.details.modelMountProviderExecutionRef, "model_mount://provider_execution/1");
-  assert.equal(result.invocation.receipt.details.modelMountProviderResultAdmissionRef, "model_mount://provider_result/1");
-  assert.equal(result.invocation.receipt.details.modelMountProviderResultAdmissionHash, "sha256:provider-result-1");
-  assert.equal(result.invocation.receipt.details.modelMountProviderResultAdmission.stream_status, "started");
-  assert.equal(result.invocation.receipt.details.modelMountInvocationAdmission.stream_status, "started");
+  assert.equal(result.invocation.receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/1");
+  assert.equal(result.invocation.receipt.details.model_mount_provider_execution_ref, "model_mount://provider_execution/1");
+  assert.equal(result.invocation.receipt.details.model_mount_provider_result_admission_ref, "model_mount://provider_result/1");
+  assert.equal(result.invocation.receipt.details.model_mount_provider_result_admission_hash, "sha256:provider-result-1");
+  assert.equal(result.invocation.receipt.details.model_mount_provider_result_admission.stream_status, "started");
+  assert.equal(result.invocation.receipt.details.model_mount_invocation_admission.stream_status, "started");
   assert.equal(result.invocation.receipt.details.model_mount_receipt_binding_ref, "sha256:binding-1");
   assert.equal(result.invocation.receipt.details.model_mount_accepted_receipt_append.receipt_ref, "receipt://receipt.1.model_invocation");
   assert.equal(result.invocation.receipt.details.model_mount_agentgres_admission.operation_ref, "agentgres://model-mounting/operation-log/op_00000001_model_invocation");
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "modelMountAcceptedReceiptAppend"), false);
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "modelMountAgentgresOperationRef"), false);
+  assert.equal(Object.hasOwn(result.invocation.receipt.details, "modelMountProviderResultAdmissionRef"), false);
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "coalesced"), false);
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "sendOptions"), false);
   assert.deepEqual(state.appendOperations, []);
@@ -1444,11 +1447,11 @@ test("invokeModel keeps unmigrated provider drivers behind provider execution ad
   assert.equal(state.providerResultRequests[0].provider_execution_ref, "model_mount://provider_execution/1");
   assert.equal(state.providerResultRequests[0].execution_backend, "js_provider_driver_observation");
   assert.equal(result.outputText, "hosted provider answer");
-  assert.equal(result.receipt.details.modelMountProviderExecutionRef, "model_mount://provider_execution/1");
-  assert.equal(result.receipt.details.modelMountProviderResultAdmissionRef, "model_mount://provider_result/1");
-  assert.equal(result.receipt.details.modelMountProviderResultAdmissionHash, "sha256:provider-result-1");
+  assert.equal(result.receipt.details.model_mount_provider_execution_ref, "model_mount://provider_execution/1");
+  assert.equal(result.receipt.details.model_mount_provider_result_admission_ref, "model_mount://provider_result/1");
+  assert.equal(result.receipt.details.model_mount_provider_result_admission_hash, "sha256:provider-result-1");
   assert.equal(
-    result.receipt.details.modelMountProviderResultAdmission.execution_backend,
+    result.receipt.details.model_mount_provider_result_admission.execution_backend,
     "js_provider_driver_observation",
   );
   assert.ok(result.receipt.evidenceRefs.includes("model_mount://provider_result/1"));
