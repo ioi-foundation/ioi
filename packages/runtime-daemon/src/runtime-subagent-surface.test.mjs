@@ -12,6 +12,7 @@ function createStore() {
     parentAgent,
     agents: new Map([[parentAgent.id, parentAgent]]),
     events: [],
+    eventInputs: [],
     writes: [],
     runs: new Map([
       ["run_1", {
@@ -146,6 +147,7 @@ function createStore() {
       return canceled;
     },
     appendThreadSubagentControlEvent(input) {
+      this.eventInputs.push(input);
       return this.surface.appendThreadSubagentControlEvent(this, input);
     },
     subagentProjection(record) {
@@ -261,6 +263,10 @@ function assertCanonicalSubagentStoreWrites(store) {
   for (const write of store.writes) {
     assertCanonicalSubagentRecordOutput(write.record);
   }
+}
+
+function assertCanonicalPostSpawnSubagentLifecycleStagingRecord(record) {
+  assertCanonicalSubagentRecordOutput(record);
 }
 
 function assertNoOwnKeys(record, keys) {
@@ -615,6 +621,7 @@ test("subagent surface waits, persists status, and returns result envelope", () 
   assert.deepEqual(result.receipt_refs, result.event.receipt_refs);
   assertNoOwnKeys(result, retiredSubagentLifecycleResultEnvelopeAliasKeys);
   assert.equal(store.writes[0].operationKind, "subagent.wait");
+  assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
   assert.equal(store.subagents.get("subagent_1").waited_at, "2026-06-04T12:30:00.000Z");
   assertCanonicalSubagentRecordOutput(store.subagents.get("subagent_1"));
   assertCanonicalSubagentStoreWrites(store);
@@ -670,6 +677,7 @@ test("subagent surface sends input, persists history, and returns event", () => 
   assert.match(result.event.receipt_refs[1], /^receipt_subagent_send_input_/);
   assert.equal(result.result.result, "Created response: Follow up");
   assert.equal(store.writes[0].operationKind, "subagent.input");
+  assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
   assert.equal(saved.input_history[0].message, "Follow up");
   assertNoOwnKeys(saved.input_history[0], retiredSubagentNestedInputAliasKeys);
   assert.equal(saved.last_input_at, "2026-06-04T12:45:00.000Z");
@@ -809,6 +817,7 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
   assertNoOwnKeys(result, retiredSubagentLifecycleResultEnvelopeAliasKeys);
   assert.equal(result.result, "Created response: Try again");
   assert.equal(store.writes[0].operationKind, "subagent.resume");
+  assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
   assert.equal(saved.cancellation, null);
   assert.equal(saved.cancellation_reason, null);
   assert.equal(saved.cancellation_cleared_at, "2026-06-04T13:10:00.000Z");
@@ -867,6 +876,7 @@ test("subagent surface persists blocked resume and throws budget policy error", 
   const saved = store.subagents.get("subagent_1");
 
   assert.equal(store.writes[0].operationKind, "subagent.resume");
+  assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
   assert.equal(saved.lifecycle_status, "blocked");
   assert.equal(saved.block_reason, "subagent_budget_exceeded");
   assert.equal(saved.resume_event_id, "evt_1");
@@ -916,6 +926,7 @@ test("subagent surface assigns role metadata and persists assignment history", (
   assert.equal(result.event.receipt_refs[0], "receipt_assign_request");
   assert.match(result.event.receipt_refs[1], /^receipt_subagent_assign_/);
   assert.equal(store.writes[0].operationKind, "subagent.assign");
+  assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
   assert.equal(saved.role, "auditor");
   assert.ok(saved.evidence_refs.includes("runtime.subagent.assign"));
   assertNoOwnKeys(saved.assignment_history[0], retiredSubagentNestedAssignmentAliasKeys);
@@ -959,6 +970,7 @@ test("subagent surface cancels subagents with inherited cancellation metadata", 
   assert.deepEqual(result.receipt_refs, result.event.receipt_refs);
   assertNoOwnKeys(result, retiredSubagentLifecycleResultEnvelopeAliasKeys);
   assert.equal(store.writes[0].operationKind, "subagent.cancel");
+  assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
   assert.deepEqual(saved.receipt_refs, [
     "receipt_run_1",
     "receipt_run_1_canceled",
@@ -1020,6 +1032,7 @@ test("subagent surface propagates parent cancellation and reports skipped childr
   assertNoOwnKeys(saved.cancellation, retiredSubagentNestedCancellationAliasKeys);
   assertCanonicalSubagentRecordOutput(saved);
   assertCanonicalSubagentStoreWrites(store);
+  assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
   assert.equal(store.events[0].workflow_node_id, "runtime.subagent.cancel.propagated.reviewer");
   assert.equal(store.writes[0].operationKind, "subagent.cancel");
 });
