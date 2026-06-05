@@ -42,7 +42,6 @@ export interface RuntimeCodingToolControlRequestBody {
     warn_at_ratio: number;
   };
   budget_usage_telemetry: unknown | null;
-  budgetUsageTelemetry: unknown | null;
   requires_approval: boolean;
   requiresApproval: boolean;
   approval_mode: string;
@@ -266,7 +265,6 @@ export function createRuntimeCodingToolControlRequest(
         warn_at_ratio: warnAtRatio,
       },
       budget_usage_telemetry: budgetUsageTelemetry,
-      budgetUsageTelemetry,
       requires_approval: requiresApproval,
       requiresApproval,
       approval_mode: approvalMode,

@@ -130,7 +130,7 @@ test("run-inspector telemetry evidence materializes and binds a budget chain", (
     "event-context-run-inspector",
   );
   assert.equal(
-    (codingRequest.body.budgetUsageTelemetry as any).total_tokens,
+    (codingRequest.body.budget_usage_telemetry as any).total_tokens,
     3500,
   );
 });

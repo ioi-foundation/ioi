@@ -151,7 +151,7 @@ function requestCompilationChecks(subflow) {
       codingRequest.body.budgetMode === "block" &&
       codingRequest.body.toolPack.coding.budgetUsageField ===
         "runtimeTelemetrySummary" &&
-      codingRequest.body.budgetUsageTelemetry?.total_tokens === 2500,
+      codingRequest.body.budget_usage_telemetry?.total_tokens === 2500,
   };
 }
 

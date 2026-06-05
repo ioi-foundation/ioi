@@ -202,7 +202,7 @@ test("runtime telemetry source binding quick-fix wires selected summary into run
     "ioi.workflow.runtime-telemetry-source-binding.v1",
   );
   assert.equal(
-    (codingRequest.body.budgetUsageTelemetry as any)
+    (codingRequest.body.budget_usage_telemetry as any)
       .runtimeTelemetrySummarySchemaVersion,
     "ioi.workflow.runtime-telemetry-summary.v1",
   );
@@ -220,7 +220,7 @@ test("runtime telemetry source binding quick-fix wires selected summary into run
     },
     { workflowGraphId: result.workflow.metadata.id },
   );
-  assert.equal((liveCodingRequest.body.budgetUsageTelemetry as any).total_tokens, 3333);
+  assert.equal((liveCodingRequest.body.budget_usage_telemetry as any).total_tokens, 3333);
   assert.equal(codingRequest.body.toolPack.coding.budgetUsageField, "runtimeTelemetrySummary");
 
   const nextReadiness = evaluateWorkflowActivationReadiness(

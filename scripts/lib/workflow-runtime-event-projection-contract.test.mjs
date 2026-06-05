@@ -1127,6 +1127,19 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(codingToolControlNodes, /budgetUsageTelemetry/);
   assert.match(codingToolControlNodes, /budgetUsageTelemetryField/);
   assert.match(codingToolControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
+  assert.doesNotMatch(
+    codingToolControlNodes,
+    /^\s*budgetUsageTelemetry:\s*unknown \| null;$/m,
+  );
+  assert.doesNotMatch(codingToolControlNodes, /^\s*budgetUsageTelemetry,?\s*$/m);
+  assert.match(
+    codingToolControlNodes,
+    /budget_usage_telemetry:\s*budgetUsageTelemetry/,
+  );
+  assert.match(
+    codingToolControlNodesTest,
+    /hasOwnProperty\.call\(request\.body,\s*"budgetUsageTelemetry"\)/,
+  );
   assert.match(telemetrySourceBinding, /bindWorkflowRuntimeTelemetrySourceToWorkflow/);
   assert.match(telemetrySourceBinding, /runtime_usage_meter/);
   assert.match(telemetrySourceBinding, /runtime_context_budget/);

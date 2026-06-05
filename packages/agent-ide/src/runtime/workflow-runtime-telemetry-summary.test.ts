@@ -253,7 +253,7 @@ test("workflow runtime telemetry summary folds TUI coding-tool budget rows into 
     },
     { workflowGraphId: "workflow.react-flow.coding-tool-summary-budget" },
   );
-  const budgetUsageTelemetry = control.body.budgetUsageTelemetry as Record<
+  const budgetUsageTelemetry = control.body.budget_usage_telemetry as Record<
     string,
     unknown
   >;

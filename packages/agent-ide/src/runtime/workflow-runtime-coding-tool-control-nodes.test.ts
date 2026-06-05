@@ -155,7 +155,7 @@ test("workflow coding-tool pack binding compiles runtime telemetry summary budge
   assert.equal(request.body.toolPack.coding.budgetUsageField, "runtimeTelemetrySummary");
   assert.equal(request.body.toolPack.coding.budget_mode, "block");
 
-  const budgetUsageTelemetry = request.body.budgetUsageTelemetry as Record<
+  const budgetUsageTelemetry = request.body.budget_usage_telemetry as Record<
     string,
     unknown
   >;
@@ -163,5 +163,8 @@ test("workflow coding-tool pack binding compiles runtime telemetry summary budge
   assert.equal(budgetUsageTelemetry.estimated_cost_usd, 0.0042);
   assert.equal(budgetUsageTelemetry.context_pressure, 0.72);
   assert.equal(budgetUsageTelemetry.runtimeTelemetrySummarySchemaVersion, "ioi.workflow.runtime-telemetry-summary.v1");
-  assert.deepEqual(request.body.budget_usage_telemetry, request.body.budgetUsageTelemetry);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(request.body, "budgetUsageTelemetry"),
+    false,
+  );
 });

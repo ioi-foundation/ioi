@@ -2473,7 +2473,7 @@ test("React Flow coding-tool budget gates consume runtime telemetry summary befo
       { workflowGraphId, actor: "workflow-author" },
     );
     assert.equal(control.body.budgetMode, "block");
-    assert.equal(control.body.budgetUsageTelemetry.total_tokens, 720);
+    assert.equal(control.body.budget_usage_telemetry.total_tokens, 720);
     assert.equal(control.body.thresholds.maxTotalTokens, 100);
 
     const blocked = await fetchJsonStatus(`${daemon.endpoint}${control.endpoint}`, {
@@ -2661,9 +2661,9 @@ test("React Flow coding-tool budget gates consume runtime telemetry summary befo
       { threadId: thread.thread_id, runtimeTelemetrySummary: tuiTelemetrySummary },
       { workflowGraphId, actor: "workflow-author" },
     );
-    assert.equal(followupControl.body.budgetUsageTelemetry.total_tokens, 720);
+    assert.equal(followupControl.body.budget_usage_telemetry.total_tokens, 720);
     assert.ok(
-      followupControl.body.budgetUsageTelemetry.source_refs.includes(
+      followupControl.body.budget_usage_telemetry.source_refs.includes(
         budgetEvent.event_id,
       ),
     );
@@ -8245,9 +8245,9 @@ test("React Flow bound telemetry-source chain executes with graph and node ident
       codingRequest.body.toolPack.coding.telemetrySourceBinding.schemaVersion,
       WORKFLOW_RUNTIME_TELEMETRY_SOURCE_BINDING_SCHEMA_VERSION,
     );
-    assert.ok(codingRequest.body.budgetUsageTelemetry.total_tokens >= 1);
+    assert.ok(codingRequest.body.budget_usage_telemetry.total_tokens >= 1);
     assert.ok(
-      codingRequest.body.budgetUsageTelemetry.source_refs.includes(
+      codingRequest.body.budget_usage_telemetry.source_refs.includes(
         policyResult.event_id,
       ),
     );
@@ -8669,7 +8669,7 @@ test("React Flow run-inspector-created telemetry budget chain executes with grap
     );
     assert.equal(codingRequest.body.workflowNodeId, chainIds.budgetGateNodeId);
     assert.ok(
-      codingRequest.body.budgetUsageTelemetry.source_refs.includes(
+      codingRequest.body.budget_usage_telemetry.source_refs.includes(
         policyResult.event_id,
       ),
     );
@@ -14369,6 +14369,18 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeCodingToolControlNodes, /budgetUsageTelemetry/);
   assert.match(workflowRuntimeCodingToolControlNodes, /budgetUsageTelemetryField/);
   assert.match(workflowRuntimeCodingToolControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
+  assert.doesNotMatch(
+    workflowRuntimeCodingToolControlNodes,
+    /^\s*budgetUsageTelemetry:\s*unknown \| null;$/m,
+  );
+  assert.doesNotMatch(
+    workflowRuntimeCodingToolControlNodes,
+    /^\s*budgetUsageTelemetry,?\s*$/m,
+  );
+  assert.match(
+    workflowRuntimeCodingToolControlNodes,
+    /budget_usage_telemetry:\s*budgetUsageTelemetry/,
+  );
   assert.ok(
     workflowRuntimeCodingToolControlNodes.indexOf(
       "valueAtPath(params.input, budgetUsageField)",

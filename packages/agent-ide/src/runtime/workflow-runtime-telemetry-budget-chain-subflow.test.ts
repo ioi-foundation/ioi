@@ -209,7 +209,7 @@ test("generated telemetry budget chain nodes compile into daemon requests", () =
   assert.equal(codingRequest.body.toolPack.coding.pack, "coding");
   assert.equal(codingRequest.body.toolPack.coding.budgetUsageField, "runtimeTelemetrySummary");
   assert.equal(
-    (codingRequest.body.budgetUsageTelemetry as Record<string, unknown>)
+    (codingRequest.body.budget_usage_telemetry as Record<string, unknown>)
       .total_tokens,
     2500,
   );

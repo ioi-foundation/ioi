@@ -3240,6 +3240,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts")
     : "";
+  const agentIdeCodingToolControlNodes = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts")
+    : "";
+  const agentIdeCodingToolControlNodesTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts")
+    : "";
   const agentIdeTelemetrySourceBinding = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
   )
@@ -3633,6 +3643,27 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts",
     ],
     "Phase 10/11 is pending: IDE context-budget control nodes must send canonical usage_telemetry without retired usage request aliases",
+  );
+  assertCheck(
+    result,
+    "ide-coding-tool-budget-usage-request-output-alias-retired",
+    !/^\s*budgetUsageTelemetry:\s*unknown \| null;$/m.test(
+      agentIdeCodingToolControlNodes,
+    ) &&
+      !/^\s*budgetUsageTelemetry,?\s*$/m.test(
+        agentIdeCodingToolControlNodes,
+      ) &&
+      /budget_usage_telemetry:\s*budgetUsageTelemetry/.test(
+        agentIdeCodingToolControlNodes,
+      ) &&
+      /hasOwnProperty\.call\(request\.body,\s*"budgetUsageTelemetry"\)/.test(
+        agentIdeCodingToolControlNodesTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE coding-tool control request bodies must emit canonical budget_usage_telemetry without duplicate budgetUsageTelemetry",
   );
   assertCheck(
     result,
