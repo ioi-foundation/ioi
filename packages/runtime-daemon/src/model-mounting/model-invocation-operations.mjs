@@ -1024,12 +1024,19 @@ function nativeLocalProviderInvocationSelected(selection = {}) {
 }
 
 function rejectProviderCompatTranslation(providerResult = {}) {
-  const compatTranslation = optionalRef(providerResult.compatTranslation ?? providerResult.compat_translation);
-  if (!compatTranslation) return;
+  const retiredAliases = ["compatTranslation"].filter((field) => Object.hasOwn(providerResult, field));
+  const compatTranslation = optionalRef(providerResult.compat_translation);
+  const retiredCompatTranslation = optionalRef(providerResult.compatTranslation);
+  if (retiredAliases.length === 0 && !compatTranslation) return;
   const error = new Error("Model provider compatibility translations are retired; provider results must match the admitted invocation kind.");
   error.status = 500;
   error.code = "model_mount_provider_compat_translation_forbidden";
-  error.details = { compatTranslation };
+  error.details = {
+    ...(compatTranslation || retiredCompatTranslation
+      ? { compat_translation: compatTranslation ?? retiredCompatTranslation }
+      : {}),
+    ...(retiredAliases.length > 0 ? { retired_aliases: retiredAliases } : {}),
+  };
   throw error;
 }
 

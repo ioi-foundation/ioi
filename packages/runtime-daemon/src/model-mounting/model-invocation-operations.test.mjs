@@ -946,7 +946,11 @@ test("startModelStream rejects provider compatibility translations before admiss
         },
         deps(),
       ),
-    (error) => error.code === "model_mount_provider_compat_translation_forbidden",
+    (error) =>
+      error.code === "model_mount_provider_compat_translation_forbidden" &&
+      error.details.compat_translation === "chat_completions" &&
+      error.details.retired_aliases.includes("compatTranslation") &&
+      Object.hasOwn(error.details, "compatTranslation") === false,
   );
   assert.equal(streamCalls, 0);
   assert.equal(state.providerExecutionRequests.length, 1);
@@ -1520,7 +1524,7 @@ test("invokeModel rejects provider compatibility translations before result admi
         return {
           outputText: "translated provider answer",
           providerResponseKind: "openai.chat",
-          compatTranslation: "chat_completions",
+          compat_translation: "chat_completions",
           tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
         };
       },
@@ -1554,7 +1558,11 @@ test("invokeModel rejects provider compatibility translations before result admi
         },
         deps(),
       ),
-    (error) => error.code === "model_mount_provider_compat_translation_forbidden",
+    (error) =>
+      error.code === "model_mount_provider_compat_translation_forbidden" &&
+      error.details.compat_translation === "chat_completions" &&
+      Object.hasOwn(error.details, "compatTranslation") === false &&
+      Object.hasOwn(error.details, "retired_aliases") === false,
   );
   assert.equal(providerCalls, 1);
   assert.equal(state.providerExecutionRequests.length, 1);

@@ -1899,10 +1899,20 @@ function runBridge() {
     result,
     "model-mount-provider-compat-translation-receipt-retired",
     /model_mount_provider_compat_translation_forbidden/.test(modelInvocationOps) &&
+      /const compatTranslation = optionalRef\(providerResult\.compat_translation\)/.test(modelInvocationOps) &&
+      /retired_aliases: retiredAliases/.test(modelInvocationOps) &&
+      !/providerResult\.compatTranslation\s*\?\?\s*providerResult\.compat_translation/.test(modelInvocationOps) &&
       !/compatTranslation:\s*providerResult\.compatTranslation/.test(modelInvocationOps) &&
+      !/error\.details = \{ compatTranslation \}/.test(modelInvocationOps) &&
       !/compat_translation:\s*invocation\.compatTranslation/.test(openAiCompatRoutes) &&
       !/compatTranslation\??:/.test(agentSdkModelMounts) &&
       /rejects provider compatibility translations before result admission/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
+      /retired_aliases\.includes\("compatTranslation"\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*"compatTranslation"\)\s*===\s*false/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
       /rejects provider compatibility translations before admission/.test(
