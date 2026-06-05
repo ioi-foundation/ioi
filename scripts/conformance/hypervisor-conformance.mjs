@@ -351,6 +351,9 @@ function runBridge() {
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
+  const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
+    ? read("packages/runtime-daemon/src/index.mjs")
+    : "";
   const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
     ? read("packages/runtime-daemon/src/model-mounting.mjs")
     : "";
@@ -374,9 +377,6 @@ function runBridge() {
     : "";
   const codingTools = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
-    : "";
-  const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
-    ? read("packages/runtime-daemon/src/index.mjs")
     : "";
   const governedImprovementRunner = exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs")
@@ -2250,6 +2250,18 @@ function runCtee() {
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
+  const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
+    ? read("packages/runtime-daemon/src/index.mjs")
+    : "";
+  const cteePrivateWorkspaceRunner = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
+    : "";
+  const cteePrivateWorkspaceRunnerTest = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs")
+    : "";
+  const cteePrivateWorkspaceStoreTest = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-store.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-store.test.mjs")
+    : "";
   assertCheck(
     result,
     "ctee-core-module",
@@ -2297,6 +2309,33 @@ function runCtee() {
       /bridge_executes_private_workspace_ctee_action_through_rust_core/.test(bridgeModule),
     ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
     "Phase 7 is pending: daemon command bridge must expose Rust cTEE execution with receipt/admission/projection artifacts",
+  );
+  assertCheck(
+    result,
+    "ctee-daemon-runner",
+    /CTEE_PRIVATE_WORKSPACE_COMMAND_ENV/.test(cteePrivateWorkspaceRunner) &&
+      /IOI_CTEE_PRIVATE_WORKSPACE_COMMAND/.test(cteePrivateWorkspaceRunner) &&
+      /RustCteePrivateWorkspaceRunner/.test(cteePrivateWorkspaceRunner) &&
+      /createCteePrivateWorkspaceRunnerFromEnv/.test(cteePrivateWorkspaceRunner) &&
+      /createCteePrivateWorkspaceRunnerFromEnv/.test(runtimeDaemonIndex) &&
+      /this\.cteePrivateWorkspaceRunner/.test(runtimeDaemonIndex) &&
+      /executeAction/.test(cteePrivateWorkspaceRunner) &&
+      /execute_private_workspace_ctee_action/.test(cteePrivateWorkspaceRunner) &&
+      /ctee_operator/.test(cteePrivateWorkspaceRunner) &&
+      /ctee_private_workspace_bridge_unconfigured/.test(cteePrivateWorkspaceRunner) &&
+      /cTEE private workspace runner sends execution bridge request/.test(cteePrivateWorkspaceRunnerTest) &&
+      /cTEE private workspace runner fails closed without command/.test(cteePrivateWorkspaceRunnerTest) &&
+      /cTEE private workspace runner surfaces Rust execution rejection/.test(cteePrivateWorkspaceRunnerTest) &&
+      /runtime store mounts cTEE private workspace runner from options/.test(
+        cteePrivateWorkspaceStoreTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-store.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 7 is pending: daemon cTEE Private Workspace facade must call the Rust cTEE bridge and fail closed when unconfigured",
   );
   return result;
 }
