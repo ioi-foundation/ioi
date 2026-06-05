@@ -441,8 +441,7 @@ export function createRuntimeSubagentSurface({
           request.message ??
           request.prompt ??
           request.text ??
-          request.subagent_input ??
-          request.subagentInput,
+          request.subagent_input,
       );
       if (!message) {
         throw runtimeErrorDep({
@@ -492,8 +491,8 @@ export function createRuntimeSubagentSurface({
         created_at: now,
         actor: optionalStringDep(request.actor) ?? "operator",
         source: operatorControlSourceDep(request.source),
-        workflow_graph_id: optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
-        workflow_node_id: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
+        workflow_graph_id: optionalStringDep(request.workflow_graph_id) ?? null,
+        workflow_node_id: optionalStringDep(request.workflow_node_id) ?? null,
       };
       const inputHistory = [...normalizeArray(record.input_history), inputRecord];
       const lifecycleStatus =

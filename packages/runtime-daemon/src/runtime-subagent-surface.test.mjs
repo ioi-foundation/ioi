@@ -981,6 +981,43 @@ test("subagent surface sends input, persists history, and returns event", () => 
   assert.ok(saved.evidence_refs.includes("run_created_3"));
 });
 
+test("subagent send input ignores retired camelCase request aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T12:46:00.000Z",
+    nowMs: () => 1780587360000,
+  });
+  store.surface = surface;
+
+  assert.throws(
+    () =>
+      surface.sendSubagentInput(store, "thread_1", "subagent_1", {
+        subagentInput: "Alias-only follow up",
+      }),
+    (error) =>
+      error.status === 400 &&
+      error.code === "subagent_input_required" &&
+      (assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys), true),
+  );
+
+  const result = surface.sendSubagentInput(store, "thread_1", "subagent_1", {
+    source: "agent_studio",
+    input: "Canonical follow up",
+    subagentInput: "Alias follow up",
+    workflow_graph_id: "graph_input_canonical",
+    workflow_node_id: "node_input_canonical",
+    workflowGraphId: "graph_input_alias",
+    workflowNodeId: "node_input_alias",
+  });
+
+  assert.equal(result.input.message, "Canonical follow up");
+  assert.equal(result.event.workflow_graph_id, "graph_input_canonical");
+  assert.equal(result.event.workflow_node_id, "node_input_canonical");
+  assert.equal(result.input.workflow_graph_id, "graph_input_canonical");
+  assert.equal(result.input.workflow_node_id, "node_input_canonical");
+  assertNoOwnKeys(result.input, retiredSubagentNestedInputAliasKeys);
+});
+
 test("subagent send input ignores retired camelCase record aliases", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface({

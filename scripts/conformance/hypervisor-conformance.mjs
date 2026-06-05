@@ -3360,6 +3360,8 @@ function runCompositor() {
     /request\.(?:workflowGraphId|workflowNodeId|receiptRefs|policyDecisionRefs|idempotencyKey)\b/;
   const runtimeSubagentSpawnRequestAliasReadPattern =
     /request\.(?:subagentPrompt|subagentRole|maxConcurrency|subagentMaxConcurrency|modelRouteId|subagentModelRoute|outputContract|subagentOutputContract|workflowGraphId|workflowNodeId|parentTurnId|turnId|contextPressureAction|contextPressure|pressureStatus|alertId|sourceEventId|receiptRefs|policyDecisionRefs|toolPack|subagentToolPack|forkContext|mergePolicy|cancellationInheritance)\b/;
+  const runtimeSubagentSendInputRequestAliasReadPattern =
+    /request\.(?:subagentInput|workflowGraphId|workflowNodeId)\b/;
   const runtimeSubagentProjectionBlock =
     runtimeSubagentSurface.match(
       /subagentProjection\(record = \{\}\) \{[\s\S]*?\n    \},\n    appendThreadSubagentControlEvent/,
@@ -4201,6 +4203,25 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent send-input lifecycle must ignore retired camelCase persisted record aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-send-input-request-aliases-retired",
+    runtimeSubagentSendInputBlock.length > 0 &&
+      !runtimeSubagentSendInputRequestAliasReadPattern.test(
+        runtimeSubagentSendInputBlock,
+      ) &&
+      /subagent send input ignores retired camelCase request aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /subagentInput: "Alias-only follow up"/.test(runtimeSubagentSurfaceTest) &&
+      /workflowGraphId: "graph_input_alias"/.test(runtimeSubagentSurfaceTest) &&
+      /workflowNodeId: "node_input_alias"/.test(runtimeSubagentSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent send-input lifecycle must ignore retired camelCase request aliases",
   );
   assertCheck(
     result,
