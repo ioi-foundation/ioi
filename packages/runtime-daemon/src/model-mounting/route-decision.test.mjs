@@ -44,16 +44,38 @@ test("provider request body resolves auto and strips Autopilot-only route fields
 
 test("route decisions use canonical hosted fallback policy constraint", () => {
   const decision = createModelRouteDecision({
-    route: { id: "route.local-first", privacy: "local_or_enterprise", fallback: ["endpoint.local"] },
+    route: {
+      id: "route.local-first",
+      privacy: "local_or_enterprise",
+      fallback: ["endpoint.local"],
+      providerEligibility: ["provider.hosted"],
+      deniedProviders: ["provider.blocked"],
+      maxLatencyMs: 8000,
+    },
     endpoint: { id: "endpoint.hosted", modelId: "model.hosted", providerId: "provider.hosted" },
     provider: { id: "provider.hosted", kind: "openai", privacyClass: "hosted" },
-    policy: { allow_hosted_fallback: true },
+    policy: { allow_hosted_fallback: true, max_cost_usd: 0.5 },
     policyHash: "sha256:policy",
     requestedModel: "auto",
   });
 
-  assert.equal(decision.policyConstraints.allow_hosted_fallback, true);
-  assert.equal(decision.policyConstraints.allowHostedFallback, undefined);
+  assert.equal(decision.policy_constraints.route_privacy, "local_or_enterprise");
+  assert.equal(decision.policy_constraints.requested_privacy, null);
+  assert.deepEqual(decision.policy_constraints.provider_eligibility, ["provider.hosted"]);
+  assert.deepEqual(decision.policy_constraints.denied_providers, ["provider.blocked"]);
+  assert.equal(decision.policy_constraints.max_cost_usd, 0.5);
+  assert.equal(decision.policy_constraints.max_latency_ms, 8000);
+  assert.equal(decision.policy_constraints.allow_hosted_fallback, true);
+  assert.equal(decision.policy_constraints.local_only, false);
+  assert.equal(Object.hasOwn(decision, "policyConstraints"), false);
+  assert.equal(Object.hasOwn(decision.policy_constraints, "routePrivacy"), false);
+  assert.equal(Object.hasOwn(decision.policy_constraints, "requestedPrivacy"), false);
+  assert.equal(Object.hasOwn(decision.policy_constraints, "providerEligibility"), false);
+  assert.equal(Object.hasOwn(decision.policy_constraints, "deniedProviders"), false);
+  assert.equal(Object.hasOwn(decision.policy_constraints, "maxCostUsd"), false);
+  assert.equal(Object.hasOwn(decision.policy_constraints, "maxLatencyMs"), false);
+  assert.equal(Object.hasOwn(decision.policy_constraints, "allowHostedFallback"), false);
+  assert.equal(Object.hasOwn(decision.policy_constraints, "localOnly"), false);
 });
 
 test("route decisions honor canonical fallback request metadata", () => {
@@ -69,6 +91,10 @@ test("route decisions honor canonical fallback request metadata", () => {
     requestedModel: "auto",
     responseId: "resp-1",
     previousResponseId: "resp-0",
+    evaluatedCandidates: [
+      { status: "accepted", endpointId: "endpoint.hosted", providerId: "provider.hosted", reason: null },
+      { status: "rejected", endpointId: "endpoint.local", providerId: "provider.local", reason: "privacy_mismatch" },
+    ],
   });
 
   assert.equal(decision.schema_version, MODEL_ROUTE_DECISION_SCHEMA_VERSION);
@@ -118,9 +144,16 @@ test("route decisions honor canonical fallback request metadata", () => {
   assert.equal(decision.fallback_allowed, true);
   assert.equal(decision.fallback_triggered, true);
   assert.equal(decision.fallback_reason, "primary_route_unavailable");
+  assert.equal(decision.evaluated_candidate_count, 2);
+  assert.equal(decision.rejected_candidates.length, 1);
+  assert.equal(decision.rejected_candidates[0].endpoint_id, "endpoint.local");
+  assert.equal(decision.rejected_candidates[0].provider_id, "provider.local");
+  assert.equal(decision.rejected_candidates[0].reason, "privacy_mismatch");
   assert.equal(Object.hasOwn(decision, "fallbackAllowed"), false);
   assert.equal(Object.hasOwn(decision, "fallbackTriggered"), false);
   assert.equal(Object.hasOwn(decision, "fallbackReason"), false);
+  assert.equal(Object.hasOwn(decision, "evaluatedCandidateCount"), false);
+  assert.equal(Object.hasOwn(decision, "rejectedCandidates"), false);
   assert.equal(decision.evidenceRefs.includes("model_route_fallback_selected"), true);
   assert.match(decision.rationale, /primary_route_unavailable/);
 });

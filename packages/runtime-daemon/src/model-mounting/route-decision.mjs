@@ -80,9 +80,9 @@ export function createModelRouteDecision({
       fallbackTriggered,
       fallbackReason,
     }),
-    policyConstraints,
-    evaluatedCandidateCount: evaluatedCandidates.length,
-    rejectedCandidates: evaluatedCandidates
+    policy_constraints: policyConstraints,
+    evaluated_candidate_count: evaluatedCandidates.length,
+    rejected_candidates: evaluatedCandidates
       .filter((candidate) => candidate.status === "rejected")
       .map((candidate) => ({
         endpoint_id: candidate.endpointId,
@@ -298,14 +298,14 @@ function fallbackFor(route = {}, selectedEndpoint = {}) {
 
 function routePolicyConstraints(route = {}, policy = {}) {
   return {
-    routePrivacy: route.privacy ?? null,
-    requestedPrivacy: policy.privacy ?? null,
-    providerEligibility: Array.isArray(route.providerEligibility) ? [...route.providerEligibility] : [],
-    deniedProviders: Array.isArray(route.deniedProviders) ? [...route.deniedProviders] : [],
-    maxCostUsd: Number(policy.max_cost_usd ?? policy.maxCostUsd ?? route.maxCostUsd ?? 0),
-    maxLatencyMs: Number(policy.max_latency_ms ?? policy.maxLatencyMs ?? route.maxLatencyMs ?? 0),
+    route_privacy: route.privacy ?? null,
+    requested_privacy: policy.privacy ?? null,
+    provider_eligibility: Array.isArray(route.providerEligibility) ? [...route.providerEligibility] : [],
+    denied_providers: Array.isArray(route.deniedProviders) ? [...route.deniedProviders] : [],
+    max_cost_usd: Number(policy.max_cost_usd ?? policy.maxCostUsd ?? route.maxCostUsd ?? 0),
+    max_latency_ms: Number(policy.max_latency_ms ?? policy.maxLatencyMs ?? route.maxLatencyMs ?? 0),
     allow_hosted_fallback: truthy(policy.allow_hosted_fallback),
-    localOnly: policy.privacy === "local_only" || route.privacy === "local_only",
+    local_only: policy.privacy === "local_only" || route.privacy === "local_only",
   };
 }
 

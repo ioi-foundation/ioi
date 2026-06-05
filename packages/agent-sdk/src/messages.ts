@@ -957,9 +957,18 @@ export interface ModelRouteDecision {
   fallback_triggered?: boolean;
   fallback_reason?: string | null;
   rationale: string;
-  policyConstraints: Record<string, unknown>;
-  evaluatedCandidateCount: number;
-  rejectedCandidates: Array<{
+  policy_constraints: {
+    route_privacy: string | null;
+    requested_privacy: string | null;
+    provider_eligibility: string[];
+    denied_providers: string[];
+    max_cost_usd: number;
+    max_latency_ms: number;
+    allow_hosted_fallback: boolean;
+    local_only: boolean;
+  };
+  evaluated_candidate_count: number;
+  rejected_candidates: Array<{
     endpoint_id: string;
     provider_id: string;
     reason: string | null;

@@ -1030,6 +1030,47 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-route-decision-policy-evaluation-aliases-retired",
+    /^ {4}policy_constraints:\s*policyConstraints/m.test(modelRouteDecisionObject) &&
+      /^ {4}evaluated_candidate_count:\s*evaluatedCandidates\.length/m.test(modelRouteDecisionObject) &&
+      /^ {4}rejected_candidates:\s*evaluatedCandidates/m.test(modelRouteDecisionObject) &&
+      /^\s*route_privacy:\s*route\.privacy/m.test(modelRouteDecisionModule) &&
+      /^\s*requested_privacy:\s*policy\.privacy/m.test(modelRouteDecisionModule) &&
+      /^\s*provider_eligibility:\s*Array\.isArray\(route\.providerEligibility\)/m.test(modelRouteDecisionModule) &&
+      /^\s*denied_providers:\s*Array\.isArray\(route\.deniedProviders\)/m.test(modelRouteDecisionModule) &&
+      /^\s*max_cost_usd:\s*Number\(/m.test(modelRouteDecisionModule) &&
+      /^\s*max_latency_ms:\s*Number\(/m.test(modelRouteDecisionModule) &&
+      /^\s*local_only:\s*policy\.privacy/m.test(modelRouteDecisionModule) &&
+      !/^ {4}(?:policyConstraints|evaluatedCandidateCount|rejectedCandidates)\s*[:,]/m.test(modelRouteDecisionObject) &&
+      !/^\s*(?:routePrivacy|requestedPrivacy|providerEligibility|deniedProviders|maxCostUsd|maxLatencyMs|localOnly)\s*:/m.test(
+        modelRouteDecisionModule,
+      ) &&
+      /^\s*policy_constraints:\s*\{/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*route_privacy:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*requested_privacy:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*provider_eligibility:\s*string\[\];/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*denied_providers:\s*string\[\];/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*max_cost_usd:\s*number;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*max_latency_ms:\s*number;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*local_only:\s*boolean;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*evaluated_candidate_count:\s*number;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*rejected_candidates:\s*Array<\{/m.test(agentSdkModelRouteDecisionType) &&
+      !/^\s*(?:policyConstraints|evaluatedCandidateCount|rejectedCandidates|routePrivacy|requestedPrivacy|providerEligibility|deniedProviders|maxCostUsd|maxLatencyMs|localOnly)\s*[:?]/m.test(
+        agentSdkModelRouteDecisionType,
+      ) &&
+      /Object\.hasOwn\(decision,\s*"policyConstraints"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision\.policy_constraints,\s*"maxCostUsd"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"evaluatedCandidateCount"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"rejectedCandidates"\),\s*false/.test(modelRouteDecisionTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
+      "packages/agent-sdk/src/messages.ts",
+    ],
+    "Phase 3/10 is pending: accepted model route-decision policy/evaluation metadata must use canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "runtime-thread-hosted-fallback-alias-retired",
     /allow_hosted_fallback/.test(threadRuntimeControls) &&
       /allow_hosted_fallback/.test(runtimeThreadControlSurface) &&
