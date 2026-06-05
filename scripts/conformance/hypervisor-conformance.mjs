@@ -3568,6 +3568,11 @@ function runCompositor() {
     "export interface RuntimeSubagentResult",
     "export interface RuntimeSubagentCancellationPropagationResult",
   );
+  const runtimeSubagentSdkCancellationPropagationResultBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentCancellationPropagationResult",
+    "export interface AgentMemoryProjection",
+  );
   const agentIdeSubagentDelegationMatrixBlock = blockBetween(
     agentIdeDelegationMatrix,
     'if (payloadObject === "ioi.runtime_subagent_manager_event")',
@@ -5053,6 +5058,37 @@ function runCompositor() {
       !/^\s*\[key: string\]: unknown;/m.test(runtimeSubagentSdkResultBlock),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent result types must not advertise retired receipt ref aliases or arbitrary key escape hatches",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-subagent-cancellation-propagation-result-scalar-aliases-retired",
+    runtimeSubagentSdkCancellationPropagationResultBlock.length > 0 &&
+      /^\s*schema_version\?: string;/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ) &&
+      /^\s*thread_id\?: string;/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ) &&
+      /^\s*parent_agent_id\?: string;/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ) &&
+      /^\s*propagation_policy\?: string;/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ) &&
+      /^\s*candidate_count\?: number;/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ) &&
+      /^\s*canceled_count\?: number;/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ) &&
+      /^\s*skipped_count\?: number;/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|threadId|parentAgentId|propagationPolicy|candidateCount|canceledCount|skippedCount)\?:/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent cancellation propagation result types must not advertise retired scalar aliases",
   );
   assertCheck(
     result,

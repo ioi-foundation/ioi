@@ -554,23 +554,16 @@ export interface RuntimeSubagentResult {
 
 export interface RuntimeSubagentCancellationPropagationResult {
   schema_version?: string;
-  schemaVersion?: string;
   object: "ioi.runtime_subagent_cancellation_propagation" | string;
   thread_id?: string;
-  threadId?: string;
   parent_agent_id?: string;
-  parentAgentId?: string;
   status: string;
   source?: string;
   reason?: string;
   propagation_policy?: string;
-  propagationPolicy?: string;
   candidate_count?: number;
-  candidateCount?: number;
   canceled_count?: number;
-  canceledCount?: number;
   skipped_count?: number;
-  skippedCount?: number;
   canceled_subagents?: RuntimeSubagentRecord[];
   canceledSubagents?: RuntimeSubagentRecord[];
   skipped_subagents?: RuntimeSubagentRecord[];
