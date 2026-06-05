@@ -7570,6 +7570,62 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 123
+
+```yaml
+slice: 123
+phase: 10-authoritative-js-facade-retirement
+objective: move typed IDE runtime panels onto the shared event identity helper
+owner_boundary:
+  route_or_surface: Hypervisor IDE typed runtime projection panels
+  authority_gate: unchanged; panels remain read-only compositor/proof surfaces
+  execution_backend: unchanged
+  truth_path: typed projected IDE event IDs are resolved only through the
+    shared helper, which also accepts canonical raw `event_id` when present
+  projection_path: workspace trust, hunk-decision receipts, signed replay,
+    context lifecycle, and worker contribution trace panels keep their existing
+    projection rows while dropping local `event_id`/`id` wrappers
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  ide:
+    - packages/agent-ide/src/runtime/workflow-workspace-trust-gate.ts
+    - packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts
+    - packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts
+    - packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts
+    - packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts
+  tests:
+    - packages/agent-ide/src/runtime/workflow-workspace-trust-gate.test.ts
+    - packages/agent-ide/src/runtime/workflow-runtime-event-identity.test.ts
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - compositor conformance fails if typed IDE runtime panels reintroduce local
+    `event_id`/`id` fallback wrappers instead of the shared helper
+  - focused helper/workspace-trust tests continue to pass with typed projected
+    event IDs
+verification:
+  commands:
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-event-identity.test.ts
+    - node --import tsx --test packages/agent-ide/src/runtime/workflow-workspace-trust-gate.test.ts
+    - npm run build --workspace=@ioi/agent-ide
+    - npm run hypervisor-conformance:compositor
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: helper tests exercise canonical raw records,
+    raw legacy aliases, and typed projected IDE event records; workspace trust
+    coverage exercises one migrated typed panel end to end
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - deeper runtime projection internals still use typed `event.id` as the
+      projected UI identity; that is distinct from raw daemon `id` aliases
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -7582,7 +7638,7 @@ closeout:
 | `receipt-binding` | `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/ipc/proto/public/v1/public.proto`, `crates/services/src/agentic/runtime/kernel/receipt_binder.rs` | JS receipts plus Rust receipt binder and append guard | Rust core `receipt_binder` | one binder for invocation, result, artifact refs, payload refs, and state roots | `receipts`, `negative` | binder primitive and direct-append guard implemented; JS receipts still live | every meaningful route family emits receipts through one Rust binder. |
 | `ctee-private-workspace` | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md`, `crates/services/src/agentic/runtime/kernel/ctee.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs`, `packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs`, `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `packages/runtime-daemon/src/index.mjs`, `packages/agent-sdk/src/substrate-client.ts`, `packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts`, `crates/cli/src/commands/runtime.rs` | canon plus Rust StepModule validation, execution, receipt-binding, Agentgres admission, projection bundle, daemon command bridge exposure, mounted daemon runner, product/API cTEE action route, and SDK/IDE/CLI admission clients | Rust core `ctee` | custody proof, leakage profile, declassification receipt, plaintext-free mount failure | `ctee`, `negative` | Rust validation and execution/admission/projection bundle implemented and exposed through `execute_private_workspace_ctee_action`; daemon `RustCteePrivateWorkspaceRunner` now calls that bridge and is mounted on `AgentgresRuntimeStateStore`; `POST /v1/threads/{thread_id}/ctee-private-workspace-actions` executes/admits cTEE actions through the mounted runner without a JS apply shortcut; SDK `executeCteePrivateWorkspaceAction`, IDE cTEE private workspace control nodes, and CLI `runtime ctee-private-workspace execute` consume that route without minting accepted truth directly; deeper private workspace UI/replay surfaces still pending | untrusted node plaintext mount fails closed; declassification and private operator paths are receipt-bound. |
 | `workload-client-wasm` | `crates/client/src/workload_client/mod.rs`, `crates/vm/wasm/src/lib.rs`, `crates/validator/src/standard/workload/*` | Rust workload/kernel substrate exists below daemon | Rust core `workload_client` plus WASM/service backend | StepModuleResult with workload receipt and state-root binding | `bridge`, `receipts` | substrate exists, not default daemon backend | daemon routes admitted work through StepModuleRunner into Rust/WASM or workload backend. |
-| `workflow-compositor` | `packages/agent-ide/src/runtime/*`, `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/services/src/agentic/runtime/kernel/projection.rs` | IDE/daemon projection shaping, with terminal coding-loop run-launch, computer-use replay, and mixed runtime panel event-id alias fallbacks retired, plus Rust projection record primitive | Rust core `projection` consumed by IDE/CLI/SDK | projection checkpoints rebuilt from Agentgres admitted truth | `compositor`, `negative` | Rust projection record and accepted-truth guard implemented; terminal coding-loop run launch ignores retired runtime `event.id`/`eventId` aliases while materializing telemetry; computer-use replay timeline ignores raw retired `id` aliases and preserves frame IDs only from canonical `event_id`; mixed IDE panels now use a shared event identity adapter that accepts raw canonical `event_id`/`event_kind` and typed projected IDE `id`/`eventKind` only after projected-shape validation; broader IDE/SDK consumption still pending | compositor cannot create accepted truth directly and only renders/replays canonical projections. |
+| `workflow-compositor` | `packages/agent-ide/src/runtime/*`, `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/services/src/agentic/runtime/kernel/projection.rs` | IDE/daemon projection shaping, with terminal coding-loop run-launch, computer-use replay, mixed runtime panel, and typed panel event-id alias fallbacks retired, plus Rust projection record primitive | Rust core `projection` consumed by IDE/CLI/SDK | projection checkpoints rebuilt from Agentgres admitted truth | `compositor`, `negative` | Rust projection record and accepted-truth guard implemented; terminal coding-loop run launch ignores retired runtime `event.id`/`eventId` aliases while materializing telemetry; computer-use replay timeline ignores raw retired `id` aliases and preserves frame IDs only from canonical `event_id`; mixed IDE panels now use a shared event identity adapter that accepts raw canonical `event_id`/`event_kind` and typed projected IDE `id`/`eventKind` only after projected-shape validation; typed workspace trust, hunk-decision, signed replay, context lifecycle, and worker contribution panels also use that adapter instead of local `event_id`/`id` wrappers; broader IDE/SDK consumption still pending | compositor cannot create accepted truth directly and only renders/replays canonical projections. |
 | `worker-service-packages` | `docs/architecture/foundations/common-objects-and-envelopes.md`, `docs/architecture/domains/aiagent/worker-endpoints.md`, `docs/architecture/domains/sas/service-endpoints.md`, `crates/services/src/agentic/runtime/kernel/marketplace.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs`, `packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs`, `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `packages/runtime-daemon/src/index.mjs`, `packages/agent-sdk/src/substrate-client.ts`, `packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts`, `crates/cli/src/commands/runtime.rs` | target canon plus Rust worker/service package invocation admission primitive over StepModuleRouter, receipt_binder, Agentgres admission, projection, command bridge exposure, mounted daemon runner, product/API admission route, and SDK/IDE/CLI admission clients | Rust core `step_router` plus workload/WASM/AIIP backends | package invocation receipt, authority grant, artifacts, projection | `bridge`, `receipts`, `compositor` | Rust package invocation admission primitive implemented and exposed through `admit_worker_service_package_invocation`; daemon `RustWorkerServicePackageRunner` now calls that bridge and is mounted on `AgentgresRuntimeStateStore`; `POST /v1/threads/{thread_id}/worker-service-package-invocations` admits package invocations through the mounted runner without a JS apply shortcut; SDK `admitWorkerServicePackageInvocation`, IDE worker/service package control nodes, and CLI `runtime worker-service-package admit` consume that route without minting accepted truth directly; AIIP delivery and deeper live package execution UI still pending | service and worker package invocation uses the shared Step/Module ABI. |
 | `l1-settlement` | `docs/architecture/foundations/ioi-l1-mainnet.md`, `crates/services/src/agentic/runtime/kernel/settlement.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs`, `packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs`, `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `packages/runtime-daemon/src/index.mjs`, `packages/agent-sdk/src/substrate-client.ts`, `packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts`, `crates/cli/src/commands/runtime.rs` | canon plus Rust trigger guard, command bridge admission primitive, mounted daemon runner, product/API settlement admission route, and IDE/CLI/SDK admission clients | Rust settlement/admission core under daemon-owned execution | sparse public/economic/cross-domain commitment by trigger only | `bridge`, `negative` | Rust trigger guard implemented and exposed through `admit_l1_settlement_attempt`; daemon `RustL1SettlementRunner` now calls that bridge and is mounted on `AgentgresRuntimeStateStore`; `POST /v1/threads/{thread_id}/l1-settlement-attempts` admits triggered settlement attempts through the mounted runner without a JS apply shortcut; SDK `admitL1SettlementAttempt`, IDE L1 settlement control nodes, and CLI `runtime l1-settlement admit` consume that route without minting accepted truth directly or allowing default runtime settlement | L1 settlement attempts without marketplace/public/economic/cross-domain/operator trigger fail closed. |
 | `meta-improvement` | `crates/services/src/agentic/runtime/kernel/*`, `crates/services/src/agentic/evolution.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs`, `packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs`, `packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs`, `packages/runtime-daemon/src/runtime-route-handlers.mjs`, `packages/runtime-daemon/src/index.mjs`, `packages/agent-sdk/src/substrate-client.ts`, `packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts`, `crates/cli/src/commands/runtime.rs`, workflow/evaluation docs | partial Rust/IDE signals plus governed runtime-improvement proposal admission primitive, command bridge exposure, mounted non-authoritative daemon runner, product/API proposal admission route, and stable SDK/IDE/CLI review clients requiring eval/verifier receipts, approval, rollback, Agentgres operation refs, expected heads, and state roots; legacy direct `EvolutionService::evolve` manifest mutation now fails closed | Rust core authority plus proposal/eval/approval path | proposal object, eval receipts, approval grant, committed mutation | `bridge`, `receipts`, `negative` | Rust governed proposal admission primitive implemented, exposed through `admit_governed_runtime_improvement_proposal`, reachable via daemon `RustGovernedImprovementRunner`, mounted on `AgentgresRuntimeStateStore`, exposed at `POST /v1/threads/{thread_id}/governed-improvement-proposals`, consumable through SDK `admitGovernedImprovementProposal`, composable from IDE governed-improvement control nodes, and consumable through CLI `runtime governed-improvement admit` without a JS apply shortcut; direct `EvolutionService::evolve` manifest mutation retired; full IDE review UI, rollback application, and live mutation commit path still pending | agents cannot self-modify directly; all improvements are proposal-mediated. |

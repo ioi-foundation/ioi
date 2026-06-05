@@ -1,4 +1,5 @@
 import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
+import { workflowRuntimeEventId } from "./workflow-runtime-event-identity";
 
 export const WORKFLOW_SIGNED_REPLAY_NOTEBOOK_SCHEMA_VERSION =
   "ioi.workflow.signed-replay-notebook.v1" as const;
@@ -349,7 +350,7 @@ function payloadForEvent(event: WorkflowRuntimeThreadEventLike | null): Record<s
 }
 
 function eventId(event: WorkflowRuntimeThreadEventLike | null): string | null {
-  return stringField(event, "event_id", "id");
+  return workflowRuntimeEventId(event);
 }
 
 function eventSeq(event: WorkflowRuntimeThreadEventLike | null): number {

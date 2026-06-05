@@ -5,6 +5,7 @@ import type {
   WorkflowValidationIssue,
 } from "../types/graph";
 import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
+import { workflowRuntimeEventId } from "./workflow-runtime-event-identity";
 
 export const RUNTIME_WORKSPACE_TRUST_GATE_NODE_TYPE =
   "runtime_workspace_trust_gate" as const;
@@ -73,7 +74,7 @@ function stringList(values: Array<string | null | undefined>): string[] {
 }
 
 function eventId(event: WorkflowRuntimeThreadEventLike): string {
-  return cleanString(event.id) ?? stringField(event, "event_id", "eventId") ?? "";
+  return workflowRuntimeEventId(event) ?? "";
 }
 
 function eventWorkflowNodeId(event: WorkflowRuntimeThreadEventLike): string | null {

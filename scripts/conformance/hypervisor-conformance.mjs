@@ -2766,6 +2766,16 @@ function runCompositor() {
     .filter((file) => exists(file))
     .map((file) => read(file))
     .join("\n");
+  const agentIdeTypedRuntimePanels = [
+    "packages/agent-ide/src/runtime/workflow-workspace-trust-gate.ts",
+    "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts",
+    "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts",
+    "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
+    "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
+  ]
+    .filter((file) => exists(file))
+    .map((file) => read(file))
+    .join("\n");
   const agentSdkRuntimeEvents = exists("packages/agent-sdk/src/runtime-events.ts")
     ? read("packages/agent-sdk/src/runtime-events.ts")
     : "";
@@ -2930,6 +2940,23 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
     ],
     "Phase 10/11 is pending: mixed IDE runtime panels must share canonical event identity handling and ignore raw retired id/event aliases",
+  );
+  assertCheck(
+    result,
+    "ide-typed-runtime-panels-event-identity-helper",
+    /workflowRuntimeEventId/.test(agentIdeTypedRuntimePanels) &&
+      /workflowRuntimeEventKind/.test(agentIdeTypedRuntimePanels) &&
+      !/stringField\(event,\s*"event_id",\s*"id"\)|cleanString\(event\.id\)\s*\?\?\s*stringField\(event,\s*"event_id",\s*"eventId"\)/.test(
+        agentIdeTypedRuntimePanels,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-workspace-trust-gate.ts",
+      "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts",
+      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
+    ],
+    "Phase 10/11 is pending: typed IDE runtime panels must use the shared event identity helper instead of local id fallbacks",
   );
   return result;
 }

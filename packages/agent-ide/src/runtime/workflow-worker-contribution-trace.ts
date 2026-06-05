@@ -1,4 +1,5 @@
 import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
+import { workflowRuntimeEventId } from "./workflow-runtime-event-identity";
 
 export const WORKFLOW_WORKER_CONTRIBUTION_TRACE_SCHEMA_VERSION =
   "ioi.workflow.worker-contribution-trace.v1" as const;
@@ -171,7 +172,7 @@ function payloadForEvent(event: WorkflowRuntimeThreadEventLike | null | undefine
 }
 
 function eventId(event: WorkflowRuntimeThreadEventLike | null | undefined): string | null {
-  return stringField(event, "event_id", "id");
+  return workflowRuntimeEventId(event);
 }
 
 function eventSeq(event: WorkflowRuntimeThreadEventLike | null | undefined): number | null {

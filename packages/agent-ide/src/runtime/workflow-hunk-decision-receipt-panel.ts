@@ -1,4 +1,8 @@
 import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
+import {
+  workflowRuntimeEventId,
+  workflowRuntimeEventKind,
+} from "./workflow-runtime-event-identity";
 
 export const WORKFLOW_HUNK_DECISION_RECEIPT_PANEL_SCHEMA_VERSION =
   "ioi.workflow.hunk-decision-receipt-panel.v1" as const;
@@ -450,11 +454,11 @@ function payloadForEvent(event: WorkflowRuntimeThreadEventLike | null): Record<s
 }
 
 function eventId(event: WorkflowRuntimeThreadEventLike | null): string | null {
-  return stringField(event, "event_id", "id");
+  return workflowRuntimeEventId(event);
 }
 
 function eventKind(event: WorkflowRuntimeThreadEventLike | null): string | null {
-  return stringField(event, "eventKind", "event_kind");
+  return workflowRuntimeEventKind(event);
 }
 
 function eventType(event: WorkflowRuntimeThreadEventLike | null): string | null {
