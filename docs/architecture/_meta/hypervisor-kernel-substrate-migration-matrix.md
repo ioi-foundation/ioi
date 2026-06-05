@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 286:
+Current expected behavior after Slice 287:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11752,6 +11752,12 @@ Slice 286 extends bridge proof for model-mounting projection/read compatibility
 retirement: prototype-based camelCase fallback wrappers are removed from
 model-mounting I/O, route-decision, receipt read, projection read, and HTTP
 error surfaces.
+
+Slice 287 extends bridge proof for model-mounting runner fail-closed behavior:
+the Rust model-mount admission runner remains command-required and cannot
+reintroduce JS fixture/mock admission responses through
+`IOI_ENABLE_INTERNAL_FIXTURE_MODELS`, `isFixtureRequest`, or
+`mockFixtureResponse`.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

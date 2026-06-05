@@ -838,6 +838,9 @@ function runBridge() {
       /MODEL_MOUNT_ADMISSION_COMMAND_ENV/.test(modelMountAdmissionRunner) &&
       !retiredRouteDecisionEnvPattern.test(modelMountAdmissionRunner) &&
       /model_mount_admission_bridge_unconfigured/.test(modelMountAdmissionRunner) &&
+      !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(modelMountAdmissionRunner) &&
+      !/mockFixtureResponse/.test(modelMountAdmissionRunner) &&
+      !/isFixtureRequest/.test(modelMountAdmissionRunner) &&
       /admitModelMountRouteDecision/.test(modelMountingState) &&
       /createModelMountAdmissionRunnerFromEnv/.test(modelMountingState) &&
       /modelMountRouteDecisionRequestForSelection/.test(modelRoutes) &&
