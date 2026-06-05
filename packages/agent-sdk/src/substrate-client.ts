@@ -471,14 +471,12 @@ export interface RuntimeSubagentControlInput {
   workflow_graph_id?: string;
   workflow_node_id?: string;
   idempotency_key?: string;
-  [key: string]: unknown;
 }
 
 export interface RuntimeSubagentListInput {
   role?: string;
   subagent_role?: string;
   status?: string;
-  [key: string]: unknown;
 }
 
 export interface RuntimeSubagentRecord {

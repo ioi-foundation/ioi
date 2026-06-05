@@ -4827,6 +4827,17 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "agent-sdk-subagent-request-type-escape-hatches-retired",
+    runtimeSubagentSdkControlInputBlock.length > 0 &&
+      runtimeSubagentSdkListInputBlock.length > 0 &&
+      !/^\s*\[key: string\]: unknown;/m.test(
+        `${runtimeSubagentSdkControlInputBlock}\n${runtimeSubagentSdkListInputBlock}`,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent request types must not retain arbitrary key escape hatches",
+  );
+  assertCheck(
+    result,
     "agent-sdk-runtime-event-dead-mock-helpers-retired",
     /runtimeThreadEventFromEnvelope/.test(agentSdkRuntimeEvents) &&
       !/mockRuntime(?:CursorSeq|EnvelopeForSdkEvent|EventEnvelope)|runtimePayloadStringRecord|runtimeEventKindForSdkMessage|runtimeEventStatusForSdkMessage|componentKindForSdkMessage|workflowNodeIdForSdkMessage|sourceEventKindForSdkMessage|payloadSchemaVersionForSdkMessage|turnIdForRun|eventStreamIdForThread|runtimeTurnStatusForRun|\(event as \{ id\?: string \}\)\.id/.test(
