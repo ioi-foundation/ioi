@@ -673,7 +673,9 @@ function runBridge() {
       /modelMountRouteDecisionRequestForSelection/.test(modelRoutes) &&
       /model_mount_route_decision_admission_required/.test(modelRoutes) &&
       /model_mount_route_decision_receipt_id_required/.test(modelRoutes) &&
-      /modelMountRouteDecisionRef/.test(modelRoutes),
+      /model_mount_route_decision_ref/.test(modelRoutes) &&
+      !/modelMountRouteDecision(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs)?\s*:/.test(modelRoutes) &&
+      !/modelMountRouteDecisionRef/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",

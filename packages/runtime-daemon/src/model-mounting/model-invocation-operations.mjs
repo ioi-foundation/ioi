@@ -464,8 +464,8 @@ export function modelMountInvocationAdmissionRequestForReceipt({
   const routeReceiptRef = receiptRef(requiredStringRef("routeReceipt.id", routeReceipt?.id));
   const invocationReceiptRef = receiptRef(requiredStringRef("receiptId", receiptId));
   const routeDecisionRef = requiredStringRef(
-    "routeReceipt.details.modelMountRouteDecisionRef",
-    routeReceipt?.details?.modelMountRouteDecisionRef,
+    "routeReceipt.details.model_mount_route_decision_ref",
+    routeReceipt?.details?.model_mount_route_decision_ref,
   );
   const policy = body.model_policy ?? body.modelPolicy ?? {};
   return {
@@ -551,8 +551,8 @@ export function modelMountProviderExecutionRequestForInvocation({
 } = {}) {
   const routeReceiptRef = receiptRef(requiredStringRef("routeReceipt.id", routeReceipt?.id));
   const routeDecisionRef = requiredStringRef(
-    "routeReceipt.details.modelMountRouteDecisionRef",
-    routeReceipt?.details?.modelMountRouteDecisionRef,
+    "routeReceipt.details.model_mount_route_decision_ref",
+    routeReceipt?.details?.model_mount_route_decision_ref,
   );
   const requestHash = hashRef(
     hash({

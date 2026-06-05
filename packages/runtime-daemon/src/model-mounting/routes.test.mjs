@@ -241,10 +241,12 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
   assert.equal(receipt.kind, "model_route_selection");
   assert.equal(receipt.id, "receipt-route");
   assert.equal(created[0].details.modelRouteDecisionId, "decision-1");
-  assert.equal(created[0].details.modelMountRouteDecisionRef, "model_mount://route_decision/test");
-  assert.equal(created[0].details.modelMountRouteDecisionHash, "sha256:test");
-  assert.equal(created[0].details.modelMountRouteDecision.route_ref, "route.local-first");
-  assert.deepEqual(created[0].details.modelMountRouteDecisionReceiptRefs, ["receipt://receipt-route"]);
+  assert.equal(created[0].details.model_mount_route_decision_ref, "model_mount://route_decision/test");
+  assert.equal(created[0].details.model_mount_route_decision_hash, "sha256:test");
+  assert.equal(created[0].details.model_mount_route_decision.route_ref, "route.local-first");
+  assert.deepEqual(created[0].details.model_mount_route_decision_receipt_refs, ["receipt://receipt-route"]);
+  assert.equal(Object.hasOwn(created[0].details, "modelMountRouteDecisionRef"), false);
+  assert.equal(Object.hasOwn(created[0].details, "modelMountRouteDecision"), false);
   assert.equal(created[0].details.workflowNodeId, "node-1");
   assert.deepEqual(created[0].evidenceRefs, [
     "model_router",
@@ -422,7 +424,7 @@ test("model mounting route state operations preserve delegate wiring", () => {
   });
   assert.equal(receipt.kind, "model_route_selection");
   assert.equal(receipts.at(-1).details.modelRouteDecisionId, "decision-1");
-  assert.equal(receipts.at(-1).details.modelMountRouteDecisionRef, "model_mount://route_decision/test");
+  assert.equal(receipts.at(-1).details.model_mount_route_decision_ref, "model_mount://route_decision/test");
 });
 
 test("model mounting route helpers test routes through state compatibility methods", () => {

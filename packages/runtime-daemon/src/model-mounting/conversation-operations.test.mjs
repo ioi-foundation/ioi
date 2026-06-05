@@ -226,7 +226,7 @@ test("recordModelStreamCompleted emits stream receipt and finalizes conversation
     routeReceipt: {
       id: "receipt.route",
       details: {
-        modelMountRouteDecisionRef: "model_mount://route_decision/test",
+        model_mount_route_decision_ref: "model_mount://route_decision/test",
         workflowGraphId: "graph.stream",
         workflowNodeId: "node.stream",
       },
@@ -293,7 +293,7 @@ test("recordModelStreamCompleted fails closed without Rust receipt binding", () 
     routeReceipt: {
       id: "receipt.route",
       details: {
-        modelMountRouteDecisionRef: "model_mount://route_decision/test",
+        model_mount_route_decision_ref: "model_mount://route_decision/test",
       },
     },
     responseId: null,

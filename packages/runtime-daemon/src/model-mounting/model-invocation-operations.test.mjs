@@ -204,7 +204,7 @@ function fakeState(overrides = {}) {
         id: "receipt.route",
         kind: "model_route_selection",
         details: {
-          modelMountRouteDecisionRef: "model_mount://route_decision/test",
+          model_mount_route_decision_ref: "model_mount://route_decision/test",
           workflowGraphId: "workflow.graph",
           workflowNodeId: "workflow.node",
         },
@@ -966,7 +966,7 @@ test("modelMountInvocationAdmissionRequestForReceipt binds route decision and in
     routeReceipt: {
       id: "receipt.route",
       details: {
-        modelMountRouteDecisionRef: "model_mount://route_decision/test",
+        model_mount_route_decision_ref: "model_mount://route_decision/test",
         workflowGraphId: "graph.1",
         workflowNodeId: "node.1",
       },
@@ -997,6 +997,40 @@ test("modelMountInvocationAdmissionRequestForReceipt binds route decision and in
   assert.equal(request.response_ref, "resp.1");
 });
 
+test("modelMountInvocationAdmissionRequestForReceipt rejects retired route-decision detail alias", () => {
+  assert.throws(
+    () =>
+      modelMountInvocationAdmissionRequestForReceipt({
+        body: {},
+        capability: "chat",
+        kind: "responses",
+        receiptDetails: {
+          routeId: "route.local-first",
+          providerId: "provider.local",
+          endpointId: "endpoint.local",
+          selectedModel: "model.local",
+          policyHash: "policy",
+          inputHash: "input",
+          outputHash: "output",
+        },
+        receiptId: "receipt.invoke",
+        receiptKind: "model_invocation",
+        routeReceipt: {
+          id: "receipt.route",
+          details: {
+            modelMountRouteDecisionRef: "model_mount://route_decision/test",
+          },
+        },
+        selection: selection(),
+      }),
+    (error) => {
+      assert.equal(error.code, "model_mount_invocation_ref_missing");
+      assert.equal(error.details.field, "routeReceipt.details.model_mount_route_decision_ref");
+      return true;
+    },
+  );
+});
+
 test("modelMountProviderExecutionRequestForInvocation gates provider driver execution", () => {
   const request = modelMountProviderExecutionRequestForInvocation({
     body: {
@@ -1022,7 +1056,7 @@ test("modelMountProviderExecutionRequestForInvocation gates provider driver exec
     routeReceipt: {
       id: "receipt.route",
       details: {
-        modelMountRouteDecisionRef: "model_mount://route_decision/test",
+        model_mount_route_decision_ref: "model_mount://route_decision/test",
         workflowGraphId: "graph.1",
         workflowNodeId: "node.1",
       },
@@ -1270,7 +1304,7 @@ test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount Ste
     routeReceipt: {
       id: "receipt.route",
       details: {
-        modelMountRouteDecisionRef: "model_mount://route_decision/test",
+        model_mount_route_decision_ref: "model_mount://route_decision/test",
         workflowGraphId: "graph.1",
         workflowNodeId: "node.1",
       },
