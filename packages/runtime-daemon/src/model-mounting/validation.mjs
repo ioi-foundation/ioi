@@ -46,34 +46,34 @@ export function validateReceiptGate({
   requiredString,
   runtimeError,
 } = {}) {
-  const receiptId = requiredString(body.receipt_id ?? body.receiptId, "receipt_id");
+  const receiptId = requiredString(body.receipt_id, "receipt_id");
   const receipt = getReceipt(receiptId);
-  const requiredRedaction = body.redaction ?? body.redaction_class ?? body.redactionClass;
-  const requiredRouteId = body.route_id ?? body.routeId;
-  const requiredSelectedModel = body.selected_model ?? body.selectedModel;
-  const requiredSelectedEndpoint = body.selected_endpoint ?? body.selectedEndpoint ?? body.endpoint_id ?? body.endpointId;
-  const requiredSelectedBackend = body.selected_backend ?? body.selectedBackend ?? body.backend_id ?? body.backendId;
+  const requiredRedaction = body.redaction ?? body.redaction_class;
+  const requiredRouteId = body.route_id;
+  const requiredSelectedModel = body.selected_model;
+  const requiredSelectedEndpoint = body.selected_endpoint ?? body.endpoint_id;
+  const requiredSelectedBackend = body.selected_backend ?? body.backend_id;
   const requiredToolReceiptIds = normalizeScopes(
-    body.required_tool_receipt_ids ?? body.requiredToolReceiptIds,
+    body.required_tool_receipt_ids,
     [],
   );
   const failures = [];
   if (requiredRedaction && receipt.redaction !== requiredRedaction) {
     failures.push(`redaction:${receipt.redaction}`);
   }
-  if (requiredRouteId && receipt.details?.routeId !== requiredRouteId) {
-    failures.push(`route:${receipt.details?.routeId ?? "missing"}`);
+  if (requiredRouteId && receipt.details?.route_id !== requiredRouteId) {
+    failures.push(`route:${receipt.details?.route_id ?? "missing"}`);
   }
-  if (requiredSelectedModel && receipt.details?.selectedModel !== requiredSelectedModel) {
-    failures.push(`selected_model:${receipt.details?.selectedModel ?? "missing"}`);
+  if (requiredSelectedModel && receipt.details?.selected_model !== requiredSelectedModel) {
+    failures.push(`selected_model:${receipt.details?.selected_model ?? "missing"}`);
   }
-  if (requiredSelectedEndpoint && receipt.details?.endpointId !== requiredSelectedEndpoint) {
-    failures.push(`endpoint:${receipt.details?.endpointId ?? "missing"}`);
+  if (requiredSelectedEndpoint && receipt.details?.endpoint_id !== requiredSelectedEndpoint) {
+    failures.push(`endpoint:${receipt.details?.endpoint_id ?? "missing"}`);
   }
-  if (requiredSelectedBackend && receipt.details?.backendId !== requiredSelectedBackend && receipt.details?.selectedBackend !== requiredSelectedBackend) {
-    failures.push(`backend:${receipt.details?.backendId ?? receipt.details?.selectedBackend ?? "missing"}`);
+  if (requiredSelectedBackend && receipt.details?.backend_id !== requiredSelectedBackend && receipt.details?.selected_backend !== requiredSelectedBackend) {
+    failures.push(`backend:${receipt.details?.backend_id ?? receipt.details?.selected_backend ?? "missing"}`);
   }
-  const linkedToolReceiptIds = new Set(normalizeScopes(receipt.details?.toolReceiptIds, []));
+  const linkedToolReceiptIds = new Set(normalizeScopes(receipt.details?.tool_receipt_ids, []));
   for (const toolReceiptId of requiredToolReceiptIds) {
     const toolReceipt = getReceipt(toolReceiptId);
     if (toolReceipt.kind !== "mcp_tool_invocation") {
@@ -89,20 +89,20 @@ export function validateReceiptGate({
       redaction: "redacted",
       evidenceRefs: ["workflow_canvas", "Receipt Gate", receiptId, ...requiredToolReceiptIds],
       details: {
-        receiptId,
+        receipt_id: receiptId,
         failures,
-        routeId: receipt.details?.routeId ?? null,
-        selectedModel: receipt.details?.selectedModel ?? null,
-        endpointId: receipt.details?.endpointId ?? null,
-        backendId: receipt.details?.backendId ?? receipt.details?.selectedBackend ?? null,
-        requiredToolReceiptIds,
+        route_id: receipt.details?.route_id ?? null,
+        selected_model: receipt.details?.selected_model ?? null,
+        endpoint_id: receipt.details?.endpoint_id ?? null,
+        backend_id: receipt.details?.backend_id ?? receipt.details?.selected_backend ?? null,
+        required_tool_receipt_ids: requiredToolReceiptIds,
       },
     });
     throw runtimeError({
       status: 412,
       code: "policy",
       message: "Receipt Gate blocked downstream workflow execution.",
-      details: { receiptId, failures, gateReceiptId: blockedReceipt.id },
+      details: { receipt_id: receiptId, failures, gate_receipt_id: blockedReceipt.id },
     });
   }
   const gateReceipt = createReceipt("workflow_receipt_gate", {
@@ -110,12 +110,12 @@ export function validateReceiptGate({
     redaction: "redacted",
     evidenceRefs: ["workflow_canvas", "Receipt Gate", receiptId, ...requiredToolReceiptIds],
     details: {
-      receiptId,
-      routeId: receipt.details?.routeId ?? null,
-      selectedModel: receipt.details?.selectedModel ?? null,
-      endpointId: receipt.details?.endpointId ?? null,
-      backendId: receipt.details?.backendId ?? receipt.details?.selectedBackend ?? null,
-      requiredToolReceiptIds,
+      receipt_id: receiptId,
+      route_id: receipt.details?.route_id ?? null,
+      selected_model: receipt.details?.selected_model ?? null,
+      endpoint_id: receipt.details?.endpoint_id ?? null,
+      backend_id: receipt.details?.backend_id ?? receipt.details?.selected_backend ?? null,
+      required_tool_receipt_ids: requiredToolReceiptIds,
     },
   });
   return {

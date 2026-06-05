@@ -393,6 +393,21 @@ function runBridge() {
   const modelMountingValidation = exists("packages/runtime-daemon/src/model-mounting/validation.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/validation.mjs")
     : "";
+  const modelMountingValidationTest = exists("packages/runtime-daemon/src/model-mounting/validation.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/validation.test.mjs")
+    : "";
+  const modelReceiptGateStart = modelMountingValidation.indexOf("export function validateReceiptGate");
+  const modelReceiptGateEnd =
+    modelReceiptGateStart >= 0
+      ? modelMountingValidation.indexOf("\nexport function ", modelReceiptGateStart + 1)
+      : -1;
+  const modelReceiptGateValidation =
+    modelReceiptGateStart >= 0
+      ? modelMountingValidation.slice(
+          modelReceiptGateStart,
+          modelReceiptGateEnd >= 0 ? modelReceiptGateEnd : undefined,
+        )
+      : "";
   const modelConversationOps = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
     : "";
@@ -1208,6 +1223,39 @@ function runBridge() {
       "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
     ],
     "Phase 3/10 is pending: native response route-decision projections must use canonical snake_case fixtures without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-receipt-gate-route-detail-aliases-retired",
+    /requiredString\(body\.receipt_id,\s*"receipt_id"\)/.test(modelReceiptGateValidation) &&
+      /const requiredRouteId = body\.route_id/.test(modelReceiptGateValidation) &&
+      /const requiredSelectedModel = body\.selected_model/.test(modelReceiptGateValidation) &&
+      /body\.selected_endpoint \?\? body\.endpoint_id/.test(modelReceiptGateValidation) &&
+      /body\.selected_backend \?\? body\.backend_id/.test(modelReceiptGateValidation) &&
+      /body\.required_tool_receipt_ids/.test(modelReceiptGateValidation) &&
+      /receipt\.details\?\.route_id/.test(modelReceiptGateValidation) &&
+      /receipt\.details\?\.selected_model/.test(modelReceiptGateValidation) &&
+      /receipt\.details\?\.endpoint_id/.test(modelReceiptGateValidation) &&
+      /receipt\.details\?\.tool_receipt_ids/.test(modelReceiptGateValidation) &&
+      /receipt_id:\s*receiptId/.test(modelReceiptGateValidation) &&
+      /gate_receipt_id:\s*blockedReceipt\.id/.test(modelReceiptGateValidation) &&
+      /required_tool_receipt_ids:\s*requiredToolReceiptIds/.test(modelReceiptGateValidation) &&
+      !/body\.(?:receiptId|routeId|selectedModel|selectedEndpoint|endpointId|selectedBackend|backendId|requiredToolReceiptIds|redactionClass)/.test(
+        modelReceiptGateValidation,
+      ) &&
+      !/receipt\.details\?\.(?:routeId|selectedModel|endpointId|backendId|selectedBackend|toolReceiptIds)/.test(
+        modelReceiptGateValidation,
+      ) &&
+      !/(?:receiptId|routeId|selectedModel|endpointId|backendId|requiredToolReceiptIds|gateReceiptId):/.test(
+        modelReceiptGateValidation,
+      ) &&
+      /Object\.hasOwn\(createdReceipts\[0\]\.details,\s*"routeId"\),\s*false/.test(modelMountingValidationTest) &&
+      /Object\.hasOwn\(error\.details,\s*"gateReceiptId"\),\s*false/.test(modelMountingValidationTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/validation.mjs",
+      "packages/runtime-daemon/src/model-mounting/validation.test.mjs",
+    ],
+    "Phase 3/10 is pending: receipt-gate route/detail validation must use canonical snake_case request and receipt metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

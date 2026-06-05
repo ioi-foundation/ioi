@@ -114,11 +114,11 @@ test("model mounting validation accepts matching receipt gates", () => {
       kind: "model_invocation",
       redaction: "redacted",
       details: {
-        routeId: "route.local-first",
-        selectedModel: "model.local",
-        endpointId: "endpoint.local",
-        backendId: "backend.local",
-        toolReceiptIds: ["receipt-tool"],
+        route_id: "route.local-first",
+        selected_model: "model.local",
+        endpoint_id: "endpoint.local",
+        backend_id: "backend.local",
+        tool_receipt_ids: ["receipt-tool"],
       },
     }],
     ["receipt-tool", {
@@ -153,7 +153,18 @@ test("model mounting validation accepts matching receipt gates", () => {
 
   assert.equal(result.status, "passed");
   assert.equal(result.gateReceipt.kind, "workflow_receipt_gate");
-  assert.equal(createdReceipts[0].details.backendId, "backend.local");
+  assert.equal(createdReceipts[0].details.receipt_id, "receipt-route");
+  assert.equal(createdReceipts[0].details.route_id, "route.local-first");
+  assert.equal(createdReceipts[0].details.selected_model, "model.local");
+  assert.equal(createdReceipts[0].details.endpoint_id, "endpoint.local");
+  assert.equal(createdReceipts[0].details.backend_id, "backend.local");
+  assert.deepEqual(createdReceipts[0].details.required_tool_receipt_ids, ["receipt-tool"]);
+  assert.equal(Object.hasOwn(createdReceipts[0].details, "receiptId"), false);
+  assert.equal(Object.hasOwn(createdReceipts[0].details, "routeId"), false);
+  assert.equal(Object.hasOwn(createdReceipts[0].details, "selectedModel"), false);
+  assert.equal(Object.hasOwn(createdReceipts[0].details, "endpointId"), false);
+  assert.equal(Object.hasOwn(createdReceipts[0].details, "backendId"), false);
+  assert.equal(Object.hasOwn(createdReceipts[0].details, "requiredToolReceiptIds"), false);
 });
 
 test("model mounting validation blocks receipt gates with mismatches", () => {
@@ -163,11 +174,11 @@ test("model mounting validation blocks receipt gates with mismatches", () => {
       kind: "model_invocation",
       redaction: "redacted",
       details: {
-        routeId: "route.local-first",
-        selectedModel: "model.local",
-        endpointId: "endpoint.local",
-        selectedBackend: "backend.local",
-        toolReceiptIds: ["receipt-tool"],
+        route_id: "route.local-first",
+        selected_model: "model.local",
+        endpoint_id: "endpoint.local",
+        selected_backend: "backend.local",
+        tool_receipt_ids: ["receipt-tool"],
       },
     }],
     ["receipt-tool", {
@@ -204,6 +215,10 @@ test("model mounting validation blocks receipt gates with mismatches", () => {
 
   assert.equal(error.status, 412);
   assert.equal(error.code, "policy");
+  assert.equal(error.details.receipt_id, "receipt-route");
+  assert.equal(error.details.gate_receipt_id, "created-1");
+  assert.equal(Object.hasOwn(error.details, "receiptId"), false);
+  assert.equal(Object.hasOwn(error.details, "gateReceiptId"), false);
   assert.deepEqual(error.details.failures, [
     "route:route.local-first",
     "backend:backend.local",
@@ -211,4 +226,12 @@ test("model mounting validation blocks receipt gates with mismatches", () => {
     "tool_receipt_link:receipt-missing-link",
   ]);
   assert.equal(createdReceipts[0].kind, "workflow_receipt_gate_blocked");
+  assert.equal(createdReceipts[0].details.receipt_id, "receipt-route");
+  assert.equal(createdReceipts[0].details.route_id, "route.local-first");
+  assert.equal(createdReceipts[0].details.backend_id, "backend.local");
+  assert.deepEqual(createdReceipts[0].details.required_tool_receipt_ids, ["receipt-tool", "receipt-missing-link"]);
+  assert.equal(Object.hasOwn(createdReceipts[0].details, "receiptId"), false);
+  assert.equal(Object.hasOwn(createdReceipts[0].details, "routeId"), false);
+  assert.equal(Object.hasOwn(createdReceipts[0].details, "backendId"), false);
+  assert.equal(Object.hasOwn(createdReceipts[0].details, "requiredToolReceiptIds"), false);
 });
