@@ -369,6 +369,12 @@ function runBridge() {
   const runtimeCodingToolInvocationSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     : "";
+  const codingTools = exists("packages/runtime-daemon/src/coding-tools.mjs")
+    ? read("packages/runtime-daemon/src/coding-tools.mjs")
+    : "";
+  const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
+    ? read("packages/runtime-daemon/src/index.mjs")
+    : "";
   const openAiCompatibleDriver = exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
     : "";
@@ -477,12 +483,16 @@ function runBridge() {
       /rust_workload_live/.test(runtimeCodingToolInvocationSurface) &&
       /coding_tool_rust_workload_live_required/.test(runtimeCodingToolInvocationSurface) &&
       !/executeCodingTool/.test(runtimeCodingToolInvocationSurface) &&
+      !/executeCodingTool/.test(codingTools) &&
+      !/executeCodingTool/.test(runtimeDaemonIndex) &&
       /coding tool invocation surface rejects non-live coding-tool runners before JS execution/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ),
     [
       "crates/node/src/bin/ioi-step-module-bridge.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/coding-tools.mjs",
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
     ],
     "Phase 3/10 is pending: route migrated coding tools through the Rust command bridge, StepModuleRouter, and live workload path without daemon_js",

@@ -621,34 +621,6 @@ export function codingToolStepModuleProjection(toolId, input = {}, result = {}, 
   });
 }
 
-export function executeCodingTool(toolId, workspaceRoot, input = {}, context = {}) {
-  switch (toolId) {
-    case "workspace.status":
-      return workspaceStatusTool(workspaceRoot, input);
-    case "git.diff":
-      return gitDiffTool(workspaceRoot, input);
-    case "file.inspect":
-      return fileInspectTool(workspaceRoot, input);
-    case "file.apply_patch":
-      return fileApplyPatchTool(workspaceRoot, input);
-    case "test.run":
-      return testRunTool(workspaceRoot, input);
-    case "lsp.diagnostics":
-      return lspDiagnosticsTool(workspaceRoot, input);
-    case "artifact.read":
-      return artifactReadTool(input, context);
-    case "tool.retrieve_result":
-      return toolRetrieveResultTool(input, context);
-    case "computer_use.request_lease":
-      return computerUseLeaseRequestTool(workspaceRoot, input);
-    default:
-      throw codingToolError(404, "not_found", `Coding tool not found: ${toolId}`, {
-        toolId,
-        pack: CODING_TOOL_PACK_ID,
-      });
-  }
-}
-
 export function codingToolInputSummary(toolId, input = {}) {
   if (toolId === "file.inspect") return { path: optionalString(input.path) ?? null };
   if (toolId === "file.apply_patch") {

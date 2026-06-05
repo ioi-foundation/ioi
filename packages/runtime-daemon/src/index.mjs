@@ -50,7 +50,6 @@ import {
   CODING_TOOL_PACK_ID,
   CODING_TOOL_RESULT_SCHEMA_VERSION,
   codingToolInputSummary,
-  executeCodingTool,
 } from "./coding-tools.mjs";
 import {
   RuntimeApiBridgeUnavailableError,
@@ -763,7 +762,6 @@ export class AgentgresRuntimeStateStore {
       codingToolResultWithoutDrafts,
       diagnosticsRepairContextForRequest,
       diagnosticsRepairContextForToolPack,
-      executeCodingTool,
     });
     this.workspaceSnapshotSurface = createRuntimeWorkspaceSnapshotSurface({
       notFound,
