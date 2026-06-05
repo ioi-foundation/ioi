@@ -5021,6 +5021,31 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "agent-sdk-subagent-result-status-telemetry-aliases-retired",
+    runtimeSubagentSdkResultBlock.length > 0 &&
+      /^\s*output_contract_status\?: string \| null;/m.test(
+        runtimeSubagentSdkResultBlock,
+      ) &&
+      /^\s*budget_status\?: string \| null;/m.test(
+        runtimeSubagentSdkResultBlock,
+      ) &&
+      /^\s*usage_telemetry\?: RuntimeSubagentUsageTelemetry \| null;/m.test(
+        runtimeSubagentSdkResultBlock,
+      ) &&
+      /^\s*cost_estimate_usd\?: number \| null;/m.test(
+        runtimeSubagentSdkResultBlock,
+      ) &&
+      /^\s*token_estimate\?: number \| null;/m.test(
+        runtimeSubagentSdkResultBlock,
+      ) &&
+      !/^\s*(?:outputContractStatus|budgetStatus|usageTelemetry|costEstimateUsd|tokenEstimate)\?:/m.test(
+        runtimeSubagentSdkResultBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent result types must not advertise retired status/telemetry aliases",
+  );
+  assertCheck(
+    result,
     "agent-sdk-runtime-event-dead-mock-helpers-retired",
     /runtimeThreadEventFromEnvelope/.test(agentSdkRuntimeEvents) &&
       !/mockRuntime(?:CursorSeq|EnvelopeForSdkEvent|EventEnvelope)|runtimePayloadStringRecord|runtimeEventKindForSdkMessage|runtimeEventStatusForSdkMessage|componentKindForSdkMessage|workflowNodeIdForSdkMessage|sourceEventKindForSdkMessage|payloadSchemaVersionForSdkMessage|turnIdForRun|eventStreamIdForThread|runtimeTurnStatusForRun|\(event as \{ id\?: string \}\)\.id/.test(

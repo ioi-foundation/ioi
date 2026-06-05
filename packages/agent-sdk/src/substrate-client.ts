@@ -539,15 +539,10 @@ export interface RuntimeSubagentResult {
   result?: string | null;
   output?: Record<string, unknown> | null;
   output_contract_status?: string | null;
-  outputContractStatus?: RuntimeSubagentOutputContractStatus | string | null;
   budget_status?: string | null;
-  budgetStatus?: RuntimeSubagentBudgetStatus | string | null;
   usage_telemetry?: RuntimeSubagentUsageTelemetry | null;
-  usageTelemetry?: RuntimeSubagentUsageTelemetry | null;
   cost_estimate_usd?: number | null;
-  costEstimateUsd?: number | null;
   token_estimate?: number | null;
-  tokenEstimate?: number | null;
   receipt_refs?: string[];
   receiptRefs?: string[];
   subagent?: RuntimeSubagentRecord;
