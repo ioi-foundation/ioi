@@ -3563,6 +3563,11 @@ function runCompositor() {
     "export interface RuntimeSubagentListResult",
     "export interface RuntimeSubagentResult",
   );
+  const runtimeSubagentSdkResultBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentResult",
+    "export interface RuntimeSubagentCancellationPropagationResult",
+  );
   const agentIdeSubagentDelegationMatrixBlock = blockBetween(
     agentIdeDelegationMatrix,
     'if (payloadObject === "ioi.runtime_subagent_manager_event")',
@@ -4996,6 +5001,23 @@ function runCompositor() {
       !/^\s*\[key: string\]: unknown;/m.test(runtimeSubagentSdkListResultBlock),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent list result types must not advertise retired camelCase aliases or arbitrary key escape hatches",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-subagent-result-identity-lifecycle-aliases-retired",
+    runtimeSubagentSdkResultBlock.length > 0 &&
+      /^\s*schema_version\?: string;/m.test(runtimeSubagentSdkResultBlock) &&
+      /^\s*subagent_id\?: string \| null;/m.test(runtimeSubagentSdkResultBlock) &&
+      /^\s*agent_id\?: string \| null;/m.test(runtimeSubagentSdkResultBlock) &&
+      /^\s*run_id\?: string \| null;/m.test(runtimeSubagentSdkResultBlock) &&
+      /^\s*lifecycle_status\?: RuntimeSubagentLifecycleStatus \| null;/m.test(
+        runtimeSubagentSdkResultBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|subagentId|agentId|runId|lifecycleStatus)\?:/m.test(
+        runtimeSubagentSdkResultBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent result types must not advertise retired identity/lifecycle aliases",
   );
   assertCheck(
     result,

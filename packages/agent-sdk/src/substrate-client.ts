@@ -530,16 +530,11 @@ export interface RuntimeSubagentListResult {
 
 export interface RuntimeSubagentResult {
   schema_version?: string;
-  schemaVersion?: string;
   object?: "ioi.runtime_subagent_result" | string;
   subagent_id?: string | null;
-  subagentId?: string | null;
   agent_id?: string | null;
-  agentId?: string | null;
   run_id?: string | null;
-  runId?: string | null;
   lifecycle_status?: RuntimeSubagentLifecycleStatus | null;
-  lifecycleStatus?: RuntimeSubagentLifecycleStatus | null;
   status?: RuntimeSubagentLifecycleStatus | null;
   result?: string | null;
   output?: Record<string, unknown> | null;
