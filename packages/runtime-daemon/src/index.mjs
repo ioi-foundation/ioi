@@ -2088,10 +2088,6 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
-  legacyEventsForRun(runId, lastEventId) {
-    return this.runReadSurface.legacyEventsForRun(this, runId, lastEventId);
-  }
-
   replayFromCanonicalState(runId, cursor) {
     return this.runReadSurface.replayFromCanonicalState(this, runId, cursor);
   }

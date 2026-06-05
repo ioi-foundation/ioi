@@ -2650,6 +2650,15 @@ function runCompositor() {
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
+  const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
+    ? read("packages/runtime-daemon/src/index.mjs")
+    : "";
+  const runtimeRunReadSurface = exists("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
+    : "";
+  const runtimeRunReadSurfaceTest = exists("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
+    : "";
   assertCheck(
     result,
     "rust-projection-core",
@@ -2670,6 +2679,21 @@ function runCompositor() {
       /WorkflowCompositorAcceptedTruthForbidden/.test(projectionCore),
     ["crates/services/src/agentic/runtime/kernel/projection.rs"],
     "Phase 11 is pending: compositor must be unable to create accepted truth directly",
+  );
+  assertCheck(
+    result,
+    "runtime-run-legacy-event-read-alias-retired",
+    !/legacyEventsForRun/.test(`${runtimeDaemonIndex}\n${runtimeRunReadSurface}`) &&
+      /replayFromCanonicalState/.test(runtimeDaemonIndex) &&
+      /replayFromCanonicalState/.test(runtimeRunReadSurface) &&
+      /canonicalProjection/.test(runtimeRunReadSurface) &&
+      /Object\.hasOwn\(surface,\s*"legacyEventsForRun"\),\s*false/.test(runtimeRunReadSurfaceTest),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
+      "packages/runtime-daemon/src/runtime-run-read-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime run reads must use canonical replay/projection APIs instead of the legacy event alias",
   );
   return result;
 }

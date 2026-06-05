@@ -144,9 +144,7 @@ test("runtime run read surface projects authority evidence, replay, trace, and c
     "projectThreadEvents",
     "authorityEvidenceSummaryForEvents",
   ]);
-  assert.deepEqual(surface.legacyEventsForRun(store, "run-one", "run-one:event:1"), [
-    { id: "run-one:event:2" },
-  ]);
+  assert.equal(Object.hasOwn(surface, "legacyEventsForRun"), false);
   assert.deepEqual(surface.replayFromCanonicalState(store, "run-one", { sinceSeq: 3 }), [
     { id: "canonical-event", cursor: { sinceSeq: 3 } },
   ]);

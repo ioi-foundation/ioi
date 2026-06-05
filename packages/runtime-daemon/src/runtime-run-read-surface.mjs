@@ -86,12 +86,6 @@ export function createRuntimeRunReadSurface({
         options,
       );
     },
-    legacyEventsForRun(store, runId, lastEventId) {
-      const events = store.getRun(runId).events;
-      if (!lastEventId) return events;
-      const index = events.findIndex((event) => event.id === lastEventId);
-      return events.slice(index >= 0 ? index + 1 : 0);
-    },
     replayFromCanonicalState(store, runId, cursor) {
       return store.eventsForRun(runId, cursor);
     },
