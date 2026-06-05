@@ -389,12 +389,12 @@ test("runtime event payloads preserve usage and model route summaries", () => {
     runId: "run-one",
     agentId: "agent-one",
     data: {
-      decisionId: "decision-one",
-      routeId: "route.local-first",
-      requestedModel: "qwen",
-      selectedModel: "qwen",
-      providerKind: "llama.cpp",
-      fallbackTriggered: false,
+      decision_id: "decision-one",
+      route_id: "route.local-first",
+      requested_model: "qwen",
+      selected_model: "qwen",
+      provider_kind: "llama.cpp",
+      fallback_triggered: true,
     },
   });
 
@@ -402,8 +402,30 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   assert.equal(route.model_route_decision_id, "decision-one");
   assert.equal(route.route_id, "route.local-first");
   assert.equal(route.provider_kind, "llama.cpp");
-  assert.equal(route.fallback_triggered, false);
+  assert.equal(route.fallback_triggered, true);
   for (const key of retiredPayloadKeys) {
     assert.equal(Object.hasOwn(route, key), false);
   }
+
+  const legacyRoute = runtime.payloadSummaryForRunEvent({
+    id: "event-legacy-route",
+    type: "model_route_decision",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      eventKind: "LegacyModelRouteDecision",
+      decisionId: "decision-legacy",
+      routeId: "route.legacy",
+      requestedModel: "legacy-model",
+      selectedModel: "legacy-selected",
+      providerKind: "legacy-provider",
+      fallbackTriggered: true,
+    },
+  });
+
+  assert.equal(legacyRoute.event_kind, "ModelRouteDecision");
+  assert.equal(legacyRoute.model_route_decision_id, null);
+  assert.equal(legacyRoute.route_id, null);
+  assert.equal(legacyRoute.provider_kind, null);
+  assert.equal(legacyRoute.fallback_triggered, false);
 });

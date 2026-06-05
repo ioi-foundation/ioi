@@ -5504,6 +5504,11 @@ function runCompositor() {
       'if (event.type !== "model_route_decision")',
     ),
   ].join("\n");
+  const runtimeModelRouteDecisionPayloadBlock = blockBetween(
+    runtimeEventPayloads,
+    'if (event.type !== "model_route_decision") return summary;',
+    "  }\n  \n\n  return",
+  );
   assertCheck(
     result,
     "rust-projection-core",
@@ -5580,6 +5585,30 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-event-payloads.test.mjs",
     ],
     "Phase 10/11 is pending: runtime event payload summaries must ignore retired camelCase usage/context-pressure payload data aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-model-route-decision-payload-aliases-retired",
+    runtimeModelRouteDecisionPayloadBlock.length > 0 &&
+      /event\.data\?\.event_kind/.test(runtimeModelRouteDecisionPayloadBlock) &&
+      /event\.data\?\.decision_id/.test(runtimeModelRouteDecisionPayloadBlock) &&
+      /event\.data\?\.route_id/.test(runtimeModelRouteDecisionPayloadBlock) &&
+      /event\.data\?\.fallback_triggered/.test(runtimeModelRouteDecisionPayloadBlock) &&
+      !/event\.data\?\.(?:eventKind|decisionId|routeId|requestedModel|requestedModelMode|selectedModel|endpointId|providerId|providerKind|reasoningEffort|localRemotePlacement|privacyPosture|costEstimateUsd|fallbackTriggered)/.test(
+        runtimeModelRouteDecisionPayloadBlock,
+      ) &&
+      /eventKind:\s*"LegacyModelRouteDecision"/.test(runtimeEventPayloadsTest) &&
+      /assert\.equal\(legacyRoute\.model_route_decision_id,\s*null\)/.test(
+        runtimeEventPayloadsTest,
+      ) &&
+      /assert\.equal\(legacyRoute\.fallback_triggered,\s*false\)/.test(
+        runtimeEventPayloadsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-event-payloads.mjs",
+      "packages/runtime-daemon/src/runtime-event-payloads.test.mjs",
+    ],
+    "Phase 10/11 is pending: model-route-decision payload summaries must ignore retired camelCase route-decision aliases",
   );
   assertCheck(
     result,
