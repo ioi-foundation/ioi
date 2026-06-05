@@ -2460,6 +2460,12 @@ function runReceipts() {
   const catalogProviderOAuthTest = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs")
     : "";
+  const backendLifecycle = exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs")
+    : "";
+  const backendLifecycleTest = exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
+    : "";
   const capabilityTokenOperations = exists("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs")
     : "";
@@ -2486,6 +2492,9 @@ function runReceipts() {
     : "";
   const modelMountReceiptOperations = exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
+    : "";
+  const modelMountReceiptOperationsTest = exists("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs")
     : "";
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
@@ -3244,6 +3253,32 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs",
     ],
     "Phase 7/11 is pending: catalog OAuth accepted receipts and missing-session errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-backend-lifecycle-detail-aliases-retired",
+    /backend_id:\s*backendId/.test(backendLifecycle) &&
+      /model_id:\s*backend\.label/.test(backendLifecycle) &&
+      /evidence_refs:\s*backend\.evidenceRefs/.test(backendLifecycle) &&
+      /details:\s*\{\s*backend_id:\s*backendId,\s*backend_kind:\s*backend\.kind,\s*evidence_refs:\s*backend\.evidenceRefs/.test(backendLifecycle) &&
+      /log_count:\s*resolved\.length/.test(backendLifecycle) &&
+      !/details:\s*\{\s*backendId\b/.test(backendLifecycle) &&
+      /details\.model_id\s*\?\?\s*details\.modelId/.test(modelMountReceiptOperations) &&
+      /lifecycle receipt summary accepts canonical snake_case subject fields/.test(modelMountReceiptOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"backendId"\),\s*false/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"modelId"\),\s*false/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"logCount"\),\s*false/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"evidenceRefs"\),\s*false/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(error\.details,\s*"backendId"\),\s*false/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(error\.details,\s*"backendKind"\),\s*false/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(backendLifecycleTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs",
+      "packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
+    ],
+    "Phase 10/11 is pending: backend lifecycle receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

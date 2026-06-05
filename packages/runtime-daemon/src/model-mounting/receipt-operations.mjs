@@ -20,8 +20,9 @@ export function getReceipt(state, receiptId) {
 
 export function lifecycleReceipt(state, operation, details = {}) {
   assertModelInstanceLifecycleReceiptRustBound(state, operation, details);
+  const subject = details.model_id ?? details.modelId ?? details.endpoint_id ?? details.endpointId ?? "model registry";
   return state.receipt("model_lifecycle", {
-    summary: `${operation} recorded for ${details.modelId ?? details.endpointId ?? "model registry"}.`,
+    summary: `${operation} recorded for ${subject}.`,
     redaction: "redacted",
     evidenceRefs: ["model_registry", "agentgres_receipt_projection_boundary", operation],
     details: { operation, ...details },

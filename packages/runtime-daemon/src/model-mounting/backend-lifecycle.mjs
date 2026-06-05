@@ -247,10 +247,10 @@ export function backendHealth(state, backendId, deps = {}) {
   const hardware = hardwareSnapshot();
   const processSnapshot = state.backendProcessSnapshot(processRecord);
   const receipt = state.lifecycleReceipt("backend_health", {
-    backendId,
-    modelId: backend.label,
+    backend_id: backendId,
+    model_id: backend.label,
     state: status,
-    evidenceRefs: backend.evidenceRefs ?? [],
+    evidence_refs: backend.evidenceRefs ?? [],
     hardware,
     process: processSnapshot,
   });
@@ -276,17 +276,17 @@ export function startBackend(state, backendId, body = {}, deps = {}) {
       status: 424,
       code: "external_blocker",
       message: "Backend cannot be started until its binary path or base URL is configured.",
-      details: { backendId, backendKind: backend.kind, evidenceRefs: backend.evidenceRefs ?? [] },
+      details: { backend_id: backendId, backend_kind: backend.kind, evidence_refs: backend.evidenceRefs ?? [] },
     });
   }
   const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? state.runtimeDefaultLoadOptions(backendId) ?? {});
   const processRecord = state.ensureBackendProcess(backendId, { loadOptions, reason: "backend_start" });
   const processSnapshot = state.backendProcessSnapshot(processRecord);
   const receipt = state.lifecycleReceipt("backend_start", {
-    backendId,
-    modelId: backend.label,
+    backend_id: backendId,
+    model_id: backend.label,
     state: "available",
-    evidenceRefs: backend.evidenceRefs ?? [],
+    evidence_refs: backend.evidenceRefs ?? [],
     process: processSnapshot,
   });
   const updated = {
@@ -319,10 +319,10 @@ export function stopBackend(state, backendId) {
   const processRecord = state.stopBackendProcess(backend, { reason: "backend_stop" });
   const processSnapshot = state.backendProcessSnapshot(processRecord);
   const receipt = state.lifecycleReceipt("backend_stop", {
-    backendId,
-    modelId: backend.label,
+    backend_id: backendId,
+    model_id: backend.label,
     state: "stopped",
-    evidenceRefs: backend.evidenceRefs ?? [],
+    evidence_refs: backend.evidenceRefs ?? [],
     process: processSnapshot,
   });
   const updated = {
@@ -363,11 +363,11 @@ export function backendLogs(state, backendId, deps = {}) {
   }
   const resolved = records.sort((left, right) => String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? ""))).slice(-200);
   state.lifecycleReceipt("backend_logs_read", {
-    backendId,
-    modelId: state.backend(backendId).label,
+    backend_id: backendId,
+    model_id: state.backend(backendId).label,
     state: "read",
-    logCount: resolved.length,
-    evidenceRefs: ["backend_log_projection"],
+    log_count: resolved.length,
+    evidence_refs: ["backend_log_projection"],
   });
   return resolved;
 }

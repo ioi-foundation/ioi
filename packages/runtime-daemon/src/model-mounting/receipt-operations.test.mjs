@@ -46,6 +46,27 @@ test("receipt operations create lifecycle receipt envelopes through the state de
   });
 });
 
+test("lifecycle receipt summary accepts canonical snake_case subject fields", () => {
+  const state = {
+    receipt(kind, payload) {
+      return { kind, ...payload };
+    },
+  };
+
+  const record = lifecycleReceipt(state, "backend_health", {
+    model_id: "Native backend",
+    backend_id: "backend.native",
+  });
+
+  assert.equal(record.kind, "model_lifecycle");
+  assert.equal(record.summary, "backend_health recorded for Native backend.");
+  assert.deepEqual(record.details, {
+    operation: "backend_health",
+    model_id: "Native backend",
+    backend_id: "backend.native",
+  });
+});
+
 test("model instance lifecycle receipts require Rust binding for migrated local providers", () => {
   const created = [];
   const state = {

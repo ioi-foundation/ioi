@@ -219,15 +219,33 @@ test("backend health, start, and stop update backend records and lifecycle recei
   assert.equal(health.status, "available");
   assert.equal(health.lastHealthReceiptId, "receipt.backend_health.1");
   assert.equal(state.receipts.at(-1).details.hardware.cpu, "test-cpu");
+  assert.equal(state.receipts.at(-1).details.backend_id, "backend.native");
+  assert.equal(state.receipts.at(-1).details.model_id, "Native");
+  assert.deepEqual(state.receipts.at(-1).details.evidence_refs, ["native_backend"]);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "backendId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "evidenceRefs"), false);
 
   const started = startBackend(state, "backend.native", { loadOptions: { contextLength: 1024 } }, deps);
   assert.equal(started.status, "available");
   assert.equal(started.process.receiptId, "receipt.backend_start.2");
+  assert.equal(state.receipts.at(-1).details.backend_id, "backend.native");
+  assert.equal(state.receipts.at(-1).details.model_id, "Native");
+  assert.deepEqual(state.receipts.at(-1).details.evidence_refs, ["native_backend"]);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "backendId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "evidenceRefs"), false);
   assert.equal(state.logs.at(-1).event, "backend_start");
 
   const stopped = stopBackend(state, "backend.native");
   assert.equal(stopped.status, "stopped");
   assert.equal(stopped.process.receiptId, "receipt.backend_stop.3");
+  assert.equal(state.receipts.at(-1).details.backend_id, "backend.native");
+  assert.equal(state.receipts.at(-1).details.model_id, "Native");
+  assert.deepEqual(state.receipts.at(-1).details.evidence_refs, ["native_backend"]);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "backendId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "evidenceRefs"), false);
   assert.equal(state.logs.at(-1).event, "backend_stop");
 });
 
@@ -236,7 +254,17 @@ test("blocked backend start preserves external-blocker envelope", () => {
 
   assert.throws(
     () => startBackend(state, "backend.blocked", {}, deps),
-    (error) => error.status === 424 && error.code === "external_blocker" && error.details.backendId === "backend.blocked",
+    (error) => {
+      assert.equal(error.status, 424);
+      assert.equal(error.code, "external_blocker");
+      assert.equal(error.details.backend_id, "backend.blocked");
+      assert.equal(error.details.backend_kind, "llama_cpp");
+      assert.deepEqual(error.details.evidence_refs, ["binary_missing"]);
+      assert.equal(Object.hasOwn(error.details, "backendId"), false);
+      assert.equal(Object.hasOwn(error.details, "backendKind"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    },
   );
 });
 
@@ -261,5 +289,12 @@ test("backend logs read matching backend records and writes a read receipt", () 
 
   assert.deepEqual(records.map((record) => record.event), ["first", "second"]);
   assert.equal(state.receipts.at(-1).kind, "backend_logs_read");
-  assert.equal(state.receipts.at(-1).details.logCount, 2);
+  assert.equal(state.receipts.at(-1).details.backend_id, "backend.native");
+  assert.equal(state.receipts.at(-1).details.model_id, "Native");
+  assert.equal(state.receipts.at(-1).details.log_count, 2);
+  assert.deepEqual(state.receipts.at(-1).details.evidence_refs, ["backend_log_projection"]);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "backendId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "logCount"), false);
+  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "evidenceRefs"), false);
 });
