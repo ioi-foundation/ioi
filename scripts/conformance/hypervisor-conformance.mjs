@@ -2486,6 +2486,12 @@ function runReceipts() {
   const providerAuthTest = exists("packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs")
     : "";
+  const lmStudioProviderDriver = exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs")
+    : "";
+  const lmStudioProviderDriverTest = exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs")
+    : "";
   const providerOperations = exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs")
     : "";
@@ -2637,6 +2643,8 @@ function runReceipts() {
   ].map((match) => match[0]).join("\n");
   const runtimeEngineLatestReceiptFilter =
     runtimeEngines.match(/latestReceipts:\s*state\.listReceipts\(\)[\s\S]*?\.slice\(-8\),/)?.[0] ?? "";
+  const lmStudioRequireLmsPathBlock =
+    lmStudioProviderDriver.match(/requireLmsPath\(provider\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
@@ -3567,6 +3575,22 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs",
     ],
     "Phase 5/11 is pending: provider transport and auth fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-lm-studio-provider-error-aliases-retired",
+    /details:\s*\{\s*provider_id:\s*provider\.id,\s*evidence_refs:\s*\["lm_studio_public_cli_absent"\]\s*\}/.test(
+      lmStudioRequireLmsPathBlock,
+    ) &&
+      !/\b(?:providerId|evidenceRefs)\s*:/.test(lmStudioRequireLmsPathBlock) &&
+      /assert\.equal\(error\.details\.provider_id,\s*"provider\.lmstudio"\)/.test(lmStudioProviderDriverTest) &&
+      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(lmStudioProviderDriverTest) &&
+      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(lmStudioProviderDriverTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs",
+    ],
+    "Phase 5/11 is pending: LM Studio provider fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

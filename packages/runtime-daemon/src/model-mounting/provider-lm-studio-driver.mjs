@@ -158,7 +158,7 @@ export class LmStudioModelProviderDriver {
         status: 424,
         code: "external_blocker",
         message: "LM Studio public lms CLI is not available.",
-        details: { providerId: provider.id, evidenceRefs: ["lm_studio_public_cli_absent"] },
+        details: { provider_id: provider.id, evidence_refs: ["lm_studio_public_cli_absent"] },
       });
     }
     return lmsPath;

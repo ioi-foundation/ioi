@@ -63,7 +63,10 @@ test("LM Studio driver reports absent CLI without leaking local probes", async (
     (error) => {
       assert.equal(error.status, 424);
       assert.equal(error.code, "external_blocker");
-      assert.equal(error.details.providerId, "provider.lmstudio");
+      assert.equal(error.details.provider_id, "provider.lmstudio");
+      assert.deepEqual(error.details.evidence_refs, ["lm_studio_public_cli_absent"]);
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
       return true;
     },
   );
