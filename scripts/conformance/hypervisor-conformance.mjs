@@ -471,6 +471,10 @@ function runBridge() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts")
     : "";
+  const cliMain = exists("crates/cli/src/main.rs") ? read("crates/cli/src/main.rs") : "";
+  const cliRuntime = exists("crates/cli/src/commands/runtime.rs")
+    ? read("crates/cli/src/commands/runtime.rs")
+    : "";
   const retiredCodingToolJsBodyPattern =
     /function (?:computerUseLeaseRequestTool|workspaceStatusTool|gitDiffTool|fileInspectTool|fileApplyPatchTool|testRunTool|lspDiagnosticsTool|artifactReadTool|toolRetrieveResultTool)\(/;
   const retiredCodingToolJsImportPattern =
@@ -1177,6 +1181,26 @@ function runBridge() {
       "packages/agent-ide/src/index.ts",
     ],
     "Phase 8/11 is pending: SDK and IDE L1 settlement clients must consume the L1 route without exposing a JS apply shortcut",
+  );
+  assertCheck(
+    result,
+    "l1-settlement-cli-admission-surface",
+    /Runtime\(runtime::RuntimeArgs\)/.test(cliMain) &&
+      /runtime::run\(args\)\.await/.test(cliMain) &&
+      /L1SettlementCommands::Admit/.test(cliRuntime) &&
+      /l1_settlement_attempts_route/.test(cliRuntime) &&
+      /l1-settlement-attempts/.test(cliRuntime) &&
+      /"source":\s*"cli_client"/.test(cliRuntime) &&
+      /"attempt":\s*attempt/.test(cliRuntime) &&
+      /l1_settlement_route_encodes_thread_id/.test(cliRuntime) &&
+      /l1_settlement_body_is_cli_admission_only/.test(cliRuntime) &&
+      !/settlement_admitted:\s*true/.test(cliRuntime),
+    [
+      "crates/cli/src/main.rs",
+      "crates/cli/src/commands/mod.rs",
+      "crates/cli/src/commands/runtime.rs",
+    ],
+    "Phase 8/11 is pending: CLI L1 settlement client must post attempts to the daemon route without minting accepted truth",
   );
   assertCheck(
     result,

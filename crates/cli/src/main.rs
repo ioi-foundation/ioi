@@ -86,6 +86,9 @@ enum Commands {
     /// Inspect Agentgres model, route, tool, workflow, and token receipts.
     Receipts(receipts::ReceiptsArgs),
 
+    /// Submit non-authoritative runtime protocol requests to the daemon.
+    Runtime(runtime::RuntimeArgs),
+
     /// Interact with the local Desktop Agent (Jarvis Mode).
     Agent(agent::AgentArgs),
 
@@ -153,6 +156,7 @@ async fn main() -> Result<()> {
         Commands::Tokens(args) => tokens::run(args).await,
         Commands::Vault(args) => vault::run(args).await,
         Commands::Receipts(args) => receipts::run(args).await,
+        Commands::Runtime(args) => runtime::run(args).await,
 
         // --- Agent ---
         Commands::Agent(args) => agent::run(args).await,
