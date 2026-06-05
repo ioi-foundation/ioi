@@ -73,12 +73,10 @@ function ensureProofWorkspace() {
 }
 
 async function importSdk() {
-  const [{ Agent, Cursor, createRuntimeSubstrateClient }, { createMockRuntimeSubstrateClient }] =
-    await Promise.all([
-      import("../../packages/agent-sdk/dist/index.js"),
-      import("../../packages/agent-sdk/dist/testing.js"),
-    ]);
-  return { Agent, Cursor, createRuntimeSubstrateClient, createMockRuntimeSubstrateClient };
+  const { Agent, Cursor, createRuntimeSubstrateClient } = await import(
+    "../../packages/agent-sdk/dist/index.js"
+  );
+  return { Agent, Cursor, createRuntimeSubstrateClient };
 }
 
 async function collect(iterable) {
@@ -364,8 +362,7 @@ async function runLiveDaemonAgentgresProof(createRuntimeSubstrateClient, Agent, 
 async function main() {
   fs.mkdirSync(evidenceDir, { recursive: true });
   ensureProofWorkspace();
-  const { Agent, Cursor, createRuntimeSubstrateClient, createMockRuntimeSubstrateClient } =
-    await importSdk();
+  const { Agent, Cursor, createRuntimeSubstrateClient } = await importSdk();
   const liveProof = await runLiveDaemonAgentgresProof(createRuntimeSubstrateClient, Agent, Cursor);
 
   const proofDaemon = await startRuntimeDaemonService({
@@ -373,7 +370,7 @@ async function main() {
     stateDir: path.join(proofWorkspace, ".ioi", "daemon-state"),
   });
   try {
-    const client = createMockRuntimeSubstrateClient({
+    const client = createRuntimeSubstrateClient({
       endpoint: proofDaemon.endpoint,
       cwd: proofWorkspace,
       checkpointDir: path.join(proofWorkspace, ".ioi", "agent-sdk"),

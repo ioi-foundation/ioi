@@ -45,6 +45,7 @@ const sdkAgent = read("packages/agent-sdk/src/agent.ts");
 const sdkOptions = read("packages/agent-sdk/src/options.ts");
 const sdkMessages = read("packages/agent-sdk/src/messages.ts");
 const sdkIndex = read("packages/agent-sdk/src/index.ts");
+const sdkTesting = read("packages/agent-sdk/src/testing.ts");
 const sdkTests = read("packages/agent-sdk/test/sdk.test.mjs");
 const localDaemon = read("packages/runtime-daemon/src/index.mjs");
 const broadEvidence = read("scripts/evidence/runtime-complete-plus.mjs");
@@ -135,12 +136,13 @@ assertText(
 );
 assertLane(
   "C3",
-  "SDK mock boundary",
+  "SDK retired mock boundary",
   !/\bcreateMockRuntimeSubstrateClient\b/.test(sdkIndex) &&
-    sdkSubstrate.includes("explicitMockFactory") &&
+    !/\bcreateMockRuntimeSubstrateClient\b/.test(sdkTesting) &&
+    !sdkSubstrate.includes("explicitMockFactory") &&
     fs.existsSync(path.join(root, "packages/agent-sdk/src/testing.ts")),
   ["packages/agent-sdk/src/index.ts", "packages/agent-sdk/src/testing.ts"],
-  "mock runtime client leaked into canonical SDK exports",
+  "mock runtime client leaked into SDK surfaces",
 );
 
 assertText(

@@ -18,8 +18,9 @@ test("default SDK client is daemon-backed and fails closed without transport", a
     (error) =>
       error instanceof IoiAgentError &&
       error.code === "external_blocker" &&
-      error.details?.explicitMockFactory ===
-        "@ioi/agent-sdk/testing#createMockRuntimeSubstrateClient",
+      error.details?.endpointConfigured === false &&
+      error.details?.requiredEnvironment?.includes("IOI_DAEMON_ENDPOINT") &&
+      !("explicitMockFactory" in error.details),
   );
   await assert.rejects(
     createRuntimeSubstrateClient().listModels(),

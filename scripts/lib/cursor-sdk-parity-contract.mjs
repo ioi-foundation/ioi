@@ -52,15 +52,15 @@ export async function validateCursorSdkParity({
   checks.push(check("required_exports", missingExports.length === 0, { missingExports }));
   checks.push(
     check(
-      "mock_projection_is_testing_subpath",
+      "mock_projection_helper_retired",
       !("createMockRuntimeSubstrateClient" in sdk) &&
-        typeof testing.createMockRuntimeSubstrateClient === "function" &&
+        !("createMockRuntimeSubstrateClient" in testing) &&
         Boolean(packageJson.exports?.["./testing"]),
     ),
   );
   checks.push(check("cursor_capability_classification", REQUIRED_CURSOR_CAPABILITIES.length >= 20));
 
-  const proof = await runLocalSdkProof(sdk, testing, rootEvidenceDir);
+  const proof = await runLocalSdkProof(sdk, rootEvidenceDir);
   checks.push(check("local_quickstart", proof.quickstart.status === "completed"));
   checks.push(check("stream_reconnect", proof.reconnect.noDuplicateTerminalEvents));
   checks.push(check("conversation_accumulator", proof.quickstart.conversationLength === 2));
@@ -101,7 +101,7 @@ export async function validateCursorSdkParity({
   return summary;
 }
 
-export async function runLocalSdkProof(sdk, testing, evidenceDir) {
+export async function runLocalSdkProof(sdk, evidenceDir) {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-sdk-proof-"));
   fs.mkdirSync(path.join(cwd, ".cursor", "skills", "proof-skill"), { recursive: true });
   fs.writeFileSync(
@@ -117,7 +117,7 @@ export async function runLocalSdkProof(sdk, testing, evidenceDir) {
     stateDir: path.join(cwd, ".ioi", "daemon-state"),
   });
   try {
-    const client = testing.createMockRuntimeSubstrateClient({
+    const client = sdk.createRuntimeSubstrateClient({
       endpoint: daemon.endpoint,
       cwd,
       checkpointDir: path.join(cwd, ".ioi", "agent-sdk"),

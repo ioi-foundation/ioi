@@ -86,8 +86,8 @@ assert(
 );
 const sdkTesting = read("packages/agent-sdk/src/testing.ts");
 assert(
-  sdkTesting.includes("createMockRuntimeSubstrateClient"),
-  "Agent SDK mock projection client must live behind the explicit testing subpath.",
+  !sdkTesting.includes("createMockRuntimeSubstrateClient"),
+  "Agent SDK testing subpath must not retain the retired mock projection client.",
 );
 
 const tsSubstrate = read("packages/agent-ide/src/runtime/runtime-projection-adapter.ts");

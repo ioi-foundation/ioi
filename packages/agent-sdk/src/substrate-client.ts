@@ -3025,7 +3025,6 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
         method,
         endpointConfigured: Boolean(this.endpoint),
         requiredEnvironment: ["IOI_DAEMON_ENDPOINT"],
-        explicitMockFactory: "@ioi/agent-sdk/testing#createMockRuntimeSubstrateClient",
       },
     });
   }

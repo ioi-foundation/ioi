@@ -3536,8 +3536,26 @@ function runCompositor() {
   const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
     ? read("packages/agent-sdk/src/substrate-client.ts")
     : "";
+  const agentSdkTesting = exists("packages/agent-sdk/src/testing.ts")
+    ? read("packages/agent-sdk/src/testing.ts")
+    : "";
+  const agentSdkQuickstartLocal = exists("packages/agent-sdk/examples/quickstart-local.ts")
+    ? read("packages/agent-sdk/examples/quickstart-local.ts")
+    : "";
   const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
     ? read("packages/agent-sdk/test/sdk.test.mjs")
+    : "";
+  const runtimeCompletePlus = exists("scripts/evidence/runtime-complete-plus.mjs")
+    ? read("scripts/evidence/runtime-complete-plus.mjs")
+    : "";
+  const cursorSdkParityContract = exists("scripts/lib/cursor-sdk-parity-contract.mjs")
+    ? read("scripts/lib/cursor-sdk-parity-contract.mjs")
+    : "";
+  const preNextLegReadiness = exists("scripts/check-pre-next-leg-readiness.mjs")
+    ? read("scripts/check-pre-next-leg-readiness.mjs")
+    : "";
+  const executionSurfaceLeg = exists("scripts/check-execution-surface-leg.mjs")
+    ? read("scripts/check-execution-surface-leg.mjs")
     : "";
   const liveRuntimeDaemonContract = exists("scripts/lib/live-runtime-daemon-contract.test.mjs")
     ? read("scripts/lib/live-runtime-daemon-contract.test.mjs")
@@ -5571,6 +5589,45 @@ function runCompositor() {
       ),
     ["packages/agent-sdk/src/runtime-events.ts"],
     "Phase 10/11 is pending: SDK runtime event projection must not retain dead mock-envelope helpers or noncanonical event.id cursor fallback",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-testing-mock-client-helper-retired",
+    !/createMockRuntimeSubstrateClient/.test(
+      [
+        agentSdkSubstrateClient,
+        agentSdkTesting,
+        agentSdkQuickstartLocal,
+        runtimeCompletePlus,
+      ].join("\n"),
+    ) &&
+      !/explicitMockFactory:/.test(agentSdkSubstrateClient) &&
+      /!\("explicitMockFactory" in error\.details\)/.test(agentSdkTest) &&
+      /mock_projection_helper_retired/.test(cursorSdkParityContract) &&
+      /!\("createMockRuntimeSubstrateClient" in sdk\)/.test(
+        cursorSdkParityContract,
+      ) &&
+      /!\("createMockRuntimeSubstrateClient" in testing\)/.test(
+        cursorSdkParityContract,
+      ) &&
+      !/testing\.createMockRuntimeSubstrateClient/.test(
+        cursorSdkParityContract,
+      ) &&
+      /sdk\.createRuntimeSubstrateClient/.test(cursorSdkParityContract) &&
+      /createRuntimeSubstrateClient/.test(agentSdkQuickstartLocal) &&
+      /createRuntimeSubstrateClient/.test(runtimeCompletePlus) &&
+      /must not retain the retired mock projection client/.test(
+        preNextLegReadiness,
+      ) &&
+      /SDK retired mock boundary/.test(executionSurfaceLeg),
+    [
+      "packages/agent-sdk/src/testing.ts",
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/examples/quickstart-local.ts",
+      "scripts/evidence/runtime-complete-plus.mjs",
+      "scripts/lib/cursor-sdk-parity-contract.mjs",
+    ],
+    "Phase 10/11 is pending: SDK testing and evidence paths must not retain the retired mock runtime client helper",
   );
   assertCheck(
     result,

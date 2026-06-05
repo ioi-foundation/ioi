@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 233:
+Current expected behavior after Slice 234:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11444,6 +11444,12 @@ Slice 233 adds compositor proof for
 operation-specific request types for spawn, wait, send-input, cancel, resume,
 assign, and cancellation propagation instead of the retired shared
 `RuntimeSubagentControlInput` compatibility bag.
+
+Slice 234 adds compositor proof for
+`agent-sdk-testing-mock-client-helper-retired`: the SDK testing subpath and
+evidence/parity scripts no longer expose or call the retired
+`createMockRuntimeSubstrateClient` compatibility helper and use the canonical
+daemon-backed `createRuntimeSubstrateClient` path instead.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
