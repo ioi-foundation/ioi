@@ -3543,6 +3543,11 @@ function runCompositor() {
     const endIndex = remainder.indexOf(endMarker, startMarker.length);
     return endIndex < 0 ? remainder : remainder.slice(0, endIndex);
   }
+  const runtimeUsageSdkTelemetryBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeUsageTelemetry",
+    "export interface RuntimeUsageListInput",
+  );
   const runtimeSubagentSdkControlInputBlock = blockBetween(
     agentSdkSubstrateClient,
     "export interface RuntimeSubagentControlInput",
@@ -4711,6 +4716,27 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts",
     ],
     "Phase 10/11 is pending: IDE subagent control request bodies must emit canonical budget_usage_telemetry without duplicate budgetUsageTelemetry",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-runtime-usage-telemetry-identity-route-aliases-retired",
+    runtimeUsageSdkTelemetryBlock.length > 0 &&
+      /^\s*schema_version\?: "ioi\.runtime\.usage-telemetry\.v1" \| string;/m.test(
+        runtimeUsageSdkTelemetryBlock,
+      ) &&
+      /^\s*thread_id\?: string \| null;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*turn_id\?: string \| null;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*run_id\?: string \| null;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*agent_id\?: string \| null;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*route_id\?: string \| null;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*model_route_id\?: string \| null;/m.test(
+        runtimeUsageSdkTelemetryBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|threadId|turnId|runId|agentId|routeId|modelRouteId)\?:/m.test(
+        runtimeUsageSdkTelemetryBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK runtime usage telemetry types must not advertise retired identity/route aliases",
   );
   assertCheck(
     result,

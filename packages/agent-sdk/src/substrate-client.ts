@@ -200,23 +200,16 @@ export interface RuntimeRunRecord {
 
 export interface RuntimeUsageTelemetry {
   schema_version?: "ioi.runtime.usage-telemetry.v1" | string;
-  schemaVersion?: "ioi.runtime.usage-telemetry.v1" | string;
   object?: "ioi.runtime_usage_telemetry" | string;
   scope: "run" | "thread" | "subagent" | "global" | string;
   thread_id?: string | null;
-  threadId?: string | null;
   turn_id?: string | null;
-  turnId?: string | null;
   run_id?: string | null;
-  runId?: string | null;
   agent_id?: string | null;
-  agentId?: string | null;
   provider: string;
   model: string;
   route_id?: string | null;
-  routeId?: string | null;
   model_route_id?: string | null;
-  modelRouteId?: string | null;
   input_tokens: number;
   inputTokens?: number;
   output_tokens: number;
