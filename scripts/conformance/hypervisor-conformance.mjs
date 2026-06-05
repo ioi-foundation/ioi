@@ -3115,6 +3115,14 @@ function runCompositor() {
   const runtimeRunReadSurfaceTest = exists("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
     : "";
+  const runtimeAgentRunLifecycle = exists("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
+    : "";
+  const runtimeAgentRunLifecycleTest = exists(
+    "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs")
+    : "";
   const runtimeEventPayloads = exists("packages/runtime-daemon/src/runtime-event-payloads.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-payloads.mjs")
     : "";
@@ -3406,6 +3414,24 @@ function runCompositor() {
       "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
     ],
     "Phase 10/11 is pending: thread/turn usage projections must not emit or read retired usage telemetry aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-agent-run-lifecycle-usage-aliases-retired",
+    !/^\s*usageTelemetry,?\s*$/m.test(runtimeAgentRunLifecycle) &&
+      !/^\s*runtimeUsage:\s*usageTelemetry,?\s*$/m.test(runtimeAgentRunLifecycle) &&
+      /retiredRuntimeRunUsageAliasKeys/.test(runtimeAgentRunLifecycleTest) &&
+      /assertMissingKeys\(run,\s*retiredRuntimeRunUsageAliasKeys\)/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /assertMissingKeys\(run\.trace,\s*retiredRuntimeRunUsageAliasKeys\)/.test(
+        runtimeAgentRunLifecycleTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime agent run lifecycle records must not emit retired usage telemetry aliases",
   );
   assertCheck(
     result,

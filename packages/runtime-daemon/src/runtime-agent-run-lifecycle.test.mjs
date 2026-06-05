@@ -106,6 +106,17 @@ function deps(overrides = {}) {
   };
 }
 
+const retiredRuntimeRunUsageAliasKeys = [
+  "usageTelemetry",
+  "runtimeUsage",
+];
+
+function assertMissingKeys(record, keys) {
+  for (const key of keys) {
+    assert.equal(Object.hasOwn(record, key), false, `retired alias key ${key} must be absent`);
+  }
+}
+
 test("createAgent resolves runtime, model route, controls, MCP registry, and persists agent", () => {
   const store = fakeStore();
 
@@ -168,7 +179,11 @@ test("createRun resolves route, memory, skill catalog, usage telemetry, and pers
     thread_id: `thread.${agent.id}`,
     total_tokens: 7,
   });
-  assert.equal(run.trace.usageTelemetry.total_tokens, 7);
+  assert.equal(run.usage_telemetry, run.usage);
+  assert.equal(run.trace.usage_telemetry, run.usage);
+  assert.equal(run.trace.usage_telemetry.total_tokens, 7);
+  assertMissingKeys(run, retiredRuntimeRunUsageAliasKeys);
+  assertMissingKeys(run.trace, retiredRuntimeRunUsageAliasKeys);
   assert.equal(store.resolveRunMemoryCall.prompt, "Learn governed task-family updates for schemas");
   assert.equal(store.skillHookCatalogCwd, "/workspace/project");
   assert.equal(store.runs.get(run.id), run);

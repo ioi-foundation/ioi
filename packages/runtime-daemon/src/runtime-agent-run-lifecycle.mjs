@@ -98,14 +98,10 @@ export function createRun(store, agentId, request = {}, deps = {}) {
     ...runtimeRunDraft,
     usage: usageTelemetry,
     usage_telemetry: usageTelemetry,
-    usageTelemetry,
-    runtimeUsage: usageTelemetry,
     trace: {
       ...runtimeRunDraft.trace,
       usage: usageTelemetry,
       usage_telemetry: usageTelemetry,
-      usageTelemetry,
-      runtimeUsage: usageTelemetry,
     },
   };
   store.runs.set(runtimeRun.id, runtimeRun);
