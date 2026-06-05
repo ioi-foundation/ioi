@@ -87,6 +87,13 @@ const deps = {
   },
 };
 
+function hasCanonicalNotFoundDetail(error, key, value, retiredKey) {
+  assert.equal(error.status, 404);
+  assert.equal(error.details[key], value);
+  assert.equal(Object.hasOwn(error.details, retiredKey), false);
+  return true;
+}
+
 test("state lookup accessors return records and fail closed", () => {
   const state = fakeState();
 
@@ -97,10 +104,22 @@ test("state lookup accessors return records and fail closed", () => {
   state.instances.set("instance.1", { id: "instance.1" });
   assert.equal(instance(state, "instance.1", deps).id, "instance.1");
 
-  assert.throws(() => provider(state, "missing", deps), (error) => error.status === 404 && error.details.providerId === "missing");
-  assert.throws(() => endpoint(state, "endpoint.unmounted", deps), (error) => error.status === 404 && error.details.endpointId === "endpoint.unmounted");
-  assert.throws(() => instance(state, "missing", deps), (error) => error.status === 404 && error.details.instanceId === "missing");
-  assert.throws(() => route(state, "missing", deps), (error) => error.status === 404 && error.details.routeId === "missing");
+  assert.throws(
+    () => provider(state, "missing", deps),
+    (error) => hasCanonicalNotFoundDetail(error, "provider_id", "missing", "providerId"),
+  );
+  assert.throws(
+    () => endpoint(state, "endpoint.unmounted", deps),
+    (error) => hasCanonicalNotFoundDetail(error, "endpoint_id", "endpoint.unmounted", "endpointId"),
+  );
+  assert.throws(
+    () => instance(state, "missing", deps),
+    (error) => hasCanonicalNotFoundDetail(error, "instance_id", "missing", "instanceId"),
+  );
+  assert.throws(
+    () => route(state, "missing", deps),
+    (error) => hasCanonicalNotFoundDetail(error, "route_id", "missing", "routeId"),
+  );
 });
 
 test("resolveEndpoint prefers explicit endpoint, existing model endpoint, mount fallback, and unavailable error", () => {
@@ -125,7 +144,10 @@ test("model accessors find artifacts and persist provider-direct mount artifacts
 
   assert.equal(getModel(state, "artifact.local", deps).id, "artifact.local");
   assert.equal(getModel(state, "model.local", deps).id, "artifact.local");
-  assert.throws(() => getModel(state, "missing", deps), (error) => error.status === 404 && error.details.modelId === "missing");
+  assert.throws(
+    () => getModel(state, "missing", deps),
+    (error) => hasCanonicalNotFoundDetail(error, "model_id", "missing", "modelId"),
+  );
 
   assert.equal(modelForProviderMount(state, "model.local", providerRecord, {}, state.now, deps).id, "artifact.local");
   const mounted = modelForProviderMount(

@@ -2594,6 +2594,12 @@ function runReceipts() {
   const runtimeEnginesTest = exists("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs")
     : "";
+  const stateAccessors = exists("packages/runtime-daemon/src/model-mounting/state-accessors.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/state-accessors.mjs")
+    : "";
+  const stateAccessorsTest = exists("packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs")
+    : "";
   const modelMountStoreTest = exists("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     : "";
@@ -2643,6 +2649,9 @@ function runReceipts() {
   ].map((match) => match[0]).join("\n");
   const runtimeEngineLatestReceiptFilter =
     runtimeEngines.match(/latestReceipts:\s*state\.listReceipts\(\)[\s\S]*?\.slice\(-8\),/)?.[0] ?? "";
+  const stateAccessorNotFoundBlocks = [
+    ...stateAccessors.matchAll(/throw notFound\([\s\S]*?\);/g),
+  ].map((match) => match[0]).join("\n");
   const lmStudioRequireLmsPathBlock =
     lmStudioProviderDriver.match(/requireLmsPath\(provider\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
@@ -3591,6 +3600,41 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs",
     ],
     "Phase 5/11 is pending: LM Studio provider fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-state-accessor-error-aliases-retired",
+    /notFound\(`Provider not found: \$\{providerId\}`,\s*\{ provider_id: providerId \}\)/.test(
+      stateAccessorNotFoundBlocks,
+    ) &&
+      /notFound\(`Endpoint not found: \$\{endpointId\}`,\s*\{ endpoint_id: endpointId \}\)/.test(
+        stateAccessorNotFoundBlocks,
+      ) &&
+      /notFound\(`Model instance not found: \$\{instanceId\}`,\s*\{ instance_id: instanceId \}\)/.test(
+        stateAccessorNotFoundBlocks,
+      ) &&
+      /notFound\(`Route not found: \$\{routeId\}`,\s*\{ route_id: routeId \}\)/.test(
+        stateAccessorNotFoundBlocks,
+      ) &&
+      /notFound\(`Model not found: \$\{id\}`,\s*\{ model_id: id \}\)/.test(stateAccessorNotFoundBlocks) &&
+      !/\b(?:providerId|endpointId|instanceId|routeId|modelId)\s*:/.test(stateAccessorNotFoundBlocks) &&
+      /hasCanonicalNotFoundDetail\(error,\s*"provider_id",\s*"missing",\s*"providerId"\)/.test(
+        stateAccessorsTest,
+      ) &&
+      /hasCanonicalNotFoundDetail\(error,\s*"endpoint_id",\s*"endpoint\.unmounted",\s*"endpointId"\)/.test(
+        stateAccessorsTest,
+      ) &&
+      /hasCanonicalNotFoundDetail\(error,\s*"instance_id",\s*"missing",\s*"instanceId"\)/.test(
+        stateAccessorsTest,
+      ) &&
+      /hasCanonicalNotFoundDetail\(error,\s*"route_id",\s*"missing",\s*"routeId"\)/.test(stateAccessorsTest) &&
+      /hasCanonicalNotFoundDetail\(error,\s*"model_id",\s*"missing",\s*"modelId"\)/.test(stateAccessorsTest) &&
+      /Object\.hasOwn\(error\.details,\s*retiredKey\),\s*false/.test(stateAccessorsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/state-accessors.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs",
+    ],
+    "Phase 9/11 is pending: model-mount state accessor fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

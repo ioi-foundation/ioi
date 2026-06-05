@@ -1,7 +1,7 @@
 export function provider(state, providerId, deps = {}) {
   const { notFound } = deps;
   const record = state.providers.get(providerId);
-  if (!record) throw notFound(`Provider not found: ${providerId}`, { providerId });
+  if (!record) throw notFound(`Provider not found: ${providerId}`, { provider_id: providerId });
   return record;
 }
 
@@ -9,7 +9,7 @@ export function endpoint(state, endpointId, deps = {}) {
   const { notFound } = deps;
   const record = state.endpoints.get(endpointId);
   if (!record || record.status === "unmounted") {
-    throw notFound(`Endpoint not found: ${endpointId}`, { endpointId });
+    throw notFound(`Endpoint not found: ${endpointId}`, { endpoint_id: endpointId });
   }
   return record;
 }
@@ -17,14 +17,14 @@ export function endpoint(state, endpointId, deps = {}) {
 export function instance(state, instanceId, deps = {}) {
   const { notFound } = deps;
   const record = state.instances.get(instanceId);
-  if (!record) throw notFound(`Model instance not found: ${instanceId}`, { instanceId });
+  if (!record) throw notFound(`Model instance not found: ${instanceId}`, { instance_id: instanceId });
   return record;
 }
 
 export function route(state, routeId, deps = {}) {
   const { notFound } = deps;
   const record = state.routes.get(routeId);
-  if (!record) throw notFound(`Route not found: ${routeId}`, { routeId });
+  if (!record) throw notFound(`Route not found: ${routeId}`, { route_id: routeId });
   return record;
 }
 
@@ -32,7 +32,7 @@ export function getModel(state, id, deps = {}) {
   const { notFound } = deps;
   const artifact = [...state.artifacts.values()].find((item) => item.id === id || item.modelId === id);
   if (!artifact) {
-    throw notFound(`Model not found: ${id}`, { modelId: id });
+    throw notFound(`Model not found: ${id}`, { model_id: id });
   }
   return artifact;
 }
