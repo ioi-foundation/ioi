@@ -1278,7 +1278,7 @@ export interface RuntimeThreadModelInput {
     thinking?: string;
     privacy?: string;
     maxCostUsd?: number;
-    allowHostedFallback?: boolean;
+    allow_hosted_fallback?: boolean;
     workflowGraphId?: string;
     workflowNodeId?: string;
     [key: string]: unknown;

@@ -281,7 +281,7 @@ export interface RuntimeThreadControls {
     reasoning_effort?: string | null;
     privacy?: string | null;
     maxCostUsd?: number | null;
-    allowHostedFallback?: boolean | null;
+    allow_hosted_fallback?: boolean | null;
     workflowGraphId?: string | null;
     workflowNodeId?: string | null;
     updatedAt?: string | null;

@@ -461,6 +461,22 @@ function runBridge() {
   const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
     ? read("packages/agent-sdk/src/substrate-client.ts")
     : "";
+  const agentSdkMessages = exists("packages/agent-sdk/src/messages.ts")
+    ? read("packages/agent-sdk/src/messages.ts")
+    : "";
+  const agentSdkOptions = exists("packages/agent-sdk/src/options.ts")
+    ? read("packages/agent-sdk/src/options.ts")
+    : "";
+  const workflowStructuredPolicyComposer = exists(
+    "packages/agent-ide/src/runtime/workflow-structured-policy-composer.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-structured-policy-composer.ts")
+    : "";
+  const workflowStructuredPolicyComposerTest = exists(
+    "packages/agent-ide/src/runtime/workflow-structured-policy-composer.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-structured-policy-composer.test.ts")
+    : "";
   const workerServicePackageAdmissionResultType =
     agentSdkSubstrateClient.match(
       /export interface RuntimeWorkerServicePackageInvocationAdmissionResult[\s\S]*?\n}\n/,
@@ -779,6 +795,30 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
     ],
     "Phase 10 is pending: thread/runtime control model policy helpers must use canonical allow_hosted_fallback without the retired allowHostedFallback translator",
+  );
+  assertCheck(
+    result,
+    "sdk-ide-hosted-fallback-alias-retired",
+    /allow_hosted_fallback/.test(agentSdkSubstrateClient) &&
+      /allow_hosted_fallback/.test(agentSdkMessages) &&
+      /allow_hosted_fallback/.test(agentSdkOptions) &&
+      /allow_hosted_fallback/.test(workflowStructuredPolicyComposer) &&
+      !/allowHostedFallback/.test(agentSdkSubstrateClient) &&
+      !/allowHostedFallback/.test(agentSdkMessages) &&
+      !/allowHostedFallback/.test(agentSdkOptions) &&
+      !/allowHostedFallback/.test(workflowStructuredPolicyComposer) &&
+      /canonical hosted fallback field/.test(workflowStructuredPolicyComposerTest) &&
+      /Object\.prototype\.hasOwnProperty\.call\(compiled\.modelRules\[0\],\s*"allowHostedFallback"\)/.test(
+        workflowStructuredPolicyComposerTest,
+      ),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/src/messages.ts",
+      "packages/agent-sdk/src/options.ts",
+      "packages/agent-ide/src/runtime/workflow-structured-policy-composer.ts",
+      "packages/agent-ide/src/runtime/workflow-structured-policy-composer.test.ts",
+    ],
+    "Phase 10 is pending: SDK/IDE model policy helper types must use canonical allow_hosted_fallback without the retired allowHostedFallback alias",
   );
   assertCheck(
     result,

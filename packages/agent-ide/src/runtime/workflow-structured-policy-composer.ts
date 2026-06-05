@@ -39,7 +39,7 @@ export interface WorkflowStructuredMemoryRuleInput {
 export interface WorkflowStructuredModelRuleInput {
   id?: string | null;
   privacy?: string | null;
-  allowHostedFallback?: boolean | null;
+  allow_hosted_fallback?: boolean | null;
   maxCostUsd?: number | string | null;
   reasoningEffort?: string | null;
 }
@@ -83,7 +83,7 @@ export interface WorkflowStructuredMemoryRule {
 export interface WorkflowStructuredModelRule {
   id: string;
   privacy: string;
-  allowHostedFallback: boolean;
+  allow_hosted_fallback: boolean;
   maxCostUsd: number | null;
   reasoningEffort: string | null;
 }
@@ -322,7 +322,7 @@ function normalizeModelRule(
   return {
     id: cleanString(rule.id) ?? `model-rule-${index + 1}`,
     privacy: cleanString(rule.privacy) ?? "local_only",
-    allowHostedFallback: rule.allowHostedFallback ?? false,
+    allow_hosted_fallback: rule.allow_hosted_fallback ?? false,
     maxCostUsd: positiveNumber(rule.maxCostUsd),
     reasoningEffort: cleanString(rule.reasoningEffort),
   };

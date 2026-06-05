@@ -24,7 +24,7 @@ export interface ModelSelection {
   thinking?: "low" | "medium" | "high" | "xhigh" | string;
   privacy?: "local_only" | "local_or_enterprise" | "hosted" | string;
   maxCostUsd?: number;
-  allowHostedFallback?: boolean;
+  allow_hosted_fallback?: boolean;
   workflowGraphId?: string;
   workflowNodeId?: string;
   workflowNodeType?: string;
