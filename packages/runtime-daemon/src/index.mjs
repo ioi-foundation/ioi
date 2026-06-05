@@ -3754,14 +3754,6 @@ export class AgentgresRuntimeStateStore {
     return this.runtimeAgentgresAdmissionRunner.planRunStateTransition(request);
   }
 
-  planRuntimeStateStorageWrites(request) {
-    return this.runtimeAgentgresAdmissionRunner.planRuntimeStateStorageWrites(request);
-  }
-
-  materializeRuntimeStateRecords(request) {
-    return this.runtimeAgentgresAdmissionRunner.materializeRuntimeStateRecords(request);
-  }
-
   persistRuntimeStateRecords(request) {
     return this.runtimeAgentgresAdmissionRunner.persistRuntimeStateRecords(this.stateDir, request);
   }

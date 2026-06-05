@@ -1650,25 +1650,27 @@ function runReceipts() {
       /bridge_plans_runtime_state_storage_writes_through_rust_core/.test(bridgeModule) &&
       /bridge_persists_runtime_state_records_through_rust_core/.test(bridgeModule) &&
       /admitStorageBackendWrite/.test(runtimeAgentgresRunner) &&
-      /materializeRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
-      /planRuntimeStateStorageWrites/.test(runtimeAgentgresRunner) &&
       /persistRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
+      !/materializeRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
+      !/planRuntimeStateStorageWrites/.test(runtimeAgentgresRunner) &&
+      !/normalizeRuntimeStateRecordMaterializationBridgeResult/.test(runtimeAgentgresRunner) &&
+      !/normalizeRuntimeStateStorageWriteSetBridgeResult/.test(runtimeAgentgresRunner) &&
       /RUST_AGENTGRES_STORAGE_BACKEND/.test(runtimeAgentgresRunner) &&
       /runtime Agentgres runner sends storage write admission bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
-      /runtime Agentgres runner sends runtime-state record materialization bridge request/.test(
+      !/runtime Agentgres runner sends runtime-state record materialization bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
-      /runtime Agentgres runner sends runtime-state storage write-set bridge request/.test(
+      !/runtime Agentgres runner sends runtime-state storage write-set bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
       /runtime Agentgres runner sends runtime-state persistence bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
-      /materializeRuntimeStateRecords\(request\)/.test(runtimeDaemonIndex) &&
-      /planRuntimeStateStorageWrites\(request\)/.test(runtimeDaemonIndex) &&
       /persistRuntimeStateRecords\(request\)/.test(runtimeDaemonIndex) &&
+      !/materializeRuntimeStateRecords\(request\)/.test(runtimeDaemonIndex) &&
+      !/planRuntimeStateStorageWrites\(request\)/.test(runtimeDaemonIndex) &&
       !/admitRuntimeStateStorageWrite/.test(runtimeDaemonIndex) &&
       /persistRunStateRecords/.test(threadPersistence) &&
       !/materializeRunStateRecords/.test(threadPersistence) &&
