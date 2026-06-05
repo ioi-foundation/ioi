@@ -3223,6 +3223,18 @@ function runCompositor() {
   const runtimeSubagentSurfaceTest = exists("packages/runtime-daemon/src/runtime-subagent-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-subagent-surface.test.mjs")
     : "";
+  const runtimeSubagentListEnvelopeBlock =
+    runtimeSubagentSurface.match(
+      /listSubagents\(store, threadId, options = \{\}\) \{[\s\S]*?\n    \},\n    getSubagent/,
+    )?.[0] ?? "";
+  const runtimeSubagentPropagationEnvelopeBlock =
+    runtimeSubagentSurface.match(
+      /propagateSubagentCancellation\(store, threadId, request = \{\}\) \{[\s\S]*?\n    \},\n    subagentProjection/,
+    )?.[0] ?? "";
+  const runtimeSubagentListEnvelopeAliasPattern =
+    /^\s*(?:schemaVersion|threadId|parentAgentId|activeCount)\s*[:,]/m;
+  const runtimeSubagentPropagationEnvelopeAliasPattern =
+    /^\s*(?:schemaVersion|threadId|parentAgentId|propagationPolicy|candidateCount|canceledCount|skippedCount|canceledSubagents|skippedSubagents|eventRefs|receiptRefs|skipReason|cancellationInheritance)\s*[:,]/m;
   const runtimeSubagentProjectionBlock =
     runtimeSubagentSurface.match(
       /subagentProjection\(record = \{\}\) \{[\s\S]*?\n    \},\n    appendThreadSubagentControlEvent/,
@@ -3892,6 +3904,30 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent lifecycle writes must persist canonical snake_case records without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-list-propagation-envelope-aliases-retired",
+    runtimeSubagentListEnvelopeBlock.length > 0 &&
+      runtimeSubagentPropagationEnvelopeBlock.length > 0 &&
+      !runtimeSubagentListEnvelopeAliasPattern.test(runtimeSubagentListEnvelopeBlock) &&
+      !runtimeSubagentPropagationEnvelopeAliasPattern.test(
+        runtimeSubagentPropagationEnvelopeBlock,
+      ) &&
+      /retiredSubagentListEnvelopeAliasKeys/.test(runtimeSubagentSurfaceTest) &&
+      /retiredSubagentPropagationEnvelopeAliasKeys/.test(runtimeSubagentSurfaceTest) &&
+      /retiredSubagentSkippedRecordAliasKeys/.test(runtimeSubagentSurfaceTest) &&
+      /assertNoOwnKeys\(listed,\s*retiredSubagentListEnvelopeAliasKeys\)/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /assertNoOwnKeys\(result,\s*retiredSubagentPropagationEnvelopeAliasKeys\)/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent list and propagation envelopes must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

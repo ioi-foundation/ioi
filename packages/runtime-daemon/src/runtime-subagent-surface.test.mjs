@@ -263,6 +263,38 @@ function assertCanonicalSubagentStoreWrites(store) {
   }
 }
 
+function assertNoOwnKeys(record, keys) {
+  for (const key of keys) {
+    assert.equal(Object.prototype.hasOwnProperty.call(record, key), false);
+  }
+}
+
+const retiredSubagentListEnvelopeAliasKeys = [
+  "schemaVersion",
+  "threadId",
+  "parentAgentId",
+  "activeCount",
+];
+
+const retiredSubagentPropagationEnvelopeAliasKeys = [
+  "schemaVersion",
+  "threadId",
+  "parentAgentId",
+  "propagationPolicy",
+  "candidateCount",
+  "canceledCount",
+  "skippedCount",
+  "canceledSubagents",
+  "skippedSubagents",
+  "eventRefs",
+  "receiptRefs",
+];
+
+const retiredSubagentSkippedRecordAliasKeys = [
+  "skipReason",
+  "cancellationInheritance",
+];
+
 test("subagent surface lists, filters, and projects thread subagents", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface();
@@ -273,6 +305,7 @@ test("subagent surface lists, filters, and projects thread subagents", () => {
   assert.equal(listed.parent_agent_id, "agent_parent");
   assert.equal(listed.count, 2);
   assert.equal(listed.active_count, 1);
+  assertNoOwnKeys(listed, retiredSubagentListEnvelopeAliasKeys);
   assert.deepEqual(listed.subagents.map((record) => record.subagent_id), ["subagent_1", "subagent_2"]);
   assert.equal(listed.subagents[0].output_contract_status, "passed");
   assertCanonicalSubagentRecordOutput(listed.subagents[0]);
@@ -881,12 +914,15 @@ test("subagent surface propagates parent cancellation and reports skipped childr
   assert.equal(result.candidate_count, 3);
   assert.equal(result.canceled_count, 1);
   assert.equal(result.skipped_count, 2);
+  assertNoOwnKeys(result, retiredSubagentPropagationEnvelopeAliasKeys);
   assert.deepEqual(result.canceled_subagents.map((record) => record.subagent_id), ["subagent_1"]);
   assertCanonicalSubagentRecordOutput(result.canceled_subagents[0]);
   assert.deepEqual(result.skipped_subagents.map((record) => record.skip_reason), [
     "cancellation_inheritance_not_propagate",
     "already_canceled",
   ]);
+  assertNoOwnKeys(result.skipped_subagents[0], retiredSubagentSkippedRecordAliasKeys);
+  assertNoOwnKeys(result.skipped_subagents[1], retiredSubagentSkippedRecordAliasKeys);
   assert.deepEqual(result.event_refs, ["evt_1"]);
   assert.equal(result.receipt_refs[0], "receipt_parent_cancel");
   assert.match(result.receipt_refs[1], /^receipt_subagent_cancel_/);

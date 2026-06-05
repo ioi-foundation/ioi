@@ -10133,6 +10133,59 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 169
+
+```yaml
+slice: 169
+phase: 10-authoritative-js-facade-retirement
+objective: retire runtime subagent list and propagation envelope aliases
+owner_boundary:
+  route_or_surface: runtime-daemon subagent list and cancellation propagation
+    response envelopes
+  authority_gate: unchanged; list and propagation still project daemon-owned
+    subagent records and cancellation events
+  execution_backend: unchanged
+  truth_path: list and propagation envelopes expose canonical snake_case
+    response fields only
+  projection_path: compositor conformance scopes the list/propagation response
+    methods and rejects duplicate camelCase envelope aliases
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-subagent-surface.mjs
+    - packages/runtime-daemon/src/runtime-subagent-surface.test.mjs
+  tests:
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - compositor conformance rejects `schemaVersion`, `threadId`,
+    `parentAgentId`, count, refs, and collection camelCase aliases in the
+    list/propagation envelope methods
+  - focused daemon tests prove list envelopes, propagation envelopes, canceled
+    subagent records, and skipped subagent records omit retired response aliases
+verification:
+  commands:
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - node --test packages/runtime-daemon/src/runtime-subagent-surface.test.mjs
+    - npm run hypervisor-conformance:compositor
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: runtime subagent surface tests compare list and
+    propagation responses against canonical envelope fields
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - runtime subagent surface still accepts broader camelCase request and raw
+      record input fields while producing canonical writes and envelopes
+    - nested input/resume/assignment/cancellation helper objects and error
+      details still expose broader camelCase response aliases outside this
+      envelope boundary
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -10183,7 +10236,12 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 168:
+Current expected behavior after Slice 169:
+
+Slice 169 adds compositor proof for
+`runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
+list and cancellation-propagation envelopes expose canonical snake_case fields
+without duplicate camelCase response aliases.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

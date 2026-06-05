@@ -162,16 +162,12 @@ export function createRuntimeSubagentSurface({
         .map((record) => this.subagentProjection(record));
       return {
         schema_version: schemaVersion,
-        schemaVersion,
         object: "ioi.runtime_subagent_list",
         thread_id: threadId,
-        threadId,
         parent_agent_id: parentAgent.id,
-        parentAgentId: parentAgent.id,
         status: "ready",
         count: subagents.length,
         active_count: subagents.filter((record) => subagentIsActiveDep(record)).length,
-        activeCount: subagents.filter((record) => subagentIsActiveDep(record)).length,
         subagents,
       };
     },
@@ -1093,9 +1089,7 @@ export function createRuntimeSubagentSurface({
           skipped.push({
             ...this.subagentProjection(record),
             skip_reason: "cancellation_inheritance_not_propagate",
-            skipReason: "cancellation_inheritance_not_propagate",
             cancellation_inheritance: inheritance,
-            cancellationInheritance: inheritance,
           });
           continue;
         }
@@ -1103,9 +1097,7 @@ export function createRuntimeSubagentSurface({
           skipped.push({
             ...this.subagentProjection(record),
             skip_reason: "already_canceled",
-            skipReason: "already_canceled",
             cancellation_inheritance: inheritance,
-            cancellationInheritance: inheritance,
           });
           continue;
         }
@@ -1122,31 +1114,20 @@ export function createRuntimeSubagentSurface({
       }
       return {
         schema_version: schemaVersion,
-        schemaVersion,
         object: "ioi.runtime_subagent_cancellation_propagation",
         thread_id: threadId,
-        threadId,
         parent_agent_id: parentAgent.id,
-        parentAgentId: parentAgent.id,
         status: "completed",
         source,
         reason,
         propagation_policy: "cancellationInheritance=propagate",
-        propagationPolicy: "cancellationInheritance=propagate",
         candidate_count: candidates.length,
-        candidateCount: candidates.length,
         canceled_count: canceled.length,
-        canceledCount: canceled.length,
         skipped_count: skipped.length,
-        skippedCount: skipped.length,
         canceled_subagents: canceled.map((result) => result.subagent),
-        canceledSubagents: canceled.map((result) => result.subagent),
         skipped_subagents: skipped,
-        skippedSubagents: skipped,
         event_refs: canceled.map((result) => result.event?.event_id).filter(Boolean),
-        eventRefs: canceled.map((result) => result.event?.event_id).filter(Boolean),
         receipt_refs: uniqueStringsDep(canceled.flatMap((result) => normalizeArray(result.receipt_refs))),
-        receiptRefs: uniqueStringsDep(canceled.flatMap((result) => normalizeArray(result.receiptRefs))),
       };
     },
     subagentProjection(record = {}) {
