@@ -59,6 +59,32 @@ function storageWriteSetRequest() {
   };
 }
 
+function materializationRequest() {
+  return {
+    schema_version: "ioi.runtime_state_record_materialization.v1",
+    run_id: "run_1",
+    run: {
+      id: "run_1",
+      agentId: "agent_1",
+      receipts: [{ id: "receipt_policy", kind: "policy_decision" }],
+      artifacts: [],
+      trace: {
+        taskState: { state: "done" },
+        postconditions: [],
+        semanticImpact: { impact: "local" },
+        stopCondition: { reason: "done" },
+        scorecard: { score: 1 },
+        qualityLedger: { entries: [] },
+      },
+    },
+    runtime_task: { taskId: "task_run_1", runId: "run_1" },
+    runtime_job: { jobId: "job_run_1", runId: "run_1" },
+    runtime_checklist: { checklistId: "checklist_run_1", runId: "run_1" },
+    canonical_projection: { runId: "run_1", projection: "canonical" },
+    agentgres_transition: { projection_watermark: "runtime-state:1", transition_hash: "sha256:transition" },
+  };
+}
+
 test("runtime Agentgres runner sends run-state transition bridge request", () => {
   const calls = [];
   const runner = new RustRuntimeAgentgresAdmissionRunner({
@@ -207,6 +233,54 @@ test("runtime Agentgres runner sends runtime-state storage write-set bridge requ
   assert.equal(result.write_set_hash, "sha256:write-set");
   assert.equal(result.records[0].record_path, "runs/run_1.json");
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_state_storage_write_set"]);
+});
+
+test("runtime Agentgres runner sends runtime-state record materialization bridge request", () => {
+  const calls = [];
+  const runner = new RustRuntimeAgentgresAdmissionRunner({
+    command: "mock-runtime-agentgres-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_agentgres_runtime_state_record_materialization_command",
+            backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+            record: {
+              ...request.request,
+              records: [
+                { record_path: "runs/run_1.json", payload: request.request.run },
+                { record_path: "tasks/run_1.json", payload: { runId: "run_1" } },
+              ],
+              materialization_hash: "sha256:materialization",
+            },
+            records: [
+              { record_path: "runs/run_1.json", payload: request.request.run },
+              { record_path: "tasks/run_1.json", payload: { runId: "run_1" } },
+            ],
+            materialization_hash: "sha256:materialization",
+            evidence_refs: ["rust_agentgres_runtime_state_record_materialization"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.materializeRuntimeStateRecords(materializationRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, "mock-runtime-agentgres-bridge");
+  assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "materialize_runtime_state_records");
+  assert.equal(calls[0].request.backend, RUST_RUNTIME_AGENTGRES_BACKEND);
+  assert.equal(calls[0].request.request.run_id, "run_1");
+  assert.equal(result.materialization_hash, "sha256:materialization");
+  assert.equal(result.records[0].record_path, "runs/run_1.json");
+  assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_state_record_materialization"]);
 });
 
 test("runtime Agentgres runner requires explicit runtime admission command env", () => {

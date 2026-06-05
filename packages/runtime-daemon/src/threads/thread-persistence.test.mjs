@@ -28,6 +28,7 @@ function fakeStore() {
         return { modelRoutes: ["id", "providerId"] };
       },
     },
+    materializationRequests: [],
     registeredEvents: [],
     runs: new Map(),
     schemaVersion: "ioi.agentgres.runtime.v0",
@@ -76,6 +77,113 @@ function fakeStore() {
         projection_watermark: request.projection_watermark,
         transition_hash: "sha256:transition",
         evidence_refs: ["rust_agentgres_runtime_state_transition"],
+      };
+    },
+    materializeRuntimeStateRecords(request) {
+      this.materializationRequests.push(request);
+      this.persistenceEvents.push({ type: "record_materialization", runId: request.run_id });
+      const records = [
+        { record_path: `runs/${request.run_id}.json`, payload: request.run, artifact_refs: [], payload_refs: [] },
+        {
+          record_path: `tasks/${request.run_id}.json`,
+          payload: {
+            runId: request.run_id,
+            agentId: request.run.agentId,
+            runtimeTask: request.runtime_task,
+            runtimeChecklist: request.runtime_checklist,
+            taskState: request.run.trace.taskState,
+            postconditions: request.run.trace.postconditions,
+            semanticImpact: request.run.trace.semanticImpact,
+            projectionWatermark: request.agentgres_transition.projection_watermark,
+            agentgresTransition: request.agentgres_transition,
+          },
+          artifact_refs: [],
+          payload_refs: [],
+        },
+        { record_path: `jobs/${request.runtime_job.jobId}.json`, payload: request.runtime_job, artifact_refs: [], payload_refs: [] },
+        {
+          record_path: `checklists/${request.runtime_checklist.checklistId}.json`,
+          payload: request.runtime_checklist,
+          artifact_refs: [],
+          payload_refs: [],
+        },
+        ...request.run.receipts.map((receipt) => ({
+          record_path: `receipts/${receipt.id}.json`,
+          payload: { runId: request.run_id, ...receipt },
+          artifact_refs: [],
+          payload_refs: [],
+        })),
+        ...request.run.artifacts.map((artifact) => ({
+          record_path: `artifacts/${artifact.id}.json`,
+          payload: artifact,
+          artifact_refs: [],
+          payload_refs: [],
+        })),
+        {
+          record_path: `policy-decisions/${request.run_id}.json`,
+          payload: {
+            runId: request.run_id,
+            decision: "allowed",
+            rationale: "Local daemon run stayed inside bounded local/private runtime contract.",
+            primitiveCapabilities: ["prim:model.invoke"],
+            authorityScopes: [],
+            receiptId: request.run.receipts.find((receipt) => receipt.kind === "policy_decision")?.id,
+          },
+          artifact_refs: [],
+          payload_refs: [],
+        },
+        {
+          record_path: `authority-decisions/${request.run_id}.json`,
+          payload: {
+            runId: request.run_id,
+            decision: "allowed",
+            authorityScopes: [],
+            walletLayer: "wallet.network",
+            receiptId: request.run.receipts.find((receipt) => receipt.kind === "authority_decision")?.id,
+          },
+          artifact_refs: [],
+          payload_refs: [],
+        },
+        { record_path: `stop-conditions/${request.run_id}.json`, payload: request.run.trace.stopCondition, artifact_refs: [], payload_refs: [] },
+        { record_path: `scorecards/${request.run_id}.json`, payload: request.run.trace.scorecard, artifact_refs: [], payload_refs: [] },
+        { record_path: `ledgers/${request.run_id}.json`, payload: request.run.trace.qualityLedger, artifact_refs: [], payload_refs: [] },
+        {
+          record_path: `quality/${request.run_id}.json`,
+          payload: {
+            runId: request.run_id,
+            scorecard: request.run.trace.scorecard,
+            qualityLedger: request.run.trace.qualityLedger,
+            stopCondition: request.run.trace.stopCondition,
+            verifierIndependencePolicy: {
+              sameModelAllowed: false,
+              evidenceOnlyMode: true,
+              humanReviewThreshold: "high_risk",
+            },
+          },
+          artifact_refs: [],
+          payload_refs: [],
+        },
+        {
+          record_path: `projections/${request.run_id}.json`,
+          payload: {
+            ...request.canonical_projection,
+            agentgresTransition: request.agentgres_transition,
+          },
+          artifact_refs: [],
+          payload_refs: [],
+        },
+      ];
+      return {
+        source: "rust_agentgres_runtime_state_record_materialization_command",
+        record: {
+          schema_version: "ioi.runtime_state_record_materialization.v1",
+          run_id: request.run_id,
+          records,
+          materialization_hash: `sha256:materialization-${this.materializationRequests.length}`,
+        },
+        records,
+        materialization_hash: `sha256:materialization-${this.materializationRequests.length}`,
+        evidence_refs: ["rust_agentgres_runtime_state_record_materialization"],
       };
     },
     planRuntimeStateStorageWrites(request) {
@@ -281,7 +389,7 @@ test("thread persistence loads agents, runs, subagents, coding artifacts, and re
   assert.deepEqual(store.registeredEvents, [{ seq: 1 }, { seq: 2 }]);
 });
 
-test("thread persistence writes run projections without operation entries and plans storage write set in Rust", () => {
+test("thread persistence writes run projections without operation entries and materializes records and plans storage write set in Rust", () => {
   const store = fakeStore();
   const run = {
     id: "run_1",
@@ -320,6 +428,25 @@ test("thread persistence writes run projections without operation entries and pl
   assert.deepEqual(store.transitionRequests[0].receipt_refs, ["receipt_policy", "receipt_authority"]);
   assert.deepEqual(store.transitionRequests[0].artifact_refs, ["artifact_1"]);
 
+  assert.equal(store.materializationRequests.length, 1);
+  assert.equal(store.materializationRequests[0].schema_version, "ioi.runtime_state_record_materialization.v1");
+  assert.equal(store.materializationRequests[0].run_id, "run_1");
+  assert.deepEqual(store.materializationRequests[0].run, run);
+  assert.deepEqual(store.materializationRequests[0].runtime_task, { taskId: "task_run_1", runId: "run_1" });
+  assert.deepEqual(store.materializationRequests[0].runtime_job, { jobId: "job_run_1", runId: "run_1" });
+  assert.deepEqual(store.materializationRequests[0].runtime_checklist, {
+    checklistId: "checklist_run_1",
+    runId: "run_1",
+  });
+  assert.deepEqual(store.materializationRequests[0].canonical_projection, {
+    runId: "run_1",
+    projection: "canonical",
+  });
+  assert.equal(
+    store.materializationRequests[0].agentgres_transition.operation_ref,
+    "agentgres://runtime-state/runs/run_1/operations/run.create_mock",
+  );
+
   const files = store.writes.map((write) => write.filePath);
   assert.deepEqual(files, [
     "runs/run_1.json",
@@ -347,6 +474,15 @@ test("thread persistence writes run projections without operation entries and pl
     files,
   );
   assert.deepEqual(store.storageWriteSetRequests[0].records[0].payload, run);
+  assert.deepEqual(
+    store.materializationRequests[0].run.receipts.map((receipt) => receipt.id),
+    ["receipt_policy", "receipt_authority"],
+  );
+  assert.equal(
+    store.persistenceEvents.findIndex((event) => event.type === "record_materialization" && event.runId === "run_1") <
+      store.persistenceEvents.findIndex((event) => event.type === "storage_admission"),
+    true,
+  );
   assert.equal(store.storageWriteAdmissions.length, files.length);
   assert.deepEqual(
     store.storageWriteAdmissions.map((admission) =>

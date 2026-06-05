@@ -4,6 +4,7 @@ import path from "node:path";
 
 const RUNTIME_STATE_TRANSITION_SCHEMA_VERSION = "ioi.agentgres_runtime_state_transition.v1";
 const RUNTIME_STATE_STORAGE_WRITE_SET_SCHEMA_VERSION = "ioi.runtime_state_storage_write_set.v1";
+const RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION = "ioi.runtime_state_record_materialization.v1";
 const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
 
 export function terminalEventCount(events = [], terminalEventTypes = new Set()) {
@@ -250,6 +251,74 @@ function planRunStateStorageWrites(store, run, records) {
   return normalizeStorageWriteSet(store.planRuntimeStateStorageWrites(request), records);
 }
 
+function materializeRunStateRecords(store, run, {
+  runtimeTask,
+  runtimeJob,
+  runtimeChecklist,
+  agentgresTransition,
+}) {
+  if (typeof store.materializeRuntimeStateRecords !== "function") {
+    throw new Error("Run persistence requires Rust Agentgres state record materialization.");
+  }
+  const request = {
+    schema_version: RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION,
+    run_id: run.id,
+    run,
+    runtime_task: runtimeTask,
+    runtime_job: runtimeJob,
+    runtime_checklist: runtimeChecklist,
+    canonical_projection: store.canonicalProjection(run.id),
+    agentgres_transition: agentgresTransition,
+  };
+  return normalizeRecordMaterialization(store.materializeRuntimeStateRecords(request));
+}
+
+function normalizeRecordMaterialization(materialization) {
+  const record =
+    materialization?.record && typeof materialization.record === "object" ? materialization.record : materialization;
+  const records = Array.isArray(materialization?.records)
+    ? materialization.records
+    : Array.isArray(record?.records)
+      ? record.records
+      : [];
+  const normalized = {
+    source: normalizeTransitionRef(materialization?.source) ??
+      "rust_agentgres_runtime_state_record_materialization_command",
+    materialization_hash:
+      normalizeTransitionRef(materialization?.materialization_hash) ??
+      normalizeTransitionRef(record?.materialization_hash),
+    records: records.map(normalizeMaterializedRecord),
+    evidence_refs: Array.isArray(materialization?.evidence_refs) ? materialization.evidence_refs : [],
+    record: record ?? null,
+  };
+  const missing = [
+    ["materialization_hash", normalized.materialization_hash],
+    ["records", normalized.records.length > 0 ? normalized.records : null],
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+  if (missing.length > 0) {
+    throw new Error(`Rust Agentgres state record materialization is missing ${missing.join(", ")}.`);
+  }
+  return normalized;
+}
+
+function normalizeMaterializedRecord(record) {
+  const recordPath = normalizeTransitionRef(record?.record_path);
+  if (!recordPath) {
+    throw new Error("Rust Agentgres materialized state record is missing record_path.");
+  }
+  if (!Object.hasOwn(record ?? {}, "payload")) {
+    throw new Error(`Rust Agentgres materialized state record ${recordPath} is missing payload.`);
+  }
+  return {
+    recordPath,
+    value: record.payload,
+    artifactRefs: Array.isArray(record.artifact_refs) ? record.artifact_refs : [],
+    payloadRefs: Array.isArray(record.payload_refs) ? record.payload_refs : [],
+  };
+}
+
 function normalizeStorageWriteSet(writeSet, expectedRecords) {
   const record = writeSet?.record && typeof writeSet.record === "object" ? writeSet.record : writeSet;
   const records = Array.isArray(writeSet?.records)
@@ -404,63 +473,13 @@ export function writeRunRecord(store, run, operationKind, deps = {}) {
     runtimeChecklist,
     terminalEventTypes,
   });
-  const stateRecords = [
-    { recordPath: `runs/${run.id}.json`, value: run },
-  ];
-  const taskRecord = {
-    runId: run.id,
-    agentId: run.agentId,
+  const materializedRecords = materializeRunStateRecords(store, run, {
     runtimeTask,
+    runtimeJob,
     runtimeChecklist,
-    taskState: run.trace.taskState,
-    postconditions: run.trace.postconditions,
-    semanticImpact: run.trace.semanticImpact,
-    projectionWatermark: agentgresTransition.projection_watermark,
     agentgresTransition,
-  };
-  stateRecords.push({ recordPath: `tasks/${run.id}.json`, value: taskRecord });
-  stateRecords.push({ recordPath: `jobs/${runtimeJob.jobId}.json`, value: runtimeJob });
-  stateRecords.push({ recordPath: `checklists/${runtimeChecklist.checklistId}.json`, value: runtimeChecklist });
-  for (const receipt of run.receipts) {
-    stateRecords.push({ recordPath: `receipts/${receipt.id}.json`, value: { runId: run.id, ...receipt } });
-  }
-  for (const artifact of run.artifacts) {
-    stateRecords.push({ recordPath: `artifacts/${artifact.id}.json`, value: artifact });
-  }
-  stateRecords.push({ recordPath: `policy-decisions/${run.id}.json`, value: {
-    runId: run.id,
-    decision: "allowed",
-    rationale: "Local daemon run stayed inside bounded local/private runtime contract.",
-    primitiveCapabilities: ["prim:model.invoke"],
-    authorityScopes: [],
-    receiptId: run.receipts.find((receipt) => receipt.kind === "policy_decision")?.id,
-  } });
-  stateRecords.push({ recordPath: `authority-decisions/${run.id}.json`, value: {
-    runId: run.id,
-    decision: "allowed",
-    authorityScopes: [],
-    walletLayer: "wallet.network",
-    receiptId: run.receipts.find((receipt) => receipt.kind === "authority_decision")?.id,
-  } });
-  stateRecords.push({ recordPath: `stop-conditions/${run.id}.json`, value: run.trace.stopCondition });
-  stateRecords.push({ recordPath: `scorecards/${run.id}.json`, value: run.trace.scorecard });
-  stateRecords.push({ recordPath: `ledgers/${run.id}.json`, value: run.trace.qualityLedger });
-  stateRecords.push({ recordPath: `quality/${run.id}.json`, value: {
-    runId: run.id,
-    scorecard: run.trace.scorecard,
-    qualityLedger: run.trace.qualityLedger,
-    stopCondition: run.trace.stopCondition,
-    verifierIndependencePolicy: {
-      sameModelAllowed: false,
-      evidenceOnlyMode: true,
-      humanReviewThreshold: "high_risk",
-    },
-  } });
-  const projectionRecord = {
-    ...store.canonicalProjection(run.id),
-    agentgresTransition,
-  };
-  stateRecords.push({ recordPath: `projections/${run.id}.json`, value: projectionRecord });
+  });
+  const stateRecords = materializedRecords.records;
 
   const plannedStorage = planRunStateStorageWrites(store, run, stateRecords);
   for (const record of stateRecords) {

@@ -55,6 +55,16 @@ export class RustRuntimeAgentgresAdmissionRunner {
     return normalizeRuntimeStateStorageWriteSetBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
+  materializeRuntimeStateRecords(request) {
+    const bridgeRequest = {
+      schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
+      operation: "materialize_runtime_state_records",
+      backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+      request,
+    };
+    return normalizeRuntimeStateRecordMaterializationBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
   invokeBridge(request) {
     if (this.mockResult) {
       const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
@@ -177,6 +187,19 @@ export function normalizeRuntimeStateStorageWriteSetBridgeResult(value = {}) {
     storage_backend_ref: result.storage_backend_ref ?? record.storage_backend_ref ?? null,
     records: Array.isArray(result.records) ? result.records : record.records ?? [],
     storage_admissions: Array.isArray(result.storage_admissions) ? result.storage_admissions : [],
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+  };
+}
+
+export function normalizeRuntimeStateRecordMaterializationBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.record && typeof result.record === "object" ? result.record : {};
+  return {
+    source: result.source ?? "rust_agentgres_runtime_state_record_materialization_command",
+    backend: result.backend ?? RUST_RUNTIME_AGENTGRES_BACKEND,
+    record,
+    records: Array.isArray(result.records) ? result.records : record.records ?? [],
+    materialization_hash: result.materialization_hash ?? record.materialization_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
   };
 }

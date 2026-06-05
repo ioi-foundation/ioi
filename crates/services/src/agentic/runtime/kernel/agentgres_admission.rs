@@ -1,6 +1,6 @@
 use super::receipt_binder::StepModuleReceiptBinding;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 
 pub const AGENTGRES_ADMISSION_SCHEMA_VERSION: &str = "ioi.agentgres_admission.v1";
@@ -10,6 +10,8 @@ pub const RUNTIME_STATE_TRANSITION_SCHEMA_VERSION: &str =
     "ioi.agentgres_runtime_state_transition.v1";
 pub const RUNTIME_STATE_STORAGE_WRITE_SET_SCHEMA_VERSION: &str =
     "ioi.runtime_state_storage_write_set.v1";
+pub const RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION: &str =
+    "ioi.runtime_state_record_materialization.v1";
 pub const AGENTGRES_OPERATION_EXPECTED_HEADS_NEGATIVE_CONFORMANCE: &str =
     "Agentgres operation append without expected heads/state-root binding fails";
 pub const STORAGE_BACKEND_WRITE_AGENTGRES_REF_NEGATIVE_CONFORMANCE: &str =
@@ -34,6 +36,7 @@ pub enum AgentgresAdmissionError {
     ReceiptBindingReceiptRefsMismatch,
     ReceiptBindingArtifactRefsMismatch,
     ReceiptBindingPayloadRefsMismatch,
+    RuntimeStateRecordRunIdMismatch,
     MissingReceiptRefs,
     StorageBackendWriteMissingAgentgresRef,
     StorageBackendWriteMissingReceipt,
@@ -189,6 +192,26 @@ pub struct RuntimeStateStorageWriteRecord {
     pub admission: StorageBackendWriteAdmissionRecord,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeStateRecordMaterializationRequest {
+    pub schema_version: String,
+    pub run_id: String,
+    pub run: Value,
+    pub runtime_task: Value,
+    pub runtime_job: Value,
+    pub runtime_checklist: Value,
+    pub canonical_projection: Value,
+    pub agentgres_transition: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeStateRecordMaterializationRecord {
+    pub schema_version: String,
+    pub run_id: String,
+    pub records: Vec<RuntimeStateStorageWriteInput>,
+    pub materialization_hash: String,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct AgentgresAdmissionCore;
 
@@ -342,6 +365,177 @@ impl AgentgresAdmissionCore {
         record.write_set_hash = runtime_state_storage_write_set_hash(&record)?;
         Ok(record)
     }
+
+    pub fn materialize_runtime_state_records(
+        &self,
+        request: &RuntimeStateRecordMaterializationRequest,
+    ) -> Result<RuntimeStateRecordMaterializationRecord, AgentgresAdmissionError> {
+        request.validate()?;
+        let mut records = vec![RuntimeStateStorageWriteInput {
+            record_path: format!("runs/{}.json", safe_agentgres_component(&request.run_id)),
+            payload: request.run.clone(),
+            artifact_refs: vec![],
+            payload_refs: vec![],
+        }];
+
+        records.push(RuntimeStateStorageWriteInput {
+            record_path: format!("tasks/{}.json", safe_agentgres_component(&request.run_id)),
+            payload: json!({
+                "runId": &request.run_id,
+                "agentId": json_field(&request.run, "agentId"),
+                "runtimeTask": &request.runtime_task,
+                "runtimeChecklist": &request.runtime_checklist,
+                "taskState": json_path(&request.run, &["trace", "taskState"]),
+                "postconditions": json_path(&request.run, &["trace", "postconditions"]),
+                "semanticImpact": json_path(&request.run, &["trace", "semanticImpact"]),
+                "projectionWatermark": json_field(&request.agentgres_transition, "projection_watermark"),
+                "agentgresTransition": &request.agentgres_transition,
+            }),
+            artifact_refs: vec![],
+            payload_refs: vec![],
+        });
+
+        records.push(RuntimeStateStorageWriteInput {
+            record_path: format!(
+                "jobs/{}.json",
+                required_json_string(&request.runtime_job, "jobId")?
+            ),
+            payload: request.runtime_job.clone(),
+            artifact_refs: vec![],
+            payload_refs: vec![],
+        });
+        records.push(RuntimeStateStorageWriteInput {
+            record_path: format!(
+                "checklists/{}.json",
+                required_json_string(&request.runtime_checklist, "checklistId")?
+            ),
+            payload: request.runtime_checklist.clone(),
+            artifact_refs: vec![],
+            payload_refs: vec![],
+        });
+
+        for receipt in json_array(&request.run, "receipts") {
+            if let Some(receipt_id) = json_string(receipt, "id") {
+                let mut payload = object_payload(receipt);
+                payload.insert("runId".to_string(), Value::String(request.run_id.clone()));
+                records.push(RuntimeStateStorageWriteInput {
+                    record_path: format!("receipts/{}.json", safe_agentgres_component(receipt_id)),
+                    payload: Value::Object(payload),
+                    artifact_refs: vec![],
+                    payload_refs: vec![],
+                });
+            }
+        }
+        for artifact in json_array(&request.run, "artifacts") {
+            if let Some(artifact_id) = json_string(artifact, "id") {
+                records.push(RuntimeStateStorageWriteInput {
+                    record_path: format!(
+                        "artifacts/{}.json",
+                        safe_agentgres_component(artifact_id)
+                    ),
+                    payload: artifact.clone(),
+                    artifact_refs: vec![],
+                    payload_refs: vec![],
+                });
+            }
+        }
+
+        records.push(RuntimeStateStorageWriteInput {
+            record_path: format!(
+                "policy-decisions/{}.json",
+                safe_agentgres_component(&request.run_id)
+            ),
+            payload: json!({
+                "runId": &request.run_id,
+                "decision": "allowed",
+                "rationale": "Local daemon run stayed inside bounded local/private runtime contract.",
+                "primitiveCapabilities": ["prim:model.invoke"],
+                "authorityScopes": [],
+                "receiptId": receipt_id_for_kind(&request.run, "policy_decision"),
+            }),
+            artifact_refs: vec![],
+            payload_refs: vec![],
+        });
+        records.push(RuntimeStateStorageWriteInput {
+            record_path: format!(
+                "authority-decisions/{}.json",
+                safe_agentgres_component(&request.run_id)
+            ),
+            payload: json!({
+                "runId": &request.run_id,
+                "decision": "allowed",
+                "authorityScopes": [],
+                "walletLayer": "wallet.network",
+                "receiptId": receipt_id_for_kind(&request.run, "authority_decision"),
+            }),
+            artifact_refs: vec![],
+            payload_refs: vec![],
+        });
+        records.push(RuntimeStateStorageWriteInput {
+            record_path: format!(
+                "stop-conditions/{}.json",
+                safe_agentgres_component(&request.run_id)
+            ),
+            payload: json_path(&request.run, &["trace", "stopCondition"]),
+            artifact_refs: vec![],
+            payload_refs: vec![],
+        });
+        records.push(RuntimeStateStorageWriteInput {
+            record_path: format!(
+                "scorecards/{}.json",
+                safe_agentgres_component(&request.run_id)
+            ),
+            payload: json_path(&request.run, &["trace", "scorecard"]),
+            artifact_refs: vec![],
+            payload_refs: vec![],
+        });
+        records.push(RuntimeStateStorageWriteInput {
+            record_path: format!("ledgers/{}.json", safe_agentgres_component(&request.run_id)),
+            payload: json_path(&request.run, &["trace", "qualityLedger"]),
+            artifact_refs: vec![],
+            payload_refs: vec![],
+        });
+        records.push(RuntimeStateStorageWriteInput {
+            record_path: format!("quality/{}.json", safe_agentgres_component(&request.run_id)),
+            payload: json!({
+                "runId": &request.run_id,
+                "scorecard": json_path(&request.run, &["trace", "scorecard"]),
+                "qualityLedger": json_path(&request.run, &["trace", "qualityLedger"]),
+                "stopCondition": json_path(&request.run, &["trace", "stopCondition"]),
+                "verifierIndependencePolicy": {
+                    "sameModelAllowed": false,
+                    "evidenceOnlyMode": true,
+                    "humanReviewThreshold": "high_risk",
+                },
+            }),
+            artifact_refs: vec![],
+            payload_refs: vec![],
+        });
+
+        let mut projection = object_payload(&request.canonical_projection);
+        projection.insert(
+            "agentgresTransition".to_string(),
+            request.agentgres_transition.clone(),
+        );
+        records.push(RuntimeStateStorageWriteInput {
+            record_path: format!(
+                "projections/{}.json",
+                safe_agentgres_component(&request.run_id)
+            ),
+            payload: Value::Object(projection),
+            artifact_refs: vec![],
+            payload_refs: vec![],
+        });
+
+        let mut record = RuntimeStateRecordMaterializationRecord {
+            schema_version: RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION.to_string(),
+            run_id: request.run_id.clone(),
+            records,
+            materialization_hash: String::new(),
+        };
+        record.materialization_hash = runtime_state_record_materialization_hash(&record)?;
+        Ok(record)
+    }
 }
 
 impl AgentgresOperationProposal {
@@ -437,6 +631,26 @@ impl RuntimeStateStorageWriteSetRequest {
         for record in &self.records {
             require_non_empty("record_path", &record.record_path)?;
         }
+        Ok(())
+    }
+}
+
+impl RuntimeStateRecordMaterializationRequest {
+    pub fn validate(&self) -> Result<(), AgentgresAdmissionError> {
+        if self.schema_version != RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION {
+            return Err(AgentgresAdmissionError::InvalidSchemaVersion {
+                expected: RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("run_id", &self.run_id)?;
+        match json_string(&self.run, "id") {
+            Some(run_id) if run_id == self.run_id => {}
+            Some(_) => return Err(AgentgresAdmissionError::RuntimeStateRecordRunIdMismatch),
+            None => return Err(AgentgresAdmissionError::MissingField("run.id")),
+        }
+        required_json_string(&self.runtime_job, "jobId")?;
+        required_json_string(&self.runtime_checklist, "checklistId")?;
         Ok(())
     }
 }
@@ -555,6 +769,16 @@ fn runtime_state_storage_write_set_hash(
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
+fn runtime_state_record_materialization_hash(
+    record: &RuntimeStateRecordMaterializationRecord,
+) -> Result<String, AgentgresAdmissionError> {
+    let mut canonical = record.clone();
+    canonical.materialization_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
 fn stable_json_value(value: &Value) -> Result<String, AgentgresAdmissionError> {
     match value {
         Value::Array(entries) => Ok(format!(
@@ -606,6 +830,55 @@ fn safe_agentgres_path(value: &str) -> String {
         .map(safe_agentgres_component)
         .collect::<Vec<_>>()
         .join("/")
+}
+
+fn json_field(value: &Value, field: &str) -> Value {
+    value.get(field).cloned().unwrap_or(Value::Null)
+}
+
+fn json_path(value: &Value, path: &[&str]) -> Value {
+    let mut current = value;
+    for field in path {
+        match current.get(*field) {
+            Some(next) => current = next,
+            None => return Value::Null,
+        }
+    }
+    current.clone()
+}
+
+fn json_array<'a>(value: &'a Value, field: &str) -> Vec<&'a Value> {
+    value
+        .get(field)
+        .and_then(Value::as_array)
+        .map(|entries| entries.iter().collect::<Vec<_>>())
+        .unwrap_or_default()
+}
+
+fn json_string<'a>(value: &'a Value, field: &str) -> Option<&'a str> {
+    value.get(field).and_then(Value::as_str)
+}
+
+fn required_json_string<'a>(
+    value: &'a Value,
+    field: &'static str,
+) -> Result<&'a str, AgentgresAdmissionError> {
+    json_string(value, field)
+        .filter(|entry| !entry.trim().is_empty())
+        .ok_or(AgentgresAdmissionError::MissingField(field))
+}
+
+fn object_payload(value: &Value) -> Map<String, Value> {
+    value.as_object().cloned().unwrap_or_default()
+}
+
+fn receipt_id_for_kind(run: &Value, kind: &str) -> Value {
+    json_array(run, "receipts")
+        .into_iter()
+        .find(|receipt| json_string(receipt, "kind") == Some(kind))
+        .and_then(|receipt| json_string(receipt, "id"))
+        .map(|id| Value::String(id.to_string()))
+        .unwrap_or(Value::Null)
 }
 
 #[cfg(test)]
@@ -703,6 +976,76 @@ mod tests {
                     payload_refs: vec![],
                 },
             ],
+        }
+    }
+
+    fn runtime_state_record_materialization() -> RuntimeStateRecordMaterializationRequest {
+        RuntimeStateRecordMaterializationRequest {
+            schema_version: RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION.to_string(),
+            run_id: "run_1".to_string(),
+            run: json!({
+                "id": "run_1",
+                "agentId": "agent_1",
+                "status": "completed",
+                "receipts": [
+                    {
+                        "id": "receipt_policy",
+                        "kind": "policy_decision"
+                    },
+                    {
+                        "id": "receipt_authority",
+                        "kind": "authority_decision"
+                    }
+                ],
+                "artifacts": [
+                    {
+                        "id": "artifact_1",
+                        "kind": "text"
+                    }
+                ],
+                "trace": {
+                    "taskState": {
+                        "state": "done"
+                    },
+                    "postconditions": [
+                        {
+                            "id": "postcondition_1"
+                        }
+                    ],
+                    "semanticImpact": {
+                        "impact": "local"
+                    },
+                    "stopCondition": {
+                        "reason": "done"
+                    },
+                    "scorecard": {
+                        "score": 1
+                    },
+                    "qualityLedger": {
+                        "entries": []
+                    }
+                }
+            }),
+            runtime_task: json!({
+                "taskId": "task_run_1",
+                "runId": "run_1"
+            }),
+            runtime_job: json!({
+                "jobId": "job_run_1",
+                "runId": "run_1"
+            }),
+            runtime_checklist: json!({
+                "checklistId": "checklist_run_1",
+                "runId": "run_1"
+            }),
+            canonical_projection: json!({
+                "runId": "run_1",
+                "projection": "canonical"
+            }),
+            agentgres_transition: json!({
+                "projection_watermark": "runtime-state:1",
+                "transition_hash": "sha256:transition"
+            }),
         }
     }
 
@@ -935,5 +1278,70 @@ mod tests {
             .plan_runtime_state_storage_writes(&request)
             .expect_err("records are required");
         assert_eq!(error, AgentgresAdmissionError::MissingStorageWriteRecords);
+    }
+
+    #[test]
+    fn materializes_runtime_state_records_in_rust() {
+        let record = AgentgresAdmissionCore
+            .materialize_runtime_state_records(&runtime_state_record_materialization())
+            .expect("runtime state records materialized");
+
+        assert_eq!(
+            record.schema_version,
+            RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION
+        );
+        assert_eq!(record.records.len(), 14);
+        assert!(record.materialization_hash.starts_with("sha256:"));
+        assert_eq!(record.records[0].record_path, "runs/run_1.json");
+        assert_eq!(record.records[1].record_path, "tasks/run_1.json");
+        assert_eq!(record.records[2].record_path, "jobs/job_run_1.json");
+        assert_eq!(
+            record.records[3].record_path,
+            "checklists/checklist_run_1.json"
+        );
+        assert_eq!(
+            record.records[4].record_path,
+            "receipts/receipt_policy.json"
+        );
+        assert_eq!(record.records[6].record_path, "artifacts/artifact_1.json");
+        assert_eq!(
+            record.records[7].payload["receiptId"],
+            json!("receipt_policy")
+        );
+        assert_eq!(
+            record.records[8].payload["walletLayer"],
+            json!("wallet.network")
+        );
+        assert_eq!(
+            record.records[13].payload["agentgresTransition"]["transition_hash"],
+            json!("sha256:transition")
+        );
+    }
+
+    #[test]
+    fn runtime_state_record_materialization_requires_stable_job_and_checklist_ids() {
+        let mut request = runtime_state_record_materialization();
+        request.runtime_job = json!({});
+        let error = AgentgresAdmissionCore
+            .materialize_runtime_state_records(&request)
+            .expect_err("job id is required");
+        assert_eq!(error, AgentgresAdmissionError::MissingField("jobId"));
+
+        request = runtime_state_record_materialization();
+        request.runtime_checklist = json!({});
+        let error = AgentgresAdmissionCore
+            .materialize_runtime_state_records(&request)
+            .expect_err("checklist id is required");
+        assert_eq!(error, AgentgresAdmissionError::MissingField("checklistId"));
+
+        request = runtime_state_record_materialization();
+        request.run["id"] = json!("other_run");
+        let error = AgentgresAdmissionCore
+            .materialize_runtime_state_records(&request)
+            .expect_err("run payload id must match request id");
+        assert_eq!(
+            error,
+            AgentgresAdmissionError::RuntimeStateRecordRunIdMismatch
+        );
     }
 }

@@ -1604,35 +1604,52 @@ function runReceipts() {
     result,
     "thread-run-state-storage-write-rust-admitted",
       /StorageBackendWriteProposal/.test(agentgresAdmissionCore) &&
+      /RuntimeStateRecordMaterializationRequest/.test(agentgresAdmissionCore) &&
+      /materialize_runtime_state_records/.test(agentgresAdmissionCore) &&
       /RuntimeStateStorageWriteSetRequest/.test(agentgresAdmissionCore) &&
       /plan_runtime_state_storage_writes/.test(agentgresAdmissionCore) &&
+      /RuntimeStateRecordMaterializationRequest/.test(runtimeKernelModule) &&
+      /RuntimeStateRecordMaterializationRecord/.test(runtimeKernelModule) &&
+      /pub fn materialize_runtime_state_records/.test(runtimeKernelModule) &&
       /RuntimeStateStorageWriteSetRequest/.test(runtimeKernelModule) &&
       /RuntimeStateStorageWriteSetRecord/.test(runtimeKernelModule) &&
       /pub fn plan_runtime_state_storage_writes/.test(runtimeKernelModule) &&
+      /materializes_runtime_state_records_in_rust/.test(agentgresAdmissionCore) &&
       /plans_runtime_state_storage_write_set_with_rust_content_hash_and_admissions/.test(agentgresAdmissionCore) &&
       /admit_storage_backend_write/.test(bridgeModule) &&
+      /materialize_runtime_state_records/.test(bridgeModule) &&
       /plan_runtime_state_storage_writes/.test(bridgeModule) &&
       /rust_agentgres_storage_write_admission_command/.test(bridgeModule) &&
+      /rust_agentgres_runtime_state_record_materialization_command/.test(bridgeModule) &&
       /rust_agentgres_runtime_state_storage_write_set_command/.test(bridgeModule) &&
       /bridge_admits_storage_backend_write_through_rust_core/.test(bridgeModule) &&
+      /bridge_materializes_runtime_state_records_through_rust_core/.test(bridgeModule) &&
       /bridge_plans_runtime_state_storage_writes_through_rust_core/.test(bridgeModule) &&
       /admitStorageBackendWrite/.test(runtimeAgentgresRunner) &&
+      /materializeRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
       /planRuntimeStateStorageWrites/.test(runtimeAgentgresRunner) &&
       /RUST_AGENTGRES_STORAGE_BACKEND/.test(runtimeAgentgresRunner) &&
       /runtime Agentgres runner sends storage write admission bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
+      /runtime Agentgres runner sends runtime-state record materialization bridge request/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
       /runtime Agentgres runner sends runtime-state storage write-set bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
+      /materializeRuntimeStateRecords\(request\)/.test(runtimeDaemonIndex) &&
       /planRuntimeStateStorageWrites\(request\)/.test(runtimeDaemonIndex) &&
       !/admitRuntimeStateStorageWrite/.test(runtimeDaemonIndex) &&
+      /materializeRunStateRecords/.test(threadPersistence) &&
       /planRunStateStorageWrites/.test(threadPersistence) &&
       /writeJsonWithPlannedStorage/.test(threadPersistence) &&
+      /RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION/.test(threadPersistence) &&
       /RUNTIME_STATE_STORAGE_WRITE_SET_SCHEMA_VERSION/.test(threadPersistence) &&
       /RUNTIME_STATE_STORAGE_BACKEND_REF/.test(threadPersistence) &&
+      /materializationRequests/.test(read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs")) &&
       /storageWriteSetRequests/.test(read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs")) &&
-      /plans storage write set in Rust/.test(
+      /materializes records and plans storage write set in Rust/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ),
     [
@@ -1645,34 +1662,31 @@ function runReceipts() {
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 5/11 is pending: run-state writes must obtain a Rust-planned storage write set with Rust content hashes, Agentgres PayloadRefs, and receipt refs before local JSON persistence",
+    "Phase 5/11 is pending: run-state writes must obtain Rust-materialized records and a Rust-planned storage write set with Rust content hashes, Agentgres PayloadRefs, and receipt refs before local JSON persistence",
   );
   assertCheck(
     result,
     "thread-run-state-sidecar-storage-write-rust-admitted",
     /writeRunRecord/.test(writeRunRecordBody) &&
       !/\bwriteJson\(store\.pathFor/.test(writeRunRecordBody) &&
-      /`jobs\/\$\{runtimeJob\.jobId\}\.json`/.test(writeRunRecordBody) &&
-      /`checklists\/\$\{runtimeChecklist\.checklistId\}\.json`/.test(writeRunRecordBody) &&
-      /`receipts\/\$\{receipt\.id\}\.json`/.test(writeRunRecordBody) &&
-      /`artifacts\/\$\{artifact\.id\}\.json`/.test(writeRunRecordBody) &&
-      /`policy-decisions\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
-      /`authority-decisions\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
-      /`stop-conditions\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
-      /`scorecards\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
-      /`ledgers\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
-      /`quality\/\$\{run\.id\}\.json`/.test(writeRunRecordBody) &&
+      /materializeRunStateRecords\(store, run/.test(writeRunRecordBody) &&
+      /planRunStateStorageWrites\(store, run, stateRecords\)/.test(writeRunRecordBody) &&
+      /writeJsonWithPlannedStorage\(store, record, plannedStorage, writeJson\)/.test(writeRunRecordBody) &&
+      !/stateRecords\.push/.test(writeRunRecordBody) &&
+      /materializationRequests\[0\]\.canonical_projection/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
       /storageWriteSetRequests\[0\]\.records\.map/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
-      /plans storage write set in Rust/.test(
+      /materializes records and plans storage write set in Rust/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ),
     [
       "packages/runtime-daemon/src/threads/thread-persistence.mjs",
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
     ],
-    "Phase 5/11 is pending: run-state sidecar records must not bypass Rust storage admission before local JSON persistence",
+    "Phase 5/11 is pending: run-state sidecar records must be materialized and storage-admitted by Rust before local JSON persistence",
   );
   assertCheck(
     result,

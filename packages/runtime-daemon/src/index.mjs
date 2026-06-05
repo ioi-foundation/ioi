@@ -3764,6 +3764,10 @@ export class AgentgresRuntimeStateStore {
     return this.runtimeAgentgresAdmissionRunner.planRuntimeStateStorageWrites(request);
   }
 
+  materializeRuntimeStateRecords(request) {
+    return this.runtimeAgentgresAdmissionRunner.materializeRuntimeStateRecords(request);
+  }
+
   writeSubagent(subagent, operationKind) {
     return writeSubagentRecord(this, subagent, operationKind, {
       runtimeError,

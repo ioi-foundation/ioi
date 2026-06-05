@@ -1,6 +1,7 @@
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
-    AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeStateStorageWriteSetRequest,
-    RuntimeStateTransitionRequest, StorageBackendWriteProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
+    AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeStateRecordMaterializationRequest,
+    RuntimeStateStorageWriteSetRequest, RuntimeStateTransitionRequest, StorageBackendWriteProposal,
+    AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountCore, ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
@@ -197,6 +198,16 @@ struct RuntimeStateStorageWriteSetBridgeRequest {
     request: RuntimeStateStorageWriteSetRequest,
 }
 
+#[derive(Debug, Deserialize)]
+struct RuntimeStateRecordMaterializationBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: RuntimeStateRecordMaterializationRequest,
+}
+
 pub fn run_bridge_response_from_stdin() -> Value {
     match run_bridge() {
         Ok(response) => json!({ "ok": true, "result": response }),
@@ -309,6 +320,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_runtime_state_storage_writes(request)
+        }
+        "materialize_runtime_state_records" => {
+            let request: RuntimeStateRecordMaterializationBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            materialize_runtime_state_records(request)
         }
         other => Err(BridgeError::new(
             "operation_unsupported",
@@ -966,7 +983,10 @@ fn admit_storage_backend_write(
     let record = AgentgresAdmissionCore
         .admit_storage_backend_write(&request.request)
         .map_err(|error| {
-            BridgeError::new("storage_backend_write_admission_invalid", format!("{error:?}"))
+            BridgeError::new(
+                "storage_backend_write_admission_invalid",
+                format!("{error:?}"),
+            )
         })?;
     Ok(json!({
         "source": "rust_agentgres_storage_write_admission_command",
@@ -1028,6 +1048,45 @@ fn plan_runtime_state_storage_writes(
         "evidence_refs": [
             "rust_agentgres_runtime_state_storage_write_set",
             record.write_set_hash,
+        ],
+    }))
+}
+
+fn materialize_runtime_state_records(
+    request: RuntimeStateRecordMaterializationBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "materialize_runtime_state_records" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = AgentgresAdmissionCore
+        .materialize_runtime_state_records(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "runtime_state_record_materialization_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_agentgres_runtime_state_record_materialization_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_runtime_agentgres".to_string()),
+        "record": record.clone(),
+        "records": record.records.clone(),
+        "materialization_hash": record.materialization_hash.clone(),
+        "evidence_refs": [
+            "rust_agentgres_runtime_state_record_materialization",
+            record.materialization_hash,
         ],
     }))
 }
@@ -4406,6 +4465,102 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_agentgres_runtime_state_storage_write_set"));
+    }
+
+    #[test]
+    fn bridge_materializes_runtime_state_records_through_rust_core() {
+        let request: RuntimeStateRecordMaterializationBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": COMMAND_SCHEMA_VERSION,
+                "operation": "materialize_runtime_state_records",
+                "backend": "rust_runtime_agentgres",
+                "request": {
+                    "schema_version": "ioi.runtime_state_record_materialization.v1",
+                    "run_id": "run_1",
+                    "run": {
+                        "id": "run_1",
+                        "agentId": "agent_1",
+                        "status": "completed",
+                        "receipts": [
+                            {
+                                "id": "receipt_policy",
+                                "kind": "policy_decision"
+                            },
+                            {
+                                "id": "receipt_authority",
+                                "kind": "authority_decision"
+                            }
+                        ],
+                        "artifacts": [
+                            {
+                                "id": "artifact_1",
+                                "kind": "text"
+                            }
+                        ],
+                        "trace": {
+                            "taskState": {
+                                "state": "done"
+                            },
+                            "postconditions": [],
+                            "semanticImpact": {
+                                "impact": "local"
+                            },
+                            "stopCondition": {
+                                "reason": "done"
+                            },
+                            "scorecard": {
+                                "score": 1
+                            },
+                            "qualityLedger": {
+                                "entries": []
+                            }
+                        }
+                    },
+                    "runtime_task": {
+                        "taskId": "task_run_1",
+                        "runId": "run_1"
+                    },
+                    "runtime_job": {
+                        "jobId": "job_run_1",
+                        "runId": "run_1"
+                    },
+                    "runtime_checklist": {
+                        "checklistId": "checklist_run_1",
+                        "runId": "run_1"
+                    },
+                    "canonical_projection": {
+                        "runId": "run_1",
+                        "projection": "canonical"
+                    },
+                    "agentgres_transition": {
+                        "projection_watermark": "runtime-state:1",
+                        "transition_hash": "sha256:transition"
+                    }
+                }
+            }))
+            .expect("runtime record materialization bridge request");
+
+        let response = materialize_runtime_state_records(request).expect("records materialized");
+
+        assert_eq!(
+            response["source"],
+            "rust_agentgres_runtime_state_record_materialization_command"
+        );
+        assert!(response["materialization_hash"]
+            .as_str()
+            .expect("materialization hash")
+            .starts_with("sha256:"));
+        assert_eq!(response["records"].as_array().expect("records").len(), 14);
+        assert_eq!(response["records"][0]["record_path"], "runs/run_1.json");
+        assert_eq!(
+            response["records"][13]["record_path"],
+            "projections/run_1.json"
+        );
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_agentgres_runtime_state_record_materialization"));
     }
 
     #[test]
