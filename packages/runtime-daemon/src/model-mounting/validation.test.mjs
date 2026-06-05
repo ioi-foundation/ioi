@@ -56,9 +56,9 @@ test("model mounting validation preserves continuation safety modes", () => {
   assert.deepEqual(validateContinuationSafety({
     previousState: {
       id: "resp-1",
-      routeId: "route.local-first",
-      endpointId: "endpoint.local",
-      selectedModel: "model.local",
+      route_id: "route.local-first",
+      endpoint_id: "endpoint.local",
+      selected_model: "model.local",
     },
     selection,
     body: {},
@@ -69,9 +69,9 @@ test("model mounting validation preserves continuation safety modes", () => {
   assert.deepEqual(validateContinuationSafety({
     previousState: {
       id: "resp-1",
-      routeId: "route.other",
-      endpointId: "endpoint.other",
-      selectedModel: "model.other",
+      route_id: "route.other",
+      endpoint_id: "endpoint.other",
+      selected_model: "model.other",
     },
     selection,
     body: { allow_continuation_fallback: true },
@@ -89,9 +89,9 @@ test("model mounting validation rejects unsafe continuation route changes", () =
   const error = captureError(() => validateContinuationSafety({
     previousState: {
       id: "resp-1",
-      routeId: "route.other",
-      endpointId: "endpoint.local",
-      selectedModel: "model.local",
+      route_id: "route.other",
+      endpoint_id: "endpoint.local",
+      selected_model: "model.local",
     },
     selection: {
       route: { id: "route.local-first" },

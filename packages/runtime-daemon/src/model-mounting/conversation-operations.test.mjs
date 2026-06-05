@@ -174,7 +174,7 @@ test("recordConversationState stores redacted replay metadata and message lineag
   const previousState = {
     id: "resp_previous",
     root_response_id: "resp_root",
-    messageCount: 4,
+    message_count: 4,
   };
 
   const record = recordConversationState(
@@ -198,13 +198,39 @@ test("recordConversationState stores redacted replay metadata and message lineag
 
   assert.equal(record.previous_response_id, "resp_previous");
   assert.equal(record.root_response_id, "resp_root");
-  assert.equal(record.messageCount, 6);
-  assert.equal(record.inputHash, "hash:secret prompt");
-  assert.equal(record.outputHash, "hash:public answer");
+  assert.equal(record.created_at, "2026-06-04T03:00:00.000Z");
+  assert.equal(record.route_id, "route.local-first");
+  assert.equal(record.endpoint_id, "endpoint.local");
+  assert.equal(record.selected_model, "llama-test");
+  assert.equal(record.provider_id, "provider.local");
+  assert.equal(record.backend_id, "backend.instance");
+  assert.equal(record.instance_id, "instance.1");
+  assert.equal(record.receipt_id, "receipt.invocation");
+  assert.equal(record.route_receipt_id, "receipt.route");
+  assert.equal(record.stream_receipt_id, "receipt.stream");
+  assert.equal(record.message_count, 6);
+  assert.equal(record.input_hash, "hash:secret prompt");
+  assert.equal(record.output_hash, "hash:public answer");
+  assert.deepEqual(record.token_count, { total_tokens: 4 });
   assert.equal(record.replay.previous_response_id, "resp_previous");
-  assert.equal(record.replay.plaintextPersisted, false);
+  assert.equal(record.replay.plaintext_persisted, false);
+  assert.equal(Object.hasOwn(record, "createdAt"), false);
   assert.equal(Object.hasOwn(record, "previousResponseId"), false);
   assert.equal(Object.hasOwn(record, "rootResponseId"), false);
+  assert.equal(Object.hasOwn(record, "routeId"), false);
+  assert.equal(Object.hasOwn(record, "endpointId"), false);
+  assert.equal(Object.hasOwn(record, "selectedModel"), false);
+  assert.equal(Object.hasOwn(record, "providerId"), false);
+  assert.equal(Object.hasOwn(record, "backendId"), false);
+  assert.equal(Object.hasOwn(record, "instanceId"), false);
+  assert.equal(Object.hasOwn(record, "receiptId"), false);
+  assert.equal(Object.hasOwn(record, "routeReceiptId"), false);
+  assert.equal(Object.hasOwn(record, "streamReceiptId"), false);
+  assert.equal(Object.hasOwn(record, "inputHash"), false);
+  assert.equal(Object.hasOwn(record, "outputHash"), false);
+  assert.equal(Object.hasOwn(record, "tokenCount"), false);
+  assert.equal(Object.hasOwn(record, "messageCount"), false);
+  assert.equal(Object.hasOwn(record.replay, "plaintextPersisted"), false);
   assert.equal(Object.hasOwn(record.replay, "previousResponseId"), false);
   assert.equal(state.conversations.get("resp_current"), record);
   assert.equal(state.writes.at(-1)[0], "model-conversations");
@@ -279,7 +305,8 @@ test("recordModelStreamCompleted emits stream receipt and finalizes conversation
     "agentgres://model-mounting/operation-log/head/0",
   ]);
   assert.equal(invocation.conversationState.id, "resp_stream");
-  assert.equal(invocation.conversationState.streamReceiptId, receipt.id);
+  assert.equal(invocation.conversationState.stream_receipt_id, receipt.id);
+  assert.equal(Object.hasOwn(invocation.conversationState, "streamReceiptId"), false);
   assert.equal(Object.hasOwn(invocation.conversationState, "previousResponseId"), false);
   assert.equal(state.conversations.get("resp_stream"), invocation.conversationState);
 });
@@ -327,10 +354,10 @@ test("recordModelStreamCompleted fails closed without Rust receipt binding", () 
   assert.deepEqual(state.receipts, []);
 });
 
-test("listConversations sorts by createdAt", () => {
+test("listConversations sorts by created_at", () => {
   const state = fakeState();
-  state.conversations.set("late", { id: "late", createdAt: "2026-06-04T03:00:02.000Z" });
-  state.conversations.set("early", { id: "early", createdAt: "2026-06-04T03:00:01.000Z" });
+  state.conversations.set("late", { id: "late", created_at: "2026-06-04T03:00:02.000Z" });
+  state.conversations.set("early", { id: "early", created_at: "2026-06-04T03:00:01.000Z" });
 
   assert.deepEqual(listConversations(state).map((record) => record.id), ["early", "late"]);
 });

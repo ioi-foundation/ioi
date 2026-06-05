@@ -61,27 +61,27 @@ export function recordConversationState(state, {
     object: "ioi.model_response_state",
     status,
     redaction: "redacted",
-    createdAt: now,
+    created_at: now,
     previous_response_id: previousState?.id ?? null,
     root_response_id: previousState?.root_response_id ?? previousState?.id ?? responseId,
     kind,
-    routeId: selection.route.id,
-    endpointId: selection.endpoint.id,
-    selectedModel: selection.endpoint.modelId,
-    providerId: selection.endpoint.providerId,
-    backendId: instance?.backendId ?? selection.endpoint.backendId ?? null,
-    instanceId: instance?.id ?? null,
-    receiptId: receipt.id,
-    routeReceiptId: routeReceipt?.id ?? null,
-    streamReceiptId,
-    inputHash: stableHash(input),
-    outputHash: stableHash(outputText),
-    tokenCount,
-    messageCount: Number(previousState?.messageCount ?? 0) + 2,
+    route_id: selection.route.id,
+    endpoint_id: selection.endpoint.id,
+    selected_model: selection.endpoint.modelId,
+    provider_id: selection.endpoint.providerId,
+    backend_id: instance?.backendId ?? selection.endpoint.backendId ?? null,
+    instance_id: instance?.id ?? null,
+    receipt_id: receipt.id,
+    route_receipt_id: routeReceipt?.id ?? null,
+    stream_receipt_id: streamReceiptId,
+    input_hash: stableHash(input),
+    output_hash: stableHash(outputText),
+    token_count: tokenCount,
+    message_count: Number(previousState?.message_count ?? 0) + 2,
     continuation: continuationSafety,
     replay: {
       source: "redacted_conversation_state",
-      plaintextPersisted: false,
+      plaintext_persisted: false,
       previous_response_id: previousState?.id ?? null,
     },
   };
@@ -245,5 +245,5 @@ function bindModelMountInvocationReceipt(state, request) {
 }
 
 export function listConversations(state) {
-  return [...state.conversations.values()].sort((left, right) => String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? "")));
+  return [...state.conversations.values()].sort((left, right) => String(left.created_at ?? "").localeCompare(String(right.created_at ?? "")));
 }

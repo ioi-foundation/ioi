@@ -417,11 +417,15 @@ function runBridge() {
   const modelConversationOpsTest = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
     : "";
+  const modelConversationStateRecordObject =
+    modelConversationOps.match(/const record = \{[\s\S]*?\n  \};/)?.[0] ?? "";
   const modelStreamCompletionReceiptDetailsObject =
     modelConversationOps.match(/const receiptDetails = \{[\s\S]*?\n  \};/)?.[0] ?? "";
   const modelSchemaRelations = exists("packages/runtime-daemon/src/model-mounting/schema-relations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/schema-relations.mjs")
     : "";
+  const modelConversationSchemaRelations =
+    modelSchemaRelations.match(/modelConversationStates: \[[\s\S]*?\]/)?.[0] ?? "";
   const modelMountingReadModel = exists("packages/runtime-daemon/src/model-mounting/read-model.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/read-model.mjs")
     : "";
@@ -1589,6 +1593,52 @@ function runBridge() {
       "packages/agent-sdk/src/model-mounts.ts",
     ],
     "Phase 4/10 is pending: model-mount continuation and response-lineage metadata must use canonical snake_case accepted fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-conversation-state-metadata-aliases-retired",
+    /^ {4}created_at:\s*now/m.test(modelConversationStateRecordObject) &&
+      /^ {4}route_id:\s*selection\.route\.id/m.test(modelConversationStateRecordObject) &&
+      /^ {4}endpoint_id:\s*selection\.endpoint\.id/m.test(modelConversationStateRecordObject) &&
+      /^ {4}selected_model:\s*selection\.endpoint\.modelId/m.test(modelConversationStateRecordObject) &&
+      /^ {4}provider_id:\s*selection\.endpoint\.providerId/m.test(modelConversationStateRecordObject) &&
+      /^ {4}backend_id:\s*instance\?\.backendId/m.test(modelConversationStateRecordObject) &&
+      /^ {4}instance_id:\s*instance\?\.id/m.test(modelConversationStateRecordObject) &&
+      /^ {4}receipt_id:\s*receipt\.id/m.test(modelConversationStateRecordObject) &&
+      /^ {4}route_receipt_id:\s*routeReceipt\?\.id/m.test(modelConversationStateRecordObject) &&
+      /^ {4}stream_receipt_id:\s*streamReceiptId/m.test(modelConversationStateRecordObject) &&
+      /^ {4}input_hash:\s*stableHash\(input\)/m.test(modelConversationStateRecordObject) &&
+      /^ {4}output_hash:\s*stableHash\(outputText\)/m.test(modelConversationStateRecordObject) &&
+      /^ {4}token_count:\s*tokenCount/m.test(modelConversationStateRecordObject) &&
+      /^ {4}message_count:\s*Number\(previousState\?\.message_count/m.test(modelConversationStateRecordObject) &&
+      /plaintext_persisted:\s*false/.test(modelConversationStateRecordObject) &&
+      /left\.created_at/.test(modelConversationOps) &&
+      /previousState\.route_id/.test(modelMountingValidation) &&
+      /previousState\.endpoint_id/.test(modelMountingValidation) &&
+      /previousState\.selected_model/.test(modelMountingValidation) &&
+      !/^ {4}(?:createdAt|routeId|endpointId|selectedModel|providerId|backendId|instanceId|receiptId|routeReceiptId|streamReceiptId|inputHash|outputHash|tokenCount|messageCount)\s*:/m.test(
+        modelConversationStateRecordObject,
+      ) &&
+      !/plaintextPersisted\s*:/.test(modelConversationStateRecordObject) &&
+      !/previousState\.(?:routeId|endpointId|selectedModel)\b/.test(modelMountingValidation) &&
+      /"route_id"/.test(modelConversationSchemaRelations) &&
+      /"endpoint_id"/.test(modelConversationSchemaRelations) &&
+      /"selected_model"/.test(modelConversationSchemaRelations) &&
+      /"receipt_id"/.test(modelConversationSchemaRelations) &&
+      /"input_hash"/.test(modelConversationSchemaRelations) &&
+      /"output_hash"/.test(modelConversationSchemaRelations) &&
+      !/"(?:routeId|endpointId|selectedModel|receiptId|inputHash|outputHash)"/.test(modelConversationSchemaRelations) &&
+      /Object\.hasOwn\(record,\s*"routeId"\),\s*false/.test(modelConversationOpsTest) &&
+      /Object\.hasOwn\(record,\s*"tokenCount"\),\s*false/.test(modelConversationOpsTest) &&
+      /Object\.hasOwn\(record\.replay,\s*"plaintextPersisted"\),\s*false/.test(modelConversationOpsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/validation.mjs",
+      "packages/runtime-daemon/src/model-mounting/validation.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/schema-relations.mjs",
+    ],
+    "Phase 4/10 is pending: model-mount redacted conversation state must use canonical snake_case route, receipt, hash, replay, and token metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

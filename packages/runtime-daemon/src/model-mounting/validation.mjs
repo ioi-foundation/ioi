@@ -15,9 +15,9 @@ export function validateContinuationSafety({
       body.allowRouteFallback,
   );
   const mismatchFields = [];
-  if (previousState.routeId !== selection.route.id) mismatchFields.push("route_id");
-  if (previousState.endpointId !== selection.endpoint.id) mismatchFields.push("endpoint_id");
-  if (previousState.selectedModel !== selection.endpoint.modelId) mismatchFields.push("model");
+  if (previousState.route_id !== selection.route.id) mismatchFields.push("route_id");
+  if (previousState.endpoint_id !== selection.endpoint.id) mismatchFields.push("endpoint_id");
+  if (previousState.selected_model !== selection.endpoint.modelId) mismatchFields.push("model");
   if (mismatchFields.length > 0 && !allowFallback) {
     throw runtimeError({
       status: 409,
