@@ -379,6 +379,57 @@ test("subagent surface lists, filters, and projects thread subagents", () => {
   assertCanonicalSubagentRecordOutput(listed.subagents[1]);
 });
 
+test("subagent list and lookup ignore retired camelCase record aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface();
+  store.subagents.set("subagent_alias_poison", {
+    subagent_id: "subagent_alias_poison",
+    agent_id: "agent_alias_poison",
+    run_id: "run_2",
+    parent_thread_id: "thread_other",
+    parentThreadId: "thread_1",
+    role: "reviewer",
+    lifecycle_status: "running",
+    created_at: "2026-06-04T12:00:04.000Z",
+    createdAt: "1999-01-01T00:00:00.000Z",
+  });
+  store.subagents.set("subagent_sort_poison", {
+    subagent_id: "subagent_sort_poison",
+    agent_id: "agent_sort_poison",
+    run_id: "run_2",
+    parent_thread_id: "thread_1",
+    parentThreadId: "thread_other",
+    role: "reviewer",
+    lifecycle_status: "running",
+    created_at: "2026-06-04T12:00:04.000Z",
+    createdAt: "1900-01-01T00:00:00.000Z",
+  });
+
+  const listed = surface.listSubagents(store, "thread_1", { role: "reviewer" });
+
+  assert.deepEqual(listed.subagents.map((record) => record.subagent_id), [
+    "subagent_1",
+    "subagent_2",
+    "subagent_sort_poison",
+  ]);
+  assert.equal(
+    listed.subagents.some((record) => record.subagent_id === "subagent_alias_poison"),
+    false,
+  );
+  assert.equal(
+    surface.getSubagent(store, "thread_1", "subagent_sort_poison").subagent_id,
+    "subagent_sort_poison",
+  );
+  assert.throws(
+    () => surface.getSubagent(store, "thread_1", "subagent_alias_poison"),
+    (error) =>
+      error.status === 404 &&
+      error.details.thread_id === "thread_1" &&
+      error.details.subagent_id === "subagent_alias_poison" &&
+      (assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys), true),
+  );
+});
+
 test("subagent surface gets records and preserves not-found details", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface();

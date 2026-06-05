@@ -3227,6 +3227,10 @@ function runCompositor() {
     runtimeSubagentSurface.match(
       /listSubagents\(store, threadId, options = \{\}\) \{[\s\S]*?\n    \},\n    getSubagent/,
     )?.[0] ?? "";
+  const runtimeSubagentGetBlock =
+    runtimeSubagentSurface.match(
+      /getSubagent\(store, threadId, subagentId\) \{[\s\S]*?\n    \},\n    spawnSubagent/,
+    )?.[0] ?? "";
   const runtimeSubagentPropagationEnvelopeBlock =
     runtimeSubagentSurface.match(
       /propagateSubagentCancellation\(store, threadId, request = \{\}\) \{[\s\S]*?\n    \},\n    subagentProjection/,
@@ -3298,6 +3302,8 @@ function runCompositor() {
     /^\s*(?:threadId|subagentId|activeForRole|maxConcurrency|budgetStatus|eventId|receiptRefs|policyDecisionRefs)\s*[:,]/m;
   const runtimeSubagentLifecycleResultEnvelopeAliasPattern =
     /^\s*receiptRefs\s*[:,]/m;
+  const runtimeSubagentListLookupRecordAliasReadPattern =
+    /(?:record\.parentThreadId|(?:left|right)\.createdAt)\b/;
   const runtimeSubagentControlEventRecordAliasReadPattern =
     /record\.(?:subagentId|workflowGraphId|workflowNodeId|budgetPolicyDecision|budgetStatus|parentTurnId)\b/;
   const runtimeSubagentProjectionBlock =
@@ -3993,6 +3999,30 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent list and propagation envelopes must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-list-lookup-record-aliases-retired",
+    runtimeSubagentListEnvelopeBlock.length > 0 &&
+      runtimeSubagentGetBlock.length > 0 &&
+      !runtimeSubagentListLookupRecordAliasReadPattern.test(
+        `${runtimeSubagentListEnvelopeBlock}\n${runtimeSubagentGetBlock}`,
+      ) &&
+      /subagent list and lookup ignore retired camelCase record aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /parentThreadId: "thread_1"/.test(runtimeSubagentSurfaceTest) &&
+      /createdAt: "1999-01-01T00:00:00\.000Z"/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /createdAt: "1900-01-01T00:00:00\.000Z"/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent list/get read paths must ignore retired camelCase persisted record aliases",
   );
   assertCheck(
     result,

@@ -152,11 +152,11 @@ export function createRuntimeSubagentSurface({
       const parentAgent = store.agentForThread(threadId);
       const role = optionalStringDep(options.role ?? options.subagent_role ?? options.subagentRole);
       const subagents = [...store.subagents.values()]
-        .filter((record) => (record.parent_thread_id ?? record.parentThreadId) === threadId)
+        .filter((record) => record.parent_thread_id === threadId)
         .filter((record) => !role || record.role === role)
         .sort((left, right) =>
-          String(left.created_at ?? left.createdAt ?? "").localeCompare(
-            String(right.created_at ?? right.createdAt ?? ""),
+          String(left.created_at ?? "").localeCompare(
+            String(right.created_at ?? ""),
           ),
         )
         .map((record) => this.subagentProjection(record));
@@ -173,7 +173,7 @@ export function createRuntimeSubagentSurface({
     },
     getSubagent(store, threadId, subagentId) {
       const record = store.subagents.get(subagentId);
-      if (!record || (record.parent_thread_id ?? record.parentThreadId) !== threadId) {
+      if (!record || record.parent_thread_id !== threadId) {
         throw notFoundDep(`Subagent not found: ${subagentId}`, {
           thread_id: threadId,
           subagent_id: subagentId,
