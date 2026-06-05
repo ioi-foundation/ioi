@@ -896,6 +896,18 @@ function runBridge() {
     ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
     "Phase 8 is pending: worker/service package invocation admission must be exposed through the daemon command bridge",
   );
+  assertCheck(
+    result,
+    "governed-meta-improvement-proposal-live-bridge",
+    /admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
+      /GovernedRuntimeImprovementBridgeRequest/.test(bridgeModule) &&
+      /GovernedRuntimeImprovementProposal/.test(bridgeModule) &&
+      /GovernedEvolutionCore/.test(bridgeModule) &&
+      /rust_governed_meta_improvement_command/.test(bridgeModule) &&
+      /bridge_admits_governed_runtime_improvement_proposal_through_rust_core/.test(bridgeModule),
+    ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
+    "Phase 9 is pending: governed meta-improvement proposal admission must be exposed through the daemon command bridge",
+  );
   return result;
 }
 

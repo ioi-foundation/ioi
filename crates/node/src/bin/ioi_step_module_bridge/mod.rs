@@ -1,3 +1,4 @@
+use ioi_services::agentic::evolution::{GovernedEvolutionCore, GovernedRuntimeImprovementProposal};
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeRunStateCommitRequest,
     RuntimeStatePersistenceRecord, StorageBackendWriteProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
@@ -195,6 +196,16 @@ struct WorkerServicePackageInvocationBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct GovernedRuntimeImprovementBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    proposal: GovernedRuntimeImprovementProposal,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -322,6 +333,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             admit_worker_service_package_invocation(request)
+        }
+        "admit_governed_runtime_improvement_proposal" => {
+            let request: GovernedRuntimeImprovementBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            admit_governed_runtime_improvement_proposal(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -1055,6 +1072,49 @@ fn admit_worker_service_package_invocation(
         "artifact_refs": record.artifact_refs.clone(),
         "payload_refs": record.payload_refs.clone(),
         "authority_grant_refs": record.authority_grant_refs.clone(),
+    }))
+}
+
+fn admit_governed_runtime_improvement_proposal(
+    request: GovernedRuntimeImprovementBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "admit_governed_runtime_improvement_proposal" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = GovernedEvolutionCore
+        .admit_proposal(&request.proposal)
+        .map_err(|error| {
+            BridgeError::new("governed_runtime_improvement_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_governed_meta_improvement_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_governed_evolution".to_string()),
+        "record": record.clone(),
+        "proposal_id": record.proposal_id.clone(),
+        "target_ref": record.target_ref.clone(),
+        "candidate_ref": record.candidate_ref.clone(),
+        "admission_hash": record.admission_hash.clone(),
+        "agentgres_operation_ref": record.agentgres_operation_ref.clone(),
+        "expected_heads": record.expected_heads.clone(),
+        "state_root_before": record.state_root_before.clone(),
+        "state_root_after": record.state_root_after.clone(),
+        "resulting_head": record.resulting_head.clone(),
+        "eval_receipt_refs": record.eval_receipt_refs.clone(),
+        "verifier_receipt_refs": record.verifier_receipt_refs.clone(),
+        "approval_ref": record.approval_ref.clone(),
+        "rollback_ref": record.rollback_ref.clone(),
     }))
 }
 
@@ -4744,6 +4804,71 @@ mod tests {
             response["authority_grant_refs"][0],
             "grant://wallet/worker-package"
         );
+    }
+
+    #[test]
+    fn bridge_admits_governed_runtime_improvement_proposal_through_rust_core() {
+        let request: GovernedRuntimeImprovementBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "admit_governed_runtime_improvement_proposal",
+            "backend": "rust_governed_evolution",
+            "proposal": {
+                "schema_version": "ioi.governed_runtime_improvement.v1",
+                "proposal_id": "proposal://runtime-improvement/bridge",
+                "target_ref": "skill://runtime-auditor/current",
+                "candidate_ref": "skill-candidate://runtime-auditor/from-trace",
+                "surface": "skill",
+                "source_trace_ref": "trace://runtime-improvement/high-fitness",
+                "eval_receipt_refs": ["receipt://eval/bridge-holdout-pass"],
+                "verifier_receipt_refs": ["receipt://verifier/bridge-regression-pass"],
+                "approval_ref": "approval://wallet/runtime-improvement/bridge",
+                "rollback_ref": "rollback://skill/runtime-auditor/current",
+                "agentgres_operation_ref": "agentgres://runtime-improvement/operations/bridge",
+                "expected_heads": ["agentgres://runtime-improvement/head/before"],
+                "state_root_before": "sha256:runtime-improvement-before",
+                "state_root_after": "sha256:runtime-improvement-after",
+                "resulting_head": "agentgres://runtime-improvement/head/after"
+            }
+        }))
+        .expect("governed runtime improvement bridge request");
+
+        let response = admit_governed_runtime_improvement_proposal(request)
+            .expect("governed runtime improvement proposal admitted");
+
+        assert_eq!(response["source"], "rust_governed_meta_improvement_command");
+        assert_eq!(response["backend"], "rust_governed_evolution");
+        assert_eq!(
+            response["record"]["proposal_id"],
+            "proposal://runtime-improvement/bridge"
+        );
+        assert_eq!(
+            response["agentgres_operation_ref"],
+            "agentgres://runtime-improvement/operations/bridge"
+        );
+        assert_eq!(
+            response["expected_heads"][0],
+            "agentgres://runtime-improvement/head/before"
+        );
+        assert_eq!(
+            response["eval_receipt_refs"][0],
+            "receipt://eval/bridge-holdout-pass"
+        );
+        assert_eq!(
+            response["verifier_receipt_refs"][0],
+            "receipt://verifier/bridge-regression-pass"
+        );
+        assert_eq!(
+            response["approval_ref"],
+            "approval://wallet/runtime-improvement/bridge"
+        );
+        assert_eq!(
+            response["rollback_ref"],
+            "rollback://skill/runtime-auditor/current"
+        );
+        assert!(response["admission_hash"]
+            .as_str()
+            .expect("admission hash")
+            .starts_with("sha256:"));
     }
 
     #[test]
