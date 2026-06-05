@@ -354,11 +354,20 @@ function runBridge() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
+  const runtimeHttpUtilsBridge = exists("packages/runtime-daemon/src/runtime-http-utils.mjs")
+    ? read("packages/runtime-daemon/src/runtime-http-utils.mjs")
+    : "";
   const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
     ? read("packages/runtime-daemon/src/model-mounting.mjs")
     : "";
+  const modelMountIoBridge = exists("packages/runtime-daemon/src/model-mounting/io.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/io.mjs")
+    : "";
   const modelMountAdmissionRunner = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
+    : "";
+  const modelMountReceiptOperationsBridge = exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
     : "";
   const modelRoutes = exists("packages/runtime-daemon/src/model-mounting/routes.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/routes.mjs")
@@ -1181,6 +1190,35 @@ function runBridge() {
       "packages/agent-sdk/src/messages.ts",
     ],
     "Phase 3/10 is pending: model route-decision projection receipt metadata and direct run readers must use canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-camelcase-fallback-wrapper-retired",
+    !/(?:withCamelCaseFallback|camelCaseFallback|Symbol\.for\("withCamelCaseFallback"\)|snakeToCamel)/.test(
+      [
+        modelMountIoBridge,
+        runtimeHttpUtilsBridge,
+        modelRoutes,
+        modelRouteDecisionModule,
+        modelMountingReadProjectionFacade,
+        modelMountReceiptOperationsBridge,
+      ].join("\n"),
+    ) &&
+      /details:\s*redact\(error\?\.details \?\? \{\}\)/.test(runtimeHttpUtilsBridge) &&
+      /return state\.store\.listReceipts\(\);/.test(modelMountReceiptOperationsBridge) &&
+      /return state\.store\.getReceipt\(receiptId\);/.test(modelMountReceiptOperationsBridge) &&
+      /return buildModelMountingProjection\(state,\s*\{ schemaVersion: modelMountSchemaVersion \}\);/.test(
+        modelMountingReadProjectionFacade,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/io.mjs",
+      "packages/runtime-daemon/src/runtime-http-utils.mjs",
+      "packages/runtime-daemon/src/model-mounting/routes.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-operations.mjs",
+    ],
+    "Phase 10/11 is pending: model-mounting read, receipt, route-decision, and HTTP error surfaces must not expose prototype-based camelCase compatibility wrappers",
   );
   assertCheck(
     result,

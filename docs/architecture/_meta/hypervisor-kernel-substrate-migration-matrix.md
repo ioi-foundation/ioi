@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 285:
+Current expected behavior after Slice 286:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11747,6 +11747,11 @@ Slice 285 extends bridge proof for OpenAI-compatible provider response
 handling: responses stream failures now fail closed directly, with the retired
 `httpStatus` error-detail fallback branch removed instead of preserved as a
 compatibility shim.
+
+Slice 286 extends bridge proof for model-mounting projection/read compatibility
+retirement: prototype-based camelCase fallback wrappers are removed from
+model-mounting I/O, route-decision, receipt read, projection read, and HTTP
+error surfaces.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
