@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 226:
+Current expected behavior after Slice 227:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11406,6 +11406,12 @@ Slice 226 adds compositor proof for
 `agent-sdk-subagent-output-contract-status-aliases-retired`: the SDK nested
 subagent output-contract status type exposes canonical snake_case fields and no
 longer advertises duplicate camelCase aliases or an arbitrary-key escape hatch.
+
+Slice 227 adds compositor proof for
+`agent-sdk-subagent-usage-telemetry-aliases-retired`: the SDK nested subagent
+usage telemetry type exposes canonical snake_case metric/model-route fields and
+no longer advertises duplicate camelCase aliases or an arbitrary-key escape
+hatch.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

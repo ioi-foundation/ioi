@@ -3614,6 +3614,11 @@ function runCompositor() {
     "export interface RuntimeSubagentOutputContractStatus",
     "export interface RuntimeSubagentUsageTelemetry",
   );
+  const runtimeSubagentSdkUsageTelemetryBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentUsageTelemetry",
+    "export interface RuntimeSubagentBudgetStatus",
+  );
   const runtimeSubagentSdkControlInputBlock = blockBetween(
     agentSdkSubstrateClient,
     "export interface RuntimeSubagentControlInput",
@@ -4974,6 +4979,41 @@ function runCompositor() {
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent output-contract status type must not advertise retired camelCase aliases or arbitrary-key escape hatches",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-subagent-usage-telemetry-aliases-retired",
+    runtimeSubagentSdkUsageTelemetryBlock.length > 0 &&
+      /^\s*schema_version\?: string;/m.test(runtimeSubagentSdkUsageTelemetryBlock) &&
+      /^\s*input_tokens\?: number;/m.test(runtimeSubagentSdkUsageTelemetryBlock) &&
+      /^\s*output_tokens\?: number;/m.test(runtimeSubagentSdkUsageTelemetryBlock) &&
+      /^\s*total_tokens\?: number;/m.test(runtimeSubagentSdkUsageTelemetryBlock) &&
+      /^\s*cumulative_input_tokens\?: number;/m.test(
+        runtimeSubagentSdkUsageTelemetryBlock,
+      ) &&
+      /^\s*cumulative_output_tokens\?: number;/m.test(
+        runtimeSubagentSdkUsageTelemetryBlock,
+      ) &&
+      /^\s*cumulative_total_tokens\?: number;/m.test(
+        runtimeSubagentSdkUsageTelemetryBlock,
+      ) &&
+      /^\s*cost_estimate_usd\?: number;/m.test(
+        runtimeSubagentSdkUsageTelemetryBlock,
+      ) &&
+      /^\s*cumulative_cost_estimate_usd\?: number;/m.test(
+        runtimeSubagentSdkUsageTelemetryBlock,
+      ) &&
+      /^\s*model_route_id\?: string \| null;/m.test(
+        runtimeSubagentSdkUsageTelemetryBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|inputTokens|outputTokens|totalTokens|cumulativeInputTokens|cumulativeOutputTokens|cumulativeTotalTokens|costEstimateUsd|cumulativeCostEstimateUsd|modelRouteId)\?:/m.test(
+        runtimeSubagentSdkUsageTelemetryBlock,
+      ) &&
+      !/^\s*\[key: string\]: unknown;/m.test(
+        runtimeSubagentSdkUsageTelemetryBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent usage telemetry type must not advertise retired camelCase aliases or arbitrary-key escape hatches",
   );
   assertCheck(
     result,

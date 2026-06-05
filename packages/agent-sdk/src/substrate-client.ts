@@ -358,28 +358,17 @@ export interface RuntimeSubagentOutputContractStatus {
 
 export interface RuntimeSubagentUsageTelemetry {
   schema_version?: string;
-  schemaVersion?: string;
   object?: "ioi.runtime_subagent_usage_telemetry" | string;
   estimated?: boolean;
   input_tokens?: number;
-  inputTokens?: number;
   output_tokens?: number;
-  outputTokens?: number;
   total_tokens?: number;
-  totalTokens?: number;
   cumulative_input_tokens?: number;
-  cumulativeInputTokens?: number;
   cumulative_output_tokens?: number;
-  cumulativeOutputTokens?: number;
   cumulative_total_tokens?: number;
-  cumulativeTotalTokens?: number;
   cost_estimate_usd?: number;
-  costEstimateUsd?: number;
   cumulative_cost_estimate_usd?: number;
-  cumulativeCostEstimateUsd?: number;
   model_route_id?: string | null;
-  modelRouteId?: string | null;
-  [key: string]: unknown;
 }
 
 export interface RuntimeSubagentBudgetStatus {
