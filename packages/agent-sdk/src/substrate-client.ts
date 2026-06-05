@@ -544,14 +544,12 @@ export interface RuntimeSubagentResult {
   cost_estimate_usd?: number | null;
   token_estimate?: number | null;
   receipt_refs?: string[];
-  receiptRefs?: string[];
   subagent?: RuntimeSubagentRecord;
   event?: RuntimeEventEnvelope | null;
   cancellation?: Record<string, unknown> | null;
   input?: Record<string, unknown> | null;
   resume?: Record<string, unknown> | null;
   assignment?: Record<string, unknown> | null;
-  [key: string]: unknown;
 }
 
 export interface RuntimeSubagentCancellationPropagationResult {
