@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 232:
+Current expected behavior after Slice 233:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11438,6 +11438,12 @@ Slice 232 adds compositor proof for
 subagent control request type keeps the canonical `prompt` and `input` fields
 but no longer advertises retired generic prompt aliases such as `message` and
 `text`.
+
+Slice 233 adds compositor proof for
+`agent-sdk-subagent-method-request-types-split`: the SDK subagent APIs now use
+operation-specific request types for spawn, wait, send-input, cancel, resume,
+assign, and cancellation propagation instead of the retired shared
+`RuntimeSubagentControlInput` compatibility bag.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

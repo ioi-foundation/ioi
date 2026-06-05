@@ -382,34 +382,91 @@ export interface RuntimeSubagentBudgetStatus {
   checked_at?: string;
 }
 
-export interface RuntimeSubagentControlInput {
+export interface RuntimeSubagentRequestMetadataInput {
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
   actor?: string;
-  prompt?: string;
-  input?: string;
+  workflow_graph_id?: string;
+  workflow_node_id?: string;
+  receipt_refs?: string[];
+  policy_decision_refs?: string[];
+  idempotency_key?: string;
+}
+
+export interface RuntimeSubagentBudgetControlInput {
+  budget?: Record<string, unknown>;
+  budget_usage_telemetry?: RuntimeSubagentUsageTelemetry | null;
+}
+
+export interface RuntimeSubagentSpawnInput
+  extends RuntimeSubagentRequestMetadataInput,
+    RuntimeSubagentBudgetControlInput {
+  prompt: string;
   role?: string;
   subagent_role?: string;
   tool_pack?: string;
   model_route_id?: string;
   max_concurrency?: number;
-  budget?: Record<string, unknown>;
   output_contract?: string[] | Record<string, unknown>;
   merge_policy?: string;
   cancellation_inheritance?: "propagate" | "isolated" | string;
-  cancellation_reason?: string;
-  reason?: string;
-  inherited?: boolean;
-  cancellation_inherited?: boolean;
-  propagated_from_thread_id?: string;
   fork_context?: boolean;
   parent_turn_id?: string;
   turn_id?: string;
-  target_agent_id?: string;
+  context_pressure_action?: string;
+  context_pressure?: number;
+  pressure?: number;
+  pressure_status?: string;
+  alert_id?: string;
+  source_event_id?: string;
   memory?: Record<string, unknown>;
   options?: Record<string, unknown>;
-  workflow_graph_id?: string;
-  workflow_node_id?: string;
-  idempotency_key?: string;
+}
+
+export interface RuntimeSubagentWaitInput extends RuntimeSubagentRequestMetadataInput {}
+
+export interface RuntimeSubagentSendInput
+  extends RuntimeSubagentRequestMetadataInput,
+    RuntimeSubagentBudgetControlInput {
+  input: string;
+}
+
+export interface RuntimeSubagentCancelInput
+  extends RuntimeSubagentRequestMetadataInput,
+    RuntimeSubagentBudgetControlInput {
+  reason?: string;
+  cancellation_reason?: string;
+  inherited?: boolean;
+  cancellation_inherited?: boolean;
+  propagated_from_thread_id?: string;
+}
+
+export interface RuntimeSubagentResumeInput
+  extends RuntimeSubagentRequestMetadataInput,
+    RuntimeSubagentBudgetControlInput {
+  prompt?: string;
+  role?: string;
+  subagent_role?: string;
+  model_route_id?: string;
+  output_contract?: string[] | Record<string, unknown>;
+  memory?: Record<string, unknown>;
+  options?: Record<string, unknown>;
+}
+
+export interface RuntimeSubagentAssignInput extends RuntimeSubagentRequestMetadataInput {
+  role?: string;
+  subagent_role?: string;
+  tool_pack?: string;
+  model_route_id?: string;
+  merge_policy?: string;
+  cancellation_inheritance?: "propagate" | "isolated" | string;
+  target_agent_id?: string;
+}
+
+export interface RuntimeSubagentCancellationPropagationInput
+  extends RuntimeSubagentRequestMetadataInput,
+    RuntimeSubagentBudgetControlInput {
+  reason?: string;
+  cancellation_reason?: string;
 }
 
 export interface RuntimeSubagentListInput {
@@ -1478,36 +1535,36 @@ export interface RuntimeSubstrateClient {
   steerTurn(threadId: string, turnId: string, input?: RuntimeTurnSteerInput): Promise<RuntimeTurnRecord>;
   streamThreadEvents(threadId: string, options?: RuntimeEventStreamOptions): AsyncIterable<RuntimeThreadEvent>;
   listSubagents(threadId: string, input?: RuntimeSubagentListInput): Promise<RuntimeSubagentListResult>;
-  spawnSubagent(threadId: string, input: RuntimeSubagentControlInput): Promise<RuntimeSubagentRecord>;
+  spawnSubagent(threadId: string, input: RuntimeSubagentSpawnInput): Promise<RuntimeSubagentRecord>;
   waitSubagent(
     threadId: string,
     subagentId: string,
-    input?: RuntimeSubagentControlInput,
+    input?: RuntimeSubagentWaitInput,
   ): Promise<RuntimeSubagentResult>;
   getSubagentResult(threadId: string, subagentId: string): Promise<RuntimeSubagentResult>;
   sendSubagentInput(
     threadId: string,
     subagentId: string,
-    input: RuntimeSubagentControlInput,
+    input: RuntimeSubagentSendInput,
   ): Promise<RuntimeSubagentRecord>;
   cancelSubagent(
     threadId: string,
     subagentId: string,
-    input?: RuntimeSubagentControlInput,
+    input?: RuntimeSubagentCancelInput,
   ): Promise<RuntimeSubagentResult>;
   resumeSubagent(
     threadId: string,
     subagentId: string,
-    input?: RuntimeSubagentControlInput,
+    input?: RuntimeSubagentResumeInput,
   ): Promise<RuntimeSubagentResult>;
   assignSubagent(
     threadId: string,
     subagentId: string,
-    input?: RuntimeSubagentControlInput,
+    input?: RuntimeSubagentAssignInput,
   ): Promise<RuntimeSubagentRecord>;
   propagateSubagentCancellation(
     threadId: string,
-    input?: RuntimeSubagentControlInput,
+    input?: RuntimeSubagentCancellationPropagationInput,
   ): Promise<RuntimeSubagentCancellationPropagationResult>;
   createAgent(options: AgentOptions): Promise<RuntimeAgentRecord>;
   resumeAgent(agentId: string): Promise<RuntimeAgentRecord>;
@@ -1920,7 +1977,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async spawnSubagent(
     threadId: string,
-    input: RuntimeSubagentControlInput,
+    input: RuntimeSubagentSpawnInput,
   ): Promise<RuntimeSubagentRecord> {
     return this.request(
       "spawnSubagent",
@@ -1936,7 +1993,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   async waitSubagent(
     threadId: string,
     subagentId: string,
-    input: RuntimeSubagentControlInput = {},
+    input: RuntimeSubagentWaitInput = {},
   ): Promise<RuntimeSubagentResult> {
     return this.request(
       "waitSubagent",
@@ -1960,7 +2017,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   async sendSubagentInput(
     threadId: string,
     subagentId: string,
-    input: RuntimeSubagentControlInput,
+    input: RuntimeSubagentSendInput,
   ): Promise<RuntimeSubagentRecord> {
     return this.request(
       "sendSubagentInput",
@@ -1976,7 +2033,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   async cancelSubagent(
     threadId: string,
     subagentId: string,
-    input: RuntimeSubagentControlInput = {},
+    input: RuntimeSubagentCancelInput = {},
   ): Promise<RuntimeSubagentResult> {
     return this.request(
       "cancelSubagent",
@@ -1992,7 +2049,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   async resumeSubagent(
     threadId: string,
     subagentId: string,
-    input: RuntimeSubagentControlInput = {},
+    input: RuntimeSubagentResumeInput = {},
   ): Promise<RuntimeSubagentResult> {
     return this.request(
       "resumeSubagent",
@@ -2008,7 +2065,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   async assignSubagent(
     threadId: string,
     subagentId: string,
-    input: RuntimeSubagentControlInput = {},
+    input: RuntimeSubagentAssignInput = {},
   ): Promise<RuntimeSubagentRecord> {
     return this.request(
       "assignSubagent",
@@ -2023,7 +2080,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async propagateSubagentCancellation(
     threadId: string,
-    input: RuntimeSubagentControlInput = {},
+    input: RuntimeSubagentCancellationPropagationInput = {},
   ): Promise<RuntimeSubagentCancellationPropagationResult> {
     return this.request(
       "propagateSubagentCancellation",

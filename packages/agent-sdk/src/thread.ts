@@ -16,12 +16,18 @@ import {
   type RuntimeMcpServerMutationInput,
   type RuntimeMcpToolInvokeInput,
   type RuntimeMcpToolSearchInput,
+  type RuntimeSubagentAssignInput,
+  type RuntimeSubagentCancelInput,
+  type RuntimeSubagentCancellationPropagationInput,
   type RuntimeSubagentCancellationPropagationResult,
-  type RuntimeSubagentControlInput,
   type RuntimeSubagentListInput,
   type RuntimeSubagentListResult,
   type RuntimeSubagentRecord,
+  type RuntimeSubagentResumeInput,
   type RuntimeSubagentResult,
+  type RuntimeSubagentSendInput,
+  type RuntimeSubagentSpawnInput,
+  type RuntimeSubagentWaitInput,
   type RuntimeThreadModeInput,
   type RuntimeThreadModelInput,
   type RuntimeThreadThinkingInput,
@@ -142,13 +148,13 @@ export class Thread {
     return this.client.listSubagents(this.id, input);
   }
 
-  async spawnSubagent(input: RuntimeSubagentControlInput): Promise<RuntimeSubagentRecord> {
+  async spawnSubagent(input: RuntimeSubagentSpawnInput): Promise<RuntimeSubagentRecord> {
     return this.client.spawnSubagent(this.id, input);
   }
 
   async waitSubagent(
     subagentId: string,
-    input: RuntimeSubagentControlInput = {},
+    input: RuntimeSubagentWaitInput = {},
   ): Promise<RuntimeSubagentResult> {
     return this.client.waitSubagent(this.id, subagentId, input);
   }
@@ -159,34 +165,34 @@ export class Thread {
 
   async sendSubagentInput(
     subagentId: string,
-    input: RuntimeSubagentControlInput,
+    input: RuntimeSubagentSendInput,
   ): Promise<RuntimeSubagentRecord> {
     return this.client.sendSubagentInput(this.id, subagentId, input);
   }
 
   async cancelSubagent(
     subagentId: string,
-    input: RuntimeSubagentControlInput = {},
+    input: RuntimeSubagentCancelInput = {},
   ): Promise<RuntimeSubagentResult> {
     return this.client.cancelSubagent(this.id, subagentId, input);
   }
 
   async resumeSubagent(
     subagentId: string,
-    input: RuntimeSubagentControlInput = {},
+    input: RuntimeSubagentResumeInput = {},
   ): Promise<RuntimeSubagentResult> {
     return this.client.resumeSubagent(this.id, subagentId, input);
   }
 
   async assignSubagent(
     subagentId: string,
-    input: RuntimeSubagentControlInput = {},
+    input: RuntimeSubagentAssignInput = {},
   ): Promise<RuntimeSubagentRecord> {
     return this.client.assignSubagent(this.id, subagentId, input);
   }
 
   async propagateSubagentCancellation(
-    input: RuntimeSubagentControlInput = {},
+    input: RuntimeSubagentCancellationPropagationInput = {},
   ): Promise<RuntimeSubagentCancellationPropagationResult> {
     return this.client.propagateSubagentCancellation(this.id, input);
   }

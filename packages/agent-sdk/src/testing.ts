@@ -15,12 +15,18 @@ export function createMockRuntimeSubstrateClient(
 }
 
 export type {
+  RuntimeSubagentAssignInput,
+  RuntimeSubagentCancelInput,
+  RuntimeSubagentCancellationPropagationInput,
   RuntimeSubagentCancellationPropagationResult,
-  RuntimeSubagentControlInput,
   RuntimeSubagentListInput,
   RuntimeSubagentListResult,
   RuntimeSubagentRecord,
+  RuntimeSubagentResumeInput,
   RuntimeSubagentResult,
+  RuntimeSubagentSendInput,
+  RuntimeSubagentSpawnInput,
+  RuntimeSubagentWaitInput,
   RuntimeThreadCompactInput,
   RuntimeTurnInterruptInput,
   RuntimeTurnSteerInput,

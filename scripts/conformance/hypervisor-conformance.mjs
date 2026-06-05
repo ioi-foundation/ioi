@@ -3622,11 +3622,51 @@ function runCompositor() {
   const runtimeSubagentSdkBudgetStatusBlock = blockBetween(
     agentSdkSubstrateClient,
     "export interface RuntimeSubagentBudgetStatus",
-    "export interface RuntimeSubagentControlInput",
+    "export interface RuntimeSubagentRequestMetadataInput",
   );
-  const runtimeSubagentSdkControlInputBlock = blockBetween(
+  const runtimeSubagentSdkRequestMetadataInputBlock = blockBetween(
     agentSdkSubstrateClient,
-    "export interface RuntimeSubagentControlInput",
+    "export interface RuntimeSubagentRequestMetadataInput",
+    "export interface RuntimeSubagentBudgetControlInput",
+  );
+  const runtimeSubagentSdkBudgetControlInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentBudgetControlInput",
+    "export interface RuntimeSubagentSpawnInput",
+  );
+  const runtimeSubagentSdkSpawnInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentSpawnInput",
+    "export interface RuntimeSubagentWaitInput",
+  );
+  const runtimeSubagentSdkWaitInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentWaitInput",
+    "export interface RuntimeSubagentSendInput",
+  );
+  const runtimeSubagentSdkSendInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentSendInput",
+    "export interface RuntimeSubagentCancelInput",
+  );
+  const runtimeSubagentSdkCancelInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentCancelInput",
+    "export interface RuntimeSubagentResumeInput",
+  );
+  const runtimeSubagentSdkResumeInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentResumeInput",
+    "export interface RuntimeSubagentAssignInput",
+  );
+  const runtimeSubagentSdkAssignInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentAssignInput",
+    "export interface RuntimeSubagentCancellationPropagationInput",
+  );
+  const runtimeSubagentSdkCancellationPropagationInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentCancellationPropagationInput",
     "export interface RuntimeSubagentListInput",
   );
   const runtimeSubagentSdkListInputBlock = blockBetween(
@@ -3634,6 +3674,17 @@ function runCompositor() {
     "export interface RuntimeSubagentListInput",
     "export interface RuntimeSubagentRecord",
   );
+  const runtimeSubagentSdkRequestInputBlocks = [
+    runtimeSubagentSdkRequestMetadataInputBlock,
+    runtimeSubagentSdkBudgetControlInputBlock,
+    runtimeSubagentSdkSpawnInputBlock,
+    runtimeSubagentSdkWaitInputBlock,
+    runtimeSubagentSdkSendInputBlock,
+    runtimeSubagentSdkCancelInputBlock,
+    runtimeSubagentSdkResumeInputBlock,
+    runtimeSubagentSdkAssignInputBlock,
+    runtimeSubagentSdkCancellationPropagationInputBlock,
+  ].join("\n");
   const runtimeSubagentSdkRecordBlock = blockBetween(
     agentSdkSubstrateClient,
     "export interface RuntimeSubagentRecord",
@@ -5071,23 +5122,50 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "agent-sdk-subagent-budget-request-type-alias-retired",
-    runtimeSubagentSdkControlInputBlock.length > 0 &&
-      /^\s*budget\?: Record<string, unknown>;/m.test(
-        runtimeSubagentSdkControlInputBlock,
+    "agent-sdk-subagent-method-request-types-split",
+    runtimeSubagentSdkRequestMetadataInputBlock.length > 0 &&
+      runtimeSubagentSdkBudgetControlInputBlock.length > 0 &&
+      runtimeSubagentSdkSpawnInputBlock.length > 0 &&
+      runtimeSubagentSdkWaitInputBlock.length > 0 &&
+      runtimeSubagentSdkSendInputBlock.length > 0 &&
+      runtimeSubagentSdkCancelInputBlock.length > 0 &&
+      runtimeSubagentSdkResumeInputBlock.length > 0 &&
+      runtimeSubagentSdkAssignInputBlock.length > 0 &&
+      runtimeSubagentSdkCancellationPropagationInputBlock.length > 0 &&
+      /spawnSubagent\(threadId: string, input: RuntimeSubagentSpawnInput\)/.test(
+        agentSdkSubstrateClient,
       ) &&
-      !/^\s*subagentBudget\?:/m.test(runtimeSubagentSdkControlInputBlock),
+      /input\?: RuntimeSubagentWaitInput/.test(agentSdkSubstrateClient) &&
+      /input: RuntimeSubagentSendInput/.test(agentSdkSubstrateClient) &&
+      /input\?: RuntimeSubagentCancelInput/.test(agentSdkSubstrateClient) &&
+      /input\?: RuntimeSubagentResumeInput/.test(agentSdkSubstrateClient) &&
+      /input\?: RuntimeSubagentAssignInput/.test(agentSdkSubstrateClient) &&
+      /input\?: RuntimeSubagentCancellationPropagationInput/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      !/RuntimeSubagentControlInput/.test(agentSdkSubstrateClient),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent methods must expose operation-specific request input types instead of the retired shared control bag",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-subagent-budget-request-type-alias-retired",
+    runtimeSubagentSdkRequestInputBlocks.length > 0 &&
+      /^\s*budget\?: Record<string, unknown>;/m.test(
+        runtimeSubagentSdkRequestInputBlocks,
+      ) &&
+      !/^\s*subagentBudget\?:/m.test(runtimeSubagentSdkRequestInputBlocks),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent control request types must not advertise the retired subagentBudget alias",
   );
   assertCheck(
     result,
     "agent-sdk-subagent-prompt-request-type-aliases-retired",
-    runtimeSubagentSdkControlInputBlock.length > 0 &&
-      /^\s*prompt\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
-      /^\s*input\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+    runtimeSubagentSdkRequestInputBlocks.length > 0 &&
+      /^\s*prompt: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
+      /^\s*input: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
       !/^\s*(?:message|text)\?: string;/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent control request types must not advertise retired message/text prompt aliases",
@@ -5095,14 +5173,14 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-sdk-subagent-role-request-type-alias-retired",
-    runtimeSubagentSdkControlInputBlock.length > 0 &&
+    runtimeSubagentSdkRequestInputBlocks.length > 0 &&
       runtimeSubagentSdkListInputBlock.length > 0 &&
-      /^\s*role\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
-      /^\s*subagent_role\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+      /^\s*role\?: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
+      /^\s*subagent_role\?: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
       /^\s*role\?: string;/m.test(runtimeSubagentSdkListInputBlock) &&
       /^\s*subagent_role\?: string;/m.test(runtimeSubagentSdkListInputBlock) &&
       !/^\s*subagentRole\?:/m.test(
-        `${runtimeSubagentSdkControlInputBlock}\n${runtimeSubagentSdkListInputBlock}`,
+        `${runtimeSubagentSdkRequestInputBlocks}\n${runtimeSubagentSdkListInputBlock}`,
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent request types must not advertise the retired subagentRole alias",
@@ -5110,10 +5188,10 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-sdk-subagent-tool-pack-request-type-aliases-retired",
-    runtimeSubagentSdkControlInputBlock.length > 0 &&
-      /^\s*tool_pack\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+    runtimeSubagentSdkRequestInputBlocks.length > 0 &&
+      /^\s*tool_pack\?: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
       !/^\s*(?:toolPack|subagentToolPack)\?:/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent control request types must not advertise retired toolPack/subagentToolPack aliases",
@@ -5121,10 +5199,10 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-sdk-subagent-model-route-request-type-aliases-retired",
-    runtimeSubagentSdkControlInputBlock.length > 0 &&
-      /^\s*model_route_id\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+    runtimeSubagentSdkRequestInputBlocks.length > 0 &&
+      /^\s*model_route_id\?: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
       !/^\s*(?:modelRouteId|subagentModelRoute)\?:/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent control request types must not advertise retired modelRouteId/subagentModelRoute aliases",
@@ -5132,10 +5210,10 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-sdk-subagent-concurrency-request-type-aliases-retired",
-    runtimeSubagentSdkControlInputBlock.length > 0 &&
-      /^\s*max_concurrency\?: number;/m.test(runtimeSubagentSdkControlInputBlock) &&
+    runtimeSubagentSdkRequestInputBlocks.length > 0 &&
+      /^\s*max_concurrency\?: number;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
       !/^\s*(?:maxConcurrency|subagentMaxConcurrency)\?:/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent control request types must not advertise retired maxConcurrency/subagentMaxConcurrency aliases",
@@ -5143,12 +5221,12 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-sdk-subagent-output-contract-request-type-aliases-retired",
-    runtimeSubagentSdkControlInputBlock.length > 0 &&
+    runtimeSubagentSdkRequestInputBlocks.length > 0 &&
       /^\s*output_contract\?: string\[\] \| Record<string, unknown>;/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ) &&
       !/^\s*(?:outputContract|subagentOutputContract)\?:/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent control request types must not advertise retired outputContract/subagentOutputContract aliases",
@@ -5156,13 +5234,13 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-sdk-subagent-policy-request-type-aliases-retired",
-    runtimeSubagentSdkControlInputBlock.length > 0 &&
-      /^\s*merge_policy\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+    runtimeSubagentSdkRequestInputBlocks.length > 0 &&
+      /^\s*merge_policy\?: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
       /^\s*cancellation_inheritance\?: "propagate" \| "isolated" \| string;/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ) &&
       !/^\s*(?:mergePolicy|cancellationInheritance)\?:/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent control request types must not advertise retired mergePolicy/cancellationInheritance aliases",
@@ -5170,19 +5248,19 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-sdk-subagent-cancellation-metadata-request-type-aliases-retired",
-    runtimeSubagentSdkControlInputBlock.length > 0 &&
+    runtimeSubagentSdkRequestInputBlocks.length > 0 &&
       /^\s*cancellation_reason\?: string;/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ) &&
-      /^\s*inherited\?: boolean;/m.test(runtimeSubagentSdkControlInputBlock) &&
+      /^\s*inherited\?: boolean;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
       /^\s*cancellation_inherited\?: boolean;/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ) &&
       /^\s*propagated_from_thread_id\?: string;/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ) &&
       !/^\s*(?:cancellationReason|cancellationInherited|propagatedFromThreadId)\?:/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent control request types must not advertise retired cancellation metadata aliases",
@@ -5190,13 +5268,13 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-sdk-subagent-context-routing-request-type-aliases-retired",
-    runtimeSubagentSdkControlInputBlock.length > 0 &&
-      /^\s*fork_context\?: boolean;/m.test(runtimeSubagentSdkControlInputBlock) &&
-      /^\s*parent_turn_id\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
-      /^\s*turn_id\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
-      /^\s*target_agent_id\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+    runtimeSubagentSdkRequestInputBlocks.length > 0 &&
+      /^\s*fork_context\?: boolean;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
+      /^\s*parent_turn_id\?: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
+      /^\s*turn_id\?: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
+      /^\s*target_agent_id\?: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
       !/^\s*(?:forkContext|parentTurnId|turnId|targetAgentId)\?:/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent control request types must not advertise retired context routing aliases",
@@ -5204,12 +5282,12 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-sdk-subagent-workflow-request-type-aliases-retired",
-    runtimeSubagentSdkControlInputBlock.length > 0 &&
-      /^\s*workflow_graph_id\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
-      /^\s*workflow_node_id\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
-      /^\s*idempotency_key\?: string;/m.test(runtimeSubagentSdkControlInputBlock) &&
+    runtimeSubagentSdkRequestInputBlocks.length > 0 &&
+      /^\s*workflow_graph_id\?: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
+      /^\s*workflow_node_id\?: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
+      /^\s*idempotency_key\?: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
       !/^\s*(?:workflowGraphId|workflowNodeId|idempotencyKey)\?:/m.test(
-        runtimeSubagentSdkControlInputBlock,
+        runtimeSubagentSdkRequestInputBlocks,
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent control request types must not advertise retired workflow/idempotency aliases",
@@ -5217,10 +5295,10 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-sdk-subagent-request-type-escape-hatches-retired",
-    runtimeSubagentSdkControlInputBlock.length > 0 &&
+    runtimeSubagentSdkRequestInputBlocks.length > 0 &&
       runtimeSubagentSdkListInputBlock.length > 0 &&
       !/^\s*\[key: string\]: unknown;/m.test(
-        `${runtimeSubagentSdkControlInputBlock}\n${runtimeSubagentSdkListInputBlock}`,
+        `${runtimeSubagentSdkRequestInputBlocks}\n${runtimeSubagentSdkListInputBlock}`,
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK subagent request types must not retain arbitrary key escape hatches",
