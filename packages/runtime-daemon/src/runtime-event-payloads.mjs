@@ -469,7 +469,6 @@ function payloadSummaryForRunEvent(event) {
       return {
         ...summary,
         event_kind: event.data?.eventKind ?? "RuntimeUsageTelemetry.Delta",
-        eventKind: event.data?.eventKind ?? "RuntimeUsageTelemetry.Delta",
         schema_version:
           event.data?.schema_version ??
           event.data?.schemaVersion ??
@@ -507,7 +506,6 @@ function payloadSummaryForRunEvent(event) {
       return {
         ...summary,
         event_kind: event.data?.eventKind ?? "RuntimeContextPressure.Delta",
-        eventKind: event.data?.eventKind ?? "RuntimeContextPressure.Delta",
         schema_version:
           event.data?.schema_version ??
           event.data?.schemaVersion ??
@@ -543,7 +541,6 @@ function payloadSummaryForRunEvent(event) {
       return {
         ...summary,
         event_kind: event.data?.eventKind ?? "RuntimeContextPressure.Alert",
-        eventKind: event.data?.eventKind ?? "RuntimeContextPressure.Alert",
         schema_version:
           event.data?.schema_version ??
           event.data?.schemaVersion ??
@@ -570,7 +567,6 @@ function payloadSummaryForRunEvent(event) {
       return {
         ...summary,
         event_kind: event.data?.eventKind ?? "RuntimeUsageTelemetry",
-        eventKind: event.data?.eventKind ?? "RuntimeUsageTelemetry",
         schema_version:
           event.data?.schema_version ??
           event.data?.schemaVersion ??

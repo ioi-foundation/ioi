@@ -3242,7 +3242,14 @@ function runCompositor() {
     !/legacy_event_(?:id|type)/.test(
       `${runtimeEventPayloads}\n${agentSdkRuntimeEvents}\n${agentSdkSubstrateClient}`,
     ) &&
+      !/eventKind:\s*event\.data\?\.eventKind\s*\?\?\s*"Runtime(?:UsageTelemetry|ContextPressure)/.test(
+        runtimeEventPayloads,
+      ) &&
       /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
+      /Object\.hasOwn\(usage,\s*"eventKind"\),\s*false/.test(runtimeEventPayloadsTest) &&
+      /Object\.hasOwn\(contextDelta,\s*"eventKind"\),\s*false/.test(runtimeEventPayloadsTest) &&
+      /Object\.hasOwn\(alert,\s*"eventKind"\),\s*false/.test(runtimeEventPayloadsTest) &&
+      /Object\.hasOwn\(usageFinal,\s*"eventKind"\),\s*false/.test(runtimeEventPayloadsTest) &&
       /retiredPayloadKeys/.test(agentSdkTest),
     [
       "packages/runtime-daemon/src/runtime-event-payloads.mjs",

@@ -209,6 +209,23 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   assert.equal(usage.total_tokens, 42);
   assert.equal(usage.context_pressure, 0.4);
   assert.equal(usage.redaction, "usage_telemetry_safe");
+  assert.equal(Object.hasOwn(usage, "eventKind"), false);
+
+  const contextDelta = runtime.payloadSummaryForRunEvent({
+    id: "event-context-delta",
+    type: "context_pressure_delta",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      usage_total_tokens: 42,
+      usage_context_pressure: 0.4,
+    },
+  });
+
+  assert.equal(contextDelta.event_kind, "RuntimeContextPressure.Delta");
+  assert.equal(contextDelta.schema_version, "context.delta.v1");
+  assert.equal(contextDelta.usage_total_tokens, 42);
+  assert.equal(Object.hasOwn(contextDelta, "eventKind"), false);
 
   const alert = runtime.payloadSummaryForRunEvent({
     id: "event-two",
@@ -225,6 +242,24 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   assert.equal(alert.schema_version, "context.alert.v1");
   assert.equal(alert.alert_id, "alert-one");
   assert.deepEqual(alert.actions, ["compact"]);
+  assert.equal(Object.hasOwn(alert, "eventKind"), false);
+
+  const usageFinal = runtime.payloadSummaryForRunEvent({
+    id: "event-usage-final",
+    type: "usage_final",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      total_tokens: 42,
+      input_tokens: 30,
+      output_tokens: 12,
+    },
+  });
+
+  assert.equal(usageFinal.event_kind, "RuntimeUsageTelemetry");
+  assert.equal(usageFinal.schema_version, "usage.final.v1");
+  assert.equal(usageFinal.total_tokens, 42);
+  assert.equal(Object.hasOwn(usageFinal, "eventKind"), false);
 
   const route = runtime.payloadSummaryForRunEvent({
     id: "event-three",
