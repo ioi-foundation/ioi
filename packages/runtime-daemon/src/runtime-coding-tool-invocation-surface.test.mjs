@@ -1170,7 +1170,7 @@ test("coding tool invocation surface fails closed for budget blocks", () => {
   const surface = createSurface({
     codingToolBudgetPolicyForRequest: () => ({
       status: "blocked",
-      usageTelemetry: { promptTokens: 10 },
+      usage_telemetry: { prompt_tokens: 10 },
       policy_decision_refs: ["policy_budget"],
     }),
   });
@@ -1186,6 +1186,16 @@ test("coding tool invocation surface fails closed for budget blocks", () => {
       assert.equal(error.code, "policy");
       assert.equal(error.details.event_id, "event_budget");
       assert.deepEqual(error.details.receipt_refs, ["receipt_budget"]);
+      assert.deepEqual(error.details.budget_usage_telemetry, {
+        prompt_tokens: 10,
+      });
+      assert.equal(
+        Object.prototype.hasOwnProperty.call(
+          error.details,
+          "budgetUsageTelemetry",
+        ),
+        false,
+      );
       return true;
     },
   );

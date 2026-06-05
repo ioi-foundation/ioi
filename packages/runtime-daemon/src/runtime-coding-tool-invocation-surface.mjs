@@ -155,7 +155,6 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
         context_budget: budgetPolicy,
         contextBudget: budgetPolicy,
         budget_usage_telemetry: budgetPolicy.usage_telemetry,
-        budgetUsageTelemetry: budgetPolicy.usageTelemetry,
         eventId: blocked.event?.event_id ?? null,
         event_id: blocked.event?.event_id ?? null,
         receiptRefs: blocked.receipt_refs,

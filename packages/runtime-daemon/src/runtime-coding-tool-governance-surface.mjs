@@ -236,7 +236,6 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
         context_budget: budgetPolicy,
         contextBudget: budgetPolicy,
         budget_usage_telemetry: budgetPolicy.usage_telemetry,
-        budgetUsageTelemetry: budgetPolicy.usageTelemetry,
       },
     };
     const result = {
@@ -284,7 +283,6 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
       context_budget: budgetPolicy,
       contextBudget: budgetPolicy,
       budget_usage_telemetry: budgetPolicy.usage_telemetry,
-      budgetUsageTelemetry: budgetPolicy.usageTelemetry,
       policy_decision_refs: policyDecisionRefs,
       policyDecisionRefs,
       receipt_id: receiptId,

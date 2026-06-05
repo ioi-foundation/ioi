@@ -261,6 +261,26 @@ test("coding-tool governance blocks tools for budget with event envelope", () =>
   assert.deepEqual(result.policy_decision_refs, ["policy-budget"]);
   assert.deepEqual(result.rollback_refs, ["rollback-one"]);
   assert.equal(result.result.error.code, "coding_tool_budget_exceeded");
+  assert.deepEqual(result.result.error.details.budget_usage_telemetry, {
+    totalTokens: 100,
+  });
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      result.result.error.details,
+      "budgetUsageTelemetry",
+    ),
+    false,
+  );
   assert.equal(result.event.payload_summary.result_summary.reason, "coding_tool_budget_exceeded");
+  assert.deepEqual(result.event.payload_summary.budget_usage_telemetry, {
+    totalTokens: 100,
+  });
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      result.event.payload_summary,
+      "budgetUsageTelemetry",
+    ),
+    false,
+  );
   assert.equal(result.event.payload_summary.receipt_count, 2);
 });

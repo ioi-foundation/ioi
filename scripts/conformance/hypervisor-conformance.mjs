@@ -407,6 +407,12 @@ function runBridge() {
   const runtimeCodingToolInvocationSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     : "";
+  const runtimeCodingToolGovernanceSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs")
+    : "";
+  const runtimeCodingToolGovernanceSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs")
+    : "";
   const codingTools = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
     : "";
@@ -712,6 +718,38 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
     "Phase 10/11 is pending: Rust live coding-tool results must expose canonical router_admission without the retired routerAdmission response alias",
+  );
+  assertCheck(
+    result,
+    "coding-tool-budget-usage-response-alias-retired",
+    !/budgetUsageTelemetry:\s*budgetPolicy\.usageTelemetry/.test(
+      runtimeCodingToolInvocationSurface,
+    ) &&
+      !/budgetUsageTelemetry:\s*budgetPolicy\.usageTelemetry/.test(
+        runtimeCodingToolGovernanceSurface,
+      ) &&
+      /budget_usage_telemetry:\s*budgetPolicy\.usage_telemetry/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /budget_usage_telemetry:\s*budgetPolicy\.usage_telemetry/.test(
+        runtimeCodingToolGovernanceSurface,
+      ) &&
+      /hasOwnProperty\.call\(\s*error\.details,\s*"budgetUsageTelemetry"/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /hasOwnProperty\.call\(\s*result\.result\.error\.details,\s*"budgetUsageTelemetry"/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
+      /hasOwnProperty\.call\(\s*result\.event\.payload_summary,\s*"budgetUsageTelemetry"/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool budget block responses must expose canonical budget_usage_telemetry without duplicate budgetUsageTelemetry",
   );
   assertCheck(
     result,
