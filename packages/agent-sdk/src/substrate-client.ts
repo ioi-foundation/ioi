@@ -519,18 +519,13 @@ export interface RuntimeSubagentRecord {
 
 export interface RuntimeSubagentListResult {
   schema_version?: string;
-  schemaVersion?: string;
   object: "ioi.runtime_subagent_list" | string;
   thread_id?: string;
-  threadId?: string;
   parent_agent_id?: string;
-  parentAgentId?: string;
   status?: string;
   count: number;
   active_count?: number;
-  activeCount?: number;
   subagents: RuntimeSubagentRecord[];
-  [key: string]: unknown;
 }
 
 export interface RuntimeSubagentResult {
