@@ -105,7 +105,7 @@ export function lmStudioArtifact(provider, model, checkedAt) {
 export function inspectLocalArtifact(sourcePath) {
   const absolutePath = path.resolve(String(sourcePath));
   if (!fs.existsSync(absolutePath)) {
-    throw notFound(`Local model artifact path not found: ${sourcePath}`, { sourcePath: absolutePath });
+    throw notFound(`Local model artifact path not found: ${sourcePath}`, { source_path: absolutePath });
   }
   const stats = fs.statSync(absolutePath);
   const filePath = stats.isDirectory() ? firstModelFile(absolutePath) : absolutePath;
@@ -129,7 +129,7 @@ function firstModelFile(dir) {
       return left.localeCompare(right);
     });
   if (candidates.length === 0) {
-    throw notFound(`No model artifact files found in ${dir}`, { dir });
+    throw notFound(`No model artifact files found in ${dir}`, { dir_path: dir });
   }
   return candidates[0];
 }

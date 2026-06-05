@@ -125,6 +125,7 @@ test("LM Studio artifact projection remains product-scoped", () => {
 
 test("local artifact inspection and metadata read stable model fields", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-local-probes-"));
+  const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-local-probes-empty-"));
   const textPath = path.join(tempDir, "notes.txt");
   const modelPath = path.join(tempDir, "TinyLlama.Q4_K_M.gguf");
   fs.writeFileSync(textPath, "ignored");
@@ -141,6 +142,25 @@ test("local artifact inspection and metadata read stable model fields", () => {
     quantization: "Q4_K_M",
     contextWindow: 4096,
   });
+
+  assert.throws(
+    () => inspectLocalArtifact(path.join(tempDir, "missing.gguf")),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.source_path, path.join(tempDir, "missing.gguf"));
+      assert.equal(Object.hasOwn(error.details, "sourcePath"), false);
+      return true;
+    },
+  );
+  assert.throws(
+    () => inspectLocalArtifact(emptyDir),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.dir_path, emptyDir);
+      assert.equal(Object.hasOwn(error.details, "dir"), false);
+      return true;
+    },
+  );
 });
 
 test("file helpers and resource estimates are deterministic", () => {

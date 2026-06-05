@@ -2492,6 +2492,12 @@ function runReceipts() {
   const lmStudioProviderDriverTest = exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs")
     : "";
+  const localSystemProbes = exists("packages/runtime-daemon/src/model-mounting/local-system-probes.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/local-system-probes.mjs")
+    : "";
+  const localSystemProbesTest = exists("packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs")
+    : "";
   const providerOperations = exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs")
     : "";
@@ -3797,6 +3803,29 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/backend-processes.test.mjs",
     ],
     "Phase 10/11 is pending: backend process lookup fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-local-system-probe-error-aliases-retired",
+    /notFound\(`Local model artifact path not found: \$\{sourcePath\}`,\s*\{ source_path: absolutePath \}\)/.test(
+      localSystemProbes,
+    ) &&
+      /notFound\(`No model artifact files found in \$\{dir\}`,\s*\{ dir_path: dir \}\)/.test(localSystemProbes) &&
+      !/notFound\(`Local model artifact path not found: \$\{sourcePath\}`,\s*\{ sourcePath: absolutePath \}\)/.test(
+        localSystemProbes,
+      ) &&
+      !/notFound\(`No model artifact files found in \$\{dir\}`,\s*\{ dir \}\)/.test(localSystemProbes) &&
+      /assert\.equal\(error\.details\.source_path,\s*path\.join\(tempDir,\s*"missing\.gguf"\)\)/.test(
+        localSystemProbesTest,
+      ) &&
+      /assert\.equal\(error\.details\.dir_path,\s*emptyDir\)/.test(localSystemProbesTest) &&
+      /Object\.hasOwn\(error\.details,\s*"sourcePath"\),\s*false/.test(localSystemProbesTest) &&
+      /Object\.hasOwn\(error\.details,\s*"dir"\),\s*false/.test(localSystemProbesTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/local-system-probes.mjs",
+      "packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs",
+    ],
+    "Phase 9/11 is pending: local system probe fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,
