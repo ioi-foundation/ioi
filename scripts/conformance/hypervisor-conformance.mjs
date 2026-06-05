@@ -439,6 +439,22 @@ function runBridge() {
     /\b(?:schemaVersion|invocationAdmitted|threadId|agentId|packageKind|packageRef|manifestRef|invocationId|routerAdmission|receiptBinding|acceptedReceiptAppend|agentgresAdmission|projectionRecord|receiptRefs|artifactRefs|payloadRefs|authorityGrantRefs)\s*:/;
   const workerServicePackageAdmissionCamelAliasTypePattern =
     /\b(?:schemaVersion|invocationAdmitted|threadId|agentId|packageKind|packageRef|manifestRef|invocationId|routerAdmission|receiptBinding|acceptedReceiptAppend|agentgresAdmission|projectionRecord|receiptRefs|artifactRefs|payloadRefs|authorityGrantRefs)\?:/;
+  const governedImprovementAdmissionResultType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeGovernedImprovementProposalAdmissionResult[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const governedImprovementAdmissionCamelAliasPropertyPattern =
+    /\b(?:schemaVersion|proposalAdmitted|mutationExecuted|threadId|agentId|proposalId|admissionHash|agentgresOperationRef|stateRootBefore|stateRootAfter|resultingHead|approvalRef|rollbackRef)\s*:/;
+  const governedImprovementAdmissionCamelAliasTypePattern =
+    /\b(?:schemaVersion|proposalAdmitted|mutationExecuted|threadId|agentId|proposalId|admissionHash|agentgresOperationRef|stateRootBefore|stateRootAfter|resultingHead|approvalRef|rollbackRef)\?:/;
+  const l1SettlementAdmissionResultType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeL1SettlementAttemptAdmissionResult[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const l1SettlementAdmissionCamelAliasPropertyPattern =
+    /\b(?:schemaVersion|settlementAdmitted|threadId|agentId|settlementRef|domainRef|stateRootRef|triggerRefs|receiptRefs|admissionHash)\s*:/;
+  const l1SettlementAdmissionCamelAliasTypePattern =
+    /\b(?:schemaVersion|settlementAdmitted|threadId|agentId|settlementRef|domainRef|stateRootRef|triggerRefs|receiptRefs|admissionHash)\?:/;
   const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
     ? read("packages/agent-sdk/test/sdk.test.mjs")
     : "";
@@ -1242,6 +1258,23 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "l1-settlement-admission-response-aliases-retired",
+    !l1SettlementAdmissionCamelAliasPropertyPattern.test(l1SettlementSurface) &&
+      !l1SettlementAdmissionCamelAliasTypePattern.test(l1SettlementAdmissionResultType) &&
+      /L1 settlement surface exposes only canonical snake_case admission fields/.test(
+        l1SettlementSurfaceTest,
+      ) &&
+      /L1_SETTLEMENT_ADMISSION_CAMEL_ALIASES/.test(l1SettlementSurfaceTest) &&
+      /Object\.hasOwn\(result, key\)/.test(l1SettlementSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 8/11 is pending: L1 settlement admission responses must not preserve camelCase compatibility aliases after the canonical route is verified",
+  );
+  assertCheck(
+    result,
     "l1-settlement-sdk-ide-admission-surface",
     /admitL1SettlementAttempt/.test(agentSdkSubstrateClient) &&
       /RuntimeL1SettlementAttemptAdmissionInput/.test(agentSdkSubstrateClient) &&
@@ -1369,6 +1402,27 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 9 is pending: product/API governed-improvement route must call Rust proposal admission and expose no JS apply shortcut",
+  );
+  assertCheck(
+    result,
+    "governed-meta-improvement-admission-response-aliases-retired",
+    !governedImprovementAdmissionCamelAliasPropertyPattern.test(governedImprovementSurface) &&
+      !governedImprovementAdmissionCamelAliasTypePattern.test(
+        governedImprovementAdmissionResultType,
+      ) &&
+      /governed improvement surface exposes only canonical snake_case admission fields/.test(
+        governedImprovementSurfaceTest,
+      ) &&
+      /GOVERNED_IMPROVEMENT_ADMISSION_CAMEL_ALIASES/.test(
+        governedImprovementSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result, key\)/.test(governedImprovementSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 9/11 is pending: governed-improvement admission responses must not preserve camelCase compatibility aliases after the canonical route is verified",
   );
   assertCheck(
     result,

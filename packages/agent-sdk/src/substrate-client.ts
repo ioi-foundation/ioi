@@ -1342,33 +1342,20 @@ export interface RuntimeGovernedImprovementProposalAdmissionInput extends Record
 
 export interface RuntimeGovernedImprovementProposalAdmissionResult extends Record<string, unknown> {
   schema_version?: "ioi.runtime.governed_improvement_admission.v1" | string;
-  schemaVersion?: "ioi.runtime.governed_improvement_admission.v1" | string;
   object?: "ioi.runtime_governed_improvement_admission" | string;
   status: "admitted" | string;
   proposal_admitted?: boolean;
-  proposalAdmitted?: boolean;
   mutation_executed?: boolean;
-  mutationExecuted?: boolean;
   thread_id?: string;
-  threadId?: string;
   agent_id?: string;
-  agentId?: string;
   proposal_id?: string | null;
-  proposalId?: string | null;
   admission_hash?: string | null;
-  admissionHash?: string | null;
   agentgres_operation_ref?: string | null;
-  agentgresOperationRef?: string | null;
   state_root_before?: string | null;
-  stateRootBefore?: string | null;
   state_root_after?: string | null;
-  stateRootAfter?: string | null;
   resulting_head?: string | null;
-  resultingHead?: string | null;
   approval_ref?: string | null;
-  approvalRef?: string | null;
   rollback_ref?: string | null;
-  rollbackRef?: string | null;
   admission?: Record<string, unknown>;
   record?: Record<string, unknown>;
 }
@@ -1443,27 +1430,17 @@ export interface RuntimeL1SettlementAttemptAdmissionInput extends Record<string,
 
 export interface RuntimeL1SettlementAttemptAdmissionResult extends Record<string, unknown> {
   schema_version?: "ioi.runtime.l1_settlement_admission.v1" | string;
-  schemaVersion?: "ioi.runtime.l1_settlement_admission.v1" | string;
   object?: "ioi.runtime_l1_settlement_admission" | string;
   status: "admitted" | string;
   settlement_admitted?: boolean;
-  settlementAdmitted?: boolean;
   thread_id?: string;
-  threadId?: string;
   agent_id?: string;
-  agentId?: string;
   settlement_ref?: string | null;
-  settlementRef?: string | null;
   domain_ref?: string | null;
-  domainRef?: string | null;
   state_root_ref?: string | null;
-  stateRootRef?: string | null;
   trigger_refs?: string[];
-  triggerRefs?: string[];
   receipt_refs?: string[];
-  receiptRefs?: string[];
   admission_hash?: string | number[] | null;
-  admissionHash?: string | number[] | null;
   admission?: Record<string, unknown>;
   record?: Record<string, unknown>;
 }

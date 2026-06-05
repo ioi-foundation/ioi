@@ -47,6 +47,19 @@ function store() {
   };
 }
 
+const L1_SETTLEMENT_ADMISSION_CAMEL_ALIASES = [
+  "schemaVersion",
+  "settlementAdmitted",
+  "threadId",
+  "agentId",
+  "settlementRef",
+  "domainRef",
+  "stateRootRef",
+  "triggerRefs",
+  "receiptRefs",
+  "admissionHash",
+];
+
 test("L1 settlement surface admits nested attempt through Rust runner", () => {
   const runtimeStore = store();
   const surface = createRuntimeL1SettlementSurface();
@@ -67,6 +80,18 @@ test("L1 settlement surface admits nested attempt through Rust runner", () => {
   assert.deepEqual(result.receipt_refs, ["receipt://local-settlement/payment"]);
   assert.deepEqual(result.admission_hash, [1, 2, 3]);
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "admitAttempt"]);
+});
+
+test("L1 settlement surface exposes only canonical snake_case admission fields", () => {
+  const result = createRuntimeL1SettlementSurface().admitL1SettlementAttempt(
+    store(),
+    "thread_surface",
+    { attempt: settlementAttempt() },
+  );
+
+  for (const key of L1_SETTLEMENT_ADMISSION_CAMEL_ALIASES) {
+    assert.equal(Object.hasOwn(result, key), false, `${key} must not be emitted`);
+  }
 });
 
 test("L1 settlement surface fails closed without attempt payload", () => {

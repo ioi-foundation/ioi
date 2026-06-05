@@ -7687,6 +7687,65 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 125
+
+```yaml
+slice: 125
+phase: 10-authoritative-js-facade-retirement
+objective: retire governed-improvement and L1 settlement admission response camelCase aliases
+owner_boundary:
+  route_or_surface:
+    - runtime governed-improvement proposal admission response
+    - runtime L1 settlement admission response
+  authority_gate: unchanged; governed proposals remain Rust-admitted and L1
+    settlement attempts remain Rust trigger-guarded
+  execution_backend: unchanged; both surfaces call their mounted Rust bridge
+    runners through the daemon-owned store
+  truth_path: canonical snake_case fields only; duplicate camelCase response
+    wrappers no longer mirror proposal or settlement admission truth
+  projection_path: unchanged; responses still carry canonical admission hashes,
+    Agentgres refs, state roots, trigger refs, and records
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs
+    - packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs
+  sdk:
+    - packages/agent-sdk/src/substrate-client.ts
+  tests:
+    - packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs
+    - packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance fails if governed-improvement admission responses or SDK
+    result types reintroduce camelCase response aliases
+  - bridge conformance fails if L1 settlement admission responses or SDK result
+    types reintroduce camelCase response aliases
+  - focused daemon tests assert the retired alias keys are absent from emitted
+    response objects
+verification:
+  commands:
+    - node --check packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs scripts/conformance/hypervisor-conformance.mjs
+    - node --test packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs
+    - npm run build --workspace=@ioi/agent-sdk
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: focused daemon tests compare canonical admitted
+    response fields against the Rust runner stubs while negative alias assertions
+    prove the duplicate wrappers are not emitted
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - request builders still accept camelCase UI/client input convenience fields
+      in adjacent IDE surfaces; this slice retires admitted response aliases only
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -7737,7 +7796,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 124:
+Current expected behavior after Slice 125:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

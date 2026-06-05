@@ -58,6 +58,22 @@ function store() {
   };
 }
 
+const GOVERNED_IMPROVEMENT_ADMISSION_CAMEL_ALIASES = [
+  "schemaVersion",
+  "proposalAdmitted",
+  "mutationExecuted",
+  "threadId",
+  "agentId",
+  "proposalId",
+  "admissionHash",
+  "agentgresOperationRef",
+  "stateRootBefore",
+  "stateRootAfter",
+  "resultingHead",
+  "approvalRef",
+  "rollbackRef",
+];
+
 test("governed improvement surface admits nested proposal through Rust runner", () => {
   const runtimeStore = store();
   const surface = createRuntimeGovernedImprovementSurface();
@@ -81,6 +97,18 @@ test("governed improvement surface admits nested proposal through Rust runner", 
   assert.equal(result.approval_ref, "approval://wallet/runtime-improvement/surface");
   assert.equal(result.rollback_ref, "rollback://skill/runtime-auditor/current");
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "admitProposal"]);
+});
+
+test("governed improvement surface exposes only canonical snake_case admission fields", () => {
+  const result = createRuntimeGovernedImprovementSurface().admitGovernedImprovementProposal(
+    store(),
+    "thread_surface",
+    { proposal: proposal() },
+  );
+
+  for (const key of GOVERNED_IMPROVEMENT_ADMISSION_CAMEL_ALIASES) {
+    assert.equal(Object.hasOwn(result, key), false, `${key} must not be emitted`);
+  }
 });
 
 test("governed improvement surface fails closed without proposal payload", () => {

@@ -31,33 +31,20 @@ export function createRuntimeL1SettlementSurface(deps = {}) {
     const record = objectRecord(admission.record) ?? {};
     return {
       schema_version: L1_SETTLEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION,
-      schemaVersion: L1_SETTLEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION,
       object: "ioi.runtime_l1_settlement_admission",
       status: "admitted",
       settlement_admitted: true,
-      settlementAdmitted: true,
       thread_id: threadId,
-      threadId,
       agent_id: agent.id,
-      agentId: agent.id,
       settlement_ref:
-        admission.settlement_ref ?? record.settlement_ref ?? optionalString(attempt.settlement_ref),
-      settlementRef:
         admission.settlement_ref ?? record.settlement_ref ?? optionalString(attempt.settlement_ref),
       domain_ref:
         admission.domain_ref ?? record.domain_ref ?? optionalString(attempt.domain_ref),
-      domainRef:
-        admission.domain_ref ?? record.domain_ref ?? optionalString(attempt.domain_ref),
       state_root_ref:
         admission.state_root_ref ?? record.state_root_ref ?? optionalString(attempt.state_root_ref),
-      stateRootRef:
-        admission.state_root_ref ?? record.state_root_ref ?? optionalString(attempt.state_root_ref),
       trigger_refs: admission.trigger_refs ?? record.trigger_refs ?? [],
-      triggerRefs: admission.trigger_refs ?? record.trigger_refs ?? [],
       receipt_refs: admission.receipt_refs ?? record.receipt_refs ?? [],
-      receiptRefs: admission.receipt_refs ?? record.receipt_refs ?? [],
       admission_hash: admission.admission_hash ?? record.admission_hash ?? null,
-      admissionHash: admission.admission_hash ?? record.admission_hash ?? null,
       admission,
       record,
     };
