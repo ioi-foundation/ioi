@@ -118,8 +118,7 @@ pub struct RuntimeStateTransitionRequest {
     #[serde(default)]
     pub expected_heads: Vec<String>,
     pub state_root_before: String,
-    pub run_state_hash: String,
-    pub task_state_hash: String,
+    pub run: Value,
     pub projection_ref: String,
     pub projection_watermark: String,
     #[serde(default)]
@@ -197,9 +196,6 @@ pub struct RuntimeStateRecordMaterializationRequest {
     pub schema_version: String,
     pub run_id: String,
     pub run: Value,
-    pub runtime_task: Value,
-    pub runtime_job: Value,
-    pub runtime_checklist: Value,
     pub canonical_projection: Value,
     pub agentgres_transition: Value,
 }
@@ -277,7 +273,10 @@ impl AgentgresAdmissionCore {
         request: &RuntimeStateTransitionRequest,
     ) -> Result<RuntimeStateTransitionRecord, AgentgresAdmissionError> {
         request.validate()?;
-        let state_root_after = runtime_state_root_after(request)?;
+        let run_state_hash = runtime_run_state_hash(&request.run)?;
+        let task_state_hash = runtime_task_state_hash(&request.run)?;
+        let state_root_after =
+            runtime_state_root_after(request, &run_state_hash, &task_state_hash)?;
         let head_suffix = state_root_after
             .trim_start_matches("sha256:")
             .chars()
@@ -303,8 +302,8 @@ impl AgentgresAdmissionCore {
             state_root_before: request.state_root_before.clone(),
             state_root_after,
             resulting_head,
-            run_state_hash: request.run_state_hash.clone(),
-            task_state_hash: request.task_state_hash.clone(),
+            run_state_hash,
+            task_state_hash,
             projection_ref: request.projection_ref.clone(),
             projection_watermark: request.projection_watermark.clone(),
             receipt_refs: request.receipt_refs.clone(),
@@ -371,6 +370,10 @@ impl AgentgresAdmissionCore {
         request: &RuntimeStateRecordMaterializationRequest,
     ) -> Result<RuntimeStateRecordMaterializationRecord, AgentgresAdmissionError> {
         request.validate()?;
+        let runtime_task = runtime_task_record_for_run(&request.run)?;
+        let runtime_job = runtime_job_record_for_run(&request.run, &runtime_task)?;
+        let runtime_checklist =
+            runtime_checklist_record_for_run(&request.run, &runtime_task, &runtime_job)?;
         let mut records = vec![RuntimeStateStorageWriteInput {
             record_path: format!("runs/{}.json", safe_agentgres_component(&request.run_id)),
             payload: request.run.clone(),
@@ -383,8 +386,8 @@ impl AgentgresAdmissionCore {
             payload: json!({
                 "runId": &request.run_id,
                 "agentId": json_field(&request.run, "agentId"),
-                "runtimeTask": &request.runtime_task,
-                "runtimeChecklist": &request.runtime_checklist,
+                "runtimeTask": &runtime_task,
+                "runtimeChecklist": &runtime_checklist,
                 "taskState": json_path(&request.run, &["trace", "taskState"]),
                 "postconditions": json_path(&request.run, &["trace", "postconditions"]),
                 "semanticImpact": json_path(&request.run, &["trace", "semanticImpact"]),
@@ -396,20 +399,17 @@ impl AgentgresAdmissionCore {
         });
 
         records.push(RuntimeStateStorageWriteInput {
-            record_path: format!(
-                "jobs/{}.json",
-                required_json_string(&request.runtime_job, "jobId")?
-            ),
-            payload: request.runtime_job.clone(),
+            record_path: format!("jobs/{}.json", required_json_string(&runtime_job, "jobId")?),
+            payload: runtime_job.clone(),
             artifact_refs: vec![],
             payload_refs: vec![],
         });
         records.push(RuntimeStateStorageWriteInput {
             record_path: format!(
                 "checklists/{}.json",
-                required_json_string(&request.runtime_checklist, "checklistId")?
+                required_json_string(&runtime_checklist, "checklistId")?
             ),
-            payload: request.runtime_checklist.clone(),
+            payload: runtime_checklist.clone(),
             artifact_refs: vec![],
             payload_refs: vec![],
         });
@@ -596,10 +596,9 @@ impl RuntimeStateTransitionRequest {
         }
         require_non_empty("run_id", &self.run_id)?;
         require_non_empty("operation_kind", &self.operation_kind)?;
+        validate_runtime_run_id(&self.run, &self.run_id)?;
         require_non_empty("state_root_before", &self.state_root_before)
             .map_err(|_| AgentgresAdmissionError::MissingStateRootBefore)?;
-        require_non_empty("run_state_hash", &self.run_state_hash)?;
-        require_non_empty("task_state_hash", &self.task_state_hash)?;
         require_non_empty("projection_ref", &self.projection_ref)?;
         require_non_empty("projection_watermark", &self.projection_watermark)?;
         if self.expected_heads.is_empty() {
@@ -644,13 +643,7 @@ impl RuntimeStateRecordMaterializationRequest {
             });
         }
         require_non_empty("run_id", &self.run_id)?;
-        match json_string(&self.run, "id") {
-            Some(run_id) if run_id == self.run_id => {}
-            Some(_) => return Err(AgentgresAdmissionError::RuntimeStateRecordRunIdMismatch),
-            None => return Err(AgentgresAdmissionError::MissingField("run.id")),
-        }
-        required_json_string(&self.runtime_job, "jobId")?;
-        required_json_string(&self.runtime_checklist, "checklistId")?;
+        validate_runtime_run_id(&self.run, &self.run_id)?;
         Ok(())
     }
 }
@@ -721,6 +714,8 @@ fn storage_write_admission_hash(
 
 fn runtime_state_root_after(
     request: &RuntimeStateTransitionRequest,
+    run_state_hash: &str,
+    task_state_hash: &str,
 ) -> Result<String, AgentgresAdmissionError> {
     let canonical = serde_json::json!({
         "schema_version": RUNTIME_STATE_TRANSITION_SCHEMA_VERSION,
@@ -728,8 +723,8 @@ fn runtime_state_root_after(
         "operation_kind": &request.operation_kind,
         "expected_heads": &request.expected_heads,
         "state_root_before": &request.state_root_before,
-        "run_state_hash": &request.run_state_hash,
-        "task_state_hash": &request.task_state_hash,
+        "run_state_hash": run_state_hash,
+        "task_state_hash": task_state_hash,
         "projection_ref": &request.projection_ref,
         "projection_watermark": &request.projection_watermark,
         "receipt_refs": &request.receipt_refs,
@@ -777,6 +772,492 @@ fn runtime_state_record_materialization_hash(
     let bytes = serde_json::to_vec(&canonical)
         .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn runtime_run_state_hash(run: &Value) -> Result<String, AgentgresAdmissionError> {
+    let state = json!({
+        "id": json_field(run, "id"),
+        "agentId": json_field(run, "agentId"),
+        "status": json_field(run, "status"),
+        "mode": json_field(run, "mode"),
+        "createdAt": json_field(run, "createdAt"),
+        "updatedAt": json_field(run, "updatedAt"),
+        "eventCount": json_array(run, "events").len(),
+        "terminalEventCount": terminal_event_count(run),
+        "traceBundleId": json_path(run, &["trace", "traceBundleId"]),
+    });
+    runtime_state_hash(&state)
+}
+
+fn runtime_task_state_hash(run: &Value) -> Result<String, AgentgresAdmissionError> {
+    let runtime_task = runtime_task_record_for_run(run)?;
+    let runtime_job = runtime_job_record_for_run(run, &runtime_task)?;
+    let runtime_checklist = runtime_checklist_record_for_run(run, &runtime_task, &runtime_job)?;
+    let state = json!({
+        "runtimeTask": runtime_task,
+        "runtimeJob": runtime_job,
+        "runtimeChecklist": runtime_checklist,
+        "taskState": json_path(run, &["trace", "taskState"]),
+        "postconditions": json_path(run, &["trace", "postconditions"]),
+        "semanticImpact": json_path(run, &["trace", "semanticImpact"]),
+        "stopCondition": json_path(run, &["trace", "stopCondition"]),
+        "scorecard": json_path(run, &["trace", "scorecard"]),
+        "qualityLedger": json_path(run, &["trace", "qualityLedger"]),
+    });
+    runtime_state_hash(&state)
+}
+
+fn runtime_state_hash(value: &Value) -> Result<String, AgentgresAdmissionError> {
+    let canonical = stable_json_value(value)?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(canonical))))
+}
+
+fn runtime_task_record_for_run(run: &Value) -> Result<Value, AgentgresAdmissionError> {
+    if let Some(task) = run.get("runtimeTask").filter(|value| value.is_object()) {
+        return Ok(task.clone());
+    }
+    let run_id = required_json_string(run, "id")?;
+    let mode = json_string(run, "mode").unwrap_or("send");
+    let status = job_status_for_run_status(json_string(run, "status"));
+    let task_family = json_path(run, &["trace", "qualityLedger", "taskFamily"])
+        .as_str()
+        .map(str::to_string)
+        .unwrap_or_else(|| task_family_for_mode(mode).to_string());
+    let selected_strategy = json_path(run, &["trace", "qualityLedger", "selectedStrategy"])
+        .as_str()
+        .map(str::to_string)
+        .unwrap_or_else(|| strategy_for_mode(mode).to_string());
+    let agent_id = json_string(run, "agentId").map(str::to_string);
+    let model_route_decision = run.get("modelRouteDecision").or_else(|| {
+        run.get("trace")
+            .and_then(|trace| trace.get("modelRouteDecision"))
+    });
+    let active_skill_hook_manifest = run.get("activeSkillHookManifest").or_else(|| {
+        run.get("trace")
+            .and_then(|trace| trace.get("activeSkillHookManifest"))
+    });
+    Ok(json!({
+        "schemaVersion": "ioi.agent-runtime.task-record.v1",
+        "object": "ioi.runtime_task",
+        "taskId": format!("task_{run_id}"),
+        "runId": run_id,
+        "agentId": string_or_null(agent_id.as_deref()),
+        "threadId": agent_id.as_deref().map(thread_id_for_agent).map(Value::String).unwrap_or(Value::Null),
+        "turnId": turn_id_for_run(run_id),
+        "status": status,
+        "mode": mode,
+        "taskFamily": task_family,
+        "selectedStrategy": selected_strategy,
+        "summary": format!("Runtime task for {task_family} is {status}."),
+        "promptHash": sha256_hex(json_string(run, "objective").unwrap_or("")),
+        "promptIncluded": false,
+        "objectivePreviewIncluded": false,
+        "modelRouteDecisionId": model_route_decision.and_then(|value| json_string(value, "decisionId")).map(|value| Value::String(value.to_string())).unwrap_or(Value::Null),
+        "activeSkillHookManifestId": active_skill_hook_manifest.and_then(|value| json_string(value, "manifestId")).map(|value| Value::String(value.to_string())).unwrap_or(Value::Null),
+        "createdAt": json_field(run, "createdAt"),
+        "updatedAt": if run.get("updatedAt").is_some() { json_field(run, "updatedAt") } else { json_field(run, "createdAt") },
+        "durable": true,
+        "replayable": true,
+        "cancelable": status != "canceled",
+        "cancelEndpoint": format!("/v1/tasks/task_{run_id}/cancel"),
+        "endpoints": {
+            "self": format!("/v1/tasks/task_{run_id}"),
+            "cancel": format!("/v1/tasks/task_{run_id}/cancel"),
+            "run": format!("/v1/runs/{run_id}"),
+            "job": format!("/v1/jobs/job_{run_id}"),
+            "events": format!("/v1/runs/{run_id}/events"),
+            "trace": format!("/v1/runs/{run_id}/trace"),
+        },
+        "workflowNodeId": "runtime.runtime-task",
+        "redaction": {
+            "profile": "runtime_task_safe",
+            "promptIncluded": false,
+            "secretValuesIncluded": false,
+        },
+        "evidenceRefs": compact_strings(vec![
+            Some("runtime_task".to_string()),
+            Some("runtime.tasks.durable_projection".to_string()),
+            Some("RuntimeTaskNode".to_string()),
+            Some(format!("run:{run_id}")),
+            active_skill_hook_manifest.and_then(|value| json_string(value, "manifestId")).map(str::to_string),
+        ]),
+    }))
+}
+
+fn runtime_job_record_for_run(
+    run: &Value,
+    runtime_task: &Value,
+) -> Result<Value, AgentgresAdmissionError> {
+    if let Some(job) = run.get("runtimeJob").filter(|value| value.is_object()) {
+        return Ok(job.clone());
+    }
+    let run_id = required_json_string(runtime_task, "runId")?;
+    let task_id = required_json_string(runtime_task, "taskId")?;
+    let status = job_status_for_run_status(json_string(run, "status"));
+    let terminal = matches!(status, "completed" | "failed" | "canceled");
+    let event_count = json_array(run, "events").len();
+    let terminal_count = terminal_event_count(run);
+    let job_id = format!("job_{run_id}");
+    let progress = json!({
+        "completedSteps": if terminal { 1 } else { 0 },
+        "totalSteps": 1,
+        "percent": if terminal { 100 } else if status == "running" { 50 } else { 0 },
+    });
+    let failure = if status == "failed" {
+        json!({ "reason": "runtime_failed", "message": "Runtime job failed." })
+    } else {
+        Value::Null
+    };
+    let cancellation = if status == "canceled" {
+        json!({ "reason": "operator_cancel" })
+    } else {
+        Value::Null
+    };
+    let endpoints = json!({
+        "self": format!("/v1/jobs/{job_id}"),
+        "cancel": format!("/v1/jobs/{job_id}/cancel"),
+        "run": format!("/v1/runs/{run_id}"),
+        "events": format!("/v1/runs/{run_id}/events"),
+        "trace": format!("/v1/runs/{run_id}/trace"),
+    });
+    let redaction = json!({
+        "profile": "runtime_job_safe",
+        "promptIncluded": false,
+        "secretValuesIncluded": false,
+    });
+    let evidence_refs = json!([
+        "runtime_job",
+        "runtime.jobs.durable_projection",
+        "RuntimeJobNode",
+        task_id,
+        format!("run:{run_id}"),
+    ]);
+    Ok(json!({
+        "schemaVersion": "ioi.agent-runtime.job-record.v1",
+        "object": "ioi.runtime_job",
+        "jobId": job_id,
+        "taskId": task_id,
+        "runId": run_id,
+        "agentId": json_field(runtime_task, "agentId"),
+        "threadId": json_field(runtime_task, "threadId"),
+        "turnId": json_field(runtime_task, "turnId"),
+        "status": status,
+        "lifecycle": job_lifecycle_for_status(status),
+        "summary": format!("Runtime job job_{run_id} is {status}."),
+        "queueName": "local-agentgres",
+        "runner": "local-daemon-agentgres",
+        "jobType": "agent_run",
+        "priority": "normal",
+        "background": true,
+        "durable": true,
+        "replayable": true,
+        "createdAt": json_field(run, "createdAt"),
+        "updatedAt": json_field(run, "updatedAt"),
+        "queuedAt": json_field(run, "createdAt"),
+        "startedAt": json_field(run, "createdAt"),
+        "completedAt": if terminal { json_field(run, "updatedAt") } else { Value::Null },
+        "progress": progress,
+        "eventCount": if event_count == 0 { Value::Null } else { json!(event_count) },
+        "terminalEventCount": if terminal_count == 0 { Value::Null } else { json!(terminal_count) },
+        "artifactNames": artifact_names(run),
+        "receiptKinds": receipt_kinds(run),
+        "checklistId": Value::Null,
+        "checklistStatus": Value::Null,
+        "checklistItemCount": Value::Null,
+        "checklistCompletedItemCount": Value::Null,
+        "failure": failure,
+        "cancellation": cancellation,
+        "retryCount": 0,
+        "cancelable": status != "canceled",
+        "cancelEndpoint": format!("/v1/jobs/{job_id}/cancel"),
+        "endpoints": endpoints,
+        "workflowNodeId": "runtime.runtime-job",
+        "redaction": redaction,
+        "evidenceRefs": evidence_refs,
+    }))
+}
+
+fn runtime_checklist_record_for_run(
+    run: &Value,
+    runtime_task: &Value,
+    runtime_job: &Value,
+) -> Result<Value, AgentgresAdmissionError> {
+    if let Some(checklist) = run
+        .get("runtimeChecklist")
+        .filter(|value| value.is_object())
+    {
+        return Ok(checklist.clone());
+    }
+    let run_id = required_json_string(runtime_task, "runId")?;
+    let task_id = required_json_string(runtime_task, "taskId")?;
+    let job_id = required_json_string(runtime_job, "jobId")?;
+    let status = json_string(runtime_job, "status")
+        .or_else(|| json_string(runtime_task, "status"))
+        .unwrap_or("completed");
+    let checklist_id = format!("checklist_{run_id}");
+    let (terminal_label, terminal_kind, terminal_status) = match status {
+        "canceled" => ("Job canceled event emitted", "JobCanceled", "canceled"),
+        "failed" => ("Job failed event emitted", "JobFailed", "failed"),
+        "blocked" => ("Job blocked by policy gate", "PolicyBlocked", "blocked"),
+        _ => ("Job completed event emitted", "JobCompleted", "passed"),
+    };
+    let items = vec![
+        checklist_item(
+            &checklist_id,
+            "task_record",
+            "Runtime task record durable",
+            "passed",
+            vec![
+                task_id,
+                "RuntimeTaskNode",
+                "runtime.tasks.durable_projection",
+            ],
+        ),
+        checklist_item(
+            &checklist_id,
+            "job_record",
+            "Runtime job record durable",
+            "passed",
+            vec![job_id, "RuntimeJobNode", "runtime.jobs.durable_projection"],
+        ),
+        checklist_item(
+            &checklist_id,
+            "job_queued",
+            "Job queued event emitted",
+            "passed",
+            vec!["JobQueued"],
+        ),
+        checklist_item(
+            &checklist_id,
+            "job_started",
+            "Job started event emitted",
+            "passed",
+            vec!["JobStarted"],
+        ),
+        checklist_item(
+            &checklist_id,
+            "job_terminal",
+            terminal_label,
+            terminal_status,
+            vec![terminal_kind],
+        ),
+        checklist_item(
+            &checklist_id,
+            "artifacts",
+            "Runtime task/job/checklist artifacts attached",
+            "passed",
+            vec![
+                "runtime-task.json",
+                "runtime-job.json",
+                "runtime-checklist.json",
+            ],
+        ),
+    ];
+    let completed = items
+        .iter()
+        .filter(|item| json_string(item, "status") == Some("passed"))
+        .count();
+    let canceled = items
+        .iter()
+        .filter(|item| json_string(item, "status") == Some("canceled"))
+        .count();
+    let failed = items
+        .iter()
+        .filter(|item| json_string(item, "status") == Some("failed"))
+        .count();
+    let blocked = items
+        .iter()
+        .filter(|item| json_string(item, "status") == Some("blocked"))
+        .count();
+    Ok(json!({
+        "schemaVersion": "ioi.agent-runtime.checklist-record.v1",
+        "object": "ioi.runtime_checklist",
+        "checklistId": checklist_id,
+        "taskId": task_id,
+        "jobId": job_id,
+        "runId": run_id,
+        "agentId": json_field(runtime_task, "agentId"),
+        "threadId": json_field(runtime_task, "threadId"),
+        "turnId": json_field(runtime_task, "turnId"),
+        "status": status,
+        "summary": format!("Runtime checklist for {job_id} is {status}."),
+        "durable": true,
+        "replayable": true,
+        "readOnly": true,
+        "itemCount": items.len(),
+        "completedItemCount": completed,
+        "canceledItemCount": canceled,
+        "failedItemCount": failed,
+        "blockedItemCount": blocked,
+        "items": items,
+        "requiredItemIds": [
+            format!("{checklist_id}:task_record"),
+            format!("{checklist_id}:job_record"),
+            format!("{checklist_id}:job_queued"),
+            format!("{checklist_id}:job_started"),
+            format!("{checklist_id}:job_terminal"),
+            format!("{checklist_id}:artifacts"),
+        ],
+        "createdAt": json_field(run, "createdAt"),
+        "updatedAt": json_field(run, "updatedAt"),
+        "workflowNodeId": "runtime.runtime-checklist",
+        "redaction": {
+            "profile": "runtime_checklist_safe",
+            "promptIncluded": false,
+            "secretValuesIncluded": false,
+        },
+        "evidenceRefs": [
+            "runtime_checklist",
+            "runtime.checklists.durable_projection",
+            "RuntimeChecklistNode",
+            task_id,
+            job_id,
+            format!("run:{run_id}"),
+        ],
+    }))
+}
+
+fn checklist_item(
+    checklist_id: &str,
+    suffix: &str,
+    label: &str,
+    status: &str,
+    evidence_refs: Vec<&str>,
+) -> Value {
+    json!({
+        "itemId": format!("{checklist_id}:{suffix}"),
+        "label": label,
+        "status": status,
+        "evidenceRefs": unique_string_values(evidence_refs),
+    })
+}
+
+fn validate_runtime_run_id(
+    run: &Value,
+    expected_run_id: &str,
+) -> Result<(), AgentgresAdmissionError> {
+    match json_string(run, "id") {
+        Some(run_id) if run_id == expected_run_id => Ok(()),
+        Some(_) => Err(AgentgresAdmissionError::RuntimeStateRecordRunIdMismatch),
+        None => Err(AgentgresAdmissionError::MissingField("run.id")),
+    }
+}
+
+fn terminal_event_count(run: &Value) -> usize {
+    json_array(run, "events")
+        .into_iter()
+        .filter(|event| {
+            matches!(
+                json_string(event, "type"),
+                Some("completed" | "canceled" | "failed" | "error")
+            )
+        })
+        .count()
+}
+
+fn task_family_for_mode(mode: &str) -> &'static str {
+    match mode {
+        "plan" => "planning",
+        "dry_run" => "safety_preview",
+        "handoff" => "delegation",
+        "learn" => "learning",
+        _ => "local_daemon_agentgres",
+    }
+}
+
+fn strategy_for_mode(mode: &str) -> &'static str {
+    match mode {
+        "plan" => "daemon_plan_with_postconditions",
+        "dry_run" => "daemon_dry_run_before_effect",
+        "handoff" => "daemon_handoff_with_state_preservation",
+        "learn" => "daemon_bounded_learning_gate",
+        _ => "local_daemon_agentgres_execution",
+    }
+}
+
+fn job_status_for_run_status(status: Option<&str>) -> &'static str {
+    match status {
+        Some("canceled") => "canceled",
+        Some("failed" | "error") => "failed",
+        Some("blocked") => "blocked",
+        Some("running" | "active") => "running",
+        Some("queued" | "pending") => "queued",
+        _ => "completed",
+    }
+}
+
+fn job_lifecycle_for_status(status: &str) -> Vec<&'static str> {
+    match status {
+        "queued" => vec!["queued"],
+        "running" => vec!["queued", "started"],
+        "failed" => vec!["queued", "started", "failed"],
+        "canceled" => vec!["queued", "started", "canceled"],
+        "blocked" => vec!["queued", "started", "blocked"],
+        _ => vec!["queued", "started", "completed"],
+    }
+}
+
+fn thread_id_for_agent(agent_id: &str) -> String {
+    agent_id
+        .strip_prefix("agent_")
+        .map(|suffix| format!("thread_{suffix}"))
+        .unwrap_or_else(|| format!("thread_{agent_id}"))
+}
+
+fn turn_id_for_run(run_id: &str) -> String {
+    run_id
+        .strip_prefix("run_")
+        .map(|suffix| format!("turn_{suffix}"))
+        .unwrap_or_else(|| format!("turn_{run_id}"))
+}
+
+fn artifact_names(run: &Value) -> Vec<Value> {
+    json_array(run, "artifacts")
+        .into_iter()
+        .filter_map(|artifact| json_string(artifact, "name"))
+        .filter(|name| !name.trim().is_empty())
+        .map(|name| Value::String(name.to_string()))
+        .collect()
+}
+
+fn receipt_kinds(run: &Value) -> Vec<Value> {
+    json_array(run, "receipts")
+        .into_iter()
+        .filter_map(|receipt| json_string(receipt, "kind"))
+        .filter(|kind| !kind.trim().is_empty())
+        .map(|kind| Value::String(kind.to_string()))
+        .collect()
+}
+
+fn unique_string_values(values: Vec<&str>) -> Vec<Value> {
+    let mut unique = Vec::<String>::new();
+    for value in values {
+        let text = value.trim();
+        if !text.is_empty() && !unique.iter().any(|candidate| candidate == text) {
+            unique.push(text.to_string());
+        }
+    }
+    unique.into_iter().map(Value::String).collect()
+}
+
+fn compact_strings(values: Vec<Option<String>>) -> Vec<Value> {
+    values
+        .into_iter()
+        .flatten()
+        .filter(|value| !value.trim().is_empty())
+        .map(Value::String)
+        .collect()
+}
+
+fn string_or_null(value: Option<&str>) -> Value {
+    value
+        .filter(|entry| !entry.trim().is_empty())
+        .map(|entry| Value::String(entry.to_string()))
+        .unwrap_or(Value::Null)
+}
+
+fn sha256_hex(value: &str) -> String {
+    hex::encode(Sha256::digest(value.as_bytes()))
 }
 
 fn stable_json_value(value: &Value) -> Result<String, AgentgresAdmissionError> {
@@ -931,6 +1412,62 @@ mod tests {
         }
     }
 
+    fn runtime_run() -> Value {
+        json!({
+            "id": "run_1",
+            "agentId": "agent_1",
+            "status": "completed",
+            "mode": "send",
+            "objective": "Ship the runtime state slice",
+            "createdAt": "2026-06-04T00:00:00.000Z",
+            "updatedAt": "2026-06-04T00:00:01.000Z",
+            "events": [
+                { "type": "started" },
+                { "type": "completed" }
+            ],
+            "receipts": [
+                {
+                    "id": "receipt_policy",
+                    "kind": "policy_decision"
+                },
+                {
+                    "id": "receipt_authority",
+                    "kind": "authority_decision"
+                }
+            ],
+            "artifacts": [
+                {
+                    "id": "artifact_1",
+                    "name": "result.txt",
+                    "kind": "text"
+                }
+            ],
+            "trace": {
+                "traceBundleId": "trace_bundle_1",
+                "taskState": {
+                    "state": "done"
+                },
+                "postconditions": [
+                    {
+                        "id": "postcondition_1"
+                    }
+                ],
+                "semanticImpact": {
+                    "impact": "local"
+                },
+                "stopCondition": {
+                    "reason": "done"
+                },
+                "scorecard": {
+                    "score": 1
+                },
+                "qualityLedger": {
+                    "entries": []
+                }
+            }
+        })
+    }
+
     fn runtime_state_transition() -> RuntimeStateTransitionRequest {
         RuntimeStateTransitionRequest {
             schema_version: RUNTIME_STATE_TRANSITION_SCHEMA_VERSION.to_string(),
@@ -938,8 +1475,7 @@ mod tests {
             operation_kind: "run.create".to_string(),
             expected_heads: vec!["agentgres://runtime-state/runs/run_1/head/0".to_string()],
             state_root_before: "sha256:runtime-state-before".to_string(),
-            run_state_hash: "sha256:run-state".to_string(),
-            task_state_hash: "sha256:task-state".to_string(),
+            run: runtime_run(),
             projection_ref: "projection://runtime/runs/run_1".to_string(),
             projection_watermark: "runtime-state:1".to_string(),
             receipt_refs: vec!["receipt_policy".to_string()],
@@ -983,61 +1519,7 @@ mod tests {
         RuntimeStateRecordMaterializationRequest {
             schema_version: RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION.to_string(),
             run_id: "run_1".to_string(),
-            run: json!({
-                "id": "run_1",
-                "agentId": "agent_1",
-                "status": "completed",
-                "receipts": [
-                    {
-                        "id": "receipt_policy",
-                        "kind": "policy_decision"
-                    },
-                    {
-                        "id": "receipt_authority",
-                        "kind": "authority_decision"
-                    }
-                ],
-                "artifacts": [
-                    {
-                        "id": "artifact_1",
-                        "kind": "text"
-                    }
-                ],
-                "trace": {
-                    "taskState": {
-                        "state": "done"
-                    },
-                    "postconditions": [
-                        {
-                            "id": "postcondition_1"
-                        }
-                    ],
-                    "semanticImpact": {
-                        "impact": "local"
-                    },
-                    "stopCondition": {
-                        "reason": "done"
-                    },
-                    "scorecard": {
-                        "score": 1
-                    },
-                    "qualityLedger": {
-                        "entries": []
-                    }
-                }
-            }),
-            runtime_task: json!({
-                "taskId": "task_run_1",
-                "runId": "run_1"
-            }),
-            runtime_job: json!({
-                "jobId": "job_run_1",
-                "runId": "run_1"
-            }),
-            runtime_checklist: json!({
-                "checklistId": "checklist_run_1",
-                "runId": "run_1"
-            }),
+            run: runtime_run(),
             canonical_projection: json!({
                 "runId": "run_1",
                 "projection": "canonical"
@@ -1303,6 +1785,16 @@ mod tests {
             record.records[4].record_path,
             "receipts/receipt_policy.json"
         );
+        assert_eq!(
+            record.records[1].payload["runtimeTask"]["schemaVersion"],
+            json!("ioi.agent-runtime.task-record.v1")
+        );
+        assert_eq!(
+            record.records[1].payload["runtimeTask"]["threadId"],
+            json!("thread_1")
+        );
+        assert_eq!(record.records[2].payload["eventCount"], json!(2));
+        assert_eq!(record.records[3].payload["completedItemCount"], json!(6));
         assert_eq!(record.records[6].record_path, "artifacts/artifact_1.json");
         assert_eq!(
             record.records[7].payload["receiptId"],
@@ -1319,22 +1811,8 @@ mod tests {
     }
 
     #[test]
-    fn runtime_state_record_materialization_requires_stable_job_and_checklist_ids() {
+    fn runtime_state_record_materialization_requires_matching_run_id() {
         let mut request = runtime_state_record_materialization();
-        request.runtime_job = json!({});
-        let error = AgentgresAdmissionCore
-            .materialize_runtime_state_records(&request)
-            .expect_err("job id is required");
-        assert_eq!(error, AgentgresAdmissionError::MissingField("jobId"));
-
-        request = runtime_state_record_materialization();
-        request.runtime_checklist = json!({});
-        let error = AgentgresAdmissionCore
-            .materialize_runtime_state_records(&request)
-            .expect_err("checklist id is required");
-        assert_eq!(error, AgentgresAdmissionError::MissingField("checklistId"));
-
-        request = runtime_state_record_materialization();
         request.run["id"] = json!("other_run");
         let error = AgentgresAdmissionCore
             .materialize_runtime_state_records(&request)

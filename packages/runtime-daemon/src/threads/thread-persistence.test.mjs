@@ -60,8 +60,8 @@ function fakeStore() {
           state_root_before: request.state_root_before,
           state_root_after: "sha256:state-after",
           resulting_head: `agentgres://runtime-state/runs/${request.run_id}/head/mock`,
-          run_state_hash: request.run_state_hash,
-          task_state_hash: request.task_state_hash,
+          run_state_hash: "sha256:rust-run-state",
+          task_state_hash: "sha256:rust-task-state",
           projection_ref: request.projection_ref,
           projection_watermark: request.projection_watermark,
           receipt_refs: request.receipt_refs,
@@ -82,6 +82,41 @@ function fakeStore() {
     materializeRuntimeStateRecords(request) {
       this.materializationRequests.push(request);
       this.persistenceEvents.push({ type: "record_materialization", runId: request.run_id });
+      const runtimeTask = request.run.runtimeTask ?? {
+        schemaVersion: "ioi.agent-runtime.task-record.v1",
+        object: "ioi.runtime_task",
+        taskId: `task_${request.run_id}`,
+        runId: request.run_id,
+        agentId: request.run.agentId,
+        threadId: "thread_1",
+        turnId: "turn_1",
+        status: "completed",
+        mode: request.run.mode,
+        taskFamily: "local_daemon_agentgres",
+        selectedStrategy: "local_daemon_agentgres_execution",
+      };
+      const runtimeJob = request.run.runtimeJob ?? {
+        schemaVersion: "ioi.agent-runtime.job-record.v1",
+        object: "ioi.runtime_job",
+        jobId: `job_${request.run_id}`,
+        taskId: runtimeTask.taskId,
+        runId: request.run_id,
+        agentId: request.run.agentId,
+        status: "completed",
+        eventCount: request.run.events.length,
+      };
+      const runtimeChecklist = request.run.runtimeChecklist ?? {
+        schemaVersion: "ioi.agent-runtime.checklist-record.v1",
+        object: "ioi.runtime_checklist",
+        checklistId: `checklist_${request.run_id}`,
+        taskId: runtimeTask.taskId,
+        jobId: runtimeJob.jobId,
+        runId: request.run_id,
+        agentId: request.run.agentId,
+        status: "completed",
+        itemCount: 6,
+        completedItemCount: 6,
+      };
       const records = [
         { record_path: `runs/${request.run_id}.json`, payload: request.run, artifact_refs: [], payload_refs: [] },
         {
@@ -89,8 +124,8 @@ function fakeStore() {
           payload: {
             runId: request.run_id,
             agentId: request.run.agentId,
-            runtimeTask: request.runtime_task,
-            runtimeChecklist: request.runtime_checklist,
+            runtimeTask,
+            runtimeChecklist,
             taskState: request.run.trace.taskState,
             postconditions: request.run.trace.postconditions,
             semanticImpact: request.run.trace.semanticImpact,
@@ -100,10 +135,10 @@ function fakeStore() {
           artifact_refs: [],
           payload_refs: [],
         },
-        { record_path: `jobs/${request.runtime_job.jobId}.json`, payload: request.runtime_job, artifact_refs: [], payload_refs: [] },
+        { record_path: `jobs/${runtimeJob.jobId}.json`, payload: runtimeJob, artifact_refs: [], payload_refs: [] },
         {
-          record_path: `checklists/${request.runtime_checklist.checklistId}.json`,
-          payload: request.runtime_checklist,
+          record_path: `checklists/${runtimeChecklist.checklistId}.json`,
+          payload: runtimeChecklist,
           artifact_refs: [],
           payload_refs: [],
         },
@@ -238,16 +273,6 @@ function fakeStore() {
 
 function deps(store) {
   return {
-    runtimeChecklistRecordForRun(run) {
-      return { checklistId: `checklist_${run.id}`, runId: run.id };
-    },
-    runtimeJobRecordForRun(run) {
-      return { jobId: `job_${run.id}`, runId: run.id };
-    },
-    runtimeTaskRecordForRun(run) {
-      return { taskId: `task_${run.id}`, runId: run.id };
-    },
-    terminalEventTypes: new Set(["completed", "failed"]),
     writeJson(filePath, value) {
       store.persistenceEvents.push({ type: "write_json", filePath });
       store.writes.push({ filePath, value });
@@ -395,12 +420,16 @@ test("thread persistence writes run projections without operation entries and ma
     id: "run_1",
     agentId: "agent_1",
     status: "completed",
+    mode: "send",
+    objective: "Ship the runtime state slice",
+    createdAt: "2026-06-04T00:00:00.000Z",
+    updatedAt: "2026-06-04T00:00:01.000Z",
     events: [{ type: "started" }, { type: "completed" }],
     receipts: [
       { id: "receipt_policy", kind: "policy_decision" },
       { id: "receipt_authority", kind: "authority_decision" },
     ],
-    artifacts: [{ id: "artifact_1", kind: "text" }],
+    artifacts: [{ id: "artifact_1", name: "result.txt", kind: "text" }],
     trace: {
       taskState: { state: "done" },
       postconditions: [{ id: "postcondition_1" }],
@@ -422,8 +451,9 @@ test("thread persistence writes run projections without operation entries and ma
     "agentgres://runtime-state/runs/run_1/head/0",
   ]);
   assert.match(store.transitionRequests[0].state_root_before, /^sha256:/);
-  assert.match(store.transitionRequests[0].run_state_hash, /^sha256:/);
-  assert.match(store.transitionRequests[0].task_state_hash, /^sha256:/);
+  assert.deepEqual(store.transitionRequests[0].run, run);
+  assert.equal(Object.hasOwn(store.transitionRequests[0], "run_state_hash"), false);
+  assert.equal(Object.hasOwn(store.transitionRequests[0], "task_state_hash"), false);
   assert.equal(store.transitionRequests[0].projection_watermark, "runtime-state:1");
   assert.deepEqual(store.transitionRequests[0].receipt_refs, ["receipt_policy", "receipt_authority"]);
   assert.deepEqual(store.transitionRequests[0].artifact_refs, ["artifact_1"]);
@@ -432,12 +462,9 @@ test("thread persistence writes run projections without operation entries and ma
   assert.equal(store.materializationRequests[0].schema_version, "ioi.runtime_state_record_materialization.v1");
   assert.equal(store.materializationRequests[0].run_id, "run_1");
   assert.deepEqual(store.materializationRequests[0].run, run);
-  assert.deepEqual(store.materializationRequests[0].runtime_task, { taskId: "task_run_1", runId: "run_1" });
-  assert.deepEqual(store.materializationRequests[0].runtime_job, { jobId: "job_run_1", runId: "run_1" });
-  assert.deepEqual(store.materializationRequests[0].runtime_checklist, {
-    checklistId: "checklist_run_1",
-    runId: "run_1",
-  });
+  assert.equal(Object.hasOwn(store.materializationRequests[0], "runtime_task"), false);
+  assert.equal(Object.hasOwn(store.materializationRequests[0], "runtime_job"), false);
+  assert.equal(Object.hasOwn(store.materializationRequests[0], "runtime_checklist"), false);
   assert.deepEqual(store.materializationRequests[0].canonical_projection, {
     runId: "run_1",
     projection: "canonical",
@@ -510,17 +537,31 @@ test("thread persistence writes run projections without operation entries and ma
     assert.ok(writeIndex >= 0, `missing write event for ${filePath}`);
     assert.ok(admissionIndex < writeIndex, `${objectRef} must be admitted before ${filePath} is written`);
   }
-  assert.deepEqual(store.writes.find((write) => write.filePath === "tasks/run_1.json").value, {
-    runId: "run_1",
-    agentId: "agent_1",
-    runtimeTask: { taskId: "task_run_1", runId: "run_1" },
-    runtimeChecklist: { checklistId: "checklist_run_1", runId: "run_1" },
-    taskState: { state: "done" },
-    postconditions: [{ id: "postcondition_1" }],
-    semanticImpact: { impact: "local" },
-    projectionWatermark: "runtime-state:1",
-    agentgresTransition: {
+  const taskWrite = store.writes.find((write) => write.filePath === "tasks/run_1.json").value;
+  assert.equal(taskWrite.runId, "run_1");
+  assert.equal(taskWrite.agentId, "agent_1");
+  assert.equal(taskWrite.runtimeTask.schemaVersion, "ioi.agent-runtime.task-record.v1");
+  assert.equal(taskWrite.runtimeTask.taskId, "task_run_1");
+  assert.equal(taskWrite.runtimeChecklist.schemaVersion, "ioi.agent-runtime.checklist-record.v1");
+  assert.equal(taskWrite.runtimeChecklist.checklistId, "checklist_run_1");
+  assert.deepEqual(taskWrite.taskState, { state: "done" });
+  assert.deepEqual(taskWrite.postconditions, [{ id: "postcondition_1" }]);
+  assert.deepEqual(taskWrite.semanticImpact, { impact: "local" });
+  assert.equal(taskWrite.projectionWatermark, "runtime-state:1");
+  assert.deepEqual(taskWrite.agentgresTransition, {
+    schema_version: "ioi.agentgres_runtime_state_transition.v1",
+    operation_ref: "agentgres://runtime-state/runs/run_1/operations/run.create_mock",
+    expected_heads: ["agentgres://runtime-state/runs/run_1/head/0"],
+    state_root_before: store.transitionRequests[0].state_root_before,
+    state_root_after: "sha256:state-after",
+    resulting_head: "agentgres://runtime-state/runs/run_1/head/mock",
+    projection_watermark: "runtime-state:1",
+    transition_hash: "sha256:transition",
+    evidence_refs: ["rust_agentgres_runtime_state_transition"],
+    record: {
       schema_version: "ioi.agentgres_runtime_state_transition.v1",
+      run_id: "run_1",
+      operation_kind: "run.create",
       operation_ref: "agentgres://runtime-state/runs/run_1/operations/run.create_mock",
       expected_heads: ["agentgres://runtime-state/runs/run_1/head/0"],
       state_root_before: store.transitionRequests[0].state_root_before,
@@ -528,25 +569,14 @@ test("thread persistence writes run projections without operation entries and ma
       resulting_head: "agentgres://runtime-state/runs/run_1/head/mock",
       projection_watermark: "runtime-state:1",
       transition_hash: "sha256:transition",
-      evidence_refs: ["rust_agentgres_runtime_state_transition"],
-      record: {
-        schema_version: "ioi.agentgres_runtime_state_transition.v1",
-        run_id: "run_1",
-        operation_kind: "run.create",
-        operation_ref: "agentgres://runtime-state/runs/run_1/operations/run.create_mock",
-        expected_heads: ["agentgres://runtime-state/runs/run_1/head/0"],
-        state_root_before: store.transitionRequests[0].state_root_before,
-        state_root_after: "sha256:state-after",
-        resulting_head: "agentgres://runtime-state/runs/run_1/head/mock",
-        run_state_hash: store.transitionRequests[0].run_state_hash,
-        task_state_hash: store.transitionRequests[0].task_state_hash,
-        projection_ref: "projection://runtime/runs/run_1",
-        projection_watermark: "runtime-state:1",
-        receipt_refs: ["receipt_policy", "receipt_authority"],
-        artifact_refs: ["artifact_1"],
-        payload_refs: ["payload://runtime/runs/run_1"],
-        transition_hash: "sha256:transition",
-      },
+      run_state_hash: "sha256:rust-run-state",
+      task_state_hash: "sha256:rust-task-state",
+      projection_ref: "projection://runtime/runs/run_1",
+      projection_watermark: "runtime-state:1",
+      receipt_refs: ["receipt_policy", "receipt_authority"],
+      artifact_refs: ["artifact_1"],
+      payload_refs: ["payload://runtime/runs/run_1"],
+      transition_hash: "sha256:transition",
     },
   });
   assert.deepEqual(store.writes.find((write) => write.filePath === "projections/run_1.json").value, {

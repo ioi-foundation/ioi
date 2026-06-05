@@ -3741,10 +3741,6 @@ export class AgentgresRuntimeStateStore {
 
   writeRun(run, operationKind) {
     return writeRunRecord(this, run, operationKind, {
-      runtimeChecklistRecordForRun,
-      runtimeJobRecordForRun,
-      runtimeTaskRecordForRun,
-      terminalEventTypes: TERMINAL_EVENT_TYPES,
       writeJson,
     });
   }

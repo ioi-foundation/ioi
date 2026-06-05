@@ -4319,8 +4319,51 @@ mod tests {
                 "operation_kind": "run.create",
                 "expected_heads": ["agentgres://runtime-state/runs/run_1/head/0"],
                 "state_root_before": "sha256:runtime-state-before",
-                "run_state_hash": "sha256:run-state",
-                "task_state_hash": "sha256:task-state",
+                "run": {
+                    "id": "run_1",
+                    "agentId": "agent_1",
+                    "status": "completed",
+                    "mode": "send",
+                    "objective": "Ship the runtime state slice",
+                    "createdAt": "2026-06-04T00:00:00.000Z",
+                    "updatedAt": "2026-06-04T00:00:01.000Z",
+                    "events": [
+                        { "type": "started" },
+                        { "type": "completed" }
+                    ],
+                    "receipts": [
+                        {
+                            "id": "receipt_policy",
+                            "kind": "policy_decision"
+                        }
+                    ],
+                    "artifacts": [
+                        {
+                            "id": "artifact_1",
+                            "name": "result.txt",
+                            "kind": "text"
+                        }
+                    ],
+                    "trace": {
+                        "traceBundleId": "trace_bundle_1",
+                        "taskState": {
+                            "state": "done"
+                        },
+                        "postconditions": [],
+                        "semanticImpact": {
+                            "impact": "local"
+                        },
+                        "stopCondition": {
+                            "reason": "done"
+                        },
+                        "scorecard": {
+                            "score": 1
+                        },
+                        "qualityLedger": {
+                            "entries": []
+                        }
+                    }
+                },
                 "projection_ref": "projection://runtime/runs/run_1",
                 "projection_watermark": "runtime-state:1",
                 "receipt_refs": ["receipt_policy"],
@@ -4481,6 +4524,14 @@ mod tests {
                         "id": "run_1",
                         "agentId": "agent_1",
                         "status": "completed",
+                        "mode": "send",
+                        "objective": "Ship the runtime state slice",
+                        "createdAt": "2026-06-04T00:00:00.000Z",
+                        "updatedAt": "2026-06-04T00:00:01.000Z",
+                        "events": [
+                            { "type": "started" },
+                            { "type": "completed" }
+                        ],
                         "receipts": [
                             {
                                 "id": "receipt_policy",
@@ -4494,10 +4545,12 @@ mod tests {
                         "artifacts": [
                             {
                                 "id": "artifact_1",
+                                "name": "result.txt",
                                 "kind": "text"
                             }
                         ],
                         "trace": {
+                            "traceBundleId": "trace_bundle_1",
                             "taskState": {
                                 "state": "done"
                             },
@@ -4515,18 +4568,6 @@ mod tests {
                                 "entries": []
                             }
                         }
-                    },
-                    "runtime_task": {
-                        "taskId": "task_run_1",
-                        "runId": "run_1"
-                    },
-                    "runtime_job": {
-                        "jobId": "job_run_1",
-                        "runId": "run_1"
-                    },
-                    "runtime_checklist": {
-                        "checklistId": "checklist_run_1",
-                        "runId": "run_1"
                     },
                     "canonical_projection": {
                         "runId": "run_1",

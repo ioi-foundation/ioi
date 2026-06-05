@@ -1568,6 +1568,11 @@ function runReceipts() {
     /RUNTIME_STATE_TRANSITION_SCHEMA_VERSION/.test(agentgresAdmissionCore) &&
       /RuntimeStateTransitionRequest/.test(agentgresAdmissionCore) &&
       /plan_runtime_state_transition/.test(agentgresAdmissionCore) &&
+      /runtime_run_state_hash/.test(agentgresAdmissionCore) &&
+      /runtime_task_state_hash/.test(agentgresAdmissionCore) &&
+      /runtime_task_record_for_run/.test(agentgresAdmissionCore) &&
+      /runtime_job_record_for_run/.test(agentgresAdmissionCore) &&
+      /runtime_checklist_record_for_run/.test(agentgresAdmissionCore) &&
       /runtime_state_transition_requires_expected_heads_state_root_and_receipts/.test(agentgresAdmissionCore) &&
       /plan_runtime_run_state_transition/.test(bridgeModule) &&
       /rust_runtime_agentgres_transition_command/.test(bridgeModule) &&
@@ -1579,7 +1584,13 @@ function runReceipts() {
       /currentRunStateTransition/.test(runtimeDaemonIndex) &&
       /planRunStateTransition\(request\)/.test(runtimeDaemonIndex) &&
       /planRunStateTransition\(store, run, operationKind/.test(threadPersistence) &&
+      /run,\s+projection_ref/s.test(threadPersistence) &&
+      !/run_state_hash:\s*runStateHash/.test(threadPersistence) &&
+      !/task_state_hash:\s*runStateHash/.test(threadPersistence) &&
       /agentgresTransition/.test(threadPersistence) &&
+      /Object\.hasOwn\(store\.transitionRequests\[0\], "run_state_hash"\), false/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
       /thread persistence chains run-state transitions from the previous persisted head/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
@@ -1606,6 +1617,9 @@ function runReceipts() {
       /StorageBackendWriteProposal/.test(agentgresAdmissionCore) &&
       /RuntimeStateRecordMaterializationRequest/.test(agentgresAdmissionCore) &&
       /materialize_runtime_state_records/.test(agentgresAdmissionCore) &&
+      /runtime_task_record_for_run/.test(agentgresAdmissionCore) &&
+      /runtime_job_record_for_run/.test(agentgresAdmissionCore) &&
+      /runtime_checklist_record_for_run/.test(agentgresAdmissionCore) &&
       /RuntimeStateStorageWriteSetRequest/.test(agentgresAdmissionCore) &&
       /plan_runtime_state_storage_writes/.test(agentgresAdmissionCore) &&
       /RuntimeStateRecordMaterializationRequest/.test(runtimeKernelModule) &&
@@ -1642,12 +1656,18 @@ function runReceipts() {
       /planRuntimeStateStorageWrites\(request\)/.test(runtimeDaemonIndex) &&
       !/admitRuntimeStateStorageWrite/.test(runtimeDaemonIndex) &&
       /materializeRunStateRecords/.test(threadPersistence) &&
+      !/runtime_task:/.test(threadPersistence) &&
+      !/runtime_job:/.test(threadPersistence) &&
+      !/runtime_checklist:/.test(threadPersistence) &&
       /planRunStateStorageWrites/.test(threadPersistence) &&
       /writeJsonWithPlannedStorage/.test(threadPersistence) &&
       /RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION/.test(threadPersistence) &&
       /RUNTIME_STATE_STORAGE_WRITE_SET_SCHEMA_VERSION/.test(threadPersistence) &&
       /RUNTIME_STATE_STORAGE_BACKEND_REF/.test(threadPersistence) &&
       /materializationRequests/.test(read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs")) &&
+      /Object\.hasOwn\(store\.materializationRequests\[0\], "runtime_task"\), false/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
       /storageWriteSetRequests/.test(read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs")) &&
       /materializes records and plans storage write set in Rust/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
@@ -1672,6 +1692,9 @@ function runReceipts() {
       /materializeRunStateRecords\(store, run/.test(writeRunRecordBody) &&
       /planRunStateStorageWrites\(store, run, stateRecords\)/.test(writeRunRecordBody) &&
       /writeJsonWithPlannedStorage\(store, record, plannedStorage, writeJson\)/.test(writeRunRecordBody) &&
+      !/runtimeTaskRecordForRun/.test(writeRunRecordBody) &&
+      !/runtimeJobRecordForRun/.test(writeRunRecordBody) &&
+      !/runtimeChecklistRecordForRun/.test(writeRunRecordBody) &&
       !/stateRecords\.push/.test(writeRunRecordBody) &&
       /materializationRequests\[0\]\.canonical_projection/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),

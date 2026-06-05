@@ -175,12 +175,7 @@ function normalizeTransitionRef(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function planRunStateTransition(store, run, operationKind, {
-  runtimeTask,
-  runtimeJob,
-  runtimeChecklist,
-  terminalEventTypes,
-}) {
+function planRunStateTransition(store, run, operationKind) {
   const previous = previousRunStateTransition(store, run.id);
   const expectedHead =
     normalizeTransitionRef(previous?.resulting_head) ??
@@ -197,28 +192,7 @@ function planRunStateTransition(store, run, operationKind, {
     operation_kind: operationKind,
     expected_heads: [expectedHead],
     state_root_before: stateRootBefore,
-    run_state_hash: runStateHash({
-      id: run.id,
-      agentId: run.agentId,
-      status: run.status,
-      mode: run.mode,
-      createdAt: run.createdAt,
-      updatedAt: run.updatedAt,
-      eventCount: run.events.length,
-      terminalEventCount: terminalEventCount(run.events, terminalEventTypes),
-      traceBundleId: run.trace.traceBundleId,
-    }),
-    task_state_hash: runStateHash({
-      runtimeTask,
-      runtimeJob,
-      runtimeChecklist,
-      taskState: run.trace.taskState,
-      postconditions: run.trace.postconditions,
-      semanticImpact: run.trace.semanticImpact,
-      stopCondition: run.trace.stopCondition,
-      scorecard: run.trace.scorecard,
-      qualityLedger: run.trace.qualityLedger,
-    }),
+    run,
     projection_ref: `projection://runtime/runs/${safeAgentgresComponent(run.id)}`,
     projection_watermark: projectionWatermark,
     receipt_refs: run.receipts.map((receipt) => receipt.id).filter(Boolean),
@@ -252,9 +226,6 @@ function planRunStateStorageWrites(store, run, records) {
 }
 
 function materializeRunStateRecords(store, run, {
-  runtimeTask,
-  runtimeJob,
-  runtimeChecklist,
   agentgresTransition,
 }) {
   if (typeof store.materializeRuntimeStateRecords !== "function") {
@@ -264,9 +235,6 @@ function materializeRunStateRecords(store, run, {
     schema_version: RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION,
     run_id: run.id,
     run,
-    runtime_task: runtimeTask,
-    runtime_job: runtimeJob,
-    runtime_checklist: runtimeChecklist,
     canonical_projection: store.canonicalProjection(run.id),
     agentgres_transition: agentgresTransition,
   };
@@ -458,25 +426,10 @@ export function writeSubagentRecord(store, subagent, operationKind, deps = {}) {
 
 export function writeRunRecord(store, run, operationKind, deps = {}) {
   const {
-    runtimeChecklistRecordForRun,
-    runtimeJobRecordForRun,
-    runtimeTaskRecordForRun,
-    terminalEventTypes,
     writeJson,
   } = deps;
-  const runtimeTask = runtimeTaskRecordForRun(run);
-  const runtimeJob = runtimeJobRecordForRun(run);
-  const runtimeChecklist = runtimeChecklistRecordForRun(run);
-  const agentgresTransition = planRunStateTransition(store, run, operationKind, {
-    runtimeTask,
-    runtimeJob,
-    runtimeChecklist,
-    terminalEventTypes,
-  });
+  const agentgresTransition = planRunStateTransition(store, run, operationKind);
   const materializedRecords = materializeRunStateRecords(store, run, {
-    runtimeTask,
-    runtimeJob,
-    runtimeChecklist,
     agentgresTransition,
   });
   const stateRecords = materializedRecords.records;
