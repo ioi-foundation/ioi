@@ -422,7 +422,10 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(result.responseId, "resp.custom");
   assert.equal(result.receipt.kind, "model_invocation");
   assert.equal(result.receipt.id, "receipt.1.model_invocation");
-  assert.equal(result.receipt.details.routeId, "route.local-first");
+  assert.equal(result.receipt.details.route_id, "route.local-first");
+  assert.equal(result.receipt.details.selected_model, "model.local");
+  assert.equal(result.receipt.details.endpoint_id, "endpoint.local");
+  assert.deepEqual(result.receipt.details.tool_receipt_ids, ["receipt.tool"]);
   assert.equal(result.receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/1");
   assert.equal(result.receipt.details.model_mount_invocation_admission.route_decision_ref, "model_mount://route_decision/test");
   assert.equal(result.receipt.details.model_mount_provider_execution_ref, "model_mount://provider_execution/1");
@@ -438,6 +441,10 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(result.receipt.details.previous_response_id, null);
   assert.equal(Object.hasOwn(result, "compatTranslation"), false);
   assert.equal(Object.hasOwn(result.receipt.details, "compatTranslation"), false);
+  assert.equal(Object.hasOwn(result.receipt.details, "routeId"), false);
+  assert.equal(Object.hasOwn(result.receipt.details, "selectedModel"), false);
+  assert.equal(Object.hasOwn(result.receipt.details, "endpointId"), false);
+  assert.equal(Object.hasOwn(result.receipt.details, "toolReceiptIds"), false);
   assert.equal(Object.hasOwn(result.receipt.details, "previousResponseId"), false);
   assert.equal(Object.hasOwn(result.receipt.details, "modelMountReceiptBindingRef"), false);
   assert.equal(Object.hasOwn(result.receipt.details, "modelMountAgentgresAdmission"), false);
@@ -527,10 +534,14 @@ test("invokeModel routes native-local non-stream provider invocation through Rus
     state.providerInvocationRequests[0].backend_ref,
     "backend.autopilot.native-local.fixture",
   );
-  assert.equal(result.receipt.details.providerResponseKind, "rust_model_mount.native_local");
-  assert.equal(result.receipt.details.backendId, "backend.autopilot.native-local.fixture");
-  assert.equal(result.receipt.details.selectedBackend, "backend.autopilot.native-local.fixture");
-  assert.ok(result.receipt.details.backendEvidenceRefs.includes("rust_model_mount_native_local_backend"));
+  assert.equal(result.receipt.details.provider_response_kind, "rust_model_mount.native_local");
+  assert.equal(result.receipt.details.backend_id, "backend.autopilot.native-local.fixture");
+  assert.equal(result.receipt.details.selected_backend, "backend.autopilot.native-local.fixture");
+  assert.ok(result.receipt.details.backend_evidence_refs.includes("rust_model_mount_native_local_backend"));
+  assert.equal(Object.hasOwn(result.receipt.details, "providerResponseKind"), false);
+  assert.equal(Object.hasOwn(result.receipt.details, "backendId"), false);
+  assert.equal(Object.hasOwn(result.receipt.details, "selectedBackend"), false);
+  assert.equal(Object.hasOwn(result.receipt.details, "backendEvidenceRefs"), false);
 });
 
 test("invokeModel reuses identical in-flight provider execution and marks coalesced receipts", async () => {
@@ -562,7 +573,8 @@ test("invokeModel reuses identical in-flight provider execution and marks coales
   assert.equal(firstResult.receipt.kind, "model_invocation");
   assert.equal(secondResult.receipt.kind, "model_invocation_coalesced");
   assert.equal(secondResult.receipt.details.coalesced, true);
-  assert.equal(secondResult.receipt.details.coalesceKeyHash, "hash:coalesce-key");
+  assert.equal(secondResult.receipt.details.coalesce_key_hash, "hash:coalesce-key");
+  assert.equal(Object.hasOwn(secondResult.receipt.details, "coalesceKeyHash"), false);
   assert.equal(secondResult.receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/2");
   assert.equal(secondResult.receipt.details.model_mount_provider_execution_ref, "model_mount://provider_execution/1");
   assert.equal(secondResult.receipt.details.model_mount_receipt_binding_ref, "sha256:binding-2");
@@ -618,8 +630,8 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(result.providerResult.streamKind, "openai_responses_native_local");
   assert.equal(result.providerResult.streamChunks.some((chunk) => chunk.includes("\"done\":true")), true);
   assert.equal(result.invocation.responseId, "resp.stream");
-  assert.equal(result.invocation.receipt.details.streamStatus, "started");
-  assert.equal(result.invocation.receipt.details.streamSource, "provider_native");
+  assert.equal(result.invocation.receipt.details.stream_status, "started");
+  assert.equal(result.invocation.receipt.details.stream_source, "provider_native");
   assert.equal(result.invocation.receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/1");
   assert.equal(result.invocation.receipt.details.model_mount_provider_execution_ref, "model_mount://provider_execution/1");
   assert.equal(result.invocation.receipt.details.model_mount_provider_result_admission_ref, "model_mount://provider_result/1");
@@ -646,7 +658,10 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(state.providerResultRequests[0].stream_status, "started");
   assert.equal(state.providerResultRequests[0].output_text, "rust stream answer");
   assert.equal(state.providerResultRequests[0].provider_response_kind, "rust_model_mount.native_local.stream");
-  assert.equal(result.invocation.receipt.details.providerResponseKind, "rust_model_mount.native_local.stream");
+  assert.equal(result.invocation.receipt.details.provider_response_kind, "rust_model_mount.native_local.stream");
+  assert.equal(Object.hasOwn(result.invocation.receipt.details, "streamStatus"), false);
+  assert.equal(Object.hasOwn(result.invocation.receipt.details, "streamSource"), false);
+  assert.equal(Object.hasOwn(result.invocation.receipt.details, "providerResponseKind"), false);
   assert.equal(state.routes.get("route.local-first").lastReceiptId, result.invocation.receipt.id);
 });
 
@@ -950,18 +965,18 @@ test("modelMountInvocationAdmissionRequestForReceipt binds route decision and in
     capability: "chat",
     kind: "responses",
     receiptDetails: {
-      routeId: "route.local-first",
-      providerId: "provider.local",
-      endpointId: "endpoint.local",
-      selectedModel: "model.local",
-      policyHash: "policy",
-      inputHash: "input",
-      outputHash: "output",
-      grantId: "grant://wallet/model-chat",
-      toolReceiptIds: ["receipt.tool"],
-      providerAuthEvidenceRefs: ["provider.auth"],
-      backendEvidenceRefs: ["backend.evidence"],
-      responseId: "resp.1",
+      route_id: "route.local-first",
+      provider_id: "provider.local",
+      endpoint_id: "endpoint.local",
+      selected_model: "model.local",
+      policy_hash: "policy",
+      input_hash: "input",
+      output_hash: "output",
+      grant_id: "grant://wallet/model-chat",
+      tool_receipt_ids: ["receipt.tool"],
+      provider_auth_evidence_refs: ["provider.auth"],
+      backend_evidence_refs: ["backend.evidence"],
+      response_id: "resp.1",
       previous_response_id: "resp.0",
     },
     receiptId: "receipt.invoke",
@@ -1293,15 +1308,15 @@ test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount Ste
     capability: "responses",
     kind: "responses",
     receiptDetails: {
-      routeId: "route.local-first",
-      providerId: "provider.local",
-      endpointId: "endpoint.local",
-      selectedModel: "model.local",
-      policyHash: "sha256:policy",
-      inputHash: "sha256:input",
-      outputHash: "sha256:output",
-      grantId: "grant://wallet/model-chat",
-      responseId: "resp.1",
+      route_id: "route.local-first",
+      provider_id: "provider.local",
+      endpoint_id: "endpoint.local",
+      selected_model: "model.local",
+      policy_hash: "sha256:policy",
+      input_hash: "sha256:input",
+      output_hash: "sha256:output",
+      grant_id: "grant://wallet/model-chat",
+      response_id: "resp.1",
     },
     receiptId: "receipt.invoke",
     receiptKind: "model_invocation",
@@ -1322,8 +1337,8 @@ test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount Ste
     },
     admissionRequest,
     receiptDetails: {
-      inputHash: "sha256:input",
-      outputHash: "sha256:output",
+      input_hash: "sha256:input",
+      output_hash: "sha256:output",
     },
     receiptId: "receipt.invoke",
     receiptKind: "model_invocation",
@@ -1336,8 +1351,8 @@ test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount Ste
     admissionRequest,
     agentgresTransition,
     receiptDetails: {
-      providerAuthEvidenceRefs: ["provider.auth"],
-      backendEvidenceRefs: ["backend.evidence"],
+      provider_auth_evidence_refs: ["provider.auth"],
+      backend_evidence_refs: ["backend.evidence"],
     },
     receiptId: "receipt.invoke",
   });

@@ -358,8 +358,8 @@ export async function startModelStream(state, { authorization, requiredScope, ki
       ephemeralMcp,
       includeInvocationFields: false,
     }),
-    streamStatus: "started",
-    streamSource: "provider_native",
+    stream_status: "started",
+    stream_source: "provider_native",
   }, modelMountProviderExecutionAdmission);
   const modelMountInvocationAdmissionRequest = modelMountInvocationAdmissionRequestForReceipt({
     body,
@@ -474,23 +474,23 @@ export function modelMountInvocationAdmissionRequestForReceipt({
     route_decision_ref: routeDecisionRef,
     route_receipt_ref: routeReceiptRef,
     invocation_receipt_ref: invocationReceiptRef,
-    route_ref: requiredStringRef("route.id", selection?.route?.id ?? receiptDetails.routeId),
-    provider_ref: requiredStringRef("provider.id", selection?.provider?.id ?? receiptDetails.providerId),
-    endpoint_ref: requiredStringRef("endpoint.id", selection?.endpoint?.id ?? receiptDetails.endpointId),
-    model_ref: requiredStringRef("endpoint.modelId", selection?.endpoint?.modelId ?? receiptDetails.selectedModel),
+    route_ref: requiredStringRef("route.id", selection?.route?.id ?? receiptDetails.route_id),
+    provider_ref: requiredStringRef("provider.id", selection?.provider?.id ?? receiptDetails.provider_id),
+    endpoint_ref: requiredStringRef("endpoint.id", selection?.endpoint?.id ?? receiptDetails.endpoint_id),
+    model_ref: requiredStringRef("endpoint.modelId", selection?.endpoint?.modelId ?? receiptDetails.selected_model),
     capability: requiredStringRef("capability", capability),
     invocation_kind: requiredStringRef("kind", kind),
-    policy_hash: policyHashRef(receiptDetails.policyHash),
-    input_hash: hashRef(receiptDetails.inputHash, "input_hash"),
-    output_hash: hashRef(receiptDetails.outputHash, "output_hash"),
+    policy_hash: policyHashRef(receiptDetails.policy_hash),
+    input_hash: hashRef(receiptDetails.input_hash, "input_hash"),
+    output_hash: hashRef(receiptDetails.output_hash, "output_hash"),
     idempotency_key: `${receiptKind}:${receiptId}`,
     receipt_refs: uniqueRefs([
       routeReceiptRef,
       invocationReceiptRef,
-      ...(Array.isArray(receiptDetails.toolReceiptIds) ? receiptDetails.toolReceiptIds.map(receiptRef) : []),
+      ...(Array.isArray(receiptDetails.tool_receipt_ids) ? receiptDetails.tool_receipt_ids.map(receiptRef) : []),
     ]),
     authority_grant_refs: uniqueRefs([
-      optionalRef(receiptDetails.grantId),
+      optionalRef(receiptDetails.grant_id),
       ...(Array.isArray(body.authority_grant_refs) ? body.authority_grant_refs : []),
       ...(Array.isArray(body.authorityGrantRefs) ? body.authorityGrantRefs : []),
     ]),
@@ -498,9 +498,9 @@ export function modelMountInvocationAdmissionRequestForReceipt({
       ...(Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : []),
       ...(Array.isArray(body.authorityReceiptRefs) ? body.authorityReceiptRefs : []),
     ]),
-    provider_auth_evidence_refs: uniqueRefs(receiptDetails.providerAuthEvidenceRefs ?? []),
-    backend_evidence_refs: uniqueRefs(receiptDetails.backendEvidenceRefs ?? []),
-    tool_receipt_refs: uniqueRefs(receiptDetails.toolReceiptIds ?? []),
+    provider_auth_evidence_refs: uniqueRefs(receiptDetails.provider_auth_evidence_refs ?? []),
+    backend_evidence_refs: uniqueRefs(receiptDetails.backend_evidence_refs ?? []),
+    tool_receipt_refs: uniqueRefs(receiptDetails.tool_receipt_ids ?? []),
     custody_ref: optionalRef(
       body.custody_ref ??
         body.custodyRef ??
@@ -527,9 +527,9 @@ export function modelMountInvocationAdmissionRequestForReceipt({
     ),
     workflow_graph_ref: optionalRef(routeReceipt?.details?.workflow_graph_id),
     workflow_node_ref: optionalRef(routeReceipt?.details?.workflow_node_id),
-    response_ref: optionalRef(receiptDetails.responseId),
+    response_ref: optionalRef(receiptDetails.response_id),
     previous_response_ref: optionalRef(receiptDetails.previous_response_id),
-    stream_status: optionalRef(streamStatus ?? receiptDetails.streamStatus),
+    stream_status: optionalRef(streamStatus ?? receiptDetails.stream_status),
   };
 }
 
@@ -812,8 +812,8 @@ export function modelMountInvocationReceiptBindingRequestForReceipt({
       "rust_model_mount_core",
       admission?.invocation_admission_ref,
       ...(admission?.evidence_refs ?? []),
-      ...(receiptDetails.providerAuthEvidenceRefs ?? []),
-      ...(receiptDetails.backendEvidenceRefs ?? []),
+      ...(receiptDetails.provider_auth_evidence_refs ?? []),
+      ...(receiptDetails.backend_evidence_refs ?? []),
     ]),
   });
   return {
@@ -855,8 +855,8 @@ export function modelMountInvocationAgentgresTransitionForReceipt(
     routeDecisionRef: admissionRequest?.route_decision_ref ?? null,
     invocationAdmissionRef: admission?.invocation_admission_ref ?? null,
     invocationAdmissionHash: admission?.invocation_admission_hash ?? null,
-    inputHash: admissionRequest?.input_hash ?? receiptDetails.inputHash ?? null,
-    outputHash: admissionRequest?.output_hash ?? receiptDetails.outputHash ?? null,
+    inputHash: admissionRequest?.input_hash ?? receiptDetails.input_hash ?? null,
+    outputHash: admissionRequest?.output_hash ?? receiptDetails.output_hash ?? null,
   })}`;
   return {
     operationId,
@@ -1217,29 +1217,29 @@ function invocationReceiptDetails({
   includeInvocationFields = true,
 }) {
   const details = {
-    routeId: selection.route.id,
-    routeReceiptId: routeReceipt.id,
-    selectedModel: selection.endpoint.modelId,
-    endpointId: selection.endpoint.id,
-    providerId: selection.endpoint.providerId,
-    instanceId: instance.id,
+    route_id: selection.route.id,
+    route_receipt_id: routeReceipt.id,
+    selected_model: selection.endpoint.modelId,
+    endpoint_id: selection.endpoint.id,
+    provider_id: selection.endpoint.providerId,
+    instance_id: instance.id,
     backend: providerResult.backend ?? selection.endpoint.apiFormat,
-    backendId: providerResult.backendId ?? instance.backendId ?? selection.endpoint.backendId ?? null,
-    selectedBackend: providerResult.backendId ?? instance.backendId ?? selection.endpoint.backendId ?? null,
-    policyHash: hash(body.model_policy ?? body.modelPolicy ?? {}),
-    grantId: token.grantId,
-    tokenCount,
-    latencyMs,
-    inputHash: hash(input),
-    outputHash: hash(outputText),
-    providerResponseKind: providerResult.providerResponseKind ?? null,
-    backendProcess: providerResult.backendProcess ?? instance.backendProcess ?? null,
-    backendProcessId: providerResult.backendProcess?.id ?? instance.backendProcessId ?? null,
-    backendProcessPidHash: providerResult.backendProcess?.pidHash ?? instance.backendProcessPidHash ?? null,
-    backendEvidenceRefs: providerResult.backendEvidenceRefs ?? [],
-    authVaultRefHash: providerResult.authVaultRefHash ?? null,
-    providerAuthEvidenceRefs: providerResult.providerAuthEvidenceRefs ?? [],
-    providerAuthHeaderNames: providerResult.providerAuthHeaderNames ?? [],
+    backend_id: providerResult.backendId ?? instance.backendId ?? selection.endpoint.backendId ?? null,
+    selected_backend: providerResult.backendId ?? instance.backendId ?? selection.endpoint.backendId ?? null,
+    policy_hash: hash(body.model_policy ?? body.modelPolicy ?? {}),
+    grant_id: token.grantId,
+    token_count: tokenCount,
+    latency_ms: latencyMs,
+    input_hash: hash(input),
+    output_hash: hash(outputText),
+    provider_response_kind: providerResult.providerResponseKind ?? null,
+    backend_process: providerResult.backendProcess ?? instance.backendProcess ?? null,
+    backend_process_id: providerResult.backendProcess?.id ?? instance.backendProcessId ?? null,
+    backend_process_pid_hash: providerResult.backendProcess?.pidHash ?? instance.backendProcessPidHash ?? null,
+    backend_evidence_refs: providerResult.backendEvidenceRefs ?? [],
+    auth_vault_ref_hash: providerResult.authVaultRefHash ?? null,
+    provider_auth_evidence_refs: providerResult.providerAuthEvidenceRefs ?? [],
+    provider_auth_header_names: providerResult.providerAuthHeaderNames ?? [],
     model_mount_provider_result_admission_schema_version:
       providerResult.model_mount_provider_result_admission_schema_version ?? null,
     model_mount_provider_result_admission_ref: providerResult.model_mount_provider_result_admission_ref ?? null,
@@ -1251,17 +1251,17 @@ function invocationReceiptDetails({
     model_mount_provider_result_admission_evidence_refs:
       providerResult.model_mount_provider_result_admission_evidence_refs ?? [],
     model_mount_provider_result_admission: providerResult.model_mount_provider_result_admission ?? null,
-    toolReceiptIds: ephemeralMcp.toolReceiptIds,
-    ephemeralMcpServerIds: ephemeralMcp.serverIds,
-    responseId,
+    tool_receipt_ids: ephemeralMcp.toolReceiptIds,
+    ephemeral_mcp_server_ids: ephemeralMcp.serverIds,
+    response_id: responseId,
     previous_response_id: previousResponseId,
     continuation: continuationSafety,
   };
   if (includeInvocationFields) {
-    details.sendOptions = body.send_options ?? body.sendOptions ?? null;
+    details.send_options = body.send_options ?? body.sendOptions ?? null;
     details.memory = body.memory ?? body.send_options?.memory ?? body.sendOptions?.memory ?? null;
     details.coalesced = coalesced;
-    details.coalesceKeyHash = coalesceKey ? hash(coalesceKey) : null;
+    details.coalesce_key_hash = coalesceKey ? hash(coalesceKey) : null;
   }
   return details;
 }

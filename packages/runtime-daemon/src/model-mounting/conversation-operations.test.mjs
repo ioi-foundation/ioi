@@ -262,11 +262,14 @@ test("recordModelStreamCompleted emits stream receipt and finalizes conversation
 
   assert.equal(receipt.kind, "model_invocation_stream_completed");
   assert.equal(receipt.id, "receipt.1.model_invocation_stream_completed");
-  assert.equal(receipt.details.outputHash, "hash:stream answer");
+  assert.equal(receipt.details.output_hash, "hash:stream answer");
   assert.equal(receipt.details.previous_response_id, null);
   assert.equal(Object.hasOwn(receipt.details, "previousResponseId"), false);
-  assert.deepEqual(receipt.details.toolReceiptIds, ["receipt.tool"]);
-  assert.equal(receipt.details.providerStreamShapeSummary.framesForwarded, 3);
+  assert.deepEqual(receipt.details.tool_receipt_ids, ["receipt.tool"]);
+  assert.equal(receipt.details.provider_stream_shape_summary.framesForwarded, 3);
+  assert.equal(Object.hasOwn(receipt.details, "outputHash"), false);
+  assert.equal(Object.hasOwn(receipt.details, "toolReceiptIds"), false);
+  assert.equal(Object.hasOwn(receipt.details, "providerStreamShapeSummary"), false);
   assert.equal(receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/1");
   assert.equal(receipt.details.model_mount_receipt_binding_ref, "sha256:binding-1");
   assert.equal(receipt.details.model_mount_agentgres_operation_ref, "agentgres://model-mounting/operation-log/op_00000001_model_invocation_stream_completed");

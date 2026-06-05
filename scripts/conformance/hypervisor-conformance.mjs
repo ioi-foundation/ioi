@@ -388,6 +388,9 @@ function runBridge() {
   const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     : "";
+  const modelInvocationOpsTest = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
+    : "";
   const modelInvocationReceiptDetailsObject =
     modelInvocationOps.match(/const details = \{[\s\S]*?\n  \};/)?.[0] ?? "";
   const modelMountingValidation = exists("packages/runtime-daemon/src/model-mounting/validation.mjs")
@@ -411,6 +414,11 @@ function runBridge() {
   const modelConversationOps = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
     : "";
+  const modelConversationOpsTest = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
+    : "";
+  const modelStreamCompletionReceiptDetailsObject =
+    modelConversationOps.match(/const receiptDetails = \{[\s\S]*?\n  \};/)?.[0] ?? "";
   const modelSchemaRelations = exists("packages/runtime-daemon/src/model-mounting/schema-relations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/schema-relations.mjs")
     : "";
@@ -1256,6 +1264,90 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/validation.test.mjs",
     ],
     "Phase 3/10 is pending: receipt-gate route/detail validation must use canonical snake_case request and receipt metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-invocation-receipt-detail-aliases-retired",
+    /^ {4}route_id:\s*selection\.route\.id/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}route_receipt_id:\s*routeReceipt\.id/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}selected_model:\s*selection\.endpoint\.modelId/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}endpoint_id:\s*selection\.endpoint\.id/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}provider_id:\s*selection\.endpoint\.providerId/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}instance_id:\s*instance\.id/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}backend_id:\s*providerResult\.backendId/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}selected_backend:\s*providerResult\.backendId/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}policy_hash:\s*hash/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}grant_id:\s*token\.grantId/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}token_count:\s*tokenCount/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}latency_ms:\s*latencyMs/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}input_hash:\s*hash\(input\)/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}output_hash:\s*hash\(outputText\)/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}provider_response_kind:\s*providerResult\.providerResponseKind/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}backend_evidence_refs:\s*providerResult\.backendEvidenceRefs/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}provider_auth_evidence_refs:\s*providerResult\.providerAuthEvidenceRefs/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}tool_receipt_ids:\s*ephemeralMcp\.toolReceiptIds/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}ephemeral_mcp_server_ids:\s*ephemeralMcp\.serverIds/m.test(modelInvocationReceiptDetailsObject) &&
+      /^ {4}response_id:\s*responseId/m.test(modelInvocationReceiptDetailsObject) &&
+      /details\.send_options\s*=\s*body\.send_options/.test(modelInvocationOps) &&
+      /details\.coalesce_key_hash\s*=\s*coalesceKey/.test(modelInvocationOps) &&
+      !/^ {4}(?:routeId|routeReceiptId|selectedModel|endpointId|providerId|instanceId|backendId|selectedBackend|policyHash|grantId|tokenCount|latencyMs|inputHash|outputHash|providerResponseKind|backendProcess|backendProcessId|backendProcessPidHash|backendEvidenceRefs|authVaultRefHash|providerAuthEvidenceRefs|providerAuthHeaderNames|toolReceiptIds|ephemeralMcpServerIds|responseId)\s*[:,]/m.test(
+        modelInvocationReceiptDetailsObject,
+      ) &&
+      !/details\.(?:sendOptions|coalesceKeyHash)\s*=/.test(modelInvocationOps) &&
+      /receiptDetails\.route_id/.test(modelInvocationOps) &&
+      /receiptDetails\.provider_id/.test(modelInvocationOps) &&
+      /receiptDetails\.endpoint_id/.test(modelInvocationOps) &&
+      /receiptDetails\.selected_model/.test(modelInvocationOps) &&
+      /receiptDetails\.policy_hash/.test(modelInvocationOps) &&
+      /receiptDetails\.input_hash/.test(modelInvocationOps) &&
+      /receiptDetails\.output_hash/.test(modelInvocationOps) &&
+      /receiptDetails\.tool_receipt_ids/.test(modelInvocationOps) &&
+      /receiptDetails\.grant_id/.test(modelInvocationOps) &&
+      /receiptDetails\.provider_auth_evidence_refs/.test(modelInvocationOps) &&
+      /receiptDetails\.backend_evidence_refs/.test(modelInvocationOps) &&
+      /receiptDetails\.response_id/.test(modelInvocationOps) &&
+      /receiptDetails\.stream_status/.test(modelInvocationOps) &&
+      !/receiptDetails\.(?:routeId|providerId|endpointId|selectedModel|policyHash|inputHash|outputHash|toolReceiptIds|grantId|providerAuthEvidenceRefs|backendEvidenceRefs|responseId|streamStatus)/.test(
+        modelInvocationOps,
+      ) &&
+      /^ {4}stream_kind:\s*streamKind/m.test(modelStreamCompletionReceiptDetailsObject) &&
+      /^ {4}stream_source:\s*"provider_native"/m.test(modelStreamCompletionReceiptDetailsObject) &&
+      /^ {4}invocation_receipt_id:\s*invocation\.receipt\.id/m.test(modelStreamCompletionReceiptDetailsObject) &&
+      /^ {4}route_id:\s*invocation\.route\.id/m.test(modelStreamCompletionReceiptDetailsObject) &&
+      /^ {4}selected_model:\s*invocation\.model/m.test(modelStreamCompletionReceiptDetailsObject) &&
+      /^ {4}endpoint_id:\s*invocation\.endpoint\.id/m.test(modelStreamCompletionReceiptDetailsObject) &&
+      /^ {4}backend_id:\s*invocation\.instance\.backendId/m.test(modelStreamCompletionReceiptDetailsObject) &&
+      /^ {4}tool_receipt_ids:\s*invocation\.toolReceiptIds/m.test(modelStreamCompletionReceiptDetailsObject) &&
+      /^ {4}output_hash:\s*stableHash\(outputText\)/m.test(modelStreamCompletionReceiptDetailsObject) &&
+      /^ {4}provider_stream_shape_summary:\s*providerStreamShapeSummary/m.test(modelStreamCompletionReceiptDetailsObject) &&
+      /^ {4}response_id:\s*invocation\.responseId/m.test(modelStreamCompletionReceiptDetailsObject) &&
+      !/^ {4}(?:streamKind|streamSource|invocationReceiptId|routeId|selectedModel|endpointId|providerId|instanceId|backendId|selectedBackend|providerResponseKind|providerAuthEvidenceRefs|backendEvidenceRefs|toolReceiptIds|tokenCount|policyHash|inputHash|outputHash|chunksForwarded|finishReason|providerStreamShapeSummary|responseId)\s*[:,]/m.test(
+        modelStreamCompletionReceiptDetailsObject,
+      ) &&
+      /receipt\.details\?\.instance_id/.test(modelProjections) &&
+      /receipt\.details\?\.tool_receipt_ids/.test(modelProjections) &&
+      !/receipt\.details\?\.(?:instanceId|toolReceiptIds)/.test(modelProjections) &&
+      /receipt\.details\?\.backend_id/.test(modelWorkflowNode) &&
+      /receipt\.details\?\.send_options/.test(modelWorkflowNode) &&
+      /receipt\.details\?\.backend_id/.test(openAiCompatRoutes) &&
+      !/receipt\.details\?\.(?:backendId|sendOptions|selectedBackend|providerResponseKind|backendEvidenceRefs)/.test(
+        modelWorkflowNode + openAiCompatRoutes,
+      ) &&
+      /Object\.hasOwn\(result\.receipt\.details,\s*"routeId"\),\s*false/.test(modelInvocationOpsTest) &&
+      /Object\.hasOwn\(result\.receipt\.details,\s*"toolReceiptIds"\),\s*false/.test(modelInvocationOpsTest) &&
+      /Object\.hasOwn\(secondResult\.receipt\.details,\s*"coalesceKeyHash"\),\s*false/.test(modelInvocationOpsTest) &&
+      /Object\.hasOwn\(receipt\.details,\s*"toolReceiptIds"\),\s*false/.test(modelConversationOpsTest) &&
+      /Object\.hasOwn\(receipt\.details,\s*"providerStreamShapeSummary"\),\s*false/.test(modelConversationOpsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/projections.mjs",
+      "packages/runtime-daemon/src/model-mounting/workflow-node.mjs",
+      "packages/runtime-daemon/src/openai-compat-routes.mjs",
+    ],
+    "Phase 3/10 is pending: model invocation and stream-completion receipt details must serialize canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,
@@ -2979,7 +3071,7 @@ function runReceipts() {
     "openai-provider-stream-shape-append-retired",
     !/appendOperation\?\.\(\s*"model\.provider_stream_shape_summary"/.test(openAiCompatRoutes) &&
       /providerStreamShapeSummary: finalizeOpenAiProviderStreamShape/.test(openAiCompatRoutes) &&
-      /providerStreamShapeSummary/.test(conversationOps) &&
+      /provider_stream_shape_summary/.test(conversationOps) &&
       /OpenAI provider stream shape is bound to the stream receipt without operation append/.test(
         read("packages/runtime-daemon/src/openai-compat-routes.test.mjs"),
       ),

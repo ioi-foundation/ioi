@@ -128,13 +128,13 @@ export function buildReceiptReplay(state, receiptId, { schemaVersion }) {
     endpoint: receipt.details?.endpoint_id
       ? projection.endpoints.find((endpoint) => endpoint.id === receipt.details.endpoint_id) ?? null
       : null,
-    instance: receipt.details?.instanceId
-      ? projection.instances.find((instance) => instance.id === receipt.details.instanceId) ?? null
+    instance: receipt.details?.instance_id
+      ? projection.instances.find((instance) => instance.id === receipt.details.instance_id) ?? null
       : null,
     provider: receipt.details?.provider_id
       ? projection.providers.find((provider) => provider.id === receipt.details.provider_id) ?? null
       : null,
-    toolReceipts: normalizeReceiptIds(receipt.details?.toolReceiptIds).map((toolReceiptId) => state.getReceipt(toolReceiptId)),
+    toolReceipts: normalizeReceiptIds(receipt.details?.tool_receipt_ids).map((toolReceiptId) => state.getReceipt(toolReceiptId)),
     projectionWatermark: projection.watermark,
   };
 }
