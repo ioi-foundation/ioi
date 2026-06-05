@@ -1918,6 +1918,9 @@ function runCtee() {
   const kernelModule = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
     ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
     : "";
+  const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
+    : "";
   assertCheck(
     result,
     "ctee-core-module",
@@ -1953,6 +1956,18 @@ function runCtee() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
     "Phase 6 is pending: cTEE execution must bind receipts, admit Agentgres truth, and emit Rust projection records",
+  );
+  assertCheck(
+    result,
+    "ctee-execution-bridge-command",
+    /CteePrivateWorkspaceBridgeRequest/.test(bridgeModule) &&
+      /execute_private_workspace_ctee_action/.test(bridgeModule) &&
+      /PrivateWorkspaceCteeModule/.test(bridgeModule) &&
+      /rust_ctee_private_workspace_command/.test(bridgeModule) &&
+      /accepted_receipt_append/.test(bridgeModule) &&
+      /bridge_executes_private_workspace_ctee_action_through_rust_core/.test(bridgeModule),
+    ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
+    "Phase 7 is pending: daemon command bridge must expose Rust cTEE execution with receipt/admission/projection artifacts",
   );
   return result;
 }

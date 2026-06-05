@@ -2,6 +2,7 @@ use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeRunStateCommitRequest,
     RuntimeStatePersistenceRecord, StorageBackendWriteProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::ctee::{CteeNodeTrust, PrivateWorkspaceCteeModule};
 use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountCore, ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
     ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
@@ -168,6 +169,19 @@ struct ModelMountInvocationReceiptBindingBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct CteePrivateWorkspaceBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    invocation: StepModuleInvocation,
+    node_trust: CteeNodeTrust,
+    #[serde(default)]
+    expected_heads: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -284,6 +298,11 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             bind_model_mount_invocation_receipt(request)
+        }
+        "execute_private_workspace_ctee_action" => {
+            let request: CteePrivateWorkspaceBridgeRequest = serde_json::from_value(raw_request)
+                .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            execute_private_workspace_ctee_action(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -884,6 +903,74 @@ fn bind_model_mount_invocation_receipt(
             binding_hash,
             append_hash,
         ],
+    }))
+}
+
+fn execute_private_workspace_ctee_action(
+    request: CteePrivateWorkspaceBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "execute_private_workspace_ctee_action" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    if request.invocation.module_ref.kind != StepModuleKind::PrivateWorkspaceCteeAction
+        || request.invocation.execution.backend != StepModuleBackend::CteeOperator
+    {
+        return Err(BridgeError::new(
+            "ctee_step_module_required",
+            "private workspace cTEE execution requires a ctee_operator StepModule invocation"
+                .to_string(),
+        ));
+    }
+    let record = PrivateWorkspaceCteeModule
+        .execute_and_admit(
+            &request.invocation,
+            &request.node_trust,
+            request.expected_heads,
+        )
+        .map_err(|error| BridgeError::new("ctee_execution_invalid", format!("{error:?}")))?;
+    let accepted_receipt_append = ReceiptBinder
+        .append_accepted_receipt(
+            &AcceptedReceiptAppendRequest {
+                schema_version: ACCEPTED_RECEIPT_APPEND_SCHEMA_VERSION.to_string(),
+                receipt_ref: record.receipt.receipt_ref.clone(),
+                invocation_id: record.result.invocation_id.clone(),
+                receipt_binding_ref: record.receipt_binding.binding_hash.clone(),
+                issuer: AcceptedReceiptAppendIssuer::RustReceiptCore,
+                state_root_before: record.receipt_binding.state_root_before.clone(),
+                state_root_after: record.receipt_binding.state_root_after.clone(),
+                resulting_head: record.receipt_binding.resulting_head.clone(),
+            },
+            &record.receipt_binding,
+        )
+        .map_err(|error| {
+            BridgeError::new("accepted_receipt_append_invalid", format!("{error:?}"))
+        })?;
+    let receipt_refs = record.result.receipt_refs.clone();
+    let evidence_refs = record.projection.evidence_refs.clone();
+    Ok(json!({
+        "source": "rust_ctee_private_workspace_command",
+        "backend": request.backend.unwrap_or_else(|| "ctee_operator".to_string()),
+        "record": record.clone(),
+        "receipt": record.receipt.clone(),
+        "result": record.result.clone(),
+        "receipt_binding": record.receipt_binding.clone(),
+        "accepted_receipt_append": accepted_receipt_append,
+        "agentgres_admission": record.agentgres_admission.clone(),
+        "projection_record": record.projection.clone(),
+        "receipt_refs": receipt_refs,
+        "evidence_refs": evidence_refs,
     }))
 }
 
@@ -4348,6 +4435,105 @@ mod tests {
             response["receipt_binding"]["receipt_refs"][0],
             "receipt://receipt.test"
         );
+    }
+
+    #[test]
+    fn bridge_executes_private_workspace_ctee_action_through_rust_core() {
+        let request: CteePrivateWorkspaceBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "execute_private_workspace_ctee_action",
+            "backend": "ctee_operator",
+            "invocation": {
+                "schema_version": "ioi.step_module_invocation.v1",
+                "invocation_id": "invocation://ctee.bridge.test",
+                "run_id": "run:ctee",
+                "task_id": "task:ctee",
+                "thread_id": "thread:ctee",
+                "workflow_graph_id": "workflow.ctee",
+                "workflow_node_id": "node.ctee.private-workspace",
+                "context_chamber_ref": "chamber:ctee",
+                "action_proposal_ref": "action:ctee:private-workspace",
+                "gate_result_ref": "gate:ctee:private-workspace",
+                "module_ref": {
+                    "kind": "private_workspace_ctee_action",
+                    "id": "private_workspace.mount",
+                    "version": "1",
+                    "manifest_ref": "module://ctee/private-workspace@1"
+                },
+                "actor": {
+                    "actor_id": "runtime:hypervisor-daemon",
+                    "runtime_node_ref": "node://private-workspace"
+                },
+                "authority": {
+                    "authority_grant_refs": ["grant://ctee/private-workspace"],
+                    "policy_hash": "sha256:ctee-policy",
+                    "primitive_capabilities": ["prim:private_workspace.mount"],
+                    "authority_scopes": ["scope:ctee.private_workspace"],
+                    "approval_ref": "approval://declassify"
+                },
+                "input": {
+                    "input_hash": "sha256:ctee-input",
+                    "expected_schema_ref": "schema://ctee/private-workspace/input",
+                    "context_refs": ["ctx://redacted"],
+                    "artifact_refs": ["artifact://encrypted-capsule"],
+                    "payload_refs": ["payload://sealed-private-workspace"],
+                    "state_root_before": "sha256:ctee-before",
+                    "projection_watermark": "agentgres:ctee:0",
+                    "data_plane_handle": null
+                },
+                "custody": {
+                    "privacy_profile": "private_workspace_ctee",
+                    "plaintext_policy": {
+                        "node_plaintext_allowed": false,
+                        "declassification_required": true
+                    },
+                    "custody_proof_ref": "artifact://custody-proof",
+                    "leakage_profile_ref": "artifact://leakage-profile"
+                },
+                "execution": {
+                    "backend": "ctee_operator",
+                    "idempotency_key": "idem:ctee.bridge",
+                    "deadline_ms": 300000,
+                    "resource_lease_ref": "lease://ctee",
+                    "retry_policy_ref": null
+                }
+            },
+            "node_trust": {
+                "runtime_node_ref": "node://rented-untrusted",
+                "trusted_for_plaintext": false,
+                "attestation_ref": null
+            },
+            "expected_heads": ["agentgres://ctee/private-workspace/head/before"]
+        }))
+        .expect("ctee bridge request");
+
+        let response =
+            execute_private_workspace_ctee_action(request).expect("ctee action executed");
+
+        assert_eq!(response["source"], "rust_ctee_private_workspace_command");
+        assert_eq!(response["backend"], "ctee_operator");
+        assert_eq!(response["result"]["status"], "success");
+        assert_eq!(
+            response["receipt"]["custody_proof_ref"],
+            "artifact://custody-proof"
+        );
+        assert_eq!(
+            response["receipt_binding"]["expected_heads"][0],
+            "agentgres://ctee/private-workspace/head/before"
+        );
+        assert_eq!(
+            response["accepted_receipt_append"]["receipt_ref"],
+            response["receipt"]["receipt_ref"]
+        );
+        assert_eq!(
+            response["agentgres_admission"]["operation_ref"],
+            response["result"]["agentgres_operation_refs"][0]
+        );
+        assert_eq!(
+            response["projection_record"]["component_kind"],
+            "PrivateWorkspaceCteeAction"
+        );
+        assert_eq!(response["projection_record"]["status"], "live");
     }
 
     #[test]
