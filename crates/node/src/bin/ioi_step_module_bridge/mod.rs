@@ -3,6 +3,9 @@ use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     RuntimeStatePersistenceRecord, StorageBackendWriteProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::ctee::{CteeNodeTrust, PrivateWorkspaceCteeModule};
+use ioi_services::agentic::runtime::kernel::marketplace::{
+    WorkerServicePackageInvocationCore, WorkerServicePackageInvocationRequest,
+};
 use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountCore, ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
     ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
@@ -182,6 +185,16 @@ struct CteePrivateWorkspaceBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct WorkerServicePackageInvocationBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: WorkerServicePackageInvocationRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -303,6 +316,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
             let request: CteePrivateWorkspaceBridgeRequest = serde_json::from_value(raw_request)
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             execute_private_workspace_ctee_action(request)
+        }
+        "admit_worker_service_package_invocation" => {
+            let request: WorkerServicePackageInvocationBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            admit_worker_service_package_invocation(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -971,6 +990,71 @@ fn execute_private_workspace_ctee_action(
         "projection_record": record.projection.clone(),
         "receipt_refs": receipt_refs,
         "evidence_refs": evidence_refs,
+    }))
+}
+
+fn admit_worker_service_package_invocation(
+    request: WorkerServicePackageInvocationBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "admit_worker_service_package_invocation" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = WorkerServicePackageInvocationCore
+        .admit_invocation(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "worker_service_package_invocation_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    let receipt_ref = record.receipt_refs.first().cloned().ok_or_else(|| {
+        BridgeError::new(
+            "receipt_ref_required",
+            "worker/service package invocation requires a receipt ref".to_string(),
+        )
+    })?;
+    let accepted_receipt_append = ReceiptBinder
+        .append_accepted_receipt(
+            &AcceptedReceiptAppendRequest {
+                schema_version: ACCEPTED_RECEIPT_APPEND_SCHEMA_VERSION.to_string(),
+                receipt_ref,
+                invocation_id: record.invocation_id.clone(),
+                receipt_binding_ref: record.receipt_binding.binding_hash.clone(),
+                issuer: AcceptedReceiptAppendIssuer::RustReceiptCore,
+                state_root_before: record.receipt_binding.state_root_before.clone(),
+                state_root_after: record.receipt_binding.state_root_after.clone(),
+                resulting_head: record.receipt_binding.resulting_head.clone(),
+            },
+            &record.receipt_binding,
+        )
+        .map_err(|error| {
+            BridgeError::new("accepted_receipt_append_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_worker_service_package_invocation_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_package_invocation".to_string()),
+        "record": record.clone(),
+        "router_admission": record.router_admission.clone(),
+        "receipt_binding": record.receipt_binding.clone(),
+        "accepted_receipt_append": accepted_receipt_append,
+        "agentgres_admission": record.agentgres_admission.clone(),
+        "projection_record": record.projection.clone(),
+        "receipt_refs": record.receipt_refs.clone(),
+        "artifact_refs": record.artifact_refs.clone(),
+        "payload_refs": record.payload_refs.clone(),
+        "authority_grant_refs": record.authority_grant_refs.clone(),
     }))
 }
 
@@ -4534,6 +4618,132 @@ mod tests {
             "PrivateWorkspaceCteeAction"
         );
         assert_eq!(response["projection_record"]["status"], "live");
+    }
+
+    #[test]
+    fn bridge_admits_worker_service_package_invocation_through_rust_core() {
+        let request: WorkerServicePackageInvocationBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": COMMAND_SCHEMA_VERSION,
+                "operation": "admit_worker_service_package_invocation",
+                "backend": "rust_package_invocation",
+                "request": {
+                    "schema_version": "ioi.worker_service_package_invocation.v1",
+                    "package_kind": "worker_package",
+                    "package_ref": "worker://runtime-auditor",
+                    "manifest_ref": "worker://runtime-auditor@1",
+                    "invocation": {
+                        "schema_version": "ioi.step_module_invocation.v1",
+                        "invocation_id": "invocation://worker-package/bridge",
+                        "run_id": "run:worker-package",
+                        "task_id": "task:worker-package",
+                        "thread_id": "thread:worker-package",
+                        "workflow_graph_id": "workflow.worker-package",
+                        "workflow_node_id": "node.worker-package",
+                        "context_chamber_ref": null,
+                        "action_proposal_ref": "action:worker-package",
+                        "gate_result_ref": "gate:worker-package",
+                        "module_ref": {
+                            "kind": "workload_job",
+                            "id": "worker://runtime-auditor",
+                            "version": "1",
+                            "manifest_ref": "worker://runtime-auditor@1"
+                        },
+                        "actor": {
+                            "actor_id": "runtime:hypervisor-daemon",
+                            "runtime_node_ref": "node://local"
+                        },
+                        "authority": {
+                            "authority_grant_refs": ["grant://wallet/worker-package"],
+                            "policy_hash": "sha256:worker-policy",
+                            "primitive_capabilities": ["prim:worker.invoke"],
+                            "authority_scopes": ["scope:repo.read"],
+                            "approval_ref": "approval://worker-package"
+                        },
+                        "input": {
+                            "input_hash": "sha256:worker-input",
+                            "expected_schema_ref": "schema://worker-package/runtime-auditor/input",
+                            "context_refs": ["agentgres://project/hypervisor"],
+                            "artifact_refs": [],
+                            "payload_refs": ["payload://worker-package/input"],
+                            "state_root_before": "sha256:package-before",
+                            "projection_watermark": "agentgres:worker-package:0",
+                            "data_plane_handle": null
+                        },
+                        "custody": {
+                            "privacy_profile": "internal",
+                            "plaintext_policy": {
+                                "node_plaintext_allowed": true,
+                                "declassification_required": false
+                            },
+                            "custody_proof_ref": null,
+                            "leakage_profile_ref": null
+                        },
+                        "execution": {
+                            "backend": "workload_grpc",
+                            "idempotency_key": "idem:worker-package-bridge",
+                            "deadline_ms": 300000,
+                            "resource_lease_ref": "lease://worker-package",
+                            "retry_policy_ref": null
+                        }
+                    },
+                    "result": {
+                        "schema_version": "ioi.step_module_result.v1",
+                        "invocation_id": "invocation://worker-package/bridge",
+                        "status": "success",
+                        "execution_result_ref": "result://worker-package/bridge",
+                        "normalized_observation_ref": "observation://worker-package/bridge",
+                        "receipt_refs": ["receipt://worker-package/bridge"],
+                        "artifact_refs": ["artifact://worker-package/report"],
+                        "payload_refs": ["payload://worker-package/output"],
+                        "agentgres_operation_refs": ["agentgres://worker-service-package/operations/bridge"],
+                        "state_root_after": "sha256:package-after",
+                        "resulting_head": "agentgres://worker-service-package/head/bridge",
+                        "workflow_projection": {
+                            "workflow_graph_id": "workflow.worker-package",
+                            "workflow_node_id": "node.worker-package",
+                            "component_kind": "WorkerPackageNode",
+                            "status": "live",
+                            "attempt_id": "attempt://worker-package/bridge",
+                            "evidence_refs": ["artifact://worker-package/report"],
+                            "receipt_refs": ["receipt://worker-package/bridge"]
+                        },
+                        "next": {
+                            "model_reentry_required": false,
+                            "verifier_required": true
+                        }
+                    },
+                    "expected_heads": ["agentgres://worker-service-package/head/before"]
+                }
+            }))
+            .expect("worker package bridge request");
+
+        let response = admit_worker_service_package_invocation(request)
+            .expect("worker package invocation admitted");
+
+        assert_eq!(
+            response["source"],
+            "rust_worker_service_package_invocation_command"
+        );
+        assert_eq!(response["backend"], "rust_package_invocation");
+        assert_eq!(response["record"]["package_kind"], "worker_package");
+        assert_eq!(response["router_admission"]["backend"], "workload_grpc");
+        assert_eq!(
+            response["accepted_receipt_append"]["receipt_ref"],
+            "receipt://worker-package/bridge"
+        );
+        assert_eq!(
+            response["agentgres_admission"]["operation_ref"],
+            "agentgres://worker-service-package/operations/bridge"
+        );
+        assert_eq!(
+            response["projection_record"]["component_kind"],
+            "WorkerPackageNode"
+        );
+        assert_eq!(
+            response["authority_grant_refs"][0],
+            "grant://wallet/worker-package"
+        );
     }
 
     #[test]

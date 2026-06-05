@@ -5859,6 +5859,57 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 93
+
+```yaml
+slice: 93
+phase: 8-service-package-and-worker-package-invocation-path
+objective: expose worker/service package invocation admission through the daemon
+  StepModule command bridge
+owner_boundary:
+  route_or_surface: worker/service package bridge command
+  authority_gate: bridge forwards package StepModule requests to Rust admission;
+    Rust rejects missing daemon/wallet authority grant refs
+  execution_backend: rust_package_invocation bridge over workload_grpc,
+    rust_wasm, aiip, or ctee_operator StepModule backends
+  truth_path: bridge returns Rust router admission, receipt binding, accepted
+    receipt append, optional Agentgres admission, and projection artifacts
+  projection_path: Rust projection record returned to daemon/IDE callers
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon: []
+  rust_core:
+    - crates/node/src/bin/ioi_step_module_bridge/mod.rs
+  ide: []
+  tests:
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance fails unless `admit_worker_service_package_invocation`
+    is exposed through the command bridge
+  - bridge conformance fails unless the command returns accepted receipt append
+    and package admission artifacts from Rust
+  - Rust bridge unit coverage admits a worker package invocation through the
+    command bridge
+verification:
+  commands:
+    - cargo test -p ioi-node bridge_admits_worker_service_package_invocation_through_rust_core
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: bridge output exposes the same Rust package
+    invocation record plus accepted receipt append that daemon callers need
+cleanup:
+  legacy_paths_removed: false
+  compatibility_shims_remaining:
+    - product daemon routes, IDE/SDK callers, and AIIP delivery surfaces still
+      need to invoke the bridge command for live package work
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -5872,7 +5923,7 @@ closeout:
 | `ctee-private-workspace` | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md`, `crates/services/src/agentic/runtime/kernel/ctee.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs` | canon plus Rust StepModule validation, execution, receipt-binding, Agentgres admission, projection bundle, and daemon command bridge exposure | Rust core `ctee` | custody proof, leakage profile, declassification receipt, plaintext-free mount failure | `ctee`, `negative` | Rust validation and execution/admission/projection bundle implemented and exposed through `execute_private_workspace_ctee_action`; product daemon/IDE private workspace callers still pending | untrusted node plaintext mount fails closed; declassification and private operator paths are receipt-bound. |
 | `workload-client-wasm` | `crates/client/src/workload_client/mod.rs`, `crates/vm/wasm/src/lib.rs`, `crates/validator/src/standard/workload/*` | Rust workload/kernel substrate exists below daemon | Rust core `workload_client` plus WASM/service backend | StepModuleResult with workload receipt and state-root binding | `bridge`, `receipts` | substrate exists, not default daemon backend | daemon routes admitted work through StepModuleRunner into Rust/WASM or workload backend. |
 | `workflow-compositor` | `packages/agent-ide/src/runtime/*`, `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, `crates/services/src/agentic/runtime/kernel/projection.rs` | IDE/daemon projection shaping plus Rust projection record primitive | Rust core `projection` consumed by IDE/CLI/SDK | projection checkpoints rebuilt from Agentgres admitted truth | `compositor`, `negative` | Rust projection record and accepted-truth guard implemented; IDE/SDK consumption still pending | compositor cannot create accepted truth directly and only renders/replays canonical projections. |
-| `worker-service-packages` | `docs/architecture/foundations/common-objects-and-envelopes.md`, `docs/architecture/domains/aiagent/worker-endpoints.md`, `docs/architecture/domains/sas/service-endpoints.md`, `crates/services/src/agentic/runtime/kernel/marketplace.rs` | target canon plus Rust worker/service package invocation admission primitive over StepModuleRouter, receipt_binder, Agentgres admission, and projection | Rust core `step_router` plus workload/WASM/AIIP backends | package invocation receipt, authority grant, artifacts, projection | `bridge`, `receipts`, `compositor` | Rust package invocation admission primitive implemented; bridge/product/IDE callers still pending | service and worker package invocation uses the shared Step/Module ABI. |
+| `worker-service-packages` | `docs/architecture/foundations/common-objects-and-envelopes.md`, `docs/architecture/domains/aiagent/worker-endpoints.md`, `docs/architecture/domains/sas/service-endpoints.md`, `crates/services/src/agentic/runtime/kernel/marketplace.rs`, `crates/node/src/bin/ioi_step_module_bridge/mod.rs` | target canon plus Rust worker/service package invocation admission primitive over StepModuleRouter, receipt_binder, Agentgres admission, projection, and command bridge exposure | Rust core `step_router` plus workload/WASM/AIIP backends | package invocation receipt, authority grant, artifacts, projection | `bridge`, `receipts`, `compositor` | Rust package invocation admission primitive implemented and exposed through `admit_worker_service_package_invocation`; product/IDE callers still pending | service and worker package invocation uses the shared Step/Module ABI. |
 | `l1-settlement` | `docs/architecture/foundations/ioi-l1-mainnet.md`, `crates/services/src/agentic/runtime/kernel/settlement.rs` | canon plus Rust trigger guard | Rust settlement/admission core under daemon-owned execution | sparse public/economic/cross-domain commitment by trigger only | `negative` | Rust trigger guard implemented; product settlement surfaces still pending | L1 settlement attempts without marketplace/public/economic/cross-domain/operator trigger fail closed. |
 | `meta-improvement` | `crates/services/src/agentic/runtime/kernel/*`, workflow/evaluation docs | partial Rust/IDE signals | Rust core authority plus proposal/eval/approval path | proposal object, eval receipts, approval grant, committed mutation | `receipts`, `negative` | target only | agents cannot self-modify directly; all improvements are proposal-mediated. |
 | `rust-daemon-core` | target layout in master guide plus `crates/services/src/agentic/runtime/kernel/*` | partial Rust primitives for authority, step_router, cTEE, receipts, Agentgres admission, runtime-state transition planning, run/task hash derivation, helper record materialization, storage write-set planning, runtime-state persistence planning, runtime run-state commit planning, projection, settlement, Step/Module ABI, model_mount provider-execution admission, fixture/native-local non-stream provider-invocation execution, native-local stream invocation planning/chunks, and provider-result admission for non-migrated driver observations | Rust modules: `authority`, `step_router`, `workload_client`, `model_mount`, `ctee`, `receipt_binder`, `agentgres_admission`, `projection`, `conformance` | one Rust owner for hot-path semantics | all tiers | partial primitives, not extracted as one authoritative core; coding tools now execute through Rust workload live instead of the daemon JS invocation body; model_mount now admits provider-execution envelopes before JS provider driver calls, executes migrated fixture/native-local non-stream provider backends and native-local stream chunk planning, rejects retired direct JS local provider non-stream/stream execution shims, admits non-migrated JS provider results before receipts, and runtime run persistence now sends one commit request through `RuntimeKernelService`, where Rust derives prior transition binding, transition hashes, materialized state records, storage write sets, persistence hashes, commit hashes, and Rust-written local state records; the external bridge exposes the commit operation instead of separate transition/materialization/storage/persistence commands | hot-path execution, authority, receipt/state-root binding, cTEE, replay, and conformance are owned by Rust core. |
@@ -5909,13 +5960,13 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 92:
+Current expected behavior after Slice 93:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
 | `hypervisor-conformance:abi` | pass | Step/Module schemas and current coding-tool projection wrappers exist, and coding-tool projections default to `workload_job` / `workload_grpc` instead of daemon_js. |
-| `hypervisor-conformance:bridge` | pass | daemon StepModuleRunner boundary defaults to Rust workload live, explicit `daemon_js` backend selection fails closed, runtime coding-tool invocation requires Rust workload live, the retired JS `executeCodingTool` dispatcher is no longer present in the invocation surface, catalog module export surface, or daemon constructor injection, private JS coding-tool implementation bodies and their process/filesystem imports are absent from `coding-tools.mjs`, live Rust model_mount provider-execution admission bridge, shared Rust provider invocation bridge for fixture and native-local non-stream execution, Rust native-local stream invocation bridge and returned-chunk adapter, Rust local-provider lifecycle planner bridge for fixture/native-local health/load/unload result envelopes, Rust local-provider inventory planner bridge for fixture/native-local model/list-loaded result envelopes, Rust instance lifecycle planner bridge for migrated local-provider model load/unload/evict/supersede state transitions, retired direct JS local provider non-stream invoke and native-local stream production shims, removed dead JS native-local stream helper exports, obsolete output wrapper, and retired fixture response modules, Rust provider-result admission bridge, stream-start provider-result admission guard, native-stream no-downgrade guards, OpenAI-compatible responses no-fallback guard, provider compatibility-translation fail-closed guard, and protocol response facade re-export retirement guard exist without a duplicate JS request-shape append. |
+| `hypervisor-conformance:bridge` | pass | daemon StepModuleRunner boundary defaults to Rust workload live, explicit `daemon_js` backend selection fails closed, runtime coding-tool invocation requires Rust workload live, the retired JS `executeCodingTool` dispatcher is no longer present in the invocation surface, catalog module export surface, or daemon constructor injection, private JS coding-tool implementation bodies and their process/filesystem imports are absent from `coding-tools.mjs`, live Rust model_mount provider-execution admission bridge, shared Rust provider invocation bridge for fixture and native-local non-stream execution, Rust native-local stream invocation bridge and returned-chunk adapter, Rust local-provider lifecycle planner bridge for fixture/native-local health/load/unload result envelopes, Rust local-provider inventory planner bridge for fixture/native-local model/list-loaded result envelopes, Rust instance lifecycle planner bridge for migrated local-provider model load/unload/evict/supersede state transitions, retired direct JS local provider non-stream invoke and native-local stream production shims, removed dead JS native-local stream helper exports, obsolete output wrapper, and retired fixture response modules, Rust provider-result admission bridge, stream-start provider-result admission guard, native-stream no-downgrade guards, OpenAI-compatible responses no-fallback guard, provider compatibility-translation fail-closed guard, protocol response facade re-export retirement guard, and worker/service package invocation admission bridge exist without a duplicate JS request-shape append. |
 | `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists, model provider execution is admitted before driver calls, fixture and native-local non-stream provider invocation execute in Rust, native-local stream frame planning/chunks execute in Rust, local-provider health/load/unload lifecycle status/backend/evidence envelopes are planned and hash-bound in Rust, local-provider model/list-loaded inventory status/backend/evidence envelopes are planned and hash-bound in Rust, migrated local-provider model load/unload/evict/supersede instance lifecycle transitions are planned and hash-bound in Rust to provider lifecycle hashes, direct migrated local-provider model-instance map and lifecycle receipt helper/store persistence without provider kind and Rust instance lifecycle action/status hashes now fails closed, direct migrated local-provider provider-health receipt persistence without provider kind and Rust lifecycle action/status/hash/evidence now fails closed, migrated local-provider provider start/stop fails closed without Rust lifecycle binding and direct provider-control receipt persistence requires the same binding, direct migrated local-provider provider-inventory receipt persistence without provider kind and Rust inventory action/status/hash/evidence now fails closed, the direct receipt-write guards now live outside the JS store adapter in `model-mounting/receipt-write-guards.mjs`, non-migrated provider results and native stream-start observations are Rust-admitted observations, runtime run-state persistence sends one commit request to Rust, where Agentgres admission derives prior heads/state roots, projection watermark, receipt/artifact/payload refs, run-state and task-state hashes, runtime task/job/checklist materializations, storage admissions, write-set hash, persistence hash, commit hash, and Rust-written local JSON records; `writeRunRecord` no longer calls JS transition planning, JS persistence, JS materialization, storage write-set planning, or local `writeJson`, and neither the runtime-daemon JS facade nor the Rust command bridge exposes lower-level transition/materialization/storage-write-set/persistence methods as execution entry points, runtime Agentgres admission requires the explicit `IOI_RUNTIME_AGENTGRES_COMMAND` env without model-mount env fallback, stream request-shape evidence, provider-open retry handling, wallet authority audit mirroring, vault audit mirroring, receipt persistence and model-mount local adapter status no longer expose local operation-log terminology or an `operation-log.jsonl` reader, OpenAI provider stream-shape recording, stale model-mounting append callback injection, memory record/policy operation mirroring, runtime bridge turn budget/error mirroring, agent delete operation mirroring, agent/subagent persistence operation mirroring, and run persistence/read-surface operation-log exposure no longer create duplicate JS operation-like records; model-mounting local heads and projection watermarks derive from persisted receipt count; model invocation and stream-completion receipts carry Rust Agentgres admission, direct unbound model invocation store appends fail closed, and worker/service package invocation has a Rust admission primitive over StepModuleRouter, receipt_binder, Agentgres admission, and projection. |
 | `hypervisor-conformance:ctee` | pass | Rust cTEE Private Workspace module validation exists, untrusted plaintext custody fails closed, the Rust cTEE action bundle binds receipts, admits Agentgres truth, and emits projection records, and the daemon command bridge exposes that bundle through `execute_private_workspace_ctee_action`. |
 | `hypervisor-conformance:compositor` | pass | Rust projection records exist, the shadow bridge emits them, and compositor accepted-truth attempts fail closed. |

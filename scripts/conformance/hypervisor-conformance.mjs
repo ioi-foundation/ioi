@@ -884,6 +884,18 @@ function runBridge() {
     ],
     "Phase 4 is pending: model invocation receipts must be bound by Rust receipt_binder before JS persistence",
   );
+  assertCheck(
+    result,
+    "worker-service-package-invocation-live-bridge",
+    /admit_worker_service_package_invocation/.test(bridgeModule) &&
+      /WorkerServicePackageInvocationBridgeRequest/.test(bridgeModule) &&
+      /WorkerServicePackageInvocationCore/.test(bridgeModule) &&
+      /rust_worker_service_package_invocation_command/.test(bridgeModule) &&
+      /accepted_receipt_append/.test(bridgeModule) &&
+      /bridge_admits_worker_service_package_invocation_through_rust_core/.test(bridgeModule),
+    ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
+    "Phase 8 is pending: worker/service package invocation admission must be exposed through the daemon command bridge",
+  );
   return result;
 }
 
