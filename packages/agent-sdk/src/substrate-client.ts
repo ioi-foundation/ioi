@@ -349,17 +349,11 @@ export type RuntimeSubagentLifecycleStatus =
 
 export interface RuntimeSubagentOutputContractStatus {
   schema_version?: string;
-  schemaVersion?: string;
   status?: string | null;
   required_sections?: string[];
-  requiredSections?: string[];
   present_sections?: string[];
-  presentSections?: string[];
   missing_sections?: string[];
-  missingSections?: string[];
   validated_at?: string;
-  validatedAt?: string;
-  [key: string]: unknown;
 }
 
 export interface RuntimeSubagentUsageTelemetry {

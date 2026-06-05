@@ -3609,6 +3609,11 @@ function runCompositor() {
     "listTasks(store, options = {})",
     "getTask(store",
   );
+  const runtimeSubagentSdkOutputContractStatusBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentOutputContractStatus",
+    "export interface RuntimeSubagentUsageTelemetry",
+  );
   const runtimeSubagentSdkControlInputBlock = blockBetween(
     agentSdkSubstrateClient,
     "export interface RuntimeSubagentControlInput",
@@ -4941,6 +4946,34 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime task create request types and daemon create surfaces must not advertise, read, or forward retired identity/options/workspace/prompt aliases",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-subagent-output-contract-status-aliases-retired",
+    runtimeSubagentSdkOutputContractStatusBlock.length > 0 &&
+      /^\s*schema_version\?: string;/m.test(
+        runtimeSubagentSdkOutputContractStatusBlock,
+      ) &&
+      /^\s*required_sections\?: string\[\];/m.test(
+        runtimeSubagentSdkOutputContractStatusBlock,
+      ) &&
+      /^\s*present_sections\?: string\[\];/m.test(
+        runtimeSubagentSdkOutputContractStatusBlock,
+      ) &&
+      /^\s*missing_sections\?: string\[\];/m.test(
+        runtimeSubagentSdkOutputContractStatusBlock,
+      ) &&
+      /^\s*validated_at\?: string;/m.test(
+        runtimeSubagentSdkOutputContractStatusBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|requiredSections|presentSections|missingSections|validatedAt)\?:/m.test(
+        runtimeSubagentSdkOutputContractStatusBlock,
+      ) &&
+      !/^\s*\[key: string\]: unknown;/m.test(
+        runtimeSubagentSdkOutputContractStatusBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent output-contract status type must not advertise retired camelCase aliases or arbitrary-key escape hatches",
   );
   assertCheck(
     result,

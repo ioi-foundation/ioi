@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 225:
+Current expected behavior after Slice 226:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11401,6 +11401,11 @@ Slice 225 extends compositor proof for
 types and the daemon task create surface now use canonical `prompt` only, ignore
 retired `objective`/`goal` prompt aliases, and avoid forwarding retired request
 keys into run creation.
+
+Slice 226 adds compositor proof for
+`agent-sdk-subagent-output-contract-status-aliases-retired`: the SDK nested
+subagent output-contract status type exposes canonical snake_case fields and no
+longer advertises duplicate camelCase aliases or an arbitrary-key escape hatch.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
