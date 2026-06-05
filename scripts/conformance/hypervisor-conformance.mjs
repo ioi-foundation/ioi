@@ -3201,6 +3201,12 @@ function runCompositor() {
   const subagentManagerTest = exists("packages/runtime-daemon/src/subagent-manager.test.mjs")
     ? read("packages/runtime-daemon/src/subagent-manager.test.mjs")
     : "";
+  const runtimeSubagentSurface = exists("packages/runtime-daemon/src/runtime-subagent-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-subagent-surface.mjs")
+    : "";
+  const runtimeSubagentSurfaceTest = exists("packages/runtime-daemon/src/runtime-subagent-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-subagent-surface.test.mjs")
+    : "";
   const runtimeEventEnvelopes = exists("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     : "";
@@ -3645,6 +3651,23 @@ function runCompositor() {
       "packages/runtime-daemon/src/subagent-manager.test.mjs",
     ],
     "Phase 10/11 is pending: subagent budget usage telemetry must ignore retired request and data aliases before budget policy evaluation",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-budget-usage-output-alias-retired",
+    !/^\s*budgetUsageTelemetry,?\s*$/m.test(runtimeSubagentSurface) &&
+      /budget_usage_telemetry:\s*budgetUsageTelemetry/.test(runtimeSubagentSurface) &&
+      /assertCanonicalSubagentBudgetUsageTelemetry/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /hasOwnProperty\.call\(record,\s*"budgetUsageTelemetry"\)/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent records must expose canonical budget_usage_telemetry without duplicate budgetUsageTelemetry",
   );
   assertCheck(
     result,
