@@ -3543,6 +3543,11 @@ function runCompositor() {
     const endIndex = remainder.indexOf(endMarker, startMarker.length);
     return endIndex < 0 ? remainder : remainder.slice(0, endIndex);
   }
+  const runtimeSubagentSdkControlInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeSubagentControlInput",
+    "export interface RuntimeSubagentListInput",
+  );
   const agentIdeSubagentDelegationMatrixBlock = blockBetween(
     agentIdeDelegationMatrix,
     'if (payloadObject === "ioi.runtime_subagent_manager_event")',
@@ -4681,6 +4686,17 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts",
     ],
     "Phase 10/11 is pending: IDE subagent control request bodies must emit canonical budget_usage_telemetry without duplicate budgetUsageTelemetry",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-subagent-budget-request-type-alias-retired",
+    runtimeSubagentSdkControlInputBlock.length > 0 &&
+      /^\s*budget\?: Record<string, unknown>;/m.test(
+        runtimeSubagentSdkControlInputBlock,
+      ) &&
+      !/^\s*subagentBudget\?:/m.test(runtimeSubagentSdkControlInputBlock),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent control request types must not advertise the retired subagentBudget alias",
   );
   assertCheck(
     result,

@@ -461,7 +461,6 @@ export interface RuntimeSubagentControlInput {
   max_concurrency?: number;
   subagentMaxConcurrency?: number;
   budget?: Record<string, unknown>;
-  subagentBudget?: Record<string, unknown>;
   outputContract?: string[] | Record<string, unknown>;
   output_contract?: string[] | Record<string, unknown>;
   subagentOutputContract?: string[] | Record<string, unknown>;
