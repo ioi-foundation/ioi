@@ -4740,6 +4740,26 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "agent-sdk-runtime-usage-telemetry-scalar-metric-aliases-retired",
+    runtimeUsageSdkTelemetryBlock.length > 0 &&
+      /^\s*input_tokens: number;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*output_tokens: number;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*reasoning_tokens: number;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*cached_input_tokens: number;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*tool_result_tokens: number;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*compacted_tokens: number;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*total_tokens: number;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*estimated_cost_micros: number;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*estimated_cost_usd\?: number;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      /^\s*latency_ms: number;/m.test(runtimeUsageSdkTelemetryBlock) &&
+      !/^\s*(?:inputTokens|outputTokens|reasoningTokens|cachedInputTokens|toolResultTokens|compactedTokens|totalTokens|estimatedCostMicros|estimatedCostUsd|latencyMs)\?:/m.test(
+        runtimeUsageSdkTelemetryBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK runtime usage telemetry types must not advertise retired scalar metric aliases",
+  );
+  assertCheck(
+    result,
     "agent-sdk-subagent-budget-request-type-alias-retired",
     runtimeSubagentSdkControlInputBlock.length > 0 &&
       /^\s*budget\?: Record<string, unknown>;/m.test(
