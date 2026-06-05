@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
   normalizeSubagentBudgetUsageTelemetry,
+  subagentManagerEventPayload,
   subagentBudgetUsageTelemetryForRequest,
+  subagentResultForRun,
   subagentUsageTelemetryForRun,
 } from "./subagent-manager.mjs";
 
@@ -29,6 +31,17 @@ const retiredSubagentUsageDataAliasInput = {
   policyDecisionRefs: ["policy-retired"],
   runtimeTelemetrySummarySchemaVersion: "retired.summary.v1",
 };
+
+function assertCanonicalSubagentManagerUsageTelemetry(record) {
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(record, "usage_telemetry"),
+    true,
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(record, "usageTelemetry"),
+    false,
+  );
+}
 
 test("subagent budget usage telemetry accepts canonical request fields", () => {
   const telemetry = {
@@ -135,4 +148,70 @@ test("subagent usage telemetry ignores retired previous usage aliases", () => {
   assert.equal(retiredOnly.cumulative_total_tokens, retiredOnly.total_tokens);
   assert.equal(retiredOnly.model_route_id, "route.canonical");
   assert.equal(retiredOnly.cost_estimate_usd, 0.42);
+});
+
+test("subagent result and manager events emit canonical usage telemetry only", () => {
+  const usage = {
+    cumulative_total_tokens: 14,
+    cumulative_cost_estimate_usd: 0.42,
+  };
+  const run = {
+    id: "run-canonical",
+    status: "completed",
+    result: "done",
+    receipts: [{ id: "receipt-run" }],
+  };
+
+  const result = subagentResultForRun({
+    record: {
+      subagent_id: "subagent-one",
+      run_id: "run-canonical",
+      lifecycle_status: "completed",
+      usage_telemetry: usage,
+      receipt_refs: ["receipt-record"],
+    },
+    run,
+    output: "SUMMARY\nDone.",
+    outputContractStatus: { status: "valid" },
+  });
+
+  assertCanonicalSubagentManagerUsageTelemetry(result);
+  assert.equal(result.usage_telemetry, usage);
+  assert.deepEqual(result.receipt_refs, ["receipt-record", "receipt-run"]);
+
+  const event = subagentManagerEventPayload({
+    operation: "resume",
+    status: "completed",
+    record: {
+      parent_thread_id: "thread-one",
+      subagent_id: "subagent-one",
+      usage_telemetry: usage,
+    },
+  });
+
+  assertCanonicalSubagentManagerUsageTelemetry(event);
+  assert.equal(event.usage_telemetry, usage);
+  assert.equal(event.cost_estimate_usd, 0.42);
+  assert.equal(event.token_estimate, 14);
+
+  const retiredResult = subagentResultForRun({
+    record: {
+      subagent_id: "subagent-retired",
+      usageTelemetry: retiredSubagentUsageDataAliasInput,
+    },
+    run,
+    output: "SUMMARY\nDone.",
+    outputContractStatus: { status: "valid" },
+  });
+  const retiredEvent = subagentManagerEventPayload({
+    operation: "resume",
+    record: { usageTelemetry: retiredSubagentUsageDataAliasInput },
+  });
+
+  assertCanonicalSubagentManagerUsageTelemetry(retiredResult);
+  assertCanonicalSubagentManagerUsageTelemetry(retiredEvent);
+  assert.equal(retiredResult.usage_telemetry, null);
+  assert.equal(retiredEvent.usage_telemetry, null);
+  assert.equal(retiredEvent.cost_estimate_usd, null);
+  assert.equal(retiredEvent.token_estimate, null);
 });

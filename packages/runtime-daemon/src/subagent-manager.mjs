@@ -354,8 +354,7 @@ export function subagentResultForRun({ record, run = {}, output, outputContractS
     outputContractStatus: outputContractStatus ?? null,
     budget_status: record?.budget_status ?? record?.budgetStatus?.status ?? null,
     budgetStatus: record?.budgetStatus ?? record?.budget_status ?? null,
-    usage_telemetry: record?.usage_telemetry ?? record?.usageTelemetry ?? null,
-    usageTelemetry: record?.usageTelemetry ?? record?.usage_telemetry ?? null,
+    usage_telemetry: record?.usage_telemetry ?? null,
     receipt_refs: uniqueStrings([
       ...normalizeArray(record?.receipt_refs ?? record?.receiptRefs),
       ...normalizeArray(run.receipts).map((receipt) => receipt.id),
@@ -410,24 +409,15 @@ export function subagentManagerEventPayload({ record = {}, operation, status }) 
     maxConcurrency: record.maxConcurrency ?? record.max_concurrency ?? null,
     budget_status: record.budget_status ?? record.budgetStatus?.status ?? null,
     budgetStatus: record.budgetStatus ?? record.budget_status ?? null,
-    usage_telemetry: record.usage_telemetry ?? record.usageTelemetry ?? null,
-    usageTelemetry: record.usageTelemetry ?? record.usage_telemetry ?? null,
+    usage_telemetry: record.usage_telemetry ?? null,
     cost_estimate_usd:
-      record.usage_telemetry?.cumulative_cost_estimate_usd ??
-      record.usageTelemetry?.cumulativeCostEstimateUsd ??
-      null,
+      record.usage_telemetry?.cumulative_cost_estimate_usd ?? null,
     costEstimateUsd:
-      record.usageTelemetry?.cumulativeCostEstimateUsd ??
-      record.usage_telemetry?.cumulative_cost_estimate_usd ??
-      null,
+      record.usage_telemetry?.cumulative_cost_estimate_usd ?? null,
     token_estimate:
-      record.usage_telemetry?.cumulative_total_tokens ??
-      record.usageTelemetry?.cumulativeTotalTokens ??
-      null,
+      record.usage_telemetry?.cumulative_total_tokens ?? null,
     tokenEstimate:
-      record.usageTelemetry?.cumulativeTotalTokens ??
-      record.usage_telemetry?.cumulative_total_tokens ??
-      null,
+      record.usage_telemetry?.cumulative_total_tokens ?? null,
     merge_policy: record.merge_policy ?? record.mergePolicy ?? null,
     mergePolicy: record.mergePolicy ?? record.merge_policy ?? null,
     cancellation_inheritance: record.cancellation_inheritance ?? record.cancellationInheritance ?? null,

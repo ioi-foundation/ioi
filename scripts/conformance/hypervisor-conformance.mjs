@@ -3654,6 +3654,29 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-subagent-manager-usage-output-alias-retired",
+    !/record\??\.usageTelemetry/.test(subagentManager) &&
+      !/^\s*usageTelemetry:/m.test(subagentManager) &&
+      /usage_telemetry:\s*record\??\.usage_telemetry/.test(
+        subagentManager,
+      ) &&
+      /assertCanonicalSubagentManagerUsageTelemetry/.test(
+        subagentManagerTest,
+      ) &&
+      /hasOwnProperty\.call\(record,\s*"usageTelemetry"\)/.test(
+        subagentManagerTest,
+      ) &&
+      /subagent result and manager events emit canonical usage telemetry only/.test(
+        subagentManagerTest,
+      ),
+    [
+      "packages/runtime-daemon/src/subagent-manager.mjs",
+      "packages/runtime-daemon/src/subagent-manager.test.mjs",
+    ],
+    "Phase 10/11 is pending: subagent manager projections must expose canonical usage_telemetry without duplicate usageTelemetry",
+  );
+  assertCheck(
+    result,
     "runtime-subagent-budget-usage-output-alias-retired",
     !/^\s*budgetUsageTelemetry,?\s*$/m.test(runtimeSubagentSurface) &&
       /budget_usage_telemetry:\s*budgetUsageTelemetry/.test(runtimeSubagentSurface) &&
