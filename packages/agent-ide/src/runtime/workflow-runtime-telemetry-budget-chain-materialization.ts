@@ -91,8 +91,8 @@ export function workflowRuntimeTelemetryBudgetChainIdsFromWorkflow(
       const target = nodesById.get(edge.to);
       return (
         edge.from === usageMeter.id &&
-        edge.fromPort === "runtimeUsageMeter" &&
-        edge.toPort === "runtimeUsageMeter" &&
+        edge.fromPort === "usage_telemetry" &&
+        edge.toPort === "usage_telemetry" &&
         target?.type === "runtime_context_budget"
       );
     });

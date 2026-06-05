@@ -147,6 +147,13 @@ test("run-inspector telemetry evidence hydrates an existing compatible chain", (
     nodes: [...base.nodes, ...subflow.nodes],
     edges: [...base.edges, ...subflow.edges],
   };
+  const usageToContextEdge = workflow.edges.find(
+    (edge) =>
+      edge.from === subflow.usageMeterNodeId &&
+      edge.to === subflow.contextBudgetNodeId,
+  );
+  assert.equal(usageToContextEdge?.fromPort, "usage_telemetry");
+  assert.equal(usageToContextEdge?.toPort, "usage_telemetry");
 
   const result = materializeWorkflowRuntimeTelemetryBudgetChainFromTelemetry(
     workflow,

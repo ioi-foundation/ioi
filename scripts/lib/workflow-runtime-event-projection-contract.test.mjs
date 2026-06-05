@@ -340,6 +340,18 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     telemetryBudgetChainMaterialization,
     /workflowRuntimeTelemetryBudgetChainIdsFromWorkflow/,
   );
+  assert.doesNotMatch(
+    telemetryBudgetChainMaterialization,
+    /edge\.(?:fromPort|toPort)\s*===\s*"runtimeUsageMeter"/,
+  );
+  assert.match(
+    telemetryBudgetChainMaterialization,
+    /edge\.fromPort\s*===\s*"usage_telemetry"/,
+  );
+  assert.match(
+    telemetryBudgetChainMaterialization,
+    /edge\.toPort\s*===\s*"usage_telemetry"/,
+  );
   assert.match(telemetryBudgetChainMaterialization, /mode: "materialized"/);
   assert.match(telemetryBudgetChainMaterialization, /mode: "hydrated"/);
   assert.match(
@@ -353,6 +365,14 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(
     telemetryBudgetChainMaterializationTest,
     /hydrates an existing compatible chain/,
+  );
+  assert.match(
+    telemetryBudgetChainMaterializationTest,
+    /usageToContextEdge\?\.fromPort,\s*"usage_telemetry"/,
+  );
+  assert.match(
+    telemetryBudgetChainMaterializationTest,
+    /usageToContextEdge\?\.toPort,\s*"usage_telemetry"/,
   );
   assert.match(
     composerController,

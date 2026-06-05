@@ -3250,6 +3250,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts")
     : "";
+  const agentIdeTelemetryBudgetChainMaterialization = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts")
+    : "";
+  const agentIdeTelemetryBudgetChainMaterializationTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts")
+    : "";
   const agentIdeMixedRuntimePanels = [
     "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
@@ -3598,12 +3608,29 @@ function runCompositor() {
       ) &&
       /runtimeContextBudgetUsageField: "usage_telemetry"/.test(
         agentIdeTelemetryBudgetChainSubflow,
+      ) &&
+      !/edge\.(?:fromPort|toPort)\s*===\s*"runtimeUsageMeter"/.test(
+        agentIdeTelemetryBudgetChainMaterialization,
+      ) &&
+      /edge\.fromPort\s*===\s*"usage_telemetry"/.test(
+        agentIdeTelemetryBudgetChainMaterialization,
+      ) &&
+      /edge\.toPort\s*===\s*"usage_telemetry"/.test(
+        agentIdeTelemetryBudgetChainMaterialization,
+      ) &&
+      /usageToContextEdge\?\.fromPort,\s*"usage_telemetry"/.test(
+        agentIdeTelemetryBudgetChainMaterializationTest,
+      ) &&
+      /usageToContextEdge\?\.toPort,\s*"usage_telemetry"/.test(
+        agentIdeTelemetryBudgetChainMaterializationTest,
       ),
     [
       "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
       "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts",
       "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
       "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts",
     ],
     "Phase 10/11 is pending: IDE context-budget control nodes must send canonical usage_telemetry without retired usage request aliases",
   );
