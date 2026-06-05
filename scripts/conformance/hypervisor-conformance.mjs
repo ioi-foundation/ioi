@@ -5092,6 +5092,31 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "agent-sdk-subagent-cancellation-propagation-result-collection-aliases-retired",
+    runtimeSubagentSdkCancellationPropagationResultBlock.length > 0 &&
+      /^\s*canceled_subagents\?: RuntimeSubagentRecord\[\];/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ) &&
+      /^\s*skipped_subagents\?: RuntimeSubagentRecord\[\];/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ) &&
+      /^\s*event_refs\?: string\[\];/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ) &&
+      /^\s*receipt_refs\?: string\[\];/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ) &&
+      !/^\s*(?:canceledSubagents|skippedSubagents|eventRefs|receiptRefs)\?:/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ) &&
+      !/^\s*\[key: string\]: unknown;/m.test(
+        runtimeSubagentSdkCancellationPropagationResultBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent cancellation propagation result types must not advertise retired collection/ref aliases or arbitrary key escape hatches",
+  );
+  assertCheck(
+    result,
     "agent-sdk-runtime-event-dead-mock-helpers-retired",
     /runtimeThreadEventFromEnvelope/.test(agentSdkRuntimeEvents) &&
       !/mockRuntime(?:CursorSeq|EnvelopeForSdkEvent|EventEnvelope)|runtimePayloadStringRecord|runtimeEventKindForSdkMessage|runtimeEventStatusForSdkMessage|componentKindForSdkMessage|workflowNodeIdForSdkMessage|sourceEventKindForSdkMessage|payloadSchemaVersionForSdkMessage|turnIdForRun|eventStreamIdForThread|runtimeTurnStatusForRun|\(event as \{ id\?: string \}\)\.id/.test(

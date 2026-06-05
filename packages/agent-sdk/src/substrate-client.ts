@@ -565,14 +565,9 @@ export interface RuntimeSubagentCancellationPropagationResult {
   canceled_count?: number;
   skipped_count?: number;
   canceled_subagents?: RuntimeSubagentRecord[];
-  canceledSubagents?: RuntimeSubagentRecord[];
   skipped_subagents?: RuntimeSubagentRecord[];
-  skippedSubagents?: RuntimeSubagentRecord[];
   event_refs?: string[];
-  eventRefs?: string[];
   receipt_refs?: string[];
-  receiptRefs?: string[];
-  [key: string]: unknown;
 }
 
 export interface AgentMemoryProjection {
