@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 292:
+Current expected behavior after Slice 293:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11782,6 +11782,10 @@ Slice 292 extends receipts and bridge proof for model-mounting contract
 repair: provider health failures preserve canonical adapter-boundary detail,
 native-local runtime catalog rows expose the daemon-local provider label, and
 live contract helpers share the subprocess input bridge explicitly.
+
+Slice 293 reconciles master-guide live status with the current conformance
+contract: the guide no longer states that JS direct coding-tool dispatch or JS
+fallback remains the default, and docs conformance rejects those stale claims.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

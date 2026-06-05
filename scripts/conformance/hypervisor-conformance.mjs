@@ -240,6 +240,17 @@ function runDocs() {
     );
   }
 
+  assertCheck(
+    result,
+    "guide-live-status-reconciled",
+    !/JS direct tool dispatch remains the normal path|JS fallback remains default until shadow mode proves stable/.test(
+      guide,
+    ) &&
+      /Current conformance requires `rust_workload_live`/.test(guide) &&
+      /(?:rejects explicit `daemon_js`|explicit\s+`daemon_js` selection fails closed)/.test(guide),
+    [GUIDE],
+    "master guide live status must reflect the current Rust workload live default and fail-closed daemon_js selection",
+  );
   checkStaleLiveTerminology(result);
   return result;
 }

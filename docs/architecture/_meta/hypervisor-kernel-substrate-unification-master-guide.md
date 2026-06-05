@@ -229,12 +229,12 @@ These pieces are conceptually aligned but not fully wired end to end:
 
 | Target | Present state |
 | --- | --- |
-| One Step/Module ABI across daemon, workload, service modules, worker packages, service packages, verifiers, model mounts, and cTEE actions | Partial. Rust invocation envelopes and JS runtime event envelopes exist, but no single live ABI bridges every step. |
-| Daemon tool step routed through workload client into Rust/WASM service module | Not live by default. JS direct tool dispatch remains the normal path. |
-| Agentgres operation/state-root unification across daemon local state and domain-kernel state | Partial. JS stores write receipts and operation-like records; Rust kernel has state roots. |
-| Workflow compositor as live graph controller over the same runtime substrate | Partial. The IDE has rich workflow/harness projections, but not all nodes execute through the Rust backend. |
-| cTEE Private Workspace as concrete workload/module path | Canon exists. Product and workload paths need object/receipt/authority integration. |
-| Meta self-improvement as proposal-mediated module/profile/schema changes | Canon and Rust/IDE signals exist. Needs live proposal path, eval gates, and approval/commit loop. |
+| One Step/Module ABI across daemon, workload, service modules, worker packages, service packages, verifiers, model mounts, and cTEE actions | In migration. Shared invocation/result envelopes exist, coding-tool and model-mount projections bind into the ABI, and worker/service, cTEE, settlement, and governed-improvement admission paths use stable StepModule-facing APIs; remaining work is terminal extraction of every hot route into one Rust daemon core. |
+| Daemon tool step routed through workload client into Rust/WASM service module | Current conformance requires `rust_workload_live` as the default StepModule runner, rejects explicit `daemon_js`, and removes the retired JS coding-tool dispatcher from live invocation. Remaining work is broader JS facade retirement around non-migrated route families. |
+| Agentgres operation/state-root unification across daemon local state and domain-kernel state | In migration. Runtime run-state persistence now commits through Rust Agentgres admission with expected heads, state roots, materialized records, storage admissions, and projection watermarks; remaining JS receipt/cache persistence must continue demoting behind Rust binding/admission. |
+| Workflow compositor as live graph controller over the same runtime substrate | In migration. Rust projection records and accepted-truth guards exist, and IDE/SDK/daemon projection aliases are being retired; deeper live package/review UI remains ordinary product work on top of admitted projection APIs. |
+| cTEE Private Workspace as concrete workload/module path | Implemented at the admission path: Rust validation/execution/admission/projection bundle, daemon runner, product/API route, SDK/IDE/CLI clients, and plaintext negative conformance exist. Deeper private workspace UI/replay remains product work. |
+| Meta self-improvement as proposal-mediated module/profile/schema changes | Implemented at the admission path: governed proposal admission requires eval/verifier receipts, approval, rollback, Agentgres binding, expected heads, and state roots; full IDE review UI and live mutation commit remain product/runtime evolution. |
 
 ### Where the split brain lives
 
@@ -1306,7 +1306,8 @@ Likely files/modules:
 
 Conformance checks:
 
-- JS fallback remains default until shadow mode proves stable;
+- StepModule execution defaults to the Rust workload live path and explicit
+  `daemon_js` selection fails closed;
 - bridge cannot bypass approval gates;
 - bridge cannot create Agentgres operations without daemon admission path.
 
