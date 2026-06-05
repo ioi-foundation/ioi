@@ -494,9 +494,7 @@ function workflowRuntimeThreadEventFromToolResult(
     cleanString(resultObject?.threadId);
   const eventId =
     cleanString(event.event_id) ??
-    cleanString(event.id) ??
-    cleanString(resultObject?.event_id) ??
-    cleanString(resultObject?.eventId);
+    cleanString(resultObject?.event_id);
   const eventKind =
     cleanString(event.event_kind) ??
     cleanString(event.eventKind) ??

@@ -2727,6 +2727,16 @@ function runCompositor() {
   const runtimeMcpHelpersTest = exists("packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs")
     : "";
+  const agentIdeTerminalRunLaunch = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts")
+    : "";
+  const agentIdeTerminalRunLaunchTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts")
+    : "";
   const agentSdkRuntimeEvents = exists("packages/agent-sdk/src/runtime-events.ts")
     ? read("packages/agent-sdk/src/runtime-events.ts")
     : "";
@@ -2831,6 +2841,21 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
     ],
     "Phase 10/11 is pending: MCP serve result projection must use canonical runtime event_id and ignore retired event.id aliases",
+  );
+  assertCheck(
+    result,
+    "ide-terminal-run-launch-event-id-alias-retired",
+    /cleanString\(event\.event_id\)\s*\?\?\s*cleanString\(resultObject\?\.event_id\)/.test(
+      agentIdeTerminalRunLaunch,
+    ) &&
+      !/cleanString\(event\.id\)|resultObject\?\.eventId/.test(agentIdeTerminalRunLaunch) &&
+      /legacy-nested-event-id/.test(agentIdeTerminalRunLaunchTest) &&
+      /runtimeThreadEvents\?\s*\.length,\s*0/.test(agentIdeTerminalRunLaunchTest),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE terminal coding-loop run launch must ignore retired runtime event id aliases",
   );
   return result;
 }
