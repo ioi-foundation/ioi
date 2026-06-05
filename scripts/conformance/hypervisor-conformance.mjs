@@ -3548,6 +3548,21 @@ function runCompositor() {
     "export interface RuntimeUsageTelemetry",
     "export interface RuntimeUsageListInput",
   );
+  const runtimeUsageSdkListInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeUsageListInput",
+    "export interface RuntimeUsageListResult",
+  );
+  const runtimeUsageSdkListResultBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RuntimeUsageListResult",
+    "export interface RuntimeTaskRecord",
+  );
+  const runtimeUsageSdkListQueryBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "function runtimeUsageListQuery",
+    "function memoryListQuery",
+  );
   const runtimeSubagentSdkControlInputBlock = blockBetween(
     agentSdkSubstrateClient,
     "export interface RuntimeSubagentControlInput",
@@ -4783,6 +4798,35 @@ function runCompositor() {
       !/^\s*\[key: string\]: unknown;/m.test(runtimeUsageSdkTelemetryBlock),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK runtime usage telemetry types must not advertise retired context/source aliases or arbitrary key escape hatches",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-runtime-usage-list-aliases-retired",
+    runtimeUsageSdkListInputBlock.length > 0 &&
+      runtimeUsageSdkListResultBlock.length > 0 &&
+      runtimeUsageSdkListQueryBlock.length > 0 &&
+      /^\s*group_by\?: "run" \| "thread" \| string;/m.test(
+        runtimeUsageSdkListInputBlock,
+      ) &&
+      /^\s*agent_id\?: string;/m.test(runtimeUsageSdkListInputBlock) &&
+      /^\s*schema_version\?: "ioi\.runtime\.usage-telemetry\.v1" \| string;/m.test(
+        runtimeUsageSdkListResultBlock,
+      ) &&
+      /^\s*group_by\?: string;/m.test(runtimeUsageSdkListResultBlock) &&
+      /^\s*generated_at\?: string;/m.test(runtimeUsageSdkListResultBlock) &&
+      /input\.group_by/.test(runtimeUsageSdkListQueryBlock) &&
+      /input\.agent_id/.test(runtimeUsageSdkListQueryBlock) &&
+      /params\.set\("group_by",/.test(runtimeUsageSdkListQueryBlock) &&
+      /params\.set\("agent_id",/.test(runtimeUsageSdkListQueryBlock) &&
+      !/^\s*(?:groupBy|agentId)\?:/m.test(runtimeUsageSdkListInputBlock) &&
+      !/^\s*(?:schemaVersion|groupBy|generatedAt)\?:/m.test(
+        runtimeUsageSdkListResultBlock,
+      ) &&
+      !/input\.(?:groupBy|agentId)|params\.set\("agentId"/.test(
+        runtimeUsageSdkListQueryBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK runtime usage list request/result types and query helpers must not advertise or emit retired aliases",
   );
   assertCheck(
     result,

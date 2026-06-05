@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 221:
+Current expected behavior after Slice 222:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11378,6 +11378,12 @@ Slice 221 adds compositor proof for
 runtime usage telemetry type exposes canonical context/source fields and no
 longer advertises duplicate camelCase context/source aliases or an arbitrary-key
 escape hatch.
+
+Slice 222 adds compositor proof for
+`agent-sdk-runtime-usage-list-aliases-retired`: the SDK runtime usage list
+request/result types expose canonical list grouping, identity, schema, and
+timestamp fields, and the SDK query helper emits canonical query keys without
+duplicate camelCase aliases.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

@@ -232,22 +232,17 @@ export interface RuntimeUsageTelemetry {
 }
 
 export interface RuntimeUsageListInput {
-  groupBy?: "run" | "thread" | string;
   group_by?: "run" | "thread" | string;
-  agentId?: string;
   agent_id?: string;
 }
 
 export interface RuntimeUsageListResult {
   schema_version?: "ioi.runtime.usage-telemetry.v1" | string;
-  schemaVersion?: "ioi.runtime.usage-telemetry.v1" | string;
   object?: "ioi.runtime_usage_list" | string;
   group_by?: string;
-  groupBy?: string;
   count: number;
   usage: RuntimeUsageTelemetry[];
   generated_at?: string;
-  generatedAt?: string;
 }
 
 export interface RuntimeTaskRecord {
@@ -3016,10 +3011,10 @@ function encodePath(value: string): string {
 
 function runtimeUsageListQuery(input: RuntimeUsageListInput = {}): string {
   const params = new URLSearchParams();
-  const groupBy = input.groupBy ?? input.group_by;
-  const agentId = input.agentId ?? input.agent_id;
-  if (groupBy) params.set("group_by", groupBy);
-  if (agentId) params.set("agentId", agentId);
+  const grouping = input.group_by;
+  const agentId = input.agent_id;
+  if (grouping) params.set("group_by", grouping);
+  if (agentId) params.set("agent_id", agentId);
   const query = params.toString();
   return query ? `?${query}` : "";
 }
