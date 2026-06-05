@@ -1,0 +1,110 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  L1_SETTLEMENT_COMMAND_ENV,
+  RustL1SettlementRunner,
+  createL1SettlementRunnerFromEnv,
+} from "./runtime-l1-settlement-runner.mjs";
+
+function settlementAttempt() {
+  return {
+    schema_version: "ioi.l1_settlement_admission.v1",
+    settlement_ref: "l1://settlement/marketplace-transaction",
+    domain_ref: "domain://marketplace/services",
+    state_root_ref: "state-root://agentgres/marketplace/after",
+    trigger_refs: ["l1-trigger://service-contract/payment"],
+    receipt_refs: ["receipt://local-settlement/payment"],
+  };
+}
+
+test("L1 settlement runner sends admission bridge request", () => {
+  const calls = [];
+  const runner = new RustL1SettlementRunner({
+    command: "mock-l1-settlement-bridge",
+    args: ["--settlement"],
+    spawnSyncImpl(command, args, options) {
+      const bridgeRequest = JSON.parse(options.input);
+      calls.push({ command, args, bridgeRequest });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_l1_settlement_guard_command",
+            backend: "l1_settlement_guard",
+            record: {
+              ...bridgeRequest.attempt,
+              admission_hash: [1, 2, 3],
+            },
+            settlement_ref: bridgeRequest.attempt.settlement_ref,
+            domain_ref: bridgeRequest.attempt.domain_ref,
+            state_root_ref: bridgeRequest.attempt.state_root_ref,
+            trigger_refs: bridgeRequest.attempt.trigger_refs,
+            receipt_refs: bridgeRequest.attempt.receipt_refs,
+            admission_hash: [1, 2, 3],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.admitAttempt(settlementAttempt());
+
+  assert.equal(calls[0].command, "mock-l1-settlement-bridge");
+  assert.deepEqual(calls[0].args, ["--settlement"]);
+  assert.equal(calls[0].bridgeRequest.operation, "admit_l1_settlement_attempt");
+  assert.equal(calls[0].bridgeRequest.backend, "l1_settlement_guard");
+  assert.equal(calls[0].bridgeRequest.attempt.settlement_ref, "l1://settlement/marketplace-transaction");
+  assert.deepEqual(calls[0].bridgeRequest.attempt.trigger_refs, [
+    "l1-trigger://service-contract/payment",
+  ]);
+  assert.equal(result.source, "rust_l1_settlement_guard_command");
+  assert.equal(result.settlement_ref, "l1://settlement/marketplace-transaction");
+  assert.deepEqual(result.receipt_refs, ["receipt://local-settlement/payment"]);
+  assert.deepEqual(result.admission_hash, [1, 2, 3]);
+});
+
+test("L1 settlement runner can be configured from env", () => {
+  const runner = createL1SettlementRunnerFromEnv({
+    [L1_SETTLEMENT_COMMAND_ENV]: "mock-l1-settlement-bridge",
+  });
+
+  assert.equal(runner.command, "mock-l1-settlement-bridge");
+});
+
+test("L1 settlement runner fails closed without command", () => {
+  const runner = createL1SettlementRunnerFromEnv({});
+
+  assert.throws(
+    () => runner.admitAttempt(settlementAttempt()),
+    (error) => error.code === "l1_settlement_bridge_unconfigured",
+  );
+});
+
+test("L1 settlement runner surfaces Rust settlement rejection", () => {
+  const runner = new RustL1SettlementRunner({
+    command: "mock-l1-settlement-bridge",
+    spawnSyncImpl() {
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: false,
+          error: {
+            code: "l1_settlement_admission_invalid",
+            message: "MissingSettlementTrigger",
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  assert.throws(
+    () => runner.admitAttempt(settlementAttempt()),
+    (error) =>
+      error.code === "l1_settlement_admission_invalid" &&
+      /MissingSettlementTrigger/.test(error.message),
+  );
+});

@@ -446,6 +446,15 @@ function runBridge() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts")
     : "";
+  const l1SettlementRunner = exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs")
+    : "";
+  const l1SettlementRunnerTest = exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs")
+    : "";
+  const l1SettlementStoreTest = exists("packages/runtime-daemon/src/runtime-l1-settlement-store.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-l1-settlement-store.test.mjs")
+    : "";
   const retiredCodingToolJsBodyPattern =
     /function (?:computerUseLeaseRequestTool|workspaceStatusTool|gitDiffTool|fileInspectTool|fileApplyPatchTool|testRunTool|lspDiagnosticsTool|artifactReadTool|toolRetrieveResultTool)\(/;
   const retiredCodingToolJsImportPattern =
@@ -1073,6 +1082,31 @@ function runBridge() {
       /bridge_admits_l1_settlement_attempt_through_rust_core/.test(bridgeModule),
     ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
     "Phase 8/11 is pending: L1 settlement attempts must be admitted through the Rust trigger guard before any product surface can settle",
+  );
+  assertCheck(
+    result,
+    "l1-settlement-daemon-runner",
+    /L1_SETTLEMENT_COMMAND_ENV/.test(l1SettlementRunner) &&
+      /IOI_L1_SETTLEMENT_COMMAND/.test(l1SettlementRunner) &&
+      /RustL1SettlementRunner/.test(l1SettlementRunner) &&
+      /createL1SettlementRunnerFromEnv/.test(l1SettlementRunner) &&
+      /createL1SettlementRunnerFromEnv/.test(runtimeDaemonIndex) &&
+      /this\.l1SettlementRunner/.test(runtimeDaemonIndex) &&
+      /admitAttempt/.test(l1SettlementRunner) &&
+      /admit_l1_settlement_attempt/.test(l1SettlementRunner) &&
+      /l1_settlement_guard/.test(l1SettlementRunner) &&
+      /l1_settlement_bridge_unconfigured/.test(l1SettlementRunner) &&
+      /L1 settlement runner sends admission bridge request/.test(l1SettlementRunnerTest) &&
+      /L1 settlement runner fails closed without command/.test(l1SettlementRunnerTest) &&
+      /L1 settlement runner surfaces Rust settlement rejection/.test(l1SettlementRunnerTest) &&
+      /runtime store mounts L1 settlement runner from options/.test(l1SettlementStoreTest),
+    [
+      "packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-store.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 8/11 is pending: daemon L1 settlement facade must call the Rust trigger guard bridge and fail closed when unconfigured",
   );
   assertCheck(
     result,

@@ -166,6 +166,7 @@ import { createRuntimeAgentgresAdmissionRunnerFromEnv } from "./runtime-agentgre
 import { createGovernedImprovementRunnerFromEnv } from "./runtime-governed-improvement-runner.mjs";
 import { createWorkerServicePackageRunnerFromEnv } from "./runtime-worker-service-package-runner.mjs";
 import { createCteePrivateWorkspaceRunnerFromEnv } from "./runtime-ctee-private-workspace-runner.mjs";
+import { createL1SettlementRunnerFromEnv } from "./runtime-l1-settlement-runner.mjs";
 import {
   createAgent as createAgentState,
   createRun as createRunState,
@@ -712,6 +713,8 @@ export class AgentgresRuntimeStateStore {
       options.workerServicePackageRunner ?? createWorkerServicePackageRunnerFromEnv(process.env);
     this.cteePrivateWorkspaceRunner =
       options.cteePrivateWorkspaceRunner ?? createCteePrivateWorkspaceRunnerFromEnv(process.env);
+    this.l1SettlementRunner =
+      options.l1SettlementRunner ?? createL1SettlementRunnerFromEnv(process.env);
     this.schemaVersion = "ioi.agentgres.runtime.v0";
     this.ensureDirs();
     this.modelMounting = new ModelMountingState({
