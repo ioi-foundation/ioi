@@ -414,6 +414,12 @@ function runBridge() {
   const modelInvocationOpsTest = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
     : "";
+  const providerDriverHelpers = exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs")
+    : "";
+  const providerDriverHelpersTest = exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs")
+    : "";
   const modelInvocationReceiptDetailsObject =
     modelInvocationOps.match(/const details = \{[\s\S]*?\n  \};/)?.[0] ?? "";
   const modelMountingValidation = exists("packages/runtime-daemon/src/model-mounting/validation.mjs")
@@ -1527,6 +1533,18 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
     ],
     "Phase 10/11 is pending: model invocation request bodies must fail closed on retired camelCase routing, policy, response, and send-option aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-invocation-coalesce-policy-alias-retired",
+    /policyHash:\s*stableHash\(body\.model_policy \?\? \{\}\)/.test(providerDriverHelpers) &&
+      !/body\.modelPolicy\b/.test(providerDriverHelpers) &&
+      /coalesce keys ignore retired modelPolicy policy alias/.test(providerDriverHelpersTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs",
+    ],
+    "Phase 10/11 is pending: model invocation coalesce keys must hash canonical model_policy only and ignore retired modelPolicy request aliases",
   );
   assertCheck(
     result,

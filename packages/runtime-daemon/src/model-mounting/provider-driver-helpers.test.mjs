@@ -39,7 +39,7 @@ test("response state support is limited to stateful text protocols", () => {
 test("coalesce keys are stable for low-variance requests and ignore generated response ids", () => {
   const base = {
     kind: "chat",
-    body: { model: "route.local", temperature: 0.1, modelPolicy: { locality: "local-first" } },
+    body: { model: "route.local", temperature: 0.1, model_policy: { locality: "local-first" } },
     providerBody: { messages: [{ role: "user", content: "hello" }], response_id: "generated-1" },
     input: "hello",
     token: { grantId: "grant-1" },
@@ -59,6 +59,34 @@ test("coalesce keys are stable for low-variance requests and ignore generated re
   assert.equal(first, second);
   assert.equal(first.includes("hello"), false);
   assert.equal(first.includes("generated"), false);
+});
+
+test("coalesce keys ignore retired modelPolicy policy alias", () => {
+  const base = {
+    kind: "chat",
+    body: { model: "route.local", temperature: 0.1 },
+    providerBody: { messages: [{ role: "user", content: "hello" }] },
+    input: "hello",
+    token: { grantId: "grant-1" },
+    selection: {
+      route: { id: "route-1" },
+      endpoint: { id: "endpoint-1", providerId: "provider-1", modelId: "model-1" },
+      provider: { id: "provider-1" },
+    },
+  };
+
+  const withoutPolicy = modelInvocationCoalesceKey(base);
+  const legacyPolicy = modelInvocationCoalesceKey({
+    ...base,
+    body: { ...base.body, modelPolicy: { locality: "legacy-local-first" } },
+  });
+  const canonicalPolicy = modelInvocationCoalesceKey({
+    ...base,
+    body: { ...base.body, model_policy: { locality: "local-first" } },
+  });
+
+  assert.equal(legacyPolicy, withoutPolicy);
+  assert.notEqual(canonicalPolicy, withoutPolicy);
 });
 
 test("coalesce keys reject streaming, stateful follow-ups, tools, embeddings, and high variance", () => {

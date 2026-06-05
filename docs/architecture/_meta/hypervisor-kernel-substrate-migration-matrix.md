@@ -11853,6 +11853,11 @@ retired `workflowGraphId`, `workflowNodeId`, `nodeId`, `node_id`,
 `workflowNodeType`, and `node` inputs while the accepted route-decision record
 continues to emit canonical workflow metadata.
 
+Slice 303 retires the model invocation coalesce-key `modelPolicy` fallback:
+low-variance invocation coalescing now hashes canonical `model_policy` only,
+so retired `modelPolicy` request data cannot alter admission grouping or
+reintroduce a split request-shape path.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -64,7 +64,7 @@ export function modelInvocationCoalesceKey({
     selectedModel: selection?.endpoint?.modelId ?? body.model ?? null,
     inputHash: stableHash(input),
     providerBodyHash: stableHash(providerBodyWithoutGeneratedResponseIds(providerBody)),
-    policyHash: stableHash(body.model_policy ?? body.modelPolicy ?? {}),
+    policyHash: stableHash(body.model_policy ?? {}),
   });
 }
 
