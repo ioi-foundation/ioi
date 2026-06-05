@@ -19,14 +19,25 @@ export function getReceipt(state, receiptId) {
 }
 
 export function lifecycleReceipt(state, operation, details = {}) {
+  assertNoRetiredLifecycleSubjectAliases(details);
   assertModelInstanceLifecycleReceiptRustBound(state, operation, details);
-  const subject = details.model_id ?? details.modelId ?? details.endpoint_id ?? details.endpointId ?? "model registry";
+  const subject = details.model_id ?? details.endpoint_id ?? "model registry";
   return state.receipt("model_lifecycle", {
     summary: `${operation} recorded for ${subject}.`,
     redaction: "redacted",
     evidenceRefs: ["model_registry", "agentgres_receipt_projection_boundary", operation],
     details: { operation, ...details },
   });
+}
+
+function assertNoRetiredLifecycleSubjectAliases(details = {}) {
+  const retiredAliases = ["modelId", "endpointId"].filter((field) => Object.hasOwn(details, field));
+  if (retiredAliases.length === 0) return;
+  const error = new Error("Model lifecycle receipt details must use canonical snake_case subject fields.");
+  error.status = 409;
+  error.code = "model_lifecycle_receipt_detail_aliases_retired";
+  error.details = { retired_aliases: retiredAliases };
+  throw error;
 }
 
 function assertModelInstanceLifecycleReceiptRustBound(state, operation, details = {}) {

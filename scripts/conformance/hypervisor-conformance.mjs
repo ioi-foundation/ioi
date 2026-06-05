@@ -3894,8 +3894,14 @@ function runReceipts() {
       /details:\s*\{\s*backend_id:\s*backendId,\s*backend_kind:\s*backend\.kind,\s*evidence_refs:\s*backend\.evidenceRefs/.test(backendLifecycle) &&
       /log_count:\s*resolved\.length/.test(backendLifecycle) &&
       !/details:\s*\{\s*backendId\b/.test(backendLifecycle) &&
-      /details\.model_id\s*\?\?\s*details\.modelId/.test(modelMountReceiptOperations) &&
+      /assertNoRetiredLifecycleSubjectAliases\(details\)/.test(modelMountReceiptOperations) &&
+      /model_lifecycle_receipt_detail_aliases_retired/.test(modelMountReceiptOperations) &&
+      !/details\.model_id\s*\?\?\s*details\.modelId/.test(modelMountReceiptOperations) &&
+      !/details\.endpoint_id\s*\?\?\s*details\.endpointId/.test(modelMountReceiptOperations) &&
       /lifecycle receipt summary accepts canonical snake_case subject fields/.test(modelMountReceiptOperationsTest) &&
+      /lifecycle receipt subject aliases are retired/.test(modelMountReceiptOperationsTest) &&
+      /retired_aliases\.includes\("modelId"\)/.test(modelMountReceiptOperationsTest) &&
+      /retired_aliases\.includes\("endpointId"\)/.test(modelMountReceiptOperationsTest) &&
       /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"backendId"\),\s*false/.test(backendLifecycleTest) &&
       /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"modelId"\),\s*false/.test(backendLifecycleTest) &&
       /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"logCount"\),\s*false/.test(backendLifecycleTest) &&

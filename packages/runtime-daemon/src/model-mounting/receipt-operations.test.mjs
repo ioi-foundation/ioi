@@ -67,6 +67,32 @@ test("lifecycle receipt summary accepts canonical snake_case subject fields", ()
   });
 });
 
+test("lifecycle receipt subject aliases are retired", () => {
+  const created = [];
+  const state = {
+    receipt(kind, payload) {
+      const record = { kind, ...payload };
+      created.push(record);
+      return record;
+    },
+  };
+
+  assert.throws(
+    () => lifecycleReceipt(state, "model_mount", {
+      modelId: "model.legacy",
+      endpointId: "endpoint.legacy",
+    }),
+    (error) =>
+      error.code === "model_lifecycle_receipt_detail_aliases_retired" &&
+      error.details.retired_aliases.includes("modelId") &&
+      error.details.retired_aliases.includes("endpointId") &&
+      Object.hasOwn(error.details, "modelId") === false &&
+      Object.hasOwn(error.details, "endpointId") === false,
+  );
+
+  assert.equal(created.length, 0);
+});
+
 test("model instance lifecycle receipts require Rust binding for migrated local providers", () => {
   const created = [];
   const state = {
