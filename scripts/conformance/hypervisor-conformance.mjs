@@ -555,6 +555,10 @@ function runBridge() {
   const agentSdkModelMounts = exists("packages/agent-sdk/src/model-mounts.ts")
     ? read("packages/agent-sdk/src/model-mounts.ts")
     : "";
+  const agentSdkModelInvocationReceiptType =
+    agentSdkModelMounts.match(/export interface ModelInvocationReceipt \{[\s\S]*?\n}\n\nexport interface ModelConversationState/)?.[0] ?? "";
+  const agentSdkModelConversationStateType =
+    agentSdkModelMounts.match(/export interface ModelConversationState \{[\s\S]*?\n}\n\nexport interface TokenizerToken/)?.[0] ?? "";
   const workflowStructuredPolicyComposer = exists(
     "packages/agent-ide/src/runtime/workflow-structured-policy-composer.ts",
   )
@@ -1435,6 +1439,30 @@ function runBridge() {
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
     ],
     "Phase 3/10 is pending: model invocation and stream-completion receipt details must serialize canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-sdk-receipt-metadata-aliases-retired",
+    /route_id:\s*string/.test(agentSdkModelInvocationReceiptType) &&
+      /route_receipt_id\?:\s*string/.test(agentSdkModelInvocationReceiptType) &&
+      /selected_model:\s*string/.test(agentSdkModelInvocationReceiptType) &&
+      /token_count:\s*\{/.test(agentSdkModelInvocationReceiptType) &&
+      /response_id\?:\s*string \| null/.test(agentSdkModelInvocationReceiptType) &&
+      !/(?:routeId|routeReceiptId|selectedModel|endpointId|providerId|instanceId|backendId|selectedBackend|policyHash|grantId|tokenCount|latencyMs|inputHash|outputHash|providerResponseKind|backendEvidenceRefs|toolReceiptIds|ephemeralMcpServerIds|responseId)\??:/.test(
+        agentSdkModelInvocationReceiptType,
+      ) &&
+      /created_at:\s*string/.test(agentSdkModelConversationStateType) &&
+      /route_id:\s*string/.test(agentSdkModelConversationStateType) &&
+      /endpoint_id:\s*string/.test(agentSdkModelConversationStateType) &&
+      /selected_model:\s*string/.test(agentSdkModelConversationStateType) &&
+      /token_count:\s*\{/.test(agentSdkModelConversationStateType) &&
+      /message_count:\s*number/.test(agentSdkModelConversationStateType) &&
+      /plaintext_persisted:\s*false/.test(agentSdkModelConversationStateType) &&
+      !/(?:createdAt|routeId|endpointId|selectedModel|providerId|backendId|instanceId|receiptId|routeReceiptId|streamReceiptId|inputHash|outputHash|tokenCount|messageCount|plaintextPersisted)\??:/.test(
+        agentSdkModelConversationStateType,
+      ),
+    ["packages/agent-sdk/src/model-mounts.ts"],
+    "Phase 10/11 is pending: SDK model-mount receipt and conversation-state types must expose canonical snake_case metadata only",
   );
   assertCheck(
     result,

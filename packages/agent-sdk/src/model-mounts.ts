@@ -315,30 +315,30 @@ export interface ModelInvocationReceipt {
   evidenceRefs: string[];
   createdAt: string;
   details: {
-    routeId: string;
-    routeReceiptId?: string;
-    selectedModel: string;
-    endpointId: string;
-    providerId: string;
-    instanceId: string;
+    route_id: string;
+    route_receipt_id?: string;
+    selected_model: string;
+    endpoint_id: string;
+    provider_id: string;
+    instance_id: string;
     backend: string;
-    backendId?: string | null;
-    selectedBackend?: string | null;
-    policyHash: string;
-    grantId: string;
-    tokenCount: {
+    backend_id?: string | null;
+    selected_backend?: string | null;
+    policy_hash: string;
+    grant_id: string;
+    token_count: {
       prompt_tokens: number;
       completion_tokens: number;
       total_tokens: number;
     };
-    latencyMs: number;
-    inputHash: string;
-    outputHash: string;
-    providerResponseKind?: string | null;
-    backendEvidenceRefs?: string[];
-    toolReceiptIds?: string[];
-    ephemeralMcpServerIds?: string[];
-    responseId?: string | null;
+    latency_ms: number;
+    input_hash: string;
+    output_hash: string;
+    provider_response_kind?: string | null;
+    backend_evidence_refs?: string[];
+    tool_receipt_ids?: string[];
+    ephemeral_mcp_server_ids?: string[];
+    response_id?: string | null;
     previous_response_id?: string | null;
     continuation?: {
       mode: "new" | "matched" | "fallback_allowed" | string;
@@ -354,27 +354,27 @@ export interface ModelConversationState {
   object: "ioi.model_response_state";
   status: "completed" | "canceled" | "failed" | string;
   redaction: "redacted";
-  createdAt: string;
+  created_at: string;
   previous_response_id: string | null;
   root_response_id: string;
   kind: string;
-  routeId: string;
-  endpointId: string;
-  selectedModel: string;
-  providerId: string;
-  backendId?: string | null;
-  instanceId?: string | null;
-  receiptId: string;
-  routeReceiptId?: string | null;
-  streamReceiptId?: string | null;
-  inputHash: string;
-  outputHash: string;
-  tokenCount: {
+  route_id: string;
+  endpoint_id: string;
+  selected_model: string;
+  provider_id: string;
+  backend_id?: string | null;
+  instance_id?: string | null;
+  receipt_id: string;
+  route_receipt_id?: string | null;
+  stream_receipt_id?: string | null;
+  input_hash: string;
+  output_hash: string;
+  token_count: {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
   };
-  messageCount: number;
+  message_count: number;
   continuation?: {
     mode: "new" | "matched" | "fallback_allowed" | string;
     previous_response_id?: string | null;
@@ -383,7 +383,7 @@ export interface ModelConversationState {
   } | null;
   replay: {
     source: "redacted_conversation_state" | string;
-    plaintextPersisted: false;
+    plaintext_persisted: false;
     previous_response_id: string | null;
   };
 }
