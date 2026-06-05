@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 288:
+Current expected behavior after Slice 289:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11764,6 +11764,11 @@ behavior: the Runtime Agentgres admission runner remains command-required and
 cannot reintroduce JS fixture/mock runtime-state or storage-write admissions
 through `IOI_ENABLE_INTERNAL_FIXTURE_MODELS`, `mockRuntimeAgentgresResponse`, or
 local filesystem writes.
+
+Slice 289 extends compositor proof for compatibility-wrapper retirement:
+runtime subagent request-alias checks now catch both dot and bracket access,
+and thread/turn projections cannot reintroduce a model-route-decision formatter
+that emits duplicate camelCase identity aliases.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

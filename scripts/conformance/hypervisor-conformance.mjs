@@ -981,6 +981,8 @@ function runBridge() {
       !/decisionId/.test(agentSdkModelRouteDecisionType) &&
       /modelRouteDecision\?\.decision_id/.test(runtimeRecordProjections) &&
       /modelRouteDecision\?\.decision_id/.test(threadTurnProjection) &&
+      !/formatModelRouteDecision/.test(threadTurnProjection) &&
+      !/^\s*(?:schemaVersion|eventKind|decisionId)\s*:/m.test(threadTurnProjection) &&
       /json_path_string\(value,\s*"\/decision_id"\)/.test(agentTuiCli) &&
       /json_string\(value,\s*"decision_id"\)/.test(agentgresAdmissionCoreForBridge) &&
       /Object\.hasOwn\(decision,\s*"schemaVersion"\),\s*false/.test(modelRouteDecisionTest) &&
@@ -5053,7 +5055,7 @@ function runCompositor() {
   const runtimeSubagentListRequestAliasReadPattern =
     /options\.subagentRole\b/;
   const runtimeSubagentPropagationRequestAliasPattern =
-    /request\.workflowNodeId\b|^\s*workflowNodeId\s*[:,]/m;
+    /request(?:\.workflowNodeId\b|\[\s*["']workflowNodeId["']\s*\])|^\s*workflowNodeId\s*[:,]/m;
   const runtimeSubagentListLookupRecordAliasReadPattern =
     /(?:record\.parentThreadId|(?:left|right)\.createdAt)\b/;
   const runtimeSubagentPropagationRecordAliasReadPattern =
@@ -5073,15 +5075,15 @@ function runCompositor() {
   const runtimeSubagentControlEventRecordAliasReadPattern =
     /record\.(?:subagentId|workflowGraphId|workflowNodeId|budgetPolicyDecision|budgetStatus|parentTurnId)\b/;
   const runtimeSubagentControlEventRequestAliasReadPattern =
-    /request\.(?:workflowGraphId|workflowNodeId|receiptRefs|policyDecisionRefs|idempotencyKey)\b/;
+    /request\.(?:workflowGraphId|workflowNodeId|receiptRefs|policyDecisionRefs|idempotencyKey)\b|request\[\s*["'](?:workflowGraphId|workflowNodeId|receiptRefs|policyDecisionRefs|idempotencyKey)["']\s*\]/;
   const runtimeSubagentSpawnRequestAliasReadPattern =
-    /request\.(?:message|input|subagent_prompt|subagentPrompt|subagentRole|maxConcurrency|subagentMaxConcurrency|modelRouteId|subagentModelRoute|outputContract|subagentOutputContract|workflowGraphId|workflowNodeId|parentTurnId|turnId|contextPressureAction|contextPressure|pressureStatus|alertId|sourceEventId|receiptRefs|policyDecisionRefs|toolPack|subagentToolPack|forkContext|mergePolicy|cancellationInheritance)\b/;
+    /request\.(?:message|input|subagent_prompt|subagentPrompt|subagentRole|maxConcurrency|subagentMaxConcurrency|modelRouteId|subagentModelRoute|outputContract|subagentOutputContract|workflowGraphId|workflowNodeId|parentTurnId|turnId|contextPressureAction|contextPressure|pressureStatus|alertId|sourceEventId|receiptRefs|policyDecisionRefs|toolPack|subagentToolPack|forkContext|mergePolicy|cancellationInheritance)\b|request\[\s*["'](?:message|input|subagent_prompt|subagentPrompt|subagentRole|maxConcurrency|subagentMaxConcurrency|modelRouteId|subagentModelRoute|outputContract|subagentOutputContract|workflowGraphId|workflowNodeId|parentTurnId|turnId|contextPressureAction|contextPressure|pressureStatus|alertId|sourceEventId|receiptRefs|policyDecisionRefs|toolPack|subagentToolPack|forkContext|mergePolicy|cancellationInheritance)["']\s*\]/;
   const runtimeSubagentSendInputRequestAliasReadPattern =
-    /request\.(?:message|prompt|text|subagent_input|subagentInput|workflowGraphId|workflowNodeId)\b/;
+    /request\.(?:message|prompt|text|subagent_input|subagentInput|workflowGraphId|workflowNodeId)\b|request\[\s*["'](?:message|prompt|text|subagent_input|subagentInput|workflowGraphId|workflowNodeId)["']\s*\]/;
   const runtimeSubagentResumeRequestAliasReadPattern =
-    /request\.(?:message|input|resume_prompt|resumePrompt|subagentRole|modelRouteId|subagentModelRoute|workflowGraphId|workflowNodeId)\b/;
+    /request\.(?:message|input|resume_prompt|resumePrompt|subagentRole|modelRouteId|subagentModelRoute|workflowGraphId|workflowNodeId)\b|request\[\s*["'](?:message|input|resume_prompt|resumePrompt|subagentRole|modelRouteId|subagentModelRoute|workflowGraphId|workflowNodeId)["']\s*\]/;
   const runtimeSubagentAssignRequestAliasReadPattern =
-    /request\.(?:subagentRole|toolPack|subagentToolPack|modelRouteId|subagentModelRoute|mergePolicy|cancellationInheritance|targetAgentId|workflowGraphId|workflowNodeId)\b/;
+    /request\.(?:subagentRole|toolPack|subagentToolPack|modelRouteId|subagentModelRoute|mergePolicy|cancellationInheritance|targetAgentId|workflowGraphId|workflowNodeId)\b|request\[\s*["'](?:subagentRole|toolPack|subagentToolPack|modelRouteId|subagentModelRoute|mergePolicy|cancellationInheritance|targetAgentId|workflowGraphId|workflowNodeId)["']\s*\]/;
   const runtimeSubagentCancelRequestAliasReadPattern =
     /request\.(?:cancellationReason|cancellationInherited|propagatedFromThreadId)\b|(?:cancellationInherited|propagatedFromThreadId)\s*:/;
   const runtimeSubagentProjectionBlock =
