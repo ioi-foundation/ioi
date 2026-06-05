@@ -1152,6 +1152,41 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-route-selection-detail-aliases-retired",
+    /^ {6}route_id:\s*selection\.route\.id/m.test(modelRouteSelectionDetailsObject) &&
+      /^ {6}selected_model:\s*selection\.endpoint\.modelId/m.test(modelRouteSelectionDetailsObject) &&
+      /^ {6}endpoint_id:\s*selection\.endpoint\.id/m.test(modelRouteSelectionDetailsObject) &&
+      /^ {6}provider_id:\s*selection\.endpoint\.providerId/m.test(modelRouteSelectionDetailsObject) &&
+      /^ {6}policy_hash:\s*policyHash/m.test(modelRouteSelectionDetailsObject) &&
+      /^ {6}workflow_graph_id:\s*workflow\.workflowGraphId/m.test(modelRouteSelectionDetailsObject) &&
+      /^ {6}workflow_node_id:\s*workflow\.workflowNodeId/m.test(modelRouteSelectionDetailsObject) &&
+      /^ {6}workflow_node_type:\s*workflow\.workflowNodeType/m.test(modelRouteSelectionDetailsObject) &&
+      !/^ {6}(?:routeId|selectedModel|endpointId|providerId|policyHash|workflowGraphId|workflowNodeId|workflowNodeType)\s*[:,]/m.test(
+        modelRouteSelectionDetailsObject,
+      ) &&
+      /receipt\.details\?\.route_id/.test(modelProjections) &&
+      /receipt\.details\?\.endpoint_id/.test(modelProjections) &&
+      /receipt\.details\?\.provider_id/.test(modelProjections) &&
+      !/receipt\.details\?\.(?:routeId|endpointId|providerId)/.test(modelProjections) &&
+      /routeReceipt\?\.details\?\.workflow_graph_id/.test(modelInvocationOps) &&
+      /routeReceipt\?\.details\?\.workflow_node_id/.test(modelInvocationOps) &&
+      !/routeReceipt\?\.details\?\.(?:workflowGraphId|workflowNodeId)/.test(modelInvocationOps) &&
+      /Object\.hasOwn\(created\[0\]\.details,\s*"routeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
+      /Object\.hasOwn\(created\[0\]\.details,\s*"policyHash"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
+      /Object\.hasOwn\(created\[0\]\.details,\s*"workflowNodeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
+      /assert\.equal\(replay\.model_route_decision\.route_id/.test(modelProjectionsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/routes.mjs",
+      "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/projections.mjs",
+      "packages/runtime-daemon/src/model-mounting/projections.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+    ],
+    "Phase 3/10 is pending: model route-selection receipt details and direct readers must use canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "runtime-thread-model-route-decision-reader-aliases-retired",
     /modelRoute\.decision\?\.reasoning_effort/.test(threadRuntimeControls) &&
       /modelRoute\.decision\?\.workflow_graph_id/.test(threadRuntimeControls) &&

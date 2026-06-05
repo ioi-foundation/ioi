@@ -289,6 +289,11 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
   assert.equal(created[0].details.model_route_decision_id, "decision-1");
   assert.equal(created[0].details.model_route_decision.decision_id, "decision-1");
   assert.equal(Object.hasOwn(created[0].details.model_route_decision, "decisionId"), false);
+  assert.equal(created[0].details.route_id, "route.local-first");
+  assert.equal(created[0].details.selected_model, "model.local");
+  assert.equal(created[0].details.endpoint_id, "endpoint.local");
+  assert.equal(created[0].details.provider_id, "provider.local");
+  assert.equal(created[0].details.policy_hash, "policy-hash");
   assert.equal(created[0].details.response_id, "resp-1");
   assert.equal(created[0].details.previous_response_id, "resp-0");
   assert.equal(created[0].details.model_mount_route_decision_ref, "model_mount://route_decision/test");
@@ -299,11 +304,17 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
   assert.equal(Object.hasOwn(created[0].details, "modelRouteDecisionEventKind"), false);
   assert.equal(Object.hasOwn(created[0].details, "modelRouteDecisionId"), false);
   assert.equal(Object.hasOwn(created[0].details, "modelRouteDecision"), false);
+  assert.equal(Object.hasOwn(created[0].details, "routeId"), false);
+  assert.equal(Object.hasOwn(created[0].details, "selectedModel"), false);
+  assert.equal(Object.hasOwn(created[0].details, "endpointId"), false);
+  assert.equal(Object.hasOwn(created[0].details, "providerId"), false);
+  assert.equal(Object.hasOwn(created[0].details, "policyHash"), false);
   assert.equal(Object.hasOwn(created[0].details, "responseId"), false);
   assert.equal(Object.hasOwn(created[0].details, "previousResponseId"), false);
   assert.equal(Object.hasOwn(created[0].details, "modelMountRouteDecisionRef"), false);
   assert.equal(Object.hasOwn(created[0].details, "modelMountRouteDecision"), false);
-  assert.equal(created[0].details.workflowNodeId, "node-1");
+  assert.equal(created[0].details.workflow_node_id, "node-1");
+  assert.equal(Object.hasOwn(created[0].details, "workflowNodeId"), false);
   assert.deepEqual(created[0].evidenceRefs, [
     "model_router",
     "rust_model_mount_core",

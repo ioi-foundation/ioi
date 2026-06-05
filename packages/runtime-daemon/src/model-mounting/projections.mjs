@@ -124,15 +124,15 @@ export function buildReceiptReplay(state, receiptId, { schemaVersion }) {
     source: "agentgres_model_mounting_projection_replay",
     receipt,
     model_route_decision: receipt.details?.model_route_decision ?? null,
-    route: receipt.details?.routeId ? projection.routes.find((route) => route.id === receipt.details.routeId) ?? null : null,
-    endpoint: receipt.details?.endpointId
-      ? projection.endpoints.find((endpoint) => endpoint.id === receipt.details.endpointId) ?? null
+    route: receipt.details?.route_id ? projection.routes.find((route) => route.id === receipt.details.route_id) ?? null : null,
+    endpoint: receipt.details?.endpoint_id
+      ? projection.endpoints.find((endpoint) => endpoint.id === receipt.details.endpoint_id) ?? null
       : null,
     instance: receipt.details?.instanceId
       ? projection.instances.find((instance) => instance.id === receipt.details.instanceId) ?? null
       : null,
-    provider: receipt.details?.providerId
-      ? projection.providers.find((provider) => provider.id === receipt.details.providerId) ?? null
+    provider: receipt.details?.provider_id
+      ? projection.providers.find((provider) => provider.id === receipt.details.provider_id) ?? null
       : null,
     toolReceipts: normalizeReceiptIds(receipt.details?.toolReceiptIds).map((toolReceiptId) => state.getReceipt(toolReceiptId)),
     projectionWatermark: projection.watermark,

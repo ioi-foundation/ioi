@@ -10,9 +10,9 @@ function createState() {
       kind: "model_route_selection",
       details: {
         model_route_decision: { route_id: "route.local-first", selected_model: "model.local" },
-        routeId: "route.local-first",
-        endpointId: "endpoint.local",
-        providerId: "provider.local",
+        route_id: "route.local-first",
+        endpoint_id: "endpoint.local",
+        provider_id: "provider.local",
       },
     },
     { id: "receipt-lifecycle", kind: "model_lifecycle", details: {} },

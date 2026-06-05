@@ -21,9 +21,9 @@ function fakeState(stateDir = mkdtempSync(join(tmpdir(), "ioi-model-projection-t
       id: "receipt.route.1",
       kind: "model_route_selection",
       details: {
-        routeId: "route.local-first",
-        endpointId: "endpoint.local",
-        providerId: "provider.local",
+        route_id: "route.local-first",
+        endpoint_id: "endpoint.local",
+        provider_id: "provider.local",
         toolReceiptIds: ["receipt.tool.1"],
         model_route_decision: { route_id: "route.local-first", selected_endpoint_id: "endpoint.local" },
       },

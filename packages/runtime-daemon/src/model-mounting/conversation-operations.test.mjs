@@ -232,8 +232,8 @@ test("recordModelStreamCompleted emits stream receipt and finalizes conversation
       id: "receipt.route",
       details: {
         model_mount_route_decision_ref: "model_mount://route_decision/test",
-        workflowGraphId: "graph.stream",
-        workflowNodeId: "node.stream",
+        workflow_graph_id: "graph.stream",
+        workflow_node_id: "node.stream",
       },
     },
     responseId: "resp_stream",

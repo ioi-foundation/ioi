@@ -205,8 +205,8 @@ function fakeState(overrides = {}) {
         kind: "model_route_selection",
         details: {
           model_mount_route_decision_ref: "model_mount://route_decision/test",
-          workflowGraphId: "workflow.graph",
-          workflowNodeId: "workflow.node",
+          workflow_graph_id: "workflow.graph",
+          workflow_node_id: "workflow.node",
         },
       };
     },
@@ -970,8 +970,8 @@ test("modelMountInvocationAdmissionRequestForReceipt binds route decision and in
       id: "receipt.route",
       details: {
         model_mount_route_decision_ref: "model_mount://route_decision/test",
-        workflowGraphId: "graph.1",
-        workflowNodeId: "node.1",
+        workflow_graph_id: "graph.1",
+        workflow_node_id: "node.1",
       },
     },
     selection: selection(),
@@ -1061,8 +1061,8 @@ test("modelMountProviderExecutionRequestForInvocation gates provider driver exec
       id: "receipt.route",
       details: {
         model_mount_route_decision_ref: "model_mount://route_decision/test",
-        workflowGraphId: "graph.1",
-        workflowNodeId: "node.1",
+        workflow_graph_id: "graph.1",
+        workflow_node_id: "node.1",
       },
     },
     selection: selection(),
@@ -1309,8 +1309,8 @@ test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount Ste
       id: "receipt.route",
       details: {
         model_mount_route_decision_ref: "model_mount://route_decision/test",
-        workflowGraphId: "graph.1",
-        workflowNodeId: "node.1",
+        workflow_graph_id: "graph.1",
+        workflow_node_id: "node.1",
       },
     },
     selection: selection(),

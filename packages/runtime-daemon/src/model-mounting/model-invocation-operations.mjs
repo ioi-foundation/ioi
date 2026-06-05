@@ -525,8 +525,8 @@ export function modelMountInvocationAdmissionRequestForReceipt({
         selection?.provider?.nodePlaintextAllowed ??
         false,
     ),
-    workflow_graph_ref: optionalRef(routeReceipt?.details?.workflowGraphId),
-    workflow_node_ref: optionalRef(routeReceipt?.details?.workflowNodeId),
+    workflow_graph_ref: optionalRef(routeReceipt?.details?.workflow_graph_id),
+    workflow_node_ref: optionalRef(routeReceipt?.details?.workflow_node_id),
     response_ref: optionalRef(receiptDetails.responseId),
     previous_response_ref: optionalRef(receiptDetails.previous_response_id),
     stream_status: optionalRef(streamStatus ?? receiptDetails.streamStatus),
@@ -622,8 +622,8 @@ export function modelMountProviderExecutionRequestForInvocation({
         selection?.provider?.nodePlaintextAllowed ??
         false,
     ),
-    workflow_graph_ref: optionalRef(routeReceipt?.details?.workflowGraphId),
-    workflow_node_ref: optionalRef(routeReceipt?.details?.workflowNodeId),
+    workflow_graph_ref: optionalRef(routeReceipt?.details?.workflow_graph_id),
+    workflow_node_ref: optionalRef(routeReceipt?.details?.workflow_node_id),
     response_ref: optionalRef(responseId),
     previous_response_ref: optionalRef(previousResponseId),
     stream_status: optionalRef(streamStatus),

@@ -236,12 +236,12 @@ export function routeSelectionReceipt({
       ...evidenceRefs,
     ]),
     details: {
-      routeId: selection.route.id,
-      selectedModel: selection.endpoint.modelId,
-      endpointId: selection.endpoint.id,
-      providerId: selection.endpoint.providerId,
+      route_id: selection.route.id,
+      selected_model: selection.endpoint.modelId,
+      endpoint_id: selection.endpoint.id,
+      provider_id: selection.endpoint.providerId,
       capability,
-      policyHash,
+      policy_hash: policyHash,
       response_id: responseId,
       previous_response_id: previousResponseId,
       model_route_decision_schema_version: routeDecision.MODEL_ROUTE_DECISION_SCHEMA_VERSION,
@@ -255,7 +255,9 @@ export function routeSelectionReceipt({
       model_mount_route_decision_backend: modelMountRouteDecision.backend,
       model_mount_route_decision_receipt_refs: modelMountRouteDecision.receipt_refs ?? [],
       model_mount_route_decision: modelMountRouteDecision.record,
-      ...workflow,
+      workflow_graph_id: workflow.workflowGraphId ?? null,
+      workflow_node_id: workflow.workflowNodeId ?? null,
+      workflow_node_type: workflow.workflowNodeType ?? null,
     },
   };
   if (receiptId) payload.id = receiptId;
