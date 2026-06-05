@@ -3304,6 +3304,8 @@ function runCompositor() {
     /^\s*receiptRefs\s*[:,]/m;
   const runtimeSubagentListLookupRecordAliasReadPattern =
     /(?:record\.parentThreadId|(?:left|right)\.createdAt)\b/;
+  const runtimeSubagentPropagationRecordAliasReadPattern =
+    /(?:record\.(?:parentThreadId|subagentId|agentId|cancellationInheritance|lifecycleStatus)|(?:left|right)\.createdAt)\b/;
   const runtimeSubagentControlEventRecordAliasReadPattern =
     /record\.(?:subagentId|workflowGraphId|workflowNodeId|budgetPolicyDecision|budgetStatus|parentTurnId)\b/;
   const runtimeSubagentProjectionBlock =
@@ -4023,6 +4025,28 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent list/get read paths must ignore retired camelCase persisted record aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-propagation-record-aliases-retired",
+    runtimeSubagentPropagationEnvelopeBlock.length > 0 &&
+      !runtimeSubagentPropagationRecordAliasReadPattern.test(
+        runtimeSubagentPropagationEnvelopeBlock,
+      ) &&
+      /propagates parent cancellation and ignores retired record aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /parentThreadId: "thread_1"/.test(runtimeSubagentSurfaceTest) &&
+      /cancellationInheritance: "propagate"/.test(runtimeSubagentSurfaceTest) &&
+      /lifecycleStatus: "running"/.test(runtimeSubagentSurfaceTest) &&
+      /createdAt: "1900-01-01T00:00:00\.000Z"/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent cancellation propagation must ignore retired camelCase persisted record aliases",
   );
   assertCheck(
     result,

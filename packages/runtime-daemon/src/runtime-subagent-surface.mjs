@@ -23,7 +23,6 @@ import {
   subagentBudgetForRequest,
   subagentBudgetStatusForRun,
   subagentBudgetUsageTelemetryForRequest,
-  subagentCancellationPropagates,
   subagentContractOutputForRun,
   subagentIsActive,
   subagentManagerEventPayload,
@@ -137,7 +136,6 @@ export function createRuntimeSubagentSurface({
   subagentBudgetForRequest: subagentBudgetForRequestDep = subagentBudgetForRequest,
   subagentBudgetStatusForRun: subagentBudgetStatusForRunDep = subagentBudgetStatusForRun,
   subagentBudgetUsageTelemetryForRequest: subagentBudgetUsageTelemetryForRequestDep = subagentBudgetUsageTelemetryForRequest,
-  subagentCancellationPropagates: subagentCancellationPropagatesDep = subagentCancellationPropagates,
   subagentContractOutputForRun: subagentContractOutputForRunDep = subagentContractOutputForRun,
   subagentIsActive: subagentIsActiveDep = subagentIsActive,
   subagentManagerEventPayload: subagentManagerEventPayloadDep = subagentManagerEventPayload,
@@ -923,19 +921,20 @@ export function createRuntimeSubagentSurface({
       delete requestBase.idempotency_key;
       delete requestBase.idempotencyKey;
       const candidates = [...store.subagents.values()]
-        .filter((record) => (record.parent_thread_id ?? record.parentThreadId) === threadId)
+        .filter((record) => record.parent_thread_id === threadId)
         .sort((left, right) =>
-          String(left.created_at ?? left.createdAt ?? "").localeCompare(
-            String(right.created_at ?? right.createdAt ?? ""),
+          String(left.created_at ?? "").localeCompare(
+            String(right.created_at ?? ""),
           ),
         );
       const canceled = [];
       const skipped = [];
       for (const record of candidates) {
-        const targetId = record.subagent_id ?? record.subagentId ?? record.agent_id ?? record.agentId;
-        const inheritance = record.cancellation_inheritance ?? record.cancellationInheritance ?? "propagate";
-        const status = record.lifecycle_status ?? record.lifecycleStatus ?? record.status ?? null;
-        if (!subagentCancellationPropagatesDep(record)) {
+        const targetId = record.subagent_id;
+        const inheritance =
+          optionalStringDep(record.cancellation_inheritance)?.toLowerCase() ?? "propagate";
+        const status = record.lifecycle_status ?? record.status ?? null;
+        if (inheritance !== "propagate") {
           skipped.push({
             ...this.subagentProjection(record),
             skip_reason: "cancellation_inheritance_not_propagate",

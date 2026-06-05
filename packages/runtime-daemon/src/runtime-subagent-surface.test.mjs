@@ -1075,7 +1075,7 @@ test("subagent surface cancels subagents with inherited cancellation metadata", 
   assertCanonicalSubagentStoreWrites(store);
 });
 
-test("subagent surface propagates parent cancellation and reports skipped children", () => {
+test("subagent surface propagates parent cancellation and ignores retired record aliases", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface({
     nowIso: () => "2026-06-04T13:40:00.000Z",
@@ -1084,11 +1084,24 @@ test("subagent surface propagates parent cancellation and reports skipped childr
   store.surface = surface;
   store.subagents.set("subagent_2", {
     ...store.subagents.get("subagent_2"),
-    cancellationInheritance: "detach",
+    cancellation_inheritance: "detach",
+    cancellationInheritance: "propagate",
   });
   store.subagents.set("subagent_worker", {
     ...store.subagents.get("subagent_worker"),
     lifecycle_status: "canceled",
+    lifecycleStatus: "running",
+    createdAt: "1900-01-01T00:00:00.000Z",
+  });
+  store.subagents.set("subagent_parent_alias_poison", {
+    subagent_id: "subagent_parent_alias_poison",
+    agent_id: "agent_parent_alias_poison",
+    run_id: "run_2",
+    parent_thread_id: "thread_other",
+    parentThreadId: "thread_1",
+    role: "reviewer",
+    lifecycle_status: "running",
+    created_at: "2026-06-04T12:00:04.000Z",
   });
 
   const result = surface.propagateSubagentCancellation(store, "thread_1", {
@@ -1109,6 +1122,10 @@ test("subagent surface propagates parent cancellation and reports skipped childr
   assert.equal(result.skipped_count, 2);
   assertNoOwnKeys(result, retiredSubagentPropagationEnvelopeAliasKeys);
   assert.deepEqual(result.canceled_subagents.map((record) => record.subagent_id), ["subagent_1"]);
+  assert.equal(
+    result.canceled_subagents.some((record) => record.subagent_id === "subagent_parent_alias_poison"),
+    false,
+  );
   assertCanonicalSubagentRecordOutput(result.canceled_subagents[0]);
   assert.deepEqual(result.skipped_subagents.map((record) => record.skip_reason), [
     "cancellation_inheritance_not_propagate",
