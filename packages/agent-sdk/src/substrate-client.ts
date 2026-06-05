@@ -454,9 +454,7 @@ export interface RuntimeSubagentControlInput {
   model_route_id?: string;
   max_concurrency?: number;
   budget?: Record<string, unknown>;
-  outputContract?: string[] | Record<string, unknown>;
   output_contract?: string[] | Record<string, unknown>;
-  subagentOutputContract?: string[] | Record<string, unknown>;
   mergePolicy?: string;
   merge_policy?: string;
   cancellationInheritance?: "propagate" | "isolated" | string;

@@ -4753,6 +4753,19 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "agent-sdk-subagent-output-contract-request-type-aliases-retired",
+    runtimeSubagentSdkControlInputBlock.length > 0 &&
+      /^\s*output_contract\?: string\[\] \| Record<string, unknown>;/m.test(
+        runtimeSubagentSdkControlInputBlock,
+      ) &&
+      !/^\s*(?:outputContract|subagentOutputContract)\?:/m.test(
+        runtimeSubagentSdkControlInputBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent control request types must not advertise retired outputContract/subagentOutputContract aliases",
+  );
+  assertCheck(
+    result,
     "agent-sdk-runtime-event-dead-mock-helpers-retired",
     /runtimeThreadEventFromEnvelope/.test(agentSdkRuntimeEvents) &&
       !/mockRuntime(?:CursorSeq|EnvelopeForSdkEvent|EventEnvelope)|runtimePayloadStringRecord|runtimeEventKindForSdkMessage|runtimeEventStatusForSdkMessage|componentKindForSdkMessage|workflowNodeIdForSdkMessage|sourceEventKindForSdkMessage|payloadSchemaVersionForSdkMessage|turnIdForRun|eventStreamIdForThread|runtimeTurnStatusForRun|\(event as \{ id\?: string \}\)\.id/.test(
