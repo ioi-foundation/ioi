@@ -375,6 +375,10 @@ function runBridge() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
+  const retiredCodingToolJsBodyPattern =
+    /function (?:computerUseLeaseRequestTool|workspaceStatusTool|gitDiffTool|fileInspectTool|fileApplyPatchTool|testRunTool|lspDiagnosticsTool|artifactReadTool|toolRetrieveResultTool)\(/;
+  const retiredCodingToolJsImportPattern =
+    /(?:node:child_process|node:fs|node:path|node:crypto|computerUseProviderForLane|computerUseProviderRegistryReport|computerUseThreadToolNameForProvider)/;
   const openAiCompatibleDriver = exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
     : "";
@@ -485,6 +489,8 @@ function runBridge() {
       !/executeCodingTool/.test(runtimeCodingToolInvocationSurface) &&
       !/executeCodingTool/.test(codingTools) &&
       !/executeCodingTool/.test(runtimeDaemonIndex) &&
+      !retiredCodingToolJsBodyPattern.test(codingTools) &&
+      !retiredCodingToolJsImportPattern.test(codingTools) &&
       /coding tool invocation surface rejects non-live coding-tool runners before JS execution/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ),
