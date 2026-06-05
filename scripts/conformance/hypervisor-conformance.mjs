@@ -408,6 +408,12 @@ function runBridge() {
   const workerServicePackageStoreTest = exists("packages/runtime-daemon/src/runtime-worker-service-package-store.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-worker-service-package-store.test.mjs")
     : "";
+  const workerServicePackageSurface = exists("packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs")
+    : "";
+  const workerServicePackageSurfaceTest = exists("packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs")
+    : "";
   const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
     ? read("packages/agent-sdk/src/substrate-client.ts")
     : "";
@@ -980,6 +986,34 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 8 is pending: daemon worker/service package facade must call the Rust package admission bridge and fail closed when unconfigured",
+  );
+  assertCheck(
+    result,
+    "worker-service-package-product-route",
+    /createRuntimeWorkerServicePackageSurface/.test(runtimeDaemonIndex) &&
+      /this\.workerServicePackageSurface/.test(runtimeDaemonIndex) &&
+      /admitWorkerServicePackageInvocation/.test(runtimeDaemonIndex) &&
+      /WORKER_SERVICE_PACKAGE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(workerServicePackageSurface) &&
+      /invocation_admitted:\s*true/.test(workerServicePackageSurface) &&
+      /store\.workerServicePackageRunner\.admitInvocation/.test(workerServicePackageSurface) &&
+      /worker-service-package-invocations/.test(runtimeRouteHandlers) &&
+      /store\.admitWorkerServicePackageInvocation/.test(runtimeRouteHandlers) &&
+      /thread route admits worker\/service package invocations through store facade/.test(runtimeRouteHandlersTest) &&
+      /thread route does not expose worker\/service package apply shortcut/.test(runtimeRouteHandlersTest) &&
+      /worker\/service package surface admits nested invocation through Rust runner/.test(
+        workerServicePackageSurfaceTest,
+      ) &&
+      /worker\/service package surface fails closed without invocation payload/.test(
+        workerServicePackageSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs",
+      "packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 8 is pending: product/API worker-service package route must call Rust package admission and expose no JS apply shortcut",
   );
   assertCheck(
     result,
