@@ -3,6 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 const RUNTIME_STATE_TRANSITION_SCHEMA_VERSION = "ioi.agentgres_runtime_state_transition.v1";
+const RUNTIME_STATE_STORAGE_ADMISSION_SCHEMA_VERSION = "ioi.storage_backend_write_admission.v1";
+const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
 
 export function terminalEventCount(events = [], terminalEventTypes = new Set()) {
   return events.filter((event) => terminalEventTypes.has(event.type)).length;
@@ -161,6 +163,13 @@ function safeAgentgresComponent(value) {
   return safe || "runtime";
 }
 
+function safeAgentgresPath(value) {
+  return String(value ?? "runtime")
+    .split("/")
+    .map((segment) => safeAgentgresComponent(segment))
+    .join("/");
+}
+
 function previousRunStateTransition(store, runId) {
   const current = typeof store.currentRunStateTransition === "function"
     ? store.currentRunStateTransition(runId)
@@ -227,6 +236,74 @@ function planRunStateTransition(store, run, operationKind, {
   }
   const transition = store.planRunStateTransition(request);
   return normalizeRunStateTransition(transition);
+}
+
+function admitRunStateStorageWrite(store, run, recordPath, value) {
+  if (typeof store.admitRuntimeStateStorageWrite !== "function") {
+    throw new Error("Run persistence requires Rust Agentgres storage write admission.");
+  }
+  const safeRunId = safeAgentgresComponent(run.id);
+  const safeRecordPath = safeAgentgresPath(recordPath);
+  const request = {
+    schema_version: RUNTIME_STATE_STORAGE_ADMISSION_SCHEMA_VERSION,
+    storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
+    object_ref: `agentgres://runtime-state/runs/${safeRunId}/records/${safeRecordPath}`,
+    content_hash: runStateHash(value),
+    artifact_refs: [],
+    payload_refs: [`payload://runtime/runs/${safeRunId}/records/${safeRecordPath}`],
+    receipt_refs: run.receipts.map((receipt) => receipt.id).filter(Boolean),
+  };
+  return normalizeStorageAdmission(store.admitRuntimeStateStorageWrite(request));
+}
+
+function normalizeStorageAdmission(admission) {
+  const record = admission?.record && typeof admission.record === "object" ? admission.record : admission;
+  const normalized = {
+    source: normalizeTransitionRef(admission?.source) ?? "rust_agentgres_storage_write_admission_command",
+    admission_hash: normalizeTransitionRef(admission?.admission_hash) ?? normalizeTransitionRef(record?.admission_hash),
+    storage_backend_ref:
+      normalizeTransitionRef(admission?.storage_backend_ref) ?? normalizeTransitionRef(record?.storage_backend_ref),
+    object_ref: normalizeTransitionRef(admission?.object_ref) ?? normalizeTransitionRef(record?.object_ref),
+    content_hash: normalizeTransitionRef(admission?.content_hash) ?? normalizeTransitionRef(record?.content_hash),
+    artifact_refs: Array.isArray(admission?.artifact_refs)
+      ? admission.artifact_refs
+      : Array.isArray(record?.artifact_refs)
+        ? record.artifact_refs
+        : [],
+    payload_refs: Array.isArray(admission?.payload_refs)
+      ? admission.payload_refs
+      : Array.isArray(record?.payload_refs)
+        ? record.payload_refs
+        : [],
+    receipt_refs: Array.isArray(admission?.receipt_refs)
+      ? admission.receipt_refs
+      : Array.isArray(record?.receipt_refs)
+        ? record.receipt_refs
+        : [],
+    evidence_refs: Array.isArray(admission?.evidence_refs) ? admission.evidence_refs : [],
+    record: record ?? null,
+  };
+  const missing = [
+    ["admission_hash", normalized.admission_hash],
+    ["storage_backend_ref", normalized.storage_backend_ref],
+    ["object_ref", normalized.object_ref],
+    ["content_hash", normalized.content_hash],
+    ["payload_refs", normalized.payload_refs.length > 0 ? normalized.payload_refs : null],
+    ["receipt_refs", normalized.receipt_refs.length > 0 ? normalized.receipt_refs : null],
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+  if (missing.length > 0) {
+    throw new Error(`Rust Agentgres storage write admission is missing ${missing.join(", ")}.`);
+  }
+  return normalized;
+}
+
+function writeJsonWithStorageAdmission(store, recordPath, value, run, writeJson) {
+  const filePath = store.pathFor(...recordPath.split("/"));
+  const storageAdmission = admitRunStateStorageWrite(store, run, recordPath, value);
+  writeJson(filePath, value);
+  return storageAdmission;
 }
 
 function normalizeRunStateTransition(transition) {
@@ -307,8 +384,8 @@ export function writeRunRecord(store, run, operationKind, deps = {}) {
     runtimeChecklist,
     terminalEventTypes,
   });
-  writeJson(store.pathFor("runs", `${run.id}.json`), run);
-  writeJson(store.pathFor("tasks", `${run.id}.json`), {
+  writeJsonWithStorageAdmission(store, `runs/${run.id}.json`, run, run, writeJson);
+  const taskRecord = {
     runId: run.id,
     agentId: run.agentId,
     runtimeTask,
@@ -318,7 +395,8 @@ export function writeRunRecord(store, run, operationKind, deps = {}) {
     semanticImpact: run.trace.semanticImpact,
     projectionWatermark: agentgresTransition.projection_watermark,
     agentgresTransition,
-  });
+  };
+  writeJsonWithStorageAdmission(store, `tasks/${run.id}.json`, taskRecord, run, writeJson);
   writeJson(store.pathFor("jobs", `${runtimeJob.jobId}.json`), runtimeJob);
   writeJson(store.pathFor("checklists", `${runtimeChecklist.checklistId}.json`), runtimeChecklist);
   for (const receipt of run.receipts) {
@@ -356,8 +434,9 @@ export function writeRunRecord(store, run, operationKind, deps = {}) {
       humanReviewThreshold: "high_risk",
     },
   });
-  writeJson(store.pathFor("projections", `${run.id}.json`), {
+  const projectionRecord = {
     ...store.canonicalProjection(run.id),
     agentgresTransition,
-  });
+  };
+  writeJsonWithStorageAdmission(store, `projections/${run.id}.json`, projectionRecord, run, writeJson);
 }

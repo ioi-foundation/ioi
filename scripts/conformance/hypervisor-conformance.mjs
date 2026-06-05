@@ -1593,6 +1593,36 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "thread-run-state-storage-write-rust-admitted",
+    /StorageBackendWriteProposal/.test(agentgresAdmissionCore) &&
+      /admit_storage_backend_write/.test(bridgeModule) &&
+      /rust_agentgres_storage_write_admission_command/.test(bridgeModule) &&
+      /bridge_admits_storage_backend_write_through_rust_core/.test(bridgeModule) &&
+      /admitStorageBackendWrite/.test(runtimeAgentgresRunner) &&
+      /RUST_AGENTGRES_STORAGE_BACKEND/.test(runtimeAgentgresRunner) &&
+      /runtime Agentgres runner sends storage write admission bridge request/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /admitRuntimeStateStorageWrite\(request\)/.test(runtimeDaemonIndex) &&
+      /writeJsonWithStorageAdmission/.test(threadPersistence) &&
+      /RUNTIME_STATE_STORAGE_BACKEND_REF/.test(threadPersistence) &&
+      /storageWriteAdmissions/.test(read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs")) &&
+      /admits canonical storage writes/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-persistence.mjs",
+      "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 5/11 is pending: canonical run/task/projection state writes must obtain Rust storage admission with Agentgres PayloadRef/receipt refs before local JSON persistence",
+  );
+  assertCheck(
+    result,
     "model-mount-invocation-receipt-binder-core",
     /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       /ReceiptBinder/.test(bridgeModule) &&

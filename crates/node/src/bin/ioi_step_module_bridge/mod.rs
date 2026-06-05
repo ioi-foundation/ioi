@@ -1,6 +1,6 @@
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeStateTransitionRequest,
-    AGENTGRES_ADMISSION_SCHEMA_VERSION,
+    StorageBackendWriteProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountCore, ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
@@ -177,6 +177,16 @@ struct RuntimeStateTransitionBridgeRequest {
     request: RuntimeStateTransitionRequest,
 }
 
+#[derive(Debug, Deserialize)]
+struct StorageBackendWriteBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: StorageBackendWriteProposal,
+}
+
 pub fn run_bridge_response_from_stdin() -> Value {
     match run_bridge() {
         Ok(response) => json!({ "ok": true, "result": response }),
@@ -278,6 +288,11 @@ fn run_bridge() -> Result<Value, BridgeError> {
             let request: RuntimeStateTransitionBridgeRequest = serde_json::from_value(raw_request)
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_runtime_run_state_transition(request)
+        }
+        "admit_storage_backend_write" => {
+            let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
+                .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            admit_storage_backend_write(request)
         }
         other => Err(BridgeError::new(
             "operation_unsupported",
@@ -910,6 +925,47 @@ fn plan_runtime_run_state_transition(
         "evidence_refs": [
             "rust_agentgres_runtime_state_transition",
             record.transition_hash,
+        ],
+    }))
+}
+
+fn admit_storage_backend_write(
+    request: StorageBackendWriteBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "admit_storage_backend_write" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = AgentgresAdmissionCore
+        .admit_storage_backend_write(&request.request)
+        .map_err(|error| {
+            BridgeError::new("storage_backend_write_admission_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_agentgres_storage_write_admission_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "record": record.clone(),
+        "admission_hash": record.admission_hash.clone(),
+        "storage_backend_ref": record.storage_backend_ref.clone(),
+        "object_ref": record.object_ref.clone(),
+        "content_hash": record.content_hash.clone(),
+        "artifact_refs": record.artifact_refs.clone(),
+        "payload_refs": record.payload_refs.clone(),
+        "receipt_refs": record.receipt_refs.clone(),
+        "evidence_refs": [
+            "rust_agentgres_storage_write_admission",
+            record.admission_hash,
         ],
     }))
 }
@@ -4183,6 +4239,50 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_agentgres_runtime_state_transition"));
+    }
+
+    #[test]
+    fn bridge_admits_storage_backend_write_through_rust_core() {
+        let request: StorageBackendWriteBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "admit_storage_backend_write",
+            "backend": "rust_agentgres_storage",
+            "request": {
+                "schema_version": "ioi.storage_backend_write_admission.v1",
+                "storage_backend_ref": "storage://runtime-agentgres/local-json",
+                "object_ref": "agentgres://runtime-state/runs/run_1/records/runs/run_1.json",
+                "content_hash": "sha256:runtime-state-write",
+                "artifact_refs": [],
+                "payload_refs": ["payload://runtime/runs/run_1/records/runs/run_1.json"],
+                "receipt_refs": ["receipt_policy"]
+            }
+        }))
+        .expect("storage write bridge request");
+
+        let response = admit_storage_backend_write(request).expect("storage write admitted");
+
+        assert_eq!(
+            response["source"],
+            "rust_agentgres_storage_write_admission_command"
+        );
+        assert_eq!(response["backend"], "rust_agentgres_storage");
+        assert_eq!(
+            response["record"]["storage_backend_ref"],
+            "storage://runtime-agentgres/local-json"
+        );
+        assert_eq!(
+            response["object_ref"],
+            "agentgres://runtime-state/runs/run_1/records/runs/run_1.json"
+        );
+        assert!(response["admission_hash"]
+            .as_str()
+            .expect("admission hash")
+            .starts_with("sha256:"));
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_agentgres_storage_write_admission"));
     }
 
     #[test]

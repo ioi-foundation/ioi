@@ -6,6 +6,7 @@ export const RUNTIME_AGENTGRES_FALLBACK_COMMAND_ENV = "IOI_MODEL_MOUNT_ADMISSION
 export const RUNTIME_AGENTGRES_FALLBACK_COMMAND_ARGS_ENV = "IOI_MODEL_MOUNT_ADMISSION_COMMAND_ARGS";
 export const RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
 export const RUST_RUNTIME_AGENTGRES_BACKEND = "rust_runtime_agentgres";
+export const RUST_AGENTGRES_STORAGE_BACKEND = "rust_agentgres_storage";
 
 export function createRuntimeAgentgresAdmissionRunnerFromEnv(env = process.env, options = {}) {
   return new RustRuntimeAgentgresAdmissionRunner({
@@ -36,12 +37,22 @@ export class RustRuntimeAgentgresAdmissionRunner {
     return normalizeRunStateTransitionBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
+  admitStorageBackendWrite(request) {
+    const bridgeRequest = {
+      schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
+      operation: "admit_storage_backend_write",
+      backend: RUST_AGENTGRES_STORAGE_BACKEND,
+      request,
+    };
+    return normalizeStorageBackendWriteBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
   invokeBridge(request) {
     if (this.mockResult) {
       const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
       return {
         source: "rust_runtime_agentgres_mock",
-        backend: RUST_RUNTIME_AGENTGRES_BACKEND,
+        backend: request.backend ?? RUST_RUNTIME_AGENTGRES_BACKEND,
         ...value,
       };
     }
@@ -127,6 +138,24 @@ export function normalizeRunStateTransitionBridgeResult(value = {}) {
     receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
     artifact_refs: Array.isArray(result.artifact_refs) ? result.artifact_refs : record.artifact_refs ?? [],
     payload_refs: Array.isArray(result.payload_refs) ? result.payload_refs : record.payload_refs ?? [],
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+  };
+}
+
+export function normalizeStorageBackendWriteBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.record && typeof result.record === "object" ? result.record : {};
+  return {
+    source: result.source ?? "rust_agentgres_storage_write_admission_command",
+    backend: result.backend ?? RUST_AGENTGRES_STORAGE_BACKEND,
+    record,
+    admission_hash: result.admission_hash ?? record.admission_hash ?? null,
+    storage_backend_ref: result.storage_backend_ref ?? record.storage_backend_ref ?? null,
+    object_ref: result.object_ref ?? record.object_ref ?? null,
+    content_hash: result.content_hash ?? record.content_hash ?? null,
+    artifact_refs: Array.isArray(result.artifact_refs) ? result.artifact_refs : record.artifact_refs ?? [],
+    payload_refs: Array.isArray(result.payload_refs) ? result.payload_refs : record.payload_refs ?? [],
+    receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
   };
 }
