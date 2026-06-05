@@ -154,29 +154,18 @@ export function subagentUsageTelemetryForRun(run = {}, prompt = "", previousUsag
   ) ?? 0;
   return {
     schema_version: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
     object: "ioi.runtime_subagent_usage_telemetry",
     run_id: run.id ?? null,
-    runId: run.id ?? null,
     estimated: true,
     input_tokens: inputTokens,
-    inputTokens,
     output_tokens: outputTokens,
-    outputTokens,
     total_tokens: totalTokens,
-    totalTokens,
     cumulative_input_tokens: previousInputTokens + inputTokens,
-    cumulativeInputTokens: previousInputTokens + inputTokens,
     cumulative_output_tokens: previousOutputTokens + outputTokens,
-    cumulativeOutputTokens: previousOutputTokens + outputTokens,
     cumulative_total_tokens: previousTotalTokens + totalTokens,
-    cumulativeTotalTokens: previousTotalTokens + totalTokens,
     cost_estimate_usd: costEstimateUsd,
-    costEstimateUsd,
     cumulative_cost_estimate_usd: roundUsd(previousCostEstimateUsd + costEstimateUsd),
-    cumulativeCostEstimateUsd: roundUsd(previousCostEstimateUsd + costEstimateUsd),
     model_route_id: run.model_route_decision?.route_id ?? null,
-    modelRouteId: run.model_route_decision?.route_id ?? null,
   };
 }
 

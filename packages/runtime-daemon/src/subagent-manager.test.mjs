@@ -26,6 +26,19 @@ const retiredSubagentBudgetUsageOutputAliasKeys = [
   "policyDecisionRefs",
   "runtimeTelemetrySummarySchemaVersion",
 ];
+const retiredSubagentUsageTelemetryOutputAliasKeys = [
+  "schemaVersion",
+  "runId",
+  "inputTokens",
+  "outputTokens",
+  "totalTokens",
+  "cumulativeInputTokens",
+  "cumulativeOutputTokens",
+  "cumulativeTotalTokens",
+  "costEstimateUsd",
+  "cumulativeCostEstimateUsd",
+  "modelRouteId",
+];
 
 const retiredSubagentUsageDataAliasInput = {
   cumulativeInputTokens: 5,
@@ -57,6 +70,12 @@ function assertCanonicalSubagentManagerUsageTelemetry(record) {
 
 function assertCanonicalSubagentBudgetUsageOutput(telemetry) {
   for (const key of retiredSubagentBudgetUsageOutputAliasKeys) {
+    assert.equal(Object.prototype.hasOwnProperty.call(telemetry, key), false);
+  }
+}
+
+function assertCanonicalSubagentUsageTelemetryOutput(telemetry) {
+  for (const key of retiredSubagentUsageTelemetryOutputAliasKeys) {
     assert.equal(Object.prototype.hasOwnProperty.call(telemetry, key), false);
   }
 }
@@ -165,6 +184,8 @@ test("subagent usage telemetry ignores retired previous usage aliases", () => {
   assert.ok(canonical.cumulative_cost_estimate_usd > canonical.cost_estimate_usd);
   assert.equal(canonical.model_route_id, "route.canonical");
   assert.equal(canonical.cost_estimate_usd, 0.42);
+  assertCanonicalSubagentUsageTelemetryOutput(canonical);
+  assertCanonicalSubagentUsageTelemetryOutput(retiredOnly);
   assert.equal(retiredOnly.cumulative_total_tokens, retiredOnly.total_tokens);
   assert.equal(retiredOnly.model_route_id, "route.canonical");
   assert.equal(retiredOnly.cost_estimate_usd, 0.42);

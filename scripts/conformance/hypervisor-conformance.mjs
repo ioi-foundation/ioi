@@ -3202,6 +3202,10 @@ function runCompositor() {
     subagentManager.match(
       /export function normalizeSubagentBudgetUsageTelemetry[\s\S]*?\n}\n\nexport function normalizeSubagentBudget/,
     )?.[0] ?? "";
+  const subagentUsageTelemetryForRunBlock =
+    subagentManager.match(
+      /export function subagentUsageTelemetryForRun[\s\S]*?\n}\n\nexport function subagentBudgetStatusForRun/,
+    )?.[0] ?? "";
   const subagentManagerTest = exists("packages/runtime-daemon/src/subagent-manager.test.mjs")
     ? read("packages/runtime-daemon/src/subagent-manager.test.mjs")
     : "";
@@ -3669,6 +3673,24 @@ function runCompositor() {
       "packages/runtime-daemon/src/subagent-manager.test.mjs",
     ],
     "Phase 10/11 is pending: subagent budget usage telemetry output must expose canonical snake_case fields only",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-run-usage-output-aliases-retired",
+    !/(?:schemaVersion|runId|inputTokens|outputTokens|totalTokens|cumulativeInputTokens|cumulativeOutputTokens|cumulativeTotalTokens|costEstimateUsd|cumulativeCostEstimateUsd|modelRouteId)\s*:/.test(
+      subagentUsageTelemetryForRunBlock,
+    ) &&
+      /retiredSubagentUsageTelemetryOutputAliasKeys/.test(
+        subagentManagerTest,
+      ) &&
+      /assertCanonicalSubagentUsageTelemetryOutput/.test(
+        subagentManagerTest,
+      ),
+    [
+      "packages/runtime-daemon/src/subagent-manager.mjs",
+      "packages/runtime-daemon/src/subagent-manager.test.mjs",
+    ],
+    "Phase 10/11 is pending: subagent run usage telemetry output must expose canonical snake_case fields only",
   );
   assertCheck(
     result,
