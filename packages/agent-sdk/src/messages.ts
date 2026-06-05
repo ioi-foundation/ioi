@@ -978,8 +978,8 @@ export interface ModelRouteDecision {
   workflow_node_type: string | null;
   response_id: string | null;
   previous_response_id: string | null;
-  policyHash?: string;
-  evidenceRefs: string[];
+  policy_hash?: string;
+  evidence_refs: string[];
   receiptId?: string;
 }
 

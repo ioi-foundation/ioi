@@ -1101,6 +1101,29 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-route-decision-ref-aliases-retired",
+    /^ {6}policy_hash:\s*policyHash/m.test(modelRouteDecisionObject) &&
+      /^ {4}policy_hash:\s*policyHash/m.test(modelRouteDecisionObject) &&
+      /^ {4}evidence_refs:\s*\[/m.test(modelRouteDecisionObject) &&
+      !/^ {4}(?:policyHash|evidenceRefs)\s*[:,]/m.test(modelRouteDecisionObject) &&
+      /^\s*policy_hash\?:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
+      /^\s*evidence_refs:\s*string\[\];/m.test(agentSdkModelRouteDecisionType) &&
+      !/^\s*(?:policyHash|evidenceRefs)\s*[:?]/m.test(agentSdkModelRouteDecisionType) &&
+      /Object\.hasOwn\(decision,\s*"policyHash"\),\s*false/.test(modelRouteDecisionTest) &&
+      /Object\.hasOwn\(decision,\s*"evidenceRefs"\),\s*false/.test(modelRouteDecisionTest) &&
+      /modelRouteDecision\?\.evidence_refs/.test(runtimeDaemonIndex) &&
+      /modelRouteDecision\.evidence_refs/.test(runtimeDaemonIndex) &&
+      !/modelRouteDecision\??\.evidenceRefs/.test(runtimeDaemonIndex),
+    [
+      "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
+      "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/agent-sdk/src/messages.ts",
+    ],
+    "Phase 3/10 is pending: accepted model route-decision policy/evidence refs and direct run readers must use canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "runtime-thread-model-route-decision-reader-aliases-retired",
     /modelRoute\.decision\?\.reasoning_effort/.test(threadRuntimeControls) &&
       /modelRoute\.decision\?\.workflow_graph_id/.test(threadRuntimeControls) &&

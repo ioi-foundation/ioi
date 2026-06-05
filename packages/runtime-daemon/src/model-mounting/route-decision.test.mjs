@@ -152,6 +152,8 @@ test("route decisions honor canonical fallback request metadata", () => {
   assert.equal(Object.hasOwn(decision, "workflowGraphId"), false);
   assert.equal(Object.hasOwn(decision, "workflowNodeId"), false);
   assert.equal(Object.hasOwn(decision, "workflowNodeType"), false);
+  assert.equal(decision.policy_hash, "sha256:policy");
+  assert.equal(Object.hasOwn(decision, "policyHash"), false);
   assert.equal(decision.fallback_allowed, true);
   assert.equal(decision.fallback_triggered, true);
   assert.equal(decision.fallback_reason, "primary_route_unavailable");
@@ -165,7 +167,8 @@ test("route decisions honor canonical fallback request metadata", () => {
   assert.equal(Object.hasOwn(decision, "fallbackReason"), false);
   assert.equal(Object.hasOwn(decision, "evaluatedCandidateCount"), false);
   assert.equal(Object.hasOwn(decision, "rejectedCandidates"), false);
-  assert.equal(decision.evidenceRefs.includes("model_route_fallback_selected"), true);
+  assert.equal(decision.evidence_refs.includes("model_route_fallback_selected"), true);
+  assert.equal(Object.hasOwn(decision, "evidenceRefs"), false);
   assert.match(decision.rationale, /primary_route_unavailable/);
 });
 
@@ -186,7 +189,8 @@ test("route decisions ignore retired camelCase fallback request aliases", () => 
   assert.equal(decision.fallback_reason, null);
   assert.equal(Object.hasOwn(decision, "fallbackTriggered"), false);
   assert.equal(Object.hasOwn(decision, "fallbackReason"), false);
-  assert.equal(decision.evidenceRefs.includes("model_route_fallback_selected"), false);
+  assert.equal(decision.evidence_refs.includes("model_route_fallback_selected"), false);
+  assert.equal(Object.hasOwn(decision, "evidenceRefs"), false);
   assert.doesNotMatch(decision.rationale, /legacy_route_unavailable/);
 });
 

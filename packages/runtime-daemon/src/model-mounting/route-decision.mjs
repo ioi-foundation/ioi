@@ -41,7 +41,7 @@ export function createModelRouteDecision({
       provider_id: provider?.id ?? null,
       capability,
       requested_model: requestedModel,
-      policyHash,
+      policy_hash: policyHash,
       workflow,
       response_id: responseId,
       previous_response_id: previousResponseId,
@@ -94,8 +94,8 @@ export function createModelRouteDecision({
     workflow_node_type: workflow.workflowNodeType ?? null,
     response_id: responseId,
     previous_response_id: previousResponseId,
-    policyHash,
-    evidenceRefs: [
+    policy_hash: policyHash,
+    evidence_refs: [
       "model_router",
       route?.id,
       endpoint?.id,

@@ -4033,7 +4033,7 @@ function buildRun({
       ...agent.options.mcpServerNames,
       ...agent.options.skillNames,
       ...agent.options.hookNames,
-      ...normalizeArray(modelRouteDecision?.evidenceRefs),
+      ...normalizeArray(modelRouteDecision?.evidence_refs),
       modelRouteReceiptId,
       memoryPolicy?.id,
       ...memoryRecords.map((record) => record.id),
@@ -4373,7 +4373,7 @@ function buildRun({
         kind: "model_route_selection",
         summary: `Route ${modelRouteDecision.route_id} selected ${modelRouteDecision.selected_model}.`,
         redaction: "none",
-        evidenceRefs: normalizeArray(modelRouteDecision.evidenceRefs),
+        evidenceRefs: normalizeArray(modelRouteDecision.evidence_refs),
       }
     : null;
   const policyReceipt = {
