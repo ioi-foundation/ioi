@@ -431,6 +431,18 @@ function runBridge() {
   const runtimeRouteHandlersTest = exists("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     : "";
+  const runtimeThreadControlSurface = exists("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
+    : "";
+  const runtimeThreadControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
+    : "";
+  const threadRuntimeControls = exists("packages/runtime-daemon/src/threads/thread-runtime-controls.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-runtime-controls.mjs")
+    : "";
+  const threadRuntimeControlsTest = exists("packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs")
+    : "";
   const workerServicePackageRunner = exists("packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs")
     : "";
@@ -745,6 +757,28 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 3/9 is pending: model-mounting route decisions must call Rust model_mount core and fail closed before provider invocation",
+  );
+  assertCheck(
+    result,
+    "runtime-thread-hosted-fallback-alias-retired",
+    /allow_hosted_fallback/.test(threadRuntimeControls) &&
+      /allow_hosted_fallback/.test(runtimeThreadControlSurface) &&
+      !/allowHostedFallback/.test(threadRuntimeControls) &&
+      !/allowHostedFallback/.test(runtimeThreadControlSurface) &&
+      /retiredAliasInput/.test(threadRuntimeControlsTest) &&
+      /Object\.hasOwn\(retiredAliasInput\.model,\s*"allowHostedFallback"\),\s*false/.test(
+        threadRuntimeControlsTest,
+      ) &&
+      /Object\.hasOwn\(result\.control\.model,\s*"allowHostedFallback"\),\s*false/.test(
+        runtimeThreadControlSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+    ],
+    "Phase 10 is pending: thread/runtime control model policy helpers must use canonical allow_hosted_fallback without the retired allowHostedFallback translator",
   );
   assertCheck(
     result,

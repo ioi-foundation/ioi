@@ -69,7 +69,7 @@ test("initial and normalized runtime controls preserve schema and model route fi
     reasoningEffort: null,
     privacy: null,
     maxCostUsd: null,
-    allowHostedFallback: null,
+    allow_hosted_fallback: null,
     workflowGraphId: null,
     workflowNodeId: "runtime.model-router",
     updatedAt: null,
@@ -101,7 +101,7 @@ test("runtime-backed requests inherit model controls without overriding explicit
     reasoningEffort: "high",
     privacy: undefined,
     maxCostUsd: undefined,
-    allowHostedFallback: undefined,
+    allow_hosted_fallback: undefined,
     workflowGraphId: undefined,
     workflowNodeId: "node-1",
     workflowNodeType: "Model Router",
@@ -125,6 +125,7 @@ test("thread control request kind and model input infer compact operator updates
         route: "route-1",
         thinking: "off",
         max_cost_usd: 0.05,
+        allow_hosted_fallback: true,
       },
     },
     { model: { workflowNodeId: "existing-node" } },
@@ -138,9 +139,18 @@ test("thread control request kind and model input infer compact operator updates
       workflowNodeType: "Model Router",
       reasoningEffort: "none",
       maxCostUsd: 0.05,
+      allow_hosted_fallback: true,
     },
     workflowNodeId: "existing-node",
   });
+
+  const retiredAliasInput = threadRuntimeControlModelInput(
+    { model: { allowHostedFallback: true } },
+    { model: {} },
+    {},
+  );
+  assert.equal(Object.hasOwn(retiredAliasInput.model, "allow_hosted_fallback"), false);
+  assert.equal(Object.hasOwn(retiredAliasInput.model, "allowHostedFallback"), false);
 });
 
 test("model policy, workflow context, reasoning effort, and route receipt binding stay stable", () => {
@@ -148,13 +158,16 @@ test("model policy, workflow context, reasoning effort, and route receipt bindin
     model: {
       provider: "local",
       reasoningEffort: "medium",
-      allowHostedFallback: false,
+      allow_hosted_fallback: false,
     },
   }), {
     provider: "local",
     reasoning_effort: "medium",
     allow_hosted_fallback: false,
   });
+  assert.equal(modelPolicyForOptions({
+    model: { allowHostedFallback: true },
+  }).allow_hosted_fallback, undefined);
 
   assert.deepEqual(modelWorkflowContext({
     options: { workflow: { graph_id: "graph-1", node_id: "node-1", node_type: "Model Router" } },
@@ -171,7 +184,7 @@ test("model policy, workflow context, reasoning effort, and route receipt bindin
   const binding = modelRouteBindingFromReceipt({
     id: "receipt-1",
     details: {
-      modelRouteDecision: {
+      model_route_decision: {
         requestedModel: "auto",
         selectedModel: "local-model",
         routeId: "route.local-first",

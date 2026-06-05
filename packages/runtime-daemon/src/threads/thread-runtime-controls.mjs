@@ -33,7 +33,7 @@ export function initialThreadRuntimeControls(options = {}, modelRoute = {}, now 
       reasoningEffort: modelRoute.decision?.reasoningEffort ?? options.model?.reasoningEffort ?? options.model?.thinking ?? null,
       privacy: options.model?.privacy ?? null,
       maxCostUsd: options.model?.maxCostUsd ?? options.model?.max_cost_usd ?? null,
-      allowHostedFallback: options.model?.allowHostedFallback ?? options.model?.allow_hosted_fallback ?? null,
+      allow_hosted_fallback: options.model?.allow_hosted_fallback ?? null,
       workflowGraphId: modelRoute.decision?.workflowGraphId ?? options.model?.workflowGraphId ?? null,
       workflowNodeId: modelRoute.decision?.workflowNodeId ?? options.model?.workflowNodeId ?? "runtime.model-router",
       updatedAt: now,
@@ -66,7 +66,7 @@ export function normalizedAgentRuntimeControls(agent = {}) {
       reasoningEffort: model.reasoningEffort ?? model.reasoning_effort ?? agent.modelRouteDecision?.reasoningEffort ?? null,
       privacy: model.privacy ?? null,
       maxCostUsd: model.maxCostUsd ?? model.max_cost_usd ?? null,
-      allowHostedFallback: model.allowHostedFallback ?? model.allow_hosted_fallback ?? null,
+      allow_hosted_fallback: model.allow_hosted_fallback ?? null,
       workflowGraphId: model.workflowGraphId ?? model.workflow_graph_id ?? agent.modelRouteDecision?.workflowGraphId ?? null,
       workflowNodeId: model.workflowNodeId ?? model.workflow_node_id ?? agent.modelRouteDecision?.workflowNodeId ?? "runtime.model-router",
       updatedAt: model.updatedAt ?? model.updated_at ?? source.updatedAt ?? source.updated_at ?? agent.updatedAt ?? null,
@@ -105,7 +105,7 @@ export function threadRuntimeControlModelForOptions(model = {}) {
     reasoningEffort: model.reasoningEffort ?? model.reasoning_effort ?? undefined,
     privacy: model.privacy ?? undefined,
     maxCostUsd: model.maxCostUsd ?? model.max_cost_usd ?? undefined,
-    allowHostedFallback: model.allowHostedFallback ?? model.allow_hosted_fallback ?? undefined,
+    allow_hosted_fallback: model.allow_hosted_fallback ?? undefined,
     workflowGraphId: model.workflowGraphId ?? model.workflow_graph_id ?? undefined,
     workflowNodeId: model.workflowNodeId ?? model.workflow_node_id ?? "runtime.model-router",
     workflowNodeType: "Model Router",
@@ -192,7 +192,7 @@ export function threadRuntimeControlModelInput(request = {}, controls = {}, agen
   for (const [key, snakeKey, outputKey] of [
     ["privacy", "privacy", "privacy"],
     ["maxCostUsd", "max_cost_usd", "maxCostUsd"],
-    ["allowHostedFallback", "allow_hosted_fallback", "allowHostedFallback"],
+    ["allow_hosted_fallback", "allow_hosted_fallback", "allow_hosted_fallback"],
     ["workflowGraphId", "workflow_graph_id", "workflowGraphId"],
   ]) {
     const value = bodyModel[key] ?? bodyModel[snakeKey] ?? request[key] ?? request[snakeKey] ?? existingModel[key] ?? existingModel[snakeKey];
@@ -220,9 +220,6 @@ export function modelPolicyForOptions(options = {}) {
   }
   if (model.max_cost_usd !== undefined && policy.max_cost_usd === undefined) {
     policy.max_cost_usd = model.max_cost_usd;
-  }
-  if (model.allowHostedFallback !== undefined && policy.allow_hosted_fallback === undefined) {
-    policy.allow_hosted_fallback = model.allowHostedFallback;
   }
   if (model.allow_hosted_fallback !== undefined && policy.allow_hosted_fallback === undefined) {
     policy.allow_hosted_fallback = model.allow_hosted_fallback;

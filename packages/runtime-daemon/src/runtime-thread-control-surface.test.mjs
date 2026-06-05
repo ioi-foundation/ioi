@@ -164,6 +164,8 @@ test("thread control surface updates model controls through route selection", ()
   assert.equal(result.control.model.selectedModel, "local-model");
   assert.equal(result.control.model.reasoningEffort, "none");
   assert.equal(result.control.model.privacy, "local_private");
+  assert.equal(result.control.model.allow_hosted_fallback, null);
+  assert.equal(Object.hasOwn(result.control.model, "allowHostedFallback"), false);
   assert.equal(result.event.event_kind, "model.route_decision");
   assert.equal(result.event.source_event_kind, "OperatorControl.Thinking");
   assert.equal(result.event.payload_schema_version, "ioi.runtime.model-route-control.v1");

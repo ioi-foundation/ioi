@@ -8364,6 +8364,64 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 136
+
+```yaml
+slice: 136
+phase: 10-authoritative-js-facade-retirement
+objective: retire hosted fallback thread-control policy alias
+owner_boundary:
+  route_or_surface: runtime thread/model control helpers that persist model
+    route controls and derive model policy for daemon-owned route selection
+  authority_gate: unchanged; runtime thread control still resolves model routes
+    through daemon-owned model mounting and Rust model_mount route-decision
+    admission
+  execution_backend: unchanged; JS thread-control surface remains a
+    non-authoritative product/control adapter
+  truth_path: canonical `allow_hosted_fallback` model-control and policy field
+    only; retired `allowHostedFallback` no longer persists in thread controls
+    or converts into route-selection policy
+  projection_path: runtime thread-control records expose canonical
+    `allow_hosted_fallback` and keep route receipt binding on canonical
+    `model_route_decision` receipt details
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/threads/thread-runtime-controls.mjs
+    - packages/runtime-daemon/src/runtime-thread-control-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs
+    - packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance rejects production reintroduction of
+    `allowHostedFallback` in runtime thread-control policy helpers and the
+    runtime thread-control surface
+  - focused tests prove canonical `allow_hosted_fallback` persists and maps to
+    model policy while retired `allowHostedFallback` is ignored
+verification:
+  commands:
+    - node --check packages/runtime-daemon/src/threads/thread-runtime-controls.mjs packages/runtime-daemon/src/runtime-thread-control-surface.mjs packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs scripts/conformance/hypervisor-conformance.mjs
+    - node --test packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: focused thread-control tests compare canonical
+    model-control policy values against route-control persistence while
+    negative canaries prove retired hosted-fallback aliases are ignored
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - SDK/IDE structured policy helper types still expose camelCase UI
+      convenience names; this slice removes the daemon translator that could
+      convert the retired hosted-fallback alias into admitted route policy
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Route-Family Owner Map
 
 | Route family | Current live anchor | Current owner | Final owner | Truth path target | Conformance tier | Current status | Deletion or demotion condition |
@@ -8414,13 +8472,13 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 135:
+Current expected behavior after Slice 136:
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
 | `hypervisor-conformance:abi` | pass | Step/Module schemas and current coding-tool projection wrappers exist, and coding-tool projections default to `workload_job` / `workload_grpc` instead of daemon_js. |
-| `hypervisor-conformance:bridge` | pass | daemon StepModuleRunner boundary defaults to Rust workload live, explicit `daemon_js` backend selection fails closed, runtime coding-tool invocation requires Rust workload live, the retired JS `executeCodingTool` dispatcher is no longer present in the invocation surface, catalog module export surface, or daemon constructor injection, private JS coding-tool implementation bodies and their process/filesystem imports are absent from `coding-tools.mjs`, live Rust model_mount provider-execution admission bridge, shared Rust provider invocation bridge for fixture and native-local non-stream execution, Rust native-local stream invocation bridge and returned-chunk adapter, Rust local-provider lifecycle planner bridge for fixture/native-local health/load/unload result envelopes, Rust local-provider inventory planner bridge for fixture/native-local model/list-loaded result envelopes, Rust instance lifecycle bridge for migrated local-provider model load/unload/evict/supersede state transitions emits `provider_lifecycle_hash` without the retired `providerLifecycleHash` alias, model-mount route-decision receipt/projection/native-response details, provider-lifecycle, provider-inventory, instance-lifecycle, admission, and receipt-binding details now use canonical snake_case fields at the bridge-facing receipt boundary, hosted fallback policy uses canonical `allow_hosted_fallback` without the retired `allowHostedFallback` alias, retired direct JS local provider non-stream invoke and native-local stream production shims, removed dead JS native-local stream helper exports, obsolete output wrapper, retired fixture response modules, Rust provider-result admission bridge, stream-start provider-result admission guard, native-stream no-downgrade guards, OpenAI-compatible responses no-fallback guard, provider compatibility-translation fail-closed guard, protocol response facade re-export retirement guard, legacy model-list facade naming retirement guard, worker/service package invocation admission bridge, fail-closed daemon worker-service package runner mounted on the runtime store, product/API worker-service package invocation route, SDK/IDE/CLI worker-service package admission clients, cTEE Private Workspace CLI action client, L1 settlement admission bridge, fail-closed daemon L1 settlement runner mounted on the runtime store, product/API L1 settlement admission route, IDE/CLI/SDK L1 settlement admission clients, governed meta-improvement proposal admission bridge, fail-closed daemon governed-improvement runner mounted on the runtime store, product/API governed-improvement proposal admission route, and SDK/IDE/CLI governed-improvement proposal clients exist without a duplicate JS request-shape append or JS apply shortcut. |
+| `hypervisor-conformance:bridge` | pass | daemon StepModuleRunner boundary defaults to Rust workload live, explicit `daemon_js` backend selection fails closed, runtime coding-tool invocation requires Rust workload live, the retired JS `executeCodingTool` dispatcher is no longer present in the invocation surface, catalog module export surface, or daemon constructor injection, private JS coding-tool implementation bodies and their process/filesystem imports are absent from `coding-tools.mjs`, live Rust model_mount provider-execution admission bridge, shared Rust provider invocation bridge for fixture and native-local non-stream execution, Rust native-local stream invocation bridge and returned-chunk adapter, Rust local-provider lifecycle planner bridge for fixture/native-local health/load/unload result envelopes, Rust local-provider inventory planner bridge for fixture/native-local model/list-loaded result envelopes, Rust instance lifecycle bridge for migrated local-provider model load/unload/evict/supersede state transitions emits `provider_lifecycle_hash` without the retired `providerLifecycleHash` alias, model-mount route-decision receipt/projection/native-response details, provider-lifecycle, provider-inventory, instance-lifecycle, admission, and receipt-binding details now use canonical snake_case fields at the bridge-facing receipt boundary, hosted fallback policy and runtime thread-control policy helpers use canonical `allow_hosted_fallback` without the retired `allowHostedFallback` alias, retired direct JS local provider non-stream invoke and native-local stream production shims, removed dead native-local stream helper exports, obsolete output wrapper, retired fixture response modules, Rust provider-result admission bridge, stream-start provider-result admission guard, native-stream no-downgrade guards, OpenAI-compatible responses no-fallback guard, provider compatibility-translation fail-closed guard, protocol response facade re-export retirement guard, legacy model-list facade naming retirement guard, worker/service package invocation admission bridge, fail-closed daemon worker-service package runner mounted on the runtime store, product/API worker-service package invocation route, SDK/IDE/CLI worker-service package admission clients, cTEE Private Workspace CLI action client, L1 settlement admission bridge, fail-closed daemon L1 settlement runner mounted on the runtime store, product/API L1 settlement admission route, IDE/CLI/SDK L1 settlement admission clients, governed meta-improvement proposal admission bridge, fail-closed daemon governed-improvement runner mounted on the runtime store, product/API governed-improvement proposal admission route, and SDK/IDE/CLI governed-improvement proposal clients exist without a duplicate JS request-shape append or JS apply shortcut. |
 | `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists, model provider execution is admitted before driver calls, fixture and native-local non-stream provider invocation execute in Rust, native-local stream frame planning/chunks execute in Rust, local-provider health/load/unload lifecycle status/backend/evidence envelopes are planned and hash-bound in Rust, local-provider model/list-loaded inventory status/backend/evidence envelopes are planned and hash-bound in Rust, migrated local-provider model load/unload/evict/supersede instance lifecycle transitions are planned and hash-bound in Rust to provider lifecycle hashes, direct migrated local-provider model-instance map and lifecycle receipt helper/store persistence without provider kind, canonical provider-lifecycle hash, and Rust instance lifecycle action/status hashes now fails closed under canonical snake_case binding fields, direct migrated local-provider provider-health receipt persistence without provider kind and Rust lifecycle action/status/hash/evidence now fails closed under canonical snake_case provider-lifecycle binding fields, migrated local-provider provider start/stop fails closed without Rust lifecycle binding and direct provider-control receipt persistence requires the same canonical snake_case provider-lifecycle binding, direct migrated local-provider provider-inventory receipt persistence without provider kind and Rust inventory action/status/hash/evidence now fails closed under canonical snake_case provider-inventory binding fields, the direct receipt-write guards now live outside the JS store adapter in `model-mounting/receipt-write-guards.mjs`, model route-decision and invocation receipt-binding guards require canonical snake_case receipt_binder/Agentgres/StepModule detail fields and reject legacy camelCase `modelMount*` binding details; model-mount admission metadata also uses canonical snake_case detail fields only, non-migrated provider results and native stream-start observations are Rust-admitted observations, runtime run-state persistence sends one commit request to Rust, where Agentgres admission derives prior heads/state roots, projection watermark, receipt/artifact/payload refs, run-state and task-state hashes, runtime task/job/checklist materializations, storage admissions, write-set hash, persistence hash, commit hash, and Rust-written local JSON records; `writeRunRecord` no longer calls JS transition planning, JS persistence, JS materialization, storage write-set planning, or local `writeJson`, and neither the runtime-daemon JS facade nor the Rust command bridge exposes lower-level transition/materialization/storage-write-set/persistence methods as execution entry points, runtime Agentgres admission requires the explicit `IOI_RUNTIME_AGENTGRES_COMMAND` env without model-mount env fallback, stream request-shape evidence, provider-open retry handling, wallet authority audit mirroring, vault audit mirroring, receipt persistence and model-mount local adapter status no longer expose local operation-log terminology or an `operation-log.jsonl` reader, OpenAI provider stream-shape recording, stale model-mounting append callback injection, memory record/policy operation mirroring, runtime bridge turn budget/error mirroring, agent delete operation mirroring, agent/subagent persistence operation mirroring, and run persistence/read-surface operation-log exposure no longer create duplicate JS operation-like records; model-mounting local heads and projection watermarks derive from persisted receipt count; model invocation and stream-completion receipts carry Rust Agentgres admission, direct unbound model invocation store appends fail closed, worker/service package invocation has a Rust admission primitive over StepModuleRouter, receipt_binder, Agentgres admission, and projection, meta-improvement proposals have a governed Rust admission primitive requiring eval/verifier receipts, approval, rollback, and Agentgres binding, and the legacy direct `EvolutionService::evolve` manifest mutation body is retired fail-closed. |
 | `hypervisor-conformance:ctee` | pass | Rust cTEE Private Workspace module validation exists, untrusted plaintext custody fails closed, the Rust cTEE action bundle binds receipts, admits Agentgres truth, and emits projection records, the daemon command bridge exposes that bundle through `execute_private_workspace_ctee_action`, the daemon `RustCteePrivateWorkspaceRunner` is mounted fail-closed on the runtime store, the product/API cTEE route calls that runner without a JS apply shortcut, and SDK/IDE cTEE clients consume that route without direct truth creation. |
 | `hypervisor-conformance:compositor` | pass | Rust projection records exist, the shadow bridge emits them, compositor accepted-truth attempts fail closed, and the daemon run-read facade no longer exposes the legacy event alias beside canonical replay/projection methods. |

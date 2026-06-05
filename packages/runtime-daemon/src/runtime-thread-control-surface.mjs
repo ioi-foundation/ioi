@@ -132,7 +132,7 @@ export function createRuntimeThreadControlSurface({
             null,
           privacy: modelInput.model.privacy ?? null,
           maxCostUsd: modelInput.model.maxCostUsd ?? null,
-          allowHostedFallback: modelInput.model.allowHostedFallback ?? null,
+          allow_hosted_fallback: modelInput.model.allow_hosted_fallback ?? null,
           workflowGraphId,
           workflowNodeId: modelRoute.decision?.workflowNodeId ?? modelInput.workflowNodeId,
           updatedAt: now,
