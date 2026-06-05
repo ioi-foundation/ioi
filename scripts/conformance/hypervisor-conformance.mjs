@@ -4930,6 +4930,25 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "agent-sdk-subagent-record-telemetry-estimate-output-aliases-retired",
+    runtimeSubagentSdkRecordBlock.length > 0 &&
+      /^\s*usage_telemetry\?: RuntimeSubagentUsageTelemetry \| null;/m.test(
+        runtimeSubagentSdkRecordBlock,
+      ) &&
+      /^\s*cost_estimate_usd\?: number \| null;/m.test(
+        runtimeSubagentSdkRecordBlock,
+      ) &&
+      /^\s*token_estimate\?: number \| null;/m.test(
+        runtimeSubagentSdkRecordBlock,
+      ) &&
+      !/^\s*(?:usageTelemetry|costEstimateUsd|tokenEstimate)\?:/m.test(
+        runtimeSubagentSdkRecordBlock,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: SDK subagent record types must not advertise retired telemetry/estimate output aliases",
+  );
+  assertCheck(
+    result,
     "agent-sdk-runtime-event-dead-mock-helpers-retired",
     /runtimeThreadEventFromEnvelope/.test(agentSdkRuntimeEvents) &&
       !/mockRuntime(?:CursorSeq|EnvelopeForSdkEvent|EventEnvelope)|runtimePayloadStringRecord|runtimeEventKindForSdkMessage|runtimeEventStatusForSdkMessage|componentKindForSdkMessage|workflowNodeIdForSdkMessage|sourceEventKindForSdkMessage|payloadSchemaVersionForSdkMessage|turnIdForRun|eventStreamIdForThread|runtimeTurnStatusForRun|\(event as \{ id\?: string \}\)\.id/.test(

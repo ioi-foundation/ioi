@@ -507,11 +507,8 @@ export interface RuntimeSubagentRecord {
   output_contract_status?: string | null;
   budget_status?: string | null;
   usage_telemetry?: RuntimeSubagentUsageTelemetry | null;
-  usageTelemetry?: RuntimeSubagentUsageTelemetry | null;
   cost_estimate_usd?: number | null;
-  costEstimateUsd?: number | null;
   token_estimate?: number | null;
-  tokenEstimate?: number | null;
   result?: RuntimeSubagentResult | null;
   event?: RuntimeEventEnvelope | null;
   receipt_refs?: string[];
