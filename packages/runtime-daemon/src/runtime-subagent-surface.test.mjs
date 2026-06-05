@@ -1015,6 +1015,64 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
   assert.ok(saved.evidence_refs.includes("run_created_3"));
 });
 
+test("subagent resume ignores retired camelCase record aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T13:15:00.000Z",
+    nowMs: () => 1780588500000,
+  });
+  store.surface = surface;
+  store.subagents.set("subagent_1", {
+    ...store.subagents.get("subagent_1"),
+    lifecycle_status: "canceled",
+    model_route_id: "route.resume.canonical",
+    output_contract: ["SUMMARY"],
+    restart_count: 1,
+    resume_history: [],
+    cancellation_history: [],
+    previous_run_ids: [],
+    evidence_refs: ["evidence_resume_canonical"],
+    cancellation: {
+      reason: "operator_cancel",
+      previous_status: "running",
+      requested_by: "operator_1",
+    },
+    runId: "run_2",
+    lifecycleStatus: "running",
+    agentId: "agent_alias_resume",
+    modelRouteId: "route.resume.alias",
+    outputContract: ["MISSING_SECTION"],
+    restartCount: 99,
+    resumeHistory: [{ resume_id: "resume_alias" }],
+    cancellationHistory: [{ reason: "alias_cancel" }],
+    previousRunIds: ["run_alias"],
+    evidenceRefs: ["evidence_resume_alias"],
+  });
+
+  const result = surface.resumeSubagent(store, "thread_1", "subagent_1", {
+    source: "agent_studio",
+    prompt: "Try again canonical",
+  });
+  const saved = store.subagents.get("subagent_1");
+  const createdRun = store.runs.get("run_created_3");
+
+  assert.equal(result.resume.previous_run_id, "run_1");
+  assert.equal(result.resume.previous_status, "canceled");
+  assert.equal(result.resume.model_route_id, "route.resume.canonical");
+  assert.equal(result.resume.restart_count, 2);
+  assert.equal(result.result, "Created response: Try again canonical");
+  assert.equal(createdRun.agentId, "agent_child_1");
+  assert.equal(createdRun.request.options.model.routeId, "route.resume.canonical");
+  assert.deepEqual(saved.previous_run_ids, ["run_1"]);
+  assert.equal(saved.resume_history.length, 1);
+  assert.equal(saved.cancellation_history.length, 1);
+  assert.equal(saved.evidence_refs.includes("evidence_resume_canonical"), true);
+  assert.equal(saved.evidence_refs.includes("evidence_resume_alias"), false);
+  assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
+  assertCanonicalSubagentRecordOutput(saved);
+  assertCanonicalSubagentStoreWrites(store);
+});
+
 test("subagent surface persists blocked resume and throws budget policy error", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface({

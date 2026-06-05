@@ -571,16 +571,15 @@ export function createRuntimeSubagentSurface({
     },
     resumeSubagent(store, threadId, subagentId, request = {}) {
       const record = store.getSubagent(threadId, subagentId);
-      const previousRunId = record.run_id ?? record.runId;
-      const previousStatus = record.lifecycle_status ?? record.lifecycleStatus ?? record.status ?? null;
-      const childAgentId = record.agent_id ?? record.agentId ?? subagentId;
+      const previousRunId = record.run_id;
+      const previousStatus = record.lifecycle_status ?? record.status ?? null;
+      const childAgentId = record.agent_id ?? subagentId;
       const role = normalizeSubagentRoleDep(
         request.role ?? request.subagentRole ?? request.subagent_role ?? record.role,
       );
       const modelRouteId =
         optionalStringDep(request.model_route_id ?? request.modelRouteId ?? request.subagentModelRoute) ??
         record.model_route_id ??
-        record.modelRouteId ??
         "route.local-first";
       const prompt =
         optionalStringDep(
@@ -600,10 +599,10 @@ export function createRuntimeSubagentSurface({
           model: { id: "auto", routeId: modelRouteId },
         },
       });
-      const output = subagentContractOutputForRunDep(run, record.output_contract ?? record.outputContract);
+      const output = subagentContractOutputForRunDep(run, record.output_contract);
       const outputContractStatus = validateSubagentOutputContractDep(
         output,
-        record.output_contract ?? record.outputContract,
+        record.output_contract,
       );
       const budget = subagentBudgetForRequestDep(request) ?? subagentBudgetForRequestDep(record);
       const budgetUsageTelemetry =
@@ -617,7 +616,7 @@ export function createRuntimeSubagentSurface({
         previousUsage: budgetUsageTelemetry ?? {},
       });
       const now = nowIso();
-      const restartCount = Number(record.restart_count ?? record.restartCount ?? 0) + 1;
+      const restartCount = Number(record.restart_count ?? 0) + 1;
       const resumeRecord = {
         schema_version: "ioi.runtime.subagent-resume.v1",
         resume_id: resumeId,
@@ -634,19 +633,22 @@ export function createRuntimeSubagentSurface({
         workflow_graph_id: optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
         workflow_node_id: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
       };
-      const resumeHistory = [...normalizeArray(record.resume_history ?? record.resumeHistory), resumeRecord];
+      const resumeHistory = [...normalizeArray(record.resume_history), resumeRecord];
       const cancellationHistory = [
-        ...normalizeArray(record.cancellation_history ?? record.cancellationHistory),
+        ...normalizeArray(record.cancellation_history),
         ...(record.cancellation ? [record.cancellation] : []),
       ];
       const lifecycleStatus =
         budgetStatus.status === "exceeded" ? "blocked" : lifecycleStatusForRunDep(run.status);
+      const canonicalRecord = withoutRetiredSubagentRecordOutputAliases(
+        withoutRetiredSubagentUsageTelemetry(record),
+      );
       const updated = {
-        ...withoutRetiredSubagentUsageTelemetry(record),
+        ...canonicalRecord,
         role,
         run_id: run.id,
         previous_run_ids: uniqueStringsDep([
-          ...normalizeArray(record.previous_run_ids ?? record.previousRunIds),
+          ...normalizeArray(record.previous_run_ids),
           previousRunId,
         ]),
         model_route_id: modelRouteId,
@@ -689,7 +691,7 @@ export function createRuntimeSubagentSurface({
           ...event.receipt_refs,
         ]),
         evidence_refs: uniqueStringsDep([
-          ...normalizeArray(updated.evidence_refs ?? updated.evidenceRefs),
+          ...normalizeArray(updated.evidence_refs),
           "runtime.subagent.resume",
           run.id,
         ]),
