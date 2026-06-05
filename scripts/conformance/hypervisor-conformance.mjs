@@ -3278,6 +3278,10 @@ function runCompositor() {
     runtimeSubagentSurface.match(/const updated = \{[\s\S]*?\n      \};/g) ?? [];
   const runtimeSubagentSpawnStagingBlock =
     runtimeSubagentSurface.match(/const record = \{[\s\S]*?\n      \};\n      record\.result =/)?.[0] ?? "";
+  const runtimeSubagentControlEventBlock =
+    runtimeSubagentSurface.match(
+      /appendThreadSubagentControlEvent\(store, \{[\s\S]*?\n    \},\n  \};/,
+    )?.[0] ?? "";
   const runtimeSubagentListEnvelopeAliasPattern =
     /^\s*(?:schemaVersion|threadId|parentAgentId|activeCount)\s*[:,]/m;
   const runtimeSubagentPropagationEnvelopeAliasPattern =
@@ -3294,6 +3298,8 @@ function runCompositor() {
     /^\s*(?:threadId|subagentId|activeForRole|maxConcurrency|budgetStatus|eventId|receiptRefs|policyDecisionRefs)\s*[:,]/m;
   const runtimeSubagentLifecycleResultEnvelopeAliasPattern =
     /^\s*receiptRefs\s*[:,]/m;
+  const runtimeSubagentControlEventRecordAliasReadPattern =
+    /record\.(?:subagentId|workflowGraphId|workflowNodeId|budgetPolicyDecision|budgetStatus|parentTurnId)\b/;
   const runtimeSubagentProjectionBlock =
     runtimeSubagentSurface.match(
       /subagentProjection\(record = \{\}\) \{[\s\S]*?\n    \},\n    appendThreadSubagentControlEvent/,
@@ -4119,6 +4125,27 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent spawn staging records must be canonical before event construction and write filtering",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-control-event-record-aliases-retired",
+    runtimeSubagentControlEventBlock.length > 0 &&
+      !runtimeSubagentControlEventRecordAliasReadPattern.test(
+        runtimeSubagentControlEventBlock,
+      ) &&
+      /subagent control event ignores retired camelCase record aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /subagentId: "subagent_alias"/.test(runtimeSubagentSurfaceTest) &&
+      /workflowGraphId: "graph_alias"/.test(runtimeSubagentSurfaceTest) &&
+      /budgetPolicyDecision: \{ id: "policy_alias" \}/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent control event construction must ignore retired camelCase record aliases",
   );
   assertCheck(
     result,

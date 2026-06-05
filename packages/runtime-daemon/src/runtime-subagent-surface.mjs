@@ -1003,22 +1003,20 @@ export function createRuntimeSubagentSurface({
       const thread = store.threadForAgent(parentAgent);
       const source = operatorControlSourceDep(request.source);
       const eventHash = doctorHash(
-        `${threadId}:${operation}:${record.subagent_id ?? record.subagentId}:${nowMs()}`,
+        `${threadId}:${operation}:${record.subagent_id}:${nowMs()}`,
       ).slice(0, 12);
       const workflowGraphId =
         optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ??
         record.workflow_graph_id ??
-        record.workflowGraphId ??
         null;
       const workflowNodeId =
         optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ??
         record.workflow_node_id ??
-        record.workflowNodeId ??
         `runtime.subagent.${operation}`;
       const payload = subagentManagerEventPayloadDep({ record, operation, status });
-      const budgetPolicyDecision = record.budget_policy_decision ?? record.budgetPolicyDecision ?? null;
+      const budgetPolicyDecision = record.budget_policy_decision ?? null;
       const budgetStatus =
-        record.budget_status ?? record.budgetStatus?.status ?? budgetPolicyDecision?.reason ?? null;
+        record.budget_status ?? budgetPolicyDecision?.reason ?? null;
       const requestReceiptRefs = uniqueStringsDep(request.receipt_refs ?? request.receiptRefs);
       const requestPolicyDecisionRefs = uniqueStringsDep(
         request.policy_decision_refs ?? request.policyDecisionRefs,
@@ -1032,11 +1030,11 @@ export function createRuntimeSubagentSurface({
       return store.appendRuntimeEvent({
         event_stream_id: eventStreamIdForThreadDep(threadId),
         thread_id: threadId,
-        turn_id: record.parent_turn_id ?? record.parentTurnId ?? thread.latest_turn_id ?? "",
-        item_id: `${record.parent_turn_id ?? record.parentTurnId ?? threadId}:item:subagent:${safeIdDep(operation)}:${safeIdDep(record.subagent_id ?? record.subagentId)}`,
+        turn_id: record.parent_turn_id ?? thread.latest_turn_id ?? "",
+        item_id: `${record.parent_turn_id ?? threadId}:item:subagent:${safeIdDep(operation)}:${safeIdDep(record.subagent_id)}`,
         idempotency_key:
           optionalStringDep(request.idempotency_key ?? request.idempotencyKey) ??
-          `thread:${threadId}:subagent.${operation}:${record.subagent_id ?? record.subagentId}:${eventHash}`,
+          `thread:${threadId}:subagent.${operation}:${record.subagent_id}:${eventHash}`,
         source,
         source_event_kind: subagentOperatorControlKindDep(operation),
         event_kind: subagentRuntimeEventKindDep(operation),

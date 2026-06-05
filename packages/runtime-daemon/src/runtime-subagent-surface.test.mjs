@@ -440,6 +440,42 @@ test("subagent surface appends daemon-owned control event envelopes", () => {
   assert.equal(event.fixture_profile, "local_daemon_agentgres_projection");
 });
 
+test("subagent control event ignores retired camelCase record aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowMs: () => 1780586400000,
+  });
+  const event = surface.appendThreadSubagentControlEvent(store, {
+    threadId: "thread_1",
+    parentAgent: store.parentAgent,
+    record: {
+      subagent_id: "subagent_1",
+      subagentId: "subagent_alias",
+      agent_id: "agent_child_1",
+      parent_thread_id: "thread_1",
+      parentTurnId: "turn_alias",
+      workflowGraphId: "graph_alias",
+      workflowNodeId: "node_alias",
+      role: "reviewer",
+      lifecycle_status: "running",
+      budgetStatus: { status: "exceeded" },
+      budgetPolicyDecision: { id: "policy_alias" },
+    },
+    request: {
+      source: "agent_studio",
+    },
+    operation: "cancel",
+    status: "canceled",
+  });
+
+  assert.equal(event.turn_id, "turn_latest");
+  assert.match(event.item_id, /:subagent:cancel:subagent_1$/);
+  assert.match(event.idempotency_key, /:subagent_1:/);
+  assert.equal(event.workflow_graph_id, null);
+  assert.equal(event.workflow_node_id, "runtime.subagent.cancel");
+  assert.deepEqual(event.policy_decision_refs, ["policy_subagent_cancel_allow_887392bcf20c"]);
+});
+
 test("subagent surface spawns subagents with source and context metadata", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface({
