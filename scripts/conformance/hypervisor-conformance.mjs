@@ -943,6 +943,9 @@ function runReceipts() {
   const agentgresAdmissionCore = exists("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     ? read("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     : "";
+  const marketplaceCore = exists("crates/services/src/agentic/runtime/kernel/marketplace.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/marketplace.rs")
+    : "";
   const runtimeKernelModule = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
     ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
     : "";
@@ -1899,6 +1902,26 @@ function runReceipts() {
       /withModelMountInvocationReceiptBinding/.test(conversationOps),
     ["packages/runtime-daemon/src/model-mounting/conversation-operations.mjs"],
     "Phase 4/9 is pending: model stream completion receipts must be Rust-bound and Agentgres-admitted before persistence",
+  );
+  assertCheck(
+    result,
+    "worker-service-package-invocation-admission-core",
+    /WORKER_SERVICE_PACKAGE_INVOCATION_SCHEMA_VERSION/.test(marketplaceCore) &&
+      /WorkerServicePackageInvocationRequest/.test(marketplaceCore) &&
+      /WorkerServicePackageInvocationRecord/.test(marketplaceCore) &&
+      /WorkerServicePackageInvocationCore/.test(marketplaceCore) &&
+      /StepModuleRouterCore/.test(marketplaceCore) &&
+      /ReceiptBinder/.test(marketplaceCore) &&
+      /AgentgresAdmissionCore/.test(marketplaceCore) &&
+      /RustProjectionCore/.test(marketplaceCore) &&
+      /admits_worker_package_invocation_through_step_module_contract/.test(marketplaceCore) &&
+      /package_invocation_agentgres_transition_requires_expected_heads/.test(marketplaceCore) &&
+      /admit_worker_service_package_invocation/.test(runtimeKernelModule),
+    [
+      "crates/services/src/agentic/runtime/kernel/marketplace.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+    ],
+    "Phase 8 is pending: worker/service package invocations must use shared StepModule ABI, receipt binding, Agentgres admission, and Rust projection",
   );
   assertCheck(
     result,

@@ -48,7 +48,10 @@ use ctee::{
 };
 use evidence::ReceiptManifestKind;
 use invocation::ToolInvocationEnvelope;
-use marketplace::{MarketplaceAdmissionError, MarketplaceServiceContract};
+use marketplace::{
+    MarketplaceAdmissionError, MarketplaceServiceContract, WorkerServicePackageInvocationCore,
+    WorkerServicePackageInvocationRecord, WorkerServicePackageInvocationRequest,
+};
 use model_mount::{
     ModelMountCore, ModelMountError, ModelMountInstanceLifecycleRequest,
     ModelMountInstanceLifecycleResult, ModelMountInvocationAdmissionRecord,
@@ -364,5 +367,12 @@ impl RuntimeKernelService {
         contract: &MarketplaceServiceContract,
     ) -> Result<(), MarketplaceAdmissionError> {
         contract.validate()
+    }
+
+    pub fn admit_worker_service_package_invocation(
+        &self,
+        request: &WorkerServicePackageInvocationRequest,
+    ) -> Result<WorkerServicePackageInvocationRecord, MarketplaceAdmissionError> {
+        WorkerServicePackageInvocationCore.admit_invocation(request)
     }
 }
