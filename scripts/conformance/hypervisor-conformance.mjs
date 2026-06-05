@@ -436,6 +436,16 @@ function runBridge() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts")
     : "";
+  const workerServicePackageControlNodes = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts")
+    : "";
+  const workerServicePackageControlNodesTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts")
+    : "";
   const retiredCodingToolJsBodyPattern =
     /function (?:computerUseLeaseRequestTool|workspaceStatusTool|gitDiffTool|fileInspectTool|fileApplyPatchTool|testRunTool|lspDiagnosticsTool|artifactReadTool|toolRetrieveResultTool)\(/;
   const retiredCodingToolJsImportPattern =
@@ -1014,6 +1024,42 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 8 is pending: product/API worker-service package route must call Rust package admission and expose no JS apply shortcut",
+  );
+  assertCheck(
+    result,
+    "worker-service-package-sdk-ide-admission-surface",
+    /admitWorkerServicePackageInvocation/.test(agentSdkSubstrateClient) &&
+      /RuntimeWorkerServicePackageInvocationAdmissionInput/.test(agentSdkSubstrateClient) &&
+      /worker-service-package-invocations/.test(agentSdkSubstrateClient) &&
+      /SDK admits worker\/service package invocations through the thread route/.test(agentSdkTest) &&
+      /WORKFLOW_RUNTIME_WORKER_SERVICE_PACKAGE_CONTROL_SCHEMA_VERSION/.test(
+        workerServicePackageControlNodes,
+      ) &&
+      /createRuntimeWorkerServicePackageControlRequest/.test(workerServicePackageControlNodes) &&
+      /RUNTIME_WORKER_SERVICE_PACKAGE_INVOCATION_SCHEMA_VERSION/.test(
+        workerServicePackageControlNodes,
+      ) &&
+      /worker-service-package-invocations/.test(workerServicePackageControlNodes) &&
+      /admission_only:\s*true/.test(workerServicePackageControlNodes) &&
+      /direct_truth_write_allowed:\s*false/.test(workerServicePackageControlNodes) &&
+      !/\/apply/.test(workerServicePackageControlNodes) &&
+      /builds worker\/service package controls for daemon admission/.test(
+        workerServicePackageControlNodesTest,
+      ) &&
+      /worker\/service package controls fail closed without admission refs/.test(
+        workerServicePackageControlNodesTest,
+      ) &&
+      /createRuntimeWorkerServicePackageControlRequest/.test(agentIdeIndex) &&
+      /RuntimeWorkerServicePackageControlRequest/.test(graphRuntimeTypes),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+      "packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts",
+      "packages/agent-ide/src/runtime/graph-runtime-types.ts",
+      "packages/agent-ide/src/index.ts",
+    ],
+    "Phase 8 is pending: SDK and IDE worker-service package clients must consume the package route without exposing a JS apply shortcut",
   );
   assertCheck(
     result,

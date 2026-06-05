@@ -104,6 +104,88 @@ test("SDK admits governed improvement proposals through the thread route", async
   }
 });
 
+test("SDK admits worker/service package invocations through the thread route", async () => {
+  const requests = [];
+  const invocation = {
+    schema_version: "ioi.worker_service_package_invocation.v1",
+    package_kind: "worker_package",
+    package_ref: "worker://runtime-auditor",
+    manifest_ref: "worker://runtime-auditor@1",
+    invocation: {
+      schema_version: "ioi.step_module_invocation.v1",
+      invocation_id: "invocation://worker-package/sdk",
+      module_ref: {
+        kind: "workload_job",
+        id: "worker://runtime-auditor",
+        manifest_ref: "worker://runtime-auditor@1",
+      },
+      authority: {
+        authority_grant_refs: ["grant://wallet/worker-package-sdk"],
+      },
+    },
+    result: {
+      schema_version: "ioi.step_module_result.v1",
+      invocation_id: "invocation://worker-package/sdk",
+      status: "success",
+      receipt_refs: ["receipt://worker-package/sdk"],
+      artifact_refs: ["artifact://worker-package/sdk-report"],
+      payload_refs: ["payload://worker-package/sdk-output"],
+    },
+    expected_heads: ["agentgres://worker-service-package/head/before"],
+  };
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    requests.push(`${request.method} ${url.pathname}`);
+    response.setHeader("content-type", "application/json");
+    if (
+      request.method === "POST" &&
+      url.pathname === "/v1/threads/thread_sdk/worker-service-package-invocations"
+    ) {
+      const body = await readBody(request);
+      assert.equal(body.source, "sdk_client");
+      assert.equal(body.invocation.package_ref, "worker://runtime-auditor");
+      assert.equal(body.invocation.invocation.invocation_id, "invocation://worker-package/sdk");
+      response.statusCode = 201;
+      response.end(JSON.stringify({
+        schema_version: "ioi.runtime.worker_service_package_admission.v1",
+        object: "ioi.runtime_worker_service_package_admission",
+        status: "admitted",
+        invocation_admitted: true,
+        thread_id: "thread_sdk",
+        agent_id: "agent_sdk",
+        package_kind: invocation.package_kind,
+        package_ref: invocation.package_ref,
+        manifest_ref: invocation.manifest_ref,
+        invocation_id: invocation.invocation.invocation_id,
+        receipt_refs: invocation.result.receipt_refs,
+        artifact_refs: invocation.result.artifact_refs,
+        payload_refs: invocation.result.payload_refs,
+        authority_grant_refs: invocation.invocation.authority.authority_grant_refs,
+        record: invocation,
+      }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: { code: "not_found", message: "missing route" } }));
+  });
+  await listen(server);
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
+    const result = await client.admitWorkerServicePackageInvocation("thread_sdk", { invocation });
+
+    assert.equal(result.status, "admitted");
+    assert.equal(result.invocation_admitted, true);
+    assert.equal(result.package_ref, "worker://runtime-auditor");
+    assert.equal(result.invocation_id, "invocation://worker-package/sdk");
+    assert.deepEqual(result.receipt_refs, ["receipt://worker-package/sdk"]);
+    assert.ok(requests.includes("POST /v1/threads/thread_sdk/worker-service-package-invocations"));
+  } finally {
+    await close(server);
+  }
+});
+
 test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
   const now = new Date().toISOString();
   const events = [

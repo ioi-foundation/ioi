@@ -1373,6 +1373,72 @@ export interface RuntimeGovernedImprovementProposalAdmissionResult extends Recor
   record?: Record<string, unknown>;
 }
 
+export type RuntimeWorkerServicePackageKind =
+  | "worker_package"
+  | "service_package"
+  | string;
+
+export interface RuntimeWorkerServicePackageInvocation extends Record<string, unknown> {
+  schema_version: "ioi.worker_service_package_invocation.v1" | string;
+  package_kind: RuntimeWorkerServicePackageKind;
+  package_ref: string;
+  manifest_ref: string;
+  invocation: Record<string, unknown>;
+  result: Record<string, unknown>;
+  expected_heads: string[];
+}
+
+export interface RuntimeWorkerServicePackageInvocationAdmissionInput extends Record<string, unknown> {
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  actor?: string;
+  workflowGraphId?: string;
+  workflow_graph_id?: string;
+  workflowNodeId?: string;
+  workflow_node_id?: string;
+  invocation: RuntimeWorkerServicePackageInvocation | Record<string, unknown>;
+}
+
+export interface RuntimeWorkerServicePackageInvocationAdmissionResult extends Record<string, unknown> {
+  schema_version?: "ioi.runtime.worker_service_package_admission.v1" | string;
+  schemaVersion?: "ioi.runtime.worker_service_package_admission.v1" | string;
+  object?: "ioi.runtime_worker_service_package_admission" | string;
+  status: "admitted" | string;
+  invocation_admitted?: boolean;
+  invocationAdmitted?: boolean;
+  thread_id?: string;
+  threadId?: string;
+  agent_id?: string;
+  agentId?: string;
+  package_kind?: string | null;
+  packageKind?: string | null;
+  package_ref?: string | null;
+  packageRef?: string | null;
+  manifest_ref?: string | null;
+  manifestRef?: string | null;
+  invocation_id?: string | null;
+  invocationId?: string | null;
+  router_admission?: Record<string, unknown> | null;
+  routerAdmission?: Record<string, unknown> | null;
+  receipt_binding?: Record<string, unknown> | null;
+  receiptBinding?: Record<string, unknown> | null;
+  accepted_receipt_append?: Record<string, unknown> | null;
+  acceptedReceiptAppend?: Record<string, unknown> | null;
+  agentgres_admission?: Record<string, unknown> | null;
+  agentgresAdmission?: Record<string, unknown> | null;
+  projection_record?: Record<string, unknown> | null;
+  projectionRecord?: Record<string, unknown> | null;
+  receipt_refs?: string[];
+  receiptRefs?: string[];
+  artifact_refs?: string[];
+  artifactRefs?: string[];
+  payload_refs?: string[];
+  payloadRefs?: string[];
+  authority_grant_refs?: string[];
+  authorityGrantRefs?: string[];
+  admission?: Record<string, unknown>;
+  record?: Record<string, unknown>;
+}
+
 export interface RuntimeEventStreamOptions {
   sinceSeq?: number;
   lastEventId?: string;
@@ -1490,6 +1556,10 @@ export interface RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeGovernedImprovementProposalAdmissionInput,
   ): Promise<RuntimeGovernedImprovementProposalAdmissionResult>;
+  admitWorkerServicePackageInvocation(
+    threadId: string,
+    input: RuntimeWorkerServicePackageInvocationAdmissionInput,
+  ): Promise<RuntimeWorkerServicePackageInvocationAdmissionResult>;
   submitTurn(threadId: string, input: RuntimeTurnCreateInput): Promise<RuntimeTurnRecord>;
   listTurns(threadId: string): Promise<RuntimeTurnRecord[]>;
   getTurn(threadId: string, turnId: string): Promise<RuntimeTurnRecord>;
@@ -1812,6 +1882,21 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "admitGovernedImprovementProposal",
       "POST",
       `/v1/threads/${encodePath(threadId)}/governed-improvement-proposals`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async admitWorkerServicePackageInvocation(
+    threadId: string,
+    input: RuntimeWorkerServicePackageInvocationAdmissionInput,
+  ): Promise<RuntimeWorkerServicePackageInvocationAdmissionResult> {
+    return this.request(
+      "admitWorkerServicePackageInvocation",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/worker-service-package-invocations`,
       {
         source: "sdk_client",
         ...input,

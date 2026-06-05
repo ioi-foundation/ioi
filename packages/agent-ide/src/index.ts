@@ -279,6 +279,17 @@ export {
   createRuntimeGovernedImprovementControlRequestFromWorkflowNode,
 } from "./runtime/workflow-runtime-governed-improvement-control-nodes";
 export {
+  RUNTIME_WORKER_SERVICE_PACKAGE_COMPONENT_KIND,
+  RUNTIME_WORKER_SERVICE_PACKAGE_INVOCATION_SCHEMA_VERSION,
+  RUNTIME_WORKER_SERVICE_PACKAGE_KINDS,
+  RUNTIME_WORKER_SERVICE_PACKAGE_SOURCE,
+  RUNTIME_WORKER_SERVICE_PACKAGE_SOURCE_EVENT_KIND,
+  RUNTIME_WORKER_SERVICE_PACKAGE_WORKFLOW_NODE_ID,
+  WORKFLOW_RUNTIME_WORKER_SERVICE_PACKAGE_CONTROL_SCHEMA_VERSION,
+  createRuntimeWorkerServicePackageControlRequest,
+  createRuntimeWorkerServicePackageControlRequestFromWorkflowNode,
+} from "./runtime/workflow-runtime-worker-service-package-control-nodes";
+export {
   RUNTIME_CONTEXT_COMPACT_COMPONENT_KIND,
   RUNTIME_CONTEXT_COMPACT_PAYLOAD_SCHEMA_VERSION,
   RUNTIME_CONTEXT_COMPACT_SOURCE,
@@ -730,6 +741,14 @@ export type {
   RuntimeGovernedImprovementSurface,
   RuntimeGovernedImprovementWorkflowNodeOptions,
 } from "./runtime/workflow-runtime-governed-improvement-control-nodes";
+export type {
+  RuntimeWorkerServicePackageControlRequest,
+  RuntimeWorkerServicePackageControlRequestBody,
+  RuntimeWorkerServicePackageControlRequestInput,
+  RuntimeWorkerServicePackageInvocation,
+  RuntimeWorkerServicePackageKind,
+  RuntimeWorkerServicePackageWorkflowNodeOptions,
+} from "./runtime/workflow-runtime-worker-service-package-control-nodes";
 export type {
   RuntimeCodingToolControlRequest,
   RuntimeCodingToolControlRequestBody,
