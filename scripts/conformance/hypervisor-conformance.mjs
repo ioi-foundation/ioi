@@ -387,6 +387,18 @@ function runBridge() {
   const governedImprovementStoreTest = exists("packages/runtime-daemon/src/runtime-governed-improvement-store.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-governed-improvement-store.test.mjs")
     : "";
+  const governedImprovementSurface = exists("packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs")
+    : "";
+  const governedImprovementSurfaceTest = exists("packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs")
+    : "";
+  const runtimeRouteHandlers = exists("packages/runtime-daemon/src/runtime-route-handlers.mjs")
+    ? read("packages/runtime-daemon/src/runtime-route-handlers.mjs")
+    : "";
+  const runtimeRouteHandlersTest = exists("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
+    : "";
   const retiredCodingToolJsBodyPattern =
     /function (?:computerUseLeaseRequestTool|workspaceStatusTool|gitDiffTool|fileInspectTool|fileApplyPatchTool|testRunTool|lspDiagnosticsTool|artifactReadTool|toolRetrieveResultTool)\(/;
   const retiredCodingToolJsImportPattern =
@@ -941,6 +953,29 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 9 is pending: daemon meta-improvement facade must call the Rust governed proposal bridge and fail closed when unconfigured",
+  );
+  assertCheck(
+    result,
+    "governed-meta-improvement-product-route",
+    /createRuntimeGovernedImprovementSurface/.test(runtimeDaemonIndex) &&
+      /this\.governedImprovementSurface/.test(runtimeDaemonIndex) &&
+      /admitGovernedImprovementProposal/.test(runtimeDaemonIndex) &&
+      /GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(governedImprovementSurface) &&
+      /mutation_executed:\s*false/.test(governedImprovementSurface) &&
+      /store\.governedImprovementRunner\.admitProposal/.test(governedImprovementSurface) &&
+      /governed-improvement-proposals/.test(runtimeRouteHandlers) &&
+      /store\.admitGovernedImprovementProposal/.test(runtimeRouteHandlers) &&
+      /thread route admits governed improvement proposals through store facade/.test(runtimeRouteHandlersTest) &&
+      /thread route does not expose governed improvement apply shortcut/.test(runtimeRouteHandlersTest) &&
+      /governed improvement surface admits nested proposal through Rust runner/.test(governedImprovementSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 9 is pending: product/API governed-improvement route must call Rust proposal admission and expose no JS apply shortcut",
   );
   return result;
 }

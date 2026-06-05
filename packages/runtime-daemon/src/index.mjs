@@ -141,6 +141,7 @@ import { createRuntimeMcpServeSurface } from "./runtime-mcp-serve-surface.mjs";
 import { createRuntimeRunReadSurface } from "./runtime-run-read-surface.mjs";
 import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
 import { createRuntimeTaskJobSurface } from "./runtime-task-job-surface.mjs";
+import { createRuntimeGovernedImprovementSurface } from "./runtime-governed-improvement-surface.mjs";
 import { createRuntimeThreadControlSurface } from "./runtime-thread-control-surface.mjs";
 import { createRuntimeThreadEventSurface } from "./runtime-thread-event-surface.mjs";
 import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
@@ -745,6 +746,9 @@ export class AgentgresRuntimeStateStore {
       approvalLeaseMetadataForRequest,
       approvalLeaseMetadataFromPayload,
       notFound,
+      runtimeError,
+    });
+    this.governedImprovementSurface = createRuntimeGovernedImprovementSurface({
       runtimeError,
     });
     this.codingToolBudgetRecoverySurface = createRuntimeCodingToolBudgetRecoverySurface({
@@ -1746,6 +1750,10 @@ export class AgentgresRuntimeStateStore {
 
   proposeWorkflowEdit(threadId, request = {}) {
     return this.workflowEditSurface.proposeWorkflowEdit(this, threadId, request);
+  }
+
+  admitGovernedImprovementProposal(threadId, request = {}) {
+    return this.governedImprovementSurface.admitGovernedImprovementProposal(this, threadId, request);
   }
 
   latestWorkflowEditProposalEvent(threadId, proposalId) {

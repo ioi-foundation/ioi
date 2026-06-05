@@ -973,6 +973,10 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, store.proposeWorkflowEdit(threadId, await readBody(request)));
       return;
     }
+    if (request.method === "POST" && action === "governed-improvement-proposals" && !segments[4]) {
+      writeJsonResponse(response, store.admitGovernedImprovementProposal(threadId, await readBody(request)), 201);
+      return;
+    }
     if (
       request.method === "POST" &&
       action === "workflow-edit-proposals" &&
