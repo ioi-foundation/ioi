@@ -2747,6 +2747,25 @@ function runCompositor() {
   )
     ? read("scripts/lib/workflow-computer-use-replay-timeline-proof.mjs")
     : "";
+  const agentIdeEventIdentity = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-event-identity.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-event-identity.ts")
+    : "";
+  const agentIdeEventIdentityTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-event-identity.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-event-identity.test.ts")
+    : "";
+  const agentIdeMixedRuntimePanels = [
+    "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts",
+    "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
+  ]
+    .filter((file) => exists(file))
+    .map((file) => read(file))
+    .join("\n");
   const agentSdkRuntimeEvents = exists("packages/agent-sdk/src/runtime-events.ts")
     ? read("packages/agent-sdk/src/runtime-events.ts")
     : "";
@@ -2885,6 +2904,32 @@ function runCompositor() {
       "scripts/lib/workflow-computer-use-replay-timeline-proof.mjs",
     ],
     "Phase 10/11 is pending: IDE computer-use replay timeline must ignore retired runtime event id aliases",
+  );
+  assertCheck(
+    result,
+    "ide-runtime-event-identity-helper-alias-retired",
+    /workflowRuntimeEventId/.test(agentIdeEventIdentity) &&
+      /isProjectedRuntimeThreadEvent/.test(agentIdeEventIdentity) &&
+      !/"eventId",\s*"id"|"eventKind",\s*"event_kind",\s*"event"/.test(
+        agentIdeEventIdentity,
+      ) &&
+      /workflow runtime event identity ignores raw retired aliases/.test(
+        agentIdeEventIdentityTest,
+      ) &&
+      /workflowRuntimeEventId\(event\)/.test(agentIdeMixedRuntimePanels) &&
+      /workflowRuntimeEventKind\(event\)/.test(agentIdeMixedRuntimePanels) &&
+      !/stringField\(event,\s*"event_id",\s*"eventId",\s*"id"\)|stringField\(event,\s*"eventKind",\s*"event_kind",\s*"event"\)/.test(
+        agentIdeMixedRuntimePanels,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-event-identity.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-event-identity.test.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
+    ],
+    "Phase 10/11 is pending: mixed IDE runtime panels must share canonical event identity handling and ignore raw retired id/event aliases",
   );
   return result;
 }

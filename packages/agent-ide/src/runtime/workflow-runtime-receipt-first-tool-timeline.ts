@@ -1,4 +1,8 @@
 import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
+import {
+  workflowRuntimeEventId,
+  workflowRuntimeEventKind,
+} from "./workflow-runtime-event-identity";
 
 export const WORKFLOW_RUNTIME_RECEIPT_FIRST_TOOL_TIMELINE_SCHEMA_VERSION =
   "ioi.workflow.receipt-first-tool-timeline.v1" as const;
@@ -199,11 +203,11 @@ function arrayField(record: unknown, ...keys: string[]): string[] {
 }
 
 function eventIdForRuntimeEvent(event: RuntimeEventInput): string | null {
-  return stringField(event, "event_id", "eventId", "id");
+  return workflowRuntimeEventId(event);
 }
 
 function eventKind(event: RuntimeEventInput): string {
-  return stringField(event, "eventKind", "event_kind", "event") ?? "";
+  return workflowRuntimeEventKind(event) ?? "";
 }
 
 function eventStatus(event: RuntimeEventInput): string | null {
