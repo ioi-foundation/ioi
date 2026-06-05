@@ -505,9 +505,7 @@ export interface RuntimeSubagentRecord {
   cancellation_inherited?: boolean | null;
   propagated_from_thread_id?: string | null;
   output_contract_status?: string | null;
-  outputContractStatus?: RuntimeSubagentOutputContractStatus | string | null;
   budget_status?: string | null;
-  budgetStatus?: RuntimeSubagentBudgetStatus | string | null;
   usage_telemetry?: RuntimeSubagentUsageTelemetry | null;
   usageTelemetry?: RuntimeSubagentUsageTelemetry | null;
   cost_estimate_usd?: number | null;
