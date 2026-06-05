@@ -3230,6 +3230,26 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-event-identity.test.ts")
     : "";
+  const agentIdeContextBudgetControlNodes = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts")
+    : "";
+  const agentIdeContextBudgetControlNodesTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts")
+    : "";
+  const agentIdeTelemetrySourceBinding = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts")
+    : "";
+  const agentIdeTelemetryBudgetChainSubflow = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts")
+    : "";
   const agentIdeMixedRuntimePanels = [
     "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
@@ -3557,6 +3577,35 @@ function runCompositor() {
       "packages/runtime-daemon/src/subagent-manager.test.mjs",
     ],
     "Phase 10/11 is pending: subagent budget usage telemetry must ignore retired request and data aliases before budget policy evaluation",
+  );
+  assertCheck(
+    result,
+    "ide-context-budget-usage-request-aliases-retired",
+    !/(?:usageTelemetryField|params\.usageTelemetry|params\.runtimeTelemetrySummary|body\.usageTelemetry|runtimeContextBudgetUsageField: "runtimeUsageMeter"|runtimeContextBudgetUsageField: "usageTelemetry"|runtimeContextBudgetUsageField: "runtimeTelemetrySummary")/.test(
+      agentIdeContextBudgetControlNodes,
+    ) &&
+      /usage_telemetry_field/.test(agentIdeContextBudgetControlNodes) &&
+      /usage_telemetry:\s*usageTelemetry/.test(agentIdeContextBudgetControlNodes) &&
+      /canonicalContextBudgetUsageField/.test(agentIdeContextBudgetControlNodes) &&
+      /retiredRuntimeContextBudgetUsageInputAliasKeys/.test(
+        agentIdeContextBudgetControlNodesTest,
+      ) &&
+      /runtime_context_budget helper ignores retired usage input aliases/.test(
+        agentIdeContextBudgetControlNodesTest,
+      ) &&
+      /runtimeContextBudgetUsageField: "usage_telemetry"/.test(
+        agentIdeTelemetrySourceBinding,
+      ) &&
+      /runtimeContextBudgetUsageField: "usage_telemetry"/.test(
+        agentIdeTelemetryBudgetChainSubflow,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
+    ],
+    "Phase 10/11 is pending: IDE context-budget control nodes must send canonical usage_telemetry without retired usage request aliases",
   );
   assertCheck(
     result,

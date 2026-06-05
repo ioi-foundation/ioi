@@ -7441,7 +7441,7 @@ test("daemon aggregates usage, cost, and context telemetry across turns and dele
           logic: {
             runtimeContextBudgetScope: "thread",
             runtimeContextBudgetThreadIdField: "threadId",
-            runtimeContextBudgetUsageField: "runtimeTelemetrySummary",
+            runtimeContextBudgetUsageField: "usage_telemetry",
             runtimeContextBudgetMode: "block",
             runtimeContextBudgetMaxTotalTokens: Math.max(
               1,
@@ -7459,7 +7459,7 @@ test("daemon aggregates usage, cost, and context telemetry across turns and dele
       },
       {
         threadId: thread.thread_id,
-        runtimeTelemetrySummary: telemetrySummary,
+        usage_telemetry: telemetrySummary,
       },
       {
         workflowGraphId: "workflow.runtime.usage-telemetry",
@@ -7467,19 +7467,19 @@ test("daemon aggregates usage, cost, and context telemetry across turns and dele
       },
     );
     assert.equal(
-      summaryGateRequest.body.usageTelemetry.total_tokens,
+      summaryGateRequest.body.usage_telemetry.total_tokens,
       telemetrySummary.totalTokens,
     );
     assert.equal(
-      summaryGateRequest.body.usageTelemetry.estimated_cost_usd,
+      summaryGateRequest.body.usage_telemetry.estimated_cost_usd,
       telemetrySummary.costEstimateUsd,
     );
     assert.equal(
-      summaryGateRequest.body.usageTelemetry.context_pressure,
+      summaryGateRequest.body.usage_telemetry.context_pressure,
       telemetrySummary.contextPressure,
     );
     assert.equal(
-      summaryGateRequest.body.usageTelemetry.source_counts.subagents,
+      summaryGateRequest.body.usage_telemetry.source_counts.subagents,
       telemetrySummary.subagentCount,
     );
     const summaryGate = await fetchJson(
@@ -7667,7 +7667,7 @@ test("React Flow context budget workflow node evaluates daemon telemetry policy"
           logic: {
             runtimeContextBudgetScope: "thread",
             runtimeContextBudgetThreadIdField: "threadId",
-            runtimeContextBudgetUsageField: "usageTelemetry",
+            runtimeContextBudgetUsageField: "usage_telemetry",
             runtimeContextBudgetMode: "block",
             runtimeContextBudgetMaxTotalTokens: 1,
             runtimeContextBudgetMaxCostUsd: 0.000001,
@@ -7676,7 +7676,7 @@ test("React Flow context budget workflow node evaluates daemon telemetry policy"
           },
         },
       },
-      { threadId: thread.thread_id, usageTelemetry },
+      { threadId: thread.thread_id, usage_telemetry: usageTelemetry },
       { workflowGraphId, actor: "workflow-author" },
     );
     assert.equal(budgetRequest.nodeType, "runtime_context_budget");
@@ -7774,14 +7774,14 @@ test("React Flow compaction policy workflow node drives approved compaction", as
           logic: {
             runtimeContextBudgetScope: "thread",
             runtimeContextBudgetThreadIdField: "threadId",
-            runtimeContextBudgetUsageField: "usageTelemetry",
+            runtimeContextBudgetUsageField: "usage_telemetry",
             runtimeContextBudgetMode: "block",
             runtimeContextBudgetMaxTotalTokens: 1,
             runtimeContextBudgetWorkflowNodeId: "runtime.context-budget",
           },
         },
       },
-      { threadId: thread.thread_id, usageTelemetry },
+      { threadId: thread.thread_id, usage_telemetry: usageTelemetry },
       { workflowGraphId },
     );
     const budgetResult = await fetchJson(`${daemon.endpoint}${budgetRequest.endpoint}`, {
@@ -8132,11 +8132,11 @@ test("React Flow bound telemetry-source chain executes with graph and node ident
 
     const budgetRequest = createRuntimeContextBudgetControlRequestFromWorkflowNode(
       contextNode,
-      { runtimeUsageMeter: usageResult },
+      { usage_telemetry: usageResult },
       { workflowGraphId, actor: "workflow-author" },
     );
     assert.equal(budgetRequest.body.workflowNodeId, "bound-context-budget");
-    assert.equal(budgetRequest.body.usageTelemetry.workflow_node_id, "bound-usage-meter");
+    assert.equal(budgetRequest.body.usage_telemetry.workflow_node_id, "bound-usage-meter");
     const budgetResult = await fetchJson(`${daemon.endpoint}${budgetRequest.endpoint}`, {
       method: budgetRequest.method,
       body: JSON.stringify(budgetRequest.body),
@@ -8552,12 +8552,12 @@ test("React Flow run-inspector-created telemetry budget chain executes with grap
 
     const budgetRequest = createRuntimeContextBudgetControlRequestFromWorkflowNode(
       contextNode,
-      { runtimeUsageMeter: usageResult },
+      { usage_telemetry: usageResult },
       { workflowGraphId, actor: "workflow-author" },
     );
     assert.equal(budgetRequest.body.workflowNodeId, chainIds.contextBudgetNodeId);
     assert.equal(
-      budgetRequest.body.usageTelemetry.workflow_node_id,
+      budgetRequest.body.usage_telemetry.workflow_node_id,
       chainIds.usageMeterNodeId,
     );
     const budgetResult = await fetchJson(`${daemon.endpoint}${budgetRequest.endpoint}`, {
@@ -14399,7 +14399,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeTelemetrySourceBinding, /react_flow_quick_fix/);
   assert.match(workflowRuntimeTelemetrySourceBinding, /boundWorkflowNodeId/);
   assert.match(workflowRuntimeTelemetrySourceBinding, /boundCompactWorkflowNodeId/);
-  assert.match(workflowRuntimeTelemetrySourceBinding, /runtimeContextBudgetUsageField: "runtimeUsageMeter"/);
+  assert.match(workflowRuntimeTelemetrySourceBinding, /runtimeContextBudgetUsageField: "usage_telemetry"/);
   assert.match(graphTypes, /workflowNodeId\?: string/);
   assert.match(graphTypes, /workflow_node_id\?: string/);
   assert.match(liveRuntimeDaemonContract, /React Flow bound telemetry-source chain executes/);
@@ -14445,12 +14445,12 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRuntimeContextBudgetControlNodes, /runtime_context_budget/);
   assert.match(workflowRuntimeContextBudgetControlNodes, /RuntimeContextBudget\.Evaluate/);
   assert.match(workflowRuntimeContextBudgetControlNodes, /\/v1\/threads\/\{threadId\}\/context-budget/);
-  assert.match(workflowRuntimeContextBudgetControlNodes, /runtimeTelemetrySummary/);
+  assert.match(workflowRuntimeContextBudgetControlNodes, /usage_telemetry/);
   assert.match(workflowRuntimeContextBudgetControlNodes, /workflowRuntimeTelemetrySummaryToUsageTelemetry/);
   assert.ok(
     workflowRuntimeContextBudgetControlNodes.indexOf(
-      'valueAtPath(params.input, params.usageTelemetryField ?? "runtimeUsageMeter")',
-    ) < workflowRuntimeContextBudgetControlNodes.indexOf("params.usageTelemetry"),
+      'valueAtPath(params.input, params.usage_telemetry_field ?? "usage_telemetry")',
+    ) < workflowRuntimeContextBudgetControlNodes.indexOf("params.usage_telemetry"),
   );
   assert.match(workflowRuntimeCompactionPolicyControlNodes, /createRuntimeCompactionPolicyControlRequestFromWorkflowNode/);
   assert.match(workflowRuntimeCompactionPolicyControlNodes, /runtime_compaction_policy/);

@@ -105,7 +105,7 @@ function requestCompilationChecks(subflow) {
     nodeById(subflow, subflow.contextBudgetNodeId),
     {
       threadId: "thread-template",
-      runtimeUsageMeter: {
+      usage_telemetry: {
         total_tokens: summary.totalTokens,
         estimated_cost_usd: summary.costEstimateUsd,
         context_pressure: summary.contextPressure,
@@ -211,8 +211,8 @@ const expectedEdgeTriples = [
   [
     subflow.usageMeterNodeId,
     subflow.contextBudgetNodeId,
-    "runtimeUsageMeter",
-    "runtimeUsageMeter",
+    "usage_telemetry",
+    "usage_telemetry",
     "data",
   ],
   [

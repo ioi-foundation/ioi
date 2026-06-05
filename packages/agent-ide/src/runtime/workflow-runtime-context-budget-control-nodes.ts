@@ -1,8 +1,5 @@
 import type { Node, NodeLogic } from "../types/graph";
-import {
-  workflowRuntimeTelemetrySummaryToUsageTelemetry,
-  type WorkflowRuntimeTelemetrySummary,
-} from "./workflow-runtime-telemetry-summary";
+import { workflowRuntimeTelemetrySummaryToUsageTelemetry } from "./workflow-runtime-telemetry-summary";
 
 export const WORKFLOW_RUNTIME_CONTEXT_BUDGET_CONTROL_SCHEMA_VERSION =
   "ioi.workflow.runtime-context-budget-control.v1" as const;
@@ -50,7 +47,6 @@ export interface RuntimeContextBudgetControlRequestBody {
     warnAtRatio: number;
     warn_at_ratio: number;
   };
-  usageTelemetry: unknown | null;
   usage_telemetry: unknown | null;
 }
 
@@ -76,9 +72,8 @@ export interface RuntimeContextBudgetControlRequestInput {
   runId?: string | null;
   runIdField?: string | null;
   endpoint?: string | null;
-  usageTelemetry?: unknown;
-  usageTelemetryField?: string | null;
-  runtimeTelemetrySummary?: WorkflowRuntimeTelemetrySummary | null;
+  usage_telemetry?: unknown;
+  usage_telemetry_field?: string | null;
   mode?: string | null;
   modeField?: string | null;
   maxTotalTokens?: number | string | null;
@@ -136,13 +131,9 @@ export function createRuntimeContextBudgetControlRequest(
   const workflowGraphId = cleanString(params.workflowGraphId);
   const simulationMode = params.simulationMode !== false;
   const rawUsageTelemetry =
-    valueAtPath(params.input, params.usageTelemetryField ?? "runtimeUsageMeter") ??
-    valueAtPath(params.input, "runtimeTelemetrySummary") ??
-    valueAtPath(params.input, "runtime_telemetry_summary") ??
-    valueAtPath(params.input, "usageTelemetry") ??
+    valueAtPath(params.input, params.usage_telemetry_field ?? "usage_telemetry") ??
     valueAtPath(params.input, "usage_telemetry") ??
-    params.usageTelemetry ??
-    params.runtimeTelemetrySummary ??
+    params.usage_telemetry ??
     null;
   const usageTelemetry =
     workflowRuntimeTelemetrySummaryToUsageTelemetry(rawUsageTelemetry) ??
@@ -206,7 +197,6 @@ export function createRuntimeContextBudgetControlRequest(
       warnAtRatio: thresholds.warnAtRatio,
       warn_at_ratio: thresholds.warnAtRatio,
     },
-    usageTelemetry,
     usage_telemetry: usageTelemetry,
   };
 
@@ -244,9 +234,10 @@ export function createRuntimeContextBudgetControlRequestFromWorkflowNode(
     runId: cleanString(logic.runtimeContextBudgetRunId),
     runIdField: cleanString(logic.runtimeContextBudgetRunIdField) ?? "runId",
     endpoint: cleanString(logic.runtimeContextBudgetEndpoint),
-    usageTelemetry: logic.runtimeContextBudget,
-    usageTelemetryField:
-      cleanString(logic.runtimeContextBudgetUsageField) ?? "runtimeUsageMeter",
+    usage_telemetry: logic.runtimeContextBudget,
+    usage_telemetry_field: canonicalContextBudgetUsageField(
+      logic.runtimeContextBudgetUsageField,
+    ),
     mode: cleanString(logic.runtimeContextBudgetMode),
     modeField: cleanString(logic.runtimeContextBudgetModeField),
     maxTotalTokens: logic.runtimeContextBudgetMaxTotalTokens,
@@ -312,6 +303,19 @@ function runtimeContextBudgetScope(value: string | null): RuntimeContextBudgetSc
 function runtimeContextBudgetMode(value: string | null): RuntimeContextBudgetMode {
   if (value === "warn" || value === "block") return value;
   return "simulate";
+}
+
+function canonicalContextBudgetUsageField(value: unknown): string {
+  const clean = cleanString(value);
+  if (
+    clean === "runtimeUsageMeter" ||
+    clean === "runtimeTelemetrySummary" ||
+    clean === "runtime_telemetry_summary" ||
+    clean === "usageTelemetry"
+  ) {
+    return "usage_telemetry";
+  }
+  return clean ?? "usage_telemetry";
 }
 
 function endpointFromTemplate(

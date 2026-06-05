@@ -102,8 +102,8 @@ test("creates a reusable telemetry-governed budget chain template", () => {
       [
         subflow.usageMeterNodeId,
         subflow.contextBudgetNodeId,
-        "runtimeUsageMeter",
-        "runtimeUsageMeter",
+        "usage_telemetry",
+        "usage_telemetry",
         "data",
       ],
       [
@@ -159,7 +159,7 @@ test("generated telemetry budget chain nodes compile into daemon requests", () =
     contextNode,
     {
       threadId: "thread-template",
-      runtimeUsageMeter: {
+      usage_telemetry: {
         total_tokens: summary.totalTokens,
         estimated_cost_usd: summary.costEstimateUsd,
         context_pressure: summary.contextPressure,
@@ -172,6 +172,7 @@ test("generated telemetry budget chain nodes compile into daemon requests", () =
   assert.equal(contextRequest.body.thresholds.maxTotalTokens, 3000);
   assert.equal(contextRequest.body.thresholds.maxContextPressure, 0.88);
   assert.equal(contextRequest.body.thresholds.warnAtRatio, 0.7);
+  assert.equal((contextRequest.body.usage_telemetry as any).total_tokens, summary.totalTokens);
 
   const compactionRequest =
     createRuntimeCompactionPolicyControlRequestFromWorkflowNode(

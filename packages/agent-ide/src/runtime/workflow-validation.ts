@@ -1375,8 +1375,8 @@ function workflowRuntimeTelemetrySourceBindingIssues(
       !workflowTelemetrySourceFixedOrMapped(
         logic,
         logic.runtimeContextBudget ?? logic.runtimeTelemetrySummary,
-        logic.runtimeContextBudgetUsageField ?? "runtimeUsageMeter",
-        ["runtimeUsageMeter", "runtimeTelemetrySummary", "usageTelemetry", "usage_telemetry"],
+        logic.runtimeContextBudgetUsageField ?? "usage_telemetry",
+        ["usage_telemetry", "usage"],
       )
     ) {
       issues.push(

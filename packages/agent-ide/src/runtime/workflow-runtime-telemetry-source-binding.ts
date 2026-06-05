@@ -223,15 +223,14 @@ function bindContextBudgetNode(
       logic.runtimeContextBudgetWorkflowNodeId,
       RUNTIME_CONTEXT_BUDGET_WORKFLOW_NODE_ID,
     ),
-    runtimeContextBudgetUsageField: "runtimeUsageMeter",
+    runtimeContextBudgetUsageField: "usage_telemetry",
     runtimeContextBudgetStatusField: "runtimeContextBudget.status",
     inputMapping: {
       ...(logic.inputMapping ?? {}),
       ...telemetrySourceInputMapping(evidence, [
         "threadId",
         "turnId",
-        "runtimeTelemetrySummary",
-        "runtimeUsageMeter",
+        "usage_telemetry",
       ]),
     },
     testInput: telemetrySourceTestInput(logic, evidence),
@@ -391,6 +390,7 @@ function telemetrySourceTestInput(
     turnId: evidence.turnId,
     runtimeTelemetrySummary: evidence.telemetrySummary,
     runtimeUsageMeter: evidence.usageTelemetry,
+    usage_telemetry: evidence.usageTelemetry,
   };
 }
 

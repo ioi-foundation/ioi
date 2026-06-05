@@ -148,10 +148,10 @@ test("runtime telemetry source binding quick-fix wires selected summary into run
   assert.equal(contextRequest.threadId, "thread-telemetry-source");
   assert.equal(contextRequest.body.workflowNodeId, "context-budget");
   assert.equal(
-    (contextRequest.body.usageTelemetry as any).runtimeTelemetrySummarySchemaVersion,
+    (contextRequest.body.usage_telemetry as any).runtimeTelemetrySummarySchemaVersion,
     "ioi.workflow.runtime-telemetry-summary.v1",
   );
-  assert.equal((contextRequest.body.usageTelemetry as any).totalTokens, 1800);
+  assert.equal((contextRequest.body.usage_telemetry as any).totalTokens, 1800);
 
   const liveUsageTelemetry = {
     schema_version: "ioi.runtime.usage-telemetry.v1",
@@ -162,10 +162,10 @@ test("runtime telemetry source binding quick-fix wires selected summary into run
   };
   const liveContextRequest = createRuntimeContextBudgetControlRequestFromWorkflowNode(
     contextNode,
-    { runtimeUsageMeter: liveUsageTelemetry },
+    { usage_telemetry: liveUsageTelemetry },
     { workflowGraphId: result.workflow.metadata.id },
   );
-  assert.equal((liveContextRequest.body.usageTelemetry as any).total_tokens, 2200);
+  assert.equal((liveContextRequest.body.usage_telemetry as any).total_tokens, 2200);
 
   const compactionRequest =
     createRuntimeCompactionPolicyControlRequestFromWorkflowNode(

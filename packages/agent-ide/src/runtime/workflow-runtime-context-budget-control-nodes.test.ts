@@ -8,8 +8,16 @@ import {
   RUNTIME_CONTEXT_BUDGET_SOURCE_EVENT_KIND,
   RUNTIME_CONTEXT_BUDGET_WORKFLOW_NODE_ID,
   WORKFLOW_RUNTIME_CONTEXT_BUDGET_CONTROL_SCHEMA_VERSION,
+  createRuntimeContextBudgetControlRequest,
   createRuntimeContextBudgetControlRequestFromWorkflowNode,
 } from "./workflow-runtime-context-budget-control-nodes";
+
+const retiredRuntimeContextBudgetUsageInputAliasKeys = [
+  "runtimeUsageMeter",
+  "runtimeTelemetrySummary",
+  "runtime_telemetry_summary",
+  "usageTelemetry",
+];
 
 test("runtime_context_budget workflow node builds a daemon policy request", () => {
   const node = makeWorkflowNode(
@@ -23,7 +31,7 @@ test("runtime_context_budget workflow node builds a daemon policy request", () =
     node,
     {
       threadId: "thread-context-budget-1",
-      runtimeUsageMeter: {
+      usage_telemetry: {
         total_tokens: 1800,
         estimated_cost_usd: 0.04,
         context_pressure: 0.72,
@@ -60,7 +68,8 @@ test("runtime_context_budget workflow node builds a daemon policy request", () =
   assert.equal(request.body.thresholds.maxCostUsd, 0.25);
   assert.equal(request.body.thresholds.maxContextPressure, 0.85);
   assert.equal(request.body.thresholds.warnAtRatio, 0.8);
-  assert.deepEqual(request.body.usageTelemetry, {
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "usageTelemetry"), false);
+  assert.deepEqual(request.body.usage_telemetry, {
     total_tokens: 1800,
     estimated_cost_usd: 0.04,
     context_pressure: 0.72,
@@ -119,20 +128,20 @@ test("runtime_context_budget helper builds workflow-scope policy requests", () =
   );
   const request = createRuntimeContextBudgetControlRequestFromWorkflowNode(
     node,
-    { usage: { totalTokens: 4000, contextPressure: 0.8 } },
+    { usage: { total_tokens: 4000, context_pressure: 0.8 } },
     { workflowGraphId: "workflow.react-flow.context-budget-proof" },
   );
 
   assert.equal(request.scope, "workflow");
   assert.equal(request.endpoint, "/v1/context-budget");
   assert.equal(request.body.mode, "warn");
-  assert.deepEqual(request.body.usageTelemetry, {
-    totalTokens: 4000,
-    contextPressure: 0.8,
+  assert.deepEqual(request.body.usage_telemetry, {
+    total_tokens: 4000,
+    context_pressure: 0.8,
   });
 });
 
-test("runtime_context_budget helper normalizes runtime telemetry summary input", () => {
+test("runtime_context_budget helper normalizes canonical telemetry summary input", () => {
   const node = makeWorkflowNode(
     "context-budget-summary",
     "runtime_context_budget",
@@ -140,7 +149,7 @@ test("runtime_context_budget helper normalizes runtime telemetry summary input",
     100,
     120,
     {
-      runtimeContextBudgetUsageField: "runtimeTelemetrySummary",
+      runtimeContextBudgetUsageField: "usage_telemetry",
       runtimeContextBudgetMode: "block",
       runtimeContextBudgetMaxTotalTokens: 499,
       runtimeContextBudgetMaxCostUsd: 0.004,
@@ -153,7 +162,7 @@ test("runtime_context_budget helper normalizes runtime telemetry summary input",
     node,
     {
       threadId: "thread-summary-budget",
-      runtimeTelemetrySummary: {
+      usage_telemetry: {
         schemaVersion: "ioi.workflow.runtime-telemetry-summary.v1",
         status: "elevated",
         sourceKinds: ["runtime_usage_events", "tui_subagent_rows"],
@@ -192,7 +201,7 @@ test("runtime_context_budget helper normalizes runtime telemetry summary input",
   assert.equal(request.body.mode, "block");
   assert.equal(request.body.actor, "workflow-author");
   assert.equal(request.body.workflowNodeId, "runtime.context-budget.summary-gate");
-  assert.deepEqual(request.body.usageTelemetry, {
+  assert.deepEqual(request.body.usage_telemetry, {
     schema_version: "ioi.workflow.runtime-telemetry-summary.v1",
     schemaVersion: "ioi.workflow.runtime-telemetry-summary.v1",
     object: "ioi.workflow_runtime_telemetry_summary_usage",
@@ -230,5 +239,22 @@ test("runtime_context_budget helper normalizes runtime telemetry summary input",
     runtimeTelemetrySummarySchemaVersion:
       "ioi.workflow.runtime-telemetry-summary.v1",
   });
-  assert.equal(request.body.usage_telemetry, request.body.usageTelemetry);
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "usageTelemetry"), false);
+});
+
+test("runtime_context_budget helper ignores retired usage input aliases", () => {
+  for (const key of retiredRuntimeContextBudgetUsageInputAliasKeys) {
+    const request = createRuntimeContextBudgetControlRequest({
+      input: {
+        thread_id: "thread-retired-budget",
+        [key]: {
+          total_tokens: 100,
+          context_pressure: 0.7,
+        },
+      },
+    } as any);
+
+    assert.equal(request.body.usage_telemetry, null);
+    assert.equal(Object.prototype.hasOwnProperty.call(request.body, "usageTelemetry"), false);
+  }
 });

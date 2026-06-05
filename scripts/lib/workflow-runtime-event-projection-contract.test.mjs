@@ -1114,13 +1114,13 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(telemetrySourceBinding, /react_flow_quick_fix/);
   assert.match(telemetrySourceBinding, /boundWorkflowNodeId/);
   assert.match(telemetrySourceBinding, /boundCompactWorkflowNodeId/);
-  assert.match(telemetrySourceBinding, /runtimeContextBudgetUsageField: "runtimeUsageMeter"/);
+  assert.match(telemetrySourceBinding, /runtimeContextBudgetUsageField: "usage_telemetry"/);
   assert.match(telemetrySourceBindingTest, /wires selected summary into runtime budget nodes/);
   assert.match(telemetrySourceBindingTest, /liveRuntimeContextBudget/);
   assert.ok(
     contextBudgetControlNodes.indexOf(
-      'valueAtPath(params.input, params.usageTelemetryField ?? "runtimeUsageMeter")',
-    ) < contextBudgetControlNodes.indexOf("params.usageTelemetry"),
+      'valueAtPath(params.input, params.usage_telemetry_field ?? "usage_telemetry")',
+    ) < contextBudgetControlNodes.indexOf("params.usage_telemetry"),
   );
   assert.ok(
     compactionPolicyControlNodes.indexOf(
@@ -1216,8 +1216,8 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(telemetrySummaryTest, /merges usage, context, TUI, and subagent rows/);
   assert.match(telemetrySummaryTest, /TUI coding-tool budget rows/);
   assert.match(telemetrySummaryTest, /converts to daemon budget usage telemetry/);
-  assert.match(contextBudgetControlNodes, /runtimeTelemetrySummary/);
-  assert.match(contextBudgetControlNodesTest, /runtime telemetry summary input/);
+  assert.match(contextBudgetControlNodes, /usage_telemetry/);
+  assert.match(contextBudgetControlNodesTest, /canonical telemetry summary input/);
   assert.match(railPanel, /runtimeThreadEvents\?: WorkflowRuntimeThreadEventLike\[\]/);
   assert.match(railPanel, /runtimeThreadEvents,/);
   assert.match(railPanel, /runtimeCodingToolBudgetEvidence/);

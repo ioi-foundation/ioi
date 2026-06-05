@@ -118,7 +118,7 @@ export function createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow(
         runtimeContextBudgetThreadIdField: "threadId",
         runtimeContextBudgetScope: "thread",
         runtimeContextBudgetScopeField: "budgetScope",
-        runtimeContextBudgetUsageField: "runtimeUsageMeter",
+        runtimeContextBudgetUsageField: "usage_telemetry",
         runtimeContextBudgetMode: "block",
         runtimeContextBudgetMaxTotalTokens: maxTotalTokens,
         runtimeContextBudgetMaxContextPressure: contextBlockRatio,
@@ -127,7 +127,7 @@ export function createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow(
         runtimeContextBudgetStatusField: "runtimeContextBudget.status",
         inputMapping: {
           threadId: "runtime.threadId",
-          runtimeUsageMeter: `${usageMeterNodeId}.runtimeUsageMeter`,
+          usage_telemetry: `${usageMeterNodeId}.usage_telemetry`,
         },
       },
     },
@@ -220,8 +220,8 @@ export function createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow(
         `${idPrefix}-usage-to-context`,
         usageMeterNodeId,
         contextBudgetNodeId,
-        "runtimeUsageMeter",
-        "runtimeUsageMeter",
+        "usage_telemetry",
+        "usage_telemetry",
         "data"
       ),
       makeTemplateEdge(
