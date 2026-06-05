@@ -659,6 +659,9 @@ function runBridge() {
   const nativeLocalFixture = exists("packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs")
     : "";
+  const modelMountDefaultRecords = exists("packages/runtime-daemon/src/model-mounting/default-records.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/default-records.mjs")
+    : "";
   const retiredNativeFixtureResponseFiles = [
     "packages/runtime-daemon/src/model-mounting/native-fixture-artifacts.mjs",
     "packages/runtime-daemon/src/model-mounting/native-fixture-intent.mjs",
@@ -841,6 +844,10 @@ function runBridge() {
       !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(modelMountAdmissionRunner) &&
       !/mockFixtureResponse/.test(modelMountAdmissionRunner) &&
       !/isFixtureRequest/.test(modelMountAdmissionRunner) &&
+      /export function defaultRouteRecords\(\)/.test(modelMountDefaultRecords) &&
+      !/internalFixtureModelsEnabled/.test(modelMountDefaultRecords) &&
+      !/defaultRouteRecords\(env/.test(modelMountDefaultRecords) &&
+      !/fallback:\s*isFixtureEnabled/.test(modelMountDefaultRecords) &&
       /admitModelMountRouteDecision/.test(modelMountingState) &&
       /createModelMountAdmissionRunnerFromEnv/.test(modelMountingState) &&
       /modelMountRouteDecisionRequestForSelection/.test(modelRoutes) &&
