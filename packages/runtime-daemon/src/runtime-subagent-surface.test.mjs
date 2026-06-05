@@ -1525,7 +1525,7 @@ test("subagent surface cancels subagents with inherited cancellation metadata", 
     reason: "parent_cancel",
     actor: "operator_1",
     inherited: true,
-    propagatedFromThreadId: "thread_parent",
+    propagated_from_thread_id: "thread_parent",
     receipt_refs: ["receipt_cancel_request"],
   });
   const saved = store.subagents.get("subagent_1");
@@ -1558,6 +1558,32 @@ test("subagent surface cancels subagents with inherited cancellation metadata", 
   assertNoOwnKeys(saved.cancellation, retiredSubagentNestedCancellationAliasKeys);
   assertCanonicalSubagentRecordOutput(saved);
   assertCanonicalSubagentStoreWrites(store);
+});
+
+test("subagent cancel ignores retired camelCase request aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T13:32:00.000Z",
+    nowMs: () => 1780589520000,
+  });
+  store.surface = surface;
+
+  const result = surface.cancelSubagent(store, "thread_1", "subagent_1", {
+    source: "agent_studio",
+    actor: "operator_1",
+    cancellationReason: "alias_cancel",
+    cancellationInherited: true,
+    propagatedFromThreadId: "thread_alias",
+  });
+  const saved = store.subagents.get("subagent_1");
+
+  assert.equal(result.cancellation.reason, "operator_cancel");
+  assert.equal(result.cancellation.inherited, false);
+  assert.equal(result.cancellation.propagated_from_thread_id, null);
+  assert.equal(saved.cancellation_reason, "operator_cancel");
+  assert.equal(saved.cancellation_inherited, false);
+  assert.equal(saved.propagated_from_thread_id, null);
+  assertNoOwnKeys(result.cancellation, retiredSubagentNestedCancellationAliasKeys);
 });
 
 test("subagent cancel ignores retired camelCase record aliases", () => {

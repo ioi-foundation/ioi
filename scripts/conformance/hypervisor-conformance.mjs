@@ -3366,6 +3366,8 @@ function runCompositor() {
     /request\.(?:subagentRole|modelRouteId|subagentModelRoute|resumePrompt|workflowGraphId|workflowNodeId)\b/;
   const runtimeSubagentAssignRequestAliasReadPattern =
     /request\.(?:subagentRole|toolPack|subagentToolPack|modelRouteId|subagentModelRoute|mergePolicy|cancellationInheritance|targetAgentId|workflowGraphId|workflowNodeId)\b/;
+  const runtimeSubagentCancelRequestAliasReadPattern =
+    /request\.(?:cancellationReason|cancellationInherited|propagatedFromThreadId)\b|(?:cancellationInherited|propagatedFromThreadId)\s*:/;
   const runtimeSubagentProjectionBlock =
     runtimeSubagentSurface.match(
       /subagentProjection\(record = \{\}\) \{[\s\S]*?\n    \},\n    appendThreadSubagentControlEvent/,
@@ -4376,6 +4378,26 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent cancel lifecycle must ignore retired camelCase persisted record aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-cancel-request-aliases-retired",
+    runtimeSubagentCancelBlock.length > 0 &&
+      runtimeSubagentPropagationEnvelopeBlock.length > 0 &&
+      !runtimeSubagentCancelRequestAliasReadPattern.test(
+        `${runtimeSubagentCancelBlock}\n${runtimeSubagentPropagationEnvelopeBlock}`,
+      ) &&
+      /subagent cancel ignores retired camelCase request aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /cancellationReason: "alias_cancel"/.test(runtimeSubagentSurfaceTest) &&
+      /cancellationInherited: true/.test(runtimeSubagentSurfaceTest) &&
+      /propagatedFromThreadId: "thread_alias"/.test(runtimeSubagentSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent cancel lifecycle must ignore retired camelCase request aliases",
   );
   assertCheck(
     result,

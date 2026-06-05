@@ -826,11 +826,11 @@ export function createRuntimeSubagentSurface({
       const record = store.getSubagent(threadId, subagentId);
       const previousStatus = record.lifecycle_status ?? record.status ?? null;
       const reason =
-        optionalStringDep(request.reason ?? request.cancellation_reason ?? request.cancellationReason) ??
+        optionalStringDep(request.reason ?? request.cancellation_reason) ??
         "operator_cancel";
-      const cancellationInherited = Boolean(request.inherited ?? request.cancellationInherited);
+      const cancellationInherited = Boolean(request.inherited);
       const propagatedFromThreadId =
-        optionalStringDep(request.propagated_from_thread_id ?? request.propagatedFromThreadId) ?? null;
+        optionalStringDep(request.propagated_from_thread_id) ?? null;
       const run = store.cancelRun(record.run_id);
       const output = subagentContractOutputForRunDep(run, record.output_contract);
       const outputContractStatus = validateSubagentOutputContractDep(
@@ -912,7 +912,7 @@ export function createRuntimeSubagentSurface({
     propagateSubagentCancellation(store, threadId, request = {}) {
       const parentAgent = store.agentForThread(threadId);
       const reason =
-        optionalStringDep(request.reason ?? request.cancellation_reason ?? request.cancellationReason) ??
+        optionalStringDep(request.reason ?? request.cancellation_reason) ??
         "parent_cancel";
       const source = operatorControlSourceDep(request.source);
       const requestBase = {
@@ -920,12 +920,9 @@ export function createRuntimeSubagentSurface({
         source,
         reason,
         inherited: true,
-        cancellationInherited: true,
         propagated_from_thread_id: threadId,
-        propagatedFromThreadId: threadId,
       };
       delete requestBase.idempotency_key;
-      delete requestBase.idempotencyKey;
       const candidates = [...store.subagents.values()]
         .filter((record) => record.parent_thread_id === threadId)
         .sort((left, right) =>
