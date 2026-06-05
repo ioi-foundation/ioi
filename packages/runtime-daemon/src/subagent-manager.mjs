@@ -313,30 +313,19 @@ export function subagentResultForRun({ record, run = {}, output, outputContractS
   );
   return {
     schema_version: RUNTIME_SUBAGENT_RESULT_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_SUBAGENT_RESULT_SCHEMA_VERSION,
     object: "ioi.runtime_subagent_result",
     subagent_id: subagentId,
-    subagentId,
     agent_id: record?.agent_id ?? record?.agentId ?? run.agentId ?? null,
-    agentId: record?.agentId ?? record?.agent_id ?? run.agentId ?? null,
     run_id: run.id ?? record?.run_id ?? record?.runId ?? null,
-    runId: run.id ?? record?.runId ?? record?.run_id ?? null,
     status: lifecycleStatus,
     lifecycle_status: lifecycleStatus,
-    lifecycleStatus,
     result: run.result ?? "",
     output,
     output_contract_status: outputContractStatus?.status ?? null,
-    outputContractStatus: outputContractStatus ?? null,
     budget_status: record?.budget_status ?? record?.budgetStatus?.status ?? null,
-    budgetStatus: record?.budgetStatus ?? record?.budget_status ?? null,
     usage_telemetry: record?.usage_telemetry ?? null,
     receipt_refs: uniqueStrings([
       ...normalizeArray(record?.receipt_refs ?? record?.receiptRefs),
-      ...normalizeArray(run.receipts).map((receipt) => receipt.id),
-    ]),
-    receiptRefs: uniqueStrings([
-      ...normalizeArray(record?.receiptRefs ?? record?.receipt_refs),
       ...normalizeArray(run.receipts).map((receipt) => receipt.id),
     ]),
   };

@@ -39,6 +39,16 @@ const retiredSubagentUsageTelemetryOutputAliasKeys = [
   "cumulativeCostEstimateUsd",
   "modelRouteId",
 ];
+const retiredSubagentResultOutputAliasKeys = [
+  "schemaVersion",
+  "subagentId",
+  "agentId",
+  "runId",
+  "lifecycleStatus",
+  "outputContractStatus",
+  "budgetStatus",
+  "receiptRefs",
+];
 
 const retiredSubagentUsageDataAliasInput = {
   cumulativeInputTokens: 5,
@@ -77,6 +87,12 @@ function assertCanonicalSubagentBudgetUsageOutput(telemetry) {
 function assertCanonicalSubagentUsageTelemetryOutput(telemetry) {
   for (const key of retiredSubagentUsageTelemetryOutputAliasKeys) {
     assert.equal(Object.prototype.hasOwnProperty.call(telemetry, key), false);
+  }
+}
+
+function assertCanonicalSubagentResultOutput(result) {
+  for (const key of retiredSubagentResultOutputAliasKeys) {
+    assert.equal(Object.prototype.hasOwnProperty.call(result, key), false);
   }
 }
 
@@ -217,6 +233,7 @@ test("subagent result and manager events emit canonical usage telemetry only", (
   });
 
   assertCanonicalSubagentManagerUsageTelemetry(result);
+  assertCanonicalSubagentResultOutput(result);
   assert.equal(result.usage_telemetry, usage);
   assert.deepEqual(result.receipt_refs, ["receipt-record", "receipt-run"]);
 
@@ -251,6 +268,7 @@ test("subagent result and manager events emit canonical usage telemetry only", (
 
   assertCanonicalSubagentManagerUsageTelemetry(retiredResult);
   assertCanonicalSubagentManagerUsageTelemetry(retiredEvent);
+  assertCanonicalSubagentResultOutput(retiredResult);
   assert.equal(retiredResult.usage_telemetry, null);
   assert.equal(retiredEvent.usage_telemetry, null);
   assert.equal(retiredEvent.cost_estimate_usd, null);
