@@ -4653,18 +4653,15 @@ function buildRun({
   const usageTelemetry = runtimeUsageTelemetryForRun({
     run: {
       id: runId,
-      agentId: agent.id,
+      agent_id: agent.id,
       mode,
       objective: prompt,
       result,
       createdAt,
       updatedAt: createdAt,
-      modelRouteDecision,
+      model_route_decision: modelRouteDecision,
       usage:
         request.usage_telemetry ??
-        request.usageTelemetry ??
-        request.runtime_usage ??
-        request.runtimeUsage ??
         request.usage ??
         request.options?.usage ??
         null,
@@ -4982,8 +4979,6 @@ function buildRun({
     memoryWrites: memoryWriteRecords,
     usage: usageTelemetry,
     usage_telemetry: usageTelemetry,
-    usageTelemetry,
-    runtimeUsage: usageTelemetry,
     computerUse: computerUseProjection
       ? {
           environmentSelection: computerUseProjection.environmentSelection,
@@ -5225,8 +5220,6 @@ function buildRun({
     memoryWriteReceipts,
     usage: usageTelemetry,
     usage_telemetry: usageTelemetry,
-    usageTelemetry,
-    runtimeUsage: usageTelemetry,
     diagnosticsFeedback,
     diagnosticsBlockingGate,
     subagentMemoryInheritance,

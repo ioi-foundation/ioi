@@ -3485,6 +3485,16 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-daemon-index-usage-aliases-retired",
+    !/request\.(?:usageTelemetry|runtime_usage|runtimeUsage)/.test(runtimeDaemonIndex) &&
+      !/^\s*usageTelemetry,?\s*$/m.test(runtimeDaemonIndex) &&
+      !/^\s*runtimeUsage:\s*usageTelemetry,?\s*$/m.test(runtimeDaemonIndex) &&
+      /model_route_decision:\s*modelRouteDecision/.test(runtimeDaemonIndex),
+    ["packages/runtime-daemon/src/index.mjs"],
+    "Phase 10/11 is pending: monolithic daemon run/trace assembly must not accept or emit retired usage telemetry aliases",
+  );
+  assertCheck(
+    result,
     "agent-sdk-runtime-event-dead-mock-helpers-retired",
     /runtimeThreadEventFromEnvelope/.test(agentSdkRuntimeEvents) &&
       !/mockRuntime(?:CursorSeq|EnvelopeForSdkEvent|EventEnvelope)|runtimePayloadStringRecord|runtimeEventKindForSdkMessage|runtimeEventStatusForSdkMessage|componentKindForSdkMessage|workflowNodeIdForSdkMessage|sourceEventKindForSdkMessage|payloadSchemaVersionForSdkMessage|turnIdForRun|eventStreamIdForThread|runtimeTurnStatusForRun|\(event as \{ id\?: string \}\)\.id/.test(
