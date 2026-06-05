@@ -450,9 +450,7 @@ export interface RuntimeSubagentControlInput {
   text?: string;
   role?: string;
   subagent_role?: string;
-  toolPack?: string;
   tool_pack?: string;
-  subagentToolPack?: string;
   modelRouteId?: string;
   model_route_id?: string;
   subagentModelRoute?: string;
