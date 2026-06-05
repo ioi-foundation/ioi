@@ -11088,7 +11088,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 287:
+Current expected behavior after Slice 288:
 
 Slice 169 adds compositor proof for
 `runtime-subagent-list-propagation-envelope-aliases-retired`: runtime subagent
@@ -11758,6 +11758,12 @@ the Rust model-mount admission runner remains command-required and cannot
 reintroduce JS fixture/mock admission responses through
 `IOI_ENABLE_INTERNAL_FIXTURE_MODELS`, `isFixtureRequest`, or
 `mockFixtureResponse`.
+
+Slice 288 extends receipts proof for Runtime Agentgres runner fail-closed
+behavior: the Runtime Agentgres admission runner remains command-required and
+cannot reintroduce JS fixture/mock runtime-state or storage-write admissions
+through `IOI_ENABLE_INTERNAL_FIXTURE_MODELS`, `mockRuntimeAgentgresResponse`, or
+local filesystem writes.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

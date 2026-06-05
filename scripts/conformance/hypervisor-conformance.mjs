@@ -4293,6 +4293,10 @@ function runReceipts() {
       !/persistRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
       /runtime_agentgres_admission_bridge_unconfigured/.test(runtimeAgentgresRunner) &&
       !/RUNTIME_AGENTGRES_FALLBACK/.test(runtimeAgentgresRunner) &&
+      !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(runtimeAgentgresRunner) &&
+      !/mockRuntimeAgentgresResponse/.test(runtimeAgentgresRunner) &&
+      !/fs\.writeFileSync/.test(runtimeAgentgresRunner) &&
+      !/mkdirSync/.test(runtimeAgentgresRunner) &&
       /createRuntimeAgentgresAdmissionRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /commitRuntimeRunState\(request\)/.test(runtimeDaemonIndex) &&
       !/currentRunStateTransition/.test(runtimeDaemonIndex) &&
@@ -4380,6 +4384,10 @@ function runReceipts() {
       !/bridge_plans_runtime_run_state_transition_through_rust_core/.test(bridgeModule) &&
       /admitStorageBackendWrite/.test(runtimeAgentgresRunner) &&
       /commitRuntimeRunState/.test(runtimeAgentgresRunner) &&
+      !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(runtimeAgentgresRunner) &&
+      !/mockRuntimeAgentgresResponse/.test(runtimeAgentgresRunner) &&
+      !/fs\.writeFileSync/.test(runtimeAgentgresRunner) &&
+      !/mkdirSync/.test(runtimeAgentgresRunner) &&
       !/persistRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
       !/materializeRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
       !/planRuntimeStateStorageWrites/.test(runtimeAgentgresRunner) &&

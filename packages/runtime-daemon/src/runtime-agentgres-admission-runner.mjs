@@ -57,7 +57,7 @@ export class RustRuntimeAgentgresAdmissionRunner {
     }
     if (!this.command) {
       throw new RuntimeAgentgresAdmissionRunnerError(
-        "Runtime Agentgres admission requires IOI_RUNTIME_AGENTGRES_COMMAND for Rust core transition planning.",
+        "Runtime Agentgres admission requires IOI_RUNTIME_AGENTGRES_COMMAND for Rust core admission.",
         "runtime_agentgres_admission_bridge_unconfigured",
         {
           env: RUNTIME_AGENTGRES_COMMAND_ENV,
