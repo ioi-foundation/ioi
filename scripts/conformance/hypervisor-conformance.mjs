@@ -3336,6 +3336,8 @@ function runCompositor() {
     /^\s*(?:threadId|subagentId|activeForRole|maxConcurrency|budgetStatus|eventId|receiptRefs|policyDecisionRefs)\s*[:,]/m;
   const runtimeSubagentLifecycleResultEnvelopeAliasPattern =
     /^\s*receiptRefs\s*[:,]/m;
+  const runtimeSubagentListRequestAliasReadPattern =
+    /options\.subagentRole\b/;
   const runtimeSubagentListLookupRecordAliasReadPattern =
     /(?:record\.parentThreadId|(?:left|right)\.createdAt)\b/;
   const runtimeSubagentPropagationRecordAliasReadPattern =
@@ -4066,6 +4068,23 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent list and propagation envelopes must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-list-request-aliases-retired",
+    runtimeSubagentListEnvelopeBlock.length > 0 &&
+      !runtimeSubagentListRequestAliasReadPattern.test(
+        runtimeSubagentListEnvelopeBlock,
+      ) &&
+      /subagent list ignores retired camelCase request aliases/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /subagentRole: "worker"/.test(runtimeSubagentSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent list filters must ignore retired camelCase request aliases",
   );
   assertCheck(
     result,

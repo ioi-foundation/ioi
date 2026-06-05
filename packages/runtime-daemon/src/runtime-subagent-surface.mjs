@@ -148,7 +148,7 @@ export function createRuntimeSubagentSurface({
   return {
     listSubagents(store, threadId, options = {}) {
       const parentAgent = store.agentForThread(threadId);
-      const role = optionalStringDep(options.role ?? options.subagent_role ?? options.subagentRole);
+      const role = optionalStringDep(options.role ?? options.subagent_role);
       const subagents = [...store.subagents.values()]
         .filter((record) => record.parent_thread_id === threadId)
         .filter((record) => !role || record.role === role)

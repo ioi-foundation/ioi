@@ -367,6 +367,9 @@ test("subagent surface lists, filters, and projects thread subagents", () => {
   const surface = createRuntimeSubagentSurface();
 
   const listed = surface.listSubagents(store, "thread_1", { role: "reviewer" });
+  const canonicalAliasListed = surface.listSubagents(store, "thread_1", {
+    subagent_role: "worker",
+  });
 
   assert.equal(listed.schema_version, "ioi.runtime.subagent-manager.v1");
   assert.equal(listed.parent_agent_id, "agent_parent");
@@ -377,6 +380,33 @@ test("subagent surface lists, filters, and projects thread subagents", () => {
   assert.equal(listed.subagents[0].output_contract_status, "passed");
   assertCanonicalSubagentRecordOutput(listed.subagents[0]);
   assertCanonicalSubagentRecordOutput(listed.subagents[1]);
+  assert.deepEqual(
+    canonicalAliasListed.subagents.map((record) => record.subagent_id),
+    ["subagent_worker"],
+  );
+});
+
+test("subagent list ignores retired camelCase request aliases", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface();
+
+  const listed = surface.listSubagents(store, "thread_1", {
+    subagentRole: "worker",
+  });
+  const canonicalWins = surface.listSubagents(store, "thread_1", {
+    role: "reviewer",
+    subagentRole: "worker",
+  });
+
+  assert.deepEqual(listed.subagents.map((record) => record.subagent_id), [
+    "subagent_1",
+    "subagent_2",
+    "subagent_worker",
+  ]);
+  assert.deepEqual(canonicalWins.subagents.map((record) => record.subagent_id), [
+    "subagent_1",
+    "subagent_2",
+  ]);
 });
 
 test("subagent list and lookup ignore retired camelCase record aliases", () => {
