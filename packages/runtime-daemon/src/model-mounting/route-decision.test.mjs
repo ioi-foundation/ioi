@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createModelRouteDecision, providerRequestBodyForRoute } from "./route-decision.mjs";
+import {
+  createModelRouteDecision,
+  providerRequestBodyForRoute,
+  routeDecisionProjectionFromReceipt,
+} from "./route-decision.mjs";
 
 test("provider request body resolves auto and strips Autopilot-only route fields", () => {
   const body = providerRequestBodyForRoute(
@@ -40,6 +44,31 @@ test("route decisions use canonical hosted fallback policy constraint", () => {
 
   assert.equal(decision.policyConstraints.allow_hosted_fallback, true);
   assert.equal(decision.policyConstraints.allowHostedFallback, undefined);
+});
+
+test("route decision projections ignore retired legacy model route decision detail", () => {
+  assert.deepEqual(routeDecisionProjectionFromReceipt({
+    id: "receipt-route",
+    createdAt: "2026-06-05T00:00:00.000Z",
+    kind: "model_route_selection",
+    details: {
+      model_route_decision: { routeId: "route.local-first", selectedModel: "model.local" },
+    },
+  }), {
+    routeId: "route.local-first",
+    selectedModel: "model.local",
+    receiptId: "receipt-route",
+    receiptCreatedAt: "2026-06-05T00:00:00.000Z",
+    receiptKind: "model_route_selection",
+  });
+
+  assert.equal(routeDecisionProjectionFromReceipt({
+    id: "receipt-route-legacy",
+    kind: "model_route_selection",
+    details: {
+      modelRouteDecision: { routeId: "route.legacy" },
+    },
+  }), null);
 });
 
 test("provider request body maps Autopilot reasoning off to llama.cpp enable_thinking false", () => {

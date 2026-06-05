@@ -123,7 +123,7 @@ export function buildReceiptReplay(state, receiptId, { schemaVersion }) {
     schemaVersion,
     source: "agentgres_model_mounting_projection_replay",
     receipt,
-    modelRouteDecision: receipt.details?.modelRouteDecision ?? null,
+    model_route_decision: receipt.details?.model_route_decision ?? null,
     route: receipt.details?.routeId ? projection.routes.find((route) => route.id === receipt.details.routeId) ?? null : null,
     endpoint: receipt.details?.endpointId
       ? projection.endpoints.find((endpoint) => endpoint.id === receipt.details.endpointId) ?? null

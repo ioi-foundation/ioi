@@ -363,6 +363,24 @@ function runBridge() {
   const modelRoutes = exists("packages/runtime-daemon/src/model-mounting/routes.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/routes.mjs")
     : "";
+  const modelRouteDecisionModule = exists("packages/runtime-daemon/src/model-mounting/route-decision.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/route-decision.mjs")
+    : "";
+  const modelRouteDecisionTest = exists("packages/runtime-daemon/src/model-mounting/route-decision.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/route-decision.test.mjs")
+    : "";
+  const modelProjections = exists("packages/runtime-daemon/src/model-mounting/projections.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/projections.mjs")
+    : "";
+  const modelProjectionsTest = exists("packages/runtime-daemon/src/model-mounting/projections.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/projections.test.mjs")
+    : "";
+  const modelWorkflowNode = exists("packages/runtime-daemon/src/model-mounting/workflow-node.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/workflow-node.mjs")
+    : "";
+  const modelWorkflowNodeTest = exists("packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs")
+    : "";
   const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     : "";
@@ -675,19 +693,40 @@ function runBridge() {
       /model_mount_route_decision_receipt_id_required/.test(modelRoutes) &&
       /model_mount_route_decision_ref/.test(modelRoutes) &&
       !/modelMountRouteDecision(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs)?\s*:/.test(modelRoutes) &&
+      /model_route_decision_schema_version/.test(modelRoutes) &&
+      /model_route_decision_event_kind/.test(modelRoutes) &&
+      /model_route_decision_id/.test(modelRoutes) &&
+      /model_route_decision:\s*modelRouteDecision/.test(modelRoutes) &&
+      !/modelRouteDecision(?:SchemaVersion|EventKind|Id)/.test(modelRoutes) &&
+      /details\?\.model_route_decision/.test(modelRouteDecisionModule) &&
+      !/details\?\.modelRouteDecision/.test(modelRouteDecisionModule) &&
+      /model_route_decision:\s*receipt\.details\?\.model_route_decision/.test(modelProjections) &&
+      !/modelRouteDecision:\s*receipt\.details/.test(modelProjections) &&
+      /route_decision:\s*invocation\.routeReceipt\?\.details\?\.model_route_decision/.test(modelWorkflowNode) &&
+      !/route_decision:\s*invocation\.routeReceipt\?\.details\?\.modelRouteDecision/.test(modelWorkflowNode) &&
+      /route_decision:\s*invocation\.routeReceipt\?\.details\?\.model_route_decision/.test(openAiCompatRoutes) &&
+      !/route_decision:\s*invocation\.routeReceipt\?\.details\?\.modelRouteDecision/.test(openAiCompatRoutes) &&
       /allow_hosted_fallback/.test(modelRoutes) &&
       !/allowHostedFallback/.test(modelRoutes) &&
       /allow_hosted_fallback/.test(
-        read("packages/runtime-daemon/src/model-mounting/route-decision.mjs"),
+        modelRouteDecisionModule,
       ) &&
-      !/allowHostedFallback/.test(
-        read("packages/runtime-daemon/src/model-mounting/route-decision.mjs"),
-      ) &&
+      !/allowHostedFallback/.test(modelRouteDecisionModule) &&
       /ignore retired hosted fallback policy alias/.test(
         read("packages/runtime-daemon/src/model-mounting/routes.test.mjs"),
       ) &&
       /canonical hosted fallback policy constraint/.test(
-        read("packages/runtime-daemon/src/model-mounting/route-decision.test.mjs"),
+        modelRouteDecisionTest,
+      ) &&
+      /ignore retired legacy model route decision detail/.test(
+        modelRouteDecisionTest,
+      ) &&
+      /model_route_decision/.test(modelProjectionsTest) &&
+      /canonical route decision details/.test(
+        read("packages/runtime-daemon/src/openai-compat-routes.test.mjs"),
+      ) &&
+      /canonical route decision details/.test(
+        modelWorkflowNodeTest,
       ) &&
       !/modelMountRouteDecisionRef/.test(modelInvocationOps),
     [
@@ -695,6 +734,12 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
       "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/projections.mjs",
+      "packages/runtime-daemon/src/model-mounting/projections.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/workflow-node.mjs",
+      "packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs",
+      "packages/runtime-daemon/src/openai-compat-routes.mjs",
+      "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",

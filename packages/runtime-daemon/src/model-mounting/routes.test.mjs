@@ -284,11 +284,18 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
 
   assert.equal(receipt.kind, "model_route_selection");
   assert.equal(receipt.id, "receipt-route");
-  assert.equal(created[0].details.modelRouteDecisionId, "decision-1");
+  assert.equal(created[0].details.model_route_decision_schema_version, "v1");
+  assert.equal(created[0].details.model_route_decision_event_kind, "model_route_decision");
+  assert.equal(created[0].details.model_route_decision_id, "decision-1");
+  assert.equal(created[0].details.model_route_decision.decisionId, "decision-1");
   assert.equal(created[0].details.model_mount_route_decision_ref, "model_mount://route_decision/test");
   assert.equal(created[0].details.model_mount_route_decision_hash, "sha256:test");
   assert.equal(created[0].details.model_mount_route_decision.route_ref, "route.local-first");
   assert.deepEqual(created[0].details.model_mount_route_decision_receipt_refs, ["receipt://receipt-route"]);
+  assert.equal(Object.hasOwn(created[0].details, "modelRouteDecisionSchemaVersion"), false);
+  assert.equal(Object.hasOwn(created[0].details, "modelRouteDecisionEventKind"), false);
+  assert.equal(Object.hasOwn(created[0].details, "modelRouteDecisionId"), false);
+  assert.equal(Object.hasOwn(created[0].details, "modelRouteDecision"), false);
   assert.equal(Object.hasOwn(created[0].details, "modelMountRouteDecisionRef"), false);
   assert.equal(Object.hasOwn(created[0].details, "modelMountRouteDecision"), false);
   assert.equal(created[0].details.workflowNodeId, "node-1");
@@ -467,7 +474,8 @@ test("model mounting route state operations preserve delegate wiring", () => {
     stableHash: () => "policy-hash",
   });
   assert.equal(receipt.kind, "model_route_selection");
-  assert.equal(receipts.at(-1).details.modelRouteDecisionId, "decision-1");
+  assert.equal(receipts.at(-1).details.model_route_decision_id, "decision-1");
+  assert.equal(Object.hasOwn(receipts.at(-1).details, "modelRouteDecisionId"), false);
   assert.equal(receipts.at(-1).details.model_mount_route_decision_ref, "model_mount://route_decision/test");
 });
 

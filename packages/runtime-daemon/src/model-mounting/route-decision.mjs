@@ -108,7 +108,7 @@ export function createModelRouteDecision({
 }
 
 export function routeDecisionProjectionFromReceipt(receipt) {
-  const decision = receipt?.details?.modelRouteDecision;
+  const decision = receipt?.details?.model_route_decision;
   if (!decision || typeof decision !== "object") return null;
   return {
     ...decision,

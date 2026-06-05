@@ -24,7 +24,7 @@ export function nativeInvocationResponseShape(invocation) {
     backend_id: invocation.instance.backendId ?? invocation.receipt.details?.backendId ?? null,
     receipt_id: invocation.receipt.id,
     route_receipt_id: invocation.routeReceipt.id,
-    route_decision: invocation.routeReceipt?.details?.modelRouteDecision ?? null,
+    route_decision: invocation.routeReceipt?.details?.model_route_decision ?? null,
     response_id: invocation.responseId ?? null,
     previous_response_id: invocation.previousResponseId ?? null,
     tool_receipt_ids: invocation.toolReceiptIds ?? [],

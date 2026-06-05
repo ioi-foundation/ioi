@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import test from "node:test";
 
-import { writeOpenAiProviderChatCompletionStream } from "./openai-compat-routes.mjs";
+import {
+  nativeInvocationResponse,
+  writeOpenAiProviderChatCompletionStream,
+} from "./openai-compat-routes.mjs";
 
 class FakeResponse extends EventEmitter {
   constructor() {
@@ -109,4 +112,30 @@ test("OpenAI provider stream shape is bound to the stream receipt without operat
   assert.equal("_deltaToolArgumentBuffers" in completed[0].providerStreamShapeSummary, false);
   assert.equal(response.headers["x-ioi-stream-source"], "provider_native");
   assert.equal(response.frames.some((frame) => frame.includes('"stream_receipt_id":"receipt.stream"')), true);
+});
+
+test("native invocation response reads canonical route decision details", () => {
+  const { invocation } = invocationFixture();
+  const response = nativeInvocationResponse({
+    ...invocation,
+    routeReceipt: {
+      id: "receipt.route",
+      details: {
+        model_route_decision: { routeId: "route.native", selectedModel: "model.native" },
+      },
+    },
+  });
+
+  assert.deepEqual(response.route_decision, { routeId: "route.native", selectedModel: "model.native" });
+
+  const legacyOnly = nativeInvocationResponse({
+    ...invocation,
+    routeReceipt: {
+      id: "receipt.route.legacy",
+      details: {
+        modelRouteDecision: { routeId: "route.legacy" },
+      },
+    },
+  });
+  assert.equal(legacyOnly.route_decision, null);
 });

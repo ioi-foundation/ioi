@@ -25,7 +25,7 @@ function fakeState(stateDir = mkdtempSync(join(tmpdir(), "ioi-model-projection-t
         endpointId: "endpoint.local",
         providerId: "provider.local",
         toolReceiptIds: ["receipt.tool.1"],
-        modelRouteDecision: { routeId: "route.local-first", selectedEndpointId: "endpoint.local" },
+        model_route_decision: { routeId: "route.local-first", selectedEndpointId: "endpoint.local" },
       },
     },
     { id: "receipt.tool.1", kind: "mcp_tool_invocation", details: {} },
@@ -136,7 +136,8 @@ test("receipt replay links receipt details back to projected rows", () => {
     assert.equal(replay.endpoint.id, "endpoint.local");
     assert.equal(replay.provider.id, "provider.local");
     assert.equal(replay.toolReceipts[0].id, "receipt.tool.1");
-    assert.equal(replay.modelRouteDecision.routeId, "route.local-first");
+    assert.equal(replay.model_route_decision.routeId, "route.local-first");
+    assert.equal(Object.hasOwn(replay, "modelRouteDecision"), false);
   } finally {
     rmSync(state.stateDir, { recursive: true, force: true });
   }
