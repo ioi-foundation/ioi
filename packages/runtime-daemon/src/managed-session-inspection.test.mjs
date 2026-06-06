@@ -41,9 +41,39 @@ test("managed session inspection normalizes bridge snapshots", () => {
   assert.equal(normalized.bridge_id, "bridge_test");
   assert.equal(normalized.thread_id, "thread_test");
   assert.equal(normalized.session_id, "runtime_session_test");
+  for (const field of ["bridgeId", "threadId", "sessionId", "workspaceRoot", "managedSessions"]) {
+    assert.equal(Object.hasOwn(normalized, field), false, `retired managed session alias ${field}`);
+  }
   assert.deepEqual(normalized.managed_sessions.sessions, [
     { id: "session_browser", kind: "sandbox_browser" },
   ]);
+});
+
+test("managed session inspection ignores retired bridge aliases", () => {
+  const normalized = normalizeManagedSessionInspection({
+    bridgeResult: {
+      bridgeId: "bridge_retired",
+      threadId: "thread_retired",
+      sessionId: "session_retired",
+      workspaceRoot: "/retired",
+      managedSessions: {
+        sessions: [{ id: "session_retired", kind: "sandbox_browser" }],
+      },
+    },
+    agent: {
+      cwd: "/workspace",
+      runtimeBridgeId: "bridge_agent_retired",
+      status: "active",
+    },
+    threadId: "thread_test",
+    sessionId: "runtime_session_test",
+  });
+
+  assert.equal(normalized.bridge_id, null);
+  assert.equal(normalized.thread_id, "thread_test");
+  assert.equal(normalized.session_id, "runtime_session_test");
+  assert.equal(normalized.workspace_root, "/workspace");
+  assert.deepEqual(normalized.managed_sessions.sessions, []);
 });
 
 test("empty managed session snapshot is replay-safe and product-lane empty", () => {
@@ -51,5 +81,8 @@ test("empty managed session snapshot is replay-safe and product-lane empty", () 
   assert.equal(snapshot.schema_version, "ioi.runtime.managed-session.v1");
   assert.equal(snapshot.thread_id, "thread_empty");
   assert.deepEqual(snapshot.sessions, []);
+  assert.deepEqual(snapshot.product_lane, []);
+  assert.equal(Object.hasOwn(snapshot, "threadId"), false);
+  assert.equal(Object.hasOwn(snapshot, "productLane"), false);
   assert.equal(snapshot.replay.available, false);
 });

@@ -8091,6 +8091,18 @@ function runCompositor() {
   const workspaceChangeStateTest = exists("packages/runtime-daemon/src/threads/workspace-change-state.test.mjs")
     ? read("packages/runtime-daemon/src/threads/workspace-change-state.test.mjs")
     : "";
+  const managedSessionInspection = exists("packages/runtime-daemon/src/managed-session-inspection.mjs")
+    ? read("packages/runtime-daemon/src/managed-session-inspection.mjs")
+    : "";
+  const managedSessionInspectionTest = exists("packages/runtime-daemon/src/managed-session-inspection.test.mjs")
+    ? read("packages/runtime-daemon/src/managed-session-inspection.test.mjs")
+    : "";
+  const managedSessionState = exists("packages/runtime-daemon/src/threads/managed-session-state.mjs")
+    ? read("packages/runtime-daemon/src/threads/managed-session-state.mjs")
+    : "";
+  const managedSessionStateTest = exists("packages/runtime-daemon/src/threads/managed-session-state.test.mjs")
+    ? read("packages/runtime-daemon/src/threads/managed-session-state.test.mjs")
+    : "";
   const workspaceTrustState = exists("packages/runtime-daemon/src/threads/workspace-trust-state.mjs")
     ? read("packages/runtime-daemon/src/threads/workspace-trust-state.mjs")
     : "";
@@ -11499,6 +11511,49 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
     ],
     "Phase 10/11 is pending: workspace restore preview/apply result assembly must read canonical snapshot package identity fields without retired camelCase fallbacks",
+  );
+  assertCheck(
+    result,
+    "managed-session-envelope-aliases-retired",
+    /managed_session_control_request_aliases_retired/.test(managedSessionState) &&
+      /retiredManagedSessionControlAliases/.test(managedSessionState) &&
+      /runtime_profile:\s*agent\.runtime_profile \?\? "fixture"/.test(managedSessionState) &&
+      /const managedSessions =\s*[\r\n\s]*bridgeResult\?\.managed_sessions \?\?/.test(
+        managedSessionInspection,
+      ) &&
+      /bridge_id:\s*bridgeResult\?\.bridge_id \?\? agent\.runtime_bridge_id \?\? null/.test(
+        managedSessionInspection,
+      ) &&
+      /thread_id:\s*bridgeResult\?\.thread_id \?\? threadId/.test(managedSessionInspection) &&
+      /session_id:\s*bridgeResult\?\.session_id \?\? sessionId/.test(managedSessionInspection) &&
+      /workspace_root:\s*bridgeResult\?\.workspace_root \?\? agent\.cwd/.test(
+        managedSessionInspection,
+      ) &&
+      /managed session inspection ignores retired bridge aliases/.test(
+        managedSessionInspectionTest,
+      ) &&
+      /Object\.hasOwn\(normalized,\s*field\),\s*false/.test(managedSessionInspectionTest) &&
+      /managed session control rejects retired request aliases/.test(managedSessionStateTest) &&
+      /Object\.hasOwn\(controlled,\s*field\),\s*false/.test(managedSessionStateTest) &&
+      !/^\s*(?:threadId|sessionId|productLane|bridgeId|workspaceRoot|managedSessions|managedSessionId|bridgeResult)\s*:/m.test(
+        managedSessionInspection,
+      ) &&
+      !/^\s*(?:threadId|sessionId|managedSessions|managedSessionId)\s*:/m.test(
+        managedSessionState,
+      ) &&
+      !/\bbridgeResult\?\.(?:bridgeId|threadId|sessionId|workspaceRoot|managedSessions)\b/.test(
+        managedSessionInspection,
+      ) &&
+      !/\brequest\.(?:managedSessionId|sessionCardId|createdAt|requestHash)\b/.test(
+        managedSessionState,
+      ),
+    [
+      "packages/runtime-daemon/src/managed-session-inspection.mjs",
+      "packages/runtime-daemon/src/managed-session-inspection.test.mjs",
+      "packages/runtime-daemon/src/threads/managed-session-state.mjs",
+      "packages/runtime-daemon/src/threads/managed-session-state.test.mjs",
+    ],
+    "Phase 10/11 is pending: managed-session inspection/control envelopes must use canonical snake_case fields and fail closed on retired request aliases",
   );
   assertCheck(
     result,

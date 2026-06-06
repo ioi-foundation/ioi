@@ -12654,6 +12654,12 @@ fields only; retired camelCase trigger aliases such as `localGuiExecutor`,
 `localGuiExecutorFixturePngBase64` no longer request or configure the approved
 local execution path.
 
+Slice 421 removes managed-session daemon envelope aliases:
+managed-session inspection/control helpers now emit canonical snake_case
+identity and session fields only, ignore retired bridge camelCase fallbacks, and
+fail closed on retired control request aliases such as `managedSessionId`,
+`sessionCardId`, `createdAt`, and `requestHash`.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

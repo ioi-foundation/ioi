@@ -17,14 +17,11 @@ export async function inspectManagedSessionsForThread(store, threadId, request =
     return {
       schema_version: "ioi.runtime.managed-session.daemon.v1",
       thread_id: threadId,
-      threadId,
       session_id: sessionId,
-      sessionId,
-      runtime_profile: agent.runtimeProfile ?? "fixture",
+      runtime_profile: agent.runtime_profile ?? "fixture",
       source: "daemon",
       status: "not_runtime_backed",
       managed_sessions: emptyManagedSessionSnapshot(threadId),
-      managedSessions: emptyManagedSessionSnapshot(threadId),
     };
   }
   store.assertRuntimeBridgeAvailable({
@@ -74,15 +71,24 @@ export async function controlManagedSessionForThread(store, threadId, request = 
       details: { reason: "managed_session_control_requires_runtime_service" },
     });
   }
+  const retiredAliases = retiredManagedSessionControlAliases(request);
+  if (retiredAliases.length > 0) {
+    throw runtimeError({
+      status: 400,
+      code: "managed_session_control_request_aliases_retired",
+      message: "Managed session control request uses retired aliases.",
+      details: { thread_id: threadId, retired_aliases: retiredAliases },
+    });
+  }
   const action = managedSessionControlAction(request.action ?? request.control ?? request.state);
   const managedSessionId = optionalString(
-    request.managedSessionId ?? request.managed_session_id ?? request.sessionCardId ?? request.session_card_id,
+    request.managed_session_id ?? request.session_card_id,
   );
   if (!managedSessionId) {
     throw runtimeError({
       status: 400,
       code: "managed_session_control_contract",
-      message: "Managed session control requires managedSessionId.",
+      message: "Managed session control requires managed_session_id.",
       details: { threadId, operation: "control_thread" },
     });
   }
@@ -91,7 +97,7 @@ export async function controlManagedSessionForThread(store, threadId, request = 
     operation: "control_thread",
   });
   const sessionId = runtimeSessionIdForAgent(agent);
-  const createdAt = optionalString(request.createdAt ?? request.created_at) ?? new Date().toISOString();
+  const createdAt = optionalString(request.created_at) ?? new Date().toISOString();
   try {
     const bridgeResult = await store.runtimeBridge.controlThread({
       sessionId,
@@ -102,7 +108,7 @@ export async function controlManagedSessionForThread(store, threadId, request = 
         optionalString(request.reason ?? request.message) ??
         `operator requested ${action.replace(/_/g, " ")}`,
       requestHash:
-        optionalString(request.requestHash ?? request.request_hash) ??
+        optionalString(request.request_hash) ??
         doctorHash(`${threadId}:${managedSessionId}:${action}:${createdAt}`).slice(0, 16),
       managedSessionId,
       createdAt,
@@ -110,15 +116,11 @@ export async function controlManagedSessionForThread(store, threadId, request = 
     return {
       schema_version: "ioi.runtime.managed-session-control.daemon.v1",
       thread_id: threadId,
-      threadId,
       session_id: sessionId,
-      sessionId,
       action,
       managed_session_id: managedSessionId,
-      managedSessionId,
       source: "daemon",
       bridge_result: bridgeResult,
-      bridgeResult,
       inspection: normalizeManagedSessionInspection({
         bridgeResult: bridgeResult?.inspection ?? bridgeResult,
         agent,
@@ -136,4 +138,13 @@ export async function controlManagedSessionForThread(store, threadId, request = 
     }
     throw error;
   }
+}
+
+function retiredManagedSessionControlAliases(request = {}) {
+  return [
+    "managedSessionId",
+    "sessionCardId",
+    "createdAt",
+    "requestHash",
+  ].filter((key) => Object.hasOwn(request, key));
 }

@@ -4,10 +4,8 @@ export function emptyManagedSessionSnapshot(threadId) {
   return {
     schema_version: "ioi.runtime.managed-session.v1",
     thread_id: threadId,
-    threadId,
     sessions: [],
     product_lane: [],
-    productLane: [],
     replay: {
       available: false,
       replayable: false,
@@ -23,22 +21,16 @@ export function normalizeManagedSessionInspection({
 }) {
   const managedSessions =
     bridgeResult?.managed_sessions ??
-    bridgeResult?.managedSessions ??
     emptyManagedSessionSnapshot(threadId);
   return {
     schema_version: "ioi.runtime.managed-session.daemon.v1",
-    bridge_id: bridgeResult?.bridge_id ?? bridgeResult?.bridgeId ?? agent.runtimeBridgeId ?? null,
-    bridgeId: bridgeResult?.bridge_id ?? bridgeResult?.bridgeId ?? agent.runtimeBridgeId ?? null,
+    bridge_id: bridgeResult?.bridge_id ?? agent.runtime_bridge_id ?? null,
     source: bridgeResult?.source ?? "runtime_service",
     status: bridgeResult?.status ?? agent.status ?? "active",
-    thread_id: bridgeResult?.thread_id ?? bridgeResult?.threadId ?? threadId,
-    threadId: bridgeResult?.thread_id ?? bridgeResult?.threadId ?? threadId,
-    session_id: bridgeResult?.session_id ?? bridgeResult?.sessionId ?? sessionId,
-    sessionId: bridgeResult?.session_id ?? bridgeResult?.sessionId ?? sessionId,
-    workspace_root: bridgeResult?.workspace_root ?? bridgeResult?.workspaceRoot ?? agent.cwd,
-    workspaceRoot: bridgeResult?.workspace_root ?? bridgeResult?.workspaceRoot ?? agent.cwd,
+    thread_id: bridgeResult?.thread_id ?? threadId,
+    session_id: bridgeResult?.session_id ?? sessionId,
+    workspace_root: bridgeResult?.workspace_root ?? agent.cwd,
     managed_sessions: managedSessions,
-    managedSessions,
   };
 }
 

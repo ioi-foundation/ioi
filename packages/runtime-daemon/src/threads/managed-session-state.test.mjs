@@ -62,6 +62,9 @@ test("managed session thread inspection returns replay-safe empty snapshot for f
   assert.equal(inspected.session_id, "session_agent_fixture");
   assert.equal(inspected.managed_sessions.thread_id, "thread_fixture");
   assert.deepEqual(inspected.managed_sessions.sessions, []);
+  for (const field of ["threadId", "sessionId", "runtimeProfile", "managedSessions"]) {
+    assert.equal(Object.hasOwn(inspected, field), false, `retired managed session alias ${field}`);
+  }
 });
 
 test("managed session thread inspection calls runtime bridge and normalizes result", async () => {
@@ -92,6 +95,7 @@ test("managed session thread inspection calls runtime bridge and normalizes resu
   assert.equal(bridgeCalls[0].managedSessionsOnly, true);
   assert.equal(inspected.bridge_id, "bridge_runtime");
   assert.equal(inspected.managed_sessions.sessions[0].id, "sandbox_browser:test");
+  assert.equal(Object.hasOwn(inspected, "managedSessions"), false);
 });
 
 test("managed session control builds normalized bridge command and inspection envelope", async () => {
@@ -121,9 +125,9 @@ test("managed session control builds normalized bridge command and inspection en
   });
 
   const controlled = await controlManagedSessionForThread(store, "thread_runtime", {
-    managedSessionId: "sandbox_browser:test",
+    managed_session_id: "sandbox_browser:test",
     action: "take over",
-    createdAt: "2026-06-03T00:00:00.000Z",
+    created_at: "2026-06-03T00:00:00.000Z",
   }, deps());
 
   assert.equal(bridgeCalls[0].action, "take_over_session");
@@ -131,6 +135,9 @@ test("managed session control builds normalized bridge command and inspection en
   assert.equal(bridgeCalls[0].managedSessionId, "sandbox_browser:test");
   assert.equal(controlled.schema_version, "ioi.runtime.managed-session-control.daemon.v1");
   assert.equal(controlled.inspection.managed_sessions.sessions[0].control_state, "take_over");
+  for (const field of ["threadId", "sessionId", "managedSessionId", "bridgeResult"]) {
+    assert.equal(Object.hasOwn(controlled, field), false, `retired managed session control alias ${field}`);
+  }
 });
 
 test("managed session control requires managed session id", async () => {
@@ -145,6 +152,32 @@ test("managed session control requires managed session id", async () => {
 
   await assert.rejects(
     controlManagedSessionForThread(store, "thread_runtime", { action: "observe" }, deps()),
-    /Managed session control requires managedSessionId/,
+    /Managed session control requires managed_session_id/,
   );
+});
+
+test("managed session control rejects retired request aliases", async () => {
+  const store = fakeStore({
+    agent: {
+      id: "agent_runtime",
+      cwd: "/workspace",
+      runtimeProfile: "runtime_service",
+      runtimeSessionId: "session_runtime",
+    },
+  });
+
+  for (const alias of ["managedSessionId", "sessionCardId", "createdAt", "requestHash"]) {
+    await assert.rejects(
+      controlManagedSessionForThread(store, "thread_runtime", {
+        [alias]: "retired",
+        managed_session_id: "sandbox_browser:test",
+        action: "observe",
+      }, deps()),
+      (error) => {
+        assert.equal(error.code, "managed_session_control_request_aliases_retired");
+        assert.deepEqual(error.details.retired_aliases, [alias]);
+        return true;
+      },
+    );
+  }
 });
