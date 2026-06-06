@@ -20,6 +20,7 @@ function server(id, tools = [{ name: "search" }], extra = {}) {
 function harness({ stateUpdateOverride = null } = {}) {
   const events = [];
   const statePlannerCalls = [];
+  const transportCalls = [];
   const writes = [];
   const agent = {
     id: "agent-one",
@@ -78,6 +79,23 @@ function harness({ stateUpdateOverride = null } = {}) {
     },
     fixtureProfileForAgent() {
       return "fixture.profile";
+    },
+    discoverMcpStdioCatalog(server, options) {
+      transportCalls.push({ name: "discoverMcpStdioCatalog", server, options });
+      return { tools: server.tools ?? [], resources: server.resources ?? [], prompts: server.prompts ?? [] };
+    },
+    invokeMcpStdioTool(server, toolName, input, options) {
+      transportCalls.push({ name: "invokeMcpStdioTool", server, toolName, input, options });
+      return {
+        ok: true,
+        status: "completed",
+        transport: "stdio",
+        execution_mode: "live_stdio",
+        result: { ok: true },
+      };
+    },
+    mcpLiveExecutionModeForServer(server, request = {}) {
+      return request.live_transport === true || server.execution_mode === "live_stdio" ? "live_stdio" : null;
     },
     mcpRegistryWithServers(registry, servers) {
       return { ...registry, servers };
@@ -175,7 +193,7 @@ function harness({ stateUpdateOverride = null } = {}) {
       writes.push({ record, reason });
     },
   };
-  return { events, statePlannerCalls, store, surface, writes };
+  return { events, statePlannerCalls, store, surface, transportCalls, writes };
 }
 
 test("runtime MCP control surface applies add, remove, and blocked mutation envelopes", () => {
@@ -388,4 +406,26 @@ test("runtime MCP control surface ignores retired invoke identity aliases", asyn
   assert.equal(invoked.status, "completed");
   assert.equal(invoked.server_id, "mcp.docs");
   assert.equal(invoked.tool_name, "search");
+});
+
+test("runtime MCP control surface ignores retired timeoutMs request alias", async () => {
+  const { store, surface, transportCalls } = harness();
+
+  await surface.invokeMcpTool(store, {
+    thread_id: "thread-agent-one",
+    tool_id: "mcp.docs.search",
+    live_transport: true,
+    timeout_ms: 1234,
+    timeoutMs: 9999,
+  });
+  assert.equal(transportCalls.at(-1).name, "invokeMcpStdioTool");
+  assert.equal(transportCalls.at(-1).options.timeoutMs, 1234);
+
+  await surface.invokeMcpTool(store, {
+    thread_id: "thread-agent-one",
+    tool_id: "mcp.docs.search",
+    live_transport: true,
+    timeoutMs: 9999,
+  });
+  assert.equal(transportCalls.at(-1).options.timeoutMs, undefined);
 });

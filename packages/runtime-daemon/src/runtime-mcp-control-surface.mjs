@@ -360,11 +360,11 @@ export function createRuntimeMcpControlSurface({
             liveMode === "live_stdio"
               ? await discoverMcpStdioCatalogDep(server, {
                   cwd: agent.cwd,
-                  timeoutMs: request.timeout_ms ?? request.timeoutMs,
+                  timeoutMs: request.timeout_ms,
                 })
               : await discoverMcpHttpCatalogDep(server, {
                   cwd: agent.cwd,
-                  timeoutMs: request.timeout_ms ?? request.timeoutMs,
+                  timeoutMs: request.timeout_ms,
                   vault: store.modelMounting.vault,
                 });
           const exposure = mcpCatalogExposureForStatusDep(server, catalog, {
@@ -607,7 +607,7 @@ export function createRuntimeMcpControlSurface({
           try {
             transportExecution = await invokeMcpStdioToolDep(server, toolName, input, {
               cwd: agent.cwd,
-              timeoutMs: request.timeout_ms ?? request.timeoutMs,
+              timeoutMs: request.timeout_ms,
               mcpMode: request.mcp_mode ?? request.mcpMode,
             });
             output = transportExecution.result ?? {};
@@ -632,7 +632,7 @@ export function createRuntimeMcpControlSurface({
           try {
             transportExecution = await invokeMcpHttpToolDep(server, toolName, input, {
               cwd: agent.cwd,
-              timeoutMs: request.timeout_ms ?? request.timeoutMs,
+              timeoutMs: request.timeout_ms,
               headers: request.headers,
               vault: store.modelMounting.vault,
             });

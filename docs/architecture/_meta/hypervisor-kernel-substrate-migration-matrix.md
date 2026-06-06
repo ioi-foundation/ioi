@@ -12466,6 +12466,12 @@ canonical `workflow_node_id`; retired camelCase `workflowNodeId` request fields
 no longer select MCP control workflow nodes and are absent from SDK MCP request
 input types.
 
+Slice 397 removes the MCP live timeout request alias:
+runtime MCP control/catalog live transport paths and SDK MCP invoke inputs now
+use canonical `timeout_ms`; retired camelCase `timeoutMs` request fields no
+longer configure MCP live discovery or tool invocation timeouts and are absent
+from SDK invoke input types.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

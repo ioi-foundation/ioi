@@ -10338,6 +10338,23 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-mcp-live-timeout-request-alias-retired",
+    /request\.timeout_ms/.test(`${runtimeMcpControlSurface}\n${runtimeMcpCatalogSurface}`) &&
+      /timeoutMs: 9999/.test(`${runtimeMcpControlSurfaceTest}\n${runtimeMcpCatalogSurfaceTest}`) &&
+      /^\s*timeout_ms\?: number;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
+      !/request\.timeoutMs\b/.test(`${runtimeMcpControlSurface}\n${runtimeMcpCatalogSurface}`) &&
+      !/^\s*timeoutMs\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP live transport requests must use canonical timeout_ms without the retired timeoutMs compatibility alias",
+  );
+  assertCheck(
+    result,
     "runtime-mcp-invoke-identity-request-aliases-retired",
     /request\.tool_id/.test(runtimeMcpResolveToolRecordBlock) &&
       /request\.server_id/.test(runtimeMcpResolveToolRecordBlock) &&

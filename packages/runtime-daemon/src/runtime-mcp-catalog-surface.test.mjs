@@ -33,6 +33,13 @@ function harness() {
     mcpConfigSourceModeForRequest(options) {
       return options.config_source_mode ?? options.mcp_config_source_mode ?? "all";
     },
+    discoverMcpStdioCatalog(server, options) {
+      calls.push({ name: "discoverMcpStdioCatalog", server, options });
+      return { tools: server.tools ?? [], resources: server.resources ?? [], prompts: server.prompts ?? [] };
+    },
+    mcpLiveExecutionModeForServer(server, request = {}) {
+      return request.live_discovery === true || server.execution_mode === "live_stdio" ? "live_stdio" : null;
+    },
     mcpPromptsForServers(servers) {
       return servers.flatMap((item) => item.prompts ?? []);
     },
@@ -216,4 +223,26 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
     () => surface.getMcpTool(store, "mcp.missing.nope", { live_discovery: false }),
     (error) => error.status === 404 && error.code === "not_found",
   );
+});
+
+test("runtime MCP catalog surface ignores retired timeoutMs request alias", async () => {
+  const { calls, store, surface } = harness();
+
+  await surface.searchMcpTools(store, {
+    thread_id: "thread-agent-one",
+    live_discovery: true,
+    timeout_ms: 2345,
+    timeoutMs: 9999,
+  });
+  const canonicalCall = calls.find((call) => call.name === "discoverMcpStdioCatalog");
+  assert.equal(canonicalCall.options.timeoutMs, 2345);
+
+  calls.length = 0;
+  await surface.searchMcpTools(store, {
+    thread_id: "thread-agent-one",
+    live_discovery: true,
+    timeoutMs: 9999,
+  });
+  const aliasOnlyCall = calls.find((call) => call.name === "discoverMcpStdioCatalog");
+  assert.equal(aliasOnlyCall.options.timeoutMs, undefined);
 });
