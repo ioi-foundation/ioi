@@ -2939,14 +2939,29 @@ function runBridge() {
         runtimeWorkflowEditSurfaceTest,
       ) &&
       /boundedTargets: \["node_bound_retired"\]/.test(runtimeWorkflowEditSurfaceTest) &&
+      /idempotencyKey: "workflow_edit_idempotency_retired"/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /idempotencyKey: "workflow_edit_apply_idempotency_retired"/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /workflow-edit surface accepts canonical idempotency keys/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /idempotency_key: "workflow_edit_idempotency_canonical"/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /idempotency_key: "workflow_edit_apply_idempotency_canonical"/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
       /receiptRefs: \["receipt_retired"\]/.test(runtimeWorkflowEditSurfaceTest) &&
       /approvalRequest\.receipt_refs\.includes\("receipt_retired"\), false/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      !/request\.(?:turnId|workflowNodeId|workflowGraphId|receiptRefs|targetWorkflowNodeIds|boundedTargets)\b/.test(
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId|receiptRefs|targetWorkflowNodeIds|boundedTargets|idempotencyKey)\b/.test(
         runtimeWorkflowEditSurface,
       ) &&
-      !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|receipt_refs|target_workflow_node_ids|bounded_targets)\s*\?\?\s*request\./.test(
+      !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|receipt_refs|target_workflow_node_ids|bounded_targets|idempotency_key)\s*\?\?\s*request\./.test(
         runtimeWorkflowEditSurface,
       ),
     [

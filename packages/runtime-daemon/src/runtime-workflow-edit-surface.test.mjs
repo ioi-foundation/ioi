@@ -189,6 +189,7 @@ test("workflow-edit surface ignores retired request identity aliases", () => {
     workflowNodeId: "node_retired",
     targetWorkflowNodeIds: ["node_target_retired"],
     boundedTargets: ["node_bound_retired"],
+    idempotencyKey: "workflow_edit_idempotency_retired",
     receiptRefs: ["receipt_retired"],
   });
   const proposalEvent = store.events[0];
@@ -197,6 +198,10 @@ test("workflow-edit surface ignores retired request identity aliases", () => {
   assert.equal(proposalEvent.turn_id, "turn_alpha");
   assert.equal(proposalEvent.workflow_graph_id, null);
   assert.equal(proposalEvent.workflow_node_id, "runtime.workflow-edit-proposal.proposal_retired_aliases");
+  assert.equal(
+    proposalEvent.idempotency_key,
+    "thread:thread_alpha:workflow.edit.proposed:proposal_retired_aliases",
+  );
   assert.deepEqual(proposalEvent.payload_summary.target_workflow_node_ids, []);
   assert.equal(proposal.receipt_refs.includes("receipt_retired"), false);
   assert.equal(approvalRequest.turn_id, "turn_alpha");
@@ -211,10 +216,35 @@ test("workflow-edit surface ignores retired request identity aliases", () => {
   const applied = surface.applyWorkflowEditProposal(store, "thread_alpha", proposal.proposal_id, {
     workflowGraphId: "graph_apply_retired",
     workflowNodeId: "node_apply_retired",
+    idempotencyKey: "workflow_edit_apply_idempotency_retired",
   });
 
   assert.equal(applied.event.workflow_graph_id, null);
   assert.equal(applied.event.workflow_node_id, "runtime.workflow-edit-proposal.proposal_retired_aliases");
+  assert.equal(
+    applied.event.idempotency_key,
+    "thread:thread_alpha:workflow.edit.applied:proposal_retired_aliases:approval_retired_aliases",
+  );
+});
+
+test("workflow-edit surface accepts canonical idempotency keys", () => {
+  const store = createStore();
+  const surface = createSurface();
+
+  const proposal = surface.proposeWorkflowEdit(store, "thread_alpha", {
+    proposal_id: "proposal_canonical_idempotency",
+    approval_id: "approval_canonical_idempotency",
+    workflow_path: "workflows/canonical.json",
+    workflow_patch: { ok: true },
+    idempotency_key: "workflow_edit_idempotency_canonical",
+  });
+  store.approve(proposal.approval_id);
+  const applied = surface.applyWorkflowEditProposal(store, "thread_alpha", proposal.proposal_id, {
+    idempotency_key: "workflow_edit_apply_idempotency_canonical",
+  });
+
+  assert.equal(store.events[0].idempotency_key, "workflow_edit_idempotency_canonical");
+  assert.equal(applied.event.idempotency_key, "workflow_edit_apply_idempotency_canonical");
 });
 
 test("workflow-edit surface blocks apply until proposal approval is satisfied", () => {

@@ -12875,6 +12875,11 @@ approved budget-recovery retry events now consume canonical `idempotency_key`
 request fields only; retired `idempotencyKey` fields no longer steer recovery
 event de-duplication or Rust-planned retry run state updates.
 
+Slice 456 completes workflow-edit idempotency alias retirement:
+workflow edit proposal and apply events now consume canonical `idempotency_key`
+request fields only; retired `idempotencyKey` fields no longer steer proposal or
+apply event de-duplication before approval/projection handling.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -173,7 +173,6 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       item_id: `${turnId || threadId}:item:workflow-edit-proposed:${safeId(proposalId)}`,
       idempotency_key:
         request.idempotency_key ??
-        request.idempotencyKey ??
         `thread:${threadId}:workflow.edit.proposed:${proposalId}`,
       source,
       source_event_kind: "WorkflowEdit.Proposed",
@@ -488,7 +487,6 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       item_id: `${turnId || threadId}:item:workflow-edit-applied:${safeId(normalizedProposalId)}`,
       idempotency_key:
         request.idempotency_key ??
-        request.idempotencyKey ??
         `thread:${threadId}:workflow.edit.applied:${normalizedProposalId}:${approvalSatisfaction.approvalId}`,
       source,
       source_event_kind: "WorkflowEdit.Applied",
