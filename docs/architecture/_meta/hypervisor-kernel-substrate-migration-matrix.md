@@ -12910,6 +12910,12 @@ only; retired `recoveryAction`, `requestedBy`, `sourceEventId`, `approvalId`,
 approval actor/source identity, approval lookup, policy refs, or retry-policy
 state before Rust policy-core state-update planning.
 
+Slice 461 completes context-compaction actor alias retirement:
+context compaction now forwards canonical `requested_by` / `actor` values only
+to Rust policy-core planning; retired `requestedBy` no longer steers the
+compaction requested-by actor in the Rust `planContextCompaction` bridge request
+or the resulting daemon projection.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

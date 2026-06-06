@@ -494,6 +494,7 @@ test("context policy surface ignores retired compaction request identity aliases
   surface.compactThread(store, "thread-agent-one", {
     source: "agent_studio",
     reason: "trim context",
+    requestedBy: "operator-retired",
     turnId: "turn-retired",
     workflowGraphId: "graph-retired",
     workflowNodeId: "node-retired",
@@ -504,6 +505,7 @@ test("context policy surface ignores retired compaction request identity aliases
   assert.equal(planRequest.turn_id, "turn-run-one");
   assert.equal(planRequest.workflow_graph_id, null);
   assert.equal(planRequest.workflow_node_id, null);
+  assert.equal(planRequest.requested_by, null);
   assert.equal(planRequest.idempotency_key, null);
   assert.equal(events[0].turn_id, "turn-run-one");
   assert.equal(events[0].workflow_graph_id, null);

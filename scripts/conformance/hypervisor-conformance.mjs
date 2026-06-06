@@ -2948,6 +2948,8 @@ function runBridge() {
       /turnId: "turn-retired"/.test(runtimeContextPolicySurfaceTest) &&
       /workflowGraphId: "graph-retired"/.test(runtimeContextPolicySurfaceTest) &&
       /workflowNodeId: "node-retired"/.test(runtimeContextPolicySurfaceTest) &&
+      /requestedBy: "operator-retired"/.test(runtimeContextPolicySurfaceTest) &&
+      /planRequest\.requested_by,\s*null/.test(runtimeContextPolicySurfaceTest) &&
       /idempotencyKey: "context_budget_idempotency_retired"/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
@@ -2970,7 +2972,7 @@ function runBridge() {
         runtimeContextPolicySurfaceTest,
       ) &&
       /eventKind: "RuntimeCompactionPolicy\.Retired"/.test(runtimeContextPolicySurfaceTest) &&
-      !/request\.(?:turnId|workflowNodeId|workflowGraphId|threadId|eventKind|idempotencyKey|compactIdempotencyKey)\b/.test(
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId|threadId|requestedBy|eventKind|idempotencyKey|compactIdempotencyKey)\b/.test(
         runtimeContextPolicySurface,
       ) &&
       !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|thread_id|event_kind|idempotency_key|compact_idempotency_key)\s*\?\?\s*request\./.test(

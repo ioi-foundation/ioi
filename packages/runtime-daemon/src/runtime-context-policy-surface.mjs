@@ -110,7 +110,7 @@ export function createRuntimeContextPolicySurface({
         reason: optionalStringDep(request.reason ?? request.message ?? request.input) ?? null,
         scope: optionalStringDep(request.scope) ?? null,
         source: optionalStringDep(request.source) ?? null,
-        requested_by: optionalStringDep(request.actor ?? request.requested_by ?? request.requestedBy) ?? null,
+        requested_by: optionalStringDep(request.actor ?? request.requested_by) ?? null,
         workflow_graph_id: optionalStringDep(request.workflow_graph_id) ?? null,
         workflow_node_id: optionalStringDep(request.workflow_node_id) ?? null,
         event_stream_id: streamId,
