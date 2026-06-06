@@ -13,6 +13,8 @@ export const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.diagnostics-operator-override-state-update-request.v1";
 export const OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.operator-interrupt-state-update-request.v1";
+export const OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.operator-steer-state-update-request.v1";
 export const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.compaction-policy-request.v1";
 export const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION =
@@ -100,6 +102,14 @@ export class RustContextPolicyRunner {
     return normalizeOperatorInterruptStateUpdateBridgeResult(this.evaluateRawPolicy({
       operation: "plan_operator_interrupt_state_update",
       schemaVersion: OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planOperatorSteerStateUpdate(request = {}) {
+    return normalizeOperatorSteerStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_operator_steer_state_update",
+      schemaVersion: OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -392,6 +402,26 @@ export function normalizeOperatorInterruptStateUpdateBridgeResult(value = {}) {
       objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
     stop_condition:
       objectRecord(result.stop_condition) ?? objectRecord(record.stop_condition) ?? null,
+    run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
+  };
+}
+
+export function normalizeOperatorSteerStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_operator_steer_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "planned",
+    operation_kind:
+      optionalString(result.operation_kind ?? record.operation_kind) ?? "turn.steer",
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    operator_control:
+      objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
     run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
   };
 }

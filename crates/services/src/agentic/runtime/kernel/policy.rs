@@ -21,6 +21,10 @@ pub const OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.operator-interrupt-state-update-request.v1";
 pub const OPERATOR_INTERRUPT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.operator-interrupt-state-update.v1";
+pub const OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.operator-steer-state-update-request.v1";
+pub const OPERATOR_STEER_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.operator-steer-state-update.v1";
 pub const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.compaction-policy-request.v1";
 pub const COMPACTION_POLICY_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.compaction-policy.v1";
@@ -124,6 +128,15 @@ pub enum DiagnosticsOperatorOverrideStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OperatorInterruptStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OperatorSteerStateUpdateError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -586,6 +599,41 @@ pub struct OperatorInterruptStateUpdateRecord {
     pub updated_at: String,
     pub operator_control: Value,
     pub stop_condition: Value,
+    pub run: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OperatorSteerStateUpdateRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub turn_id: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    pub run: Value,
+    pub event_id: String,
+    pub seq: u64,
+    pub created_at: String,
+    pub source: String,
+    pub guidance: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OperatorSteerStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    pub updated_at: String,
+    pub operator_control: Value,
     pub run: Value,
     pub generated_at: String,
 }
@@ -1404,6 +1452,59 @@ impl OperatorInterruptStateUpdateCore {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct OperatorSteerStateUpdateCore;
+
+impl OperatorSteerStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &OperatorSteerStateUpdateRequest,
+    ) -> Result<OperatorSteerStateUpdateRecord, OperatorSteerStateUpdateError> {
+        request.validate()?;
+        let thread_id = optional_trimmed(request.thread_id.as_deref());
+        let turn_id = optional_trimmed(request.turn_id.as_deref());
+        let run_id = optional_trimmed(request.run_id.as_deref());
+        let source = operator_control_source(Some(request.source.as_str()));
+        let guidance = optional_trimmed(Some(request.guidance.as_str()))
+            .unwrap_or_else(|| "operator provided steering guidance".to_string());
+        let operator_control = json!({
+            "control": "steer",
+            "source": source,
+            "guidance": guidance,
+            "eventId": request.event_id,
+            "seq": request.seq,
+            "createdAt": request.created_at,
+        });
+        let mut run =
+            object_value(&request.run).ok_or(OperatorSteerStateUpdateError::MissingField("run"))?;
+        run.insert(
+            "updatedAt".to_string(),
+            Value::String(request.created_at.clone()),
+        );
+        let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
+        let trace_controls =
+            append_operator_control(trace.get("operatorControls"), &operator_control);
+        trace.insert("operatorControls".to_string(), trace_controls);
+        run.insert("trace".to_string(), Value::Object(trace));
+        let run_controls = append_operator_control(run.get("operatorControls"), &operator_control);
+        run.insert("operatorControls".to_string(), run_controls);
+
+        Ok(OperatorSteerStateUpdateRecord {
+            schema_version: OPERATOR_STEER_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_operator_steer_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: "turn.steer".to_string(),
+            thread_id,
+            turn_id,
+            run_id,
+            updated_at: request.created_at.clone(),
+            operator_control,
+            run: Value::Object(run),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
 impl CompactionPolicyRequest {
     pub fn validate(&self) -> Result<(), CompactionPolicyError> {
         if self.schema_version != COMPACTION_POLICY_REQUEST_SCHEMA_VERSION {
@@ -1578,6 +1679,30 @@ impl OperatorInterruptStateUpdateRequest {
             return Err(OperatorInterruptStateUpdateError::MissingField(
                 "created_at",
             ));
+        }
+        Ok(())
+    }
+}
+
+impl OperatorSteerStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), OperatorSteerStateUpdateError> {
+        if self.schema_version != OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(OperatorSteerStateUpdateError::InvalidSchemaVersion {
+                expected: OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if !self.run.is_object() {
+            return Err(OperatorSteerStateUpdateError::MissingField("run"));
+        }
+        if optional_trimmed(Some(self.event_id.as_str())).is_none() {
+            return Err(OperatorSteerStateUpdateError::MissingField("event_id"));
+        }
+        if self.seq == 0 {
+            return Err(OperatorSteerStateUpdateError::MissingField("seq"));
+        }
+        if optional_trimmed(Some(self.created_at.as_str())).is_none() {
+            return Err(OperatorSteerStateUpdateError::MissingField("created_at"));
         }
         Ok(())
     }
@@ -2090,6 +2215,28 @@ mod tests {
         }
     }
 
+    fn operator_steer_state_update_request() -> OperatorSteerStateUpdateRequest {
+        OperatorSteerStateUpdateRequest {
+            schema_version: OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: Some("thread_budget".to_string()),
+            turn_id: Some("turn_budget".to_string()),
+            run_id: Some("run_budget".to_string()),
+            run: json!({
+                "id": "run_budget",
+                "agentId": "agent_budget",
+                "status": "running",
+                "turnStatus": "running",
+                "trace": {},
+                "operatorControls": []
+            }),
+            event_id: "event_steer".to_string(),
+            seq: 12,
+            created_at: "2026-06-06T04:35:00.000Z".to_string(),
+            source: "react_flow".to_string(),
+            guidance: "focus on the failing bridge assertion".to_string(),
+        }
+    }
+
     #[test]
     fn rust_policy_blocks_context_budget_excess() {
         let mut request = budget_request();
@@ -2444,6 +2591,33 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_plans_operator_steer_state_update() {
+        let record = OperatorSteerStateUpdateCore
+            .plan(&operator_steer_state_update_request())
+            .expect("operator steer state update");
+
+        assert_eq!(
+            record.schema_version,
+            OPERATOR_STEER_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "turn.steer");
+        assert_eq!(record.operator_control["control"], "steer");
+        assert_eq!(
+            record.operator_control["guidance"],
+            "focus on the failing bridge assertion"
+        );
+        assert_eq!(record.run["status"], "running");
+        assert_eq!(record.run["turnStatus"], "running");
+        assert_eq!(record.run["updatedAt"], "2026-06-06T04:35:00.000Z");
+        assert_eq!(
+            record.run["trace"]["operatorControls"][0]["eventId"],
+            "event_steer"
+        );
+        assert_eq!(record.run["operatorControls"][0]["eventId"], "event_steer");
+    }
+
+    #[test]
     fn rust_policy_rejects_invalid_compaction_schema() {
         let mut request = compaction_request();
         request.schema_version = "legacy.schema".to_string();
@@ -2546,6 +2720,24 @@ mod tests {
             error,
             OperatorInterruptStateUpdateError::InvalidSchemaVersion {
                 expected: OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_operator_steer_state_update_schema() {
+        let mut request = operator_steer_state_update_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = OperatorSteerStateUpdateCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            OperatorSteerStateUpdateError::InvalidSchemaVersion {
+                expected: OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );

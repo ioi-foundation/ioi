@@ -26,6 +26,7 @@ use ioi_services::agentic::runtime::kernel::policy::{
     ContextCompactionStateUpdateCore, ContextCompactionStateUpdateRequest,
     DiagnosticsOperatorOverrideStateUpdateCore, DiagnosticsOperatorOverrideStateUpdateRequest,
     OperatorInterruptStateUpdateCore, OperatorInterruptStateUpdateRequest,
+    OperatorSteerStateUpdateCore, OperatorSteerStateUpdateRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -378,6 +379,16 @@ struct OperatorInterruptStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct OperatorSteerStateUpdateBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: OperatorSteerStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -609,6 +620,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_operator_interrupt_state_update(request)
+        }
+        "plan_operator_steer_state_update" => {
+            let request: OperatorSteerStateUpdateBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_operator_steer_state_update(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -2033,6 +2050,41 @@ fn plan_operator_interrupt_state_update(
         "updated_at": record.updated_at.clone(),
         "operator_control": record.operator_control.clone(),
         "stop_condition": record.stop_condition.clone(),
+        "run": record.run.clone(),
+    }))
+}
+
+fn plan_operator_steer_state_update(
+    request: OperatorSteerStateUpdateBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_operator_steer_state_update" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = OperatorSteerStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new("operator_steer_state_update_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_operator_steer_state_update_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "operator_control": record.operator_control.clone(),
         "run": record.run.clone(),
     }))
 }
@@ -6628,6 +6680,56 @@ mod tests {
         assert_eq!(
             response["run"]["trace"]["qualityLedger"]["failureOntologyLabels"][1],
             "operator_interrupt"
+        );
+    }
+
+    #[test]
+    fn bridge_plans_operator_steer_state_update_through_rust_core() {
+        let request: OperatorSteerStateUpdateBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_operator_steer_state_update",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.operator-steer-state-update-request.v1",
+                "thread_id": "thread_budget",
+                "turn_id": "turn_budget",
+                "run_id": "run_budget",
+                "run": {
+                    "id": "run_budget",
+                    "agentId": "agent_budget",
+                    "status": "running",
+                    "turnStatus": "running",
+                    "trace": {},
+                    "operatorControls": []
+                },
+                "event_id": "event_steer",
+                "seq": 12,
+                "created_at": "2026-06-06T04:35:00.000Z",
+                "source": "react_flow",
+                "guidance": "focus on the failing bridge assertion"
+            }
+        }))
+        .expect("operator steer state update bridge request");
+
+        let response =
+            plan_operator_steer_state_update(request).expect("operator steer state update planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_operator_steer_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "turn.steer");
+        assert_eq!(response["operator_control"]["control"], "steer");
+        assert_eq!(
+            response["operator_control"]["guidance"],
+            "focus on the failing bridge assertion"
+        );
+        assert_eq!(response["run"]["status"], "running");
+        assert_eq!(
+            response["run"]["trace"]["operatorControls"][0]["eventId"],
+            "event_steer"
         );
     }
 

@@ -207,6 +207,33 @@ function contextPolicyRunner(calls = []) {
         },
       };
     },
+    planOperatorSteerStateUpdate(request = {}) {
+      calls.push({ operation: "plan_operator_steer_state_update", input: request });
+      const control = {
+        control: "steer",
+        source: request.source,
+        guidance: request.guidance,
+        eventId: request.event_id,
+        seq: request.seq,
+        createdAt: request.created_at,
+      };
+      const run = request.run ?? {};
+      const traceControls = appendOperatorControlForTest(run.trace?.operatorControls, control);
+      const runControls = appendOperatorControlForTest(run.operatorControls, control);
+      return {
+        status: "planned",
+        operation_kind: "turn.steer",
+        run: {
+          ...run,
+          updatedAt: request.created_at,
+          trace: {
+            ...run.trace,
+            operatorControls: traceControls,
+          },
+          operatorControls: runControls,
+        },
+      };
+    },
   };
 }
 
@@ -461,6 +488,60 @@ test("runtime-backed interrupt and resume route through control_thread", async (
     assert.equal(controls[1].input.sessionId, "session_runtime_control_test");
     assert.equal(interrupted.runtime_control.action, "stop");
     assert.equal(resumed.runtime_control.action, "resume");
+  } finally {
+    store.close();
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+test("runtime-backed steering routes run update through Rust policy planner", async () => {
+  const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-steer-"));
+  const calls = [];
+  const store = new AgentgresRuntimeStateStore(stateDir, {
+    cwd: stateDir,
+    contextPolicyRunner: contextPolicyRunner(calls),
+    runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(calls),
+    runtimeBridge: runtimeControlBridge(calls),
+  });
+  try {
+    await seedRuntimeControlModelRoute(store);
+
+    const thread = await store.createThread({
+      runtime_profile: "runtime_service",
+      options: {
+        runtime_profile: "runtime_service",
+        local: { cwd: stateDir },
+      },
+    });
+    const run = store.createRun(thread.agent_id, {
+      mode: "send",
+      prompt: "exercise runtime steering",
+    });
+    const turnId = `turn_${run.id.slice("run_".length)}`;
+
+    const steered = store.steerTurn(thread.thread_id, turnId, {
+      source: "agent_studio",
+      guidance: "focus on the failing bridge assertion",
+    });
+
+    const plannerCalls = calls.filter((call) => call.operation === "plan_operator_steer_state_update");
+    assert.equal(plannerCalls.length, 1);
+    assert.equal(plannerCalls[0].input.thread_id, thread.thread_id);
+    assert.equal(plannerCalls[0].input.turn_id, turnId);
+    assert.equal(plannerCalls[0].input.run_id, run.id);
+    assert.equal(plannerCalls[0].input.guidance, "focus on the failing bridge assertion");
+    assert.equal(steered.events.at(-1).event_kind, "turn.steered");
+
+    const steerCommits = calls.filter(
+      (call) =>
+        call.operation === "commit_runtime_run_state" &&
+        call.input.operation_kind === "turn.steer",
+    );
+    assert.equal(steerCommits.length, 1);
+    assert.equal(
+      steerCommits[0].input.run.trace.operatorControls.at(-1).guidance,
+      "focus on the failing bridge assertion",
+    );
   } finally {
     store.close();
     rmSync(stateDir, { recursive: true, force: true });

@@ -1281,6 +1281,38 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "operator-steer-state-update-live-bridge",
+    /OperatorSteerStateUpdateCore/.test(policyCore) &&
+      /OperatorSteerStateUpdateRequest/.test(policyCore) &&
+      /OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_operator_steer_state_update/.test(policyCore) &&
+      /plan_operator_steer_state_update/.test(bridgeModule) &&
+      /OperatorSteerStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_operator_steer_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_operator_steer_state_update_through_rust_core/.test(bridgeModule) &&
+      /planOperatorSteerStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /operator steer state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /this\.contextPolicyRunner\.planOperatorSteerStateUpdate/.test(runtimeDaemonIndex) &&
+      !/control:\s*"steer"|appendOperatorControl/.test(runtimeDaemonIndex) &&
+      /runtime-backed steering routes run update through Rust policy planner/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /plan_operator_steer_state_update/.test(runtimeThreadControlTest),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control.test.mjs",
+    ],
+    "Phase 9/10 is pending: operator steer run state updates must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
     "compaction-policy-live-bridge",
     /CompactionPolicyCore/.test(policyCore) &&
       /CompactionPolicyRequest/.test(policyCore) &&

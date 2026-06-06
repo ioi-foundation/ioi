@@ -12194,6 +12194,13 @@ daemon interrupt path appends the interruption event, delegates the run update
 to the Rust policy bridge, and keeps only the runless in-flight turn projection
 fallback in JS.
 
+Slice 352 moves operator-steer run state-update planning into Rust:
+`OperatorSteerStateUpdateCore` now owns the steer operator-control record,
+updatedAt assignment, and trace/top-level operatorControls mutation through
+`plan_operator_steer_state_update`; the daemon steer path appends the steering
+event and applies the Rust-planned run record instead of constructing the
+operator-control mutation in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

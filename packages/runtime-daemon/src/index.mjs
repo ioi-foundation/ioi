@@ -151,7 +151,6 @@ import { createRuntimeThreadEventSurface } from "./runtime-thread-event-surface.
 import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
 import { createRuntimeSubagentSurface } from "./runtime-subagent-surface.mjs";
 import {
-  appendOperatorControl,
   booleanValue,
   doctorCheck,
   doctorHash,
@@ -1685,25 +1684,20 @@ export class AgentgresRuntimeStateStore {
       redaction_profile: "internal",
       fixture_profile: fixtureProfileForAgent(agent),
     });
-    const control = {
-      control: "steer",
+    const stateUpdate = this.contextPolicyRunner.planOperatorSteerStateUpdate({
+      thread_id: threadId,
+      turn_id: turnId,
+      run_id: run.id,
+      run,
+      event_id: event.event_id,
+      seq: event.seq,
+      created_at: event.created_at,
       source,
       guidance,
-      eventId: event.event_id,
-      seq: event.seq,
-      createdAt: event.created_at,
-    };
-    const updated = {
-      ...run,
-      updatedAt: event.created_at,
-      trace: {
-        ...run.trace,
-        operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
-      },
-      operatorControls: appendOperatorControl(run.operatorControls, control),
-    };
+    });
+    const updated = stateUpdate.run ?? run;
     this.runs.set(run.id, updated);
-    this.writeRun(updated, "turn.steer");
+    this.writeRun(updated, stateUpdate.operation_kind ?? "turn.steer");
     return this.turnForRun(updated);
   }
 

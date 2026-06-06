@@ -11,6 +11,7 @@ import {
   CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RustContextPolicyRunner,
 } from "./runtime-context-policy-runner.mjs";
 
@@ -535,6 +536,73 @@ test("operator interrupt state update runner sends Rust state update bridge requ
   assert.equal(result.operator_control.reason, "operator_stop");
   assert.equal(result.stop_condition.reason, "operator_interrupt");
   assert.equal(result.run.turnStatus, "interrupted");
+});
+
+test("operator steer state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_operator_steer_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "turn.steer",
+            updated_at: "2026-06-06T04:35:00.000Z",
+            operator_control: {
+              control: "steer",
+              guidance: "focus on the failing bridge assertion",
+              eventId: "event_steer",
+            },
+            run: {
+              id: "run_budget",
+              status: "running",
+              turnStatus: "running",
+              trace: {
+                operatorControls: [
+                  {
+                    control: "steer",
+                    eventId: "event_steer",
+                  },
+                ],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planOperatorSteerStateUpdate({
+    thread_id: "thread_budget",
+    turn_id: "turn_budget",
+    run_id: "run_budget",
+    run: { id: "run_budget", status: "running", trace: {} },
+    event_id: "event_steer",
+    seq: 12,
+    created_at: "2026-06-06T04:35:00.000Z",
+    source: "react_flow",
+    guidance: "focus on the failing bridge assertion",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_operator_steer_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.guidance, "focus on the failing bridge assertion");
+  assert.equal(result.source, "rust_operator_steer_state_update_command");
+  assert.equal(result.operation_kind, "turn.steer");
+  assert.equal(result.operator_control.guidance, "focus on the failing bridge assertion");
+  assert.equal(result.run.trace.operatorControls[0].eventId, "event_steer");
 });
 
 test("context policy runner fails closed without bridge command", () => {
