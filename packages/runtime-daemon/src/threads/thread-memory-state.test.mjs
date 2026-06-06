@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { createThreadMemoryState } from "./thread-memory-state.mjs";
 
-function createHarness() {
+function createHarness(options = {}) {
   const calls = [];
   const agents = new Map([
     ["agent_a", { id: "agent_a", cwd: "/workspace" }],
@@ -44,6 +44,8 @@ function createHarness() {
       error.details = details;
       return error;
     },
+    runtimeError: ({ status, code, message, details }) =>
+      Object.assign(new Error(message), { status, code, details }),
     safeId: (value) => String(value).replace(/[^a-z0-9]+/gi, "_"),
     threadIdForAgent: (agentId) => agentId.replace("agent_", "thread_"),
     validateMemoryProjection: (projection = {}) => ({
@@ -53,6 +55,19 @@ function createHarness() {
   });
   const store = {
     agents,
+    contextPolicyRunner:
+      Object.hasOwn(options, "contextPolicyRunner")
+        ? options.contextPolicyRunner
+        : {
+            planThreadMemoryAgentStateUpdate(request = {}) {
+              calls.push({ type: "planThreadMemoryAgentStateUpdate", input: request });
+              return {
+                status: "planned",
+                operation_kind: `thread.${request.control_kind}`,
+                agent: { ...request.agent, updatedAt: request.created_at },
+              };
+            },
+          },
     defaultCwd: "/default",
     agentForThread(threadId) {
       calls.push({ type: "agentForThread", threadId });
@@ -143,7 +158,7 @@ function createHarness() {
       },
     },
   };
-  return { calls, state, store };
+  return { agents, calls, state, store };
 }
 
 test("thread memory state projects thread and agent memory", () => {
@@ -227,7 +242,7 @@ test("thread memory state records write, edit, and delete mutations", () => {
 });
 
 test("thread memory state blocks disallowed writes and emits status events", () => {
-  const { calls, state, store } = createHarness();
+  const { agents, calls, state, store } = createHarness();
 
   assert.throws(
     () => state.rememberForAgentId(store, "agent_a", { text: "Nope", blockMemory: true }),
@@ -239,5 +254,29 @@ test("thread memory state blocks disallowed writes and emits status events", () 
   assert.equal(status.event.source, "status_test");
   assert.equal(status.event.payload_schema_version, "memory.status.v1");
   assert.equal(status.event.fixture_profile, "fixture.test");
+  assert.equal(calls.filter((call) => call.type === "planThreadMemoryAgentStateUpdate").length, 1);
   assert.equal(calls.filter((call) => call.type === "writeAgent").at(-1).operationKind, "thread.memory_status");
+  assert.equal(agents.get("agent_a").updatedAt, "2026-06-04T00:00:00.000Z");
+});
+
+test("thread memory state fails closed without Rust-planned agent projection", () => {
+  const { calls, state, store } = createHarness({
+    contextPolicyRunner: {
+      planThreadMemoryAgentStateUpdate(request = {}) {
+        calls.push({ type: "planThreadMemoryAgentStateUpdate", input: request });
+        return {
+          status: "planned",
+          operation_kind: `thread.${request.control_kind}`,
+          agent: null,
+        };
+      },
+    },
+  });
+
+  assert.throws(
+    () => state.recordThreadMemoryStatus(store, "thread_a", { source: "status_test" }, "memory.status.v1"),
+    (error) => error.code === "thread_memory_state_update_planner_invalid",
+  );
+  assert.equal(calls.filter((call) => call.type === "planThreadMemoryAgentStateUpdate").length, 1);
+  assert.equal(calls.some((call) => call.type === "writeAgent"), false);
 });

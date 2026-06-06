@@ -96,7 +96,9 @@ use policy::{
     RunCancelStateUpdateRequest, RunCreateStateUpdateCore, RunCreateStateUpdateError,
     RunCreateStateUpdateRecord, RunCreateStateUpdateRequest, ThreadControlAgentStateUpdateCore,
     ThreadControlAgentStateUpdateError, ThreadControlAgentStateUpdateRecord,
-    ThreadControlAgentStateUpdateRequest,
+    ThreadControlAgentStateUpdateRequest, ThreadMemoryAgentStateUpdateCore,
+    ThreadMemoryAgentStateUpdateError, ThreadMemoryAgentStateUpdateRecord,
+    ThreadMemoryAgentStateUpdateRequest,
 };
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
 use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
@@ -257,6 +259,13 @@ impl RuntimeKernelService {
         request: &McpControlAgentStateUpdateRequest,
     ) -> Result<McpControlAgentStateUpdateRecord, McpControlAgentStateUpdateError> {
         McpControlAgentStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_thread_memory_agent_state_update(
+        &self,
+        request: &ThreadMemoryAgentStateUpdateRequest,
+    ) -> Result<ThreadMemoryAgentStateUpdateRecord, ThreadMemoryAgentStateUpdateError> {
+        ThreadMemoryAgentStateUpdateCore.plan(request)
     }
 
     pub fn plan_agent_create_state_update(

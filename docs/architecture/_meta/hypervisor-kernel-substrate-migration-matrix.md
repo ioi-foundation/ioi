@@ -12278,6 +12278,12 @@ owners of runtime operator-control run mutations; the daemon interrupt and steer
 paths now fail closed when Rust planning omits the run record instead of
 persisting the pre-control run as a fallback.
 
+Slice 364 moves thread-memory agent touch planning to Rust:
+`ThreadMemoryAgentStateUpdateCore` now owns the persisted agent projection for
+memory status/mutation/policy control events; the daemon thread-memory helper
+continues to append the runtime memory event, then fails closed unless the Rust
+planner returns the agent record to persist.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

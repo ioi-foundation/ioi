@@ -592,6 +592,12 @@ function runBridge() {
   const runtimeMcpControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs")
     : "";
+  const runtimeThreadMemoryState = exists("packages/runtime-daemon/src/threads/thread-memory-state.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-memory-state.mjs")
+    : "";
+  const runtimeThreadMemoryStateTest = exists("packages/runtime-daemon/src/threads/thread-memory-state.test.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-memory-state.test.mjs")
+    : "";
   const runtimeThreadControlTest = exists("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
     : "";
@@ -1521,6 +1527,48 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 9/10 is pending: MCP control agent state updates must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "thread-memory-agent-state-update-live-bridge",
+    /ThreadMemoryAgentStateUpdateCore/.test(policyCore) &&
+      /ThreadMemoryAgentStateUpdateRequest/.test(policyCore) &&
+      /THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_thread_memory_agent_state_update/.test(policyCore) &&
+      /rust_policy_rejects_invalid_thread_memory_agent_state_update_schema/.test(policyCore) &&
+      /plan_thread_memory_agent_state_update/.test(bridgeModule) &&
+      /ThreadMemoryAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_thread_memory_agent_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_thread_memory_agent_state_update_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /planThreadMemoryAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /thread memory agent state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /contextPolicyRunner\.planThreadMemoryAgentStateUpdate/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      /thread memory state fails closed without Rust-planned agent projection/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      !/const updatedAgent = \{ \.\.\.agent, updatedAt: event\.created_at \}/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      /runtimeError/.test(runtimeDaemonIndex),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 9/10 is pending: thread-memory agent state updates must be planned by Rust policy core through the command bridge",
   );
   assertCheck(
     result,

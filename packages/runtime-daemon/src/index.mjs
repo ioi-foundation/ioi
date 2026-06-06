@@ -390,6 +390,7 @@ const threadMemoryState = createThreadMemoryState({
   operatorControlSource,
   optionalString,
   policyError,
+  runtimeError,
   safeId,
   threadIdForAgent,
   validateMemoryProjection,

@@ -18,6 +18,7 @@ import {
   RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RustContextPolicyRunner,
   THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 } from "./runtime-context-policy-runner.mjs";
 
 test("context budget policy runner sends generic Rust policy bridge request", () => {
@@ -800,6 +801,60 @@ test("mcp control agent state update runner sends Rust state update bridge reque
   assert.equal(result.operation_kind, "thread.mcp_add");
   assert.equal(result.control.eventId, "event_mcp_add");
   assert.equal(result.agent.mcpRegistry.servers[0].id, "mcp.docs");
+});
+
+test("thread memory agent state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_thread_memory_agent_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "thread.memory_status",
+            updated_at: "2026-06-06T06:05:00.000Z",
+            control: {
+              controlKind: "memory_status",
+              eventId: "event_memory_status",
+            },
+            agent: {
+              id: "agent_1",
+              updatedAt: "2026-06-06T06:05:00.000Z",
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planThreadMemoryAgentStateUpdate({
+    thread_id: "thread_1",
+    agent: { id: "agent_1", cwd: "/workspace" },
+    control_kind: "memory_status",
+    event_id: "event_memory_status",
+    seq: 6,
+    created_at: "2026-06-06T06:05:00.000Z",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_thread_memory_agent_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.control_kind, "memory_status");
+  assert.equal(result.source, "rust_thread_memory_agent_state_update_command");
+  assert.equal(result.operation_kind, "thread.memory_status");
+  assert.equal(result.control.eventId, "event_memory_status");
+  assert.equal(result.agent.updatedAt, "2026-06-06T06:05:00.000Z");
 });
 
 test("agent create state update runner sends Rust state update bridge request", () => {

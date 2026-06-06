@@ -20,10 +20,14 @@ export function createThreadMemoryState({
   operatorControlSource,
   optionalString,
   policyError,
+  runtimeError,
   safeId,
   threadIdForAgent,
   validateMemoryProjection,
 } = {}) {
+  const memoryRuntimeError = runtimeError ?? (({ status = 500, code = "thread_memory_state_error", message, details }) =>
+    Object.assign(new Error(message), { status, code, details }));
+
   function rememberForAgent(store, agent, { text, threadId = threadIdForAgent(agent.id), scope = "thread", source = "operator_remember", workflow = {} } = {}) {
     return store.memory.remember({
       text,
@@ -470,9 +474,34 @@ export function createThreadMemoryState({
       receipt_refs: event.receipt_refs,
       policy_decision_refs: event.policy_decision_refs,
     };
-    const updatedAgent = { ...agent, updatedAt: event.created_at };
-    store.agents.set(agent.id, updatedAgent);
-    store.writeAgent(updatedAgent, `thread.${controlKind}`);
+    const contextPolicyRunner = store.contextPolicyRunner;
+    if (typeof contextPolicyRunner?.planThreadMemoryAgentStateUpdate !== "function") {
+      throw memoryRuntimeError({
+        status: 500,
+        code: "thread_memory_state_update_planner_unavailable",
+        message: "Thread memory updates require Rust policy state-update planning.",
+        details: { threadId, controlKind },
+      });
+    }
+    const stateUpdate = contextPolicyRunner.planThreadMemoryAgentStateUpdate({
+      thread_id: threadId,
+      agent,
+      control_kind: controlKind,
+      event_id: event.event_id,
+      seq: event.seq,
+      created_at: event.created_at,
+    });
+    const updatedAgent = stateUpdate.agent;
+    if (!updatedAgent?.id) {
+      throw memoryRuntimeError({
+        status: 502,
+        code: "thread_memory_state_update_planner_invalid",
+        message: "Rust thread-memory state planning did not return an agent record.",
+        details: { threadId, controlKind },
+      });
+    }
+    store.agents.set(updatedAgent.id, updatedAgent);
+    store.writeAgent(updatedAgent, stateUpdate.operation_kind ?? `thread.${controlKind}`);
     return result;
   }
 
