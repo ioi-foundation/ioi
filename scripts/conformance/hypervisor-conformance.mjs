@@ -7695,6 +7695,12 @@ function runCompositor() {
   const diagnosticsRepairPolicyTest = exists("packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs")
     ? read("packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs")
     : "";
+  const diagnosticsFeedback = exists("packages/runtime-daemon/src/diagnostics-feedback.mjs")
+    ? read("packages/runtime-daemon/src/diagnostics-feedback.mjs")
+    : "";
+  const diagnosticsFeedbackTest = exists("packages/runtime-daemon/src/diagnostics-feedback.test.mjs")
+    ? read("packages/runtime-daemon/src/diagnostics-feedback.test.mjs")
+    : "";
   const runtimeAgentRunLifecycle = exists("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     : "";
@@ -11344,9 +11350,9 @@ function runCompositor() {
     diagnosticsRepairPolicy.match(
       /  function diagnosticsRepairContextForRequest\(request = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsRepairContextRecord)/,
     )?.[0] ?? "";
-  assertCheck(
-    result,
-    "diagnostics-repair-policy-context-aliases-retired",
+	  assertCheck(
+	    result,
+	    "diagnostics-repair-policy-context-aliases-retired",
     /request\.diagnostics_repair_context \?\? request\.repair_context/.test(
       diagnosticsRepairContextReadersBody,
     ) &&
@@ -11396,11 +11402,64 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/diagnostics-repair-policy.mjs",
       "packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs",
-    ],
-    "Phase 10/11 is pending: diagnostics repair policy contexts must canonicalize snake_case repair context fields without preserving retired camelCase aliases",
-  );
-  const diagnosticsRepairRetryResultBody =
-    diagnosticsRepairExecution.match(
+	    ],
+	    "Phase 10/11 is pending: diagnostics repair policy contexts must canonicalize snake_case repair context fields without preserving retired camelCase aliases",
+	  );
+	  const diagnosticsRepairRetryFeedbackBody =
+	    diagnosticsFeedback.match(
+	      /  function diagnosticsRepairRetryFeedback\(\{[\s\S]*?(?=\n  function compactDiagnosticsFeedback)/,
+	    )?.[0] ?? "";
+	  assertCheck(
+	    result,
+	    "diagnostics-repair-retry-feedback-reader-aliases-retired",
+	    /const diagnosticStatus = optionalString\(payload\.diagnostic_status\) \?\? "findings";/.test(
+	      diagnosticsRepairRetryFeedbackBody,
+	    ) &&
+	      /const diagnosticCount = Number\(payload\.diagnostic_count \?\? findings\.length\) \|\| findings\.length;/.test(
+	        diagnosticsRepairRetryFeedbackBody,
+	      ) &&
+	      /Number\(payload\.injected_finding_count \?\? findings\.length\) \|\| findings\.length/.test(
+	        diagnosticsRepairRetryFeedbackBody,
+	      ) &&
+	      /Number\(payload\.omitted_finding_count \?\? 0\) \|\| 0/.test(
+	        diagnosticsRepairRetryFeedbackBody,
+	      ) &&
+	      /normalizeArray\(payload\.rollback_refs\)/.test(diagnosticsRepairRetryFeedbackBody) &&
+	      /normalizeArray\(repairPolicy\?\.rollback_refs\)/.test(diagnosticsRepairRetryFeedbackBody) &&
+	      /normalizeArray\(payload\.workspace_snapshot_refs\)/.test(diagnosticsRepairRetryFeedbackBody) &&
+	      /normalizeArray\(repairPolicy\?\.workspace_snapshot_refs\)/.test(
+	        diagnosticsRepairRetryFeedbackBody,
+	      ) &&
+	      /normalizeArray\(payload\.diagnostic_event_ids\)/.test(diagnosticsRepairRetryFeedbackBody) &&
+	      /optionalString\(request\.repair_retry_receipt_id\)/.test(
+	        diagnosticsRepairRetryFeedbackBody,
+	      ) &&
+	      /optionalString\(request\.repair_prompt_text\)/.test(diagnosticsRepairRetryFeedbackBody) &&
+	      /normalizeArray\(payload\.source_tool_call_ids\)/.test(diagnosticsRepairRetryFeedbackBody) &&
+	      /normalizeArray\(payload\.receipt_refs\)/.test(diagnosticsRepairRetryFeedbackBody) &&
+	      !/\b(?:payload|request|repairPolicy)\?\.(?:diagnosticStatus|diagnosticCount|injectedFindingCount|omittedFindingCount|rollbackRefs|workspaceSnapshotRefs|diagnosticEventIds|sourceToolCallIds|receiptRefs|repairRetryReceiptId|repairPromptText)\b/.test(
+	        diagnosticsRepairRetryFeedbackBody,
+	      ) &&
+	      !/\brequest\.(?:repairRetryReceiptId|repairPromptText)\b/.test(
+	        diagnosticsRepairRetryFeedbackBody,
+	      ) &&
+	      /repair retry feedback ignores retired request, payload, and policy aliases/.test(
+	        diagnosticsFeedbackTest,
+	      ) &&
+	      /repairRetryReceiptId:\s*"receipt-alias"/.test(diagnosticsFeedbackTest) &&
+	      /diagnosticStatus:\s*"clean"/.test(diagnosticsFeedbackTest) &&
+	      /rollbackRefs:\s*\["rollback-alias"\]/.test(diagnosticsFeedbackTest) &&
+	      /workspaceSnapshotRefs:\s*\["snapshot-alias"\]/.test(diagnosticsFeedbackTest) &&
+	      /sourceToolCallIds:\s*\["tool-call-alias"\]/.test(diagnosticsFeedbackTest) &&
+	      /receiptRefs:\s*\["receipt-alias"\]/.test(diagnosticsFeedbackTest),
+	    [
+	      "packages/runtime-daemon/src/diagnostics-feedback.mjs",
+	      "packages/runtime-daemon/src/diagnostics-feedback.test.mjs",
+	    ],
+	    "Phase 10/11 is pending: diagnostics repair retry feedback must read canonical request, payload, policy, receipt, and ref fields without retired camelCase fallbacks",
+	  );
+	  const diagnosticsRepairRetryResultBody =
+	    diagnosticsRepairExecution.match(
       /  function diagnosticsRepairRetryResultFromEvent\(\{ threadId, event, turn = null, run = null \} = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsOperatorOverrideResultFromEvent)/,
     )?.[0] ?? "";
   const diagnosticsOperatorOverrideResultBody =

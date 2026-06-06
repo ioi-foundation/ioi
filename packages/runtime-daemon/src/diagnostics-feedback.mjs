@@ -72,29 +72,29 @@ export function createDiagnosticsFeedbackHelpers({
   } = {}) {
     const payload = gateEvent?.payload_summary ?? gateEvent?.payload ?? {};
     const findings = normalizeArray(payload.findings);
-    const diagnosticStatus = optionalString(payload.diagnostic_status ?? payload.diagnosticStatus) ?? "findings";
-    const diagnosticCount = Number(payload.diagnostic_count ?? payload.diagnosticCount ?? findings.length) || findings.length;
+    const diagnosticStatus = optionalString(payload.diagnostic_status) ?? "findings";
+    const diagnosticCount = Number(payload.diagnostic_count ?? findings.length) || findings.length;
     const injectedFindingCount =
-      Number(payload.injected_finding_count ?? payload.injectedFindingCount ?? findings.length) || findings.length;
-    const omittedFindingCount = Number(payload.omitted_finding_count ?? payload.omittedFindingCount ?? 0) || 0;
+      Number(payload.injected_finding_count ?? findings.length) || findings.length;
+    const omittedFindingCount = Number(payload.omitted_finding_count ?? 0) || 0;
     const rollbackRefs = uniqueStrings([
       snapshotId,
-      ...normalizeArray(payload.rollback_refs ?? payload.rollbackRefs),
-      ...normalizeArray(repairPolicy?.rollbackRefs ?? repairPolicy?.rollback_refs),
+      ...normalizeArray(payload.rollback_refs),
+      ...normalizeArray(repairPolicy?.rollback_refs),
     ]);
     const workspaceSnapshotRefs = uniqueStrings([
       snapshotId,
-      ...normalizeArray(payload.workspace_snapshot_refs ?? payload.workspaceSnapshotRefs),
-      ...normalizeArray(repairPolicy?.workspaceSnapshotRefs ?? repairPolicy?.workspace_snapshot_refs),
+      ...normalizeArray(payload.workspace_snapshot_refs),
+      ...normalizeArray(repairPolicy?.workspace_snapshot_refs),
     ]);
-    const diagnosticEventIds = uniqueStrings(normalizeArray(payload.diagnostic_event_ids ?? payload.diagnosticEventIds));
+    const diagnosticEventIds = uniqueStrings(normalizeArray(payload.diagnostic_event_ids));
     const receiptId =
-      optionalString(request.repair_retry_receipt_id ?? request.repairRetryReceiptId) ??
+      optionalString(request.repair_retry_receipt_id) ??
       `receipt_lsp_diagnostics_repair_retry_context_${doctorHash(
         `${threadId}:${gateEvent?.event_id ?? ""}:${diagnosticEventIds.join(",")}`,
       ).slice(0, 12)}`;
     const promptText =
-      optionalString(request.repair_prompt_text ?? request.repairPromptText) ??
+      optionalString(request.repair_prompt_text) ??
       diagnosticsPromptText({
         diagnosticStatus,
         mode: "repair_retry",
@@ -120,11 +120,11 @@ export function createDiagnosticsFeedbackHelpers({
       rollback_refs: rollbackRefs,
       workspaceSnapshotRefs,
       workspace_snapshot_refs: workspaceSnapshotRefs,
-      sourceToolCallIds: uniqueStrings(normalizeArray(payload.source_tool_call_ids ?? payload.sourceToolCallIds)),
-      source_tool_call_ids: uniqueStrings(normalizeArray(payload.source_tool_call_ids ?? payload.sourceToolCallIds)),
+      sourceToolCallIds: uniqueStrings(normalizeArray(payload.source_tool_call_ids)),
+      source_tool_call_ids: uniqueStrings(normalizeArray(payload.source_tool_call_ids)),
       repairPolicy,
       repair_policy: repairPolicy,
-      receiptRefs: uniqueStrings([receiptId, ...normalizeArray(payload.receipt_refs ?? payload.receiptRefs)]),
+      receiptRefs: uniqueStrings([receiptId, ...normalizeArray(payload.receipt_refs)]),
       receiptId,
       summary: `Repair retry injected ${injectedFindingCount} diagnostic finding(s) into a new turn.`,
       promptText,

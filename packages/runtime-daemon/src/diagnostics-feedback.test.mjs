@@ -194,8 +194,8 @@ test("repair retry and runtime bridge injection events keep public envelopes", (
       },
     },
     repairPolicy: {
-      rollbackRefs: ["rollback-two"],
-      workspaceSnapshotRefs: ["snapshot-two"],
+      rollback_refs: ["rollback-two"],
+      workspace_snapshot_refs: ["snapshot-two"],
     },
     snapshotId: "snapshot-three",
   });
@@ -230,4 +230,47 @@ test("repair retry and runtime bridge injection events keep public envelopes", (
   assert.equal(events[1].payload.event_kind, "LspDiagnosticsInjected");
   assert.equal(events[1].payload.run_id, "run-one");
   assert.deepEqual(events[1].receipt_refs, [repairFeedback.receiptId]);
+});
+
+test("repair retry feedback ignores retired request, payload, and policy aliases", () => {
+  const runtime = helpers();
+  const repairFeedback = runtime.diagnosticsRepairRetryFeedback({
+    threadId: "thread-one",
+    request: {
+      repairRetryReceiptId: "receipt-alias",
+      repairPromptText: "alias prompt",
+    },
+    gateEvent: {
+      event_id: "gate-one",
+      payload_summary: {
+        findings: [{ path: "src/a.js", line: 1, severity: "error", message: "broken" }],
+        diagnosticStatus: "clean",
+        diagnosticCount: 9,
+        injectedFindingCount: 9,
+        omittedFindingCount: 9,
+        diagnosticEventIds: ["event-alias"],
+        rollbackRefs: ["rollback-alias"],
+        workspaceSnapshotRefs: ["snapshot-alias"],
+        sourceToolCallIds: ["tool-call-alias"],
+        receiptRefs: ["receipt-alias"],
+      },
+    },
+    repairPolicy: {
+      rollbackRefs: ["policy-rollback-alias"],
+      workspaceSnapshotRefs: ["policy-snapshot-alias"],
+    },
+    snapshotId: null,
+  });
+
+  assert.notEqual(repairFeedback.receiptId, "receipt-alias");
+  assert.notEqual(repairFeedback.promptText, "alias prompt");
+  assert.equal(repairFeedback.diagnosticStatus, "findings");
+  assert.equal(repairFeedback.diagnosticCount, 1);
+  assert.equal(repairFeedback.injectedFindingCount, 1);
+  assert.equal(repairFeedback.omittedFindingCount, 0);
+  assert.deepEqual(repairFeedback.diagnosticEventIds, []);
+  assert.deepEqual(repairFeedback.rollbackRefs, []);
+  assert.deepEqual(repairFeedback.workspaceSnapshotRefs, []);
+  assert.deepEqual(repairFeedback.sourceToolCallIds, []);
+  assert.deepEqual(repairFeedback.receiptRefs, [repairFeedback.receiptId]);
 });
