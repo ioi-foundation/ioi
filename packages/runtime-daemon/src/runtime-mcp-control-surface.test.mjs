@@ -80,7 +80,13 @@ function harness({ stateUpdateOverride = null } = {}) {
     },
     discoverMcpStdioCatalog(server, options) {
       transportCalls.push({ name: "discoverMcpStdioCatalog", server, options });
-      return { tools: server.tools ?? [], resources: server.resources ?? [], prompts: server.prompts ?? [] };
+      return {
+        executionMode: "retired_live_stdio",
+        authBoundary: { retired: true },
+        tools: server.tools ?? [],
+        resources: server.resources ?? [],
+        prompts: server.prompts ?? [],
+      };
     },
     invokeMcpStdioTool(server, toolName, input, options) {
       transportCalls.push({ name: "invokeMcpStdioTool", server, toolName, input, options });
@@ -89,6 +95,7 @@ function harness({ stateUpdateOverride = null } = {}) {
         status: "completed",
         transport: "stdio",
         execution_mode: "live_stdio",
+        executionMode: "retired_live_stdio",
         result: { ok: true },
       };
     },
@@ -482,7 +489,7 @@ test("runtime MCP control surface ignores retired invoke identity aliases", asyn
 test("runtime MCP control surface ignores retired timeoutMs request alias", async () => {
   const { store, surface, transportCalls } = harness();
 
-  await surface.invokeMcpTool(store, {
+  const canonicalInvoke = await surface.invokeMcpTool(store, {
     thread_id: "thread-agent-one",
     tool_id: "mcp.docs.search",
     live_transport: true,
@@ -492,6 +499,11 @@ test("runtime MCP control surface ignores retired timeoutMs request alias", asyn
   assert.equal(transportCalls.at(-1).name, "invokeMcpStdioTool");
   assert.equal(transportCalls.at(-1).options.timeout_ms, 1234);
   assert.equal(Object.hasOwn(transportCalls.at(-1).options, "timeoutMs"), false);
+  assert.equal(canonicalInvoke.invocation.transport_execution.execution_mode, "live_stdio");
+  assert.equal(
+    Object.hasOwn(canonicalInvoke.invocation.transport_execution, "executionMode"),
+    false,
+  );
 
   await surface.invokeMcpTool(store, {
     thread_id: "thread-agent-one",
@@ -538,6 +550,8 @@ test("runtime MCP control surface ignores retired liveDiscovery request alias", 
   assert.equal(liveStatus.catalog_summaries.length, 1);
   assert.equal(liveStatus.returned_tool_count, 3);
   assert.equal(liveStatus.live_discovery.servers[0].server_id, "mcp.docs");
+  assert.equal(liveStatus.live_discovery.servers[0].execution_mode, "live_stdio");
+  assert.equal(liveStatus.live_discovery.servers[0].auth_boundary, null);
   assert.equal(liveStatus.live_discovery.servers[0].returned_tool_count, 2);
   assert.equal(Object.hasOwn(liveStatus, "liveDiscovery"), false);
   assert.equal(Object.hasOwn(liveStatus, "catalogSummaries"), false);

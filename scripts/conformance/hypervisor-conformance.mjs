@@ -8551,6 +8551,10 @@ function runCompositor() {
     runtimeMcpManager.match(
       /function normalizeMcpPromptEntry\(prompt, server = \{\}\) \{[\s\S]*?\n}\n\nfunction normalizeCatalogItems/,
     )?.[0] ?? "";
+  const runtimeMcpManagerLiveOutputBlock =
+    runtimeMcpManager.match(
+      /export async function discoverMcpStdioCatalog\(server, options = \{\}\) \{[\s\S]*?\n}\n\nasync function withMcpRemoteSession/,
+    )?.[0] ?? "";
   const runtimeMcpCatalogSurface = exists("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
     : "";
@@ -12993,6 +12997,41 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
     ],
     "Phase 10/11 is pending: MCP manager catalog tool/resource/prompt records must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-manager-live-output-aliases-retired",
+    /execution_mode:\s*"live_stdio"/.test(runtimeMcpManagerLiveOutputBlock) &&
+      /execution_mode:\s*session\.executionMode/.test(runtimeMcpManagerLiveOutputBlock) &&
+      /server_url:\s*session\.serverUrl/.test(runtimeMcpManagerLiveOutputBlock) &&
+      /protocol_version:/.test(runtimeMcpManagerLiveOutputBlock) &&
+      /server_info:/.test(runtimeMcpManagerLiveOutputBlock) &&
+      /tool_count:\s*(?:tools|listedTools)\.length/.test(runtimeMcpManagerLiveOutputBlock) &&
+      /listed_tools:\s*(?:tools|listedTools)/.test(runtimeMcpManagerLiveOutputBlock) &&
+      /resource_count:\s*(?:resources|listedResources)\.length/.test(runtimeMcpManagerLiveOutputBlock) &&
+      /listed_resources:\s*(?:resources|listedResources)/.test(runtimeMcpManagerLiveOutputBlock) &&
+      /prompt_count:\s*(?:prompts|listedPrompts)\.length/.test(runtimeMcpManagerLiveOutputBlock) &&
+      /listed_prompts:\s*(?:prompts|listedPrompts)/.test(runtimeMcpManagerLiveOutputBlock) &&
+      /auth_boundary:\s*session\.authBoundary \?\? session\.auth_boundary \?\? null/.test(
+        runtimeMcpManagerLiveOutputBlock,
+      ) &&
+      /execution_mode:\s*catalog\.execution_mode \?\? liveMode/.test(runtimeMcpControlLiveDiscoveryBlock) &&
+      /auth_boundary:\s*catalog\.auth_boundary \?\? null/.test(runtimeMcpControlLiveDiscoveryBlock) &&
+      /executionMode:\s*"retired_live_stdio"/.test(runtimeMcpControlSurfaceTest) &&
+      /authBoundary:\s*\{\s*retired:\s*true\s*\}/.test(runtimeMcpControlSurfaceTest) &&
+      /Object\.hasOwn\(canonicalInvoke\.invocation\.transport_execution,\s*"executionMode"\)/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      !/^\s*(?:executionMode|serverUrl|protocolVersion|serverInfo|toolCount|listedTools|resourceCount|listedResources|promptCount|listedPrompts|authBoundary)\s*:/m.test(
+        runtimeMcpManagerLiveOutputBlock,
+      ) &&
+      !/catalog\.(?:executionMode|authBoundary)\b/.test(runtimeMcpControlLiveDiscoveryBlock),
+    [
+      "packages/runtime-daemon/src/mcp-manager.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP manager live transport outputs must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

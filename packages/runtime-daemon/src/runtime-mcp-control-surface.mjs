@@ -370,8 +370,8 @@ export function createRuntimeMcpControlSurface({
             server_id: server.id,
             status: "completed",
             transport: catalog.transport ?? server.transport ?? "stdio",
-            execution_mode: catalog.execution_mode ?? catalog.executionMode ?? liveMode,
-            auth_boundary: catalog.auth_boundary ?? catalog.authBoundary ?? null,
+            execution_mode: catalog.execution_mode ?? liveMode,
+            auth_boundary: catalog.auth_boundary ?? null,
             tool_count: catalog.tool_count ?? 0,
             resource_count: catalog.resource_count ?? 0,
             prompt_count: catalog.prompt_count ?? 0,
@@ -621,10 +621,10 @@ export function createRuntimeMcpControlSurface({
         }
       }
       if (transportExecution && typeof transportExecution === "object") {
-        const { executionMode, ...transportRecord } = transportExecution;
+        const { executionMode: _retiredTransportExecutionMode, ...transportRecord } = transportExecution;
         transportExecution = {
           ...transportRecord,
-          execution_mode: transportRecord.execution_mode ?? executionMode ?? "blocked",
+          execution_mode: transportRecord.execution_mode ?? "blocked",
         };
       }
       const outputHash = doctorHashDep(

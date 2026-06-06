@@ -12704,6 +12704,12 @@ transport helpers, and the MCP manager no longer accepts retired
 `options.timeoutMs` compatibility fallbacks when deriving live HTTP/SSE/stdio
 request timeouts.
 
+Slice 429 removes MCP manager live output aliases:
+live MCP catalog and invocation manager outputs now emit canonical snake_case
+fields only for execution mode, server URL, protocol/server info, counts, listed
+items, and auth boundary; runtime MCP control live-discovery no longer reads the
+retired `executionMode` or `authBoundary` manager-output fallbacks.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
