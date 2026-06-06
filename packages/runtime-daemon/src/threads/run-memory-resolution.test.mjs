@@ -18,7 +18,7 @@ function createHarness({
       if (!requestedWrite) return null;
       if (effectivePolicy.disabled) return "memory_disabled";
       if (effectivePolicy.readOnly) return "memory_read_only";
-      if (effectivePolicy.writeRequiresApproval && !options.writeApproved) return "memory_write_requires_approval";
+      if (effectivePolicy.writeRequiresApproval && !options.write_approved) return "memory_write_requires_approval";
       return null;
     },
     normalizeSubagentInheritanceMode: (value) => ["none", "explicit", "read_only", "full"].includes(value) ? value : "explicit",
@@ -105,6 +105,40 @@ test("run memory resolution records remember commands unless policy blocks write
   assert.equal(result.mutations[0].operation, "write");
 });
 
+test("run memory resolution ignores retired memory thread and approval aliases", () => {
+  const { agent, helper, store, writes } = createHarness({
+    policy: { id: "policy-approval", injectionEnabled: true, disabled: false, readOnly: false, writeRequiresApproval: true },
+    command: { kind: "remember", text: "Remember canonical thread" },
+  });
+
+  const result = helper.resolveRunMemory(
+    store,
+    agent,
+    {
+      memory: {
+        threadId: "thread-retired",
+        thread_id: "thread-canonical",
+        writeApproved: true,
+        write_approved: true,
+      },
+    },
+    "#remember",
+  );
+
+  assert.equal(result.policyBlockReason, null);
+  assert.equal(writes[0].input.threadId, "thread-canonical");
+
+  const blocked = helper.resolveRunMemory(
+    store,
+    agent,
+    { memory: { threadId: "thread-retired", writeApproved: true }, remember: "retired approval" },
+    "hello",
+  );
+
+  assert.equal(blocked.policyBlockReason, "memory_write_requires_approval");
+  assert.equal(blocked.writes.length, 0);
+});
+
 test("run memory resolution disables injection and reports policy block reason", () => {
   const { agent, helper, store } = createHarness({
     policy: { id: "policy-disabled", disabled: true, injectionEnabled: false },
@@ -125,7 +159,7 @@ test("subagent memory inheritance projects inherited records and effective polic
   const result = helper.resolveSubagentMemoryInheritance(store, {
     agent,
     threadId: "thread-one",
-    request: { mode: "handoff", receiver: "worker", memory: { subagentInheritance: "explicit", query: "Known" } },
+    request: { mode: "handoff", receiver: "worker", memory: { subagent_inheritance: "explicit", query: "Known" } },
     parentPolicy: { id: "policy-parent", subagentInheritance: "explicit", injectionEnabled: true },
   });
 
@@ -153,4 +187,27 @@ test("subagent memory inheritance projects inherited records and effective polic
   ]) {
     assert.equal(Object.hasOwn(result, field), false);
   }
+});
+
+test("subagent memory inheritance ignores retired request aliases", () => {
+  const { agent, helper, store } = createHarness();
+
+  const result = helper.resolveSubagentMemoryInheritance(store, {
+    agent,
+    threadId: "thread-one",
+    request: {
+      mode: "handoff",
+      receiver: "worker",
+      memory: {
+        subagentInheritance: "full",
+        subagent_inheritance: "none",
+        query: "Known",
+      },
+    },
+    parentPolicy: { id: "policy-parent", subagentInheritance: "explicit", injectionEnabled: true },
+  });
+
+  assert.equal(result.mode, "none");
+  assert.equal(result.requested_mode, "none");
+  assert.deepEqual(result.inherited_record_ids, []);
 });

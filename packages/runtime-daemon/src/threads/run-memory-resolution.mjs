@@ -13,7 +13,7 @@ export function createRunMemoryResolution({
 } = {}) {
   function resolveRunMemory(store, agent, request = {}, prompt = "") {
     const memoryOptions = memoryOptionsForRequest(request);
-    const threadId = memoryOptions.threadId ?? memoryOptions.thread_id ?? threadIdForAgent(agent.id);
+    const threadId = memoryOptions.thread_id ?? threadIdForAgent(agent.id);
     const command = parseMemoryCommand(prompt);
     const paths = store.memory.pathProjection({ agent, threadId, workspace: agent.cwd });
     let policy = store.memory.effectivePolicy({
@@ -115,7 +115,7 @@ export function createRunMemoryResolution({
   function resolveSubagentMemoryInheritance(store, { agent, threadId, request = {}, parentPolicy = {} } = {}) {
     const memoryOptions = memoryOptionsForRequest(request);
     const requestedMode =
-      optionalString(memoryOptions.subagentInheritance ?? memoryOptions.subagent_inheritance) ??
+      optionalString(memoryOptions.subagent_inheritance) ??
       parentPolicy.subagentInheritance ??
       "explicit";
     const mode = normalizeSubagentInheritanceMode(requestedMode);

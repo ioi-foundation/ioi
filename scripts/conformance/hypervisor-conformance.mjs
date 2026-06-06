@@ -9608,6 +9608,33 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-run-memory-request-aliases-retired",
+    /const threadId = memoryOptions\.thread_id \?\? threadIdForAgent\(agent\.id\);/.test(
+      runtimeRunMemoryResolution,
+    ) &&
+      /optionalString\(memoryOptions\.subagent_inheritance\)/.test(runtimeRunMemoryResolution) &&
+      /run memory resolution ignores retired memory thread and approval aliases/.test(
+        runtimeRunMemoryResolutionTest,
+      ) &&
+      /threadId: "thread-retired"/.test(runtimeRunMemoryResolutionTest) &&
+      /thread_id: "thread-canonical"/.test(runtimeRunMemoryResolutionTest) &&
+      /writeApproved: true/.test(runtimeRunMemoryResolutionTest) &&
+      /write_approved: true/.test(runtimeRunMemoryResolutionTest) &&
+      /subagent memory inheritance ignores retired request aliases/.test(
+        runtimeRunMemoryResolutionTest,
+      ) &&
+      /subagentInheritance: "full"/.test(runtimeRunMemoryResolutionTest) &&
+      /subagent_inheritance: "none"/.test(runtimeRunMemoryResolutionTest) &&
+      !/memoryOptions\.(?:threadId|subagentInheritance)\b/.test(runtimeRunMemoryResolution) &&
+      !/!options\.writeApproved/.test(runtimeRunMemoryResolutionTest),
+    [
+      "packages/runtime-daemon/src/threads/run-memory-resolution.mjs",
+      "packages/runtime-daemon/src/threads/run-memory-resolution.test.mjs",
+    ],
+    "Phase 10/11 is pending: run memory resolution must use canonical thread_id, write_approved, and subagent_inheritance request fields without retired JS aliases",
+  );
+  assertCheck(
+    result,
     "runtime-subagent-memory-inheritance-output-aliases-retired",
     /schema_version:\s*"ioi\.agent-runtime\.subagent-memory-inheritance\.v1"/.test(
       runtimeSubagentMemoryInheritanceReturnBlock,

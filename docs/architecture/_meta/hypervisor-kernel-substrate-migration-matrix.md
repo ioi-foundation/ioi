@@ -12772,6 +12772,13 @@ only approval signal for memory writes; retired `writeApproved`, `approved`,
 `approvalGranted`, and `approval_granted` compatibility fields no longer satisfy
 `write_requires_approval` gates.
 
+Slice 440 removes run memory request aliases:
+runtime run-memory resolution now selects memory threads, write approval, and
+subagent inheritance from canonical `thread_id`, `write_approved`, and
+`subagent_inheritance` request fields only; retired `threadId`,
+`writeApproved`, and `subagentInheritance` fields no longer steer run-memory or
+handoff-memory behavior.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
