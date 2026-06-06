@@ -12698,6 +12698,12 @@ fields only, and the daemon admission runner no longer accepts retired
 `backendId`, `providerBackend`, `itemRefs`, or `itemCount` bridge fallbacks
 while normalizing Rust lifecycle and inventory output.
 
+Slice 428 removes MCP live transport timeout option aliases:
+runtime MCP control/catalog surfaces now pass canonical `timeout_ms` into live
+transport helpers, and the MCP manager no longer accepts retired
+`options.timeoutMs` compatibility fallbacks when deriving live HTTP/SSE/stdio
+request timeouts.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

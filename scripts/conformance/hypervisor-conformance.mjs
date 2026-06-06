@@ -12680,9 +12680,20 @@ function runCompositor() {
     result,
     "runtime-mcp-live-timeout-request-alias-retired",
     /request\.timeout_ms/.test(`${runtimeMcpControlSurface}\n${runtimeMcpCatalogSurface}`) &&
+      /timeout_ms:\s*request\.timeout_ms/.test(
+        `${runtimeMcpControlSurface}\n${runtimeMcpCatalogSurface}`,
+      ) &&
+      /options\.timeout_ms \?\? process\.env\.IOI_MCP_REQUEST_TIMEOUT_MS/.test(runtimeMcpManager) &&
       /timeoutMs: 9999/.test(`${runtimeMcpControlSurfaceTest}\n${runtimeMcpCatalogSurfaceTest}`) &&
+      /Object\.hasOwn\([^)]*\.options,\s*"timeoutMs"\)/.test(
+        `${runtimeMcpControlSurfaceTest}\n${runtimeMcpCatalogSurfaceTest}`,
+      ) &&
       /^\s*timeout_ms\?: number;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
       !/request\.timeoutMs\b/.test(`${runtimeMcpControlSurface}\n${runtimeMcpCatalogSurface}`) &&
+      !/timeoutMs:\s*request\.timeout_ms/.test(
+        `${runtimeMcpControlSurface}\n${runtimeMcpCatalogSurface}`,
+      ) &&
+      !/options\.timeoutMs\b/.test(runtimeMcpManager) &&
       !/^\s*timeoutMs\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
     [
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",

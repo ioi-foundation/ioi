@@ -538,7 +538,7 @@ async function withMcpHttpSession(server, options, callback) {
     throw mcpHttpError("mcp_http_url_missing", "MCP HTTP invocation requires a server URL.");
   }
   const timeoutMs = positiveInteger(
-    options.timeout_ms ?? options.timeoutMs ?? process.env.IOI_MCP_REQUEST_TIMEOUT_MS,
+    options.timeout_ms ?? process.env.IOI_MCP_REQUEST_TIMEOUT_MS,
     10_000,
   );
   const remoteHeaderResolution = resolveMcpRemoteHeaders(
@@ -554,7 +554,7 @@ async function withMcpHttpSession(server, options, callback) {
   const sendJsonRpc = async (message, expectsResponse) => {
     const response = await fetchMcpHttp(serverUrl, message, {
       ...options,
-      timeoutMs,
+      timeout_ms: timeoutMs,
       headers: remoteHeaderResolution.headers,
     });
     if (!expectsResponse) return null;
@@ -589,7 +589,7 @@ async function withMcpSseSession(server, options, callback) {
     throw mcpHttpError("mcp_sse_url_missing", "MCP SSE invocation requires a server URL.");
   }
   const timeoutMs = positiveInteger(
-    options.timeout_ms ?? options.timeoutMs ?? process.env.IOI_MCP_REQUEST_TIMEOUT_MS,
+    options.timeout_ms ?? process.env.IOI_MCP_REQUEST_TIMEOUT_MS,
     10_000,
   );
   const abortController = new AbortController();
@@ -706,7 +706,7 @@ async function withMcpSseSession(server, options, callback) {
     const postMessage = async (message) => {
       const immediate = await fetchMcpHttp(endpointUrl, message, {
         ...options,
-        timeoutMs,
+        timeout_ms: timeoutMs,
         headers: remoteHeaderResolution.headers,
       });
       if (immediate !== null) {
@@ -790,7 +790,7 @@ async function withMcpStdioSession(server, options, callback) {
   const tmpDir = path.join(cwd, ".tmp");
   fs.mkdirSync(tmpDir, { recursive: true });
   const timeoutMs = positiveInteger(
-    options.timeout_ms ?? options.timeoutMs ?? process.env.IOI_MCP_REQUEST_TIMEOUT_MS,
+    options.timeout_ms ?? process.env.IOI_MCP_REQUEST_TIMEOUT_MS,
     10_000,
   );
   const child = spawn(command, args, {
@@ -972,7 +972,7 @@ async function fetchMcpHttp(serverUrl, message, options = {}) {
       ...mcpRemoteHeaders(options.headers),
     },
     body: JSON.stringify(message),
-  }, options.timeoutMs ?? 10_000);
+  }, options.timeout_ms ?? 10_000);
   if (!response.ok) {
     throw mcpHttpError("mcp_http_request_failed", "MCP HTTP server rejected the request.", {
       status: response.status,

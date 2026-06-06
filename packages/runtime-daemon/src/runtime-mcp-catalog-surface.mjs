@@ -229,11 +229,11 @@ export function createRuntimeMcpCatalogSurface({
               liveMode === "live_stdio"
                 ? await discoverMcpStdioCatalogDep(server, {
                     cwd: agent.cwd,
-                    timeoutMs: request.timeout_ms,
+                    timeout_ms: request.timeout_ms,
                   })
                 : await discoverMcpHttpCatalogDep(server, {
                     cwd: agent.cwd,
-                    timeoutMs: request.timeout_ms,
+                    timeout_ms: request.timeout_ms,
                     vault: store.modelMounting.vault,
                   });
             tools = normalizeArrayDep(catalog.tools ?? catalog.listed_tools);

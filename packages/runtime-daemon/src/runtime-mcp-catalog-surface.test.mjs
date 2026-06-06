@@ -275,7 +275,8 @@ test("runtime MCP catalog surface ignores retired timeoutMs request alias", asyn
     timeoutMs: 9999,
   });
   const canonicalCall = calls.find((call) => call.name === "discoverMcpStdioCatalog");
-  assert.equal(canonicalCall.options.timeoutMs, 2345);
+  assert.equal(canonicalCall.options.timeout_ms, 2345);
+  assert.equal(Object.hasOwn(canonicalCall.options, "timeoutMs"), false);
 
   calls.length = 0;
   await surface.searchMcpTools(store, {
@@ -284,5 +285,6 @@ test("runtime MCP catalog surface ignores retired timeoutMs request alias", asyn
     timeoutMs: 9999,
   });
   const aliasOnlyCall = calls.find((call) => call.name === "discoverMcpStdioCatalog");
-  assert.equal(aliasOnlyCall.options.timeoutMs, undefined);
+  assert.equal(aliasOnlyCall.options.timeout_ms, undefined);
+  assert.equal(Object.hasOwn(aliasOnlyCall.options, "timeoutMs"), false);
 });
