@@ -1597,24 +1597,42 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "computer-use-projection-target-ref-aliases-retired",
+    "computer-use-projection-action-ref-aliases-retired",
     /metadata\.computerUseTargetRef\s*\?\?\s*[\r\n\s]*metadata\.computer_use_target_ref/.test(
       computerUseProjection,
     ) &&
+      /metadata\.computerUseActionKind\s*\?\?\s*[\r\n\s]*metadata\.computer_use_action_kind/.test(
+        computerUseProjection,
+      ) &&
+      /metadata\.computerUseApprovalRef\s*\?\?\s*[\r\n\s]*metadata\.computer_use_approval_ref/.test(
+        computerUseProjection,
+      ) &&
       /computer-use projection accepts canonical computer_use_target_ref/.test(
         computerUseProjectionTest,
       ) &&
       /computer-use projection ignores retired targetRef request alias/.test(
         computerUseProjectionTest,
       ) &&
+      /computer-use projection accepts canonical action and approval refs/.test(
+        computerUseProjectionTest,
+      ) &&
+      /computer-use projection ignores retired actionKind and approvalRef aliases/.test(
+        computerUseProjectionTest,
+      ) &&
       /targetRef: "target_retired"/.test(computerUseProjectionTest) &&
+      /actionKind: "click"/.test(computerUseProjectionTest) &&
+      /approvalRef: "approval_retired"/.test(computerUseProjectionTest) &&
       !/metadata\.targetRef/.test(computerUseProjection) &&
-      !/metadata\.target_ref/.test(computerUseProjection),
+      !/metadata\.target_ref/.test(computerUseProjection) &&
+      !/metadata\.actionKind/.test(computerUseProjection) &&
+      !/metadata\.action_kind/.test(computerUseProjection) &&
+      !/metadata\.approvalRef/.test(computerUseProjection) &&
+      !/metadata\.approval_ref/.test(computerUseProjection),
     [
       "packages/runtime-daemon/src/computer-use-projection.mjs",
       "packages/runtime-daemon/src/computer-use-projection.test.mjs",
     ],
-    "Phase 10/11 is pending: computer-use projection target selection must ignore retired targetRef/target_ref request aliases",
+    "Phase 10/11 is pending: computer-use projection target, action, and approval selection must ignore retired generic request aliases",
   );
   assertCheck(
     result,

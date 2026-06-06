@@ -1775,9 +1775,7 @@ function requestedComputerUseActionKind(request = {}, prompt = "") {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
   const explicit = computerUseActionKindValue(
     metadata.computerUseActionKind ??
-      metadata.computer_use_action_kind ??
-      metadata.actionKind ??
-      metadata.action_kind,
+      metadata.computer_use_action_kind,
   );
   if (explicit) return explicit;
   return computerUseActionKindFromText(prompt) ?? "inspect";
@@ -1795,9 +1793,7 @@ function requestedComputerUseApprovalRef(request = {}) {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
   return cleanString(
     metadata.computerUseApprovalRef ??
-      metadata.computer_use_approval_ref ??
-      metadata.approvalRef ??
-      metadata.approval_ref,
+      metadata.computer_use_approval_ref,
   );
 }
 
