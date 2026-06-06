@@ -38,43 +38,43 @@ const CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS = [
 export function codingToolContracts() {
   return [
     {
-      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
-      stableToolId: "workspace.status",
-      displayName: "Workspace status",
+      schema_version: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stable_tool_id: "workspace.status",
+      display_name: "Workspace status",
       pack: CODING_TOOL_PACK_ID,
-      primitiveCapabilities: ["prim:workspace.status", "prim:git.status"],
-      authorityScopeRequirements: [],
-      effectClass: "local_read",
-      riskDomain: "workspace",
-      inputSchema: {
+      primitive_capabilities: ["prim:workspace.status", "prim:git.status"],
+      authority_scope_requirements: [],
+      effect_class: "local_read",
+      risk_domain: "workspace",
+      input_schema: {
         type: "object",
         additionalProperties: false,
         properties: {
           includeIgnored: { type: "boolean" },
         },
       },
-      outputSchema: {
+      output_schema: {
         type: "object",
         required: ["workspaceRoot", "git", "changedFiles", "shellFallbackUsed"],
       },
-      evidenceRequirements: ["workspace_status_receipt", "coding_tool_receipt"],
-      workflowNodeType: "CodingToolNode",
-      workflowConfigFields: [
+      evidence_requirements: ["workspace_status_receipt", "coding_tool_receipt"],
+      workflow_node_type: "CodingToolNode",
+      workflow_config_fields: [
         "toolPack.coding.workspaceStatus",
         "toolPack.coding.gitEnabled",
         ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
       ],
     },
     {
-      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
-      stableToolId: "git.diff",
-      displayName: "Git diff",
+      schema_version: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stable_tool_id: "git.diff",
+      display_name: "Git diff",
       pack: CODING_TOOL_PACK_ID,
-      primitiveCapabilities: ["prim:git.diff"],
-      authorityScopeRequirements: [],
-      effectClass: "local_read",
-      riskDomain: "git",
-      inputSchema: {
+      primitive_capabilities: ["prim:git.diff"],
+      authority_scope_requirements: [],
+      effect_class: "local_read",
+      risk_domain: "git",
+      input_schema: {
         type: "object",
         additionalProperties: false,
         properties: {
@@ -83,28 +83,28 @@ export function codingToolContracts() {
           maxBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_DIFF_MAX_BYTES },
         },
       },
-      outputSchema: {
+      output_schema: {
         type: "object",
         required: ["workspaceRoot", "paths", "diff", "diffHash", "shellFallbackUsed"],
       },
-      evidenceRequirements: ["git_diff_receipt", "coding_tool_receipt"],
-      workflowNodeType: "GitToolNode",
-      workflowConfigFields: [
+      evidence_requirements: ["git_diff_receipt", "coding_tool_receipt"],
+      workflow_node_type: "GitToolNode",
+      workflow_config_fields: [
         "toolPack.coding.gitEnabled",
         "toolPack.coding.allowedPaths",
         ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
       ],
     },
     {
-      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
-      stableToolId: "file.inspect",
-      displayName: "Inspect file",
+      schema_version: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stable_tool_id: "file.inspect",
+      display_name: "Inspect file",
       pack: CODING_TOOL_PACK_ID,
-      primitiveCapabilities: ["prim:fs.inspect"],
-      authorityScopeRequirements: [],
-      effectClass: "local_read",
-      riskDomain: "filesystem",
-      inputSchema: {
+      primitive_capabilities: ["prim:fs.inspect"],
+      authority_scope_requirements: [],
+      effect_class: "local_read",
+      risk_domain: "filesystem",
+      input_schema: {
         type: "object",
         required: ["path"],
         additionalProperties: false,
@@ -114,28 +114,28 @@ export function codingToolContracts() {
           previewLines: { type: "integer", minimum: 1, maximum: 500 },
         },
       },
-      outputSchema: {
+      output_schema: {
         type: "object",
         required: ["workspaceRoot", "path", "kind", "exists", "shellFallbackUsed"],
       },
-      evidenceRequirements: ["file_inspect_receipt", "coding_tool_receipt"],
-      workflowNodeType: "FilesystemToolNode",
-      workflowConfigFields: [
+      evidence_requirements: ["file_inspect_receipt", "coding_tool_receipt"],
+      workflow_node_type: "FilesystemToolNode",
+      workflow_config_fields: [
         "toolPack.coding.filesystemEnabled",
         "toolPack.coding.allowedPaths",
         ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
       ],
     },
     {
-      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
-      stableToolId: "file.apply_patch",
-      displayName: "Apply file patch",
+      schema_version: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stable_tool_id: "file.apply_patch",
+      display_name: "Apply file patch",
       pack: CODING_TOOL_PACK_ID,
-      primitiveCapabilities: ["prim:fs.apply_patch", "prim:fs.write"],
-      authorityScopeRequirements: ["scope:workspace.write"],
-      effectClass: "local_write",
-      riskDomain: "filesystem",
-      inputSchema: {
+      primitive_capabilities: ["prim:fs.apply_patch", "prim:fs.write"],
+      authority_scope_requirements: ["scope:workspace.write"],
+      effect_class: "local_write",
+      risk_domain: "filesystem",
+      input_schema: {
         type: "object",
         required: ["path"],
         additionalProperties: false,
@@ -170,7 +170,7 @@ export function codingToolContracts() {
           },
         },
       },
-      outputSchema: {
+      output_schema: {
         type: "object",
         required: [
           "workspaceRoot",
@@ -183,14 +183,14 @@ export function codingToolContracts() {
           "shellFallbackUsed",
         ],
       },
-      evidenceRequirements: [
+      evidence_requirements: [
         "file_apply_patch_receipt",
         "workspace_mutation_receipt",
         "workspace_snapshot_receipt",
         "coding_tool_receipt",
       ],
-      workflowNodeType: "FilesystemPatchNode",
-      workflowConfigFields: [
+      workflow_node_type: "FilesystemPatchNode",
+      workflow_config_fields: [
         "toolPack.coding.filesystemEnabled",
         "toolPack.coding.writeEnabled",
         "toolPack.coding.allowedPaths",
@@ -209,15 +209,15 @@ export function codingToolContracts() {
       ],
     },
     {
-      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
-      stableToolId: "test.run",
-      displayName: "Run tests",
+      schema_version: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stable_tool_id: "test.run",
+      display_name: "Run tests",
       pack: CODING_TOOL_PACK_ID,
-      primitiveCapabilities: ["prim:test.run", "prim:process.exec_file"],
-      authorityScopeRequirements: ["scope:workspace.test"],
-      effectClass: "local_command",
-      riskDomain: "test",
-      inputSchema: {
+      primitive_capabilities: ["prim:test.run", "prim:process.exec_file"],
+      authority_scope_requirements: ["scope:workspace.test"],
+      effect_class: "local_command",
+      risk_domain: "test",
+      input_schema: {
         type: "object",
         additionalProperties: false,
         properties: {
@@ -231,7 +231,7 @@ export function codingToolContracts() {
           env: { type: "object", additionalProperties: { type: "string" } },
         },
       },
-      outputSchema: {
+      output_schema: {
         type: "object",
         required: [
           "workspaceRoot",
@@ -245,9 +245,9 @@ export function codingToolContracts() {
           "shellFallbackUsed",
         ],
       },
-      evidenceRequirements: ["test_run_receipt", "coding_tool_receipt"],
-      workflowNodeType: "TestRunNode",
-      workflowConfigFields: [
+      evidence_requirements: ["test_run_receipt", "coding_tool_receipt"],
+      workflow_node_type: "TestRunNode",
+      workflow_config_fields: [
         "toolPack.coding.testEnabled",
         "toolPack.coding.allowedTestCommandIds",
         "toolPack.coding.allowedPaths",
@@ -260,15 +260,15 @@ export function codingToolContracts() {
       ],
     },
     {
-      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
-      stableToolId: "lsp.diagnostics",
-      displayName: "LSP diagnostics",
+      schema_version: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stable_tool_id: "lsp.diagnostics",
+      display_name: "LSP diagnostics",
       pack: CODING_TOOL_PACK_ID,
-      primitiveCapabilities: ["prim:lsp.diagnostics", "prim:process.exec_file"],
-      authorityScopeRequirements: [],
-      effectClass: "local_read",
-      riskDomain: "diagnostics",
-      inputSchema: {
+      primitive_capabilities: ["prim:lsp.diagnostics", "prim:process.exec_file"],
+      authority_scope_requirements: [],
+      effect_class: "local_read",
+      risk_domain: "diagnostics",
+      input_schema: {
         type: "object",
         additionalProperties: false,
         properties: {
@@ -281,7 +281,7 @@ export function codingToolContracts() {
           maxOutputBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_DIAGNOSTIC_MAX_OUTPUT_BYTES },
         },
       },
-      outputSchema: {
+      output_schema: {
         type: "object",
         required: [
           "workspaceRoot",
@@ -295,9 +295,9 @@ export function codingToolContracts() {
           "shellFallbackUsed",
         ],
       },
-      evidenceRequirements: ["lsp_diagnostics_receipt", "coding_tool_receipt"],
-      workflowNodeType: "LspDiagnosticsNode",
-      workflowConfigFields: [
+      evidence_requirements: ["lsp_diagnostics_receipt", "coding_tool_receipt"],
+      workflow_node_type: "LspDiagnosticsNode",
+      workflow_config_fields: [
         "toolPack.coding.diagnosticsEnabled",
         "toolPack.coding.allowedDiagnosticCommandIds",
         "toolPack.coding.diagnosticsMode",
@@ -312,15 +312,15 @@ export function codingToolContracts() {
       ],
     },
     {
-      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
-      stableToolId: "artifact.read",
-      displayName: "Read artifact",
+      schema_version: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stable_tool_id: "artifact.read",
+      display_name: "Read artifact",
       pack: CODING_TOOL_PACK_ID,
-      primitiveCapabilities: ["prim:artifact.read"],
-      authorityScopeRequirements: [],
-      effectClass: "local_read",
-      riskDomain: "artifact",
-      inputSchema: {
+      primitive_capabilities: ["prim:artifact.read"],
+      authority_scope_requirements: [],
+      effect_class: "local_read",
+      risk_domain: "artifact",
+      input_schema: {
         type: "object",
         required: ["artifactId"],
         additionalProperties: false,
@@ -332,28 +332,28 @@ export function codingToolContracts() {
           maxBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
         },
       },
-      outputSchema: {
+      output_schema: {
         type: "object",
         required: ["artifactId", "offsetBytes", "lengthBytes", "content", "contentHash", "shellFallbackUsed"],
       },
-      evidenceRequirements: ["artifact_read_receipt", "coding_tool_receipt"],
-      workflowNodeType: "ArtifactReadNode",
-      workflowConfigFields: [
+      evidence_requirements: ["artifact_read_receipt", "coding_tool_receipt"],
+      workflow_node_type: "ArtifactReadNode",
+      workflow_config_fields: [
         "toolPack.coding.artifactEnabled",
         "toolPack.coding.resultRetrievalEnabled",
         ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
       ],
     },
     {
-      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
-      stableToolId: "tool.retrieve_result",
-      displayName: "Retrieve tool result",
+      schema_version: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stable_tool_id: "tool.retrieve_result",
+      display_name: "Retrieve tool result",
       pack: CODING_TOOL_PACK_ID,
-      primitiveCapabilities: ["prim:tool.retrieve_result", "prim:artifact.read"],
-      authorityScopeRequirements: [],
-      effectClass: "local_read",
-      riskDomain: "artifact",
-      inputSchema: {
+      primitive_capabilities: ["prim:tool.retrieve_result", "prim:artifact.read"],
+      authority_scope_requirements: [],
+      effect_class: "local_read",
+      risk_domain: "artifact",
+      input_schema: {
         type: "object",
         additionalProperties: false,
         properties: {
@@ -366,28 +366,28 @@ export function codingToolContracts() {
           maxBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
         },
       },
-      outputSchema: {
+      output_schema: {
         type: "object",
         required: ["toolCallId", "artifactId", "content", "contentHash", "shellFallbackUsed"],
       },
-      evidenceRequirements: ["tool_result_retrieval_receipt", "artifact_read_receipt", "coding_tool_receipt"],
-      workflowNodeType: "ToolResultRetrievalNode",
-      workflowConfigFields: [
+      evidence_requirements: ["tool_result_retrieval_receipt", "artifact_read_receipt", "coding_tool_receipt"],
+      workflow_node_type: "ToolResultRetrievalNode",
+      workflow_config_fields: [
         "toolPack.coding.resultRetrievalEnabled",
         "toolPack.coding.artifactEnabled",
         ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
       ],
     },
     {
-      schemaVersion: CODING_TOOL_PACK_SCHEMA_VERSION,
-      stableToolId: "computer_use.request_lease",
-      displayName: "Request computer-use lease",
+      schema_version: CODING_TOOL_PACK_SCHEMA_VERSION,
+      stable_tool_id: "computer_use.request_lease",
+      display_name: "Request computer-use lease",
       pack: CODING_TOOL_PACK_ID,
-      primitiveCapabilities: ["prim:computer_use.lease.request", "prim:computer_use.manifest"],
-      authorityScopeRequirements: ["computer_use.lease.request"],
-      effectClass: "local_read",
-      riskDomain: "computer_use",
-      inputSchema: {
+      primitive_capabilities: ["prim:computer_use.lease.request", "prim:computer_use.manifest"],
+      authority_scope_requirements: ["computer_use.lease.request"],
+      effect_class: "local_read",
+      risk_domain: "computer_use",
+      input_schema: {
         type: "object",
         required: ["prompt"],
         additionalProperties: false,
@@ -408,13 +408,13 @@ export function codingToolContracts() {
           observation_retention_mode: { type: "string" },
         },
       },
-      outputSchema: {
+      output_schema: {
         type: "object",
         required: ["requestRef", "leaseRequest", "threadTool"],
       },
-      evidenceRequirements: ["computer_use_lease_request_receipt", "coding_tool_receipt"],
-      workflowNodeType: "ComputerUseLeaseRequestNode",
-      workflowConfigFields: [
+      evidence_requirements: ["computer_use_lease_request_receipt", "coding_tool_receipt"],
+      workflow_node_type: "ComputerUseLeaseRequestNode",
+      workflow_config_fields: [
         "toolPack.coding.computerUseLeaseRequest",
         "computerUse.lane",
         "computerUse.sessionMode",
@@ -427,63 +427,59 @@ export function codingToolContracts() {
 }
 
 function codingToolRegistryGovernanceMetadata(tool = {}) {
-  const stableToolId = optionalString(tool.stableToolId ?? tool.stable_tool_id) ?? "runtime.tool";
-  const effectClass = optionalString(tool.effectClass ?? tool.effect_class) ?? "local_read";
-  const riskDomain = optionalString(tool.riskDomain ?? tool.risk_domain) ?? "workspace";
-  const authorityScopeRequirements = normalizeStringArray(
-    tool.authorityScopeRequirements ?? tool.authority_scope_requirements,
-  );
-  const evidenceRequirements = normalizeStringArray(tool.evidenceRequirements ?? tool.evidence_requirements);
-  const workflowNodeType = optionalString(tool.workflowNodeType ?? tool.workflow_node_type) ?? null;
-  const workflowConfigFields = normalizeStringArray(tool.workflowConfigFields ?? tool.workflow_config_fields);
+  const stableToolId = optionalString(tool.stable_tool_id) ?? "runtime.tool";
+  const effectClass = optionalString(tool.effect_class) ?? "local_read";
+  const riskDomain = optionalString(tool.risk_domain) ?? "workspace";
+  const authorityScopeRequirements = normalizeStringArray(tool.authority_scope_requirements);
+  const evidenceRequirements = normalizeStringArray(tool.evidence_requirements);
+  const workflowNodeType = optionalString(tool.workflow_node_type) ?? null;
+  const workflowConfigFields = normalizeStringArray(tool.workflow_config_fields);
   const approvalRequired =
-    typeof tool.approvalRequired === "boolean"
-      ? tool.approvalRequired
-      : typeof tool.approval_required === "boolean"
-        ? tool.approval_required
-        : authorityScopeRequirements.length > 0 || !codingToolEffectIsReadOnly(effectClass);
+    typeof tool.approval_required === "boolean"
+      ? tool.approval_required
+      : authorityScopeRequirements.length > 0 || !codingToolEffectIsReadOnly(effectClass);
   const credentialReadiness =
-    tool.credentialReadiness && typeof tool.credentialReadiness === "object"
-      ? tool.credentialReadiness
+    tool.credential_readiness && typeof tool.credential_readiness === "object"
+      ? tool.credential_readiness
       : {
           status: codingToolLikelyRequiresCredential(stableToolId, riskDomain, effectClass) ? "unknown" : "not_required",
-          checkedAt: null,
-          evidenceRefs: [],
+          checked_at: null,
+          evidence_refs: [],
           reason: null,
         };
   const credentialReady = credentialReadiness.status === "ready" || credentialReadiness.status === "not_required";
   const receiptBehavior = {
-    emitsReceipt: true,
-    receiptRequired: evidenceRequirements.length > 0,
-    requiredReceiptTypes: evidenceRequirements,
-    evidenceRequirements,
-    ...(tool.receiptBehavior && typeof tool.receiptBehavior === "object" ? tool.receiptBehavior : {}),
+    emits_receipt: true,
+    receipt_required: evidenceRequirements.length > 0,
+    required_receipt_types: evidenceRequirements,
+    evidence_requirements: evidenceRequirements,
+    ...(tool.receipt_behavior && typeof tool.receipt_behavior === "object" ? tool.receipt_behavior : {}),
   };
   return {
-    ...tool,
-    stableToolId,
-    displayName: tool.displayName ?? tool.display_name ?? stableToolId,
-    primitiveCapabilities: normalizeStringArray(tool.primitiveCapabilities ?? tool.primitive_capabilities),
-    authorityScopeRequirements,
-    effectClass,
-    riskDomain,
-    evidenceRequirements,
-    credentialReady,
-    credentialReadiness,
-    approvalRequired,
+    schema_version: optionalString(tool.schema_version) ?? CODING_TOOL_PACK_SCHEMA_VERSION,
+    stable_tool_id: stableToolId,
+    display_name: tool.display_name ?? stableToolId,
+    primitive_capabilities: normalizeStringArray(tool.primitive_capabilities),
+    pack: tool.pack ?? CODING_TOOL_PACK_ID,
+    authority_scope_requirements: authorityScopeRequirements,
+    effect_class: effectClass,
+    risk_domain: riskDomain,
+    input_schema: tool.input_schema ?? { type: "object" },
+    output_schema: tool.output_schema ?? { type: "object" },
+    evidence_requirements: evidenceRequirements,
+    credential_ready: credentialReady,
+    credential_readiness: credentialReadiness,
     approval_required: approvalRequired,
-    rateLimitProfile:
-      tool.rateLimitProfile ??
+    rate_limit_profile:
       tool.rate_limit_profile ?? {
         policy: codingToolEffectIsReadOnly(effectClass) ? "unlimited_local_read" : "runtime_governed",
         scope: stableToolId,
-        maxCalls: null,
-        windowMs: null,
+        max_calls: null,
+        window_ms: null,
         burst: null,
-        evidenceRefs: [],
+        evidence_refs: [],
       },
-    idempotencyBehavior:
-      tool.idempotencyBehavior ??
+    idempotency_behavior:
       tool.idempotency_behavior ?? {
         required: !codingToolEffectIsReadOnly(effectClass),
         strategy: codingToolEffectIsReadOnly(effectClass)
@@ -491,42 +487,39 @@ function codingToolRegistryGovernanceMetadata(tool = {}) {
           : codingToolEffectIsExternal(effectClass)
             ? "caller_or_runtime_key"
             : "runtime_key",
-        keyScope: codingToolEffectIsReadOnly(effectClass) ? null : stableToolId,
-        evidenceRefs: [],
+        key_scope: codingToolEffectIsReadOnly(effectClass) ? null : stableToolId,
+        evidence_refs: [],
       },
-    receiptBehavior,
-    workflowAvailability:
-      tool.workflowAvailability ??
+    receipt_behavior: receiptBehavior,
+    workflow_availability:
       tool.workflow_availability ?? {
         available: Boolean(workflowNodeType),
         reason: workflowNodeType ? null : "No workflow node projection registered.",
-        nodeType: workflowNodeType,
-        configFields: workflowConfigFields,
-        evidenceRefs: [],
+        node_type: workflowNodeType,
+        config_fields: workflowConfigFields,
+        evidence_refs: [],
       },
-    agentAvailability:
-      tool.agentAvailability ??
+    agent_availability:
       tool.agent_availability ?? {
         available: true,
         reason: null,
-        nodeType: null,
-        configFields: [],
-        evidenceRefs: [],
+        node_type: null,
+        config_fields: [],
+        evidence_refs: [],
       },
-    marketplaceExposure:
-      tool.marketplaceExposure ??
+    marketplace_exposure:
       tool.marketplace_exposure ?? {
         eligible: !approvalRequired && credentialReady && codingToolEffectIsReadOnly(effectClass),
         reason:
           !approvalRequired && credentialReady && codingToolEffectIsReadOnly(effectClass)
             ? "Read-only coding tool is eligible for governed exposure."
             : "Requires authority review before exposure.",
-        trustRequired: approvalRequired,
-        versionPinned: true,
-        evidenceRefs: [],
+        trust_required: approvalRequired,
+        version_pinned: true,
+        evidence_refs: [],
       },
-    workflowNodeType,
-    workflowConfigFields,
+    workflow_node_type: workflowNodeType,
+    workflow_config_fields: workflowConfigFields,
   };
 }
 
@@ -558,7 +551,7 @@ export function codingToolInputForRequest(request = {}) {
 }
 
 export function codingToolStepModuleProjection(toolId, input = {}, result = {}, context = {}) {
-  const contract = codingToolContracts().find((candidate) => candidate.stableToolId === toolId);
+  const contract = codingToolContracts().find((candidate) => candidate.stable_tool_id === toolId);
   if (!contract) {
     throw codingToolError(404, "not_found", `Coding tool not found: ${toolId}`, {
       toolId,
@@ -597,7 +590,7 @@ export function codingToolStepModuleProjection(toolId, input = {}, result = {}, 
     agentgresOperationRefs: context.agentgresOperationRefs ?? context.agentgres_operation_refs ?? [],
     stateRootAfter: context.stateRootAfter ?? context.state_root_after ?? null,
     resultingHead: context.resultingHead ?? context.resulting_head ?? null,
-    evidenceRefs: context.evidenceRefs ?? context.evidence_refs ?? [],
+    evidence_refs: context.evidenceRefs ?? context.evidence_refs ?? [],
     modelReentryRequired: context.modelReentryRequired ?? context.model_reentry_required ?? false,
     verifierRequired: context.verifierRequired ?? context.verifier_required ?? false,
   });

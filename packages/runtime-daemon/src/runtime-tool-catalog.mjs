@@ -11,92 +11,92 @@ function normalizeArray(value) {
 }
 
 export function runtimeToolRegistryGovernanceMetadata(tool = {}) {
-  const stableToolId = optionalString(tool.stableToolId ?? tool.stable_tool_id) ?? "runtime.tool";
-  const effectClass = optionalString(tool.effectClass ?? tool.effect_class) ?? "local_read";
-  const riskDomain = optionalString(tool.riskDomain ?? tool.risk_domain) ?? "runtime";
-  const authorityScopeRequirements = uniqueStrings(tool.authorityScopeRequirements ?? tool.authority_scope_requirements);
-  const evidenceRequirements = uniqueStrings(tool.evidenceRequirements ?? tool.evidence_requirements);
-  const workflowNodeType = optionalString(tool.workflowNodeType ?? tool.workflow_node_type) ?? null;
-  const workflowConfigFields = uniqueStrings(tool.workflowConfigFields ?? tool.workflow_config_fields);
+  const stableToolId = optionalString(tool.stable_tool_id) ?? "runtime.tool";
+  const effectClass = optionalString(tool.effect_class) ?? "local_read";
+  const riskDomain = optionalString(tool.risk_domain) ?? "runtime";
+  const authorityScopeRequirements = uniqueStrings(tool.authority_scope_requirements);
+  const evidenceRequirements = uniqueStrings(tool.evidence_requirements);
+  const workflowNodeType = optionalString(tool.workflow_node_type) ?? null;
+  const workflowConfigFields = uniqueStrings(tool.workflow_config_fields);
   const approvalRequired =
-    typeof tool.approvalRequired === "boolean"
-      ? tool.approvalRequired
-      : typeof tool.approval_required === "boolean"
-        ? tool.approval_required
-        : authorityScopeRequirements.length > 0 || !runtimeToolEffectIsReadOnly(effectClass);
+    typeof tool.approval_required === "boolean"
+      ? tool.approval_required
+      : authorityScopeRequirements.length > 0 || !runtimeToolEffectIsReadOnly(effectClass);
   const credentialReadiness =
-    tool.credentialReadiness && typeof tool.credentialReadiness === "object"
-      ? tool.credentialReadiness
+    tool.credential_readiness && typeof tool.credential_readiness === "object"
+      ? tool.credential_readiness
       : {
           status: runtimeToolLikelyRequiresCredential(stableToolId, riskDomain, effectClass) ? "unknown" : "not_required",
-          checkedAt: null,
-          evidenceRefs: [],
+          checked_at: null,
+          evidence_refs: [],
           reason: null,
         };
   const credentialReady = credentialReadiness.status === "ready" || credentialReadiness.status === "not_required";
   return {
-    ...tool,
-    stableToolId,
-    displayName: tool.displayName ?? tool.display_name ?? stableToolId,
-    primitiveCapabilities: uniqueStrings(tool.primitiveCapabilities ?? tool.primitive_capabilities),
-    authorityScopeRequirements,
-    effectClass,
-    riskDomain,
-    evidenceRequirements,
-    credentialReady,
-    credentialReadiness,
-    approvalRequired,
+    schema_version: optionalString(tool.schema_version) ?? null,
+    stable_tool_id: stableToolId,
+    display_name: tool.display_name ?? stableToolId,
+    pack: tool.pack ?? "runtime",
+    primitive_capabilities: uniqueStrings(tool.primitive_capabilities),
+    authority_scope_requirements: authorityScopeRequirements,
+    effect_class: effectClass,
+    risk_domain: riskDomain,
+    input_schema: tool.input_schema ?? { type: "object" },
+    output_schema: tool.output_schema ?? { type: "object" },
+    evidence_requirements: evidenceRequirements,
+    credential_ready: credentialReady,
+    credential_readiness: credentialReadiness,
     approval_required: approvalRequired,
-    rateLimitProfile: tool.rateLimitProfile ?? {
+    rate_limit_profile: tool.rate_limit_profile ?? {
       policy: runtimeToolEffectIsReadOnly(effectClass) ? "unlimited_local_read" : "runtime_governed",
       scope: stableToolId,
-      maxCalls: null,
-      windowMs: null,
+      max_calls: null,
+      window_ms: null,
       burst: null,
-      evidenceRefs: [],
+      evidence_refs: [],
     },
-    idempotencyBehavior: tool.idempotencyBehavior ?? {
+    idempotency_behavior: tool.idempotency_behavior ?? {
       required: !runtimeToolEffectIsReadOnly(effectClass),
       strategy: runtimeToolEffectIsReadOnly(effectClass)
         ? "read_only"
         : runtimeToolEffectIsExternal(effectClass)
           ? "caller_or_runtime_key"
           : "runtime_key",
-      keyScope: runtimeToolEffectIsReadOnly(effectClass) ? null : stableToolId,
-      evidenceRefs: [],
+      key_scope: runtimeToolEffectIsReadOnly(effectClass) ? null : stableToolId,
+      evidence_refs: [],
     },
-    receiptBehavior: tool.receiptBehavior ?? {
-      emitsReceipt: evidenceRequirements.length > 0,
-      receiptRequired: evidenceRequirements.length > 0,
-      requiredReceiptTypes: evidenceRequirements,
-      evidenceRequirements,
+    receipt_behavior: tool.receipt_behavior ?? {
+      emits_receipt: evidenceRequirements.length > 0,
+      receipt_required: evidenceRequirements.length > 0,
+      required_receipt_types: evidenceRequirements,
+      evidence_requirements: evidenceRequirements,
     },
-    workflowAvailability: tool.workflowAvailability ?? {
+    workflow_availability: tool.workflow_availability ?? {
       available: Boolean(workflowNodeType),
       reason: workflowNodeType ? null : "No workflow node projection registered.",
-      nodeType: workflowNodeType,
-      configFields: workflowConfigFields,
-      evidenceRefs: [],
+      node_type: workflowNodeType,
+      config_fields: workflowConfigFields,
+      evidence_refs: [],
     },
-    agentAvailability: tool.agentAvailability ?? {
+    agent_availability: tool.agent_availability ?? {
       available: true,
       reason: null,
-      nodeType: null,
-      configFields: [],
-      evidenceRefs: [],
+      node_type: null,
+      config_fields: [],
+      evidence_refs: [],
     },
-    marketplaceExposure: tool.marketplaceExposure ?? {
+    marketplace_exposure: tool.marketplace_exposure ?? {
       eligible: !approvalRequired && credentialReady && runtimeToolEffectIsReadOnly(effectClass),
       reason:
         !approvalRequired && credentialReady && runtimeToolEffectIsReadOnly(effectClass)
           ? "Read-only tool is eligible for governed exposure."
           : "Requires authority review before exposure.",
-      trustRequired: approvalRequired,
-      versionPinned: true,
-      evidenceRefs: [],
+      trust_required: approvalRequired,
+      version_pinned: true,
+      evidence_refs: [],
     },
-    workflowNodeType,
-    workflowConfigFields,
+    workflow_node_type: workflowNodeType,
+    workflow_config_fields: workflowConfigFields,
   };
 }
 
@@ -138,7 +138,7 @@ export function runtimeNodes(env = process.env) {
       status: "available",
       endpoint: "local",
       privacyClass: "local_private",
-      evidenceRefs: ["agentgres_canonical_state_projection", "ioi_daemon_public_runtime_api"],
+      evidence_refs: ["agentgres_canonical_state_projection", "ioi_daemon_public_runtime_api"],
     },
     {
       id: "hosted-provider",
@@ -146,7 +146,7 @@ export function runtimeNodes(env = process.env) {
       status: env.IOI_AGENT_SDK_HOSTED_ENDPOINT ? "available" : "blocked",
       endpoint: env.IOI_AGENT_SDK_HOSTED_ENDPOINT,
       privacyClass: "hosted",
-      evidenceRefs: ["IOI_AGENT_SDK_HOSTED_ENDPOINT"],
+      evidence_refs: ["IOI_AGENT_SDK_HOSTED_ENDPOINT"],
     },
     {
       id: "self-hosted-provider",
@@ -154,7 +154,7 @@ export function runtimeNodes(env = process.env) {
       status: env.IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT ? "available" : "blocked",
       endpoint: env.IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT,
       privacyClass: "workspace",
-      evidenceRefs: ["IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT"],
+      evidence_refs: ["IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT"],
     },
   ];
 }
@@ -164,40 +164,40 @@ export function runtimeTools(options = {}, deps = {}) {
   const pack = optionalString(options.pack)?.toLowerCase();
   const tools = [
     {
-      stableToolId: "fs.read",
-      displayName: "Read file",
+      stable_tool_id: "fs.read",
+      display_name: "Read file",
       pack: "runtime",
-      primitiveCapabilities: ["prim:fs.read"],
-      authorityScopeRequirements: [],
-      effectClass: "local_read",
-      riskDomain: "filesystem",
-      inputSchema: { type: "object", required: ["path"] },
-      outputSchema: { type: "object", required: ["content"] },
-      evidenceRequirements: ["file_read_receipt"],
+      primitive_capabilities: ["prim:fs.read"],
+      authority_scope_requirements: [],
+      effect_class: "local_read",
+      risk_domain: "filesystem",
+      input_schema: { type: "object", required: ["path"] },
+      output_schema: { type: "object", required: ["content"] },
+      evidence_requirements: ["file_read_receipt"],
     },
     {
-      stableToolId: "sys.exec",
-      displayName: "Shell command",
+      stable_tool_id: "sys.exec",
+      display_name: "Shell command",
       pack: "runtime",
-      primitiveCapabilities: ["prim:sys.exec"],
-      authorityScopeRequirements: ["scope:host.controlled_execution"],
-      effectClass: "local_command",
-      riskDomain: "host",
-      inputSchema: { type: "object", required: ["command"] },
-      outputSchema: { type: "object", required: ["exitCode", "stdout", "stderr"] },
-      evidenceRequirements: ["shell_receipt", "sandbox_profile"],
+      primitive_capabilities: ["prim:sys.exec"],
+      authority_scope_requirements: ["scope:host.controlled_execution"],
+      effect_class: "local_command",
+      risk_domain: "host",
+      input_schema: { type: "object", required: ["command"] },
+      output_schema: { type: "object", required: ["exitCode", "stdout", "stderr"] },
+      evidence_requirements: ["shell_receipt", "sandbox_profile"],
     },
     {
-      stableToolId: "mcp.invoke",
-      displayName: "MCP tool invocation",
+      stable_tool_id: "mcp.invoke",
+      display_name: "MCP tool invocation",
       pack: "runtime",
-      primitiveCapabilities: ["prim:connector.invoke"],
-      authorityScopeRequirements: ["scope:mcp.invoke"],
-      effectClass: "connector_call",
-      riskDomain: "connector",
-      inputSchema: { type: "object", required: ["server", "tool"] },
-      outputSchema: { type: "object" },
-      evidenceRequirements: ["mcp_containment_receipt"],
+      primitive_capabilities: ["prim:connector.invoke"],
+      authority_scope_requirements: ["scope:mcp.invoke"],
+      effect_class: "connector_call",
+      risk_domain: "connector",
+      input_schema: { type: "object", required: ["server", "tool"] },
+      output_schema: { type: "object" },
+      evidence_requirements: ["mcp_containment_receipt"],
     },
     ...codingToolContracts(),
   ].map((tool) => runtimeToolRegistryGovernanceMetadata(tool));
@@ -215,6 +215,6 @@ export function redactRuntimeNodeForDoctor(node = {}, deps = {}) {
     privacyClass: node.privacyClass,
     endpointConfigured: Boolean(node.endpoint),
     endpointHash: node.endpoint ? doctorHash(node.endpoint) : null,
-    evidenceRefs: normalizeArray(node.evidenceRefs),
+    evidence_refs: normalizeArray(node.evidence_refs),
   };
 }

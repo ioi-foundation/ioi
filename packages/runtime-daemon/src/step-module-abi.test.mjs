@@ -16,8 +16,11 @@ import {
 
 test("every coding tool contract can project into the Step/Module ABI", () => {
   for (const contract of codingToolContracts()) {
+    assert.equal(Object.hasOwn(contract, "stableToolId"), false);
+    assert.equal(Object.hasOwn(contract, "primitiveCapabilities"), false);
+    assert.equal(Object.hasOwn(contract, "authorityScopeRequirements"), false);
     const { invocation, result } = codingToolStepModuleProjection(
-      contract.stableToolId,
+      contract.stable_tool_id,
       {},
       {},
       {
@@ -25,7 +28,7 @@ test("every coding tool contract can project into the Step/Module ABI", () => {
         taskId: "task:test",
         threadId: "thread:test",
         workflowGraphId: "workflow:test",
-        workflowNodeId: `node:test:${contract.stableToolId}`,
+        workflowNodeId: `node:test:${contract.stable_tool_id}`,
         stateRootBefore: "sha256:before",
         projectionWatermark: "domain_seq:1",
       },
@@ -34,15 +37,15 @@ test("every coding tool contract can project into the Step/Module ABI", () => {
     assert.equal(invocation.schema_version, STEP_MODULE_INVOCATION_SCHEMA_VERSION);
     assert.equal(result.schema_version, STEP_MODULE_RESULT_SCHEMA_VERSION);
     assert.equal(invocation.module_ref.kind, "workload_job");
-    assert.equal(invocation.module_ref.id, contract.stableToolId);
+    assert.equal(invocation.module_ref.id, contract.stable_tool_id);
     assert.equal(invocation.execution.backend, "workload_grpc");
     assert.deepEqual(
       invocation.authority.primitive_capabilities,
-      contract.primitiveCapabilities,
+      contract.primitive_capabilities,
     );
     assert.deepEqual(
       invocation.authority.authority_scopes,
-      contract.authorityScopeRequirements,
+      contract.authority_scope_requirements,
     );
     assert.equal(result.invocation_id, invocation.invocation_id);
     assert.equal(result.workflow_projection.workflow_node_id, invocation.workflow_node_id);
@@ -57,7 +60,7 @@ test("cTEE private workspace projection refuses node plaintext custody", () => {
   const contract = codingToolContracts()[0];
   const invocation = createStepModuleInvocationForCodingTool({
     contract,
-    toolId: contract.stableToolId,
+    toolId: contract.stable_tool_id,
   });
   invocation.module_ref.kind = "private_workspace_ctee_action";
   invocation.execution.backend = "ctee_operator";
@@ -129,7 +132,7 @@ test("Agentgres operation refs require result state-root binding", () => {
   const contract = codingToolContracts()[0];
   assert.throws(
     () =>
-      codingToolStepModuleProjection(contract.stableToolId, {}, {}, {
+      codingToolStepModuleProjection(contract.stable_tool_id, {}, {}, {
         agentgresOperationRefs: ["agentgres://operation/test"],
       }),
     /state_root_after and resulting_head/,

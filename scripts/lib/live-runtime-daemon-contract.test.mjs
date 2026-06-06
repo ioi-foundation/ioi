@@ -9576,43 +9576,43 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
 
     const catalog = await fetchJson(`${daemon.endpoint}/v1/tools?pack=coding`);
     assert.deepEqual(
-      catalog.map((tool) => tool.stableToolId).sort(),
+      catalog.map((tool) => tool.stable_tool_id).sort(),
       expectedCodingToolIds,
     );
     assert.ok(catalog.every((tool) => tool.pack === "coding"));
-    assert.ok(catalog.every((tool) => tool.workflowNodeType));
-    const patchContract = catalog.find((tool) => tool.stableToolId === "file.apply_patch");
+    assert.ok(catalog.every((tool) => tool.workflow_node_type));
+    const patchContract = catalog.find((tool) => tool.stable_tool_id === "file.apply_patch");
     assert.ok(patchContract);
-    assert.equal(patchContract.effectClass, "local_write");
-    assert.ok(patchContract.authorityScopeRequirements.includes("scope:workspace.write"));
-    assert.ok(patchContract.evidenceRequirements.includes("workspace_snapshot_receipt"));
-    const testContract = catalog.find((tool) => tool.stableToolId === "test.run");
+    assert.equal(patchContract.effect_class, "local_write");
+    assert.ok(patchContract.authority_scope_requirements.includes("scope:workspace.write"));
+    assert.ok(patchContract.evidence_requirements.includes("workspace_snapshot_receipt"));
+    const testContract = catalog.find((tool) => tool.stable_tool_id === "test.run");
     assert.ok(testContract);
-    assert.equal(testContract.effectClass, "local_command");
-    assert.ok(testContract.authorityScopeRequirements.includes("scope:workspace.test"));
-    const diagnosticsContract = catalog.find((tool) => tool.stableToolId === "lsp.diagnostics");
+    assert.equal(testContract.effect_class, "local_command");
+    assert.ok(testContract.authority_scope_requirements.includes("scope:workspace.test"));
+    const diagnosticsContract = catalog.find((tool) => tool.stable_tool_id === "lsp.diagnostics");
     assert.ok(diagnosticsContract);
-    assert.equal(diagnosticsContract.effectClass, "local_read");
-    assert.equal(diagnosticsContract.riskDomain, "diagnostics");
-    assert.ok(diagnosticsContract.inputSchema.properties.commandId.enum.includes("auto"));
-    assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.diagnosticsMode"));
-    assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.defaultDiagnosticCommandId"));
-    assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.restorePolicy"));
-    assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.restoreConflictPolicy"));
-    assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.diagnosticsRepairDefault"));
-    assert.ok(patchContract.workflowConfigFields.includes("toolPack.coding.operatorOverrideRequiresApproval"));
-    assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.diagnosticsMode"));
-    assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.defaultDiagnosticCommandId"));
-    assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.restorePolicy"));
-    assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.restoreConflictPolicy"));
-    assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.diagnosticsRepairDefault"));
-    assert.ok(diagnosticsContract.workflowConfigFields.includes("toolPack.coding.operatorOverrideRequiresApproval"));
-    const artifactContract = catalog.find((tool) => tool.stableToolId === "artifact.read");
+    assert.equal(diagnosticsContract.effect_class, "local_read");
+    assert.equal(diagnosticsContract.risk_domain, "diagnostics");
+    assert.ok(diagnosticsContract.input_schema.properties.commandId.enum.includes("auto"));
+    assert.ok(patchContract.workflow_config_fields.includes("toolPack.coding.diagnosticsMode"));
+    assert.ok(patchContract.workflow_config_fields.includes("toolPack.coding.defaultDiagnosticCommandId"));
+    assert.ok(patchContract.workflow_config_fields.includes("toolPack.coding.restorePolicy"));
+    assert.ok(patchContract.workflow_config_fields.includes("toolPack.coding.restoreConflictPolicy"));
+    assert.ok(patchContract.workflow_config_fields.includes("toolPack.coding.diagnosticsRepairDefault"));
+    assert.ok(patchContract.workflow_config_fields.includes("toolPack.coding.operatorOverrideRequiresApproval"));
+    assert.ok(diagnosticsContract.workflow_config_fields.includes("toolPack.coding.diagnosticsMode"));
+    assert.ok(diagnosticsContract.workflow_config_fields.includes("toolPack.coding.defaultDiagnosticCommandId"));
+    assert.ok(diagnosticsContract.workflow_config_fields.includes("toolPack.coding.restorePolicy"));
+    assert.ok(diagnosticsContract.workflow_config_fields.includes("toolPack.coding.restoreConflictPolicy"));
+    assert.ok(diagnosticsContract.workflow_config_fields.includes("toolPack.coding.diagnosticsRepairDefault"));
+    assert.ok(diagnosticsContract.workflow_config_fields.includes("toolPack.coding.operatorOverrideRequiresApproval"));
+    const artifactContract = catalog.find((tool) => tool.stable_tool_id === "artifact.read");
     assert.ok(artifactContract);
-    assert.equal(artifactContract.effectClass, "local_read");
-    const retrieveContract = catalog.find((tool) => tool.stableToolId === "tool.retrieve_result");
+    assert.equal(artifactContract.effect_class, "local_read");
+    const retrieveContract = catalog.find((tool) => tool.stable_tool_id === "tool.retrieve_result");
     assert.ok(retrieveContract);
-    assert.equal(retrieveContract.riskDomain, "artifact");
+    assert.equal(retrieveContract.risk_domain, "artifact");
 
     const statusResult = await fetchJson(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/workspace.status/invoke`,
@@ -10197,7 +10197,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     const sdkClient = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
     const sdkCatalog = await sdkClient.listTools({ pack: "coding" });
     assert.deepEqual(
-      sdkCatalog.map((tool) => tool.stableToolId).sort(),
+      sdkCatalog.map((tool) => tool.stable_tool_id).sort(),
       expectedCodingToolIds,
     );
     const sdkInvoke = await sdkClient.invokeThreadTool(thread.thread_id, "file.inspect", {
@@ -10417,7 +10417,7 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
     );
     assert.equal(cliCatalog.schema_version, "ioi.agent-cli.coding-tool-pack.v1");
     assert.deepEqual(
-      cliCatalog.tools.map((tool) => tool.stableToolId).sort(),
+      cliCatalog.tools.map((tool) => tool.stable_tool_id).sort(),
       expectedCodingToolIds,
     );
     const cliInvoke = JSON.parse(

@@ -117,7 +117,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     const diagnosticsRepairContext =
       diagnosticsRepairContextForRequest(request) ??
       diagnosticsRepairContextForToolPack(request, input, normalizedToolId);
-    const toolContract = codingToolContracts().find((tool) => tool.stableToolId === normalizedToolId);
+    const toolContract = codingToolContracts().find((tool) => tool.stable_tool_id === normalizedToolId);
     const budgetPolicy = codingToolBudgetPolicyForRequest({
       request,
       threadId,

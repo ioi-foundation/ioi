@@ -118,52 +118,50 @@ export function mcpServeAllowedToolIds(options = {}) {
 
 export function mcpServeToolDescriptor(tool = {}) {
   tool = runtimeToolRegistryGovernanceMetadata(tool);
-  const toolId = optionalString(tool.stableToolId ?? tool.stable_tool_id) ?? "runtime.tool";
+  const toolId = optionalString(tool.stable_tool_id) ?? "runtime.tool";
   const approvalRequired =
-    typeof tool.approvalRequired === "boolean"
-      ? tool.approvalRequired
-      : typeof tool.approval_required === "boolean"
-        ? tool.approval_required
-        : normalizeArray(tool.authorityScopeRequirements ?? tool.authority_scope_requirements).length > 0;
+    typeof tool.approval_required === "boolean"
+      ? tool.approval_required
+      : normalizeArray(tool.authority_scope_requirements).length > 0;
   const credentialReadiness =
-    tool.credentialReadiness && typeof tool.credentialReadiness === "object"
-      ? tool.credentialReadiness
-      : { status: "unknown", checkedAt: null, evidenceRefs: [], reason: null };
+    tool.credential_readiness && typeof tool.credential_readiness === "object"
+      ? tool.credential_readiness
+      : { status: "unknown", checked_at: null, evidence_refs: [], reason: null };
   const idempotencyBehavior =
-    tool.idempotencyBehavior && typeof tool.idempotencyBehavior === "object"
-      ? tool.idempotencyBehavior
-      : { required: false, strategy: "read_only", keyScope: null, evidenceRefs: [] };
+    tool.idempotency_behavior && typeof tool.idempotency_behavior === "object"
+      ? tool.idempotency_behavior
+      : { required: false, strategy: "read_only", key_scope: null, evidence_refs: [] };
   return {
     name: toolId,
-    title: tool.displayName ?? tool.display_name ?? toolId,
+    title: tool.display_name ?? toolId,
     description:
       tool.description ??
-      `${tool.displayName ?? toolId} through IOI's governed runtime with receipts and policy evidence.`,
-    inputSchema: tool.inputSchema ?? { type: "object" },
+      `${tool.display_name ?? toolId} through IOI's governed runtime with receipts and policy evidence.`,
+    inputSchema: tool.input_schema ?? { type: "object" },
     _meta: {
       schema_version: RUNTIME_MCP_SERVE_SCHEMA_VERSION,
       stableToolId: toolId,
       pack: tool.pack ?? CODING_TOOL_PACK_ID,
-      effectClass: tool.effectClass ?? "local_read",
-      riskDomain: tool.riskDomain ?? "workspace",
-      primitiveCapabilities: normalizeArray(tool.primitiveCapabilities ?? tool.primitive_capabilities),
-      authorityScopeRequirements: normalizeArray(tool.authorityScopeRequirements ?? tool.authority_scope_requirements),
-      evidenceRequirements: normalizeArray(tool.evidenceRequirements ?? tool.evidence_requirements),
-      credentialReady: Boolean(tool.credentialReady),
+      effectClass: tool.effect_class ?? "local_read",
+      riskDomain: tool.risk_domain ?? "workspace",
+      primitiveCapabilities: normalizeArray(tool.primitive_capabilities),
+      authorityScopeRequirements: normalizeArray(tool.authority_scope_requirements),
+      evidenceRequirements: normalizeArray(tool.evidence_requirements),
+      credentialReady: Boolean(tool.credential_ready),
       credentialReadiness,
       approvalRequired,
       approval_required: approvalRequired,
-      rateLimitProfile: tool.rateLimitProfile ?? null,
+      rateLimitProfile: tool.rate_limit_profile ?? null,
       idempotencyBehavior,
-      receiptBehavior: tool.receiptBehavior ?? null,
-      workflowAvailability: tool.workflowAvailability ?? null,
-      agentAvailability: tool.agentAvailability ?? null,
-      marketplaceExposure: tool.marketplaceExposure ?? null,
-      workflowNodeType: tool.workflowNodeType ?? null,
-      workflowConfigFields: normalizeArray(tool.workflowConfigFields),
+      receiptBehavior: tool.receipt_behavior ?? null,
+      workflowAvailability: tool.workflow_availability ?? null,
+      agentAvailability: tool.agent_availability ?? null,
+      marketplaceExposure: tool.marketplace_exposure ?? null,
+      workflowNodeType: tool.workflow_node_type ?? null,
+      workflowConfigFields: normalizeArray(tool.workflow_config_fields),
     },
     annotations: {
-      readOnlyHint: tool.effectClass !== "local_write" && tool.effectClass !== "local_command",
+      readOnlyHint: tool.effect_class !== "local_write" && tool.effect_class !== "local_command",
       destructiveHint: false,
       idempotentHint: idempotencyBehavior.strategy === "read_only" || Boolean(idempotencyBehavior.required),
       openWorldHint: false,

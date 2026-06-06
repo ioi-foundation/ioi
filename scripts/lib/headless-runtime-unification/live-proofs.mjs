@@ -296,7 +296,7 @@ export async function runHeadlessDaemonProof(stageDir) {
       assertCheck(Boolean(threadId && turnId && runId), "thread, turn, and run ids emitted", { threadId, turnId, runId }),
       assertCheck((eventsBeforeTools.events ?? []).length > 0 && allEvents.length >= (eventsBeforeTools.events ?? []).length, "thread runtime events stream is readable"),
       assertCheck(modeSuggest.approval_mode === "suggest" && modeAuto.approval_mode === "auto_local" && modeFull.approval_mode === "never_prompt", "permission modes map to daemon approval modes"),
-      assertCheck(Array.isArray(toolCatalog) && toolCatalog.some((tool) => tool.stableToolId === "file.apply_patch"), "coding tool catalogue exposed by daemon"),
+      assertCheck(Array.isArray(toolCatalog) && toolCatalog.some((tool) => tool.stable_tool_id === "file.apply_patch"), "coding tool catalogue exposed by daemon"),
       assertCheck(workspaceStatus.status === "completed", "workspace status tool completed"),
       assertCheck(patchResult.status === "completed" && calcText.includes("add(a, b)"), "file edit mutation completed inside disposable fixture"),
       assertCheck(createResult.status === "completed" && notesText.includes("headless runtime unification"), "file create mutation completed inside disposable fixture"),
@@ -405,7 +405,7 @@ export async function runSdkClientProof(stageDir) {
     const checks = [
       assertCheck(Boolean(threadId && turnIdOf(turn)), "SDK created thread and submitted turn"),
       assertCheck(events.length > 0, "SDK streamed daemon runtime events"),
-      assertCheck(tools.some((tool) => tool.stableToolId === "file.apply_patch"), "SDK listed daemon coding tools"),
+      assertCheck(tools.some((tool) => tool.stable_tool_id === "file.apply_patch"), "SDK listed daemon coding tools"),
       assertCheck(patch.status === "completed", "SDK invoked daemon tool route"),
       assertCheck(mcp.status === "ready" && memory.status === "ready", "SDK consumed daemon MCP and memory routes"),
       assertCheck(Boolean(browser.receipt_ref && providers.providers?.length), "SDK consumed daemon computer-use routes"),
@@ -503,7 +503,7 @@ export async function runCliTuiClientProof(stageDir) {
     const interruptJson = parseMaybeJson(tuiInterrupt.stdout);
     const browserJson = parseMaybeJson(browserDiscovery.stdout);
     const checks = [
-      assertCheck(cliCoding.ok && Array.isArray(codingJson?.tools) && codingJson.tools.some((tool) => tool.stableToolId === "file.apply_patch"), "CLI listed daemon coding tools"),
+      assertCheck(cliCoding.ok && Array.isArray(codingJson?.tools) && codingJson.tools.some((tool) => tool.stable_tool_id === "file.apply_patch"), "CLI listed daemon coding tools"),
       assertCheck(cliToolRun.ok && toolJson?.status === "completed", "CLI invoked daemon tool route"),
       assertCheck(cliStream.ok && (Array.isArray(streamJson?.events) || Array.isArray(streamJson)), "CLI streamed daemon events"),
       assertCheck(cliCompact.ok && compactJson?.thread_id === threadId, "CLI compacted daemon thread"),

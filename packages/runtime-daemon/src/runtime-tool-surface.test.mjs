@@ -11,7 +11,7 @@ test("runtime tool surface delegates account, nodes, and tool catalog with env a
   const calls = [];
   const surface = createRuntimeToolSurface({
     codingToolContracts() {
-      return [{ stableToolId: "coding.apply_patch", pack: "coding" }];
+      return [{ stable_tool_id: "coding.apply_patch", pack: "coding" }];
     },
     processEnv: env,
     runtimeAccount(inputEnv) {
@@ -28,7 +28,7 @@ test("runtime tool surface delegates account, nodes, and tool catalog with env a
         options,
         contracts: deps.codingToolContracts(),
       });
-      return [{ stableToolId: "fs.read", pack: options.pack ?? "runtime" }];
+      return [{ stable_tool_id: "fs.read", pack: options.pack ?? "runtime" }];
     },
   });
 
@@ -37,7 +37,7 @@ test("runtime tool surface delegates account, nodes, and tool catalog with env a
     { endpoint: "https://provider.example.test" },
   ]);
   assert.deepEqual(surface.listTools({ pack: "coding" }), [
-    { stableToolId: "fs.read", pack: "coding" },
+    { stable_tool_id: "fs.read", pack: "coding" },
   ]);
 
   assert.deepEqual(calls, [
@@ -46,7 +46,7 @@ test("runtime tool surface delegates account, nodes, and tool catalog with env a
     {
       name: "runtimeTools",
       options: { pack: "coding" },
-      contracts: [{ stableToolId: "coding.apply_patch", pack: "coding" }],
+      contracts: [{ stable_tool_id: "coding.apply_patch", pack: "coding" }],
     },
   ]);
 });

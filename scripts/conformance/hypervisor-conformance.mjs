@@ -4552,8 +4552,14 @@ function runReceipts() {
   const runtimeDoctorReport = exists("packages/runtime-daemon/src/runtime-doctor-report.mjs")
     ? read("packages/runtime-daemon/src/runtime-doctor-report.mjs")
     : "";
+  const codingToolsForRuntimeState = exists("packages/runtime-daemon/src/coding-tools.mjs")
+    ? read("packages/runtime-daemon/src/coding-tools.mjs")
+    : "";
   const runtimeToolCatalog = exists("packages/runtime-daemon/src/runtime-tool-catalog.mjs")
     ? read("packages/runtime-daemon/src/runtime-tool-catalog.mjs")
+    : "";
+  const runtimeToolCatalogTest = exists("packages/runtime-daemon/src/runtime-tool-catalog.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-tool-catalog.test.mjs")
     : "";
   const threadTurnProjection = exists("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
@@ -6617,6 +6623,38 @@ function runReceipts() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 5/11 is pending: run persistence and read surfaces must not append or expose duplicate daemon-local operation-log records outside Agentgres state projections and admitted receipts",
+  );
+  assertCheck(
+    result,
+    "runtime-coding-tool-catalog-record-aliases-retired",
+    /stable_tool_id:\s*"workspace\.status"/.test(codingToolsForRuntimeState) &&
+      /primitive_capabilities:\s*\["prim:workspace\.status",\s*"prim:git\.status"\]/.test(codingToolsForRuntimeState) &&
+      /authority_scope_requirements:\s*\[\]/.test(codingToolsForRuntimeState) &&
+      /effect_class:\s*"local_read"/.test(codingToolsForRuntimeState) &&
+      /workflow_node_type:\s*"CodingToolNode"/.test(codingToolsForRuntimeState) &&
+      /stable_tool_id:\s*stableToolId/.test(runtimeToolCatalog) &&
+      /evidence_refs:\s*normalizeArray\(node\.evidence_refs\)/.test(runtimeToolCatalog) &&
+      /Object\.hasOwn\(contract,\s*"stableToolId"\),\s*false/.test(
+        read("packages/runtime-daemon/src/step-module-abi.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(read,\s*"stableToolId"\),\s*false/.test(runtimeToolCatalogTest) &&
+      /Object\.hasOwn\(redacted,\s*"evidenceRefs"\),\s*false/.test(runtimeToolCatalogTest) &&
+      !/^\s*(?:schemaVersion|stableToolId|displayName|primitiveCapabilities|authorityScopeRequirements|effectClass|riskDomain|inputSchema|outputSchema|evidenceRequirements|workflowNodeType|workflowConfigFields)\s*:/m.test(
+        codingToolsForRuntimeState,
+      ) &&
+      !/^\s*(?:stableToolId|displayName|primitiveCapabilities|authorityScopeRequirements|effectClass|riskDomain|inputSchema|outputSchema|evidenceRequirements|workflowNodeType|workflowConfigFields|approvalRequired|credentialReady|credentialReadiness|rateLimitProfile|idempotencyBehavior|receiptBehavior|workflowAvailability|agentAvailability|marketplaceExposure|evidenceRefs)\s*:/m.test(
+        runtimeToolCatalog,
+      ) &&
+      !/tool\.(?:stableToolId|displayName|primitiveCapabilities|authorityScopeRequirements|effectClass|riskDomain|inputSchema|outputSchema|evidenceRequirements|workflowNodeType|workflowConfigFields|approvalRequired|credentialReady|credentialReadiness|rateLimitProfile|idempotencyBehavior|receiptBehavior|workflowAvailability|agentAvailability|marketplaceExposure)\b/.test(
+        `${codingToolsForRuntimeState}\n${runtimeToolCatalog}`,
+      ),
+    [
+      "packages/runtime-daemon/src/coding-tools.mjs",
+      "packages/runtime-daemon/src/runtime-tool-catalog.mjs",
+      "packages/runtime-daemon/src/runtime-tool-catalog.test.mjs",
+      "packages/runtime-daemon/src/step-module-abi.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime and coding tool catalog records must expose canonical snake_case fields without camelCase compatibility aliases",
   );
   assertCheck(
     result,

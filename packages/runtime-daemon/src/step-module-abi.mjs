@@ -20,7 +20,7 @@ export function stepModuleHash(value) {
 
 export function createStepModuleInvocationForCodingTool({
   contract,
-  toolId = contract?.stableToolId,
+  toolId = contract?.stable_tool_id,
   input = {},
   runId = DEFAULT_RUN_ID,
   taskId = DEFAULT_TASK_ID,
@@ -69,7 +69,7 @@ export function createStepModuleInvocationForCodingTool({
     module_ref: {
       kind: moduleKind,
       id: toolId,
-      version: contract.schemaVersion ?? "migration",
+      version: contract.schema_version ?? "migration",
       manifest_ref: manifestRef,
     },
     actor: {
@@ -79,8 +79,8 @@ export function createStepModuleInvocationForCodingTool({
     authority: {
       authority_grant_refs: normalizeStringArray(authorityGrantRefs),
       policy_hash: policyHash,
-      primitive_capabilities: normalizeStringArray(contract.primitiveCapabilities),
-      authority_scopes: normalizeStringArray(contract.authorityScopeRequirements),
+      primitive_capabilities: normalizeStringArray(contract.primitive_capabilities),
+      authority_scopes: normalizeStringArray(contract.authority_scope_requirements),
       approval_ref: approvalRef,
     },
     input: {
@@ -118,7 +118,7 @@ export function createStepModuleInvocationForCodingTool({
 export function createStepModuleResultForCodingTool({
   invocation,
   contract,
-  toolId = contract?.stableToolId ?? invocation?.module_ref?.id,
+  toolId = contract?.stable_tool_id ?? invocation?.module_ref?.id,
   result = {},
   status = "success",
   workflowProjectionStatus = "projected",
@@ -163,7 +163,7 @@ export function createStepModuleResultForCodingTool({
     workflow_projection: {
       workflow_graph_id: invocation.workflow_graph_id ?? DEFAULT_WORKFLOW_GRAPH_ID,
       workflow_node_id: invocation.workflow_node_id ?? `node:coding-tool:${toolId}`,
-      component_kind: contract?.workflowNodeType ?? "CodingToolNode",
+      component_kind: contract?.workflow_node_type ?? "CodingToolNode",
       status: workflowProjectionStatus,
       attempt_id: `attempt://projection/${resultHash.slice(7, 39)}`,
       evidence_refs: normalizeStringArray(evidenceRefs),

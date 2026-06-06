@@ -9,7 +9,7 @@ import {
 } from "./step-module-runner.mjs";
 
 const workspaceStatusContract = codingToolContracts().find(
-  (contract) => contract.stableToolId === "workspace.status",
+  (contract) => contract.stable_tool_id === "workspace.status",
 );
 
 test("default StepModuleRunner is Rust workload live and fails closed without command", () => {

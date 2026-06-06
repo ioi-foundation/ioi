@@ -84,10 +84,10 @@ test("runtime MCP helpers shape serve descriptors and tool results", () => {
   assert.deepEqual(mcpServeAllowedToolIds({ toolIds: ["git.diff"] }), RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS);
 
   const descriptor = mcpServeToolDescriptor({
-    stableToolId: "file.inspect",
-    displayName: "Inspect file",
-    effectClass: "local_read",
-    authorityScopeRequirements: ["workspace.fs.read"],
+    stable_tool_id: "file.inspect",
+    display_name: "Inspect file",
+    effect_class: "local_read",
+    authority_scope_requirements: ["workspace.fs.read"],
   });
   assert.equal(descriptor.name, "file.inspect");
   assert.equal(descriptor._meta.approvalRequired, true);
