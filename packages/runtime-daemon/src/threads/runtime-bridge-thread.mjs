@@ -59,8 +59,15 @@ export async function createRuntimeBridgeThread(store, { request, options, runti
       details: { threadId, runtimeProfile },
     });
   }
+  const operationKind = requiredRuntimeBridgeOperationKind({
+    stateUpdate,
+    expectedOperationKind: "thread.runtime_bridge.start",
+    codePrefix: "runtime_bridge_thread_start_state_update",
+    details: { threadId, runtimeProfile },
+    runtimeError: deps.runtimeError,
+  });
   store.agents.set(updated.id, updated);
-  store.writeAgent(updated, stateUpdate.operation_kind ?? "thread.runtime_bridge.start");
+  store.writeAgent(updated, operationKind);
   for (const event of projection.events) store.appendRuntimeEvent(event);
   return store.threadForAgent(updated);
 }
@@ -192,12 +199,53 @@ export async function createRuntimeBridgeTurn(store, { agent, threadId, request,
       details: { threadId, runId: runDraft.id },
     });
   }
+  const operationKind = requiredRuntimeBridgeOperationKind({
+    stateUpdate,
+    expectedOperationKind: "turn.runtime_bridge.submit",
+    codePrefix: "runtime_bridge_turn_run_state_update",
+    details: { threadId, runId: runDraft.id },
+    runtimeError: deps.runtimeError,
+  });
   store.runs.set(run.id, run);
-  store.writeRun(run, stateUpdate.operation_kind ?? "turn.runtime_bridge.submit");
+  store.writeRun(run, operationKind);
   for (const turnId of inFlightTurnIds) {
     store.unregisterInFlightRuntimeTurn(threadId, turnId);
   }
   return store.turnForRun(run);
+}
+
+function requiredRuntimeBridgeOperationKind({
+  stateUpdate,
+  expectedOperationKind,
+  codePrefix,
+  details,
+  runtimeError,
+}) {
+  const operationKind =
+    typeof stateUpdate?.operation_kind === "string" && stateUpdate.operation_kind.trim()
+      ? stateUpdate.operation_kind
+      : null;
+  if (!operationKind) {
+    throw runtimeError({
+      status: 502,
+      code: `${codePrefix}_operation_kind_missing`,
+      message: "Rust runtime bridge state planning did not return an operation kind.",
+      details: { ...details, operation_kind: expectedOperationKind },
+    });
+  }
+  if (operationKind !== expectedOperationKind) {
+    throw runtimeError({
+      status: 502,
+      code: `${codePrefix}_operation_kind_mismatch`,
+      message: "Rust runtime bridge state planning returned an unexpected operation kind.",
+      details: {
+        ...details,
+        expected_operation_kind: expectedOperationKind,
+        operation_kind: operationKind,
+      },
+    });
+  }
+  return operationKind;
 }
 
 export async function controlRuntimeBridgeThread(store, { agent, threadId, action, reason }, deps = {}) {

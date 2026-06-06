@@ -12354,6 +12354,12 @@ Slice 377 removes the shared agent-status operation-kind fallback:
 the caller-requested status operation kind exactly before the agent projection
 is placed in memory or written, rather than substituting the JS caller value.
 
+Slice 378 removes runtime-bridge operation-kind fallbacks: thread-start agent
+projection and turn-submit run projection now require the Rust bridge planners
+to return `thread.runtime_bridge.start` and `turn.runtime_bridge.submit`
+exactly before the daemon persists those records, rather than substituting
+JS-side bridge operation kinds.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

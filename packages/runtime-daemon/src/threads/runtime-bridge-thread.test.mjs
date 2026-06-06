@@ -277,6 +277,33 @@ test("runtime bridge thread creation fails closed without Rust-planned agent pro
   );
 });
 
+test("runtime bridge thread creation fails closed without Rust-planned operation kind", async () => {
+  const store = fakeStore({
+    bridgeStartStateUpdate: {
+      status: "planned",
+      agent: {
+        id: "agent_runtime",
+        runtimeSessionId: "session_runtime",
+      },
+    },
+  });
+
+  await assert.rejects(
+    createRuntimeBridgeThread(store, {
+      request: { runtime_profile: "runtime_service" },
+      options: { local: { cwd: "/workspace" } },
+      runtimeProfile: "runtime_service",
+    }, deps()),
+    (error) => {
+      assert.equal(error.code, "runtime_bridge_thread_start_state_update_operation_kind_missing");
+      assert.equal(error.details.operation_kind, "thread.runtime_bridge.start");
+      return true;
+    },
+  );
+  assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
+  assert.equal(store.calls.some((call) => call.operation === "append_event"), false);
+});
+
 test("runtime bridge thread creation maps bridge unavailable errors", async () => {
   const store = fakeStore({ bridgeError: new BridgeUnavailableError({ reason: "not configured" }) });
 
@@ -358,6 +385,39 @@ test("runtime bridge turn creation fails closed without Rust-planned run project
     (error) => error.code === "runtime_bridge_turn_run_state_update_planner_invalid",
   );
   assert.equal(store.calls.some((call) => call.operation === "write_run"), false);
+});
+
+test("runtime bridge turn creation fails closed without Rust-planned operation kind", async () => {
+  const store = fakeTurnStore({
+    bridgeTurnRunStateUpdate: {
+      status: "planned",
+      run: {
+        id: "run_runtime",
+        turnId: "turn_runtime",
+      },
+    },
+  });
+  const agent = {
+    id: "agent_runtime",
+    cwd: "/workspace",
+    runtimeProfile: "runtime_service",
+    runtimeSessionId: "session_runtime",
+  };
+
+  await assert.rejects(
+    createRuntimeBridgeTurn(store, {
+      agent,
+      threadId: "thread_agent_runtime",
+      request: { prompt: "hello" },
+    }, turnDeps()),
+    (error) => {
+      assert.equal(error.code, "runtime_bridge_turn_run_state_update_operation_kind_missing");
+      assert.equal(error.details.operation_kind, "turn.runtime_bridge.submit");
+      return true;
+    },
+  );
+  assert.equal(store.calls.some((call) => call.operation === "write_run"), false);
+  assert.equal(store.runs.size, 0);
 });
 
 test("runtime bridge turn creation maps bridge unavailable errors and cleans in-flight turn", async () => {

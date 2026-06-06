@@ -1636,10 +1636,23 @@ function runBridge() {
       /contextPolicyRunner\.planRuntimeBridgeTurnRunStateUpdate/.test(
         runtimeBridgeThread,
       ) &&
+      /requiredRuntimeBridgeOperationKind/.test(runtimeBridgeThread) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"thread\.runtime_bridge\.start"/.test(
+        runtimeBridgeThread,
+      ) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.runtime_bridge\.submit"/.test(
+        runtimeBridgeThread,
+      ) &&
       /runtime bridge thread creation fails closed without Rust-planned agent projection/.test(
         runtimeBridgeThreadTest,
       ) &&
+      /runtime bridge thread creation fails closed without Rust-planned operation kind/.test(
+        runtimeBridgeThreadTest,
+      ) &&
       /runtime bridge turn creation fails closed without Rust-planned run projection/.test(
+        runtimeBridgeThreadTest,
+      ) &&
+      /runtime bridge turn creation fails closed without Rust-planned operation kind/.test(
         runtimeBridgeThreadTest,
       ) &&
       !/const updated = \{\s*\.\.\.agent,\s*runtimeProfile,\s*runtimeSessionId/s.test(
