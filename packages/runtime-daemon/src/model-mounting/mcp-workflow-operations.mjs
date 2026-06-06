@@ -46,6 +46,18 @@ const CANONICAL_MCP_TOOL_INVOCATION_REQUEST_FIELDS = [
   "input",
 ];
 
+const RETIRED_MCP_SERVER_CONFIG_ALIASES = [
+  "serverUrl",
+  "allowedTools",
+];
+
+const CANONICAL_MCP_SERVER_CONFIG_FIELDS = [
+  "url",
+  "server_url",
+  "allowed_tools",
+  "tools",
+];
+
 export function compileEphemeralMcpIntegrations(state, { authorization, body = {}, input }, deps = {}) {
   const {
     requiredString,
@@ -166,9 +178,10 @@ export function normalizeMcpServer(state, label, config = {}, deps = {}) {
     safeId,
     secretRedaction,
   } = deps;
+  assertCanonicalMcpServerConfig(config);
   const id = `mcp.${safeId(label)}`;
   const allowedTools = normalizeScopes(
-    config.allowed_tools ?? config.allowedTools,
+    config.allowed_tools,
     config.tools ? Object.keys(config.tools) : [],
   );
   for (const [key, value] of Object.entries(config.headers ?? config.env ?? {})) {
@@ -188,10 +201,10 @@ export function normalizeMcpServer(state, label, config = {}, deps = {}) {
   return {
     id,
     label,
-    transport: config.url || config.server_url || config.serverUrl ? "remote" : "stdio",
+    transport: config.url || config.server_url ? "remote" : "stdio",
     command: config.command ?? null,
     args: Array.isArray(config.args) ? config.args : [],
-    serverUrl: config.url ?? config.server_url ?? config.serverUrl ?? null,
+    serverUrl: config.url ?? config.server_url ?? null,
     allowedTools,
     secretRefs,
     redactedHeaders: Object.fromEntries(Object.keys(config.headers ?? {}).map((key) => [key, secretRedaction])),
@@ -199,6 +212,19 @@ export function normalizeMcpServer(state, label, config = {}, deps = {}) {
     source: config.source ?? "mcp.json",
     importedAt: state.nowIso(),
   };
+}
+
+function assertCanonicalMcpServerConfig(config = {}) {
+  const retiredAliases = RETIRED_MCP_SERVER_CONFIG_ALIASES.filter((field) => Object.prototype.hasOwnProperty.call(config, field));
+  if (retiredAliases.length === 0) return;
+  const error = new Error("MCP server config uses retired compatibility aliases.");
+  error.status = 400;
+  error.code = "model_mount_mcp_server_config_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_MCP_SERVER_CONFIG_FIELDS,
+  };
+  throw error;
 }
 
 export function listMcpServers(state, deps = {}) {

@@ -142,6 +142,32 @@ test("normalizeMcpServer redacts headers and requires vault refs", () => {
   );
 });
 
+test("normalizeMcpServer rejects retired config aliases before vault resolution", () => {
+  const state = fakeState();
+
+  assert.throws(
+    () =>
+      normalizeMcpServer(
+        state,
+        "Legacy",
+        {
+          serverUrl: "https://legacy.example.test/mcp",
+          allowedTools: ["search"],
+          headers: { Authorization: "vault://mcp/legacy/token" },
+        },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_mcp_server_config_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["serverUrl", "allowedTools"]);
+      assert.deepEqual(error.details.canonical_fields, ["url", "server_url", "allowed_tools", "tools"]);
+      return true;
+    },
+  );
+  assert.deepEqual(state.walletAuthority.resolved, []);
+});
+
 test("importMcpJson stores servers, emits receipts, and listMcpServers projects public rows", () => {
   const state = fakeState();
 

@@ -6326,6 +6326,8 @@ function runReceipts() {
     mcpWorkflowOperations.match(/export function importMcpJson[\s\S]*?function assertCanonicalMcpImportRequestBody/)?.[0] ?? "";
   const mcpInvokeToolBlock =
     mcpWorkflowOperations.match(/export function invokeMcpTool[\s\S]*?function assertCanonicalMcpToolInvocationRequestBody/)?.[0] ?? "";
+  const mcpNormalizeServerBlock =
+    mcpWorkflowOperations.match(/export function normalizeMcpServer[\s\S]*?function assertCanonicalMcpServerConfig/)?.[0] ?? "";
   const catalogHelpers = exists("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs")
     : "";
@@ -7271,6 +7273,31 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
     ],
     "Phase 10/11 is pending: MCP tool invocation must require canonical server_id without retired serverId or label-derived aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-mcp-server-config-aliases-retired",
+    /RETIRED_MCP_SERVER_CONFIG_ALIASES/.test(mcpWorkflowOperations) &&
+      /CANONICAL_MCP_SERVER_CONFIG_FIELDS/.test(mcpWorkflowOperations) &&
+      /assertCanonicalMcpServerConfig\(config\);/.test(mcpNormalizeServerBlock) &&
+      /config\.allowed_tools/.test(mcpNormalizeServerBlock) &&
+      /config\.url \|\| config\.server_url/.test(mcpNormalizeServerBlock) &&
+      /serverUrl:\s*config\.url \?\? config\.server_url \?\? null/.test(mcpNormalizeServerBlock) &&
+      /model_mount_mcp_server_config_aliases_retired/.test(mcpWorkflowOperations) &&
+      !/config\.(?:serverUrl|allowedTools)\b/.test(mcpNormalizeServerBlock) &&
+      /normalizeMcpServer rejects retired config aliases before vault resolution/.test(
+        mcpWorkflowOperationsTest,
+      ) &&
+      /serverUrl: "https:\/\/legacy\.example\.test\/mcp"/.test(mcpWorkflowOperationsTest) &&
+      /allowedTools: \["search"\]/.test(mcpWorkflowOperationsTest) &&
+      /assert\.deepEqual\(state\.walletAuthority\.resolved,\s*\[\]\)/.test(
+        mcpWorkflowOperationsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP server configs must use canonical url/server_url/allowed_tools without retired camelCase aliases",
   );
   assertCheck(
     result,
