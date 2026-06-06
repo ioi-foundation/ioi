@@ -183,8 +183,8 @@ export class OAuthCredentialProvider {
         details: { provider_id: providerId, oauth_state_hash: stableHash(stateRecord.id), status: "expired" },
       });
     }
-    const callbackState = requiredString(body.state ?? body.oauth_state ?? body.oauthState, "state");
-    const code = requiredString(body.code ?? body.authorization_code ?? body.authorizationCode, "code");
+    const callbackState = requiredString(body.state, "state");
+    const code = requiredString(body.code, "code");
     const state = this.vault.resolveVaultRef(stateRecord.stateVaultRef, `oauth.state:${providerId}`);
     const tokenEndpoint = this.vault.resolveVaultRef(stateRecord.tokenEndpointVaultRef, `oauth.token_endpoint:${providerId}`);
     const redirectUri = this.vault.resolveVaultRef(stateRecord.redirectUriVaultRef, `oauth.redirect_uri:${providerId}`);

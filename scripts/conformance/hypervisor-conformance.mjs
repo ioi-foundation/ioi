@@ -6210,6 +6210,10 @@ function runReceipts() {
     oauthCredentialProvider.match(
       /startAuthorization\(\{ providerId, body = \{\} \}\) \{[\s\S]*?\n  }\n\n  async completeAuthorization/,
     )?.[0] ?? "";
+  const oauthCredentialCompleteAuthorizationBlock =
+    oauthCredentialProvider.match(
+      /async completeAuthorization\(\{ providerId, stateRecord, body = \{\} \}\) \{[\s\S]*?\n  }\n\n  async exchangeAuthorizationCode/,
+    )?.[0] ?? "";
   const oauthCredentialExchangeAuthorizationCodeBlock =
     oauthCredentialProvider.match(
       /async exchangeAuthorizationCode\(\{ providerId, body = \{\} \}\) \{[\s\S]*?\n  }\n\n  async refreshAccessToken/,
@@ -8151,6 +8155,28 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
     ],
     "Phase 7/11 is pending: OAuth authorization-code exchange must use canonical snake_case request and token payload fields before vault binding",
+  );
+  assertCheck(
+    result,
+    "model-mount-oauth-callback-request-aliases-retired",
+    /body\.state/.test(oauthCredentialCompleteAuthorizationBlock) &&
+      /body\.code/.test(oauthCredentialCompleteAuthorizationBlock) &&
+      /OAuth credential provider ignores retired callback request aliases/.test(
+        oauthCredentialProviderTest,
+      ) &&
+      /oauth_state: "state"/.test(oauthCredentialProviderTest) &&
+      /oauthState: "state"/.test(oauthCredentialProviderTest) &&
+      /authorization_code: "code"/.test(oauthCredentialProviderTest) &&
+      /authorizationCode: "code"/.test(oauthCredentialProviderTest) &&
+      /assert\.equal\(resolved,\s*0\)/.test(oauthCredentialProviderTest) &&
+      !/body\.(?:oauth_state|oauthState|authorization_code|authorizationCode)\b/.test(
+        oauthCredentialCompleteAuthorizationBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs",
+      "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
+    ],
+    "Phase 7/11 is pending: OAuth callback completion must require canonical state/code and ignore retired callback aliases before vault resolution",
   );
   assertCheck(
     result,

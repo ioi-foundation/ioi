@@ -184,6 +184,47 @@ test("OAuth credential provider rejects callback when vault material is unavaila
   );
 });
 
+test("OAuth credential provider ignores retired callback request aliases", async () => {
+  let resolved = 0;
+  const provider = new OAuthCredentialProvider({
+    now,
+    vault: {
+      resolveVaultRef() {
+        resolved += 1;
+        return { material: "should-not-resolve" };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      provider.completeAuthorization({
+        providerId: "catalog.huggingface",
+        stateRecord: {
+          id: "state.one",
+          providerId: "catalog.huggingface",
+          sessionId: "session.one",
+          status: "pending",
+          expiresAt: "2026-06-03T00:10:00.000Z",
+          stateVaultRef: "vault://state",
+          tokenEndpointVaultRef: "vault://token-endpoint",
+          redirectUriVaultRef: "vault://redirect-uri",
+          clientIdVaultRef: "vault://client-id",
+          pkceRequired: false,
+          scopes: ["repo"],
+        },
+        body: {
+          oauth_state: "state",
+          oauthState: "state",
+          authorization_code: "code",
+          authorizationCode: "code",
+        },
+      }),
+    (error) => error.code === "validation" && /state is required/.test(error.message),
+  );
+  assert.equal(resolved, 0);
+});
+
 test("OAuth credential provider rejects callback state mismatch with canonical details", async () => {
   const vault = fakeVault();
   const provider = new OAuthCredentialProvider({ now, vault });
