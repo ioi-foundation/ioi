@@ -720,6 +720,14 @@ function runBridge() {
     runtimeDaemonIndex.match(/async interruptTurn\(threadId, turnId, request = \{\}\) \{[\s\S]*?\n  steerTurn\(/)?.[0] ?? "";
   const operatorSteerTurnBody =
     runtimeDaemonIndex.match(/steerTurn\(threadId, turnId, request = \{\}\) \{[\s\S]*?\n  requestThreadApproval\(/)?.[0] ?? "";
+  const computerUseToolIdentityBodies = [
+    runtimeDaemonIndex.match(/invokeComputerUseBrowserDiscoveryTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  invokeComputerUseControlTool/)?.[0] ?? "",
+    runtimeDaemonIndex.match(/invokeComputerUseControlTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseNativeBrowserTool/)?.[0] ?? "",
+    runtimeDaemonIndex.match(/async invokeComputerUseNativeBrowserTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseVisualGuiTool/)?.[0] ?? "",
+    runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseSandboxedHostedTool/)?.[0] ?? "",
+    runtimeDaemonIndex.match(/async invokeComputerUseSandboxedHostedTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseVisualGuiObserveTool/)?.[0] ?? "",
+    runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiObserveTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeThreadToolAsync/)?.[0] ?? "",
+  ];
   const runtimeRunCancellation = exists("packages/runtime-daemon/src/runtime-run-cancellation.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-cancellation.mjs")
     : "";
@@ -1495,6 +1503,32 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10/11 is pending: computer-use control event payloads must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "computer-use-tool-identity-request-aliases-retired",
+    computerUseToolIdentityBodies.every((body) => body.length > 0) &&
+      computerUseToolIdentityBodies.slice(0, 5).every((body) =>
+        /optionalString\(request\.turn_id\)/.test(body) &&
+        /optionalString\(request\.workflow_node_id\)/.test(body) &&
+        /optionalString\(request\.workflow_graph_id\)/.test(body) &&
+        /optionalString\(request\.idempotency_key\)/.test(body)
+      ) &&
+      /optionalString\(request\.idempotency_key\)/.test(computerUseToolIdentityBodies[5]) &&
+      /optionalString\(request\.workflow_node_id\)/.test(computerUseToolIdentityBodies[5]) &&
+      /tool_call_id:\s*toolCallId/.test(computerUseToolIdentityBodies[5]) &&
+      /idempotency_key:\s*idempotencyKey/.test(computerUseToolIdentityBodies[5]) &&
+      /workflow_node_id:/.test(computerUseToolIdentityBodies[5]) &&
+      !computerUseToolIdentityBodies.some((body) =>
+        /request\.(?:turnId|workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(body)
+      ) &&
+      !/^\s*(?:turnId|workflowGraphId|workflowNodeId|idempotencyKey):/m.test(
+        computerUseToolIdentityBodies[5],
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use tool invocation identity must use canonical turn_id/workflow_*_id/idempotency_key request fields without retired camelCase aliases",
   );
   assertCheck(
     result,

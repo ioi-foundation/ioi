@@ -2172,19 +2172,19 @@ export class AgentgresRuntimeStateStore {
   invokeComputerUseBrowserDiscoveryTool(threadId, toolId, request = {}) {
     const agent = this.agentForThread(threadId);
     const turnId =
-      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(request.turn_id) ??
       optionalString(this.threadForAgent(agent).latest_turn_id) ??
       "";
     const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      optionalString(request.workflow_node_id) ??
       "computer-use.browser-discovery";
     const workflowGraphId =
-      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+      optionalString(request.workflow_graph_id) ?? null;
     const toolCallId =
       optionalString(request.tool_call_id ?? request.toolCallId) ??
       `computer_use_browser_discovery_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
     const idempotencyKey =
-      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+      optionalString(request.idempotency_key) ??
       `thread:${threadId}:computer-use-browser-discovery:${toolCallId}`;
     const duplicateEvent = this.runtimeEventStream(eventStreamIdForThread(threadId)).idempotency.get(
       idempotencyKey,
@@ -2302,19 +2302,19 @@ export class AgentgresRuntimeStateStore {
   invokeComputerUseControlTool(threadId, toolId, request = {}) {
     const agent = this.agentForThread(threadId);
     const turnId =
-      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(request.turn_id) ??
       optionalString(this.threadForAgent(agent).latest_turn_id) ??
       "";
     const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      optionalString(request.workflow_node_id) ??
       "computer-use.control";
     const workflowGraphId =
-      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+      optionalString(request.workflow_graph_id) ?? null;
     const toolCallId =
       optionalString(request.tool_call_id ?? request.toolCallId) ??
       `computer_use_control_${crypto.randomUUID()}`;
     const idempotencyKey =
-      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+      optionalString(request.idempotency_key) ??
       `thread:${threadId}:computer-use-control:${toolCallId}`;
     const duplicateEvent = this.runtimeEventStream(eventStreamIdForThread(threadId)).idempotency.get(
       idempotencyKey,
@@ -2484,19 +2484,19 @@ export class AgentgresRuntimeStateStore {
   async invokeComputerUseNativeBrowserTool(threadId, toolId, request = {}) {
     const agent = this.agentForThread(threadId);
     const turnId =
-      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(request.turn_id) ??
       optionalString(this.threadForAgent(agent).latest_turn_id) ??
       "";
     const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      optionalString(request.workflow_node_id) ??
       "computer-use.native-browser";
     const workflowGraphId =
-      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+      optionalString(request.workflow_graph_id) ?? null;
     const toolCallId =
       optionalString(request.tool_call_id ?? request.toolCallId) ??
       `computer_use_native_browser_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
     const idempotencyKey =
-      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+      optionalString(request.idempotency_key) ??
       `thread:${threadId}:computer-use-native-browser:${toolCallId}`;
     const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
     const duplicateEvents = stream.events.filter((event) => (
@@ -2737,19 +2737,19 @@ export class AgentgresRuntimeStateStore {
   async invokeComputerUseVisualGuiTool(threadId, toolId, request = {}) {
     const agent = this.agentForThread(threadId);
     const turnId =
-      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(request.turn_id) ??
       optionalString(this.threadForAgent(agent).latest_turn_id) ??
       "";
     const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      optionalString(request.workflow_node_id) ??
       "computer-use.visual-gui";
     const workflowGraphId =
-      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+      optionalString(request.workflow_graph_id) ?? null;
     const toolCallId =
       optionalString(request.tool_call_id ?? request.toolCallId) ??
       `computer_use_visual_gui_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
     const idempotencyKey =
-      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+      optionalString(request.idempotency_key) ??
       `thread:${threadId}:computer-use-visual-gui:${toolCallId}`;
     const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
     const duplicateEvents = stream.events.filter((event) => (
@@ -2974,19 +2974,19 @@ export class AgentgresRuntimeStateStore {
   async invokeComputerUseSandboxedHostedTool(threadId, toolId, request = {}) {
     const agent = this.agentForThread(threadId);
     const turnId =
-      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(request.turn_id) ??
       optionalString(this.threadForAgent(agent).latest_turn_id) ??
       "";
     const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      optionalString(request.workflow_node_id) ??
       "computer-use.sandboxed-hosted";
     const workflowGraphId =
-      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+      optionalString(request.workflow_graph_id) ?? null;
     const toolCallId =
       optionalString(request.tool_call_id ?? request.toolCallId) ??
       `computer_use_sandboxed_hosted_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
     const idempotencyKey =
-      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+      optionalString(request.idempotency_key) ??
       `thread:${threadId}:computer-use-sandboxed-hosted:${toolCallId}`;
     const stream = this.runtimeEventStream(eventStreamIdForThread(threadId));
     const duplicateEvents = stream.events.filter((event) => (
@@ -3176,7 +3176,7 @@ export class AgentgresRuntimeStateStore {
       optionalString(request.tool_call_id ?? request.toolCallId) ??
       `computer_use_visual_gui_observe_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
     const idempotencyKey =
-      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+      optionalString(request.idempotency_key) ??
       `thread:${threadId}:computer-use-visual-gui-observe:${toolCallId}`;
     const localCapture = visualGuiLocalCaptureRequested(input)
       ? captureLocalVisualGuiObservation({
@@ -3206,14 +3206,9 @@ export class AgentgresRuntimeStateStore {
         ...request,
         input: sanitizedInput,
         tool_call_id: toolCallId,
-        toolCallId,
         idempotency_key: idempotencyKey,
-        idempotencyKey,
         workflow_node_id:
-          optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
-          "computer-use.visual-gui.observe",
-        workflowNodeId:
-          optionalString(request.workflowNodeId ?? request.workflow_node_id) ??
+          optionalString(request.workflow_node_id) ??
           "computer-use.visual-gui.observe",
       });
       const observationBroker = {

@@ -12893,6 +12893,14 @@ operator interrupt and steer events now consume canonical `workflow_graph_id`,
 `workflowGraphId`, `workflowNodeId`, and `idempotencyKey` fields no longer steer
 operator-control projection identity around the Rust-planned state-update bridge.
 
+Slice 459 completes computer-use tool identity alias retirement:
+computer-use browser discovery, control, native-browser, visual-gui,
+sandboxed-hosted, and visual-gui observe invocation paths now consume canonical
+`turn_id`, `workflow_graph_id`, `workflow_node_id`, and `idempotency_key` fields
+only; retired `turnId`, `workflowGraphId`, `workflowNodeId`, and
+`idempotencyKey` fields no longer steer computer-use harness event identity or
+duplicate detection before runtime projection.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
