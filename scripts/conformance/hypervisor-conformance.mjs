@@ -10639,6 +10639,9 @@ function runCompositor() {
       /const rawReviews = normalizeArray\(bridge_result\?\.workspace_change_reviews\)/.test(
         workspaceChangeInspection,
       ) &&
+      /bridge_result\?\.latest_trajectory\?\.workspace_changes/.test(
+        workspaceChangeInspection,
+      ) &&
       /change_id:\s*optionalString\(review\.change_id\)/.test(
         workspaceChangeInspection,
       ) &&
@@ -10661,6 +10664,10 @@ function runCompositor() {
       /Object\.hasOwn\(inspection\.hunk_previews\[0\],\s*"changeId"\),\s*false/.test(
         workspaceChangeInspectionTest,
       ) &&
+      /workspace change inspection ignores bridge top-level workspace change fallback/.test(
+        workspaceChangeInspectionTest,
+      ) &&
+      /inspection\.status,\s*"metadata_only"/.test(workspaceChangeInspectionTest) &&
       /workspace change control rejects retired request aliases/.test(
         workspaceChangeStateTest,
       ) &&
@@ -10676,6 +10683,7 @@ function runCompositor() {
       !/\b(?:bridge_result|review|change|hunk|publicReview)\?\.(?:workspaceChangeReviews|latestTrajectory|workspaceChanges|changeId|hunkCount|acceptAvailable|rejectAvailable|rollbackAvailable|staleReason|hunkIndex|searchText|replaceText|contentText|lineStart|lineEnd)\b/.test(
         workspaceChangeInspection,
       ) &&
+      !/bridge_result\?\.workspace_changes/.test(workspaceChangeInspection) &&
       !/^\s*(?:schemaVersion|threadId|sessionId|toolId|changeId|receiptRefs|bridgeResult)\s*:/m.test(
         workspaceChangeState,
       ) &&

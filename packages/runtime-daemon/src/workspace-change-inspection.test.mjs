@@ -7,7 +7,7 @@ test("workspace change inspection projects public hunk previews without receipt 
   const inspection = normalizeWorkspaceChangeReviewInspection({
     threadId: "thread_one",
     sessionId: "session_one",
-    agent: { runtimeProfile: "runtime_service" },
+    agent: { runtime_profile: "runtime_service" },
     bridge_result: {
       workspace_change_reviews: [
         {
@@ -61,11 +61,11 @@ test("workspace change inspection projects public hunk previews without receipt 
   assert.doesNotMatch(rendered, /evidence_should_not_project/);
 });
 
-test("workspace change inspection accepts bridge top-level workspace change fallback", () => {
+test("workspace change inspection ignores bridge top-level workspace change fallback", () => {
   const inspection = normalizeWorkspaceChangeReviewInspection({
     threadId: "thread_two",
     sessionId: "session_two",
-    agent: { runtimeProfile: "runtime_service" },
+    agent: { runtime_profile: "runtime_service" },
     bridge_result: {
       workspace_change_reviews: [
         {
@@ -94,9 +94,7 @@ test("workspace change inspection accepts bridge top-level workspace change fall
     },
   });
 
-  assert.equal(inspection.status, "ready");
-  assert.equal(inspection.hunk_previews.length, 1);
-  assert.equal(inspection.hunk_previews[0].rollback_available, true);
-  assert.match(inspection.hunk_previews[0].before, /toFixed/);
-  assert.match(inspection.hunk_previews[0].after, /'\$'/);
+  assert.equal(inspection.status, "metadata_only");
+  assert.equal(inspection.hunk_previews.length, 0);
+  assert.equal(inspection.workspace_change_reviews[0].rollback_available, true);
 });

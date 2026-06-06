@@ -21,7 +21,6 @@ export function normalizeWorkspaceChangeReviewInspection({
   const rawReviews = normalizeArray(bridge_result?.workspace_change_reviews);
   const rawChanges = normalizeArray(
     bridge_result?.latest_trajectory?.workspace_changes ??
-      bridge_result?.workspace_changes ??
       bridge_result?.trajectory?.workspace_changes,
   );
   const changesById = new Map(rawChanges.map((change) => [optionalString(change?.change_id), change]));

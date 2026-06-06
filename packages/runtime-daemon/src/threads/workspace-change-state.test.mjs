@@ -87,13 +87,15 @@ test("workspace change inspection calls runtime bridge and normalizes hunk previ
               accept_available: true,
             },
           ],
-          workspace_changes: [
-            {
-              change_id: "workspace_change:file:1",
-              path: "src/app.js",
-              hunks: [{ hunk_index: 0, search_text: "before", replace_text: "after" }],
-            },
-          ],
+          latest_trajectory: {
+            workspace_changes: [
+              {
+                change_id: "workspace_change:file:1",
+                path: "src/app.js",
+                hunks: [{ hunk_index: 0, search_text: "before", replace_text: "after" }],
+              },
+            ],
+          },
         };
       },
     },
