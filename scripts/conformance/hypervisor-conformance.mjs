@@ -629,6 +629,9 @@ function runBridge() {
   const runtimeCodingToolBudgetRecoverySurface = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs")
     : "";
+  const runtimeCodingToolBudgetRecovery = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs")
+    : "";
   const runtimeCodingToolBudgetRecoverySurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
     : "";
@@ -2070,6 +2073,42 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
     ],
     "Phase 9/10 is pending: coding-tool budget recovery retry state updates must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "coding-tool-budget-recovery-request-aliases-retired",
+    /optionalString\(request\.thread_id\)/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /optionalString\(request\.workflow_graph_id\)/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /optionalString\(request\.workflow_node_id\)/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /\.\.\.normalizeArray\(request\.receipt_refs\)/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /turn_id: turnId/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /workflow_graph_id: workflowGraphId/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /workflow_node_id: workflowNodeId/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /approval_manifest: approvalManifest/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /receipt_refs: receiptRefs/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /\.\.\.normalizeArray\(request\.target_node_ids\)/.test(runtimeCodingToolBudgetRecovery) &&
+      /optionalString\(request\.workflow_node_id\)/.test(runtimeCodingToolBudgetRecovery) &&
+      /budget recovery surface ignores retired request identity aliases/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /threadId: "thread_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /workflowGraphId: "graph_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /workflowNodeId: "node_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /targetNodeIds: \["node_target_retired"\]/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /receiptRefs: \["receipt_retired"\]/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /request\.receipt_refs\.includes\("receipt_retired"\), false/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      !/request\.(?:threadId|workflowNodeId|workflowGraphId|receiptRefs)\b/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      !/request\.(?:targetNodeIds|workflowNodeId)\b/.test(runtimeCodingToolBudgetRecovery),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool budget recovery requests must use canonical thread/workflow/target/receipt fields before approval and Rust state planning",
   );
   assertCheck(
     result,

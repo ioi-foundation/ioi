@@ -157,19 +157,19 @@ function createStore({ initialEvents = [createBlockedEvent()] } = {}) {
       const event = this.appendRuntimeEvent({
         event_stream_id: `${threadId}:events`,
         thread_id: threadId,
-        turn_id: request.turnId,
+        turn_id: request.turn_id,
         event_kind: "approval.required",
         status: "waiting_for_approval",
-        approval_id: request.approvalId,
+        approval_id: request.approval_id,
         payload: {
-          approval_id: request.approvalId,
-          approvalManifest: request.approvalManifest,
+          approval_id: request.approval_id,
+          approval_manifest: request.approval_manifest,
         },
         receipt_refs: ["receipt_approval_request"],
         policy_decision_refs: ["policy_approval_request"],
       });
       return {
-        approval_id: request.approvalId,
+        approval_id: request.approval_id,
         event_id: event.event_id,
         receipt_refs: event.receipt_refs,
         policy_decision_refs: event.policy_decision_refs,
@@ -181,7 +181,7 @@ function createStore({ initialEvents = [createBlockedEvent()] } = {}) {
       const event = this.appendRuntimeEvent({
         event_stream_id: `${threadId}:events`,
         thread_id: threadId,
-        turn_id: request.turnId,
+        turn_id: request.turn_id,
         event_kind: decisionKind,
         status: request.decision === "approve" ? "approved" : "rejected",
         approval_id: approvalId,
@@ -270,9 +270,59 @@ test("budget recovery surface requests approval with stable manifest and refs", 
   ]);
   const request = store.calls.find((call) => call.name === "requestThreadApproval").request;
   assert.equal(request.action, "workflow_run.coding_budget_recovery");
-  assert.equal(request.approvalManifest.schemaVersion, "ioi.workflow.coding-tool-budget-recovery.v1");
-  assert.equal(request.approvalManifest.recoveryPolicy.retryLimit, 1);
-  assert.equal(request.approvalManifest.workflowNodeId, "node_budget");
+  assert.equal(request.turn_id, "turn_alpha");
+  assert.equal(request.workflow_graph_id, "graph_alpha");
+  assert.equal(request.workflow_node_id, "node_budget");
+  assert.equal(request.approval_manifest.schemaVersion, "ioi.workflow.coding-tool-budget-recovery.v1");
+  assert.equal(request.approval_manifest.recoveryPolicy.retryLimit, 1);
+  assert.equal(request.approval_manifest.workflowNodeId, "node_budget");
+});
+
+test("budget recovery surface ignores retired request identity aliases", () => {
+  const surface = createSurface();
+  const store = createStore({
+    initialEvents: [
+      createBlockedEvent({
+        workflow_graph_id: null,
+        workflow_node_id: null,
+        receipt_refs: [],
+        policy_decision_refs: [],
+        payload_summary: {
+          reason: "workflow_run_coding_tool_budget_preflight_blocked",
+          approval_id: "approval_budget",
+          target_node_ids: [],
+          recovery_policy: {
+            retryLimit: 1,
+          },
+        },
+      }),
+    ],
+  });
+
+  const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
+    action: "request_approval",
+    threadId: "thread_retired",
+    workflowGraphId: "graph_retired",
+    workflowNodeId: "node_retired",
+    targetNodeIds: ["node_target_retired"],
+    receiptRefs: ["receipt_retired"],
+  });
+
+  assert.equal(result.status, "waiting_for_approval");
+  assert.equal(result.threadId, "thread_alpha");
+  assert.equal(result.workflowGraphId, null);
+  assert.equal(result.workflowNodeId, "runtime.coding-tool-budget-recovery");
+  assert.deepEqual(result.targetNodeIds, []);
+  assert.equal(result.receiptRefs.includes("receipt_retired"), false);
+  const request = store.calls.find((call) => call.name === "requestThreadApproval").request;
+  assert.equal(request.turn_id, "turn_alpha");
+  assert.equal(request.workflow_graph_id, null);
+  assert.equal(request.workflow_node_id, "runtime.coding-tool-budget-recovery");
+  assert.equal(request.receipt_refs.includes("receipt_retired"), false);
+  assert.equal(Object.hasOwn(request, "turnId"), false);
+  assert.equal(Object.hasOwn(request, "workflowGraphId"), false);
+  assert.equal(Object.hasOwn(request, "workflowNodeId"), false);
+  assert.equal(Object.hasOwn(request, "receiptRefs"), false);
 });
 
 test("budget recovery surface blocks retry until approval is requested and approved", () => {
@@ -407,7 +457,7 @@ test("budget recovery surface preserves the run/thread compatibility boundary", 
   const store = createStore();
 
   assert.throws(
-    () => surface.codingToolBudgetRecoveryForRun(store, "run_alpha", { threadId: "thread_other" }),
+    () => surface.codingToolBudgetRecoveryForRun(store, "run_alpha", { thread_id: "thread_other" }),
     (error) => error.status === 404 && error.details.threadId === "thread_other",
   );
 });

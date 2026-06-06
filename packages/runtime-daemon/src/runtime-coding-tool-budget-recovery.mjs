@@ -51,9 +51,9 @@ export function createCodingToolBudgetRecovery(deps = {}) {
 
   function codingToolBudgetRecoveryTargetNodeIds({ request = {}, blockedEvent = null, blockedPayload = {} }) {
     return uniqueStrings([
-      ...normalizeArray(request.target_node_ids ?? request.targetNodeIds),
+      ...normalizeArray(request.target_node_ids),
       ...normalizeArray(blockedPayload.target_node_ids ?? blockedPayload.targetNodeIds),
-      optionalString(request.workflow_node_id ?? request.workflowNodeId),
+      optionalString(request.workflow_node_id),
       optionalString(blockedEvent?.workflow_node_id),
       optionalString(blockedPayload.workflow_node_id ?? blockedPayload.workflowNodeId),
     ]);

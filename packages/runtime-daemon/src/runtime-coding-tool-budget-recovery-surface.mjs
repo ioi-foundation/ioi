@@ -119,7 +119,7 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
     const agent = store.getAgent(run.agentId);
     const expectedThreadId = threadIdForAgent(agent.id);
     const threadId =
-      optionalString(request.thread_id ?? request.threadId) ??
+      optionalString(request.thread_id) ??
       expectedThreadId;
     if (threadId !== expectedThreadId) {
       throw notFound(`Run not found for thread: ${runId}`, { runId, threadId });
@@ -146,16 +146,16 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
       optionalString(blockedPayload.approval_id ?? blockedPayload.approvalId) ??
       `approval_workflow_run_coding_tool_budget_${safeId(run.id)}_${safeId(sourceEventId ?? "source")}`;
     const workflowGraphId =
-      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ??
+      optionalString(request.workflow_graph_id) ??
       optionalString(blockedEvent?.workflow_graph_id ?? blockedPayload.workflow_graph_id ?? blockedPayload.workflowGraphId) ??
       null;
     const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      optionalString(request.workflow_node_id) ??
       optionalString(blockedEvent?.workflow_node_id ?? blockedPayload.workflow_node_id ?? blockedPayload.workflowNodeId) ??
       targetNodeIds[0] ??
       "runtime.coding-tool-budget-recovery";
     const receiptRefs = uniqueStrings([
-      ...normalizeArray(request.receipt_refs ?? request.receiptRefs),
+      ...normalizeArray(request.receipt_refs),
       ...normalizeArray(blockedEvent?.receipt_refs),
       `receipt_${run.id}_coding_tool_budget_recovery_${safeId(action)}_${safeId(approvalId)}`,
     ]);
@@ -193,23 +193,22 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
 
     if (action === "request_approval") {
       const approval = store.requestThreadApproval(threadId, {
-        ...request,
         source,
         actor,
-        turnId,
-        workflowGraphId,
-        workflowNodeId,
+        turn_id: turnId,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
         action: "workflow_run.coding_budget_recovery",
         reason: WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
         scope: "coding_tool_budget_recovery",
-        approvalId,
-        toolId: "coding_tool",
-        effectClass: "coding_tool_budget_recovery",
-        riskDomain: "runtime_coding_tool_budget",
-        authorityScopeRequirements: ["workflow.run.coding_tool_budget_recovery"],
-        approvalManifest,
-        receiptRefs,
-        policyDecisionRefs,
+        approval_id: approvalId,
+        tool_id: "coding_tool",
+        effect_class: "coding_tool_budget_recovery",
+        risk_domain: "runtime_coding_tool_budget",
+        authority_scope_requirements: ["workflow.run.coding_tool_budget_recovery"],
+        approval_manifest: approvalManifest,
+        receipt_refs: receiptRefs,
+        policy_decision_refs: policyDecisionRefs,
       });
       const approvalEvent = store.latestApprovalRequestEvent(threadId, approval.approval_id);
       return codingToolBudgetRecoveryResult({
@@ -237,14 +236,13 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
     if (action === "approve_override" || action === "reject_override") {
       const decision = action === "approve_override" ? "approve" : "reject";
       const decisionResult = store.decideThreadApproval(threadId, approvalId, {
-        ...request,
         source,
         actor,
-        turnId,
+        turn_id: turnId,
         decision,
         reason: WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
-        workflowGraphId,
-        workflowNodeId,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
       });
       const decisionEvent = store.latestApprovalDecisionEvent(threadId, approvalId);
       return codingToolBudgetRecoveryResult({

@@ -12799,6 +12799,14 @@ Rust-live coding-tool invocation now consumes canonical `turn_id`,
 StepModule context, workflow projection identity, or runtime event identity
 before the Rust workload command bridge executes the admitted tool.
 
+Slice 444 removes coding-tool budget recovery request aliases:
+coding-tool budget recovery now consumes canonical `thread_id`,
+`workflow_graph_id`, `workflow_node_id`, `target_node_ids`, and `receipt_refs`
+request fields only, and forwards canonical approval handoff fields before Rust
+policy-core state-update planning; retired camelCase request aliases no longer
+steer thread selection, target-node recovery policy, receipt binding, workflow
+identity, or approval-gate identity.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
