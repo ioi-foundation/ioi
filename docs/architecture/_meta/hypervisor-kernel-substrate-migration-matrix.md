@@ -12572,6 +12572,13 @@ the MCP manager validation helper now emits canonical snake_case validation
 metadata only; duplicate camelCase facade fields such as `schemaVersion` and
 issue/warning `serverId` are retired from validation output.
 
+Slice 414 removes MCP manager registry output aliases:
+the MCP manager registry envelope, normalized server records, vault-boundary
+metadata, and shared registry projection helper now emit canonical snake_case
+fields only; duplicate camelCase facade fields such as `schemaVersion`,
+`workspaceRoot`, `serverCount`, `serverUrl`, `sourceScope`, `allowedTools`,
+`vaultBoundary`, and `evidenceRefs` are retired from manager registry output.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

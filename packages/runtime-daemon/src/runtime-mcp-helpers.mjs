@@ -279,13 +279,9 @@ export function mcpRegistryWithServers(registry = {}, servers = []) {
   return {
     ...registry,
     server_count: normalizedServers.length,
-    serverCount: normalizedServers.length,
     tool_count: tools.length,
-    toolCount: tools.length,
     resource_count: resources.length,
-    resourceCount: resources.length,
     prompt_count: prompts.length,
-    promptCount: prompts.length,
     servers: normalizedServers,
     tools,
     resources,

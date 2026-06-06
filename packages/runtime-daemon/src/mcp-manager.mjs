@@ -70,21 +70,20 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
   const normalizedServers = [...byId.values()].sort((left, right) =>
     left.id.localeCompare(right.id),
   );
+  const tools = mcpToolsForServers(normalizedServers);
+  const resources = mcpResourcesForServers(normalizedServers);
+  const prompts = mcpPromptsForServers(normalizedServers);
   return {
-    schemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
     schema_version: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-    workspaceRoot,
     workspace_root: workspaceRoot,
-    serverCount: normalizedServers.length,
     server_count: normalizedServers.length,
     servers: normalizedServers,
-    tools: mcpToolsForServers(normalizedServers),
-    resources: mcpResourcesForServers(normalizedServers),
-    resourceCount: mcpResourcesForServers(normalizedServers).length,
-    resource_count: mcpResourcesForServers(normalizedServers).length,
-    prompts: mcpPromptsForServers(normalizedServers),
-    promptCount: mcpPromptsForServers(normalizedServers).length,
-    prompt_count: mcpPromptsForServers(normalizedServers).length,
+    tools,
+    tool_count: tools.length,
+    resources,
+    resource_count: resources.length,
+    prompts,
+    prompt_count: prompts.length,
   };
 }
 
@@ -158,7 +157,6 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
   );
   const record = {
     schema_version: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
     id,
     label: name,
     name,
@@ -168,24 +166,14 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
     command: optionalString(config.command) ?? null,
     args: Array.isArray(config.args) ? config.args.map(String) : [],
     server_url: serverUrl ?? null,
-    serverUrl: serverUrl ?? null,
     endpoint: serverUrl ?? null,
     header_names: Object.keys(headers).sort(),
-    headerNames: Object.keys(headers).sort(),
     header_secret_refs: headerSecretRefs,
-    headerSecretRefs,
     env_secret_refs: envSecretRefs,
-    envSecretRefs,
     source: optionalString(config.source) ?? context.source ?? "mcp.json",
     source_path:
       optionalString(config.sourcePath ?? config.source_path) ?? context.sourcePath ?? null,
-    sourcePath:
-      optionalString(config.sourcePath ?? config.source_path) ?? context.sourcePath ?? null,
     source_scope:
-      optionalString(config.sourceScope ?? config.source_scope) ??
-      optionalString(context.sourceScope ?? context.source_scope) ??
-      "workspace",
-    sourceScope:
       optionalString(config.sourceScope ?? config.source_scope) ??
       optionalString(context.sourceScope ?? context.source_scope) ??
       "workspace",
@@ -193,22 +181,13 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
       optionalString(config.configCompatibility ?? config.config_compatibility) ??
       optionalString(context.configCompatibility ?? context.config_compatibility) ??
       null,
-    configCompatibility:
-      optionalString(config.configCompatibility ?? config.config_compatibility) ??
-      optionalString(context.configCompatibility ?? context.config_compatibility) ??
-      null,
     workspace_root: context.workspaceRoot ?? null,
-    workspaceRoot: context.workspaceRoot ?? null,
     allowed_tools: declaredTools,
-    allowedTools: declaredTools,
     tool_count: declaredTools.length,
-    toolCount: declaredTools.length,
     resources: declaredResources,
     resource_count: declaredResources.length,
-    resourceCount: declaredResources.length,
     prompts: declaredPrompts,
     prompt_count: declaredPrompts.length,
-    promptCount: declaredPrompts.length,
     containment: {
       mode:
         optionalString(config.containmentMode ?? config.containment_mode ?? config.containment?.mode) ??
@@ -228,24 +207,12 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
       workspace_root: context.workspaceRoot ?? null,
     },
     secret_refs: secretRefs,
-    secretRefs,
     vault_boundary: {
       required: Object.keys(secretRefs).length > 0,
       header_ref_count: Object.keys(headerSecretRefs).length,
-      headerRefCount: Object.keys(headerSecretRefs).length,
       env_ref_count: Object.keys(envSecretRefs).length,
-      envRefCount: Object.keys(envSecretRefs).length,
       secret_values_included: false,
-      secretValuesIncluded: false,
       runtime_resolution: "execution_time_only",
-      runtimeResolution: "execution_time_only",
-    },
-    vaultBoundary: {
-      required: Object.keys(secretRefs).length > 0,
-      headerRefCount: Object.keys(headerSecretRefs).length,
-      envRefCount: Object.keys(envSecretRefs).length,
-      secretValuesIncluded: false,
-      runtimeResolution: "execution_time_only",
     },
     health: {
       status: config.status === "connected" ? "connected" : "not_connected",
@@ -253,14 +220,6 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
       reason: "read_only_catalog_status",
     },
     evidence_refs: uniqueStrings([
-      "mcp.manager.catalog",
-      context.source,
-      context.sourcePath,
-      context.sourceScope,
-      context.configCompatibility,
-      id,
-    ]),
-    evidenceRefs: uniqueStrings([
       "mcp.manager.catalog",
       context.source,
       context.sourcePath,

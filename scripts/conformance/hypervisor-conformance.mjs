@@ -7554,6 +7554,10 @@ function runCompositor() {
   const runtimeMcpHelpersTest = exists("packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs")
     : "";
+  const runtimeMcpRegistryWithServersBlock =
+    runtimeMcpHelpers.match(
+      /export function mcpRegistryWithServers\(registry = \{\}, servers = \[\]\) \{[\s\S]*?\n}\n\nexport function mcpConfigSourceModeForRequest/,
+    )?.[0] ?? "";
   const runtimeMcpManager = exists("packages/runtime-daemon/src/mcp-manager.mjs")
     ? read("packages/runtime-daemon/src/mcp-manager.mjs")
     : "";
@@ -7563,6 +7567,14 @@ function runCompositor() {
   const runtimeMcpManagerValidationBlock =
     runtimeMcpManager.match(
       /export function validateMcpServerRecords\(servers = \[\]\) \{[\s\S]*?\n}\n\nexport async function discoverMcpStdioCatalog/,
+    )?.[0] ?? "";
+  const runtimeMcpManagerRegistryBlock =
+    runtimeMcpManager.match(
+      /export function mcpRegistryForWorkspace\(cwd, options = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpServerRecordsFromValidationInput/,
+    )?.[0] ?? "";
+  const runtimeMcpManagerServerRecordBlock =
+    runtimeMcpManager.match(
+      /export function normalizeMcpServerRecord\(label, config = \{\}, context = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpToolsForServers/,
     )?.[0] ?? "";
   const runtimeMcpCatalogSurface = exists("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
@@ -10640,6 +10652,46 @@ function runCompositor() {
       "packages/runtime-daemon/src/mcp-manager.test.mjs",
     ],
     "Phase 10/11 is pending: MCP manager validation output must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-manager-registry-output-aliases-retired",
+    /schema_version:\s*RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION/.test(runtimeMcpManagerRegistryBlock) &&
+      /workspace_root:\s*workspaceRoot/.test(runtimeMcpManagerRegistryBlock) &&
+      /server_count:\s*normalizedServers\.length/.test(runtimeMcpManagerRegistryBlock) &&
+      /tool_count:\s*tools\.length/.test(runtimeMcpManagerRegistryBlock) &&
+      /source_scope:/.test(runtimeMcpManagerServerRecordBlock) &&
+      /allowed_tools:\s*declaredTools/.test(runtimeMcpManagerServerRecordBlock) &&
+      /vault_boundary:\s*\{/.test(runtimeMcpManagerServerRecordBlock) &&
+      /header_ref_count:\s*Object\.keys\(headerSecretRefs\)\.length/.test(
+        runtimeMcpManagerServerRecordBlock,
+      ) &&
+      /server_count:\s*normalizedServers\.length/.test(runtimeMcpRegistryWithServersBlock) &&
+      /tool_count:\s*tools\.length/.test(runtimeMcpRegistryWithServersBlock) &&
+      /Object\.hasOwn\(registry,\s*"schemaVersion"\),\s*false/.test(runtimeMcpManagerTest) &&
+      /Object\.hasOwn\(server,\s*"schemaVersion"\),\s*false/.test(runtimeMcpManagerTest) &&
+      /Object\.hasOwn\(server,\s*"vaultBoundary"\),\s*false/.test(runtimeMcpManagerTest) &&
+      /Object\.hasOwn\(record,\s*"sourceScope"\),\s*false/.test(runtimeMcpHelpersTest) &&
+      /Object\.hasOwn\(registry,\s*"serverCount"\),\s*false/.test(runtimeMcpHelpersTest) &&
+      !/^\s*(?:schemaVersion|workspaceRoot|serverCount|resourceCount|promptCount)\s*:/m.test(
+        runtimeMcpManagerRegistryBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|serverUrl|headerNames|headerSecretRefs|envSecretRefs|sourcePath|sourceScope|configCompatibility|workspaceRoot|allowedTools|toolCount|resourceCount|promptCount|secretRefs|vaultBoundary|evidenceRefs)\s*:/m.test(
+        runtimeMcpManagerServerRecordBlock,
+      ) &&
+      !/^\s*(?:headerRefCount|envRefCount|secretValuesIncluded|runtimeResolution)\s*:/m.test(
+        runtimeMcpManagerServerRecordBlock,
+      ) &&
+      !/^\s*(?:serverCount|toolCount|resourceCount|promptCount)\s*:/m.test(
+        runtimeMcpRegistryWithServersBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/mcp-manager.mjs",
+      "packages/runtime-daemon/src/mcp-manager.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP manager registry/server projections must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

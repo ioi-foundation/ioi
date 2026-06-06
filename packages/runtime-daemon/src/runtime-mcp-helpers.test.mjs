@@ -187,8 +187,15 @@ test("runtime MCP helpers normalize mutation inputs and registry projections", (
     },
   }, "/workspace");
   assert.equal(record.label, "Docs");
-  assert.equal(record.sourceScope, "thread");
+  assert.equal(record.source_scope, "thread");
   assert.equal(record.status, "configured");
+  assert.equal(Object.hasOwn(record, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(record, "serverUrl"), false);
+  assert.equal(Object.hasOwn(record, "sourceScope"), false);
+  assert.equal(Object.hasOwn(record, "allowedTools"), false);
+  assert.equal(Object.hasOwn(record, "evidenceRefs"), false);
+  assert.equal(Object.hasOwn(record, "vaultBoundary"), false);
+  assert.equal(Object.hasOwn(record.vault_boundary, "headerRefCount"), false);
 
   const records = mcpServerRecordsFromMutationInput({
     config_source: "workspace",
@@ -262,8 +269,10 @@ test("runtime MCP helpers normalize mutation inputs and registry projections", (
   assert.equal(retiredServer.command, null);
 
   const registry = mcpRegistryWithServers({}, [record]);
-  assert.equal(registry.serverCount, 1);
-  assert.equal(registry.toolCount, 1);
+  assert.equal(registry.server_count, 1);
+  assert.equal(registry.tool_count, 1);
+  assert.equal(Object.hasOwn(registry, "serverCount"), false);
+  assert.equal(Object.hasOwn(registry, "toolCount"), false);
   assert.equal(
     mcpConfigSourceModeForRequest({
       config_source_mode: "global-only",
