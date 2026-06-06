@@ -12814,6 +12814,14 @@ canonical `turn_id`, `workflow_graph_id`, `workflow_node_id`, `thread_id`, and
 `workflowNodeId`, `threadId`, and `eventKind` fields no longer steer Rust policy
 planning, compaction event identity, or compaction policy event classification.
 
+Slice 446 removes workflow edit request aliases:
+workflow edit proposal/apply paths now consume canonical `turn_id`,
+`workflow_graph_id`, `workflow_node_id`, `target_workflow_node_ids`,
+`bounded_targets`, and `receipt_refs` request fields only, and forward canonical
+approval handoff fields; retired camelCase request aliases no longer steer
+workflow edit proposal identity, target-node scope, receipt binding, approval
+identity, or apply-event projection identity.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

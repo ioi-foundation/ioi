@@ -71,20 +71,19 @@ function createStore() {
       const event = this.appendRuntimeEvent({
         event_stream_id: `${threadId}:events`,
         thread_id: threadId,
-        turn_id: request.turnId,
+        turn_id: request.turn_id,
         event_kind: "approval.required",
         status: "waiting_for_approval",
-        approval_id: request.approvalId,
+        approval_id: request.approval_id,
         payload: {
-          approval_id: request.approvalId,
-          approval_manifest: request.approvalManifest,
-          approvalManifest: request.approvalManifest,
+          approval_id: request.approval_id,
+          approval_manifest: request.approval_manifest,
         },
         receipt_refs: ["receipt_approval_required"],
-        policy_decision_refs: request.policyDecisionRefs ?? [],
+        policy_decision_refs: request.policy_decision_refs ?? [],
       });
       return {
-        approval_id: request.approvalId,
+        approval_id: request.approval_id,
         event_id: event.event_id,
         receipt_refs: event.receipt_refs,
         policy_decision_refs: event.policy_decision_refs,
@@ -145,9 +144,9 @@ test("workflow-edit surface proposes workflow edits with approval manifest alias
     summary: "Update workflow step",
     workflowPath: "workflows/demo.json",
     workflowPatch: { nodes: [{ id: "node_1" }] },
-    targetWorkflowNodeIds: ["node_1"],
-    boundedTargets: ["node_2", "node_1"],
-    receiptRefs: ["receipt_request"],
+    target_workflow_node_ids: ["node_1"],
+    bounded_targets: ["node_2", "node_1"],
+    receipt_refs: ["receipt_request"],
     policyDecisionRefs: ["policy_request"],
   });
   const proposalEvent = store.events[0];
@@ -170,10 +169,52 @@ test("workflow-edit surface proposes workflow edits with approval manifest alias
   assert.equal(proposalEvent.payload_summary.session_id, "session_alpha");
   assert.deepEqual(proposalEvent.payload_summary.targetWorkflowNodeIds, ["node_1", "node_2"]);
   assert.equal(approvalRequest.action, "workflow.edit.apply");
-  assert.equal(approvalRequest.approvalManifest.proposalId, "proposal_one");
-  assert.equal(approvalRequest.approvalManifest.mutationAllowed, false);
-  assert.deepEqual(approvalRequest.authorityScopeRequirements, ["workflow.edit.apply"]);
+  assert.equal(approvalRequest.approval_manifest.proposalId, "proposal_one");
+  assert.equal(approvalRequest.approval_manifest.mutationAllowed, false);
+  assert.deepEqual(approvalRequest.authority_scope_requirements, ["workflow.edit.apply"]);
   assert.equal(surface.latestWorkflowEditProposalEvent(store, "thread_alpha", "proposal_one"), proposalEvent);
+});
+
+test("workflow-edit surface ignores retired request identity aliases", () => {
+  const store = createStore();
+  const surface = createSurface();
+
+  const proposal = surface.proposeWorkflowEdit(store, "thread_alpha", {
+    proposal_id: "proposal_retired_aliases",
+    approval_id: "approval_retired_aliases",
+    workflowPath: "workflows/retired.json",
+    workflowPatch: { ok: true },
+    turnId: "turn_retired",
+    workflowGraphId: "graph_retired",
+    workflowNodeId: "node_retired",
+    targetWorkflowNodeIds: ["node_target_retired"],
+    boundedTargets: ["node_bound_retired"],
+    receiptRefs: ["receipt_retired"],
+  });
+  const proposalEvent = store.events[0];
+  const approvalRequest = store.calls[0].request;
+
+  assert.equal(proposalEvent.turn_id, "turn_alpha");
+  assert.equal(proposalEvent.workflow_graph_id, null);
+  assert.equal(proposalEvent.workflow_node_id, "runtime.workflow-edit-proposal.proposal_retired_aliases");
+  assert.deepEqual(proposalEvent.payload_summary.target_workflow_node_ids, []);
+  assert.equal(proposal.receipt_refs.includes("receipt_retired"), false);
+  assert.equal(approvalRequest.turn_id, "turn_alpha");
+  assert.equal(approvalRequest.workflow_graph_id, null);
+  assert.equal(approvalRequest.workflow_node_id, "runtime.workflow-edit-proposal.proposal_retired_aliases");
+  assert.equal(approvalRequest.receipt_refs.includes("receipt_retired"), false);
+  for (const field of ["turnId", "workflowGraphId", "workflowNodeId", "receiptRefs"]) {
+    assert.equal(Object.hasOwn(approvalRequest, field), false);
+  }
+
+  store.approve(proposal.approval_id);
+  const applied = surface.applyWorkflowEditProposal(store, "thread_alpha", proposal.proposal_id, {
+    workflowGraphId: "graph_apply_retired",
+    workflowNodeId: "node_apply_retired",
+  });
+
+  assert.equal(applied.event.workflow_graph_id, null);
+  assert.equal(applied.event.workflow_node_id, "runtime.workflow-edit-proposal.proposal_retired_aliases");
 });
 
 test("workflow-edit surface blocks apply until proposal approval is satisfied", () => {

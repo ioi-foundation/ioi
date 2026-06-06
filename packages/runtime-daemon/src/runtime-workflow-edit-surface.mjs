@@ -35,7 +35,7 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
   function workflowEditThreadContext(store, threadId, request = {}) {
     const agent = store.agentForThread(threadId);
     const runs = store.listRuns(agent.id);
-    const requestedTurnId = optionalString(request.turn_id ?? request.turnId);
+    const requestedTurnId = optionalString(request.turn_id);
     let turnId = requestedTurnId ?? "";
     let run = null;
     if (turnId) {
@@ -68,11 +68,11 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     const { agent, run, turnId } = workflowEditThreadContext(store, threadId, request);
     const source = operatorControlSource(request.source);
     const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "workflow-author";
-    const workflowGraphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const workflowGraphId = optionalString(request.workflow_graph_id) ?? null;
     const targetWorkflowNodeIds = uniqueStrings(
       [
-        ...normalizeArray(request.target_workflow_node_ids ?? request.targetWorkflowNodeIds),
-        ...normalizeArray(request.bounded_targets ?? request.boundedTargets),
+        ...normalizeArray(request.target_workflow_node_ids),
+        ...normalizeArray(request.bounded_targets),
       ]
         .map((value) => optionalString(value))
         .filter(Boolean),
@@ -112,7 +112,7 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       optionalString(request.approval_id ?? request.approvalId) ??
       `approval_workflow_edit_${safeId(proposalId)}`;
     const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      optionalString(request.workflow_node_id) ??
       `runtime.workflow-edit-proposal.${safeId(proposalId)}`;
     const patchHash = doctorHash(
       JSON.stringify({
@@ -158,7 +158,7 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       authority_scope_requirements: ["workflow.edit.apply"],
     };
     const receiptRefs = uniqueStrings([
-      ...normalizeArray(request.receipt_refs ?? request.receiptRefs),
+      ...normalizeArray(request.receipt_refs),
       `receipt_${runOrAgentId}_workflow_edit_proposed_${safeId(proposalId)}`,
     ]);
     const policyDecisionRefs = uniqueStrings([
@@ -243,23 +243,22 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       fixture_profile: fixtureProfileForAgent(agent),
     });
     const approval = store.requestThreadApproval(threadId, {
-      ...request,
       source,
-      turnId,
-      workflowGraphId,
-      workflowNodeId,
+      turn_id: turnId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
       action: "workflow.edit.apply",
       actor: "runtime",
       reason: `Workflow edit proposal ${proposalId} requires approval before apply.`,
       scope: "workflow_edit_proposal",
-      approvalId,
-      toolId: "workflow.edit.apply",
-      effectClass: "workflow_mutation",
-      riskDomain: "workflow_graph",
-      authorityScopeRequirements: ["workflow.edit.apply"],
-      approvalManifest,
-      receiptRefs,
-      policyDecisionRefs: [`policy_${runOrAgentId}_workflow_edit_approval_required`],
+      approval_id: approvalId,
+      tool_id: "workflow.edit.apply",
+      effect_class: "workflow_mutation",
+      risk_domain: "workflow_graph",
+      authority_scope_requirements: ["workflow.edit.apply"],
+      approval_manifest: approvalManifest,
+      receipt_refs: receiptRefs,
+      policy_decision_refs: [`policy_${runOrAgentId}_workflow_edit_approval_required`],
     });
     const approvalEvent = store.latestApprovalRequestEvent(threadId, approval.approval_id);
     return {
@@ -456,10 +455,11 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     const source = operatorControlSource(request.source);
     const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "workflow-author";
     const workflowGraphId =
-      optionalString(request.workflow_graph_id ?? request.workflowGraphId) ??
-      optionalString(proposalEvent.workflow_graph_id);
+      optionalString(request.workflow_graph_id) ??
+      optionalString(proposalEvent.workflow_graph_id) ??
+      null;
     const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      optionalString(request.workflow_node_id) ??
       optionalString(proposalEvent.workflow_node_id) ??
       `runtime.workflow-edit-proposal.${safeId(normalizedProposalId)}`;
     const workflowPath = optionalString(proposalPayload.workflow_path ?? proposalPayload.workflowPath);

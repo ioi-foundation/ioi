@@ -647,6 +647,12 @@ function runBridge() {
   const runtimeContextPolicySurfaceTest = exists("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs")
     : "";
+  const runtimeWorkflowEditSurface = exists("packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs")
+    : "";
+  const runtimeWorkflowEditSurfaceTest = exists("packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs")
+    : "";
   const codingTools = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
     : "";
@@ -2697,6 +2703,52 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
     ],
     "Phase 10/11 is pending: context policy and compaction requests must ignore retired JS facade identity/event aliases before Rust policy planning",
+  );
+  assertCheck(
+    result,
+    "workflow-edit-request-aliases-retired",
+    /const requestedTurnId = optionalString\(request\.turn_id\);/.test(
+      runtimeWorkflowEditSurface,
+    ) &&
+      /const workflowGraphId = optionalString\(request\.workflow_graph_id\) \?\? null/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      /\.\.\.normalizeArray\(request\.target_workflow_node_ids\)/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      /\.\.\.normalizeArray\(request\.bounded_targets\)/.test(runtimeWorkflowEditSurface) &&
+      /optionalString\(request\.workflow_node_id\) \?\?/.test(runtimeWorkflowEditSurface) &&
+      /\.\.\.normalizeArray\(request\.receipt_refs\)/.test(runtimeWorkflowEditSurface) &&
+      /turn_id: turnId/.test(runtimeWorkflowEditSurface) &&
+      /workflow_graph_id: workflowGraphId/.test(runtimeWorkflowEditSurface) &&
+      /workflow_node_id: workflowNodeId/.test(runtimeWorkflowEditSurface) &&
+      /approval_manifest: approvalManifest/.test(runtimeWorkflowEditSurface) &&
+      /receipt_refs: receiptRefs/.test(runtimeWorkflowEditSurface) &&
+      /workflow-edit surface ignores retired request identity aliases/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /turnId: "turn_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
+      /workflowGraphId: "graph_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
+      /workflowNodeId: "node_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
+      /targetWorkflowNodeIds: \["node_target_retired"\]/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /boundedTargets: \["node_bound_retired"\]/.test(runtimeWorkflowEditSurfaceTest) &&
+      /receiptRefs: \["receipt_retired"\]/.test(runtimeWorkflowEditSurfaceTest) &&
+      /approvalRequest\.receipt_refs\.includes\("receipt_retired"\), false/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId|receiptRefs|targetWorkflowNodeIds|boundedTargets)\b/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|receipt_refs|target_workflow_node_ids|bounded_targets)\s*\?\?\s*request\./.test(
+        runtimeWorkflowEditSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: workflow edit proposal/apply paths must use canonical request identity, target, and receipt fields before approval and projection handling",
   );
   assertCheck(
     result,
