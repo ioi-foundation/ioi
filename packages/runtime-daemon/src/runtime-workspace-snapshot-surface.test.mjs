@@ -117,8 +117,8 @@ function createSurface() {
       });
     },
     captureSnapshotFiles(request = {}) {
-      const draftsByPath = new Map((request.contentDrafts ?? []).map((draft) => [draft.path, draft]));
-      const captures = (request.changedFiles ?? [])
+      const draftsByPath = new Map((request.content_drafts ?? []).map((draft) => [draft.path, draft]));
+      const captures = (request.changed_files ?? [])
         .filter((entry) => entry.path)
         .map((entry) => snapshotCapture(entry, draftsByPath.get(entry.path) ?? {}));
       const capturedFileCount = captures.filter((capture) => capture.contentCaptured).length;

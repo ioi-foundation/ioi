@@ -340,25 +340,25 @@ test("workspace restore runner sends snapshot capture bridge request", () => {
   });
 
   const capture = runner.captureSnapshotFiles({
-    changedFiles: [
+    changed_files: [
       {
         path: "src/app.js",
-        beforeHash: "sha256-old",
-        afterHash: "sha256-new",
-        beforeExists: true,
-        afterExists: true,
-        beforeSizeBytes: 3,
-        afterSizeBytes: 3,
+        before_hash: "sha256-old",
+        after_hash: "sha256-new",
+        before_exists: true,
+        after_exists: true,
+        before_size_bytes: 3,
+        after_size_bytes: 3,
       },
     ],
-    workspaceSnapshotDrafts: [
+    content_drafts: [
       {
         path: "src/app.js",
-        beforeContent: "old",
-        afterContent: "new",
+        before_content: "old",
+        after_content: "new",
       },
     ],
-    maxContentBytes: 262144,
+    max_content_bytes: 262144,
   });
 
   assert.equal(calls[0].bridgeRequest.operation, "capture_workspace_snapshot_files");
@@ -506,6 +506,77 @@ test("workspace restore runner ignores retired result reader aliases", () => {
   assert.equal(capture.files[0].before.omitted_reason, null);
   assert.deepEqual(capture.files[0].receipt_refs, []);
   assert.deepEqual(capture.files[0].artifact_refs, []);
+});
+
+test("workspace restore runner ignores retired request aliases", () => {
+  const calls = [];
+  const runner = new RustWorkspaceRestoreRunner({
+    command: "mock-workspace-restore-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      const bridgeRequest = JSON.parse(options.input);
+      calls.push(bridgeRequest);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_workspace_snapshot_capture_command",
+            backend: "rust_workspace_restore",
+            files: [],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  runner.captureSnapshotFiles({
+    changedFiles: [
+      {
+        path: "src/app.js",
+        beforeHash: "sha256-old",
+        afterHash: "sha256-new",
+        beforeExists: true,
+        afterExists: true,
+        beforeSizeBytes: 3,
+        afterSizeBytes: 3,
+      },
+    ],
+    workspaceSnapshotDrafts: [
+      {
+        path: "src/app.js",
+        beforeContent: "old",
+        afterContent: "new",
+      },
+    ],
+    contentDrafts: [{ path: "src/other.js", beforeContent: "old", afterContent: "new" }],
+    maxContentBytes: 262144,
+  });
+
+  assert.deepEqual(calls[0].request.changed_files, []);
+  assert.deepEqual(calls[0].request.content_drafts, []);
+  assert.equal(calls[0].request.max_content_bytes, undefined);
+
+  runner.applyOperations({
+    workspace_root: "/workspace",
+    files: [
+      {
+        path: "src/app.js",
+        before: {
+          exists: true,
+          contentHash: "sha256-old",
+          content: "old",
+        },
+        after: {
+          exists: true,
+          contentHash: "sha256-new",
+        },
+      },
+    ],
+  });
+
+  assert.equal(calls[1].request.files[0].before.content_hash, null);
+  assert.equal(calls[1].request.files[0].after.content_hash, null);
 });
 
 test("workspace restore runner can be configured from env", () => {

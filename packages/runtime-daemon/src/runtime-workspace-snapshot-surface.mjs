@@ -690,9 +690,9 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       });
     }
     return workspaceRestoreRunner.captureSnapshotFiles({
-      changedFiles: normalizeArray(changedFiles),
-      contentDrafts: normalizeArray(contentDrafts),
-      maxContentBytes: WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
+      changed_files: normalizeArray(changedFiles),
+      content_drafts: normalizeArray(contentDrafts),
+      max_content_bytes: WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
     });
   }
 

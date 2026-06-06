@@ -80,11 +80,9 @@ export class RustWorkspaceRestoreRunner {
       backend: RUST_WORKSPACE_RESTORE_BACKEND,
       request: {
         schema_version: WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
-        changed_files: normalizeSnapshotChangedFilesForBridge(request?.changed_files ?? request?.changedFiles),
-        content_drafts: normalizeSnapshotContentDraftsForBridge(
-          request?.content_drafts ?? request?.contentDrafts ?? request?.workspace_snapshot_drafts ?? request?.workspaceSnapshotDrafts,
-        ),
-        max_content_bytes: Number(request?.max_content_bytes ?? request?.maxContentBytes ?? 0) || undefined,
+        changed_files: normalizeSnapshotChangedFilesForBridge(request?.changed_files),
+        content_drafts: normalizeSnapshotContentDraftsForBridge(request?.content_drafts),
+        max_content_bytes: Number(request?.max_content_bytes ?? 0) || undefined,
       },
     };
     return normalizeWorkspaceSnapshotCaptureBridgeResult(this.invokeBridge(bridgeRequest));
@@ -232,16 +230,14 @@ function normalizeSnapshotChangedFilesForBridge(value) {
     .map((entry) => ({
       path: optionalString(entry.path) ?? "",
       created: Boolean(entry.created),
-      before_hash: optionalString(entry.before_hash ?? entry.beforeHash),
-      after_hash: optionalString(entry.after_hash ?? entry.afterHash),
-      before_exists: Boolean(entry.before_exists ?? entry.beforeExists),
-      after_exists: Object.hasOwn(entry, "after_exists") || Object.hasOwn(entry, "afterExists")
-        ? Boolean(entry.after_exists ?? entry.afterExists)
-        : undefined,
-      before_size_bytes: finiteNumber(entry.before_size_bytes ?? entry.beforeSizeBytes),
-      after_size_bytes: finiteNumber(entry.after_size_bytes ?? entry.afterSizeBytes),
-      before_mtime_ms: finiteNumber(entry.before_mtime_ms ?? entry.beforeMtimeMs),
-      after_mtime_ms: finiteNumber(entry.after_mtime_ms ?? entry.afterMtimeMs),
+      before_hash: optionalString(entry.before_hash),
+      after_hash: optionalString(entry.after_hash),
+      before_exists: Boolean(entry.before_exists),
+      after_exists: Object.hasOwn(entry, "after_exists") ? Boolean(entry.after_exists) : undefined,
+      before_size_bytes: finiteNumber(entry.before_size_bytes),
+      after_size_bytes: finiteNumber(entry.after_size_bytes),
+      before_mtime_ms: finiteNumber(entry.before_mtime_ms),
+      after_mtime_ms: finiteNumber(entry.after_mtime_ms),
     }));
 }
 
@@ -252,8 +248,8 @@ function normalizeSnapshotContentDraftsForBridge(value) {
     .filter(Boolean)
     .map((entry) => ({
       path: optionalString(entry.path) ?? "",
-      before_content: typeof entry.before_content === "string" ? entry.before_content : entry.beforeContent,
-      after_content: typeof entry.after_content === "string" ? entry.after_content : entry.afterContent,
+      before_content: typeof entry.before_content === "string" ? entry.before_content : undefined,
+      after_content: typeof entry.after_content === "string" ? entry.after_content : undefined,
       encoding: optionalString(entry.encoding) ?? "utf8",
     }));
 }
@@ -274,7 +270,7 @@ function normalizeRestoreSideForBridge(value) {
   const side = objectRecord(value) ?? {};
   return {
     exists: Boolean(side.exists),
-    content_hash: optionalString(side.content_hash ?? side.contentHash),
+    content_hash: optionalString(side.content_hash),
     content: typeof side.content === "string" ? side.content : undefined,
   };
 }

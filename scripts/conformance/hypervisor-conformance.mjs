@@ -3821,6 +3821,9 @@ function runBridge() {
       /workspace restore runner ignores retired result reader aliases/.test(
         workspaceRestoreRunnerTest,
       ) &&
+      /workspace restore runner ignores retired request aliases/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
       /workspace restore runner fails closed without command/.test(
         workspaceRestoreRunnerTest,
       ) &&
@@ -3837,6 +3840,15 @@ function runBridge() {
         workspaceRestoreRunner,
       ) &&
       !/function normalizeSnapshotCapturedSide[\s\S]*?\bside\.(?:contentHash|sizeBytes|mtimeMs|contentCaptured|contentBytes|omittedReason)\b[\s\S]*?function normalizeWorkspaceRestoreOperation/.test(
+        workspaceRestoreRunner,
+      ) &&
+      !/\brequest\?\.(?:changedFiles|contentDrafts|workspaceSnapshotDrafts|maxContentBytes)\b/.test(
+        workspaceRestoreRunner,
+      ) &&
+      !/\bentry\.(?:beforeHash|afterHash|beforeExists|afterExists|beforeSizeBytes|afterSizeBytes|beforeMtimeMs|afterMtimeMs|beforeContent|afterContent)\b/.test(
+        workspaceRestoreRunner,
+      ) &&
+      !/function normalizeRestoreSideForBridge[\s\S]*?\bside\.contentHash\b[\s\S]*?function normalizeSnapshotCapturedFiles/.test(
         workspaceRestoreRunner,
       ) &&
       /workspaceRestoreRunner/.test(runtimeWorkspaceSnapshotSurface) &&
