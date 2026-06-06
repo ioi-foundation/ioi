@@ -280,6 +280,43 @@ test("compileEphemeralMcpIntegrations registers ephemeral servers and invokes al
   assert.equal(state.writes.at(-1)[0], "mcp-servers");
 });
 
+test("compileEphemeralMcpIntegrations rejects retired integration aliases before mutation", () => {
+  const state = fakeState();
+
+  assert.throws(
+    () =>
+      compileEphemeralMcpIntegrations(
+        state,
+        {
+          authorization: "auth",
+          input: "question",
+          body: {
+            integrations: [
+              {
+                type: "ephemeral_mcp",
+                serverLabel: "Search",
+                serverUrl: "https://legacy.example.test/mcp",
+                allowedTools: ["search"],
+              },
+            ],
+          },
+        },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_ephemeral_mcp_integration_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["serverLabel", "serverUrl", "allowedTools"]);
+      assert.deepEqual(error.details.canonical_fields, ["server_label", "server_url", "allowed_tools"]);
+      return true;
+    },
+  );
+  assert.equal(state.mcpServers.size, 0);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.writes, []);
+  assert.deepEqual(state.authorizations, []);
+});
+
 test("executeWorkflowNode dispatches router, MCP, receipt gate, model, and memory policy branches", async () => {
   const state = fakeState();
   state.mcpServers.set("mcp.Local", {

@@ -6320,6 +6320,8 @@ function runReceipts() {
   const mcpWorkflowOperationsTest = exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
     : "";
+  const mcpCompileEphemeralBlock =
+    mcpWorkflowOperations.match(/export function compileEphemeralMcpIntegrations[\s\S]*?function assertCanonicalEphemeralMcpIntegration/)?.[0] ?? "";
   const mcpImportJsonBlock =
     mcpWorkflowOperations.match(/export function importMcpJson[\s\S]*?function assertCanonicalMcpImportRequestBody/)?.[0] ?? "";
   const catalogHelpers = exists("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs")
@@ -7218,6 +7220,31 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
     ],
     "Phase 10/11 is pending: model-mount MCP import requests must use canonical mcp_json/mcp_servers/servers without retired mcpJson/mcpServers aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-ephemeral-mcp-integration-aliases-retired",
+    /RETIRED_EPHEMERAL_MCP_INTEGRATION_ALIASES/.test(mcpWorkflowOperations) &&
+      /CANONICAL_EPHEMERAL_MCP_INTEGRATION_FIELDS/.test(mcpWorkflowOperations) &&
+      /assertCanonicalEphemeralMcpIntegration\(integration\);/.test(mcpCompileEphemeralBlock) &&
+      /requiredString\(integration\.server_label,\s*"server_label"\)/.test(mcpCompileEphemeralBlock) &&
+      /url:\s*integration\.server_url/.test(mcpCompileEphemeralBlock) &&
+      /allowed_tools:\s*integration\.allowed_tools/.test(mcpCompileEphemeralBlock) &&
+      /stableHash\(integration\.server_url \?\? label\)/.test(mcpCompileEphemeralBlock) &&
+      /model_mount_ephemeral_mcp_integration_aliases_retired/.test(mcpWorkflowOperations) &&
+      !/integration\.(?:serverLabel|serverUrl|allowedTools)\b/.test(mcpCompileEphemeralBlock) &&
+      /compileEphemeralMcpIntegrations rejects retired integration aliases before mutation/.test(
+        mcpWorkflowOperationsTest,
+      ) &&
+      /serverLabel: "Search"/.test(mcpWorkflowOperationsTest) &&
+      /serverUrl: "https:\/\/legacy\.example\.test\/mcp"/.test(mcpWorkflowOperationsTest) &&
+      /allowedTools: \["search"\]/.test(mcpWorkflowOperationsTest) &&
+      /assert\.deepEqual\(state\.authorizations,\s*\[\]\)/.test(mcpWorkflowOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
+    ],
+    "Phase 10/11 is pending: ephemeral MCP integrations must use canonical server_label/server_url/allowed_tools without retired camelCase aliases",
   );
   assertCheck(
     result,

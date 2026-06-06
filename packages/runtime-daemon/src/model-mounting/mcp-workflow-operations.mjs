@@ -22,6 +22,18 @@ const CANONICAL_MCP_IMPORT_REQUEST_FIELDS = [
   "servers",
 ];
 
+const RETIRED_EPHEMERAL_MCP_INTEGRATION_ALIASES = [
+  "serverLabel",
+  "serverUrl",
+  "allowedTools",
+];
+
+const CANONICAL_EPHEMERAL_MCP_INTEGRATION_FIELDS = [
+  "server_label",
+  "server_url",
+  "allowed_tools",
+];
+
 export function compileEphemeralMcpIntegrations(state, { authorization, body = {}, input }, deps = {}) {
   const {
     requiredString,
@@ -34,16 +46,17 @@ export function compileEphemeralMcpIntegrations(state, { authorization, body = {
   const serverIds = [];
   const evidenceRefs = [];
   for (const integration of ephemeral) {
-    const label = requiredString(integration.server_label ?? integration.serverLabel, "server_label");
+    assertCanonicalEphemeralMcpIntegration(integration);
+    const label = requiredString(integration.server_label, "server_label");
     const server = state.normalizeMcpServer(label, {
       ...integration,
-      url: integration.server_url ?? integration.serverUrl,
-      allowed_tools: integration.allowed_tools ?? integration.allowedTools,
+      url: integration.server_url,
+      allowed_tools: integration.allowed_tools,
       source: "ephemeral_mcp",
     });
     const stored = {
       ...server,
-      id: `mcp.ephemeral.${safeId(label)}.${stableHash(integration.server_url ?? integration.serverUrl ?? label).slice(0, 10)}`,
+      id: `mcp.ephemeral.${safeId(label)}.${stableHash(integration.server_url ?? label).slice(0, 10)}`,
       status: "ephemeral_registered",
     };
     state.mcpServers.set(stored.id, stored);
@@ -76,6 +89,21 @@ export function compileEphemeralMcpIntegrations(state, { authorization, body = {
     state.writeMap("mcp-servers", state.mcpServers);
   }
   return { toolReceiptIds, serverIds, evidenceRefs };
+}
+
+function assertCanonicalEphemeralMcpIntegration(integration = {}) {
+  const retiredAliases = RETIRED_EPHEMERAL_MCP_INTEGRATION_ALIASES.filter((field) =>
+    Object.prototype.hasOwnProperty.call(integration, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error("Ephemeral MCP integration uses retired compatibility aliases.");
+  error.status = 400;
+  error.code = "model_mount_ephemeral_mcp_integration_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_EPHEMERAL_MCP_INTEGRATION_FIELDS,
+  };
+  throw error;
 }
 
 export function importMcpJson(state, body = {}) {
