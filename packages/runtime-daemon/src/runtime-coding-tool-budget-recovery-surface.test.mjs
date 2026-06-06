@@ -301,28 +301,51 @@ test("budget recovery surface ignores retired request identity aliases", () => {
 
   const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
     action: "request_approval",
+    recoveryAction: "retry_approved",
     threadId: "thread_retired",
+    requestedBy: "operator_retired",
+    sourceEventId: "event_retired",
+    approvalId: "approval_retired",
     workflowGraphId: "graph_retired",
     workflowNodeId: "node_retired",
     targetNodeIds: ["node_target_retired"],
     receiptRefs: ["receipt_retired"],
+    policyDecisionRefs: ["policy_retired"],
+    recoveryPolicy: {
+      requiresApproval: false,
+      retryLimit: 9,
+      targetNodeIds: ["node_policy_retired"],
+    },
+    retryLimit: 9,
   });
 
   assert.equal(result.status, "waiting_for_approval");
+  assert.equal(result.action, "request_approval");
   assert.equal(result.threadId, "thread_alpha");
+  assert.equal(result.sourceEventId, "event_budget_blocked");
+  assert.equal(result.approvalId, "approval_budget");
   assert.equal(result.workflowGraphId, null);
   assert.equal(result.workflowNodeId, "runtime.coding-tool-budget-recovery");
   assert.deepEqual(result.targetNodeIds, []);
   assert.equal(result.receiptRefs.includes("receipt_retired"), false);
+  assert.equal(result.policyDecisionRefs.includes("policy_retired"), false);
+  assert.equal(result.recoveryPolicy.requiresApproval, true);
+  assert.equal(result.recoveryPolicy.retryLimit, 1);
   const request = store.calls.find((call) => call.name === "requestThreadApproval").request;
+  assert.equal(request.actor, "operator");
   assert.equal(request.turn_id, "turn_alpha");
   assert.equal(request.workflow_graph_id, null);
   assert.equal(request.workflow_node_id, "runtime.coding-tool-budget-recovery");
   assert.equal(request.receipt_refs.includes("receipt_retired"), false);
+  assert.equal(request.policy_decision_refs.includes("policy_retired"), false);
+  assert.equal(request.approval_manifest.approvalId, "approval_budget");
+  assert.equal(request.approval_manifest.sourceEventId, "event_budget_blocked");
+  assert.equal(request.approval_manifest.recoveryPolicy.retryLimit, 1);
   assert.equal(Object.hasOwn(request, "turnId"), false);
   assert.equal(Object.hasOwn(request, "workflowGraphId"), false);
   assert.equal(Object.hasOwn(request, "workflowNodeId"), false);
   assert.equal(Object.hasOwn(request, "receiptRefs"), false);
+  assert.equal(Object.hasOwn(request, "policyDecisionRefs"), false);
 });
 
 test("budget recovery surface blocks retry until approval is requested and approved", () => {

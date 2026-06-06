@@ -2173,10 +2173,20 @@ function runBridge() {
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       /threadId: "thread_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /recoveryAction: "retry_approved"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /requestedBy: "operator_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /sourceEventId: "event_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /approvalId: "approval_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
       /workflowGraphId: "graph_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
       /workflowNodeId: "node_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
       /targetNodeIds: \["node_target_retired"\]/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
       /receiptRefs: \["receipt_retired"\]/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /policyDecisionRefs: \["policy_retired"\]/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /recoveryPolicy: \{[\s\S]*requiresApproval: false,[\s\S]*retryLimit: 9/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
       /idempotencyKey: "budget_recovery_idempotency_retired"/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
@@ -2192,16 +2202,21 @@ function runBridge() {
       /request\.receipt_refs\.includes\("receipt_retired"\), false/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      !/request\.(?:threadId|workflowNodeId|workflowGraphId|receiptRefs|idempotencyKey)\b/.test(
+      /request\.policy_decision_refs\.includes\("policy_retired"\), false/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      !/request\.(?:threadId|workflowNodeId|workflowGraphId|recoveryAction|requestedBy|sourceEventId|approvalId|receiptRefs|policyDecisionRefs|idempotencyKey)\b/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
-      !/request\.(?:targetNodeIds|workflowNodeId)\b/.test(runtimeCodingToolBudgetRecovery),
+      !/request\.(?:targetNodeIds|workflowNodeId|recoveryPolicy|retryLimit)\b/.test(
+        runtimeCodingToolBudgetRecovery,
+      ),
     [
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: coding-tool budget recovery requests must use canonical thread/workflow/target/receipt fields before approval and Rust state planning",
+    "Phase 10/11 is pending: coding-tool budget recovery requests must use canonical thread/workflow/target/approval/policy fields before approval and Rust state planning",
   );
   assertCheck(
     result,

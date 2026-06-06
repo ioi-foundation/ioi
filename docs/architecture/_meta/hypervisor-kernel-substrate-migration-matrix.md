@@ -12901,6 +12901,15 @@ only; retired `turnId`, `workflowGraphId`, `workflowNodeId`, and
 `idempotencyKey` fields no longer steer computer-use harness event identity or
 duplicate detection before runtime projection.
 
+Slice 460 completes coding-tool budget-recovery handoff alias retirement:
+budget-recovery approval and retry handoff now consume canonical
+`recovery_action`, `requested_by`, `source_event_id`, `approval_id`,
+`policy_decision_refs`, `recovery_policy`, and `retry_limit` request fields
+only; retired `recoveryAction`, `requestedBy`, `sourceEventId`, `approvalId`,
+`policyDecisionRefs`, `recoveryPolicy`, and `retryLimit` fields no longer steer
+approval actor/source identity, approval lookup, policy refs, or retry-policy
+state before Rust policy-core state-update planning.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

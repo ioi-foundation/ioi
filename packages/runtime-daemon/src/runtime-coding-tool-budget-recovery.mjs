@@ -71,14 +71,13 @@ export function createCodingToolBudgetRecovery(deps = {}) {
       {};
     const rawPolicy =
       request.recovery_policy ??
-      request.recoveryPolicy ??
       blockedPayload.recovery_policy ??
       blockedPayload.recoveryPolicy ??
       manifest.recovery_policy ??
       manifest.recoveryPolicy ??
       {};
     const policy = rawPolicy && typeof rawPolicy === "object" ? rawPolicy : {};
-    const retryLimit = Number(policy.retry_limit ?? policy.retryLimit ?? request.retry_limit ?? request.retryLimit ?? 1);
+    const retryLimit = Number(policy.retry_limit ?? policy.retryLimit ?? request.retry_limit ?? 1);
     const normalizedTargetNodeIds = uniqueStrings([
       ...normalizeArray(policy.target_node_ids ?? policy.targetNodeIds),
       ...targetNodeIds,

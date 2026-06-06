@@ -125,12 +125,10 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
       throw notFound(`Run not found for thread: ${runId}`, { runId, threadId });
     }
     const turnId = turnIdForRun(run.id);
-    const action = codingToolBudgetRecoveryAction(
-      request.action ?? request.recovery_action ?? request.recoveryAction,
-    );
+    const action = codingToolBudgetRecoveryAction(request.action ?? request.recovery_action);
     const source = operatorControlSource(request.source);
-    const actor = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
-    const requestedSourceEventId = optionalString(request.source_event_id ?? request.sourceEventId);
+    const actor = optionalString(request.actor ?? request.requested_by) ?? "operator";
+    const requestedSourceEventId = optionalString(request.source_event_id);
     const blockedEvent = latestCodingToolBudgetBlockedEventForRun(store, run.id, requestedSourceEventId);
     const blockedPayload = blockedEvent?.payload_summary ?? blockedEvent?.payload ?? {};
     const sourceEventId = requestedSourceEventId ?? blockedEvent?.event_id ?? null;
@@ -142,7 +140,7 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
       source,
     });
     const approvalId =
-      optionalString(request.approval_id ?? request.approvalId) ??
+      optionalString(request.approval_id) ??
       optionalString(blockedPayload.approval_id ?? blockedPayload.approvalId) ??
       `approval_workflow_run_coding_tool_budget_${safeId(run.id)}_${safeId(sourceEventId ?? "source")}`;
     const workflowGraphId =
@@ -160,7 +158,7 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
       `receipt_${run.id}_coding_tool_budget_recovery_${safeId(action)}_${safeId(approvalId)}`,
     ]);
     const policyDecisionRefs = uniqueStrings([
-      ...normalizeArray(request.policy_decision_refs ?? request.policyDecisionRefs),
+      ...normalizeArray(request.policy_decision_refs),
       ...normalizeArray(blockedEvent?.policy_decision_refs),
       `policy_${run.id}_coding_tool_budget_recovery_${safeId(action)}`,
     ]);
