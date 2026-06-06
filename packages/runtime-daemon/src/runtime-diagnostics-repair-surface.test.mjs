@@ -765,7 +765,10 @@ test("diagnostics repair final execution events ignore retired execution result 
       event: { event_id: "event_retry" },
       repairTurn: { turn_id: "turn_alias", request_id: "request_alias" },
       approvalSatisfied: true,
+      artifactRefs: ["artifact_alias"],
+      policyDecisionRefs: ["policy_alias"],
       rollback_refs: ["snapshot_alpha"],
+      rollbackRefs: ["snapshot_alias"],
     },
   });
 
@@ -773,4 +776,7 @@ test("diagnostics repair final execution events ignore retired execution result 
   assert.equal(event.payload_summary.repair_retry_turn_id, null);
   assert.equal(event.payload_summary.repair_retry_request_id, null);
   assert.equal(event.payload_summary.approval_satisfied, null);
+  assert.deepEqual(event.artifact_refs, []);
+  assert.deepEqual(event.policy_decision_refs, ["decision_retry", "policy_alpha"]);
+  assert.deepEqual(event.rollback_refs, ["snapshot_alpha"]);
 });

@@ -709,12 +709,12 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       decisionId,
       repairPolicy?.policy_id ?? repairPolicy?.policyId,
       ...normalizeArray(gateEvent?.policy_decision_refs),
-      ...normalizeArray(executionResult?.policy_decision_refs ?? executionResult?.policyDecisionRefs),
+      ...normalizeArray(executionResult?.policy_decision_refs),
     ]);
-    const artifactRefs = uniqueStrings(normalizeArray(executionResult?.artifact_refs ?? executionResult?.artifactRefs));
+    const artifactRefs = uniqueStrings(normalizeArray(executionResult?.artifact_refs));
     const rollbackRefs = uniqueStrings([
       snapshotId,
-      ...normalizeArray(executionResult?.rollback_refs ?? executionResult?.rollbackRefs),
+      ...normalizeArray(executionResult?.rollback_refs),
     ]);
     return store.appendRuntimeEvent({
       event_stream_id: eventStreamIdForThread(threadId),

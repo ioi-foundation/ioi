@@ -11001,14 +11001,25 @@ function runCompositor() {
       /executionResult\?\.continuation_allowed/.test(diagnosticsRepairDecisionExecutedEventBody) &&
       /executionResult\?\.preview_status/.test(diagnosticsRepairDecisionExecutedEventBody) &&
       /executionResult\?\.apply_status/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      !/executionResult\?\.(?:repairTurn|overrideStatus|approvalRequired|approvalSatisfied|continuationAllowed|previewStatus|applyStatus)\b/.test(
+      /executionResult\?\.policy_decision_refs/.test(diagnosticsRepairDecisionExecutedEventBody) &&
+      /executionResult\?\.artifact_refs/.test(diagnosticsRepairDecisionExecutedEventBody) &&
+      /executionResult\?\.rollback_refs/.test(diagnosticsRepairDecisionExecutedEventBody) &&
+      !/executionResult\?\.(?:repairTurn|overrideStatus|approvalRequired|approvalSatisfied|continuationAllowed|previewStatus|applyStatus|policyDecisionRefs|artifactRefs|rollbackRefs)\b/.test(
         diagnosticsRepairDecisionExecutedEventBody,
       ) &&
       /diagnostics repair final execution events ignore retired execution result aliases/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       /repairTurn:\s*\{ turn_id:\s*"turn_alias"/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /repair_retry_turn_id,\s*null/.test(runtimeDiagnosticsRepairSurfaceTest),
+      /repair_retry_turn_id,\s*null/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /artifactRefs: \["artifact_alias"\]/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /policyDecisionRefs: \["policy_alias"\]/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /rollbackRefs: \["snapshot_alias"\]/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /event\.artifact_refs,\s*\[\]/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /event\.policy_decision_refs,\s*\["decision_retry",\s*"policy_alpha"\]/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /event\.rollback_refs,\s*\["snapshot_alpha"\]/.test(runtimeDiagnosticsRepairSurfaceTest),
     [
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
