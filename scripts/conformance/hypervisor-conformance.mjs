@@ -7601,6 +7601,14 @@ function runCompositor() {
     runtimeMcpHelpers.match(
       /export function resolveMcpToolRecord\(servers = \[\], toolId, request = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpServeAllowedToolIds/,
     )?.[0] ?? "";
+  const runtimeMcpServerRecordsFromMutationInputBlock =
+    runtimeMcpHelpers.match(
+      /export function mcpServerRecordsFromMutationInput\(request = \{\}, workspaceRoot, fallbackSource\) \{[\s\S]*?\n}\n\nexport function mcpServerRecordFromAddRequest/,
+    )?.[0] ?? "";
+  const runtimeMcpServerRecordFromAddRequestBlock =
+    runtimeMcpHelpers.match(
+      /export function mcpServerRecordFromAddRequest\(request = \{\}, workspaceRoot\) \{[\s\S]*?\n}\n\nexport function mcpToolKey/,
+    )?.[0] ?? "";
   const runtimeMcpLiveExecutionModeBlock =
     runtimeMcpHelpers.match(
       /export function mcpLiveExecutionModeForServer\(server, request = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpTransportEvidenceRef/,
@@ -7726,6 +7734,9 @@ function runCompositor() {
     "";
   const runtimeMcpSdkServerControlInputBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpServerControlInput[\s\S]*?\n}\n/)?.[0] ??
+    "";
+  const runtimeMcpSdkServerMutationInputBlock =
+    agentSdkSubstrateClient.match(/export interface RuntimeMcpServerMutationInput[\s\S]*?\n}\n/)?.[0] ??
     "";
   const runtimeMcpSdkToolInvokeInputBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpToolInvokeInput[\s\S]*?\n}\n/)?.[0] ??
@@ -10422,6 +10433,47 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
     ],
     "Phase 10/11 is pending: MCP control status requests must use canonical live_discovery without the retired liveDiscovery compatibility alias",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-json-shape-request-aliases-retired",
+    /request\.mcp_json/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
+      /raw\.mcp_servers/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
+      /request\.mcp_json \|\| request\.servers/.test(runtimeMcpControlSurface) &&
+      /mcpJson:\s*\{/.test(runtimeMcpHelpersTest) &&
+      /mcpServers:\s*\[server\("mcp\.invalid"/.test(runtimeMcpControlSurfaceTest) &&
+      /^\s*mcp_json\?: Record<string, unknown>;/m.test(runtimeMcpSdkValidationInputBlock) &&
+      !/request\.mcpJson\b/.test(
+        `${runtimeMcpServerRecordsFromMutationInputBlock}\n${runtimeMcpControlSurface}`,
+      ) &&
+      !/raw\.mcpServers\b/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
+      !/request\.mcpServers\b/.test(runtimeMcpControlSurface) &&
+      !/^\s*(?:mcpJson|mcpServers)\?:/m.test(
+        `${runtimeMcpSdkValidationInputBlock}\n${runtimeMcpSdkServerMutationInputBlock}`,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP validation/import requests must use canonical mcp_json/mcp_servers/servers without retired mcpJson/mcpServers compatibility aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-add-server-request-alias-retired",
+    /request\.server/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
+      /request\.config/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
+      /mcpServer:\s*\{/.test(runtimeMcpHelpersTest) &&
+      !/request\.mcpServer\b/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
+      !/^\s*mcpServer\?:/m.test(runtimeMcpSdkServerMutationInputBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP add-server requests must use canonical server/config without the retired mcpServer compatibility alias",
   );
   assertCheck(
     result,

@@ -697,9 +697,7 @@ export interface RuntimeMcpToolSearchInput extends RuntimeMcpListOptions {
 }
 
 export interface RuntimeMcpValidationInput {
-  mcpJson?: Record<string, unknown>;
   mcp_json?: Record<string, unknown>;
-  mcpServers?: Record<string, unknown>;
   servers?: unknown[] | Record<string, unknown>;
   cwd?: string;
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
@@ -725,10 +723,7 @@ export interface RuntimeMcpServerMutationInput extends RuntimeMcpServerControlIn
   headers?: Record<string, string>;
   server?: Record<string, unknown>;
   config?: Record<string, unknown>;
-  mcpServer?: Record<string, unknown>;
-  mcpServers?: Record<string, unknown>;
   mcp_json?: Record<string, unknown>;
-  mcpJson?: Record<string, unknown>;
 }
 
 export interface RuntimeMcpToolInvokeInput extends RuntimeMcpValidationInput {

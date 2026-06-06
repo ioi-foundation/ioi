@@ -294,9 +294,9 @@ export function mcpRegistryWithServers(registry = {}, servers = []) {
 }
 
 export function mcpServerRecordsFromMutationInput(request = {}, workspaceRoot, fallbackSource) {
-  const raw = request.mcp_json ?? request.mcpJson ?? request;
+  const raw = request.mcp_json ?? request;
   const source = optionalString(request.config_source ?? raw.source) ?? fallbackSource;
-  const servers = raw.mcpServers ?? raw.mcp_servers ?? raw.servers ?? request.servers;
+  const servers = raw.mcp_servers ?? raw.servers;
   if (Array.isArray(servers)) {
     return servers.map((server, index) =>
       normalizeMcpServerRecord(
@@ -322,9 +322,7 @@ export function mcpServerRecordFromAddRequest(request = {}, workspaceRoot) {
       ? request.server
       : request.config && typeof request.config === "object" && !Array.isArray(request.config)
         ? request.config
-        : request.mcpServer && typeof request.mcpServer === "object" && !Array.isArray(request.mcpServer)
-          ? request.mcpServer
-          : request;
+        : request;
   const label =
     optionalString(request.label ?? request.name ?? request.server_label ?? request.serverLabel) ??
     optionalString(config.label ?? config.name ?? config.id) ??

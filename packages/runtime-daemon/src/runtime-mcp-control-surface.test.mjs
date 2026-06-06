@@ -280,10 +280,25 @@ test("runtime MCP control surface records enable, status, and validation control
   const validation = surface.validateThreadMcp(store, "thread-agent-one");
   assert.equal(validation.event_kind, "McpValidationReport");
   assert.equal(validation.status, "pass");
+
+  const canonicalValidation = surface.validateThreadMcp(store, "thread-agent-one", {
+    servers: [server("mcp.invalid", [], { invalid: true })],
+    mcpServers: [server("mcp.retired", [], { invalid: false })],
+  });
+  assert.equal(canonicalValidation.status, "blocked");
+  assert.equal(canonicalValidation.issue_count, 1);
+
+  const retiredValidation = surface.validateThreadMcp(store, "thread-agent-one", {
+    mcpServers: [server("mcp.invalid", [], { invalid: true })],
+  });
+  assert.equal(retiredValidation.status, "pass");
+
   assert.equal(writes.length >= 3, true);
   assert.deepEqual(statePlannerCalls.map((call) => call.control_kind), [
     "mcp_disable",
     "mcp_status",
+    "mcp_validate",
+    "mcp_validate",
     "mcp_validate",
   ]);
 });

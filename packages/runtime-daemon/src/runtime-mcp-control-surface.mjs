@@ -784,7 +784,7 @@ export function createRuntimeMcpControlSurface({
     validateThreadMcp(store, threadId, request = {}) {
       const agent = store.agentForThread(threadId);
       const validation = store.validateMcp(
-        request.mcp_json || request.mcpJson || request.servers || request.mcpServers
+        request.mcp_json || request.servers
           ? request
           : { servers: store.listMcpServers({ ...request, thread_id: threadId }) },
       );

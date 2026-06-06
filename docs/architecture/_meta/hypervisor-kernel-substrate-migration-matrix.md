@@ -12494,6 +12494,12 @@ runtime MCP control status recording now uses canonical `live_discovery`;
 retired camelCase `liveDiscovery` request fields no longer trigger MCP live
 catalog discovery through the control surface.
 
+Slice 402 removes MCP JSON/server shape request aliases:
+runtime MCP validation/import/add-server helpers and SDK MCP request inputs now
+use canonical `mcp_json`, `mcp_servers`, `servers`, `server`, and `config`;
+retired camelCase `mcpJson`, `mcpServers`, and `mcpServer` request fields no
+longer supply MCP validation/import/add-server payloads.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

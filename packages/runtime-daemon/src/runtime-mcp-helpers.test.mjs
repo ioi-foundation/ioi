@@ -179,6 +179,29 @@ test("runtime MCP helpers normalize mutation inputs and registry projections", (
   assert.equal(records[0].label, "docs");
   assert.equal(records[0].source, "workspace");
 
+  const canonicalJsonRecords = mcpServerRecordsFromMutationInput({
+    mcp_json: {
+      mcp_servers: {
+        canonical: { transport: "stdio", command: "npx" },
+      },
+    },
+    mcpJson: {
+      mcpServers: {
+        retired: { transport: "stdio", command: "retired" },
+      },
+    },
+  }, "/workspace", "fallback");
+  assert.deepEqual(canonicalJsonRecords.map((item) => item.label), ["canonical"]);
+
+  const retiredJsonRecords = mcpServerRecordsFromMutationInput({
+    mcpJson: {
+      mcpServers: {
+        retired: { transport: "stdio", command: "retired" },
+      },
+    },
+  }, "/workspace", "fallback");
+  assert.deepEqual(retiredJsonRecords, []);
+
   const added = mcpServerRecordFromAddRequest({
     label: "Git",
     config_source: "runtime_control",
@@ -189,6 +212,19 @@ test("runtime MCP helpers normalize mutation inputs and registry projections", (
     },
   }, "/workspace");
   assert.equal(added.source, "runtime_control");
+
+  const canonicalServer = mcpServerRecordFromAddRequest({
+    label: "Canonical",
+    server: { transport: "stdio", command: "npx" },
+    mcpServer: { transport: "stdio", command: "retired" },
+  }, "/workspace");
+  assert.equal(canonicalServer.command, "npx");
+
+  const retiredServer = mcpServerRecordFromAddRequest({
+    label: "Retired",
+    mcpServer: { transport: "stdio", command: "retired" },
+  }, "/workspace");
+  assert.equal(retiredServer.command, null);
 
   const registry = mcpRegistryWithServers({}, [record]);
   assert.equal(registry.serverCount, 1);
