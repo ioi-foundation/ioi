@@ -1091,6 +1091,9 @@ function runBridge() {
       /idempotencyKey: "coding_tool_idempotency_retired"/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
+      /toolCallId: "tool_status_legacy"/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
       /coding tool invocation surface accepts canonical idempotency key/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
@@ -1106,7 +1109,7 @@ function runBridge() {
       /result\.event\.idempotency_key, "thread:thread_alpha:coding-tool:tool_status_alias_retired"/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
-      !/request\.(?:turnId|workflowNodeId|workflowGraphId|idempotencyKey)\b/.test(
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId|idempotencyKey|toolCallId)\b/.test(
         runtimeCodingToolInvocationSurface,
       ),
     [
@@ -1579,7 +1582,7 @@ function runBridge() {
       /idempotency_key:\s*idempotencyKey/.test(computerUseToolIdentityBodies[5]) &&
       /workflow_node_id:/.test(computerUseToolIdentityBodies[5]) &&
       !computerUseToolIdentityBodies.some((body) =>
-        /request\.(?:turnId|workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(body)
+        /request\.(?:turnId|workflowGraphId|workflowNodeId|idempotencyKey|toolCallId)\b/.test(body)
       ) &&
       !/^\s*(?:turnId|workflowGraphId|workflowNodeId|idempotencyKey):/m.test(
         computerUseToolIdentityBodies[5],

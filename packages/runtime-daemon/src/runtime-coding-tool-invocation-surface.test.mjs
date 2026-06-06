@@ -185,7 +185,7 @@ test("coding tool invocation surface rejects non-live coding-tool runners before
   assert.throws(
     () =>
       surface.invokeThreadTool(store, "thread_alpha", "file.apply_patch", {
-        toolCallId: "tool_alpha",
+        tool_call_id: "tool_alpha",
         workflowGraphId: "graph_alpha",
         source: "runtime_auto",
         rollback_refs: ["rollback_request"],
@@ -211,7 +211,7 @@ test("coding tool invocation surface replays duplicate idempotent tool events", 
   store.idempotency.set("thread:thread_alpha:coding-tool:tool_alpha", duplicateEvent);
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "file.inspect", {
-    toolCallId: "tool_alpha",
+    tool_call_id: "tool_alpha",
   });
 
   assert.equal(result.duplicate, true);
@@ -281,6 +281,7 @@ test("coding tool invocation surface ignores retired request identity aliases", 
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "workspace.status", {
     tool_call_id: "tool_status_alias_retired",
+    toolCallId: "tool_status_legacy",
     turnId: "turn_retired",
     workflowGraphId: "graph_retired",
     workflowNodeId: "node_retired",
@@ -417,7 +418,7 @@ test("coding tool invocation surface runs workspace.status through rust workload
   const store = createStore();
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "workspace.status", {
-    toolCallId: "tool_status",
+    tool_call_id: "tool_status",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_status",
     rollback_refs: ["rollback_canonical"],
@@ -534,7 +535,7 @@ test("coding tool invocation surface runs file.inspect through rust workload liv
   const store = createStore();
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "file.inspect", {
-    toolCallId: "tool_inspect",
+    tool_call_id: "tool_inspect",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_inspect",
     input: { path: "README.md" },
@@ -623,7 +624,7 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
   const store = createStore();
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "git.diff", {
-    toolCallId: "tool_diff",
+    tool_call_id: "tool_diff",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_diff",
     input: { path: "README.md" },
@@ -737,7 +738,7 @@ test("coding tool invocation surface runs lsp.diagnostics through rust workload 
   const store = createStore();
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "lsp.diagnostics", {
-    toolCallId: "tool_diagnostics",
+    tool_call_id: "tool_diagnostics",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_diagnostics",
     input: { commandId: "node.check", path: "src/index.mjs" },
@@ -842,7 +843,7 @@ test("coding tool invocation surface runs test.run through rust workload live pa
   const store = createStore();
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "test.run", {
-    toolCallId: "tool_test",
+    tool_call_id: "tool_test",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_test",
     input: { commandId: "node.test", path: "src/index.test.mjs" },
@@ -974,7 +975,7 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
   const store = createStore();
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "file.apply_patch", {
-    toolCallId: "tool_patch",
+    tool_call_id: "tool_patch",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_patch",
     input: { path: "README.md", oldText: "before", newText: "after" },
@@ -1064,7 +1065,7 @@ test("coding tool invocation surface runs artifact.read through rust workload li
   const store = createStore();
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "artifact.read", {
-    toolCallId: "tool_artifact",
+    tool_call_id: "tool_artifact",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_artifact",
     input: { artifact_id: "artifact_alpha", offset_bytes: 2, length_bytes: 8 },
@@ -1089,7 +1090,7 @@ test("coding tool invocation surface runs artifact.read through rust workload li
 
   const readCallsBeforeRetiredAlias = store.calls.filter((call) => call.name === "readArtifact").length;
   const retiredArtifactAlias = surface.invokeThreadTool(store, "thread_alpha", "artifact.read", {
-    toolCallId: "tool_artifact_retired",
+    tool_call_id: "tool_artifact_retired",
     input: { artifactId: "artifact_alpha" },
   });
   assert.equal(retiredArtifactAlias.status, "failed");
@@ -1097,7 +1098,7 @@ test("coding tool invocation surface runs artifact.read through rust workload li
   assert.equal(store.calls.filter((call) => call.name === "readArtifact").length, readCallsBeforeRetiredAlias);
 
   const retiredRangeAlias = surface.invokeThreadTool(store, "thread_alpha", "artifact.read", {
-    toolCallId: "tool_artifact_range_retired",
+    tool_call_id: "tool_artifact_range_retired",
     input: { artifact_id: "artifact_alpha", offsetBytes: 2 },
   });
   assert.equal(retiredRangeAlias.status, "failed");
@@ -1174,7 +1175,7 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
   const store = createStore();
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "tool.retrieve_result", {
-    toolCallId: "tool_retrieve",
+    tool_call_id: "tool_retrieve",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_retrieve",
     input: { tool_call_id: "tool_patch", channel: "stdout", max_bytes: 32 },
@@ -1199,7 +1200,7 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
 
   const retrieveCallsBeforeRetiredAlias = store.calls.filter((call) => call.name === "retrieveResult").length;
   const retiredRetrieveAlias = surface.invokeThreadTool(store, "thread_alpha", "tool.retrieve_result", {
-    toolCallId: "tool_retrieve_retired",
+    tool_call_id: "tool_retrieve_retired",
     input: { toolCallId: "tool_patch" },
   });
   assert.equal(retiredRetrieveAlias.status, "failed");
@@ -1207,7 +1208,7 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
   assert.equal(store.calls.filter((call) => call.name === "retrieveResult").length, retrieveCallsBeforeRetiredAlias);
 
   const retiredRetrieveRangeAlias = surface.invokeThreadTool(store, "thread_alpha", "tool.retrieve_result", {
-    toolCallId: "tool_retrieve_range_retired",
+    tool_call_id: "tool_retrieve_range_retired",
     input: { tool_call_id: "tool_patch", maxBytes: 32 },
   });
   assert.equal(retiredRetrieveRangeAlias.status, "failed");
@@ -1327,7 +1328,7 @@ test("coding tool invocation surface runs computer_use.request_lease through rus
   const store = createStore();
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "computer_use.request_lease", {
-    toolCallId: "tool_computer_use",
+    tool_call_id: "tool_computer_use",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_computer_use",
     input: {
@@ -1366,7 +1367,7 @@ test("coding tool invocation surface fails closed for budget blocks", () => {
   assert.throws(
     () =>
       surface.invokeThreadTool(store, "thread_alpha", "file.inspect", {
-        toolCallId: "tool_budget",
+        tool_call_id: "tool_budget",
       }),
     (error) => {
       assert.equal(error.status, 403);
@@ -1412,7 +1413,7 @@ test("coding tool invocation surface returns approval block results before execu
   const store = createStore();
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "file.inspect", {
-    toolCallId: "tool_approval",
+    tool_call_id: "tool_approval",
   });
 
   assert.equal(result.status, "blocked");

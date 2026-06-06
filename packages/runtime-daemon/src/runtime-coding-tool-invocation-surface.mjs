@@ -92,7 +92,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       `runtime.coding-tool.${safeId(normalizedToolId)}`;
     const workflowGraphId = optionalString(request.workflow_graph_id) ?? null;
     const toolCallId =
-      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      optionalString(request.tool_call_id) ??
       `coding_tool_${doctorHash(`${threadId}:${normalizedToolId}:${JSON.stringify(input)}:${Date.now()}`).slice(0, 16)}`;
     const codingToolIdempotencyKey =
       optionalString(request.idempotency_key) ??

@@ -2179,7 +2179,7 @@ export class AgentgresRuntimeStateStore {
     const workflowGraphId =
       optionalString(request.workflow_graph_id) ?? null;
     const toolCallId =
-      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      optionalString(request.tool_call_id) ??
       `computer_use_browser_discovery_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
     const idempotencyKey =
       optionalString(request.idempotency_key) ??
@@ -2309,7 +2309,7 @@ export class AgentgresRuntimeStateStore {
     const workflowGraphId =
       optionalString(request.workflow_graph_id) ?? null;
     const toolCallId =
-      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      optionalString(request.tool_call_id) ??
       `computer_use_control_${crypto.randomUUID()}`;
     const idempotencyKey =
       optionalString(request.idempotency_key) ??
@@ -2491,7 +2491,7 @@ export class AgentgresRuntimeStateStore {
     const workflowGraphId =
       optionalString(request.workflow_graph_id) ?? null;
     const toolCallId =
-      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      optionalString(request.tool_call_id) ??
       `computer_use_native_browser_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
     const idempotencyKey =
       optionalString(request.idempotency_key) ??
@@ -2744,7 +2744,7 @@ export class AgentgresRuntimeStateStore {
     const workflowGraphId =
       optionalString(request.workflow_graph_id) ?? null;
     const toolCallId =
-      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      optionalString(request.tool_call_id) ??
       `computer_use_visual_gui_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
     const idempotencyKey =
       optionalString(request.idempotency_key) ??
@@ -2981,7 +2981,7 @@ export class AgentgresRuntimeStateStore {
     const workflowGraphId =
       optionalString(request.workflow_graph_id) ?? null;
     const toolCallId =
-      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      optionalString(request.tool_call_id) ??
       `computer_use_sandboxed_hosted_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
     const idempotencyKey =
       optionalString(request.idempotency_key) ??
@@ -3171,7 +3171,7 @@ export class AgentgresRuntimeStateStore {
         ? requestArguments
         : objectRecord(request);
     const toolCallId =
-      optionalString(request.tool_call_id ?? request.toolCallId) ??
+      optionalString(request.tool_call_id) ??
       `computer_use_visual_gui_observe_${doctorHash(`${threadId}:${toolId}:${Date.now()}`).slice(0, 16)}`;
     const idempotencyKey =
       optionalString(request.idempotency_key) ??
