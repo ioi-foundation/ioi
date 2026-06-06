@@ -26,36 +26,29 @@ export function createCodingToolApprovalPolicy(deps = {}) {
 
   function codingToolWorkflowApprovalRequestForRust(request = {}) {
     const codingPack =
-      request.toolPack && typeof request.toolPack === "object" && !Array.isArray(request.toolPack)
-        ? request.toolPack.coding && typeof request.toolPack.coding === "object" && !Array.isArray(request.toolPack.coding)
-          ? request.toolPack.coding
-          : request.toolPack
+      request.tool_pack && typeof request.tool_pack === "object" && !Array.isArray(request.tool_pack)
+        ? request.tool_pack.coding && typeof request.tool_pack.coding === "object" && !Array.isArray(request.tool_pack.coding)
+          ? request.tool_pack.coding
+          : request.tool_pack
         : {};
     const nodeApprovalOverride =
       optionalString(
         request.node_approval_override ??
-          request.nodeApprovalOverride ??
           request.approval_override ??
-          request.approvalOverride ??
-          codingPack.nodeApprovalOverride ??
           codingPack.node_approval_override,
       ) ?? "inherit";
     const approvalMode =
-      optionalString(codingPack.approvalMode ?? codingPack.approval_mode) ??
-      optionalString(request.approvalMode ?? request.approval_mode) ??
+      optionalString(codingPack.approval_mode) ??
+      optionalString(request.approval_mode) ??
       null;
     const trustProfile =
       optionalString(
         request.trust_profile ??
-          request.trustProfile ??
-          codingPack.trustProfile ??
           codingPack.trust_profile,
       ) ?? "local_private";
     const explicitRequiresApproval =
       request.requires_approval ??
-      request.requiresApproval ??
-      codingPack.requires_approval ??
-      codingPack.requiresApproval;
+      codingPack.requires_approval;
     const approvalModeRequiresApproval =
       approvalMode === "human_required" || approvalMode === "policy_required";
     const trustRequiresApproval = ["untrusted", "restricted", "review_required"].includes(
@@ -91,8 +84,8 @@ export function createCodingToolApprovalPolicy(deps = {}) {
     const threadMode = normalizeThreadInteractionMode(controls.mode ?? agent.mode ?? "agent");
     const approvalMode = normalizeThreadApprovalMode(controls.approvalMode, approvalModeForThreadMode(threadMode));
     const requestedApprovalMode =
-      optionalString(request.approval_mode ?? request.approvalMode ?? workflowPolicy.approval_mode) ?? null;
-    const requestedMode = optionalString(request.mode ?? request.threadMode ?? request.thread_mode) ?? null;
+      optionalString(request.approval_mode ?? workflowPolicy.approval_mode) ?? null;
+    const requestedMode = optionalString(request.mode ?? request.thread_mode) ?? null;
     let normalizedRequestedMode = null;
     if (requestedMode) {
       try {

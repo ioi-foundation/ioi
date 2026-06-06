@@ -1723,6 +1723,34 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: coding-tool approval UI override must use canonical approval_granted without retired request aliases",
   );
+  assertCheck(
+    result,
+    "coding-tool-approval-workflow-policy-aliases-retired",
+    /request\.tool_pack/.test(runtimeCodingToolApproval) &&
+      /request\.node_approval_override/.test(runtimeCodingToolApproval) &&
+      /request\.approval_override/.test(runtimeCodingToolApproval) &&
+      /request\.approval_mode/.test(runtimeCodingToolApproval) &&
+      /request\.trust_profile/.test(runtimeCodingToolApproval) &&
+      /request\.requires_approval/.test(runtimeCodingToolApproval) &&
+      /request\.thread_mode/.test(runtimeCodingToolApproval) &&
+      !/request\.(?:toolPack|nodeApprovalOverride|approvalOverride|approvalMode|trustProfile|requiresApproval|threadMode)\b/.test(
+        runtimeCodingToolApproval,
+      ) &&
+      /coding tool approval manifest ignores retired workflow policy aliases/.test(
+        runtimeCodingToolApprovalTest,
+      ) &&
+      /toolPack:\s*\{/.test(runtimeCodingToolApprovalTest) &&
+      /nodeApprovalOverride:\s*"require_approval"/.test(runtimeCodingToolApprovalTest) &&
+      /approvalMode:\s*"human_required"/.test(runtimeCodingToolApprovalTest) &&
+      /trustProfile:\s*"untrusted"/.test(runtimeCodingToolApprovalTest) &&
+      /requiresApproval:\s*true/.test(runtimeCodingToolApprovalTest) &&
+      /threadMode:\s*"review"/.test(runtimeCodingToolApprovalTest),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool approval workflow policy handoff must use canonical snake_case request fields before Rust authority planning",
+  );
   const codingToolApprovalBlockBody =
     runtimeCodingToolGovernanceSurface.match(
       /  function blockCodingToolForApproval\(store, \{[\s\S]*?(?=\n  function blockCodingToolForBudget)/,

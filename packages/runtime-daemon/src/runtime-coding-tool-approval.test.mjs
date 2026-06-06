@@ -159,8 +159,8 @@ test("coding tool approval manifest is planned by Rust authority runner", () => 
     input: { path: "src/app.js" },
     request: {
       approval_granted: true,
-      approvalMode: "human_required",
-      threadMode: "agent",
+      approval_mode: "human_required",
+      thread_mode: "agent",
     },
     workflowGraphId: "graph_1",
     workflowNodeId: "node_1",
@@ -180,6 +180,51 @@ test("coding tool approval manifest is planned by Rust authority runner", () => 
   assert.deepEqual(manifest.authority_scope_requirements, ["workspace.write"]);
   assert.deepEqual(manifest.input_summary, { toolId: "file__write", keys: ["path"] });
   assert.match(manifest.input_hash, /^sha256:/);
+});
+
+test("coding tool approval manifest ignores retired workflow policy aliases", () => {
+  const capturedRequests = [];
+  const policy = createPolicy({
+    approvalRunner: approvalRunnerMock({
+      capture: (request) => {
+        capturedRequests.push(request);
+      },
+    }),
+  });
+
+  const manifest = policy.codingToolApprovalManifestForThread({
+    agent: { mode: "agent", runtimeControls: { mode: "agent", approvalMode: "suggest" } },
+    threadId: "thread_1",
+    toolId: "file__write",
+    toolCallId: "call_1",
+    toolContract: { effectClass: "workspace_write" },
+    input: { path: "src/app.js" },
+    request: {
+      toolPack: {
+        coding: {
+          approvalMode: "human_required",
+          nodeApprovalOverride: "require_approval",
+          trustProfile: "untrusted",
+          requiresApproval: true,
+        },
+      },
+      nodeApprovalOverride: "require_approval",
+      approvalOverride: "require_approval",
+      approvalMode: "human_required",
+      trustProfile: "untrusted",
+      requiresApproval: true,
+      threadMode: "review",
+    },
+  });
+
+  assert.equal(manifest, null);
+  assert.equal(capturedRequests.length, 1);
+  assert.equal(capturedRequests[0].workflow_policy.node_approval_override, "inherit");
+  assert.equal(capturedRequests[0].workflow_policy.approval_mode, null);
+  assert.equal(capturedRequests[0].workflow_policy.trust_profile, "local_private");
+  assert.equal(capturedRequests[0].workflow_policy.requires_approval, false);
+  assert.equal(capturedRequests[0].requested_approval_mode, null);
+  assert.equal(capturedRequests[0].requested_mode, null);
 });
 
 test("coding tool approval manifest ignores retired UI override aliases", () => {
