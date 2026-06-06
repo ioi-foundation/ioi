@@ -17,6 +17,37 @@ Terminal status is not claimed here. The migration is open until
 `hypervisor-conformance` passes and the terminal conditions in the master guide
 are all true.
 
+## Current Sprint Lane
+
+The current implementation lane is Rust substrate migration plus JS facade
+retirement. Current tier conformance is green, but the terminal migration is not
+claimed. The sprint target is to convert the remaining live route families from
+JS-owned behavior into Rust-core-owned authority, routing, receipt/state-root
+binding, Agentgres admission, projection, cTEE custody, and replay semantics.
+
+Sprint priorities:
+
+| Priority | Target | Done when |
+| --- | --- | --- |
+| 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
+| 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
+| 3 | Matrix cleanup | Rows distinguish current wired proof from terminal target; planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
+
+Remaining terminal blockers:
+
+- `StepModuleRouter`, authority gates, receipt binding, Agentgres admission,
+  projection, cTEE custody, replay, and conformance are not yet extracted as one
+  authoritative Rust daemon core for every hot route family.
+- Some route families still have JS live surfaces, supervision, persistence, or
+  projection code that must be demoted to non-authoritative adapter behavior or
+  deleted after Rust parity is verified.
+- Broad IDE/SDK/API facade cleanup remains, especially where compatibility
+  aliases, legacy request shapes, or adapter fallbacks could imply duplicate
+  truth or duplicate authority.
+- Long-term planned objects and profiles remain planned until their runtime
+  path, receipts, and fail-closed conformance guard are implemented.
+
 ## Implementation Slice 0
 
 ```yaml

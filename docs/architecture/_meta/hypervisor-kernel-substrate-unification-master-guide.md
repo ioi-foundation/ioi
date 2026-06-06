@@ -951,6 +951,32 @@ first, ABI second, bridge third, one shadowed tool fourth, then receipts,
 compositor, cTEE, packages, self-improvement, Rust core, facade retirement, and
 full conformance.
 
+### Current sprint lane
+
+The current lane is Rust substrate migration, not doctrine expansion. The
+latest wired conformance tiers pass for the currently migrated surface, but the
+terminal condition is still open. Sprint work should therefore prioritize the
+remaining route-family extraction and facade-retirement slices that turn current
+Rust bridge/admission primitives into the sole authoritative hot-path substrate.
+
+Current sprint objective:
+
+- route each remaining live daemon route family through Rust core ownership for
+  authority, StepModuleRouter dispatch, receipt/state-root binding, Agentgres
+  admission, projection, cTEE custody, and replay semantics;
+- demote surviving JS/TS code to product/API/IDE/SDK adapter behavior only;
+- delete or fail-close compatibility shims once the canonical Rust-owned path is
+  verified by focused tests and the tiered conformance command;
+- keep `hypervisor-conformance` green while preserving the honest status:
+  "passes at current tier surface" until terminal conditions below are true.
+
+This lane should not promote planned HypervisorOS, custody-proof, private
+operator, or marketplace lifecycle concepts into implementation claims unless a
+slice actually wires the code path, receipts, and conformance guard. Those items
+remain important long-term cleanup or product/runtime evolution targets; the
+current sprint is the route-family migration and facade retirement needed to
+finish the master guide.
+
 ### Terminal condition
 
 The master guide has been carried out only when migration ends. Migration ends
