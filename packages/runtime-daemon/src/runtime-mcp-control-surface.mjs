@@ -578,7 +578,6 @@ export function createRuntimeMcpControlSurface({
               status: "failed",
               transport: "stdio",
               execution_mode: "live_stdio",
-              executionMode: "live_stdio",
               error: {
                 code: optionalStringDep(error?.code) ?? "mcp_stdio_transport_error",
                 message: String(error?.message ?? error),
@@ -604,7 +603,6 @@ export function createRuntimeMcpControlSurface({
               status: "failed",
               transport,
               execution_mode: liveMode,
-              executionMode: liveMode,
               error: {
                 code: optionalStringDep(error?.code) ?? `mcp_${transport}_transport_error`,
                 message: String(error?.message ?? error),
@@ -613,15 +611,21 @@ export function createRuntimeMcpControlSurface({
             };
           }
         } else {
-          output = { ok: true, fixture: true, serverId: server.id, toolName };
+          output = { ok: true, fixture: true, server_id: server.id, tool_name: toolName };
           transportExecution = {
             ok: true,
             status: "completed",
             transport: server.transport ?? "unknown",
             execution_mode: "simulated_manager_receipt",
-            executionMode: "simulated_manager_receipt",
           };
         }
+      }
+      if (transportExecution && typeof transportExecution === "object") {
+        const { executionMode, ...transportRecord } = transportExecution;
+        transportExecution = {
+          ...transportRecord,
+          execution_mode: transportRecord.execution_mode ?? executionMode ?? "blocked",
+        };
       }
       const outputHash = doctorHashDep(
         JSON.stringify(output ?? { blocked: blockers, transport_execution: transportExecution }),
@@ -630,51 +634,36 @@ export function createRuntimeMcpControlSurface({
         `${threadId}:${server.id}:${toolName}:${inputHash}:${Date.now()}`,
       ).slice(0, 16);
       const toolCallId = `mcp_call_${safeIdDep(server.id)}_${safeIdDep(toolName)}_${callHash}`;
+      const {
+        executionMode: _retiredContainmentExecutionMode,
+        receiptRequired: _retiredContainmentReceiptRequired,
+        ...containment
+      } = server.containment ?? {};
       const invocation = {
         schema_version: invocationSchemaVersion,
-        schemaVersion: invocationSchemaVersion,
         object: "ioi.runtime_mcp_tool_invocation",
         tool_call_id: toolCallId,
-        toolCallId,
         thread_id: threadId,
-        threadId,
         agent_id: agent.id,
-        agentId: agent.id,
         server_id: server.id,
-        serverId: server.id,
         tool_name: toolName,
-        toolName,
         status,
         input_hash: inputHash,
-        inputHash,
         output_hash: outputHash,
-        outputHash,
         side_effect_class: sideEffectClass,
-        sideEffectClass,
         requires_approval: requiresApproval,
-        requiresApproval,
         approval_mode: approvalMode,
-        approvalMode,
         approved,
         blockers,
         transport: server.transport ?? "stdio",
         transport_execution: transportExecution,
-        transportExecution,
         containment: {
-          ...(server.containment ?? {}),
-          receiptRequired: true,
-          executionMode: transportExecution?.executionMode ?? transportExecution?.execution_mode ?? "blocked",
-          execution_mode: transportExecution?.execution_mode ?? transportExecution?.executionMode ?? "blocked",
+          ...containment,
+          receipt_required: true,
+          execution_mode: transportExecution?.execution_mode ?? "blocked",
         },
         result: output,
         evidence_refs: [
-          "mcp.manager.tool.invoke",
-          "mcp_containment_receipt",
-          mcpTransportEvidenceRefDep(transportExecution),
-          server.id,
-          `tool:${toolName}`,
-        ],
-        evidenceRefs: [
           "mcp.manager.tool.invoke",
           "mcp_containment_receipt",
           mcpTransportEvidenceRefDep(transportExecution),

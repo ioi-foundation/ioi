@@ -7600,6 +7600,8 @@ function runCompositor() {
     runtimeMcpControlSurface.match(
       /async invokeThreadMcpTool\(store, threadId, toolId, request = \{\}\) \{[\s\S]*?\n    \},\n    async recordThreadMcpStatus/,
     )?.[0] ?? "";
+  const runtimeMcpInvocationEnvelopeBlock =
+    runtimeMcpInvokeThreadToolBlock.match(/const invocation = \{[\s\S]*?\n      \};/)?.[0] ?? "";
   const runtimeMcpRemoveThreadServerBlock =
     runtimeMcpControlSurface.match(
       /removeThreadMcpServer\(store, threadId, serverId, request = \{\}\) \{[\s\S]*?\n    \},\n    applyThreadMcpServerMutation/,
@@ -10747,6 +10749,46 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
     ],
     "Phase 10/11 is pending: MCP control mutation payloads must expose canonical snake_case output fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-invocation-output-aliases-retired",
+    /schema_version:\s*invocationSchemaVersion/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /tool_call_id:\s*toolCallId/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /thread_id:\s*threadId/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /agent_id:\s*agent\.id/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /server_id:\s*server\.id/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /tool_name:\s*toolName/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /input_hash:\s*inputHash/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /output_hash:\s*outputHash/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /side_effect_class:\s*sideEffectClass/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /requires_approval:\s*requiresApproval/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /approval_mode:\s*approvalMode/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /transport_execution:\s*transportExecution/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /receipt_required:\s*true/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /evidence_refs:\s*\[/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /output = \{ ok: true, fixture: true, server_id: server\.id, tool_name: toolName \}/.test(
+        runtimeMcpInvokeThreadToolBlock,
+      ) &&
+      /for \(const field of \[[\s\S]*"schemaVersion"[\s\S]*"toolCallId"[\s\S]*"transportExecution"[\s\S]*"evidenceRefs"[\s\S]*\]\) \{\n    assert\.equal\(Object\.hasOwn\(completed\.invocation,\s*field\),\s*false\);/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(completed\.invocation\.result,\s*"serverId"\),\s*false/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(completed\.invocation\.containment,\s*"receiptRequired"\),\s*false/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      !/^\s*(?:schemaVersion|toolCallId|threadId|agentId|serverId|toolName|inputHash|outputHash|sideEffectClass|requiresApproval|approvalMode|transportExecution|evidenceRefs)\s*:/m.test(
+        runtimeMcpInvocationEnvelopeBlock,
+      ) &&
+      !/^\s*(?:receiptRequired|executionMode)\s*:/m.test(runtimeMcpInvocationEnvelopeBlock) &&
+      !/output = \{[^}]*\b(?:serverId|toolName)\s*:/m.test(runtimeMcpInvokeThreadToolBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP invocation payloads must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

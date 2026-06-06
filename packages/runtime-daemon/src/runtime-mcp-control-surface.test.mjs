@@ -371,11 +371,37 @@ test("runtime MCP control surface invokes tools with receipt-backed policy outco
   assert.equal(completed.policy_decision, "invoke_allowed");
   assert.equal(completed.invocation.schema_version, "invoke.schema");
   assert.equal(completed.invocation.result.fixture, true);
+  assert.equal(completed.invocation.result.server_id, "mcp.docs");
+  assert.equal(completed.invocation.result.tool_name, "search");
+  assert.equal(completed.invocation.containment.receipt_required, true);
+  assert.equal(completed.invocation.containment.execution_mode, "simulated_manager_receipt");
   assert.deepEqual(completed.invocation.evidence_refs.slice(0, 3), [
     "mcp.manager.tool.invoke",
     "mcp_containment_receipt",
     "mcp.transport.fixture",
   ]);
+  for (const field of [
+    "schemaVersion",
+    "toolCallId",
+    "threadId",
+    "agentId",
+    "serverId",
+    "toolName",
+    "inputHash",
+    "outputHash",
+    "sideEffectClass",
+    "requiresApproval",
+    "approvalMode",
+    "transportExecution",
+    "evidenceRefs",
+  ]) {
+    assert.equal(Object.hasOwn(completed.invocation, field), false);
+  }
+  assert.equal(Object.hasOwn(completed.invocation.result, "serverId"), false);
+  assert.equal(Object.hasOwn(completed.invocation.result, "toolName"), false);
+  assert.equal(Object.hasOwn(completed.invocation.transport_execution, "executionMode"), false);
+  assert.equal(Object.hasOwn(completed.invocation.containment, "receiptRequired"), false);
+  assert.equal(Object.hasOwn(completed.invocation.containment, "executionMode"), false);
 
   const blocked = await surface.invokeThreadMcpTool(store, "thread-agent-one", "mcp.docs.write", {
     input: { path: "README.md" },

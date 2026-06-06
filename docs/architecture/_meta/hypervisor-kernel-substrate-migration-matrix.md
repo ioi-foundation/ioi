@@ -12559,6 +12559,14 @@ such as `serverId`, `removedCount`, `proposedServers`, dynamic
 `addCount`/`importCount`, and `evidenceRefs` are retired from the mutation
 surface.
 
+Slice 412 removes MCP invocation output aliases:
+runtime MCP invocation envelopes, fixture results, transport execution records,
+containment metadata, and evidence refs now emit canonical snake_case fields
+only; duplicate camelCase facade fields such as `schemaVersion`, `toolCallId`,
+`threadId`, `serverId`, `inputHash`, `transportExecution`,
+`receiptRequired`, and `evidenceRefs` are retired from the invocation payload
+surface.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
