@@ -12646,6 +12646,14 @@ workspace-change review projection now reads canonical `agent.runtime_profile`
 only; retired `agent.runtimeProfile` no longer shapes the public inspection
 envelope.
 
+Slice 420 removes visual GUI local-executor request aliases:
+the visual GUI local-executor detector now accepts canonical snake_case request
+fields only; retired camelCase trigger aliases such as `localGuiExecutor`,
+`executeLocalGui`, `visualGuiLocalExecutor`, `visualGuiExecutor`,
+`executorMode`, `localGuiExecutorProvider`, and
+`localGuiExecutorFixturePngBase64` no longer request or configure the approved
+local execution path.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

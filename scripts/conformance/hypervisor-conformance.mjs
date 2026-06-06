@@ -392,6 +392,12 @@ function runBridge() {
   const runtimeHttpUtilsBridge = exists("packages/runtime-daemon/src/runtime-http-utils.mjs")
     ? read("packages/runtime-daemon/src/runtime-http-utils.mjs")
     : "";
+  const visualGuiLocalExecutor = exists("packages/runtime-daemon/src/visual-gui-local-executor.mjs")
+    ? read("packages/runtime-daemon/src/visual-gui-local-executor.mjs")
+    : "";
+  const visualGuiLocalExecutorTest = exists("packages/runtime-daemon/src/visual-gui-local-executor.test.mjs")
+    ? read("packages/runtime-daemon/src/visual-gui-local-executor.test.mjs")
+    : "";
   const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
     ? read("packages/runtime-daemon/src/model-mounting.mjs")
     : "";
@@ -1321,6 +1327,26 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10/11 is pending: computer-use visual metadata helpers must emit canonical snake_case fields without duplicate camelCase output aliases",
+  );
+  assertCheck(
+    result,
+    "visual-gui-local-executor-request-aliases-retired",
+    /booleanValue\(input\.local_gui_executor\)/.test(visualGuiLocalExecutor) &&
+      /booleanValue\(input\.execute_local_gui\)/.test(visualGuiLocalExecutor) &&
+      /booleanValue\(input\.visual_gui_local_executor\)/.test(visualGuiLocalExecutor) &&
+      /input\.visual_gui_executor\s*\?\?\s*[\r\n\s]*input\.executor_mode/.test(visualGuiLocalExecutor) &&
+      /cleanString\(input\.local_gui_executor_provider\)/.test(visualGuiLocalExecutor) &&
+      /input\.local_gui_executor_fixture_png_base64/.test(visualGuiLocalExecutor) &&
+      /visual GUI local executor request detector ignores retired request aliases/.test(visualGuiLocalExecutorTest) &&
+      /localGuiExecutorProvider:\s*"fixture"/.test(visualGuiLocalExecutorTest) &&
+      !/\binput\.(?:localGuiExecutor|executeLocalGui|visualGuiLocalExecutor|visualGuiExecutor|executorMode|localGuiExecutorProvider|localGuiExecutorFixturePngBase64)\b/.test(
+        visualGuiLocalExecutor,
+      ),
+    [
+      "packages/runtime-daemon/src/visual-gui-local-executor.mjs",
+      "packages/runtime-daemon/src/visual-gui-local-executor.test.mjs",
+    ],
+    "Phase 10/11 is pending: visual GUI local-executor request detection must ignore retired camelCase aliases",
   );
   assertCheck(
     result,

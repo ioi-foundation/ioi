@@ -13,19 +13,17 @@ const DEFAULT_EXECUTION_TIMEOUT_MS = 5000;
 export function visualGuiLocalExecutorRequested({ input = {}, actionKind, approvalRef } = {}) {
   if (!approvalRef || computerUseActionKindIsReadOnly(actionKind)) return false;
   const explicitRequest =
-    booleanValue(input.localGuiExecutor ?? input.local_gui_executor) ??
-    booleanValue(input.executeLocalGui ?? input.execute_local_gui) ??
-    booleanValue(input.visualGuiLocalExecutor ?? input.visual_gui_local_executor);
+    booleanValue(input.local_gui_executor) ??
+    booleanValue(input.execute_local_gui) ??
+    booleanValue(input.visual_gui_local_executor);
   if (explicitRequest !== null) return explicitRequest;
   const executorMode = cleanString(
-    input.visualGuiExecutor ??
-      input.visual_gui_executor ??
-      input.executorMode ??
+    input.visual_gui_executor ??
       input.executor_mode,
   );
   return (
     ["local", "local_gui", "fixture"].includes(executorMode ?? "") ||
-    Boolean(cleanString(input.localGuiExecutorProvider ?? input.local_gui_executor_provider))
+    Boolean(cleanString(input.local_gui_executor_provider))
   );
 }
 
@@ -113,11 +111,10 @@ export async function executeLocalVisualGuiAction({
       ...input,
       captureScreen: true,
       captureProvider:
-        cleanString(input.localGuiExecutorProvider ?? input.local_gui_executor_provider) === "fixture"
+        cleanString(input.local_gui_executor_provider) === "fixture"
           ? "fixture"
           : input.captureProvider ?? input.capture_provider,
       captureFixturePngBase64:
-        input.localGuiExecutorFixturePngBase64 ??
         input.local_gui_executor_fixture_png_base64 ??
         input.captureFixturePngBase64 ??
         input.capture_fixture_png_base64,
@@ -231,7 +228,7 @@ export async function executeLocalVisualGuiAction({
 }
 
 function localExecutorProvider(input) {
-  const requestedProvider = cleanString(input.localGuiExecutorProvider ?? input.local_gui_executor_provider);
+  const requestedProvider = cleanString(input.local_gui_executor_provider);
   if (requestedProvider === "fixture") {
     if (process.env.IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE !== "1") return null;
     return {
