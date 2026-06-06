@@ -22,7 +22,7 @@ test("coding tool public result removes drafts and attaches artifact metadata", 
   const publicResult = codingToolResultWithoutDrafts(
     {
       ok: true,
-      artifactRefs: ["artifact_existing"],
+      artifact_refs: ["artifact_existing"],
       artifactDrafts: [{ content: "private draft" }],
       workspace_snapshot_drafts: [{ path: "private" }],
     },
@@ -37,11 +37,15 @@ test("coding tool public result removes drafts and attaches artifact metadata", 
   );
 
   assert.equal(publicResult.ok, true);
-  assert.deepEqual(publicResult.artifactRefs, ["artifact_existing", "artifact_new"]);
+  assert.deepEqual(publicResult.artifact_refs, ["artifact_existing", "artifact_new"]);
   assert.equal(publicResult.artifactDrafts, undefined);
   assert.equal(publicResult.workspace_snapshot_drafts, undefined);
-  assert.equal(publicResult.artifacts[0].schemaVersion, "artifact.v1");
-  assert.equal(publicResult.artifacts[0].threadId, "thread_1");
+  assert.equal(publicResult.artifacts[0].schema_version, "artifact.v1");
+  assert.equal(publicResult.artifacts[0].thread_id, "thread_1");
+  for (const field of ["artifactRefs", "schemaVersion", "threadId", "contentBytes"]) {
+    assert.equal(Object.hasOwn(publicResult, field), false);
+    assert.equal(Object.hasOwn(publicResult.artifacts[0], field), false);
+  }
 });
 
 test("coding tool artifact read result slices content and emits stable receipt refs", () => {
@@ -59,13 +63,16 @@ test("coding tool artifact read result slices content and emits stable receipt r
     },
   );
 
-  assert.equal(result.schemaVersion, "artifact.v1");
+  assert.equal(result.schema_version, "artifact.v1");
   assert.equal(result.content, "cde");
-  assert.equal(result.lengthBytes, 3);
-  assert.equal(result.totalBytes, 6);
+  assert.equal(result.length_bytes, 3);
+  assert.equal(result.total_bytes, 6);
   assert.equal(result.truncated, true);
-  assert.equal(result.fullContentHash, "full_hash");
-  assert.match(result.receiptRefs[0], /^receipt_artifact_read_artifact_1_/);
+  assert.equal(result.full_content_hash, "full_hash");
+  assert.match(result.receipt_refs[0], /^receipt_artifact_read_artifact_1_/);
+  for (const field of ["schemaVersion", "artifactRefs", "lengthBytes", "totalBytes", "fullContentHash", "receiptRefs"]) {
+    assert.equal(Object.hasOwn(result, field), false);
+  }
 });
 
 test("coding tool command stream helpers preserve channel order and chunk long output", () => {

@@ -84,40 +84,38 @@ function createStore() {
     readCodingToolArtifact(threadId, artifactId, range) {
       calls.push({ name: "readArtifact", threadId, artifactId, range });
       return {
-        schemaVersion: "ioi.runtime.coding-tool-result.v1",
-        artifactId,
-        artifactRef: artifactId,
-        artifactRefs: [artifactId],
+        schema_version: "ioi.runtime.coding-tool-result.v1",
+        artifact_id: artifactId,
+        artifact_refs: [artifactId],
         content: "stored artifact\n",
-        contentHash: "artifact-content-hash",
-        fullContentHash: "artifact-full-hash",
-        offsetBytes: range?.offsetBytes ?? 0,
-        lengthBytes: 16,
-        totalBytes: 16,
+        content_hash: "artifact-content-hash",
+        full_content_hash: "artifact-full-hash",
+        offset_bytes: range?.offsetBytes ?? 0,
+        length_bytes: 16,
+        total_bytes: 16,
         truncated: false,
-        receiptRefs: ["receipt_artifact_read"],
-        shellFallbackUsed: false,
+        receipt_refs: ["receipt_artifact_read"],
+        shell_fallback_used: false,
       };
     },
     retrieveCodingToolResult(threadId, query) {
       calls.push({ name: "retrieveResult", threadId, query });
       return {
-        schemaVersion: "ioi.runtime.coding-tool-result.v1",
-        toolCallId: query.tool_call_id ?? "tool_from_artifact",
-        artifactId: query.artifact_id ?? "artifact_result",
-        artifactRef: query.artifact_id ?? "artifact_result",
-        artifactRefs: [query.artifact_id ?? "artifact_result"],
+        schema_version: "ioi.runtime.coding-tool-result.v1",
+        tool_call_id: query.tool_call_id ?? "tool_from_artifact",
+        artifact_id: query.artifact_id ?? "artifact_result",
+        artifact_refs: [query.artifact_id ?? "artifact_result"],
         channel: query.channel ?? "stdout",
         content: "stored result\n",
-        contentHash: "result-content-hash",
-        fullContentHash: "result-full-hash",
-        offsetBytes: query.range?.offsetBytes ?? 0,
-        lengthBytes: 14,
-        totalBytes: 14,
+        content_hash: "result-content-hash",
+        full_content_hash: "result-full-hash",
+        offset_bytes: query.range?.offsetBytes ?? 0,
+        length_bytes: 14,
+        total_bytes: 14,
         truncated: false,
-        availableArtifacts: [{ artifactId: query.artifact_id ?? "artifact_result", channel: query.channel ?? "stdout" }],
-        receiptRefs: ["receipt_tool_retrieve_result"],
-        shellFallbackUsed: false,
+        available_artifacts: [{ artifact_id: query.artifact_id ?? "artifact_result", channel: query.channel ?? "stdout" }],
+        receipt_refs: ["receipt_tool_retrieve_result"],
+        shell_fallback_used: false,
       };
     },
     materializeCodingToolArtifactDrafts(input) {
@@ -894,7 +892,7 @@ test("coding tool invocation surface runs artifact.read through rust workload li
           execution_result_ref: "result://rust-live/artifact.read",
           normalized_observation_ref: "observation://rust-live/artifact.read",
           receipt_refs: ["receipt://rust-live/artifact.read"],
-          artifact_refs: artifactResult.artifactRefs,
+          artifact_refs: artifactResult.artifact_refs,
           payload_refs: [],
           agentgres_operation_refs: [],
           state_root_after: null,
@@ -923,8 +921,8 @@ test("coding tool invocation surface runs artifact.read through rust workload li
             result: {
               ...artifactResult,
               backend: "rust_artifact_read",
-              dataPlaneSource: "daemon_artifact_store",
-              shellFallbackUsed: false,
+              data_plane_source: "daemon_artifact_store",
+              shell_fallback_used: false,
             },
           },
         },
@@ -951,8 +949,11 @@ test("coding tool invocation surface runs artifact.read through rust workload li
   assert.ok(store.calls.some((call) => call.name === "readArtifact"));
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.backend, "rust_artifact_read");
-  assert.equal(result.result.artifactId, "artifact_alpha");
-  assert.equal(result.result.dataPlaneSource, "daemon_artifact_store");
+  assert.equal(result.result.artifact_id, "artifact_alpha");
+  assert.equal(result.result.data_plane_source, "daemon_artifact_store");
+  for (const field of ["artifactId", "dataPlaneSource", "shellFallbackUsed"]) {
+    assert.equal(Object.hasOwn(result.result, field), false);
+  }
   assert.ok(result.receipt_refs.includes("receipt://rust-live/artifact.read"));
   assert.ok(result.artifact_refs.includes("artifact_alpha"));
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
@@ -991,7 +992,7 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
           execution_result_ref: "result://rust-live/tool.retrieve_result",
           normalized_observation_ref: "observation://rust-live/tool.retrieve_result",
           receipt_refs: ["receipt://rust-live/tool.retrieve_result"],
-          artifact_refs: retrieveResult.artifactRefs,
+          artifact_refs: retrieveResult.artifact_refs,
           payload_refs: [],
           agentgres_operation_refs: [],
           state_root_after: null,
@@ -1020,8 +1021,8 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
             result: {
               ...retrieveResult,
               backend: "rust_tool_result_retrieve",
-              dataPlaneSource: "daemon_artifact_store",
-              shellFallbackUsed: false,
+              data_plane_source: "daemon_artifact_store",
+              shell_fallback_used: false,
             },
           },
         },
@@ -1048,8 +1049,11 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
   assert.ok(store.calls.some((call) => call.name === "retrieveResult"));
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.backend, "rust_tool_result_retrieve");
-  assert.equal(result.result.toolCallId, "tool_patch");
-  assert.equal(result.result.dataPlaneSource, "daemon_artifact_store");
+  assert.equal(result.result.tool_call_id, "tool_patch");
+  assert.equal(result.result.data_plane_source, "daemon_artifact_store");
+  for (const field of ["toolCallId", "dataPlaneSource", "shellFallbackUsed"]) {
+    assert.equal(Object.hasOwn(result.result, field), false);
+  }
   assert.ok(result.receipt_refs.includes("receipt://rust-live/tool.retrieve_result"));
   assert.ok(result.artifact_refs.includes("artifact_result"));
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));

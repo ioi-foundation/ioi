@@ -116,7 +116,7 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
     if (query.artifact_id) {
       return {
         ...readCodingToolArtifact(store, threadId, query.artifact_id, query.range),
-        shellFallbackUsed: false,
+        shell_fallback_used: false,
       };
     }
     const toolCallId = optionalString(query.tool_call_id);
@@ -138,9 +138,9 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
     const artifactRecord = artifacts.find((item) => item.channel === channel) ?? artifacts[0];
     return {
       ...codingToolArtifactReadResult(artifactRecord, query.range),
-      toolCallId,
-      availableArtifacts: artifacts.map(codingToolArtifactMetadata),
-      shellFallbackUsed: false,
+      tool_call_id: toolCallId,
+      available_artifacts: artifacts.map(codingToolArtifactMetadata),
+      shell_fallback_used: false,
     };
   }
 

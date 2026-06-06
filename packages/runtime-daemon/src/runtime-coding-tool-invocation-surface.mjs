@@ -251,7 +251,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       );
       result = codingToolResultForRustLiveStepModule(normalizedToolId, stepModuleProjection);
       receiptRefs.push(...normalizeArray(result.receipt_refs));
-      artifactRefs.push(...normalizeArray(result.artifactRefs));
+      artifactRefs.push(...normalizeArray(result.artifact_refs));
       const liveArtifactDrafts = [
         ...normalizeArray(result?.artifactDrafts),
         ...normalizeArray(result?.artifact_drafts),
@@ -266,7 +266,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
           receiptId,
         });
         result = codingToolResultWithoutDrafts(result, materializedArtifacts);
-        artifactRefs.push(...normalizeArray(result.artifactRefs));
+        artifactRefs.push(...normalizeArray(result.artifact_refs));
       }
       if (normalizedToolId === "file.apply_patch") {
         workspaceSnapshot = store.prepareWorkspaceSnapshotForPatch({
@@ -531,6 +531,7 @@ function codingToolResultForRustLiveStepModule(toolId, stepModuleProjection = {}
     schemaVersion,
     stepModuleBackend,
     toolName,
+    artifactRefs,
     ...canonicalToolResult
   } = toolResult;
   return {

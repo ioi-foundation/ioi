@@ -11,13 +11,14 @@ export function createRuntimeCodingToolResultHelpers({
   function codingToolResultWithoutDrafts(result = {}, artifacts = []) {
     if (!result || typeof result !== "object" || Array.isArray(result)) return result;
     const publicResult = { ...result };
+    delete publicResult.artifactRefs;
     delete publicResult.artifactDrafts;
     delete publicResult.artifact_drafts;
     delete publicResult.workspaceSnapshotDrafts;
     delete publicResult.workspace_snapshot_drafts;
     if (artifacts.length) {
-      publicResult.artifactRefs = uniqueStrings([
-        ...normalizeArray(publicResult.artifactRefs),
+      publicResult.artifact_refs = uniqueStrings([
+        ...normalizeArray(publicResult.artifact_refs),
         ...artifacts.map((artifactRecord) => artifactRecord.id),
       ]);
       publicResult.artifacts = artifacts.map(codingToolArtifactMetadata);
@@ -59,20 +60,19 @@ export function createRuntimeCodingToolResultHelpers({
 
   function codingToolArtifactMetadata(artifactRecord = {}) {
     return {
-      schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-      artifactId: artifactRecord.id,
-      artifactRef: artifactRecord.id,
-      threadId: artifactRecord.thread_id ?? artifactRecord.threadId ?? null,
-      toolName: artifactRecord.tool_name ?? artifactRecord.toolName ?? null,
-      toolCallId: artifactRecord.tool_call_id ?? artifactRecord.toolCallId ?? null,
+      schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
+      artifact_id: artifactRecord.id,
+      thread_id: artifactRecord.thread_id ?? null,
+      tool_name: artifactRecord.tool_name ?? null,
+      tool_call_id: artifactRecord.tool_call_id ?? null,
       name: artifactRecord.name ?? null,
       channel: artifactRecord.channel ?? null,
-      mediaType: artifactRecord.media_type ?? artifactRecord.mediaType ?? "text/plain",
-      contentBytes: Number(artifactRecord.content_bytes ?? artifactRecord.contentBytes ?? 0),
-      contentHash: artifactRecord.content_hash ?? artifactRecord.contentHash ?? null,
-      receiptId: artifactRecord.receipt_id ?? artifactRecord.receiptId ?? null,
+      media_type: artifactRecord.media_type ?? "text/plain",
+      content_bytes: Number(artifactRecord.content_bytes ?? 0),
+      content_hash: artifactRecord.content_hash ?? null,
+      receipt_id: artifactRecord.receipt_id ?? null,
       redaction: artifactRecord.redaction ?? "none",
-      createdAt: artifactRecord.created_at ?? artifactRecord.createdAt ?? null,
+      created_at: artifactRecord.created_at ?? null,
     };
   }
 
@@ -85,18 +85,18 @@ export function createRuntimeCodingToolResultHelpers({
     const text = chunk.toString("utf8");
     const metadata = codingToolArtifactMetadata(artifactRecord);
     return {
-      schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
+      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
       ...metadata,
-      artifactRefs: [artifactRecord.id].filter(Boolean),
-      offsetBytes,
-      lengthBytes: chunk.byteLength,
-      totalBytes: buffer.byteLength,
+      artifact_refs: [artifactRecord.id].filter(Boolean),
+      offset_bytes: offsetBytes,
+      length_bytes: chunk.byteLength,
+      total_bytes: buffer.byteLength,
       content: text,
-      contentHash: doctorHash(text),
-      fullContentHash: metadata.contentHash,
+      content_hash: doctorHash(text),
+      full_content_hash: metadata.content_hash,
       truncated: offsetBytes + chunk.byteLength < buffer.byteLength,
-      receiptRefs: [`receipt_artifact_read_${safeId(artifactRecord.id)}_${doctorHash(`${offsetBytes}:${chunk.byteLength}`).slice(0, 12)}`],
-      shellFallbackUsed: false,
+      receipt_refs: [`receipt_artifact_read_${safeId(artifactRecord.id)}_${doctorHash(`${offsetBytes}:${chunk.byteLength}`).slice(0, 12)}`],
+      shell_fallback_used: false,
     };
   }
 

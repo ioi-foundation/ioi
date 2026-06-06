@@ -112,11 +112,14 @@ test("coding-tool artifact surface reads artifacts inside the owning thread", ()
     lengthBytes: 3,
   });
 
-  assert.equal(result.schemaVersion, "ioi.runtime.coding-tool-artifact.v1");
+  assert.equal(result.schema_version, "ioi.runtime.coding-tool-artifact.v1");
   assert.equal(result.content, "bcd");
-  assert.equal(result.totalBytes, 6);
+  assert.equal(result.total_bytes, 6);
   assert.equal(result.truncated, true);
-  assert.deepEqual(result.artifactRefs, ["artifact_alpha"]);
+  assert.deepEqual(result.artifact_refs, ["artifact_alpha"]);
+  for (const field of ["schemaVersion", "totalBytes", "artifactRefs", "shellFallbackUsed"]) {
+    assert.equal(Object.hasOwn(result, field), false);
+  }
 });
 
 test("coding-tool artifact surface blocks cross-thread reads", () => {
@@ -156,15 +159,19 @@ test("coding-tool artifact surface retrieves tool results by channel or artifact
     tool_call_id: "tool_call_alpha",
     channel: "stderr",
   });
-  assert.equal(byChannel.artifactId, "artifact_b");
+  assert.equal(byChannel.artifact_id, "artifact_b");
   assert.equal(byChannel.content, "err");
-  assert.deepEqual(byChannel.availableArtifacts.map((artifact) => artifact.artifactId), ["artifact_b", "artifact_a"]);
+  assert.deepEqual(byChannel.available_artifacts.map((artifact) => artifact.artifact_id), ["artifact_b", "artifact_a"]);
 
   const byArtifact = surface.retrieveCodingToolResult(store, "thread_alpha", {
     artifact_id: "artifact_a",
   });
-  assert.equal(byArtifact.artifactId, "artifact_a");
-  assert.equal(byArtifact.shellFallbackUsed, false);
+  assert.equal(byArtifact.artifact_id, "artifact_a");
+  assert.equal(byArtifact.shell_fallback_used, false);
+  for (const field of ["artifactId", "availableArtifacts", "shellFallbackUsed"]) {
+    assert.equal(Object.hasOwn(byChannel, field), false);
+    assert.equal(Object.hasOwn(byArtifact, field), false);
+  }
 
   assert.throws(
     () => surface.retrieveCodingToolResult(store, "thread_alpha", { toolCallId: "tool_call_alpha" }),

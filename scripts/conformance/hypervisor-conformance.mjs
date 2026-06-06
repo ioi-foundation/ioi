@@ -526,6 +526,12 @@ function runBridge() {
   const runtimeCodingToolArtifactSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs")
     : "";
+  const runtimeCodingToolResults = exists("packages/runtime-daemon/src/runtime-coding-tool-results.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-results.mjs")
+    : "";
+  const runtimeCodingToolResultsTest = exists("packages/runtime-daemon/src/runtime-coding-tool-results.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-results.test.mjs")
+    : "";
   const runtimeCodingToolGovernanceSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs")
     : "";
@@ -1061,6 +1067,49 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
     ],
     "Phase 10/11 is pending: artifact.read and tool.retrieve_result must use canonical artifact_id/artifact_ref/tool_call_id without retired camelCase target aliases",
+  );
+  assertCheck(
+    result,
+    "coding-tool-artifact-result-output-aliases-retired",
+    /schema_version:\s*CODING_TOOL_ARTIFACT_SCHEMA_VERSION/.test(runtimeCodingToolResults) &&
+      /artifact_id:\s*artifactRecord\.id/.test(runtimeCodingToolResults) &&
+      /thread_id:\s*artifactRecord\.thread_id \?\? null/.test(runtimeCodingToolResults) &&
+      /tool_call_id:\s*artifactRecord\.tool_call_id \?\? null/.test(runtimeCodingToolResults) &&
+      /media_type:\s*artifactRecord\.media_type \?\? "text\/plain"/.test(runtimeCodingToolResults) &&
+      /content_bytes:\s*Number\(artifactRecord\.content_bytes \?\? 0\)/.test(runtimeCodingToolResults) &&
+      /artifact_refs:\s*\[artifactRecord\.id\]\.filter\(Boolean\)/.test(runtimeCodingToolResults) &&
+      /offset_bytes:\s*offsetBytes/.test(runtimeCodingToolResults) &&
+      /full_content_hash:\s*metadata\.content_hash/.test(runtimeCodingToolResults) &&
+      /receipt_refs:\s*\[`receipt_artifact_read_/.test(runtimeCodingToolResults) &&
+      /shell_fallback_used:\s*false/.test(runtimeCodingToolResults) &&
+      /Object\.hasOwn\(publicResult\.artifacts\[0\], field\), false/.test(runtimeCodingToolResultsTest) &&
+      /Object\.hasOwn\(result, field\), false/.test(runtimeCodingToolResultsTest) &&
+      /assert\.equal\(result\.result\.artifact_id, "artifact_alpha"\)/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /assert\.equal\(result\.result\.tool_call_id, "tool_patch"\)/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /assert\.equal\(Object\.hasOwn\(result\.result, field\), false\)/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      !/^\s*(?:schemaVersion|artifactId|artifactRef|threadId|toolName|toolCallId|mediaType|contentBytes|contentHash|receiptId|createdAt|artifactRefs|offsetBytes|lengthBytes|totalBytes|fullContentHash|receiptRefs|shellFallbackUsed)\s*:/m.test(
+        runtimeCodingToolResults,
+      ) &&
+      !/artifactRecord\.(?:threadId|toolName|toolCallId|mediaType|contentBytes|contentHash|receiptId|createdAt)\b/.test(
+        runtimeCodingToolResults,
+      ) &&
+      !/\bresult\.artifactRefs\b/.test(runtimeCodingToolInvocationSurface) &&
+      !/\btoolResult\.artifactRefs\b/.test(runtimeCodingToolInvocationSurface),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-results.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-results.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool artifact result projections must expose canonical snake_case fields without duplicate camelCase output aliases",
   );
   assertCheck(
     result,
