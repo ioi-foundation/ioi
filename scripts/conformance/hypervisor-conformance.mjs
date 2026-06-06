@@ -6007,6 +6007,12 @@ function runCompositor() {
   const runtimeTaskJobSurfaceTest = exists("packages/runtime-daemon/src/runtime-task-job-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-task-job-surface.test.mjs")
     : "";
+  const runtimeWorkspaceSnapshotSurface = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
+    : "";
+  const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
+    : "";
   const runtimeAgentRunLifecycle = exists("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     : "";
@@ -8558,6 +8564,31 @@ function runCompositor() {
       "scripts/check-runtime-layout.mjs",
     ],
     "Phase 10/11 is pending: active gates must not require retired Autopilot Tauri Rust runtime paths",
+  );
+  assertCheck(
+    result,
+    "workspace-restore-request-aliases-retired",
+    /RETIRED_WORKSPACE_RESTORE_REQUEST_ALIASES/.test(runtimeWorkspaceSnapshotSurface) &&
+      /CANONICAL_WORKSPACE_RESTORE_REQUEST_FIELDS/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspace_restore_request_aliases_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+      /assertCanonicalWorkspaceRestoreRequestBody\(request\);[\s\S]*optionalString\(request\.workflow_graph_id\)/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      /workspace snapshot restore rejects retired request aliases before agent lookup/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /agent lookup must not run for retired workspace restore request aliases/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /workflow_node_id:\s*"restore_node"/.test(runtimeWorkspaceSnapshotSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: workspace restore preview/apply requests must fail closed on retired workflow/idempotency camelCase aliases before projection events are emitted",
   );
   assertCheck(
     result,

@@ -12022,6 +12022,11 @@ workflow nodes now use canonical `proposal` and `workflow_node_id` logic fields
 only, and retired `governedImprovement`, `runtimeImprovementProposal`, and
 `workflowNodeId` fallbacks fail closed.
 
+Slice 330 retires workspace restore request aliases: daemon restore preview and
+apply requests now fail closed on retired `workflowGraphId`,
+`workflowNodeId`, and `idempotencyKey` aliases before agent lookup, snapshot
+artifact reads, or workflow projection event emission.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

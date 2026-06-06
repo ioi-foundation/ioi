@@ -24,6 +24,18 @@ import {
 } from "./workspace-restore.mjs";
 import { doctorHash, normalizeArray, optionalString, safeId } from "./runtime-value-helpers.mjs";
 
+const RETIRED_WORKSPACE_RESTORE_REQUEST_ALIASES = [
+  "workflowGraphId",
+  "workflowNodeId",
+  "idempotencyKey",
+];
+
+const CANONICAL_WORKSPACE_RESTORE_REQUEST_FIELDS = [
+  "workflow_graph_id",
+  "workflow_node_id",
+  "idempotency_key",
+];
+
 export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
   const {
     now = () => new Date().toISOString(),
@@ -261,7 +273,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
   }
 
   function previewWorkspaceSnapshotRestore(store, threadId, snapshotId, request = {}) {
-    const agent = store.agentForThread(threadId);
+    assertCanonicalWorkspaceRestoreRequestBody(request);
     const normalizedSnapshotId = optionalString(snapshotId);
     if (!normalizedSnapshotId) {
       throw runtimeError({
@@ -271,10 +283,11 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         details: { threadId },
       });
     }
-    const workflowGraphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const agent = store.agentForThread(threadId);
+    const workflowGraphId = optionalString(request.workflow_graph_id) ?? null;
     const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
-    const idempotencyKey = optionalString(request.idempotency_key ?? request.idempotencyKey);
+      optionalString(request.workflow_node_id) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
+    const idempotencyKey = optionalString(request.idempotency_key);
     const snapshotPackage = workspaceSnapshotContentPackage(store, threadId, normalizedSnapshotId);
     const operations = normalizeArray(snapshotPackage.files).map((file) =>
       workspaceRestorePreviewOperation({
@@ -377,7 +390,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
   }
 
   function applyWorkspaceSnapshotRestore(store, threadId, snapshotId, request = {}) {
-    const agent = store.agentForThread(threadId);
+    assertCanonicalWorkspaceRestoreRequestBody(request);
     const normalizedSnapshotId = optionalString(snapshotId);
     if (!normalizedSnapshotId) {
       throw runtimeError({
@@ -387,10 +400,11 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         details: { threadId },
       });
     }
-    const workflowGraphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const agent = store.agentForThread(threadId);
+    const workflowGraphId = optionalString(request.workflow_graph_id) ?? null;
     const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
-    const idempotencyKey = optionalString(request.idempotency_key ?? request.idempotencyKey);
+      optionalString(request.workflow_node_id) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
+    const idempotencyKey = optionalString(request.idempotency_key);
     const approval = workspaceRestoreApplyApprovalForRequest(request);
     const allowConflicts = workspaceRestoreApplyAllowsConflicts(request);
     const conflictPolicy = allowConflicts ? "override_conflicts" : "clean_preview_only";
@@ -557,6 +571,22 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       restore_apply_event: event,
       restoreApplyEvent: event,
     };
+  }
+
+  function assertCanonicalWorkspaceRestoreRequestBody(request = {}) {
+    const retiredAliases = RETIRED_WORKSPACE_RESTORE_REQUEST_ALIASES.filter((field) =>
+      Object.prototype.hasOwnProperty.call(request, field),
+    );
+    if (retiredAliases.length === 0) return;
+    throw runtimeError({
+      status: 400,
+      code: "workspace_restore_request_aliases_retired",
+      message: "Workspace restore request aliases are retired; use canonical snake_case fields.",
+      details: {
+        retired_aliases: retiredAliases,
+        canonical_fields: CANONICAL_WORKSPACE_RESTORE_REQUEST_FIELDS,
+      },
+    });
   }
 
   function workspaceSnapshotContentPackage(store, threadId, snapshotId) {

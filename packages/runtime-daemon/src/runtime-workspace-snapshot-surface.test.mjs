@@ -297,7 +297,7 @@ test("workspace snapshot surface previews and applies snapshot restores", () => 
   });
 
   const preview = surface.previewWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_alpha", {
-    workflowNodeId: "restore_node",
+    workflow_node_id: "restore_node",
   });
   assert.equal(preview.previewStatus, "ready");
   assert.equal(preview.event.event_kind, "workspace.restore.previewed");
@@ -313,4 +313,54 @@ test("workspace snapshot surface previews and applies snapshot restores", () => 
   assert.equal(applied.applyStatus, "applied");
   assert.equal(fs.readFileSync(path.join(cwd, "src", "app.js"), "utf8"), "old");
   assert.equal(applied.event.event_kind, "workspace.restore.applied");
+});
+
+test("workspace snapshot restore rejects retired request aliases before agent lookup", () => {
+  const { surface } = createSurface();
+  const store = {
+    agentForThread() {
+      assert.fail("agent lookup must not run for retired workspace restore request aliases");
+    },
+  };
+  const retiredRequest = {
+    workflowGraphId: "graph_alias",
+    workflowNodeId: "node_alias",
+    idempotencyKey: "idempotency_alias",
+  };
+
+  for (const operation of [
+    () =>
+      surface.previewWorkspaceSnapshotRestore(
+        store,
+        "thread_alpha",
+        "workspace_snapshot_alpha",
+        retiredRequest,
+      ),
+    () =>
+      surface.applyWorkspaceSnapshotRestore(
+        store,
+        "thread_alpha",
+        "workspace_snapshot_alpha",
+        retiredRequest,
+      ),
+  ]) {
+    assert.throws(
+      operation,
+      (error) => {
+        assert.equal(error.status, 400);
+        assert.equal(error.code, "workspace_restore_request_aliases_retired");
+        assert.deepEqual(error.details.retired_aliases, [
+          "workflowGraphId",
+          "workflowNodeId",
+          "idempotencyKey",
+        ]);
+        assert.deepEqual(error.details.canonical_fields, [
+          "workflow_graph_id",
+          "workflow_node_id",
+          "idempotency_key",
+        ]);
+        return true;
+      },
+    );
+  }
 });
