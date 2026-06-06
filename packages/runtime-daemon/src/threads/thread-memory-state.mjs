@@ -412,13 +412,13 @@ export function createThreadMemoryState({
   }) {
     const thread = store.threadForAgent(agent);
     const turnId =
-      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(request.turn_id) ??
       optionalString(thread.latest_turn_id) ??
       "";
     const source = operatorControlSource(request.source);
-    const graphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const graphId = optionalString(request.workflow_graph_id) ?? null;
     const nodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      optionalString(request.workflow_node_id) ??
       workflowNodeId;
     const eventHash = doctorHash(`${threadId}:${controlKind}:${JSON.stringify(payload)}:${Date.now()}`).slice(0, 12);
     const resolvedReceiptRefs = normalizeArray(receiptRefs).length

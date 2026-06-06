@@ -2487,6 +2487,38 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "thread-memory-request-aliases-retired",
+    /optionalString\(request\.turn_id\) \?\?/.test(runtimeThreadMemoryState) &&
+      /const graphId = optionalString\(request\.workflow_graph_id\) \?\? null;/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      /optionalString\(request\.workflow_node_id\) \?\?/.test(runtimeThreadMemoryState) &&
+      /thread memory state ignores retired request identity aliases/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /turnId: "turn_retired"/.test(runtimeThreadMemoryStateTest) &&
+      /workflowGraphId: "graph_retired"/.test(runtimeThreadMemoryStateTest) &&
+      /workflowNodeId: "node_retired"/.test(runtimeThreadMemoryStateTest) &&
+      /retired\.event\.turn_id, "turn_latest"/.test(runtimeThreadMemoryStateTest) &&
+      /retired\.event\.workflow_graph_id, null/.test(runtimeThreadMemoryStateTest) &&
+      /retired\.event\.workflow_node_id, "runtime\.memory-manager"/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /canonical\.event\.workflow_node_id, "node_canonical"/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId)\b/.test(runtimeThreadMemoryState) &&
+      !/request\.(?:turn_id|workflow_node_id|workflow_graph_id)\s*\?\?\s*request\./.test(
+        runtimeThreadMemoryState,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+    ],
+    "Phase 10/11 is pending: thread-memory event identity must use canonical turn_id/workflow ids before Rust state planning",
+  );
+  assertCheck(
+    result,
     "runtime-bridge-thread-start-agent-state-update-live-bridge",
     /RuntimeBridgeThreadStartAgentStateUpdateCore/.test(policyCore) &&
       /RuntimeBridgeTurnRunStateUpdateCore/.test(policyCore) &&

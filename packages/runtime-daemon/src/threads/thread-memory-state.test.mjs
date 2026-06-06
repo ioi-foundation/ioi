@@ -355,6 +355,43 @@ test("thread memory state blocks disallowed writes and emits status events", () 
   assert.equal(agents.get("agent_a").updatedAt, "2026-06-04T00:00:00.000Z");
 });
 
+test("thread memory state ignores retired request identity aliases", () => {
+  const { calls, state, store } = createHarness();
+
+  const retired = state.recordThreadMemoryStatus(
+    store,
+    "thread_a",
+    {
+      source: "status_alias_test",
+      turnId: "turn_retired",
+      workflowGraphId: "graph_retired",
+      workflowNodeId: "node_retired",
+    },
+    "memory.status.v1",
+  );
+
+  assert.equal(retired.event.turn_id, "turn_latest");
+  assert.equal(retired.event.workflow_graph_id, null);
+  assert.equal(retired.event.workflow_node_id, "runtime.memory-manager");
+
+  const canonical = state.recordThreadMemoryStatus(
+    store,
+    "thread_a",
+    {
+      source: "status_canonical_test",
+      turn_id: "turn_canonical",
+      workflow_graph_id: "graph_canonical",
+      workflow_node_id: "node_canonical",
+    },
+    "memory.status.v1",
+  );
+
+  assert.equal(canonical.event.turn_id, "turn_canonical");
+  assert.equal(canonical.event.workflow_graph_id, "graph_canonical");
+  assert.equal(canonical.event.workflow_node_id, "node_canonical");
+  assert.equal(calls.filter((call) => call.type === "planThreadMemoryAgentStateUpdate").length, 2);
+});
+
 test("thread memory state fails closed without Rust-planned agent projection", () => {
   const { calls, state, store } = createHarness({
     contextPolicyRunner: {

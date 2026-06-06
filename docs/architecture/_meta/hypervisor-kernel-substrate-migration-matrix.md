@@ -12829,6 +12829,13 @@ thread runtime control updates now consume canonical `workflow_graph_id` and
 warning events, model route helper context, model control projection identity,
 or Rust policy-core state-update planning.
 
+Slice 448 removes thread-memory request aliases:
+thread memory control/status events now consume canonical `turn_id`,
+`workflow_graph_id`, and `workflow_node_id` request fields only; retired
+`turnId`, `workflowGraphId`, and `workflowNodeId` fields no longer steer memory
+event identity, memory status projection identity, or Rust policy-core
+thread-memory state-update planning.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
