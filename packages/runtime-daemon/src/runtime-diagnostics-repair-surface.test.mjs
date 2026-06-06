@@ -136,12 +136,19 @@ function createSurface({ calls = [], diagnosticsOperatorOverrideStateUpdate = nu
   });
 }
 
-function createStore({ action = "restore_apply", status = "available", snapshotRefs = ["snapshot_alpha"] } = {}) {
+function createStore({
+  action = "restore_apply",
+  status = "available",
+  snapshotRefs = ["snapshot_alpha"],
+  decisionOverrides = {},
+  repairPolicyOverrides = {},
+  gatePayloadSummary = null,
+} = {}) {
   const calls = [];
   const gateEvent = {
     event_id: "event_gate",
     workflow_graph_id: "graph_gate",
-    payload_summary: { workspace_snapshot_refs: snapshotRefs },
+    payload_summary: gatePayloadSummary ?? { workspace_snapshot_refs: snapshotRefs },
   };
   const decision = {
     decision_id: "decision_alpha",
@@ -149,11 +156,13 @@ function createStore({ action = "restore_apply", status = "available", snapshotR
     status,
     workspace_snapshot_refs: snapshotRefs,
     restore_conflict_policy: "allow_override",
+    ...decisionOverrides,
   };
   const repairPolicy = {
     policy_id: "policy_alpha",
     workspace_snapshot_refs: snapshotRefs,
     restore_conflict_policy: "clean_preview_only",
+    ...repairPolicyOverrides,
   };
   return {
     calls,
@@ -241,6 +250,68 @@ test("diagnostics repair surface routes restore apply with canonical request fie
   assert.equal(Object.hasOwn(apply.request, "approvalGranted"), false);
   assert.equal(apply.request.restore_conflict_policy, "allow_override");
   assert.equal(apply.request.allow_conflicts, true);
+});
+
+test("diagnostics repair decision execution ignores retired request decision alias", () => {
+  const surface = createSurface();
+  const store = createStore();
+
+  assert.throws(
+    () => surface.executeDiagnosticsRepairDecision(store, "thread_alpha", null, { decisionId: "decision_alias" }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "diagnostics_repair_decision_required");
+      assert.equal(store.calls.some((call) => call.name === "resolve"), false);
+      return true;
+    },
+  );
+});
+
+test("diagnostics repair decision execution ignores retired snapshot ref aliases", () => {
+  const surface = createSurface();
+  const store = createStore({
+    gatePayloadSummary: {},
+    decisionOverrides: {
+      workspace_snapshot_refs: [],
+      workspaceSnapshotRefs: ["snapshot_alias"],
+    },
+    repairPolicyOverrides: {
+      workspace_snapshot_refs: [],
+      workspaceSnapshotRefs: ["snapshot_policy_alias"],
+    },
+  });
+
+  assert.throws(
+    () => surface.executeDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", { confirm: true }),
+    (error) => {
+      assert.equal(error.status, 409);
+      assert.equal(error.code, "diagnostics_repair_snapshot_required");
+      assert.equal(store.calls.some((call) => call.name === "apply"), false);
+      return true;
+    },
+  );
+});
+
+test("diagnostics repair decision execution ignores retired decision and policy id aliases", () => {
+  const surface = createSurface();
+  const store = createStore({
+    action: "operator_override",
+    decisionOverrides: {
+      decision_id: undefined,
+      decisionId: "decision_alias",
+    },
+    repairPolicyOverrides: {
+      policy_id: undefined,
+      policyId: "policy_alias",
+    },
+  });
+
+  const result = surface.executeDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", {
+    confirm: true,
+  });
+
+  assert.equal(result.decision_id, "decision_alpha");
+  assert.equal(result.policy_id, null);
 });
 
 test("diagnostics repair restore rejects retired request aliases before workspace restore call", () => {

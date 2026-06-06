@@ -11065,11 +11065,36 @@ function runCompositor() {
         diagnosticsRepairDecisionExecutionBody,
       ) &&
       /rollback_refs:\s*event\.rollback_refs/.test(diagnosticsRepairDecisionExecutionBody) &&
+      /const target = optionalString\(decisionRef \?\? request\.decision_id \?\? request\.action\);/.test(
+        diagnosticsRepairDecisionExecutionBody,
+      ) &&
+      /const decisionId = decision\.decision_id \?\? target;/.test(
+        diagnosticsRepairDecisionExecutionBody,
+      ) &&
+      /policy_id:\s*repairPolicy\.policy_id \?\? null/.test(
+        diagnosticsRepairDecisionExecutionBody,
+      ) &&
+      !/\brequest\.decisionId\b/.test(diagnosticsRepairDecisionExecutionBody) &&
+      !/\bdecision\.(?:decisionId|workspaceSnapshotRefs)\b/.test(
+        diagnosticsRepairDecisionExecutionBody,
+      ) &&
+      !/\brepairPolicy\.(?:policyId|workspaceSnapshotRefs)\b/.test(
+        diagnosticsRepairDecisionExecutionBody,
+      ) &&
       !/^\s*(?:schemaVersion|threadId|decisionId|gateEventId|policyId|snapshotId|workflowGraphId|workflowNodeId|repairPolicy|repairRetry|repairTurn|repairRetryEvent|operatorOverride|operatorOverrideEvent|restorePreview|restoreApply|restorePreviewEvent|restoreApplyEvent|receiptRefs|artifactRefs|policyDecisionRefs|rollbackRefs)\s*:/m.test(
         diagnosticsRepairDecisionExecutionBody,
       ) &&
       /Object\.hasOwn\(result,\s*field\),\s*false/.test(runtimeDiagnosticsRepairSurfaceTest) &&
       /"schemaVersion"[\s\S]*"threadId"[\s\S]*"decisionId"[\s\S]*"receiptRefs"[\s\S]*"rollbackRefs"/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics repair decision execution ignores retired request decision alias/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics repair decision execution ignores retired snapshot ref aliases/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics repair decision execution ignores retired decision and policy id aliases/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ),
     [

@@ -109,7 +109,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
 
   function executeDiagnosticsRepairDecision(store, threadId, decisionRef, request = {}) {
     store.agentForThread(threadId);
-    const target = optionalString(decisionRef ?? request.decision_id ?? request.decisionId ?? request.action);
+    const target = optionalString(decisionRef ?? request.decision_id ?? request.action);
     if (!target) {
       throw runtimeError({
         status: 400,
@@ -154,8 +154,8 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     const snapshotId =
       optionalString(request.snapshot_id) ??
       uniqueStrings([
-        ...normalizeArray(decision.workspaceSnapshotRefs ?? decision.workspace_snapshot_refs),
-        ...normalizeArray(repairPolicy.workspaceSnapshotRefs ?? repairPolicy.workspace_snapshot_refs),
+        ...normalizeArray(decision.workspace_snapshot_refs),
+        ...normalizeArray(repairPolicy.workspace_snapshot_refs),
         ...normalizeArray(gateEvent.payload_summary?.workspace_snapshot_refs),
       ])[0];
     if (!snapshotId && ["restore_preview", "restore_apply"].includes(action)) {
@@ -176,7 +176,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         : action === "restore_apply"
         ? LSP_DIAGNOSTICS_REPAIR_RESTORE_APPLY_NODE_ID
         : LSP_DIAGNOSTICS_REPAIR_RESTORE_PREVIEW_NODE_ID);
-    const decisionId = decision.decision_id ?? decision.decisionId ?? target;
+    const decisionId = decision.decision_id ?? target;
     const executionResult =
       action === "repair_retry"
         ? store.createDiagnosticsRepairRetryTurn(threadId, {
@@ -263,7 +263,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       action,
       status: diagnosticsRepairExecutionStatus(executionResult),
       gate_event_id: gateEvent.event_id,
-      policy_id: repairPolicy.policy_id ?? repairPolicy.policyId ?? null,
+      policy_id: repairPolicy.policy_id ?? null,
       snapshot_id: snapshotId,
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
