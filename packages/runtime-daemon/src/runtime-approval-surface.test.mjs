@@ -487,6 +487,126 @@ test("approval surface fails closed without Rust-planned run approval updates", 
   assert.equal(revokeStore.writes.length, 2);
 });
 
+test("approval surface fails closed without Rust-planned operation kinds", () => {
+  const requestSurface = createSurface({
+    approvalRequestStateUpdate: {
+      ...approvalRequestStateUpdateForRequest({
+        run: createStore().runs.get("run_alpha"),
+        event_id: "event_missing_request_kind",
+      }),
+      operation_kind: null,
+    },
+  });
+  const requestStore = createStore();
+
+  assert.throws(
+    () =>
+      requestSurface.requestThreadApproval(requestStore, "thread_alpha", {
+        approval_id: "approval-one",
+        reason: "Need permission",
+      }),
+    (error) => {
+      assert.equal(error.code, "approval_state_update_operation_kind_missing");
+      assert.equal(error.details.operationKind, "approval.required");
+      assert.equal(error.details.targetKind, "run");
+      return true;
+    },
+  );
+  assert.equal(requestStore.writes.length, 0);
+  assert.equal(requestStore.runs.get("run_alpha").status, "running");
+
+  const decisionSurface = createSurface({
+    approvalDecisionStateUpdate: {
+      ...approvalDecisionStateUpdateForRequest({
+        run: createStore().runs.get("run_alpha"),
+        approval_id: "approval-one",
+        decision: "approve",
+        status: "approved",
+        event_id: "event_missing_decision_kind",
+      }),
+      operation_kind: null,
+    },
+  });
+  const decisionStore = createStore();
+  decisionSurface.requestThreadApproval(decisionStore, "thread_alpha", {
+    approval_id: "approval-one",
+    reason: "Need permission",
+  });
+
+  assert.throws(
+    () =>
+      decisionSurface.decideThreadApproval(decisionStore, "thread_alpha", "approval-one", {
+        decision: "approve",
+      }),
+    (error) => {
+      assert.equal(error.code, "approval_state_update_operation_kind_missing");
+      assert.equal(error.details.operationKind, "approval.approve");
+      assert.equal(error.details.targetKind, "run");
+      return true;
+    },
+  );
+  assert.equal(decisionStore.writes.length, 1);
+
+  const revokeSurface = createSurface({
+    approvalRevokeStateUpdate: {
+      ...approvalRevokeStateUpdateForRequest({
+        run: createStore().runs.get("run_alpha"),
+        approval_id: "approval-one",
+        event_id: "event_missing_revoke_kind",
+      }),
+      operation_kind: null,
+    },
+  });
+  const revokeStore = createStore();
+  revokeSurface.requestThreadApproval(revokeStore, "thread_alpha", {
+    approval_id: "approval-one",
+    reason: "Need permission",
+  });
+  revokeSurface.decideThreadApproval(revokeStore, "thread_alpha", "approval-one", {
+    decision: "approve",
+  });
+
+  assert.throws(
+    () => revokeSurface.revokeThreadApproval(revokeStore, "thread_alpha", "approval-one", {}),
+    (error) => {
+      assert.equal(error.code, "approval_state_update_operation_kind_missing");
+      assert.equal(error.details.operationKind, "approval.revoke");
+      assert.equal(error.details.targetKind, "run");
+      return true;
+    },
+  );
+  assert.equal(revokeStore.writes.length, 2);
+
+  const agentSurface = createSurface({
+    approvalRequestStateUpdate: {
+      ...approvalRequestStateUpdateForRequest({
+        target_kind: "agent",
+        agent: createStore().agents.get("agent_alpha"),
+        event_id: "event_missing_agent_request_kind",
+      }),
+      operation_kind: null,
+    },
+  });
+  const agentStore = createStore();
+  agentStore.runs.clear();
+
+  assert.throws(
+    () =>
+      agentSurface.requestThreadApproval(agentStore, "thread_alpha", {
+        approval_id: "approval-one",
+        reason: "Need permission",
+      }),
+    (error) => {
+      assert.equal(error.code, "approval_state_update_operation_kind_missing");
+      assert.equal(error.details.operationKind, "approval.required");
+      assert.equal(error.details.targetKind, "agent");
+      return true;
+    },
+  );
+  assert.equal(agentStore.writes.length, 0);
+  assert.equal(agentStore.agents.get("agent_alpha").updatedAt, undefined);
+});
+
 test("approval surface fails closed for missing approval ids and requests", () => {
   const surface = createSurface();
   const store = createStore();

@@ -12398,6 +12398,12 @@ state planner to return the exact `turn.interrupt` or `turn.steer` operation
 kind before the daemon persists the run projection, rather than substituting the
 JS-side control operation kind.
 
+Slice 386 removes the approval-surface operation-kind fallback:
+approval request/decision/revoke persistence for both run and agent targets now
+requires the Rust approval state planner to return the exact `approval.*`
+operation kind before the daemon persists the projection, rather than
+substituting the JS-side approval operation kind.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

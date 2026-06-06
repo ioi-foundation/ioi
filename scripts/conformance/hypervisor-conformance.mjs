@@ -1059,9 +1059,13 @@ function runBridge() {
       /approvalStateRunnerDep\.planApprovalRequestStateUpdate/.test(runtimeApprovalSurface) &&
       /plannedApprovalRunRecord/.test(runtimeApprovalSurface) &&
       /plannedApprovalAgentRecord/.test(runtimeApprovalSurface) &&
+      /requiredApprovalOperationKind/.test(runtimeApprovalSurface) &&
       /target_kind:\s*"agent"/.test(runtimeApprovalSurface) &&
       /planApprovalRequestStateUpdate/.test(runtimeApprovalSurfaceTest) &&
       /approval surface fails closed without Rust-planned run approval updates/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /approval surface fails closed without Rust-planned operation kinds/.test(
         runtimeApprovalSurfaceTest,
       ) &&
       /approval surface routes runless agent approval updates through Rust planner/.test(
@@ -1071,6 +1075,7 @@ function runBridge() {
         runtimeApprovalSurface,
       ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeApprovalSurface) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"approval\.required"/.test(runtimeApprovalSurface) &&
       !/const updatedAgent = \{\s*\.\.\.agent,\s*updatedAt: event\.created_at\s*\}/.test(
         runtimeApprovalSurface,
       ),
@@ -1106,9 +1111,13 @@ function runBridge() {
       /approvalStateRunnerDep\.planApprovalDecisionStateUpdate/.test(runtimeApprovalSurface) &&
       /plannedApprovalRunRecord/.test(runtimeApprovalSurface) &&
       /plannedApprovalAgentRecord/.test(runtimeApprovalSurface) &&
+      /requiredApprovalOperationKind/.test(runtimeApprovalSurface) &&
       /target_kind:\s*"agent"/.test(runtimeApprovalSurface) &&
       /planApprovalDecisionStateUpdate/.test(runtimeApprovalSurfaceTest) &&
       /approval surface fails closed without Rust-planned run approval updates/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /approval surface fails closed without Rust-planned operation kinds/.test(
         runtimeApprovalSurfaceTest,
       ) &&
       /approval surface routes runless agent approval updates through Rust planner/.test(
@@ -1118,6 +1127,9 @@ function runBridge() {
         runtimeApprovalSurface,
       ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeApprovalSurface) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*`approval\.\$\{decision\}`/.test(
+        runtimeApprovalSurface,
+      ) &&
       !/const updatedAgent = \{\s*\.\.\.agent,\s*updatedAt: event\.created_at\s*\}/.test(
         runtimeApprovalSurface,
       ),
@@ -1153,9 +1165,13 @@ function runBridge() {
       /approvalStateRunnerDep\.planApprovalRevokeStateUpdate/.test(runtimeApprovalSurface) &&
       /plannedApprovalRunRecord/.test(runtimeApprovalSurface) &&
       /plannedApprovalAgentRecord/.test(runtimeApprovalSurface) &&
+      /requiredApprovalOperationKind/.test(runtimeApprovalSurface) &&
       /target_kind:\s*"agent"/.test(runtimeApprovalSurface) &&
       /planApprovalRevokeStateUpdate/.test(runtimeApprovalSurfaceTest) &&
       /approval surface fails closed without Rust-planned run approval updates/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /approval surface fails closed without Rust-planned operation kinds/.test(
         runtimeApprovalSurfaceTest,
       ) &&
       /approval surface routes runless agent approval updates through Rust planner/.test(
@@ -1165,6 +1181,7 @@ function runBridge() {
         runtimeApprovalSurface,
       ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeApprovalSurface) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"approval\.revoke"/.test(runtimeApprovalSurface) &&
       !/const updatedAgent = \{\s*\.\.\.agent,\s*updatedAt: event\.created_at\s*\}/.test(
         runtimeApprovalSurface,
       ),
