@@ -95,7 +95,7 @@ export function createRuntimeContextPolicySurface({
       const runs = store.listRuns(agent.id);
       const latestRun = runs.at(-1);
       const turnId =
-        optionalStringDep(request.turn_id ?? request.turnId) ??
+        optionalStringDep(request.turn_id) ??
         (latestRun ? turnIdForRunDep(latestRun.id) : "");
       const now = new Date().toISOString();
       const streamId = eventStreamIdForThreadDep(threadId);
@@ -111,8 +111,8 @@ export function createRuntimeContextPolicySurface({
         scope: optionalStringDep(request.scope) ?? null,
         source: optionalStringDep(request.source) ?? null,
         requested_by: optionalStringDep(request.actor ?? request.requested_by ?? request.requestedBy) ?? null,
-        workflow_graph_id: optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
-        workflow_node_id: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
+        workflow_graph_id: optionalStringDep(request.workflow_graph_id) ?? null,
+        workflow_node_id: optionalStringDep(request.workflow_node_id) ?? null,
         event_stream_id: streamId,
         previous_latest_seq: previousLatestSeq,
         idempotency_key: optionalStringDep(request.idempotency_key ?? request.idempotencyKey) ?? null,
@@ -277,7 +277,7 @@ export function createRuntimeContextPolicySurface({
 
     evaluateCompactionPolicy(store, { threadId, request = {} } = {}) {
       const requestedThreadId =
-        optionalStringDep(request.thread_id ?? request.threadId) ?? threadId;
+        optionalStringDep(request.thread_id) ?? threadId;
       if (!requestedThreadId) {
         throw runtimeError({
           status: 400,
@@ -288,12 +288,16 @@ export function createRuntimeContextPolicySurface({
       const agent = store.agentForThread(requestedThreadId);
       const latestRun = store.listRuns(agent.id).at(-1) ?? null;
       const turnId =
-        optionalStringDep(request.turn_id ?? request.turnId) ??
+        optionalStringDep(request.turn_id) ??
         (latestRun ? turnIdForRunDep(latestRun.id) : "");
+      const canonicalRequest = { ...request };
+      for (const retiredField of ["eventKind", "threadId", "turnId"]) {
+        delete canonicalRequest[retiredField];
+      }
       const result = evaluateCompactionPolicyDecisionDep({
         threadId: requestedThreadId,
         turnId,
-        request,
+        request: canonicalRequest,
       });
       const streamId = eventStreamIdForThreadDep(requestedThreadId);
       let compactEvent = null;
@@ -334,7 +338,7 @@ export function createRuntimeContextPolicySurface({
           result.runtime_event_idempotency_key,
         source: operatorControlSourceDep(request.source),
         source_event_kind:
-          optionalStringDep(request.eventKind ?? request.event_kind) ??
+          optionalStringDep(request.event_kind) ??
           "RuntimeCompactionPolicy.Evaluate",
         event_kind: result.runtime_event_kind,
         status: result.runtime_event_status,

@@ -2659,6 +2659,47 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "context-policy-request-aliases-retired",
+    /const turnId =\s*\n\s*optionalStringDep\(request\.turn_id\)/.test(
+      runtimeContextPolicySurface,
+    ) &&
+      /workflow_graph_id: optionalStringDep\(request\.workflow_graph_id\) \?\? null/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /workflow_node_id: optionalStringDep\(request\.workflow_node_id\) \?\? null/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /optionalStringDep\(request\.thread_id\) \?\? threadId/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /for \(const retiredField of \["eventKind", "threadId", "turnId"\]\)/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /optionalStringDep\(request\.event_kind\) \?\?/.test(runtimeContextPolicySurface) &&
+      /context policy surface ignores retired compaction request identity aliases/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compaction policy surface ignores retired request identity aliases/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /turnId: "turn-retired"/.test(runtimeContextPolicySurfaceTest) &&
+      /workflowGraphId: "graph-retired"/.test(runtimeContextPolicySurfaceTest) &&
+      /workflowNodeId: "node-retired"/.test(runtimeContextPolicySurfaceTest) &&
+      /eventKind: "RuntimeCompactionPolicy\.Retired"/.test(runtimeContextPolicySurfaceTest) &&
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId|threadId|eventKind)\b/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|thread_id|event_kind)\s*\?\?\s*request\./.test(
+        runtimeContextPolicySurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: context policy and compaction requests must ignore retired JS facade identity/event aliases before Rust policy planning",
+  );
+  assertCheck(
+    result,
     "context-compaction-plan-live-bridge",
     /ContextCompactionPlanCore/.test(policyCore) &&
       /ContextCompactionPlanRequest/.test(policyCore) &&

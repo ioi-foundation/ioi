@@ -415,8 +415,8 @@ test("context policy surface compacts latest run and records operator control", 
     reason: "trim context",
     scope: "thread",
     actor: "operator-one",
-    workflowGraphId: "graph-compact",
-    workflowNodeId: "node-compact",
+    workflow_graph_id: "graph-compact",
+    workflow_node_id: "node-compact",
   });
   const savedRun = store.runs.get("run-one");
 
@@ -464,6 +464,49 @@ test("context policy surface compacts runless thread by touching agent state", (
   );
   assert.equal(savedAgent.updatedAt, events[0].created_at);
   assert.equal(calls.find((call) => call.name === "writeAgent").operationKind, "thread.compact");
+});
+
+test("context policy surface ignores retired compaction request identity aliases", () => {
+  const { calls, events, store, surface } = harness();
+
+  surface.compactThread(store, "thread-agent-one", {
+    source: "agent_studio",
+    reason: "trim context",
+    turnId: "turn-retired",
+    workflowGraphId: "graph-retired",
+    workflowNodeId: "node-retired",
+  });
+
+  const planRequest = calls.find((call) => call.name === "planContextCompaction").request;
+  assert.equal(planRequest.turn_id, "turn-run-one");
+  assert.equal(planRequest.workflow_graph_id, null);
+  assert.equal(planRequest.workflow_node_id, null);
+  assert.equal(events[0].turn_id, "turn-run-one");
+  assert.equal(events[0].workflow_graph_id, null);
+  assert.equal(events[0].workflow_node_id, "runtime.context-compact");
+});
+
+test("compaction policy surface ignores retired request identity aliases", () => {
+  const { calls, events, store, surface } = harness();
+
+  surface.evaluateCompactionPolicy(store, {
+    threadId: "thread-agent-one",
+    request: {
+      source: "test-source",
+      threadId: "thread-retired",
+      turnId: "turn-retired",
+      eventKind: "RuntimeCompactionPolicy.Retired",
+    },
+  });
+
+  const policyInput = calls.find((call) => call.name === "evaluateCompactionPolicyDecision").input;
+  assert.equal(policyInput.threadId, "thread-agent-one");
+  assert.equal(policyInput.turnId, "turn-run-one");
+  for (const field of ["threadId", "turnId", "eventKind"]) {
+    assert.equal(Object.hasOwn(policyInput.request, field), false);
+  }
+  assert.equal(events[0].turn_id, "turn-run-one");
+  assert.equal(events[0].source_event_kind, "RuntimeCompactionPolicy.Evaluate");
 });
 
 test("context policy surface fails closed without Rust-planned compaction target records", () => {

@@ -12807,6 +12807,13 @@ policy-core state-update planning; retired camelCase request aliases no longer
 steer thread selection, target-node recovery policy, receipt binding, workflow
 identity, or approval-gate identity.
 
+Slice 445 removes context policy request aliases:
+context compaction planning and compaction policy evaluation now consume
+canonical `turn_id`, `workflow_graph_id`, `workflow_node_id`, `thread_id`, and
+`event_kind` request fields only; retired `turnId`, `workflowGraphId`,
+`workflowNodeId`, `threadId`, and `eventKind` fields no longer steer Rust policy
+planning, compaction event identity, or compaction policy event classification.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
