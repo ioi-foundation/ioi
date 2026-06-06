@@ -7681,6 +7681,10 @@ function runCompositor() {
     runtimeMcpHelpers.match(
       /export function mcpLiveExecutionModeForServer\(server, request = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpTransportEvidenceRef/,
     )?.[0] ?? "";
+  const runtimeMcpToolIdentityHelperBlock =
+    runtimeMcpHelpers.match(
+      /export function mcpToolKey\(tool = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpCatalogPreviewLimit/,
+    )?.[0] ?? "";
   const runtimeMcpCatalogExposureBlock =
     runtimeMcpHelpers.match(
       /export function mcpCatalogExposureForStatus\(server, catalog = \{\}, options = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpCatalogSummaryForServer/,
@@ -10754,10 +10758,25 @@ function runCompositor() {
       /tool_count:\s*tools\.length/.test(runtimeMcpCatalogSummaryBlock) &&
       /full_catalog_included:\s*!deferred/.test(runtimeMcpCatalogSummaryBlock) &&
       /error_code:\s*options\.errorCode/.test(runtimeMcpCatalogSummaryBlock) &&
+      /tool_name/.test(runtimeMcpCatalogSummaryBlock) &&
+      /stable_tool_id/.test(runtimeMcpCatalogSummaryBlock) &&
+      /input_schema/.test(runtimeMcpCatalogSummaryBlock) &&
       /Object\.hasOwn\(exposure\.summary,\s*"toolCount"\),\s*false/.test(runtimeMcpHelpersTest) &&
       /Object\.hasOwn\(exposure\.exposure,\s*"previewLimit"\),\s*false/.test(runtimeMcpHelpersTest) &&
+      /mcpToolIdentityMatches\(\{[\s\S]*stable_tool_id:[\s\S]*workflow_node_id:[\s\S]*tool_name:[\s\S]*server_id:/.test(
+        runtimeMcpHelpersTest,
+      ) &&
+      /stableToolId: "mcp\.workspace\.docs\.search"[\s\S]*workflowNodeId: "runtime\.mcp\.docs\.search"[\s\S]*toolName: "search"[\s\S]*serverId: "mcp\.workspace\.docs"[\s\S]*\}, "runtime\.mcp\.docs\.search"\), false/.test(
+        runtimeMcpHelpersTest,
+      ) &&
       !/^\s*(?:previewLimit|fullCatalogIncluded|returnedToolCount|returnedResourceCount|returnedPromptCount|searchRoute|fetchRoute)\s*:/m.test(
         runtimeMcpCatalogExposureBlock,
+      ) &&
+      !/\btool\.(?:stableToolId|serverId|toolName|workflowNodeId|displayName|serverLabel|inputSchema)\b/.test(
+        `${runtimeMcpCatalogSummaryBlock}\n${runtimeMcpToolIdentityHelperBlock}`,
+      ) &&
+      !/\b(?:resource\.stableResourceId|resource\.serverId|prompt\.stablePromptId|prompt\.serverId)\b/.test(
+        runtimeMcpHelpers,
       ) &&
       !/serverId:\s*server\.id/.test(runtimeMcpCatalogSummaryReturnBlock) &&
       !/^\s*(?:schemaVersion|serverLabel|executionMode|catalogHash|toolCount|resourceCount|promptCount|namespaceCount|previewLimit|previewToolNames|fullCatalogIncluded|errorCode|searchRoute|fetchRoute)\s*:/m.test(

@@ -55,12 +55,19 @@ test("runtime MCP helpers resolve servers and tools by stable identities", () =>
   assert.equal(canonicalRequest.toolName, "search");
 
   assert.equal(mcpToolIdentityMatches({
+    stable_tool_id: "mcp.workspace.docs.search",
+    workflow_node_id: "runtime.mcp.docs.search",
+    tool_name: "search",
+    server_id: "mcp.workspace.docs",
+  }, "runtime.mcp.docs.search"), true);
+  assert.equal(mcpToolIdentityMatches({
     stableToolId: "mcp.workspace.docs.search",
     workflowNodeId: "runtime.mcp.docs.search",
     toolName: "search",
     serverId: "mcp.workspace.docs",
-  }, "runtime.mcp.docs.search"), true);
-  assert.equal(mcpToolMatchesQuery({ serverLabel: "Docs", toolName: "search" }, "doc"), true);
+  }, "runtime.mcp.docs.search"), false);
+  assert.equal(mcpToolMatchesQuery({ server_label: "Docs", tool_name: "search" }, "doc"), true);
+  assert.equal(mcpToolMatchesQuery({ serverLabel: "Docs", toolName: "search" }, "doc"), false);
 });
 
 test("runtime MCP helpers shape serve descriptors and tool results", () => {
@@ -142,10 +149,10 @@ test("runtime MCP helpers shape JSON-RPC envelopes and transport metadata", () =
 
 test("runtime MCP helpers summarize and defer large catalogs", () => {
   const tools = Array.from({ length: 4 }, (_, index) => ({
-    stableToolId: `mcp.docs.search_${index}`,
-    toolName: `docs__search_${index}`,
+    stable_tool_id: `mcp.docs.search_${index}`,
+    tool_name: `docs__search_${index}`,
     description: "Search docs",
-    inputSchema: { type: "object" },
+    input_schema: { type: "object" },
   }));
   const exposure = mcpCatalogExposureForStatus(
     { id: "mcp.docs", label: "Docs", transport: "stdio" },

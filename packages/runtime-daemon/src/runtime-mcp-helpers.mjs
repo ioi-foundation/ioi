@@ -83,11 +83,8 @@ export function resolveMcpToolRecord(servers = [], toolId, request = {}) {
     const normalizedToolId = requestedToolId.toLowerCase();
     const match = toolsByServer.find(({ tool }) => {
       const candidates = [
-        tool.stableToolId,
         tool.stable_tool_id,
-        tool.workflowNodeId,
         tool.workflow_node_id,
-        `${tool.serverId}.${tool.toolName}`,
         `${tool.server_id}.${tool.tool_name}`,
       ]
         .map((value) => optionalString(value)?.toLowerCase())
@@ -96,7 +93,7 @@ export function resolveMcpToolRecord(servers = [], toolId, request = {}) {
     });
     if (match) {
       server = match.server;
-      requestedToolName ??= match.tool.toolName ?? match.tool.tool_name;
+      requestedToolName ??= match.tool.tool_name;
     }
   }
   if (!server && requestedToolId) {
@@ -333,21 +330,18 @@ export function mcpServerRecordFromAddRequest(request = {}, workspaceRoot) {
 }
 
 export function mcpToolKey(tool = {}) {
-  return optionalString(tool.stableToolId ?? tool.stable_tool_id) ??
-    `${optionalString(tool.serverId ?? tool.server_id) ?? "mcp.unknown"}:${optionalString(tool.toolName ?? tool.tool_name) ?? "tool"}`;
+  return optionalString(tool.stable_tool_id) ??
+    `${optionalString(tool.server_id) ?? "mcp.unknown"}:${optionalString(tool.tool_name) ?? "tool"}`;
 }
 
 export function mcpToolIdentityMatches(tool = {}, value) {
   const requested = optionalString(value)?.toLowerCase();
   if (!requested) return false;
-  const serverId = optionalString(tool.serverId ?? tool.server_id);
-  const toolName = optionalString(tool.toolName ?? tool.tool_name);
+  const serverId = optionalString(tool.server_id);
+  const toolName = optionalString(tool.tool_name);
   const candidates = [
-    tool.stableToolId,
     tool.stable_tool_id,
-    tool.workflowNodeId,
     tool.workflow_node_id,
-    tool.displayName,
     tool.display_name,
     toolName,
     serverId && toolName ? `${serverId}.${toolName}` : null,
@@ -362,17 +356,11 @@ export function mcpToolMatchesQuery(tool = {}, query) {
   const needle = optionalString(query)?.toLowerCase();
   if (!needle) return true;
   return [
-    tool.stableToolId,
     tool.stable_tool_id,
-    tool.workflowNodeId,
     tool.workflow_node_id,
-    tool.displayName,
     tool.display_name,
-    tool.serverId,
     tool.server_id,
-    tool.serverLabel,
     tool.server_label,
-    tool.toolName,
     tool.tool_name,
     tool.description,
   ]
@@ -468,23 +456,23 @@ export function mcpCatalogSummaryForServer(server = {}, catalog = {}, options = 
   const tools = normalizeArray(catalog.tools);
   const resources = normalizeArray(catalog.resources);
   const prompts = normalizeArray(catalog.prompts);
-  const toolNames = tools.map((tool) => optionalString(tool.toolName ?? tool.tool_name)).filter(Boolean).sort();
+  const toolNames = tools.map((tool) => optionalString(tool.tool_name)).filter(Boolean).sort();
   const namespaces = mcpToolNamespaces(toolNames);
   const hashPayload = {
     serverId: server.id ?? null,
     tools: tools.map((tool) => ({
-      id: tool.stableToolId ?? tool.stable_tool_id ?? null,
-      name: tool.toolName ?? tool.tool_name ?? null,
+      id: tool.stable_tool_id ?? null,
+      name: tool.tool_name ?? null,
       description: tool.description ?? null,
-      inputSchema: tool.inputSchema ?? tool.input_schema ?? null,
+      inputSchema: tool.input_schema ?? null,
     })),
     resources: resources.map((resource) => ({
-      id: resource.stableResourceId ?? resource.stable_resource_id ?? null,
+      id: resource.stable_resource_id ?? null,
       uri: resource.uri ?? null,
       name: resource.name ?? null,
     })),
     prompts: prompts.map((prompt) => ({
-      id: prompt.stablePromptId ?? prompt.stable_prompt_id ?? null,
+      id: prompt.stable_prompt_id ?? null,
       name: prompt.name ?? null,
     })),
   };
@@ -525,11 +513,11 @@ export function mcpToolNamespaces(toolNames = []) {
 }
 
 export function mcpResourceKey(resource = {}) {
-  return optionalString(resource.stableResourceId ?? resource.stable_resource_id) ??
-    `${optionalString(resource.serverId ?? resource.server_id) ?? "mcp.unknown"}:${optionalString(resource.uri) ?? "resource"}`;
+  return optionalString(resource.stable_resource_id) ??
+    `${optionalString(resource.server_id) ?? "mcp.unknown"}:${optionalString(resource.uri) ?? "resource"}`;
 }
 
 export function mcpPromptKey(prompt = {}) {
-  return optionalString(prompt.stablePromptId ?? prompt.stable_prompt_id) ??
-    `${optionalString(prompt.serverId ?? prompt.server_id) ?? "mcp.unknown"}:${optionalString(prompt.name) ?? "prompt"}`;
+  return optionalString(prompt.stable_prompt_id) ??
+    `${optionalString(prompt.server_id) ?? "mcp.unknown"}:${optionalString(prompt.name) ?? "prompt"}`;
 }
