@@ -43,7 +43,7 @@ export function createRuntimeMcpServeSurface({
         transport: "http_jsonrpc",
         protocol_version: protocolVersion,
         protocolVersion,
-        thread_id: optionalStringDep(options.thread_id ?? options.threadId) ?? null,
+        thread_id: optionalStringDep(options.thread_id) ?? null,
         allowed_tool_ids: allowedToolIds,
         allowedToolIds,
         tool_count: tools.length,
@@ -68,7 +68,6 @@ export function createRuntimeMcpServeSurface({
       const context = {
         ...request,
         thread_id: threadId,
-        threadId,
       };
       if (Array.isArray(message)) {
         const responses = await Promise.all(
@@ -137,10 +136,10 @@ export function createRuntimeMcpServeSurface({
           const invocation = await store.invokeThreadToolAsync(threadId, toolId, {
             source: "mcp_serve",
             workflow_graph_id:
-              optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ??
+              optionalStringDep(request.workflow_graph_id) ??
               "runtime.mcp-serve",
             workflow_node_id:
-              optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ??
+              optionalStringDep(request.workflow_node_id) ??
               `runtime.mcp-serve.${safeIdDep(toolId)}`,
             input,
           });

@@ -62,11 +62,16 @@ function harness() {
 test("runtime MCP serve surface projects status and allowed tool catalog", () => {
   const { store, surface } = harness();
 
-  const status = surface.mcpServeStatus(store, { thread_id: "thread-one", onlyDiff: true });
+  const status = surface.mcpServeStatus(store, {
+    thread_id: "thread-one",
+    threadId: "thread-retired",
+    onlyDiff: true,
+  });
 
   assert.equal(status.schema_version, "ioi.runtime.mcp-serve.test");
   assert.equal(status.protocol_version, "mcp.protocol.test");
   assert.equal(status.thread_id, "thread-one");
+  assert.equal(surface.mcpServeStatus(store, { threadId: "thread-retired" }).thread_id, null);
   assert.deepEqual(status.allowed_tool_ids, ["git.diff"]);
   assert.equal(status.tool_count, 1);
   assert.deepEqual(status.tools.map((tool) => tool.name), ["git.diff"]);
@@ -152,13 +157,33 @@ test("runtime MCP serve surface invokes allowed tools and rejects malformed requ
     },
     {
       onlyDiff: true,
-      workflowGraphId: "custom.graph",
-      workflowNodeId: "custom.node",
+      workflow_graph_id: "custom.graph",
+      workflow_node_id: "custom.node",
+      workflowGraphId: "retired.graph",
+      workflowNodeId: "retired.node",
     },
   );
   assert.equal(response.id, 7);
   assert.equal(response.result.structuredContent.workflow_graph_id, "custom.graph");
   assert.deepEqual(response.result.structuredContent.input, { includeStat: true });
+
+  const retiredOnlyResponse = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    {
+      jsonrpc: "2.0",
+      id: 8,
+      method: "tools/call",
+      params: { name: "git.diff", arguments: { summary: true } },
+    },
+    {
+      onlyDiff: true,
+      workflowGraphId: "retired.graph",
+      workflowNodeId: "retired.node",
+    },
+  );
+  assert.equal(retiredOnlyResponse.result.structuredContent.workflow_graph_id, "runtime.mcp-serve");
+  assert.equal(retiredOnlyResponse.result.structuredContent.workflow_node_id, "runtime.mcp-serve.git.diff");
   assert.deepEqual(invocations, [
     {
       threadId: "thread-one",
@@ -168,6 +193,16 @@ test("runtime MCP serve surface invokes allowed tools and rejects malformed requ
         workflow_graph_id: "custom.graph",
         workflow_node_id: "custom.node",
         input: { includeStat: true },
+      },
+    },
+    {
+      threadId: "thread-one",
+      toolId: "git.diff",
+      request: {
+        source: "mcp_serve",
+        workflow_graph_id: "runtime.mcp-serve",
+        workflow_node_id: "runtime.mcp-serve.git.diff",
+        input: { summary: true },
       },
     },
   ]);

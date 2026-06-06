@@ -7565,6 +7565,14 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs")
     : "";
+  const runtimeMcpServeSurface = exists("packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs")
+    : "";
+  const runtimeMcpServeSurfaceTest = exists(
+    "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs")
+    : "";
   const runtimeMcpControlSurface = exists("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
     : "";
@@ -10524,6 +10532,24 @@ function runCompositor() {
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP validation/serve requests must use canonical workspace_root/allowed_tools/tool_ids without retired camelCase workspaceRoot/allowedTools/toolIds aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-serve-context-request-aliases-retired",
+    /options\.thread_id/.test(runtimeMcpServeSurface) &&
+      /request\.workflow_graph_id/.test(runtimeMcpServeSurface) &&
+      /request\.workflow_node_id/.test(runtimeMcpServeSurface) &&
+      /threadId: "thread-retired"/.test(runtimeMcpServeSurfaceTest) &&
+      /workflowGraphId: "retired\.graph"/.test(runtimeMcpServeSurfaceTest) &&
+      /workflowNodeId: "retired\.node"/.test(runtimeMcpServeSurfaceTest) &&
+      /workflow_graph_id: "runtime\.mcp-serve"/.test(runtimeMcpServeSurfaceTest) &&
+      !/(?:options|request)\.threadId\b/.test(runtimeMcpServeSurface) &&
+      !/request\.(?:workflowGraphId|workflowNodeId)\b/.test(runtimeMcpServeSurface),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP serve requests must use canonical thread_id/workflow_graph_id/workflow_node_id without retired camelCase context aliases",
   );
   assertCheck(
     result,

@@ -12519,6 +12519,12 @@ runtime MCP validation and serve helper parsing now use canonical
 influence validation workspace resolution or served coding-tool allow-lists, and
 the SDK serve request type no longer advertises `allowedTools`.
 
+Slice 406 removes MCP serve context request aliases:
+runtime MCP serve status and JSON-RPC invocation context now use canonical
+`thread_id`, `workflow_graph_id`, and `workflow_node_id`; retired camelCase
+`threadId`, `workflowGraphId`, and `workflowNodeId` request fields no longer
+bind served-thread status or served coding-tool invocation metadata.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
