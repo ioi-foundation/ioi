@@ -61,6 +61,19 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
     uniqueStrings,
   });
 
+  function plannedCodingToolBudgetRecoveryRunRecord(stateUpdate, threadId, runId) {
+    const updatedRun = stateUpdate.run;
+    if (!updatedRun?.id) {
+      throw runtimeError({
+        status: 502,
+        code: "coding_tool_budget_recovery_state_update_planner_invalid",
+        message: "Rust coding-tool budget recovery state planning did not return a run record.",
+        details: { threadId, runId },
+      });
+    }
+    return updatedRun;
+  }
+
   function latestCodingToolBudgetBlockedEventForRun(store, runId, sourceEventId = null) {
     const run = store.getRun(runId);
     const agent = store.getAgent(run.agentId);
@@ -366,7 +379,7 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
       receipt_refs: event.receipt_refs,
       policy_decision_refs: event.policy_decision_refs,
     });
-    const updated = stateUpdate.run ?? run;
+    const updated = plannedCodingToolBudgetRecoveryRunRecord(stateUpdate, threadId, run.id);
     store.runs.set(run.id, updated);
     store.writeRun(updated, stateUpdate.operation_kind ?? "workflow.run.retry_completed");
     return codingToolBudgetRecoveryResult({

@@ -1260,9 +1260,16 @@ function runBridge() {
       /contextPolicyRunnerDep\.planCodingToolBudgetRecoveryStateUpdate/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
+      /plannedCodingToolBudgetRecoveryRunRecord/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
       /planCodingToolBudgetRecoveryStateUpdate/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
+      /budget recovery surface fails closed without Rust-planned retry run/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeCodingToolBudgetRecoverySurface) &&
       !/appendOperatorControl/.test(runtimeCodingToolBudgetRecoverySurface),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",

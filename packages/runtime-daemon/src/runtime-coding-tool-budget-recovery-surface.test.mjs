@@ -57,7 +57,7 @@ function appendOperatorControlForTest(value, control) {
   return entries;
 }
 
-function createSurface({ calls = [] } = {}) {
+function createSurface({ calls = [], budgetRecoveryStateUpdate = null } = {}) {
   return createRuntimeCodingToolBudgetRecoverySurface({
     approvalReasonForDecisionEvent(event) {
       return event?.payload_summary?.reason ?? "approval_not_satisfied";
@@ -65,7 +65,7 @@ function createSurface({ calls = [] } = {}) {
     contextPolicyRunner: {
       planCodingToolBudgetRecoveryStateUpdate(request) {
         calls.push({ name: "planCodingToolBudgetRecoveryStateUpdate", request });
-        return codingToolBudgetRecoveryStateUpdateForRequest(request);
+        return budgetRecoveryStateUpdate ?? codingToolBudgetRecoveryStateUpdateForRequest(request);
       },
     },
     notFound,
@@ -336,6 +336,36 @@ test("budget recovery surface records approved retry and enforces retry limit", 
   assert.equal(limit.status, "blocked");
   assert.equal(limit.reason, "retry_limit_exceeded");
   assert.equal(store.events.filter((event) => event.event_kind === "workflow.run.retry_completed").length, 1);
+});
+
+test("budget recovery surface fails closed without Rust-planned retry run", () => {
+  const calls = [];
+  const surface = createSurface({
+    calls,
+    budgetRecoveryStateUpdate: {
+      status: "planned",
+      operation_kind: "workflow.run.retry_completed",
+      run: null,
+    },
+  });
+  const store = createStore();
+
+  surface.codingToolBudgetRecoveryForRun(store, "run_alpha", { action: "request_approval" });
+  surface.codingToolBudgetRecoveryForRun(store, "run_alpha", { action: "approve_override" });
+
+  assert.throws(
+    () =>
+      surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
+        action: "retry_approved",
+        source: "runtime_auto",
+      }),
+    (error) => error.code === "coding_tool_budget_recovery_state_update_planner_invalid",
+  );
+  assert.equal(store.writes.length, 0);
+  assert.equal(
+    calls.find((call) => call.name === "planCodingToolBudgetRecoveryStateUpdate").request.event_id,
+    "event_4",
+  );
 });
 
 test("budget recovery surface preserves the run/thread compatibility boundary", () => {

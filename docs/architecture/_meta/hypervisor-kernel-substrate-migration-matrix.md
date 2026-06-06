@@ -12266,6 +12266,12 @@ the approval request/decision/revoke surfaces now require the Rust
 targets, failing closed instead of persisting the pre-approval run when the
 planner output is malformed.
 
+Slice 362 retires coding-tool budget-recovery run fallback in JS:
+`CodingToolBudgetRecoveryStateUpdateCore` remains the owner of retry-completed
+run touches after an approved budget override; the daemon recovery surface now
+fails closed when Rust planning omits the run record instead of persisting the
+pre-retry run as a fallback.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
