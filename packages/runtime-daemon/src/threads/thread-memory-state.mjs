@@ -251,9 +251,7 @@ export function createThreadMemoryState({
     return {
       ...memoryStatusForProjection(projection),
       thread_id: projection.threadId ?? null,
-      threadId: projection.threadId ?? null,
       agent_id: projection.agentId ?? null,
-      agentId: projection.agentId ?? null,
       workspace: projection.workspace ?? null,
     };
   }
@@ -267,9 +265,7 @@ export function createThreadMemoryState({
     return {
       ...validation,
       thread_id: projection.threadId ?? null,
-      threadId: projection.threadId ?? null,
       agent_id: projection.agentId ?? null,
-      agentId: projection.agentId ?? null,
       workspace: projection.workspace ?? null,
     };
   }

@@ -30,32 +30,23 @@ export function memoryStatusForProjection(projection = {}) {
   const validation = validateMemoryProjection(projection);
   const disabled = Boolean(policy.disabled);
   const scopes = uniqueStrings(records.map((record) => record.scope).filter(Boolean));
-  const memoryKeys = uniqueStrings(records.map((record) => record.memoryKey).filter(Boolean));
+  const memoryKeys = uniqueStrings(records.map((record) => record.memory_key).filter(Boolean));
   const writeBlockedReason = memoryWriteBlockedReason(policy);
   const status = validation.ok ? (disabled ? "disabled" : "ready") : "needs_review";
   return {
     schema_version: RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION,
     object: "ioi.runtime_memory_manager_status",
     status,
     disabled,
     injection_enabled: policy.injectionEnabled !== false,
-    injectionEnabled: policy.injectionEnabled !== false,
     read_only: Boolean(policy.readOnly),
-    readOnly: Boolean(policy.readOnly),
     write_requires_approval: Boolean(policy.writeRequiresApproval),
-    writeRequiresApproval: Boolean(policy.writeRequiresApproval),
     write_blocked_reason: writeBlockedReason,
-    writeBlockedReason,
     record_count: records.length,
-    recordCount: records.length,
     scope_count: scopes.length,
-    scopeCount: scopes.length,
     memory_key_count: memoryKeys.length,
-    memoryKeyCount: memoryKeys.length,
     scopes,
     memory_keys: memoryKeys,
-    memoryKeys,
     policy,
     paths,
     filters: projection.filters ?? {},
@@ -78,13 +69,6 @@ export function memoryStatusForProjection(projection = {}) {
       paths.effectivePolicyId,
       ...records.map((record) => record.id),
     ]),
-    evidenceRefs: uniqueStrings([
-      "runtime_memory_manager",
-      "memory.status",
-      policy.id,
-      paths.effectivePolicyId,
-      ...records.map((record) => record.id),
-    ]),
   };
 }
 
@@ -101,16 +85,12 @@ export function validateMemoryProjection(projection = {}) {
 
   return {
     schema_version: RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION,
     object: "ioi.runtime_memory_manager_validation",
     ok: issues.length === 0,
     status: issues.length === 0 ? "pass" : "blocked",
     issue_count: issues.length,
-    issueCount: issues.length,
     warning_count: warnings.length,
-    warningCount: warnings.length,
     record_count: records.length,
-    recordCount: records.length,
     issues,
     warnings,
     policy,
@@ -121,9 +101,9 @@ export function validateMemoryProjection(projection = {}) {
 }
 
 export function memoryRowsForStatus(status = {}) {
-  const threadId = status.thread_id ?? status.threadId ?? status.policy?.threadId ?? null;
-  const receiptRefs = normalizeArray(status.receipt_refs ?? status.receiptRefs);
-  const policyRefs = normalizeArray(status.policy_decision_refs ?? status.policyDecisionRefs);
+  const threadId = status.thread_id ?? null;
+  const receiptRefs = normalizeArray(status.receipt_refs);
+  const policyRefs = normalizeArray(status.policy_decision_refs);
   const policy = status.policy ?? {};
   const rows = [
     {
@@ -170,12 +150,12 @@ export function memoryRowsForStatus(status = {}) {
       command: "memory",
       raw_input: "/memory show",
       message: record.redaction === "redacted" ? "[REDACTED]" : record.fact,
-      thread_id: record.threadId ?? threadId,
+      thread_id: record.thread_id ?? threadId,
       memory_operation: "read",
       memory_record_id: record.id,
       memory_scope: record.scope ?? null,
-      memory_key: record.memoryKey ?? null,
-      workflow_node_id: record.workflowNodeId ?? "runtime.memory",
+      memory_key: record.memory_key ?? null,
+      workflow_node_id: record.workflow_node_id ?? "runtime.memory",
       receipt_refs: receiptRefs,
       policy_decision_refs: policyRefs,
     });
@@ -194,7 +174,6 @@ function validateMemoryPolicy(policy, { issues, warnings }) {
   if (policy.scope && !VALID_MEMORY_SCOPES.has(String(policy.scope))) {
     issues.push(issue("memory_policy_scope_invalid", "Memory policy scope is not supported.", {
       memory_scope: policy.scope,
-      memoryScope: policy.scope,
     }));
   }
   if (policy.redaction && !VALID_REDACTIONS.has(String(policy.redaction))) {
@@ -251,21 +230,17 @@ function validateMemoryRecord(record, { issues, warnings }) {
   if (!record.fact || typeof record.fact !== "string") {
     issues.push(issue("memory_record_fact_missing", "Memory record fact text is required.", {
       memory_record_id: record.id ?? null,
-      memoryRecordId: record.id ?? null,
     }));
   }
   if (record.scope && !VALID_MEMORY_SCOPES.has(String(record.scope))) {
     issues.push(issue("memory_record_scope_invalid", "Memory record scope is not supported.", {
       memory_record_id: record.id ?? null,
-      memoryRecordId: record.id ?? null,
       memory_scope: record.scope,
-      memoryScope: record.scope,
     }));
   }
   if (record.redaction === "redacted" && !record.factHash) {
     warnings.push(warning("memory_record_redacted_hash_missing", "Redacted memory records should include a fact hash.", {
       memory_record_id: record.id ?? null,
-      memoryRecordId: record.id ?? null,
     }));
   }
 }

@@ -8804,6 +8804,24 @@ function runCompositor() {
   const runtimeThreadMemoryStateTest = exists("packages/runtime-daemon/src/threads/thread-memory-state.test.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-memory-state.test.mjs")
     : "";
+  const runtimeMemoryManager = exists("packages/runtime-daemon/src/memory-manager.mjs")
+    ? read("packages/runtime-daemon/src/memory-manager.mjs")
+    : "";
+  const runtimeMemoryManagerTest = exists("packages/runtime-daemon/src/memory-manager.test.mjs")
+    ? read("packages/runtime-daemon/src/memory-manager.test.mjs")
+    : "";
+  const runtimeMemoryStatusForProjectionBlock =
+    runtimeMemoryManager.match(
+      /export function memoryStatusForProjection\(projection = \{\}\) \{[\s\S]*?\n}\n\nexport function validateMemoryProjection/,
+    )?.[0] ?? "";
+  const runtimeValidateMemoryProjectionBlock =
+    runtimeMemoryManager.match(
+      /export function validateMemoryProjection\(projection = \{\}\) \{[\s\S]*?\n}\n\nexport function memoryRowsForStatus/,
+    )?.[0] ?? "";
+  const runtimeMemoryRowsForStatusBlock =
+    runtimeMemoryManager.match(
+      /export function memoryRowsForStatus\(status = \{\}\) \{[\s\S]*?\n}\n\nfunction validateMemoryPolicy/,
+    )?.[0] ?? "";
   const runtimeMcpSdkListOptionsBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpListOptions[\s\S]*?\n}\n/)?.[0] ??
     "";
@@ -9233,6 +9251,58 @@ function runCompositor() {
       "packages/agent-sdk/src/agent.ts",
     ],
     "Phase 10/11 is pending: agent memory read queries must use canonical thread_id without retired threadId compatibility aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-memory-status-validation-output-aliases-retired",
+    /schema_version:\s*RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION/.test(runtimeMemoryStatusForProjectionBlock) &&
+      /record_count:\s*records\.length/.test(runtimeMemoryStatusForProjectionBlock) &&
+      /memory_key_count:\s*memoryKeys\.length/.test(runtimeMemoryStatusForProjectionBlock) &&
+      /evidence_refs:\s*uniqueStrings/.test(runtimeMemoryStatusForProjectionBlock) &&
+      /schema_version:\s*RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION/.test(
+        runtimeValidateMemoryProjectionBlock,
+      ) &&
+      /issue_count:\s*issues\.length/.test(runtimeValidateMemoryProjectionBlock) &&
+      /warning_count:\s*warnings\.length/.test(runtimeValidateMemoryProjectionBlock) &&
+      /record_count:\s*records\.length/.test(runtimeValidateMemoryProjectionBlock) &&
+      /const threadId = status\.thread_id \?\? null;/.test(runtimeMemoryRowsForStatusBlock) &&
+      /const receiptRefs = normalizeArray\(status\.receipt_refs\);/.test(runtimeMemoryRowsForStatusBlock) &&
+      /thread_id: record\.thread_id \?\? threadId/.test(runtimeMemoryRowsForStatusBlock) &&
+      /memory_key: record\.memory_key \?\? null/.test(runtimeMemoryRowsForStatusBlock) &&
+      /workflow_node_id: record\.workflow_node_id \?\? "runtime\.memory"/.test(
+        runtimeMemoryRowsForStatusBlock,
+      ) &&
+      /Object\.hasOwn\(status,\s*field\),\s*false/.test(runtimeMemoryManagerTest) &&
+      /Object\.hasOwn\(validation,\s*field\),\s*false/.test(runtimeMemoryManagerTest) &&
+      /threadId: "thread\.retired"/.test(runtimeMemoryManagerTest) &&
+      /recordRow\.thread_id,\s*"thread\.canonical"/.test(runtimeMemoryManagerTest) &&
+      /recordRow\.memory_key,\s*null/.test(runtimeMemoryManagerTest) &&
+      /recordRow\.workflow_node_id,\s*"runtime\.memory"/.test(runtimeMemoryManagerTest) &&
+      /state\.memoryStatus\(store, \{ thread_id: "thread_a" \}\)/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /thread_id: projection\.threadId \?\? null/.test(runtimeThreadMemoryState) &&
+      /agent_id: projection\.agentId \?\? null/.test(runtimeThreadMemoryState) &&
+      !/^\s*(?:schemaVersion|injectionEnabled|readOnly|writeRequiresApproval|writeBlockedReason|recordCount|scopeCount|memoryKeyCount|memoryKeys|evidenceRefs)\s*:/m.test(
+        runtimeMemoryStatusForProjectionBlock,
+      ) &&
+      !/record\.memoryKey\b|record\.threadId\b|record\.workflowNodeId\b|status\.threadId\b|status\.receiptRefs\b|status\.policyDecisionRefs\b/.test(
+        runtimeMemoryRowsForStatusBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|issueCount|warningCount|recordCount)\s*:/m.test(
+        runtimeValidateMemoryProjectionBlock,
+      ) &&
+      !/memoryRecordId|memoryScope/.test(
+        `${runtimeValidateMemoryProjectionBlock}\n${runtimeMemoryRowsForStatusBlock}`,
+      ) &&
+      !/threadId: projection\.threadId|agentId: projection\.agentId/.test(runtimeThreadMemoryState),
+    [
+      "packages/runtime-daemon/src/memory-manager.mjs",
+      "packages/runtime-daemon/src/memory-manager.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime memory status, validation, and rows must expose canonical snake_case fields without duplicate camelCase facade aliases",
   );
   assertCheck(
     result,

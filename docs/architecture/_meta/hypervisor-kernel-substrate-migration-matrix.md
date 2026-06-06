@@ -12727,6 +12727,12 @@ canonical `source_scope` and `evidence_refs` from normalized server records only
 retired `sourceScope` and `evidenceRefs` internal record fallbacks are ignored in
 focused tests and guarded by compositor conformance.
 
+Slice 433 removes runtime memory status/validation aliases:
+runtime memory status, validation, and row projection helpers now expose
+canonical snake_case fields only; duplicate `schemaVersion`, count, evidence,
+thread, agent, receipt, memory-key, and workflow-node camelCase facade aliases
+are ignored or absent in focused tests and guarded by compositor conformance.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
