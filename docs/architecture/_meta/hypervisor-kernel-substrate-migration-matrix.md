@@ -11931,6 +11931,13 @@ Slice 314 retires direct model download identity/source request aliases:
 `model_id`, `provider_id`, `source_url`, `source_label`,
 `catalog_provider_id`, `file_name`, and `fixture_content` remain accepted.
 
+Slice 315 retires direct model download control request aliases:
+`downloadModel` now fails closed on retired `bytesTotal`, `maxBytes`,
+`simulateFailure`, `failureReason`, `queuedOnly`, and `expectedChecksum`
+before timestamping, receipt creation, or writes. Canonical `bytes_total`,
+`max_bytes`, `simulate_failure`, `failure_reason`, `queued_only`, and
+`expected_checksum` remain accepted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

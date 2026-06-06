@@ -261,6 +261,56 @@ test("downloadModel rejects retired identity request aliases before timestamp or
   assert.equal(state.writes.length, 0);
 });
 
+test("downloadModel rejects retired control request aliases before timestamp or receipt", async () => {
+  const state = fakeState();
+  let nowCount = 0;
+  state.nowIso = () => {
+    nowCount += 1;
+    return state.now;
+  };
+
+  await assert.rejects(
+    () =>
+      downloadModel(
+        state,
+        {
+          model_id: "qwen-test",
+          bytesTotal: 1024,
+          maxBytes: 2048,
+          simulateFailure: true,
+          failureReason: "network_timeout",
+          queuedOnly: true,
+          expectedChecksum: "sha256-test",
+        },
+        deps(),
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_download_control_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "bytesTotal",
+        "maxBytes",
+        "simulateFailure",
+        "failureReason",
+        "queuedOnly",
+        "expectedChecksum",
+      ]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "bytes_total",
+        "max_bytes",
+        "simulate_failure",
+        "failure_reason",
+        "queued_only",
+        "expected_checksum",
+      ]);
+      return true;
+    },
+  );
+  assert.equal(nowCount, 0);
+  assert.equal(state.receipts.length, 0);
+  assert.equal(state.writes.length, 0);
+});
+
 test("downloadModel can queue and simulate failed fixture jobs without materializing files", async () => {
   const state = fakeState();
 

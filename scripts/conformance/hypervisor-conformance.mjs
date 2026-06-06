@@ -3909,6 +3909,50 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-download-control-request-aliases-retired",
+    /RETIRED_MODEL_DOWNLOAD_CONTROL_REQUEST_ALIASES/.test(catalogDownloadOperations) &&
+      /CANONICAL_MODEL_DOWNLOAD_CONTROL_REQUEST_FIELDS/.test(catalogDownloadOperations) &&
+      /model_download_control_request_aliases_retired/.test(catalogDownloadOperations) &&
+      /assertCanonicalModelDownloadControlRequestBody\(body\);[\s\S]*const now = state\.nowIso\(\);/.test(
+        downloadModelBlock,
+      ) &&
+      /const bytesTotal = Number\(body\.bytes_total \?\? \(isFixture \? Buffer\.byteLength\(fixtureContent\) : 0\)\);/.test(
+        downloadModelBlock,
+      ) &&
+      /const maxBytes = normalizeBytes\(body\.max_bytes \?\? env\.IOI_MODEL_DOWNLOAD_MAX_BYTES\);/.test(
+        downloadModelBlock,
+      ) &&
+      /isTruthy\(body\.fail \?\? body\.simulate_failure\)/.test(downloadModelBlock) &&
+      /failureReason:\s*body\.failure_reason \?\? "deterministic_fixture_failure"/.test(
+        downloadModelBlock,
+      ) &&
+      /isTruthy\(body\.queued_only\)/.test(downloadModelBlock) &&
+      /expectedChecksum:\s*body\.expected_checksum \?\? body\.checksum \?\? null/.test(
+        downloadModelBlock,
+      ) &&
+      !/body\.(?:bytesTotal|maxBytes|simulateFailure|failureReason|queuedOnly|expectedChecksum)\b/.test(
+        downloadModelBlock,
+      ) &&
+      /downloadModel rejects retired control request aliases before timestamp or receipt/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /retired_aliases,\s*\[\s*"bytesTotal",\s*"maxBytes",\s*"simulateFailure",\s*"failureReason",\s*"queuedOnly",\s*"expectedChecksum",\s*\]/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /canonical_fields,\s*\[\s*"bytes_total",\s*"max_bytes",\s*"simulate_failure",\s*"failure_reason",\s*"queued_only",\s*"expected_checksum",\s*\]/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /assert\.equal\(nowCount,\s*0\)/.test(catalogDownloadOperationsTest) &&
+      /assert\.equal\(state\.receipts\.length,\s*0\)/.test(catalogDownloadOperationsTest) &&
+      /assert\.equal\(state\.writes\.length,\s*0\)/.test(catalogDownloadOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: direct model download request bodies must fail closed on retired camelCase control aliases before timestamping or receipt creation",
+  );
+  assertCheck(
+    result,
     "model-mount-catalog-download-receipt-detail-aliases-retired",
     /source_url_hash:\s*sourceHash/.test(catalogDownloadErrorDetailsHelper) &&
       /evidence_refs:\s*evidenceRefs/.test(catalogDownloadErrorDetailsHelper) &&

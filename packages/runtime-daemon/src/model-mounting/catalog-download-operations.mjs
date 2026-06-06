@@ -75,6 +75,24 @@ const CANONICAL_MODEL_DOWNLOAD_IDENTITY_REQUEST_FIELDS = [
   "fixture_content",
 ];
 
+const RETIRED_MODEL_DOWNLOAD_CONTROL_REQUEST_ALIASES = [
+  "bytesTotal",
+  "maxBytes",
+  "simulateFailure",
+  "failureReason",
+  "queuedOnly",
+  "expectedChecksum",
+];
+
+const CANONICAL_MODEL_DOWNLOAD_CONTROL_REQUEST_FIELDS = [
+  "bytes_total",
+  "max_bytes",
+  "simulate_failure",
+  "failure_reason",
+  "queued_only",
+  "expected_checksum",
+];
+
 function catalogDownloadErrorDetails(sourceHash, evidenceRefs) {
   return { source_url_hash: sourceHash, evidence_refs: evidenceRefs };
 }
@@ -288,6 +306,7 @@ export async function downloadModel(state, body = {}, deps = {}) {
     liveModelDownloadEnabled: downloadEnabled = liveModelDownloadEnabled,
   } = deps;
   assertCanonicalModelDownloadIdentityRequestBody(body);
+  assertCanonicalModelDownloadControlRequestBody(body);
   const now = state.nowIso();
   const modelId = requireString(body.model_id, "model_id");
   const providerId = body.provider_id ?? "provider.autopilot.local";
@@ -311,8 +330,8 @@ export async function downloadModel(state, body = {}, deps = {}) {
   const targetDir = path.join(state.modelRoot, "downloads", makeSafeFileName(modelId));
   const targetPath = path.join(targetDir, body.file_name ?? `${makeSafeFileName(modelId)}.gguf`);
   const fixtureContent = String(body.fixture_content ?? `deterministic model bytes for ${modelId}\n`);
-  const bytesTotal = Number(body.bytes_total ?? body.bytesTotal ?? (isFixture ? Buffer.byteLength(fixtureContent) : 0));
-  const maxBytes = normalizeBytes(body.max_bytes ?? body.maxBytes ?? env.IOI_MODEL_DOWNLOAD_MAX_BYTES);
+  const bytesTotal = Number(body.bytes_total ?? (isFixture ? Buffer.byteLength(fixtureContent) : 0));
+  const maxBytes = normalizeBytes(body.max_bytes ?? env.IOI_MODEL_DOWNLOAD_MAX_BYTES);
   const downloadPolicy = normalizePolicy(body, { isFixture, maxBytes, source });
   assertPolicyAllowed(downloadPolicy, source);
   const jobBase = {
@@ -359,12 +378,12 @@ export async function downloadModel(state, body = {}, deps = {}) {
     max_bytes: maxBytes,
     download_mode: isFixture ? "fixture" : "live_network",
   });
-  if (isTruthy(body.fail ?? body.simulate_failure ?? body.simulateFailure)) {
+  if (isTruthy(body.fail ?? body.simulate_failure)) {
     const failed = {
       ...jobBase,
       artifactId: null,
       status: "failed",
-      failureReason: body.failure_reason ?? body.failureReason ?? "deterministic_fixture_failure",
+      failureReason: body.failure_reason ?? "deterministic_fixture_failure",
       updatedAt: state.nowIso(),
       receiptIds: [queuedReceipt.id],
       receiptId: queuedReceipt.id,
@@ -382,7 +401,7 @@ export async function downloadModel(state, body = {}, deps = {}) {
     state.writeProjection();
     return storedFailed;
   }
-  if (isTruthy(body.queued_only ?? body.queuedOnly)) {
+  if (isTruthy(body.queued_only)) {
     const queued = {
       ...jobBase,
       artifactId: null,
@@ -435,7 +454,7 @@ export async function downloadModel(state, body = {}, deps = {}) {
       : await materializeLive({
           source,
           targetPath,
-          expectedChecksum: body.checksum ?? body.expected_checksum ?? body.expectedChecksum ?? null,
+          expectedChecksum: body.expected_checksum ?? body.checksum ?? null,
           maxBytes,
           resume: downloadPolicy.resume,
           bandwidthLimitBps: downloadPolicy.bandwidthLimitBps,
@@ -579,6 +598,22 @@ function assertCanonicalModelDownloadIdentityRequestBody(body = {}) {
     details: {
       retired_aliases: retiredAliases,
       canonical_fields: CANONICAL_MODEL_DOWNLOAD_IDENTITY_REQUEST_FIELDS,
+    },
+  });
+}
+
+function assertCanonicalModelDownloadControlRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MODEL_DOWNLOAD_CONTROL_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw runtimeError({
+    status: 400,
+    code: "model_download_control_request_aliases_retired",
+    message: "Model download control request aliases are retired; use canonical snake_case request fields.",
+    details: {
+      retired_aliases: retiredAliases,
+      canonical_fields: CANONICAL_MODEL_DOWNLOAD_CONTROL_REQUEST_FIELDS,
     },
   });
 }
