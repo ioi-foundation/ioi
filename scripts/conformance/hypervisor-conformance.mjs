@@ -3003,6 +3003,8 @@ function runReceipts() {
     mcpWorkflowOperations.match(/function mcpServerReceiptDetails\(server\) \{[\s\S]*?\n\}/)?.[0] ?? "";
   const mcpToolReceiptDetailsObject =
     mcpWorkflowOperations.match(/details:\s*\{\n\s+server_id:\s*serverId,[\s\S]*?\n\s+\},/)?.[0] ?? "";
+  const catalogImportUrlBlock =
+    catalogDownloadOperations.match(/export async function catalogImportUrl[\s\S]*?export async function downloadModel/)?.[0] ?? "";
   const catalogImportUrlReceiptDetailsObject =
     catalogDownloadOperations.match(/state\.lifecycleReceipt\("model_catalog_import_url",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "";
   const catalogDownloadReceiptBlocks = [
@@ -3817,6 +3819,44 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
     ],
     "Phase 10/11 is pending: workflow node execution request bodies must fail closed on retired model-route and workflow-node aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-catalog-import-url-request-aliases-retired",
+    /RETIRED_CATALOG_IMPORT_URL_REQUEST_ALIASES/.test(catalogDownloadOperations) &&
+      /CANONICAL_CATALOG_IMPORT_URL_REQUEST_FIELDS/.test(catalogDownloadOperations) &&
+      /model_catalog_import_url_request_aliases_retired/.test(catalogDownloadOperations) &&
+      /assertCanonicalCatalogImportUrlRequestBody\(body\);[\s\S]*requireString\(body\.source_url \?\? body\.url,\s*"source_url"\)/.test(
+        catalogImportUrlBlock,
+      ) &&
+      /const modelId = body\.model_id \?\? modelIdForSource\(sourceUrl\);/.test(catalogImportUrlBlock) &&
+      /provider_id:\s*body\.provider_id \?\? "provider\.autopilot\.local"/.test(catalogImportUrlBlock) &&
+      /file_name:\s*body\.file_name \?\? `\$\{makeSafeFileName\(modelId\)\}\.\$\{variant\.format\}`/.test(
+        catalogImportUrlBlock,
+      ) &&
+      /fixture_content:\s*body\.fixture_content \?\?/.test(catalogImportUrlBlock) &&
+      /transfer_approved:\s*Boolean\(body\.transfer_approved \?\? isFixture\)/.test(
+        catalogImportUrlBlock,
+      ) &&
+      !/body\.(?:sourceUrl|modelId|providerId|fileName|fixtureContent|transferApproved)\b/.test(
+        catalogImportUrlBlock,
+      ) &&
+      /catalogImportUrl rejects retired request aliases before receipt or download/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /retired_aliases,\s*\[\s*"sourceUrl",\s*"modelId",\s*"providerId",\s*"fileName",\s*"fixtureContent",\s*"transferApproved",\s*\]/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /canonical_fields,\s*\[\s*"source_url",\s*"model_id",\s*"provider_id",\s*"file_name",\s*"fixture_content",\s*"transfer_approved",\s*\]/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /assert\.equal\(state\.receipts\.length,\s*0\)/.test(catalogDownloadOperationsTest) &&
+      /assert\.equal\(state\.downloadBody,\s*undefined\)/.test(catalogDownloadOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: catalog import URL request bodies must fail closed on retired camelCase source/provider/download aliases before receipt creation or download forwarding",
   );
   assertCheck(
     result,

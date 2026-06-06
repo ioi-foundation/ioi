@@ -11918,6 +11918,12 @@ vault refs. Canonical `manifest_path` and `base_url` remain accepted, while
 internal runtime material records continue to use their existing `manifestPath`
 and `baseUrl` fields.
 
+Slice 313 retires catalog import URL request aliases: `catalogImportUrl` now
+fails closed on retired `sourceUrl`, `modelId`, `providerId`, `fileName`,
+`fixtureContent`, and `transferApproved` before catalog receipt creation or
+download forwarding. Canonical `source_url`, `model_id`, `provider_id`,
+`file_name`, `fixture_content`, and `transfer_approved` remain accepted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

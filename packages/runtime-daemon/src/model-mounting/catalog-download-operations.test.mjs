@@ -151,6 +151,49 @@ test("catalogImportUrl records the catalog receipt and forwards fixture metadata
   assert.match(state.downloadBody.fixture_content, /family=qwen/);
 });
 
+test("catalogImportUrl rejects retired request aliases before receipt or download", async () => {
+  const state = fakeState();
+
+  await assert.rejects(
+    () =>
+      catalogImportUrl(
+        state,
+        {
+          sourceUrl: "fixture://qwen/q4",
+          modelId: "qwen-test",
+          providerId: "provider.local",
+          fileName: "qwen.gguf",
+          fixtureContent: "fixture bytes",
+          transferApproved: true,
+        },
+        { ...deps(), schemaVersion: "schema.catalog-download.test" },
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_catalog_import_url_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "sourceUrl",
+        "modelId",
+        "providerId",
+        "fileName",
+        "fixtureContent",
+        "transferApproved",
+      ]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "source_url",
+        "model_id",
+        "provider_id",
+        "file_name",
+        "fixture_content",
+        "transfer_approved",
+      ]);
+      return true;
+    },
+  );
+  assert.equal(state.receipts.length, 0);
+  assert.equal(state.downloadBody, undefined);
+});
+
 test("catalogImportUrl fails closed when a live source is not catalog-gated", async () => {
   const state = fakeState();
 

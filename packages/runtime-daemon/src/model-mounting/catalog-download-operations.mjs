@@ -37,6 +37,24 @@ import {
 import { parseLocalModelMetadata } from "./local-system-probes.mjs";
 import { requiredString } from "./provider-registry.mjs";
 
+const RETIRED_CATALOG_IMPORT_URL_REQUEST_ALIASES = [
+  "sourceUrl",
+  "modelId",
+  "providerId",
+  "fileName",
+  "fixtureContent",
+  "transferApproved",
+];
+
+const CANONICAL_CATALOG_IMPORT_URL_REQUEST_FIELDS = [
+  "source_url",
+  "model_id",
+  "provider_id",
+  "file_name",
+  "fixture_content",
+  "transfer_approved",
+];
+
 function catalogDownloadErrorDetails(sourceHash, evidenceRefs) {
   return { source_url_hash: sourceHash, evidence_refs: evidenceRefs };
 }
@@ -121,7 +139,8 @@ export async function catalogImportUrl(state, body = {}, deps = {}) {
     schemaVersion,
     stableHash: hash = stableHash,
   } = deps;
-  const sourceUrl = requireString(body.source_url ?? body.sourceUrl ?? body.url, "source_url");
+  assertCanonicalCatalogImportUrlRequestBody(body);
+  const sourceUrl = requireString(body.source_url ?? body.url, "source_url");
   const isFixture = sourceUrl.startsWith("fixture://");
   if (!isFixture && !catalogEnabled()) {
     throw makeRuntimeError({
@@ -139,12 +158,12 @@ export async function catalogImportUrl(state, body = {}, deps = {}) {
       details: catalogDownloadErrorDetails(hash(sourceUrl), ["network_download_opt_in"]),
     });
   }
-  const modelId = body.model_id ?? body.modelId ?? modelIdForSource(sourceUrl);
+  const modelId = body.model_id ?? modelIdForSource(sourceUrl);
   const lastCatalogEntry = state.lastCatalogSearch?.results?.find((entry) => entry.sourceUrl === sourceUrl || entry.sourceUrlHash === hash(sourceUrl));
   const variant = variantForSource(sourceUrl, { ...(lastCatalogEntry ?? {}), ...body });
   const receipt = state.lifecycleReceipt("model_catalog_import_url", {
     model_id: modelId,
-    provider_id: body.provider_id ?? body.providerId ?? "provider.autopilot.local",
+    provider_id: body.provider_id ?? "provider.autopilot.local",
     source_url_hash: hash(sourceUrl),
     source_label: variant.sourceLabel,
     format: variant.format,
@@ -166,15 +185,14 @@ export async function catalogImportUrl(state, body = {}, deps = {}) {
   const download = await state.downloadModel({
     ...body,
     model_id: modelId,
-    provider_id: body.provider_id ?? body.providerId ?? "provider.autopilot.local",
+    provider_id: body.provider_id ?? "provider.autopilot.local",
     source_url: sourceUrl,
     source_label: variant.sourceLabel,
-    file_name: body.file_name ?? body.fileName ?? `${makeSafeFileName(modelId)}.${variant.format}`,
+    file_name: body.file_name ?? `${makeSafeFileName(modelId)}.${variant.format}`,
     ...(isFixture
       ? {
           fixture_content:
             body.fixture_content ??
-            body.fixtureContent ??
             [`family=${variant.family}`, `quantization=${variant.quantization}`, `context=${variant.contextWindow}`, ""].join("\n"),
         }
       : {}),
@@ -191,7 +209,7 @@ export async function catalogImportUrl(state, body = {}, deps = {}) {
     backend_compatibility: variant.backendCompatibility,
     benchmark_readiness: variant.benchmarkReadiness,
     selection_receipt_fields: variant.selectionReceiptFields,
-    transfer_approved: Boolean(body.transfer_approved ?? body.transferApproved ?? isFixture),
+    transfer_approved: Boolean(body.transfer_approved ?? isFixture),
     variant_id: variant.id,
     catalog_provider_id: variant.catalogProviderId,
     catalog_receipt_id: receipt.id,
@@ -202,6 +220,22 @@ export async function catalogImportUrl(state, body = {}, deps = {}) {
     catalogReceiptId: receipt.id,
     download,
   };
+}
+
+function assertCanonicalCatalogImportUrlRequestBody(body = {}) {
+  const retiredAliases = RETIRED_CATALOG_IMPORT_URL_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw runtimeError({
+    status: 400,
+    code: "model_catalog_import_url_request_aliases_retired",
+    message: "Model catalog import URL request aliases are retired; use canonical snake_case request fields.",
+    details: {
+      retired_aliases: retiredAliases,
+      canonical_fields: CANONICAL_CATALOG_IMPORT_URL_REQUEST_FIELDS,
+    },
+  });
 }
 
 export async function downloadModel(state, body = {}, deps = {}) {
