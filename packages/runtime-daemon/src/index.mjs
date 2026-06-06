@@ -4864,10 +4864,38 @@ function buildRun({
     redaction: issueContext.redaction,
   });
   addEvent("pr_attempt", "PR attempt preview recorded", {
-    ...prAttempt,
-    receiptId: prAttemptReceipt.id,
-    eventKind: "PrAttemptRecord",
-    workflowNodeId: "runtime.pr-attempt",
+    event_kind: "PrAttemptRecord",
+    attempt_id: prAttempt.attemptId ?? null,
+    repository_context_id: prAttempt.repositoryContextId ?? null,
+    branch_policy_id: prAttempt.branchPolicyId ?? null,
+    github_context_id: prAttempt.githubContextId ?? null,
+    status: prAttempt.status ?? null,
+    outcome: prAttempt.outcome ?? null,
+    repo_full_name: prAttempt.repoFullName ?? null,
+    branch: prAttempt.branch ?? null,
+    default_branch: prAttempt.defaultBranch ?? null,
+    head_short_sha: prAttempt.headShortSha ?? null,
+    blockers: normalizeArray(prAttempt.blockers),
+    warnings: normalizeArray(prAttempt.warnings),
+    authority: {
+      required_scopes: normalizeArray(prAttempt.authority?.requiredScopes),
+      missing_scopes: normalizeArray(prAttempt.authority?.missingScopes),
+      scope_granted: Boolean(prAttempt.authority?.scopeGranted),
+    },
+    branch_artifact: {
+      artifact_name: prAttempt.branchArtifact?.artifactName ?? null,
+    },
+    diff_artifact: {
+      artifact_name: prAttempt.diffArtifact?.artifactName ?? null,
+      diff_hash: prAttempt.diffArtifact?.diffHash ?? null,
+      file_count: prAttempt.diffArtifact?.fileCount ?? 0,
+    },
+    mutation_attempted: Boolean(prAttempt.mutationAttempted),
+    mutation_executed: Boolean(prAttempt.mutationExecuted),
+    network_lookup_performed: Boolean(prAttempt.networkLookupPerformed),
+    receipt_id: prAttemptReceipt.id,
+    workflow_node_id: "runtime.pr-attempt",
+    redaction: prAttempt.redaction,
   });
   addEvent("review_gate", "Review gate decision recorded", {
     ...reviewGate,

@@ -9123,6 +9123,8 @@ function runCompositor() {
     runtimeEventPayloads.match(/if \(event\.type === "github_context"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeIssueContextPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "issue_context"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimePrAttemptPayloadSummaryBlock =
+    runtimeEventPayloads.match(/if \(event\.type === "pr_attempt"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeTaskPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "runtime_task"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeChecklistPayloadSummaryBlock =
@@ -9145,6 +9147,8 @@ function runCompositor() {
     runtimeDaemonIndex.match(/addEvent\("github_context", "GitHub context recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeIssueContextEventProducerBlock =
     runtimeDaemonIndex.match(/addEvent\("issue_context", "Issue context recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
+  const runtimePrAttemptEventProducerBlock =
+    runtimeDaemonIndex.match(/addEvent\("pr_attempt", "PR attempt preview recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeUsageEvents = exists("packages/runtime-daemon/src/runtime-usage-events.mjs")
     ? read("packages/runtime-daemon/src/runtime-usage-events.mjs")
     : "";
@@ -10721,6 +10725,25 @@ function runCompositor() {
       !/event\.data\?\.(?:eventKind|contextId|repositoryContextId|githubContextId|prAttemptId|reviewGateId|repoFullName|issueProvided|issueNumber|sourceKind|networkLookupPerformed|mutationExecuted|workflowNodeId)\b/.test(
         runtimeIssueContextPayloadSummaryBlock,
       ) &&
+      runtimePrAttemptPayloadSummaryBlock.length > 0 &&
+      /event_kind:\s*event\.data\?\.event_kind \?\? "PrAttemptRecord"/.test(
+        runtimePrAttemptPayloadSummaryBlock,
+      ) &&
+      /attempt_id:\s*event\.data\?\.attempt_id \?\? null/.test(
+        runtimePrAttemptPayloadSummaryBlock,
+      ) &&
+      /required_authority_scopes:\s*normalizeArray\(event\.data\?\.authority\?\.required_scopes\)/.test(
+        runtimePrAttemptPayloadSummaryBlock,
+      ) &&
+      /diff_hash:\s*event\.data\?\.diff_artifact\?\.diff_hash \?\? null/.test(
+        runtimePrAttemptPayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.(?:eventKind|attemptId|repositoryContextId|branchPolicyId|githubContextId|repoFullName|defaultBranch|headShortSha|branchArtifact|diffArtifact|mutationAttempted|mutationExecuted|networkLookupPerformed|workflowNodeId)\b/.test(
+        runtimePrAttemptPayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.authority\?\.(?:requiredScopes|missingScopes|scopeGranted)\b/.test(
+        runtimePrAttemptPayloadSummaryBlock,
+      ) &&
       runtimeTaskPayloadSummaryBlock.length > 0 &&
       /event_kind:\s*event\.data\?\.event_kind \?\? "RuntimeTaskRecord"/.test(
         runtimeTaskPayloadSummaryBlock,
@@ -10843,6 +10866,23 @@ function runCompositor() {
       !/\.\.\.issueContext|^\s*(?:receiptId|eventKind|workflowNodeId|contextId|repositoryContextId|githubContextId|prAttemptId|reviewGateId|repoFullName|issueProvided|issueNumber|sourceKind|networkLookupPerformed|mutationExecuted)\s*:/m.test(
         runtimeIssueContextEventProducerBlock,
       ) &&
+      runtimePrAttemptEventProducerBlock.length > 0 &&
+      /event_kind:\s*"PrAttemptRecord"/.test(runtimePrAttemptEventProducerBlock) &&
+      /attempt_id:\s*prAttempt\.attemptId \?\? null/.test(
+        runtimePrAttemptEventProducerBlock,
+      ) &&
+      /required_scopes:\s*normalizeArray\(prAttempt\.authority\?\.requiredScopes\)/.test(
+        runtimePrAttemptEventProducerBlock,
+      ) &&
+      /diff_hash:\s*prAttempt\.diffArtifact\?\.diffHash \?\? null/.test(
+        runtimePrAttemptEventProducerBlock,
+      ) &&
+      /workflow_node_id:\s*"runtime\.pr-attempt"/.test(
+        runtimePrAttemptEventProducerBlock,
+      ) &&
+      !/\.\.\.prAttempt|^\s*(?:receiptId|eventKind|workflowNodeId|attemptId|repositoryContextId|branchPolicyId|githubContextId|repoFullName|defaultBranch|headShortSha|branchArtifact|diffArtifact|mutationAttempted|mutationExecuted|networkLookupPerformed)\s*:/m.test(
+        runtimePrAttemptEventProducerBlock,
+      ) &&
       /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
       /retiredComputerUseSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredMemorySummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
@@ -10850,6 +10890,7 @@ function runCompositor() {
       /retiredBranchPolicySummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredGithubContextSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredIssueContextSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredPrAttemptSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeTaskSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeChecklistSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeJobSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
@@ -10859,6 +10900,7 @@ function runCompositor() {
       /eventKind: "RetiredBranchPolicyDecision"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredGitHubContext"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredIssueContext"/.test(runtimeEventPayloadsTest) &&
+      /eventKind: "RetiredPrAttemptRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeTaskRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeChecklistRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredJobCompleted"/.test(runtimeEventPayloadsTest) &&
@@ -10869,6 +10911,8 @@ function runCompositor() {
       /workflowNodeId: "retired\.github-context"/.test(runtimeEventPayloadsTest) &&
       /issueNumber: 404/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.issue-context"/.test(runtimeEventPayloadsTest) &&
+      /diffHash: "retired-diff-hash"/.test(runtimeEventPayloadsTest) &&
+      /workflowNodeId: "retired\.pr-attempt"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.repository-context"/.test(runtimeEventPayloadsTest) &&
       /memoryRecordId: "retired-memory"/.test(runtimeEventPayloadsTest) &&
       /memoryPolicyId: "retired-policy"/.test(runtimeEventPayloadsTest) &&

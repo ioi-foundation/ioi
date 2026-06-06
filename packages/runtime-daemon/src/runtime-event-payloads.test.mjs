@@ -88,6 +88,23 @@ const retiredIssueContextSummaryAliasKeys = [
   "workflowNodeId",
 ];
 
+const retiredPrAttemptSummaryAliasKeys = [
+  "eventKind",
+  "attemptId",
+  "repositoryContextId",
+  "branchPolicyId",
+  "githubContextId",
+  "repoFullName",
+  "defaultBranch",
+  "headShortSha",
+  "branchArtifact",
+  "diffArtifact",
+  "mutationAttempted",
+  "mutationExecuted",
+  "networkLookupPerformed",
+  "workflowNodeId",
+];
+
 const retiredRuntimeTaskSummaryAliasKeys = [
   "eventKind",
   "taskId",
@@ -599,6 +616,95 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   assert.notEqual(issue.workflow_node_id, "retired.issue-context");
   for (const key of retiredIssueContextSummaryAliasKeys) {
     assert.equal(Object.hasOwn(issue, key), false);
+  }
+
+  const prAttempt = runtime.payloadSummaryForRunEvent({
+    id: "event-pr-attempt",
+    type: "pr_attempt",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      event_kind: "PrAttemptRecord.Canonical",
+      eventKind: "RetiredPrAttemptRecord",
+      attempt_id: "pr-attempt-one",
+      attemptId: "retired-pr-attempt",
+      repository_context_id: "repo-context-one",
+      repositoryContextId: "retired-repo-context",
+      branch_policy_id: "branch-policy-one",
+      branchPolicyId: "retired-branch-policy",
+      github_context_id: "github-context-one",
+      githubContextId: "retired-github-context",
+      status: "blocked",
+      outcome: "failed_precondition",
+      repo_full_name: "ioi-foundation/ioi",
+      repoFullName: "retired/repo",
+      branch: "feature/substrate",
+      default_branch: "main",
+      defaultBranch: "retired-main",
+      head_short_sha: "abc1234",
+      headShortSha: "fffffff",
+      blockers: ["missing_authority_scope:github.pr.create"],
+      warnings: ["pr_attempt_preview_only"],
+      authority: {
+        required_scopes: ["github.pr.create"],
+        requiredScopes: ["retired.scope"],
+        missing_scopes: ["github.pr.create"],
+        missingScopes: ["retired.scope"],
+        scope_granted: false,
+        scopeGranted: true,
+      },
+      branch_artifact: {
+        artifact_name: "pr-branch.json",
+      },
+      branchArtifact: {
+        artifactName: "retired-branch.json",
+      },
+      diff_artifact: {
+        artifact_name: "pr-diff.patch",
+        diff_hash: "diff-hash-one",
+        file_count: 2,
+      },
+      diffArtifact: {
+        artifactName: "retired-diff.patch",
+        diffHash: "retired-diff-hash",
+        fileCount: 404,
+      },
+      mutation_attempted: false,
+      mutationAttempted: true,
+      mutation_executed: false,
+      mutationExecuted: true,
+      network_lookup_performed: false,
+      networkLookupPerformed: true,
+      workflow_node_id: "runtime.pr-attempt",
+      workflowNodeId: "retired.pr-attempt",
+      redaction: { profile: "pr_attempt_safe" },
+    },
+  });
+
+  assert.equal(prAttempt.event_kind, "PrAttemptRecord.Canonical");
+  assert.equal(prAttempt.attempt_id, "pr-attempt-one");
+  assert.equal(prAttempt.repository_context_id, "repo-context-one");
+  assert.equal(prAttempt.branch_policy_id, "branch-policy-one");
+  assert.equal(prAttempt.github_context_id, "github-context-one");
+  assert.equal(prAttempt.repo_full_name, "ioi-foundation/ioi");
+  assert.equal(prAttempt.default_branch, "main");
+  assert.equal(prAttempt.head_short_sha, "abc1234");
+  assert.deepEqual(prAttempt.required_authority_scopes, ["github.pr.create"]);
+  assert.deepEqual(prAttempt.missing_authority_scopes, ["github.pr.create"]);
+  assert.equal(prAttempt.authority_scope_granted, false);
+  assert.equal(prAttempt.branch_artifact_name, "pr-branch.json");
+  assert.equal(prAttempt.diff_artifact_name, "pr-diff.patch");
+  assert.equal(prAttempt.diff_hash, "diff-hash-one");
+  assert.equal(prAttempt.diff_file_count, 2);
+  assert.equal(prAttempt.mutation_attempted, false);
+  assert.equal(prAttempt.mutation_executed, false);
+  assert.equal(prAttempt.network_lookup_performed, false);
+  assert.equal(prAttempt.workflow_node_id, "runtime.pr-attempt");
+  assert.notEqual(prAttempt.attempt_id, "retired-pr-attempt");
+  assert.notEqual(prAttempt.diff_hash, "retired-diff-hash");
+  assert.notEqual(prAttempt.workflow_node_id, "retired.pr-attempt");
+  for (const key of retiredPrAttemptSummaryAliasKeys) {
+    assert.equal(Object.hasOwn(prAttempt, key), false);
   }
 
   const task = runtime.payloadSummaryForRunEvent({
