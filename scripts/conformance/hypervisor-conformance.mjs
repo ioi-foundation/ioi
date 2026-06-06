@@ -11497,6 +11497,9 @@ function runCompositor() {
       /line_start:\s*nullableInteger\(hunk\?\.line_start\)/.test(
         workspaceChangeInspection,
       ) &&
+      /runtime_profile:\s*agent\?\.runtime_profile \?\? "unknown"/.test(
+        workspaceChangeInspection,
+      ) &&
       /retiredWorkspaceChangeControlAliases/.test(workspaceChangeState) &&
       /workspace_change_control_request_aliases_retired/.test(workspaceChangeState) &&
       /const toolId = optionalString\(request\.tool_id\)/.test(workspaceChangeState) &&
@@ -11511,6 +11514,15 @@ function runCompositor() {
         workspaceChangeInspectionTest,
       ) &&
       /workspace change inspection ignores bridge top-level workspace change fallback/.test(
+        workspaceChangeInspectionTest,
+      ) &&
+      /workspace change inspection ignores retired runtime profile alias/.test(
+        workspaceChangeInspectionTest,
+      ) &&
+      /agent:\s*\{\s*runtimeProfile:\s*"runtime_alias"\s*\}/.test(
+        workspaceChangeInspectionTest,
+      ) &&
+      /inspection\.runtime_profile,\s*"unknown"/.test(
         workspaceChangeInspectionTest,
       ) &&
       /inspection\.status,\s*"metadata_only"/.test(workspaceChangeInspectionTest) &&
@@ -11529,6 +11541,7 @@ function runCompositor() {
       !/\b(?:bridge_result|review|change|hunk|publicReview)\?\.(?:workspaceChangeReviews|latestTrajectory|workspaceChanges|changeId|hunkCount|acceptAvailable|rejectAvailable|rollbackAvailable|staleReason|hunkIndex|searchText|replaceText|contentText|lineStart|lineEnd)\b/.test(
         workspaceChangeInspection,
       ) &&
+      !/\bagent\?\.runtimeProfile\b/.test(workspaceChangeInspection) &&
       !/bridge_result\?\.workspace_changes/.test(workspaceChangeInspection) &&
       !/^\s*(?:schemaVersion|threadId|sessionId|toolId|changeId|receiptRefs|bridgeResult)\s*:/m.test(
         workspaceChangeState,

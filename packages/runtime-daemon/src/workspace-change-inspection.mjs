@@ -41,7 +41,7 @@ export function normalizeWorkspaceChangeReviewInspection({
     schema_version: WORKSPACE_CHANGE_REVIEW_SCHEMA_VERSION,
     thread_id: threadId,
     session_id: sessionId,
-    runtime_profile: agent?.runtime_profile ?? agent?.runtimeProfile ?? "unknown",
+    runtime_profile: agent?.runtime_profile ?? "unknown",
     source: "daemon",
     status,
     workspace_change_reviews: rawReviews.map((review) => publicReviewState(review)),

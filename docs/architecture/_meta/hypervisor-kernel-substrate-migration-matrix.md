@@ -12641,6 +12641,11 @@ runtime run-event receipt projection now reads canonical `receipt_id`,
 camelCase receipt aliases no longer count as receipt evidence when run events
 are projected.
 
+Slice 419 removes workspace-change runtime-profile reader aliases:
+workspace-change review projection now reads canonical `agent.runtime_profile`
+only; retired `agent.runtimeProfile` no longer shapes the public inspection
+envelope.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

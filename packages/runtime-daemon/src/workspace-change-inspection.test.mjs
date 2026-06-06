@@ -98,3 +98,15 @@ test("workspace change inspection ignores bridge top-level workspace change fall
   assert.equal(inspection.hunk_previews.length, 0);
   assert.equal(inspection.workspace_change_reviews[0].rollback_available, true);
 });
+
+test("workspace change inspection ignores retired runtime profile alias", () => {
+  const inspection = normalizeWorkspaceChangeReviewInspection({
+    threadId: "thread_three",
+    sessionId: "session_three",
+    agent: { runtimeProfile: "runtime_alias" },
+    bridge_result: {},
+  });
+
+  assert.equal(inspection.runtime_profile, "unknown");
+  assert.equal(Object.hasOwn(inspection, "runtimeProfile"), false);
+});
