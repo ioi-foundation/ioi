@@ -366,6 +366,7 @@ test("thread memory state ignores retired request identity aliases", () => {
       turnId: "turn_retired",
       workflowGraphId: "graph_retired",
       workflowNodeId: "node_retired",
+      idempotencyKey: "memory_idempotency_retired",
     },
     "memory.status.v1",
   );
@@ -373,6 +374,7 @@ test("thread memory state ignores retired request identity aliases", () => {
   assert.equal(retired.event.turn_id, "turn_latest");
   assert.equal(retired.event.workflow_graph_id, null);
   assert.equal(retired.event.workflow_node_id, "runtime.memory-manager");
+  assert.match(retired.event.idempotency_key, /^thread:thread_a:memory:memory_status:/);
 
   const canonical = state.recordThreadMemoryStatus(
     store,
@@ -382,6 +384,7 @@ test("thread memory state ignores retired request identity aliases", () => {
       turn_id: "turn_canonical",
       workflow_graph_id: "graph_canonical",
       workflow_node_id: "node_canonical",
+      idempotency_key: "memory_idempotency_canonical",
     },
     "memory.status.v1",
   );
@@ -389,6 +392,7 @@ test("thread memory state ignores retired request identity aliases", () => {
   assert.equal(canonical.event.turn_id, "turn_canonical");
   assert.equal(canonical.event.workflow_graph_id, "graph_canonical");
   assert.equal(canonical.event.workflow_node_id, "node_canonical");
+  assert.equal(canonical.event.idempotency_key, "memory_idempotency_canonical");
   assert.equal(calls.filter((call) => call.type === "planThreadMemoryAgentStateUpdate").length, 2);
 });
 

@@ -433,7 +433,7 @@ export function createThreadMemoryState({
       turn_id: turnId,
       item_id: `${turnId || threadId}:item:memory:${safeId(controlKind)}:${eventHash}`,
       idempotency_key:
-        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+        optionalString(request.idempotency_key) ??
         `thread:${threadId}:memory:${controlKind}:${eventHash}`,
       source,
       source_event_kind: sourceEventKind,

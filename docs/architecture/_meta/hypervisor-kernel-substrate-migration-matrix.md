@@ -12842,6 +12842,11 @@ thread fork routing now consumes canonical `idempotency_key`,
 `idempotencyKey`, `workflowGraphId`, and `workflowNodeId` fields no longer steer
 duplicate fork lookup, fork event identity, or fork workflow projection context.
 
+Slice 450 completes thread-memory idempotency alias retirement:
+thread memory control/status events now consume canonical `idempotency_key`
+only; retired `idempotencyKey` fields no longer steer memory event de-duplication
+or policy-core state-update event identity.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

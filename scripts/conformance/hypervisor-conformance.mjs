@@ -2505,16 +2505,25 @@ function runBridge() {
       /turnId: "turn_retired"/.test(runtimeThreadMemoryStateTest) &&
       /workflowGraphId: "graph_retired"/.test(runtimeThreadMemoryStateTest) &&
       /workflowNodeId: "node_retired"/.test(runtimeThreadMemoryStateTest) &&
+      /idempotencyKey: "memory_idempotency_retired"/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
       /retired\.event\.turn_id, "turn_latest"/.test(runtimeThreadMemoryStateTest) &&
       /retired\.event\.workflow_graph_id, null/.test(runtimeThreadMemoryStateTest) &&
       /retired\.event\.workflow_node_id, "runtime\.memory-manager"/.test(
         runtimeThreadMemoryStateTest,
       ) &&
+      /assert\.match\(retired\.event\.idempotency_key, \/\^thread:thread_a:memory:memory_status:\//.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
       /canonical\.event\.workflow_node_id, "node_canonical"/.test(
         runtimeThreadMemoryStateTest,
       ) &&
-      !/request\.(?:turnId|workflowNodeId|workflowGraphId)\b/.test(runtimeThreadMemoryState) &&
-      !/request\.(?:turn_id|workflow_node_id|workflow_graph_id)\s*\?\?\s*request\./.test(
+      /canonical\.event\.idempotency_key, "memory_idempotency_canonical"/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId|idempotencyKey)\b/.test(runtimeThreadMemoryState) &&
+      !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|idempotency_key)\s*\?\?\s*request\./.test(
         runtimeThreadMemoryState,
       ),
     [
