@@ -677,6 +677,19 @@ const WORKSPACE_CHANGE_CONTROL_TOOL_IDS = new Set([
   "workspace_change__rollback",
 ]);
 
+function plannedOperatorControlRunRecord(stateUpdate, threadId, runId, operationKind) {
+  const updatedRun = stateUpdate.run;
+  if (!updatedRun?.id) {
+    throw runtimeError({
+      status: 502,
+      code: "operator_control_state_update_planner_invalid",
+      message: "Rust operator-control state planning did not return a run record.",
+      details: { threadId, runId, operationKind },
+    });
+  }
+  return updatedRun;
+}
+
 export async function startRuntimeDaemonService(options = {}) {
   return startRuntimeDaemonServiceWithStore({
     options,
@@ -1624,7 +1637,7 @@ export class AgentgresRuntimeStateStore {
       source,
       reason,
     });
-    const updated = stateUpdate.run ?? run;
+    const updated = plannedOperatorControlRunRecord(stateUpdate, threadId, run.id, "turn.interrupt");
     this.runs.set(run.id, updated);
     this.writeRun(updated, stateUpdate.operation_kind ?? "turn.interrupt");
     const turn = this.turnForRun(updated);
@@ -1701,7 +1714,7 @@ export class AgentgresRuntimeStateStore {
       source,
       guidance,
     });
-    const updated = stateUpdate.run ?? run;
+    const updated = plannedOperatorControlRunRecord(stateUpdate, threadId, run.id, "turn.steer");
     this.runs.set(run.id, updated);
     this.writeRun(updated, stateUpdate.operation_kind ?? "turn.steer");
     return this.turnForRun(updated);

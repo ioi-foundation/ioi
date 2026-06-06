@@ -158,10 +158,35 @@ function managedSessionReconnectBridge(calls, managedState) {
   };
 }
 
-function contextPolicyRunner(calls = []) {
+function contextPolicyRunner(calls = [], overrides = {}) {
   return {
+    planAgentCreateStateUpdate(request = {}) {
+      calls.push({ operation: "plan_agent_create_state_update", input: request });
+      if (overrides.agentCreateStateUpdate) {
+        return overrides.agentCreateStateUpdate;
+      }
+      return {
+        status: "planned",
+        operation_kind: "agent.create",
+        agent: request.agent,
+      };
+    },
+    planRunCreateStateUpdate(request = {}) {
+      calls.push({ operation: "plan_run_create_state_update", input: request });
+      if (overrides.runCreateStateUpdate) {
+        return overrides.runCreateStateUpdate;
+      }
+      return {
+        status: "planned",
+        operation_kind: "run.create",
+        run: request.run,
+      };
+    },
     planOperatorInterruptStateUpdate(request = {}) {
       calls.push({ operation: "plan_operator_interrupt_state_update", input: request });
+      if (overrides.interruptStateUpdate) {
+        return overrides.interruptStateUpdate;
+      }
       const control = {
         control: "interrupt",
         source: request.source,
@@ -209,6 +234,9 @@ function contextPolicyRunner(calls = []) {
     },
     planOperatorSteerStateUpdate(request = {}) {
       calls.push({ operation: "plan_operator_steer_state_update", input: request });
+      if (overrides.steerStateUpdate) {
+        return overrides.steerStateUpdate;
+      }
       const control = {
         control: "steer",
         source: request.source,
@@ -545,6 +573,82 @@ test("runtime-backed steering routes run update through Rust policy planner", as
   } finally {
     store.close();
     rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+test("runtime-backed operator controls fail closed without Rust-planned runs", async () => {
+  const interruptStateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-interrupt-plan-"));
+  const interruptCalls = [];
+  const interruptStore = new AgentgresRuntimeStateStore(interruptStateDir, {
+    cwd: interruptStateDir,
+    contextPolicyRunner: contextPolicyRunner(interruptCalls, {
+      interruptStateUpdate: { status: "planned", operation_kind: "turn.interrupt", run: null },
+    }),
+    runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(interruptCalls),
+    runtimeBridge: runtimeControlBridge(interruptCalls),
+  });
+  try {
+    await seedRuntimeControlModelRoute(interruptStore);
+    const thread = await interruptStore.createThread({
+      runtime_profile: "runtime_service",
+      options: { runtime_profile: "runtime_service", local: { cwd: interruptStateDir } },
+    });
+    const run = interruptStore.createRun(thread.agent_id, {
+      mode: "send",
+      prompt: "exercise failed interrupt planner",
+    });
+    const turnId = `turn_${run.id.slice("run_".length)}`;
+
+    await assert.rejects(
+      () => interruptStore.interruptTurn(thread.thread_id, turnId, { reason: "operator_stop" }),
+      (error) => error.code === "operator_control_state_update_planner_invalid",
+    );
+    assert.equal(
+      interruptCalls.some(
+        (call) => call.operation === "commit_runtime_run_state" && call.input.operation_kind === "turn.interrupt",
+      ),
+      false,
+    );
+  } finally {
+    interruptStore.close();
+    rmSync(interruptStateDir, { recursive: true, force: true });
+  }
+
+  const steerStateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-steer-plan-"));
+  const steerCalls = [];
+  const steerStore = new AgentgresRuntimeStateStore(steerStateDir, {
+    cwd: steerStateDir,
+    contextPolicyRunner: contextPolicyRunner(steerCalls, {
+      steerStateUpdate: { status: "planned", operation_kind: "turn.steer", run: null },
+    }),
+    runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(steerCalls),
+    runtimeBridge: runtimeControlBridge(steerCalls),
+  });
+  try {
+    await seedRuntimeControlModelRoute(steerStore);
+    const thread = await steerStore.createThread({
+      runtime_profile: "runtime_service",
+      options: { runtime_profile: "runtime_service", local: { cwd: steerStateDir } },
+    });
+    const run = steerStore.createRun(thread.agent_id, {
+      mode: "send",
+      prompt: "exercise failed steer planner",
+    });
+    const turnId = `turn_${run.id.slice("run_".length)}`;
+
+    assert.throws(
+      () => steerStore.steerTurn(thread.thread_id, turnId, { guidance: "stay fail-closed" }),
+      (error) => error.code === "operator_control_state_update_planner_invalid",
+    );
+    assert.equal(
+      steerCalls.some(
+        (call) => call.operation === "commit_runtime_run_state" && call.input.operation_kind === "turn.steer",
+      ),
+      false,
+    );
+  } finally {
+    steerStore.close();
+    rmSync(steerStateDir, { recursive: true, force: true });
   }
 });
 

@@ -12272,6 +12272,12 @@ run touches after an approved budget override; the daemon recovery surface now
 fails closed when Rust planning omits the run record instead of persisting the
 pre-retry run as a fallback.
 
+Slice 363 retires operator interrupt/steer run fallbacks in JS:
+`OperatorInterruptStateUpdateCore` and `OperatorSteerStateUpdateCore` remain the
+owners of runtime operator-control run mutations; the daemon interrupt and steer
+paths now fail closed when Rust planning omits the run record instead of
+persisting the pre-control run as a fallback.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

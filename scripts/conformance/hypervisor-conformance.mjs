@@ -1346,8 +1346,13 @@ function runBridge() {
       /createContextPolicyRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
       /this\.contextPolicyRunner\.planOperatorInterruptStateUpdate/.test(runtimeDaemonIndex) &&
+      /plannedOperatorControlRunRecord/.test(runtimeDaemonIndex) &&
       !/control:\s*"interrupt"/.test(runtimeDaemonIndex) &&
+      !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeDaemonIndex) &&
       /contextPolicyRunner\(calls\)/.test(runtimeThreadControlTest) &&
+      /runtime-backed operator controls fail closed without Rust-planned runs/.test(
+        runtimeThreadControlTest,
+      ) &&
       /plan_operator_interrupt_state_update/.test(runtimeThreadControlTest),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
@@ -1376,8 +1381,13 @@ function runBridge() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /this\.contextPolicyRunner\.planOperatorSteerStateUpdate/.test(runtimeDaemonIndex) &&
+      /plannedOperatorControlRunRecord/.test(runtimeDaemonIndex) &&
       !/control:\s*"steer"|appendOperatorControl/.test(runtimeDaemonIndex) &&
+      !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeDaemonIndex) &&
       /runtime-backed steering routes run update through Rust policy planner/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /runtime-backed operator controls fail closed without Rust-planned runs/.test(
         runtimeThreadControlTest,
       ) &&
       /plan_operator_steer_state_update/.test(runtimeThreadControlTest),
