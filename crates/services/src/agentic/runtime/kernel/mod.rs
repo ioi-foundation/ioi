@@ -86,7 +86,9 @@ use policy::{
     ContextCompactionStateUpdateError, ContextCompactionStateUpdateRecord,
     ContextCompactionStateUpdateRequest, DiagnosticsOperatorOverrideStateUpdateCore,
     DiagnosticsOperatorOverrideStateUpdateError, DiagnosticsOperatorOverrideStateUpdateRecord,
-    DiagnosticsOperatorOverrideStateUpdateRequest, OperatorInterruptStateUpdateCore,
+    DiagnosticsOperatorOverrideStateUpdateRequest, McpControlAgentStateUpdateCore,
+    McpControlAgentStateUpdateError, McpControlAgentStateUpdateRecord,
+    McpControlAgentStateUpdateRequest, OperatorInterruptStateUpdateCore,
     OperatorInterruptStateUpdateError, OperatorInterruptStateUpdateRecord,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
     OperatorSteerStateUpdateError, OperatorSteerStateUpdateRecord, OperatorSteerStateUpdateRequest,
@@ -248,6 +250,13 @@ impl RuntimeKernelService {
         request: &ThreadControlAgentStateUpdateRequest,
     ) -> Result<ThreadControlAgentStateUpdateRecord, ThreadControlAgentStateUpdateError> {
         ThreadControlAgentStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_mcp_control_agent_state_update(
+        &self,
+        request: &McpControlAgentStateUpdateRequest,
+    ) -> Result<McpControlAgentStateUpdateRecord, McpControlAgentStateUpdateError> {
+        McpControlAgentStateUpdateCore.plan(request)
     }
 
     pub fn plan_agent_create_state_update(

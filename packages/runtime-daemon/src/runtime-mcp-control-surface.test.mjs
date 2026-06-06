@@ -19,6 +19,7 @@ function server(id, tools = [{ name: "search" }], extra = {}) {
 
 function harness() {
   const events = [];
+  const statePlannerCalls = [];
   const writes = [];
   const agent = {
     id: "agent-one",
@@ -49,6 +50,25 @@ function harness() {
     RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION: "invoke.schema",
     RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION: "status.schema",
     RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION: "validation.schema",
+    contextPolicyRunner: {
+      planMcpControlAgentStateUpdate(request) {
+        statePlannerCalls.push(request);
+        return {
+          status: "planned",
+          operation_kind: `thread.${request.control_kind}`,
+          updated_at: request.created_at,
+          control: {
+            controlKind: request.control_kind,
+            eventId: request.event_id,
+            seq: request.seq,
+          },
+          agent: {
+            ...request.agent,
+            updatedAt: request.created_at,
+          },
+        };
+      },
+    },
     doctorHash() {
       return "hash1234567890abcdef";
     },
@@ -154,11 +174,11 @@ function harness() {
       writes.push({ record, reason });
     },
   };
-  return { events, store, surface, writes };
+  return { events, statePlannerCalls, store, surface, writes };
 }
 
 test("runtime MCP control surface applies add, remove, and blocked mutation envelopes", () => {
-  const { events, store, surface } = harness();
+  const { events, statePlannerCalls, store, surface } = harness();
 
   assert.throws(
     () => surface.importMcp(store, {}),
@@ -175,11 +195,14 @@ test("runtime MCP control surface applies add, remove, and blocked mutation enve
   assert.equal(added.policy_decision, "registry_write_allowed");
   assert.equal(events.at(-1).payload_schema_version, "status.schema");
   assert.equal(store.agents.get("agent-one").mcpRegistry.servers.some((item) => item.id === "mcp.extra"), true);
+  assert.equal(statePlannerCalls.at(-1).control_kind, "mcp_add");
+  assert.equal(statePlannerCalls.at(-1).agent.mcpRegistry.servers.some((item) => item.id === "mcp.extra"), true);
 
   const removed = surface.removeThreadMcpServer(store, "thread-agent-one", "mcp.extra");
   assert.equal(removed.event_kind, "McpServerRemoved");
   assert.equal(removed.removed_count, 1);
   assert.equal(store.agents.get("agent-one").mcpRegistry.servers.some((item) => item.id === "mcp.extra"), false);
+  assert.equal(statePlannerCalls.at(-1).control_kind, "mcp_remove");
 
   const blocked = surface.applyThreadMcpServerMutation(store, {
     threadId: "thread-agent-one",
@@ -195,10 +218,16 @@ test("runtime MCP control surface applies add, remove, and blocked mutation enve
   assert.equal(blocked.policy_decision, "registry_write_blocked");
   assert.equal(blocked.issues[0].code, "invalid_server");
   assert.equal(events.at(-1).payload_schema_version, "validation.schema");
+  assert.equal(statePlannerCalls.at(-1).control_kind, "mcp_import");
+  assert.deepEqual(statePlannerCalls.map((call) => call.control_kind), [
+    "mcp_add",
+    "mcp_remove",
+    "mcp_import",
+  ]);
 });
 
 test("runtime MCP control surface records enable, status, and validation controls", async () => {
-  const { events, store, surface, writes } = harness();
+  const { events, statePlannerCalls, store, surface, writes } = harness();
 
   const disabled = surface.setThreadMcpServerEnabled(store, "thread-agent-one", "mcp.docs", false);
   assert.equal(disabled.event_kind, "McpServerDisabled");
@@ -214,10 +243,15 @@ test("runtime MCP control surface records enable, status, and validation control
   assert.equal(validation.event_kind, "McpValidationReport");
   assert.equal(validation.status, "pass");
   assert.equal(writes.length >= 3, true);
+  assert.deepEqual(statePlannerCalls.map((call) => call.control_kind), [
+    "mcp_disable",
+    "mcp_status",
+    "mcp_validate",
+  ]);
 });
 
 test("runtime MCP control surface invokes tools with receipt-backed policy outcomes", async () => {
-  const { events, store, surface } = harness();
+  const { events, statePlannerCalls, store, surface } = harness();
 
   const completed = await surface.invokeThreadMcpTool(store, "thread-agent-one", "mcp.docs.search", {
     input: { q: "runtime" },
@@ -240,4 +274,8 @@ test("runtime MCP control surface invokes tools with receipt-backed policy outco
   assert.equal(blocked.policy_decision, "invoke_blocked");
   assert.deepEqual(blocked.invocation.blockers, ["approval_required"]);
   assert.equal(events.at(-1).status, "blocked");
+  assert.deepEqual(statePlannerCalls.map((call) => call.control_kind), [
+    "mcp_invoke",
+    "mcp_invoke",
+  ]);
 });

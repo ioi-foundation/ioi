@@ -586,6 +586,12 @@ function runBridge() {
   const runtimeThreadControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     : "";
+  const runtimeMcpControlSurface = exists("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
+    : "";
+  const runtimeMcpControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs")
+    : "";
   const runtimeThreadControlTest = exists("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
     : "";
@@ -1402,6 +1408,46 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 9/10 is pending: thread-control agent state updates must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "mcp-control-agent-state-update-live-bridge",
+    /McpControlAgentStateUpdateCore/.test(policyCore) &&
+      /McpControlAgentStateUpdateRequest/.test(policyCore) &&
+      /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_mcp_control_agent_state_update/.test(policyCore) &&
+      /rust_policy_rejects_invalid_mcp_control_agent_state_update_schema/.test(policyCore) &&
+      /plan_mcp_control_agent_state_update/.test(bridgeModule) &&
+      /McpControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_mcp_control_agent_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_mcp_control_agent_state_update_through_rust_core/.test(bridgeModule) &&
+      /planMcpControlAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /mcp control agent state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /contextPolicyRunnerDep\.planMcpControlAgentStateUpdate/.test(
+        runtimeMcpControlSurface,
+      ) &&
+      /mcpStatusForAgent/.test(runtimeMcpControlSurface) &&
+      !/store\.agents\.set\(agent\.id,\s*updatedAgent\)/.test(runtimeMcpControlSurface) &&
+      !/store\.writeAgent\(updatedAgent,\s*`thread\.\$\{controlKind\}`\)/.test(
+        runtimeMcpControlSurface,
+      ) &&
+      /planMcpControlAgentStateUpdate/.test(runtimeMcpControlSurfaceTest) &&
+      /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 9/10 is pending: MCP control agent state updates must be planned by Rust policy core through the command bridge",
   );
   assertCheck(
     result,

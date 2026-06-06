@@ -14,6 +14,7 @@ import {
   fixtureProfileForAgent,
   eventStreamIdForThread,
 } from "./runtime-identifiers.mjs";
+import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
 import {
   mcpCatalogExposureForStatus,
   mcpCatalogFullRequested,
@@ -44,6 +45,7 @@ export function createRuntimeMcpControlSurface({
   RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION: invocationSchemaVersion = RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION: statusSchemaVersion = RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION: validationSchemaVersion = RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
+  contextPolicyRunner: contextPolicyRunnerDep = createContextPolicyRunnerFromEnv(),
   discoverMcpHttpCatalog: discoverMcpHttpCatalogDep = discoverMcpHttpCatalog,
   discoverMcpStdioCatalog: discoverMcpStdioCatalogDep = discoverMcpStdioCatalog,
   doctorHash: doctorHashDep = doctorHash,
@@ -98,6 +100,55 @@ export function createRuntimeMcpControlSurface({
         });
       }
       return this.addThreadMcpServer(store, threadId, input);
+    },
+    mcpStatusForAgent(agent) {
+      const registry = agent.mcpRegistry ?? mcpRegistryForWorkspaceDep(agent.cwd);
+      const servers = normalizeArrayDep(registry.servers);
+      const tools = mcpToolsForServersDep(servers);
+      const resourceRecords = servers.flatMap((server) =>
+        normalizeArrayDep(server.resources).map((resource) => {
+          const record = resource && typeof resource === "object" ? resource : { uri: String(resource) };
+          return { server_id: server.id, serverId: server.id, ...record };
+        }),
+      );
+      const promptRecords = servers.flatMap((server) =>
+        normalizeArrayDep(server.prompts).map((prompt) => {
+          const record = prompt && typeof prompt === "object" ? prompt : { name: String(prompt) };
+          return { server_id: server.id, serverId: server.id, ...record };
+        }),
+      );
+      const resources = resourceRecords.sort((left, right) =>
+        mcpResourceKeyDep(left).localeCompare(mcpResourceKeyDep(right)),
+      );
+      const prompts = promptRecords.sort((left, right) =>
+        mcpPromptKeyDep(left).localeCompare(mcpPromptKeyDep(right)),
+      );
+      const validation = validateMcpServerRecordsDep(servers);
+      const enabledServers = servers.filter((server) => server.enabled !== false);
+      const enabledTools = mcpToolsForServersDep(enabledServers);
+      return {
+        schema_version: statusSchemaVersion,
+        schemaVersion: statusSchemaVersion,
+        object: "ioi.runtime_mcp_manager_status",
+        status: validation.ok ? "ready" : "blocked",
+        server_count: servers.length,
+        serverCount: servers.length,
+        enabled_server_count: enabledServers.length,
+        enabledServerCount: enabledServers.length,
+        tool_count: tools.length,
+        toolCount: tools.length,
+        enabled_tool_count: enabledTools.length,
+        enabledToolCount: enabledTools.length,
+        resource_count: resources.length,
+        resourceCount: resources.length,
+        prompt_count: prompts.length,
+        promptCount: prompts.length,
+        servers,
+        tools,
+        resources,
+        prompts,
+        validation,
+      };
     },
     removeMcpServer(store, serverId, input = {}) {
       const threadId = optionalStringDep(input.thread_id ?? input.threadId);
@@ -157,8 +208,7 @@ export function createRuntimeMcpControlSurface({
         mcpRegistry: updatedRegistry,
         updatedAt: new Date().toISOString(),
       };
-      store.agents.set(agent.id, updatedAgent);
-      const status = store.mcpStatus({ thread_id: threadId });
+      const status = this.mcpStatusForAgent(updatedAgent);
       return this.appendThreadMcpControlEvent(store, {
         threadId,
         agent: updatedAgent,
@@ -259,8 +309,7 @@ export function createRuntimeMcpControlSurface({
         mcpRegistry: updatedRegistry,
         updatedAt: new Date().toISOString(),
       };
-      store.agents.set(agent.id, updatedAgent);
-      const status = store.mcpStatus({ thread_id: threadId });
+      const status = this.mcpStatusForAgent(updatedAgent);
       const eventLabel = mutationKind === "import" ? "McpServersImported" : "McpServerAdded";
       return this.appendThreadMcpControlEvent(store, {
         threadId,
@@ -450,8 +499,7 @@ export function createRuntimeMcpControlSurface({
         mcpRegistry: updatedRegistry,
         updatedAt: new Date().toISOString(),
       };
-      store.agents.set(agent.id, updatedAgent);
-      const status = store.mcpStatus({ thread_id: threadId });
+      const status = this.mcpStatusForAgent(updatedAgent);
       const controlKind = enabled ? "mcp_enable" : "mcp_disable";
       return this.appendThreadMcpControlEvent(store, {
         threadId,
@@ -830,9 +878,33 @@ export function createRuntimeMcpControlSurface({
         receipt_refs: event.receipt_refs,
         policy_decision_refs: event.policy_decision_refs,
       };
-      const updatedAgent = { ...agent, updatedAt: event.created_at };
-      store.agents.set(agent.id, updatedAgent);
-      store.writeAgent(updatedAgent, `thread.${controlKind}`);
+      if (typeof contextPolicyRunnerDep?.planMcpControlAgentStateUpdate !== "function") {
+        throw runtimeErrorDep({
+          status: 500,
+          code: "mcp_control_state_update_planner_unavailable",
+          message: "MCP control updates require Rust policy state-update planning.",
+          details: { threadId, controlKind },
+        });
+      }
+      const stateUpdate = contextPolicyRunnerDep.planMcpControlAgentStateUpdate({
+        thread_id: threadId,
+        agent,
+        control_kind: controlKind,
+        event_id: event.event_id,
+        seq: event.seq,
+        created_at: event.created_at,
+      });
+      const updatedAgent = stateUpdate.agent;
+      if (!updatedAgent?.id) {
+        throw runtimeErrorDep({
+          status: 502,
+          code: "mcp_control_state_update_planner_invalid",
+          message: "Rust policy state-update planning did not return an agent record.",
+          details: { threadId, controlKind },
+        });
+      }
+      store.agents.set(updatedAgent.id, updatedAgent);
+      store.writeAgent(updatedAgent, stateUpdate.operation_kind ?? `thread.${controlKind}`);
       return result;
     },
   };

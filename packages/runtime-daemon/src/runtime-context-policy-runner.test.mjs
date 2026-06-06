@@ -11,6 +11,7 @@ import {
   CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
   CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -742,6 +743,63 @@ test("thread control agent state update runner sends Rust state update bridge re
   assert.equal(result.operation_kind, "thread.thinking");
   assert.equal(result.control.eventId, "evt_thread_control");
   assert.equal(result.agent.modelId, "local-model");
+});
+
+test("mcp control agent state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_mcp_control_agent_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "thread.mcp_add",
+            updated_at: "2026-06-06T05:45:00.000Z",
+            control: {
+              controlKind: "mcp_add",
+              eventId: "event_mcp_add",
+            },
+            agent: {
+              id: "agent_1",
+              updatedAt: "2026-06-06T05:45:00.000Z",
+              mcpRegistry: {
+                servers: [{ id: "mcp.docs" }],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planMcpControlAgentStateUpdate({
+    thread_id: "thread_1",
+    agent: { id: "agent_1", mcpRegistry: { servers: [{ id: "mcp.docs" }] } },
+    control_kind: "mcp_add",
+    event_id: "event_mcp_add",
+    seq: 5,
+    created_at: "2026-06-06T05:45:00.000Z",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_mcp_control_agent_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.control_kind, "mcp_add");
+  assert.equal(result.source, "rust_mcp_control_agent_state_update_command");
+  assert.equal(result.operation_kind, "thread.mcp_add");
+  assert.equal(result.control.eventId, "event_mcp_add");
+  assert.equal(result.agent.mcpRegistry.servers[0].id, "mcp.docs");
 });
 
 test("agent create state update runner sends Rust state update bridge request", () => {

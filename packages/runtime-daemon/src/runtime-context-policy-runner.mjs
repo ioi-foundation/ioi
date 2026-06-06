@@ -19,6 +19,8 @@ export const RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.run-cancel-state-update-request.v1";
 export const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.thread-control-agent-state-update-request.v1";
+export const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.mcp-control-agent-state-update-request.v1";
 export const AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.agent-create-state-update-request.v1";
 export const RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -134,6 +136,14 @@ export class RustContextPolicyRunner {
     return normalizeThreadControlAgentStateUpdateBridgeResult(this.evaluateRawPolicy({
       operation: "plan_thread_control_agent_state_update",
       schemaVersion: THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planMcpControlAgentStateUpdate(request = {}) {
+    return normalizeMcpControlAgentStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_mcp_control_agent_state_update",
+      schemaVersion: MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -506,6 +516,27 @@ export function normalizeThreadControlAgentStateUpdateBridgeResult(value = {}) {
     operation_kind:
       optionalString(result.operation_kind ?? record.operation_kind) ??
       "thread.control",
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    control:
+      objectRecord(result.control) ?? objectRecord(record.control) ?? null,
+    agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
+  };
+}
+
+export function normalizeMcpControlAgentStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_mcp_control_agent_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "planned",
+    operation_kind:
+      optionalString(result.operation_kind ?? record.operation_kind) ??
+      "thread.mcp_control",
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     control:
       objectRecord(result.control) ?? objectRecord(record.control) ?? null,

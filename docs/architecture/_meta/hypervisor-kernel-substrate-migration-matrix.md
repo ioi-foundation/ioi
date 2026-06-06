@@ -12226,6 +12226,14 @@ timestamps, runtimeControls, and canonical run usage telemetry fields through
 run lifecycle helper still assembles the draft from admitted route/memory/skill
 inputs, then persists only the Rust-planned create record.
 
+Slice 356 moves MCP control agent state-update planning into Rust:
+`McpControlAgentStateUpdateCore` now owns the final persisted agent touch for
+MCP add/import/remove/enable/disable/status/validate/invoke controls, including
+event binding, `updatedAt` assignment, and `thread.mcp_*` operation kind through
+`plan_mcp_control_agent_state_update`; the daemon MCP control surface builds
+draft registry/status payloads for the runtime event, then persists only the
+Rust-planned agent record after the MCP event exists.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

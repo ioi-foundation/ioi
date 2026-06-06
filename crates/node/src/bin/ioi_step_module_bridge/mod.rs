@@ -26,6 +26,7 @@ use ioi_services::agentic::runtime::kernel::policy::{
     ContextBudgetPolicyRequest, ContextCompactionPlanCore, ContextCompactionPlanRequest,
     ContextCompactionStateUpdateCore, ContextCompactionStateUpdateRequest,
     DiagnosticsOperatorOverrideStateUpdateCore, DiagnosticsOperatorOverrideStateUpdateRequest,
+    McpControlAgentStateUpdateCore, McpControlAgentStateUpdateRequest,
     OperatorInterruptStateUpdateCore, OperatorInterruptStateUpdateRequest,
     OperatorSteerStateUpdateCore, OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore,
     RunCancelStateUpdateRequest, RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
@@ -412,6 +413,16 @@ struct ThreadControlAgentStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct McpControlAgentStateUpdateBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpControlAgentStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct AgentCreateStateUpdateBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -680,6 +691,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_thread_control_agent_state_update(request)
+        }
+        "plan_mcp_control_agent_state_update" => {
+            let request: McpControlAgentStateUpdateBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_mcp_control_agent_state_update(request)
         }
         "plan_agent_create_state_update" => {
             let request: AgentCreateStateUpdateBridgeRequest = serde_json::from_value(raw_request)
@@ -1999,6 +2016,44 @@ fn plan_context_compaction_state_update(
         "operator_control": record.operator_control.clone(),
         "context_compaction": record.context_compaction.clone(),
         "run": record.run.clone(),
+        "agent": record.agent.clone(),
+    }))
+}
+
+fn plan_mcp_control_agent_state_update(
+    request: McpControlAgentStateUpdateBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_mcp_control_agent_state_update" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = McpControlAgentStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "mcp_control_agent_state_update_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_control_agent_state_update_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "control": record.control.clone(),
         "agent": record.agent.clone(),
     }))
 }
@@ -7067,6 +7122,55 @@ mod tests {
         );
         assert_eq!(response["agent"]["modelId"], "local-model");
         assert_eq!(response["agent"]["modelRouteReceiptId"], "receipt_route_1");
+    }
+
+    #[test]
+    fn bridge_plans_mcp_control_agent_state_update_through_rust_core() {
+        let request: McpControlAgentStateUpdateBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_mcp_control_agent_state_update",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.mcp-control-agent-state-update-request.v1",
+                "thread_id": "thread_1",
+                "agent": {
+                    "id": "agent_1",
+                    "cwd": "/workspace",
+                    "mcpRegistry": {
+                        "servers": [
+                            {
+                                "id": "mcp.docs",
+                                "enabled": true,
+                                "tools": [{ "name": "search" }]
+                            }
+                        ]
+                    }
+                },
+                "control_kind": "mcp_add",
+                "event_id": "event_mcp_add",
+                "seq": 5,
+                "created_at": "2026-06-06T05:45:00.000Z"
+            }
+        }))
+        .expect("mcp control agent state update bridge request");
+
+        let response = plan_mcp_control_agent_state_update(request)
+            .expect("mcp control agent state update planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_mcp_control_agent_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "thread.mcp_add");
+        assert_eq!(response["control"]["controlKind"], "mcp_add");
+        assert_eq!(response["agent"]["id"], "agent_1");
+        assert_eq!(response["agent"]["updatedAt"], "2026-06-06T05:45:00.000Z");
+        assert_eq!(
+            response["agent"]["mcpRegistry"]["servers"][0]["id"],
+            "mcp.docs"
+        );
     }
 
     #[test]
