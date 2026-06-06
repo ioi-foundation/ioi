@@ -293,20 +293,22 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       JSON.stringify(operations.map((operation) => [operation.path, operation.status, operation.currentHash])),
     ).slice(0, 12)}`;
     const artifactId = `artifact_workspace_restore_preview_${safeId(normalizedSnapshotId)}_${doctorHash(receiptId).slice(0, 12)}`;
+    const snapshotTurnId = snapshotPackage.snapshot?.turn_id ?? null;
+    const snapshotHash = snapshotPackage.snapshot?.snapshot_hash ?? null;
     const result = {
       schemaVersion: WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION,
       schema_version: WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION,
       object: "ioi.runtime_workspace_restore_preview",
       threadId,
       thread_id: threadId,
-      turnId: snapshotPackage.snapshot?.turnId ?? snapshotPackage.snapshot?.turn_id ?? null,
-      turn_id: snapshotPackage.snapshot?.turnId ?? snapshotPackage.snapshot?.turn_id ?? null,
+      turnId: snapshotTurnId,
+      turn_id: snapshotTurnId,
       workspaceRoot: agent.cwd,
       workspace_root: agent.cwd,
       snapshotId: normalizedSnapshotId,
       snapshot_id: normalizedSnapshotId,
-      snapshotHash: snapshotPackage.snapshot?.snapshotHash ?? snapshotPackage.snapshot?.snapshot_hash ?? null,
-      snapshot_hash: snapshotPackage.snapshot?.snapshotHash ?? snapshotPackage.snapshot?.snapshot_hash ?? null,
+      snapshotHash,
+      snapshot_hash: snapshotHash,
       previewStatus,
       preview_status: previewStatus,
       previewSupported: blockedCount === 0,
@@ -443,20 +445,22 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       ])),
     ).slice(0, 12)}`;
     const artifactId = `artifact_workspace_restore_apply_${safeId(normalizedSnapshotId)}_${doctorHash(receiptId).slice(0, 12)}`;
+    const snapshotTurnId = snapshotPackage.snapshot?.turn_id ?? null;
+    const snapshotHash = snapshotPackage.snapshot?.snapshot_hash ?? null;
     const result = {
       schemaVersion: WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION,
       schema_version: WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION,
       object: "ioi.runtime_workspace_restore_apply",
       threadId,
       thread_id: threadId,
-      turnId: snapshotPackage.snapshot?.turnId ?? snapshotPackage.snapshot?.turn_id ?? null,
-      turn_id: snapshotPackage.snapshot?.turnId ?? snapshotPackage.snapshot?.turn_id ?? null,
+      turnId: snapshotTurnId,
+      turn_id: snapshotTurnId,
       workspaceRoot: agent.cwd,
       workspace_root: agent.cwd,
       snapshotId: normalizedSnapshotId,
       snapshot_id: normalizedSnapshotId,
-      snapshotHash: snapshotPackage.snapshot?.snapshotHash ?? snapshotPackage.snapshot?.snapshot_hash ?? null,
-      snapshot_hash: snapshotPackage.snapshot?.snapshotHash ?? snapshotPackage.snapshot?.snapshot_hash ?? null,
+      snapshotHash,
+      snapshot_hash: snapshotHash,
       previewStatus,
       preview_status: previewStatus,
       applyStatus,

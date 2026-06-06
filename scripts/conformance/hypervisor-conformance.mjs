@@ -10825,6 +10825,28 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "workspace-restore-snapshot-package-reader-aliases-retired",
+    /const snapshotTurnId = snapshotPackage\.snapshot\?\.turn_id \?\? null;/.test(
+      runtimeWorkspaceSnapshotSurface,
+    ) &&
+      /const snapshotHash = snapshotPackage\.snapshot\?\.snapshot_hash \?\? null;/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      /snapshotHash: "hash_retired"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /turnId: "turn_retired"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /retiredIdentityPreview\.turn_id,\s*null/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /retiredIdentityPreview\.snapshot_hash,\s*null/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      !/\bsnapshotPackage\.snapshot\?\.(?:turnId|snapshotHash)\b/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: workspace restore preview/apply result assembly must read canonical snapshot package identity fields without retired camelCase fallbacks",
+  );
+  assertCheck(
+    result,
     "workspace-change-review-aliases-retired",
     /schema_version:\s*WORKSPACE_CHANGE_REVIEW_SCHEMA_VERSION/.test(
       workspaceChangeInspection,

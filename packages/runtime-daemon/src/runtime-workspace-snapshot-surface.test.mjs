@@ -588,8 +588,48 @@ test("workspace snapshot surface previews and applies snapshot restores", () => 
     workflow_node_id: "restore_node",
   });
   assert.equal(preview.previewStatus, "ready");
+  assert.equal(preview.turn_id, "turn_alpha");
+  assert.equal(preview.snapshot_hash, "hash_alpha");
   assert.equal(preview.event.event_kind, "workspace.restore.previewed");
   assert.equal(preview.event.workflow_node_id, "restore_node");
+
+  store.codingArtifacts.set("artifact_snapshot_retired_identity", {
+    id: "artifact_snapshot_retired_identity",
+    thread_id: "thread_alpha",
+    channel: "workspace-snapshot",
+    content: JSON.stringify({
+      snapshot: {
+        snapshot_id: "workspace_snapshot_retired_identity",
+        snapshotHash: "hash_retired",
+        turnId: "turn_retired",
+        restore: { preview_supported: true },
+      },
+      files: [
+        {
+          path: "src/app.js",
+          before: {
+            exists: true,
+            content: "old",
+            contentHash: hash("old"),
+          },
+          after: {
+            exists: true,
+            contentHash: hash("new"),
+          },
+        },
+      ],
+    }),
+  });
+  const retiredIdentityPreview = surface.previewWorkspaceSnapshotRestore(
+    store,
+    "thread_alpha",
+    "workspace_snapshot_retired_identity",
+    { workflow_node_id: "restore_node" },
+  );
+  assert.equal(retiredIdentityPreview.turn_id, null);
+  assert.equal(retiredIdentityPreview.turnId, null);
+  assert.equal(retiredIdentityPreview.snapshot_hash, null);
+  assert.equal(retiredIdentityPreview.snapshotHash, null);
 
   const blocked = surface.applyWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_alpha", {});
   assert.equal(blocked.applyStatus, "blocked");
