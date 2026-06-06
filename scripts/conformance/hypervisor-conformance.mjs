@@ -10775,6 +10775,38 @@ function runCompositor() {
     ],
     "Phase 10/11 is pending: diagnostics repair restore decisions must fail closed on retired restore request aliases before calling workspace restore preview/apply",
   );
+  const diagnosticsRepairDecisionExecutionBody =
+    runtimeDiagnosticsRepairSurface.match(
+      /  function executeDiagnosticsRepairDecision\(store, threadId, decisionRef, request = \{\}\) \{[\s\S]*?(?=\n  function assertCanonicalDiagnosticsRepairRestoreRequestBody)/,
+    )?.[0] ?? "";
+  assertCheck(
+    result,
+    "diagnostics-repair-decision-result-aliases-retired",
+    /schema_version:\s*DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION/.test(
+      diagnosticsRepairDecisionExecutionBody,
+    ) &&
+      /thread_id:\s*threadId/.test(diagnosticsRepairDecisionExecutionBody) &&
+      /decision_id:\s*decisionId/.test(diagnosticsRepairDecisionExecutionBody) &&
+      /repair_policy:\s*repairPolicy/.test(diagnosticsRepairDecisionExecutionBody) &&
+      /receipt_refs:\s*event\.receipt_refs/.test(diagnosticsRepairDecisionExecutionBody) &&
+      /artifact_refs:\s*event\.artifact_refs/.test(diagnosticsRepairDecisionExecutionBody) &&
+      /policy_decision_refs:\s*event\.policy_decision_refs/.test(
+        diagnosticsRepairDecisionExecutionBody,
+      ) &&
+      /rollback_refs:\s*event\.rollback_refs/.test(diagnosticsRepairDecisionExecutionBody) &&
+      !/^\s*(?:schemaVersion|threadId|decisionId|gateEventId|policyId|snapshotId|workflowGraphId|workflowNodeId|repairPolicy|repairRetry|repairTurn|repairRetryEvent|operatorOverride|operatorOverrideEvent|restorePreview|restoreApply|restorePreviewEvent|restoreApplyEvent|receiptRefs|artifactRefs|policyDecisionRefs|rollbackRefs)\s*:/m.test(
+        diagnosticsRepairDecisionExecutionBody,
+      ) &&
+      /Object\.hasOwn\(result,\s*field\),\s*false/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /"schemaVersion"[\s\S]*"threadId"[\s\S]*"decisionId"[\s\S]*"receiptRefs"[\s\S]*"rollbackRefs"/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: diagnostics repair decision execution results must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
   assertCheck(
     result,
     "runtime-event-envelope-compat-aliases-retired",

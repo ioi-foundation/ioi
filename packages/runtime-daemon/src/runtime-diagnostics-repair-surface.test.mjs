@@ -213,7 +213,33 @@ test("diagnostics repair surface routes restore apply with canonical request fie
 
   assert.equal(result.action, "restore_apply");
   assert.equal(result.status, "completed");
-  assert.deepEqual(result.receiptRefs, ["receipt_executed"]);
+  assert.deepEqual(result.receipt_refs, ["receipt_executed"]);
+  for (const field of [
+    "schemaVersion",
+    "threadId",
+    "decisionId",
+    "gateEventId",
+    "policyId",
+    "snapshotId",
+    "workflowGraphId",
+    "workflowNodeId",
+    "repairPolicy",
+    "repairRetry",
+    "repairTurn",
+    "repairRetryEvent",
+    "operatorOverride",
+    "operatorOverrideEvent",
+    "restorePreview",
+    "restoreApply",
+    "restorePreviewEvent",
+    "restoreApplyEvent",
+    "receiptRefs",
+    "artifactRefs",
+    "policyDecisionRefs",
+    "rollbackRefs",
+  ]) {
+    assert.equal(Object.hasOwn(result, field), false);
+  }
   const apply = store.calls.find((call) => call.name === "apply");
   assert.equal(apply.snapshotId, "snapshot_alpha");
   assert.equal(apply.request.workflow_node_id, "runtime.lsp-diagnostics.repair.restore-apply");
