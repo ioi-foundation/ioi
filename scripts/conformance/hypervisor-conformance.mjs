@@ -2461,8 +2461,14 @@ function runBridge() {
       ) &&
       /workflowGraphId: "graph_retired"/.test(runtimeThreadControlTest) &&
       /workflowNodeId: "node_retired"/.test(runtimeThreadControlTest) &&
+      /runtimeControlAction: "cancel"/.test(runtimeThreadControlTest) &&
+      /controlAction: "cancel"/.test(runtimeThreadControlTest) &&
+      /requestedBy: "operator_retired"/.test(runtimeThreadControlTest) &&
       /interruptEvent\.workflow_graph_id,\s*null/.test(runtimeThreadControlTest) &&
       /interruptEvent\.workflow_node_id,\s*"runtime\.operator-interrupt"/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /interruptEvent\.payload\.requested_by,\s*"operator"/.test(
         runtimeThreadControlTest,
       ) &&
       /contextPolicyRunner\(calls\)/.test(runtimeThreadControlTest) &&
@@ -2472,7 +2478,13 @@ function runBridge() {
       /runtime-backed operator controls fail closed without Rust-planned operation kinds/.test(
         runtimeThreadControlTest,
       ) &&
-      /plan_operator_interrupt_state_update/.test(runtimeThreadControlTest),
+      /plan_operator_interrupt_state_update/.test(runtimeThreadControlTest) &&
+      !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey|requestedBy|runtimeControlAction|controlAction)\b/.test(
+        operatorInterruptTurnBody,
+      ) &&
+      !/request\.(?:runtime_control_action|control_action)\s*\?\?\s*request\.(?:runtimeControlAction|controlAction)\b/.test(
+        operatorInterruptTurnBody,
+      ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -2511,9 +2523,13 @@ function runBridge() {
       /idempotencyKey: "operator_steer_idempotency_retired"/.test(
         runtimeThreadControlTest,
       ) &&
+      /requestedBy: "operator_retired"/.test(runtimeThreadControlTest) &&
       /steerEvent\.idempotency_key/.test(runtimeThreadControlTest) &&
       /steerEvent\.workflow_graph_id,\s*null/.test(runtimeThreadControlTest) &&
       /steerEvent\.workflow_node_id,\s*"runtime\.operator-steer"/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /steerEvent\.payload\.requested_by,\s*"operator"/.test(
         runtimeThreadControlTest,
       ) &&
       /runtime-backed steering routes run update through Rust policy planner/.test(
@@ -2525,7 +2541,10 @@ function runBridge() {
       /runtime-backed operator controls fail closed without Rust-planned operation kinds/.test(
         runtimeThreadControlTest,
       ) &&
-      /plan_operator_steer_state_update/.test(runtimeThreadControlTest),
+      /plan_operator_steer_state_update/.test(runtimeThreadControlTest) &&
+      !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey|requestedBy)\b/.test(
+        operatorSteerTurnBody,
+      ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -2855,14 +2874,16 @@ function runBridge() {
       /idempotencyKey: "fork-key"/.test(runtimeThreadForkStateTest) &&
       /workflowGraphId: "graph_retired"/.test(runtimeThreadForkStateTest) &&
       /workflowNodeId: "node_retired"/.test(runtimeThreadForkStateTest) &&
+      /requestedBy: "operator_retired"/.test(runtimeThreadForkStateTest) &&
       /events\[0\]\.workflow_graph_id, null/.test(runtimeThreadForkStateTest) &&
       /events\[0\]\.workflow_node_id, "runtime\.thread-fork"/.test(
         runtimeThreadForkStateTest,
       ) &&
+      /events\[0\]\.payload\.requested_by, "operator"/.test(runtimeThreadForkStateTest) &&
       /events\[0\]\.idempotency_key, "thread:thread_a:operator\.fork:thread_fork"/.test(
         runtimeThreadForkStateTest,
       ) &&
-      !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
+      !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey|requestedBy)\b/.test(
         runtimeThreadForkState,
       ) &&
       !/request\.(?:workflow_graph_id|workflow_node_id|idempotency_key)\s*\?\?\s*request\./.test(

@@ -35,7 +35,7 @@ export function createThreadForkState({
     const sourceLatestSeq = sourceThread.latest_seq;
     const sourceLatestTurnId = sourceThread.latest_turn_id ?? "";
     const controlSource = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "operator";
     const reason = optionalString(request.reason ?? request.message ?? request.input) ?? "operator requested thread fork";
     const now = new Date().toISOString();
     store.appendRuntimeEvent({

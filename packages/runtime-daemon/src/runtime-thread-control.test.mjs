@@ -642,6 +642,9 @@ test("runtime-backed interrupt and resume route through control_thread", async (
       reason: "operator_stop",
       workflowGraphId: "graph_retired",
       workflowNodeId: "node_retired",
+      requestedBy: "operator_retired",
+      runtimeControlAction: "cancel",
+      controlAction: "cancel",
     });
     const resumed = await store.resumeThread(thread.thread_id, {
       source: "agent_studio",
@@ -659,6 +662,7 @@ test("runtime-backed interrupt and resume route through control_thread", async (
     const interruptEvent = interrupted.events.find((event) => event.event_kind === "turn.interrupted");
     assert.equal(interruptEvent.workflow_graph_id, null);
     assert.equal(interruptEvent.workflow_node_id, "runtime.operator-interrupt");
+    assert.equal(interruptEvent.payload.requested_by, "operator");
     assert.equal(resumed.runtime_control.action, "resume");
   } finally {
     store.close();
@@ -698,6 +702,7 @@ test("runtime-backed steering routes run update through Rust policy planner", as
       idempotencyKey: "operator_steer_idempotency_retired",
       workflowGraphId: "graph_retired",
       workflowNodeId: "node_retired",
+      requestedBy: "operator_retired",
     });
 
     const plannerCalls = calls.filter((call) => call.operation === "plan_operator_steer_state_update");
@@ -714,6 +719,7 @@ test("runtime-backed steering routes run update through Rust policy planner", as
     );
     assert.equal(steerEvent.workflow_graph_id, null);
     assert.equal(steerEvent.workflow_node_id, "runtime.operator-steer");
+    assert.equal(steerEvent.payload.requested_by, "operator");
 
     const steerCommits = calls.filter(
       (call) =>

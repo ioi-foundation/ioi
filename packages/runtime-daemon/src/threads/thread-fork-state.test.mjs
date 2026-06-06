@@ -125,6 +125,7 @@ test("thread fork state ignores retired request identity aliases", () => {
     idempotencyKey: "fork-key",
     workflowGraphId: "graph_retired",
     workflowNodeId: "node_retired",
+    requestedBy: "operator_retired",
   });
 
   assert.equal(result.thread_id, "thread_fork");
@@ -133,6 +134,7 @@ test("thread fork state ignores retired request identity aliases", () => {
   assert.equal(events.length, 1);
   assert.equal(events[0].workflow_graph_id, null);
   assert.equal(events[0].workflow_node_id, "runtime.thread-fork");
+  assert.equal(events[0].payload.requested_by, "operator");
   assert.equal(events[0].idempotency_key, "thread:thread_a:operator.fork:thread_fork");
 });
 

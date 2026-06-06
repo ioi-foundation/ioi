@@ -1561,9 +1561,7 @@ export class AgentgresRuntimeStateStore {
     if (isRuntimeBackedAgent(agent)) {
       const requestedAction = optionalString(
         request.runtime_control_action ??
-          request.runtimeControlAction ??
-          request.control_action ??
-          request.controlAction,
+          request.control_action,
       );
       const controlAction = /^(cancel|terminate)$/i.test(requestedAction ?? "")
         ? "cancel"
@@ -1581,7 +1579,7 @@ export class AgentgresRuntimeStateStore {
       });
     }
     const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "operator";
     const reason =
       optionalString(request.reason ?? request.message ?? request.input) ?? "operator requested interrupt";
     const now = new Date().toISOString();
@@ -1693,7 +1691,7 @@ export class AgentgresRuntimeStateStore {
       throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId });
     }
     const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "operator";
     const guidance =
       optionalString(request.guidance ?? request.message ?? request.input) ?? "operator provided steering guidance";
     const now = new Date().toISOString();
