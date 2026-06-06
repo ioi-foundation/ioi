@@ -9131,6 +9131,8 @@ function runCompositor() {
     runtimeEventPayloads.match(/if \(event\.type === "github_pr_create_plan"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeSkillHookManifestPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "skill_hook_manifest"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimeHookDryRunPlanPayloadSummaryBlock =
+    runtimeEventPayloads.match(/if \(event\.type === "hook_dry_run_plan"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeTaskPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "runtime_task"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeChecklistPayloadSummaryBlock =
@@ -9161,6 +9163,8 @@ function runCompositor() {
     runtimeDaemonIndex.match(/addEvent\("github_pr_create_plan", "GitHub PR create dry-run plan recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeSkillHookManifestEventProducerBlock =
     runtimeDaemonIndex.match(/addEvent\("skill_hook_manifest", "Active skill and hook manifest recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
+  const runtimeHookDryRunPlanEventProducerBlock =
+    runtimeDaemonIndex.match(/addEvent\("hook_dry_run_plan", "Hook dry-run plan recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeUsageEvents = exists("packages/runtime-daemon/src/runtime-usage-events.mjs")
     ? read("packages/runtime-daemon/src/runtime-usage-events.mjs")
     : "";
@@ -10810,6 +10814,22 @@ function runCompositor() {
       !/event\.data\?\.(?:eventKind|manifestId|activeSkillSetHash|activeHookSetHash|selectedSkillIds|selectedHookIds|mutationBlockedHookIds|hookExecution|workflowNodeId)\b/.test(
         runtimeSkillHookManifestPayloadSummaryBlock,
       ) &&
+      runtimeHookDryRunPlanPayloadSummaryBlock.length > 0 &&
+      /event_kind:\s*event\.data\?\.event_kind \?\? "HookDryRunPlan"/.test(
+        runtimeHookDryRunPlanPayloadSummaryBlock,
+      ) &&
+      /plan_id:\s*event\.data\?\.plan_id \?\? null/.test(
+        runtimeHookDryRunPlanPayloadSummaryBlock,
+      ) &&
+      /policy_status:\s*event\.data\?\.policy_decision\?\.status \?\? null/.test(
+        runtimeHookDryRunPlanPayloadSummaryBlock,
+      ) &&
+      /command_execution_enabled:\s*Boolean\(event\.data\?\.command_execution_enabled\)/.test(
+        runtimeHookDryRunPlanPayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.(?:eventKind|planId|manifestId|decisionCount|wouldRunCount|blockedCount|skippedCount|policyDecision|hookExecutionEnabled|commandExecutionEnabled|workflowNodeId)\b/.test(
+        runtimeHookDryRunPlanPayloadSummaryBlock,
+      ) &&
       runtimeTaskPayloadSummaryBlock.length > 0 &&
       /event_kind:\s*event\.data\?\.event_kind \?\? "RuntimeTaskRecord"/.test(
         runtimeTaskPayloadSummaryBlock,
@@ -10994,6 +11014,18 @@ function runCompositor() {
       !/\.\.\.activeSkillHookManifest|^\s*(?:receiptId|eventKind|workflowNodeId|manifestId|activeSkillSetHash|activeHookSetHash|selectedSkillIds|selectedHookIds|mutationBlockedHookIds|hookExecution)\s*:/m.test(
         runtimeSkillHookManifestEventProducerBlock,
       ) &&
+      runtimeHookDryRunPlanEventProducerBlock.length > 0 &&
+      /event_kind:\s*"HookDryRunPlan"/.test(runtimeHookDryRunPlanEventProducerBlock) &&
+      /plan_id:\s*hookDryRunPlan\.planId \?\? null/.test(
+        runtimeHookDryRunPlanEventProducerBlock,
+      ) &&
+      /policy_receipt_id:\s*hookPolicyReceipt\.id/.test(runtimeHookDryRunPlanEventProducerBlock) &&
+      /workflow_node_id:\s*"runtime\.hook-policy"/.test(
+        runtimeHookDryRunPlanEventProducerBlock,
+      ) &&
+      !/\.\.\.hookDryRunPlan|^\s*(?:receiptId|policyReceiptId|eventKind|workflowNodeId|planId|manifestId|decisionCount|wouldRunCount|blockedCount|skippedCount|policyDecision|hookExecutionEnabled|commandExecutionEnabled)\s*:/m.test(
+        runtimeHookDryRunPlanEventProducerBlock,
+      ) &&
       /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
       /retiredComputerUseSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredMemorySummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
@@ -11005,6 +11037,7 @@ function runCompositor() {
       /retiredReviewGateSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredGithubPrCreatePlanSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredSkillHookManifestSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredHookDryRunPlanSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeTaskSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeChecklistSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeJobSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
@@ -11018,6 +11051,7 @@ function runCompositor() {
       /eventKind: "RetiredReviewGateDecision"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredGitHubPrCreatePlan"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredActiveSkillHookManifest"/.test(runtimeEventPayloadsTest) &&
+      /eventKind: "RetiredHookDryRunPlan"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeTaskRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeChecklistRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredJobCompleted"/.test(runtimeEventPayloadsTest) &&
@@ -11034,6 +11068,7 @@ function runCompositor() {
       /payloadHash: "retired-payload-hash"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.github-pr-create"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.skill-hook-manifest"/.test(runtimeEventPayloadsTest) &&
+      /workflowNodeId: "retired\.hook-policy"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.repository-context"/.test(runtimeEventPayloadsTest) &&
       /memoryRecordId: "retired-memory"/.test(runtimeEventPayloadsTest) &&
       /memoryPolicyId: "retired-policy"/.test(runtimeEventPayloadsTest) &&

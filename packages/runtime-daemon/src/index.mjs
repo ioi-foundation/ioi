@@ -4979,11 +4979,22 @@ function buildRun({
     redaction: activeSkillHookManifest.redaction,
   });
   addEvent("hook_dry_run_plan", "Hook dry-run plan recorded", {
-    ...hookDryRunPlan,
-    receiptId: hookDryRunReceipt.id,
-    policyReceiptId: hookPolicyReceipt.id,
-    eventKind: "HookDryRunPlan",
-    workflowNodeId: "runtime.hook-policy",
+    event_kind: "HookDryRunPlan",
+    plan_id: hookDryRunPlan.planId ?? null,
+    manifest_id: hookDryRunPlan.manifestId ?? null,
+    decision_count: hookDryRunPlan.decisionCount ?? 0,
+    would_run_count: hookDryRunPlan.wouldRunCount ?? 0,
+    blocked_count: hookDryRunPlan.blockedCount ?? 0,
+    skipped_count: hookDryRunPlan.skippedCount ?? 0,
+    policy_decision: {
+      status: hookDryRunPlan.policyDecision?.status ?? null,
+    },
+    hook_execution_enabled: Boolean(hookDryRunPlan.hookExecutionEnabled),
+    command_execution_enabled: Boolean(hookDryRunPlan.commandExecutionEnabled),
+    receipt_id: hookDryRunReceipt.id,
+    policy_receipt_id: hookPolicyReceipt.id,
+    workflow_node_id: "runtime.hook-policy",
+    redaction: hookDryRunPlan.redaction,
   });
   addEvent("hook_invocation_ledger", "Hook invocation ledger recorded", {
     ...hookInvocationLedger,

@@ -162,6 +162,20 @@ const retiredSkillHookManifestSummaryAliasKeys = [
   "workflowNodeId",
 ];
 
+const retiredHookDryRunPlanSummaryAliasKeys = [
+  "eventKind",
+  "planId",
+  "manifestId",
+  "decisionCount",
+  "wouldRunCount",
+  "blockedCount",
+  "skippedCount",
+  "policyDecision",
+  "hookExecutionEnabled",
+  "commandExecutionEnabled",
+  "workflowNodeId",
+];
+
 const retiredRuntimeTaskSummaryAliasKeys = [
   "eventKind",
   "taskId",
@@ -992,6 +1006,56 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   assert.notEqual(skillHookManifest.workflow_node_id, "retired.skill-hook-manifest");
   for (const key of retiredSkillHookManifestSummaryAliasKeys) {
     assert.equal(Object.hasOwn(skillHookManifest, key), false);
+  }
+
+  const hookDryRunPlan = runtime.payloadSummaryForRunEvent({
+    id: "event-hook-dry-run-plan",
+    type: "hook_dry_run_plan",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      event_kind: "HookDryRunPlan.Canonical",
+      eventKind: "RetiredHookDryRunPlan",
+      plan_id: "hook-dry-run-plan-one",
+      planId: "retired-hook-dry-run-plan",
+      manifest_id: "skill-hook-manifest-one",
+      manifestId: "retired-skill-hook-manifest",
+      decision_count: 3,
+      decisionCount: 404,
+      would_run_count: 1,
+      wouldRunCount: 405,
+      blocked_count: 1,
+      blockedCount: 406,
+      skipped_count: 1,
+      skippedCount: 407,
+      policy_decision: { status: "blocked" },
+      policyDecision: { status: "retired" },
+      hook_execution_enabled: false,
+      hookExecutionEnabled: true,
+      command_execution_enabled: false,
+      commandExecutionEnabled: true,
+      workflow_node_id: "runtime.hook-policy",
+      workflowNodeId: "retired.hook-policy",
+      redaction: { profile: "hook_dry_run_safe" },
+    },
+  });
+
+  assert.equal(hookDryRunPlan.event_kind, "HookDryRunPlan.Canonical");
+  assert.equal(hookDryRunPlan.plan_id, "hook-dry-run-plan-one");
+  assert.equal(hookDryRunPlan.manifest_id, "skill-hook-manifest-one");
+  assert.equal(hookDryRunPlan.decision_count, 3);
+  assert.equal(hookDryRunPlan.would_run_count, 1);
+  assert.equal(hookDryRunPlan.blocked_count, 1);
+  assert.equal(hookDryRunPlan.skipped_count, 1);
+  assert.equal(hookDryRunPlan.policy_status, "blocked");
+  assert.equal(hookDryRunPlan.hook_execution_enabled, false);
+  assert.equal(hookDryRunPlan.command_execution_enabled, false);
+  assert.equal(hookDryRunPlan.workflow_node_id, "runtime.hook-policy");
+  assert.notEqual(hookDryRunPlan.plan_id, "retired-hook-dry-run-plan");
+  assert.notEqual(hookDryRunPlan.policy_status, "retired");
+  assert.notEqual(hookDryRunPlan.workflow_node_id, "retired.hook-policy");
+  for (const key of retiredHookDryRunPlanSummaryAliasKeys) {
+    assert.equal(Object.hasOwn(hookDryRunPlan, key), false);
   }
 
   const task = runtime.payloadSummaryForRunEvent({

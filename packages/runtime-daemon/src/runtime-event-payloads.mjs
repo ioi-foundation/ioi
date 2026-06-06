@@ -435,17 +435,17 @@ function payloadSummaryForRunEvent(event) {
     if (event.type === "hook_dry_run_plan") {
       return {
         ...summary,
-        event_kind: event.data?.eventKind ?? "HookDryRunPlan",
-        plan_id: event.data?.planId ?? null,
-        manifest_id: event.data?.manifestId ?? null,
-        decision_count: event.data?.decisionCount ?? 0,
-        would_run_count: event.data?.wouldRunCount ?? 0,
-        blocked_count: event.data?.blockedCount ?? 0,
-        skipped_count: event.data?.skippedCount ?? 0,
-        policy_status: event.data?.policyDecision?.status ?? null,
-        hook_execution_enabled: Boolean(event.data?.hookExecutionEnabled),
-        command_execution_enabled: Boolean(event.data?.commandExecutionEnabled),
-        workflow_node_id: event.data?.workflowNodeId ?? null,
+        event_kind: event.data?.event_kind ?? "HookDryRunPlan",
+        plan_id: event.data?.plan_id ?? null,
+        manifest_id: event.data?.manifest_id ?? null,
+        decision_count: event.data?.decision_count ?? 0,
+        would_run_count: event.data?.would_run_count ?? 0,
+        blocked_count: event.data?.blocked_count ?? 0,
+        skipped_count: event.data?.skipped_count ?? 0,
+        policy_status: event.data?.policy_decision?.status ?? null,
+        hook_execution_enabled: Boolean(event.data?.hook_execution_enabled),
+        command_execution_enabled: Boolean(event.data?.command_execution_enabled),
+        workflow_node_id: event.data?.workflow_node_id ?? null,
         redaction: event.data?.redaction?.profile ?? "hook_dry_run_safe",
       };
     }
