@@ -693,6 +693,9 @@ function runBridge() {
   const workspaceRestoreHelpers = exists("packages/runtime-daemon/src/workspace-restore.mjs")
     ? read("packages/runtime-daemon/src/workspace-restore.mjs")
     : "";
+  const workspaceRestoreHelpersTest = exists("packages/runtime-daemon/src/workspace-restore.test.mjs")
+    ? read("packages/runtime-daemon/src/workspace-restore.test.mjs")
+    : "";
   const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
     ? read("packages/agent-sdk/src/substrate-client.ts")
     : "";
@@ -3879,6 +3882,45 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10 is pending: daemon workspace restore facade must call the Rust bridge for policy and file operations without JS restore IO fallback",
+  );
+  assertCheck(
+    result,
+    "workspace-restore-daemon-facade-reader-aliases-retired",
+    /blocked_reason:\s*operation\.blocked_reason \?\? null/.test(runtimeWorkspaceSnapshotSurface) &&
+      /const reason = optionalString\(policy\?\.apply_reason\);/.test(runtimeWorkspaceSnapshotSurface) &&
+      /file_count:\s*Number\(counts\.file_count \?\? 0\)/.test(runtimeWorkspaceSnapshotSurface) &&
+      /fileCount:\s*counts\.file_count/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/\boperation\.blockedReason\b/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/\bpolicy\?\.applyReason\b/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/\bcounts\.(?:fileCount|readyCount|noopCount|conflictCount|blockedCount|appliedCount|applyNoopCount|applyBlockedCount|failedCount)\b/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      /const applyStatuses = list\.map\(\(operation\) => operation\.apply_status \?\? operation\.status\);/.test(
+        workspaceRestoreHelpers,
+      ) &&
+      /file_count:\s*list\.length/.test(workspaceRestoreHelpers) &&
+      !/\boperation\.applyStatus\b/.test(workspaceRestoreHelpers) &&
+      !/^\s*(?:fileCount|readyCount|noopCount|conflictCount|blockedCount|appliedCount|applyNoopCount|applyBlockedCount|failedCount)\s*:/m.test(
+        workspaceRestoreHelpers,
+      ) &&
+      /workspace restore operation counts use canonical operation status fields/.test(
+        workspaceRestoreHelpersTest,
+      ) &&
+      /applyStatus: "applied"/.test(workspaceRestoreHelpersTest) &&
+      /Object\.hasOwn\(counts,\s*field\),\s*false/.test(workspaceRestoreHelpersTest) &&
+      !/function createSurface\(\)(?:(?!\nfunction snapshotCapture)[\s\S])*?\b(?:allowConflicts|conflictPolicy|hardBlocked|conflictBlocked|policyDecisionRefs|operationPolicies|contentFiles|capturedFileCount|omittedFileCount|contentCaptured|currentExists|currentHash|currentBytes|blockedReason|applyReason|applyStatus|appliedExists|appliedHash|appliedBytes|appliedMatchesTarget)\s*:/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      !/function snapshotCapture\((?:(?!\nfunction createStore)[\s\S])*?\b(?:receiptRefs|artifactRefs|contentHash|sizeBytes|mtimeMs|contentBytes|omittedReason|targetHash|snapshotAfterHash|currentExists|currentHash|currentBytes|targetExists|snapshotAfterExists|currentMatchesSnapshotPost|currentMatchesRestoreTarget|blockedReason|diffBytes|diffHash|diffTruncated)\s*:/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/workspace-restore.mjs",
+      "packages/runtime-daemon/src/workspace-restore.test.mjs",
+    ],
+    "Phase 10/11 is pending: daemon workspace restore facade must consume canonical Rust bridge operation, policy, capture, and count fields without retired camelCase reader fallbacks",
   );
   assertCheck(
     result,

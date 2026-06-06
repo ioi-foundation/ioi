@@ -290,7 +290,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const blockedCount = operations.filter((operation) => operation.status === "blocked").length;
     const previewStatus = conflictCount || blockedCount ? "blocked" : "ready";
     const receiptId = `receipt_workspace_restore_preview_${safeId(normalizedSnapshotId)}_${doctorHash(
-      JSON.stringify(operations.map((operation) => [operation.path, operation.status, operation.currentHash])),
+      JSON.stringify(operations.map((operation) => [operation.path, operation.status, operation.current_hash])),
     ).slice(0, 12)}`;
     const artifactId = `artifact_workspace_restore_preview_${safeId(normalizedSnapshotId)}_${doctorHash(receiptId).slice(0, 12)}`;
     const snapshotTurnId = snapshotPackage.snapshot?.turn_id ?? null;
@@ -433,7 +433,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       conflictBlocked,
     });
     const applyStatus = finalPolicyPlan.apply_status;
-    const previewStatus = counts.conflictCount || counts.blockedCount ? "blocked" : "ready";
+    const previewStatus = counts.conflict_count || counts.blocked_count ? "blocked" : "ready";
     const policyDecisionRefs = normalizeArray(
       finalPolicyPlan.policy_decision_refs,
     );
@@ -475,24 +475,24 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       approval_satisfied: approval.satisfied,
       conflictPolicy,
       conflict_policy: conflictPolicy,
-      fileCount: counts.fileCount,
-      file_count: counts.fileCount,
-      readyCount: counts.readyCount,
-      ready_count: counts.readyCount,
-      noopCount: counts.noopCount,
-      noop_count: counts.noopCount,
-      conflictCount: counts.conflictCount,
-      conflict_count: counts.conflictCount,
-      blockedCount: counts.blockedCount,
-      blocked_count: counts.blockedCount,
-      appliedCount: counts.appliedCount,
-      applied_count: counts.appliedCount,
-      applyNoopCount: counts.applyNoopCount,
-      apply_noop_count: counts.applyNoopCount,
-      applyBlockedCount: counts.applyBlockedCount,
-      apply_blocked_count: counts.applyBlockedCount,
-      failedCount: counts.failedCount,
-      failed_count: counts.failedCount,
+      fileCount: counts.file_count,
+      file_count: counts.file_count,
+      readyCount: counts.ready_count,
+      ready_count: counts.ready_count,
+      noopCount: counts.noop_count,
+      noop_count: counts.noop_count,
+      conflictCount: counts.conflict_count,
+      conflict_count: counts.conflict_count,
+      blockedCount: counts.blocked_count,
+      blocked_count: counts.blocked_count,
+      appliedCount: counts.applied_count,
+      applied_count: counts.applied_count,
+      applyNoopCount: counts.apply_noop_count,
+      apply_noop_count: counts.apply_noop_count,
+      applyBlockedCount: counts.apply_blocked_count,
+      apply_blocked_count: counts.apply_blocked_count,
+      failedCount: counts.failed_count,
+      failed_count: counts.failed_count,
       operations,
       policy: {
         status: applyStatus === "blocked" ? "blocked" : "allowed",
@@ -583,7 +583,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       policyRequest.operations = operations.map((operation) => ({
         path: operation.path,
         status: operation.status,
-        blocked_reason: operation.blockedReason ?? operation.blocked_reason ?? null,
+        blocked_reason: operation.blocked_reason ?? null,
       }));
     }
     if (counts) {
@@ -682,7 +682,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const pathValue = optionalString(operation?.path);
     const entries = normalizeArray(policyPlan?.operation_policies);
     const policy = entries.find((entry) => optionalString(entry?.path) === pathValue);
-    const reason = optionalString(policy?.applyReason ?? policy?.apply_reason);
+    const reason = optionalString(policy?.apply_reason);
     if (reason) return reason;
     throw runtimeError({
       status: 502,
@@ -694,15 +694,15 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
 
   function workspaceRestoreCountsForPolicy(counts = {}) {
     return {
-      file_count: Number(counts.fileCount ?? counts.file_count ?? 0) || 0,
-      ready_count: Number(counts.readyCount ?? counts.ready_count ?? 0) || 0,
-      noop_count: Number(counts.noopCount ?? counts.noop_count ?? 0) || 0,
-      conflict_count: Number(counts.conflictCount ?? counts.conflict_count ?? 0) || 0,
-      blocked_count: Number(counts.blockedCount ?? counts.blocked_count ?? 0) || 0,
-      applied_count: Number(counts.appliedCount ?? counts.applied_count ?? 0) || 0,
-      apply_noop_count: Number(counts.applyNoopCount ?? counts.apply_noop_count ?? 0) || 0,
-      apply_blocked_count: Number(counts.applyBlockedCount ?? counts.apply_blocked_count ?? 0) || 0,
-      failed_count: Number(counts.failedCount ?? counts.failed_count ?? 0) || 0,
+      file_count: Number(counts.file_count ?? 0) || 0,
+      ready_count: Number(counts.ready_count ?? 0) || 0,
+      noop_count: Number(counts.noop_count ?? 0) || 0,
+      conflict_count: Number(counts.conflict_count ?? 0) || 0,
+      blocked_count: Number(counts.blocked_count ?? 0) || 0,
+      applied_count: Number(counts.applied_count ?? 0) || 0,
+      apply_noop_count: Number(counts.apply_noop_count ?? 0) || 0,
+      apply_blocked_count: Number(counts.apply_blocked_count ?? 0) || 0,
+      failed_count: Number(counts.failed_count ?? 0) || 0,
     };
   }
 

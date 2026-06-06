@@ -57,31 +57,14 @@ function createSurface() {
         : null;
       return {
         approval,
-        allowConflicts: false,
         allow_conflicts: false,
-        conflictPolicy: "clean_preview_only",
         conflict_policy: "clean_preview_only",
-        hardBlocked: false,
         hard_blocked: false,
-        conflictBlocked: false,
         conflict_blocked: false,
-        applyStatus,
         apply_status: applyStatus,
-        policyDecisionRefs: [
-          `policy_workspace_restore_apply_${request.snapshot_id}_${approval.satisfied ? "approval_satisfied" : "approval_required"}`,
-        ],
         policy_decision_refs: [
           `policy_workspace_restore_apply_${request.snapshot_id}_${approval.satisfied ? "approval_satisfied" : "approval_required"}`,
         ],
-        operationPolicies: (request.operations ?? []).map((operation) => ({
-          path: operation.path,
-          applyReason: approval.satisfied
-            ? "workspace_restore_apply_blocked_by_policy"
-            : "workspace_restore_apply_requires_approval",
-          apply_reason: approval.satisfied
-            ? "workspace_restore_apply_blocked_by_policy"
-            : "workspace_restore_apply_requires_approval",
-        })),
         operation_policies: (request.operations ?? []).map((operation) => ({
           path: operation.path,
           apply_reason: approval.satisfied
@@ -100,15 +83,10 @@ function createSurface() {
         if (preview.status === "noop") {
           return {
             ...preview,
-            applyStatus: "noop",
             apply_status: "noop",
-            appliedExists: preview.currentExists,
-            applied_exists: preview.currentExists,
-            appliedHash: preview.currentHash,
-            applied_hash: preview.currentHash,
-            appliedBytes: preview.currentBytes,
-            applied_bytes: preview.currentBytes,
-            appliedMatchesTarget: true,
+            applied_exists: preview.current_exists,
+            applied_hash: preview.current_hash,
+            applied_bytes: preview.current_bytes,
             applied_matches_target: true,
           };
         }
@@ -116,15 +94,10 @@ function createSurface() {
         fs.writeFileSync(path.join(request.workspace_root, file.path), file.before.content ?? "", "utf8");
         return {
           ...preview,
-          applyStatus: "applied",
           apply_status: "applied",
-          appliedExists: true,
           applied_exists: true,
-          appliedHash: hash(file.before.content ?? ""),
           applied_hash: hash(file.before.content ?? ""),
-          appliedBytes: Buffer.byteLength(file.before.content ?? "", "utf8"),
           applied_bytes: Buffer.byteLength(file.before.content ?? "", "utf8"),
-          appliedMatchesTarget: true,
           applied_matches_target: true,
         };
       });
@@ -134,13 +107,13 @@ function createSurface() {
       const captures = (request.changed_files ?? [])
         .filter((entry) => entry.path)
         .map((entry) => snapshotCapture(entry, draftsByPath.get(entry.path) ?? {}));
-      const capturedFileCount = captures.filter((capture) => capture.contentCaptured).length;
+      const capturedFileCount = captures.filter((capture) => capture.content_captured).length;
       return {
         files: captures.map((capture) => capture.publicFile),
-        contentFiles: captures.map((capture) => capture.contentFile),
-        capturedFileCount,
-        omittedFileCount: captures.length - capturedFileCount,
-        contentCaptured: capturedFileCount === captures.length,
+        content_files: captures.map((capture) => capture.contentFile),
+        captured_file_count: capturedFileCount,
+        omitted_file_count: captures.length - capturedFileCount,
+        content_captured: capturedFileCount === captures.length,
       };
     },
   };
@@ -157,14 +130,14 @@ function createSurface() {
 }
 
 function snapshotCapture(entry = {}, draft = {}) {
-  const beforeExists = Boolean(entry.beforeExists ?? entry.before_exists);
-  const afterExists = Object.hasOwn(entry, "afterExists") || Object.hasOwn(entry, "after_exists")
-    ? Boolean(entry.afterExists ?? entry.after_exists)
+  const beforeExists = Boolean(entry.before_exists);
+  const afterExists = Object.hasOwn(entry, "after_exists")
+    ? Boolean(entry.after_exists)
     : true;
-  const beforeHash = entry.beforeHash ?? entry.before_hash ?? null;
-  const afterHash = entry.afterHash ?? entry.after_hash ?? null;
-  const before = snapshotCaptureSide(beforeExists, beforeHash, draft.beforeContent ?? draft.before_content);
-  const after = snapshotCaptureSide(afterExists, afterHash, draft.afterContent ?? draft.after_content);
+  const beforeHash = entry.before_hash ?? null;
+  const afterHash = entry.after_hash ?? null;
+  const before = snapshotCaptureSide(beforeExists, beforeHash, draft.before_content);
+  const after = snapshotCaptureSide(afterExists, afterHash, draft.after_content);
   const publicFile = {
     path: entry.path,
     created: Boolean(entry.created),
@@ -172,9 +145,7 @@ function snapshotCapture(entry = {}, draft = {}) {
     changed: beforeHash !== afterHash,
     before: before.publicSide,
     after: after.publicSide,
-    receiptRefs: [],
     receipt_refs: [],
-    artifactRefs: [],
     artifact_refs: [],
   };
   return {
@@ -185,7 +156,7 @@ function snapshotCapture(entry = {}, draft = {}) {
       after: after.contentSide,
       encoding: "utf8",
     },
-    contentCaptured: before.captured && after.captured,
+    content_captured: before.captured && after.captured,
   };
 }
 
@@ -193,17 +164,11 @@ function snapshotCaptureSide(exists, contentHash, content) {
   if (!exists) {
     const side = {
       exists: false,
-      contentHash,
       content_hash: contentHash,
-      sizeBytes: 0,
       size_bytes: 0,
-      mtimeMs: null,
       mtime_ms: null,
-      contentCaptured: true,
       content_captured: true,
-      contentBytes: 0,
       content_bytes: 0,
-      omittedReason: null,
       omitted_reason: null,
     };
     return { publicSide: side, contentSide: { ...side, content: null }, captured: true };
@@ -211,17 +176,11 @@ function snapshotCaptureSide(exists, contentHash, content) {
   const captured = typeof content === "string" && (!contentHash || hash(content) === contentHash);
   const side = {
     exists: true,
-    contentHash,
     content_hash: contentHash,
-    sizeBytes: content ? Buffer.byteLength(content, "utf8") : 0,
     size_bytes: content ? Buffer.byteLength(content, "utf8") : 0,
-    mtimeMs: null,
     mtime_ms: null,
-    contentCaptured: captured,
     content_captured: captured,
-    contentBytes: content ? Buffer.byteLength(content, "utf8") : 0,
     content_bytes: content ? Buffer.byteLength(content, "utf8") : 0,
-    omittedReason: captured ? null : "snapshot_content_missing",
     omitted_reason: captured ? null : "snapshot_content_missing",
   };
   return { publicSide: side, contentSide: { ...side, content: captured ? content : null }, captured };
@@ -233,9 +192,9 @@ function previewOperation(workspaceRoot, file = {}) {
   const currentContent = currentExists ? fs.readFileSync(targetPath, "utf8") : "";
   const currentHash = currentExists ? hash(currentContent) : null;
   const targetExists = Boolean(file.before?.exists);
-  const targetHash = targetExists ? file.before?.contentHash ?? file.before?.content_hash ?? null : null;
+  const targetHash = targetExists ? file.before?.content_hash ?? null : null;
   const snapshotAfterExists = Boolean(file.after?.exists);
-  const snapshotAfterHash = snapshotAfterExists ? file.after?.contentHash ?? file.after?.content_hash ?? null : null;
+  const snapshotAfterHash = snapshotAfterExists ? file.after?.content_hash ?? null : null;
   const currentMatchesSnapshotPost =
     currentExists === snapshotAfterExists && (!snapshotAfterExists || currentHash === snapshotAfterHash);
   const currentMatchesRestoreTarget =
@@ -245,32 +204,19 @@ function previewOperation(workspaceRoot, file = {}) {
     path: file.path,
     operation: currentMatchesRestoreTarget ? "noop" : targetExists ? "replace" : "delete",
     status,
-    currentExists,
     current_exists: currentExists,
-    currentHash,
     current_hash: currentHash,
-    currentBytes: Buffer.byteLength(currentContent, "utf8"),
     current_bytes: Buffer.byteLength(currentContent, "utf8"),
-    targetExists,
     target_exists: targetExists,
-    targetHash,
     target_hash: targetHash,
-    snapshotAfterExists,
     snapshot_after_exists: snapshotAfterExists,
-    snapshotAfterHash,
     snapshot_after_hash: snapshotAfterHash,
-    currentMatchesSnapshotPost,
     current_matches_snapshot_post: currentMatchesSnapshotPost,
-    currentMatchesRestoreTarget,
     current_matches_restore_target: currentMatchesRestoreTarget,
-    blockedReason: null,
     blocked_reason: null,
     diff: status === "ready" ? "diff" : "",
-    diffBytes: status === "ready" ? 4 : 0,
     diff_bytes: status === "ready" ? 4 : 0,
-    diffHash: hash(status === "ready" ? "diff" : ""),
     diff_hash: hash(status === "ready" ? "diff" : ""),
-    diffTruncated: false,
     diff_truncated: false,
   };
 }
@@ -573,11 +519,11 @@ test("workspace snapshot surface previews and applies snapshot restores", () => 
           before: {
             exists: true,
             content: "old",
-            contentHash: hash("old"),
+            content_hash: hash("old"),
           },
           after: {
             exists: true,
-            contentHash: hash("new"),
+            content_hash: hash("new"),
           },
         },
       ],
@@ -610,11 +556,11 @@ test("workspace snapshot surface previews and applies snapshot restores", () => 
           before: {
             exists: true,
             content: "old",
-            contentHash: hash("old"),
+            content_hash: hash("old"),
           },
           after: {
             exists: true,
-            contentHash: hash("new"),
+            content_hash: hash("new"),
           },
         },
       ],
