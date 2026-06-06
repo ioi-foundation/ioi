@@ -2608,9 +2608,9 @@ export class AgentgresRuntimeStateStore {
       ]),
       observationRetentionMode,
       failClosedWhenUnavailable: true,
-      computerUseActionKind: requestedActionKind,
-      computerUseApprovalRef: requestedApprovalRef,
-      computerUseTargetRef: requestedTargetRef,
+      computer_use_action_kind: requestedActionKind,
+      computer_use_approval_ref: requestedApprovalRef,
+      computer_use_target_ref: requestedTargetRef,
       computerUseNativeBrowserExecution: nativeBrowserExecution,
       computerUseControlledRelaunchLaunchReceipt: controlledRelaunchLaunch?.launchReceipt ?? null,
       computerUseObservationBundle:
@@ -2642,8 +2642,8 @@ export class AgentgresRuntimeStateStore {
       computerUseCleanupReceipt: controlledRelaunchCleanup,
     };
     for (const key of [
-      "computerUseApprovalRef",
-      "computerUseTargetRef",
+      "computer_use_approval_ref",
+      "computer_use_target_ref",
       "computerUseNativeBrowserExecution",
       "computerUseControlledRelaunchLaunchReceipt",
       "computerUseObservationBundle",
@@ -2840,9 +2840,9 @@ export class AgentgresRuntimeStateStore {
       ]),
       observationRetentionMode,
       failClosedWhenUnavailable: true,
-      computerUseActionKind: requestedActionKind,
-      computerUseApprovalRef: requestedApprovalRef,
-      computerUseTargetRef: requestedTargetRef,
+      computer_use_action_kind: requestedActionKind,
+      computer_use_approval_ref: requestedApprovalRef,
+      computer_use_target_ref: requestedTargetRef,
       computerUseVisualArtifactRefs: materializedVisualArtifacts.artifact_refs,
       computerUseExecutionResult: visualGuiExecution,
       computerUseVisualGuiExecution: visualGuiExecution,
@@ -2859,8 +2859,8 @@ export class AgentgresRuntimeStateStore {
         objectRecord(input.computerUseCleanupReceipt ?? input.cleanup_receipt),
     };
     for (const key of [
-      "computerUseApprovalRef",
-      "computerUseTargetRef",
+      "computer_use_approval_ref",
+      "computer_use_target_ref",
       "computerUseVisualObservation",
       "computerUseVisualArtifactRefs",
       "computerUseExecutionResult",
@@ -3058,9 +3058,9 @@ export class AgentgresRuntimeStateStore {
       ]),
       observationRetentionMode,
       failClosedWhenUnavailable: true,
-      computerUseActionKind: requestedActionKind,
-      computerUseApprovalRef: requestedApprovalRef,
-      computerUseTargetRef: requestedTargetRef,
+      computer_use_action_kind: requestedActionKind,
+      computer_use_approval_ref: requestedApprovalRef,
+      computer_use_target_ref: requestedTargetRef,
       computerUseSandboxProvider: sandboxProvider,
       computerUseSandboxFixture: sandboxFixture,
       computerUseSandboxImageRef:
@@ -3079,8 +3079,8 @@ export class AgentgresRuntimeStateStore {
         objectRecord(input.computerUseCleanupReceipt ?? input.cleanup_receipt),
     };
     for (const key of [
-      "computerUseApprovalRef",
-      "computerUseTargetRef",
+      "computer_use_approval_ref",
+      "computer_use_target_ref",
       "computerUseSandboxImageRef",
       "computerUseSandboxTaskRef",
       "computerUseObservationBundle",
@@ -3193,7 +3193,6 @@ export class AgentgresRuntimeStateStore {
           : {}),
       actionKind: "inspect",
       action_kind: "inspect",
-      computerUseActionKind: "inspect",
       computer_use_action_kind: "inspect",
       authorityScopes: normalizeArray(input.authorityScopes ?? input.authority_scopes)
         .map((scope) => optionalString(scope))

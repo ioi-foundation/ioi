@@ -28,6 +28,7 @@ test("computer-use projection ignores retired targetRef request alias", () => {
       computer_use: true,
       computer_use_action_kind: "click",
       targetRef: "target_retired",
+      computerUseTargetRef: "target_retired_computer_use",
     },
   });
 
@@ -65,6 +66,8 @@ test("computer-use projection ignores retired actionKind and approvalRef aliases
       computer_use: true,
       actionKind: "click",
       approvalRef: "approval_retired",
+      computerUseActionKind: "click",
+      computerUseApprovalRef: "approval_retired_computer_use",
     },
   });
 

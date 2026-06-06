@@ -1597,16 +1597,19 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "computer-use-projection-action-ref-aliases-retired",
-    /metadata\.computerUseTargetRef\s*\?\?\s*[\r\n\s]*metadata\.computer_use_target_ref/.test(
+    "computer-use-projection-selector-aliases-retired",
+    /computerUseActionKindValue\(metadata\.computer_use_action_kind\)/.test(
       computerUseProjection,
     ) &&
-      /metadata\.computerUseActionKind\s*\?\?\s*[\r\n\s]*metadata\.computer_use_action_kind/.test(
-        computerUseProjection,
-      ) &&
-      /metadata\.computerUseApprovalRef\s*\?\?\s*[\r\n\s]*metadata\.computer_use_approval_ref/.test(
-        computerUseProjection,
-      ) &&
+      /return cleanString\(metadata\.computer_use_target_ref\)/.test(computerUseProjection) &&
+      /return cleanString\(metadata\.computer_use_approval_ref\)/.test(computerUseProjection) &&
+      /computer_use_action_kind: requestedActionKind/.test(runtimeDaemonIndex) &&
+      /computer_use_approval_ref: requestedApprovalRef/.test(runtimeDaemonIndex) &&
+      /computer_use_target_ref: requestedTargetRef/.test(runtimeDaemonIndex) &&
+      !/computerUseActionKind: requestedActionKind/.test(runtimeDaemonIndex) &&
+      !/computerUseApprovalRef: requestedApprovalRef/.test(runtimeDaemonIndex) &&
+      !/computerUseTargetRef: requestedTargetRef/.test(runtimeDaemonIndex) &&
+      !/computerUseActionKind: "inspect"/.test(runtimeDaemonIndex) &&
       /computer-use projection accepts canonical computer_use_target_ref/.test(
         computerUseProjectionTest,
       ) &&
@@ -1620,8 +1623,14 @@ function runBridge() {
         computerUseProjectionTest,
       ) &&
       /targetRef: "target_retired"/.test(computerUseProjectionTest) &&
+      /computerUseTargetRef: "target_retired_computer_use"/.test(computerUseProjectionTest) &&
       /actionKind: "click"/.test(computerUseProjectionTest) &&
       /approvalRef: "approval_retired"/.test(computerUseProjectionTest) &&
+      /computerUseActionKind: "click"/.test(computerUseProjectionTest) &&
+      /computerUseApprovalRef: "approval_retired_computer_use"/.test(computerUseProjectionTest) &&
+      !/metadata\.computerUseTargetRef/.test(computerUseProjection) &&
+      !/metadata\.computerUseActionKind/.test(computerUseProjection) &&
+      !/metadata\.computerUseApprovalRef/.test(computerUseProjection) &&
       !/metadata\.targetRef/.test(computerUseProjection) &&
       !/metadata\.target_ref/.test(computerUseProjection) &&
       !/metadata\.actionKind/.test(computerUseProjection) &&
@@ -1629,10 +1638,11 @@ function runBridge() {
       !/metadata\.approvalRef/.test(computerUseProjection) &&
       !/metadata\.approval_ref/.test(computerUseProjection),
     [
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/computer-use-projection.mjs",
       "packages/runtime-daemon/src/computer-use-projection.test.mjs",
     ],
-    "Phase 10/11 is pending: computer-use projection target, action, and approval selection must ignore retired generic request aliases",
+    "Phase 10/11 is pending: computer-use projection target, action, and approval selection must use canonical selector metadata and ignore retired selector aliases",
   );
   assertCheck(
     result,

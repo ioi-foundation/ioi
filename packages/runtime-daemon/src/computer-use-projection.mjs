@@ -1773,28 +1773,19 @@ function controlledRelaunchBrokerForRequest(request = {}) {
 
 function requestedComputerUseActionKind(request = {}, prompt = "") {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
-  const explicit = computerUseActionKindValue(
-    metadata.computerUseActionKind ??
-      metadata.computer_use_action_kind,
-  );
+  const explicit = computerUseActionKindValue(metadata.computer_use_action_kind);
   if (explicit) return explicit;
   return computerUseActionKindFromText(prompt) ?? "inspect";
 }
 
 function requestedComputerUseTargetRef(request = {}) {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
-  return cleanString(
-    metadata.computerUseTargetRef ??
-      metadata.computer_use_target_ref,
-  );
+  return cleanString(metadata.computer_use_target_ref);
 }
 
 function requestedComputerUseApprovalRef(request = {}) {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
-  return cleanString(
-    metadata.computerUseApprovalRef ??
-      metadata.computer_use_approval_ref,
-  );
+  return cleanString(metadata.computer_use_approval_ref);
 }
 
 function requestedComputerUseExecutionResult(request = {}) {
