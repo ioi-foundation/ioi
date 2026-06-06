@@ -126,3 +126,27 @@ test("public runtime routes preserve MCP serve thread requirement", async () => 
   assert.equal(response.error.code, "mcp_thread_required");
   assert.deepEqual(response.error.details, { route: "/v1/mcp/serve" });
 });
+
+test("public runtime MCP serve route ignores retired threadId query alias", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const store = {
+    async handleMcpServeJsonRpc() {
+      assert.fail("retired threadId query alias must not reach MCP serve handler");
+    },
+  };
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/mcp/serve?threadId=thread-retired",
+      body: { jsonrpc: "2.0", id: 1, method: "initialize" },
+    }),
+    response,
+    store,
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.error.code, "mcp_thread_required");
+  assert.deepEqual(response.error.details, { route: "/v1/mcp/serve" });
+});

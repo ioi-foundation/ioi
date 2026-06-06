@@ -7634,6 +7634,9 @@ function runCompositor() {
   const publicRuntimeRoutes = exists("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
     ? read("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
     : "";
+  const publicRuntimeRoutesTest = exists("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
+    ? read("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
+    : "";
   const runtimeRouteHandlers = exists("packages/runtime-daemon/src/runtime-route-handlers.mjs")
     ? read("packages/runtime-daemon/src/runtime-route-handlers.mjs")
     : "";
@@ -11936,18 +11939,24 @@ function runCompositor() {
       /surface\.invokeMcpTool\(store, \{\s*threadId: "thread-agent-one"/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
+      /const threadId = optionalString\(query\.thread_id\)/.test(publicRuntimeRoutes) &&
+      /public runtime MCP serve route ignores retired threadId query alias/.test(publicRuntimeRoutesTest) &&
+      /url: "\/v1\/mcp\/serve\?threadId=thread-retired"/.test(publicRuntimeRoutesTest) &&
       /^\s*thread_id\?: string;/m.test(runtimeMcpSdkServerControlInputBlock) &&
       /^\s*thread_id\?: string;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
       !/(?:input|request)\.threadId\b/.test(runtimeMcpControlSurface) &&
+      !/query\.threadId\b/.test(publicRuntimeRoutes) &&
       !/^\s*threadId\?:/m.test(
         `${runtimeMcpSdkServerControlInputBlock}\n${runtimeMcpSdkToolInvokeInputBlock}`,
       ),
     [
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
-    "Phase 10/11 is pending: MCP control/invoke requests must use canonical thread_id without the retired threadId compatibility alias",
+    "Phase 10/11 is pending: MCP control/invoke and public serve requests must use canonical thread_id without the retired threadId compatibility alias",
   );
   assertCheck(
     result,

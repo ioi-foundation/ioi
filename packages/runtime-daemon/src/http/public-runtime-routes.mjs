@@ -290,7 +290,7 @@ export function createPublicRuntimeRequestHandler(deps) {
       }
       if (request.method === "POST" && url.pathname === "/v1/mcp/serve") {
         const query = Object.fromEntries(url.searchParams.entries());
-        const threadId = optionalString(query.thread_id ?? query.threadId);
+        const threadId = optionalString(query.thread_id);
         if (!threadId) {
           throw runtimeError({
             status: 400,
