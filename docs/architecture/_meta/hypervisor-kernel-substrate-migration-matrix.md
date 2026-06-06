@@ -12745,6 +12745,13 @@ canonical `memory_key`, `query`, `limit`, and `redaction` fields only; retired
 `memoryKey`, `memoryQuery`, `memoryScope`, `memoryLimit`, `memoryRedaction`, and
 `q` filter aliases no longer select inherited or listed memory.
 
+Slice 436 removes subagent memory inheritance projection aliases:
+subagent memory inheritance projections now expose canonical snake_case fields
+for schema, parent/subagent/thread identity, requested/effective policy refs,
+inherited records, write gating, and evidence; daemon event summaries, SDK
+projection types, and IDE delegation readers consume the canonical projection
+without duplicate camelCase facade fields.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

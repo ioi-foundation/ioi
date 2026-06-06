@@ -8816,6 +8816,16 @@ function runCompositor() {
   const runtimeMemoryHelpersTest = exists("packages/runtime-daemon/src/runtime-memory-helpers.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-memory-helpers.test.mjs")
     : "";
+  const runtimeRunMemoryResolution = exists(
+    "packages/runtime-daemon/src/threads/run-memory-resolution.mjs",
+  )
+    ? read("packages/runtime-daemon/src/threads/run-memory-resolution.mjs")
+    : "";
+  const runtimeRunMemoryResolutionTest = exists(
+    "packages/runtime-daemon/src/threads/run-memory-resolution.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/threads/run-memory-resolution.test.mjs")
+    : "";
   const runtimeMemoryStore = exists("packages/runtime-daemon/src/memory-store.mjs")
     ? read("packages/runtime-daemon/src/memory-store.mjs")
     : "";
@@ -8838,6 +8848,25 @@ function runCompositor() {
     runtimeMemoryStore.match(
       /function memoryListFilters\(\{ scope,[\s\S]*?\n}\n\nfunction normalizeMemoryLimit/,
     )?.[0] ?? "";
+  const runtimeSubagentMemoryInheritanceReturnBlock =
+    runtimeRunMemoryResolution.match(
+      /return \{\n      schema_version: "ioi\.agent-runtime\.subagent-memory-inheritance\.v1",[\s\S]*?\n    \};/,
+    )?.[0] ?? "";
+  const runtimeMemoryPayloadSummaryBlock = blockBetween(
+    runtimeEventPayloads,
+    'if (event.type === "memory_update")',
+    'if (event.type === "lsp_diagnostics_injected")',
+  );
+  const agentSdkSubagentMemoryInheritanceProjectionBlock = blockBetween(
+    agentSdkMessagesForRuntime,
+    "export interface SubagentMemoryInheritanceProjection",
+    "export interface TaskStateProjection",
+  );
+  const agentIdeSubagentMemoryInheritanceDelegationBlock = blockBetween(
+    agentIdeDelegationMatrix,
+    'if (payloadEventKind === "SubagentMemoryInheritance")',
+    "  return null;",
+  );
   const runtimeMemoryStatusForProjectionBlock =
     runtimeMemoryManager.match(
       /export function memoryStatusForProjection\(projection = \{\}\) \{[\s\S]*?\n}\n\nexport function validateMemoryProjection/,
@@ -9418,6 +9447,85 @@ function runCompositor() {
       "packages/runtime-daemon/src/memory-store.test.mjs",
     ],
     "Phase 10/11 is pending: runtime memory filter helpers and store projections must use canonical memory_key/query fields without retired camelCase filter aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-memory-inheritance-output-aliases-retired",
+    /schema_version:\s*"ioi\.agent-runtime\.subagent-memory-inheritance\.v1"/.test(
+      runtimeSubagentMemoryInheritanceReturnBlock,
+    ) &&
+      /parent_agent_id:\s*agent\.id/.test(runtimeSubagentMemoryInheritanceReturnBlock) &&
+      /subagent_name:\s*receiver/.test(runtimeSubagentMemoryInheritanceReturnBlock) &&
+      /thread_id:\s*threadId/.test(runtimeSubagentMemoryInheritanceReturnBlock) &&
+      /requested_mode:\s*requestedMode/.test(runtimeSubagentMemoryInheritanceReturnBlock) &&
+      /effective_policy_id:\s*effectivePolicy\.id/.test(runtimeSubagentMemoryInheritanceReturnBlock) &&
+      /effective_policy:\s*effectivePolicy/.test(runtimeSubagentMemoryInheritanceReturnBlock) &&
+      /inherited_record_ids:\s*records\.map/.test(runtimeSubagentMemoryInheritanceReturnBlock) &&
+      /write_allowed:\s*!effectivePolicy\.disabled/.test(runtimeSubagentMemoryInheritanceReturnBlock) &&
+      /write_block_reason:\s*null/.test(runtimeSubagentMemoryInheritanceReturnBlock) &&
+      /evidence_refs:\s*\[/.test(runtimeSubagentMemoryInheritanceReturnBlock) &&
+      /subagentMemoryInheritance\.write_block_reason = policyBlockReason/.test(
+        runtimeRunMemoryResolution,
+      ) &&
+      /subagentMemoryInheritance\.write_allowed = requestedWrite/.test(runtimeRunMemoryResolution) &&
+      /subagentMemoryInheritance\?\.(?:effective_policy)/.test(runtimeRunMemoryResolution) &&
+      /projection\.subagent_name/.test(runtimeMemoryHelpers) &&
+      /projection\.effective_policy\?\.redaction/.test(runtimeMemoryHelpers) &&
+      /projection\.evidence_refs/.test(runtimeMemoryHelpers) &&
+      /event\.data\?\.subagent_name/.test(runtimeMemoryPayloadSummaryBlock) &&
+      /event\.data\?\.inherited_record_ids/.test(runtimeMemoryPayloadSummaryBlock) &&
+      /event\.data\?\.write_allowed/.test(runtimeMemoryPayloadSummaryBlock) &&
+      /event\.data\?\.write_block_reason/.test(runtimeMemoryPayloadSummaryBlock) &&
+      /event\.data\?\.thread_id/.test(runtimeMemoryPayloadSummaryBlock) &&
+      /schema_version:\s*"ioi\.agent-runtime\.subagent-memory-inheritance\.v1";/.test(
+        agentSdkSubagentMemoryInheritanceProjectionBlock,
+      ) &&
+      /parent_agent_id:\s*string;/.test(agentSdkSubagentMemoryInheritanceProjectionBlock) &&
+      /subagent_name:\s*string \| null;/.test(
+        agentSdkSubagentMemoryInheritanceProjectionBlock,
+      ) &&
+      /effective_policy_id:\s*string;/.test(
+        agentSdkSubagentMemoryInheritanceProjectionBlock,
+      ) &&
+      /inherited_record_ids:\s*string\[\];/.test(
+        agentSdkSubagentMemoryInheritanceProjectionBlock,
+      ) &&
+      /write_allowed:\s*boolean;/.test(agentSdkSubagentMemoryInheritanceProjectionBlock) &&
+      /evidence_refs:\s*string\[\];/.test(agentSdkSubagentMemoryInheritanceProjectionBlock) &&
+      /stringField\(payload,\s*"thread_id"\)/.test(
+        agentIdeSubagentMemoryInheritanceDelegationBlock,
+      ) &&
+      /stringField\(payload,\s*"subagent_name"\)/.test(
+        agentIdeSubagentMemoryInheritanceDelegationBlock,
+      ) &&
+      /arrayField\(payload,\s*"inherited_record_ids"\)/.test(
+        agentIdeSubagentMemoryInheritanceDelegationBlock,
+      ) &&
+      /Object\.hasOwn\(result,\s*field\),\s*false/.test(runtimeRunMemoryResolutionTest) &&
+      !/^\s*(?:schemaVersion|parentAgentId|subagentName|threadId|requestedMode|parentPolicyId|effectivePolicyId|parentPolicy|effectivePolicy|inheritedRecordIds|writeAllowed|writeBlockReason|evidenceRefs)\s*:/m.test(
+        runtimeSubagentMemoryInheritanceReturnBlock,
+      ) &&
+      !/event\.data\?\.(?:subagentName|inheritedRecordIds|writeAllowed|writeBlockReason)\b/.test(
+        runtimeMemoryPayloadSummaryBlock,
+      ) &&
+      !/subagentMemoryInheritance\.(?:subagentName|effectivePolicy|writeAllowed|writeBlockReason|inheritedRecordIds|evidenceRefs)\b/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/^\s*(?:schemaVersion|parentAgentId|subagentName|threadId|requestedMode|parentPolicyId|effectivePolicyId|parentPolicy|effectivePolicy|inheritedRecordIds|writeAllowed|writeBlockReason|evidenceRefs)\s*[:?]/m.test(
+        agentSdkSubagentMemoryInheritanceProjectionBlock,
+      ) &&
+      !/stringField\(payload,\s*"threadId"|stringField\(payload,\s*"subagentName"|arrayField\(payload,\s*"inheritedRecordIds"|writeBlockReason"/.test(
+        agentIdeSubagentMemoryInheritanceDelegationBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/run-memory-resolution.mjs",
+      "packages/runtime-daemon/src/threads/run-memory-resolution.test.mjs",
+      "packages/runtime-daemon/src/runtime-memory-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-event-payloads.mjs",
+      "packages/agent-sdk/src/messages.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
+    ],
+    "Phase 10/11 is pending: subagent memory inheritance projections must expose canonical snake_case fields without duplicate camelCase facade aliases",
   );
   assertCheck(
     result,

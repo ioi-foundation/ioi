@@ -129,11 +129,28 @@ test("subagent memory inheritance projects inherited records and effective polic
     parentPolicy: { id: "policy-parent", subagentInheritance: "explicit", injectionEnabled: true },
   });
 
-  assert.equal(result.schemaVersion, "ioi.agent-runtime.subagent-memory-inheritance.v1");
-  assert.equal(result.subagentName, "worker");
+  assert.equal(result.schema_version, "ioi.agent-runtime.subagent-memory-inheritance.v1");
+  assert.equal(result.subagent_name, "worker");
   assert.equal(result.mode, "explicit");
-  assert.equal(result.effectivePolicyId, "policy-thread-one-worker");
-  assert.deepEqual(result.inheritedRecordIds, ["memory-one"]);
-  assert.equal(result.writeAllowed, false);
-  assert.ok(result.evidenceRefs.includes("subagent_memory_inheritance"));
+  assert.equal(result.effective_policy_id, "policy-thread-one-worker");
+  assert.deepEqual(result.inherited_record_ids, ["memory-one"]);
+  assert.equal(result.write_allowed, false);
+  assert.ok(result.evidence_refs.includes("subagent_memory_inheritance"));
+  for (const field of [
+    "schemaVersion",
+    "parentAgentId",
+    "subagentName",
+    "threadId",
+    "requestedMode",
+    "parentPolicyId",
+    "effectivePolicyId",
+    "parentPolicy",
+    "effectivePolicy",
+    "inheritedRecordIds",
+    "writeAllowed",
+    "writeBlockReason",
+    "evidenceRefs",
+  ]) {
+    assert.equal(Object.hasOwn(result, field), false);
+  }
 });

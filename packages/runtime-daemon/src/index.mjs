@@ -3989,7 +3989,7 @@ function buildRun({
         : []),
       ...(subagentMemoryInheritance
         ? [
-            `Subagent memory inheritance: mode=${subagentMemoryInheritance.mode}, receiver=${subagentMemoryInheritance.subagentName ?? "handoff"}, records=${subagentMemoryInheritance.records.length}, writeAllowed=${subagentMemoryInheritance.writeAllowed}`,
+            `Subagent memory inheritance: mode=${subagentMemoryInheritance.mode}, receiver=${subagentMemoryInheritance.subagent_name ?? "handoff"}, records=${subagentMemoryInheritance.records.length}, write_allowed=${subagentMemoryInheritance.write_allowed}`,
           ]
         : []),
       ...(computerUseProjection

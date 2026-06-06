@@ -1028,31 +1028,30 @@ export interface AgentMemoryPolicy {
 }
 
 export interface SubagentMemoryInheritanceProjection {
-  schemaVersion: "ioi.agent-runtime.subagent-memory-inheritance.v1";
+  schema_version: "ioi.agent-runtime.subagent-memory-inheritance.v1";
   object: "ioi.subagent_memory_inheritance";
-  parentAgentId: string;
-  subagentName: string | null;
-  threadId: string | null;
+  parent_agent_id: string;
+  subagent_name: string | null;
+  thread_id: string | null;
   mode: "none" | "explicit" | "read_only" | "full" | string;
-  requestedMode: string;
-  parentPolicyId: string | null;
-  effectivePolicyId: string;
-  parentPolicy: AgentMemoryPolicy | null;
-  effectivePolicy: AgentMemoryPolicy;
+  requested_mode: string;
+  parent_policy_id: string | null;
+  effective_policy_id: string;
+  parent_policy: AgentMemoryPolicy | null;
+  effective_policy: AgentMemoryPolicy;
   filters: {
-    threadId?: string;
+    thread_id?: string;
     scope?: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
-    memoryKey?: string;
+    memory_key?: string;
     query?: string;
-    q?: string;
     limit?: number;
     redaction?: "none" | "redacted" | string;
   };
   records: AgentMemoryRecord[];
-  inheritedRecordIds: string[];
-  writeAllowed: boolean;
-  writeBlockReason: string | null;
-  evidenceRefs: string[];
+  inherited_record_ids: string[];
+  write_allowed: boolean;
+  write_block_reason: string | null;
+  evidence_refs: string[];
 }
 
 export interface TaskStateProjection {

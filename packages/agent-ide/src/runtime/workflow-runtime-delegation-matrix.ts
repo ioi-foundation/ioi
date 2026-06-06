@@ -134,12 +134,12 @@ function delegationMatrixRowForEvent(
       rowKind: "memory_scope",
       status: memoryWriteBlockReason(payload) ? "blocked" : "ready",
       operation: "subagent_inheritance",
-      parentThreadId: stringField(payload, "threadId", "thread_id"),
-      role: stringField(payload, "subagentName", "subagent_name"),
-      memoryMode: stringField(payload, "mode", "subagentInheritance", "subagent_inheritance_mode"),
+      parentThreadId: stringField(payload, "thread_id"),
+      role: stringField(payload, "subagent_name"),
+      memoryMode: stringField(payload, "mode", "subagent_inheritance_mode"),
       inheritedMemoryCount:
-        numberField(payload, "inheritedMemoryCount", "inherited_memory_count") ??
-        arrayField(payload, "inheritedRecordIds", "inherited_record_ids").length,
+        numberField(payload, "inherited_memory_count") ??
+        arrayField(payload, "inherited_record_ids").length,
       writeBlockReason: memoryWriteBlockReason(payload),
       cancellationInheritance: stringField(effectivePolicy, "subagentInheritance", "subagent_inheritance"),
     });
@@ -192,9 +192,7 @@ function baseRow(
 function memoryWriteBlockReason(payload: Record<string, unknown>): string | null {
   return stringField(
     payload,
-    "writeBlockReason",
     "write_block_reason",
-    "writeBlockedReason",
     "write_blocked_reason",
   );
 }

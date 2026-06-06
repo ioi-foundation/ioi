@@ -129,9 +129,9 @@ test("runtime event payloads preserve computer-use and memory summaries", () => 
       operation: "policy_update",
       object: "ioi.agent_memory_policy",
       id: "policy-one",
-      inheritedRecordIds: ["memory-one", "memory-two"],
-      writeAllowed: false,
-      writeBlockReason: "approval_required",
+      inherited_record_ids: ["memory-one", "memory-two"],
+      write_allowed: false,
+      write_block_reason: "approval_required",
     },
   });
 

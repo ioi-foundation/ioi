@@ -93,10 +93,10 @@ test("subagent memory policy and receipt preserve inheritance evidence", () => {
 
   const receipt = runtime.subagentMemoryInheritanceReceipt("run-one", {
     mode: "explicit",
-    subagentName: "worker",
+    subagent_name: "worker",
     records: [{ id: "memory-one" }, { id: "memory-two" }],
-    effectivePolicy: { redaction: "redacted" },
-    evidenceRefs: ["memory-one"],
+    effective_policy: { redaction: "redacted" },
+    evidence_refs: ["memory-one"],
   });
   assert.equal(receipt.id, "receipt_run-one_subagent_memory_inheritance");
   assert.equal(receipt.redaction, "redacted");

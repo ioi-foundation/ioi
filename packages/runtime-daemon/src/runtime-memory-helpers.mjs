@@ -112,9 +112,9 @@ export function createRuntimeMemoryHelpers({
     return {
       id: `receipt_${runId}_subagent_memory_inheritance`,
       kind: "subagent_memory_inheritance",
-      summary: `Subagent memory inheritance ${projection.mode} for ${projection.subagentName ?? "handoff"} exposed ${normalizeArray(projection.records).length} record(s).`,
-      redaction: projection.effectivePolicy?.redaction === "redacted" ? "redacted" : "none",
-      evidenceRefs: normalizeArray(projection.evidenceRefs),
+      summary: `Subagent memory inheritance ${projection.mode} for ${projection.subagent_name ?? "handoff"} exposed ${normalizeArray(projection.records).length} record(s).`,
+      redaction: projection.effective_policy?.redaction === "redacted" ? "redacted" : "none",
+      evidenceRefs: normalizeArray(projection.evidence_refs),
     };
   }
 

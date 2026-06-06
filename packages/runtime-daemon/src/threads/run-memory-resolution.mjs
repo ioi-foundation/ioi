@@ -50,7 +50,7 @@ export function createRunMemoryResolution({
       (request.mode ?? "send") === "handoff"
         ? store.resolveSubagentMemoryInheritance({ agent, threadId, request, parentPolicy: policy })
         : null;
-    const effectivePolicy = subagentMemoryInheritance?.effectivePolicy ?? policy;
+    const effectivePolicy = subagentMemoryInheritance?.effective_policy ?? policy;
     const requestedRemember =
       memoryOptions.remember ??
       request.remember ??
@@ -62,8 +62,8 @@ export function createRunMemoryResolution({
       Boolean(requestedRemember);
     const policyBlockReason = memoryWriteBlockReason(effectivePolicy, memoryOptions, requestedWrite);
     if (subagentMemoryInheritance) {
-      subagentMemoryInheritance.writeBlockReason = policyBlockReason;
-      subagentMemoryInheritance.writeAllowed = requestedWrite
+      subagentMemoryInheritance.write_block_reason = policyBlockReason;
+      subagentMemoryInheritance.write_allowed = requestedWrite
         ? policyBlockReason === null
         : !effectivePolicy.disabled && !effectivePolicy.readOnly && !effectivePolicy.writeRequiresApproval;
     }
@@ -135,23 +135,23 @@ export function createRunMemoryResolution({
       : [];
     const effectivePolicy = subagentMemoryPolicy({ agent, threadId, parentPolicy, receiver, mode });
     return {
-      schemaVersion: "ioi.agent-runtime.subagent-memory-inheritance.v1",
+      schema_version: "ioi.agent-runtime.subagent-memory-inheritance.v1",
       object: "ioi.subagent_memory_inheritance",
-      parentAgentId: agent.id,
-      subagentName: receiver,
-      threadId,
+      parent_agent_id: agent.id,
+      subagent_name: receiver,
+      thread_id: threadId,
       mode,
-      requestedMode,
-      parentPolicyId: parentPolicy.id ?? null,
-      effectivePolicyId: effectivePolicy.id,
-      parentPolicy,
-      effectivePolicy,
+      requested_mode: requestedMode,
+      parent_policy_id: parentPolicy.id ?? null,
+      effective_policy_id: effectivePolicy.id,
+      parent_policy: parentPolicy,
+      effective_policy: effectivePolicy,
       filters,
       records,
-      inheritedRecordIds: records.map((record) => record.id),
-      writeAllowed: !effectivePolicy.disabled && !effectivePolicy.readOnly && !effectivePolicy.writeRequiresApproval,
-      writeBlockReason: null,
-      evidenceRefs: [
+      inherited_record_ids: records.map((record) => record.id),
+      write_allowed: !effectivePolicy.disabled && !effectivePolicy.readOnly && !effectivePolicy.writeRequiresApproval,
+      write_block_reason: null,
+      evidence_refs: [
         "subagent_memory_inheritance",
         "agent_memory_store",
         parentPolicy.id,
