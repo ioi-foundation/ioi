@@ -28,12 +28,32 @@ const RETIRED_WORKSPACE_RESTORE_REQUEST_ALIASES = [
   "workflowGraphId",
   "workflowNodeId",
   "idempotencyKey",
+  "approvalDecision",
+  "policyDecision",
+  "confirmRestoreApply",
+  "applyConfirmed",
+  "approvalGranted",
+  "allowConflicts",
+  "overrideConflicts",
+  "restoreConflictPolicy",
+  "conflictPolicy",
+  "restorePolicy",
 ];
 
 const CANONICAL_WORKSPACE_RESTORE_REQUEST_FIELDS = [
   "workflow_graph_id",
   "workflow_node_id",
   "idempotency_key",
+  "approval_decision",
+  "policy_decision",
+  "confirm_restore_apply",
+  "apply_confirmed",
+  "approval_granted",
+  "allow_conflicts",
+  "override_conflicts",
+  "restore_conflict_policy",
+  "conflict_policy",
+  "restore_policy",
 ];
 
 export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {

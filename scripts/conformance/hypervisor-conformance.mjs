@@ -6013,6 +6013,20 @@ function runCompositor() {
   const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     : "";
+  const diagnosticsRepairExecution = exists("packages/runtime-daemon/src/diagnostics-repair-execution.mjs")
+    ? read("packages/runtime-daemon/src/diagnostics-repair-execution.mjs")
+    : "";
+  const diagnosticsRepairExecutionTest = exists("packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs")
+    ? read("packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs")
+    : "";
+  const workspaceRestoreApplyApprovalHelper =
+    diagnosticsRepairExecution.match(
+      /function workspaceRestoreApplyApprovalForRequest\(request = \{\}\) \{[\s\S]*?\n  \}/,
+    )?.[0] ?? "";
+  const workspaceRestoreApplyConflictHelper =
+    diagnosticsRepairExecution.match(
+      /function workspaceRestoreApplyAllowsConflicts\(request = \{\}\) \{[\s\S]*?\n  \}/,
+    )?.[0] ?? "";
   const runtimeDiagnosticsRepairSurface = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs")
     : "";
@@ -8580,8 +8594,22 @@ function runCompositor() {
       /assertCanonicalWorkspaceRestoreRequestBody\(request\);[\s\S]*optionalString\(request\.workflow_graph_id\)/.test(
         runtimeWorkspaceSnapshotSurface,
       ) &&
-      !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
+      /"approvalDecision"/.test(runtimeWorkspaceSnapshotSurface) &&
+      /"restoreConflictPolicy"/.test(runtimeWorkspaceSnapshotSurface) &&
+      /"approval_decision"/.test(runtimeWorkspaceSnapshotSurface) &&
+      /"restore_conflict_policy"/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey|approvalDecision|policyDecision|confirmRestoreApply|applyConfirmed|approvalGranted|allowConflicts|overrideConflicts|restoreConflictPolicy|conflictPolicy|restorePolicy)\b/.test(
         runtimeWorkspaceSnapshotSurface,
+      ) &&
+      /request\.approval_decision/.test(workspaceRestoreApplyApprovalHelper) &&
+      /request\.approval_granted/.test(workspaceRestoreApplyApprovalHelper) &&
+      !/request\.(?:approvalDecision|policyDecision|confirmRestoreApply|applyConfirmed|approvalGranted)\b/.test(
+        workspaceRestoreApplyApprovalHelper,
+      ) &&
+      /request\.restore_conflict_policy/.test(workspaceRestoreApplyConflictHelper) &&
+      /request\.allow_conflicts/.test(workspaceRestoreApplyConflictHelper) &&
+      !/request\.(?:restoreConflictPolicy|conflictPolicy|restorePolicy|allowConflicts|overrideConflicts)\b/.test(
+        workspaceRestoreApplyConflictHelper,
       ) &&
       /workspace snapshot restore rejects retired request aliases before agent lookup/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
@@ -8589,12 +8617,22 @@ function runCompositor() {
       /agent lookup must not run for retired workspace restore request aliases/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
-      /workflow_node_id:\s*"restore_node"/.test(runtimeWorkspaceSnapshotSurfaceTest),
+      /workflow_node_id:\s*"restore_node"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /approvalDecision: "approved"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /restoreConflictPolicy: "allow_override"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /workspaceRestoreApplyApprovalForRequest\(\{ approvalDecision: "approved" \}\)\.satisfied,[\s\S]*false/.test(
+        diagnosticsRepairExecutionTest,
+      ) &&
+      /workspaceRestoreApplyAllowsConflicts\(\{ restoreConflictPolicy: "allow_override" \}\), false/.test(
+        diagnosticsRepairExecutionTest,
+      ),
     [
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/diagnostics-repair-execution.mjs",
+      "packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs",
     ],
-    "Phase 10/11 is pending: workspace restore preview/apply requests must fail closed on retired workflow/idempotency camelCase aliases before projection events are emitted",
+    "Phase 10/11 is pending: workspace restore preview/apply requests must fail closed on retired workflow/idempotency/apply-policy camelCase aliases before projection events are emitted",
   );
   assertCheck(
     result,

@@ -326,6 +326,16 @@ test("workspace snapshot restore rejects retired request aliases before agent lo
     workflowGraphId: "graph_alias",
     workflowNodeId: "node_alias",
     idempotencyKey: "idempotency_alias",
+    approvalDecision: "approved",
+    policyDecision: "allow",
+    confirmRestoreApply: true,
+    applyConfirmed: true,
+    approvalGranted: true,
+    allowConflicts: true,
+    overrideConflicts: true,
+    restoreConflictPolicy: "allow_override",
+    conflictPolicy: "override_conflicts",
+    restorePolicy: "apply_with_approval",
   };
 
   for (const operation of [
@@ -353,11 +363,31 @@ test("workspace snapshot restore rejects retired request aliases before agent lo
           "workflowGraphId",
           "workflowNodeId",
           "idempotencyKey",
+          "approvalDecision",
+          "policyDecision",
+          "confirmRestoreApply",
+          "applyConfirmed",
+          "approvalGranted",
+          "allowConflicts",
+          "overrideConflicts",
+          "restoreConflictPolicy",
+          "conflictPolicy",
+          "restorePolicy",
         ]);
         assert.deepEqual(error.details.canonical_fields, [
           "workflow_graph_id",
           "workflow_node_id",
           "idempotency_key",
+          "approval_decision",
+          "policy_decision",
+          "confirm_restore_apply",
+          "apply_confirmed",
+          "approval_granted",
+          "allow_conflicts",
+          "override_conflicts",
+          "restore_conflict_policy",
+          "conflict_policy",
+          "restore_policy",
         ]);
         return true;
       },

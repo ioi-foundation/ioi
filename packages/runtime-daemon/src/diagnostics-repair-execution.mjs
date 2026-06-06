@@ -12,9 +12,7 @@ export function createDiagnosticsRepairExecutionHelpers({
   function workspaceRestoreApplyApprovalForRequest(request = {}) {
     const text = optionalString(
       request.approval ??
-        request.approvalDecision ??
         request.approval_decision ??
-        request.policyDecision ??
         request.policy_decision ??
         request.decision ??
         request.status,
@@ -23,11 +21,8 @@ export function createDiagnosticsRepairExecutionHelpers({
     const approvedBoolean = [
       request.confirm,
       request.confirmed,
-      request.confirmRestoreApply,
       request.confirm_restore_apply,
-      request.applyConfirmed,
       request.apply_confirmed,
-      request.approvalGranted,
       request.approval_granted,
       request.approved,
     ].some((value) => value === true || value === "true");
@@ -191,17 +186,12 @@ export function createDiagnosticsRepairExecutionHelpers({
 
   function workspaceRestoreApplyAllowsConflicts(request = {}) {
     const policy = optionalString(
-      request.restoreConflictPolicy ??
-        request.restore_conflict_policy ??
-        request.conflictPolicy ??
+      request.restore_conflict_policy ??
         request.conflict_policy ??
-        request.restorePolicy ??
         request.restore_policy,
     )?.toLowerCase();
     return Boolean(
-      request.allowConflicts ??
-        request.allow_conflicts ??
-        request.overrideConflicts ??
+      request.allow_conflicts ??
         request.override_conflicts,
     ) ||
       ["allow_override", "override", "override_conflicts", "force", "force_apply", "apply_with_conflicts"].includes(

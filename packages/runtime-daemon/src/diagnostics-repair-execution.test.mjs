@@ -44,12 +44,17 @@ test("workspace restore apply helpers enforce approval and conflict policy", () 
   assert.equal(runtime.diagnosticsRepairApplyApprovalKey({}), "approval_required");
 
   const approved = runtime.workspaceRestoreApplyApprovalForRequest({
-    approvalDecision: "approved",
-    restoreConflictPolicy: "allow_override",
+    approval_decision: "approved",
+    restore_conflict_policy: "allow_override",
   });
   assert.equal(approved.satisfied, true);
   assert.equal(approved.source, "approved");
-  assert.equal(runtime.workspaceRestoreApplyAllowsConflicts({ restoreConflictPolicy: "allow_override" }), true);
+  assert.equal(runtime.workspaceRestoreApplyAllowsConflicts({ restore_conflict_policy: "allow_override" }), true);
+  assert.equal(
+    runtime.workspaceRestoreApplyApprovalForRequest({ approvalDecision: "approved" }).satisfied,
+    false,
+  );
+  assert.equal(runtime.workspaceRestoreApplyAllowsConflicts({ restoreConflictPolicy: "allow_override" }), false);
 
   const refs = runtime.workspaceRestoreApplyPolicyDecisionRefs({
     snapshotId: "snapshot:one",

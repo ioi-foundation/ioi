@@ -12035,6 +12035,14 @@ request aliases such as `snapshotId`, `workflowGraphId`,
 the restore request forwarded to the workspace surface uses canonical
 snake_case fields only.
 
+Slice 332 retires workspace restore apply policy aliases: direct workspace
+restore preview/apply requests now fail closed on retired apply-policy
+camelCase aliases such as `approvalDecision`, `policyDecision`,
+`confirmRestoreApply`, `applyConfirmed`, `approvalGranted`,
+`allowConflicts`, `overrideConflicts`, `restoreConflictPolicy`,
+`conflictPolicy`, and `restorePolicy`, and the shared restore apply
+approval/conflict helper reads canonical snake_case policy fields only.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
