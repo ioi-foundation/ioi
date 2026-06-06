@@ -78,6 +78,21 @@ function assertNoRetiredArtifactRecordAliases(record) {
   }
 }
 
+const retiredCommandStreamPayloadAliasKeys = [
+  "streamId",
+  "streamSeq",
+  "outputText",
+  "isFinal",
+  "artifactRefs",
+  "receiptRefs",
+];
+
+function assertNoRetiredCommandStreamPayloadAliases(payloadSummary) {
+  for (const key of retiredCommandStreamPayloadAliasKeys) {
+    assert.equal(Object.hasOwn(payloadSummary, key), false, `retired command-stream payload alias ${key} must be absent`);
+  }
+}
+
 test("coding-tool artifact surface materializes drafts with stable artifact records", () => {
   const { surface, writes } = createSurface();
   const store = createStore();
@@ -272,6 +287,9 @@ test("coding-tool artifact surface appends command-stream event envelopes", () =
   assert.equal(events[2].payload_summary.channel, "control");
   assert.equal(events[2].payload_summary.is_final, true);
   assert.equal(events[2].payload_summary.stream_seq, 3);
+  for (const event of events) {
+    assertNoRetiredCommandStreamPayloadAliases(event.payload_summary);
+  }
 });
 
 test("coding-tool artifact surface skips command-stream events without stream request", () => {

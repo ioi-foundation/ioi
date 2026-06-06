@@ -533,6 +533,12 @@ function runBridge() {
     codingToolArtifactDraftMaterializerBlock.match(/const artifactRecord = \{[\s\S]*?\n\s*\};/)?.[0] ?? "",
     codingToolVisualArtifactMaterializerBlock.match(/const artifactRecord = \{[\s\S]*?\n\s*\};/)?.[0] ?? "",
   ].join("\n");
+  const codingToolCommandStreamBlock = runtimeCodingToolArtifactSurface.match(
+    /function appendCodingToolCommandStreamEvents[\s\S]*?(?=\n\n  function materializeVisualGuiObservationArtifacts)/,
+  )?.[0] ?? "";
+  const codingToolCommandStreamPayloadBlocks = [
+    ...codingToolCommandStreamBlock.matchAll(/payload_summary:\s*\{[\s\S]*?\n\s*\},/g),
+  ].map((match) => match[0]).join("\n");
   const runtimeCodingToolArtifactSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs")
     : "";
@@ -1229,6 +1235,28 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
     ],
     "Phase 10/11 is pending: coding-tool artifact records must be stored with canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "coding-tool-command-stream-payload-aliases-retired",
+    /payload_summary:\s*\{/.test(codingToolCommandStreamBlock) &&
+      /stream_id:\s*streamId/.test(codingToolCommandStreamPayloadBlocks) &&
+      /stream_seq:\s*chunkSeq/.test(codingToolCommandStreamPayloadBlocks) &&
+      /output_text:\s*chunk\.text/.test(codingToolCommandStreamPayloadBlocks) &&
+      /is_final:\s*false/.test(codingToolCommandStreamPayloadBlocks) &&
+      /artifact_refs:\s*artifactRefs/.test(codingToolCommandStreamPayloadBlocks) &&
+      /receipt_refs:\s*uniqueStrings\(receiptRefs\)/.test(codingToolCommandStreamPayloadBlocks) &&
+      /stream_seq:\s*chunkSeq \+ 1/.test(codingToolCommandStreamPayloadBlocks) &&
+      /is_final:\s*true/.test(codingToolCommandStreamPayloadBlocks) &&
+      /assertNoRetiredCommandStreamPayloadAliases\(event\.payload_summary\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      !/^\s*(?:streamId|streamSeq|outputText|isFinal|artifactRefs|receiptRefs)\s*[:,]/m.test(
+        codingToolCommandStreamPayloadBlocks,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool command-stream payload summaries must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,
