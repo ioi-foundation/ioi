@@ -12766,6 +12766,12 @@ workflow/model-mount memory option parsing now consumes and emits canonical
 `memory*`-prefixed JS facade aliases no longer create workflow memory config or
 satisfy write-approval policy checks.
 
+Slice 439 removes runtime memory write-approval aliases:
+runtime memory policy enforcement now treats canonical `write_approved` as the
+only approval signal for memory writes; retired `writeApproved`, `approved`,
+`approvalGranted`, and `approval_granted` compatibility fields no longer satisfy
+`write_requires_approval` gates.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

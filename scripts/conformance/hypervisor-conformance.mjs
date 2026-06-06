@@ -8849,6 +8849,8 @@ function runCompositor() {
     runtimeMemoryHelpers.match(
       /function hasExplicitSubagentMemorySelector\(options = \{\}\) \{[\s\S]*?\n  \}\n\n  function memoryWriteBlockReason/,
     )?.[0] ?? "";
+  const runtimeMemoryWriteApprovedBlock =
+    runtimeMemoryHelpers.match(/function memoryWriteApproved\(options = \{\}\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
   const runtimeMemoryStoreListBlock =
     runtimeMemoryStore.match(
       /list\(\{ agent, threadId, workspace, includeGlobal = true,[\s\S]*?\n  \}\n\n  write\(record\)/,
@@ -9541,6 +9543,27 @@ function runCompositor() {
       "packages/runtime-daemon/src/memory-store.test.mjs",
     ],
     "Phase 10/11 is pending: runtime memory filter helpers and store projections must use canonical memory_key/query fields without retired camelCase filter aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-memory-write-approval-aliases-retired",
+    /return Boolean\(options\.write_approved\)/.test(runtimeMemoryWriteApprovedBlock) &&
+      /runtime\.memoryWriteBlockReason\(\{ writeRequiresApproval: true \}, \{ write_approved: true \}, true\),\s*null/.test(
+        runtimeMemoryHelpersTest,
+      ) &&
+      /writeApproved:\s*true/.test(runtimeMemoryHelpersTest) &&
+      /approved:\s*true/.test(runtimeMemoryHelpersTest) &&
+      /approvalGranted:\s*true/.test(runtimeMemoryHelpersTest) &&
+      /approval_granted:\s*true/.test(runtimeMemoryHelpersTest) &&
+      /"memory_write_requires_approval"/.test(runtimeMemoryHelpersTest) &&
+      !/\boptions\.(?:writeApproved|approved|approvalGranted|approval_granted)\b/.test(
+        runtimeMemoryWriteApprovedBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-memory-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-memory-helpers.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime memory write approval must use canonical write_approved without retired approval aliases",
   );
   assertCheck(
     result,

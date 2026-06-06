@@ -21,7 +21,7 @@ function helpers() {
   return createRuntimeMemoryHelpers({ normalizeArray, optionalString, safeId });
 }
 
-test("memory helper policy aliases and write approvals preserve daemon behavior", () => {
+test("memory helper policy overrides and write approvals use canonical daemon behavior", () => {
   const runtime = helpers();
 
   assert.deepEqual(runtime.memoryPolicyOverrides({
@@ -43,9 +43,20 @@ test("memory helper policy aliases and write approvals preserve daemon behavior"
     "memory_write_requires_approval",
   );
   assert.equal(
-    runtime.memoryWriteBlockReason({ writeRequiresApproval: true }, { approval_granted: true }, true),
+    runtime.memoryWriteBlockReason({ writeRequiresApproval: true }, { write_approved: true }, true),
     null,
   );
+  for (const retiredApproval of [
+    { writeApproved: true },
+    { approved: true },
+    { approvalGranted: true },
+    { approval_granted: true },
+  ]) {
+    assert.equal(
+      runtime.memoryWriteBlockReason({ writeRequiresApproval: true }, retiredApproval, true),
+      "memory_write_requires_approval",
+    );
+  }
   assert.equal(runtime.memoryWriteBlockReason({ writeRequiresApproval: true }, {}, false), null);
 });
 

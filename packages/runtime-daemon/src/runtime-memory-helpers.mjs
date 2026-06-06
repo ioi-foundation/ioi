@@ -99,13 +99,7 @@ export function createRuntimeMemoryHelpers({
   }
 
   function memoryWriteApproved(options = {}) {
-    return Boolean(
-      options.writeApproved ??
-        options.write_approved ??
-        options.approved ??
-        options.approvalGranted ??
-        options.approval_granted,
-    );
+    return Boolean(options.write_approved);
   }
 
   function subagentMemoryInheritanceReceipt(runId, projection = {}) {
