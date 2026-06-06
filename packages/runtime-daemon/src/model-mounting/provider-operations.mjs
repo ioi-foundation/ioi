@@ -1,6 +1,25 @@
 import path from "node:path";
 
+import { runtimeError } from "./io.mjs";
 import { modelMountProviderKindRequiresRustInstanceLifecycle } from "./model-instance-lifecycle.mjs";
+
+const RETIRED_PROVIDER_UPSERT_REQUEST_ALIASES = [
+  "authScheme",
+  "authHeaderName",
+  "apiFormat",
+  "baseUrl",
+  "privacyClass",
+  "evidenceRefs",
+];
+
+const CANONICAL_PROVIDER_UPSERT_REQUEST_FIELDS = [
+  "auth_scheme",
+  "auth_header_name",
+  "api_format",
+  "base_url",
+  "privacy_class",
+  "evidence_refs",
+];
 
 export function upsertProvider(state, body = {}, deps = {}) {
   const {
@@ -12,30 +31,31 @@ export function upsertProvider(state, body = {}, deps = {}) {
     publicProvider,
     safeId,
   } = deps;
+  assertCanonicalProviderUpsertRequestBody(body);
   const checkedAt = state.nowIso();
   const id = body.id ?? `provider.${safeId(body.kind ?? body.label ?? "custom")}`;
   const existing = state.providers.get(id) ?? {};
   const kind = body.kind ?? existing.kind ?? "custom_http";
   const secretRef = state.normalizeProviderSecretRef(kind, body, existing.secretRef ?? null);
-  const authScheme = normalizeProviderAuthScheme(body.auth_scheme ?? body.authScheme ?? existing.authScheme);
+  const authScheme = normalizeProviderAuthScheme(body.auth_scheme ?? existing.authScheme);
   const authHeaderName = normalizeProviderAuthHeaderName(
-    body.auth_header_name ?? body.authHeaderName ?? existing.authHeaderName,
+    body.auth_header_name ?? existing.authHeaderName,
   );
   const requestedStatus = body.status ?? existing.status ?? "configured";
   const provider = {
     id,
     kind,
     label: body.label ?? existing.label ?? id,
-    apiFormat: body.api_format ?? body.apiFormat ?? existing.apiFormat ?? "custom",
+    apiFormat: body.api_format ?? existing.apiFormat ?? "custom",
     driver: body.driver ?? existing.driver ?? driverForProviderKind(kind),
-    baseUrl: body.base_url ?? body.baseUrl ?? existing.baseUrl ?? null,
+    baseUrl: body.base_url ?? existing.baseUrl ?? null,
     status: providerRequiresVaultSecret(kind) && !secretRef ? "blocked" : requestedStatus,
-    privacyClass: body.privacy_class ?? body.privacyClass ?? existing.privacyClass ?? "workspace",
+    privacyClass: body.privacy_class ?? existing.privacyClass ?? "workspace",
     capabilities: normalizeScopes(body.capabilities, existing.capabilities ?? ["chat"]),
     discovery: {
       ...existing.discovery,
       checkedAt,
-      evidenceRefs: normalizeScopes(body.evidence_refs ?? body.evidenceRefs, existing.discovery?.evidenceRefs ?? ["operator_provider_config"]),
+      evidenceRefs: normalizeScopes(body.evidence_refs, existing.discovery?.evidenceRefs ?? ["operator_provider_config"]),
     },
     secretRef,
     authScheme,
@@ -44,6 +64,22 @@ export function upsertProvider(state, body = {}, deps = {}) {
   state.providers.set(provider.id, provider);
   state.writeMap("model-providers", state.providers);
   return publicProvider(provider);
+}
+
+function assertCanonicalProviderUpsertRequestBody(body = {}) {
+  const retiredAliases = RETIRED_PROVIDER_UPSERT_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw runtimeError({
+    status: 400,
+    code: "provider_upsert_request_aliases_retired",
+    message: "Provider upsert request aliases are retired; use canonical snake_case request fields.",
+    details: {
+      retired_aliases: retiredAliases,
+      canonical_fields: CANONICAL_PROVIDER_UPSERT_REQUEST_FIELDS,
+    },
+  });
 }
 
 export function normalizeProviderSecretRef(state, kind, body = {}, existingSecretRef = null, deps = {}) {

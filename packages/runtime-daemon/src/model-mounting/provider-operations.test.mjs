@@ -139,7 +139,11 @@ test("provider upsert normalizes hosted provider state and keeps secret refs vau
       kind: "openai",
       label: "OpenAI",
       api_key_vault_ref: "vault://provider/openai",
-      authHeaderName: "X-API-Key",
+      auth_header_name: "X-API-Key",
+      api_format: "openai",
+      base_url: "https://api.openai.example/v1",
+      privacy_class: "hosted_private",
+      evidence_refs: ["operator_provider_config", "wallet.network.vault_ref_boundary"],
       capabilities: ["chat", "responses"],
     },
     providerDeps(),
@@ -150,9 +154,63 @@ test("provider upsert normalizes hosted provider state and keeps secret refs vau
   assert.deepEqual(result.secretRef, { redacted: true, hash: "hash:vault://provider/openai" });
   assert.equal(state.providers.get("provider.openai").driver, "driver.openai");
   assert.equal(state.providers.get("provider.openai").authHeaderName, "x-api-key");
+  assert.equal(state.providers.get("provider.openai").apiFormat, "openai");
+  assert.equal(state.providers.get("provider.openai").baseUrl, "https://api.openai.example/v1");
+  assert.equal(state.providers.get("provider.openai").privacyClass, "hosted_private");
+  assert.deepEqual(state.providers.get("provider.openai").discovery.evidenceRefs, [
+    "operator_provider_config",
+    "wallet.network.vault_ref_boundary",
+  ]);
   assert.deepEqual(state.providers.get("provider.openai").capabilities, ["chat", "responses"]);
   assert.deepEqual(state.resolvedVaultRefs, ["vault://provider/openai"]);
   assert.equal(state.writes.at(-1)[0], "model-providers");
+});
+
+test("provider upsert rejects retired request aliases before vault resolution or state write", () => {
+  const state = fakeState();
+
+  assert.throws(
+    () =>
+      upsertProvider(
+        state,
+        {
+          id: "provider.openai",
+          kind: "openai",
+          api_key_vault_ref: "vault://provider/openai",
+          authScheme: "api_key",
+          authHeaderName: "X-API-Key",
+          apiFormat: "openai",
+          baseUrl: "https://api.openai.example/v1",
+          privacyClass: "hosted_private",
+          evidenceRefs: ["operator_provider_config"],
+        },
+        providerDeps(),
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "provider_upsert_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "authScheme",
+        "authHeaderName",
+        "apiFormat",
+        "baseUrl",
+        "privacyClass",
+        "evidenceRefs",
+      ]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "auth_scheme",
+        "auth_header_name",
+        "api_format",
+        "base_url",
+        "privacy_class",
+        "evidence_refs",
+      ]);
+      return true;
+    },
+  );
+  assert.deepEqual(state.resolvedVaultRefs, []);
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.providers.has("provider.openai"), false);
 });
 
 test("provider secret normalization rejects plaintext and preserves existing vault refs", () => {

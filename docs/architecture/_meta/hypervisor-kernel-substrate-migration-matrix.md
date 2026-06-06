@@ -11976,6 +11976,13 @@ now fails closed on retired `secretRef`, `authVaultRef`, and
 resolution. Canonical `secret_ref`, `auth_vault_ref`, and
 `api_key_vault_ref` remain accepted.
 
+Slice 322 retires provider upsert metadata request aliases: `upsertProvider`
+now fails closed on retired `authScheme`, `authHeaderName`, `apiFormat`,
+`baseUrl`, `privacyClass`, and `evidenceRefs` before provider state writes or
+wallet authority vault-ref resolution. Canonical `auth_scheme`,
+`auth_header_name`, `api_format`, `base_url`, `privacy_class`, and
+`evidence_refs` remain accepted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

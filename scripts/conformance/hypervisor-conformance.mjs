@@ -2832,6 +2832,8 @@ function runReceipts() {
   const providerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs")
     : "";
+  const providerUpsertBlock =
+    providerOperations.match(/export function upsertProvider[\s\S]*?function assertCanonicalProviderUpsertRequestBody/)?.[0] ?? "";
   const catalogProviderConfig = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs")
     : "";
@@ -4825,6 +4827,49 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs",
     ],
     "Phase 9/11 is pending: local system probe fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-provider-upsert-request-aliases-retired",
+    /RETIRED_PROVIDER_UPSERT_REQUEST_ALIASES/.test(providerOperations) &&
+      /CANONICAL_PROVIDER_UPSERT_REQUEST_FIELDS/.test(providerOperations) &&
+      /provider_upsert_request_aliases_retired/.test(providerOperations) &&
+      /assertCanonicalProviderUpsertRequestBody\(body\);[\s\S]*state\.normalizeProviderSecretRef/.test(
+        providerUpsertBlock,
+      ) &&
+      /normalizeProviderAuthScheme\(body\.auth_scheme \?\? existing\.authScheme\)/.test(providerUpsertBlock) &&
+      /normalizeProviderAuthHeaderName\(\s*body\.auth_header_name \?\? existing\.authHeaderName,\s*\)/.test(
+        providerUpsertBlock,
+      ) &&
+      /apiFormat:\s*body\.api_format \?\? existing\.apiFormat \?\? "custom"/.test(providerUpsertBlock) &&
+      /baseUrl:\s*body\.base_url \?\? existing\.baseUrl \?\? null/.test(providerUpsertBlock) &&
+      /privacyClass:\s*body\.privacy_class \?\? existing\.privacyClass \?\? "workspace"/.test(
+        providerUpsertBlock,
+      ) &&
+      /evidenceRefs:\s*normalizeScopes\(body\.evidence_refs,\s*existing\.discovery\?\.evidenceRefs/.test(
+        providerUpsertBlock,
+      ) &&
+      !/body\.(?:authScheme|authHeaderName|apiFormat|baseUrl|privacyClass|evidenceRefs)\b/.test(
+        providerUpsertBlock,
+      ) &&
+      /provider upsert rejects retired request aliases before vault resolution or state write/.test(
+        providerOperationsTest,
+      ) &&
+      /retired_aliases,\s*\[\s*"authScheme"\s*,\s*"authHeaderName"\s*,\s*"apiFormat"\s*,\s*"baseUrl"\s*,\s*"privacyClass"\s*,\s*"evidenceRefs"\s*,?\s*\]/.test(
+        providerOperationsTest,
+      ) &&
+      /canonical_fields,\s*\[\s*"auth_scheme"\s*,\s*"auth_header_name"\s*,\s*"api_format"\s*,\s*"base_url"\s*,\s*"privacy_class"\s*,\s*"evidence_refs"\s*,?\s*\]/.test(
+        providerOperationsTest,
+      ) &&
+      /assert\.deepEqual\(state\.resolvedVaultRefs,\s*\[\]\)/.test(providerOperationsTest) &&
+      /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(providerOperationsTest) &&
+      /api_key_vault_ref:\s*"vault:\/\/provider\/openai"/.test(providerOperationsTest) &&
+      /auth_header_name:\s*"X-API-Key"/.test(providerOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
+    ],
+    "Phase 5/11 is pending: provider upsert request bodies must fail closed on retired metadata aliases before vault resolution or provider state writes",
   );
   assertCheck(
     result,
