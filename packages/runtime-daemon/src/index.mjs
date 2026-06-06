@@ -4997,11 +4997,22 @@ function buildRun({
     redaction: hookDryRunPlan.redaction,
   });
   addEvent("hook_invocation_ledger", "Hook invocation ledger recorded", {
-    ...hookInvocationLedger,
-    receiptId: hookInvocationReceipt.id,
-    escalationReceiptIds: hookEscalationReceipts.map((receipt) => receipt.id),
-    eventKind: "HookInvocationLedger",
-    workflowNodeId: "runtime.hook-invocations",
+    event_kind: "HookInvocationLedger",
+    ledger_id: hookInvocationLedger.ledgerId ?? null,
+    manifest_id: hookInvocationLedger.manifestId ?? null,
+    dry_run_plan_id: hookInvocationLedger.dryRunPlanId ?? null,
+    emitted_event_kinds: normalizeArray(hookInvocationLedger.emittedEventKinds),
+    invocation_count: hookInvocationLedger.invocationCount ?? 0,
+    would_run_count: hookInvocationLedger.wouldRunCount ?? 0,
+    blocked_count: hookInvocationLedger.blockedCount ?? 0,
+    skipped_count: hookInvocationLedger.skippedCount ?? 0,
+    escalation_count: hookInvocationLedger.escalationCount ?? 0,
+    hook_execution_enabled: Boolean(hookInvocationLedger.hookExecutionEnabled),
+    command_execution_enabled: Boolean(hookInvocationLedger.commandExecutionEnabled),
+    receipt_id: hookInvocationReceipt.id,
+    escalation_receipt_ids: hookEscalationReceipts.map((receipt) => receipt.id),
+    workflow_node_id: "runtime.hook-invocations",
+    redaction: hookInvocationLedger.redaction,
   });
   if (modelRouteDecision) {
     addEvent("model_route_decision", "Model route decision recorded", {

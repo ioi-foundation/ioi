@@ -176,6 +176,23 @@ const retiredHookDryRunPlanSummaryAliasKeys = [
   "workflowNodeId",
 ];
 
+const retiredHookInvocationLedgerSummaryAliasKeys = [
+  "eventKind",
+  "ledgerId",
+  "manifestId",
+  "dryRunPlanId",
+  "emittedEventKinds",
+  "invocationCount",
+  "wouldRunCount",
+  "blockedCount",
+  "skippedCount",
+  "escalationCount",
+  "hookExecutionEnabled",
+  "commandExecutionEnabled",
+  "escalationReceiptIds",
+  "workflowNodeId",
+];
+
 const retiredRuntimeTaskSummaryAliasKeys = [
   "eventKind",
   "taskId",
@@ -1056,6 +1073,64 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   assert.notEqual(hookDryRunPlan.workflow_node_id, "retired.hook-policy");
   for (const key of retiredHookDryRunPlanSummaryAliasKeys) {
     assert.equal(Object.hasOwn(hookDryRunPlan, key), false);
+  }
+
+  const hookInvocationLedger = runtime.payloadSummaryForRunEvent({
+    id: "event-hook-invocation-ledger",
+    type: "hook_invocation_ledger",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      event_kind: "HookInvocationLedger.Canonical",
+      eventKind: "RetiredHookInvocationLedger",
+      ledger_id: "hook-invocation-ledger-one",
+      ledgerId: "retired-hook-invocation-ledger",
+      manifest_id: "skill-hook-manifest-one",
+      manifestId: "retired-skill-hook-manifest",
+      dry_run_plan_id: "hook-dry-run-plan-one",
+      dryRunPlanId: "retired-hook-dry-run-plan",
+      emitted_event_kinds: ["runtime_task", "job_completed"],
+      emittedEventKinds: ["retired_event"],
+      invocation_count: 4,
+      invocationCount: 404,
+      would_run_count: 1,
+      wouldRunCount: 405,
+      blocked_count: 2,
+      blockedCount: 406,
+      skipped_count: 1,
+      skippedCount: 407,
+      escalation_count: 2,
+      escalationCount: 408,
+      hook_execution_enabled: false,
+      hookExecutionEnabled: true,
+      command_execution_enabled: false,
+      commandExecutionEnabled: true,
+      escalation_receipt_ids: ["receipt-escalation-one"],
+      escalationReceiptIds: ["retired-receipt"],
+      workflow_node_id: "runtime.hook-invocations",
+      workflowNodeId: "retired.hook-invocations",
+      redaction: { profile: "hook_invocation_ledger_safe" },
+    },
+  });
+
+  assert.equal(hookInvocationLedger.event_kind, "HookInvocationLedger.Canonical");
+  assert.equal(hookInvocationLedger.ledger_id, "hook-invocation-ledger-one");
+  assert.equal(hookInvocationLedger.manifest_id, "skill-hook-manifest-one");
+  assert.equal(hookInvocationLedger.dry_run_plan_id, "hook-dry-run-plan-one");
+  assert.deepEqual(hookInvocationLedger.emitted_event_kinds, ["runtime_task", "job_completed"]);
+  assert.equal(hookInvocationLedger.invocation_count, 4);
+  assert.equal(hookInvocationLedger.would_run_count, 1);
+  assert.equal(hookInvocationLedger.blocked_count, 2);
+  assert.equal(hookInvocationLedger.skipped_count, 1);
+  assert.equal(hookInvocationLedger.escalation_count, 2);
+  assert.equal(hookInvocationLedger.hook_execution_enabled, false);
+  assert.equal(hookInvocationLedger.command_execution_enabled, false);
+  assert.equal(hookInvocationLedger.workflow_node_id, "runtime.hook-invocations");
+  assert.notEqual(hookInvocationLedger.ledger_id, "retired-hook-invocation-ledger");
+  assert.notDeepEqual(hookInvocationLedger.emitted_event_kinds, ["retired_event"]);
+  assert.notEqual(hookInvocationLedger.workflow_node_id, "retired.hook-invocations");
+  for (const key of retiredHookInvocationLedgerSummaryAliasKeys) {
+    assert.equal(Object.hasOwn(hookInvocationLedger, key), false);
   }
 
   const task = runtime.payloadSummaryForRunEvent({

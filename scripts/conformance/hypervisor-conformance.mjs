@@ -9133,6 +9133,8 @@ function runCompositor() {
     runtimeEventPayloads.match(/if \(event\.type === "skill_hook_manifest"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeHookDryRunPlanPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "hook_dry_run_plan"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimeHookInvocationLedgerPayloadSummaryBlock =
+    runtimeEventPayloads.match(/if \(event\.type === "hook_invocation_ledger"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeTaskPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "runtime_task"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeChecklistPayloadSummaryBlock =
@@ -9165,6 +9167,8 @@ function runCompositor() {
     runtimeDaemonIndex.match(/addEvent\("skill_hook_manifest", "Active skill and hook manifest recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeHookDryRunPlanEventProducerBlock =
     runtimeDaemonIndex.match(/addEvent\("hook_dry_run_plan", "Hook dry-run plan recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
+  const runtimeHookInvocationLedgerEventProducerBlock =
+    runtimeDaemonIndex.match(/addEvent\("hook_invocation_ledger", "Hook invocation ledger recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeUsageEvents = exists("packages/runtime-daemon/src/runtime-usage-events.mjs")
     ? read("packages/runtime-daemon/src/runtime-usage-events.mjs")
     : "";
@@ -10830,6 +10834,22 @@ function runCompositor() {
       !/event\.data\?\.(?:eventKind|planId|manifestId|decisionCount|wouldRunCount|blockedCount|skippedCount|policyDecision|hookExecutionEnabled|commandExecutionEnabled|workflowNodeId)\b/.test(
         runtimeHookDryRunPlanPayloadSummaryBlock,
       ) &&
+      runtimeHookInvocationLedgerPayloadSummaryBlock.length > 0 &&
+      /event_kind:\s*event\.data\?\.event_kind \?\? "HookInvocationLedger"/.test(
+        runtimeHookInvocationLedgerPayloadSummaryBlock,
+      ) &&
+      /ledger_id:\s*event\.data\?\.ledger_id \?\? null/.test(
+        runtimeHookInvocationLedgerPayloadSummaryBlock,
+      ) &&
+      /emitted_event_kinds:\s*normalizeArray\(event\.data\?\.emitted_event_kinds\)/.test(
+        runtimeHookInvocationLedgerPayloadSummaryBlock,
+      ) &&
+      /escalation_count:\s*event\.data\?\.escalation_count \?\? 0/.test(
+        runtimeHookInvocationLedgerPayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.(?:eventKind|ledgerId|manifestId|dryRunPlanId|emittedEventKinds|invocationCount|wouldRunCount|blockedCount|skippedCount|escalationCount|hookExecutionEnabled|commandExecutionEnabled|workflowNodeId)\b/.test(
+        runtimeHookInvocationLedgerPayloadSummaryBlock,
+      ) &&
       runtimeTaskPayloadSummaryBlock.length > 0 &&
       /event_kind:\s*event\.data\?\.event_kind \?\? "RuntimeTaskRecord"/.test(
         runtimeTaskPayloadSummaryBlock,
@@ -11026,6 +11046,20 @@ function runCompositor() {
       !/\.\.\.hookDryRunPlan|^\s*(?:receiptId|policyReceiptId|eventKind|workflowNodeId|planId|manifestId|decisionCount|wouldRunCount|blockedCount|skippedCount|policyDecision|hookExecutionEnabled|commandExecutionEnabled)\s*:/m.test(
         runtimeHookDryRunPlanEventProducerBlock,
       ) &&
+      runtimeHookInvocationLedgerEventProducerBlock.length > 0 &&
+      /event_kind:\s*"HookInvocationLedger"/.test(runtimeHookInvocationLedgerEventProducerBlock) &&
+      /ledger_id:\s*hookInvocationLedger\.ledgerId \?\? null/.test(
+        runtimeHookInvocationLedgerEventProducerBlock,
+      ) &&
+      /escalation_receipt_ids:\s*hookEscalationReceipts\.map/.test(
+        runtimeHookInvocationLedgerEventProducerBlock,
+      ) &&
+      /workflow_node_id:\s*"runtime\.hook-invocations"/.test(
+        runtimeHookInvocationLedgerEventProducerBlock,
+      ) &&
+      !/\.\.\.hookInvocationLedger|^\s*(?:receiptId|escalationReceiptIds|eventKind|workflowNodeId|ledgerId|manifestId|dryRunPlanId|emittedEventKinds|invocationCount|wouldRunCount|blockedCount|skippedCount|escalationCount|hookExecutionEnabled|commandExecutionEnabled)\s*:/m.test(
+        runtimeHookInvocationLedgerEventProducerBlock,
+      ) &&
       /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
       /retiredComputerUseSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredMemorySummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
@@ -11038,6 +11072,7 @@ function runCompositor() {
       /retiredGithubPrCreatePlanSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredSkillHookManifestSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredHookDryRunPlanSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredHookInvocationLedgerSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeTaskSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeChecklistSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeJobSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
@@ -11052,6 +11087,7 @@ function runCompositor() {
       /eventKind: "RetiredGitHubPrCreatePlan"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredActiveSkillHookManifest"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredHookDryRunPlan"/.test(runtimeEventPayloadsTest) &&
+      /eventKind: "RetiredHookInvocationLedger"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeTaskRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeChecklistRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredJobCompleted"/.test(runtimeEventPayloadsTest) &&
@@ -11069,6 +11105,7 @@ function runCompositor() {
       /workflowNodeId: "retired\.github-pr-create"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.skill-hook-manifest"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.hook-policy"/.test(runtimeEventPayloadsTest) &&
+      /workflowNodeId: "retired\.hook-invocations"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.repository-context"/.test(runtimeEventPayloadsTest) &&
       /memoryRecordId: "retired-memory"/.test(runtimeEventPayloadsTest) &&
       /memoryPolicyId: "retired-policy"/.test(runtimeEventPayloadsTest) &&
