@@ -11050,6 +11050,14 @@ function runCompositor() {
     runtimeDiagnosticsRepairSurface.match(
       /  function appendDiagnosticsRepairDecisionExecutedEvent\(store, \{[\s\S]*?(?=\n  return \{)/,
     )?.[0] ?? "";
+  const diagnosticsOperatorOverrideHelperBody =
+    runtimeDiagnosticsRepairSurface.match(
+      /  function executeDiagnosticsOperatorOverride\(store, threadId, \{[\s\S]*?(?=\n  function createDiagnosticsRepairRetryTurn)/,
+    )?.[0] ?? "";
+  const diagnosticsRepairRetryHelperBody =
+    runtimeDiagnosticsRepairSurface.match(
+      /  function createDiagnosticsRepairRetryTurn\(store, threadId, \{[\s\S]*?(?=\n  function resolveDiagnosticsRepairDecision)/,
+    )?.[0] ?? "";
   assertCheck(
     result,
     "diagnostics-repair-decision-result-aliases-retired",
@@ -11138,6 +11146,60 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
     ],
     "Phase 10/11 is pending: diagnostics repair final events must read canonical execution result fields without camelCase result fallbacks",
+  );
+  assertCheck(
+    result,
+    "diagnostics-repair-helper-reader-aliases-retired",
+    /const decisionId = decision\?\.decision_id \?\? "operator_override";/.test(
+      diagnosticsOperatorOverrideHelperBody,
+    ) &&
+      /optionalString\(request\.operator_override_idempotency_key\)/.test(
+        diagnosticsOperatorOverrideHelperBody,
+      ) &&
+      /const targetTurnId = optionalString\(payload\.target_turn_id\);/.test(
+        diagnosticsOperatorOverrideHelperBody,
+      ) &&
+      /policy_id:\s*repairPolicy\?\.policy_id \?\? null/.test(
+        diagnosticsOperatorOverrideHelperBody,
+      ) &&
+      /const decisionId = decision\?\.decision_id \?\? "repair_retry";/.test(
+        diagnosticsRepairRetryHelperBody,
+      ) &&
+      /optionalString\(request\.repair_retry_idempotency_key\)/.test(
+        diagnosticsRepairRetryHelperBody,
+      ) &&
+      /const retryTurnId = optionalString\(payload\.retry_turn_id\);/.test(
+        diagnosticsRepairRetryHelperBody,
+      ) &&
+      /diagnostic_status:\s*diagnosticsFeedback\?\.diagnostic_status \?\? null/.test(
+        diagnosticsRepairRetryHelperBody,
+      ) &&
+      /diagnostic_count:\s*diagnosticsFeedback\?\.diagnostic_count \?\? null/.test(
+        diagnosticsRepairRetryHelperBody,
+      ) &&
+      !/\b(?:decision|repairPolicy|gateEvent|diagnosticsFeedback)\?\.(?:decisionId|policyId|rollbackRefs)\b/.test(
+        `${diagnosticsOperatorOverrideHelperBody}\n${diagnosticsRepairRetryHelperBody}`,
+      ) &&
+      !/\brequest\.(?:operatorOverrideIdempotencyKey|repairRetryIdempotencyKey)\b/.test(
+        `${diagnosticsOperatorOverrideHelperBody}\n${diagnosticsRepairRetryHelperBody}`,
+      ) &&
+      !/\bpayload\.(?:targetTurnId|retryTurnId)\b/.test(
+        `${diagnosticsOperatorOverrideHelperBody}\n${diagnosticsRepairRetryHelperBody}`,
+      ) &&
+      !/\bdiagnosticsFeedback\?\.(?:diagnosticStatus|diagnosticCount)\b/.test(
+        diagnosticsRepairRetryHelperBody,
+      ) &&
+      /diagnostics repair helper events ignore retired operator override aliases/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics repair helper events ignore retired retry aliases/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: diagnostics repair operator-override and repair-retry helpers must read canonical ids, refs, idempotency keys, and diagnostics feedback without retired camelCase fallbacks",
   );
   const diagnosticsRepairRetryResultBody =
     diagnosticsRepairExecution.match(

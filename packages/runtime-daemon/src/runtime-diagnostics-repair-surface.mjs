@@ -314,11 +314,11 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     workflowNodeId = LSP_DIAGNOSTICS_OPERATOR_OVERRIDE_NODE_ID,
   } = {}) {
     const agent = store.agentForThread(threadId);
-    const decisionId = decision?.decision_id ?? decision?.decisionId ?? "operator_override";
+    const decisionId = decision?.decision_id ?? "operator_override";
     const approval = diagnosticsOperatorOverrideApprovalForRequest(request, { decision, repairPolicy });
     const approvalKey = diagnosticsOperatorOverrideApprovalKey(approval);
     const idempotencyKey =
-      optionalString(request.operator_override_idempotency_key ?? request.operatorOverrideIdempotencyKey) ??
+      optionalString(request.operator_override_idempotency_key) ??
       `thread:${threadId}:diagnostics-operator-override:${decisionId}:${gateEvent?.event_id ?? "gate"}:${approvalKey}`;
     const duplicate = store.runtimeEventStream(eventStreamIdForThread(threadId)).idempotency.get(idempotencyKey);
     if (duplicate) {
@@ -392,7 +392,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
 
   function turnForOperatorOverrideEvent(store, event = {}) {
     const payload = event.payload_summary ?? event.payload ?? {};
-    const targetTurnId = optionalString(payload.target_turn_id ?? payload.targetTurnId);
+    const targetTurnId = optionalString(payload.target_turn_id);
     if (!targetTurnId) return null;
     try {
       return store.getTurn(event.thread_id, targetTurnId);
@@ -418,20 +418,20 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     nextTurnStatus,
     idempotencyKey,
   } = {}) {
-    const decisionId = decision?.decision_id ?? decision?.decisionId ?? "operator_override";
+    const decisionId = decision?.decision_id ?? "operator_override";
     const receiptId = `receipt_lsp_diagnostics_operator_override_${doctorHash(
       `${threadId}:${decisionId}:${status}:${approval?.source ?? ""}`,
     ).slice(0, 12)}`;
     const rollbackRefs = uniqueStrings([
       snapshotId,
-      ...normalizeArray(decision?.rollbackRefs ?? decision?.rollback_refs),
-      ...normalizeArray(repairPolicy?.rollbackRefs ?? repairPolicy?.rollback_refs),
+      ...normalizeArray(decision?.rollback_refs),
+      ...normalizeArray(repairPolicy?.rollback_refs),
       ...normalizeArray(gateEvent?.rollback_refs),
-      ...normalizeArray(gateEvent?.payload_summary?.rollback_refs ?? gateEvent?.payload_summary?.rollbackRefs),
+      ...normalizeArray(gateEvent?.payload_summary?.rollback_refs),
     ]);
     const policyDecisionRefs = uniqueStrings([
       decisionId,
-      repairPolicy?.policy_id ?? repairPolicy?.policyId,
+      repairPolicy?.policy_id,
       ...normalizeArray(gateEvent?.policy_decision_refs),
       `policy_lsp_diagnostics_operator_override_${approval?.satisfied ? "approval_satisfied" : "approval_required"}`,
       status === "completed" ? "policy_lsp_diagnostics_operator_override_continuation_allowed" : null,
@@ -445,7 +445,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       status,
       gate_event_id: gateEvent?.event_id ?? null,
       gate_id: gateEvent?.payload_summary?.gate_id ?? null,
-      policy_id: repairPolicy?.policy_id ?? repairPolicy?.policyId ?? null,
+      policy_id: repairPolicy?.policy_id ?? null,
       snapshot_id: snapshotId ?? null,
       target_turn_id: targetTurnId ?? null,
       target_run_id: targetRunId ?? null,
@@ -502,9 +502,9 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     workflowNodeId = LSP_DIAGNOSTICS_REPAIR_RETRY_NODE_ID,
   } = {}) {
     const agent = store.agentForThread(threadId);
-    const decisionId = decision?.decision_id ?? decision?.decisionId ?? "repair_retry";
+    const decisionId = decision?.decision_id ?? "repair_retry";
     const idempotencyKey =
-      optionalString(request.repair_retry_idempotency_key ?? request.repairRetryIdempotencyKey) ??
+      optionalString(request.repair_retry_idempotency_key) ??
       `thread:${threadId}:diagnostics-repair-retry:${decisionId}:${gateEvent?.event_id ?? "gate"}:${snapshotId ?? "no-snapshot"}`;
     const duplicate = store.runtimeEventStream(eventStreamIdForThread(threadId)).idempotency.get(idempotencyKey);
     if (duplicate) {
@@ -558,7 +558,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
 
   function turnForRepairRetryEvent(store, event = {}) {
     const payload = event.payload_summary ?? event.payload ?? {};
-    const retryTurnId = optionalString(payload.retry_turn_id ?? payload.retryTurnId);
+    const retryTurnId = optionalString(payload.retry_turn_id);
     if (!retryTurnId) return null;
     try {
       return store.getTurn(event.thread_id, retryTurnId);
@@ -581,20 +581,20 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     diagnosticsFeedback,
     idempotencyKey,
   } = {}) {
-    const decisionId = decision?.decision_id ?? decision?.decisionId ?? "repair_retry";
+    const decisionId = decision?.decision_id ?? "repair_retry";
     const receiptId = `receipt_lsp_diagnostics_repair_retry_${doctorHash(
       `${threadId}:${decisionId}:${turn?.turn_id ?? run?.id ?? ""}`,
     ).slice(0, 12)}`;
     const rollbackRefs = uniqueStrings([
       snapshotId,
-      ...normalizeArray(decision?.rollbackRefs ?? decision?.rollback_refs),
-      ...normalizeArray(repairPolicy?.rollbackRefs ?? repairPolicy?.rollback_refs),
+      ...normalizeArray(decision?.rollback_refs),
+      ...normalizeArray(repairPolicy?.rollback_refs),
       ...normalizeArray(gateEvent?.rollback_refs),
-      ...normalizeArray(diagnosticsFeedback?.rollbackRefs ?? diagnosticsFeedback?.rollback_refs),
+      ...normalizeArray(diagnosticsFeedback?.rollback_refs),
     ]);
     const policyDecisionRefs = uniqueStrings([
       decisionId,
-      repairPolicy?.policy_id ?? repairPolicy?.policyId,
+      repairPolicy?.policy_id,
       ...normalizeArray(gateEvent?.policy_decision_refs),
     ]);
     const artifactRefs = uniqueStrings(
@@ -609,14 +609,14 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       status: turn?.status ?? "completed",
       gate_event_id: gateEvent?.event_id ?? null,
       gate_id: gateEvent?.payload_summary?.gate_id ?? null,
-      policy_id: repairPolicy?.policy_id ?? repairPolicy?.policyId ?? null,
+      policy_id: repairPolicy?.policy_id ?? null,
       snapshot_id: snapshotId ?? null,
       retry_turn_id: turn?.turn_id ?? null,
       retry_request_id: turn?.request_id ?? run?.id ?? null,
       repair_prompt_injected: true,
       diagnostics_mode: diagnosticsFeedback?.mode ?? "repair_retry",
-      diagnostic_status: diagnosticsFeedback?.diagnosticStatus ?? null,
-      diagnostic_count: diagnosticsFeedback?.diagnosticCount ?? null,
+      diagnostic_status: diagnosticsFeedback?.diagnostic_status ?? null,
+      diagnostic_count: diagnosticsFeedback?.diagnostic_count ?? null,
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
       rollback_refs: rollbackRefs,

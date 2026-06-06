@@ -117,9 +117,9 @@ function createSurface({ calls = [], diagnosticsOperatorOverrideStateUpdate = nu
     diagnosticsRepairExecutionStatus: (result) => result.status ?? "completed",
     diagnosticsRepairRetryFeedback: () => ({
       mode: "repair_retry",
-      diagnosticStatus: "failed",
-      diagnosticCount: 2,
-      rollbackRefs: ["snapshot_feedback"],
+      diagnostic_status: "failed",
+      diagnostic_count: 2,
+      rollback_refs: ["snapshot_feedback"],
     }),
     diagnosticsRepairRetryResultFromEvent({ threadId, event, turn = null, run = null } = {}) {
       return {
@@ -710,6 +710,105 @@ test("diagnostics repair surface creates retry turns with injected diagnostics f
   assert.equal(createRunCalls[0].request.diagnosticsFeedback.mode, "repair_retry");
   assert.equal(events[0].payload_summary.retry_turn_id, "turn_repair");
   assert.deepEqual(events[0].artifact_refs, ["artifact_alpha"]);
+});
+
+test("diagnostics repair helper events ignore retired operator override aliases", () => {
+  const surface = createSurface();
+  const events = [];
+  const store = {
+    agentForThread() {
+      return { id: "agent_alpha", cwd: "/tmp/workspace" };
+    },
+    appendRuntimeEvent(event) {
+      const stored = {
+        ...event,
+        event_id: `event_${events.length + 1}`,
+        seq: events.length + 1,
+        created_at: "2026-06-04T14:00:00.000Z",
+      };
+      events.push(stored);
+      return stored;
+    },
+  };
+
+  const event = surface.appendDiagnosticsOperatorOverrideEvent(store, {
+    threadId: "thread_alpha",
+    gateEvent: {
+      event_id: "event_gate",
+      payload_summary: {
+        gate_id: "gate_alpha",
+        rollbackRefs: ["snapshot_gate_alias"],
+      },
+    },
+    decision: {
+      decision_id: "decision_override",
+      rollbackRefs: ["snapshot_decision_alias"],
+    },
+    repairPolicy: {
+      policyId: "policy_alias",
+      rollbackRefs: ["snapshot_policy_alias"],
+    },
+    approval: { required: true, satisfied: true, source: "boolean_confirmation" },
+    status: "completed",
+    snapshotId: null,
+    workflowNodeId: "runtime.lsp-diagnostics.operator-override",
+  });
+
+  assert.equal(event.payload_summary.policy_id, null);
+  assert.deepEqual(event.rollback_refs, []);
+  assert.deepEqual(event.policy_decision_refs, [
+    "decision_override",
+    "policy_lsp_diagnostics_operator_override_approval_satisfied",
+    "policy_lsp_diagnostics_operator_override_continuation_allowed",
+  ]);
+});
+
+test("diagnostics repair helper events ignore retired retry aliases", () => {
+  const surface = createSurface();
+  const events = [];
+  const store = {
+    agentForThread() {
+      return { id: "agent_alpha", cwd: "/tmp/workspace" };
+    },
+    appendRuntimeEvent(event) {
+      const stored = {
+        ...event,
+        event_id: `event_${events.length + 1}`,
+        seq: events.length + 1,
+        created_at: "2026-06-04T14:00:00.000Z",
+      };
+      events.push(stored);
+      return stored;
+    },
+  };
+
+  const event = surface.appendDiagnosticsRepairRetryTurnEvent(store, {
+    threadId: "thread_alpha",
+    gateEvent: { event_id: "event_gate" },
+    decision: {
+      decision_id: "decision_retry",
+      rollbackRefs: ["snapshot_decision_alias"],
+    },
+    repairPolicy: {
+      policyId: "policy_alias",
+      rollbackRefs: ["snapshot_policy_alias"],
+    },
+    diagnosticsFeedback: {
+      diagnosticStatus: "failed",
+      diagnosticCount: 2,
+      rollbackRefs: ["snapshot_feedback_alias"],
+    },
+    run: { id: "run_repair", artifacts: [] },
+    turn: { turn_id: "turn_repair", request_id: "request_repair", status: "queued" },
+    snapshotId: null,
+    workflowNodeId: "runtime.lsp-diagnostics.repair-retry",
+  });
+
+  assert.equal(event.payload_summary.policy_id, null);
+  assert.equal(event.payload_summary.diagnostic_status, null);
+  assert.equal(event.payload_summary.diagnostic_count, null);
+  assert.deepEqual(event.rollback_refs, []);
+  assert.deepEqual(event.policy_decision_refs, ["decision_retry"]);
 });
 
 test("diagnostics repair surface resolves decisions from the latest matching gate event", () => {
