@@ -83,7 +83,12 @@ test("coding tool command stream helpers preserve channel order and chunk long o
   } = makeHelpers();
 
   assert.equal(codingToolCommandStreamRequested({ input: { stream_output: true } }), true);
+  assert.equal(codingToolCommandStreamRequested({ stream_output: true }), true);
+  assert.equal(codingToolCommandStreamRequested({ command_stream: true }), true);
   assert.equal(codingToolCommandStreamRequested({ input: { stream_output: false } }), false);
+  assert.equal(codingToolCommandStreamRequested({ streamOutput: true }), false);
+  assert.equal(codingToolCommandStreamRequested({ commandStream: true }), false);
+  assert.equal(codingToolCommandStreamRequested({ input: { streamOutput: true } }), false);
   assert.deepEqual(splitCommandStreamText("a".repeat(801)).map((chunk) => chunk.length), [800, 1]);
   assert.deepEqual(codingToolCommandStreamChunks({ stdout: "ok", stderr: "warn" }), [
     { channel: "stdout", text: "ok" },

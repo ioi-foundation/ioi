@@ -286,7 +286,7 @@ test("coding-tool artifact surface appends command-stream event envelopes", () =
     toolCallId: "tool_call_alpha",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_alpha",
-    request: { streamOutput: true, source: "operator" },
+    request: { stream_output: true, source: "operator" },
     result: {
       command: "npm test",
       stdout: "ok",

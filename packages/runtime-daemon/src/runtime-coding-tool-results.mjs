@@ -28,11 +28,8 @@ export function createRuntimeCodingToolResultHelpers({
 
   function codingToolCommandStreamRequested(request = {}) {
     return (
-      request.streamOutput === true ||
       request.stream_output === true ||
-      request.commandStream === true ||
       request.command_stream === true ||
-      request.input?.streamOutput === true ||
       request.input?.stream_output === true
     );
   }

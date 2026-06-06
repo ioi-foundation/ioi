@@ -1361,6 +1361,32 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "coding-tool-command-stream-request-aliases-retired",
+    /request\.stream_output === true/.test(runtimeCodingToolResults) &&
+      /request\.command_stream === true/.test(runtimeCodingToolResults) &&
+      /request\.input\?\.stream_output === true/.test(runtimeCodingToolResults) &&
+      !/request\.(?:streamOutput|commandStream)\b/.test(runtimeCodingToolResults) &&
+      !/request\.input\?\.(?:streamOutput|commandStream)\b/.test(runtimeCodingToolResults) &&
+      /codingToolCommandStreamRequested\(\{ streamOutput: true \}\), false/.test(
+        runtimeCodingToolResultsTest,
+      ) &&
+      /codingToolCommandStreamRequested\(\{ commandStream: true \}\), false/.test(
+        runtimeCodingToolResultsTest,
+      ) &&
+      /codingToolCommandStreamRequested\(\{ input: \{ streamOutput: true \} \}\), false/.test(
+        runtimeCodingToolResultsTest,
+      ) &&
+      /request:\s*\{\s*stream_output:\s*true/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      !/request:\s*\{\s*streamOutput:\s*true/.test(runtimeCodingToolArtifactSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-results.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-results.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool command-stream requests must use canonical stream_output/command_stream without retired camelCase request aliases",
+  );
+  assertCheck(
+    result,
     "coding-tool-visual-artifact-output-aliases-retired",
     /metadata\[snakeCaseKey\(spec\.refKey\)\]\s*=\s*artifactId/.test(codingToolVisualArtifactMaterializerBlock) &&
       /return \{\s*metadata,\s*artifact_refs:\s*artifactRefs,\s*artifacts\s*\}/.test(codingToolVisualArtifactMaterializerBlock) &&
