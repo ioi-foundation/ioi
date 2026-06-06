@@ -38,8 +38,10 @@ use agentgres_admission::{
     StorageBackendWriteAdmissionRecord, StorageBackendWriteProposal,
 };
 use approval::{
-    ApprovalScopeContext, AuthorityScopeMatcher, CodingToolApprovalCore, CodingToolApprovalError,
-    CodingToolApprovalPlan, CodingToolApprovalRequest, ScopeMatchDecision,
+    ApprovalRequestStateUpdateCore, ApprovalRequestStateUpdateError,
+    ApprovalRequestStateUpdateRecord, ApprovalRequestStateUpdateRequest, ApprovalScopeContext,
+    AuthorityScopeMatcher, CodingToolApprovalCore, CodingToolApprovalError, CodingToolApprovalPlan,
+    CodingToolApprovalRequest, ScopeMatchDecision,
 };
 use authority::{
     ExternalCapabilityExitAuthorityRecord, ExternalCapabilityExitRequest, WalletAuthorityCore,
@@ -128,6 +130,13 @@ impl RuntimeKernelService {
         request: &CodingToolApprovalRequest,
     ) -> Result<CodingToolApprovalPlan, CodingToolApprovalError> {
         CodingToolApprovalCore.plan_manifest(request)
+    }
+
+    pub fn plan_approval_request_state_update(
+        &self,
+        request: &ApprovalRequestStateUpdateRequest,
+    ) -> Result<ApprovalRequestStateUpdateRecord, ApprovalRequestStateUpdateError> {
+        ApprovalRequestStateUpdateCore.plan(request)
     }
 
     pub fn evaluate_context_budget_policy(

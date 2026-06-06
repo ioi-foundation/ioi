@@ -26,7 +26,50 @@ function notFound(message, details) {
   return error;
 }
 
-function createSurface() {
+function approvalRequestStateUpdateForRequest(request = {}) {
+  const control = {
+    control: "approval_request",
+    approvalId: request.approval_id,
+    status: "waiting_for_approval",
+    source: request.source,
+    reason: request.reason,
+    eventId: request.event_id,
+    seq: request.seq,
+    receiptRefs: request.receipt_refs,
+    policyDecisionRefs: request.policy_decision_refs,
+    createdAt: request.created_at,
+  };
+  const run = request.run ?? {};
+  return {
+    status: "planned",
+    operation_kind: "approval.required",
+    updated_at: request.created_at,
+    operator_control: control,
+    run: {
+      ...run,
+      status: run.status === "queued" || run.status === "running" ? "blocked" : run.status,
+      updatedAt: request.created_at,
+      turnStatus: "waiting_for_approval",
+      trace: {
+        ...run.trace,
+        operatorControls: appendOperatorControlForTest(run.trace?.operatorControls, control),
+        approvalRequests: appendOperatorControlForTest(run.trace?.approvalRequests, control),
+      },
+      operatorControls: appendOperatorControlForTest(run.operatorControls, control),
+      approvalRequests: appendOperatorControlForTest(run.approvalRequests, control),
+    },
+  };
+}
+
+function appendOperatorControlForTest(value, control) {
+  const entries = Array.isArray(value) ? [...value] : [];
+  if (!entries.some((entry) => entry?.eventId === control.eventId)) {
+    entries.push(control);
+  }
+  return entries;
+}
+
+function createSurface({ calls = [] } = {}) {
   const lease = createRuntimeApprovalLease({
     doctorHash,
     normalizeArray,
@@ -37,6 +80,12 @@ function createSurface() {
   });
   return createRuntimeApprovalSurface({
     ...lease,
+    approvalStateRunner: {
+      planApprovalRequestStateUpdate(request) {
+        calls.push({ name: "planApprovalRequestStateUpdate", request });
+        return approvalRequestStateUpdateForRequest(request);
+      },
+    },
     notFound,
     runtimeError,
   });
@@ -103,7 +152,8 @@ function createStore() {
 }
 
 test("approval surface requests approval and blocks the active turn", () => {
-  const surface = createSurface();
+  const calls = [];
+  const surface = createSurface({ calls });
   const store = createStore();
 
   const result = surface.requestThreadApproval(store, "thread_alpha", {
@@ -126,6 +176,10 @@ test("approval surface requests approval and blocks the active turn", () => {
   assert.equal(store.runs.get("run_alpha").status, "blocked");
   assert.equal(store.runs.get("run_alpha").turnStatus, "waiting_for_approval");
   assert.equal(store.runs.get("run_alpha").approvalRequests[0].approvalId, "approval-one");
+  assert.equal(
+    calls.find((call) => call.name === "planApprovalRequestStateUpdate").request.event_id,
+    "event_1",
+  );
   assert.equal(surface.latestApprovalRequestEvent(store, "thread_alpha", "approval-one"), store.events[0]);
 });
 

@@ -4,7 +4,8 @@ use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     RuntimeStatePersistenceRecord, StorageBackendWriteProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::approval::{
-    CodingToolApprovalCore, CodingToolApprovalRequest,
+    ApprovalRequestStateUpdateCore, ApprovalRequestStateUpdateRequest, CodingToolApprovalCore,
+    CodingToolApprovalRequest,
 };
 use ioi_services::agentic::runtime::kernel::ctee::{CteeNodeTrust, PrivateWorkspaceCteeModule};
 use ioi_services::agentic::runtime::kernel::marketplace::{
@@ -273,6 +274,16 @@ struct CodingToolApprovalBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct ApprovalRequestStateUpdateBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ApprovalRequestStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct ContextBudgetPolicyBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -491,6 +502,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
             let request: CodingToolApprovalBridgeRequest = serde_json::from_value(raw_request)
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_coding_tool_approval_manifest(request)
+        }
+        "plan_approval_request_state_update" => {
+            let request: ApprovalRequestStateUpdateBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_approval_request_state_update(request)
         }
         "evaluate_context_budget_policy" => {
             let request: ContextBudgetPolicyBridgeRequest = serde_json::from_value(raw_request)
@@ -1512,6 +1529,44 @@ fn plan_coding_tool_approval_manifest(
         "workflow_policy": plan.workflow_policy.clone(),
         "manifest": plan.manifest.clone(),
         "input_hash": plan.input_hash.clone(),
+    }))
+}
+
+fn plan_approval_request_state_update(
+    request: ApprovalRequestStateUpdateBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_approval_request_state_update" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = ApprovalRequestStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "approval_request_state_update_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_approval_request_state_update_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "operator_control": record.operator_control.clone(),
+        "run": record.run.clone(),
     }))
 }
 
@@ -5774,6 +5829,53 @@ mod tests {
             .as_str()
             .expect("input hash")
             .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn bridge_plans_approval_request_state_update_through_rust_core() {
+        let request: ApprovalRequestStateUpdateBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_approval_request_state_update",
+            "backend": "rust_authority",
+            "request": {
+                "schema_version": "ioi.runtime.approval-request-state-update-request.v1",
+                "thread_id": "thread_alpha",
+                "run_id": "run_alpha",
+                "run": {
+                    "id": "run_alpha",
+                    "agentId": "agent_alpha",
+                    "status": "running",
+                    "turnStatus": "running",
+                    "trace": {}
+                },
+                "event_id": "event_approval",
+                "seq": 3,
+                "created_at": "2026-06-06T04:30:00.000Z",
+                "approval_id": "approval_alpha",
+                "source": "runtime_auto",
+                "reason": "Need permission",
+                "receipt_refs": ["receipt_approval"],
+                "policy_decision_refs": ["policy_approval"]
+            }
+        }))
+        .expect("approval request state update bridge request");
+
+        let response =
+            plan_approval_request_state_update(request).expect("approval state update planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_approval_request_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "approval.required");
+        assert_eq!(response["operator_control"]["approvalId"], "approval_alpha");
+        assert_eq!(response["run"]["status"], "blocked");
+        assert_eq!(
+            response["run"]["trace"]["approvalRequests"][0]["eventId"],
+            "event_approval"
+        );
     }
 
     #[test]

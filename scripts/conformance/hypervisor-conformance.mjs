@@ -514,6 +514,18 @@ function runBridge() {
   const runtimeCodingToolApprovalRunnerTest = exists("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs")
     : "";
+  const runtimeApprovalSurface = exists("packages/runtime-daemon/src/runtime-approval-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-approval-surface.mjs")
+    : "";
+  const runtimeApprovalSurfaceTest = exists("packages/runtime-daemon/src/runtime-approval-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-approval-surface.test.mjs")
+    : "";
+  const runtimeApprovalStateRunner = exists("packages/runtime-daemon/src/runtime-approval-state-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-approval-state-runner.mjs")
+    : "";
+  const runtimeApprovalStateRunnerTest = exists("packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs")
+    : "";
   const runtimeContextPolicyRunner = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
     : "";
@@ -969,6 +981,41 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
     ],
     "Phase 9/10 is pending: coding-tool approval manifests must be planned by Rust authority core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "approval-request-state-update-live-bridge",
+    /ApprovalRequestStateUpdateCore/.test(approvalCore) &&
+      /ApprovalRequestStateUpdateRequest/.test(approvalCore) &&
+      /APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
+      /rust_authority_plans_approval_request_state_update/.test(approvalCore) &&
+      /plan_approval_request_state_update/.test(bridgeModule) &&
+      /ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_approval_request_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_approval_request_state_update_through_rust_core/.test(bridgeModule) &&
+      /createRuntimeApprovalStateRunnerFromEnv/.test(runtimeApprovalStateRunner) &&
+      /RustRuntimeApprovalStateRunner/.test(runtimeApprovalStateRunner) &&
+      /planApprovalRequestStateUpdate/.test(runtimeApprovalStateRunner) &&
+      /approval request state runner sends Rust authority bridge request/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
+      /approval request state runner fails closed without bridge command/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
+      /approvalStateRunnerDep\.planApprovalRequestStateUpdate/.test(runtimeApprovalSurface) &&
+      /planApprovalRequestStateUpdate/.test(runtimeApprovalSurfaceTest) &&
+      !/control:\s*"approval_request"|appendRunApprovalControl\(run,\s*control,\s*"approvalRequests"\)/.test(
+        runtimeApprovalSurface,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/approval.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-surface.mjs",
+      "packages/runtime-daemon/src/runtime-approval-surface.test.mjs",
+    ],
+    "Phase 9/10 is pending: approval request run state updates must be planned by Rust authority core through the command bridge",
   );
   assertCheck(
     result,

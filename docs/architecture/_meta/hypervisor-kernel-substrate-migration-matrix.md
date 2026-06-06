@@ -12149,6 +12149,15 @@ through `plan_coding_tool_budget_recovery_state_update`; the daemon recovery
 surface appends the recovery event and applies the Rust-planned run record
 instead of constructing the retry mutation in JS.
 
+Slice 347 moves approval-request run state-update planning into Rust:
+`ApprovalRequestStateUpdateCore` now owns the approval-request operator-control
+record, run blocked/waiting status transition, updatedAt assignment,
+trace/top-level approvalRequests and operatorControls mutation, and
+`approval.required` operation kind through
+`plan_approval_request_state_update`; the daemon approval surface appends the
+approval-required event and applies the Rust-planned run record instead of
+constructing the approval-request mutation in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

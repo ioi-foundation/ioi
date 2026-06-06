@@ -7,6 +7,7 @@ import {
   runtimeSessionIdForAgent,
   turnIdForRun,
 } from "./runtime-identifiers.mjs";
+import { createRuntimeApprovalStateRunnerFromEnv } from "./runtime-approval-state-runner.mjs";
 import {
   appendOperatorControl,
   normalizeArray,
@@ -77,6 +78,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
     approvalDecisionForRequest,
     approvalLeaseMetadataForRequest,
     approvalLeaseMetadataFromPayload,
+    approvalStateRunner: approvalStateRunnerDep = createRuntimeApprovalStateRunnerFromEnv(),
     notFound,
     runtimeError,
   } = deps;
@@ -248,28 +250,23 @@ export function createRuntimeApprovalSurface(deps = {}) {
       redaction_profile: "internal",
       fixture_profile: fixtureProfileForAgent(agent),
     });
-    const control = {
-      control: "approval_request",
-      approvalId,
-      status: "waiting_for_approval",
-      source,
-      reason,
-      eventId: event.event_id,
-      seq: event.seq,
-      receiptRefs: event.receipt_refs,
-      policyDecisionRefs: event.policy_decision_refs,
-      createdAt: event.created_at,
-    };
     if (run) {
-      const withControl = appendRunApprovalControl(run, control, "approvalRequests");
-      const updated = {
-        ...withControl,
-        status: run.status === "queued" || run.status === "running" ? "blocked" : run.status,
-        updatedAt: event.created_at,
-        turnStatus: "waiting_for_approval",
-      };
+      const stateUpdate = approvalStateRunnerDep.planApprovalRequestStateUpdate({
+        thread_id: threadId,
+        run_id: run.id,
+        run,
+        event_id: event.event_id,
+        seq: event.seq,
+        created_at: event.created_at,
+        approval_id: approvalId,
+        source,
+        reason,
+        receipt_refs: event.receipt_refs,
+        policy_decision_refs: event.policy_decision_refs,
+      });
+      const updated = stateUpdate.run ?? run;
       store.runs.set(run.id, updated);
-      store.writeRun(updated, "approval.required");
+      store.writeRun(updated, stateUpdate.operation_kind ?? "approval.required");
       return {
         ...store.turnForRun(updated),
         approval_id: approvalId,

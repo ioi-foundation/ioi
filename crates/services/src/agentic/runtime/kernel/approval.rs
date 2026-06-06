@@ -1,6 +1,6 @@
 use ioi_types::app::{ActionRequest, ActionTarget, ApprovalAuthority, ApprovalGrant};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use url::Url;
 
@@ -12,6 +12,10 @@ pub const CODING_TOOL_APPROVAL_MANIFEST_SCHEMA_VERSION: &str =
     "ioi.runtime.coding-tool-approval-manifest.v1";
 pub const WORKFLOW_TOOL_APPROVAL_POLICY_SCHEMA_VERSION: &str =
     "ioi.runtime.workflow-tool-approval-policy.v1";
+pub const APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.approval-request-state-update-request.v1";
+pub const APPROVAL_REQUEST_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.approval-request-state-update.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApprovalScopeContext {
@@ -106,6 +110,15 @@ pub enum CodingToolApprovalError {
     },
     MissingField(&'static str),
     HashFailed(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ApprovalRequestStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -224,8 +237,124 @@ pub struct CodingToolApprovalPlan {
     pub input_hash: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ApprovalRequestStateUpdateRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    pub run: Value,
+    pub event_id: String,
+    pub seq: u64,
+    pub created_at: String,
+    pub approval_id: String,
+    pub source: String,
+    pub reason: String,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub policy_decision_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ApprovalRequestStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    pub updated_at: String,
+    pub operator_control: Value,
+    pub run: Value,
+    pub generated_at: String,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct CodingToolApprovalCore;
+
+#[derive(Debug, Default, Clone)]
+pub struct ApprovalRequestStateUpdateCore;
+
+impl ApprovalRequestStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &ApprovalRequestStateUpdateRequest,
+    ) -> Result<ApprovalRequestStateUpdateRecord, ApprovalRequestStateUpdateError> {
+        request.validate()?;
+        let thread_id = optional_trimmed(request.thread_id.as_deref());
+        let run_id = optional_trimmed(request.run_id.as_deref());
+        let source = optional_trimmed(Some(request.source.as_str()))
+            .unwrap_or_else(|| "sdk_client".to_string());
+        let reason = optional_trimmed(Some(request.reason.as_str()))
+            .unwrap_or_else(|| "operator requested approval".to_string());
+        let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
+        let operator_control = json!({
+            "control": "approval_request",
+            "approvalId": approval_id,
+            "status": "waiting_for_approval",
+            "source": source,
+            "reason": reason,
+            "eventId": request.event_id,
+            "seq": request.seq,
+            "receiptRefs": request.receipt_refs.clone(),
+            "policyDecisionRefs": request.policy_decision_refs.clone(),
+            "createdAt": request.created_at,
+        });
+        let mut run = object_value(&request.run)
+            .ok_or(ApprovalRequestStateUpdateError::MissingField("run"))?;
+        let prior_status = run
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        run.insert(
+            "updatedAt".to_string(),
+            Value::String(request.created_at.clone()),
+        );
+        run.insert(
+            "turnStatus".to_string(),
+            Value::String("waiting_for_approval".to_string()),
+        );
+        if matches!(prior_status.as_str(), "queued" | "running") {
+            run.insert("status".to_string(), Value::String("blocked".to_string()));
+        }
+        let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
+        trace.insert(
+            "operatorControls".to_string(),
+            append_operator_control(trace.get("operatorControls"), &operator_control),
+        );
+        trace.insert(
+            "approvalRequests".to_string(),
+            append_operator_control(trace.get("approvalRequests"), &operator_control),
+        );
+        run.insert("trace".to_string(), Value::Object(trace));
+        run.insert(
+            "operatorControls".to_string(),
+            append_operator_control(run.get("operatorControls"), &operator_control),
+        );
+        run.insert(
+            "approvalRequests".to_string(),
+            append_operator_control(run.get("approvalRequests"), &operator_control),
+        );
+
+        Ok(ApprovalRequestStateUpdateRecord {
+            schema_version: APPROVAL_REQUEST_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_approval_request_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: "approval.required".to_string(),
+            thread_id,
+            run_id,
+            updated_at: request.created_at.clone(),
+            operator_control,
+            run: Value::Object(run),
+            generated_at: "rust_authority_core".to_string(),
+        })
+    }
+}
 
 impl CodingToolApprovalCore {
     pub fn plan_manifest(
@@ -360,6 +489,33 @@ impl CodingToolApprovalRequest {
         require_coding_tool_field("thread_id", &self.thread_id)?;
         require_coding_tool_field("tool_id", &self.tool_id)?;
         require_coding_tool_field("tool_call_id", &self.tool_call_id)?;
+        Ok(())
+    }
+}
+
+impl ApprovalRequestStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), ApprovalRequestStateUpdateError> {
+        if self.schema_version != APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(ApprovalRequestStateUpdateError::InvalidSchemaVersion {
+                expected: APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if !self.run.is_object() {
+            return Err(ApprovalRequestStateUpdateError::MissingField("run"));
+        }
+        if optional_trimmed(Some(self.event_id.as_str())).is_none() {
+            return Err(ApprovalRequestStateUpdateError::MissingField("event_id"));
+        }
+        if self.seq == 0 {
+            return Err(ApprovalRequestStateUpdateError::MissingField("seq"));
+        }
+        if optional_trimmed(Some(self.created_at.as_str())).is_none() {
+            return Err(ApprovalRequestStateUpdateError::MissingField("created_at"));
+        }
+        if optional_trimmed(Some(self.approval_id.as_str())).is_none() {
+            return Err(ApprovalRequestStateUpdateError::MissingField("approval_id"));
+        }
         Ok(())
     }
 }
@@ -526,6 +682,27 @@ fn optional_trimmed(value: Option<&str>) -> Option<String> {
         .map(str::to_string)
 }
 
+fn object_value(value: &Value) -> Option<serde_json::Map<String, Value>> {
+    value.as_object().cloned()
+}
+
+fn append_operator_control(existing: Option<&Value>, control: &Value) -> Value {
+    let control_event_id = control.get("eventId").and_then(Value::as_str);
+    let mut entries = existing
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let exists = control_event_id.is_some_and(|event_id| {
+        entries
+            .iter()
+            .any(|entry| entry.get("eventId").and_then(Value::as_str) == Some(event_id))
+    });
+    if !exists {
+        entries.push(control.clone());
+    }
+    Value::Array(entries)
+}
+
 fn unique_trimmed(values: &[String]) -> Vec<String> {
     values.iter().fold(Vec::new(), |mut unique, value| {
         let trimmed = value.trim();
@@ -604,6 +781,29 @@ mod tests {
         }
     }
 
+    fn approval_request_state_update_request() -> ApprovalRequestStateUpdateRequest {
+        ApprovalRequestStateUpdateRequest {
+            schema_version: APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: Some("thread_alpha".to_string()),
+            run_id: Some("run_alpha".to_string()),
+            run: json!({
+                "id": "run_alpha",
+                "agentId": "agent_alpha",
+                "status": "running",
+                "turnStatus": "running",
+                "trace": {},
+            }),
+            event_id: "event_approval".to_string(),
+            seq: 3,
+            created_at: "2026-06-06T04:30:00.000Z".to_string(),
+            approval_id: "approval_alpha".to_string(),
+            source: "runtime_auto".to_string(),
+            reason: "Need permission".to_string(),
+            receipt_refs: vec!["receipt_approval".to_string()],
+            policy_decision_refs: vec!["policy_approval".to_string()],
+        }
+    }
+
     #[test]
     fn rust_authority_plans_coding_tool_approval_manifest() {
         let plan = CodingToolApprovalCore
@@ -662,6 +862,50 @@ mod tests {
             error,
             CodingToolApprovalError::InvalidSchemaVersion {
                 expected: CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_authority_plans_approval_request_state_update() {
+        let record = ApprovalRequestStateUpdateCore
+            .plan(&approval_request_state_update_request())
+            .expect("approval request state update");
+
+        assert_eq!(
+            record.schema_version,
+            APPROVAL_REQUEST_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "approval.required");
+        assert_eq!(record.operator_control["control"], "approval_request");
+        assert_eq!(record.operator_control["approvalId"], "approval_alpha");
+        assert_eq!(record.run["status"], "blocked");
+        assert_eq!(record.run["turnStatus"], "waiting_for_approval");
+        assert_eq!(
+            record.run["trace"]["approvalRequests"][0]["eventId"],
+            "event_approval"
+        );
+        assert_eq!(
+            record.run["operatorControls"][0]["receiptRefs"][0],
+            "receipt_approval"
+        );
+    }
+
+    #[test]
+    fn rust_authority_rejects_invalid_approval_request_state_update_schema() {
+        let mut request = approval_request_state_update_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = ApprovalRequestStateUpdateCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            ApprovalRequestStateUpdateError::InvalidSchemaVersion {
+                expected: APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );
