@@ -115,7 +115,7 @@ export function createRuntimeContextPolicySurface({
         workflow_node_id: optionalStringDep(request.workflow_node_id) ?? null,
         event_stream_id: streamId,
         previous_latest_seq: previousLatestSeq,
-        idempotency_key: optionalStringDep(request.idempotency_key ?? request.idempotencyKey) ?? null,
+        idempotency_key: optionalStringDep(request.idempotency_key) ?? null,
       });
       const source = plan.event_source ?? operatorControlSourceDep(request.source);
       const reason =
@@ -242,7 +242,7 @@ export function createRuntimeContextPolicySurface({
         turn_id: eventTurnId ?? "",
         item_id: result.runtime_event_item_id,
         idempotency_key:
-          optionalStringDep(request.idempotency_key ?? request.idempotencyKey) ??
+          optionalStringDep(request.idempotency_key) ??
           result.runtime_event_idempotency_key,
         source: operatorControlSourceDep(request.source),
         source_event_kind:
@@ -316,7 +316,7 @@ export function createRuntimeContextPolicySurface({
           workflow_graph_id: result.workflow_graph_id,
           workflow_node_id: result.compact_workflow_node_id,
           idempotency_key:
-            optionalStringDep(request.compact_idempotency_key ?? request.compactIdempotencyKey) ??
+            optionalStringDep(request.compact_idempotency_key) ??
             result.compact_idempotency_key,
         });
         compactEvent =
@@ -334,7 +334,7 @@ export function createRuntimeContextPolicySurface({
         turn_id: turnId,
         item_id: result.runtime_event_item_id,
         idempotency_key:
-          optionalStringDep(request.idempotency_key ?? request.idempotencyKey) ??
+          optionalStringDep(request.idempotency_key) ??
           result.runtime_event_idempotency_key,
         source: operatorControlSourceDep(request.source),
         source_event_kind:

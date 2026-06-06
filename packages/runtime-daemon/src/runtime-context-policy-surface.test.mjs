@@ -317,6 +317,7 @@ test("context policy surface ignores retired context-budget identity request ali
       threadId: "thread-retired",
       runId: "run-retired",
       turnId: "turn-retired",
+      idempotencyKey: "context_budget_idempotency_retired",
       eventKind: "RuntimeContextBudget.Retired",
     },
   });
@@ -337,7 +338,22 @@ test("context policy surface ignores retired context-budget identity request ali
   }
   assert.equal(events[0].workflow_graph_id, null);
   assert.equal(events[0].workflow_node_id, "runtime.context-budget");
+  assert.equal(events[0].idempotency_key, "thread:thread-agent-one:context-budget:rust-budget-policy");
   assert.equal(events[0].source_event_kind, "RuntimeContextBudget.Evaluate");
+});
+
+test("context policy surface accepts canonical context-budget idempotency key", () => {
+  const { events, store, surface } = harness();
+
+  surface.evaluateContextBudget(store, {
+    threadId: "thread-agent-one",
+    request: {
+      usage_telemetry: { total_tokens: 12 },
+      idempotency_key: "context_budget_idempotency_canonical",
+    },
+  });
+
+  assert.equal(events[0].idempotency_key, "context_budget_idempotency_canonical");
 });
 
 test("compaction policy surface appends approval or compact events", () => {
@@ -360,13 +376,17 @@ test("compaction policy surface appends approval or compact events", () => {
 
   const result = surface.evaluateCompactionPolicy(store, {
     threadId: "thread-agent-one",
-    request: { source: "test-source" },
+    request: {
+      source: "test-source",
+      idempotency_key: "compaction_policy_idempotency_canonical",
+      compact_idempotency_key: "compaction_execute_idempotency_canonical",
+    },
   });
 
   assert.equal(result.compaction_executed, true);
   assert.equal(result.compaction_event_id, "event-compacted");
   assert.equal(events[0].item_id, "turn-run-one:item:compaction-policy:rust-compact-policy");
-  assert.equal(events[0].idempotency_key, "thread:thread-agent-one:compaction-policy:rust-compact-policy");
+  assert.equal(events[0].idempotency_key, "compaction_policy_idempotency_canonical");
   assert.equal(events[0].event_kind, "compaction_policy.evaluated");
   assert.equal(events[0].status, "completed");
   assert.deepEqual(events[0].artifact_refs, ["artifact-compaction"]);
@@ -378,7 +398,7 @@ test("compaction policy surface appends approval or compact events", () => {
     actor: "operator",
     workflow_graph_id: "graph-compact",
     workflow_node_id: "node-compact",
-    idempotency_key: "thread:thread-agent-one:compaction-policy:compact:rust-compact-policy",
+    idempotency_key: "compaction_execute_idempotency_canonical",
   });
 });
 
@@ -417,6 +437,7 @@ test("context policy surface compacts latest run and records operator control", 
     actor: "operator-one",
     workflow_graph_id: "graph-compact",
     workflow_node_id: "node-compact",
+    idempotency_key: "context_compaction_idempotency_canonical",
   });
   const savedRun = store.runs.get("run-one");
 
@@ -428,6 +449,7 @@ test("context policy surface compacts latest run and records operator control", 
   assert.equal(events[0].turn_id, "turn-run-one");
   assert.equal(events[0].workflow_graph_id, "graph-compact");
   assert.equal(events[0].workflow_node_id, "node-compact");
+  assert.equal(events[0].idempotency_key, "context_compaction_idempotency_canonical");
   assert.equal(events[0].payload.session_id, "session-one");
   assert.equal(events[0].fixture_profile, "fixture-agent-one");
   assert.match(events[0].receipt_refs[0], /^receipt_run-one_context_compaction_/);
@@ -475,15 +497,18 @@ test("context policy surface ignores retired compaction request identity aliases
     turnId: "turn-retired",
     workflowGraphId: "graph-retired",
     workflowNodeId: "node-retired",
+    idempotencyKey: "context_compaction_idempotency_retired",
   });
 
   const planRequest = calls.find((call) => call.name === "planContextCompaction").request;
   assert.equal(planRequest.turn_id, "turn-run-one");
   assert.equal(planRequest.workflow_graph_id, null);
   assert.equal(planRequest.workflow_node_id, null);
+  assert.equal(planRequest.idempotency_key, null);
   assert.equal(events[0].turn_id, "turn-run-one");
   assert.equal(events[0].workflow_graph_id, null);
   assert.equal(events[0].workflow_node_id, "runtime.context-compact");
+  assert.equal(events[0].idempotency_key, "thread:thread-agent-one:context.compact:planhash");
 });
 
 test("compaction policy surface ignores retired request identity aliases", () => {
@@ -495,6 +520,8 @@ test("compaction policy surface ignores retired request identity aliases", () =>
       source: "test-source",
       threadId: "thread-retired",
       turnId: "turn-retired",
+      idempotencyKey: "compaction_policy_idempotency_retired",
+      compactIdempotencyKey: "compaction_execute_idempotency_retired",
       eventKind: "RuntimeCompactionPolicy.Retired",
     },
   });
@@ -506,6 +533,7 @@ test("compaction policy surface ignores retired request identity aliases", () =>
     assert.equal(Object.hasOwn(policyInput.request, field), false);
   }
   assert.equal(events[0].turn_id, "turn-run-one");
+  assert.equal(events[0].idempotency_key, "thread:thread-agent-one:compaction-policy:rust-policy-event");
   assert.equal(events[0].source_event_kind, "RuntimeCompactionPolicy.Evaluate");
 });
 

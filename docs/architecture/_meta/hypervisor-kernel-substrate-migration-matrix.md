@@ -12847,6 +12847,13 @@ thread memory control/status events now consume canonical `idempotency_key`
 only; retired `idempotencyKey` fields no longer steer memory event de-duplication
 or policy-core state-update event identity.
 
+Slice 451 completes context-policy idempotency alias retirement:
+context compaction, context-budget evaluation, and compaction-policy evaluation
+now consume canonical `idempotency_key` / `compact_idempotency_key` request
+fields only; retired `idempotencyKey` and `compactIdempotencyKey` fields no
+longer steer Rust policy planning, runtime event de-duplication, or compaction
+execution event identity.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

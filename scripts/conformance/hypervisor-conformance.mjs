@@ -2814,11 +2814,32 @@ function runBridge() {
       /turnId: "turn-retired"/.test(runtimeContextPolicySurfaceTest) &&
       /workflowGraphId: "graph-retired"/.test(runtimeContextPolicySurfaceTest) &&
       /workflowNodeId: "node-retired"/.test(runtimeContextPolicySurfaceTest) &&
+      /idempotencyKey: "context_budget_idempotency_retired"/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /context policy surface accepts canonical context-budget idempotency key/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /idempotency_key: "context_budget_idempotency_canonical"/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /idempotencyKey: "context_compaction_idempotency_retired"/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compactIdempotencyKey: "compaction_execute_idempotency_retired"/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /idempotency_key: "context_compaction_idempotency_canonical"/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compact_idempotency_key: "compaction_execute_idempotency_canonical"/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
       /eventKind: "RuntimeCompactionPolicy\.Retired"/.test(runtimeContextPolicySurfaceTest) &&
-      !/request\.(?:turnId|workflowNodeId|workflowGraphId|threadId|eventKind)\b/.test(
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId|threadId|eventKind|idempotencyKey|compactIdempotencyKey)\b/.test(
         runtimeContextPolicySurface,
       ) &&
-      !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|thread_id|event_kind)\s*\?\?\s*request\./.test(
+      !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|thread_id|event_kind|idempotency_key|compact_idempotency_key)\s*\?\?\s*request\./.test(
         runtimeContextPolicySurface,
       ),
     [
