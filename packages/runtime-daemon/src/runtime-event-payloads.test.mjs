@@ -42,6 +42,20 @@ const retiredRepositoryContextSummaryAliasKeys = [
   "workflowNodeId",
 ];
 
+const retiredBranchPolicySummaryAliasKeys = [
+  "eventKind",
+  "policyId",
+  "repositoryContextId",
+  "defaultBranch",
+  "protectedBranch",
+  "detachedHead",
+  "mutationAllowed",
+  "prCreationAllowed",
+  "reviewRequired",
+  "mutationExecuted",
+  "workflowNodeId",
+];
+
 const retiredRuntimeTaskSummaryAliasKeys = [
   "eventKind",
   "taskId",
@@ -369,6 +383,65 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   assert.notEqual(repo.workflow_node_id, "retired.repository-context");
   for (const key of retiredRepositoryContextSummaryAliasKeys) {
     assert.equal(Object.hasOwn(repo, key), false);
+  }
+
+  const branchPolicy = runtime.payloadSummaryForRunEvent({
+    id: "event-branch-policy",
+    type: "branch_policy",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      event_kind: "BranchPolicyDecision.Canonical",
+      eventKind: "RetiredBranchPolicyDecision",
+      policy_id: "policy-one",
+      policyId: "retired-policy",
+      repository_context_id: "repo-context-one",
+      repositoryContextId: "retired-repo-context",
+      status: "warning",
+      branch: "feature/canonical",
+      default_branch: "main",
+      defaultBranch: "retired-main",
+      protected_branch: false,
+      protectedBranch: true,
+      detached_head: false,
+      detachedHead: true,
+      dirty: true,
+      upstream: "origin/main",
+      ahead: 1,
+      behind: 2,
+      blockers: ["missing_head"],
+      warnings: ["dirty_worktree", "untracked_files"],
+      mutation_allowed: false,
+      mutationAllowed: true,
+      pr_creation_allowed: false,
+      prCreationAllowed: true,
+      review_required: true,
+      reviewRequired: false,
+      mutation_executed: false,
+      mutationExecuted: true,
+      workflow_node_id: "runtime.branch-policy",
+      workflowNodeId: "retired.branch-policy",
+      redaction: { profile: "branch_policy_safe" },
+    },
+  });
+
+  assert.equal(branchPolicy.event_kind, "BranchPolicyDecision.Canonical");
+  assert.equal(branchPolicy.policy_id, "policy-one");
+  assert.equal(branchPolicy.repository_context_id, "repo-context-one");
+  assert.equal(branchPolicy.default_branch, "main");
+  assert.equal(branchPolicy.protected_branch, false);
+  assert.equal(branchPolicy.detached_head, false);
+  assert.equal(branchPolicy.blocker_count, 1);
+  assert.equal(branchPolicy.warning_count, 2);
+  assert.equal(branchPolicy.mutation_allowed, false);
+  assert.equal(branchPolicy.pr_creation_allowed, false);
+  assert.equal(branchPolicy.review_required, true);
+  assert.equal(branchPolicy.mutation_executed, false);
+  assert.equal(branchPolicy.workflow_node_id, "runtime.branch-policy");
+  assert.notEqual(branchPolicy.policy_id, "retired-policy");
+  assert.notEqual(branchPolicy.workflow_node_id, "retired.branch-policy");
+  for (const key of retiredBranchPolicySummaryAliasKeys) {
+    assert.equal(Object.hasOwn(branchPolicy, key), false);
   }
 
   const task = runtime.payloadSummaryForRunEvent({

@@ -9117,6 +9117,8 @@ function runCompositor() {
     runtimeEventPayloads.match(/if \(event\.type === "memory_update"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeRepositoryContextPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "repository_context"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimeBranchPolicyPayloadSummaryBlock =
+    runtimeEventPayloads.match(/if \(event\.type === "branch_policy"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeTaskPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "runtime_task"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeChecklistPayloadSummaryBlock =
@@ -9133,6 +9135,8 @@ function runCompositor() {
     runtimeDaemonIndex.match(/addEvent\("job_completed", "Runtime job completed", \{[\s\S]*?\n    \}\);/)?.[0] ?? "";
   const runtimeRepositoryContextEventProducerBlock =
     runtimeDaemonIndex.match(/addEvent\("repository_context", "Repository context recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
+  const runtimeBranchPolicyEventProducerBlock =
+    runtimeDaemonIndex.match(/addEvent\("branch_policy", "Branch policy decision recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeUsageEvents = exists("packages/runtime-daemon/src/runtime-usage-events.mjs")
     ? read("packages/runtime-daemon/src/runtime-usage-events.mjs")
     : "";
@@ -10661,6 +10665,22 @@ function runCompositor() {
       !/event\.data\?\.(?:eventKind|contextId|isGitRepository|repoRootHash|detachedHead|headShortSha|remoteCount|mutationExecuted|workflowNodeId)\b/.test(
         runtimeRepositoryContextPayloadSummaryBlock,
       ) &&
+      runtimeBranchPolicyPayloadSummaryBlock.length > 0 &&
+      /event_kind:\s*event\.data\?\.event_kind \?\? "BranchPolicyDecision"/.test(
+        runtimeBranchPolicyPayloadSummaryBlock,
+      ) &&
+      /policy_id:\s*event\.data\?\.policy_id \?\? null/.test(
+        runtimeBranchPolicyPayloadSummaryBlock,
+      ) &&
+      /repository_context_id:\s*event\.data\?\.repository_context_id \?\? null/.test(
+        runtimeBranchPolicyPayloadSummaryBlock,
+      ) &&
+      /mutation_allowed:\s*Boolean\(event\.data\?\.mutation_allowed\)/.test(
+        runtimeBranchPolicyPayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.(?:eventKind|policyId|repositoryContextId|defaultBranch|protectedBranch|detachedHead|mutationAllowed|prCreationAllowed|reviewRequired|mutationExecuted|workflowNodeId)\b/.test(
+        runtimeBranchPolicyPayloadSummaryBlock,
+      ) &&
       runtimeTaskPayloadSummaryBlock.length > 0 &&
       /event_kind:\s*event\.data\?\.event_kind \?\? "RuntimeTaskRecord"/.test(
         runtimeTaskPayloadSummaryBlock,
@@ -10741,20 +10761,38 @@ function runCompositor() {
       !/\.\.\.repositoryContext|^\s*(?:receiptId|eventKind|workflowNodeId)\s*:/m.test(
         runtimeRepositoryContextEventProducerBlock,
       ) &&
+      runtimeBranchPolicyEventProducerBlock.length > 0 &&
+      /event_kind:\s*"BranchPolicyDecision"/.test(runtimeBranchPolicyEventProducerBlock) &&
+      /policy_id:\s*branchPolicy\.policyId \?\? null/.test(
+        runtimeBranchPolicyEventProducerBlock,
+      ) &&
+      /repository_context_id:\s*branchPolicy\.repositoryContextId \?\? null/.test(
+        runtimeBranchPolicyEventProducerBlock,
+      ) &&
+      /workflow_node_id:\s*"runtime\.branch-policy"/.test(
+        runtimeBranchPolicyEventProducerBlock,
+      ) &&
+      !/\.\.\.branchPolicy|^\s*(?:receiptId|eventKind|workflowNodeId|policyId|repositoryContextId)\s*:/m.test(
+        runtimeBranchPolicyEventProducerBlock,
+      ) &&
       /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
       /retiredComputerUseSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredMemorySummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRepositoryContextSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredBranchPolicySummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeTaskSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeChecklistSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeJobSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredComputerUseEventKind"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredMemoryEventKind"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRepositoryContext"/.test(runtimeEventPayloadsTest) &&
+      /eventKind: "RetiredBranchPolicyDecision"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeTaskRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeChecklistRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredJobCompleted"/.test(runtimeEventPayloadsTest) &&
       /contextId: "retired-repo-context"/.test(runtimeEventPayloadsTest) &&
+      /policyId: "retired-policy"/.test(runtimeEventPayloadsTest) &&
+      /workflowNodeId: "retired\.branch-policy"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.repository-context"/.test(runtimeEventPayloadsTest) &&
       /memoryRecordId: "retired-memory"/.test(runtimeEventPayloadsTest) &&
       /memoryPolicyId: "retired-policy"/.test(runtimeEventPayloadsTest) &&
