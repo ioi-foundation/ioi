@@ -11924,6 +11924,13 @@ fails closed on retired `sourceUrl`, `modelId`, `providerId`, `fileName`,
 download forwarding. Canonical `source_url`, `model_id`, `provider_id`,
 `file_name`, `fixture_content`, and `transfer_approved` remain accepted.
 
+Slice 314 retires direct model download identity/source request aliases:
+`downloadModel` now fails closed on retired `modelId`, `providerId`,
+`sourceUrl`, `sourceLabel`, `catalogProviderId`, `fileName`, and
+`fixtureContent` before timestamping, receipt creation, or writes. Canonical
+`model_id`, `provider_id`, `source_url`, `source_label`,
+`catalog_provider_id`, `file_name`, and `fixture_content` remain accepted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

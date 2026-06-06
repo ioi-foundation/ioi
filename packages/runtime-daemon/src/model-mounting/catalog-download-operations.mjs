@@ -55,6 +55,26 @@ const CANONICAL_CATALOG_IMPORT_URL_REQUEST_FIELDS = [
   "transfer_approved",
 ];
 
+const RETIRED_MODEL_DOWNLOAD_IDENTITY_REQUEST_ALIASES = [
+  "modelId",
+  "providerId",
+  "sourceUrl",
+  "sourceLabel",
+  "catalogProviderId",
+  "fileName",
+  "fixtureContent",
+];
+
+const CANONICAL_MODEL_DOWNLOAD_IDENTITY_REQUEST_FIELDS = [
+  "model_id",
+  "provider_id",
+  "source_url",
+  "source_label",
+  "catalog_provider_id",
+  "file_name",
+  "fixture_content",
+];
+
 function catalogDownloadErrorDetails(sourceHash, evidenceRefs) {
   return { source_url_hash: sourceHash, evidence_refs: evidenceRefs };
 }
@@ -267,10 +287,11 @@ export async function downloadModel(state, body = {}, deps = {}) {
     truthy: isTruthy = truthy,
     liveModelDownloadEnabled: downloadEnabled = liveModelDownloadEnabled,
   } = deps;
+  assertCanonicalModelDownloadIdentityRequestBody(body);
   const now = state.nowIso();
-  const modelId = requireString(body.model_id ?? body.modelId, "model_id");
-  const providerId = body.provider_id ?? body.providerId ?? "provider.autopilot.local";
-  const source = body.source_url ?? body.sourceUrl ?? body.source ?? "deterministic_fixture_download";
+  const modelId = requireString(body.model_id, "model_id");
+  const providerId = body.provider_id ?? "provider.autopilot.local";
+  const source = body.source_url ?? body.source ?? "deterministic_fixture_download";
   const isFixture = String(source).startsWith("fixture://") || source === "deterministic_fixture_download";
   if (!isFixture && !downloadEnabled()) {
     throw makeRuntimeError({
@@ -280,16 +301,16 @@ export async function downloadModel(state, body = {}, deps = {}) {
       details: catalogDownloadErrorDetails(hash(source), ["network_download_opt_in"]),
     });
   }
-  const sourceLabel = body.source_label ?? body.sourceLabel ?? labelForSource(source);
+  const sourceLabel = body.source_label ?? labelForSource(source);
   const variantMetadata = variantForSource(source, body);
-  const catalogProviderId = body.catalog_provider_id ?? body.catalogProviderId ?? variantMetadata.catalogProviderId ?? null;
+  const catalogProviderId = body.catalog_provider_id ?? variantMetadata.catalogProviderId ?? null;
   const catalogAuth = !isFixture && catalogProviderId
     ? await authHeadersForCatalogProvider(catalogProviderId, state)
     : { headers: {}, evidence: null };
   const catalogAuthReceipt = publicCatalogAuth(catalogAuth.evidence);
   const targetDir = path.join(state.modelRoot, "downloads", makeSafeFileName(modelId));
-  const targetPath = path.join(targetDir, body.file_name ?? body.fileName ?? `${makeSafeFileName(modelId)}.gguf`);
-  const fixtureContent = String(body.fixture_content ?? body.fixtureContent ?? `deterministic model bytes for ${modelId}\n`);
+  const targetPath = path.join(targetDir, body.file_name ?? `${makeSafeFileName(modelId)}.gguf`);
+  const fixtureContent = String(body.fixture_content ?? `deterministic model bytes for ${modelId}\n`);
   const bytesTotal = Number(body.bytes_total ?? body.bytesTotal ?? (isFixture ? Buffer.byteLength(fixtureContent) : 0));
   const maxBytes = normalizeBytes(body.max_bytes ?? body.maxBytes ?? env.IOI_MODEL_DOWNLOAD_MAX_BYTES);
   const downloadPolicy = normalizePolicy(body, { isFixture, maxBytes, source });
@@ -544,4 +565,20 @@ export async function downloadModel(state, body = {}, deps = {}) {
   state.writeMap("model-downloads", state.downloads);
   state.writeProjection();
   return completed;
+}
+
+function assertCanonicalModelDownloadIdentityRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MODEL_DOWNLOAD_IDENTITY_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw runtimeError({
+    status: 400,
+    code: "model_download_identity_request_aliases_retired",
+    message: "Model download identity request aliases are retired; use canonical snake_case request fields.",
+    details: {
+      retired_aliases: retiredAliases,
+      canonical_fields: CANONICAL_MODEL_DOWNLOAD_IDENTITY_REQUEST_FIELDS,
+    },
+  });
 }

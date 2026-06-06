@@ -3005,6 +3005,8 @@ function runReceipts() {
     mcpWorkflowOperations.match(/details:\s*\{\n\s+server_id:\s*serverId,[\s\S]*?\n\s+\},/)?.[0] ?? "";
   const catalogImportUrlBlock =
     catalogDownloadOperations.match(/export async function catalogImportUrl[\s\S]*?export async function downloadModel/)?.[0] ?? "";
+  const downloadModelBlock =
+    catalogDownloadOperations.match(/export async function downloadModel[\s\S]*$/)?.[0] ?? "";
   const catalogImportUrlReceiptDetailsObject =
     catalogDownloadOperations.match(/state\.lifecycleReceipt\("model_catalog_import_url",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "";
   const catalogDownloadReceiptBlocks = [
@@ -3857,6 +3859,53 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
     ],
     "Phase 9/11 is pending: catalog import URL request bodies must fail closed on retired camelCase source/provider/download aliases before receipt creation or download forwarding",
+  );
+  assertCheck(
+    result,
+    "model-mount-download-identity-request-aliases-retired",
+    /RETIRED_MODEL_DOWNLOAD_IDENTITY_REQUEST_ALIASES/.test(catalogDownloadOperations) &&
+      /CANONICAL_MODEL_DOWNLOAD_IDENTITY_REQUEST_FIELDS/.test(catalogDownloadOperations) &&
+      /model_download_identity_request_aliases_retired/.test(catalogDownloadOperations) &&
+      /assertCanonicalModelDownloadIdentityRequestBody\(body\);[\s\S]*const now = state\.nowIso\(\);/.test(
+        downloadModelBlock,
+      ) &&
+      /const modelId = requireString\(body\.model_id,\s*"model_id"\);/.test(downloadModelBlock) &&
+      /const providerId = body\.provider_id \?\? "provider\.autopilot\.local";/.test(
+        downloadModelBlock,
+      ) &&
+      /const source = body\.source_url \?\? body\.source \?\? "deterministic_fixture_download";/.test(
+        downloadModelBlock,
+      ) &&
+      /const sourceLabel = body\.source_label \?\? labelForSource\(source\);/.test(downloadModelBlock) &&
+      /const catalogProviderId = body\.catalog_provider_id \?\? variantMetadata\.catalogProviderId \?\? null;/.test(
+        downloadModelBlock,
+      ) &&
+      /const targetPath = path\.join\(targetDir,\s*body\.file_name \?\? `\$\{makeSafeFileName\(modelId\)\}\.gguf`\);/.test(
+        downloadModelBlock,
+      ) &&
+      /const fixtureContent = String\(body\.fixture_content \?\? `deterministic model bytes for \$\{modelId\}\\n`\);/.test(
+        downloadModelBlock,
+      ) &&
+      !/body\.(?:modelId|providerId|sourceUrl|sourceLabel|catalogProviderId|fileName|fixtureContent)\b/.test(
+        downloadModelBlock,
+      ) &&
+      /downloadModel rejects retired identity request aliases before timestamp or receipt/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /retired_aliases,\s*\[\s*"modelId",\s*"providerId",\s*"sourceUrl",\s*"sourceLabel",\s*"catalogProviderId",\s*"fileName",\s*"fixtureContent",\s*\]/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /canonical_fields,\s*\[\s*"model_id",\s*"provider_id",\s*"source_url",\s*"source_label",\s*"catalog_provider_id",\s*"file_name",\s*"fixture_content",\s*\]/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /assert\.equal\(nowCount,\s*0\)/.test(catalogDownloadOperationsTest) &&
+      /assert\.equal\(state\.receipts\.length,\s*0\)/.test(catalogDownloadOperationsTest) &&
+      /assert\.equal\(state\.writes\.length,\s*0\)/.test(catalogDownloadOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: direct model download request bodies must fail closed on retired camelCase identity/source aliases before timestamping or receipt creation",
   );
   assertCheck(
     result,

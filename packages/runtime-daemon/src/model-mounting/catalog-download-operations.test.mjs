@@ -209,6 +209,58 @@ test("catalogImportUrl fails closed when a live source is not catalog-gated", as
   );
 });
 
+test("downloadModel rejects retired identity request aliases before timestamp or receipt", async () => {
+  const state = fakeState();
+  let nowCount = 0;
+  state.nowIso = () => {
+    nowCount += 1;
+    return state.now;
+  };
+
+  await assert.rejects(
+    () =>
+      downloadModel(
+        state,
+        {
+          modelId: "qwen-test",
+          providerId: "provider.local",
+          sourceUrl: "fixture://qwen/q4",
+          sourceLabel: "Fixture catalog",
+          catalogProviderId: "catalog.fixture",
+          fileName: "qwen.gguf",
+          fixtureContent: "fixture bytes",
+        },
+        deps(),
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_download_identity_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "modelId",
+        "providerId",
+        "sourceUrl",
+        "sourceLabel",
+        "catalogProviderId",
+        "fileName",
+        "fixtureContent",
+      ]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "model_id",
+        "provider_id",
+        "source_url",
+        "source_label",
+        "catalog_provider_id",
+        "file_name",
+        "fixture_content",
+      ]);
+      return true;
+    },
+  );
+  assert.equal(nowCount, 0);
+  assert.equal(state.receipts.length, 0);
+  assert.equal(state.writes.length, 0);
+});
+
 test("downloadModel can queue and simulate failed fixture jobs without materializing files", async () => {
   const state = fakeState();
 
