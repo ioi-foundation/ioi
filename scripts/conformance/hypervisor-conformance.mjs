@@ -7581,6 +7581,10 @@ function runCompositor() {
     runtimeMcpControlSurface.match(
       /async invokeThreadMcpTool\(store, threadId, toolId, request = \{\}\) \{[\s\S]*?\n    \},\n    async recordThreadMcpStatus/,
     )?.[0] ?? "";
+  const runtimeMcpRemoveThreadServerBlock =
+    runtimeMcpControlSurface.match(
+      /removeThreadMcpServer\(store, threadId, serverId, request = \{\}\) \{[\s\S]*?\n    \},\n    applyThreadMcpServerMutation/,
+    )?.[0] ?? "";
   const runtimeMcpGetToolFromCatalogBlock =
     runtimeMcpCatalogSurface.match(
       /async getMcpToolFromCatalog\(store, toolId, request = \{\}\) \{[\s\S]*?\n    \},\n    async searchMcpToolCatalog/,
@@ -10296,6 +10300,22 @@ function runCompositor() {
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP control/invoke requests must use canonical thread_id without the retired threadId compatibility alias",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-control-server-request-alias-retired",
+    /request\.server_id/.test(runtimeMcpRemoveThreadServerBlock) &&
+      /serverId: "mcp\.extra"/.test(runtimeMcpControlSurfaceTest) &&
+      /serverId: "mcp\.retired"/.test(runtimeMcpControlSurfaceTest) &&
+      /^\s*server_id\?: string;/m.test(runtimeMcpSdkServerControlInputBlock) &&
+      !/request\.serverId\b/.test(runtimeMcpRemoveThreadServerBlock) &&
+      !/^\s*serverId\?:/m.test(runtimeMcpSdkServerControlInputBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP server-control requests must use canonical server_id without the retired serverId compatibility alias",
   );
   assertCheck(
     result,

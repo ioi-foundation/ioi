@@ -712,7 +712,6 @@ export interface RuntimeMcpValidationInput {
 
 export interface RuntimeMcpServerControlInput extends RuntimeMcpValidationInput {
   thread_id?: string;
-  serverId?: string;
   server_id?: string;
   enabled?: boolean;
 }

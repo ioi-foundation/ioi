@@ -12455,6 +12455,11 @@ canonical `tool_id`, `server_id`, and `tool_name` request fields; retired
 camelCase `toolId`, `serverId`, and `toolName` fields are ignored by daemon
 invoke routing and no longer advertised by SDK invoke input types.
 
+Slice 395 removes the MCP control server request alias:
+runtime MCP server control paths and SDK server control inputs now use canonical
+`server_id`; retired camelCase `serverId` request fields no longer resolve MCP
+server-control targets and are absent from SDK control input types.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

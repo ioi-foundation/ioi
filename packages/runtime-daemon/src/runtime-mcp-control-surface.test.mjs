@@ -204,7 +204,15 @@ test("runtime MCP control surface applies add, remove, and blocked mutation enve
   assert.equal(statePlannerCalls.at(-1).control_kind, "mcp_add");
   assert.equal(statePlannerCalls.at(-1).agent.mcpRegistry.servers.some((item) => item.id === "mcp.extra"), true);
 
-  const removed = surface.removeThreadMcpServer(store, "thread-agent-one", "mcp.extra");
+  assert.throws(
+    () => surface.removeThreadMcpServer(store, "thread-agent-one", null, { serverId: "mcp.extra" }),
+    (error) => error.status === 404 && error.code === "not_found",
+  );
+
+  const removed = surface.removeThreadMcpServer(store, "thread-agent-one", null, {
+    server_id: "mcp.extra",
+    serverId: "mcp.retired",
+  });
   assert.equal(removed.event_kind, "McpServerRemoved");
   assert.equal(removed.removed_count, 1);
   assert.equal(store.agents.get("agent-one").mcpRegistry.servers.some((item) => item.id === "mcp.extra"), false);

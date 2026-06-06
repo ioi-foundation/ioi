@@ -199,7 +199,7 @@ export function createRuntimeMcpControlSurface({
     removeThreadMcpServer(store, threadId, serverId, request = {}) {
       const agent = store.agentForThread(threadId);
       const registry = agent.mcpRegistry ?? mcpRegistryForWorkspaceDep(agent.cwd, { homeDir: store.homeDir });
-      const server = resolveMcpServerRecordDep(registry.servers, serverId ?? request.server_id ?? request.serverId);
+      const server = resolveMcpServerRecordDep(registry.servers, serverId ?? request.server_id);
       if (!server) throw notFoundDep(`MCP server not found: ${serverId}`, { threadId, serverId });
       const remainingServers = normalizeArrayDep(registry.servers).filter((candidate) => candidate.id !== server.id);
       const updatedRegistry = mcpRegistryWithServersDep(registry, remainingServers);
