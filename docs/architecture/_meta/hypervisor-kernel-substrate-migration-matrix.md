@@ -12579,6 +12579,13 @@ fields only; duplicate camelCase facade fields such as `schemaVersion`,
 `workspaceRoot`, `serverCount`, `serverUrl`, `sourceScope`, `allowedTools`,
 `vaultBoundary`, and `evidenceRefs` are retired from manager registry output.
 
+Slice 415 removes MCP manager catalog-record output aliases:
+the MCP manager tool/resource/prompt catalog row normalizers now emit canonical
+snake_case fields only; duplicate camelCase facade fields such as
+`stableToolId`, `displayName`, `serverId`, `toolName`, `inputSchema`,
+`workflowNodeId`, `stableResourceId`, `mimeType`, `stablePromptId`,
+`promptArguments`, and `receiptRefs` are retired from manager catalog records.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

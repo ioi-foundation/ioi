@@ -32,6 +32,8 @@ test("MCP manager registry and server records emit canonical output fields only"
         transport: "stdio",
         command: "npx",
         allowed_tools: ["search"],
+        resources: [{ uri: "docs://root", name: "root" }],
+        prompts: [{ name: "ask", arguments: [{ name: "q" }] }],
         headers: { Authorization: "vault://mcp/docs/token" },
       },
     },
@@ -41,6 +43,8 @@ test("MCP manager registry and server records emit canonical output fields only"
   assert.equal(registry.workspace_root, "/workspace");
   assert.equal(registry.server_count, 1);
   assert.equal(registry.tool_count, 1);
+  assert.equal(registry.resource_count, 1);
+  assert.equal(registry.prompt_count, 1);
   assert.equal(Object.hasOwn(registry, "schemaVersion"), false);
   assert.equal(Object.hasOwn(registry, "workspaceRoot"), false);
   assert.equal(Object.hasOwn(registry, "serverCount"), false);
@@ -64,4 +68,37 @@ test("MCP manager registry and server records emit canonical output fields only"
   assert.equal(Object.hasOwn(server, "evidenceRefs"), false);
   assert.equal(Object.hasOwn(server.vault_boundary, "headerRefCount"), false);
   assert.equal(Object.hasOwn(server.vault_boundary, "secretValuesIncluded"), false);
+
+  const tool = registry.tools[0];
+  assert.equal(tool.stable_tool_id, "mcp.docs.search");
+  assert.equal(tool.server_id, "mcp.docs");
+  assert.equal(tool.tool_name, "search");
+  assert.deepEqual(tool.primitive_capabilities, ["prim:connector.invoke"]);
+  assert.equal(tool.input_schema.type, "object");
+  assert.equal(Object.hasOwn(tool, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(tool, "stableToolId"), false);
+  assert.equal(Object.hasOwn(tool, "serverId"), false);
+  assert.equal(Object.hasOwn(tool, "toolName"), false);
+  assert.equal(Object.hasOwn(tool, "primitiveCapabilities"), false);
+  assert.equal(Object.hasOwn(tool, "inputSchema"), false);
+  assert.equal(Object.hasOwn(tool, "workflowNodeId"), false);
+  assert.equal(Object.hasOwn(tool, "receiptRefs"), false);
+
+  const resource = registry.resources[0];
+  assert.equal(resource.stable_resource_id, "mcp.docs.resource.docs_root");
+  assert.equal(resource.server_id, "mcp.docs");
+  assert.equal(resource.mime_type, null);
+  assert.equal(Object.hasOwn(resource, "stableResourceId"), false);
+  assert.equal(Object.hasOwn(resource, "serverId"), false);
+  assert.equal(Object.hasOwn(resource, "mimeType"), false);
+  assert.equal(Object.hasOwn(resource, "workflowNodeId"), false);
+
+  const prompt = registry.prompts[0];
+  assert.equal(prompt.stable_prompt_id, "mcp.docs.prompt.ask");
+  assert.equal(prompt.server_id, "mcp.docs");
+  assert.equal(prompt.prompt_arguments.length, 1);
+  assert.equal(Object.hasOwn(prompt, "stablePromptId"), false);
+  assert.equal(Object.hasOwn(prompt, "serverId"), false);
+  assert.equal(Object.hasOwn(prompt, "promptArguments"), false);
+  assert.equal(Object.hasOwn(prompt, "workflowNodeId"), false);
 });
