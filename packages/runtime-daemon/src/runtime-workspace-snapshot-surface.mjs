@@ -62,12 +62,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     notFound = defaultNotFound,
     runtimeError = defaultRuntimeError,
     writeJson = defaultWriteJson,
-    workspaceRestoreApplyAllowsConflicts,
-    workspaceRestoreApplyApprovalForRequest,
-    workspaceRestoreApplyBlockedReason,
-    workspaceRestoreApplyPolicyDecisionRefs,
-    workspaceRestoreApplyStatus,
-    workspaceRestoreApplySummary,
+    workspaceRestoreApplyPolicyRunner,
   } = deps;
 
   function prepareWorkspaceSnapshotForPatch(
@@ -425,9 +420,6 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const workflowNodeId =
       optionalString(request.workflow_node_id) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
     const idempotencyKey = optionalString(request.idempotency_key);
-    const approval = workspaceRestoreApplyApprovalForRequest(request);
-    const allowConflicts = workspaceRestoreApplyAllowsConflicts(request);
-    const conflictPolicy = allowConflicts ? "override_conflicts" : "clean_preview_only";
     const snapshotPackage = workspaceSnapshotContentPackage(store, threadId, normalizedSnapshotId);
     const previewOperations = normalizeArray(snapshotPackage.files).map((file) =>
       workspaceRestorePreviewOperation({
@@ -444,25 +436,22 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         details: { threadId, snapshotId: normalizedSnapshotId },
       });
     }
-    const previewCounts = workspaceRestoreOperationCounts(previewOperations);
-    const hardBlocked = previewCounts.blockedCount > 0;
-    const conflictBlocked = previewCounts.conflictCount > 0 && !allowConflicts;
+    const gatePolicyPlan = planWorkspaceRestoreApplyPolicy({
+      snapshotId: normalizedSnapshotId,
+      request,
+      operations: previewOperations,
+    });
+    const approval = gatePolicyPlan.approval;
+    const allowConflicts = Boolean(gatePolicyPlan.allowConflicts ?? gatePolicyPlan.allow_conflicts);
+    const conflictPolicy = gatePolicyPlan.conflictPolicy ?? gatePolicyPlan.conflict_policy ?? "clean_preview_only";
+    const hardBlocked = Boolean(gatePolicyPlan.hardBlocked ?? gatePolicyPlan.hard_blocked);
+    const conflictBlocked = Boolean(gatePolicyPlan.conflictBlocked ?? gatePolicyPlan.conflict_blocked);
     let operations = previewOperations.map((operation) => ({
       ...operation,
       applyStatus: "blocked",
       apply_status: "blocked",
-      applyReason: workspaceRestoreApplyBlockedReason(operation, {
-        approvalSatisfied: approval.satisfied,
-        allowConflicts,
-        hardBlocked,
-        conflictBlocked,
-      }),
-      apply_reason: workspaceRestoreApplyBlockedReason(operation, {
-        approvalSatisfied: approval.satisfied,
-        allowConflicts,
-        hardBlocked,
-        conflictBlocked,
-      }),
+      applyReason: workspaceRestoreOperationApplyReason(gatePolicyPlan, operation),
+      apply_reason: workspaceRestoreOperationApplyReason(gatePolicyPlan, operation),
     }));
     if (approval.satisfied && !hardBlocked && !conflictBlocked) {
       operations = workspaceRestoreApplyOperations({
@@ -473,16 +462,18 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       });
     }
     const counts = workspaceRestoreOperationCounts(operations);
-    const applyStatus = workspaceRestoreApplyStatus(counts);
-    const previewStatus = counts.conflictCount || counts.blockedCount ? "blocked" : "ready";
-    const policyDecisionRefs = workspaceRestoreApplyPolicyDecisionRefs({
+    const finalPolicyPlan = planWorkspaceRestoreApplyPolicy({
       snapshotId: normalizedSnapshotId,
-      approval,
-      allowConflicts,
+      request,
+      counts,
       hardBlocked,
       conflictBlocked,
-      applyStatus,
     });
+    const applyStatus = finalPolicyPlan.applyStatus ?? finalPolicyPlan.apply_status;
+    const previewStatus = counts.conflictCount || counts.blockedCount ? "blocked" : "ready";
+    const policyDecisionRefs = normalizeArray(
+      finalPolicyPlan.policyDecisionRefs ?? finalPolicyPlan.policy_decision_refs,
+    );
     const receiptId = `receipt_workspace_restore_apply_${safeId(normalizedSnapshotId)}_${doctorHash(
       JSON.stringify(operations.map((operation) => [
         operation.path,
@@ -555,13 +546,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       rollback_refs: [normalizedSnapshotId],
       idempotencyKey,
       idempotency_key: idempotencyKey,
-      summary: workspaceRestoreApplySummary({
-        snapshotId: normalizedSnapshotId,
-        applyStatus,
-        counts,
-        approval,
-        allowConflicts,
-      }),
+      summary: finalPolicyPlan.summary,
     };
     const artifactRecord = materializeWorkspaceRestoreApplyArtifact(store, {
       threadId,
@@ -607,6 +592,100 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         canonical_fields: CANONICAL_WORKSPACE_RESTORE_REQUEST_FIELDS,
       },
     });
+  }
+
+  function planWorkspaceRestoreApplyPolicy({
+    snapshotId,
+    request = {},
+    operations = null,
+    counts = null,
+    hardBlocked = null,
+    conflictBlocked = null,
+  } = {}) {
+    if (!workspaceRestoreApplyPolicyRunner?.planApplyPolicy) {
+      throw runtimeError({
+        status: 502,
+        code: "workspace_restore_policy_bridge_unconfigured",
+        message: "Workspace restore apply policy requires the Rust workspace restore policy bridge.",
+        details: { snapshotId },
+      });
+    }
+    const policyRequest = {
+      ...(request && typeof request === "object" && !Array.isArray(request) ? request : {}),
+      snapshot_id: snapshotId,
+    };
+    if (Array.isArray(operations)) {
+      policyRequest.operations = operations.map((operation) => ({
+        path: operation.path,
+        status: operation.status,
+        blocked_reason: operation.blockedReason ?? operation.blocked_reason ?? null,
+      }));
+    }
+    if (counts) {
+      policyRequest.counts = workspaceRestoreCountsForPolicy(counts);
+    }
+    if (typeof hardBlocked === "boolean") {
+      policyRequest.hard_blocked = hardBlocked;
+    }
+    if (typeof conflictBlocked === "boolean") {
+      policyRequest.conflict_blocked = conflictBlocked;
+    }
+    const plan = workspaceRestoreApplyPolicyRunner.planApplyPolicy(policyRequest);
+    const approval = plan?.approval && typeof plan.approval === "object" ? plan.approval : null;
+    const applyStatus = plan?.applyStatus ?? plan?.apply_status;
+    if (!approval || typeof approval.satisfied !== "boolean") {
+      throw runtimeError({
+        status: 502,
+        code: "workspace_restore_policy_bridge_invalid_plan",
+        message: "Rust workspace restore policy bridge returned an invalid approval plan.",
+        details: { snapshotId },
+      });
+    }
+    if (counts && !optionalString(applyStatus)) {
+      throw runtimeError({
+        status: 502,
+        code: "workspace_restore_policy_bridge_invalid_status",
+        message: "Rust workspace restore policy bridge returned an invalid apply status.",
+        details: { snapshotId },
+      });
+    }
+    if (counts && !optionalString(plan?.summary)) {
+      throw runtimeError({
+        status: 502,
+        code: "workspace_restore_policy_bridge_invalid_summary",
+        message: "Rust workspace restore policy bridge returned an invalid apply summary.",
+        details: { snapshotId },
+      });
+    }
+    return plan;
+  }
+
+  function workspaceRestoreOperationApplyReason(policyPlan, operation) {
+    const pathValue = optionalString(operation?.path);
+    const entries = normalizeArray(policyPlan?.operationPolicies ?? policyPlan?.operation_policies);
+    const policy = entries.find((entry) => optionalString(entry?.path) === pathValue);
+    const reason = optionalString(policy?.applyReason ?? policy?.apply_reason);
+    if (reason) return reason;
+    throw runtimeError({
+      status: 502,
+      code: "workspace_restore_policy_bridge_missing_operation_reason",
+      message: "Rust workspace restore policy bridge did not return an apply reason for a restore operation.",
+      details: { path: pathValue },
+    });
+  }
+
+  function workspaceRestoreCountsForPolicy(counts = {}) {
+    return {
+      file_count: Number(counts.fileCount ?? counts.file_count ?? 0) || 0,
+      ready_count: Number(counts.readyCount ?? counts.ready_count ?? 0) || 0,
+      noop_count: Number(counts.noopCount ?? counts.noop_count ?? 0) || 0,
+      conflict_count: Number(counts.conflictCount ?? counts.conflict_count ?? 0) || 0,
+      blocked_count: Number(counts.blockedCount ?? counts.blocked_count ?? 0) || 0,
+      applied_count: Number(counts.appliedCount ?? counts.applied_count ?? 0) || 0,
+      apply_noop_count: Number(counts.applyNoopCount ?? counts.apply_noop_count ?? 0) || 0,
+      apply_blocked_count: Number(counts.applyBlockedCount ?? counts.apply_blocked_count ?? 0) || 0,
+      failed_count: Number(counts.failedCount ?? counts.failed_count ?? 0) || 0,
+    };
   }
 
   function workspaceSnapshotContentPackage(store, threadId, snapshotId) {

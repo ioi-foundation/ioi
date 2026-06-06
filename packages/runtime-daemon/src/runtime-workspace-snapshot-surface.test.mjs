@@ -25,29 +25,65 @@ function hash(value) {
 
 function createSurface() {
   const writes = [];
+  const workspaceRestoreApplyPolicyRunner = {
+    planApplyPolicy(request = {}) {
+      const approval = {
+        required: true,
+        satisfied: request.confirm === true || request.confirm_restore_apply === true,
+        source: request.confirm === true || request.confirm_restore_apply === true ? "request_confirmed" : "approval_required",
+      };
+      const counts = request.counts;
+      const applyStatus = counts
+        ? counts.apply_blocked_count > 0
+          ? "blocked"
+          : counts.failed_count > 0
+            ? "failed"
+            : counts.applied_count === 0 && counts.apply_noop_count === counts.file_count
+              ? "noop"
+              : "applied"
+        : null;
+      return {
+        approval,
+        allowConflicts: false,
+        allow_conflicts: false,
+        conflictPolicy: "clean_preview_only",
+        conflict_policy: "clean_preview_only",
+        hardBlocked: false,
+        hard_blocked: false,
+        conflictBlocked: false,
+        conflict_blocked: false,
+        applyStatus,
+        apply_status: applyStatus,
+        policyDecisionRefs: [
+          `policy_workspace_restore_apply_${request.snapshot_id}_${approval.satisfied ? "approval_satisfied" : "approval_required"}`,
+        ],
+        policy_decision_refs: [
+          `policy_workspace_restore_apply_${request.snapshot_id}_${approval.satisfied ? "approval_satisfied" : "approval_required"}`,
+        ],
+        operationPolicies: (request.operations ?? []).map((operation) => ({
+          path: operation.path,
+          applyReason: approval.satisfied
+            ? "workspace_restore_apply_blocked_by_policy"
+            : "workspace_restore_apply_requires_approval",
+          apply_reason: approval.satisfied
+            ? "workspace_restore_apply_blocked_by_policy"
+            : "workspace_restore_apply_requires_approval",
+        })),
+        operation_policies: (request.operations ?? []).map((operation) => ({
+          path: operation.path,
+          apply_reason: approval.satisfied
+            ? "workspace_restore_apply_blocked_by_policy"
+            : "workspace_restore_apply_requires_approval",
+        })),
+        summary: counts ? `Restore apply ${applyStatus} for ${request.snapshot_id}.` : null,
+      };
+    },
+  };
   const surface = createRuntimeWorkspaceSnapshotSurface({
     notFound,
     runtimeError,
     now: () => "2026-06-04T15:00:00.000Z",
-    workspaceRestoreApplyAllowsConflicts: () => false,
-    workspaceRestoreApplyApprovalForRequest: (request = {}) => ({
-      required: true,
-      satisfied: request.confirm === true,
-      source: request.confirm === true ? "request_confirmed" : "approval_required",
-    }),
-    workspaceRestoreApplyBlockedReason: (_operation, options = {}) =>
-      options.approvalSatisfied ? "workspace_restore_apply_blocked_by_policy" : "workspace_restore_apply_requires_approval",
-    workspaceRestoreApplyPolicyDecisionRefs: ({ snapshotId, approval } = {}) => [
-      `policy_workspace_restore_apply_${snapshotId}_${approval?.satisfied ? "approval_satisfied" : "approval_required"}`,
-    ],
-    workspaceRestoreApplyStatus: (counts = {}) => {
-      if (counts.applyBlockedCount > 0) return "blocked";
-      if (counts.failedCount > 0) return "failed";
-      if (counts.appliedCount === 0 && counts.applyNoopCount === counts.fileCount) return "noop";
-      return "applied";
-    },
-    workspaceRestoreApplySummary: ({ snapshotId, applyStatus }) =>
-      `Restore apply ${applyStatus} for ${snapshotId}.`,
+    workspaceRestoreApplyPolicyRunner,
     writeJson(filePath, value) {
       writes.push({ filePath, value });
     },

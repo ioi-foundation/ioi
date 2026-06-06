@@ -27,6 +27,9 @@ use ioi_services::agentic::runtime::kernel::step_module::{
     STEP_MODULE_RESULT_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::step_router::StepModuleRouterCore;
+use ioi_services::agentic::runtime::kernel::workspace_restore::{
+    WorkspaceRestoreApplyPolicyCore, WorkspaceRestoreApplyPolicyRequest,
+};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::env;
@@ -219,6 +222,16 @@ struct GovernedRuntimeImprovementBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct WorkspaceRestoreApplyPolicyBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: WorkspaceRestoreApplyPolicyRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -358,6 +371,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             admit_governed_runtime_improvement_proposal(request)
+        }
+        "plan_workspace_restore_apply_policy" => {
+            let request: WorkspaceRestoreApplyPolicyBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_workspace_restore_apply_policy(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -1169,6 +1188,49 @@ fn admit_governed_runtime_improvement_proposal(
         "verifier_receipt_refs": record.verifier_receipt_refs.clone(),
         "approval_ref": record.approval_ref.clone(),
         "rollback_ref": record.rollback_ref.clone(),
+    }))
+}
+
+fn plan_workspace_restore_apply_policy(
+    request: WorkspaceRestoreApplyPolicyBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_workspace_restore_apply_policy" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let plan = WorkspaceRestoreApplyPolicyCore
+        .plan_apply_policy(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "workspace_restore_apply_policy_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_workspace_restore_policy_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "plan": plan.clone(),
+        "approval": plan.approval.clone(),
+        "allow_conflicts": plan.allow_conflicts,
+        "conflict_policy": plan.conflict_policy.clone(),
+        "hard_blocked": plan.hard_blocked,
+        "conflict_blocked": plan.conflict_blocked,
+        "policy_status": plan.policy_status.clone(),
+        "apply_status": plan.apply_status.clone(),
+        "policy_decision_refs": plan.policy_decision_refs.clone(),
+        "operation_policies": plan.operation_policies.clone(),
+        "summary": plan.summary.clone(),
     }))
 }
 
@@ -4863,24 +4925,22 @@ mod tests {
 
     #[test]
     fn bridge_admits_l1_settlement_attempt_through_rust_core() {
-        let request: L1SettlementAdmissionBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
-                "operation": "admit_l1_settlement_attempt",
-                "backend": "l1_settlement_guard",
-                "attempt": {
-                    "schema_version": "ioi.l1_settlement_admission.v1",
-                    "settlement_ref": "l1://settlement/marketplace-transaction",
-                    "domain_ref": "domain://marketplace/services",
-                    "state_root_ref": "state-root://agentgres/marketplace/after",
-                    "trigger_refs": ["l1-trigger://service-contract/payment"],
-                    "receipt_refs": ["receipt://local-settlement/payment"]
-                }
-            }))
-            .expect("L1 settlement bridge request");
+        let request: L1SettlementAdmissionBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "admit_l1_settlement_attempt",
+            "backend": "l1_settlement_guard",
+            "attempt": {
+                "schema_version": "ioi.l1_settlement_admission.v1",
+                "settlement_ref": "l1://settlement/marketplace-transaction",
+                "domain_ref": "domain://marketplace/services",
+                "state_root_ref": "state-root://agentgres/marketplace/after",
+                "trigger_refs": ["l1-trigger://service-contract/payment"],
+                "receipt_refs": ["receipt://local-settlement/payment"]
+            }
+        }))
+        .expect("L1 settlement bridge request");
 
-        let response =
-            admit_l1_settlement_attempt(request).expect("L1 settlement admitted");
+        let response = admit_l1_settlement_attempt(request).expect("L1 settlement admitted");
 
         assert_eq!(response["source"], "rust_l1_settlement_guard_command");
         assert_eq!(response["backend"], "l1_settlement_guard");
@@ -4962,6 +5022,51 @@ mod tests {
             .as_str()
             .expect("admission hash")
             .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn bridge_plans_workspace_restore_apply_policy_through_rust_core() {
+        let request: WorkspaceRestoreApplyPolicyBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_workspace_restore_apply_policy",
+            "backend": "rust_workspace_restore",
+            "request": {
+                "schema_version": "ioi.workspace_restore_apply_policy_request.v1",
+                "snapshot_id": "workspace_snapshot_alpha",
+                "confirm_restore_apply": true,
+                "restore_conflict_policy": "override_conflicts",
+                "operations": [
+                    {
+                        "path": "src/app.js",
+                        "status": "conflict"
+                    }
+                ],
+                "counts": {
+                    "file_count": 1,
+                    "conflict_count": 1,
+                    "applied_count": 1
+                }
+            }
+        }))
+        .expect("workspace restore apply policy bridge request");
+
+        let response = plan_workspace_restore_apply_policy(request)
+            .expect("workspace restore apply policy planned");
+
+        assert_eq!(response["source"], "rust_workspace_restore_policy_command");
+        assert_eq!(response["backend"], "rust_workspace_restore");
+        assert_eq!(response["approval"]["satisfied"], true);
+        assert_eq!(response["allow_conflicts"], true);
+        assert_eq!(response["conflict_policy"], "override_conflicts");
+        assert_eq!(response["apply_status"], "applied");
+        assert_eq!(
+            response["policy_decision_refs"][1],
+            "policy_workspace_restore_apply_workspace_snapshot_alpha_conflict_override"
+        );
+        assert_eq!(
+            response["summary"],
+            "Restore apply restored 1 file(s) from workspace_snapshot_alpha with conflict override."
+        );
     }
 
     #[test]

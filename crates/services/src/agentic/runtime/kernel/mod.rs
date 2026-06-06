@@ -26,6 +26,7 @@ pub mod settlement;
 pub mod step_module;
 pub mod step_router;
 pub mod trace;
+pub mod workspace_restore;
 
 use agentgres_admission::{
     AgentgresAdmissionCore, AgentgresAdmissionError, AgentgresAdmissionRecord,
@@ -78,6 +79,10 @@ use settlement::{
 use step_module::{StepModuleInvocation, StepModuleResult, StepModuleValidationError};
 use step_router::{
     StepModuleExecutionAdmissionRecord, StepModuleRouterCore, StepModuleRouterError,
+};
+use workspace_restore::{
+    WorkspaceRestoreApplyPolicyCore, WorkspaceRestoreApplyPolicyError,
+    WorkspaceRestoreApplyPolicyPlan, WorkspaceRestoreApplyPolicyRequest,
 };
 
 use ioi_types::app::ApprovalAuthority;
@@ -374,5 +379,12 @@ impl RuntimeKernelService {
         request: &WorkerServicePackageInvocationRequest,
     ) -> Result<WorkerServicePackageInvocationRecord, MarketplaceAdmissionError> {
         WorkerServicePackageInvocationCore.admit_invocation(request)
+    }
+
+    pub fn plan_workspace_restore_apply_policy(
+        &self,
+        request: &WorkspaceRestoreApplyPolicyRequest,
+    ) -> Result<WorkspaceRestoreApplyPolicyPlan, WorkspaceRestoreApplyPolicyError> {
+        WorkspaceRestoreApplyPolicyCore.plan_apply_policy(request)
     }
 }

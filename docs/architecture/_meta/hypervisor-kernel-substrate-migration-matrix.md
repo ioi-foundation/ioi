@@ -12043,6 +12043,15 @@ camelCase aliases such as `approvalDecision`, `policyDecision`,
 `conflictPolicy`, and `restorePolicy`, and the shared restore apply
 approval/conflict helper reads canonical snake_case policy fields only.
 
+Slice 333 moves workspace restore apply policy planning into Rust: the Rust
+runtime kernel now owns restore-apply approval evaluation, conflict override
+policy, blocked-operation reasons, policy decision refs, and final apply
+summary/status through `WorkspaceRestoreApplyPolicyCore`; the daemon
+workspace snapshot surface calls the fail-closed
+`IOI_WORKSPACE_RESTORE_POLICY_COMMAND` bridge instead of JS apply-policy
+helpers while file preview/write IO remains in the existing daemon surface for
+the next migration slice.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
