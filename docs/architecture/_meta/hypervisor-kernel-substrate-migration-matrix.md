@@ -1282,13 +1282,14 @@ ImplementationSlice:
     replay_or_shadow_comparison: Rust patch write/admission, Rust dry-run
       no-transition, daemon snapshot facade over Rust patch result
   cleanup:
-    legacy_paths_removed: false
+    legacy_paths_removed: true
     compatibility_shims_remaining:
-      - JS fileApplyPatchTool remains as a legacy fallback until JS facade
-        retirement once Rust workload live mode is the only daemon execution
-        configuration
       - daemon workspace snapshot and post-edit diagnostics remain facade
         projections over the Rust patch result, not the mutation owner
+    cleanup_note: file.apply_patch now executes through the Rust workload live
+      bridge; changed non-dry-run patches carry Agentgres operation refs,
+      payload refs, state_root_after, resulting_head, router admission, and
+      Agentgres admission without daemon_js mutation fallback.
   closeout:
     git_diff_check: required
     commit: required
@@ -1352,13 +1353,14 @@ ImplementationSlice:
     replay_or_shadow_comparison: Rust retrieval projection over daemon
       data-plane prefetch, Rust fail-closed missing-payload test
   cleanup:
-    legacy_paths_removed: false
+    legacy_paths_removed: true
     compatibility_shims_remaining:
-      - JS artifactReadTool and toolRetrieveResultTool remain as legacy fallback
-        helpers until JS facade retirement once Rust workload live mode is the
-        only daemon execution configuration
       - daemon artifact-store read/retrieve remains a data-plane adapter until
         ArtifactRef/PayloadRef storage APIs move behind stable protocol calls
+    cleanup_note: artifact.read and tool.retrieve_result now execute through
+      the Rust workload live bridge over daemon-provided data-plane payloads;
+      missing Rust workload data-plane payloads fail closed and read-only
+      retrieval emits no Agentgres transition.
   closeout:
     git_diff_check: required
     commit: required
@@ -1418,14 +1420,15 @@ ImplementationSlice:
     replay_or_shadow_comparison: Rust lease-request projection, Rust
       unavailable-provider fail-closed test, daemon live-mode no-daemon-js test
   cleanup:
-    legacy_paths_removed: false
+    legacy_paths_removed: true
     compatibility_shims_remaining:
-      - JS computerUseLeaseRequestTool remains as a legacy fallback until JS
-        facade retirement once Rust workload live mode is the only daemon
-        execution configuration
       - provider-specific computer-use execution remains outside this coding
         tool until wallet.network-issued grants, provider leases, and receipts
         are routed through the Rust authority core
+    cleanup_note: computer_use.request_lease now executes through the Rust
+      workload live bridge as a governed lease-request projection; action
+      capable requests record the wallet.network authority boundary before
+      provider execution and emit no Agentgres transition.
   closeout:
     git_diff_check: required
     commit: required

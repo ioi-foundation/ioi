@@ -253,18 +253,27 @@ function runDocs() {
   );
   assertCheck(
     result,
-    "matrix-test-diagnostics-rust-live-status-reconciled",
+    "matrix-coding-tools-rust-live-status-reconciled",
     /Implementation Slice 21[\s\S]*execution_backend: rust_workload_live for all allowlisted test\.run command[\s\S]*legacy_paths_removed: true[\s\S]*compatibility_shims_remaining: \[\]/.test(
       matrix,
     ) &&
       /Implementation Slice 22[\s\S]*execution_backend: rust_workload_live for all allowlisted diagnostics[\s\S]*legacy_paths_removed: true[\s\S]*compatibility_shims_remaining: \[\]/.test(
         matrix,
       ) &&
-      !/test\.run npm\.test, cargo\.test, and cargo\.check still need Rust\/workload|JS testRunTool remains as a legacy fallback|JS lspDiagnosticsTool remains as a legacy fallback/.test(
+      /Implementation Slice 23[\s\S]*execution_backend: rust_workload_live applies replace\/append\/prepend edits[\s\S]*legacy_paths_removed: true[\s\S]*daemon workspace snapshot and post-edit diagnostics remain facade/.test(
+        matrix,
+      ) &&
+      /Implementation Slice 24[\s\S]*execution_backend: rust_workload_live owns StepModule dispatch[\s\S]*legacy_paths_removed: true[\s\S]*daemon artifact-store read\/retrieve remains a data-plane adapter/.test(
+        matrix,
+      ) &&
+      /Implementation Slice 25[\s\S]*execution_backend: rust_workload_live owns StepModule dispatch[\s\S]*legacy_paths_removed: true[\s\S]*provider-specific computer-use execution remains outside this coding/.test(
+        matrix,
+      ) &&
+      !/test\.run npm\.test, cargo\.test, and cargo\.check still need Rust\/workload|JS testRunTool remains as a legacy fallback|JS lspDiagnosticsTool remains as a legacy fallback|JS fileApplyPatchTool remains as a legacy fallback|JS artifactReadTool and toolRetrieveResultTool remain as legacy fallback|JS computerUseLeaseRequestTool remains as a legacy fallback/.test(
         matrix,
       ),
     [MATRIX],
-    "migration matrix must mark completed test.run and lsp.diagnostics Rust workload live slices as reconciled without stale JS fallback notes",
+    "migration matrix must mark completed coding-tool Rust workload live slices as reconciled without stale JS fallback notes",
   );
   checkStaleLiveTerminology(result);
   return result;
