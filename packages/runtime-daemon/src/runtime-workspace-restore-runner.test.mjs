@@ -7,6 +7,7 @@ import {
   WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
   WORKSPACE_RESTORE_COMMAND_ENV,
   WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
+  WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
   createWorkspaceRestoreRunnerFromEnv,
 } from "./runtime-workspace-restore-runner.mjs";
 
@@ -220,6 +221,115 @@ test("workspace restore runner sends apply operations bridge request", () => {
   );
   assert.equal(operations[0].applyStatus, "applied");
   assert.equal(operations[0].appliedMatchesTarget, true);
+});
+
+test("workspace restore runner sends snapshot capture bridge request", () => {
+  const calls = [];
+  const runner = new RustWorkspaceRestoreRunner({
+    command: "mock-workspace-restore-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      const bridgeRequest = JSON.parse(options.input);
+      calls.push({ bridgeRequest });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_workspace_snapshot_capture_command",
+            backend: "rust_workspace_restore",
+            captured_file_count: 1,
+            omitted_file_count: 0,
+            content_captured: true,
+            files: [
+              {
+                path: "src/app.js",
+                created: false,
+                deleted: false,
+                changed: true,
+                before: {
+                  exists: true,
+                  content_hash: "sha256-old",
+                  size_bytes: 3,
+                  content_captured: true,
+                  content_bytes: 3,
+                },
+                after: {
+                  exists: true,
+                  content_hash: "sha256-new",
+                  size_bytes: 3,
+                  content_captured: true,
+                  content_bytes: 3,
+                },
+                receipt_refs: [],
+                artifact_refs: [],
+              },
+            ],
+            content_files: [
+              {
+                path: "src/app.js",
+                created: false,
+                deleted: false,
+                changed: true,
+                before: {
+                  exists: true,
+                  content_hash: "sha256-old",
+                  size_bytes: 3,
+                  content_captured: true,
+                  content_bytes: 3,
+                  content: "old",
+                },
+                after: {
+                  exists: true,
+                  content_hash: "sha256-new",
+                  size_bytes: 3,
+                  content_captured: true,
+                  content_bytes: 3,
+                  content: "new",
+                },
+                receipt_refs: [],
+                artifact_refs: [],
+                encoding: "utf8",
+              },
+            ],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const capture = runner.captureSnapshotFiles({
+    changedFiles: [
+      {
+        path: "src/app.js",
+        beforeHash: "sha256-old",
+        afterHash: "sha256-new",
+        beforeExists: true,
+        afterExists: true,
+        beforeSizeBytes: 3,
+        afterSizeBytes: 3,
+      },
+    ],
+    workspaceSnapshotDrafts: [
+      {
+        path: "src/app.js",
+        beforeContent: "old",
+        afterContent: "new",
+      },
+    ],
+    maxContentBytes: 262144,
+  });
+
+  assert.equal(calls[0].bridgeRequest.operation, "capture_workspace_snapshot_files");
+  assert.equal(
+    calls[0].bridgeRequest.request.schema_version,
+    WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(calls[0].bridgeRequest.request.changed_files[0].before_hash, "sha256-old");
+  assert.equal(calls[0].bridgeRequest.request.content_drafts[0].before_content, "old");
+  assert.equal(capture.capturedFileCount, 1);
+  assert.equal(capture.files[0].before.contentHash, "sha256-old");
+  assert.equal(capture.contentFiles[0].before.content, "old");
 });
 
 test("workspace restore runner can be configured from env", () => {

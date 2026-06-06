@@ -2452,6 +2452,24 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "workspace-snapshot-capture-live-bridge",
+    /WorkspaceSnapshotCaptureCore/.test(workspaceRestoreKernel) &&
+      /capture_files/.test(workspaceRestoreKernel) &&
+      /WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
+      /WORKSPACE_SNAPSHOT_CAPTURE_RESULT_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
+      /WorkspaceSnapshotCaptureBridgeRequest/.test(bridgeModule) &&
+      /capture_workspace_snapshot_files/.test(bridgeModule) &&
+      /rust_workspace_snapshot_capture_command/.test(bridgeModule) &&
+      /workspace_snapshot_capture_invalid/.test(bridgeModule) &&
+      /bridge_captures_workspace_snapshot_files_through_rust_core/.test(bridgeModule),
+    [
+      "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10 is pending: workspace snapshot capture must be produced by the Rust daemon core and exposed through the command bridge",
+  );
+  assertCheck(
+    result,
     "workspace-restore-daemon-runner",
     /WORKSPACE_RESTORE_COMMAND_ENV/.test(workspaceRestoreRunner) &&
       /IOI_WORKSPACE_RESTORE_COMMAND/.test(workspaceRestoreRunner) &&
@@ -2462,9 +2480,11 @@ function runBridge() {
       /planApplyPolicy/.test(workspaceRestoreRunner) &&
       /previewOperations/.test(workspaceRestoreRunner) &&
       /applyOperations/.test(workspaceRestoreRunner) &&
+      /captureSnapshotFiles/.test(workspaceRestoreRunner) &&
       /plan_workspace_restore_apply_policy/.test(workspaceRestoreRunner) &&
       /preview_workspace_restore_operations/.test(workspaceRestoreRunner) &&
       /apply_workspace_restore_operations/.test(workspaceRestoreRunner) &&
+      /capture_workspace_snapshot_files/.test(workspaceRestoreRunner) &&
       /rust_workspace_restore/.test(workspaceRestoreRunner) &&
       /workspace_restore_bridge_unconfigured/.test(workspaceRestoreRunner) &&
       /workspace restore runner sends apply policy bridge request/.test(
@@ -2474,6 +2494,9 @@ function runBridge() {
         workspaceRestoreRunnerTest,
       ) &&
       /workspace restore runner sends apply operations bridge request/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
+      /workspace restore runner sends snapshot capture bridge request/.test(
         workspaceRestoreRunnerTest,
       ) &&
       /workspace restore runner fails closed without command/.test(
@@ -2486,15 +2509,20 @@ function runBridge() {
       /planWorkspaceRestoreApplyPolicy/.test(runtimeWorkspaceSnapshotSurface) &&
       /previewWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
       /applyWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
+      /captureWorkspaceSnapshotFiles/.test(runtimeWorkspaceSnapshotSurface) &&
       /workspace_restore_bridge_unconfigured/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestoreApplyApprovalForRequest/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestoreApplyAllowsConflicts/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestoreApplyPolicyDecisionRefs/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestorePreviewOperation/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestoreApplyOperations/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/workspaceSnapshotFileForPatch/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/workspaceSnapshotContentDraftsByPath/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestorePreviewOperation/.test(workspaceRestoreHelpers) &&
       !/workspaceRestoreApplyOperations/.test(workspaceRestoreHelpers) &&
       !/applyWorkspaceRestoreFile/.test(workspaceRestoreHelpers) &&
+      !/workspaceSnapshotFileForPatch/.test(workspaceRestoreHelpers) &&
+      !/workspaceSnapshotCaptureSide/.test(workspaceRestoreHelpers) &&
       /workspaceRestoreRunner/.test(runtimeWorkspaceSnapshotSurfaceTest),
     [
       "packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs",

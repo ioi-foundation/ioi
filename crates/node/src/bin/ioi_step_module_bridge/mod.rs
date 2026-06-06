@@ -30,6 +30,7 @@ use ioi_services::agentic::runtime::kernel::step_router::StepModuleRouterCore;
 use ioi_services::agentic::runtime::kernel::workspace_restore::{
     WorkspaceRestoreApplyPolicyCore, WorkspaceRestoreApplyPolicyRequest,
     WorkspaceRestoreOperationsCore, WorkspaceRestoreOperationsRequest,
+    WorkspaceSnapshotCaptureCore, WorkspaceSnapshotCaptureRequest,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -243,6 +244,16 @@ struct WorkspaceRestoreOperationsBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct WorkspaceSnapshotCaptureBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: WorkspaceSnapshotCaptureRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -400,6 +411,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             apply_workspace_restore_operations(request)
+        }
+        "capture_workspace_snapshot_files" => {
+            let request: WorkspaceSnapshotCaptureBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            capture_workspace_snapshot_files(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -1316,6 +1333,41 @@ fn apply_workspace_restore_operations(
         "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
         "operation": "apply_workspace_restore_operations",
         "operations": operations,
+    }))
+}
+
+fn capture_workspace_snapshot_files(
+    request: WorkspaceSnapshotCaptureBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "capture_workspace_snapshot_files" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let capture = WorkspaceSnapshotCaptureCore
+        .capture_files(&request.request)
+        .map_err(|error| {
+            BridgeError::new("workspace_snapshot_capture_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_workspace_snapshot_capture_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "capture": capture.clone(),
+        "files": capture.files.clone(),
+        "content_files": capture.content_files.clone(),
+        "captured_file_count": capture.captured_file_count,
+        "omitted_file_count": capture.omitted_file_count,
+        "content_captured": capture.content_captured,
     }))
 }
 
@@ -5215,6 +5267,54 @@ mod tests {
         assert_eq!(response["operations"][0]["apply_status"], "applied");
         assert_eq!(fs::read_to_string(&target).expect("restored"), "old");
         let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn bridge_captures_workspace_snapshot_files_through_rust_core() {
+        let old_hash = sha256_hex(b"old").expect("old hash");
+        let new_hash = sha256_hex(b"new").expect("new hash");
+        let request: WorkspaceSnapshotCaptureBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "capture_workspace_snapshot_files",
+            "backend": "rust_workspace_restore",
+            "request": {
+                "schema_version": "ioi.workspace_snapshot_capture_request.v1",
+                "max_content_bytes": 262144,
+                "changed_files": [
+                    {
+                        "path": "src/app.js",
+                        "before_hash": old_hash,
+                        "after_hash": new_hash,
+                        "before_exists": true,
+                        "after_exists": true,
+                        "before_size_bytes": 3,
+                        "after_size_bytes": 3
+                    }
+                ],
+                "content_drafts": [
+                    {
+                        "path": "src/app.js",
+                        "before_content": "old",
+                        "after_content": "new"
+                    }
+                ]
+            }
+        }))
+        .expect("workspace snapshot capture bridge request");
+
+        let response =
+            capture_workspace_snapshot_files(request).expect("workspace snapshot files captured");
+
+        assert_eq!(
+            response["source"],
+            "rust_workspace_snapshot_capture_command"
+        );
+        assert_eq!(response["backend"], "rust_workspace_restore");
+        assert_eq!(response["captured_file_count"], 1);
+        assert_eq!(response["omitted_file_count"], 0);
+        assert_eq!(response["files"][0]["path"], "src/app.js");
+        assert_eq!(response["files"][0]["before"]["content"].is_null(), true);
+        assert_eq!(response["content_files"][0]["before"]["content"], "old");
     }
 
     #[test]

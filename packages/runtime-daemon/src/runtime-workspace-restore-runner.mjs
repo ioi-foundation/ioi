@@ -7,6 +7,8 @@ export const WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION =
   "ioi.workspace_restore_preview_operations_request.v1";
 export const WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION =
   "ioi.workspace_restore_apply_operations_request.v1";
+export const WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION =
+  "ioi.workspace_snapshot_capture_request.v1";
 export const WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.workspace_restore_apply_policy_request.v1";
 export const RUST_WORKSPACE_RESTORE_BACKEND = "rust_workspace_restore";
@@ -51,6 +53,7 @@ export class RustWorkspaceRestoreRunner {
       request: {
         ...(objectRecord(request) ?? {}),
         schema_version: WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
+        files: normalizeRestoreFilesForBridge(request?.files),
       },
     };
     return normalizeWorkspaceRestoreOperationsBridgeResult(this.invokeBridge(bridgeRequest)).operations;
@@ -64,9 +67,27 @@ export class RustWorkspaceRestoreRunner {
       request: {
         ...(objectRecord(request) ?? {}),
         schema_version: WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
+        files: normalizeRestoreFilesForBridge(request?.files),
       },
     };
     return normalizeWorkspaceRestoreOperationsBridgeResult(this.invokeBridge(bridgeRequest)).operations;
+  }
+
+  captureSnapshotFiles(request) {
+    const bridgeRequest = {
+      schema_version: WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION,
+      operation: "capture_workspace_snapshot_files",
+      backend: RUST_WORKSPACE_RESTORE_BACKEND,
+      request: {
+        schema_version: WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
+        changed_files: normalizeSnapshotChangedFilesForBridge(request?.changed_files ?? request?.changedFiles),
+        content_drafts: normalizeSnapshotContentDraftsForBridge(
+          request?.content_drafts ?? request?.contentDrafts ?? request?.workspace_snapshot_drafts ?? request?.workspaceSnapshotDrafts,
+        ),
+        max_content_bytes: Number(request?.max_content_bytes ?? request?.maxContentBytes ?? 0) || undefined,
+      },
+    };
+    return normalizeWorkspaceSnapshotCaptureBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
   invokeBridge(request) {
@@ -193,9 +214,132 @@ export function normalizeWorkspaceRestoreOperationsBridgeResult(value = {}) {
   };
 }
 
+export function normalizeWorkspaceSnapshotCaptureBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const capture = objectRecord(result.capture) ?? {};
+  const files = normalizeSnapshotCapturedFiles(result.files ?? capture.files);
+  const contentFiles = normalizeSnapshotCapturedFiles(result.content_files ?? capture.content_files);
+  const capturedFileCount = Number(result.captured_file_count ?? capture.captured_file_count ?? 0) || 0;
+  const omittedFileCount = Number(result.omitted_file_count ?? capture.omitted_file_count ?? 0) || 0;
+  return {
+    source: result.source ?? "rust_workspace_snapshot_capture_command",
+    backend: result.backend ?? RUST_WORKSPACE_RESTORE_BACKEND,
+    files,
+    contentFiles,
+    content_files: contentFiles,
+    capturedFileCount,
+    captured_file_count: capturedFileCount,
+    omittedFileCount,
+    omitted_file_count: omittedFileCount,
+    contentCaptured: Boolean(result.content_captured ?? capture.content_captured),
+    content_captured: Boolean(result.content_captured ?? capture.content_captured),
+  };
+}
+
 function normalizeWorkspaceRestoreOperations(value) {
   if (!Array.isArray(value)) return [];
   return value.map((operation) => normalizeWorkspaceRestoreOperation(operation)).filter(Boolean);
+}
+
+function normalizeSnapshotChangedFilesForBridge(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => objectRecord(entry))
+    .filter(Boolean)
+    .map((entry) => ({
+      path: optionalString(entry.path) ?? "",
+      created: Boolean(entry.created),
+      before_hash: optionalString(entry.before_hash ?? entry.beforeHash),
+      after_hash: optionalString(entry.after_hash ?? entry.afterHash),
+      before_exists: Boolean(entry.before_exists ?? entry.beforeExists),
+      after_exists: Object.hasOwn(entry, "after_exists") || Object.hasOwn(entry, "afterExists")
+        ? Boolean(entry.after_exists ?? entry.afterExists)
+        : undefined,
+      before_size_bytes: finiteNumber(entry.before_size_bytes ?? entry.beforeSizeBytes),
+      after_size_bytes: finiteNumber(entry.after_size_bytes ?? entry.afterSizeBytes),
+      before_mtime_ms: finiteNumber(entry.before_mtime_ms ?? entry.beforeMtimeMs),
+      after_mtime_ms: finiteNumber(entry.after_mtime_ms ?? entry.afterMtimeMs),
+    }));
+}
+
+function normalizeSnapshotContentDraftsForBridge(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => objectRecord(entry))
+    .filter(Boolean)
+    .map((entry) => ({
+      path: optionalString(entry.path) ?? "",
+      before_content: typeof entry.before_content === "string" ? entry.before_content : entry.beforeContent,
+      after_content: typeof entry.after_content === "string" ? entry.after_content : entry.afterContent,
+      encoding: optionalString(entry.encoding) ?? "utf8",
+    }));
+}
+
+function normalizeRestoreFilesForBridge(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => objectRecord(entry))
+    .filter(Boolean)
+    .map((entry) => ({
+      path: optionalString(entry.path) ?? "",
+      before: normalizeRestoreSideForBridge(entry.before),
+      after: normalizeRestoreSideForBridge(entry.after),
+    }));
+}
+
+function normalizeRestoreSideForBridge(value) {
+  const side = objectRecord(value) ?? {};
+  return {
+    exists: Boolean(side.exists),
+    content_hash: optionalString(side.content_hash ?? side.contentHash),
+    content: typeof side.content === "string" ? side.content : undefined,
+  };
+}
+
+function normalizeSnapshotCapturedFiles(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => normalizeSnapshotCapturedFile(entry)).filter(Boolean);
+}
+
+function normalizeSnapshotCapturedFile(value) {
+  const record = objectRecord(value);
+  if (!record) return null;
+  return {
+    path: optionalString(record.path) ?? "unknown",
+    created: Boolean(record.created),
+    deleted: Boolean(record.deleted),
+    changed: Boolean(record.changed),
+    before: normalizeSnapshotCapturedSide(record.before),
+    after: normalizeSnapshotCapturedSide(record.after),
+    receiptRefs: stringArray(record.receipt_refs ?? record.receiptRefs) ?? [],
+    receipt_refs: stringArray(record.receipt_refs ?? record.receiptRefs) ?? [],
+    artifactRefs: stringArray(record.artifact_refs ?? record.artifactRefs) ?? [],
+    artifact_refs: stringArray(record.artifact_refs ?? record.artifactRefs) ?? [],
+    encoding: optionalString(record.encoding) ?? undefined,
+  };
+}
+
+function normalizeSnapshotCapturedSide(value) {
+  const side = objectRecord(value) ?? {};
+  const normalized = {
+    exists: Boolean(side.exists),
+    contentHash: optionalString(side.content_hash ?? side.contentHash),
+    content_hash: optionalString(side.content_hash ?? side.contentHash),
+    sizeBytes: Number(side.size_bytes ?? side.sizeBytes ?? 0) || 0,
+    size_bytes: Number(side.size_bytes ?? side.sizeBytes ?? 0) || 0,
+    mtimeMs: finiteNumber(side.mtime_ms ?? side.mtimeMs),
+    mtime_ms: finiteNumber(side.mtime_ms ?? side.mtimeMs),
+    contentCaptured: Boolean(side.content_captured ?? side.contentCaptured),
+    content_captured: Boolean(side.content_captured ?? side.contentCaptured),
+    contentBytes: Number(side.content_bytes ?? side.contentBytes ?? 0) || 0,
+    content_bytes: Number(side.content_bytes ?? side.contentBytes ?? 0) || 0,
+    omittedReason: optionalString(side.omitted_reason ?? side.omittedReason),
+    omitted_reason: optionalString(side.omitted_reason ?? side.omittedReason),
+  };
+  if (typeof side.content === "string") {
+    normalized.content = side.content;
+  }
+  return normalized;
 }
 
 function normalizeWorkspaceRestoreOperation(value) {
@@ -288,6 +432,12 @@ function parseCommandArgs(value) {
 function normalizeArgs(value) {
   if (!Array.isArray(value)) return [];
   return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
+}
+
+function finiteNumber(value) {
+  if (value === null || value === undefined || value === "") return undefined;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
 }
 
 function objectRecord(value) {

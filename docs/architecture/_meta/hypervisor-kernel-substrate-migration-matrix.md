@@ -12061,6 +12061,14 @@ workspace snapshot surface uses the general
 operations, and apply operations, and the old JS restore preview/apply IO
 helpers are removed rather than kept as a shadow fallback.
 
+Slice 335 moves workspace snapshot capture records into Rust: the Rust runtime
+kernel now owns changed-file snapshot capture, content-size/hash validation,
+public/content artifact file record construction, capture counts, and omitted
+content reasons through `WorkspaceSnapshotCaptureCore`; the daemon snapshot
+surface calls `capture_workspace_snapshot_files` through the same
+`IOI_WORKSPACE_RESTORE_COMMAND` bridge and the old JS snapshot capture helper
+body is retired.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

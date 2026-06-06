@@ -17,8 +17,6 @@ import {
   WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
   parseJsonObject,
   workspaceRestoreOperationCounts,
-  workspaceSnapshotContentDraftsByPath,
-  workspaceSnapshotFileForPatch,
 } from "./workspace-restore.mjs";
 import { doctorHash, normalizeArray, optionalString, safeId } from "./runtime-value-helpers.mjs";
 
@@ -68,21 +66,15 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     { threadId, turnId, workspaceRoot, toolCallId, workflowGraphId, workflowNodeId, result = {} } = {},
   ) {
     if (!result?.applied) return null;
-    const contentDraftsByPath = workspaceSnapshotContentDraftsByPath(
-      result.workspaceSnapshotDrafts ?? result.workspace_snapshot_drafts,
-    );
-    const captureRecords = normalizeArray(result.changedFiles)
-      .filter((entry) => optionalString(entry?.path))
-      .map((entry) =>
-        workspaceSnapshotFileForPatch(entry, contentDraftsByPath.get(optionalString(entry?.path) ?? ""), {
-          maxContentBytes: WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
-        }),
-      );
-    const files = captureRecords.map((capture) => capture.publicFile);
-    const contentFiles = captureRecords.map((capture) => capture.contentFile);
+    const capture = captureWorkspaceSnapshotFiles({
+      changedFiles: result.changedFiles ?? result.changed_files,
+      contentDrafts: result.workspaceSnapshotDrafts ?? result.workspace_snapshot_drafts,
+    });
+    const files = capture.files;
+    const contentFiles = capture.contentFiles ?? capture.content_files ?? [];
     if (!files.length) return null;
-    const capturedFileCount = captureRecords.filter((capture) => capture.contentCaptured).length;
-    const omittedFileCount = captureRecords.length - capturedFileCount;
+    const capturedFileCount = Number(capture.capturedFileCount ?? capture.captured_file_count ?? 0) || 0;
+    const omittedFileCount = Number(capture.omittedFileCount ?? capture.omitted_file_count ?? 0) || 0;
     const previewSupported = omittedFileCount === 0;
     const core = {
       schemaVersion: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
@@ -686,6 +678,22 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         allow_conflicts: Boolean(allowConflicts),
       }),
     );
+  }
+
+  function captureWorkspaceSnapshotFiles({ changedFiles, contentDrafts } = {}) {
+    if (!workspaceRestoreRunner?.captureSnapshotFiles) {
+      throw runtimeError({
+        status: 502,
+        code: "workspace_restore_bridge_unconfigured",
+        message: "Workspace snapshot capture requires the Rust workspace restore bridge.",
+        details: {},
+      });
+    }
+    return workspaceRestoreRunner.captureSnapshotFiles({
+      changedFiles: normalizeArray(changedFiles),
+      contentDrafts: normalizeArray(contentDrafts),
+      maxContentBytes: WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
+    });
   }
 
   function workspaceRestoreOperationApplyReason(policyPlan, operation) {

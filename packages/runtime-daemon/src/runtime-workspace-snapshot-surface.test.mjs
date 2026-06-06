@@ -116,6 +116,20 @@ function createSurface() {
         };
       });
     },
+    captureSnapshotFiles(request = {}) {
+      const draftsByPath = new Map((request.contentDrafts ?? []).map((draft) => [draft.path, draft]));
+      const captures = (request.changedFiles ?? [])
+        .filter((entry) => entry.path)
+        .map((entry) => snapshotCapture(entry, draftsByPath.get(entry.path) ?? {}));
+      const capturedFileCount = captures.filter((capture) => capture.contentCaptured).length;
+      return {
+        files: captures.map((capture) => capture.publicFile),
+        contentFiles: captures.map((capture) => capture.contentFile),
+        capturedFileCount,
+        omittedFileCount: captures.length - capturedFileCount,
+        contentCaptured: capturedFileCount === captures.length,
+      };
+    },
   };
   const surface = createRuntimeWorkspaceSnapshotSurface({
     notFound,
@@ -127,6 +141,77 @@ function createSurface() {
     },
   });
   return { surface, writes };
+}
+
+function snapshotCapture(entry = {}, draft = {}) {
+  const beforeExists = Boolean(entry.beforeExists ?? entry.before_exists);
+  const afterExists = Object.hasOwn(entry, "afterExists") || Object.hasOwn(entry, "after_exists")
+    ? Boolean(entry.afterExists ?? entry.after_exists)
+    : true;
+  const beforeHash = entry.beforeHash ?? entry.before_hash ?? null;
+  const afterHash = entry.afterHash ?? entry.after_hash ?? null;
+  const before = snapshotCaptureSide(beforeExists, beforeHash, draft.beforeContent ?? draft.before_content);
+  const after = snapshotCaptureSide(afterExists, afterHash, draft.afterContent ?? draft.after_content);
+  const publicFile = {
+    path: entry.path,
+    created: Boolean(entry.created),
+    deleted: beforeExists && !afterExists,
+    changed: beforeHash !== afterHash,
+    before: before.publicSide,
+    after: after.publicSide,
+    receiptRefs: [],
+    receipt_refs: [],
+    artifactRefs: [],
+    artifact_refs: [],
+  };
+  return {
+    publicFile,
+    contentFile: {
+      ...publicFile,
+      before: before.contentSide,
+      after: after.contentSide,
+      encoding: "utf8",
+    },
+    contentCaptured: before.captured && after.captured,
+  };
+}
+
+function snapshotCaptureSide(exists, contentHash, content) {
+  if (!exists) {
+    const side = {
+      exists: false,
+      contentHash,
+      content_hash: contentHash,
+      sizeBytes: 0,
+      size_bytes: 0,
+      mtimeMs: null,
+      mtime_ms: null,
+      contentCaptured: true,
+      content_captured: true,
+      contentBytes: 0,
+      content_bytes: 0,
+      omittedReason: null,
+      omitted_reason: null,
+    };
+    return { publicSide: side, contentSide: { ...side, content: null }, captured: true };
+  }
+  const captured = typeof content === "string" && (!contentHash || hash(content) === contentHash);
+  const side = {
+    exists: true,
+    contentHash,
+    content_hash: contentHash,
+    sizeBytes: content ? Buffer.byteLength(content, "utf8") : 0,
+    size_bytes: content ? Buffer.byteLength(content, "utf8") : 0,
+    mtimeMs: null,
+    mtime_ms: null,
+    contentCaptured: captured,
+    content_captured: captured,
+    contentBytes: content ? Buffer.byteLength(content, "utf8") : 0,
+    content_bytes: content ? Buffer.byteLength(content, "utf8") : 0,
+    omittedReason: captured ? null : "snapshot_content_missing",
+    omitted_reason: captured ? null : "snapshot_content_missing",
+  };
+  return { publicSide: side, contentSide: { ...side, content: captured ? content : null }, captured };
 }
 
 function previewOperation(workspaceRoot, file = {}) {

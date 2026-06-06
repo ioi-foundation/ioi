@@ -85,6 +85,7 @@ use workspace_restore::{
     WorkspaceRestoreApplyPolicyPlan, WorkspaceRestoreApplyPolicyRequest,
     WorkspaceRestoreOperationError, WorkspaceRestoreOperationRecord,
     WorkspaceRestoreOperationsCore, WorkspaceRestoreOperationsRequest,
+    WorkspaceSnapshotCaptureCore, WorkspaceSnapshotCaptureRequest, WorkspaceSnapshotCaptureResult,
 };
 
 use ioi_types::app::ApprovalAuthority;
@@ -402,5 +403,12 @@ impl RuntimeKernelService {
         request: &WorkspaceRestoreOperationsRequest,
     ) -> Result<Vec<WorkspaceRestoreOperationRecord>, WorkspaceRestoreOperationError> {
         WorkspaceRestoreOperationsCore.apply_operations(request)
+    }
+
+    pub fn capture_workspace_snapshot_files(
+        &self,
+        request: &WorkspaceSnapshotCaptureRequest,
+    ) -> Result<WorkspaceSnapshotCaptureResult, WorkspaceRestoreOperationError> {
+        WorkspaceSnapshotCaptureCore.capture_files(request)
     }
 }

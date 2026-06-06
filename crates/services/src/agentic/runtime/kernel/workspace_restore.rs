@@ -11,12 +11,177 @@ pub const WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION: &str =
     "ioi.workspace_restore_preview_operations_request.v1";
 pub const WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION: &str =
     "ioi.workspace_restore_apply_operations_request.v1";
+pub const WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.workspace_snapshot_capture_request.v1";
+pub const WORKSPACE_SNAPSHOT_CAPTURE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.workspace_snapshot_capture_result.v1";
 pub const WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.workspace_restore_apply_policy_request.v1";
 pub const WORKSPACE_RESTORE_APPLY_POLICY_PLAN_SCHEMA_VERSION: &str =
     "ioi.workspace_restore_apply_policy_plan.v1";
 pub const WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES: u64 = 256 * 1024;
 pub const WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES: u64 = 32 * 1024;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkspaceSnapshotCaptureRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub changed_files: Vec<WorkspaceSnapshotChangedFile>,
+    #[serde(default)]
+    pub content_drafts: Vec<WorkspaceSnapshotContentDraft>,
+    #[serde(default)]
+    pub max_content_bytes: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkspaceSnapshotChangedFile {
+    pub path: String,
+    #[serde(default)]
+    pub created: bool,
+    #[serde(default)]
+    pub before_hash: Option<String>,
+    #[serde(default)]
+    pub after_hash: Option<String>,
+    #[serde(default)]
+    pub before_exists: bool,
+    #[serde(default)]
+    pub after_exists: Option<bool>,
+    #[serde(default)]
+    pub before_size_bytes: Option<u64>,
+    #[serde(default)]
+    pub after_size_bytes: Option<u64>,
+    #[serde(default)]
+    pub before_mtime_ms: Option<Value>,
+    #[serde(default)]
+    pub after_mtime_ms: Option<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkspaceSnapshotContentDraft {
+    pub path: String,
+    #[serde(default)]
+    pub before_content: Option<String>,
+    #[serde(default)]
+    pub after_content: Option<String>,
+    #[serde(default)]
+    pub encoding: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkspaceSnapshotCaptureResult {
+    pub schema_version: String,
+    #[serde(default)]
+    pub files: Vec<WorkspaceSnapshotCapturedFile>,
+    #[serde(default)]
+    pub content_files: Vec<WorkspaceSnapshotCapturedFile>,
+    pub captured_file_count: u64,
+    pub omitted_file_count: u64,
+    pub content_captured: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkspaceSnapshotCapturedFile {
+    pub path: String,
+    pub created: bool,
+    pub deleted: bool,
+    pub changed: bool,
+    pub before: WorkspaceSnapshotCapturedSide,
+    pub after: WorkspaceSnapshotCapturedSide,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub artifact_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encoding: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkspaceSnapshotCapturedSide {
+    pub exists: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_hash: Option<String>,
+    pub size_bytes: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mtime_ms: Option<Value>,
+    pub content_captured: bool,
+    pub content_bytes: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub omitted_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct WorkspaceSnapshotCaptureRecord {
+    public_file: WorkspaceSnapshotCapturedFile,
+    content_file: WorkspaceSnapshotCapturedFile,
+    content_captured: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct WorkspaceSnapshotCaptureSideRecord {
+    public_side: WorkspaceSnapshotCapturedSide,
+    content_side: WorkspaceSnapshotCapturedSide,
+    captured: bool,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct WorkspaceSnapshotCaptureCore;
+
+impl WorkspaceSnapshotCaptureCore {
+    pub fn capture_files(
+        &self,
+        request: &WorkspaceSnapshotCaptureRequest,
+    ) -> Result<WorkspaceSnapshotCaptureResult, WorkspaceRestoreOperationError> {
+        request.validate()?;
+        let max_content_bytes = request
+            .max_content_bytes
+            .unwrap_or(WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES);
+        let captures = request
+            .changed_files
+            .iter()
+            .filter(|entry| !entry.path.trim().is_empty())
+            .map(|entry| {
+                capture_snapshot_file(
+                    entry,
+                    content_draft_for_path(&request.content_drafts, &entry.path),
+                    max_content_bytes,
+                )
+            })
+            .collect::<Vec<_>>();
+        let captured_file_count = captures
+            .iter()
+            .filter(|capture| capture.content_captured)
+            .count() as u64;
+        let omitted_file_count = captures.len() as u64 - captured_file_count;
+        Ok(WorkspaceSnapshotCaptureResult {
+            schema_version: WORKSPACE_SNAPSHOT_CAPTURE_RESULT_SCHEMA_VERSION.to_string(),
+            files: captures
+                .iter()
+                .map(|capture| capture.public_file.clone())
+                .collect(),
+            content_files: captures
+                .iter()
+                .map(|capture| capture.content_file.clone())
+                .collect(),
+            captured_file_count,
+            omitted_file_count,
+            content_captured: omitted_file_count == 0,
+        })
+    }
+}
+
+impl WorkspaceSnapshotCaptureRequest {
+    fn validate(&self) -> Result<(), WorkspaceRestoreOperationError> {
+        if self.schema_version != WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION {
+            return Err(WorkspaceRestoreOperationError::InvalidSchemaVersion {
+                expected: WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkspaceRestoreOperationsRequest {
@@ -532,6 +697,175 @@ const CONFLICT_OVERRIDE_POLICIES: [&str; 6] = [
     "force_apply",
     "apply_with_conflicts",
 ];
+
+fn capture_snapshot_file(
+    entry: &WorkspaceSnapshotChangedFile,
+    draft: Option<&WorkspaceSnapshotContentDraft>,
+    max_content_bytes: u64,
+) -> WorkspaceSnapshotCaptureRecord {
+    let path = entry.path.trim().to_string();
+    let before_hash = trim_optional_string(entry.before_hash.as_deref());
+    let after_hash = trim_optional_string(entry.after_hash.as_deref());
+    let before_exists = entry.before_exists;
+    let after_exists = entry.after_exists.unwrap_or(true);
+    let before = capture_snapshot_side(
+        before_exists,
+        before_hash.clone(),
+        entry.before_size_bytes.unwrap_or(0),
+        entry.before_mtime_ms.clone(),
+        draft.and_then(|draft| draft.before_content.clone()),
+        max_content_bytes,
+    );
+    let after = capture_snapshot_side(
+        after_exists,
+        after_hash.clone(),
+        if after_exists {
+            entry.after_size_bytes.unwrap_or(0)
+        } else {
+            0
+        },
+        entry.after_mtime_ms.clone(),
+        draft.and_then(|draft| draft.after_content.clone()),
+        max_content_bytes,
+    );
+    let common = WorkspaceSnapshotCapturedFile {
+        path,
+        created: entry.created,
+        deleted: before_exists && !after_exists,
+        changed: before_hash != after_hash,
+        before: before.public_side.clone(),
+        after: after.public_side.clone(),
+        receipt_refs: Vec::new(),
+        artifact_refs: Vec::new(),
+        encoding: None,
+    };
+    let content_file = WorkspaceSnapshotCapturedFile {
+        before: before.content_side.clone(),
+        after: after.content_side.clone(),
+        encoding: Some(
+            trim_optional_string(draft.and_then(|draft| draft.encoding.as_deref()))
+                .unwrap_or_else(|| "utf8".to_string()),
+        ),
+        ..common.clone()
+    };
+    WorkspaceSnapshotCaptureRecord {
+        public_file: common,
+        content_file,
+        content_captured: before.captured && after.captured,
+    }
+}
+
+fn capture_snapshot_side(
+    exists: bool,
+    content_hash: Option<String>,
+    size_bytes: u64,
+    mtime_ms: Option<Value>,
+    content: Option<String>,
+    max_content_bytes: u64,
+) -> WorkspaceSnapshotCaptureSideRecord {
+    if !exists {
+        let side = WorkspaceSnapshotCapturedSide {
+            exists,
+            content_hash,
+            size_bytes: 0,
+            mtime_ms,
+            content_captured: true,
+            content_bytes: 0,
+            omitted_reason: None,
+            content: None,
+        };
+        return WorkspaceSnapshotCaptureSideRecord {
+            public_side: side.clone(),
+            content_side: side,
+            captured: true,
+        };
+    }
+    let Some(content) = content else {
+        let side = WorkspaceSnapshotCapturedSide {
+            exists,
+            content_hash,
+            size_bytes,
+            mtime_ms,
+            content_captured: false,
+            content_bytes: 0,
+            omitted_reason: Some("snapshot_content_missing".to_string()),
+            content: None,
+        };
+        return WorkspaceSnapshotCaptureSideRecord {
+            public_side: side.clone(),
+            content_side: side,
+            captured: false,
+        };
+    };
+    let content_bytes = content.as_bytes().len() as u64;
+    if content_bytes > max_content_bytes {
+        let side = WorkspaceSnapshotCapturedSide {
+            exists,
+            content_hash,
+            size_bytes,
+            mtime_ms,
+            content_captured: false,
+            content_bytes,
+            omitted_reason: Some("snapshot_content_size_limit_exceeded".to_string()),
+            content: None,
+        };
+        return WorkspaceSnapshotCaptureSideRecord {
+            public_side: side.clone(),
+            content_side: side,
+            captured: false,
+        };
+    }
+    if content_hash
+        .as_deref()
+        .map(|hash| sha256_hex(&content) != hash)
+        .unwrap_or(false)
+    {
+        let side = WorkspaceSnapshotCapturedSide {
+            exists,
+            content_hash,
+            size_bytes,
+            mtime_ms,
+            content_captured: false,
+            content_bytes,
+            omitted_reason: Some("snapshot_content_hash_mismatch".to_string()),
+            content: None,
+        };
+        return WorkspaceSnapshotCaptureSideRecord {
+            public_side: side.clone(),
+            content_side: side,
+            captured: false,
+        };
+    }
+    let public_side = WorkspaceSnapshotCapturedSide {
+        exists,
+        content_hash: content_hash.clone(),
+        size_bytes,
+        mtime_ms: mtime_ms.clone(),
+        content_captured: true,
+        content_bytes,
+        omitted_reason: None,
+        content: None,
+    };
+    let content_side = WorkspaceSnapshotCapturedSide {
+        content: Some(content),
+        ..public_side.clone()
+    };
+    WorkspaceSnapshotCaptureSideRecord {
+        public_side,
+        content_side,
+        captured: true,
+    }
+}
+
+fn content_draft_for_path<'a>(
+    drafts: &'a [WorkspaceSnapshotContentDraft],
+    path: &str,
+) -> Option<&'a WorkspaceSnapshotContentDraft> {
+    let target = path.trim();
+    drafts
+        .iter()
+        .find(|draft| draft.path.trim() == target && !target.is_empty())
+}
 
 fn preview_operation(
     workspace_root: &str,
@@ -1152,6 +1486,47 @@ mod tests {
                 content: None,
             },
         }
+    }
+
+    #[test]
+    fn workspace_snapshot_capture_records_public_and_content_files_from_rust_core() {
+        let request = WorkspaceSnapshotCaptureRequest {
+            schema_version: WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION.to_string(),
+            changed_files: vec![WorkspaceSnapshotChangedFile {
+                path: "src/app.js".to_string(),
+                created: false,
+                before_hash: Some(sha256_hex("old")),
+                after_hash: Some(sha256_hex("new")),
+                before_exists: true,
+                after_exists: Some(true),
+                before_size_bytes: Some(3),
+                after_size_bytes: Some(3),
+                before_mtime_ms: None,
+                after_mtime_ms: None,
+            }],
+            content_drafts: vec![WorkspaceSnapshotContentDraft {
+                path: "src/app.js".to_string(),
+                before_content: Some("old".to_string()),
+                after_content: Some("new".to_string()),
+                encoding: None,
+            }],
+            max_content_bytes: Some(WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES),
+        };
+
+        let capture = WorkspaceSnapshotCaptureCore
+            .capture_files(&request)
+            .expect("snapshot capture");
+
+        assert_eq!(capture.files.len(), 1);
+        assert_eq!(capture.captured_file_count, 1);
+        assert_eq!(capture.omitted_file_count, 0);
+        assert_eq!(capture.files[0].path, "src/app.js");
+        assert_eq!(capture.files[0].before.content, None);
+        assert_eq!(
+            capture.content_files[0].before.content.as_deref(),
+            Some("old")
+        );
+        assert!(capture.content_captured);
     }
 
     #[test]
