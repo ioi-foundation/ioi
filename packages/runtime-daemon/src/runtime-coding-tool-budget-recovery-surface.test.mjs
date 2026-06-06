@@ -93,7 +93,7 @@ function createBlockedEvent(overrides = {}) {
       approval_id: "approval_budget",
       target_node_ids: ["node_budget"],
       recovery_policy: {
-        retryLimit: 1,
+        retry_limit: 1,
       },
     },
     ...overrides,
@@ -297,6 +297,9 @@ test("budget recovery surface ignores retired request identity aliases", () => {
           recovery_policy: {
             retryLimit: 1,
           },
+          approvalId: "approval_payload_retired",
+          workflowGraphId: "graph_payload_retired",
+          workflowNodeId: "node_payload_retired",
         },
       }),
     ],
@@ -358,6 +361,47 @@ test("budget recovery surface ignores retired request identity aliases", () => {
   ]) {
     assert.equal(Object.hasOwn(request.approval_manifest, alias), false);
   }
+});
+
+test("budget recovery surface ignores retired blocked payload aliases", () => {
+  const surface = createSurface();
+  const store = createStore({
+    initialEvents: [
+      createBlockedEvent({
+        workflow_graph_id: null,
+        workflow_node_id: null,
+        approval_id: null,
+        payload_summary: {
+          reason: "workflow_run_coding_tool_budget_preflight_blocked",
+          approvalId: "approval_payload_retired",
+          workflowGraphId: "graph_payload_retired",
+          workflowNodeId: "node_payload_retired",
+          targetNodeIds: ["node_payload_retired"],
+          approvalManifest: {
+            recoveryPolicy: {
+              retryLimit: 9,
+              requiresApproval: false,
+            },
+          },
+          recoveryPolicy: {
+            retryLimit: 8,
+            requiresApproval: false,
+          },
+        },
+      }),
+    ],
+  });
+
+  const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
+    action: "request_approval",
+  });
+
+  assert.equal(result.approval_id, "approval_workflow_run_coding_tool_budget_run_alpha_event_budget_blocked");
+  assert.equal(result.workflow_graph_id, null);
+  assert.equal(result.workflow_node_id, "runtime.coding-tool-budget-recovery");
+  assert.deepEqual(result.target_node_ids, []);
+  assert.equal(result.recovery_policy.requires_approval, true);
+  assert.equal(result.recovery_policy.retry_limit, 1);
 });
 
 test("budget recovery surface blocks retry until approval is requested and approved", () => {
@@ -427,6 +471,34 @@ test("budget recovery surface records approved retry and enforces retry limit", 
   assert.equal(limit.status, "blocked");
   assert.equal(limit.reason, "retry_limit_exceeded");
   assert.equal(store.events.filter((event) => event.event_kind === "workflow.run.retry_completed").length, 1);
+});
+
+test("budget recovery surface ignores retired retry event identity aliases", () => {
+  const surface = createSurface();
+  const store = createStore();
+
+  surface.codingToolBudgetRecoveryForRun(store, "run_alpha", { action: "request_approval" });
+  surface.codingToolBudgetRecoveryForRun(store, "run_alpha", { action: "approve_override" });
+  store.events.push({
+    event_id: "event_retry_retired_alias",
+    thread_id: "thread_alpha",
+    turn_id: "turn_alpha",
+    event_kind: "workflow.run.retry_completed",
+    payload_summary: {
+      approvalId: "approval_budget",
+      sourceEventId: "event_budget_blocked",
+    },
+  });
+
+  const retry = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
+    action: "retry_approved",
+  });
+
+  assert.equal(retry.status, "completed");
+  assert.equal(
+    store.events.filter((event) => event.event_kind === "workflow.run.retry_completed").length,
+    2,
+  );
 });
 
 test("budget recovery surface accepts canonical retry idempotency key", () => {

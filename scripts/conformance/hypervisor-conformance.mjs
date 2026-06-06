@@ -2460,6 +2460,48 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "coding-tool-budget-recovery-blocked-payload-aliases-retired",
+    /budget recovery ignores retired blocked payload aliases/.test(
+      runtimeCodingToolBudgetRecoveryTest,
+    ) &&
+      /budget recovery surface ignores retired blocked payload aliases/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /budget recovery surface ignores retired retry event identity aliases/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /approvalId: "approval_payload_retired"/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /workflowNodeId: "node_payload_retired"/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /targetNodeIds: \["node_payload_retired"\]/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /sourceEventId: "event_budget_blocked"/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      !/blockedPayload\.(?:approvalManifest|recoveryPolicy|targetNodeIds|workflowGraphId|workflowNodeId|approvalId)\b/.test(
+        runtimeCodingToolBudgetRecovery,
+      ) &&
+      !/manifest\.recoveryPolicy\b/.test(runtimeCodingToolBudgetRecovery) &&
+      !/blockedPayload\.(?:approvalId|workflowGraphId|workflowNodeId)\b/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      !/payload\.(?:approvalId|sourceEventId)\b/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool budget recovery blocked-event payloads and retry accounting must use canonical snake_case fields without retired camelCase fallbacks",
+  );
+  assertCheck(
+    result,
     "diagnostics-operator-override-state-update-live-bridge",
     /DiagnosticsOperatorOverrideStateUpdateCore/.test(policyCore) &&
       /DiagnosticsOperatorOverrideStateUpdateRequest/.test(policyCore) &&

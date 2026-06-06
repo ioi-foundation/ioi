@@ -52,10 +52,10 @@ export function createCodingToolBudgetRecovery(deps = {}) {
   function codingToolBudgetRecoveryTargetNodeIds({ request = {}, blockedEvent = null, blockedPayload = {} }) {
     return uniqueStrings([
       ...normalizeArray(request.target_node_ids),
-      ...normalizeArray(blockedPayload.target_node_ids ?? blockedPayload.targetNodeIds),
+      ...normalizeArray(blockedPayload.target_node_ids),
       optionalString(request.workflow_node_id),
       optionalString(blockedEvent?.workflow_node_id),
-      optionalString(blockedPayload.workflow_node_id ?? blockedPayload.workflowNodeId),
+      optionalString(blockedPayload.workflow_node_id),
     ]);
   }
 
@@ -67,14 +67,11 @@ export function createCodingToolBudgetRecovery(deps = {}) {
   }) {
     const manifest =
       blockedPayload.approval_manifest ??
-      blockedPayload.approvalManifest ??
       {};
     const rawPolicy =
       request.recovery_policy ??
       blockedPayload.recovery_policy ??
-      blockedPayload.recoveryPolicy ??
       manifest.recovery_policy ??
-      manifest.recoveryPolicy ??
       {};
     const policy = rawPolicy && typeof rawPolicy === "object" ? rawPolicy : {};
     const retryLimit = Number(policy.retry_limit ?? request.retry_limit ?? 1);

@@ -15,7 +15,7 @@ function createRecovery() {
       Object.assign(error, payload);
       return error;
     },
-    uniqueStrings: (values = []) => [...new Set((Array.isArray(values) ? values : []).map((value) => String(value)).filter(Boolean))],
+    uniqueStrings: (values = []) => [...new Set((Array.isArray(values) ? values : []).filter(Boolean).map((value) => String(value)))],
   });
 }
 
@@ -88,6 +88,33 @@ test("budget recovery policy applies defaults and bounded retry limit", () => {
   ]) {
     assert.equal(Object.hasOwn(policy, alias), false);
   }
+});
+
+test("budget recovery ignores retired blocked payload aliases", () => {
+  const recovery = createRecovery();
+  const ids = recovery.codingToolBudgetRecoveryTargetNodeIds({
+    blockedPayload: {
+      targetNodeIds: ["node_retired"],
+      workflowNodeId: "node_retired_workflow",
+    },
+  });
+  const policy = recovery.codingToolBudgetRecoveryPolicyFromInputs({
+    blockedPayload: {
+      approvalManifest: {
+        recoveryPolicy: {
+          retryLimit: 9,
+          targetNodeIds: ["node_policy_retired"],
+        },
+      },
+      recoveryPolicy: {
+        retryLimit: 8,
+      },
+    },
+  });
+
+  assert.deepEqual(ids, []);
+  assert.equal(policy.retry_limit, 1);
+  assert.deepEqual(policy.target_node_ids, []);
 });
 
 test("budget recovery detects coding-tool budget blocked runtime events", () => {

@@ -141,15 +141,15 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
     });
     const approvalId =
       optionalString(request.approval_id) ??
-      optionalString(blockedPayload.approval_id ?? blockedPayload.approvalId) ??
+      optionalString(blockedPayload.approval_id) ??
       `approval_workflow_run_coding_tool_budget_${safeId(run.id)}_${safeId(sourceEventId ?? "source")}`;
     const workflowGraphId =
       optionalString(request.workflow_graph_id) ??
-      optionalString(blockedEvent?.workflow_graph_id ?? blockedPayload.workflow_graph_id ?? blockedPayload.workflowGraphId) ??
+      optionalString(blockedEvent?.workflow_graph_id ?? blockedPayload.workflow_graph_id) ??
       null;
     const workflowNodeId =
       optionalString(request.workflow_node_id) ??
-      optionalString(blockedEvent?.workflow_node_id ?? blockedPayload.workflow_node_id ?? blockedPayload.workflowNodeId) ??
+      optionalString(blockedEvent?.workflow_node_id ?? blockedPayload.workflow_node_id) ??
       targetNodeIds[0] ??
       "runtime.coding-tool-budget-recovery";
     const receiptRefs = uniqueStrings([
@@ -306,9 +306,8 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
       return (
         event.approval_id === approvalId ||
         payload.approval_id === approvalId ||
-        payload.approvalId === approvalId ||
         (sourceEventId &&
-          (payload.source_event_id === sourceEventId || payload.sourceEventId === sourceEventId))
+          payload.source_event_id === sourceEventId)
       );
     }).length;
     if (retryCount >= retryLimit) {
