@@ -7681,6 +7681,10 @@ function runCompositor() {
     runtimeMcpHelpers.match(
       /export function mcpLiveExecutionModeForServer\(server, request = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpTransportEvidenceRef/,
     )?.[0] ?? "";
+  const runtimeMcpTransportMetadataBlock =
+    runtimeMcpHelpers.match(
+      /export function mcpTransportEvidenceRef\(transportExecution = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpRegistryWithServers/,
+    )?.[0] ?? "";
   const runtimeMcpToolIdentityHelperBlock =
     runtimeMcpHelpers.match(
       /export function mcpToolKey\(tool = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpCatalogPreviewLimit/,
@@ -10924,6 +10928,13 @@ function runCompositor() {
       /transport_execution:\s*transportExecution/.test(runtimeMcpInvocationEnvelopeBlock) &&
       /receipt_required:\s*true/.test(runtimeMcpInvocationEnvelopeBlock) &&
       /evidence_refs:\s*\[/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /const executionMode = transportExecution\?\.execution_mode/.test(runtimeMcpTransportMetadataBlock) &&
+      /mcpTransportEvidenceRef\(\{ execution_mode: "live_stdio", executionMode: "live_http" \}\), "mcp\.transport\.stdio\.live"/.test(
+        runtimeMcpHelpersTest,
+      ) &&
+      /mcpTransportEvidenceRef\(\{ executionMode: "live_stdio" \}\), "mcp\.manager\.simulated_receipt"/.test(
+        runtimeMcpHelpersTest,
+      ) &&
       /tools\.find\(\(candidate\) => candidate\.tool_name === toolName\)/.test(
         runtimeMcpInvokeThreadToolBlock,
       ) &&
@@ -10945,6 +10956,7 @@ function runCompositor() {
         runtimeMcpInvocationEnvelopeBlock,
       ) &&
       !/^\s*(?:receiptRequired|executionMode)\s*:/m.test(runtimeMcpInvocationEnvelopeBlock) &&
+      !/transportExecution\?\.executionMode/.test(runtimeMcpTransportMetadataBlock) &&
       !/\b(?:candidate|toolEntry)\.(?:toolName|sideEffectClass|workflowNodeId)\b/.test(
         runtimeMcpInvokeThreadToolBlock,
       ) &&

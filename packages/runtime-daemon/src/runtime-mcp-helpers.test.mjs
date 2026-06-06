@@ -10,6 +10,8 @@ import {
   mcpJsonRpcErrorCodeFor,
   mcpJsonRpcResult,
   mcpLiveExecutionModeForServer,
+  mcpTransportEvidenceRef,
+  mcpTransportSummary,
   mcpRegistryWithServers,
   mcpServeAllowedToolIds,
   mcpServeToolCallResult,
@@ -145,6 +147,10 @@ test("runtime MCP helpers shape JSON-RPC envelopes and transport metadata", () =
     mcpLiveExecutionModeForServer({ transport: "fixture", server_url: "http://mcp.test" }, { liveTransport: true }),
     null,
   );
+  assert.equal(mcpTransportEvidenceRef({ execution_mode: "live_stdio", executionMode: "live_http" }), "mcp.transport.stdio.live");
+  assert.equal(mcpTransportSummary({ execution_mode: "live_http", executionMode: "live_stdio" }), "live HTTP transport");
+  assert.equal(mcpTransportEvidenceRef({ executionMode: "live_stdio" }), "mcp.manager.simulated_receipt");
+  assert.equal(mcpTransportSummary({ executionMode: "live_http" }), "containment receipt");
 });
 
 test("runtime MCP helpers summarize and defer large catalogs", () => {

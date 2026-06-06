@@ -251,7 +251,7 @@ export function mcpLiveExecutionModeForServer(server, request = {}) {
 }
 
 export function mcpTransportEvidenceRef(transportExecution = {}) {
-  const executionMode = transportExecution?.executionMode ?? transportExecution?.execution_mode;
+  const executionMode = transportExecution?.execution_mode;
   if (executionMode === "live_stdio") return "mcp.transport.stdio.live";
   if (executionMode === "live_http") return "mcp.transport.http.live";
   if (executionMode === "live_sse") return "mcp.transport.sse.live";
@@ -259,7 +259,7 @@ export function mcpTransportEvidenceRef(transportExecution = {}) {
 }
 
 export function mcpTransportSummary(transportExecution = {}) {
-  const executionMode = transportExecution?.executionMode ?? transportExecution?.execution_mode;
+  const executionMode = transportExecution?.execution_mode;
   if (executionMode === "live_stdio") return "live stdio transport";
   if (executionMode === "live_http") return "live HTTP transport";
   if (executionMode === "live_sse") return "live SSE transport";
