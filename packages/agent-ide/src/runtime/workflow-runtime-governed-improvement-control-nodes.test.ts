@@ -77,6 +77,12 @@ const retiredGovernedImprovementProposalPayloadAliases = [
   "resultingHead",
 ];
 
+const retiredGovernedImprovementWorkflowLogicAliases = [
+  "governedImprovement",
+  "runtimeImprovementProposal",
+  "workflowNodeId",
+];
+
 test("builds governed improvement proposal controls for daemon admission", () => {
   const request = createRuntimeGovernedImprovementControlRequest({
     threadId: "thread-ide",
@@ -180,7 +186,7 @@ test("builds governed improvement controls from workflow proposal nodes", () => 
       type: "proposal",
       config: {
         logic: {
-          governedImprovement: proposal(),
+          proposal: proposal(),
         } as any,
         law: {},
       },
@@ -197,6 +203,29 @@ test("builds governed improvement controls from workflow proposal nodes", () => 
   );
   assert.equal(request.body.workflow_graph_id, "workflow-from-node");
   assert.equal(request.body.actor, "runtime-reviewer");
+});
+
+test("governed improvement controls reject retired workflow logic aliases", () => {
+  for (const key of retiredGovernedImprovementWorkflowLogicAliases) {
+    assert.throws(
+      () =>
+        createRuntimeGovernedImprovementControlRequestFromWorkflowNode(
+          {
+            id: "governed-improvement-node",
+            type: "proposal",
+            config: {
+              logic: {
+                proposal: proposal(),
+                [key]: key === "workflowNodeId" ? "runtime.retired-node-id" : proposal(),
+              } as any,
+              law: {},
+            },
+          },
+          { threadId: "thread-from-node" },
+        ),
+      /retired logic aliases/,
+    );
+  }
 });
 
 test("governed improvement controls fail closed without admission refs", () => {

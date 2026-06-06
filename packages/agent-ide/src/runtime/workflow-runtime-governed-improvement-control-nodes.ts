@@ -43,6 +43,12 @@ const RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_PAYLOAD_FIELDS = [
   "resultingHead",
 ] as const;
 
+const RETIRED_GOVERNED_IMPROVEMENT_WORKFLOW_LOGIC_FIELDS = [
+  "governedImprovement",
+  "runtimeImprovementProposal",
+  "workflowNodeId",
+] as const;
+
 export type RuntimeGovernedImprovementSurface =
   (typeof RUNTIME_GOVERNED_IMPROVEMENT_SURFACES)[number];
 
@@ -308,11 +314,8 @@ export function createRuntimeGovernedImprovementControlRequestFromWorkflowNode(
   options: RuntimeGovernedImprovementWorkflowNodeOptions = {},
 ): RuntimeGovernedImprovementControlRequest {
   const logic = workflowNodeLogic(node);
-  const proposal =
-    objectField(logic, "governedImprovement") ??
-    objectField(logic, "runtimeImprovementProposal") ??
-    objectField(logic, "proposal") ??
-    {};
+  assertCanonicalGovernedImprovementWorkflowLogic(logic);
+  const proposal = objectField(logic, "proposal") ?? {};
   return createRuntimeGovernedImprovementControlRequest({
     nodeId: node.id,
     input,
@@ -320,7 +323,7 @@ export function createRuntimeGovernedImprovementControlRequestFromWorkflowNode(
     proposal,
     workflowGraphId: options.workflowGraphId,
     workflowNodeId:
-      stringField(logic, "workflowNodeId", "workflow_node_id") ??
+      stringField(logic, "workflow_node_id") ??
       `${RUNTIME_GOVERNED_IMPROVEMENT_WORKFLOW_NODE_ID}.${safeId(node.id)}`,
     actor: options.actor,
   });
@@ -370,6 +373,16 @@ function assertCanonicalGovernedImprovementProposalPayload(source: unknown): voi
   if (retiredAliases.length === 0) return;
   throw new Error(
     `governed improvement proposal controls no longer accept retired proposal payload aliases: ${retiredAliases.join(", ")}`,
+  );
+}
+
+function assertCanonicalGovernedImprovementWorkflowLogic(logic: NodeLogic): void {
+  const retiredAliases = RETIRED_GOVERNED_IMPROVEMENT_WORKFLOW_LOGIC_FIELDS.filter((field) =>
+    Object.prototype.hasOwnProperty.call(logic, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new Error(
+    `governed improvement workflow nodes no longer accept retired logic aliases: ${retiredAliases.join(", ")}`,
   );
 }
 

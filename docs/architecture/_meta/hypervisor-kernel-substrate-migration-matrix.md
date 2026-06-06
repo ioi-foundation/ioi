@@ -12017,6 +12017,11 @@ proposal payloads now fail closed on retired camelCase fields such as
 `proposalId`, `approvalRef`, `expectedHeads`, and `stateRootAfter` instead of
 forwarding those aliases inside canonical governed-improvement requests.
 
+Slice 329 retires governed meta-improvement workflow-node logic aliases: IDE
+workflow nodes now use canonical `proposal` and `workflow_node_id` logic fields
+only, and retired `governedImprovement`, `runtimeImprovementProposal`, and
+`workflowNodeId` fallbacks fail closed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

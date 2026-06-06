@@ -2910,6 +2910,37 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "governed-meta-improvement-workflow-logic-aliases-retired",
+    /RETIRED_GOVERNED_IMPROVEMENT_WORKFLOW_LOGIC_FIELDS/.test(
+      governedImprovementControlNodes,
+    ) &&
+      /assertCanonicalGovernedImprovementWorkflowLogic\(logic\);/.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/objectField\(logic,\s*"governedImprovement"\)/.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/objectField\(logic,\s*"runtimeImprovementProposal"\)/.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/stringField\(logic,\s*"workflowNodeId"/.test(
+        governedImprovementControlNodes,
+      ) &&
+      /retiredGovernedImprovementWorkflowLogicAliases/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /governed improvement controls reject retired workflow logic aliases/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /proposal:\s*proposal\(\)/.test(governedImprovementControlNodesTest),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
+    ],
+    "Phase 10/11 is pending: governed-improvement workflow nodes must use canonical proposal and workflow_node_id logic fields without retired governedImprovement/runtimeImprovementProposal/workflowNodeId fallbacks",
+  );
+  assertCheck(
+    result,
     "governed-meta-improvement-sdk-ide-review-surface",
     /admitGovernedImprovementProposal/.test(agentSdkSubstrateClient) &&
       /RuntimeGovernedImprovementProposalAdmissionInput/.test(agentSdkSubstrateClient) &&
