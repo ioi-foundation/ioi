@@ -169,7 +169,7 @@ export function createRuntimeSubagentSurface({
   return {
     listSubagents(store, threadId, options = {}) {
       const parentAgent = store.agentForThread(threadId);
-      const role = optionalStringDep(options.role ?? options.subagent_role);
+      const role = optionalStringDep(options.role);
       const subagents = [...store.subagents.values()]
         .filter((record) => record.parent_thread_id === threadId)
         .filter((record) => !role || record.role === role)
@@ -212,7 +212,7 @@ export function createRuntimeSubagentSurface({
           details: { thread_id: threadId },
         });
       }
-      const role = normalizeSubagentRoleDep(request.role ?? request.subagent_role);
+      const role = normalizeSubagentRoleDep(request.role);
       const maxConcurrency = optionalPositiveIntegerDep(
         request.max_concurrency,
       );
@@ -674,9 +674,7 @@ export function createRuntimeSubagentSurface({
       const previousRunId = record.run_id;
       const previousStatus = record.lifecycle_status ?? record.status ?? null;
       const childAgentId = record.agent_id ?? subagentId;
-      const role = normalizeSubagentRoleDep(
-        request.role ?? request.subagent_role ?? record.role,
-      );
+      const role = normalizeSubagentRoleDep(request.role ?? record.role);
       const modelRouteId =
         optionalStringDep(request.model_route_id) ??
         record.model_route_id ??
@@ -846,9 +844,7 @@ export function createRuntimeSubagentSurface({
     assignSubagent(store, threadId, subagentId, request = {}) {
       const record = store.getSubagent(threadId, subagentId);
       const previousRole = record.role ?? "general";
-      const role = normalizeSubagentRoleDep(
-        request.role ?? request.subagent_role ?? previousRole,
-      );
+      const role = normalizeSubagentRoleDep(request.role ?? previousRole);
       const toolPack =
         optionalStringDep(request.tool_pack) ??
         record.tool_pack ??

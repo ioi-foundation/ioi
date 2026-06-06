@@ -11191,8 +11191,8 @@ evaluation.
 
 Slice 187 adds compositor proof for
 `runtime-subagent-list-request-aliases-retired`: runtime subagent list filters
-read canonical `role` / `subagent_role` only and ignore the retired
-`subagentRole` request alias.
+read canonical `role` only and ignore the retired `subagent_role` /
+`subagentRole` request aliases.
 
 Slice 188 adds compositor proof for
 `runtime-subagent-send-input-request-aliases-retired`: runtime subagent
@@ -11235,8 +11235,8 @@ request type exposes canonical `budget` and no longer advertises the retired
 
 Slice 194 adds compositor proof for
 `agent-sdk-subagent-role-request-type-alias-retired`: the SDK subagent control
-and list request types expose canonical `role`/`subagent_role` and no longer
-advertise the retired `subagentRole` alias.
+and list request types expose canonical `role` and no longer advertise the
+retired `subagent_role` / `subagentRole` aliases.
 
 Slice 195 adds compositor proof for
 `agent-sdk-subagent-tool-pack-request-type-aliases-retired`: the SDK subagent
@@ -12417,6 +12417,11 @@ subagent, agent create/run create, and agent status state-update bridge
 normalization now requires Rust policy output to include an exact or
 namespace-valid operation kind instead of defaulting missing bridge fields in
 JS.
+
+Slice 389 removes the subagent role request alias:
+runtime subagent list/spawn/resume/assign requests and SDK subagent request
+types now use only canonical `role`; the retired `subagent_role` request field
+is ignored by daemon control surfaces and no longer advertised by the SDK.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

@@ -402,7 +402,6 @@ export interface RuntimeSubagentSpawnInput
     RuntimeSubagentBudgetControlInput {
   prompt: string;
   role?: string;
-  subagent_role?: string;
   tool_pack?: string;
   model_route_id?: string;
   max_concurrency?: number;
@@ -445,7 +444,6 @@ export interface RuntimeSubagentResumeInput
     RuntimeSubagentBudgetControlInput {
   prompt?: string;
   role?: string;
-  subagent_role?: string;
   model_route_id?: string;
   output_contract?: string[] | Record<string, unknown>;
   memory?: Record<string, unknown>;
@@ -454,7 +452,6 @@ export interface RuntimeSubagentResumeInput
 
 export interface RuntimeSubagentAssignInput extends RuntimeSubagentRequestMetadataInput {
   role?: string;
-  subagent_role?: string;
   tool_pack?: string;
   model_route_id?: string;
   merge_policy?: string;
@@ -471,7 +468,6 @@ export interface RuntimeSubagentCancellationPropagationInput
 
 export interface RuntimeSubagentListInput {
   role?: string;
-  subagent_role?: string;
   status?: string;
 }
 

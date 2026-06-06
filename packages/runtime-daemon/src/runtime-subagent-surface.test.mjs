@@ -387,6 +387,7 @@ test("subagent surface lists, filters, and projects thread subagents", () => {
 
   const listed = surface.listSubagents(store, "thread_1", { role: "reviewer" });
   const canonicalAliasListed = surface.listSubagents(store, "thread_1", {
+    role: "reviewer",
     subagent_role: "worker",
   });
 
@@ -401,7 +402,7 @@ test("subagent surface lists, filters, and projects thread subagents", () => {
   assertCanonicalSubagentRecordOutput(listed.subagents[1]);
   assert.deepEqual(
     canonicalAliasListed.subagents.map((record) => record.subagent_id),
-    ["subagent_worker"],
+    ["subagent_1", "subagent_2"],
   );
 });
 
@@ -769,6 +770,7 @@ test("subagent spawn ignores retired camelCase request aliases", () => {
     subagent_prompt: "Snake alias spawn request",
     subagentPrompt: "Alias spawn request",
     role: "Planner",
+    subagent_role: "SnakeReviewer",
     subagentRole: "Reviewer",
     tool_pack: "canonical-tools",
     toolPack: "alias-tools",
@@ -1434,6 +1436,7 @@ test("subagent resume ignores retired camelCase request aliases", () => {
     resume_prompt: "Snake alias resume prompt",
     resumePrompt: "Camel alias resume prompt",
     role: "Worker",
+    subagent_role: "SnakeAliasRole",
     subagentRole: "AliasRole",
     model_route_id: "route.resume.canonical",
     modelRouteId: "route.resume.alias",
@@ -1658,7 +1661,8 @@ test("subagent assign ignores retired camelCase request aliases", () => {
 
   const result = surface.assignSubagent(store, "thread_1", "subagent_1", {
     source: "agent_studio",
-    subagent_role: "Auditor",
+    role: "Auditor",
+    subagent_role: "SnakeAliasRole",
     subagentRole: "AliasRole",
     tool_pack: "canonical-tools",
     toolPack: "alias-tools",

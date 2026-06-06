@@ -7471,7 +7471,7 @@ function runCompositor() {
   const runtimeSubagentLifecycleResultEnvelopeAliasPattern =
     /^\s*receiptRefs\s*[:,]/m;
   const runtimeSubagentListRequestAliasReadPattern =
-    /options\.subagentRole\b/;
+    /options\.(?:subagentRole|subagent_role)\b/;
   const runtimeSubagentPropagationRequestAliasPattern =
     /request(?:\.workflowNodeId\b|\[\s*["']workflowNodeId["']\s*\])|^\s*workflowNodeId\s*[:,]/m;
   const runtimeSubagentListLookupRecordAliasReadPattern =
@@ -7495,13 +7495,13 @@ function runCompositor() {
   const runtimeSubagentControlEventRequestAliasReadPattern =
     /request\.(?:workflowGraphId|workflowNodeId|receiptRefs|policyDecisionRefs|idempotencyKey)\b|request\[\s*["'](?:workflowGraphId|workflowNodeId|receiptRefs|policyDecisionRefs|idempotencyKey)["']\s*\]/;
   const runtimeSubagentSpawnRequestAliasReadPattern =
-    /request\.(?:message|input|subagent_prompt|subagentPrompt|subagentRole|maxConcurrency|subagentMaxConcurrency|modelRouteId|subagentModelRoute|outputContract|subagentOutputContract|workflowGraphId|workflowNodeId|parentTurnId|turnId|contextPressureAction|contextPressure|pressureStatus|alertId|sourceEventId|receiptRefs|policyDecisionRefs|toolPack|subagentToolPack|forkContext|mergePolicy|cancellationInheritance)\b|request\[\s*["'](?:message|input|subagent_prompt|subagentPrompt|subagentRole|maxConcurrency|subagentMaxConcurrency|modelRouteId|subagentModelRoute|outputContract|subagentOutputContract|workflowGraphId|workflowNodeId|parentTurnId|turnId|contextPressureAction|contextPressure|pressureStatus|alertId|sourceEventId|receiptRefs|policyDecisionRefs|toolPack|subagentToolPack|forkContext|mergePolicy|cancellationInheritance)["']\s*\]/;
+    /request\.(?:message|input|subagent_prompt|subagentPrompt|subagent_role|subagentRole|maxConcurrency|subagentMaxConcurrency|modelRouteId|subagentModelRoute|outputContract|subagentOutputContract|workflowGraphId|workflowNodeId|parentTurnId|turnId|contextPressureAction|contextPressure|pressureStatus|alertId|sourceEventId|receiptRefs|policyDecisionRefs|toolPack|subagentToolPack|forkContext|mergePolicy|cancellationInheritance)\b|request\[\s*["'](?:message|input|subagent_prompt|subagentPrompt|subagent_role|subagentRole|maxConcurrency|subagentMaxConcurrency|modelRouteId|subagentModelRoute|outputContract|subagentOutputContract|workflowGraphId|workflowNodeId|parentTurnId|turnId|contextPressureAction|contextPressure|pressureStatus|alertId|sourceEventId|receiptRefs|policyDecisionRefs|toolPack|subagentToolPack|forkContext|mergePolicy|cancellationInheritance)["']\s*\]/;
   const runtimeSubagentSendInputRequestAliasReadPattern =
     /request\.(?:message|prompt|text|subagent_input|subagentInput|workflowGraphId|workflowNodeId)\b|request\[\s*["'](?:message|prompt|text|subagent_input|subagentInput|workflowGraphId|workflowNodeId)["']\s*\]/;
   const runtimeSubagentResumeRequestAliasReadPattern =
-    /request\.(?:message|input|resume_prompt|resumePrompt|subagentRole|modelRouteId|subagentModelRoute|workflowGraphId|workflowNodeId)\b|request\[\s*["'](?:message|input|resume_prompt|resumePrompt|subagentRole|modelRouteId|subagentModelRoute|workflowGraphId|workflowNodeId)["']\s*\]/;
+    /request\.(?:message|input|resume_prompt|resumePrompt|subagent_role|subagentRole|modelRouteId|subagentModelRoute|workflowGraphId|workflowNodeId)\b|request\[\s*["'](?:message|input|resume_prompt|resumePrompt|subagent_role|subagentRole|modelRouteId|subagentModelRoute|workflowGraphId|workflowNodeId)["']\s*\]/;
   const runtimeSubagentAssignRequestAliasReadPattern =
-    /request\.(?:subagentRole|toolPack|subagentToolPack|modelRouteId|subagentModelRoute|mergePolicy|cancellationInheritance|targetAgentId|workflowGraphId|workflowNodeId)\b|request\[\s*["'](?:subagentRole|toolPack|subagentToolPack|modelRouteId|subagentModelRoute|mergePolicy|cancellationInheritance|targetAgentId|workflowGraphId|workflowNodeId)["']\s*\]/;
+    /request\.(?:subagent_role|subagentRole|toolPack|subagentToolPack|modelRouteId|subagentModelRoute|mergePolicy|cancellationInheritance|targetAgentId|workflowGraphId|workflowNodeId)\b|request\[\s*["'](?:subagent_role|subagentRole|toolPack|subagentToolPack|modelRouteId|subagentModelRoute|mergePolicy|cancellationInheritance|targetAgentId|workflowGraphId|workflowNodeId)["']\s*\]/;
   const runtimeSubagentCancelRequestAliasReadPattern =
     /request\.(?:cancellationReason|cancellationInherited|propagatedFromThreadId)\b|(?:cancellationInherited|propagatedFromThreadId)\s*:/;
   const runtimeSubagentProjectionBlock =
@@ -8728,6 +8728,7 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ) &&
       /subagentPrompt: "Alias spawn request"/.test(runtimeSubagentSurfaceTest) &&
+      /subagent_role: "SnakeReviewer"/.test(runtimeSubagentSurfaceTest) &&
       /subagentRole: "Reviewer"/.test(runtimeSubagentSurfaceTest) &&
       /toolPack: "alias-tools"/.test(runtimeSubagentSurfaceTest) &&
       /modelRouteId: "route\.spawn\.alias"/.test(runtimeSubagentSurfaceTest) &&
@@ -8853,6 +8854,7 @@ function runCompositor() {
       /resumePrompt: "Camel alias resume prompt"/.test(
         runtimeSubagentSurfaceTest,
       ) &&
+      /subagent_role: "SnakeAliasRole"/.test(runtimeSubagentSurfaceTest) &&
       /subagentRole: "AliasRole"/.test(runtimeSubagentSurfaceTest) &&
       /modelRouteId: "route\.resume\.alias"/.test(runtimeSubagentSurfaceTest) &&
       /subagentModelRoute: "route\.resume\.subagent\.alias"/.test(
@@ -8922,6 +8924,7 @@ function runCompositor() {
       /subagent assign ignores retired camelCase request aliases/.test(
         runtimeSubagentSurfaceTest,
       ) &&
+      /subagent_role: "SnakeAliasRole"/.test(runtimeSubagentSurfaceTest) &&
       /subagentRole: "AliasRole"/.test(runtimeSubagentSurfaceTest) &&
       /toolPack: "alias-tools"/.test(runtimeSubagentSurfaceTest) &&
       /subagentToolPack: "subagent-alias-tools"/.test(
@@ -9542,17 +9545,15 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-sdk-subagent-role-request-type-alias-retired",
-    runtimeSubagentSdkRequestInputBlocks.length > 0 &&
+      runtimeSubagentSdkRequestInputBlocks.length > 0 &&
       runtimeSubagentSdkListInputBlock.length > 0 &&
       /^\s*role\?: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
-      /^\s*subagent_role\?: string;/m.test(runtimeSubagentSdkRequestInputBlocks) &&
       /^\s*role\?: string;/m.test(runtimeSubagentSdkListInputBlock) &&
-      /^\s*subagent_role\?: string;/m.test(runtimeSubagentSdkListInputBlock) &&
-      !/^\s*subagentRole\?:/m.test(
+      !/^\s*(?:subagent_role|subagentRole)\?:/m.test(
         `${runtimeSubagentSdkRequestInputBlocks}\n${runtimeSubagentSdkListInputBlock}`,
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
-    "Phase 10/11 is pending: SDK subagent request types must not advertise the retired subagentRole alias",
+    "Phase 10/11 is pending: SDK subagent request types must not advertise retired subagent role aliases",
   );
   assertCheck(
     result,
