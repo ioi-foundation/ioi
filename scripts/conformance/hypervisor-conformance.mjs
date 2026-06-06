@@ -7365,6 +7365,16 @@ function runCompositor() {
   const workspaceChangeStateTest = exists("packages/runtime-daemon/src/threads/workspace-change-state.test.mjs")
     ? read("packages/runtime-daemon/src/threads/workspace-change-state.test.mjs")
     : "";
+  const workspaceTrustState = exists("packages/runtime-daemon/src/threads/workspace-trust-state.mjs")
+    ? read("packages/runtime-daemon/src/threads/workspace-trust-state.mjs")
+    : "";
+  const workspaceTrustStateTest = exists("packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs")
+    ? read("packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs")
+    : "";
+  const workspaceTrustAcknowledgementBody =
+    workspaceTrustState.match(
+      /function acknowledgeWorkspaceTrustWarning\(store, threadId, warningId, request = \{\}\) \{[\s\S]*?\n  \}/,
+    )?.[0] ?? "";
   const diagnosticsRepairExecution = exists("packages/runtime-daemon/src/diagnostics-repair-execution.mjs")
     ? read("packages/runtime-daemon/src/diagnostics-repair-execution.mjs")
     : "";
@@ -7858,6 +7868,20 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts")
     : "";
+  const agentIdeRuntimeControlNodes = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts")
+    : "";
+  const agentIdeRuntimeControlNodesTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts")
+    : "";
+  const runtimeWorkspaceTrustAcknowledgementControlRequestBody =
+    agentIdeRuntimeControlNodes.match(
+      /export interface RuntimeWorkspaceTrustAcknowledgementControlRequestBody \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
   const agentIdeDelegationMatrix = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
   )
@@ -10455,6 +10479,63 @@ function runCompositor() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10/11 is pending: workspace-change review/control daemon envelopes must use canonical snake_case fields and fail closed on retired request aliases",
+  );
+  assertCheck(
+    result,
+    "workspace-trust-acknowledgement-aliases-retired",
+    /retiredWorkspaceTrustAcknowledgementAliases/.test(workspaceTrustState) &&
+      /workspace_trust_acknowledgement_request_aliases_retired/.test(
+        workspaceTrustAcknowledgementBody,
+      ) &&
+      /const normalizedWarningId = optionalString\(warningId \?\? request\.warning_id\)/.test(
+        workspaceTrustAcknowledgementBody,
+      ) &&
+      /source_event_id:\s*sourceEventId/.test(workspaceTrustAcknowledgementBody) &&
+      /daemon_enforced:\s*true/.test(workspaceTrustAcknowledgementBody) &&
+      /workspace_trust_acknowledgement:\s*payload/.test(workspaceTrustAcknowledgementBody) &&
+      /workspace_trust_acknowledgement_event:\s*event/.test(workspaceTrustAcknowledgementBody) &&
+      /workflow_graph_id:\s*string \| null;/.test(agentIdeRuntimeControlNodes) &&
+      /workflow_node_id:\s*string;/.test(agentIdeRuntimeControlNodes) &&
+      /event_kind:\s*typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND;/.test(
+        agentIdeRuntimeControlNodes,
+      ) &&
+      /payload_schema_version:\s*typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_PAYLOAD_SCHEMA_VERSION;/.test(
+        agentIdeRuntimeControlNodes,
+      ) &&
+      /workflow_graph_id:\s*cleanString\(params\.workflowGraphId\)/.test(
+        agentIdeRuntimeControlNodes,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"warningId"\),\s*false/.test(
+        agentIdeRuntimeControlNodesTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"workflowGraphId"\),\s*false/.test(
+        agentIdeRuntimeControlNodesTest,
+      ) &&
+      /workspace trust acknowledgement rejects retired request aliases/.test(
+        workspaceTrustStateTest,
+      ) &&
+      /Object\.hasOwn\(result,\s*"workspaceTrustAcknowledgement"\),\s*false/.test(
+        workspaceTrustStateTest,
+      ) &&
+      /Object\.hasOwn\(result\.workspace_trust_acknowledgement,\s*"schemaVersion"\),\s*false/.test(
+        workspaceTrustStateTest,
+      ) &&
+      !/^\s*(?:schemaVersion|acknowledgementId|warningId|warningEventId|sourceEventId|acknowledgedAt|acknowledgedBy|approvalMode|trustProfile|threadId|agentId|sessionId|workflowGraphId|workflowNodeId|controlSurface|daemonEnforced|canvasLocalTrustStateAccepted|commandExecuted|workspaceTrustAcknowledgement|workspaceTrustAcknowledgementEvent)\s*:/m.test(
+        workspaceTrustAcknowledgementBody,
+      ) &&
+      !/\brequest\.(?:warningId|sourceEventId|requestedBy|workflowGraphId|workflowNodeId|idempotencyKey|eventKind|componentKind|payloadSchemaVersion)\b/.test(
+        workspaceTrustAcknowledgementBody,
+      ) &&
+      !/^\s*(?:warningId|sourceEventId|workflowGraphId|workflowNodeId|eventKind|componentKind|payloadSchemaVersion):/m.test(
+        runtimeWorkspaceTrustAcknowledgementControlRequestBody,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/workspace-trust-state.mjs",
+      "packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs",
+      "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
+    ],
+    "Phase 10/11 is pending: workspace-trust acknowledgement requests and daemon envelopes must use canonical snake_case fields without camelCase compatibility aliases",
   );
   assertCheck(
     result,

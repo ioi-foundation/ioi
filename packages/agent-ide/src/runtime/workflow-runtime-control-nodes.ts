@@ -407,18 +407,16 @@ export interface RuntimeApprovalRequestWorkflowNodeOptions {
 }
 
 export interface RuntimeWorkspaceTrustAcknowledgementControlRequestBody {
-  warningId: string;
   warning_id: string;
   reason: string;
-  sourceEventId: string | null;
   source_event_id: string | null;
   source: typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE;
   actor: string;
-  workflowGraphId: string | null;
-  workflowNodeId: string;
-  eventKind: typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND;
-  componentKind: typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_COMPONENT_KIND;
-  payloadSchemaVersion: typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_PAYLOAD_SCHEMA_VERSION;
+  workflow_graph_id: string | null;
+  workflow_node_id: string;
+  event_kind: typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND;
+  component_kind: typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_COMPONENT_KIND;
+  payload_schema_version: typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_PAYLOAD_SCHEMA_VERSION;
 }
 
 export interface RuntimeWorkspaceTrustAcknowledgementControlRequest {
@@ -1026,18 +1024,16 @@ export function createRuntimeWorkspaceTrustAcknowledgementControlRequest(
     warningId,
     endpoint: endpointFromTemplate(endpointTemplate, { threadId, warningId }),
     body: {
-      warningId,
       warning_id: warningId,
       reason,
-      sourceEventId,
       source_event_id: sourceEventId,
       source: RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE,
       actor: cleanString(params.actor) ?? "operator",
-      workflowGraphId: cleanString(params.workflowGraphId),
-      workflowNodeId,
-      eventKind: RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND,
-      componentKind: RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_COMPONENT_KIND,
-      payloadSchemaVersion:
+      workflow_graph_id: cleanString(params.workflowGraphId),
+      workflow_node_id: workflowNodeId,
+      event_kind: RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND,
+      component_kind: RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_COMPONENT_KIND,
+      payload_schema_version:
         RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_PAYLOAD_SCHEMA_VERSION,
     },
   };

@@ -133,4 +133,43 @@ test("workspace trust acknowledgement records a daemon-owned acknowledgement eve
   assert.equal(result.workspace_trust_acknowledgement.acknowledged_by, "heath");
   assert.equal(result.workspace_trust_acknowledgement.command_executed, false);
   assert.equal(result.workspace_trust_acknowledgement.session_id, "session_agent_a");
+  assert.equal(Object.hasOwn(result, "workspaceTrustAcknowledgement"), false);
+  assert.equal(Object.hasOwn(result, "workspaceTrustAcknowledgementEvent"), false);
+  assert.equal(Object.hasOwn(result.workspace_trust_acknowledgement, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(result.workspace_trust_acknowledgement, "warningId"), false);
+  assert.equal(Object.hasOwn(result.workspace_trust_acknowledgement, "sourceEventId"), false);
+  assert.equal(Object.hasOwn(result.workspace_trust_acknowledgement, "acknowledgedBy"), false);
+  assert.equal(Object.hasOwn(result.workspace_trust_acknowledgement, "daemonEnforced"), false);
+});
+
+test("workspace trust acknowledgement rejects retired request aliases", () => {
+  const { agent, state, store } = createHarness();
+  const warning = state.appendWorkspaceTrustWarningEvent(store, {
+    agent,
+    threadId: "thread_a",
+    controls: { mode: "yolo", approvalMode: "full_access" },
+    request: {},
+    source: "test",
+    requestedBy: "operator",
+    workflowGraphId: "graph",
+    now: "2026-06-04T00:00:00.000Z",
+  });
+
+  assert.throws(
+    () =>
+      state.acknowledgeWorkspaceTrustWarning(store, "thread_a", warning.event_id, {
+        sourceEventId: warning.event_id,
+        workflowGraphId: "graph",
+        workflowNodeId: "runtime.thread-mode.workspace-trust",
+        idempotencyKey: "idem-retired",
+      }),
+    (error) =>
+      error.code === "workspace_trust_acknowledgement_request_aliases_retired" &&
+      error.details.thread_id === "thread_a" &&
+      error.details.retired_aliases.includes("sourceEventId") &&
+      error.details.retired_aliases.includes("workflowGraphId") &&
+      error.details.retired_aliases.includes("workflowNodeId") &&
+      error.details.retired_aliases.includes("idempotencyKey") &&
+      Object.hasOwn(error.details, "threadId") === false,
+  );
 });

@@ -379,16 +379,22 @@ test("workspace trust acknowledgement builds a daemon receipt request", () => {
   assert.equal(request.body.source_event_id, "event-workspace-trust");
   assert.equal(request.body.reason, "operator reviewed dirty workspace warning");
   assert.equal(request.body.source, "react_flow");
-  assert.equal(request.body.workflowGraphId, "workflow.react-flow.thread-mode-proof");
-  assert.equal(request.body.workflowNodeId, "runtime.thread-mode.workspace-trust");
+  assert.equal(request.body.workflow_graph_id, "workflow.react-flow.thread-mode-proof");
+  assert.equal(request.body.workflow_node_id, "runtime.thread-mode.workspace-trust");
   assert.equal(
-    request.body.eventKind,
+    request.body.event_kind,
     RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND,
   );
   assert.equal(
-    request.body.componentKind,
+    request.body.component_kind,
     RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_COMPONENT_KIND,
   );
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "warningId"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "sourceEventId"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "workflowGraphId"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "workflowNodeId"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "eventKind"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "componentKind"), false);
   assert.equal(
     RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_WORKFLOW_NODE_ID,
     "runtime.workspace-trust",
