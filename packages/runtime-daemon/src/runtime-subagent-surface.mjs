@@ -869,11 +869,34 @@ export function createRuntimeSubagentSurface({
         updated_at: event.created_at,
       });
       saved.result = subagentResultForRunDep({ record: saved, run, output, outputContractStatus });
-      store.writeSubagent(saved, "subagent.assign");
+      const contextPolicyRunner = store.contextPolicyRunner;
+      if (typeof contextPolicyRunner?.planSubagentRecordStateUpdate !== "function") {
+        throw runtimeErrorDep({
+          status: 500,
+          code: "subagent_record_state_update_planner_unavailable",
+          message: "Subagent lifecycle updates require Rust policy state-update planning.",
+          details: { thread_id: threadId, subagent_id: subagentId, operation_kind: "subagent.assign" },
+        });
+      }
+      const stateUpdate = contextPolicyRunner.planSubagentRecordStateUpdate({
+        operation_kind: "subagent.assign",
+        thread_id: threadId,
+        subagent: saved,
+      });
+      const planned = stateUpdate.subagent;
+      if (!planned?.subagent_id) {
+        throw runtimeErrorDep({
+          status: 502,
+          code: "subagent_record_state_update_planner_invalid",
+          message: "Rust policy state-update planning did not return a subagent record.",
+          details: { thread_id: threadId, subagent_id: subagentId, operation_kind: "subagent.assign" },
+        });
+      }
+      store.writeSubagent(planned, stateUpdate.operation_kind ?? "subagent.assign");
       return {
-        ...this.subagentProjection(saved),
+        ...this.subagentProjection(planned),
         assignment: assignmentRecord,
-        result: saved.result,
+        result: planned.result,
         event,
       };
     },

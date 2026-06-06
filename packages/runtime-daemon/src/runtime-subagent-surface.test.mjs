@@ -1550,12 +1550,41 @@ test("subagent surface assigns role metadata and persists assignment history", (
   assert.equal(result.event.receipt_refs[0], "receipt_assign_request");
   assert.match(result.event.receipt_refs[1], /^receipt_subagent_assign_/);
   assert.equal(store.writes[0].operationKind, "subagent.assign");
+  assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
+  assert.equal(store.stateUpdates[0].input.operation_kind, "subagent.assign");
+  assert.equal(store.stateUpdates[0].input.thread_id, "thread_1");
+  assert.equal(store.stateUpdates[0].input.subagent.subagent_id, "subagent_1");
   assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
   assert.equal(saved.role, "auditor");
   assert.ok(saved.evidence_refs.includes("runtime.subagent.assign"));
   assertNoOwnKeys(saved.assignment_history[0], retiredSubagentNestedAssignmentAliasKeys);
   assertCanonicalSubagentRecordOutput(saved);
   assertCanonicalSubagentStoreWrites(store);
+});
+
+test("subagent assign fails closed without Rust-planned subagent record", () => {
+  const store = createStore({
+    subagentStateUpdate: {
+      status: "planned",
+      operation_kind: "subagent.assign",
+      subagent: null,
+    },
+  });
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T13:00:00.000Z",
+    nowMs: () => 1780587600000,
+  });
+  store.surface = surface;
+
+  assert.throws(
+    () => surface.assignSubagent(store, "thread_1", "subagent_1", {
+      source: "agent_studio",
+      role: "Auditor",
+    }),
+    (error) => error.code === "subagent_record_state_update_planner_invalid",
+  );
+  assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
+  assert.equal(store.writes.length, 0);
 });
 
 test("subagent assign ignores retired camelCase request aliases", () => {

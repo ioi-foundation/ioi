@@ -12318,6 +12318,11 @@ Slice 370 moves subagent resume persistence behind Rust planning:
 `subagent.resume`, including budget-blocked resume transitions, and fails
 closed when Rust does not return the planned lifecycle record.
 
+Slice 371 routes subagent assignment persistence through Rust planning:
+`assignSubagent` now validates the canonical assignment lifecycle record through
+`SubagentRecordStateUpdateCore`, persists only the Rust-planned record for
+`subagent.assign`, and fails closed when the planner omits it.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

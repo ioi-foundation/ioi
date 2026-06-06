@@ -8250,7 +8250,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-record-write-output-aliases-retired",
-    runtimeSubagentSavedRecordWriteCalls === 3 &&
+    runtimeSubagentSavedRecordWriteCalls === 2 &&
       runtimeSubagentCanonicalSavedRecordWrites === 6 &&
       /assertCanonicalSubagentStoreWrites/.test(runtimeSubagentSurfaceTest) &&
       /assertCanonicalSubagentRecordOutput\(saved\)/.test(runtimeSubagentSurfaceTest) &&
@@ -8352,6 +8352,30 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: subagent resume lifecycle persistence must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-assign-state-update-live-bridge",
+    /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
+        runtimeSubagentSurface,
+      ) &&
+      /subagent assign fails closed without Rust-planned subagent record/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /operation_kind:\s*"subagent\.assign"/.test(runtimeSubagentSurface) &&
+      /store\.writeSubagent\(planned,\s*stateUpdate\.operation_kind \?\? "subagent\.assign"\)/.test(
+        runtimeSubagentSurface,
+      ) &&
+      !/store\.writeSubagent\(saved,\s*"subagent\.assign"\)/.test(
+        runtimeSubagentSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: subagent assignment persistence must be planned by Rust policy core through the command bridge",
   );
   assertCheck(
     result,
