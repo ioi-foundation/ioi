@@ -283,11 +283,11 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
             ...codingToolResultWithoutDrafts(result, []),
             workspaceSnapshot: workspaceSnapshot.record,
             workspace_snapshot: workspaceSnapshot.record,
-            workspaceSnapshotId: workspaceSnapshot.record.snapshotId,
-            workspace_snapshot_id: workspaceSnapshot.record.snapshotId,
+            workspaceSnapshotId: workspaceSnapshot.record.snapshot_id,
+            workspace_snapshot_id: workspaceSnapshot.record.snapshot_id,
           };
-          artifactRefs.push(...workspaceSnapshot.record.artifactRefs);
-          receiptRefs.push(...workspaceSnapshot.record.receiptRefs);
+          artifactRefs.push(...workspaceSnapshot.record.artifact_refs);
+          receiptRefs.push(...workspaceSnapshot.record.receipt_refs);
         }
       }
     } catch (caught) {
@@ -307,7 +307,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     }
     const summary = codingToolSummary(normalizedToolId, result, status);
     const rollbackRefs = uniqueStrings([
-      ...(workspaceSnapshot ? [workspaceSnapshot.record.snapshotId] : []),
+      ...(workspaceSnapshot ? [workspaceSnapshot.record.snapshot_id] : []),
       ...requestRollbackRefs,
     ]);
     const payloadSummary = {

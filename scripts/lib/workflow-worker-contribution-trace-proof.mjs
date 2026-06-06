@@ -113,7 +113,7 @@ try {
   assert.equal(patch.status, "completed");
   assert.equal(patch.result.applied, true);
   assert.equal(fs.readFileSync(targetPath, "utf8"), "worker = implemented\n");
-  assert.ok(patch.rollback_refs.includes(patch.workspace_snapshot.snapshotId));
+  assert.ok(patch.rollback_refs.includes(patch.workspace_snapshot.snapshot_id));
 
   const listed = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/subagents`);
   const events = await fetchSseEvents(`${daemon.endpoint}/v1/threads/${thread.thread_id}/events?since_seq=0`);
@@ -154,9 +154,9 @@ try {
   assert.equal(row.filePath, "worker-target.txt");
   assert.equal(row.hunkIndex, 0);
   assert.equal(row.editCount, 1);
-  assert.equal(row.snapshotId, patch.workspace_snapshot.snapshotId);
+  assert.equal(row.snapshotId, patch.workspace_snapshot.snapshot_id);
   assert.ok(row.receiptRefs.length >= patch.receipt_refs.length);
-  assert.ok(row.rollbackRefs.includes(patch.workspace_snapshot.snapshotId));
+  assert.ok(row.rollbackRefs.includes(patch.workspace_snapshot.snapshot_id));
 
   const proof = {
     schemaVersion: "ioi.autopilot.stage29.worker-contribution-trace-proof.v1",
@@ -169,7 +169,7 @@ try {
     subagentId: implementer.subagent_id,
     childThreadId: implementer.child_thread_id,
     patchEventId: patch.event.event_id,
-    snapshotId: patch.workspace_snapshot.snapshotId,
+    snapshotId: patch.workspace_snapshot.snapshot_id,
     checks: {
       subagentLineageVisible: row.subagentId === implementer.subagent_id &&
         row.childThreadId === implementer.child_thread_id,
@@ -177,7 +177,7 @@ try {
       contributionEventLinked: row.eventId === patch.event.event_id,
       hunkFileAndIndexVisible: row.filePath === "worker-target.txt" && row.hunkIndex === 0,
       receiptsLinked: row.receiptRefs.length >= patch.receipt_refs.length,
-      rollbackSnapshotLinked: row.rollbackRefs.includes(patch.workspace_snapshot.snapshotId),
+      rollbackSnapshotLinked: row.rollbackRefs.includes(patch.workspace_snapshot.snapshot_id),
       traceReady: trace.status === "ready",
     },
     contribution: contributions[0],

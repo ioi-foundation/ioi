@@ -91,13 +91,13 @@ try {
   assert.equal(patch.status, "completed");
   assert.equal(patch.result.applied, true);
   assert.equal(fs.readFileSync(targetPath, "utf8"), after);
-  assert.ok(patch.workspace_snapshot?.snapshotId);
+  assert.ok(patch.workspace_snapshot?.snapshot_id);
 
   const snapshots = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/snapshots`);
-  assert.ok(snapshots.snapshots.some((snapshot) => snapshot.snapshotId === patch.workspace_snapshot.snapshotId));
+  assert.ok(snapshots.snapshots.some((snapshot) => snapshot.snapshot_id === patch.workspace_snapshot.snapshot_id));
 
   const restorePreview = await fetchJson(
-    `${daemon.endpoint}/v1/threads/${thread.thread_id}/snapshots/${patch.workspace_snapshot.snapshotId}/restore-preview`,
+    `${daemon.endpoint}/v1/threads/${thread.thread_id}/snapshots/${patch.workspace_snapshot.snapshot_id}/restore-preview`,
     {
       method: "POST",
       body: JSON.stringify({
@@ -113,7 +113,7 @@ try {
   assert.equal(fs.readFileSync(targetPath, "utf8"), after);
 
   const restoreApplyBlocked = await fetchJson(
-    `${daemon.endpoint}/v1/threads/${thread.thread_id}/snapshots/${patch.workspace_snapshot.snapshotId}/restore-apply`,
+    `${daemon.endpoint}/v1/threads/${thread.thread_id}/snapshots/${patch.workspace_snapshot.snapshot_id}/restore-apply`,
     {
       method: "POST",
       body: JSON.stringify({
@@ -157,7 +157,7 @@ try {
   assert.equal(blockedApplyCell.approvalSatisfied, false);
   assert.ok(snapshotCell.receiptRefs.length > 0);
   assert.ok(snapshotCell.artifactRefs.length > 0);
-  assert.ok(snapshotCell.rollbackRefs.includes(patch.workspace_snapshot.snapshotId));
+  assert.ok(snapshotCell.rollbackRefs.includes(patch.workspace_snapshot.snapshot_id));
   assert.ok(previewCell.restoreApplyEndpoint?.includes("/restore-apply"));
   assert.equal(fs.readFileSync(targetPath, "utf8"), after);
 
@@ -169,23 +169,23 @@ try {
     endpoint: daemon.endpoint,
     threadId: thread.thread_id,
     workflowGraphId,
-    snapshotId: patch.workspace_snapshot.snapshotId,
+    snapshotId: patch.workspace_snapshot.snapshot_id,
     patchEventId: patch.event.event_id,
     restorePreviewEventId: restorePreview.event.event_id,
     checks: {
-      patchCreatedWorkspaceSnapshot: Boolean(patch.workspace_snapshot?.snapshotId),
-      snapshotListed: snapshots.snapshots.some((snapshot) => snapshot.snapshotId === patch.workspace_snapshot.snapshotId),
+      patchCreatedWorkspaceSnapshot: Boolean(patch.workspace_snapshot?.snapshot_id),
+      snapshotListed: snapshots.snapshots.some((snapshot) => snapshot.snapshot_id === patch.workspace_snapshot.snapshot_id),
       previewReadyAndReadOnly: restorePreview.preview_status === "ready" && fs.readFileSync(targetPath, "utf8") === after,
       applyWithoutApprovalBlocked: restoreApplyBlocked.apply_status === "blocked" &&
         restoreApplyBlocked.approval_satisfied === false,
       readOnlyReplayModeVisible: notebook.readOnlyReplayMode,
       notebookReady: notebook.status === "ready",
       snapshotCellReceipted: snapshotCell.receiptRefs.length > 0 && snapshotCell.artifactRefs.length > 0,
-      rollbackRefsVisible: snapshotCell.rollbackRefs.includes(patch.workspace_snapshot.snapshotId),
+      rollbackRefsVisible: snapshotCell.rollbackRefs.includes(patch.workspace_snapshot.snapshot_id),
     },
     receipts: {
       patch: patch.receipt_refs,
-      snapshot: patch.workspace_snapshot.receiptRefs,
+      snapshot: patch.workspace_snapshot.receipt_refs,
       restorePreview: restorePreview.receipt_refs,
       restoreApplyBlocked: restoreApplyBlocked.receipt_refs,
     },

@@ -336,14 +336,41 @@ test("workspace snapshot surface prepares snapshots and persists content artifac
     },
   });
 
-  assert.equal(snapshot.record.fileCount, 1);
   assert.equal(snapshot.record.file_count, 1);
-  assert.equal(snapshot.record.changedFileCount, 1);
   assert.equal(snapshot.record.changed_file_count, 1);
-  assert.equal(snapshot.record.restore.previewSupported, true);
   assert.equal(snapshot.record.restore.preview_supported, true);
-  assert.match(snapshot.record.snapshotId, /^workspace_snapshot_tool_call_alpha_/);
-  assert.equal(snapshot.record.snapshot_id, snapshot.record.snapshotId);
+  assert.match(snapshot.record.snapshot_id, /^workspace_snapshot_tool_call_alpha_/);
+  for (const field of [
+    "schemaVersion",
+    "threadId",
+    "turnId",
+    "workspaceRoot",
+    "snapshotKind",
+    "snapshotId",
+    "snapshotHash",
+    "fileCount",
+    "changedFileCount",
+    "createdFileCount",
+    "deletedFileCount",
+    "receiptRefs",
+    "artifactRefs",
+    "contentArtifactRefs",
+    "evidenceRefs",
+  ]) {
+    assert.equal(Object.hasOwn(snapshot.record, field), false);
+  }
+  for (const field of ["toolName", "toolCallId", "workflowGraphId", "workflowNodeId"]) {
+    assert.equal(Object.hasOwn(snapshot.record.trigger, field), false);
+  }
+  for (const field of ["maxContentBytes", "capturedFileCount", "omittedFileCount"]) {
+    assert.equal(Object.hasOwn(snapshot.record.capture, field), false);
+  }
+  for (const field of ["previewSupported", "applySupported"]) {
+    assert.equal(Object.hasOwn(snapshot.record.restore, field), false);
+  }
+  for (const field of ["contentIncluded", "contentArtifactIncluded", "pathsIncluded"]) {
+    assert.equal(Object.hasOwn(snapshot.record.redaction, field), false);
+  }
   assert.equal(snapshot.artifactRecord.channel, "workspace-snapshot");
   assert.equal(snapshot.artifactRecord.created_at, "2026-06-04T15:00:00.000Z");
   assert.equal(snapshot.artifactRecord.schema_version, "ioi.runtime.coding-tool-artifact.v1");
@@ -420,8 +447,8 @@ test("workspace snapshot surface reads content packages and fails closed when un
     channel: "workspace-snapshot",
     content: JSON.stringify({
       snapshot: {
-        snapshotId: "workspace_snapshot_alpha",
-        restore: { previewSupported: true },
+        snapshot_id: "workspace_snapshot_alpha",
+        restore: { preview_supported: true },
       },
       files: [{ path: "src/app.js" }],
     }),
@@ -437,8 +464,8 @@ test("workspace snapshot surface reads content packages and fails closed when un
     channel: "workspace-snapshot",
     content: JSON.stringify({
       snapshot: {
-        snapshotId: "workspace_snapshot_blocked",
-        restore: { previewSupported: false, status: "partial_content" },
+        snapshot_id: "workspace_snapshot_blocked",
+        restore: { preview_supported: false, status: "partial_content" },
       },
       files: [],
     }),
@@ -535,10 +562,10 @@ test("workspace snapshot surface previews and applies snapshot restores", () => 
     channel: "workspace-snapshot",
     content: JSON.stringify({
       snapshot: {
-        snapshotId: "workspace_snapshot_alpha",
-        snapshotHash: "hash_alpha",
-        turnId: "turn_alpha",
-        restore: { previewSupported: true },
+        snapshot_id: "workspace_snapshot_alpha",
+        snapshot_hash: "hash_alpha",
+        turn_id: "turn_alpha",
+        restore: { preview_supported: true },
       },
       files: [
         {

@@ -128,9 +128,9 @@ function createStore() {
       calls.push({ name: "prepareSnapshot", input });
       return {
         record: {
-          snapshotId: "snapshot_alpha",
-          artifactRefs: ["artifact_snapshot"],
-          receiptRefs: ["receipt_snapshot"],
+          snapshot_id: "snapshot_alpha",
+          artifact_refs: ["artifact_snapshot"],
+          receipt_refs: ["receipt_snapshot"],
         },
       };
     },
@@ -862,7 +862,7 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
   assert.ok(result.receipt_refs.includes("receipt://rust-live/file.apply_patch"));
   assert.ok(result.receipt_refs.includes("receipt_snapshot"));
   assert.ok(result.artifact_refs.includes("artifact_snapshot"));
-  assert.equal(result.workspace_snapshot.snapshotId, "snapshot_alpha");
+  assert.equal(result.workspace_snapshot.snapshot_id, "snapshot_alpha");
   assert.equal(result.workspace_snapshot_event.event_id, "event_snapshot");
   assert.equal(result.auto_diagnostics.status, "completed");
   assert.equal(result.step_module.result.agentgres_operation_refs[0], "agentgres://operation/file.apply_patch/README.md/after");

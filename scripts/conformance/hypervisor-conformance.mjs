@@ -7585,6 +7585,9 @@ function runCompositor() {
   const runtimeTaskJobSurfaceTest = exists("packages/runtime-daemon/src/runtime-task-job-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-task-job-surface.test.mjs")
     : "";
+  const runtimeCodingToolInvocationSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")
+    : "";
   const runtimeWorkspaceSnapshotSurface = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
     : "";
@@ -10714,6 +10717,38 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
     ],
     "Phase 10/11 is pending: workspace snapshot content artifact payload must expose canonical snake_case top-level identity fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "workspace-snapshot-record-output-aliases-retired",
+    /Object\.hasOwn\(snapshot\.record,\s*field\),\s*false/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /"schemaVersion"[\s\S]*"threadId"[\s\S]*"turnId"[\s\S]*"workspaceRoot"[\s\S]*"snapshotKind"[\s\S]*"snapshotId"[\s\S]*"snapshotHash"[\s\S]*"fileCount"[\s\S]*"changedFileCount"[\s\S]*"createdFileCount"[\s\S]*"deletedFileCount"[\s\S]*"receiptRefs"[\s\S]*"artifactRefs"[\s\S]*"contentArtifactRefs"[\s\S]*"evidenceRefs"/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(snapshot\.record\.trigger,\s*field\),\s*false/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(snapshot\.record\.capture,\s*field\),\s*false/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(snapshot\.record\.restore,\s*field\),\s*false/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(snapshot\.record\.redaction,\s*field\),\s*false/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      !/function prepareWorkspaceSnapshotForPatch(?:(?!\n  function materializeWorkspaceSnapshotArtifact)[\s\S])*?\b(?:schemaVersion|threadId|turnId|workspaceRoot|snapshotKind|snapshotId|snapshotHash|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs|contentArtifactRefs|evidenceRefs|toolName|toolCallId|workflowGraphId|workflowNodeId|maxContentBytes|capturedFileCount|omittedFileCount|previewSupported|applySupported|contentIncluded|contentArtifactIncluded|pathsIncluded)\s*:/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      !/workspaceSnapshot\.record\.(?:snapshotId|snapshotHash|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs|contentArtifactRefs)\b/.test(
+        runtimeCodingToolInvocationSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+    ],
+    "Phase 10/11 is pending: workspace snapshot records must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

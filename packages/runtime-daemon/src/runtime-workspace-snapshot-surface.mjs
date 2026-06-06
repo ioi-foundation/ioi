@@ -77,59 +77,41 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const omittedFileCount = Number(capture.omitted_file_count ?? 0) || 0;
     const previewSupported = omittedFileCount === 0;
     const core = {
-      schemaVersion: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
+      schema_version: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
       object: "ioi.runtime_workspace_snapshot",
-      threadId,
-      turnId: turnId || null,
-      workspaceRoot,
-      snapshotKind: "pre_post_touched_files",
+      thread_id: threadId,
+      turn_id: turnId || null,
+      workspace_root: workspaceRoot,
       snapshot_kind: "pre_post_touched_files",
       trigger: {
-        toolName: "file.apply_patch",
         tool_name: "file.apply_patch",
-        toolCallId,
         tool_call_id: toolCallId,
-        workflowGraphId,
         workflow_graph_id: workflowGraphId,
-        workflowNodeId,
         workflow_node_id: workflowNodeId,
       },
-      fileCount: files.length,
       file_count: files.length,
-      changedFileCount: files.filter((file) => file.changed).length,
       changed_file_count: files.filter((file) => file.changed).length,
-      createdFileCount: files.filter((file) => file.created).length,
       created_file_count: files.filter((file) => file.created).length,
-      deletedFileCount: files.filter((file) => file.deleted).length,
       deleted_file_count: files.filter((file) => file.deleted).length,
       files,
       capture: {
         status: previewSupported ? "content_captured" : "partial_content",
-        maxContentBytes: WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
         max_content_bytes: WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
-        capturedFileCount,
         captured_file_count: capturedFileCount,
-        omittedFileCount,
         omitted_file_count: omittedFileCount,
       },
       restore: {
         status: previewSupported ? "content_captured" : "partial_content",
-        previewSupported,
         preview_supported: previewSupported,
-        applySupported: previewSupported,
         apply_supported: previewSupported,
         reason: previewSupported ? "restore_apply_requires_approval" : "snapshot_content_capture_incomplete",
       },
       redaction: {
         profile: "workspace_snapshot_content_artifact",
-        contentIncluded: false,
         content_included: false,
-        contentArtifactIncluded: true,
         content_artifact_included: true,
-        pathsIncluded: true,
         paths_included: true,
       },
-      evidenceRefs: ["workspace_snapshot_content", "file.apply_patch", toolCallId].filter(Boolean),
       evidence_refs: ["workspace_snapshot_content", "file.apply_patch", toolCallId].filter(Boolean),
     };
     const snapshotHash = doctorHash(JSON.stringify(core));
@@ -138,15 +120,10 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const artifactId = `artifact_${safeId(snapshotId)}_content`;
     const record = {
       ...core,
-      snapshotId,
       snapshot_id: snapshotId,
-      snapshotHash,
       snapshot_hash: snapshotHash,
-      receiptRefs: [receiptId],
       receipt_refs: [receiptId],
-      artifactRefs: [artifactId],
       artifact_refs: [artifactId],
-      contentArtifactRefs: [artifactId],
       content_artifact_refs: [artifactId],
       summary: `Workspace snapshot recorded ${files.length} changed file(s) for ${toolCallId}.`,
     };
@@ -731,9 +708,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       .map((artifactRecord) => {
         const parsed = parseJsonObject(artifactRecord.content);
         const parsedSnapshotId =
-          parsed?.snapshotId ??
           parsed?.snapshot_id ??
-          parsed?.snapshot?.snapshotId ??
           parsed?.snapshot?.snapshot_id;
         return parsedSnapshotId === snapshotId ? { artifactRecord, parsed } : null;
       })
@@ -743,7 +718,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       throw notFound(`Workspace snapshot not found: ${snapshotId}`, { threadId, snapshotId });
     }
     const snapshot = match.parsed.snapshot ?? match.parsed;
-    if (!snapshot?.restore?.previewSupported) {
+    if (!snapshot?.restore?.preview_supported) {
       throw runtimeError({
         status: 409,
         code: "workspace_restore_preview_unavailable",
