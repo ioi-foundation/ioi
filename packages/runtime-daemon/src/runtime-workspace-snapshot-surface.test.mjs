@@ -337,9 +337,13 @@ test("workspace snapshot surface prepares snapshots and persists content artifac
   });
 
   assert.equal(snapshot.record.fileCount, 1);
+  assert.equal(snapshot.record.file_count, 1);
   assert.equal(snapshot.record.changedFileCount, 1);
+  assert.equal(snapshot.record.changed_file_count, 1);
   assert.equal(snapshot.record.restore.previewSupported, true);
+  assert.equal(snapshot.record.restore.preview_supported, true);
   assert.match(snapshot.record.snapshotId, /^workspace_snapshot_tool_call_alpha_/);
+  assert.equal(snapshot.record.snapshot_id, snapshot.record.snapshotId);
   assert.equal(snapshot.artifactRecord.channel, "workspace-snapshot");
   assert.equal(snapshot.artifactRecord.created_at, "2026-06-04T15:00:00.000Z");
   assert.equal(snapshot.artifactRecord.schema_version, "ioi.runtime.coding-tool-artifact.v1");
@@ -368,18 +372,18 @@ test("workspace snapshot surface appends and lists snapshot events", () => {
   const { surface } = createSurface();
   const store = createStore();
   const snapshot = {
-    snapshotId: "workspace_snapshot_alpha",
-    snapshotHash: "hash_alpha",
-    snapshotKind: "pre_post_touched_files",
-    fileCount: 1,
-    changedFileCount: 1,
-    createdFileCount: 0,
-    deletedFileCount: 0,
-    restore: { status: "content_captured", previewSupported: true, applySupported: true },
-    trigger: { toolCallId: "tool_call_alpha", workflowGraphId: "graph_alpha", workflowNodeId: "node_alpha" },
+    snapshot_id: "workspace_snapshot_alpha",
+    snapshot_hash: "hash_alpha",
+    snapshot_kind: "pre_post_touched_files",
+    file_count: 1,
+    changed_file_count: 1,
+    created_file_count: 0,
+    deleted_file_count: 0,
+    restore: { status: "content_captured", preview_supported: true, apply_supported: true },
+    trigger: { tool_call_id: "tool_call_alpha", workflow_graph_id: "graph_alpha", workflow_node_id: "node_alpha" },
     files: [{ path: "src/app.js" }],
-    receiptRefs: ["receipt_alpha"],
-    artifactRefs: ["artifact_alpha"],
+    receipt_refs: ["receipt_alpha"],
+    artifact_refs: ["artifact_alpha"],
     summary: "snapshot ready",
   };
 
@@ -393,11 +397,15 @@ test("workspace snapshot surface appends and lists snapshot events", () => {
   assert.equal(event.event_kind, "workspace.snapshot.created");
   assert.equal(event.workflow_node_id, "runtime.workspace-snapshot");
   assert.deepEqual(event.rollback_refs, ["workspace_snapshot_alpha"]);
+  assert.deepEqual(event.receipt_refs, ["receipt_alpha"]);
+  assert.equal(event.payload_summary.snapshot_id, "workspace_snapshot_alpha");
+  assert.equal(event.payload_summary.restore_preview_supported, true);
   const list = surface.listWorkspaceSnapshots(store, "thread_alpha");
   assert.equal(list.schema_version, "ioi.runtime.workspace-snapshot.v1");
   assert.equal(list.thread_id, "thread_alpha");
   assert.equal(list.snapshot_count, 1);
-  assert.equal(list.snapshots[0].snapshotId, "workspace_snapshot_alpha");
+  assert.equal(list.snapshots[0].snapshot_id, "workspace_snapshot_alpha");
+  assert.equal(Object.hasOwn(list.snapshots[0], "snapshotId"), false);
   for (const field of ["schemaVersion", "threadId", "snapshotCount"]) {
     assert.equal(Object.hasOwn(list, field), false);
   }

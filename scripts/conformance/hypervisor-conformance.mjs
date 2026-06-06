@@ -10717,6 +10717,34 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "workspace-snapshot-event-reader-aliases-retired",
+    /snapshot_id: "workspace_snapshot_alpha"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /restore: \{ status: "content_captured", preview_supported: true, apply_supported: true \}/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /event\.payload_summary\.snapshot_id,\s*"workspace_snapshot_alpha"/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(list\.snapshots\[0\],\s*"snapshotId"\),\s*false/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      !/function appendWorkspaceSnapshotEvent(?:(?!\n  function listWorkspaceSnapshots)[\s\S])*?\bsnapshot\.(?:snapshotId|snapshotHash|snapshotKind|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs)\b/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      !/function appendWorkspaceSnapshotEvent(?:(?!\n  function listWorkspaceSnapshots)[\s\S])*?\bsnapshot\.restore\?\.(?:previewSupported|applySupported)\b/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      !/function appendWorkspaceSnapshotEvent(?:(?!\n  function listWorkspaceSnapshots)[\s\S])*?\bsnapshot\.trigger\?\.(?:toolCallId|workflowGraphId|workflowNodeId)\b/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: workspace snapshot event appender must read canonical snake_case snapshot fields without camelCase fallbacks",
+  );
+  assertCheck(
+    result,
     "workspace-restore-event-reader-aliases-retired",
     /preview_status: "ready"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
       /apply_status: "blocked"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
