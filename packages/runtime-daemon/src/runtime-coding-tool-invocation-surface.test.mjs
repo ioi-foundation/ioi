@@ -303,14 +303,19 @@ test("coding tool invocation surface runs workspace.status through rust workload
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
   assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
-  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.git.available, true);
   assert.equal(result.result.git.branch, "main");
   assert.deepEqual(result.result.changedFiles, [{ status: "M", path: "README.md" }]);
   assert.equal(result.result.counts.changed, 1);
-  assert.equal(result.result.executionResultRef, "result://rust-live/workspace.status");
+  assert.equal(result.result.execution_result_ref, "result://rust-live/workspace.status");
   assert.equal(result.result.router_admission.schema_version, "ioi.step_module_router_admission.v1");
   assert.equal(Object.hasOwn(result.result, "routerAdmission"), false);
+  assert.equal(Object.hasOwn(result.result, "rustWorkload"), false);
+  assert.equal(Object.hasOwn(result.result, "stepModuleBackend"), false);
+  assert.equal(Object.hasOwn(result.result, "executionResultRef"), false);
+  assert.equal(Object.hasOwn(result.result, "normalizedObservationRef"), false);
+  assert.equal(Object.hasOwn(result.result, "receiptRefs"), false);
   assert.equal(result.step_module.backend, "rust_workload_live");
   assert.equal(result.event.payload_summary.step_module_backend, "rust_workload_live");
   assert.ok(result.receipt_refs.includes("receipt://rust-live/workspace.status"));
@@ -400,7 +405,7 @@ test("coding tool invocation surface runs file.inspect through rust workload liv
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
   assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
-  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.path, "README.md");
   assert.equal(result.result.kind, "file");
   assert.equal(result.step_module.backend, "rust_workload_live");
@@ -489,7 +494,7 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
   assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
-  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.rust_workload, true);
   assert.deepEqual(result.result.paths, ["README.md"]);
   assert.equal(result.result.diffHash, "abc123");
   assert.equal(result.step_module.backend, "rust_workload_live");
@@ -603,7 +608,7 @@ test("coding tool invocation surface runs lsp.diagnostics through rust workload 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
   assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
-  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.backend, "node.check");
   assert.equal(result.result.diagnosticStatus, "clean");
   assert.equal(result.result.diagnosticCount, 0);
@@ -708,7 +713,7 @@ test("coding tool invocation surface runs test.run through rust workload live pa
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
   assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
-  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.commandId, "node.test");
   assert.equal(result.result.testStatus, "passed");
   assert.equal(result.result.exitCode, 0);
@@ -840,7 +845,7 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
   assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
-  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.applied, true);
   assert.equal(result.result.workspaceSnapshotId, "snapshot_alpha");
   assert.ok(result.receipt_refs.includes("receipt://rust-live/file.apply_patch"));
@@ -933,7 +938,7 @@ test("coding tool invocation surface runs artifact.read through rust workload li
   assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.source, "daemon_artifact_store");
   assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.result.content, "stored artifact\n");
   assert.ok(store.calls.some((call) => call.name === "readArtifact"));
-  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.backend, "rust_artifact_read");
   assert.equal(result.result.artifactId, "artifact_alpha");
   assert.equal(result.result.dataPlaneSource, "daemon_artifact_store");
@@ -1021,7 +1026,7 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
   assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.query.toolCallId, "tool_patch");
   assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.result.content, "stored result\n");
   assert.ok(store.calls.some((call) => call.name === "retrieveResult"));
-  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.backend, "rust_tool_result_retrieve");
   assert.equal(result.result.toolCallId, "tool_patch");
   assert.equal(result.result.dataPlaneSource, "daemon_artifact_store");
@@ -1155,7 +1160,7 @@ test("coding tool invocation surface runs computer_use.request_lease through rus
   assert.equal(runnerCalls.length, 1);
   assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
   assert.equal(runnerCalls[0].input.actionKind, "click");
-  assert.equal(result.result.rustWorkload, true);
+  assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.requestRef, "computer_use_lease_request_alpha");
   assert.equal(result.result.approvalRequiredBeforeExecution, true);
   assert.equal(result.result.walletNetworkAuthorityBoundary.authorityLayer, "wallet.network");

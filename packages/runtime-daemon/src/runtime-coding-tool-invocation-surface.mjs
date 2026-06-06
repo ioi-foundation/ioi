@@ -255,7 +255,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
         ...normalizeArray(stepModuleProjection?.bridge_result?.receipt_refs),
       );
       result = codingToolResultForRustLiveStepModule(normalizedToolId, stepModuleProjection);
-      receiptRefs.push(...normalizeArray(result.receiptRefs));
+      receiptRefs.push(...normalizeArray(result.receipt_refs));
       artifactRefs.push(...normalizeArray(result.artifactRefs));
       const liveArtifactDrafts = [
         ...normalizeArray(result?.artifactDrafts),
@@ -534,22 +534,27 @@ function codingToolResultForRustLiveStepModule(toolId, stepModuleProjection = {}
     observedResult && typeof observedResult === "object" && !Array.isArray(observedResult)
       ? observedResult
       : {};
+  const {
+    executionResultRef,
+    normalizedObservationRef,
+    receiptRefs,
+    rustWorkload,
+    schemaVersion,
+    stepModuleBackend,
+    toolName,
+    ...canonicalToolResult
+  } = toolResult;
   return {
-    ...toolResult,
-    schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
-    toolName: toolId,
+    ...canonicalToolResult,
+    schema_version: toolResult.schema_version ?? schemaVersion ?? CODING_TOOL_RESULT_SCHEMA_VERSION,
+    tool_name: toolResult.tool_name ?? toolName ?? toolId,
     status: "completed",
-    rustWorkload: true,
     rust_workload: true,
     backend: toolResult.backend ?? stepModuleProjection?.backend ?? "rust_workload_live",
-    stepModuleBackend: stepModuleProjection?.backend ?? "rust_workload_live",
     step_module_backend: stepModuleProjection?.backend ?? "rust_workload_live",
-    executionResultRef: stepResult.execution_result_ref ?? null,
     execution_result_ref: stepResult.execution_result_ref ?? null,
-    normalizedObservationRef: stepResult.normalized_observation_ref ?? null,
     normalized_observation_ref: stepResult.normalized_observation_ref ?? null,
     router_admission: stepModuleProjection?.bridge_result?.router_admission ?? null,
-    receiptRefs: normalizeArray(stepResult.receipt_refs),
     receipt_refs: normalizeArray(stepResult.receipt_refs),
     observation: stepModuleProjection?.bridge_result?.shadow_observation ?? null,
   };

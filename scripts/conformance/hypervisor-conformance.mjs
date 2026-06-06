@@ -968,6 +968,56 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: Rust live coding-tool results must expose canonical router_admission without the retired routerAdmission response alias",
   );
+  const codingToolRustLiveResultBody =
+    runtimeCodingToolInvocationSurface.match(
+      /function codingToolResultForRustLiveStepModule\(toolId, stepModuleProjection = \{\}\) \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  assertCheck(
+    result,
+    "coding-tool-result-wrapper-aliases-retired",
+    /schema_version:\s*toolResult\.schema_version \?\? schemaVersion \?\? CODING_TOOL_RESULT_SCHEMA_VERSION/.test(
+      runtimeCodingToolInvocationSurface,
+    ) &&
+      /tool_name:\s*toolResult\.tool_name \?\? toolName \?\? toolId/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /rust_workload:\s*true/.test(runtimeCodingToolInvocationSurface) &&
+      /step_module_backend:\s*stepModuleProjection\?\.backend \?\? "rust_workload_live"/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /execution_result_ref:\s*stepResult\.execution_result_ref \?\? null/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /normalized_observation_ref:\s*stepResult\.normalized_observation_ref \?\? null/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /receipt_refs:\s*normalizeArray\(stepResult\.receipt_refs\)/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"rustWorkload"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"stepModuleBackend"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"executionResultRef"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"normalizedObservationRef"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"receiptRefs"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      !/^\s*(?:schemaVersion|toolName|rustWorkload|stepModuleBackend|executionResultRef|normalizedObservationRef|receiptRefs)\s*:/m.test(
+        codingToolRustLiveResultBody,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: Rust live coding-tool result wrappers must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
   assertCheck(
     result,
     "coding-tool-budget-usage-response-alias-retired",
