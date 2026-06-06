@@ -3818,6 +3818,9 @@ function runBridge() {
       /workspace restore runner sends snapshot capture bridge request/.test(
         workspaceRestoreRunnerTest,
       ) &&
+      /workspace restore runner ignores retired result reader aliases/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
       /workspace restore runner fails closed without command/.test(
         workspaceRestoreRunnerTest,
       ) &&
@@ -3828,6 +3831,12 @@ function runBridge() {
       /Object\.hasOwn\(operations\[0\],\s*field\),\s*false/.test(workspaceRestoreRunnerTest) &&
       /Object\.hasOwn\(capture,\s*field\),\s*false/.test(workspaceRestoreRunnerTest) &&
       !/^\s*(?:allowConflicts|conflictPolicy|hardBlocked|conflictBlocked|policyStatus|applyStatus|policyDecisionRefs|operationPolicies|operationPolicyByPath|contentFiles|capturedFileCount|omittedFileCount|contentCaptured|receiptRefs|artifactRefs|contentHash|sizeBytes|mtimeMs|contentBytes|omittedReason|currentExists|currentHash|currentBytes|targetExists|targetHash|snapshotAfterExists|snapshotAfterHash|currentMatchesSnapshotPost|currentMatchesRestoreTarget|blockedReason|diffBytes|diffHash|diffTruncated|applyReason|appliedExists|appliedHash|appliedBytes|appliedMatchesTarget|errorMessage):/m.test(
+        workspaceRestoreRunner,
+      ) &&
+      !/\brecord\.(?:receiptRefs|artifactRefs|currentExists|currentHash|currentBytes|targetExists|targetHash|snapshotAfterExists|snapshotAfterHash|currentMatchesSnapshotPost|currentMatchesRestoreTarget|blockedReason|diffBytes|diffHash|diffTruncated|applyStatus|applyReason|appliedExists|appliedHash|appliedBytes|appliedMatchesTarget|errorMessage)\b/.test(
+        workspaceRestoreRunner,
+      ) &&
+      !/function normalizeSnapshotCapturedSide[\s\S]*?\bside\.(?:contentHash|sizeBytes|mtimeMs|contentCaptured|contentBytes|omittedReason)\b[\s\S]*?function normalizeWorkspaceRestoreOperation/.test(
         workspaceRestoreRunner,
       ) &&
       /workspaceRestoreRunner/.test(runtimeWorkspaceSnapshotSurface) &&

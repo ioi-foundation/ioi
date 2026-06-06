@@ -389,6 +389,125 @@ test("workspace restore runner sends snapshot capture bridge request", () => {
   }
 });
 
+test("workspace restore runner ignores retired result reader aliases", () => {
+  const runner = new RustWorkspaceRestoreRunner({
+    command: "mock-workspace-restore-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      const bridgeRequest = JSON.parse(options.input);
+      if (bridgeRequest.operation === "capture_workspace_snapshot_files") {
+        return {
+          status: 0,
+          stdout: JSON.stringify({
+            ok: true,
+            result: {
+              source: "rust_workspace_snapshot_capture_command",
+              backend: "rust_workspace_restore",
+              files: [
+                {
+                  path: "src/app.js",
+                  before: {
+                    exists: true,
+                    contentHash: "sha256-alias",
+                    sizeBytes: 99,
+                    mtimeMs: 123,
+                    contentCaptured: true,
+                    contentBytes: 11,
+                    omittedReason: "alias-only",
+                  },
+                  after: {},
+                  receiptRefs: ["receipt_alias"],
+                  artifactRefs: ["artifact_alias"],
+                },
+              ],
+            },
+          }),
+          stderr: "",
+        };
+      }
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_workspace_restore_operations_command",
+            backend: "rust_workspace_restore",
+            operations: [
+              {
+                path: "src/app.js",
+                operation: "replace",
+                status: "ready",
+                currentExists: true,
+                currentHash: "sha256-current-alias",
+                currentBytes: 3,
+                targetExists: true,
+                targetHash: "sha256-target-alias",
+                snapshotAfterExists: true,
+                snapshotAfterHash: "sha256-snapshot-after-alias",
+                currentMatchesSnapshotPost: true,
+                currentMatchesRestoreTarget: true,
+                blockedReason: "alias-only",
+                diffBytes: 4,
+                diffHash: "sha256-diff-alias",
+                diffTruncated: true,
+                applyStatus: "applied",
+                applyReason: "alias-only",
+                appliedExists: true,
+                appliedHash: "sha256-applied-alias",
+                appliedBytes: 5,
+                appliedMatchesTarget: true,
+                errorMessage: "alias-only",
+              },
+            ],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const operations = runner.applyOperations({ ...operationsRequest(), allow_conflicts: false });
+
+  assert.equal(operations[0].current_exists, false);
+  assert.equal(operations[0].current_hash, null);
+  assert.equal(operations[0].current_bytes, 0);
+  assert.equal(operations[0].target_exists, false);
+  assert.equal(operations[0].target_hash, null);
+  assert.equal(operations[0].snapshot_after_exists, false);
+  assert.equal(operations[0].snapshot_after_hash, null);
+  assert.equal(operations[0].current_matches_snapshot_post, false);
+  assert.equal(operations[0].current_matches_restore_target, false);
+  assert.equal(operations[0].blocked_reason, null);
+  assert.equal(operations[0].diff_bytes, 0);
+  assert.equal(operations[0].diff_hash, null);
+  assert.equal(operations[0].diff_truncated, false);
+  assert.equal(Object.hasOwn(operations[0], "apply_status"), false);
+  assert.equal(Object.hasOwn(operations[0], "apply_reason"), false);
+  assert.equal(Object.hasOwn(operations[0], "applied_exists"), false);
+  assert.equal(Object.hasOwn(operations[0], "applied_hash"), false);
+  assert.equal(Object.hasOwn(operations[0], "applied_bytes"), false);
+  assert.equal(Object.hasOwn(operations[0], "applied_matches_target"), false);
+  assert.equal(Object.hasOwn(operations[0], "error_message"), false);
+
+  const capture = runner.captureSnapshotFiles({
+    changed_files: [
+      {
+        path: "src/app.js",
+        before_hash: "sha256-old",
+        after_hash: "sha256-new",
+      },
+    ],
+  });
+
+  assert.equal(capture.files[0].before.content_hash, null);
+  assert.equal(capture.files[0].before.size_bytes, 0);
+  assert.equal(capture.files[0].before.mtime_ms, undefined);
+  assert.equal(capture.files[0].before.content_captured, false);
+  assert.equal(capture.files[0].before.content_bytes, 0);
+  assert.equal(capture.files[0].before.omitted_reason, null);
+  assert.deepEqual(capture.files[0].receipt_refs, []);
+  assert.deepEqual(capture.files[0].artifact_refs, []);
+});
+
 test("workspace restore runner can be configured from env", () => {
   const runner = createWorkspaceRestoreRunnerFromEnv({
     [WORKSPACE_RESTORE_COMMAND_ENV]: "mock-workspace-restore-bridge",

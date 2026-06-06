@@ -294,8 +294,8 @@ function normalizeSnapshotCapturedFile(value) {
     changed: Boolean(record.changed),
     before: normalizeSnapshotCapturedSide(record.before),
     after: normalizeSnapshotCapturedSide(record.after),
-    receipt_refs: stringArray(record.receipt_refs ?? record.receiptRefs) ?? [],
-    artifact_refs: stringArray(record.artifact_refs ?? record.artifactRefs) ?? [],
+    receipt_refs: stringArray(record.receipt_refs) ?? [],
+    artifact_refs: stringArray(record.artifact_refs) ?? [],
     encoding: optionalString(record.encoding) ?? undefined,
   };
 }
@@ -304,12 +304,12 @@ function normalizeSnapshotCapturedSide(value) {
   const side = objectRecord(value) ?? {};
   const normalized = {
     exists: Boolean(side.exists),
-    content_hash: optionalString(side.content_hash ?? side.contentHash),
-    size_bytes: Number(side.size_bytes ?? side.sizeBytes ?? 0) || 0,
-    mtime_ms: finiteNumber(side.mtime_ms ?? side.mtimeMs),
-    content_captured: Boolean(side.content_captured ?? side.contentCaptured),
-    content_bytes: Number(side.content_bytes ?? side.contentBytes ?? 0) || 0,
-    omitted_reason: optionalString(side.omitted_reason ?? side.omittedReason),
+    content_hash: optionalString(side.content_hash),
+    size_bytes: Number(side.size_bytes ?? 0) || 0,
+    mtime_ms: finiteNumber(side.mtime_ms),
+    content_captured: Boolean(side.content_captured),
+    content_bytes: Number(side.content_bytes ?? 0) || 0,
+    omitted_reason: optionalString(side.omitted_reason),
   };
   if (typeof side.content === "string") {
     normalized.content = side.content;
@@ -324,47 +324,43 @@ function normalizeWorkspaceRestoreOperation(value) {
     path: optionalString(record.path) ?? "unknown",
     operation: optionalString(record.operation) ?? "noop",
     status: optionalString(record.status) ?? "blocked",
-    current_exists: Boolean(record.current_exists ?? record.currentExists),
-    current_hash: optionalString(record.current_hash ?? record.currentHash),
-    current_bytes: Number(record.current_bytes ?? record.currentBytes ?? 0) || 0,
-    target_exists: Boolean(record.target_exists ?? record.targetExists),
-    target_hash: optionalString(record.target_hash ?? record.targetHash),
-    snapshot_after_exists: Boolean(record.snapshot_after_exists ?? record.snapshotAfterExists),
-    snapshot_after_hash: optionalString(record.snapshot_after_hash ?? record.snapshotAfterHash),
-    current_matches_snapshot_post: Boolean(
-      record.current_matches_snapshot_post ?? record.currentMatchesSnapshotPost,
-    ),
-    current_matches_restore_target: Boolean(
-      record.current_matches_restore_target ?? record.currentMatchesRestoreTarget,
-    ),
-    blocked_reason: optionalString(record.blocked_reason ?? record.blockedReason),
+    current_exists: Boolean(record.current_exists),
+    current_hash: optionalString(record.current_hash),
+    current_bytes: Number(record.current_bytes ?? 0) || 0,
+    target_exists: Boolean(record.target_exists),
+    target_hash: optionalString(record.target_hash),
+    snapshot_after_exists: Boolean(record.snapshot_after_exists),
+    snapshot_after_hash: optionalString(record.snapshot_after_hash),
+    current_matches_snapshot_post: Boolean(record.current_matches_snapshot_post),
+    current_matches_restore_target: Boolean(record.current_matches_restore_target),
+    blocked_reason: optionalString(record.blocked_reason),
     diff: typeof record.diff === "string" ? record.diff : "",
-    diff_bytes: Number(record.diff_bytes ?? record.diffBytes ?? 0) || 0,
-    diff_hash: optionalString(record.diff_hash ?? record.diffHash) ?? null,
-    diff_truncated: Boolean(record.diff_truncated ?? record.diffTruncated),
+    diff_bytes: Number(record.diff_bytes ?? 0) || 0,
+    diff_hash: optionalString(record.diff_hash) ?? null,
+    diff_truncated: Boolean(record.diff_truncated),
   };
-  const applyStatus = optionalString(record.apply_status ?? record.applyStatus);
+  const applyStatus = optionalString(record.apply_status);
   if (applyStatus) {
     normalized.apply_status = applyStatus;
   }
-  const applyReason = optionalString(record.apply_reason ?? record.applyReason);
+  const applyReason = optionalString(record.apply_reason);
   if (applyReason) {
     normalized.apply_reason = applyReason;
   }
-  if (Object.hasOwn(record, "applied_exists") || Object.hasOwn(record, "appliedExists")) {
-    normalized.applied_exists = Boolean(record.applied_exists ?? record.appliedExists);
+  if (Object.hasOwn(record, "applied_exists")) {
+    normalized.applied_exists = Boolean(record.applied_exists);
   }
-  const appliedHash = optionalString(record.applied_hash ?? record.appliedHash);
+  const appliedHash = optionalString(record.applied_hash);
   if (appliedHash) {
     normalized.applied_hash = appliedHash;
   }
-  if (Object.hasOwn(record, "applied_bytes") || Object.hasOwn(record, "appliedBytes")) {
-    normalized.applied_bytes = Number(record.applied_bytes ?? record.appliedBytes ?? 0) || 0;
+  if (Object.hasOwn(record, "applied_bytes")) {
+    normalized.applied_bytes = Number(record.applied_bytes ?? 0) || 0;
   }
-  if (Object.hasOwn(record, "applied_matches_target") || Object.hasOwn(record, "appliedMatchesTarget")) {
-    normalized.applied_matches_target = Boolean(record.applied_matches_target ?? record.appliedMatchesTarget);
+  if (Object.hasOwn(record, "applied_matches_target")) {
+    normalized.applied_matches_target = Boolean(record.applied_matches_target);
   }
-  const errorMessage = optionalString(record.error_message ?? record.errorMessage);
+  const errorMessage = optionalString(record.error_message);
   if (errorMessage) {
     normalized.error_message = errorMessage;
   }
