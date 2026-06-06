@@ -275,7 +275,30 @@ test("runtime MCP control surface records enable, status, and validation control
 
   const status = await surface.recordThreadMcpStatus(store, "thread-agent-one");
   assert.equal(status.event_kind, "McpCatalogStatus");
+  assert.equal(status.schema_version, "status.schema");
+  assert.equal(status.server_count, 1);
+  assert.equal(status.tool_count, 2);
+  assert.equal(Object.hasOwn(status, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(status, "serverCount"), false);
+  assert.equal(Object.hasOwn(status, "toolCount"), false);
   assert.match(status.summary, /MCP catalog has 1 server/);
+
+  const statusWithAssets = surface.mcpStatusForAgent({
+    ...store.agents.get("agent-one"),
+    mcpRegistry: {
+      servers: [
+        server("mcp.assets", [], {
+          resources: [{ uri: "file:///workspace/README.md" }],
+          prompts: [{ name: "summarize" }],
+        }),
+      ],
+    },
+  });
+  assert.equal(statusWithAssets.resources[0].server_id, "mcp.assets");
+  assert.equal(statusWithAssets.prompts[0].server_id, "mcp.assets");
+  assert.equal(Object.hasOwn(statusWithAssets, "enabledToolCount"), false);
+  assert.equal(Object.hasOwn(statusWithAssets.resources[0], "serverId"), false);
+  assert.equal(Object.hasOwn(statusWithAssets.prompts[0], "serverId"), false);
 
   const validation = surface.validateThreadMcp(store, "thread-agent-one");
   assert.equal(validation.event_kind, "McpValidationReport");
@@ -470,12 +493,25 @@ test("runtime MCP control surface ignores retired mcpMode request alias", async 
 test("runtime MCP control surface ignores retired liveDiscovery request alias", async () => {
   const { store, surface, transportCalls } = harness();
 
-  await surface.recordThreadMcpStatus(store, "thread-agent-one", {
+  const liveStatus = await surface.recordThreadMcpStatus(store, "thread-agent-one", {
     live_discovery: true,
     liveDiscovery: false,
     live_transport: true,
   });
   assert.equal(transportCalls.at(-1).name, "discoverMcpStdioCatalog");
+  assert.equal(liveStatus.live_discovery.status, "completed");
+  assert.equal(liveStatus.catalog_summaries.length, 1);
+  assert.equal(liveStatus.returned_tool_count, 3);
+  assert.equal(liveStatus.live_discovery.servers[0].server_id, "mcp.docs");
+  assert.equal(liveStatus.live_discovery.servers[0].returned_tool_count, 2);
+  assert.equal(Object.hasOwn(liveStatus, "liveDiscovery"), false);
+  assert.equal(Object.hasOwn(liveStatus, "catalogSummaries"), false);
+  assert.equal(Object.hasOwn(liveStatus, "catalogToolCount"), false);
+  assert.equal(Object.hasOwn(liveStatus, "returnedToolCount"), false);
+  assert.equal(Object.hasOwn(liveStatus.live_discovery.servers[0], "serverId"), false);
+  assert.equal(Object.hasOwn(liveStatus.live_discovery.servers[0], "executionMode"), false);
+  assert.equal(Object.hasOwn(liveStatus.live_discovery.servers[0], "returnedToolCount"), false);
+  assert.equal(Object.hasOwn(liveStatus.live_discovery.servers[0], "catalogSummary"), false);
 
   transportCalls.length = 0;
   await surface.recordThreadMcpStatus(store, "thread-agent-one", {

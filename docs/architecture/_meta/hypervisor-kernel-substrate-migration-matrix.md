@@ -12545,6 +12545,13 @@ camelCase facade fields such as `schemaVersion`, `serverCount`,
 `catalogSummaries`, `returnedCount`, `toolId`, and `searchTools` are retired
 from the catalog surface.
 
+Slice 410 removes MCP control status output aliases:
+runtime MCP control status and live-discovery payloads now emit canonical
+snake_case status, count, discovery, and catalog metadata only; duplicate
+camelCase facade fields such as `schemaVersion`, `serverCount`, `serverId`,
+`executionMode`, `returnedToolCount`, `catalogSummaries`, and `liveDiscovery`
+are retired from the control status surface.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

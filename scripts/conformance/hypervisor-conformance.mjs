@@ -7584,6 +7584,14 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs")
     : "";
+  const runtimeMcpControlStatusForAgentBlock =
+    runtimeMcpControlSurface.match(
+      /mcpStatusForAgent\(agent\) \{[\s\S]*?\n    \},\n    removeMcpServer/,
+    )?.[0] ?? "";
+  const runtimeMcpControlLiveDiscoveryBlock =
+    runtimeMcpControlSurface.match(
+      /async mcpStatusWithLiveDiscovery\(store, status, agent, request = \{\}\) \{[\s\S]*?\n    \},\n    setMcpServerEnabled/,
+    )?.[0] ?? "";
   const runtimeMcpInvokeToolBlock =
     runtimeMcpControlSurface.match(
       /async invokeMcpTool\(store, request = \{\}\) \{[\s\S]*?\n    \},\n    async invokeThreadMcpTool/,
@@ -10665,6 +10673,40 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
     ],
     "Phase 10/11 is pending: MCP catalog status, validation, search, and fetch surfaces must expose canonical snake_case output fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-control-status-output-aliases-retired",
+    /schema_version:\s*statusSchemaVersion/.test(runtimeMcpControlStatusForAgentBlock) &&
+      /server_count:\s*servers\.length/.test(runtimeMcpControlStatusForAgentBlock) &&
+      /enabled_server_count:\s*enabledServers\.length/.test(runtimeMcpControlStatusForAgentBlock) &&
+      /enabled_tool_count:\s*enabledTools\.length/.test(runtimeMcpControlStatusForAgentBlock) &&
+      /server_id:\s*server\.id/.test(runtimeMcpControlStatusForAgentBlock) &&
+      /returned_tool_count:\s*exposure\.tools\.length/.test(runtimeMcpControlLiveDiscoveryBlock) &&
+      /catalog_summaries:\s*catalogSummaries/.test(runtimeMcpControlLiveDiscoveryBlock) &&
+      /catalog_tool_count:\s*catalogSummaries\.reduce/.test(runtimeMcpControlLiveDiscoveryBlock) &&
+      /live_discovery:\s*\{/.test(runtimeMcpControlLiveDiscoveryBlock) &&
+      /Object\.hasOwn\(status,\s*"schemaVersion"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
+      /Object\.hasOwn\(statusWithAssets\.resources\[0\],\s*"serverId"\),\s*false/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(liveStatus,\s*"liveDiscovery"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
+      /Object\.hasOwn\(liveStatus,\s*"catalogSummaries"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
+      /Object\.hasOwn\(liveStatus\.live_discovery\.servers\[0\],\s*"serverId"\),\s*false/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      !/^\s*(?:schemaVersion|serverCount|enabledServerCount|toolCount|enabledToolCount|resourceCount|promptCount)\s*:/m.test(
+        runtimeMcpControlStatusForAgentBlock,
+      ) &&
+      !/serverId:\s*server\.id/.test(runtimeMcpControlStatusForAgentBlock) &&
+      !/^\s*(?:serverId|executionMode|authBoundary|returnedToolCount|catalogSummary|catalogExposure|toolCount|resourceCount|promptCount|catalogSummaries|catalogToolCount|liveDiscovery)\s*:/m.test(
+        runtimeMcpControlLiveDiscoveryBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP control status and live-discovery payloads must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

@@ -108,13 +108,13 @@ export function createRuntimeMcpControlSurface({
       const resourceRecords = servers.flatMap((server) =>
         normalizeArrayDep(server.resources).map((resource) => {
           const record = resource && typeof resource === "object" ? resource : { uri: String(resource) };
-          return { server_id: server.id, serverId: server.id, ...record };
+          return { server_id: server.id, ...record };
         }),
       );
       const promptRecords = servers.flatMap((server) =>
         normalizeArrayDep(server.prompts).map((prompt) => {
           const record = prompt && typeof prompt === "object" ? prompt : { name: String(prompt) };
-          return { server_id: server.id, serverId: server.id, ...record };
+          return { server_id: server.id, ...record };
         }),
       );
       const resources = resourceRecords.sort((left, right) =>
@@ -128,21 +128,14 @@ export function createRuntimeMcpControlSurface({
       const enabledTools = mcpToolsForServersDep(enabledServers);
       return {
         schema_version: statusSchemaVersion,
-        schemaVersion: statusSchemaVersion,
         object: "ioi.runtime_mcp_manager_status",
         status: validation.ok ? "ready" : "blocked",
         server_count: servers.length,
-        serverCount: servers.length,
         enabled_server_count: enabledServers.length,
-        enabledServerCount: enabledServers.length,
         tool_count: tools.length,
-        toolCount: tools.length,
         enabled_tool_count: enabledTools.length,
-        enabledToolCount: enabledTools.length,
         resource_count: resources.length,
-        resourceCount: resources.length,
         prompt_count: prompts.length,
-        promptCount: prompts.length,
         servers,
         tools,
         resources,
@@ -383,31 +376,23 @@ export function createRuntimeMcpControlSurface({
           }
           discoveries.push({
             server_id: server.id,
-            serverId: server.id,
             status: "completed",
             transport: catalog.transport ?? server.transport ?? "stdio",
             execution_mode: catalog.execution_mode ?? catalog.executionMode ?? liveMode,
-            executionMode: catalog.executionMode ?? catalog.execution_mode ?? liveMode,
             auth_boundary: catalog.auth_boundary ?? catalog.authBoundary ?? null,
-            authBoundary: catalog.authBoundary ?? catalog.auth_boundary ?? null,
             tool_count: catalog.tool_count ?? 0,
             resource_count: catalog.resource_count ?? 0,
             prompt_count: catalog.prompt_count ?? 0,
             returned_tool_count: exposure.tools.length,
-            returnedToolCount: exposure.tools.length,
             catalog_summary: exposure.summary,
-            catalogSummary: exposure.summary,
             catalog_exposure: exposure.exposure,
-            catalogExposure: exposure.exposure,
           });
         } catch (error) {
           discoveries.push({
             server_id: server.id,
-            serverId: server.id,
             status: "failed",
             transport: server.transport ?? "stdio",
             execution_mode: liveMode,
-            executionMode: liveMode,
             error_code: optionalStringDep(error?.code) ?? "mcp_live_discovery_failed",
             message: String(error?.message ?? error),
           });
@@ -426,25 +411,14 @@ export function createRuntimeMcpControlSurface({
         ...status,
         tools,
         tool_count: tools.length,
-        toolCount: tools.length,
         resources,
         resource_count: resources.length,
-        resourceCount: resources.length,
         prompts,
         prompt_count: prompts.length,
-        promptCount: prompts.length,
         catalog_summaries: catalogSummaries,
-        catalogSummaries,
         catalog_tool_count: catalogSummaries.reduce((sum, entry) => sum + (entry.tool_count ?? 0), 0),
-        catalogToolCount: catalogSummaries.reduce((sum, entry) => sum + (entry.tool_count ?? 0), 0),
         returned_tool_count: tools.length,
-        returnedToolCount: tools.length,
         live_discovery: {
-          status: discoveries.some((entry) => entry.status === "failed") ? "partial" : "completed",
-          requested: true,
-          servers: discoveries,
-        },
-        liveDiscovery: {
           status: discoveries.some((entry) => entry.status === "failed") ? "partial" : "completed",
           requested: true,
           servers: discoveries,
