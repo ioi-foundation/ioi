@@ -163,7 +163,7 @@ test("runtime MCP helpers summarize and defer large catalogs", () => {
   const exposure = mcpCatalogExposureForStatus(
     { id: "mcp.docs", label: "Docs", transport: "stdio" },
     { tools, resources: [{ uri: "docs://root" }], prompts: [{ name: "ask" }] },
-    { previewLimit: 2 },
+    { preview_limit: 2 },
   );
 
   assert.equal(exposure.tools.length, 2);
@@ -179,6 +179,19 @@ test("runtime MCP helpers summarize and defer large catalogs", () => {
   assert.equal(Object.hasOwn(exposure.exposure, "previewLimit"), false);
   assert.equal(Object.hasOwn(exposure.exposure, "returnedToolCount"), false);
   assert.equal(Object.hasOwn(exposure.exposure, "searchRoute"), false);
+
+  const largeCatalogTools = Array.from({ length: 60 }, (_, index) => ({
+    stable_tool_id: `mcp.docs.large_${index}`,
+    tool_name: `docs__large_${index}`,
+  }));
+  const retiredOptionExposure = mcpCatalogExposureForStatus(
+    { id: "mcp.docs", label: "Docs", transport: "stdio" },
+    { tools: largeCatalogTools, resources: [], prompts: [] },
+    { previewLimit: 2, forceFullCatalog: true },
+  );
+  assert.equal(retiredOptionExposure.tools.length, 50);
+  assert.equal(retiredOptionExposure.exposure.mode, "deferred");
+
   assert.deepEqual(mcpToolNamespaces(["docs__search", "git.diff", "file.inspect"]), ["docs", "file", "git"]);
   assert.equal(mcpToolSearchLimit({ max_results: 7, maxResults: 99 }), 7);
   assert.equal(mcpToolSearchLimit({ maxResults: 7 }), 25);

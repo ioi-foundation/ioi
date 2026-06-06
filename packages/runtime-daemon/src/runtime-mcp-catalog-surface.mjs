@@ -240,9 +240,9 @@ export function createRuntimeMcpCatalogSurface({
             resources = normalizeArrayDep(catalog.resources ?? catalog.listed_resources);
             prompts = normalizeArrayDep(catalog.prompts ?? catalog.listed_prompts);
             catalogSummaries.push(mcpCatalogSummaryForServerDep(server, { tools, resources, prompts }, {
-              liveMode,
+              live_mode: liveMode,
               deferred: tools.length > mcpCatalogPreviewLimitDep(request),
-              previewLimit: mcpCatalogPreviewLimitDep(request),
+              preview_limit: mcpCatalogPreviewLimitDep(request),
             }));
           } catch (error) {
             failures.push({
@@ -252,16 +252,16 @@ export function createRuntimeMcpCatalogSurface({
               message: String(error?.message ?? error),
             });
             catalogSummaries.push(mcpCatalogSummaryForServerDep(server, { tools, resources, prompts }, {
-              liveMode,
+              live_mode: liveMode,
               status: "failed",
-              errorCode: optionalStringDep(error?.code) ?? "mcp_tool_search_discovery_failed",
+              error_code: optionalStringDep(error?.code) ?? "mcp_tool_search_discovery_failed",
             }));
           }
         } else {
           catalogSummaries.push(mcpCatalogSummaryForServerDep(server, { tools, resources, prompts }, {
-            liveMode: liveMode ?? "declared_catalog",
+            live_mode: liveMode ?? "declared_catalog",
             deferred: false,
-            previewLimit: mcpCatalogPreviewLimitDep(request),
+            preview_limit: mcpCatalogPreviewLimitDep(request),
           }));
         }
         candidateTools.push(...tools);

@@ -13045,21 +13045,36 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-catalog-summary-output-aliases-retired",
-    /preview_limit:\s*previewLimit/.test(runtimeMcpCatalogExposureBlock) &&
+    /options\.preview_limit/.test(runtimeMcpCatalogExposureBlock) &&
+      /options\.force_full_catalog/.test(runtimeMcpCatalogExposureBlock) &&
+      /preview_limit:\s*previewLimit/.test(runtimeMcpCatalogExposureBlock) &&
       /full_catalog_included:\s*fullCatalogIncluded/.test(runtimeMcpCatalogExposureBlock) &&
       /returned_tool_count:\s*exposedTools\.length/.test(runtimeMcpCatalogExposureBlock) &&
       /search_route:\s*"\/v1\/mcp\/tools\/search"/.test(runtimeMcpCatalogExposureBlock) &&
       /schema_version:\s*RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION/.test(runtimeMcpCatalogSummaryBlock) &&
       /server_id:\s*server\.id/.test(runtimeMcpCatalogSummaryBlock) &&
-      /execution_mode:\s*options\.liveMode/.test(runtimeMcpCatalogSummaryBlock) &&
+      /execution_mode:\s*options\.live_mode/.test(runtimeMcpCatalogSummaryBlock) &&
       /tool_count:\s*tools\.length/.test(runtimeMcpCatalogSummaryBlock) &&
       /full_catalog_included:\s*!deferred/.test(runtimeMcpCatalogSummaryBlock) &&
-      /error_code:\s*options\.errorCode/.test(runtimeMcpCatalogSummaryBlock) &&
+      /error_code:\s*options\.error_code/.test(runtimeMcpCatalogSummaryBlock) &&
       /tool_name/.test(runtimeMcpCatalogSummaryBlock) &&
       /stable_tool_id/.test(runtimeMcpCatalogSummaryBlock) &&
       /input_schema/.test(runtimeMcpCatalogSummaryBlock) &&
+      /preview_limit:\s*previewLimit/.test(runtimeMcpControlLiveDiscoveryBlock) &&
+      /force_full_catalog:\s*forceFullCatalog/.test(runtimeMcpControlLiveDiscoveryBlock) &&
+      /live_mode:\s*liveMode/.test(runtimeMcpCatalogSurface) &&
+      /error_code:\s*optionalStringDep/.test(runtimeMcpCatalogSurface) &&
+      /preview_limit:\s*mcpCatalogPreviewLimitDep/.test(runtimeMcpCatalogSurface) &&
+      /previewLimit:\s*2,\s*forceFullCatalog:\s*true/.test(runtimeMcpHelpersTest) &&
       /Object\.hasOwn\(exposure\.summary,\s*"toolCount"\),\s*false/.test(runtimeMcpHelpersTest) &&
       /Object\.hasOwn\(exposure\.exposure,\s*"previewLimit"\),\s*false/.test(runtimeMcpHelpersTest) &&
+      /retiredOptionExposure\.exposure\.mode,\s*"deferred"/.test(runtimeMcpHelpersTest) &&
+      !/\boptions\.(?:previewLimit|forceFullCatalog|liveMode|errorCode)\b/.test(
+        `${runtimeMcpCatalogExposureBlock}\n${runtimeMcpCatalogSummaryBlock}`,
+      ) &&
+      !/\b(?:previewLimit|forceFullCatalog|liveMode|errorCode)\s*:/.test(
+        `${runtimeMcpControlLiveDiscoveryBlock}\n${runtimeMcpCatalogSurface}`,
+      ) &&
       /mcpToolIdentityMatches\(\{[\s\S]*stable_tool_id:[\s\S]*workflow_node_id:[\s\S]*tool_name:[\s\S]*server_id:/.test(
         runtimeMcpHelpersTest,
       ) &&

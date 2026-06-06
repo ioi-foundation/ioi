@@ -353,8 +353,8 @@ export function createRuntimeMcpControlSurface({
                   vault: store.modelMounting.vault,
                 });
           const exposure = mcpCatalogExposureForStatusDep(server, catalog, {
-            previewLimit,
-            forceFullCatalog,
+            preview_limit: previewLimit,
+            force_full_catalog: forceFullCatalog,
           });
           catalogSummaries.push(exposure.summary);
           for (const tool of exposure.tools) {

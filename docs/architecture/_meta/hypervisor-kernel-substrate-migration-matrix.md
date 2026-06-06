@@ -12715,6 +12715,12 @@ runtime MCP tool invocation now passes canonical `mcp_mode` into the live stdio
 transport helper, and the MCP manager no longer accepts retired
 `options.mcpMode` fallbacks when setting `IOI_MCP_MODE`.
 
+Slice 431 removes MCP catalog helper option aliases:
+runtime MCP catalog exposure and summary helpers now consume canonical
+`preview_limit`, `force_full_catalog`, `live_mode`, and `error_code` option
+fields only; control/catalog surfaces pass the canonical helper contract and the
+retired camelCase helper-option names are ignored in focused tests.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

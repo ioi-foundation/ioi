@@ -420,12 +420,12 @@ export function mcpCatalogExposureForStatus(server, catalog = {}, options = {}) 
   const tools = normalizeArray(catalog.tools ?? catalog.listed_tools);
   const resources = normalizeArray(catalog.resources ?? catalog.listed_resources);
   const prompts = normalizeArray(catalog.prompts ?? catalog.listed_prompts);
-  const previewLimit = boundedPositiveInteger(options.previewLimit, MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT, MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT);
-  const fullCatalogIncluded = options.forceFullCatalog === true || tools.length <= previewLimit;
+  const previewLimit = boundedPositiveInteger(options.preview_limit, MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT, MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT);
+  const fullCatalogIncluded = options.force_full_catalog === true || tools.length <= previewLimit;
   const summary = mcpCatalogSummaryForServer(server, { tools, resources, prompts }, {
-    liveMode: catalog.executionMode ?? catalog.execution_mode ?? server.transport ?? "stdio",
+    live_mode: catalog.execution_mode ?? server.transport ?? "stdio",
     deferred: !fullCatalogIncluded,
-    previewLimit,
+    preview_limit: previewLimit,
     catalog,
   });
   const exposedTools = fullCatalogIncluded ? tools : tools.slice(0, previewLimit);
@@ -475,7 +475,7 @@ export function mcpCatalogSummaryForServer(server = {}, catalog = {}, options = 
     })),
   };
   const catalogHash = doctorHash(JSON.stringify(hashPayload));
-  const previewLimit = boundedPositiveInteger(options.previewLimit, MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT, MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT);
+  const previewLimit = boundedPositiveInteger(options.preview_limit, MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT, MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT);
   const deferred = Boolean(options.deferred ?? tools.length > previewLimit);
   return {
     schema_version: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
@@ -484,7 +484,7 @@ export function mcpCatalogSummaryForServer(server = {}, catalog = {}, options = 
     server_id: server.id ?? null,
     server_label: server.label ?? server.name ?? server.id ?? null,
     transport: server.transport ?? null,
-    execution_mode: options.liveMode ?? null,
+    execution_mode: options.live_mode ?? null,
     catalog_hash: catalogHash,
     tool_count: tools.length,
     resource_count: resources.length,
@@ -495,7 +495,7 @@ export function mcpCatalogSummaryForServer(server = {}, catalog = {}, options = 
     preview_tool_names: toolNames.slice(0, Math.min(previewLimit, 20)),
     deferred,
     full_catalog_included: !deferred,
-    error_code: options.errorCode ?? null,
+    error_code: options.error_code ?? null,
     search_route: "/v1/mcp/tools/search",
     fetch_route: "/v1/mcp/tools/{tool_id}",
   };
