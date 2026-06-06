@@ -9292,6 +9292,22 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-thread-projection-runtime-identity-aliases-retired",
+    /runtime_profile:\s*agent\.runtime_profile \?\? "fixture"/.test(threadTurnProjection) &&
+      /runtime_bridge_id:\s*agent\.runtime_bridge_id \?\? null/.test(threadTurnProjection) &&
+      /runtime_bridge_source:\s*agent\.runtime_bridge_source \?\? null/.test(threadTurnProjection) &&
+      /thread projection ignores retired runtime identity aliases/.test(threadTurnProjectionTest) &&
+      /runtimeProfile:\s*"runtime_alias"/.test(threadTurnProjectionTest) &&
+      /thread\.runtime_profile,\s*"fixture"/.test(threadTurnProjectionTest) &&
+      !/agent\.(?:runtimeProfile|runtimeBridgeId|runtimeBridgeSource)\b/.test(threadTurnProjection),
+    [
+      "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
+      "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
+    ],
+    "Phase 10/11 is pending: thread projection runtime identity must read canonical snake_case agent fields without retired camelCase fallbacks",
+  );
+  assertCheck(
+    result,
     "runtime-agent-run-lifecycle-usage-aliases-retired",
     !/^\s*usageTelemetry,?\s*$/m.test(runtimeAgentRunLifecycle) &&
       !/^\s*runtimeUsage:\s*usageTelemetry,?\s*$/m.test(runtimeAgentRunLifecycle) &&

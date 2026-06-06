@@ -12660,6 +12660,12 @@ identity and session fields only, ignore retired bridge camelCase fallbacks, and
 fail closed on retired control request aliases such as `managedSessionId`,
 `sessionCardId`, `createdAt`, and `requestHash`.
 
+Slice 422 removes thread-projection runtime identity aliases:
+thread projection now reads canonical `agent.runtime_profile`,
+`agent.runtime_bridge_id`, and `agent.runtime_bridge_source` only; retired
+`agent.runtimeProfile`, `agent.runtimeBridgeId`, and `agent.runtimeBridgeSource`
+no longer shape projected runtime identity.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

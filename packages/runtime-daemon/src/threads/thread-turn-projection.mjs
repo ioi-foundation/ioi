@@ -75,9 +75,9 @@ export function createThreadTurnProjection({
       }).length,
       archived: agent.status === "archived",
       evidence_refs: ["agentgres_canonical_state_projection", "runtime_tti_projection"],
-      runtime_profile: agent.runtimeProfile ?? "fixture",
-      runtime_bridge_id: agent.runtimeBridgeId ?? null,
-      runtime_bridge_source: agent.runtimeBridgeSource ?? null,
+      runtime_profile: agent.runtime_profile ?? "fixture",
+      runtime_bridge_id: agent.runtime_bridge_id ?? null,
+      runtime_bridge_source: agent.runtime_bridge_source ?? null,
       usage: usageTelemetry,
       usage_telemetry: usageTelemetry,
     };

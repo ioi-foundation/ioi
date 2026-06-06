@@ -6,7 +6,7 @@ import { createThreadTurnProjection } from "./thread-turn-projection.mjs";
 function createProjection() {
   return createThreadTurnProjection({
     eventStreamIdForThread: (threadId) => `stream:${threadId}`,
-    fixtureProfileForAgent: (agent) => agent.runtimeProfile ?? "fixture",
+    fixtureProfileForAgent: (agent) => agent.runtime_profile ?? "fixture",
     lifecycleStatusForRun: (status) => status === "completed" ? "completed" : "running",
     normalizedAgentRuntimeControls: (agent) => agent.runtimeControls ?? { mode: "agent", approvalMode: "suggest", model: {} },
     runtimeSessionIdForAgent: (agent) => `session:${agent.id}`,
@@ -80,6 +80,9 @@ test("thread projection includes latest run, usage, memory, and interrupted stat
     modelRouteId: "route.local-first",
     modelRouteReceiptId: "receipt-route",
     modelRouteDecision: { reasoning_effort: "medium" },
+    runtime_profile: "runtime_service",
+    runtime_bridge_id: "bridge_runtime",
+    runtime_bridge_source: "rust_core",
     runtimeControls: { mode: "agent", approvalMode: "suggest", model: { reasoningEffort: "low" } },
     createdAt: "2026-06-03T00:00:00.000Z",
     updatedAt: "2026-06-03T00:00:01.000Z",
@@ -103,10 +106,34 @@ test("thread projection includes latest run, usage, memory, and interrupted stat
   assert.equal(thread.latest_seq, 7);
   assert.equal(thread.memory_count, 2);
   assert.equal(thread.reasoning_effort, "medium");
+  assert.equal(thread.runtime_profile, "runtime_service");
+  assert.equal(thread.runtime_bridge_id, "bridge_runtime");
+  assert.equal(thread.runtime_bridge_source, "rust_core");
   assert.deepEqual(thread.usage.subagentIds, ["sub_one"]);
   assert.equal(thread.usage_telemetry, thread.usage);
   assertMissingKeys(thread, retiredUsageProjectionAliasKeys);
   assert.equal(store.projectThreadEventsCalled, true);
+});
+
+test("thread projection ignores retired runtime identity aliases", () => {
+  const agent = {
+    id: "agent_one",
+    cwd: "/workspace",
+    status: "active",
+    modelId: "qwen",
+    runtimeProfile: "runtime_alias",
+    runtimeBridgeId: "bridge_alias",
+    runtimeBridgeSource: "source_alias",
+    createdAt: "2026-06-03T00:00:00.000Z",
+    updatedAt: "2026-06-03T00:00:01.000Z",
+  };
+  const store = createStore({ agent });
+
+  const thread = createProjection().threadForAgent(store, agent);
+
+  assert.equal(thread.runtime_profile, "fixture");
+  assert.equal(thread.runtime_bridge_id, null);
+  assert.equal(thread.runtime_bridge_source, null);
 });
 
 test("turn projection distinguishes closed and open turns", () => {
