@@ -2195,9 +2195,19 @@ function runBridge() {
       /context budget policy ignores retired identity request aliases/.test(
         codingToolBudgetPolicySurfaceTest,
       ) &&
+      /context budget policy ignores retired threshold request aliases/.test(
+        codingToolBudgetPolicySurfaceTest,
+      ) &&
       /workflowNodeId:\s*"node-retired"/.test(codingToolBudgetPolicySurfaceTest) &&
       /eventKind:\s*"RuntimeContextBudget\.Retired"/.test(codingToolBudgetPolicySurfaceTest) &&
       !/request\.(?:workflowNodeId|workflowGraphId|threadId|runId|turnId|eventKind)\b/.test(
+        codingToolBudgetPolicySurface,
+      ) &&
+      !/request\.(?:budgetMode|toolPack|codingTool|contextBudget|maxTotalTokens|maxCostUsd|maxContextPressure|warnAtRatio)\b/.test(
+        codingToolBudgetPolicySurface,
+      ) &&
+      !/request\.options\?\.(?:toolPack)\b/.test(codingToolBudgetPolicySurface) &&
+      !/(?:thresholds|codingPack)(?:\?\.|\.)(?:maxTotalTokens|maxCostUsd|maxContextPressure|warnAtRatio|budgetMode)\b/.test(
         codingToolBudgetPolicySurface,
       ),
     [
@@ -2229,6 +2239,9 @@ function runBridge() {
       ) &&
       /budgetRunner\.evaluateCodingToolBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
       /coding tool budget policy reads canonical tool pack fields and annotates runtime context/.test(
+        codingToolBudgetPolicySurfaceTest,
+      ) &&
+      /coding tool budget policy ignores retired config request aliases/.test(
         codingToolBudgetPolicySurfaceTest,
       ) &&
       /capturedRequest\.schema_version,\s*"ioi\.runtime\.coding-tool-budget-policy-request\.v1"/.test(

@@ -36,31 +36,16 @@ export function codingToolBudgetPolicyForRequest({
       requestThresholds.max_total_tokens,
       codingPackThresholds.max_total_tokens,
     ),
-    maxTotalTokens: contextBudgetNumber(
-      requestThresholds.maxTotalTokens,
-      codingPackThresholds.maxTotalTokens,
-    ),
     max_cost_usd: contextBudgetNumber(
       requestThresholds.max_cost_usd,
       codingPackThresholds.max_cost_usd,
-    ),
-    maxCostUsd: contextBudgetNumber(
-      requestThresholds.maxCostUsd,
-      codingPackThresholds.maxCostUsd,
     ),
     max_context_pressure: contextBudgetNumber(
       requestThresholds.max_context_pressure,
       codingPackThresholds.max_context_pressure,
     ),
-    maxContextPressure: contextBudgetNumber(
-      requestThresholds.maxContextPressure,
-      codingPackThresholds.maxContextPressure,
-    ),
     warn_at_ratio:
       contextBudgetNumber(requestThresholds.warn_at_ratio, codingPackThresholds.warn_at_ratio) ??
-      0.8,
-    warnAtRatio:
-      contextBudgetNumber(requestThresholds.warnAtRatio, codingPackThresholds.warnAtRatio) ??
       0.8,
   };
   const hasBudgetLimit = [
@@ -73,10 +58,8 @@ export function codingToolBudgetPolicyForRequest({
   const mode = contextBudgetMode(
     optionalString(
       request.budget_mode ??
-        request.budgetMode ??
         request.mode ??
-        codingPack.budget_mode ??
-        codingPack.budgetMode,
+        codingPack.budget_mode,
     ) ?? "simulate",
   );
   return budgetRunner.evaluateCodingToolBudgetPolicy({
@@ -102,9 +85,7 @@ export function codingToolBudgetPolicyForRequest({
 export function codingToolBudgetConfigForRequest(request = {}) {
   const toolPack =
     contextBudgetFirstObject(
-      request.toolPack,
       request.tool_pack,
-      request.options?.toolPack,
       request.options?.tool_pack,
     ) ?? {};
   const codingPack =
@@ -113,7 +94,6 @@ export function codingToolBudgetConfigForRequest(request = {}) {
       toolPack.CODING,
       request.coding,
       request.coding_tool,
-      request.codingTool,
     ) ?? {};
   return {
     ...toolPack,
@@ -170,54 +150,22 @@ export function evaluateContextBudgetPolicy({
 }
 
 export function contextBudgetThresholds(request = {}) {
-  const thresholds = contextBudgetFirstObject(request.thresholds, request.contextBudget, request.context_budget) ?? {};
+  const thresholds = contextBudgetFirstObject(request.thresholds, request.context_budget) ?? {};
   return {
     max_total_tokens: contextBudgetNumber(
       thresholds.max_total_tokens,
-      thresholds.maxTotalTokens,
-      request.max_total_tokens,
-      request.maxTotalTokens,
-    ),
-    maxTotalTokens: contextBudgetNumber(
-      thresholds.maxTotalTokens,
-      thresholds.max_total_tokens,
-      request.maxTotalTokens,
       request.max_total_tokens,
     ),
     max_cost_usd: contextBudgetNumber(
       thresholds.max_cost_usd,
-      thresholds.maxCostUsd,
-      request.max_cost_usd,
-      request.maxCostUsd,
-    ),
-    maxCostUsd: contextBudgetNumber(
-      thresholds.maxCostUsd,
-      thresholds.max_cost_usd,
-      request.maxCostUsd,
       request.max_cost_usd,
     ),
     max_context_pressure: contextBudgetNumber(
       thresholds.max_context_pressure,
-      thresholds.maxContextPressure,
-      request.max_context_pressure,
-      request.maxContextPressure,
-    ),
-    maxContextPressure: contextBudgetNumber(
-      thresholds.maxContextPressure,
-      thresholds.max_context_pressure,
-      request.maxContextPressure,
       request.max_context_pressure,
     ),
     warn_at_ratio: contextBudgetNumber(
       thresholds.warn_at_ratio,
-      thresholds.warnAtRatio,
-      request.warn_at_ratio,
-      request.warnAtRatio,
-    ) ?? 0.8,
-    warnAtRatio: contextBudgetNumber(
-      thresholds.warnAtRatio,
-      thresholds.warn_at_ratio,
-      request.warnAtRatio,
       request.warn_at_ratio,
     ) ?? 0.8,
   };

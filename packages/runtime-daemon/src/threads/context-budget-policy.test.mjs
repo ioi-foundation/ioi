@@ -19,6 +19,62 @@ const retiredContextBudgetUsageInputAliasKeys = [
   "runtime_telemetry_summary",
 ];
 
+const retiredContextBudgetThresholdInputAliasRequests = [
+  { request: { maxTotalTokens: 100 }, label: "maxTotalTokens" },
+  { request: { maxCostUsd: 0.25 }, label: "maxCostUsd" },
+  { request: { maxContextPressure: 0.9 }, label: "maxContextPressure" },
+  { request: { warnAtRatio: 0.75 }, label: "warnAtRatio" },
+  { request: { contextBudget: { max_total_tokens: 100 } }, label: "contextBudget" },
+  { request: { thresholds: { maxTotalTokens: 100 } }, label: "thresholds.maxTotalTokens" },
+  { request: { thresholds: { maxCostUsd: 0.25 } }, label: "thresholds.maxCostUsd" },
+  { request: { thresholds: { maxContextPressure: 0.9 } }, label: "thresholds.maxContextPressure" },
+  { request: { thresholds: { warnAtRatio: 0.75 } }, label: "thresholds.warnAtRatio" },
+];
+
+const retiredCodingToolBudgetConfigAliasRequests = [
+  {
+    request: {
+      budget_usage_telemetry: { total_tokens: 90 },
+      max_total_tokens: 100,
+      budgetMode: "block",
+    },
+    label: "budgetMode",
+  },
+  {
+    request: {
+      options: {
+        toolPack: {
+          coding: {
+            budget_usage_telemetry: { total_tokens: 90 },
+            max_total_tokens: 100,
+          },
+        },
+      },
+    },
+    label: "options.toolPack",
+  },
+  {
+    request: {
+      toolPack: {
+        coding: {
+          budget_usage_telemetry: { total_tokens: 90 },
+          max_total_tokens: 100,
+        },
+      },
+    },
+    label: "toolPack",
+  },
+  {
+    request: {
+      codingTool: {
+        budget_usage_telemetry: { total_tokens: 90 },
+        max_total_tokens: 100,
+      },
+    },
+    label: "codingTool",
+  },
+];
+
 function budgetRunnerMock({ capture = null } = {}) {
   const resultForRequest = (request, { source, event_kind, component_kind }) => {
     capture?.(request);
@@ -166,20 +222,16 @@ test("context budget telemetry and thresholds normalize canonical request fields
 
   assert.deepEqual(contextBudgetThresholds({
     thresholds: {
-      maxTotalTokens: "100",
-      maxCostUsd: "0.25",
-      maxContextPressure: "0.9",
-      warnAtRatio: "0.75",
+      max_total_tokens: "100",
+      max_cost_usd: "0.25",
+      max_context_pressure: "0.9",
+      warn_at_ratio: "0.75",
     },
   }), {
     max_total_tokens: 100,
-    maxTotalTokens: 100,
     max_cost_usd: 0.25,
-    maxCostUsd: 0.25,
     max_context_pressure: 0.9,
-    maxContextPressure: 0.9,
     warn_at_ratio: 0.75,
-    warnAtRatio: 0.75,
   });
 
   assert.equal(contextBudgetNumber(undefined, "", -1, "42"), 42);
@@ -246,7 +298,7 @@ test("context budget policy warns in simulate mode and blocks in block mode", ()
     usageTelemetry,
     request: {
       mode: "block",
-      maxTotalTokens: 100,
+      max_total_tokens: 100,
     },
     budgetRunner: budgetRunnerMock(),
   });
@@ -291,13 +343,43 @@ test("context budget policy ignores retired identity request aliases", () => {
   assert.equal(result.event_kind, "RuntimeContextBudget.Evaluate");
 });
 
+test("context budget policy ignores retired threshold request aliases", () => {
+  const usageTelemetry = {
+    total_tokens: 120,
+    estimated_cost_usd: 0.6,
+    context_pressure: 0.91,
+    thread_id: "thread-canonical-telemetry",
+  };
+  for (const { request, label } of retiredContextBudgetThresholdInputAliasRequests) {
+    let capturedRequest = null;
+    const result = evaluateContextBudgetPolicy({
+      usageTelemetry,
+      request: {
+        mode: "block",
+        ...request,
+      },
+      budgetRunner: budgetRunnerMock({
+        capture: (rustRequest) => {
+          capturedRequest = rustRequest;
+        },
+      }),
+    });
+
+    assert.equal(capturedRequest.thresholds.max_total_tokens, null, label);
+    assert.equal(capturedRequest.thresholds.max_cost_usd, null, label);
+    assert.equal(capturedRequest.thresholds.max_context_pressure, null, label);
+    assert.equal(capturedRequest.thresholds.warn_at_ratio, 0.8, label);
+    assert.equal(result.status, "ok", label);
+  }
+});
+
 test("coding tool budget policy reads canonical tool pack fields and annotates runtime context", () => {
   let capturedRequest = null;
   const result = codingToolBudgetPolicyForRequest({
     request: {
       source: "react_flow",
       options: {
-        toolPack: {
+        tool_pack: {
           coding: {
             budget_usage_telemetry: {
               total_tokens: 90,
@@ -334,6 +416,29 @@ test("coding tool budget policy reads canonical tool pack fields and annotates r
   assert.equal(result.thread_id, "thread-1");
   assert.equal(result.workflow_graph_id, "graph-1");
   assert.equal(result.workflow_node_id, "node-1");
+});
+
+test("coding tool budget policy ignores retired config request aliases", () => {
+  for (const { request, label } of retiredCodingToolBudgetConfigAliasRequests) {
+    let capturedRequest = null;
+    const result = codingToolBudgetPolicyForRequest({
+      request,
+      budgetRunner: budgetRunnerMock({
+        capture: (rustRequest) => {
+          capturedRequest = rustRequest;
+        },
+      }),
+    });
+
+    if (label === "budgetMode") {
+      assert.equal(capturedRequest.mode, "simulate", label);
+      assert.equal(result.status, "warn", label);
+      continue;
+    }
+
+    assert.equal(capturedRequest, null, label);
+    assert.equal(result, null, label);
+  }
 });
 
 test("coding tool budget policy returns null without telemetry or limits", () => {
