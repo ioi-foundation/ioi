@@ -91,8 +91,16 @@ test("runtime run event helpers preserve payload records, receipts, and artifact
   }), ["receipt-hook", "receipt-policy"]);
   assert.deepEqual(runtime.receiptRefsForRunEvent({
     type: "lsp_diagnostics_injected",
-    data: { receiptId: "receipt-lsp", receiptRefs: ["receipt-extra"] },
+    data: { receipt_id: "receipt-lsp", receipt_refs: ["receipt-extra"] },
   }), ["receipt-lsp", "receipt-extra"]);
+  assert.deepEqual(runtime.receiptRefsForRunEvent({
+    type: "hook_invocation_ledger",
+    data: { receipt_id: "receipt-hook-ledger", escalation_receipt_ids: ["receipt-escalation"] },
+  }), ["receipt-hook-ledger", "receipt-escalation"]);
+  assert.deepEqual(runtime.receiptRefsForRunEvent({
+    type: "lsp_diagnostics_injected",
+    data: { receiptId: "receipt-lsp-retired", receiptRefs: ["receipt-extra-retired"] },
+  }), []);
 
   assert.deepEqual(runtime.artifactRefsForRunEvent({ type: "runtime_task" }), ["runtime-task.json"]);
   assert.deepEqual(runtime.artifactRefsForRunEvent({ type: "artifact", data: { artifactNames: ["one.json"] } }), ["one.json"]);

@@ -1343,6 +1343,26 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "runtime-run-receipt-reader-aliases-retired",
+    /event\.data\?\.receipt_id/.test(runtimeRunEventHelpers) &&
+      /event\.data\?\.policy_receipt_id/.test(runtimeRunEventHelpers) &&
+      /event\.data\?\.escalation_receipt_ids/.test(runtimeRunEventHelpers) &&
+      /event\.data\?\.receipt_refs/.test(runtimeRunEventHelpers) &&
+      !/event\.data\?\.(?:receiptId|policyReceiptId|escalationReceiptIds|receiptRefs)\b/.test(
+        runtimeRunEventHelpers,
+      ) &&
+      /receipt-lsp-retired/.test(runtimeRunEventHelpersTest) &&
+      /receipt-extra-retired/.test(runtimeRunEventHelpersTest) &&
+      /receipt-hook-ledger/.test(runtimeRunEventHelpersTest) &&
+      /receipt-escalation/.test(runtimeRunEventHelpersTest),
+    [
+      "packages/runtime-daemon/src/runtime-run-event-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-run-event-helpers.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime run receipt readers must ignore retired camelCase receipt aliases",
+  );
+  assertCheck(
+    result,
     "computer-use-control-payload-aliases-retired",
     /schema_version:\s*COMPUTER_USE_CONTRACT_SCHEMA_VERSION/.test(computerUseControlPayloadSummaryBlock) &&
       /computer_use:\s*true/.test(computerUseControlPayloadSummaryBlock) &&

@@ -183,75 +183,75 @@ export function createRuntimeRunEventHelpers({
   function receiptRefsForRunEvent(event) {
     if (event.type === "run_started") return [`receipt_${event.runId}_policy`];
     if (isComputerUseRunEventType(event.type)) {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "model_route_decision") {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "runtime_task") {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "runtime_checklist") {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "job_queued" || event.type === "job_started" || event.type === "job_completed" || event.type === "job_failed" || event.type === "job_canceled") {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "repository_context") {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "branch_policy") {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "github_context") {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "issue_context") {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "pr_attempt") {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "review_gate") {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "github_pr_create_plan") {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "skill_hook_manifest") {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "hook_dry_run_plan") {
       return [
-        event.data?.receiptId ?? event.data?.receipt_id,
-        event.data?.policyReceiptId ?? event.data?.policy_receipt_id,
+        event.data?.receipt_id,
+        event.data?.policy_receipt_id,
       ].filter(Boolean);
     }
     if (event.type === "hook_invocation_ledger") {
       return [
-        event.data?.receiptId ?? event.data?.receipt_id,
-        ...normalizeArray(event.data?.escalationReceiptIds),
+        event.data?.receipt_id,
+        ...normalizeArray(event.data?.escalation_receipt_ids),
       ].filter(Boolean);
     }
     if (event.type === "memory_update") {
-      return [event.data?.receiptId ?? event.data?.receipt_id].filter(Boolean);
+      return [event.data?.receipt_id].filter(Boolean);
     }
     if (event.type === "lsp_diagnostics_injected") {
       return [
-        event.data?.receiptId ?? event.data?.receipt_id,
-        ...normalizeArray(event.data?.receiptRefs),
+        event.data?.receipt_id,
+        ...normalizeArray(event.data?.receipt_refs),
       ].filter(Boolean);
     }
     if (event.type === "policy_blocked") {
       return [
-        event.data?.receiptId ?? event.data?.receipt_id,
-        ...normalizeArray(event.data?.receiptRefs),
+        event.data?.receipt_id,
+        ...normalizeArray(event.data?.receipt_refs),
       ].filter(Boolean);
     }
     if (event.type === "context_pressure_alert") {
       return [
-        event.data?.receiptId ?? event.data?.receipt_id,
-        ...normalizeArray(event.data?.receiptRefs ?? event.data?.receipt_refs),
+        event.data?.receipt_id,
+        ...normalizeArray(event.data?.receipt_refs),
       ].filter(Boolean);
     }
     if (event.type === "completed" || event.type === "canceled") return [`receipt_${event.runId}_agentgres`];
