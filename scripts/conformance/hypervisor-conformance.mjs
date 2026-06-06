@@ -352,8 +352,16 @@ function runAbi() {
       /codingToolStepModuleProjection/.test(read("packages/runtime-daemon/src/coding-tools.mjs")) &&
       /moduleKind = "workload_job"/.test(stepModuleAbi) &&
       /executionBackend = "workload_grpc"/.test(stepModuleAbi) &&
-      !/executionBackend = "daemon_js"/.test(stepModuleAbi),
-    ["packages/runtime-daemon/src/step-module-abi.mjs", "packages/runtime-daemon/src/coding-tools.mjs"],
+      !/executionBackend = "daemon_js"/.test(stepModuleAbi) &&
+      !/backend === "daemon_js"/.test(stepModuleAbi) &&
+      /StepModule ABI rejects retired daemon_js execution backend/.test(
+        read("packages/runtime-daemon/src/step-module-abi.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/step-module-abi.mjs",
+      "packages/runtime-daemon/src/step-module-abi.test.mjs",
+      "packages/runtime-daemon/src/coding-tools.mjs",
+    ],
     "Phase 1 is pending: JS coding tool contracts must emit Step/Module wrappers in projection mode",
   );
   assertCheck(

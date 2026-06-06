@@ -73,6 +73,21 @@ test("cTEE private workspace projection refuses node plaintext custody", () => {
   );
 });
 
+test("StepModule ABI rejects retired daemon_js execution backend", () => {
+  const contract = codingToolContracts()[0];
+  const invocation = createStepModuleInvocationForCodingTool({
+    contract,
+    toolId: contract.stable_tool_id,
+  });
+  invocation.module_ref.kind = "daemon_native_tool";
+  invocation.execution.backend = "daemon_js";
+
+  assert.throws(
+    () => validateStepModuleInvocationShape(invocation),
+    /execution backend daemon_js is not allowed for module kind daemon_native_tool/,
+  );
+});
+
 test("model mount receipts project into the Step/Module ABI", () => {
   const { invocation, result } = createModelMountStepModuleProjection({
     invocationRef: "model-invocation://receipt.1.model_invocation",

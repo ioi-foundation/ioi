@@ -476,7 +476,7 @@ function safeRefSegment(value) {
 
 function backendAllowedForKind(kind, backend) {
   return (
-    (kind === "daemon_native_tool" && (backend === "daemon_js" || backend === "rust_wasm")) ||
+    (kind === "daemon_native_tool" && backend === "rust_wasm") ||
     (kind === "rust_wasm_service_module" && backend === "rust_wasm") ||
     (kind === "workload_job" && backend === "workload_grpc") ||
     (kind === "model_mount" && backend === "model_mount") ||
