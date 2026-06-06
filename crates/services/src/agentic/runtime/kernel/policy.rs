@@ -17,6 +17,10 @@ pub const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &st
     "ioi.runtime.diagnostics-operator-override-state-update-request.v1";
 pub const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.diagnostics-operator-override-state-update.v1";
+pub const OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.operator-interrupt-state-update-request.v1";
+pub const OPERATOR_INTERRUPT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.operator-interrupt-state-update.v1";
 pub const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.compaction-policy-request.v1";
 pub const COMPACTION_POLICY_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.compaction-policy.v1";
@@ -111,6 +115,15 @@ pub enum CodingToolBudgetRecoveryStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DiagnosticsOperatorOverrideStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OperatorInterruptStateUpdateError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -537,6 +550,42 @@ pub struct DiagnosticsOperatorOverrideStateUpdateRecord {
     pub run_id: Option<String>,
     pub updated_at: String,
     pub operator_control: Value,
+    pub run: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OperatorInterruptStateUpdateRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub turn_id: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    pub run: Value,
+    pub event_id: String,
+    pub seq: u64,
+    pub created_at: String,
+    pub source: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OperatorInterruptStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    pub updated_at: String,
+    pub operator_control: Value,
+    pub stop_condition: Value,
     pub run: Value,
     pub generated_at: String,
 }
@@ -1258,6 +1307,103 @@ impl DiagnosticsOperatorOverrideStateUpdateCore {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct OperatorInterruptStateUpdateCore;
+
+impl OperatorInterruptStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &OperatorInterruptStateUpdateRequest,
+    ) -> Result<OperatorInterruptStateUpdateRecord, OperatorInterruptStateUpdateError> {
+        request.validate()?;
+        let thread_id = optional_trimmed(request.thread_id.as_deref());
+        let turn_id = optional_trimmed(request.turn_id.as_deref());
+        let run_id = optional_trimmed(request.run_id.as_deref());
+        let source = operator_control_source(Some(request.source.as_str()));
+        let reason = optional_trimmed(Some(request.reason.as_str()))
+            .unwrap_or_else(|| "operator requested interrupt".to_string());
+        let operator_control = json!({
+            "control": "interrupt",
+            "source": source,
+            "reason": reason,
+            "eventId": request.event_id,
+            "seq": request.seq,
+            "createdAt": request.created_at,
+        });
+        let stop_condition = json!({
+            "reason": "operator_interrupt",
+            "evidenceSufficient": true,
+            "rationale": format!("Operator interrupt accepted from {source}: {reason}"),
+        });
+        let mut run = object_value(&request.run)
+            .ok_or(OperatorInterruptStateUpdateError::MissingField("run"))?;
+        let prior_status = run
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        if matches!(prior_status.as_str(), "queued" | "running" | "blocked") {
+            run.insert("status".to_string(), Value::String("canceled".to_string()));
+        }
+        run.insert(
+            "turnStatus".to_string(),
+            Value::String("interrupted".to_string()),
+        );
+        run.insert(
+            "updatedAt".to_string(),
+            Value::String(request.created_at.clone()),
+        );
+        run.insert(
+            "result".to_string(),
+            Value::String(format!("Turn interrupted by operator: {reason}")),
+        );
+        let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
+        trace.insert(
+            "status".to_string(),
+            Value::String("interrupted".to_string()),
+        );
+        trace.insert("stopCondition".to_string(), stop_condition.clone());
+        let trace_controls =
+            append_operator_control(trace.get("operatorControls"), &operator_control);
+        trace.insert("operatorControls".to_string(), trace_controls);
+        let mut quality_ledger = trace
+            .get("qualityLedger")
+            .and_then(object_value)
+            .unwrap_or_default();
+        let mut labels = quality_ledger
+            .get("failureOntologyLabels")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        if !labels
+            .iter()
+            .any(|label| label.as_str() == Some("operator_interrupt"))
+        {
+            labels.push(Value::String("operator_interrupt".to_string()));
+        }
+        quality_ledger.insert("failureOntologyLabels".to_string(), Value::Array(labels));
+        trace.insert("qualityLedger".to_string(), Value::Object(quality_ledger));
+        run.insert("trace".to_string(), Value::Object(trace));
+        let run_controls = append_operator_control(run.get("operatorControls"), &operator_control);
+        run.insert("operatorControls".to_string(), run_controls);
+
+        Ok(OperatorInterruptStateUpdateRecord {
+            schema_version: OPERATOR_INTERRUPT_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_operator_interrupt_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: "turn.interrupt".to_string(),
+            thread_id,
+            turn_id,
+            run_id,
+            updated_at: request.created_at.clone(),
+            operator_control,
+            stop_condition,
+            run: Value::Object(run),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
 impl CompactionPolicyRequest {
     pub fn validate(&self) -> Result<(), CompactionPolicyError> {
         if self.schema_version != COMPACTION_POLICY_REQUEST_SCHEMA_VERSION {
@@ -1405,6 +1551,32 @@ impl DiagnosticsOperatorOverrideStateUpdateRequest {
         if optional_trimmed(Some(self.decision_id.as_str())).is_none() {
             return Err(DiagnosticsOperatorOverrideStateUpdateError::MissingField(
                 "decision_id",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl OperatorInterruptStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), OperatorInterruptStateUpdateError> {
+        if self.schema_version != OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(OperatorInterruptStateUpdateError::InvalidSchemaVersion {
+                expected: OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if !self.run.is_object() {
+            return Err(OperatorInterruptStateUpdateError::MissingField("run"));
+        }
+        if optional_trimmed(Some(self.event_id.as_str())).is_none() {
+            return Err(OperatorInterruptStateUpdateError::MissingField("event_id"));
+        }
+        if self.seq == 0 {
+            return Err(OperatorInterruptStateUpdateError::MissingField("seq"));
+        }
+        if optional_trimmed(Some(self.created_at.as_str())).is_none() {
+            return Err(OperatorInterruptStateUpdateError::MissingField(
+                "created_at",
             ));
         }
         Ok(())
@@ -1892,6 +2064,32 @@ mod tests {
         }
     }
 
+    fn operator_interrupt_state_update_request() -> OperatorInterruptStateUpdateRequest {
+        OperatorInterruptStateUpdateRequest {
+            schema_version: OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: Some("thread_budget".to_string()),
+            turn_id: Some("turn_budget".to_string()),
+            run_id: Some("run_budget".to_string()),
+            run: json!({
+                "id": "run_budget",
+                "agentId": "agent_budget",
+                "status": "running",
+                "turnStatus": "running",
+                "trace": {
+                    "qualityLedger": {
+                        "failureOntologyLabels": ["existing_label"]
+                    }
+                },
+                "operatorControls": []
+            }),
+            event_id: "event_interrupt".to_string(),
+            seq: 11,
+            created_at: "2026-06-06T04:25:00.000Z".to_string(),
+            source: "runtime_auto".to_string(),
+            reason: "operator_stop".to_string(),
+        }
+    }
+
     #[test]
     fn rust_policy_blocks_context_budget_excess() {
         let mut request = budget_request();
@@ -2212,6 +2410,40 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_plans_operator_interrupt_state_update() {
+        let record = OperatorInterruptStateUpdateCore
+            .plan(&operator_interrupt_state_update_request())
+            .expect("operator interrupt state update");
+
+        assert_eq!(
+            record.schema_version,
+            OPERATOR_INTERRUPT_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "turn.interrupt");
+        assert_eq!(record.operator_control["control"], "interrupt");
+        assert_eq!(record.operator_control["reason"], "operator_stop");
+        assert_eq!(record.stop_condition["reason"], "operator_interrupt");
+        assert_eq!(record.run["status"], "canceled");
+        assert_eq!(record.run["turnStatus"], "interrupted");
+        assert_eq!(
+            record.run["trace"]["operatorControls"][0]["eventId"],
+            "event_interrupt"
+        );
+        assert_eq!(
+            record.run["operatorControls"][0]["eventId"],
+            "event_interrupt"
+        );
+        assert!(
+            record.run["trace"]["qualityLedger"]["failureOntologyLabels"]
+                .as_array()
+                .expect("failure labels")
+                .iter()
+                .any(|label| label.as_str() == Some("operator_interrupt"))
+        );
+    }
+
+    #[test]
     fn rust_policy_rejects_invalid_compaction_schema() {
         let mut request = compaction_request();
         request.schema_version = "legacy.schema".to_string();
@@ -2296,6 +2528,24 @@ mod tests {
             error,
             DiagnosticsOperatorOverrideStateUpdateError::InvalidSchemaVersion {
                 expected: DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_operator_interrupt_state_update_schema() {
+        let mut request = operator_interrupt_state_update_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = OperatorInterruptStateUpdateCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            OperatorInterruptStateUpdateError::InvalidSchemaVersion {
+                expected: OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );

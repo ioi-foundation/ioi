@@ -586,6 +586,9 @@ function runBridge() {
   const runtimeThreadControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     : "";
+  const runtimeThreadControlTest = exists("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
+    : "";
   const threadRuntimeControls = exists("packages/runtime-daemon/src/threads/thread-runtime-controls.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-runtime-controls.mjs")
     : "";
@@ -1239,6 +1242,42 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
     ],
     "Phase 9/10 is pending: diagnostics operator override run state updates must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "operator-interrupt-state-update-live-bridge",
+    /OperatorInterruptStateUpdateCore/.test(policyCore) &&
+      /OperatorInterruptStateUpdateRequest/.test(policyCore) &&
+      /OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_operator_interrupt_state_update/.test(policyCore) &&
+      /plan_operator_interrupt_state_update/.test(bridgeModule) &&
+      /OperatorInterruptStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_operator_interrupt_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_operator_interrupt_state_update_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /planOperatorInterruptStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /operator interrupt state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /createContextPolicyRunnerFromEnv/.test(runtimeDaemonIndex) &&
+      /this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+      /this\.contextPolicyRunner\.planOperatorInterruptStateUpdate/.test(runtimeDaemonIndex) &&
+      !/control:\s*"interrupt"/.test(runtimeDaemonIndex) &&
+      /contextPolicyRunner\(calls\)/.test(runtimeThreadControlTest) &&
+      /plan_operator_interrupt_state_update/.test(runtimeThreadControlTest),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control.test.mjs",
+    ],
+    "Phase 9/10 is pending: operator interrupt run state updates must be planned by Rust policy core through the command bridge",
   );
   assertCheck(
     result,

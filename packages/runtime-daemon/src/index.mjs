@@ -133,6 +133,7 @@ import { createRuntimeCodingToolGovernanceSurface } from "./runtime-coding-tool-
 import { createRuntimeCodingToolBudgetRecoverySurface } from "./runtime-coding-tool-budget-recovery-surface.mjs";
 import { createRuntimeConversationArtifactSurface } from "./runtime-conversation-artifact-surface.mjs";
 import { createRuntimeContextPolicySurface } from "./runtime-context-policy-surface.mjs";
+import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
 import { createRuntimeWorkflowEditSurface } from "./runtime-workflow-edit-surface.mjs";
 import { createRuntimeApprovalSurface } from "./runtime-approval-surface.mjs";
 import { createRuntimeMcpCatalogSurface } from "./runtime-mcp-catalog-surface.mjs";
@@ -701,6 +702,8 @@ export class AgentgresRuntimeStateStore {
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
     this.runtimeAgentgresAdmissionRunner =
       options.runtimeAgentgresAdmissionRunner ?? createRuntimeAgentgresAdmissionRunnerFromEnv(process.env);
+    this.contextPolicyRunner =
+      options.contextPolicyRunner ?? createContextPolicyRunnerFromEnv(process.env);
     this.governedImprovementRunner =
       options.governedImprovementRunner ?? createGovernedImprovementRunnerFromEnv(process.env);
     this.workerServicePackageRunner =
@@ -769,6 +772,7 @@ export class AgentgresRuntimeStateStore {
     });
     this.codingToolBudgetRecoverySurface = createRuntimeCodingToolBudgetRecoverySurface({
       approvalReasonForDecisionEvent,
+      contextPolicyRunner: this.contextPolicyRunner,
       notFound,
       runtimeError,
     });
@@ -799,6 +803,7 @@ export class AgentgresRuntimeStateStore {
       postEditDiagnosticsConfig,
     });
     this.diagnosticsRepairSurface = createRuntimeDiagnosticsRepairSurface({
+      contextPolicyRunner: this.contextPolicyRunner,
       diagnosticsOperatorOverrideApprovalForRequest,
       diagnosticsOperatorOverrideApprovalKey,
       diagnosticsOperatorOverrideResultFromEvent,
@@ -813,7 +818,10 @@ export class AgentgresRuntimeStateStore {
       approvalReasonForDecisionEvent,
       codingToolApprovalManifestsMatch,
     });
-    this.contextPolicySurface = createRuntimeContextPolicySurface({ runtimeError });
+    this.contextPolicySurface = createRuntimeContextPolicySurface({
+      contextPolicyRunner: this.contextPolicyRunner,
+      runtimeError,
+    });
     this.workflowEditSurface = createRuntimeWorkflowEditSurface({
       approvalReasonForDecisionEvent,
       notFound,
@@ -1569,19 +1577,6 @@ export class AgentgresRuntimeStateStore {
       redaction_profile: "internal",
       fixture_profile: fixtureProfileForAgent(agent),
     });
-    const control = {
-      control: "interrupt",
-      source,
-      reason,
-      eventId: event.event_id,
-      seq: event.seq,
-      createdAt: event.created_at,
-    };
-    const stopCondition = {
-      reason: "operator_interrupt",
-      evidenceSufficient: true,
-      rationale: `Operator interrupt accepted from ${source}: ${reason}`,
-    };
     if (!run) {
       const turnEvents = this.runtimeEventsForTurn(resolvedTurnId);
       const interruptedTurn = {
@@ -1613,31 +1608,20 @@ export class AgentgresRuntimeStateStore {
           }
         : interruptedTurn;
     }
-    const updated = {
-      ...run,
-      status: ["queued", "running", "blocked"].includes(run.status) ? "canceled" : run.status,
-      turnStatus: "interrupted",
-      updatedAt: event.created_at,
-      result: `Turn interrupted by operator: ${reason}`,
-      trace: {
-        ...run.trace,
-        status: "interrupted",
-        stopCondition,
-        operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
-        qualityLedger: {
-          ...run.trace?.qualityLedger,
-          failureOntologyLabels: [
-            ...new Set([
-              ...normalizeArray(run.trace?.qualityLedger?.failureOntologyLabels),
-              "operator_interrupt",
-            ]),
-          ],
-        },
-      },
-      operatorControls: appendOperatorControl(run.operatorControls, control),
-    };
+    const stateUpdate = this.contextPolicyRunner.planOperatorInterruptStateUpdate({
+      thread_id: threadId,
+      turn_id: resolvedTurnId,
+      run_id: run.id,
+      run,
+      event_id: event.event_id,
+      seq: event.seq,
+      created_at: event.created_at,
+      source,
+      reason,
+    });
+    const updated = stateUpdate.run ?? run;
     this.runs.set(run.id, updated);
-    this.writeRun(updated, "turn.interrupt");
+    this.writeRun(updated, stateUpdate.operation_kind ?? "turn.interrupt");
     const turn = this.turnForRun(updated);
     return runtimeControl
       ? {

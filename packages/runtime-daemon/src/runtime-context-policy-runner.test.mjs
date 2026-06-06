@@ -10,6 +10,7 @@ import {
   CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
   CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RustContextPolicyRunner,
 } from "./runtime-context-policy-runner.mjs";
 
@@ -463,6 +464,77 @@ test("diagnostics operator override state update runner sends Rust state update 
   assert.equal(result.operation_kind, "diagnostics.operator_override.event");
   assert.equal(result.operator_control.decisionId, "decision_override");
   assert.equal(result.run.trace.operatorControls[0].eventId, "event_override");
+});
+
+test("operator interrupt state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_operator_interrupt_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "turn.interrupt",
+            updated_at: "2026-06-06T04:25:00.000Z",
+            operator_control: {
+              control: "interrupt",
+              reason: "operator_stop",
+              eventId: "event_interrupt",
+            },
+            stop_condition: {
+              reason: "operator_interrupt",
+            },
+            run: {
+              id: "run_budget",
+              status: "canceled",
+              turnStatus: "interrupted",
+              trace: {
+                operatorControls: [
+                  {
+                    control: "interrupt",
+                    eventId: "event_interrupt",
+                  },
+                ],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planOperatorInterruptStateUpdate({
+    thread_id: "thread_budget",
+    turn_id: "turn_budget",
+    run_id: "run_budget",
+    run: { id: "run_budget", status: "running", trace: {} },
+    event_id: "event_interrupt",
+    seq: 11,
+    created_at: "2026-06-06T04:25:00.000Z",
+    source: "runtime_auto",
+    reason: "operator_stop",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_operator_interrupt_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.reason, "operator_stop");
+  assert.equal(result.source, "rust_operator_interrupt_state_update_command");
+  assert.equal(result.operation_kind, "turn.interrupt");
+  assert.equal(result.operator_control.reason, "operator_stop");
+  assert.equal(result.stop_condition.reason, "operator_interrupt");
+  assert.equal(result.run.turnStatus, "interrupted");
 });
 
 test("context policy runner fails closed without bridge command", () => {

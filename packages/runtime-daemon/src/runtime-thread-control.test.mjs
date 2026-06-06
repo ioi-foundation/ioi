@@ -158,6 +158,88 @@ function managedSessionReconnectBridge(calls, managedState) {
   };
 }
 
+function contextPolicyRunner(calls = []) {
+  return {
+    planOperatorInterruptStateUpdate(request = {}) {
+      calls.push({ operation: "plan_operator_interrupt_state_update", input: request });
+      const control = {
+        control: "interrupt",
+        source: request.source,
+        reason: request.reason,
+        eventId: request.event_id,
+        seq: request.seq,
+        createdAt: request.created_at,
+      };
+      const run = request.run ?? {};
+      const traceControls = appendOperatorControlForTest(run.trace?.operatorControls, control);
+      const runControls = appendOperatorControlForTest(run.operatorControls, control);
+      return {
+        status: "planned",
+        operation_kind: "turn.interrupt",
+        run: {
+          ...run,
+          status: ["queued", "running", "blocked"].includes(run.status) ? "canceled" : run.status,
+          turnStatus: "interrupted",
+          updatedAt: request.created_at,
+          result: `Turn interrupted by operator: ${request.reason}`,
+          trace: {
+            ...run.trace,
+            status: "interrupted",
+            stopCondition: {
+              reason: "operator_interrupt",
+              evidenceSufficient: true,
+              rationale: `Operator interrupt accepted from ${request.source}: ${request.reason}`,
+            },
+            operatorControls: traceControls,
+            qualityLedger: {
+              ...run.trace?.qualityLedger,
+              failureOntologyLabels: [
+                ...new Set([
+                  ...(Array.isArray(run.trace?.qualityLedger?.failureOntologyLabels)
+                    ? run.trace.qualityLedger.failureOntologyLabels
+                    : []),
+                  "operator_interrupt",
+                ]),
+              ],
+            },
+          },
+          operatorControls: runControls,
+        },
+      };
+    },
+  };
+}
+
+function runtimeAgentgresAdmissionRunner(calls = []) {
+  return {
+    commitRuntimeRunState(stateDir, request) {
+      calls.push({ operation: "commit_runtime_run_state", stateDir, input: request });
+      const operationRef = `agentgres://runtime-state/runs/${request.run_id}/operations/${request.operation_kind}_test`;
+      return {
+        source: "rust_agentgres_runtime_run_state_commit_command",
+        operation_ref: operationRef,
+        state_root_after: "sha256:test-state-root-after",
+        resulting_head: `agentgres://runtime-state/runs/${request.run_id}/head/test`,
+        transition_hash: "sha256:test-transition",
+        materialization_hash: "sha256:test-materialization",
+        write_set_hash: "sha256:test-write-set",
+        persistence_hash: "sha256:test-persistence",
+        commit_hash: "sha256:test-commit",
+        written_records: [`runs/${request.run_id}.json`],
+        evidence_refs: [operationRef],
+      };
+    },
+  };
+}
+
+function appendOperatorControlForTest(value, control) {
+  const entries = Array.isArray(value) ? [...value] : [];
+  if (!entries.some((entry) => entry?.eventId === control.eventId)) {
+    entries.push(control);
+  }
+  return entries;
+}
+
 async function seedRuntimeControlModelRoute(store) {
   store.modelMounting.importModel({
     model_id: "runtime-control-test-model",
@@ -341,6 +423,8 @@ test("runtime-backed interrupt and resume route through control_thread", async (
   const calls = [];
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
+    contextPolicyRunner: contextPolicyRunner(calls),
+    runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(calls),
     runtimeBridge: runtimeControlBridge(calls),
   });
   try {
@@ -397,6 +481,8 @@ test("runtime-backed in-flight turn can be interrupted before durable run projec
   });
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
+    contextPolicyRunner: contextPolicyRunner(calls),
+    runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(calls),
     runtimeBridge: runtimeControlBridge(calls, {
       async submitTurn(input, { onRuntimeEvent } = {}) {
         const startedEvent = {

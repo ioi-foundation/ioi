@@ -84,7 +84,9 @@ use policy::{
     ContextCompactionStateUpdateError, ContextCompactionStateUpdateRecord,
     ContextCompactionStateUpdateRequest, DiagnosticsOperatorOverrideStateUpdateCore,
     DiagnosticsOperatorOverrideStateUpdateError, DiagnosticsOperatorOverrideStateUpdateRecord,
-    DiagnosticsOperatorOverrideStateUpdateRequest,
+    DiagnosticsOperatorOverrideStateUpdateRequest, OperatorInterruptStateUpdateCore,
+    OperatorInterruptStateUpdateError, OperatorInterruptStateUpdateRecord,
+    OperatorInterruptStateUpdateRequest,
 };
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
 use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
@@ -210,6 +212,13 @@ impl RuntimeKernelService {
         DiagnosticsOperatorOverrideStateUpdateError,
     > {
         DiagnosticsOperatorOverrideStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_operator_interrupt_state_update(
+        &self,
+        request: &OperatorInterruptStateUpdateRequest,
+    ) -> Result<OperatorInterruptStateUpdateRecord, OperatorInterruptStateUpdateError> {
+        OperatorInterruptStateUpdateCore.plan(request)
     }
 
     pub fn issue_capability_lease(

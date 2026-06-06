@@ -12185,6 +12185,15 @@ through `plan_diagnostics_operator_override_state_update`; the daemon
 diagnostics repair surface appends the override event and applies the
 Rust-planned run record instead of constructing the override mutation in JS.
 
+Slice 351 moves operator-interrupt run state-update planning into Rust:
+`OperatorInterruptStateUpdateCore` now owns the interrupt operator-control
+record, canceled/interrupted run transition, stop-condition rewrite,
+updatedAt/result assignment, quality-ledger failure label, and trace/top-level
+operatorControls mutation through `plan_operator_interrupt_state_update`; the
+daemon interrupt path appends the interruption event, delegates the run update
+to the Rust policy bridge, and keeps only the runless in-flight turn projection
+fallback in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

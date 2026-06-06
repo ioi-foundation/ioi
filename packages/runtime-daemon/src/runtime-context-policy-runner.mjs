@@ -11,6 +11,8 @@ export const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-budget-recovery-state-update-request.v1";
 export const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.diagnostics-operator-override-state-update-request.v1";
+export const OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.operator-interrupt-state-update-request.v1";
 export const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.compaction-policy-request.v1";
 export const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION =
@@ -90,6 +92,14 @@ export class RustContextPolicyRunner {
     return normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult(this.evaluateRawPolicy({
       operation: "plan_diagnostics_operator_override_state_update",
       schemaVersion: DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planOperatorInterruptStateUpdate(request = {}) {
+    return normalizeOperatorInterruptStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_operator_interrupt_state_update",
+      schemaVersion: OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -360,6 +370,28 @@ export function normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult(valu
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
       objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
+    run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
+  };
+}
+
+export function normalizeOperatorInterruptStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_operator_interrupt_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "planned",
+    operation_kind:
+      optionalString(result.operation_kind ?? record.operation_kind) ?? "turn.interrupt",
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    operator_control:
+      objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
+    stop_condition:
+      objectRecord(result.stop_condition) ?? objectRecord(record.stop_condition) ?? null,
     run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
   };
 }
