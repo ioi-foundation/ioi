@@ -500,9 +500,37 @@ export function createThreadMemoryState({
         details: { threadId, controlKind },
       });
     }
+    const operationKind = requiredThreadMemoryOperationKind(stateUpdate, threadId, controlKind);
     store.agents.set(updatedAgent.id, updatedAgent);
-    store.writeAgent(updatedAgent, stateUpdate.operation_kind ?? `thread.${controlKind}`);
+    store.writeAgent(updatedAgent, operationKind);
     return result;
+  }
+
+  function requiredThreadMemoryOperationKind(stateUpdate, threadId, controlKind) {
+    const expectedOperationKind = `thread.${controlKind}`;
+    const operationKind = optionalString(stateUpdate.operation_kind);
+    if (!operationKind) {
+      throw memoryRuntimeError({
+        status: 502,
+        code: "thread_memory_state_update_operation_kind_missing",
+        message: "Rust thread-memory state planning did not return an operation kind.",
+        details: { threadId, controlKind, operationKind: expectedOperationKind },
+      });
+    }
+    if (operationKind !== expectedOperationKind) {
+      throw memoryRuntimeError({
+        status: 502,
+        code: "thread_memory_state_update_operation_kind_mismatch",
+        message: "Rust thread-memory state planning returned an unexpected operation kind.",
+        details: {
+          threadId,
+          controlKind,
+          expectedOperationKind,
+          operationKind,
+        },
+      });
+    }
+    return operationKind;
   }
 
   return {

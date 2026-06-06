@@ -1592,7 +1592,14 @@ function runBridge() {
       /contextPolicyRunner\.planThreadMemoryAgentStateUpdate/.test(
         runtimeThreadMemoryState,
       ) &&
+      /requiredThreadMemoryOperationKind/.test(runtimeThreadMemoryState) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*`thread\.\$\{controlKind\}`/.test(
+        runtimeThreadMemoryState,
+      ) &&
       /thread memory state fails closed without Rust-planned agent projection/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /thread memory state fails closed without Rust-planned operation kind/.test(
         runtimeThreadMemoryStateTest,
       ) &&
       !/const updatedAgent = \{ \.\.\.agent, updatedAt: event\.created_at \}/.test(

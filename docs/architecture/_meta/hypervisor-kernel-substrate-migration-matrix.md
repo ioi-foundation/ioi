@@ -12380,6 +12380,12 @@ agent-control persistence now requires the Rust thread-control state planner to
 return the exact `thread.*` control operation kind before the daemon persists
 the agent projection, rather than substituting the JS-side control kind.
 
+Slice 383 removes the thread-memory operation-kind fallback: memory
+status/mutation/policy control persistence now requires the Rust thread-memory
+state planner to return the exact `thread.*` memory operation kind before the
+daemon persists the agent projection, rather than substituting the JS-side
+control kind.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

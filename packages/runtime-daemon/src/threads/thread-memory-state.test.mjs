@@ -280,3 +280,29 @@ test("thread memory state fails closed without Rust-planned agent projection", (
   assert.equal(calls.filter((call) => call.type === "planThreadMemoryAgentStateUpdate").length, 1);
   assert.equal(calls.some((call) => call.type === "writeAgent"), false);
 });
+
+test("thread memory state fails closed without Rust-planned operation kind", () => {
+  const { agents, calls, state, store } = createHarness({
+    contextPolicyRunner: {
+      planThreadMemoryAgentStateUpdate(request = {}) {
+        calls.push({ type: "planThreadMemoryAgentStateUpdate", input: request });
+        return {
+          status: "planned",
+          agent: { ...request.agent, updatedAt: request.created_at },
+        };
+      },
+    },
+  });
+
+  assert.throws(
+    () => state.recordThreadMemoryStatus(store, "thread_a", { source: "status_test" }, "memory.status.v1"),
+    (error) => {
+      assert.equal(error.code, "thread_memory_state_update_operation_kind_missing");
+      assert.equal(error.details.operationKind, "thread.memory_status");
+      return true;
+    },
+  );
+  assert.equal(calls.filter((call) => call.type === "planThreadMemoryAgentStateUpdate").length, 1);
+  assert.equal(calls.some((call) => call.type === "writeAgent"), false);
+  assert.equal(agents.get("agent_a").updatedAt, undefined);
+});
