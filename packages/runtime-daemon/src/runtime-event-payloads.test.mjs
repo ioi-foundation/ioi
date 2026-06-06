@@ -13,6 +13,16 @@ function uniqueStrings(values) {
 
 const retiredPayloadKeys = ["id", "type"].map((suffix) => ["legacy", "event", suffix].join("_"));
 
+const retiredComputerUseSummaryAliasKeys = [
+  "eventKind",
+  "schemaVersion",
+  "workflowGraphId",
+  "workflowNodeId",
+  "workflowNodeIds",
+  "toolRef",
+  "authorityScopes",
+];
+
 const retiredUsageSummaryReaderAliasKeys = [
   "eventKind",
   "schemaVersion",
@@ -102,21 +112,43 @@ test("runtime event payloads preserve computer-use and memory summaries", () => 
     agentId: "agent-one",
     summary: "Observed page",
     data: {
+      event_kind: "ComputerUse.Observation",
+      eventKind: "RetiredComputerUseEventKind",
+      schema_version: "computer.v1",
+      schemaVersion: "retired.computer.v1",
       computer_use_step: "observe",
       computer_use_observation_ref: "observation-one",
-      workflowNodeIds: ["node-one"],
+      workflow_graph_id: "workflow-one",
+      workflowGraphId: "retired-workflow",
+      workflow_node_id: "node-one",
+      workflowNodeId: "retired-node",
+      workflow_node_ids: ["node-one"],
+      workflowNodeIds: ["retired-node"],
+      tool_ref: "computer_use.observe",
+      toolRef: "retired-tool",
+      authority_scopes: ["computer_use.read"],
+      authorityScopes: ["retired.scope"],
       fail_closed_when_unavailable: true,
     },
   });
 
-  assert.equal(computerUse.event_kind, "ComputerUse.computer_use_observation");
+  assert.equal(computerUse.event_kind, "ComputerUse.Observation");
   assert.equal(computerUse.schema_version, "computer.v1");
   assert.equal(computerUse.computer_use_step, "observe");
   assert.equal(computerUse.computer_use_observation_ref, "observation-one");
+  assert.equal(computerUse.workflow_graph_id, "workflow-one");
+  assert.equal(computerUse.workflow_node_id, "node-one");
   assert.deepEqual(computerUse.workflow_node_ids, ["node-one"]);
+  assert.equal(computerUse.tool_ref, "computer_use.observe");
+  assert.deepEqual(computerUse.authority_scopes, ["computer_use.read"]);
   assert.equal(computerUse.fail_closed_when_unavailable, true);
   assert.equal(computerUse.redaction, "computer_use_trace_safe");
   for (const key of retiredPayloadKeys) {
+    assert.equal(Object.hasOwn(computerUse, key), false);
+  }
+  assert.equal(computerUse.workflow_node_ids.includes("retired-node"), false);
+  assert.equal(computerUse.authority_scopes.includes("retired.scope"), false);
+  for (const key of retiredComputerUseSummaryAliasKeys) {
     assert.equal(Object.hasOwn(computerUse, key), false);
   }
 

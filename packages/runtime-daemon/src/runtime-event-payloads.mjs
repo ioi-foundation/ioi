@@ -20,10 +20,9 @@ function payloadSummaryForRunEvent(event) {
     if (isComputerUseRunEventType(event.type)) {
       return {
         ...summary,
-        event_kind: event.data?.eventKind ?? computerUseSourceEventKind(event.type),
+        event_kind: event.data?.event_kind ?? computerUseSourceEventKind(event.type),
         schema_version:
           event.data?.schema_version ??
-          event.data?.schemaVersion ??
           COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
         computer_use_step: event.data?.computer_use_step ?? null,
         computer_use_lane: event.data?.computer_use_lane ?? null,
@@ -72,11 +71,11 @@ function payloadSummaryForRunEvent(event) {
         human_handoff_state: event.data?.human_handoff_state ?? null,
         trajectory_bundle: event.data?.trajectory_bundle ?? null,
         cleanup_receipt: event.data?.cleanup_receipt ?? null,
-        workflow_graph_id: event.data?.workflowGraphId ?? event.data?.workflow_graph_id ?? null,
-        workflow_node_id: event.data?.workflowNodeId ?? event.data?.workflow_node_id ?? null,
-        workflow_node_ids: event.data?.workflowNodeIds ?? event.data?.workflow_node_ids ?? [],
-        tool_ref: event.data?.toolRef ?? event.data?.tool_ref ?? null,
-        authority_scopes: event.data?.authorityScopes ?? event.data?.authority_scopes ?? [],
+        workflow_graph_id: event.data?.workflow_graph_id ?? null,
+        workflow_node_id: event.data?.workflow_node_id ?? null,
+        workflow_node_ids: event.data?.workflow_node_ids ?? [],
+        tool_ref: event.data?.tool_ref ?? null,
+        authority_scopes: event.data?.authority_scopes ?? [],
         observation_retention_mode: event.data?.observation_retention_mode ?? null,
         fail_closed_when_unavailable: Boolean(event.data?.fail_closed_when_unavailable),
         redaction: "computer_use_trace_safe",

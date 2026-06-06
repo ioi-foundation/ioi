@@ -9111,6 +9111,8 @@ function runCompositor() {
   const runtimeEventPayloadsTest = exists("packages/runtime-daemon/src/runtime-event-payloads.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-payloads.test.mjs")
     : "";
+  const runtimeComputerUsePayloadSummaryBlock =
+    runtimeEventPayloads.match(/if \(isComputerUseRunEventType\(event\.type\)\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeUsageEvents = exists("packages/runtime-daemon/src/runtime-usage-events.mjs")
     ? read("packages/runtime-daemon/src/runtime-usage-events.mjs")
     : "";
@@ -10584,7 +10586,33 @@ function runCompositor() {
       !/eventKind:\s*event\.data\?\.eventKind\s*\?\?\s*"Runtime(?:UsageTelemetry|ContextPressure)/.test(
         runtimeEventPayloads,
       ) &&
+      runtimeComputerUsePayloadSummaryBlock.length > 0 &&
+      /event_kind:\s*event\.data\?\.event_kind \?\? computerUseSourceEventKind\(event\.type\)/.test(
+        runtimeComputerUsePayloadSummaryBlock,
+      ) &&
+      /schema_version:\s*\n\s*event\.data\?\.schema_version \?\?\n\s*COMPUTER_USE_CONTRACT_SCHEMA_VERSION/.test(
+        runtimeComputerUsePayloadSummaryBlock,
+      ) &&
+      /workflow_graph_id:\s*event\.data\?\.workflow_graph_id \?\? null/.test(
+        runtimeComputerUsePayloadSummaryBlock,
+      ) &&
+      /workflow_node_ids:\s*event\.data\?\.workflow_node_ids \?\? \[\]/.test(
+        runtimeComputerUsePayloadSummaryBlock,
+      ) &&
+      /tool_ref:\s*event\.data\?\.tool_ref \?\? null/.test(runtimeComputerUsePayloadSummaryBlock) &&
+      /authority_scopes:\s*event\.data\?\.authority_scopes \?\? \[\]/.test(
+        runtimeComputerUsePayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.(?:eventKind|schemaVersion|workflowGraphId|workflowNodeId|workflowNodeIds|toolRef|authorityScopes)\b/.test(
+        runtimeComputerUsePayloadSummaryBlock,
+      ) &&
       /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredComputerUseSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /eventKind: "RetiredComputerUseEventKind"/.test(runtimeEventPayloadsTest) &&
+      /workflowNodeIds: \["retired-node"\]/.test(runtimeEventPayloadsTest) &&
+      /computerUse\.workflow_node_ids\.includes\("retired-node"\), false/.test(
+        runtimeEventPayloadsTest,
+      ) &&
       /Object\.hasOwn\(usage,\s*"eventKind"\),\s*false/.test(runtimeEventPayloadsTest) &&
       /Object\.hasOwn\(contextDelta,\s*"eventKind"\),\s*false/.test(runtimeEventPayloadsTest) &&
       /Object\.hasOwn\(alert,\s*"eventKind"\),\s*false/.test(runtimeEventPayloadsTest) &&
