@@ -408,30 +408,27 @@ export function createRuntimeApprovalSurface(deps = {}) {
       redaction_profile: "internal",
       fixture_profile: fixtureProfileForAgent(agent),
     });
-    const control = {
-      control: "approval_decision",
-      approvalId: normalizedApprovalId,
-      leaseId: leaseMetadata.leaseId,
-      leaseStatus,
-      decision,
-      status,
-      source,
-      reason,
-      eventId: event.event_id,
-      seq: event.seq,
-      receiptRefs: event.receipt_refs,
-      policyDecisionRefs: event.policy_decision_refs,
-      createdAt: event.created_at,
-    };
     if (run) {
-      const withControl = appendRunApprovalControl(run, control, "approvalDecisions");
-      const updated = {
-        ...withControl,
-        updatedAt: event.created_at,
-        turnStatus: decision === "reject" ? "waiting_for_input" : run.turnStatus,
-      };
+      const stateUpdate = approvalStateRunnerDep.planApprovalDecisionStateUpdate({
+        thread_id: threadId,
+        run_id: run.id,
+        run,
+        event_id: event.event_id,
+        seq: event.seq,
+        created_at: event.created_at,
+        approval_id: normalizedApprovalId,
+        lease_id: leaseMetadata.leaseId,
+        lease_status: leaseStatus,
+        decision,
+        status,
+        source,
+        reason,
+        receipt_refs: event.receipt_refs,
+        policy_decision_refs: event.policy_decision_refs,
+      });
+      const updated = stateUpdate.run ?? run;
       store.runs.set(run.id, updated);
-      store.writeRun(updated, `approval.${decision}`);
+      store.writeRun(updated, stateUpdate.operation_kind ?? `approval.${decision}`);
       return {
         ...store.turnForRun(updated),
         approval_id: normalizedApprovalId,

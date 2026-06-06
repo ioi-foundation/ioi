@@ -61,6 +61,43 @@ function approvalRequestStateUpdateForRequest(request = {}) {
   };
 }
 
+function approvalDecisionStateUpdateForRequest(request = {}) {
+  const control = {
+    control: "approval_decision",
+    approvalId: request.approval_id,
+    leaseId: request.lease_id,
+    leaseStatus: request.lease_status,
+    decision: request.decision,
+    status: request.status,
+    source: request.source,
+    reason: request.reason,
+    eventId: request.event_id,
+    seq: request.seq,
+    receiptRefs: request.receipt_refs,
+    policyDecisionRefs: request.policy_decision_refs,
+    createdAt: request.created_at,
+  };
+  const run = request.run ?? {};
+  return {
+    status: "planned",
+    operation_kind: `approval.${request.decision}`,
+    updated_at: request.created_at,
+    operator_control: control,
+    run: {
+      ...run,
+      updatedAt: request.created_at,
+      turnStatus: request.decision === "reject" ? "waiting_for_input" : run.turnStatus,
+      trace: {
+        ...run.trace,
+        operatorControls: appendOperatorControlForTest(run.trace?.operatorControls, control),
+        approvalDecisions: appendOperatorControlForTest(run.trace?.approvalDecisions, control),
+      },
+      operatorControls: appendOperatorControlForTest(run.operatorControls, control),
+      approvalDecisions: appendOperatorControlForTest(run.approvalDecisions, control),
+    },
+  };
+}
+
 function appendOperatorControlForTest(value, control) {
   const entries = Array.isArray(value) ? [...value] : [];
   if (!entries.some((entry) => entry?.eventId === control.eventId)) {
@@ -84,6 +121,10 @@ function createSurface({ calls = [] } = {}) {
       planApprovalRequestStateUpdate(request) {
         calls.push({ name: "planApprovalRequestStateUpdate", request });
         return approvalRequestStateUpdateForRequest(request);
+      },
+      planApprovalDecisionStateUpdate(request) {
+        calls.push({ name: "planApprovalDecisionStateUpdate", request });
+        return approvalDecisionStateUpdateForRequest(request);
       },
     },
     notFound,
@@ -184,7 +225,8 @@ test("approval surface requests approval and blocks the active turn", () => {
 });
 
 test("approval surface records approval decisions with active leases", () => {
-  const surface = createSurface();
+  const calls = [];
+  const surface = createSurface({ calls });
   const store = createStore();
   surface.requestThreadApproval(store, "thread_alpha", {
     approval_id: "approval-one",
@@ -202,6 +244,10 @@ test("approval surface records approval decisions with active leases", () => {
   assert.equal(store.events[1].event_kind, "approval.approved");
   assert.equal(store.events[1].payload_summary.approvalRequestEventId, "event_1");
   assert.equal(store.runs.get("run_alpha").approvalDecisions[0].decision, "approve");
+  assert.equal(
+    calls.find((call) => call.name === "planApprovalDecisionStateUpdate").request.event_id,
+    "event_2",
+  );
   assert.equal(surface.latestApprovalDecisionEvent(store, "thread_alpha", "approval-one"), store.events[1]);
 });
 

@@ -12158,6 +12158,15 @@ trace/top-level approvalRequests and operatorControls mutation, and
 approval-required event and applies the Rust-planned run record instead of
 constructing the approval-request mutation in JS.
 
+Slice 348 moves approval-decision run state-update planning into Rust:
+`ApprovalDecisionStateUpdateCore` now owns the approval-decision
+operator-control record, approve/reject operation kind, rejected-turn
+waiting-for-input transition, updatedAt assignment, and trace/top-level
+approvalDecisions and operatorControls mutation through
+`plan_approval_decision_state_update`; the daemon approval surface appends the
+approval decision event and applies the Rust-planned run record instead of
+constructing the approval-decision mutation in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

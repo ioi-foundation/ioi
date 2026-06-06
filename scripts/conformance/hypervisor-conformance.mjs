@@ -1019,6 +1019,39 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "approval-decision-state-update-live-bridge",
+    /ApprovalDecisionStateUpdateCore/.test(approvalCore) &&
+      /ApprovalDecisionStateUpdateRequest/.test(approvalCore) &&
+      /APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
+      /rust_authority_plans_approval_decision_state_update/.test(approvalCore) &&
+      /plan_approval_decision_state_update/.test(bridgeModule) &&
+      /ApprovalDecisionStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_approval_decision_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_approval_decision_state_update_through_rust_core/.test(bridgeModule) &&
+      /planApprovalDecisionStateUpdate/.test(runtimeApprovalStateRunner) &&
+      /APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeApprovalStateRunner,
+      ) &&
+      /approval decision state runner sends Rust authority bridge request/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
+      /approvalStateRunnerDep\.planApprovalDecisionStateUpdate/.test(runtimeApprovalSurface) &&
+      /planApprovalDecisionStateUpdate/.test(runtimeApprovalSurfaceTest) &&
+      !/control:\s*"approval_decision"/.test(
+        runtimeApprovalSurface,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/approval.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-surface.mjs",
+      "packages/runtime-daemon/src/runtime-approval-surface.test.mjs",
+    ],
+    "Phase 9/10 is pending: approval decision run state updates must be planned by Rust authority core through the command bridge",
+  );
+  assertCheck(
+    result,
     "context-budget-policy-live-bridge",
     /ContextBudgetPolicyCore/.test(policyCore) &&
       /ContextBudgetPolicyRequest/.test(policyCore) &&

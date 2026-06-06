@@ -5,6 +5,8 @@ export const APPROVAL_STATE_COMMAND_ARGS_ENV = "IOI_STEP_MODULE_COMMAND_ARGS";
 export const APPROVAL_STATE_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
 export const APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.approval-request-state-update-request.v1";
+export const APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.approval-decision-state-update-request.v1";
 export const RUST_APPROVAL_STATE_BACKEND = "rust_authority";
 
 export function createRuntimeApprovalStateRunnerFromEnv(env = process.env, options = {}) {
@@ -34,6 +36,18 @@ export class RustRuntimeApprovalStateRunner {
       request: {
         ...(objectRecord(request) ?? {}),
         schema_version: APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      },
+    }));
+  }
+
+  planApprovalDecisionStateUpdate(request = {}) {
+    return normalizeApprovalDecisionStateUpdateBridgeResult(this.invokeBridge({
+      schema_version: APPROVAL_STATE_COMMAND_SCHEMA_VERSION,
+      operation: "plan_approval_decision_state_update",
+      backend: RUST_APPROVAL_STATE_BACKEND,
+      request: {
+        ...(objectRecord(request) ?? {}),
+        schema_version: APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       },
     }));
   }
@@ -119,6 +133,22 @@ export function normalizeApprovalRequestStateUpdateBridgeResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_APPROVAL_STATE_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
     operation_kind: optionalString(result.operation_kind ?? record.operation_kind) ?? "approval.required",
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    operator_control:
+      objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
+    run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
+  };
+}
+
+export function normalizeApprovalDecisionStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source: result.source ?? record.source ?? "rust_approval_decision_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_APPROVAL_STATE_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "planned",
+    operation_kind: optionalString(result.operation_kind ?? record.operation_kind) ?? "approval.approve",
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
       objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,

@@ -38,6 +38,8 @@ use agentgres_admission::{
     StorageBackendWriteAdmissionRecord, StorageBackendWriteProposal,
 };
 use approval::{
+    ApprovalDecisionStateUpdateCore, ApprovalDecisionStateUpdateError,
+    ApprovalDecisionStateUpdateRecord, ApprovalDecisionStateUpdateRequest,
     ApprovalRequestStateUpdateCore, ApprovalRequestStateUpdateError,
     ApprovalRequestStateUpdateRecord, ApprovalRequestStateUpdateRequest, ApprovalScopeContext,
     AuthorityScopeMatcher, CodingToolApprovalCore, CodingToolApprovalError, CodingToolApprovalPlan,
@@ -137,6 +139,13 @@ impl RuntimeKernelService {
         request: &ApprovalRequestStateUpdateRequest,
     ) -> Result<ApprovalRequestStateUpdateRecord, ApprovalRequestStateUpdateError> {
         ApprovalRequestStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_approval_decision_state_update(
+        &self,
+        request: &ApprovalDecisionStateUpdateRequest,
+    ) -> Result<ApprovalDecisionStateUpdateRecord, ApprovalDecisionStateUpdateError> {
+        ApprovalDecisionStateUpdateCore.plan(request)
     }
 
     pub fn evaluate_context_budget_policy(
