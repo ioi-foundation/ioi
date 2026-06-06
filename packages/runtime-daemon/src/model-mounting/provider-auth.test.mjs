@@ -15,7 +15,7 @@ import {
 test("provider auth helpers keep hosted providers fail-closed on vault refs", () => {
   assert.equal(providerRequiresVaultSecret("openai"), true);
   assert.equal(providerRequiresVaultSecret("ollama"), false);
-  assert.equal(providerSecretInput({ apiKeyVaultRef: "vault://provider/key" }), "vault://provider/key");
+  assert.equal(providerSecretInput({ api_key_vault_ref: "vault://provider/key" }), "vault://provider/key");
 
   assert.throws(
     () => assertProviderVaultBoundary({ id: "provider.openai", kind: "openai" }),
@@ -32,6 +32,32 @@ test("provider auth helpers keep hosted providers fail-closed on vault refs", ()
   );
   assert.doesNotThrow(() =>
     assertProviderVaultBoundary({ id: "provider.openai", kind: "openai", secretRef: "vault://provider/openai" }),
+  );
+});
+
+test("provider secret input rejects retired request aliases", () => {
+  assert.throws(
+    () =>
+      providerSecretInput({
+        secretRef: "vault://provider/secret",
+        authVaultRef: "vault://provider/auth",
+        apiKeyVaultRef: "vault://provider/api-key",
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "provider_secret_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "secretRef",
+        "authVaultRef",
+        "apiKeyVaultRef",
+      ]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "secret_ref",
+        "auth_vault_ref",
+        "api_key_vault_ref",
+      ]);
+      return true;
+    },
   );
 });
 

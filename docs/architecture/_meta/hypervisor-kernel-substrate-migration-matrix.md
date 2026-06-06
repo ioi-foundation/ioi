@@ -11970,6 +11970,12 @@ Slice 320 retires vault operation request aliases: `bindVaultRef`,
 `secret`, and `value` before vault lookup, binding, or removal. Canonical
 `vault_ref` and `material` remain accepted.
 
+Slice 321 retires provider secret-ref request aliases: `providerSecretInput`
+now fails closed on retired `secretRef`, `authVaultRef`, and
+`apiKeyVaultRef` before provider state writes or wallet authority vault-ref
+resolution. Canonical `secret_ref`, `auth_vault_ref`, and
+`api_key_vault_ref` remain accepted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

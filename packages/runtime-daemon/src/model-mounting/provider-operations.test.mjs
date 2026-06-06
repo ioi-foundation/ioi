@@ -99,8 +99,9 @@ const deps = {
     return ["openai", "anthropic", "gemini"].includes(kind);
   },
   providerSecretInput(body) {
-    if (Object.prototype.hasOwnProperty.call(body, "apiKeyVaultRef")) return body.apiKeyVaultRef;
-    if (Object.prototype.hasOwnProperty.call(body, "secretRef")) return body.secretRef;
+    if (Object.prototype.hasOwnProperty.call(body, "api_key_vault_ref")) return body.api_key_vault_ref;
+    if (Object.prototype.hasOwnProperty.call(body, "auth_vault_ref")) return body.auth_vault_ref;
+    if (Object.prototype.hasOwnProperty.call(body, "secret_ref")) return body.secret_ref;
     return undefined;
   },
   publicProvider(provider, vaultMetadata = null) {
@@ -137,7 +138,7 @@ test("provider upsert normalizes hosted provider state and keeps secret refs vau
       id: "provider.openai",
       kind: "openai",
       label: "OpenAI",
-      apiKeyVaultRef: "vault://provider/openai",
+      api_key_vault_ref: "vault://provider/openai",
       authHeaderName: "X-API-Key",
       capabilities: ["chat", "responses"],
     },
@@ -165,7 +166,7 @@ test("provider secret normalization rejects plaintext and preserves existing vau
     () => normalizeProviderSecretRef(state, "openai", { api_key: "plain" }, null, providerDeps()),
     /plaintext provider secret/,
   );
-  assert.equal(normalizeProviderSecretRef(state, "openai", { secretRef: "" }, null, providerDeps()), null);
+  assert.equal(normalizeProviderSecretRef(state, "openai", { secret_ref: "" }, null, providerDeps()), null);
 });
 
 test("provider health success persists public health and vault metadata boundary", async () => {

@@ -2812,6 +2812,8 @@ function runReceipts() {
   const providerAuthTest = exists("packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs")
     : "";
+  const providerSecretInputBlock =
+    providerAuth.match(/export function providerSecretInput[\s\S]*?function assertCanonicalProviderSecretRequestBody/)?.[0] ?? "";
   const lmStudioProviderDriver = exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs")
     : "";
@@ -4499,6 +4501,33 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs",
     ],
     "Phase 5/11 is pending: provider transport and auth fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-provider-secret-request-aliases-retired",
+    /RETIRED_PROVIDER_SECRET_REQUEST_ALIASES/.test(providerAuth) &&
+      /CANONICAL_PROVIDER_SECRET_REQUEST_FIELDS/.test(providerAuth) &&
+      /provider_secret_request_aliases_retired/.test(providerAuth) &&
+      /assertCanonicalProviderSecretRequestBody\(body\);[\s\S]*for \(const key of CANONICAL_PROVIDER_SECRET_REQUEST_FIELDS\)/.test(
+        providerSecretInputBlock,
+      ) &&
+      !/"(?:secretRef|authVaultRef|apiKeyVaultRef)"/.test(providerSecretInputBlock) &&
+      /provider secret input rejects retired request aliases/.test(providerAuthTest) &&
+      /retired_aliases,\s*\[\s*"secretRef"\s*,\s*"authVaultRef"\s*,\s*"apiKeyVaultRef"\s*,?\s*\]/.test(
+        providerAuthTest,
+      ) &&
+      /canonical_fields,\s*\[\s*"secret_ref"\s*,\s*"auth_vault_ref"\s*,\s*"api_key_vault_ref"\s*,?\s*\]/.test(
+        providerAuthTest,
+      ) &&
+      /api_key_vault_ref:\s*"vault:\/\/provider\/openai"/.test(providerOperationsTest) &&
+      !/Object\.prototype\.hasOwnProperty\.call\(body,\s*"apiKeyVaultRef"\)/.test(providerOperationsTest) &&
+      !/Object\.prototype\.hasOwnProperty\.call\(body,\s*"secretRef"\)/.test(providerOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-auth.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
+    ],
+    "Phase 5/11 is pending: provider secret request bodies must fail closed on retired camelCase vault-ref aliases before provider state writes or vault resolution",
   );
   assertCheck(
     result,
