@@ -30,6 +30,16 @@ const CANONICAL_CATALOG_DOWNLOAD_POLICY_REQUEST_FIELDS = [
   "cleanup_partial",
 ];
 
+const RETIRED_DESTRUCTIVE_CONFIRMATION_REQUEST_ALIASES = [
+  "confirmDestructive",
+  "destructiveConfirmed",
+];
+
+const CANONICAL_DESTRUCTIVE_CONFIRMATION_REQUEST_FIELDS = [
+  "confirm_destructive",
+  "destructive_confirmed",
+];
+
 export function modelCatalogFileFormat(filePath) {
   const lower = String(filePath ?? "").toLowerCase();
   if (lower.endsWith(".gguf")) return "gguf";
@@ -239,13 +249,30 @@ export function assertDownloadPolicyAllowed(policy, source) {
 }
 
 export function destructiveConfirmationState(body = {}, { required = true, action = "destructive_action" } = {}) {
-  const confirmed = Boolean(body.confirm_destructive ?? body.confirmDestructive ?? body.destructive_confirmed ?? body.destructiveConfirmed ?? false);
+  assertCanonicalDestructiveConfirmationRequestBody(body);
+  const confirmed = Boolean(body.confirm_destructive ?? body.destructive_confirmed ?? false);
   return {
     required,
     confirmed: required ? confirmed : true,
     action,
     source: confirmed ? "operator_confirmation" : required ? "not_provided" : "not_required",
   };
+}
+
+function assertCanonicalDestructiveConfirmationRequestBody(body = {}) {
+  const retiredAliases = RETIRED_DESTRUCTIVE_CONFIRMATION_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw runtimeError({
+    status: 400,
+    code: "destructive_confirmation_request_aliases_retired",
+    message: "Destructive confirmation request aliases are retired; use canonical snake_case request fields.",
+    details: {
+      retired_aliases: retiredAliases,
+      canonical_fields: CANONICAL_DESTRUCTIVE_CONFIRMATION_REQUEST_FIELDS,
+    },
+  });
 }
 
 export function inferModelArchitecture(value) {

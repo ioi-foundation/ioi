@@ -2942,6 +2942,8 @@ function runReceipts() {
   const catalogHelpersTest = exists("packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs")
     : "";
+  const destructiveConfirmationStateBlock =
+    catalogHelpers.match(/export function destructiveConfirmationState[\s\S]*?export function inferModelArchitecture/)?.[0] ?? "";
   const catalogDownloadOperations = exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs")
     : "";
@@ -4134,6 +4136,32 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs",
     ],
     "Phase 9/11 is pending: catalog download policy helpers must fail closed on retired camelCase policy aliases before approval or transfer policy evaluation",
+  );
+  assertCheck(
+    result,
+    "model-mount-destructive-confirmation-request-aliases-retired",
+    /RETIRED_DESTRUCTIVE_CONFIRMATION_REQUEST_ALIASES/.test(catalogHelpers) &&
+      /CANONICAL_DESTRUCTIVE_CONFIRMATION_REQUEST_FIELDS/.test(catalogHelpers) &&
+      /destructive_confirmation_request_aliases_retired/.test(catalogHelpers) &&
+      /assertCanonicalDestructiveConfirmationRequestBody\(body\);[\s\S]*const confirmed = Boolean\(body\.confirm_destructive \?\? body\.destructive_confirmed \?\? false\);/.test(
+        destructiveConfirmationStateBlock,
+      ) &&
+      !/body\.(?:confirmDestructive|destructiveConfirmed)\b/.test(destructiveConfirmationStateBlock) &&
+      /destructive confirmation accepts canonical request fields/.test(catalogHelpersTest) &&
+      /destructive confirmation rejects retired request aliases/.test(catalogHelpersTest) &&
+      /retired_aliases,\s*\[\s*"confirmDestructive"\s*,\s*"destructiveConfirmed"\s*,?\s*\]/.test(
+        catalogHelpersTest,
+      ) &&
+      /canonical_fields,\s*\[\s*"confirm_destructive"\s*,\s*"destructive_confirmed"\s*,?\s*\]/.test(
+        catalogHelpersTest,
+      ) &&
+      !/body\.confirmDestructive\b/.test(storageOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: destructive confirmation helpers must fail closed on retired camelCase request aliases before destructive action evaluation",
   );
   assertCheck(
     result,

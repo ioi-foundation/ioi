@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   catalogApprovalDecision,
+  destructiveConfirmationState,
   normalizeDownloadPolicy,
   normalizeImportMode,
 } from "./catalog-helpers.mjs";
@@ -84,6 +85,54 @@ test("catalog download policy rejects retired request aliases", () => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "catalog_download_policy_request_aliases_retired");
       assert.deepEqual(error.details.retired_aliases, ["transferApproved"]);
+      return true;
+    },
+  );
+});
+
+test("destructive confirmation accepts canonical request fields", () => {
+  assert.deepEqual(
+    destructiveConfirmationState(
+      { confirm_destructive: true },
+      { required: true, action: "model_storage_cleanup" },
+    ),
+    {
+      required: true,
+      confirmed: true,
+      action: "model_storage_cleanup",
+      source: "operator_confirmation",
+    },
+  );
+  assert.equal(
+    destructiveConfirmationState(
+      { destructive_confirmed: true },
+      { required: true, action: "model_storage_cleanup" },
+    ).confirmed,
+    true,
+  );
+});
+
+test("destructive confirmation rejects retired request aliases", () => {
+  assert.throws(
+    () =>
+      destructiveConfirmationState(
+        {
+          confirmDestructive: true,
+          destructiveConfirmed: true,
+        },
+        { required: true, action: "model_storage_cleanup" },
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "destructive_confirmation_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "confirmDestructive",
+        "destructiveConfirmed",
+      ]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "confirm_destructive",
+        "destructive_confirmed",
+      ]);
       return true;
     },
   );

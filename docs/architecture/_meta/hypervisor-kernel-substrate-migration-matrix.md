@@ -11959,6 +11959,12 @@ source vault binding, wallet authority vault-ref resolution, or OAuth session
 lookup. Canonical `auth_vault_ref`, `auth_scheme`, `auth_header_name`, and
 `oauth_session_id` remain accepted.
 
+Slice 319 retires destructive-confirmation request aliases:
+`destructiveConfirmationState` now fails closed on retired
+`confirmDestructive` and `destructiveConfirmed` before destructive action
+confirmation is evaluated. Canonical `confirm_destructive` and
+`destructive_confirmed` remain accepted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

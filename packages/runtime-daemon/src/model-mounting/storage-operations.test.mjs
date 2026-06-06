@@ -60,7 +60,7 @@ const deps = {
     return "removed_partial";
   },
   destructiveConfirmationState(body = {}, { required, action }) {
-    const confirmed = Boolean(body.confirm_destructive ?? body.confirmDestructive);
+    const confirmed = Boolean(body.confirm_destructive);
     return {
       required,
       confirmed: required ? confirmed : true,
