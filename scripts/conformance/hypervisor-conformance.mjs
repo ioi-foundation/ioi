@@ -7689,6 +7689,12 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs")
     : "";
+  const diagnosticsRepairPolicy = exists("packages/runtime-daemon/src/diagnostics-repair-policy.mjs")
+    ? read("packages/runtime-daemon/src/diagnostics-repair-policy.mjs")
+    : "";
+  const diagnosticsRepairPolicyTest = exists("packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs")
+    ? read("packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs")
+    : "";
   const runtimeAgentRunLifecycle = exists("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     : "";
@@ -11329,6 +11335,69 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs",
     ],
     "Phase 10/11 is pending: post-edit diagnostics repair contexts must emit canonical snake_case fields without duplicate camelCase compatibility aliases",
+  );
+  const diagnosticsRepairContextRecordBody =
+    diagnosticsRepairPolicy.match(
+      /  function diagnosticsRepairContextRecord\(value\) \{[\s\S]*?(?=\n  function diagnosticsRollbackRepairPolicy)/,
+    )?.[0] ?? "";
+  const diagnosticsRepairContextReadersBody =
+    diagnosticsRepairPolicy.match(
+      /  function diagnosticsRepairContextForRequest\(request = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsRepairContextRecord)/,
+    )?.[0] ?? "";
+  assertCheck(
+    result,
+    "diagnostics-repair-policy-context-aliases-retired",
+    /request\.diagnostics_repair_context \?\? request\.repair_context/.test(
+      diagnosticsRepairContextReadersBody,
+    ) &&
+      /payload\.diagnostics_repair_context \?\? payload\.result\?\.diagnostics_repair_context/.test(
+        diagnosticsRepairContextReadersBody,
+      ) &&
+      /source_tool_name:\s*optionalString\(value\.source_tool_name\) \?\? null/.test(
+        diagnosticsRepairContextRecordBody,
+      ) &&
+      /source_tool_call_id:\s*optionalString\(value\.source_tool_call_id\) \?\? null/.test(
+        diagnosticsRepairContextRecordBody,
+      ) &&
+      /source_workflow_graph_id:\s*optionalString\(value\.source_workflow_graph_id\) \?\? null/.test(
+        diagnosticsRepairContextRecordBody,
+      ) &&
+      /source_workflow_node_id:\s*optionalString\(value\.source_workflow_node_id\) \?\? null/.test(
+        diagnosticsRepairContextRecordBody,
+      ) &&
+      /workspace_snapshot_id:\s*optionalString\(value\.workspace_snapshot_id\) \?\? null/.test(
+        diagnosticsRepairContextRecordBody,
+      ) &&
+      /restore_policy:\s*restorePolicy/.test(diagnosticsRepairContextRecordBody) &&
+      /restore_conflict_policy:\s*restoreConflictPolicy/.test(diagnosticsRepairContextRecordBody) &&
+      /diagnostics_repair_default:\s*diagnosticsRepairDefault/.test(
+        diagnosticsRepairContextRecordBody,
+      ) &&
+      /operator_override_requires_approval:\s*operatorOverrideRequiresApproval/.test(
+        diagnosticsRepairContextRecordBody,
+      ) &&
+      /rollback_refs:\s*rollbackRefs/.test(diagnosticsRepairContextRecordBody) &&
+      !/\.\.\.value/.test(diagnosticsRepairContextRecordBody) &&
+      !/\b(?:value|request|payload|payload\.result)\?\.(?:diagnosticsRepairContext|sourceToolName|sourceToolCallId|sourceWorkflowGraphId|sourceWorkflowNodeId|workspaceSnapshotId|restorePolicy|restoreConflictPolicy|diagnosticsRepairDefault|operatorOverrideRequiresApproval|rollbackRefs)\b/.test(
+        `${diagnosticsRepairContextRecordBody}\n${diagnosticsRepairContextReadersBody}`,
+      ) &&
+      !/^\s*(?:schemaVersion|sourceToolName|sourceToolCallId|sourceWorkflowGraphId|sourceWorkflowNodeId|workspaceSnapshotId|restorePolicy|restoreConflictPolicy|diagnosticsRepairDefault|operatorOverrideRequiresApproval|rollbackRefs)\s*:/m.test(
+        diagnosticsRepairContextRecordBody,
+      ) &&
+      /diagnostics repair contexts emit canonical fields and rollback refs/.test(
+        diagnosticsRepairPolicyTest,
+      ) &&
+      /diagnostics repair contexts ignore retired context aliases/.test(diagnosticsRepairPolicyTest) &&
+      /diagnosticsRepairContext:\s*\{ source_tool_name:\s*"alias" \}/.test(
+        diagnosticsRepairPolicyTest,
+      ) &&
+      /sourceToolName:\s*"alias-tool"/.test(diagnosticsRepairPolicyTest) &&
+      /Object\.hasOwn\(context,\s*field\),\s*false/.test(diagnosticsRepairPolicyTest),
+    [
+      "packages/runtime-daemon/src/diagnostics-repair-policy.mjs",
+      "packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs",
+    ],
+    "Phase 10/11 is pending: diagnostics repair policy contexts must canonicalize snake_case repair context fields without preserving retired camelCase aliases",
   );
   const diagnosticsRepairRetryResultBody =
     diagnosticsRepairExecution.match(

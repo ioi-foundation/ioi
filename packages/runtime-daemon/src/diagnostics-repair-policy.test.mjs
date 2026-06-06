@@ -52,7 +52,7 @@ test("diagnostics repair policy config normalizes request, input, and tool-pack 
   assert.equal(runtime.normalizeDiagnosticsRepairDefault("continue"), "operator_override");
 });
 
-test("diagnostics repair contexts preserve public aliases and rollback refs", () => {
+test("diagnostics repair contexts emit canonical fields and rollback refs", () => {
   const runtime = helpers();
 
   const context = runtime.diagnosticsRepairContextRecord({
@@ -67,19 +67,82 @@ test("diagnostics repair contexts preserve public aliases and rollback refs", ()
   });
 
   assert.equal(context.object, "ioi.runtime_diagnostics_rollback_repair_context");
-  assert.equal(context.sourceToolName, "lsp.diagnostics");
+  assert.equal(context.source_tool_name, "lsp.diagnostics");
   assert.equal(context.source_tool_call_id, "tool-call-one");
-  assert.equal(context.workspaceSnapshotId, "snapshot-one");
-  assert.equal(context.restorePolicy, "preview_only");
-  assert.equal(context.restoreConflictPolicy, "allow_override");
-  assert.equal(context.diagnosticsRepairDefault, "restore_preview");
-  assert.equal(context.operatorOverrideRequiresApproval, false);
-  assert.deepEqual(context.rollbackRefs, ["rollback-one", "snapshot-one"]);
+  assert.equal(context.workspace_snapshot_id, "snapshot-one");
+  assert.equal(context.restore_policy, "preview_only");
+  assert.equal(context.restore_conflict_policy, "allow_override");
+  assert.equal(context.diagnostics_repair_default, "restore_preview");
+  assert.equal(context.operator_override_requires_approval, false);
+  assert.deepEqual(context.rollback_refs, ["rollback-one", "snapshot-one"]);
+  for (const field of [
+    "schemaVersion",
+    "sourceToolName",
+    "sourceToolCallId",
+    "sourceWorkflowGraphId",
+    "sourceWorkflowNodeId",
+    "workspaceSnapshotId",
+    "restorePolicy",
+    "restoreConflictPolicy",
+    "diagnosticsRepairDefault",
+    "operatorOverrideRequiresApproval",
+    "rollbackRefs",
+  ]) {
+    assert.equal(Object.hasOwn(context, field), false);
+  }
 
-  assert.equal(runtime.diagnosticsRepairContextForRequest({ repair_context: context }).sourceToolName, "lsp.diagnostics");
-  assert.equal(runtime.diagnosticsRepairContextForPayload({ result: { diagnostics_repair_context: context } }).sourceToolName, "lsp.diagnostics");
+  assert.equal(runtime.diagnosticsRepairContextForRequest({ repair_context: context }).source_tool_name, "lsp.diagnostics");
+  assert.equal(
+    runtime.diagnosticsRepairContextForPayload({ result: { diagnostics_repair_context: context } }).source_tool_name,
+    "lsp.diagnostics",
+  );
   assert.equal(runtime.diagnosticsRepairContextForToolPack({}, {}, "file.read"), null);
   assert.equal(runtime.hasDiagnosticsRepairPolicyConfig({ restorePolicy: "preview" }, {}), true);
+});
+
+test("diagnostics repair contexts ignore retired context aliases", () => {
+  const runtime = helpers();
+
+  assert.equal(
+    runtime.diagnosticsRepairContextForRequest({
+      diagnosticsRepairContext: { source_tool_name: "alias" },
+      repairContext: { source_tool_name: "alias" },
+    }),
+    null,
+  );
+  assert.equal(
+    runtime.diagnosticsRepairContextForPayload({
+      diagnosticsRepairContext: { source_tool_name: "alias" },
+      result: { diagnosticsRepairContext: { source_tool_name: "alias" } },
+    }),
+    null,
+  );
+
+  const context = runtime.diagnosticsRepairContextRecord({
+    schemaVersion: "alias-schema",
+    sourceToolName: "alias-tool",
+    sourceToolCallId: "alias-call",
+    sourceWorkflowGraphId: "alias-graph",
+    sourceWorkflowNodeId: "alias-node",
+    workspaceSnapshotId: "alias-snapshot",
+    restorePolicy: "preview",
+    restoreConflictPolicy: "force",
+    diagnosticsRepairDefault: "continue",
+    operatorOverrideRequiresApproval: "false",
+    rollbackRefs: ["alias-rollback"],
+  });
+
+  assert.equal(context.schema_version, "ioi.runtime.diagnostics-rollback-repair-context.v1");
+  assert.equal(context.source_tool_name, null);
+  assert.equal(context.source_tool_call_id, null);
+  assert.equal(context.source_workflow_graph_id, null);
+  assert.equal(context.source_workflow_node_id, null);
+  assert.equal(context.workspace_snapshot_id, null);
+  assert.equal(context.restore_policy, "apply_with_approval");
+  assert.equal(context.restore_conflict_policy, "block");
+  assert.equal(context.diagnostics_repair_default, "repair_retry");
+  assert.equal(context.operator_override_requires_approval, true);
+  assert.deepEqual(context.rollback_refs, []);
 });
 
 test("diagnostics rollback repair policy preserves decision defaults and refs", () => {

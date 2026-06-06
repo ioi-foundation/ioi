@@ -145,9 +145,9 @@ test("blocking gate and request feedback preserve repair policy refs", () => {
             diagnosticStatus: "findings",
             diagnostics: [{ path: "src/a.js", line: 1, severity: "error", message: "broken" }],
           },
-          diagnosticsRepairContext: {
-            workspaceSnapshotId: "snapshot-one",
-            rollbackRefs: ["snapshot-one"],
+          diagnostics_repair_context: {
+            workspace_snapshot_id: "snapshot-one",
+            rollback_refs: ["snapshot-one"],
           },
         },
       },

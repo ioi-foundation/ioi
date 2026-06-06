@@ -76,13 +76,10 @@ export function createDiagnosticsRepairPolicyHelpers({
       return undefined;
     };
     return diagnosticsRepairPolicyConfig({
-      restorePolicy: firstValue("restorePolicy", "restore_policy"),
-      restoreConflictPolicy: firstValue("restoreConflictPolicy", "restore_conflict_policy"),
-      diagnosticsRepairDefault: firstValue("diagnosticsRepairDefault", "diagnostics_repair_default"),
-      operatorOverrideRequiresApproval: firstValue(
-        "operatorOverrideRequiresApproval",
-        "operator_override_requires_approval",
-      ),
+      restore_policy: firstValue("restore_policy"),
+      restore_conflict_policy: firstValue("restore_conflict_policy"),
+      diagnostics_repair_default: firstValue("diagnostics_repair_default"),
+      operator_override_requires_approval: firstValue("operator_override_requires_approval"),
     });
   }
 
@@ -91,7 +88,6 @@ export function createDiagnosticsRepairPolicyHelpers({
     if (!hasDiagnosticsRepairPolicyConfig(request, input)) return null;
     const policyConfig = diagnosticsRepairPolicyConfig(request, input);
     return diagnosticsRepairContextRecord({
-      sourceToolName: toolName,
       source_tool_name: toolName,
       ...policyConfig,
     });
@@ -167,70 +163,47 @@ export function createDiagnosticsRepairPolicyHelpers({
 
   function diagnosticsRepairContextForRequest(request = {}) {
     return diagnosticsRepairContextRecord(
-      request.diagnosticsRepairContext ??
-        request.diagnostics_repair_context ??
-        request.repairContext ??
-        request.repair_context,
+      request.diagnostics_repair_context ?? request.repair_context,
     );
   }
 
   function diagnosticsRepairContextForPayload(payload = {}) {
     return diagnosticsRepairContextRecord(
-      payload.diagnosticsRepairContext ??
-        payload.diagnostics_repair_context ??
-        payload.result?.diagnosticsRepairContext ??
-        payload.result?.diagnostics_repair_context,
+      payload.diagnostics_repair_context ?? payload.result?.diagnostics_repair_context,
     );
   }
 
   function diagnosticsRepairContextRecord(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return null;
     const rollbackRefs = uniqueStrings([
-      ...normalizeArray(value.rollbackRefs ?? value.rollback_refs),
-      optionalString(value.workspaceSnapshotId ?? value.workspace_snapshot_id),
+      ...normalizeArray(value.rollback_refs),
+      optionalString(value.workspace_snapshot_id),
     ]);
-    const restorePolicy = normalizeRestorePolicy(value.restorePolicy ?? value.restore_policy);
+    const restorePolicy = normalizeRestorePolicy(value.restore_policy);
     const restoreConflictPolicy = normalizeRestoreConflictPolicy(
-      value.restoreConflictPolicy ?? value.restore_conflict_policy,
+      value.restore_conflict_policy,
     );
     const diagnosticsRepairDefault = normalizeDiagnosticsRepairDefault(
-      value.diagnosticsRepairDefault ??
-        value.diagnostics_repair_default ??
-        value.defaultRepairDecision ??
-        value.default_repair_decision,
+      value.diagnostics_repair_default ?? value.default_repair_decision,
     );
     const operatorOverrideRequiresApproval = normalizeBooleanOption(
-      value.operatorOverrideRequiresApproval ?? value.operator_override_requires_approval,
+      value.operator_override_requires_approval,
       true,
     );
     return {
-      ...value,
-      schemaVersion:
-        optionalString(value.schemaVersion ?? value.schema_version) ??
-        DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION,
       schema_version:
-        optionalString(value.schema_version ?? value.schemaVersion) ??
+        optionalString(value.schema_version) ??
         DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION,
       object: optionalString(value.object) ?? "ioi.runtime_diagnostics_rollback_repair_context",
-      sourceToolName: optionalString(value.sourceToolName ?? value.source_tool_name) ?? null,
-      source_tool_name: optionalString(value.source_tool_name ?? value.sourceToolName) ?? null,
-      sourceToolCallId: optionalString(value.sourceToolCallId ?? value.source_tool_call_id) ?? null,
-      source_tool_call_id: optionalString(value.source_tool_call_id ?? value.sourceToolCallId) ?? null,
-      sourceWorkflowGraphId: optionalString(value.sourceWorkflowGraphId ?? value.source_workflow_graph_id) ?? null,
-      source_workflow_graph_id: optionalString(value.source_workflow_graph_id ?? value.sourceWorkflowGraphId) ?? null,
-      sourceWorkflowNodeId: optionalString(value.sourceWorkflowNodeId ?? value.source_workflow_node_id) ?? null,
-      source_workflow_node_id: optionalString(value.source_workflow_node_id ?? value.sourceWorkflowNodeId) ?? null,
-      workspaceSnapshotId: optionalString(value.workspaceSnapshotId ?? value.workspace_snapshot_id) ?? null,
-      workspace_snapshot_id: optionalString(value.workspace_snapshot_id ?? value.workspaceSnapshotId) ?? null,
-      restorePolicy,
+      source_tool_name: optionalString(value.source_tool_name) ?? null,
+      source_tool_call_id: optionalString(value.source_tool_call_id) ?? null,
+      source_workflow_graph_id: optionalString(value.source_workflow_graph_id) ?? null,
+      source_workflow_node_id: optionalString(value.source_workflow_node_id) ?? null,
+      workspace_snapshot_id: optionalString(value.workspace_snapshot_id) ?? null,
       restore_policy: restorePolicy,
-      restoreConflictPolicy,
       restore_conflict_policy: restoreConflictPolicy,
-      diagnosticsRepairDefault,
       diagnostics_repair_default: diagnosticsRepairDefault,
-      operatorOverrideRequiresApproval,
       operator_override_requires_approval: operatorOverrideRequiresApproval,
-      rollbackRefs,
       rollback_refs: rollbackRefs,
     };
   }
