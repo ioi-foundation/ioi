@@ -110,11 +110,11 @@ test("runtime run event helpers preserve computer-use artifact refs", () => {
     data: {
       observation_bundle: {
         screenshot_ref: "shot.png",
-        somRef: "som.json",
+        som_ref: "som.json",
         ax_ref: "ax.json",
       },
-      cleanupReceipt: {
-        retainedArtifactRefs: ["shot.png", "cleanup.json"],
+      cleanup_receipt: {
+        retained_artifact_refs: ["shot.png", "cleanup.json"],
       },
       computer_use_visual_artifact_refs: ["visual.png"],
     },
@@ -136,4 +136,16 @@ test("runtime run event helpers preserve computer-use artifact refs", () => {
     "cleanup.json",
     "visual.png",
   ]);
+  assert.deepEqual(runtime.computerUseArtifactRefsForRunEvent({
+    type: "computer_use_action_executed",
+    data: {
+      observation_bundle: {
+        screenshotRef: "legacy-shot.png",
+        somRef: "legacy-som.json",
+        axRef: "legacy-ax.json",
+      },
+      cleanupReceipt: { retainedArtifactRefs: ["legacy-cleanup.json"] },
+      computerUseVisualArtifactRefs: ["legacy-visual.png"],
+    },
+  }), ["computer-use-trace.json"]);
 });

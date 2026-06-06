@@ -287,13 +287,10 @@ export function createRuntimeRunEventHelpers({
     return uniqueStrings([
       "computer-use-trace.json",
       observation?.screenshot_ref,
-      observation?.screenshotRef,
       observation?.som_ref,
-      observation?.somRef,
       observation?.ax_ref,
-      observation?.axRef,
-      ...normalizeArray(cleanup?.retained_artifact_refs ?? cleanup?.retainedArtifactRefs),
-      ...normalizeArray(data?.computerUseVisualArtifactRefs ?? data?.computer_use_visual_artifact_refs),
+      ...normalizeArray(cleanup?.retained_artifact_refs),
+      ...normalizeArray(data?.computer_use_visual_artifact_refs),
     ]);
   }
 

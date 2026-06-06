@@ -548,6 +548,12 @@ function runBridge() {
   const computerUseInputsTest = exists("packages/runtime-daemon/src/computer-use-inputs.test.mjs")
     ? read("packages/runtime-daemon/src/computer-use-inputs.test.mjs")
     : "";
+  const runtimeRunEventHelpers = exists("packages/runtime-daemon/src/runtime-run-event-helpers.mjs")
+    ? read("packages/runtime-daemon/src/runtime-run-event-helpers.mjs")
+    : "";
+  const runtimeRunEventHelpersTest = exists("packages/runtime-daemon/src/runtime-run-event-helpers.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-run-event-helpers.test.mjs")
+    : "";
   const runtimeCodingToolResults = exists("packages/runtime-daemon/src/runtime-coding-tool-results.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-results.mjs")
     : "";
@@ -1312,6 +1318,23 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10/11 is pending: computer-use visual metadata helpers must emit canonical snake_case fields without duplicate camelCase output aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-run-computer-use-artifact-reader-aliases-retired",
+    /observation\?\.screenshot_ref/.test(runtimeRunEventHelpers) &&
+      /observation\?\.som_ref/.test(runtimeRunEventHelpers) &&
+      /observation\?\.ax_ref/.test(runtimeRunEventHelpers) &&
+      /normalizeArray\(cleanup\?\.retained_artifact_refs\)/.test(runtimeRunEventHelpers) &&
+      /normalizeArray\(data\?\.computer_use_visual_artifact_refs\)/.test(runtimeRunEventHelpers) &&
+      /legacy-shot\.png/.test(runtimeRunEventHelpersTest) &&
+      /\["computer-use-trace\.json"\]/.test(runtimeRunEventHelpersTest) &&
+      !/\b(?:observation|cleanup|data)\?\.(?:screenshotRef|somRef|axRef|retainedArtifactRefs|computerUseVisualArtifactRefs)\b/.test(runtimeRunEventHelpers),
+    [
+      "packages/runtime-daemon/src/runtime-run-event-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-run-event-helpers.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime run computer-use artifact readers must reject retired camelCase visual artifact fallback aliases",
   );
   assertCheck(
     result,
