@@ -1269,6 +1269,10 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
   assertNoOwnKeys(result, retiredSubagentLifecycleResultEnvelopeAliasKeys);
   assert.equal(result.result, "Created response: Try again");
   assert.equal(store.writes[0].operationKind, "subagent.resume");
+  assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
+  assert.equal(store.stateUpdates[0].input.operation_kind, "subagent.resume");
+  assert.equal(store.stateUpdates[0].input.thread_id, "thread_1");
+  assert.equal(store.stateUpdates[0].input.subagent.subagent_id, "subagent_1");
   assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
   assert.equal(saved.cancellation, null);
   assert.equal(saved.cancellation_reason, null);
@@ -1290,6 +1294,31 @@ test("subagent surface resumes subagents and clears cancellation metadata", () =
   assertCanonicalSubagentStoreWrites(store);
   assert.ok(saved.evidence_refs.includes("runtime.subagent.resume"));
   assert.ok(saved.evidence_refs.includes("run_created_3"));
+});
+
+test("subagent resume fails closed without Rust-planned subagent record", () => {
+  const store = createStore({
+    subagentStateUpdate: {
+      status: "planned",
+      operation_kind: "subagent.resume",
+      subagent: null,
+    },
+  });
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T13:10:00.000Z",
+    nowMs: () => 1780588200000,
+  });
+  store.surface = surface;
+
+  assert.throws(
+    () => surface.resumeSubagent(store, "thread_1", "subagent_1", {
+      source: "agent_studio",
+      prompt: "Try again",
+    }),
+    (error) => error.code === "subagent_record_state_update_planner_invalid",
+  );
+  assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
+  assert.equal(store.writes.length, 0);
 });
 
 test("subagent resume ignores retired camelCase request aliases", () => {

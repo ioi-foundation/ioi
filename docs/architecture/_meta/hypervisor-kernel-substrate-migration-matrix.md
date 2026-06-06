@@ -12313,6 +12313,11 @@ planner: `sendSubagentInput` now persists only the `SubagentRecordStateUpdateCor
 record for `subagent.input` and fails closed when Rust does not return the
 planned subagent lifecycle record.
 
+Slice 370 moves subagent resume persistence behind Rust planning:
+`resumeSubagent` now writes only the `SubagentRecordStateUpdateCore` record for
+`subagent.resume`, including budget-blocked resume transitions, and fails
+closed when Rust does not return the planned lifecycle record.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
