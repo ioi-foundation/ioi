@@ -9117,6 +9117,20 @@ function runCompositor() {
     runtimeEventPayloads.match(/if \(event\.type === "memory_update"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeRepositoryContextPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "repository_context"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimeTaskPayloadSummaryBlock =
+    runtimeEventPayloads.match(/if \(event\.type === "runtime_task"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimeChecklistPayloadSummaryBlock =
+    runtimeEventPayloads.match(/if \(event\.type === "runtime_checklist"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimeJobPayloadSummaryBlock =
+    runtimeEventPayloads.match(/if \(event\.type === "job_queued"[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimeTaskEventProducerBlock =
+    runtimeDaemonIndex.match(/addEvent\("runtime_task", "Runtime task record written", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
+  const runtimeChecklistEventProducerBlock =
+    runtimeDaemonIndex.match(/addEvent\("runtime_checklist", "Runtime checklist recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
+  const runtimeJobQueuedEventProducerBlock =
+    runtimeDaemonIndex.match(/addEvent\("job_queued", "Runtime job queued", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
+  const runtimeJobCompletedEventProducerBlock =
+    runtimeDaemonIndex.match(/addEvent\("job_completed", "Runtime job completed", \{[\s\S]*?\n    \}\);/)?.[0] ?? "";
   const runtimeRepositoryContextEventProducerBlock =
     runtimeDaemonIndex.match(/addEvent\("repository_context", "Repository context recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeUsageEvents = exists("packages/runtime-daemon/src/runtime-usage-events.mjs")
@@ -10647,6 +10661,72 @@ function runCompositor() {
       !/event\.data\?\.(?:eventKind|contextId|isGitRepository|repoRootHash|detachedHead|headShortSha|remoteCount|mutationExecuted|workflowNodeId)\b/.test(
         runtimeRepositoryContextPayloadSummaryBlock,
       ) &&
+      runtimeTaskPayloadSummaryBlock.length > 0 &&
+      /event_kind:\s*event\.data\?\.event_kind \?\? "RuntimeTaskRecord"/.test(
+        runtimeTaskPayloadSummaryBlock,
+      ) &&
+      /task_id:\s*event\.data\?\.task_id \?\? null/.test(runtimeTaskPayloadSummaryBlock) &&
+      /selected_strategy:\s*event\.data\?\.selected_strategy \?\? null/.test(
+        runtimeTaskPayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.(?:eventKind|taskId|runId|agentId|threadId|turnId|taskFamily|selectedStrategy|promptIncluded|workflowNodeId)\b/.test(
+        runtimeTaskPayloadSummaryBlock,
+      ) &&
+      runtimeChecklistPayloadSummaryBlock.length > 0 &&
+      /event_kind:\s*event\.data\?\.event_kind \?\? "RuntimeChecklistRecord"/.test(
+        runtimeChecklistPayloadSummaryBlock,
+      ) &&
+      /checklist_id:\s*event\.data\?\.checklist_id \?\? null/.test(
+        runtimeChecklistPayloadSummaryBlock,
+      ) &&
+      /required_item_ids:\s*normalizeArray\(event\.data\?\.required_item_ids\)/.test(
+        runtimeChecklistPayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.(?:eventKind|checklistId|taskId|jobId|runId|itemCount|completedItemCount|failedItemCount|canceledItemCount|blockedItemCount|requiredItemIds|workflowNodeId)\b/.test(
+        runtimeChecklistPayloadSummaryBlock,
+      ) &&
+      runtimeJobPayloadSummaryBlock.length > 0 &&
+      /event_kind:\s*event\.data\?\.event_kind \?\? "RuntimeJobLifecycle"/.test(
+        runtimeJobPayloadSummaryBlock,
+      ) &&
+      /job_id:\s*event\.data\?\.job_id \?\? null/.test(runtimeJobPayloadSummaryBlock) &&
+      /lifecycle_status:\s*event\.data\?\.lifecycle_status \?\? null/.test(
+        runtimeJobPayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.(?:eventKind|jobId|taskId|runId|agentId|threadId|turnId|lifecycleStatus|queueName|jobType|queuedAt|startedAt|completedAt|workflowNodeId)\b/.test(
+        runtimeJobPayloadSummaryBlock,
+      ) &&
+      runtimeTaskEventProducerBlock.length > 0 &&
+      /event_kind:\s*"RuntimeTaskRecord"/.test(runtimeTaskEventProducerBlock) &&
+      /task_id:\s*runtimeTask\.taskId \?\? null/.test(runtimeTaskEventProducerBlock) &&
+      /workflow_node_id:\s*"runtime\.runtime-task"/.test(runtimeTaskEventProducerBlock) &&
+      !/\.\.\.runtimeTask|^\s*(?:receiptId|eventKind|workflowNodeId)\s*:/m.test(
+        runtimeTaskEventProducerBlock,
+      ) &&
+      runtimeChecklistEventProducerBlock.length > 0 &&
+      /event_kind:\s*"RuntimeChecklistRecord"/.test(runtimeChecklistEventProducerBlock) &&
+      /checklist_id:\s*runtimeChecklist\.checklistId \?\? null/.test(
+        runtimeChecklistEventProducerBlock,
+      ) &&
+      /workflow_node_id:\s*"runtime\.runtime-checklist"/.test(
+        runtimeChecklistEventProducerBlock,
+      ) &&
+      !/\.\.\.runtimeChecklist|^\s*(?:receiptId|eventKind|workflowNodeId)\s*:/m.test(
+        runtimeChecklistEventProducerBlock,
+      ) &&
+      runtimeJobQueuedEventProducerBlock.length > 0 &&
+      /event_kind:\s*"JobQueued"/.test(runtimeJobQueuedEventProducerBlock) &&
+      /job_id:\s*runtimeJob\.jobId \?\? null/.test(runtimeJobQueuedEventProducerBlock) &&
+      /lifecycle_status:\s*"queued"/.test(runtimeJobQueuedEventProducerBlock) &&
+      !/\.\.\.runtimeJob|^\s*(?:receiptId|eventKind|workflowNodeId|lifecycleStatus|completedAt)\s*:/m.test(
+        runtimeJobQueuedEventProducerBlock,
+      ) &&
+      runtimeJobCompletedEventProducerBlock.length > 0 &&
+      /event_kind:\s*"JobCompleted"/.test(runtimeJobCompletedEventProducerBlock) &&
+      /lifecycle_status:\s*"completed"/.test(runtimeJobCompletedEventProducerBlock) &&
+      !/\.\.\.runtimeJob|^\s*(?:receiptId|eventKind|workflowNodeId|lifecycleStatus|completedAt)\s*:/m.test(
+        runtimeJobCompletedEventProducerBlock,
+      ) &&
       runtimeRepositoryContextEventProducerBlock.length > 0 &&
       /event_kind:\s*"RepositoryContext"/.test(runtimeRepositoryContextEventProducerBlock) &&
       /context_id:\s*repositoryContext\.contextId \?\? null/.test(
@@ -10658,13 +10738,22 @@ function runCompositor() {
       /workflow_node_id:\s*"runtime\.repository-context"/.test(
         runtimeRepositoryContextEventProducerBlock,
       ) &&
+      !/\.\.\.repositoryContext|^\s*(?:receiptId|eventKind|workflowNodeId)\s*:/m.test(
+        runtimeRepositoryContextEventProducerBlock,
+      ) &&
       /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
       /retiredComputerUseSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredMemorySummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRepositoryContextSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredRuntimeTaskSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredRuntimeChecklistSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredRuntimeJobSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredComputerUseEventKind"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredMemoryEventKind"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRepositoryContext"/.test(runtimeEventPayloadsTest) &&
+      /eventKind: "RetiredRuntimeTaskRecord"/.test(runtimeEventPayloadsTest) &&
+      /eventKind: "RetiredRuntimeChecklistRecord"/.test(runtimeEventPayloadsTest) &&
+      /eventKind: "RetiredJobCompleted"/.test(runtimeEventPayloadsTest) &&
       /contextId: "retired-repo-context"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.repository-context"/.test(runtimeEventPayloadsTest) &&
       /memoryRecordId: "retired-memory"/.test(runtimeEventPayloadsTest) &&

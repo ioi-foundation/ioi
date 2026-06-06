@@ -173,9 +173,9 @@ export function createRuntimeRunEventHelpers({
         eventOrType?.type === "context_pressure_alert" ||
         eventOrType?.type === "usage_final" ||
         isComputerUseRunEventType(eventOrType?.type)) &&
-      eventOrType.data?.workflowNodeId
+      eventOrType.data?.workflow_node_id
     ) {
-      return eventOrType.data.workflowNodeId;
+      return eventOrType.data.workflow_node_id;
     }
     return `runtime.${componentKindForRunEvent(eventOrType).replace(/_/g, "-")}`;
   }

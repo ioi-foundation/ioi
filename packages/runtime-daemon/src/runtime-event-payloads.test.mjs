@@ -42,6 +42,51 @@ const retiredRepositoryContextSummaryAliasKeys = [
   "workflowNodeId",
 ];
 
+const retiredRuntimeTaskSummaryAliasKeys = [
+  "eventKind",
+  "taskId",
+  "runId",
+  "agentId",
+  "threadId",
+  "turnId",
+  "taskFamily",
+  "selectedStrategy",
+  "promptIncluded",
+  "workflowNodeId",
+];
+
+const retiredRuntimeChecklistSummaryAliasKeys = [
+  "eventKind",
+  "checklistId",
+  "taskId",
+  "jobId",
+  "runId",
+  "itemCount",
+  "completedItemCount",
+  "failedItemCount",
+  "canceledItemCount",
+  "blockedItemCount",
+  "requiredItemIds",
+  "workflowNodeId",
+];
+
+const retiredRuntimeJobSummaryAliasKeys = [
+  "eventKind",
+  "jobId",
+  "taskId",
+  "runId",
+  "agentId",
+  "threadId",
+  "turnId",
+  "lifecycleStatus",
+  "queueName",
+  "jobType",
+  "queuedAt",
+  "startedAt",
+  "completedAt",
+  "workflowNodeId",
+];
+
 const retiredUsageSummaryReaderAliasKeys = [
   "eventKind",
   "schemaVersion",
@@ -332,21 +377,154 @@ test("runtime event payloads preserve repository and runtime record summaries", 
     runId: "run-one",
     agentId: "agent-one",
     data: {
-      taskId: "task-one",
+      event_kind: "RuntimeTaskRecord.Canonical",
+      eventKind: "RetiredRuntimeTaskRecord",
+      task_id: "task-one",
+      taskId: "retired-task",
+      run_id: "run-one",
+      runId: "retired-run",
+      agent_id: "agent-one",
+      agentId: "retired-agent",
+      thread_id: "thread-one",
+      threadId: "retired-thread",
+      turn_id: "turn-one",
+      turnId: "retired-turn",
       status: "running",
-      taskFamily: "coding",
-      selectedStrategy: "agent",
+      task_family: "coding",
+      taskFamily: "retired-family",
+      selected_strategy: "agent",
+      selectedStrategy: "retired-strategy",
       durable: true,
       replayable: true,
+      prompt_included: false,
+      promptIncluded: true,
+      workflow_node_id: "runtime.runtime-task",
+      workflowNodeId: "retired.runtime-task",
     },
   });
 
-  assert.equal(task.event_kind, "RuntimeTaskRecord");
+  assert.equal(task.event_kind, "RuntimeTaskRecord.Canonical");
   assert.equal(task.task_id, "task-one");
+  assert.equal(task.run_id, "run-one");
+  assert.equal(task.agent_id, "agent-one");
+  assert.equal(task.thread_id, "thread-one");
+  assert.equal(task.turn_id, "turn-one");
   assert.equal(task.task_family, "coding");
   assert.equal(task.selected_strategy, "agent");
   assert.equal(task.durable, true);
   assert.equal(task.replayable, true);
+  assert.equal(task.prompt_included, false);
+  assert.equal(task.workflow_node_id, "runtime.runtime-task");
+  assert.notEqual(task.task_id, "retired-task");
+  assert.notEqual(task.workflow_node_id, "retired.runtime-task");
+  for (const key of retiredRuntimeTaskSummaryAliasKeys) {
+    assert.equal(Object.hasOwn(task, key), false);
+  }
+
+  const checklist = runtime.payloadSummaryForRunEvent({
+    id: "event-three",
+    type: "runtime_checklist",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      event_kind: "RuntimeChecklistRecord.Canonical",
+      eventKind: "RetiredRuntimeChecklistRecord",
+      checklist_id: "checklist-one",
+      checklistId: "retired-checklist",
+      task_id: "task-one",
+      taskId: "retired-task",
+      job_id: "job-one",
+      jobId: "retired-job",
+      run_id: "run-one",
+      runId: "retired-run",
+      status: "completed",
+      item_count: 4,
+      itemCount: 99,
+      completed_item_count: 3,
+      completedItemCount: 88,
+      failed_item_count: 1,
+      failedItemCount: 77,
+      canceled_item_count: 0,
+      canceledItemCount: 66,
+      blocked_item_count: 0,
+      blockedItemCount: 55,
+      required_item_ids: ["item-one"],
+      requiredItemIds: ["retired-item"],
+      durable: true,
+      replayable: true,
+      workflow_node_id: "runtime.runtime-checklist",
+      workflowNodeId: "retired.runtime-checklist",
+    },
+  });
+
+  assert.equal(checklist.event_kind, "RuntimeChecklistRecord.Canonical");
+  assert.equal(checklist.checklist_id, "checklist-one");
+  assert.equal(checklist.task_id, "task-one");
+  assert.equal(checklist.job_id, "job-one");
+  assert.equal(checklist.item_count, 4);
+  assert.equal(checklist.completed_item_count, 3);
+  assert.equal(checklist.failed_item_count, 1);
+  assert.deepEqual(checklist.required_item_ids, ["item-one"]);
+  assert.notDeepEqual(checklist.required_item_ids, ["retired-item"]);
+  assert.equal(checklist.workflow_node_id, "runtime.runtime-checklist");
+  for (const key of retiredRuntimeChecklistSummaryAliasKeys) {
+    assert.equal(Object.hasOwn(checklist, key), false);
+  }
+
+  const job = runtime.payloadSummaryForRunEvent({
+    id: "event-four",
+    type: "job_completed",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      event_kind: "JobCompleted.Canonical",
+      eventKind: "RetiredJobCompleted",
+      job_id: "job-one",
+      jobId: "retired-job",
+      task_id: "task-one",
+      taskId: "retired-task",
+      run_id: "run-one",
+      runId: "retired-run",
+      agent_id: "agent-one",
+      agentId: "retired-agent",
+      thread_id: "thread-one",
+      threadId: "retired-thread",
+      turn_id: "turn-one",
+      turnId: "retired-turn",
+      status: "completed",
+      lifecycle_status: "completed",
+      lifecycleStatus: "retired-completed",
+      queue_name: "local-agentgres",
+      queueName: "retired-queue",
+      runner: "local-daemon-agentgres",
+      job_type: "agent_run",
+      jobType: "retired-job-type",
+      queued_at: "2026-06-06T00:00:00.000Z",
+      queuedAt: "retired-queued",
+      started_at: "2026-06-06T00:00:01.000Z",
+      startedAt: "retired-started",
+      completed_at: "2026-06-06T00:00:02.000Z",
+      completedAt: "retired-completed-at",
+      progress: { percent: 100 },
+      workflow_node_id: "runtime.runtime-job",
+      workflowNodeId: "retired.runtime-job",
+    },
+  });
+
+  assert.equal(job.event_kind, "JobCompleted.Canonical");
+  assert.equal(job.job_id, "job-one");
+  assert.equal(job.lifecycle_status, "completed");
+  assert.equal(job.queue_name, "local-agentgres");
+  assert.equal(job.job_type, "agent_run");
+  assert.equal(job.queued_at, "2026-06-06T00:00:00.000Z");
+  assert.equal(job.progress_percent, 100);
+  assert.equal(job.workflow_node_id, "runtime.runtime-job");
+  assert.notEqual(job.job_id, "retired-job");
+  assert.notEqual(job.lifecycle_status, "retired-completed");
+  assert.notEqual(job.workflow_node_id, "retired.runtime-job");
+  for (const key of retiredRuntimeJobSummaryAliasKeys) {
+    assert.equal(Object.hasOwn(job, key), false);
+  }
 });
 
 test("runtime event payloads preserve usage and model route summaries", () => {

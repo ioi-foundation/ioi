@@ -66,7 +66,10 @@ test("runtime run event helpers preserve refs and metadata derivation", () => {
   assert.equal(runtime.componentKindForRunEvent({ type: "policy_blocked", data: { componentKind: "custom_gate" } }), "custom_gate");
   assert.equal(runtime.workflowNodeForRunEvent({
     type: "model_route_decision",
-    data: { workflowNodeId: "workflow.route" },
+    data: {
+      workflow_node_id: "workflow.route",
+      workflowNodeId: "workflow.retired-route",
+    },
   }), "workflow.route");
   assert.equal(runtime.workflowNodeForRunEvent("context_pressure_alert"), "runtime.context-pressure-alert");
 });
