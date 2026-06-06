@@ -12349,6 +12349,11 @@ requires `RunCancelStateUpdateCore` to return the exact `run.cancel`
 operation kind before the canceled run record is placed in memory or written,
 instead of substituting the JS-side cancellation operation kind.
 
+Slice 377 removes the shared agent-status operation-kind fallback:
+`thread-store.updateAgent` now requires `AgentStatusStateUpdateCore` to echo
+the caller-requested status operation kind exactly before the agent projection
+is placed in memory or written, rather than substituting the JS caller value.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

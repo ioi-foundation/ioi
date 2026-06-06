@@ -43,8 +43,33 @@ export function updateAgent(store, agentId, status, operationKind, deps = {}) {
       details: { agentId, status, operationKind },
     });
   }
+  const plannedOperationKind =
+    typeof stateUpdate.operation_kind === "string" && stateUpdate.operation_kind.trim()
+      ? stateUpdate.operation_kind
+      : null;
+  if (!plannedOperationKind) {
+    throw runtimeError({
+      status: 502,
+      code: "agent_status_state_update_operation_kind_missing",
+      message: "Rust agent status state planning did not return an operation kind.",
+      details: { agentId, status, operationKind },
+    });
+  }
+  if (plannedOperationKind !== operationKind) {
+    throw runtimeError({
+      status: 502,
+      code: "agent_status_state_update_operation_kind_mismatch",
+      message: "Rust agent status state planning returned an unexpected operation kind.",
+      details: {
+        agentId,
+        status,
+        expectedOperationKind: operationKind,
+        operationKind: plannedOperationKind,
+      },
+    });
+  }
   store.agents.set(updated.id, updated);
-  store.writeAgent(updated, stateUpdate.operation_kind ?? operationKind);
+  store.writeAgent(updated, plannedOperationKind);
   return updated;
 }
 

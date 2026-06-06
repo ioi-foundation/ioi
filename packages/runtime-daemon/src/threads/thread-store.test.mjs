@@ -219,6 +219,54 @@ test("thread store fails closed without Rust-planned status agent", () => {
   assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
 });
 
+test("thread store fails closed without Rust-planned status operation kind", () => {
+  const store = fakeStore({
+    agentStatusStateUpdate: {
+      status: "planned",
+      agent: {
+        id: "agent_1",
+        status: "archived",
+        createdAt: "2026-06-03T00:00:00.000Z",
+      },
+    },
+  });
+  store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
+
+  assert.throws(
+    () => updateAgent(store, "agent_1", "archived", "agent.archive"),
+    (error) => error.code === "agent_status_state_update_operation_kind_missing",
+  );
+  assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
+  assert.equal(store.agents.get("agent_1").status, "active");
+});
+
+test("thread store fails closed on mismatched Rust-planned status operation kind", () => {
+  const store = fakeStore({
+    agentStatusStateUpdate: {
+      status: "planned",
+      operation_kind: "agent.close",
+      agent: {
+        id: "agent_1",
+        status: "archived",
+        createdAt: "2026-06-03T00:00:00.000Z",
+      },
+    },
+  });
+  store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
+
+  assert.throws(
+    () => updateAgent(store, "agent_1", "archived", "agent.archive"),
+    (error) => {
+      assert.equal(error.code, "agent_status_state_update_operation_kind_mismatch");
+      assert.equal(error.details.expectedOperationKind, "agent.archive");
+      assert.equal(error.details.operationKind, "agent.close");
+      return true;
+    },
+  );
+  assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
+  assert.equal(store.agents.get("agent_1").status, "active");
+});
+
 test("thread store blocks permanent delete when runs exist", () => {
   const store = fakeStore();
   store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
