@@ -1787,9 +1787,7 @@ function requestedComputerUseTargetRef(request = {}) {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
   return cleanString(
     metadata.computerUseTargetRef ??
-      metadata.computer_use_target_ref ??
-      metadata.targetRef ??
-      metadata.target_ref,
+      metadata.computer_use_target_ref,
   );
 }
 

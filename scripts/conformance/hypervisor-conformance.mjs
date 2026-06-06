@@ -591,6 +591,12 @@ function runBridge() {
   const computerUseVisualObservationTest = exists("packages/runtime-daemon/src/computer-use-visual-observation.test.mjs")
     ? read("packages/runtime-daemon/src/computer-use-visual-observation.test.mjs")
     : "";
+  const computerUseProjection = exists("packages/runtime-daemon/src/computer-use-projection.mjs")
+    ? read("packages/runtime-daemon/src/computer-use-projection.mjs")
+    : "";
+  const computerUseProjectionTest = exists("packages/runtime-daemon/src/computer-use-projection.test.mjs")
+    ? read("packages/runtime-daemon/src/computer-use-projection.test.mjs")
+    : "";
   const runtimeRunEventHelpers = exists("packages/runtime-daemon/src/runtime-run-event-helpers.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-event-helpers.mjs")
     : "";
@@ -1588,6 +1594,27 @@ function runBridge() {
       "packages/runtime-daemon/src/computer-use-visual-observation.test.mjs",
     ],
     "Phase 10/11 is pending: computer-use visual observation target and affordance projection must use canonical snake_case fields without retired aliases",
+  );
+  assertCheck(
+    result,
+    "computer-use-projection-target-ref-aliases-retired",
+    /metadata\.computerUseTargetRef\s*\?\?\s*[\r\n\s]*metadata\.computer_use_target_ref/.test(
+      computerUseProjection,
+    ) &&
+      /computer-use projection accepts canonical computer_use_target_ref/.test(
+        computerUseProjectionTest,
+      ) &&
+      /computer-use projection ignores retired targetRef request alias/.test(
+        computerUseProjectionTest,
+      ) &&
+      /targetRef: "target_retired"/.test(computerUseProjectionTest) &&
+      !/metadata\.targetRef/.test(computerUseProjection) &&
+      !/metadata\.target_ref/.test(computerUseProjection),
+    [
+      "packages/runtime-daemon/src/computer-use-projection.mjs",
+      "packages/runtime-daemon/src/computer-use-projection.test.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use projection target selection must ignore retired targetRef/target_ref request aliases",
   );
   assertCheck(
     result,
