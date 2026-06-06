@@ -691,6 +691,32 @@ function plannedOperatorControlRunRecord(stateUpdate, threadId, runId, operation
   return updatedRun;
 }
 
+function requiredOperatorControlOperationKind(stateUpdate, threadId, runId, expectedOperationKind) {
+  const operationKind = optionalString(stateUpdate.operation_kind);
+  if (!operationKind) {
+    throw runtimeError({
+      status: 502,
+      code: "operator_control_state_update_operation_kind_missing",
+      message: "Rust operator-control state planning did not return an operation kind.",
+      details: { threadId, runId, operationKind: expectedOperationKind },
+    });
+  }
+  if (operationKind !== expectedOperationKind) {
+    throw runtimeError({
+      status: 502,
+      code: "operator_control_state_update_operation_kind_mismatch",
+      message: "Rust operator-control state planning returned an unexpected operation kind.",
+      details: {
+        threadId,
+        runId,
+        expectedOperationKind,
+        operationKind,
+      },
+    });
+  }
+  return operationKind;
+}
+
 export async function startRuntimeDaemonService(options = {}) {
   return startRuntimeDaemonServiceWithStore({
     options,
@@ -1640,9 +1666,15 @@ export class AgentgresRuntimeStateStore {
       source,
       reason,
     });
-    const updated = plannedOperatorControlRunRecord(stateUpdate, threadId, run.id, "turn.interrupt");
+    const operationKind = requiredOperatorControlOperationKind(
+      stateUpdate,
+      threadId,
+      run.id,
+      "turn.interrupt",
+    );
+    const updated = plannedOperatorControlRunRecord(stateUpdate, threadId, run.id, operationKind);
     this.runs.set(run.id, updated);
-    this.writeRun(updated, stateUpdate.operation_kind ?? "turn.interrupt");
+    this.writeRun(updated, operationKind);
     const turn = this.turnForRun(updated);
     return runtimeControl
       ? {
@@ -1717,9 +1749,15 @@ export class AgentgresRuntimeStateStore {
       source,
       guidance,
     });
-    const updated = plannedOperatorControlRunRecord(stateUpdate, threadId, run.id, "turn.steer");
+    const operationKind = requiredOperatorControlOperationKind(
+      stateUpdate,
+      threadId,
+      run.id,
+      "turn.steer",
+    );
+    const updated = plannedOperatorControlRunRecord(stateUpdate, threadId, run.id, operationKind);
     this.runs.set(run.id, updated);
-    this.writeRun(updated, stateUpdate.operation_kind ?? "turn.steer");
+    this.writeRun(updated, operationKind);
     return this.turnForRun(updated);
   }
 

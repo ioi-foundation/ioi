@@ -12392,6 +12392,12 @@ control state planner to return the exact `thread.*` MCP operation kind before
 the daemon persists the agent projection, rather than substituting the JS-side
 control kind.
 
+Slice 385 removes the operator-control operation-kind fallback:
+operator interrupt/steer persistence now requires the Rust operator-control
+state planner to return the exact `turn.interrupt` or `turn.steer` operation
+kind before the daemon persists the run projection, rather than substituting the
+JS-side control operation kind.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

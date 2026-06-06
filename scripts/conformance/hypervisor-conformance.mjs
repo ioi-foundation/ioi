@@ -1381,10 +1381,15 @@ function runBridge() {
       /this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
       /this\.contextPolicyRunner\.planOperatorInterruptStateUpdate/.test(runtimeDaemonIndex) &&
       /plannedOperatorControlRunRecord/.test(runtimeDaemonIndex) &&
+      /requiredOperatorControlOperationKind/.test(runtimeDaemonIndex) &&
       !/control:\s*"interrupt"/.test(runtimeDaemonIndex) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeDaemonIndex) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.interrupt"/.test(runtimeDaemonIndex) &&
       /contextPolicyRunner\(calls\)/.test(runtimeThreadControlTest) &&
       /runtime-backed operator controls fail closed without Rust-planned runs/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /runtime-backed operator controls fail closed without Rust-planned operation kinds/.test(
         runtimeThreadControlTest,
       ) &&
       /plan_operator_interrupt_state_update/.test(runtimeThreadControlTest),
@@ -1416,12 +1421,17 @@ function runBridge() {
       ) &&
       /this\.contextPolicyRunner\.planOperatorSteerStateUpdate/.test(runtimeDaemonIndex) &&
       /plannedOperatorControlRunRecord/.test(runtimeDaemonIndex) &&
+      /requiredOperatorControlOperationKind/.test(runtimeDaemonIndex) &&
       !/control:\s*"steer"|appendOperatorControl/.test(runtimeDaemonIndex) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeDaemonIndex) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.steer"/.test(runtimeDaemonIndex) &&
       /runtime-backed steering routes run update through Rust policy planner/.test(
         runtimeThreadControlTest,
       ) &&
       /runtime-backed operator controls fail closed without Rust-planned runs/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /runtime-backed operator controls fail closed without Rust-planned operation kinds/.test(
         runtimeThreadControlTest,
       ) &&
       /plan_operator_steer_state_update/.test(runtimeThreadControlTest),
