@@ -1137,6 +1137,67 @@ function runBridge() {
     ],
     "Phase 9/10 is pending: coding-tool approval manifests must be planned by Rust authority core through the command bridge",
   );
+  const codingToolApprovalBlockBody =
+    runtimeCodingToolGovernanceSurface.match(
+      /  function blockCodingToolForApproval\(store, \{[\s\S]*?(?=\n  function blockCodingToolForBudget)/,
+    )?.[0] ?? "";
+  const codingToolInvocationPayloadSummaryBlock =
+    runtimeCodingToolInvocationSurface.match(/const payloadSummary = \{[\s\S]*?\n    \};/)
+      ?.[0] ?? "";
+  assertCheck(
+    result,
+    "coding-tool-approval-block-response-aliases-retired",
+    /schema_version:\s*CODING_TOOL_RESULT_SCHEMA_VERSION/.test(codingToolApprovalBlockBody) &&
+      /tool_name:\s*toolId/.test(codingToolApprovalBlockBody) &&
+      /approval_required:\s*true/.test(codingToolApprovalBlockBody) &&
+      /approval_id:\s*approval\.approval_id/.test(codingToolApprovalBlockBody) &&
+      /approval_manifest:\s*approvalManifest/.test(codingToolApprovalBlockBody) &&
+      /input_summary:\s*codingToolInputSummary\(toolId,\s*input\)/.test(
+        codingToolApprovalBlockBody,
+      ) &&
+      !/schemaVersion:\s*CODING_TOOL_RESULT_SCHEMA_VERSION/.test(codingToolApprovalBlockBody) &&
+      !/toolName:\s*toolId/.test(codingToolApprovalBlockBody) &&
+      !/approvalRequired:\s*true/.test(codingToolApprovalBlockBody) &&
+      !/approvalId:\s*approval\.approval_id/.test(codingToolApprovalBlockBody) &&
+      !/inputSummary:\s*codingToolInputSummary/.test(codingToolApprovalBlockBody) &&
+      !/workspaceSnapshot:\s*null/.test(codingToolApprovalBlockBody) &&
+      !/workspaceSnapshotEvent:\s*null/.test(codingToolApprovalBlockBody) &&
+      !/autoDiagnostics:\s*null/.test(codingToolApprovalBlockBody) &&
+      !/toolContract:\s*toolContract/.test(codingToolApprovalBlockBody) &&
+      !/approvalRequired:\s*Boolean\(approvalManifest\)/.test(
+        codingToolInvocationPayloadSummaryBlock,
+      ) &&
+      !/approvalSatisfied:\s*Boolean\(approvalSatisfaction\?\.satisfied\)/.test(
+        codingToolInvocationPayloadSummaryBlock,
+      ) &&
+      !/approvalId:\s*approvalSatisfaction\?\.approvalId/.test(
+        codingToolInvocationPayloadSummaryBlock,
+      ) &&
+      !/approvalManifest:\s*approvalManifest/.test(codingToolInvocationPayloadSummaryBlock) &&
+      !/approvalDecisionEventId:\s*approvalSatisfaction\?\.decisionEventId/.test(
+        codingToolInvocationPayloadSummaryBlock,
+      ) &&
+      !/^\s*diagnosticsRepairContext,\s*$/m.test(codingToolInvocationPayloadSummaryBlock) &&
+      /Object\.hasOwn\(result,\s*field\),\s*false/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*field\),\s*false/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.event\.payload_summary,\s*field\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result,\s*"approvalManifest"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool approval block responses must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
   assertCheck(
     result,
     "approval-request-state-update-live-bridge",

@@ -163,7 +163,7 @@ function createStore() {
     },
     blockCodingToolForApproval(input) {
       calls.push({ name: "blockApproval", input });
-      return { status: "blocked", approval_required: true, approvalManifest: input.approvalManifest };
+      return { status: "blocked", approval_required: true, approval_manifest: input.approvalManifest };
     },
     blockCodingToolForBudget(input) {
       calls.push({ name: "blockBudget", input });
@@ -318,6 +318,17 @@ test("coding tool invocation surface runs workspace.status through rust workload
   assert.equal(Object.hasOwn(result.result, "receiptRefs"), false);
   assert.equal(result.step_module.backend, "rust_workload_live");
   assert.equal(result.event.payload_summary.step_module_backend, "rust_workload_live");
+  assert.equal(result.event.payload_summary.approval_required, false);
+  for (const field of [
+    "approvalRequired",
+    "approvalSatisfied",
+    "approvalId",
+    "approvalManifest",
+    "approvalDecisionEventId",
+    "diagnosticsRepairContext",
+  ]) {
+    assert.equal(Object.hasOwn(result.event.payload_summary, field), false);
+  }
   assert.ok(result.receipt_refs.includes("receipt://rust-live/workspace.status"));
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
@@ -1235,7 +1246,8 @@ test("coding tool invocation surface returns approval block results before execu
 
   assert.equal(result.status, "blocked");
   assert.equal(result.approval_required, true);
-  assert.equal(result.approvalManifest, approvalManifest);
+  assert.equal(result.approval_manifest, approvalManifest);
+  assert.equal(Object.hasOwn(result, "approvalManifest"), false);
   assert.ok(store.calls.some((call) => call.name === "approvalSatisfaction"));
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });

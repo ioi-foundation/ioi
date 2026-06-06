@@ -217,8 +217,29 @@ test("coding-tool governance blocks tools for approval with stable result envelo
   assert.deepEqual(result.receipt_refs, ["receipt-approval"]);
   assert.deepEqual(result.rollback_refs, ["rollback-one"]);
   assert.equal(result.error.code, "coding_tool_approval_required");
-  assert.deepEqual(result.result.inputSummary, {});
   assert.deepEqual(result.result.input_summary, {});
+  for (const field of [
+    "approvalRequired",
+    "approvalId",
+    "approvalManifest",
+    "workspaceSnapshot",
+    "workspaceSnapshotEvent",
+    "autoDiagnostics",
+    "diagnosticsRepairContext",
+    "toolContract",
+  ]) {
+    assert.equal(Object.hasOwn(result, field), false);
+  }
+  for (const field of [
+    "schemaVersion",
+    "toolName",
+    "approvalRequired",
+    "approvalId",
+    "approvalManifest",
+    "inputSummary",
+  ]) {
+    assert.equal(Object.hasOwn(result.result, field), false);
+  }
   assert.equal(store.approvalRequests[0].threadId, "thread-one");
   assert.equal(store.approvalRequests[0].request.action, "coding_tool.invoke");
   assert.equal(store.approvalRequests[0].request.idempotencyKey, `thread:thread-one:approval.required:${result.approval_id}`);
