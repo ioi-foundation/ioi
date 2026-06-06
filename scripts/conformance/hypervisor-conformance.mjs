@@ -1282,10 +1282,15 @@ function runBridge() {
       /contextPolicyRunnerDep\.planDiagnosticsOperatorOverrideStateUpdate/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
+      /plannedDiagnosticsOperatorOverrideRunRecord/.test(runtimeDiagnosticsRepairSurface) &&
       /planDiagnosticsOperatorOverrideStateUpdate/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /diagnostics repair surface fails closed without Rust-planned override run/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
       !/control:\s*"diagnostics_operator_override"|appendOperatorControl/.test(
         runtimeDiagnosticsRepairSurface,
-      ),
+      ) &&
+      !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeDiagnosticsRepairSurface),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",

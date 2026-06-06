@@ -12248,6 +12248,12 @@ targets; the daemon context-policy surface now fails closed when the Rust
 planner omits the selected target record, and no longer falls back to
 `latestRun` or `{ ...agent, updatedAt }` for `thread.compact` persistence.
 
+Slice 359 retires diagnostics operator-override run fallback in JS:
+`DiagnosticsOperatorOverrideStateUpdateCore` remains the owner of the
+operator-override run mutation; the diagnostics repair surface now fails closed
+when Rust planning omits the run record instead of persisting the pre-override
+run as a fallback.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

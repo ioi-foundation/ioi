@@ -68,6 +68,19 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     runtimeError = defaultRuntimeError,
   } = deps;
 
+  function plannedDiagnosticsOperatorOverrideRunRecord(stateUpdate, threadId, runId) {
+    const updatedRun = stateUpdate.run;
+    if (!updatedRun?.id) {
+      throw runtimeError({
+        status: 502,
+        code: "diagnostics_operator_override_state_update_planner_invalid",
+        message: "Rust diagnostics operator override state planning did not return a run record.",
+        details: { threadId, runId },
+      });
+    }
+    return updatedRun;
+  }
+
   function executeDiagnosticsRepairDecision(store, threadId, decisionRef, request = {}) {
     store.agentForThread(threadId);
     const target = optionalString(decisionRef ?? request.decision_id ?? request.decisionId ?? request.action);
@@ -362,7 +375,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         approval_source: approval.source,
         snapshot_id: snapshotId,
       });
-      const updated = stateUpdate.run ?? run;
+      const updated = plannedDiagnosticsOperatorOverrideRunRecord(stateUpdate, threadId, run.id);
       store.runs.set(run.id, updated);
       store.writeRun(updated, stateUpdate.operation_kind ?? "diagnostics.operator_override.event");
       turn = store.turnForRun(updated);
