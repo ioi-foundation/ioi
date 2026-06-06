@@ -9,6 +9,9 @@ pub const CONTEXT_BUDGET_POLICY_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.context-budget-policy.v1";
 pub const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.coding-tool-budget-policy-request.v1";
+pub const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.compaction-policy-request.v1";
+pub const COMPACTION_POLICY_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.compaction-policy.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyEvaluationRecord {
@@ -44,6 +47,16 @@ impl PolicyEvaluationRecord {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContextBudgetPolicyError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+    HashFailed(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CompactionPolicyError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -163,6 +176,107 @@ pub struct ContextBudgetPolicyRecord {
     pub violations: Vec<ContextBudgetCheck>,
     pub would_block: bool,
     pub simulation_mode: bool,
+    pub summary: String,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct CompactionPolicyActions {
+    #[serde(default)]
+    pub ok_action: Option<String>,
+    #[serde(default)]
+    pub warn_action: Option<String>,
+    #[serde(default)]
+    pub blocked_action: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct CompactionPolicyApproval {
+    #[serde(default)]
+    pub approval_required: Option<bool>,
+    #[serde(default)]
+    pub approval_granted: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct CompactionPolicyCompact {
+    #[serde(default)]
+    pub execute_compaction: Option<bool>,
+    #[serde(default)]
+    pub compact_workflow_node_id: Option<String>,
+    #[serde(default)]
+    pub compact_reason: Option<String>,
+    #[serde(default)]
+    pub compact_scope: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CompactionPolicyRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    #[serde(default)]
+    pub turn_id: Option<String>,
+    #[serde(default)]
+    pub context_budget: Value,
+    #[serde(default)]
+    pub context_budget_status: Option<String>,
+    #[serde(default)]
+    pub actions: CompactionPolicyActions,
+    #[serde(default)]
+    pub approval: CompactionPolicyApproval,
+    #[serde(default)]
+    pub compact: CompactionPolicyCompact,
+    #[serde(default)]
+    pub workflow_graph_id: Option<String>,
+    #[serde(default)]
+    pub workflow_node_id: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub actor: Option<String>,
+    #[serde(default)]
+    pub event_kind: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CompactionPolicyRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub action: String,
+    pub selected_action: String,
+    pub budget_status: String,
+    pub thread_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+    pub source: String,
+    pub actor: String,
+    pub event_kind: String,
+    pub component_kind: String,
+    pub payload_schema_version: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_graph_id: Option<String>,
+    pub workflow_node_id: String,
+    pub compact_workflow_node_id: String,
+    pub context_budget: Value,
+    pub approval_required: bool,
+    pub approval_granted: bool,
+    pub approval_satisfied: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval_id: Option<String>,
+    pub execute_compaction: bool,
+    pub compaction_requested: bool,
+    pub compaction_executed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compaction_event_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compaction_seq: Option<u64>,
+    pub compact_reason: String,
+    pub compact_scope: String,
+    pub continuation_allowed: bool,
+    pub receipt_refs: Vec<String>,
+    pub policy_decision_refs: Vec<String>,
+    pub policy_decision_id: String,
     pub summary: String,
     pub generated_at: String,
 }
@@ -326,6 +440,156 @@ impl ContextBudgetPolicyCore {
             summary,
             generated_at: "rust_policy_core".to_string(),
         })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct CompactionPolicyCore;
+
+impl CompactionPolicyCore {
+    pub fn evaluate(
+        &self,
+        request: &CompactionPolicyRequest,
+    ) -> Result<CompactionPolicyRecord, CompactionPolicyError> {
+        request.validate()?;
+        let budget_status = compaction_budget_status(
+            request.context_budget_status.as_deref(),
+            Some(&request.context_budget),
+        );
+        let ok_action = compaction_action(request.actions.ok_action.as_deref(), "noop");
+        let warn_action = compaction_action(request.actions.warn_action.as_deref(), "warn");
+        let blocked_action =
+            compaction_action(request.actions.blocked_action.as_deref(), "compact");
+        let selected_action = if budget_status == "blocked" {
+            blocked_action
+        } else if budget_status == "warn" {
+            warn_action
+        } else {
+            ok_action
+        };
+        let approval_required = request.approval.approval_required.unwrap_or(false)
+            || selected_action == "approval_required";
+        let approval_granted = request.approval.approval_granted.unwrap_or(false);
+        let execute_compaction = request.compact.execute_compaction.unwrap_or(false);
+        let action = if selected_action == "approval_required" && approval_granted {
+            "compact".to_string()
+        } else if selected_action == "compact" && approval_required && !approval_granted {
+            "approval_required".to_string()
+        } else {
+            selected_action.clone()
+        };
+        let approval_satisfied = !approval_required || approval_granted;
+        let continuation_allowed = action != "stop";
+        let workflow_graph_id = optional_trimmed(request.workflow_graph_id.as_deref());
+        let workflow_node_id = optional_trimmed(request.workflow_node_id.as_deref())
+            .unwrap_or_else(|| "runtime.compaction-policy".to_string());
+        let compact_workflow_node_id =
+            optional_trimmed(request.compact.compact_workflow_node_id.as_deref())
+                .unwrap_or_else(|| "runtime.context-compact".to_string());
+        let context_budget_summary = string_field(&request.context_budget, "summary")
+            .or_else(|| {
+                request
+                    .context_budget
+                    .get("policy_decision")
+                    .and_then(|value| string_field(value, "summary"))
+            })
+            .unwrap_or_else(|| format!("context budget status {budget_status}"));
+        let compact_reason = optional_trimmed(request.compact.compact_reason.as_deref())
+            .unwrap_or_else(|| {
+                format!("Compaction policy {budget_status}: {context_budget_summary}")
+            });
+        let compact_scope = optional_trimmed(request.compact.compact_scope.as_deref())
+            .unwrap_or_else(|| "thread".to_string());
+        let turn_id = optional_trimmed(request.turn_id.as_deref());
+        let decision_hash = compaction_hash(&json!({
+            "thread_id": request.thread_id,
+            "turn_id": turn_id,
+            "workflow_graph_id": workflow_graph_id,
+            "workflow_node_id": workflow_node_id,
+            "budget_status": budget_status,
+            "selected_action": selected_action,
+            "action": action,
+            "approval_required": approval_required,
+            "approval_granted": approval_granted,
+            "execute_compaction": execute_compaction,
+        }))?;
+        let decision_short = decision_hash
+            .strip_prefix("sha256:")
+            .unwrap_or(&decision_hash)
+            .chars()
+            .take(16)
+            .collect::<String>();
+        let safe_thread_id = safe_id(&request.thread_id);
+        let policy_decision_id =
+            format!("policy_compaction_{safe_thread_id}_{decision_short}_{action}");
+        let receipt_id = format!("receipt_compaction_policy_{safe_thread_id}_{decision_short}");
+        let approval_id = if action == "approval_required" {
+            Some(format!(
+                "approval_compaction_{safe_thread_id}_{decision_short}"
+            ))
+        } else {
+            None
+        };
+        let status = compaction_status(&action, execute_compaction, approval_satisfied);
+        let summary = compaction_summary(&action, execute_compaction);
+
+        Ok(CompactionPolicyRecord {
+            schema_version: COMPACTION_POLICY_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_compaction_policy".to_string(),
+            status,
+            action: action.clone(),
+            selected_action,
+            budget_status,
+            thread_id: request.thread_id.clone(),
+            turn_id,
+            source: optional_trimmed(request.source.as_deref())
+                .unwrap_or_else(|| "react_flow".to_string()),
+            actor: optional_trimmed(request.actor.as_deref())
+                .unwrap_or_else(|| "operator".to_string()),
+            event_kind: optional_trimmed(request.event_kind.as_deref())
+                .unwrap_or_else(|| "RuntimeCompactionPolicy.Evaluate".to_string()),
+            component_kind: "compaction_policy".to_string(),
+            payload_schema_version: COMPACTION_POLICY_RESULT_SCHEMA_VERSION.to_string(),
+            workflow_graph_id,
+            workflow_node_id,
+            compact_workflow_node_id,
+            context_budget: request.context_budget.clone(),
+            approval_required,
+            approval_granted,
+            approval_satisfied,
+            approval_id,
+            execute_compaction,
+            compaction_requested: action == "compact",
+            compaction_executed: false,
+            compaction_event_id: None,
+            compaction_seq: None,
+            compact_reason,
+            compact_scope,
+            continuation_allowed,
+            receipt_refs: vec![receipt_id],
+            policy_decision_refs: vec![policy_decision_id.clone()],
+            policy_decision_id,
+            summary,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+impl CompactionPolicyRequest {
+    pub fn validate(&self) -> Result<(), CompactionPolicyError> {
+        if self.schema_version != COMPACTION_POLICY_REQUEST_SCHEMA_VERSION {
+            return Err(CompactionPolicyError::InvalidSchemaVersion {
+                expected: COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(CompactionPolicyError::MissingField("thread_id"));
+        }
+        if !self.context_budget.is_object() {
+            return Err(CompactionPolicyError::MissingField("context_budget"));
+        }
+        Ok(())
     }
 }
 
@@ -496,6 +760,65 @@ fn budget_hash(value: &Value) -> Result<String, ContextBudgetPolicyError> {
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
+fn compaction_budget_status(value: Option<&str>, context_budget: Option<&Value>) -> String {
+    let status = optional_trimmed(value)
+        .or_else(|| context_budget.and_then(|value| string_field(value, "status")))
+        .or_else(|| {
+            context_budget
+                .and_then(|value| value.get("policy_decision"))
+                .and_then(|value| string_field(value, "status"))
+        })
+        .map(|value| value.to_ascii_lowercase());
+    match status.as_deref() {
+        Some("blocked") | Some("block") => "blocked".to_string(),
+        Some("warn") | Some("warning") => "warn".to_string(),
+        _ => "ok".to_string(),
+    }
+}
+
+fn compaction_action(value: Option<&str>, fallback: &str) -> String {
+    match value.map(str::trim).map(str::to_ascii_lowercase).as_deref() {
+        Some("noop") => "noop".to_string(),
+        Some("warn") => "warn".to_string(),
+        Some("compact") => "compact".to_string(),
+        Some("stop") => "stop".to_string(),
+        Some("approval_required") => "approval_required".to_string(),
+        _ => fallback.to_string(),
+    }
+}
+
+fn compaction_status(action: &str, execute_compaction: bool, approval_satisfied: bool) -> String {
+    match action {
+        "stop" => "blocked".to_string(),
+        "approval_required" => "waiting".to_string(),
+        "compact" if execute_compaction && approval_satisfied => "compacted".to_string(),
+        "compact" => "compact_pending".to_string(),
+        "warn" => "warn".to_string(),
+        _ => "ok".to_string(),
+    }
+}
+
+fn compaction_summary(action: &str, execute_compaction: bool) -> String {
+    match action {
+        "stop" => "Compaction policy blocked continuation.".to_string(),
+        "approval_required" => {
+            "Compaction policy requires operator approval before compacting.".to_string()
+        }
+        "compact" if execute_compaction => {
+            "Compaction policy executed context compaction.".to_string()
+        }
+        "compact" => "Compaction policy selected context compaction.".to_string(),
+        "warn" => "Compaction policy emitted a warning.".to_string(),
+        _ => "Compaction policy allowed continuation.".to_string(),
+    }
+}
+
+fn compaction_hash(value: &Value) -> Result<String, CompactionPolicyError> {
+    let bytes = serde_json::to_vec(value)
+        .map_err(|error| CompactionPolicyError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -526,6 +849,39 @@ mod tests {
             actor: None,
             event_kind: None,
             component_kind: None,
+        }
+    }
+
+    fn compaction_request() -> CompactionPolicyRequest {
+        CompactionPolicyRequest {
+            schema_version: COMPACTION_POLICY_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: "thread_budget".to_string(),
+            turn_id: Some("turn_budget".to_string()),
+            context_budget: json!({
+                "status": "blocked",
+                "summary": "Context budget blocked: total tokens exceeded.",
+            }),
+            context_budget_status: None,
+            actions: CompactionPolicyActions {
+                ok_action: Some("noop".to_string()),
+                warn_action: Some("warn".to_string()),
+                blocked_action: Some("compact".to_string()),
+            },
+            approval: CompactionPolicyApproval {
+                approval_required: Some(true),
+                approval_granted: Some(false),
+            },
+            compact: CompactionPolicyCompact {
+                execute_compaction: Some(false),
+                compact_workflow_node_id: Some("node_compact".to_string()),
+                compact_reason: None,
+                compact_scope: Some("thread".to_string()),
+            },
+            workflow_graph_id: Some("graph_budget".to_string()),
+            workflow_node_id: Some("node_policy".to_string()),
+            source: Some("react_flow".to_string()),
+            actor: Some("operator".to_string()),
+            event_kind: None,
         }
     }
 
@@ -600,6 +956,75 @@ mod tests {
             error,
             ContextBudgetPolicyError::InvalidSchemaVersion {
                 expected: CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_requires_compaction_approval_before_compacting() {
+        let record = CompactionPolicyCore
+            .evaluate(&compaction_request())
+            .expect("compaction policy");
+
+        assert_eq!(
+            record.schema_version,
+            COMPACTION_POLICY_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.budget_status, "blocked");
+        assert_eq!(record.selected_action, "compact");
+        assert_eq!(record.action, "approval_required");
+        assert_eq!(record.status, "waiting");
+        assert!(record.approval_required);
+        assert!(!record.approval_satisfied);
+        assert!(record
+            .approval_id
+            .as_deref()
+            .expect("approval id")
+            .starts_with("approval_compaction_thread_budget_"));
+        assert!(record
+            .policy_decision_id
+            .starts_with("policy_compaction_thread_budget_"));
+        assert_eq!(
+            record.policy_decision_refs,
+            vec![record.policy_decision_id.clone()]
+        );
+    }
+
+    #[test]
+    fn rust_policy_compacts_when_approval_is_granted() {
+        let mut request = compaction_request();
+        request.approval.approval_granted = Some(true);
+        request.compact.execute_compaction = Some(true);
+
+        let record = CompactionPolicyCore
+            .evaluate(&request)
+            .expect("approved compaction policy");
+
+        assert_eq!(record.action, "compact");
+        assert_eq!(record.status, "compacted");
+        assert!(record.approval_satisfied);
+        assert!(record.execute_compaction);
+        assert!(record.compaction_requested);
+        assert_eq!(
+            record.summary,
+            "Compaction policy executed context compaction."
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_compaction_schema() {
+        let mut request = compaction_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = CompactionPolicyCore
+            .evaluate(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            CompactionPolicyError::InvalidSchemaVersion {
+                expected: COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );

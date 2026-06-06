@@ -17,7 +17,8 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
-    ContextBudgetPolicyCore, ContextBudgetPolicyRequest,
+    CompactionPolicyCore, CompactionPolicyRequest, ContextBudgetPolicyCore,
+    ContextBudgetPolicyRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -280,6 +281,16 @@ struct ContextBudgetPolicyBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct CompactionPolicyBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: CompactionPolicyRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -458,6 +469,11 @@ fn run_bridge() -> Result<Value, BridgeError> {
             let request: ContextBudgetPolicyBridgeRequest = serde_json::from_value(raw_request)
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             evaluate_coding_tool_budget_policy(request)
+        }
+        "evaluate_compaction_policy" => {
+            let request: CompactionPolicyBridgeRequest = serde_json::from_value(raw_request)
+                .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            evaluate_compaction_policy(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -1510,6 +1526,52 @@ fn evaluate_context_budget_policy_bridge(
         "warnings": record.warnings.clone(),
         "violations": record.violations.clone(),
         "would_block": record.would_block,
+        "summary": record.summary.clone(),
+    }))
+}
+
+fn evaluate_compaction_policy(
+    request: CompactionPolicyBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "evaluate_compaction_policy" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = CompactionPolicyCore
+        .evaluate(&request.request)
+        .map_err(|error| BridgeError::new("compaction_policy_invalid", format!("{error:?}")))?;
+    Ok(json!({
+        "source": "rust_compaction_policy_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "action": record.action.clone(),
+        "selected_action": record.selected_action.clone(),
+        "budget_status": record.budget_status.clone(),
+        "policy_decision_id": record.policy_decision_id.clone(),
+        "receipt_refs": record.receipt_refs.clone(),
+        "policy_decision_refs": record.policy_decision_refs.clone(),
+        "approval_id": record.approval_id.clone(),
+        "approval_required": record.approval_required,
+        "approval_granted": record.approval_granted,
+        "approval_satisfied": record.approval_satisfied,
+        "execute_compaction": record.execute_compaction,
+        "compaction_requested": record.compaction_requested,
+        "compact_reason": record.compact_reason.clone(),
+        "compact_scope": record.compact_scope.clone(),
+        "compact_workflow_node_id": record.compact_workflow_node_id.clone(),
+        "continuation_allowed": record.continuation_allowed,
         "summary": record.summary.clone(),
     }))
 }
@@ -5613,6 +5675,55 @@ mod tests {
             response["policy_decision_refs"][0],
             response["policy_decision_id"]
         );
+    }
+
+    #[test]
+    fn bridge_evaluates_compaction_policy_through_rust_core() {
+        let request: CompactionPolicyBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "evaluate_compaction_policy",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.compaction-policy-request.v1",
+                "thread_id": "thread_budget",
+                "turn_id": "turn_budget",
+                "context_budget": {
+                    "status": "blocked",
+                    "summary": "Context budget blocked: total tokens exceeded."
+                },
+                "actions": {
+                    "blocked_action": "compact",
+                    "warn_action": "warn",
+                    "ok_action": "noop"
+                },
+                "approval": {
+                    "approval_required": true,
+                    "approval_granted": false
+                },
+                "compact": {
+                    "execute_compaction": false,
+                    "compact_workflow_node_id": "node_compact",
+                    "compact_scope": "thread"
+                },
+                "workflow_graph_id": "graph_budget",
+                "workflow_node_id": "node_policy",
+                "source": "react_flow"
+            }
+        }))
+        .expect("compaction policy bridge request");
+
+        let response = evaluate_compaction_policy(request).expect("compaction policy evaluated");
+
+        assert_eq!(response["source"], "rust_compaction_policy_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "waiting");
+        assert_eq!(response["action"], "approval_required");
+        assert_eq!(response["selected_action"], "compact");
+        assert_eq!(response["budget_status"], "blocked");
+        assert!(response["approval_id"]
+            .as_str()
+            .expect("approval id")
+            .starts_with("approval_compaction_thread_budget_"));
     }
 
     #[test]

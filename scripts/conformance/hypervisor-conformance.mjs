@@ -514,17 +514,20 @@ function runBridge() {
   const runtimeCodingToolApprovalRunnerTest = exists("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs")
     : "";
-  const runtimeContextBudgetPolicyRunner = exists("packages/runtime-daemon/src/runtime-context-budget-policy-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-budget-policy-runner.mjs")
+  const runtimeContextPolicyRunner = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
     : "";
-  const runtimeContextBudgetPolicyRunnerTest = exists("packages/runtime-daemon/src/runtime-context-budget-policy-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-budget-policy-runner.test.mjs")
+  const runtimeContextPolicyRunnerTest = exists("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
     : "";
   const codingToolBudgetPolicySurface = exists("packages/runtime-daemon/src/threads/context-budget-policy.mjs")
     ? read("packages/runtime-daemon/src/threads/context-budget-policy.mjs")
     : "";
   const codingToolBudgetPolicySurfaceTest = exists("packages/runtime-daemon/src/threads/context-budget-policy.test.mjs")
     ? read("packages/runtime-daemon/src/threads/context-budget-policy.test.mjs")
+    : "";
+  const runtimeContextPolicySurface = exists("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
     : "";
   const codingTools = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
@@ -969,14 +972,14 @@ function runBridge() {
       /ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
       /rust_context_budget_policy_command/.test(bridgeModule) &&
       /bridge_evaluates_context_budget_policy_through_rust_core/.test(bridgeModule) &&
-      /createContextBudgetPolicyRunnerFromEnv/.test(runtimeContextBudgetPolicyRunner) &&
-      /RustContextBudgetPolicyRunner/.test(runtimeContextBudgetPolicyRunner) &&
-      /evaluateContextBudgetPolicy/.test(runtimeContextBudgetPolicyRunner) &&
+      /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
+      /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
+      /evaluateContextBudgetPolicy/.test(runtimeContextPolicyRunner) &&
       /context budget policy runner sends generic Rust policy bridge request/.test(
-        runtimeContextBudgetPolicyRunnerTest,
+        runtimeContextPolicyRunnerTest,
       ) &&
-      /context budget policy runner fails closed without bridge command/.test(
-        runtimeContextBudgetPolicyRunnerTest,
+      /context policy runner fails closed without bridge command/.test(
+        runtimeContextPolicyRunnerTest,
       ) &&
       /budgetRunner\.evaluateContextBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
       /capturedRequest\.schema_version,\s*"ioi\.runtime\.context-budget-policy-request\.v1"/.test(
@@ -985,8 +988,8 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-budget-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-budget-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
     ],
@@ -1003,11 +1006,11 @@ function runBridge() {
       /ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
       /rust_coding_tool_budget_policy_command/.test(bridgeModule) &&
       /bridge_evaluates_coding_tool_budget_policy_through_rust_core/.test(bridgeModule) &&
-      /createContextBudgetPolicyRunnerFromEnv/.test(runtimeContextBudgetPolicyRunner) &&
-      /RustContextBudgetPolicyRunner/.test(runtimeContextBudgetPolicyRunner) &&
-      /evaluateCodingToolBudgetPolicy/.test(runtimeContextBudgetPolicyRunner) &&
+      /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
+      /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
+      /evaluateCodingToolBudgetPolicy/.test(runtimeContextPolicyRunner) &&
       /coding tool budget runner sends Rust policy bridge request/.test(
-        runtimeContextBudgetPolicyRunnerTest,
+        runtimeContextPolicyRunnerTest,
       ) &&
       /budgetRunner\.evaluateCodingToolBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
       /coding tool budget policy reads canonical tool pack fields and annotates runtime context/.test(
@@ -1019,12 +1022,48 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-context-budget-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-context-budget-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
     ],
     "Phase 9/10 is pending: coding-tool budget preflight must be evaluated by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "compaction-policy-live-bridge",
+    /CompactionPolicyCore/.test(policyCore) &&
+      /CompactionPolicyRequest/.test(policyCore) &&
+      /COMPACTION_POLICY_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_requires_compaction_approval_before_compacting/.test(policyCore) &&
+      /rust_policy_compacts_when_approval_is_granted/.test(policyCore) &&
+      /evaluate_compaction_policy/.test(bridgeModule) &&
+      /CompactionPolicyBridgeRequest/.test(bridgeModule) &&
+      /rust_compaction_policy_command/.test(bridgeModule) &&
+      /bridge_evaluates_compaction_policy_through_rust_core/.test(bridgeModule) &&
+      /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
+      /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
+      /evaluateCompactionPolicy/.test(runtimeContextPolicyRunner) &&
+      /compaction policy runner sends Rust policy bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /policyRunner\.evaluateCompactionPolicy/.test(codingToolBudgetPolicySurface) &&
+      /capturedRequest\.schema_version,\s*"ioi\.runtime\.compaction-policy-request\.v1"/.test(
+        codingToolBudgetPolicySurfaceTest,
+      ) &&
+      !/compactionExecuted|compactionEventId|compactionSeq|approvalId/.test(
+        `${codingToolBudgetPolicySurface}\n${runtimeContextPolicySurface}`,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
+      "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
+    ],
+    "Phase 9/10 is pending: compaction policy decisions must be evaluated by Rust policy core through the command bridge",
   );
   assertCheck(
     result,

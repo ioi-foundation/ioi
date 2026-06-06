@@ -69,6 +69,7 @@ use model_mount::{
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use policy::{
+    CompactionPolicyCore, CompactionPolicyError, CompactionPolicyRecord, CompactionPolicyRequest,
     ContextBudgetPolicyCore, ContextBudgetPolicyError, ContextBudgetPolicyRecord,
     ContextBudgetPolicyRequest,
 };
@@ -136,6 +137,13 @@ impl RuntimeKernelService {
         request: &ContextBudgetPolicyRequest,
     ) -> Result<ContextBudgetPolicyRecord, ContextBudgetPolicyError> {
         self.evaluate_context_budget_policy(request)
+    }
+
+    pub fn evaluate_compaction_policy(
+        &self,
+        request: &CompactionPolicyRequest,
+    ) -> Result<CompactionPolicyRecord, CompactionPolicyError> {
+        CompactionPolicyCore.evaluate(request)
     }
 
     pub fn issue_capability_lease(

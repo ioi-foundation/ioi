@@ -78,6 +78,78 @@ function budgetRunnerMock({ capture = null } = {}) {
         component_kind: "coding_tool",
       });
     },
+    evaluateCompactionPolicy(request) {
+      capture?.(request);
+      const budgetStatus =
+        request.context_budget_status ??
+        request.context_budget?.status ??
+        request.context_budget?.policy_decision?.status ??
+        "ok";
+      const normalizedBudgetStatus = budgetStatus === "warning" ? "warn" : budgetStatus;
+      const selectedAction =
+        normalizedBudgetStatus === "blocked"
+          ? request.actions?.blocked_action ?? "compact"
+          : normalizedBudgetStatus === "warn"
+            ? request.actions?.warn_action ?? "warn"
+            : request.actions?.ok_action ?? "noop";
+      const approvalRequired =
+        Boolean(request.approval?.approval_required) || selectedAction === "approval_required";
+      const approvalGranted = Boolean(request.approval?.approval_granted);
+      const action =
+        selectedAction === "approval_required" && approvalGranted
+          ? "compact"
+          : selectedAction === "compact" && approvalRequired && !approvalGranted
+            ? "approval_required"
+            : selectedAction;
+      const status =
+        action === "approval_required"
+          ? "waiting"
+          : action === "compact" && request.compact?.execute_compaction
+            ? "compacted"
+            : action === "compact"
+              ? "compact_pending"
+              : "ok";
+      return {
+        schema_version: "ioi.runtime.compaction-policy.v1",
+        object: "ioi.runtime_compaction_policy",
+        source: "rust_compaction_policy_command",
+        backend: "rust_policy",
+        status,
+        action,
+        selected_action: selectedAction,
+        budget_status: normalizedBudgetStatus,
+        thread_id: request.thread_id,
+        turn_id: request.turn_id,
+        workflow_graph_id: request.workflow_graph_id,
+        workflow_node_id: request.workflow_node_id,
+        compact_workflow_node_id:
+          request.compact?.compact_workflow_node_id ?? "runtime.context-compact",
+        context_budget: request.context_budget,
+        approval_required: approvalRequired,
+        approval_granted: approvalGranted,
+        approval_satisfied: !approvalRequired || approvalGranted,
+        approval_id: action === "approval_required" ? "approval_compaction_thread_mock" : null,
+        execute_compaction: Boolean(request.compact?.execute_compaction),
+        compaction_requested: action === "compact",
+        compaction_executed: false,
+        compaction_event_id: null,
+        compaction_seq: null,
+        compact_reason:
+          request.compact?.compact_reason ??
+          "Compaction policy blocked: Context budget blocked.",
+        compact_scope: request.compact?.compact_scope ?? "thread",
+        continuation_allowed: action !== "stop",
+        receipt_refs: ["receipt_compaction_policy_thread_mock"],
+        policy_decision_refs: ["policy_compaction_thread_mock"],
+        policy_decision_id: "policy_compaction_thread_mock",
+        summary:
+          action === "approval_required"
+            ? "Compaction policy requires operator approval before compacting."
+            : action === "compact"
+              ? "Compaction policy executed context compaction."
+              : "Compaction policy allowed continuation.",
+      };
+    },
   };
 }
 
@@ -229,35 +301,46 @@ test("coding tool budget policy returns null without telemetry or limits", () =>
 });
 
 test("compaction policy maps budget status to approval and compact decisions", () => {
+  let capturedRequest = null;
   const waiting = evaluateCompactionPolicyDecision({
     threadId: "thread-1",
     turnId: "turn-1",
     request: {
-      contextBudgetStatus: "blocked",
+      context_budget_status: "blocked",
       policy: {
-        blockedAction: "compact",
-        approvalRequired: "yes",
+        blocked_action: "compact",
+        approval_required: "yes",
       },
     },
+    policyRunner: budgetRunnerMock({
+      capture: (request) => {
+        capturedRequest = request;
+      },
+    }),
   });
 
+  assert.equal(capturedRequest.schema_version, "ioi.runtime.compaction-policy-request.v1");
+  assert.equal(capturedRequest.thread_id, "thread-1");
+  assert.equal(capturedRequest.actions.blocked_action, "compact");
   assert.equal(waiting.action, "approval_required");
   assert.equal(waiting.status, "waiting");
   assert.equal(waiting.approval_required, true);
   assert.equal(waiting.approval_satisfied, false);
   assert.equal(waiting.continuation_allowed, true);
-  assert.match(waiting.approval_id, /^approval_compaction_thread-1_/);
+  assert.match(waiting.approval_id, /^approval_compaction_thread/);
+  assert.equal(Object.hasOwn(waiting, "approvalId"), false);
 
   const compact = evaluateCompactionPolicyDecision({
     threadId: "thread-1",
     request: {
-      contextBudget: { policyDecision: { status: "warning" } },
+      context_budget: { policy_decision: { status: "warning" } },
       policy: {
-        warnAction: "compact",
-        executeCompaction: "true",
+        warn_action: "compact",
+        execute_compaction: "true",
       },
       approved: true,
     },
+    policyRunner: budgetRunnerMock(),
   });
 
   assert.equal(compact.action, "compact");

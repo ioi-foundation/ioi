@@ -1,0 +1,242 @@
+import { spawnSync } from "node:child_process";
+
+export const CONTEXT_POLICY_COMMAND_ENV = "IOI_STEP_MODULE_COMMAND";
+export const CONTEXT_POLICY_COMMAND_ARGS_ENV = "IOI_STEP_MODULE_COMMAND_ARGS";
+export const CONTEXT_POLICY_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.context-budget-policy-request.v1";
+export const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.coding-tool-budget-policy-request.v1";
+export const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.compaction-policy-request.v1";
+export const RUST_CONTEXT_POLICY_BACKEND = "rust_policy";
+
+export function createContextPolicyRunnerFromEnv(env = process.env, options = {}) {
+  return new RustContextPolicyRunner({
+    command: options.command ?? env[CONTEXT_POLICY_COMMAND_ENV] ?? null,
+    args:
+      options.args ??
+      parseCommandArgs(env[CONTEXT_POLICY_COMMAND_ARGS_ENV]),
+    spawnSyncImpl: options.spawnSyncImpl,
+    mockResult: options.mockResult,
+  });
+}
+
+export class RustContextPolicyRunner {
+  constructor(options = {}) {
+    this.command = optionalString(options.command);
+    this.args = normalizeArgs(options.args);
+    this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
+    this.mockResult = options.mockResult;
+  }
+
+  evaluateContextBudgetPolicy(request = {}) {
+    return this.evaluatePolicy({
+      operation: "evaluate_context_budget_policy",
+      schemaVersion: CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+      request,
+    });
+  }
+
+  evaluateCodingToolBudgetPolicy(request = {}) {
+    return this.evaluatePolicy({
+      operation: "evaluate_coding_tool_budget_policy",
+      schemaVersion: CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+      request,
+    });
+  }
+
+  evaluateCompactionPolicy(request = {}) {
+    return normalizeCompactionPolicyBridgeResult(this.evaluateRawPolicy({
+      operation: "evaluate_compaction_policy",
+      schemaVersion: COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  evaluatePolicy({ operation, schemaVersion, request }) {
+    return normalizeContextBudgetPolicyBridgeResult(this.evaluateRawPolicy({
+      operation,
+      schemaVersion,
+      request,
+    }));
+  }
+
+  evaluateRawPolicy({ operation, schemaVersion, request }) {
+    const bridgeRequest = {
+      schema_version: CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
+      operation,
+      backend: RUST_CONTEXT_POLICY_BACKEND,
+      request: {
+        ...(objectRecord(request) ?? {}),
+        schema_version: schemaVersion,
+      },
+    };
+    return this.invokeBridge(bridgeRequest);
+  }
+
+  invokeBridge(request) {
+    if (this.mockResult) {
+      const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
+      return {
+        source: "rust_context_budget_policy_mock",
+        backend: request.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+        ...value,
+      };
+    }
+    if (!this.command) {
+      throw new ContextPolicyRunnerError(
+        "Context policy requires IOI_STEP_MODULE_COMMAND for Rust policy evaluation.",
+        "context_policy_bridge_unconfigured",
+        {
+          env: CONTEXT_POLICY_COMMAND_ENV,
+          argsEnv: CONTEXT_POLICY_COMMAND_ARGS_ENV,
+        },
+      );
+    }
+    const output = this.spawnSyncImpl(this.command, this.args, {
+      input: `${JSON.stringify(request)}\n`,
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    if (output.error) {
+      throw new ContextPolicyRunnerError(
+        "Failed to spawn Rust context policy bridge command.",
+        "context_policy_bridge_spawn_failed",
+        { error: String(output.error?.message ?? output.error) },
+      );
+    }
+    if (output.status !== 0) {
+      throw new ContextPolicyRunnerError(
+        "Rust context policy bridge command failed.",
+        "context_policy_bridge_failed",
+        {
+          status: output.status,
+          stderr: String(output.stderr ?? "").slice(0, 4096),
+        },
+      );
+    }
+    let parsed = null;
+    try {
+      parsed = JSON.parse(String(output.stdout ?? ""));
+    } catch (error) {
+      throw new ContextPolicyRunnerError(
+        "Rust context policy bridge command returned invalid JSON.",
+        "context_policy_bridge_invalid_json",
+        { error: String(error?.message ?? error) },
+      );
+    }
+    if (parsed?.ok === false) {
+      throw new ContextPolicyRunnerError(
+        parsed.error?.message ?? "Rust context policy rejected the request.",
+        parsed.error?.code ?? "context_policy_bridge_rejected",
+        { error: parsed.error },
+      );
+    }
+    return parsed.result ?? parsed;
+  }
+}
+
+export class ContextPolicyRunnerError extends Error {
+  constructor(message, code = "context_policy_runner_error", details = {}) {
+    super(message);
+    this.name = "ContextPolicyRunnerError";
+    this.status = details.status ?? 502;
+    this.code = code;
+    this.details = details;
+  }
+}
+
+export function normalizeContextBudgetPolicyBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source: result.source ?? record.source ?? "rust_context_budget_policy_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "ok",
+    mode: optionalString(result.mode ?? record.mode) ?? "simulate",
+    usage_telemetry: objectRecord(result.usage_telemetry) ?? objectRecord(record.usage_telemetry) ?? {},
+    usage_summary: objectRecord(result.usage_summary) ?? objectRecord(record.usage_summary) ?? {},
+    policy_decision_id: optionalString(result.policy_decision_id ?? record.policy_decision_id),
+    policy_decision: objectRecord(result.policy_decision) ?? objectRecord(record.policy_decision) ?? null,
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    policy_decision_refs: stringArray(result.policy_decision_refs ?? record.policy_decision_refs),
+    warnings: arrayValue(result.warnings ?? record.warnings),
+    violations: arrayValue(result.violations ?? record.violations),
+    would_block: Boolean(result.would_block ?? record.would_block),
+    summary: optionalString(result.summary ?? record.summary) ?? null,
+  };
+}
+
+export function normalizeCompactionPolicyBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source: result.source ?? record.source ?? "rust_compaction_policy_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "ok",
+    action: optionalString(result.action ?? record.action) ?? "noop",
+    selected_action: optionalString(result.selected_action ?? record.selected_action) ?? "noop",
+    budget_status: optionalString(result.budget_status ?? record.budget_status) ?? "ok",
+    policy_decision_id: optionalString(result.policy_decision_id ?? record.policy_decision_id),
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    policy_decision_refs: stringArray(result.policy_decision_refs ?? record.policy_decision_refs),
+    approval_id: optionalString(result.approval_id ?? record.approval_id),
+    approval_required: Boolean(result.approval_required ?? record.approval_required),
+    approval_granted: Boolean(result.approval_granted ?? record.approval_granted),
+    approval_satisfied: Boolean(result.approval_satisfied ?? record.approval_satisfied),
+    execute_compaction: Boolean(result.execute_compaction ?? record.execute_compaction),
+    compaction_requested: Boolean(result.compaction_requested ?? record.compaction_requested),
+    compaction_executed: Boolean(result.compaction_executed ?? record.compaction_executed),
+    compaction_event_id: optionalString(result.compaction_event_id ?? record.compaction_event_id),
+    compaction_seq: numberValue(result.compaction_seq ?? record.compaction_seq),
+    compact_reason: optionalString(result.compact_reason ?? record.compact_reason) ?? null,
+    compact_scope: optionalString(result.compact_scope ?? record.compact_scope) ?? "thread",
+    compact_workflow_node_id:
+      optionalString(result.compact_workflow_node_id ?? record.compact_workflow_node_id) ??
+      "runtime.context-compact",
+    continuation_allowed: Boolean(result.continuation_allowed ?? record.continuation_allowed),
+    summary: optionalString(result.summary ?? record.summary) ?? null,
+  };
+}
+
+function parseCommandArgs(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return normalizeArgs(value);
+  return String(value)
+    .split(/\s+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function normalizeArgs(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
+}
+
+function optionalString(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function stringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => optionalString(entry)).filter(Boolean);
+}
+
+function arrayValue(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function numberValue(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}

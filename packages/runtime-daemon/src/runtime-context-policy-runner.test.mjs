@@ -3,14 +3,15 @@ import test from "node:test";
 
 import {
   CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
-  CONTEXT_BUDGET_POLICY_COMMAND_SCHEMA_VERSION,
+  COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
   CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
-  RustContextBudgetPolicyRunner,
-} from "./runtime-context-budget-policy-runner.mjs";
+  CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
+  RustContextPolicyRunner,
+} from "./runtime-context-policy-runner.mjs";
 
 test("context budget policy runner sends generic Rust policy bridge request", () => {
   let captured = null;
-  const runner = new RustContextBudgetPolicyRunner({
+  const runner = new RustContextPolicyRunner({
     command: "ioi-step-module-bridge",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
@@ -47,7 +48,7 @@ test("context budget policy runner sends generic Rust policy bridge request", ()
     thread_id: "thread_1",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_BUDGET_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
   assert.equal(captured.operation, "evaluate_context_budget_policy");
   assert.equal(captured.backend, "rust_policy");
   assert.equal(captured.request.schema_version, CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION);
@@ -59,7 +60,7 @@ test("context budget policy runner sends generic Rust policy bridge request", ()
 
 test("coding tool budget runner sends Rust policy bridge request", () => {
   let captured = null;
-  const runner = new RustContextBudgetPolicyRunner({
+  const runner = new RustContextPolicyRunner({
     command: "ioi-step-module-bridge",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
@@ -96,7 +97,7 @@ test("coding tool budget runner sends Rust policy bridge request", () => {
     thread_id: "thread_1",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_BUDGET_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
   assert.equal(captured.operation, "evaluate_coding_tool_budget_policy");
   assert.equal(captured.backend, "rust_policy");
   assert.equal(captured.request.schema_version, CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION);
@@ -106,11 +107,66 @@ test("coding tool budget runner sends Rust policy bridge request", () => {
   assert.deepEqual(result.policy_decision_refs, ["policy_context_budget_thread_test_blocked"]);
 });
 
-test("context budget policy runner fails closed without bridge command", () => {
-  const runner = new RustContextBudgetPolicyRunner();
+test("compaction policy runner sends Rust policy bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_compaction_policy_command",
+            backend: "rust_policy",
+            status: "waiting",
+            action: "approval_required",
+            selected_action: "compact",
+            budget_status: "blocked",
+            policy_decision_id: "policy_compaction_thread_test_waiting",
+            receipt_refs: ["receipt_compaction_policy_thread_test"],
+            policy_decision_refs: ["policy_compaction_thread_test_waiting"],
+            approval_id: "approval_compaction_thread_test",
+            approval_required: true,
+            approval_granted: false,
+            approval_satisfied: false,
+            execute_compaction: false,
+            compaction_requested: false,
+            compact_reason: "Compaction policy blocked: Context budget blocked.",
+            compact_scope: "thread",
+            compact_workflow_node_id: "runtime.context-compact",
+            continuation_allowed: true,
+            summary: "Compaction policy requires operator approval before compacting.",
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.evaluateCompactionPolicy({
+    thread_id: "thread_1",
+    context_budget: { status: "blocked" },
+    actions: { blocked_action: "compact" },
+    approval: { approval_required: true, approval_granted: false },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "evaluate_compaction_policy");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(captured.request.schema_version, COMPACTION_POLICY_REQUEST_SCHEMA_VERSION);
+  assert.equal(captured.request.context_budget.status, "blocked");
+  assert.equal(result.source, "rust_compaction_policy_command");
+  assert.equal(result.action, "approval_required");
+  assert.equal(result.approval_required, true);
+});
+
+test("context policy runner fails closed without bridge command", () => {
+  const runner = new RustContextPolicyRunner();
 
   assert.throws(
     () => runner.evaluateContextBudgetPolicy({ usage_telemetry: { total_tokens: 1 } }),
-    /Context budget policy requires IOI_STEP_MODULE_COMMAND/,
+    /Context policy requires IOI_STEP_MODULE_COMMAND/,
   );
 });

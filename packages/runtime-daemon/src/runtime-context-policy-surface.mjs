@@ -258,11 +258,8 @@ export function createRuntimeContextPolicySurface({
             (event) => event.component_kind === "context_compaction",
           ) ?? null;
         result.compaction_executed = Boolean(compactEvent);
-        result.compactionExecuted = result.compaction_executed;
         result.compaction_event_id = compactEvent?.event_id ?? null;
-        result.compactionEventId = result.compaction_event_id;
         result.compaction_seq = compactEvent?.seq ?? null;
-        result.compactionSeq = result.compaction_seq;
       }
       const now = new Date().toISOString();
       const eventKind =

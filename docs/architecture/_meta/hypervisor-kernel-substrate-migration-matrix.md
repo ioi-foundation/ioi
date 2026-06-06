@@ -12103,6 +12103,15 @@ no longer retains the JS budget-check/summary helper bodies. The coding-tool
 budget preflight is now a specialization of the same Rust context-budget core
 rather than a separately named JS policy runner.
 
+Slice 341 moves compaction-policy decisions into Rust: the Rust
+`CompactionPolicyCore` now owns context-budget status mapping, selected
+compaction action, approval-required/approval-granted handling, compact
+reason/scope defaults, policy decision refs, receipt refs, and continuation
+status through `evaluate_compaction_policy`; the daemon context-policy facade
+only shapes the canonical request, executes the actual compaction event when
+Rust selects it, and no longer emits duplicate camelCase compaction-policy
+result aliases.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
