@@ -55,6 +55,11 @@ const retiredGovernedImprovementRequestAliases = [
   "proposalPayload",
 ];
 
+const retiredGovernedImprovementProposalInputFields = [
+  "proposal_payload",
+  "proposalPayload",
+];
+
 test("builds governed improvement proposal controls for daemon admission", () => {
   const request = createRuntimeGovernedImprovementControlRequest({
     threadId: "thread-ide",
@@ -87,6 +92,34 @@ test("builds governed improvement proposal controls for daemon admission", () =>
   assert.equal(request.body.proposal.approval_ref, "approval://wallet/runtime-improvement/ide");
   for (const key of retiredGovernedImprovementRequestAliases) {
     assert.equal(Object.prototype.hasOwnProperty.call(request.body, key), false, `${key} must not be emitted`);
+  }
+});
+
+test("builds governed improvement controls from canonical input proposal", () => {
+  const request = createRuntimeGovernedImprovementControlRequest({
+    threadId: "thread-ide",
+    input: {
+      proposal: proposal(),
+    },
+  });
+
+  assert.equal(request.body.proposal.proposal_id, "proposal://runtime-improvement/ide");
+  assert.equal(request.body.proposal_id, "proposal://runtime-improvement/ide");
+});
+
+test("governed improvement controls reject retired proposal input field aliases", () => {
+  for (const proposalField of retiredGovernedImprovementProposalInputFields) {
+    assert.throws(
+      () =>
+        createRuntimeGovernedImprovementControlRequest({
+          threadId: "thread-ide",
+          input: {
+            [proposalField]: proposal(),
+          },
+          proposalField,
+        }),
+      /retired proposal input field aliases/,
+    );
   }
 });
 

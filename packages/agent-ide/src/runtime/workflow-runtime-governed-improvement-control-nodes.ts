@@ -21,6 +21,11 @@ export const RUNTIME_GOVERNED_IMPROVEMENT_SURFACES = [
   "policy",
 ] as const;
 
+const RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_INPUT_FIELDS = [
+  "proposal_payload",
+  "proposalPayload",
+] as const;
+
 export type RuntimeGovernedImprovementSurface =
   (typeof RUNTIME_GOVERNED_IMPROVEMENT_SURFACES)[number];
 
@@ -124,11 +129,11 @@ export function createRuntimeGovernedImprovementControlRequest(
     throw new Error("governed improvement proposal controls need a threadId input before dispatch.");
   }
 
+  const proposalField = params.proposalField ?? "proposal";
+  assertCanonicalGovernedImprovementProposalInputField(proposalField);
   const proposalSeed =
     objectRecord(params.proposal) ??
-    objectAtPath(params.input, params.proposalField ?? "proposal") ??
-    objectAtPath(params.input, "proposal_payload") ??
-    objectAtPath(params.input, "proposalPayload") ??
+    objectAtPath(params.input, proposalField) ??
     {};
   const schemaVersion =
     cleanString(proposalSeed.schema_version) ??
@@ -337,6 +342,18 @@ function requiredSurface(value: string | null): RuntimeGovernedImprovementSurfac
     return value as RuntimeGovernedImprovementSurface;
   }
   throw new Error("governed improvement proposal controls need a canonical surface before dispatch.");
+}
+
+function assertCanonicalGovernedImprovementProposalInputField(field: string): void {
+  if (
+    RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_INPUT_FIELDS.includes(
+      field as (typeof RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_INPUT_FIELDS)[number],
+    )
+  ) {
+    throw new Error(
+      "governed improvement proposal controls no longer accept retired proposal input field aliases; use proposal.",
+    );
+  }
 }
 
 function cleanString(value: unknown): string | null {

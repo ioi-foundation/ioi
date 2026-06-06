@@ -12007,6 +12007,11 @@ the daemon surface now fails closed on retired `proposalPayload` and
 proposal admission, and IDE governed-improvement control requests emit
 canonical `proposal` bodies without duplicate wrapper aliases.
 
+Slice 327 retires governed meta-improvement IDE proposal input wrapper
+fallbacks: IDE governed-improvement controls now build requests from canonical
+`proposal` input only and fail closed when asked to use retired
+`proposalPayload` or `proposal_payload` proposal input fields.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

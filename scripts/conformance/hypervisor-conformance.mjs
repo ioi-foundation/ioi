@@ -2837,6 +2837,36 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "governed-meta-improvement-proposal-input-aliases-retired",
+    /RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_INPUT_FIELDS/.test(
+      governedImprovementControlNodes,
+    ) &&
+      /assertCanonicalGovernedImprovementProposalInputField\(proposalField\)/.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/objectAtPath\(params\.input,\s*"proposal_payload"\)/.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/objectAtPath\(params\.input,\s*"proposalPayload"\)/.test(
+        governedImprovementControlNodes,
+      ) &&
+      /builds governed improvement controls from canonical input proposal/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /governed improvement controls reject retired proposal input field aliases/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /retiredGovernedImprovementProposalInputFields/.test(
+        governedImprovementControlNodesTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
+    ],
+    "Phase 10/11 is pending: governed-improvement IDE clients must not preserve retired proposal input wrapper fallbacks after canonical request bodies are verified",
+  );
+  assertCheck(
+    result,
     "governed-meta-improvement-sdk-ide-review-surface",
     /admitGovernedImprovementProposal/.test(agentSdkSubstrateClient) &&
       /RuntimeGovernedImprovementProposalAdmissionInput/.test(agentSdkSubstrateClient) &&
