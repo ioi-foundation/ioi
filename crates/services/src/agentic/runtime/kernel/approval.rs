@@ -20,6 +20,10 @@ pub const APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.approval-decision-state-update-request.v1";
 pub const APPROVAL_DECISION_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.approval-decision-state-update.v1";
+pub const APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.approval-revoke-state-update-request.v1";
+pub const APPROVAL_REVOKE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.approval-revoke-state-update.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApprovalScopeContext {
@@ -127,6 +131,15 @@ pub enum ApprovalRequestStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ApprovalDecisionStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ApprovalRevokeStateUpdateError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -328,6 +341,45 @@ pub struct ApprovalDecisionStateUpdateRecord {
     pub generated_at: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ApprovalRevokeStateUpdateRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    pub run: Value,
+    pub event_id: String,
+    pub seq: u64,
+    pub created_at: String,
+    pub approval_id: String,
+    #[serde(default)]
+    pub lease_id: Option<String>,
+    pub source: String,
+    #[serde(default)]
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub policy_decision_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ApprovalRevokeStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    pub updated_at: String,
+    pub operator_control: Value,
+    pub run: Value,
+    pub generated_at: String,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct CodingToolApprovalCore;
 
@@ -336,6 +388,9 @@ pub struct ApprovalRequestStateUpdateCore;
 
 #[derive(Debug, Default, Clone)]
 pub struct ApprovalDecisionStateUpdateCore;
+
+#[derive(Debug, Default, Clone)]
+pub struct ApprovalRevokeStateUpdateCore;
 
 impl ApprovalRequestStateUpdateCore {
     pub fn plan(
@@ -481,6 +536,86 @@ impl ApprovalDecisionStateUpdateCore {
             object: "ioi.runtime_approval_decision_state_update".to_string(),
             status: "planned".to_string(),
             operation_kind: format!("approval.{decision}"),
+            thread_id,
+            run_id,
+            updated_at: request.created_at.clone(),
+            operator_control,
+            run: Value::Object(run),
+            generated_at: "rust_authority_core".to_string(),
+        })
+    }
+}
+
+impl ApprovalRevokeStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &ApprovalRevokeStateUpdateRequest,
+    ) -> Result<ApprovalRevokeStateUpdateRecord, ApprovalRevokeStateUpdateError> {
+        request.validate()?;
+        let thread_id = optional_trimmed(request.thread_id.as_deref());
+        let run_id = optional_trimmed(request.run_id.as_deref());
+        let source = optional_trimmed(Some(request.source.as_str()))
+            .unwrap_or_else(|| "sdk_client".to_string());
+        let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
+        let lease_id = optional_trimmed(request.lease_id.as_deref());
+        let reason = optional_trimmed(request.reason.as_deref());
+        let operator_control = json!({
+            "control": "approval_revoke",
+            "approvalId": approval_id,
+            "leaseId": lease_id,
+            "leaseStatus": "revoked",
+            "decision": "revoke",
+            "status": "revoked",
+            "source": source,
+            "reason": reason,
+            "eventId": request.event_id,
+            "seq": request.seq,
+            "receiptRefs": request.receipt_refs.clone(),
+            "policyDecisionRefs": request.policy_decision_refs.clone(),
+            "createdAt": request.created_at,
+        });
+        let mut run = object_value(&request.run)
+            .ok_or(ApprovalRevokeStateUpdateError::MissingField("run"))?;
+        run.insert(
+            "updatedAt".to_string(),
+            Value::String(request.created_at.clone()),
+        );
+        run.insert(
+            "turnStatus".to_string(),
+            Value::String("waiting_for_input".to_string()),
+        );
+        let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
+        trace.insert(
+            "operatorControls".to_string(),
+            append_operator_control(trace.get("operatorControls"), &operator_control),
+        );
+        trace.insert(
+            "approvalDecisions".to_string(),
+            append_operator_control(trace.get("approvalDecisions"), &operator_control),
+        );
+        trace.insert(
+            "approvalRevocations".to_string(),
+            append_operator_control(trace.get("approvalRevocations"), &operator_control),
+        );
+        run.insert("trace".to_string(), Value::Object(trace));
+        run.insert(
+            "operatorControls".to_string(),
+            append_operator_control(run.get("operatorControls"), &operator_control),
+        );
+        run.insert(
+            "approvalDecisions".to_string(),
+            append_operator_control(run.get("approvalDecisions"), &operator_control),
+        );
+        run.insert(
+            "approvalRevocations".to_string(),
+            append_operator_control(run.get("approvalRevocations"), &operator_control),
+        );
+
+        Ok(ApprovalRevokeStateUpdateRecord {
+            schema_version: APPROVAL_REVOKE_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_approval_revoke_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: "approval.revoke".to_string(),
             thread_id,
             run_id,
             updated_at: request.created_at.clone(),
@@ -690,6 +825,33 @@ impl ApprovalDecisionStateUpdateRequest {
         }
         if optional_trimmed(Some(self.status.as_str())).is_none() {
             return Err(ApprovalDecisionStateUpdateError::MissingField("status"));
+        }
+        Ok(())
+    }
+}
+
+impl ApprovalRevokeStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), ApprovalRevokeStateUpdateError> {
+        if self.schema_version != APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(ApprovalRevokeStateUpdateError::InvalidSchemaVersion {
+                expected: APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if !self.run.is_object() {
+            return Err(ApprovalRevokeStateUpdateError::MissingField("run"));
+        }
+        if optional_trimmed(Some(self.event_id.as_str())).is_none() {
+            return Err(ApprovalRevokeStateUpdateError::MissingField("event_id"));
+        }
+        if self.seq == 0 {
+            return Err(ApprovalRevokeStateUpdateError::MissingField("seq"));
+        }
+        if optional_trimmed(Some(self.created_at.as_str())).is_none() {
+            return Err(ApprovalRevokeStateUpdateError::MissingField("created_at"));
+        }
+        if optional_trimmed(Some(self.approval_id.as_str())).is_none() {
+            return Err(ApprovalRevokeStateUpdateError::MissingField("approval_id"));
         }
         Ok(())
     }
@@ -1014,6 +1176,30 @@ mod tests {
         }
     }
 
+    fn approval_revoke_state_update_request() -> ApprovalRevokeStateUpdateRequest {
+        ApprovalRevokeStateUpdateRequest {
+            schema_version: APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: Some("thread_alpha".to_string()),
+            run_id: Some("run_alpha".to_string()),
+            run: json!({
+                "id": "run_alpha",
+                "agentId": "agent_alpha",
+                "status": "blocked",
+                "turnStatus": "waiting_for_approval",
+                "trace": {},
+            }),
+            event_id: "event_revoke".to_string(),
+            seq: 5,
+            created_at: "2026-06-06T04:40:00.000Z".to_string(),
+            approval_id: "approval_alpha".to_string(),
+            lease_id: Some("lease_alpha".to_string()),
+            source: "runtime_auto".to_string(),
+            reason: Some("Changed my mind".to_string()),
+            receipt_refs: vec!["receipt_revoke".to_string()],
+            policy_decision_refs: vec!["policy_revoke".to_string()],
+        }
+    }
+
     #[test]
     fn rust_authority_plans_coding_tool_approval_manifest() {
         let plan = CodingToolApprovalCore
@@ -1175,6 +1361,53 @@ mod tests {
             error,
             ApprovalDecisionStateUpdateError::InvalidSchemaVersion {
                 expected: APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_authority_plans_approval_revoke_state_update() {
+        let record = ApprovalRevokeStateUpdateCore
+            .plan(&approval_revoke_state_update_request())
+            .expect("approval revoke state update");
+
+        assert_eq!(
+            record.schema_version,
+            APPROVAL_REVOKE_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "approval.revoke");
+        assert_eq!(record.operator_control["control"], "approval_revoke");
+        assert_eq!(record.operator_control["leaseStatus"], "revoked");
+        assert_eq!(record.run["turnStatus"], "waiting_for_input");
+        assert_eq!(
+            record.run["trace"]["approvalRevocations"][0]["eventId"],
+            "event_revoke"
+        );
+        assert_eq!(
+            record.run["approvalDecisions"][0]["receiptRefs"][0],
+            "receipt_revoke"
+        );
+        assert_eq!(
+            record.run["operatorControls"][0]["policyDecisionRefs"][0],
+            "policy_revoke"
+        );
+    }
+
+    #[test]
+    fn rust_authority_rejects_invalid_approval_revoke_state_update_schema() {
+        let mut request = approval_revoke_state_update_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = ApprovalRevokeStateUpdateCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            ApprovalRevokeStateUpdateError::InvalidSchemaVersion {
+                expected: APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );

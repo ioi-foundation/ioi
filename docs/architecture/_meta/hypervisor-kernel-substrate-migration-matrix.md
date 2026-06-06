@@ -12167,6 +12167,15 @@ approvalDecisions and operatorControls mutation through
 approval decision event and applies the Rust-planned run record instead of
 constructing the approval-decision mutation in JS.
 
+Slice 349 moves approval-revoke run state-update planning into Rust:
+`ApprovalRevokeStateUpdateCore` now owns the approval-revoke operator-control
+record, revoked lease status, revoke operation kind, waiting-for-input
+transition, updatedAt assignment, and trace/top-level approvalDecisions,
+approvalRevocations, and operatorControls mutation through
+`plan_approval_revoke_state_update`; the daemon approval surface appends the
+approval-revoke event and applies the Rust-planned run record instead of
+constructing the approval-revoke mutation in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

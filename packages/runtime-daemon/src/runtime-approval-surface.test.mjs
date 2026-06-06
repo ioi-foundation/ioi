@@ -98,6 +98,47 @@ function approvalDecisionStateUpdateForRequest(request = {}) {
   };
 }
 
+function approvalRevokeStateUpdateForRequest(request = {}) {
+  const control = {
+    control: "approval_revoke",
+    approvalId: request.approval_id,
+    leaseId: request.lease_id,
+    leaseStatus: "revoked",
+    decision: "revoke",
+    status: "revoked",
+    source: request.source,
+    reason: request.reason,
+    eventId: request.event_id,
+    seq: request.seq,
+    receiptRefs: request.receipt_refs,
+    policyDecisionRefs: request.policy_decision_refs,
+    createdAt: request.created_at,
+  };
+  const run = request.run ?? {};
+  const traceWithDecision = appendOperatorControlForTest(run.trace?.approvalDecisions, control);
+  const decisions = appendOperatorControlForTest(run.approvalDecisions, control);
+  return {
+    status: "planned",
+    operation_kind: "approval.revoke",
+    updated_at: request.created_at,
+    operator_control: control,
+    run: {
+      ...run,
+      updatedAt: request.created_at,
+      turnStatus: "waiting_for_input",
+      trace: {
+        ...run.trace,
+        operatorControls: appendOperatorControlForTest(run.trace?.operatorControls, control),
+        approvalDecisions: traceWithDecision,
+        approvalRevocations: appendOperatorControlForTest(run.trace?.approvalRevocations, control),
+      },
+      operatorControls: appendOperatorControlForTest(run.operatorControls, control),
+      approvalDecisions: decisions,
+      approvalRevocations: appendOperatorControlForTest(run.approvalRevocations, control),
+    },
+  };
+}
+
 function appendOperatorControlForTest(value, control) {
   const entries = Array.isArray(value) ? [...value] : [];
   if (!entries.some((entry) => entry?.eventId === control.eventId)) {
@@ -125,6 +166,10 @@ function createSurface({ calls = [] } = {}) {
       planApprovalDecisionStateUpdate(request) {
         calls.push({ name: "planApprovalDecisionStateUpdate", request });
         return approvalDecisionStateUpdateForRequest(request);
+      },
+      planApprovalRevokeStateUpdate(request) {
+        calls.push({ name: "planApprovalRevokeStateUpdate", request });
+        return approvalRevokeStateUpdateForRequest(request);
       },
     },
     notFound,
@@ -252,7 +297,8 @@ test("approval surface records approval decisions with active leases", () => {
 });
 
 test("approval surface revokes approval leases and records prior decisions", () => {
-  const surface = createSurface();
+  const calls = [];
+  const surface = createSurface({ calls });
   const store = createStore();
   surface.requestThreadApproval(store, "thread_alpha", {
     approval_id: "approval-one",
@@ -271,6 +317,10 @@ test("approval surface revokes approval leases and records prior decisions", () 
   assert.equal(store.events[2].payload_summary.approvalDecisionEventId, "event_2");
   assert.equal(store.runs.get("run_alpha").turnStatus, "waiting_for_input");
   assert.equal(store.runs.get("run_alpha").approvalRevocations[0].decision, "revoke");
+  assert.equal(
+    calls.find((call) => call.name === "planApprovalRevokeStateUpdate").request.event_id,
+    "event_3",
+  );
   assert.equal(surface.latestApprovalDecisionEvent(store, "thread_alpha", "approval-one"), store.events[2]);
 });
 

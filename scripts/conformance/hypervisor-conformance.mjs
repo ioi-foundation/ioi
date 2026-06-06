@@ -1052,6 +1052,39 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "approval-revoke-state-update-live-bridge",
+    /ApprovalRevokeStateUpdateCore/.test(approvalCore) &&
+      /ApprovalRevokeStateUpdateRequest/.test(approvalCore) &&
+      /APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
+      /rust_authority_plans_approval_revoke_state_update/.test(approvalCore) &&
+      /plan_approval_revoke_state_update/.test(bridgeModule) &&
+      /ApprovalRevokeStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_approval_revoke_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_approval_revoke_state_update_through_rust_core/.test(bridgeModule) &&
+      /planApprovalRevokeStateUpdate/.test(runtimeApprovalStateRunner) &&
+      /APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeApprovalStateRunner,
+      ) &&
+      /approval revoke state runner sends Rust authority bridge request/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
+      /approvalStateRunnerDep\.planApprovalRevokeStateUpdate/.test(runtimeApprovalSurface) &&
+      /planApprovalRevokeStateUpdate/.test(runtimeApprovalSurfaceTest) &&
+      !/control:\s*"approval_revoke"|appendRunApprovalControl|appendOperatorControl/.test(
+        runtimeApprovalSurface,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/approval.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
+      "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-surface.mjs",
+      "packages/runtime-daemon/src/runtime-approval-surface.test.mjs",
+    ],
+    "Phase 9/10 is pending: approval revoke run state updates must be planned by Rust authority core through the command bridge",
+  );
+  assertCheck(
+    result,
     "context-budget-policy-live-bridge",
     /ContextBudgetPolicyCore/.test(policyCore) &&
       /ContextBudgetPolicyRequest/.test(policyCore) &&

@@ -41,8 +41,10 @@ use approval::{
     ApprovalDecisionStateUpdateCore, ApprovalDecisionStateUpdateError,
     ApprovalDecisionStateUpdateRecord, ApprovalDecisionStateUpdateRequest,
     ApprovalRequestStateUpdateCore, ApprovalRequestStateUpdateError,
-    ApprovalRequestStateUpdateRecord, ApprovalRequestStateUpdateRequest, ApprovalScopeContext,
-    AuthorityScopeMatcher, CodingToolApprovalCore, CodingToolApprovalError, CodingToolApprovalPlan,
+    ApprovalRequestStateUpdateRecord, ApprovalRequestStateUpdateRequest,
+    ApprovalRevokeStateUpdateCore, ApprovalRevokeStateUpdateError, ApprovalRevokeStateUpdateRecord,
+    ApprovalRevokeStateUpdateRequest, ApprovalScopeContext, AuthorityScopeMatcher,
+    CodingToolApprovalCore, CodingToolApprovalError, CodingToolApprovalPlan,
     CodingToolApprovalRequest, ScopeMatchDecision,
 };
 use authority::{
@@ -146,6 +148,13 @@ impl RuntimeKernelService {
         request: &ApprovalDecisionStateUpdateRequest,
     ) -> Result<ApprovalDecisionStateUpdateRecord, ApprovalDecisionStateUpdateError> {
         ApprovalDecisionStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_approval_revoke_state_update(
+        &self,
+        request: &ApprovalRevokeStateUpdateRequest,
+    ) -> Result<ApprovalRevokeStateUpdateRecord, ApprovalRevokeStateUpdateError> {
+        ApprovalRevokeStateUpdateCore.plan(request)
     }
 
     pub fn evaluate_context_budget_policy(

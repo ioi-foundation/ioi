@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   APPROVAL_STATE_COMMAND_SCHEMA_VERSION,
   RustRuntimeApprovalStateRunner,
 } from "./runtime-approval-state-runner.mjs";
@@ -156,4 +157,75 @@ test("approval decision state runner sends Rust authority bridge request", () =>
   assert.equal(result.operation_kind, "approval.approve");
   assert.equal(result.operator_control.leaseId, "lease_alpha");
   assert.equal(result.run.trace.approvalDecisions[0].eventId, "event_decision");
+});
+
+test("approval revoke state runner sends Rust authority bridge request", () => {
+  let captured = null;
+  const runner = new RustRuntimeApprovalStateRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_approval_revoke_state_update_command",
+            backend: "rust_authority",
+            status: "planned",
+            operation_kind: "approval.revoke",
+            updated_at: "2026-06-06T04:40:00.000Z",
+            operator_control: {
+              control: "approval_revoke",
+              approvalId: "approval_alpha",
+              leaseId: "lease_alpha",
+              leaseStatus: "revoked",
+              eventId: "event_revoke",
+            },
+            run: {
+              id: "run_alpha",
+              turnStatus: "waiting_for_input",
+              trace: {
+                approvalRevocations: [
+                  {
+                    approvalId: "approval_alpha",
+                    eventId: "event_revoke",
+                  },
+                ],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planApprovalRevokeStateUpdate({
+    thread_id: "thread_alpha",
+    run_id: "run_alpha",
+    run: { id: "run_alpha", trace: {} },
+    event_id: "event_revoke",
+    seq: 5,
+    created_at: "2026-06-06T04:40:00.000Z",
+    approval_id: "approval_alpha",
+    lease_id: "lease_alpha",
+    source: "runtime_auto",
+    reason: "Changed my mind",
+    receipt_refs: ["receipt_revoke"],
+    policy_decision_refs: ["policy_revoke"],
+  });
+
+  assert.equal(captured.schema_version, APPROVAL_STATE_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_approval_revoke_state_update");
+  assert.equal(captured.backend, "rust_authority");
+  assert.equal(
+    captured.request.schema_version,
+    APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.approval_id, "approval_alpha");
+  assert.equal(result.source, "rust_approval_revoke_state_update_command");
+  assert.equal(result.operation_kind, "approval.revoke");
+  assert.equal(result.operator_control.leaseStatus, "revoked");
+  assert.equal(result.run.trace.approvalRevocations[0].eventId, "event_revoke");
 });
