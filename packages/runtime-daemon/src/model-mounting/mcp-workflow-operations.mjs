@@ -34,6 +34,18 @@ const CANONICAL_EPHEMERAL_MCP_INTEGRATION_FIELDS = [
   "allowed_tools",
 ];
 
+const RETIRED_MCP_TOOL_INVOCATION_REQUEST_ALIASES = [
+  "serverId",
+  "server_label",
+  "serverLabel",
+];
+
+const CANONICAL_MCP_TOOL_INVOCATION_REQUEST_FIELDS = [
+  "server_id",
+  "tool",
+  "input",
+];
+
 export function compileEphemeralMcpIntegrations(state, { authorization, body = {}, input }, deps = {}) {
   const {
     requiredString,
@@ -201,10 +213,10 @@ export function invokeMcpTool(state, { authorization, body = {} }, deps = {}) {
     notFound,
     requiredString,
     runtimeError,
-    safeId,
     stableHash,
   } = deps;
-  const serverId = body.server_id ?? body.serverId ?? `mcp.${safeId(body.server_label ?? body.serverLabel ?? "")}`;
+  assertCanonicalMcpToolInvocationRequestBody(body);
+  const serverId = requiredString(body.server_id, "server_id");
   const server = state.mcpServers.get(serverId);
   if (!server) throw notFound(`MCP server not found: ${serverId}`, { server_id: serverId });
   const tool = requiredString(body.tool, "tool");
@@ -234,6 +246,19 @@ export function invokeMcpTool(state, { authorization, body = {} }, deps = {}) {
     result: { ok: true, fixture: true, tool },
     receipt,
   };
+}
+
+function assertCanonicalMcpToolInvocationRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MCP_TOOL_INVOCATION_REQUEST_ALIASES.filter((field) => Object.prototype.hasOwnProperty.call(body, field));
+  if (retiredAliases.length === 0) return;
+  const error = new Error("MCP tool invocation request uses retired compatibility aliases.");
+  error.status = 400;
+  error.code = "model_mount_mcp_tool_invocation_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_MCP_TOOL_INVOCATION_REQUEST_FIELDS,
+  };
+  throw error;
 }
 
 function mcpServerReceiptDetails(server) {

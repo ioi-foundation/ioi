@@ -6324,6 +6324,8 @@ function runReceipts() {
     mcpWorkflowOperations.match(/export function compileEphemeralMcpIntegrations[\s\S]*?function assertCanonicalEphemeralMcpIntegration/)?.[0] ?? "";
   const mcpImportJsonBlock =
     mcpWorkflowOperations.match(/export function importMcpJson[\s\S]*?function assertCanonicalMcpImportRequestBody/)?.[0] ?? "";
+  const mcpInvokeToolBlock =
+    mcpWorkflowOperations.match(/export function invokeMcpTool[\s\S]*?function assertCanonicalMcpToolInvocationRequestBody/)?.[0] ?? "";
   const catalogHelpers = exists("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs")
     : "";
@@ -7245,6 +7247,30 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
     ],
     "Phase 10/11 is pending: ephemeral MCP integrations must use canonical server_label/server_url/allowed_tools without retired camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-mcp-tool-invocation-request-aliases-retired",
+    /RETIRED_MCP_TOOL_INVOCATION_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
+      /CANONICAL_MCP_TOOL_INVOCATION_REQUEST_FIELDS/.test(mcpWorkflowOperations) &&
+      /assertCanonicalMcpToolInvocationRequestBody\(body\);/.test(mcpInvokeToolBlock) &&
+      /requiredString\(body\.server_id,\s*"server_id"\)/.test(mcpInvokeToolBlock) &&
+      /model_mount_mcp_tool_invocation_request_aliases_retired/.test(mcpWorkflowOperations) &&
+      !/body\.(?:serverId|server_label|serverLabel)\b/.test(mcpInvokeToolBlock) &&
+      !/safeId\(body\.(?:server_label|serverLabel)/.test(mcpInvokeToolBlock) &&
+      /invokeMcpTool rejects retired request aliases before authorization/.test(
+        mcpWorkflowOperationsTest,
+      ) &&
+      /serverId: "mcp\.Local"/.test(mcpWorkflowOperationsTest) &&
+      /server_label: "Local"/.test(mcpWorkflowOperationsTest) &&
+      /serverLabel: "Local"/.test(mcpWorkflowOperationsTest) &&
+      /assert\.deepEqual\(state\.authorizations,\s*\[\]\)/.test(mcpWorkflowOperationsTest) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(mcpWorkflowOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP tool invocation must require canonical server_id without retired serverId or label-derived aliases",
   );
   assertCheck(
     result,

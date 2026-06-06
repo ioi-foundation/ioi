@@ -246,6 +246,42 @@ test("invokeMcpTool enforces allowed tools and emits redacted fixture result", (
   );
 });
 
+test("invokeMcpTool rejects retired request aliases before authorization", () => {
+  const state = fakeState();
+  state.mcpServers.set("mcp.Local", {
+    id: "mcp.Local",
+    label: "Local",
+    allowedTools: ["run"],
+  });
+
+  assert.throws(
+    () =>
+      invokeMcpTool(
+        state,
+        {
+          authorization: "auth",
+          body: {
+            serverId: "mcp.Local",
+            server_label: "Local",
+            serverLabel: "Local",
+            tool: "run",
+            input: { prompt: "hello" },
+          },
+        },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_mcp_tool_invocation_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["serverId", "server_label", "serverLabel"]);
+      assert.deepEqual(error.details.canonical_fields, ["server_id", "tool", "input"]);
+      return true;
+    },
+  );
+  assert.deepEqual(state.authorizations, []);
+  assert.deepEqual(state.receipts, []);
+});
+
 test("compileEphemeralMcpIntegrations registers ephemeral servers and invokes allowed tools", () => {
   const state = fakeState();
 
