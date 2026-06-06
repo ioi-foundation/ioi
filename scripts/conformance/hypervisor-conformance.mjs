@@ -10852,6 +10852,10 @@ function runCompositor() {
     diagnosticsRepairExecution.match(
       /  function diagnosticsOperatorOverrideResultFromEvent\(\{ threadId, event, turn = null \} = \{\}\) \{[\s\S]*?(?=\n  function workspaceRestoreApplyAllowsConflicts)/,
     )?.[0] ?? "";
+  const diagnosticsRepairExecutionStatusBody =
+    diagnosticsRepairExecution.match(
+      /  function diagnosticsRepairExecutionStatus\(result = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsRepairRetryResultFromEvent)/,
+    )?.[0] ?? "";
   assertCheck(
     result,
     "diagnostics-repair-helper-result-aliases-retired",
@@ -10868,23 +10872,43 @@ function runCompositor() {
       /receipt_refs:\s*normalizeArray\(event\?\.receipt_refs\)/.test(
         diagnosticsRepairRetryResultBody,
       ) &&
-      /approval_required:\s*Boolean\(payload\.approval_required \?\? payload\.approvalRequired\)/.test(
+      /gate_event_id:\s*payload\.gate_event_id \?\? null/.test(
         diagnosticsOperatorOverrideResultBody,
       ) &&
-      /continuation_allowed:\s*Boolean\(payload\.continuation_allowed \?\? payload\.continuationAllowed\)/.test(
+      /gate_id:\s*payload\.gate_id \?\? null/.test(
+        diagnosticsOperatorOverrideResultBody,
+      ) &&
+      /approval_required:\s*Boolean\(payload\.approval_required\)/.test(
+        diagnosticsOperatorOverrideResultBody,
+      ) &&
+      /continuation_allowed:\s*Boolean\(payload\.continuation_allowed\)/.test(
         diagnosticsOperatorOverrideResultBody,
       ) &&
       /receipt_refs:\s*normalizeArray\(event\?\.receipt_refs\)/.test(
         diagnosticsOperatorOverrideResultBody,
       ) &&
+      /const applyStatus = optionalString\(result\.apply_status\)/.test(
+        diagnosticsRepairExecutionStatusBody,
+      ) &&
+      /const previewStatus = optionalString\(result\.preview_status\)/.test(
+        diagnosticsRepairExecutionStatusBody,
+      ) &&
+      !/\b(?:result|payload)\.(?:applyStatus|previewStatus|gateEventId|gateId|targetTurnId|targetRunId|approvalRequired|approvalSatisfied|approvalSource|continuationAllowed)\b/.test(
+        `${diagnosticsRepairExecutionStatusBody}\n${diagnosticsOperatorOverrideResultBody}`,
+      ) &&
       !/^\s*(?:schemaVersion|threadId|turnId|requestId|repairTurn|receiptRefs|artifactRefs|policyDecisionRefs|rollbackRefs)\s*:/m.test(
         diagnosticsRepairRetryResultBody,
       ) &&
-      !/^\s*(?:schemaVersion|threadId|overrideStatus|gateEventId|targetTurnId|targetRunId|approvalRequired|approvalSatisfied|approvalSource|continuationAllowed|receiptRefs|artifactRefs|policyDecisionRefs|rollbackRefs)\s*:/m.test(
+      !/^\s*(?:schemaVersion|threadId|overrideStatus|gateEventId|gateId|targetTurnId|targetRunId|approvalRequired|approvalSatisfied|approvalSource|continuationAllowed|receiptRefs|artifactRefs|policyDecisionRefs|rollbackRefs)\s*:/m.test(
         diagnosticsOperatorOverrideResultBody,
       ) &&
       /Object\.hasOwn\(retry,\s*field\),\s*false/.test(diagnosticsRepairExecutionTest) &&
-      /Object\.hasOwn\(override,\s*field\),\s*false/.test(diagnosticsRepairExecutionTest),
+      /Object\.hasOwn\(override,\s*field\),\s*false/.test(diagnosticsRepairExecutionTest) &&
+      /diagnosticsRepairExecutionStatus\(\{ applyStatus: "failed" \}\), "completed"/.test(
+        diagnosticsRepairExecutionTest,
+      ) &&
+      /gateEventId: "event-gate-alias"/.test(diagnosticsRepairExecutionTest) &&
+      /aliasOnlyOverride\.gate_event_id,\s*null/.test(diagnosticsRepairExecutionTest),
     [
       "packages/runtime-daemon/src/diagnostics-repair-execution.mjs",
       "packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs",

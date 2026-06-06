@@ -103,10 +103,10 @@ export function createDiagnosticsRepairExecutionHelpers({
   function diagnosticsRepairExecutionStatus(result = {}) {
     const status = optionalString(result.status);
     if (["blocked", "failed", "completed"].includes(status)) return status;
-    const applyStatus = optionalString(result.apply_status ?? result.applyStatus);
+    const applyStatus = optionalString(result.apply_status);
     if (applyStatus === "blocked") return "blocked";
     if (applyStatus === "failed") return "failed";
-    const previewStatus = optionalString(result.preview_status ?? result.previewStatus);
+    const previewStatus = optionalString(result.preview_status);
     if (previewStatus === "blocked") return "blocked";
     return "completed";
   }
@@ -141,15 +141,14 @@ export function createDiagnosticsRepairExecutionHelpers({
       thread_id: threadId,
       status,
       override_status: status,
-      gate_event_id: payload.gate_event_id ?? payload.gateEventId ?? null,
-      gateId: payload.gate_id ?? payload.gateId ?? null,
-      gate_id: payload.gate_id ?? payload.gateId ?? null,
-      target_turn_id: payload.target_turn_id ?? payload.targetTurnId ?? null,
-      target_run_id: payload.target_run_id ?? payload.targetRunId ?? null,
-      approval_required: Boolean(payload.approval_required ?? payload.approvalRequired),
-      approval_satisfied: Boolean(payload.approval_satisfied ?? payload.approvalSatisfied),
-      approval_source: payload.approval_source ?? payload.approvalSource ?? null,
-      continuation_allowed: Boolean(payload.continuation_allowed ?? payload.continuationAllowed),
+      gate_event_id: payload.gate_event_id ?? null,
+      gate_id: payload.gate_id ?? null,
+      target_turn_id: payload.target_turn_id ?? null,
+      target_run_id: payload.target_run_id ?? null,
+      approval_required: Boolean(payload.approval_required),
+      approval_satisfied: Boolean(payload.approval_satisfied),
+      approval_source: payload.approval_source ?? null,
+      continuation_allowed: Boolean(payload.continuation_allowed),
       turn,
       event,
       operator_override_event: event,

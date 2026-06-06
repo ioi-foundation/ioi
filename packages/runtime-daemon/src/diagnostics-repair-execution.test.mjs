@@ -67,6 +67,10 @@ test("workspace restore apply helpers enforce approval and conflict policy", () 
     "policy_workspace_restore_apply_snapshot:one_conflict_override",
     "policy_workspace_restore_apply_snapshot:one_write_failed",
   ]);
+  assert.equal(runtime.diagnosticsRepairExecutionStatus({ apply_status: "failed" }), "failed");
+  assert.equal(runtime.diagnosticsRepairExecutionStatus({ applyStatus: "failed" }), "completed");
+  assert.equal(runtime.diagnosticsRepairExecutionStatus({ preview_status: "blocked" }), "blocked");
+  assert.equal(runtime.diagnosticsRepairExecutionStatus({ previewStatus: "blocked" }), "completed");
 });
 
 test("diagnostics repair execution projections preserve public envelopes", () => {
@@ -112,21 +116,32 @@ test("diagnostics repair execution projections preserve public envelopes", () =>
     event: {
       ...event,
       payload_summary: {
+        gate_event_id: "event-gate",
+        gate_id: "gate-one",
+        target_turn_id: "turn-blocked",
+        target_run_id: "run-blocked",
         approval_required: true,
         approval_satisfied: true,
+        approval_source: "boolean_confirmation",
         continuation_allowed: true,
       },
     },
   });
   assert.equal(override.object, "ioi.runtime_diagnostics_operator_override");
+  assert.equal(override.gate_event_id, "event-gate");
+  assert.equal(override.gate_id, "gate-one");
+  assert.equal(override.target_turn_id, "turn-blocked");
+  assert.equal(override.target_run_id, "run-blocked");
   assert.equal(override.approval_required, true);
   assert.equal(override.approval_satisfied, true);
+  assert.equal(override.approval_source, "boolean_confirmation");
   assert.equal(override.continuation_allowed, true);
   for (const field of [
     "schemaVersion",
     "threadId",
     "overrideStatus",
     "gateEventId",
+    "gateId",
     "targetTurnId",
     "targetRunId",
     "approvalRequired",
@@ -140,4 +155,29 @@ test("diagnostics repair execution projections preserve public envelopes", () =>
   ]) {
     assert.equal(Object.hasOwn(override, field), false);
   }
+
+  const aliasOnlyOverride = runtime.diagnosticsOperatorOverrideResultFromEvent({
+    threadId: "thread-one",
+    event: {
+      ...event,
+      payload_summary: {
+        gateEventId: "event-gate-alias",
+        gateId: "gate-alias",
+        targetTurnId: "turn-alias",
+        targetRunId: "run-alias",
+        approvalRequired: true,
+        approvalSatisfied: true,
+        approvalSource: "alias_source",
+        continuationAllowed: true,
+      },
+    },
+  });
+  assert.equal(aliasOnlyOverride.gate_event_id, null);
+  assert.equal(aliasOnlyOverride.gate_id, null);
+  assert.equal(aliasOnlyOverride.target_turn_id, null);
+  assert.equal(aliasOnlyOverride.target_run_id, null);
+  assert.equal(aliasOnlyOverride.approval_required, false);
+  assert.equal(aliasOnlyOverride.approval_satisfied, false);
+  assert.equal(aliasOnlyOverride.approval_source, null);
+  assert.equal(aliasOnlyOverride.continuation_allowed, false);
 });
