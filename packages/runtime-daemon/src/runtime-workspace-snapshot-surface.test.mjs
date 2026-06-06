@@ -364,8 +364,13 @@ test("workspace snapshot surface appends and lists snapshot events", () => {
   assert.equal(event.workflow_node_id, "runtime.workspace-snapshot");
   assert.deepEqual(event.rollback_refs, ["workspace_snapshot_alpha"]);
   const list = surface.listWorkspaceSnapshots(store, "thread_alpha");
-  assert.equal(list.snapshotCount, 1);
+  assert.equal(list.schema_version, "ioi.runtime.workspace-snapshot.v1");
+  assert.equal(list.thread_id, "thread_alpha");
+  assert.equal(list.snapshot_count, 1);
   assert.equal(list.snapshots[0].snapshotId, "workspace_snapshot_alpha");
+  for (const field of ["schemaVersion", "threadId", "snapshotCount"]) {
+    assert.equal(Object.hasOwn(list, field), false);
+  }
 });
 
 test("workspace snapshot surface reads content packages and fails closed when unavailable", () => {

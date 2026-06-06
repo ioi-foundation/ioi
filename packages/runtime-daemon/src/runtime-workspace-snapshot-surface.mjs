@@ -267,11 +267,9 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       .map((event) => event.payload_summary?.snapshot ?? event.payload_summary)
       .filter((snapshot) => snapshot && typeof snapshot === "object" && !Array.isArray(snapshot));
     return {
-      schemaVersion: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
+      schema_version: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
       object: "ioi.runtime_workspace_snapshot_list",
-      threadId,
       thread_id: threadId,
-      snapshotCount: snapshots.length,
       snapshot_count: snapshots.length,
       snapshots,
     };

@@ -10657,6 +10657,23 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "workspace-snapshot-list-output-aliases-retired",
+    /function listWorkspaceSnapshots\(store, threadId\)/.test(runtimeWorkspaceSnapshotSurface) &&
+      /schema_version:\s*WORKSPACE_SNAPSHOT_SCHEMA_VERSION/.test(runtimeWorkspaceSnapshotSurface) &&
+      /snapshot_count:\s*snapshots\.length/.test(runtimeWorkspaceSnapshotSurface) &&
+      /Object\.hasOwn\(list,\s*field\),\s*false/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /"schemaVersion"[\s\S]*"threadId"[\s\S]*"snapshotCount"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      !/function listWorkspaceSnapshots\(store, threadId\)(?:(?!\n  function previewWorkspaceSnapshotRestore)[\s\S])*?\b(?:schemaVersion|threadId|snapshotCount)\s*:/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: workspace snapshot list output must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "workspace-change-review-aliases-retired",
     /schema_version:\s*WORKSPACE_CHANGE_REVIEW_SCHEMA_VERSION/.test(
       workspaceChangeInspection,
