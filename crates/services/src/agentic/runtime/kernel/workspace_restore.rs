@@ -1,11 +1,179 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
+use std::fs;
+use std::path::{Component, Path, PathBuf};
+use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
+pub const WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.workspace_restore_preview_operations_request.v1";
+pub const WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.workspace_restore_apply_operations_request.v1";
 pub const WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.workspace_restore_apply_policy_request.v1";
 pub const WORKSPACE_RESTORE_APPLY_POLICY_PLAN_SCHEMA_VERSION: &str =
     "ioi.workspace_restore_apply_policy_plan.v1";
+pub const WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES: u64 = 256 * 1024;
+pub const WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES: u64 = 32 * 1024;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkspaceRestoreOperationsRequest {
+    pub schema_version: String,
+    pub workspace_root: String,
+    #[serde(default)]
+    pub files: Vec<WorkspaceRestoreFile>,
+    #[serde(default)]
+    pub max_diff_bytes: Option<u64>,
+    #[serde(default)]
+    pub allow_conflicts: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkspaceRestoreFile {
+    pub path: String,
+    #[serde(default)]
+    pub before: WorkspaceRestoreFileSide,
+    #[serde(default)]
+    pub after: WorkspaceRestoreFileSide,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkspaceRestoreFileSide {
+    #[serde(default)]
+    pub exists: bool,
+    #[serde(default)]
+    pub content_hash: Option<String>,
+    #[serde(default)]
+    pub content: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkspaceRestoreOperationRecord {
+    pub path: String,
+    pub operation: String,
+    pub status: String,
+    pub current_exists: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_hash: Option<String>,
+    pub current_bytes: u64,
+    pub target_exists: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_hash: Option<String>,
+    pub snapshot_after_exists: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snapshot_after_hash: Option<String>,
+    pub current_matches_snapshot_post: bool,
+    pub current_matches_restore_target: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blocked_reason: Option<String>,
+    pub diff: String,
+    pub diff_bytes: u64,
+    pub diff_hash: String,
+    pub diff_truncated: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub apply_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub apply_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applied_exists: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applied_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applied_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applied_matches_target: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct WorkspaceRestoreCurrent {
+    exists: bool,
+    content: String,
+    content_hash: Option<String>,
+    content_bytes: u64,
+    blocked: bool,
+    blocked_reason: Option<String>,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct WorkspaceRestoreOperationsCore;
+
+impl WorkspaceRestoreOperationsCore {
+    pub fn preview_operations(
+        &self,
+        request: &WorkspaceRestoreOperationsRequest,
+    ) -> Result<Vec<WorkspaceRestoreOperationRecord>, WorkspaceRestoreOperationError> {
+        request.validate(WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION)?;
+        request
+            .files
+            .iter()
+            .map(|file| {
+                preview_operation(
+                    &request.workspace_root,
+                    file,
+                    request
+                        .max_diff_bytes
+                        .unwrap_or(WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES),
+                )
+            })
+            .collect()
+    }
+
+    pub fn apply_operations(
+        &self,
+        request: &WorkspaceRestoreOperationsRequest,
+    ) -> Result<Vec<WorkspaceRestoreOperationRecord>, WorkspaceRestoreOperationError> {
+        request.validate(WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION)?;
+        let allow_conflicts = request.allow_conflicts.unwrap_or(false);
+        let plans = request
+            .files
+            .iter()
+            .map(|file| {
+                preview_operation(
+                    &request.workspace_root,
+                    file,
+                    request
+                        .max_diff_bytes
+                        .unwrap_or(WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES),
+                )
+                .map(|preview| (file, preview))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let blocked_preflight = plans.iter().any(|(_, preview)| {
+            preview.status == "blocked" || (preview.status == "conflict" && !allow_conflicts)
+        });
+        if blocked_preflight {
+            return Ok(plans
+                .into_iter()
+                .map(|(_, preview)| blocked_apply_operation(preview, allow_conflicts))
+                .collect());
+        }
+        plans
+            .into_iter()
+            .map(|(file, preview)| {
+                apply_operation(&request.workspace_root, file, preview, allow_conflicts)
+            })
+            .collect()
+    }
+}
+
+impl WorkspaceRestoreOperationsRequest {
+    fn validate(&self, expected: &'static str) -> Result<(), WorkspaceRestoreOperationError> {
+        if self.schema_version != expected {
+            return Err(WorkspaceRestoreOperationError::InvalidSchemaVersion {
+                expected,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if self.workspace_root.trim().is_empty() {
+            return Err(WorkspaceRestoreOperationError::MissingWorkspaceRoot);
+        }
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkspaceRestoreApplyPolicyRequest {
@@ -326,6 +494,25 @@ pub enum WorkspaceRestoreApplyPolicyError {
     MissingSnapshotId,
 }
 
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+pub enum WorkspaceRestoreOperationError {
+    #[error(
+        "workspace restore operation schema is invalid: expected {expected}, received {actual}"
+    )]
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    #[error("workspace restore operation requires workspace_root")]
+    MissingWorkspaceRoot,
+    #[error("workspace restore path must be workspace-relative: {0}")]
+    UnsafePath(String),
+    #[error("workspace restore path escaped workspace root: {0}")]
+    PathEscapedWorkspace(String),
+    #[error("workspace restore IO failed: {0}")]
+    Io(String),
+}
+
 const APPROVED_TEXT: [&str; 8] = [
     "approve",
     "approved",
@@ -345,6 +532,422 @@ const CONFLICT_OVERRIDE_POLICIES: [&str; 6] = [
     "force_apply",
     "apply_with_conflicts",
 ];
+
+fn preview_operation(
+    workspace_root: &str,
+    file: &WorkspaceRestoreFile,
+    max_diff_bytes: u64,
+) -> Result<WorkspaceRestoreOperationRecord, WorkspaceRestoreOperationError> {
+    let target = resolve_workspace_restore_path(workspace_root, &file.path)?;
+    let current = read_workspace_restore_current(&target.absolute_path);
+    let before_exists = file.before.exists;
+    let after_exists = file.after.exists;
+    let desired_content = if before_exists {
+        file.before.content.as_deref().unwrap_or("")
+    } else {
+        ""
+    };
+    let desired_hash = if before_exists {
+        trim_optional_string(file.before.content_hash.as_deref())
+    } else {
+        None
+    };
+    let after_hash = if after_exists {
+        trim_optional_string(file.after.content_hash.as_deref())
+    } else {
+        None
+    };
+    let current_matches_snapshot_post =
+        current.exists == after_exists && (!after_exists || current.content_hash == after_hash);
+    let current_matches_restore_target =
+        current.exists == before_exists && (!before_exists || current.content_hash == desired_hash);
+    let content_available = !before_exists || file.before.content.is_some();
+    let operation = if current_matches_restore_target {
+        "noop"
+    } else if before_exists {
+        if current.exists {
+            "replace"
+        } else {
+            "create"
+        }
+    } else {
+        "delete"
+    }
+    .to_string();
+    let status = if current_matches_restore_target {
+        "noop"
+    } else if !content_available || current.blocked {
+        "blocked"
+    } else if current_matches_snapshot_post {
+        "ready"
+    } else {
+        "conflict"
+    }
+    .to_string();
+    let diff = if status == "ready" {
+        workspace_restore_diff_preview(
+            &target.relative_path,
+            if current.exists { &current.content } else { "" },
+            if before_exists { desired_content } else { "" },
+            max_diff_bytes,
+        )
+    } else {
+        WorkspaceRestoreDiff {
+            text: String::new(),
+            bytes: 0,
+            truncated: false,
+        }
+    };
+    Ok(WorkspaceRestoreOperationRecord {
+        path: target.relative_path,
+        operation,
+        status,
+        current_exists: current.exists,
+        current_hash: current.content_hash,
+        current_bytes: current.content_bytes,
+        target_exists: before_exists,
+        target_hash: desired_hash,
+        snapshot_after_exists: after_exists,
+        snapshot_after_hash: after_hash,
+        current_matches_snapshot_post,
+        current_matches_restore_target,
+        blocked_reason: current.blocked_reason.or_else(|| {
+            if !content_available {
+                Some("snapshot_restore_target_content_missing".to_string())
+            } else {
+                None
+            }
+        }),
+        diff_hash: sha256_hex(&diff.text),
+        diff: diff.text,
+        diff_bytes: diff.bytes,
+        diff_truncated: diff.truncated,
+        apply_status: None,
+        apply_reason: None,
+        applied_exists: None,
+        applied_hash: None,
+        applied_bytes: None,
+        applied_matches_target: None,
+        error_message: None,
+    })
+}
+
+fn blocked_apply_operation(
+    mut preview: WorkspaceRestoreOperationRecord,
+    allow_conflicts: bool,
+) -> WorkspaceRestoreOperationRecord {
+    preview.apply_status = Some("blocked".to_string());
+    preview.apply_reason = workspace_restore_apply_block_reason(&preview, allow_conflicts);
+    preview
+}
+
+fn apply_operation(
+    workspace_root: &str,
+    file: &WorkspaceRestoreFile,
+    preview: WorkspaceRestoreOperationRecord,
+    allow_conflicts: bool,
+) -> Result<WorkspaceRestoreOperationRecord, WorkspaceRestoreOperationError> {
+    let target = resolve_workspace_restore_path(workspace_root, &file.path)?;
+    let target_exists = file.before.exists;
+    if preview.status == "noop" {
+        let current = read_workspace_restore_current(&target.absolute_path);
+        return Ok(applied_operation(preview, current, "noop"));
+    }
+    let write_result = if !target_exists {
+        if target.absolute_path.exists() {
+            fs::remove_file(&target.absolute_path)
+        } else {
+            Ok(())
+        }
+    } else if let Some(content) = &file.before.content {
+        if let Some(parent) = target.absolute_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(&target.absolute_path, content)
+    } else {
+        let mut failed = preview;
+        failed.apply_status = Some("failed".to_string());
+        failed.apply_reason = Some("snapshot_restore_target_content_missing".to_string());
+        return Ok(failed);
+    };
+    if let Err(error) = write_result {
+        let mut failed = preview;
+        failed.apply_status = Some("failed".to_string());
+        failed.apply_reason = Some("workspace_restore_write_failed".to_string());
+        failed.error_message = Some(error.to_string());
+        return Ok(failed);
+    }
+    let current = read_workspace_restore_current(&target.absolute_path);
+    let apply_status = if preview.status == "conflict" && allow_conflicts {
+        "applied_with_override"
+    } else {
+        "applied"
+    };
+    Ok(applied_operation(preview, current, apply_status))
+}
+
+fn applied_operation(
+    mut preview: WorkspaceRestoreOperationRecord,
+    current: WorkspaceRestoreCurrent,
+    apply_status: &str,
+) -> WorkspaceRestoreOperationRecord {
+    preview.apply_status = Some(apply_status.to_string());
+    preview.applied_exists = Some(current.exists);
+    preview.applied_hash = current.content_hash.clone();
+    preview.applied_bytes = Some(current.content_bytes);
+    preview.applied_matches_target = Some(
+        current.exists == preview.target_exists
+            && (!current.exists || current.content_hash == preview.target_hash),
+    );
+    preview
+}
+
+fn workspace_restore_apply_block_reason(
+    preview: &WorkspaceRestoreOperationRecord,
+    allow_conflicts: bool,
+) -> Option<String> {
+    if preview.status == "blocked" {
+        return Some(
+            preview
+                .blocked_reason
+                .clone()
+                .unwrap_or_else(|| "workspace_restore_preview_blocked".to_string()),
+        );
+    }
+    if preview.status == "conflict" && !allow_conflicts {
+        return Some("workspace_restore_conflict_requires_override".to_string());
+    }
+    None
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct WorkspaceRestorePath {
+    absolute_path: PathBuf,
+    relative_path: String,
+}
+
+fn resolve_workspace_restore_path(
+    workspace_root: &str,
+    selected_path: &str,
+) -> Result<WorkspaceRestorePath, WorkspaceRestoreOperationError> {
+    let relative_input = selected_path.trim();
+    if relative_input.is_empty()
+        || relative_input.contains('\0')
+        || Path::new(relative_input).is_absolute()
+    {
+        return Err(WorkspaceRestoreOperationError::UnsafePath(
+            selected_path.to_string(),
+        ));
+    }
+    let root = normalize_path(&absolute_path(workspace_root)?);
+    let candidate = normalize_path(&root.join(relative_input));
+    if !path_inside(&root, &candidate) {
+        return Err(WorkspaceRestoreOperationError::PathEscapedWorkspace(
+            selected_path.to_string(),
+        ));
+    }
+    let relative_path = candidate
+        .strip_prefix(&root)
+        .unwrap_or(candidate.as_path())
+        .to_string_lossy()
+        .replace('\\', "/");
+    Ok(WorkspaceRestorePath {
+        absolute_path: candidate,
+        relative_path: if relative_path.is_empty() {
+            ".".to_string()
+        } else {
+            relative_path
+        },
+    })
+}
+
+fn read_workspace_restore_current(path: &Path) -> WorkspaceRestoreCurrent {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return WorkspaceRestoreCurrent {
+                exists: false,
+                content: String::new(),
+                content_hash: None,
+                content_bytes: 0,
+                blocked: false,
+                blocked_reason: None,
+            };
+        }
+        Err(error) => {
+            return WorkspaceRestoreCurrent {
+                exists: true,
+                content: String::new(),
+                content_hash: None,
+                content_bytes: 0,
+                blocked: true,
+                blocked_reason: Some(format!("current_path_metadata_failed:{error}")),
+            };
+        }
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return WorkspaceRestoreCurrent {
+            exists: true,
+            content: String::new(),
+            content_hash: None,
+            content_bytes: metadata.len(),
+            blocked: true,
+            blocked_reason: Some(
+                if metadata.file_type().is_symlink() {
+                    "current_path_is_symbolic_link"
+                } else {
+                    "current_path_not_regular_file"
+                }
+                .to_string(),
+            ),
+        };
+    }
+    if metadata.len() > WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES {
+        return WorkspaceRestoreCurrent {
+            exists: true,
+            content: String::new(),
+            content_hash: None,
+            content_bytes: metadata.len(),
+            blocked: true,
+            blocked_reason: Some("current_content_size_limit_exceeded".to_string()),
+        };
+    }
+    let bytes = match fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            return WorkspaceRestoreCurrent {
+                exists: true,
+                content: String::new(),
+                content_hash: None,
+                content_bytes: metadata.len(),
+                blocked: true,
+                blocked_reason: Some(format!("current_content_read_failed:{error}")),
+            };
+        }
+    };
+    let content = String::from_utf8_lossy(&bytes).to_string();
+    WorkspaceRestoreCurrent {
+        exists: true,
+        content_hash: Some(sha256_hex(&content)),
+        content,
+        content_bytes: bytes.len() as u64,
+        blocked: false,
+        blocked_reason: None,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct WorkspaceRestoreDiff {
+    text: String,
+    bytes: u64,
+    truncated: bool,
+}
+
+fn workspace_restore_diff_preview(
+    relative_path: &str,
+    before: &str,
+    after: &str,
+    max_bytes: u64,
+) -> WorkspaceRestoreDiff {
+    if before == after {
+        return WorkspaceRestoreDiff {
+            text: String::new(),
+            bytes: 0,
+            truncated: false,
+        };
+    }
+    let tmp_root = std::env::temp_dir().join(format!(
+        "ioi-workspace-restore-diff-{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or(0)
+    ));
+    let before_path = tmp_root.join("current");
+    let after_path = tmp_root.join("restore");
+    let diff_text = (|| -> Result<String, WorkspaceRestoreOperationError> {
+        fs::create_dir_all(&tmp_root)?;
+        fs::write(&before_path, before)?;
+        fs::write(&after_path, after)?;
+        let output = Command::new("git")
+            .args([
+                "diff",
+                "--no-index",
+                "--no-color",
+                "--",
+                &before_path.to_string_lossy(),
+                &after_path.to_string_lossy(),
+            ])
+            .output();
+        let raw = match output {
+            Ok(output) => {
+                if !output.stdout.is_empty() {
+                    String::from_utf8_lossy(&output.stdout).to_string()
+                } else {
+                    String::from_utf8_lossy(&output.stderr).to_string()
+                }
+            }
+            Err(_) => format!(
+                "diff --git a/{relative_path} b/{relative_path}\n--- a/{relative_path}\n+++ b/{relative_path}\n@@ restore preview unavailable @@\n"
+            ),
+        };
+        Ok(raw
+            .replace(&before_path.to_string_lossy().to_string(), &format!("a/{relative_path}"))
+            .replace(&after_path.to_string_lossy().to_string(), &format!("b/{relative_path}")))
+    })()
+    .unwrap_or_else(|error| format!("workspace restore diff unavailable: {error}"));
+    let _ = fs::remove_dir_all(&tmp_root);
+    let bytes = diff_text.as_bytes();
+    let limit = max_bytes.max(1);
+    let truncated = bytes.len() as u64 > limit;
+    let full_len = bytes.len() as u64;
+    let text = if truncated {
+        String::from_utf8_lossy(&bytes[..limit as usize]).to_string()
+    } else {
+        diff_text
+    };
+    WorkspaceRestoreDiff {
+        text,
+        bytes: full_len,
+        truncated,
+    }
+}
+
+fn absolute_path(value: &str) -> Result<PathBuf, WorkspaceRestoreOperationError> {
+    let path = PathBuf::from(value);
+    if path.is_absolute() {
+        Ok(path)
+    } else {
+        Ok(std::env::current_dir()
+            .map_err(WorkspaceRestoreOperationError::from)?
+            .join(path))
+    }
+}
+
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            other => normalized.push(other.as_os_str()),
+        }
+    }
+    normalized
+}
+
+fn path_inside(root: &Path, candidate: &Path) -> bool {
+    candidate == root || candidate.starts_with(root)
+}
+
+impl From<std::io::Error> for WorkspaceRestoreOperationError {
+    fn from(error: std::io::Error) -> Self {
+        WorkspaceRestoreOperationError::Io(error.to_string())
+    }
+}
 
 fn operation_apply_blocked_reason(
     operation: &WorkspaceRestoreOperationPolicyInput,
@@ -470,6 +1073,13 @@ fn json_value_is_true(value: &Option<Value>) -> bool {
     }
 }
 
+fn trim_optional_string(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+}
+
 fn first_non_empty<'a, I>(values: I) -> Option<&'a str>
 where
     I: IntoIterator<Item = Option<&'a str>>,
@@ -479,6 +1089,10 @@ where
         .flatten()
         .map(str::trim)
         .find(|value| !value.is_empty())
+}
+
+fn sha256_hex(value: &str) -> String {
+    hex::encode(Sha256::digest(value.as_bytes()))
 }
 
 fn safe_id(value: &str) -> String {
@@ -508,6 +1122,92 @@ fn unique_strings(values: Vec<String>) -> Vec<String> {
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::fs;
+    use std::path::PathBuf;
+
+    fn temp_workspace(name: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "ioi-workspace-restore-kernel-test-{}-{}",
+            name,
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or(0)
+        ));
+        fs::create_dir_all(&path).expect("workspace dir");
+        path
+    }
+
+    fn restore_file(path: &str, before: &str, after: &str) -> WorkspaceRestoreFile {
+        WorkspaceRestoreFile {
+            path: path.to_string(),
+            before: WorkspaceRestoreFileSide {
+                exists: true,
+                content_hash: Some(sha256_hex(before)),
+                content: Some(before.to_string()),
+            },
+            after: WorkspaceRestoreFileSide {
+                exists: true,
+                content_hash: Some(sha256_hex(after)),
+                content: None,
+            },
+        }
+    }
+
+    #[test]
+    fn workspace_restore_operations_preview_ready_file_from_rust_core() {
+        let workspace = temp_workspace("preview");
+        let file_path = workspace.join("src/app.js");
+        fs::create_dir_all(file_path.parent().expect("parent")).expect("mkdir");
+        fs::write(&file_path, "new").expect("write current");
+        let request = WorkspaceRestoreOperationsRequest {
+            schema_version: WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION.to_string(),
+            workspace_root: workspace.to_string_lossy().to_string(),
+            files: vec![restore_file("src/app.js", "old", "new")],
+            max_diff_bytes: Some(4096),
+            allow_conflicts: None,
+        };
+
+        let operations = WorkspaceRestoreOperationsCore
+            .preview_operations(&request)
+            .expect("preview operations");
+
+        assert_eq!(operations.len(), 1);
+        assert_eq!(operations[0].path, "src/app.js");
+        assert_eq!(operations[0].operation, "replace");
+        assert_eq!(operations[0].status, "ready");
+        assert!(operations[0].current_matches_snapshot_post);
+        assert!(!operations[0].diff.is_empty());
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn workspace_restore_operations_apply_restores_file_from_rust_core() {
+        let workspace = temp_workspace("apply");
+        let file_path = workspace.join("src/app.js");
+        fs::create_dir_all(file_path.parent().expect("parent")).expect("mkdir");
+        fs::write(&file_path, "new").expect("write current");
+        let request = WorkspaceRestoreOperationsRequest {
+            schema_version: WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION.to_string(),
+            workspace_root: workspace.to_string_lossy().to_string(),
+            files: vec![restore_file("src/app.js", "old", "new")],
+            max_diff_bytes: Some(4096),
+            allow_conflicts: Some(false),
+        };
+
+        let operations = WorkspaceRestoreOperationsCore
+            .apply_operations(&request)
+            .expect("apply operations");
+
+        assert_eq!(operations[0].status, "ready");
+        assert_eq!(operations[0].apply_status.as_deref(), Some("applied"));
+        assert_eq!(
+            fs::read_to_string(&file_path).expect("restored file"),
+            "old"
+        );
+        assert_eq!(operations[0].applied_matches_target, Some(true));
+        let _ = fs::remove_dir_all(workspace);
+    }
 
     #[test]
     fn workspace_restore_apply_policy_requires_approval_by_default() {

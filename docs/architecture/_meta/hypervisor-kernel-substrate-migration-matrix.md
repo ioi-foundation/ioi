@@ -12048,9 +12048,18 @@ runtime kernel now owns restore-apply approval evaluation, conflict override
 policy, blocked-operation reasons, policy decision refs, and final apply
 summary/status through `WorkspaceRestoreApplyPolicyCore`; the daemon
 workspace snapshot surface calls the fail-closed
-`IOI_WORKSPACE_RESTORE_POLICY_COMMAND` bridge instead of JS apply-policy
+`IOI_WORKSPACE_RESTORE_COMMAND` bridge instead of JS apply-policy
 helpers while file preview/write IO remains in the existing daemon surface for
 the next migration slice.
+
+Slice 334 moves workspace restore file operations into Rust: the Rust runtime
+kernel now owns restore preview operation classification, safe workspace path
+resolution, current-file reads, diff previews, conflict/blocked detection, and
+restore apply writes through `WorkspaceRestoreOperationsCore`; the daemon
+workspace snapshot surface uses the general
+`IOI_WORKSPACE_RESTORE_COMMAND` runner for policy planning, preview
+operations, and apply operations, and the old JS restore preview/apply IO
+helpers are removed rather than kept as a shadow fallback.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

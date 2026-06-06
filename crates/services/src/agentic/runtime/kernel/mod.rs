@@ -83,6 +83,8 @@ use step_router::{
 use workspace_restore::{
     WorkspaceRestoreApplyPolicyCore, WorkspaceRestoreApplyPolicyError,
     WorkspaceRestoreApplyPolicyPlan, WorkspaceRestoreApplyPolicyRequest,
+    WorkspaceRestoreOperationError, WorkspaceRestoreOperationRecord,
+    WorkspaceRestoreOperationsCore, WorkspaceRestoreOperationsRequest,
 };
 
 use ioi_types::app::ApprovalAuthority;
@@ -386,5 +388,19 @@ impl RuntimeKernelService {
         request: &WorkspaceRestoreApplyPolicyRequest,
     ) -> Result<WorkspaceRestoreApplyPolicyPlan, WorkspaceRestoreApplyPolicyError> {
         WorkspaceRestoreApplyPolicyCore.plan_apply_policy(request)
+    }
+
+    pub fn preview_workspace_restore_operations(
+        &self,
+        request: &WorkspaceRestoreOperationsRequest,
+    ) -> Result<Vec<WorkspaceRestoreOperationRecord>, WorkspaceRestoreOperationError> {
+        WorkspaceRestoreOperationsCore.preview_operations(request)
+    }
+
+    pub fn apply_workspace_restore_operations(
+        &self,
+        request: &WorkspaceRestoreOperationsRequest,
+    ) -> Result<Vec<WorkspaceRestoreOperationRecord>, WorkspaceRestoreOperationError> {
+        WorkspaceRestoreOperationsCore.apply_operations(request)
     }
 }

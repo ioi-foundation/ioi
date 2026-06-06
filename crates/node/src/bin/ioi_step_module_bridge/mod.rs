@@ -29,6 +29,7 @@ use ioi_services::agentic::runtime::kernel::step_module::{
 use ioi_services::agentic::runtime::kernel::step_router::StepModuleRouterCore;
 use ioi_services::agentic::runtime::kernel::workspace_restore::{
     WorkspaceRestoreApplyPolicyCore, WorkspaceRestoreApplyPolicyRequest,
+    WorkspaceRestoreOperationsCore, WorkspaceRestoreOperationsRequest,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -232,6 +233,16 @@ struct WorkspaceRestoreApplyPolicyBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct WorkspaceRestoreOperationsBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: WorkspaceRestoreOperationsRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -377,6 +388,18 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_workspace_restore_apply_policy(request)
+        }
+        "preview_workspace_restore_operations" => {
+            let request: WorkspaceRestoreOperationsBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            preview_workspace_restore_operations(request)
+        }
+        "apply_workspace_restore_operations" => {
+            let request: WorkspaceRestoreOperationsBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            apply_workspace_restore_operations(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -1231,6 +1254,68 @@ fn plan_workspace_restore_apply_policy(
         "policy_decision_refs": plan.policy_decision_refs.clone(),
         "operation_policies": plan.operation_policies.clone(),
         "summary": plan.summary.clone(),
+    }))
+}
+
+fn preview_workspace_restore_operations(
+    request: WorkspaceRestoreOperationsBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "preview_workspace_restore_operations" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let operations = WorkspaceRestoreOperationsCore
+        .preview_operations(&request.request)
+        .map_err(|error| {
+            BridgeError::new("workspace_restore_operations_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_workspace_restore_operations_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "operation": "preview_workspace_restore_operations",
+        "operations": operations,
+    }))
+}
+
+fn apply_workspace_restore_operations(
+    request: WorkspaceRestoreOperationsBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "apply_workspace_restore_operations" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let operations = WorkspaceRestoreOperationsCore
+        .apply_operations(&request.request)
+        .map_err(|error| {
+            BridgeError::new("workspace_restore_operations_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_workspace_restore_operations_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "operation": "apply_workspace_restore_operations",
+        "operations": operations,
     }))
 }
 
@@ -3865,6 +3950,19 @@ mod tests {
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
+    fn temp_workspace(name: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "ioi-step-module-bridge-workspace-restore-{}-{}",
+            name,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or(0)
+        ));
+        fs::create_dir_all(&path).expect("workspace dir");
+        path
+    }
+
     #[test]
     fn bridge_admits_model_mount_route_decision_through_rust_core() {
         let request: ModelMountRouteDecisionBridgeRequest = serde_json::from_value(json!({
@@ -5067,6 +5165,56 @@ mod tests {
             response["summary"],
             "Restore apply restored 1 file(s) from workspace_snapshot_alpha with conflict override."
         );
+    }
+
+    #[test]
+    fn bridge_applies_workspace_restore_operations_through_rust_core() {
+        let workspace = temp_workspace("apply");
+        let target = workspace.join("src/app.js");
+        fs::create_dir_all(target.parent().expect("parent")).expect("mkdir");
+        fs::write(&target, "new").expect("write current");
+        let old_hash = sha256_hex(b"old").expect("old hash");
+        let new_hash = sha256_hex(b"new").expect("new hash");
+        let request: WorkspaceRestoreOperationsBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "apply_workspace_restore_operations",
+            "backend": "rust_workspace_restore",
+            "request": {
+                "schema_version": "ioi.workspace_restore_apply_operations_request.v1",
+                "workspace_root": workspace.to_string_lossy(),
+                "max_diff_bytes": 4096,
+                "allow_conflicts": false,
+                "files": [
+                    {
+                        "path": "src/app.js",
+                        "before": {
+                            "exists": true,
+                            "content_hash": old_hash,
+                            "content": "old"
+                        },
+                        "after": {
+                            "exists": true,
+                            "content_hash": new_hash
+                        }
+                    }
+                ]
+            }
+        }))
+        .expect("workspace restore operations bridge request");
+
+        let response = apply_workspace_restore_operations(request)
+            .expect("workspace restore operations applied");
+
+        assert_eq!(
+            response["source"],
+            "rust_workspace_restore_operations_command"
+        );
+        assert_eq!(response["backend"], "rust_workspace_restore");
+        assert_eq!(response["operation"], "apply_workspace_restore_operations");
+        assert_eq!(response["operations"][0]["status"], "ready");
+        assert_eq!(response["operations"][0]["apply_status"], "applied");
+        assert_eq!(fs::read_to_string(&target).expect("restored"), "old");
+        let _ = fs::remove_dir_all(workspace);
     }
 
     #[test]

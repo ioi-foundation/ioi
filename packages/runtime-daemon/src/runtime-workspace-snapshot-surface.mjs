@@ -16,9 +16,7 @@ import {
   WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
   WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
   parseJsonObject,
-  workspaceRestoreApplyOperations,
   workspaceRestoreOperationCounts,
-  workspaceRestorePreviewOperation,
   workspaceSnapshotContentDraftsByPath,
   workspaceSnapshotFileForPatch,
 } from "./workspace-restore.mjs";
@@ -62,7 +60,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     notFound = defaultNotFound,
     runtimeError = defaultRuntimeError,
     writeJson = defaultWriteJson,
-    workspaceRestoreApplyPolicyRunner,
+    workspaceRestoreRunner,
   } = deps;
 
   function prepareWorkspaceSnapshotForPatch(
@@ -304,13 +302,10 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       optionalString(request.workflow_node_id) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
     const idempotencyKey = optionalString(request.idempotency_key);
     const snapshotPackage = workspaceSnapshotContentPackage(store, threadId, normalizedSnapshotId);
-    const operations = normalizeArray(snapshotPackage.files).map((file) =>
-      workspaceRestorePreviewOperation({
-        workspaceRoot: agent.cwd,
-        file,
-        maxDiffBytes: WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
-      }),
-    );
+    const operations = previewWorkspaceRestoreOperations({
+      workspaceRoot: agent.cwd,
+      files: snapshotPackage.files,
+    });
     if (!operations.length) {
       throw runtimeError({
         status: 409,
@@ -421,13 +416,10 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       optionalString(request.workflow_node_id) ?? WORKSPACE_RESTORE_PREVIEW_NODE_ID;
     const idempotencyKey = optionalString(request.idempotency_key);
     const snapshotPackage = workspaceSnapshotContentPackage(store, threadId, normalizedSnapshotId);
-    const previewOperations = normalizeArray(snapshotPackage.files).map((file) =>
-      workspaceRestorePreviewOperation({
-        workspaceRoot: agent.cwd,
-        file,
-        maxDiffBytes: WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
-      }),
-    );
+    const previewOperations = previewWorkspaceRestoreOperations({
+      workspaceRoot: agent.cwd,
+      files: snapshotPackage.files,
+    });
     if (!previewOperations.length) {
       throw runtimeError({
         status: 409,
@@ -454,10 +446,9 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       apply_reason: workspaceRestoreOperationApplyReason(gatePolicyPlan, operation),
     }));
     if (approval.satisfied && !hardBlocked && !conflictBlocked) {
-      operations = workspaceRestoreApplyOperations({
+      operations = applyWorkspaceRestoreOperations({
         workspaceRoot: agent.cwd,
         files: snapshotPackage.files,
-        maxDiffBytes: WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
         allowConflicts,
       });
     }
@@ -602,11 +593,11 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     hardBlocked = null,
     conflictBlocked = null,
   } = {}) {
-    if (!workspaceRestoreApplyPolicyRunner?.planApplyPolicy) {
+    if (!workspaceRestoreRunner?.planApplyPolicy) {
       throw runtimeError({
         status: 502,
-        code: "workspace_restore_policy_bridge_unconfigured",
-        message: "Workspace restore apply policy requires the Rust workspace restore policy bridge.",
+        code: "workspace_restore_bridge_unconfigured",
+        message: "Workspace restore requires the Rust workspace restore bridge.",
         details: { snapshotId },
       });
     }
@@ -630,13 +621,13 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     if (typeof conflictBlocked === "boolean") {
       policyRequest.conflict_blocked = conflictBlocked;
     }
-    const plan = workspaceRestoreApplyPolicyRunner.planApplyPolicy(policyRequest);
+    const plan = workspaceRestoreRunner.planApplyPolicy(policyRequest);
     const approval = plan?.approval && typeof plan.approval === "object" ? plan.approval : null;
     const applyStatus = plan?.applyStatus ?? plan?.apply_status;
     if (!approval || typeof approval.satisfied !== "boolean") {
       throw runtimeError({
         status: 502,
-        code: "workspace_restore_policy_bridge_invalid_plan",
+        code: "workspace_restore_bridge_invalid_plan",
         message: "Rust workspace restore policy bridge returned an invalid approval plan.",
         details: { snapshotId },
       });
@@ -644,7 +635,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     if (counts && !optionalString(applyStatus)) {
       throw runtimeError({
         status: 502,
-        code: "workspace_restore_policy_bridge_invalid_status",
+        code: "workspace_restore_bridge_invalid_status",
         message: "Rust workspace restore policy bridge returned an invalid apply status.",
         details: { snapshotId },
       });
@@ -652,12 +643,49 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     if (counts && !optionalString(plan?.summary)) {
       throw runtimeError({
         status: 502,
-        code: "workspace_restore_policy_bridge_invalid_summary",
+        code: "workspace_restore_bridge_invalid_summary",
         message: "Rust workspace restore policy bridge returned an invalid apply summary.",
         details: { snapshotId },
       });
     }
     return plan;
+  }
+
+  function previewWorkspaceRestoreOperations({ workspaceRoot, files } = {}) {
+    if (!workspaceRestoreRunner?.previewOperations) {
+      throw runtimeError({
+        status: 502,
+        code: "workspace_restore_bridge_unconfigured",
+        message: "Workspace restore preview requires the Rust workspace restore bridge.",
+        details: { workspaceRoot },
+      });
+    }
+    return normalizeArray(
+      workspaceRestoreRunner.previewOperations({
+        workspace_root: workspaceRoot,
+        files,
+        max_diff_bytes: WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
+      }),
+    );
+  }
+
+  function applyWorkspaceRestoreOperations({ workspaceRoot, files, allowConflicts } = {}) {
+    if (!workspaceRestoreRunner?.applyOperations) {
+      throw runtimeError({
+        status: 502,
+        code: "workspace_restore_bridge_unconfigured",
+        message: "Workspace restore apply requires the Rust workspace restore bridge.",
+        details: { workspaceRoot },
+      });
+    }
+    return normalizeArray(
+      workspaceRestoreRunner.applyOperations({
+        workspace_root: workspaceRoot,
+        files,
+        max_diff_bytes: WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
+        allow_conflicts: Boolean(allowConflicts),
+      }),
+    );
   }
 
   function workspaceRestoreOperationApplyReason(policyPlan, operation) {
@@ -668,7 +696,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     if (reason) return reason;
     throw runtimeError({
       status: 502,
-      code: "workspace_restore_policy_bridge_missing_operation_reason",
+      code: "workspace_restore_bridge_missing_operation_reason",
       message: "Rust workspace restore policy bridge did not return an apply reason for a restore operation.",
       details: { path: pathValue },
     });

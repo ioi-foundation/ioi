@@ -553,17 +553,20 @@ function runBridge() {
   const workspaceRestoreKernel = exists("crates/services/src/agentic/runtime/kernel/workspace_restore.rs")
     ? read("crates/services/src/agentic/runtime/kernel/workspace_restore.rs")
     : "";
-  const workspaceRestorePolicyRunner = exists("packages/runtime-daemon/src/runtime-workspace-restore-policy-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-workspace-restore-policy-runner.mjs")
+  const workspaceRestoreRunner = exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs")
     : "";
-  const workspaceRestorePolicyRunnerTest = exists("packages/runtime-daemon/src/runtime-workspace-restore-policy-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-workspace-restore-policy-runner.test.mjs")
+  const workspaceRestoreRunnerTest = exists("packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs")
     : "";
   const runtimeWorkspaceSnapshotSurface = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
     : "";
   const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
+    : "";
+  const workspaceRestoreHelpers = exists("packages/runtime-daemon/src/workspace-restore.mjs")
+    ? read("packages/runtime-daemon/src/workspace-restore.mjs")
     : "";
   const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
     ? read("packages/agent-sdk/src/substrate-client.ts")
@@ -2429,41 +2432,79 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "workspace-restore-apply-policy-daemon-runner",
-    /WORKSPACE_RESTORE_POLICY_COMMAND_ENV/.test(workspaceRestorePolicyRunner) &&
-      /IOI_WORKSPACE_RESTORE_POLICY_COMMAND/.test(workspaceRestorePolicyRunner) &&
-      /RustWorkspaceRestorePolicyRunner/.test(workspaceRestorePolicyRunner) &&
-      /createWorkspaceRestorePolicyRunnerFromEnv/.test(workspaceRestorePolicyRunner) &&
-      /createWorkspaceRestorePolicyRunnerFromEnv/.test(runtimeDaemonIndex) &&
-      /this\.workspaceRestoreApplyPolicyRunner/.test(runtimeDaemonIndex) &&
-      /planApplyPolicy/.test(workspaceRestorePolicyRunner) &&
-      /plan_workspace_restore_apply_policy/.test(workspaceRestorePolicyRunner) &&
-      /rust_workspace_restore/.test(workspaceRestorePolicyRunner) &&
-      /workspace_restore_policy_bridge_unconfigured/.test(workspaceRestorePolicyRunner) &&
-      /workspace restore policy runner sends apply policy bridge request/.test(
-        workspaceRestorePolicyRunnerTest,
+    "workspace-restore-operations-live-bridge",
+    /WorkspaceRestoreOperationsCore/.test(workspaceRestoreKernel) &&
+      /preview_operations/.test(workspaceRestoreKernel) &&
+      /apply_operations/.test(workspaceRestoreKernel) &&
+      /WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
+      /WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
+      /WorkspaceRestoreOperationsBridgeRequest/.test(bridgeModule) &&
+      /preview_workspace_restore_operations/.test(bridgeModule) &&
+      /apply_workspace_restore_operations/.test(bridgeModule) &&
+      /rust_workspace_restore_operations_command/.test(bridgeModule) &&
+      /workspace_restore_operations_invalid/.test(bridgeModule) &&
+      /bridge_applies_workspace_restore_operations_through_rust_core/.test(bridgeModule),
+    [
+      "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10 is pending: workspace restore preview/apply operations must be executed by the Rust daemon core and exposed through the command bridge",
+  );
+  assertCheck(
+    result,
+    "workspace-restore-daemon-runner",
+    /WORKSPACE_RESTORE_COMMAND_ENV/.test(workspaceRestoreRunner) &&
+      /IOI_WORKSPACE_RESTORE_COMMAND/.test(workspaceRestoreRunner) &&
+      /RustWorkspaceRestoreRunner/.test(workspaceRestoreRunner) &&
+      /createWorkspaceRestoreRunnerFromEnv/.test(workspaceRestoreRunner) &&
+      /createWorkspaceRestoreRunnerFromEnv/.test(runtimeDaemonIndex) &&
+      /this\.workspaceRestoreRunner/.test(runtimeDaemonIndex) &&
+      /planApplyPolicy/.test(workspaceRestoreRunner) &&
+      /previewOperations/.test(workspaceRestoreRunner) &&
+      /applyOperations/.test(workspaceRestoreRunner) &&
+      /plan_workspace_restore_apply_policy/.test(workspaceRestoreRunner) &&
+      /preview_workspace_restore_operations/.test(workspaceRestoreRunner) &&
+      /apply_workspace_restore_operations/.test(workspaceRestoreRunner) &&
+      /rust_workspace_restore/.test(workspaceRestoreRunner) &&
+      /workspace_restore_bridge_unconfigured/.test(workspaceRestoreRunner) &&
+      /workspace restore runner sends apply policy bridge request/.test(
+        workspaceRestoreRunnerTest,
       ) &&
-      /workspace restore policy runner fails closed without command/.test(
-        workspaceRestorePolicyRunnerTest,
+      /workspace restore runner sends preview operations bridge request/.test(
+        workspaceRestoreRunnerTest,
       ) &&
-      /workspace restore policy runner surfaces Rust policy rejection/.test(
-        workspaceRestorePolicyRunnerTest,
+      /workspace restore runner sends apply operations bridge request/.test(
+        workspaceRestoreRunnerTest,
       ) &&
-      /workspaceRestoreApplyPolicyRunner/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspace restore runner fails closed without command/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
+      /workspace restore runner surfaces Rust policy rejection/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
+      /workspaceRestoreRunner/.test(runtimeWorkspaceSnapshotSurface) &&
       /planWorkspaceRestoreApplyPolicy/.test(runtimeWorkspaceSnapshotSurface) &&
-      /workspace_restore_policy_bridge_unconfigured/.test(runtimeWorkspaceSnapshotSurface) &&
+      /previewWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
+      /applyWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspace_restore_bridge_unconfigured/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestoreApplyApprovalForRequest/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestoreApplyAllowsConflicts/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestoreApplyPolicyDecisionRefs/.test(runtimeWorkspaceSnapshotSurface) &&
-      /workspaceRestoreApplyPolicyRunner/.test(runtimeWorkspaceSnapshotSurfaceTest),
+      !/workspaceRestorePreviewOperation/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/workspaceRestoreApplyOperations/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/workspaceRestorePreviewOperation/.test(workspaceRestoreHelpers) &&
+      !/workspaceRestoreApplyOperations/.test(workspaceRestoreHelpers) &&
+      !/applyWorkspaceRestoreFile/.test(workspaceRestoreHelpers) &&
+      /workspaceRestoreRunner/.test(runtimeWorkspaceSnapshotSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-workspace-restore-policy-runner.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-restore-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/workspace-restore.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10 is pending: daemon workspace restore apply facade must call the Rust policy bridge and fail closed when unconfigured",
+    "Phase 10 is pending: daemon workspace restore facade must call the Rust bridge for policy and file operations without JS restore IO fallback",
   );
   assertCheck(
     result,

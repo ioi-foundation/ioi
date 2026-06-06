@@ -25,7 +25,7 @@ function hash(value) {
 
 function createSurface() {
   const writes = [];
-  const workspaceRestoreApplyPolicyRunner = {
+  const workspaceRestoreRunner = {
     planApplyPolicy(request = {}) {
       const approval = {
         required: true,
@@ -78,17 +78,103 @@ function createSurface() {
         summary: counts ? `Restore apply ${applyStatus} for ${request.snapshot_id}.` : null,
       };
     },
+    previewOperations(request = {}) {
+      return (request.files ?? []).map((file) => previewOperation(request.workspace_root, file));
+    },
+    applyOperations(request = {}) {
+      return (request.files ?? []).map((file) => {
+        const preview = previewOperation(request.workspace_root, file);
+        if (preview.status === "noop") {
+          return {
+            ...preview,
+            applyStatus: "noop",
+            apply_status: "noop",
+            appliedExists: preview.currentExists,
+            applied_exists: preview.currentExists,
+            appliedHash: preview.currentHash,
+            applied_hash: preview.currentHash,
+            appliedBytes: preview.currentBytes,
+            applied_bytes: preview.currentBytes,
+            appliedMatchesTarget: true,
+            applied_matches_target: true,
+          };
+        }
+        fs.mkdirSync(path.dirname(path.join(request.workspace_root, file.path)), { recursive: true });
+        fs.writeFileSync(path.join(request.workspace_root, file.path), file.before.content ?? "", "utf8");
+        return {
+          ...preview,
+          applyStatus: "applied",
+          apply_status: "applied",
+          appliedExists: true,
+          applied_exists: true,
+          appliedHash: hash(file.before.content ?? ""),
+          applied_hash: hash(file.before.content ?? ""),
+          appliedBytes: Buffer.byteLength(file.before.content ?? "", "utf8"),
+          applied_bytes: Buffer.byteLength(file.before.content ?? "", "utf8"),
+          appliedMatchesTarget: true,
+          applied_matches_target: true,
+        };
+      });
+    },
   };
   const surface = createRuntimeWorkspaceSnapshotSurface({
     notFound,
     runtimeError,
     now: () => "2026-06-04T15:00:00.000Z",
-    workspaceRestoreApplyPolicyRunner,
+    workspaceRestoreRunner,
     writeJson(filePath, value) {
       writes.push({ filePath, value });
     },
   });
   return { surface, writes };
+}
+
+function previewOperation(workspaceRoot, file = {}) {
+  const targetPath = path.join(workspaceRoot, file.path);
+  const currentExists = fs.existsSync(targetPath);
+  const currentContent = currentExists ? fs.readFileSync(targetPath, "utf8") : "";
+  const currentHash = currentExists ? hash(currentContent) : null;
+  const targetExists = Boolean(file.before?.exists);
+  const targetHash = targetExists ? file.before?.contentHash ?? file.before?.content_hash ?? null : null;
+  const snapshotAfterExists = Boolean(file.after?.exists);
+  const snapshotAfterHash = snapshotAfterExists ? file.after?.contentHash ?? file.after?.content_hash ?? null : null;
+  const currentMatchesSnapshotPost =
+    currentExists === snapshotAfterExists && (!snapshotAfterExists || currentHash === snapshotAfterHash);
+  const currentMatchesRestoreTarget =
+    currentExists === targetExists && (!targetExists || currentHash === targetHash);
+  const status = currentMatchesRestoreTarget ? "noop" : currentMatchesSnapshotPost ? "ready" : "conflict";
+  return {
+    path: file.path,
+    operation: currentMatchesRestoreTarget ? "noop" : targetExists ? "replace" : "delete",
+    status,
+    currentExists,
+    current_exists: currentExists,
+    currentHash,
+    current_hash: currentHash,
+    currentBytes: Buffer.byteLength(currentContent, "utf8"),
+    current_bytes: Buffer.byteLength(currentContent, "utf8"),
+    targetExists,
+    target_exists: targetExists,
+    targetHash,
+    target_hash: targetHash,
+    snapshotAfterExists,
+    snapshot_after_exists: snapshotAfterExists,
+    snapshotAfterHash,
+    snapshot_after_hash: snapshotAfterHash,
+    currentMatchesSnapshotPost,
+    current_matches_snapshot_post: currentMatchesSnapshotPost,
+    currentMatchesRestoreTarget,
+    current_matches_restore_target: currentMatchesRestoreTarget,
+    blockedReason: null,
+    blocked_reason: null,
+    diff: status === "ready" ? "diff" : "",
+    diffBytes: status === "ready" ? 4 : 0,
+    diff_bytes: status === "ready" ? 4 : 0,
+    diffHash: hash(status === "ready" ? "diff" : ""),
+    diff_hash: hash(status === "ready" ? "diff" : ""),
+    diffTruncated: false,
+    diff_truncated: false,
+  };
 }
 
 function createStore(cwd = "/workspace") {

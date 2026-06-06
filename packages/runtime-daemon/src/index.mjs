@@ -168,7 +168,7 @@ import { createGovernedImprovementRunnerFromEnv } from "./runtime-governed-impro
 import { createWorkerServicePackageRunnerFromEnv } from "./runtime-worker-service-package-runner.mjs";
 import { createCteePrivateWorkspaceRunnerFromEnv } from "./runtime-ctee-private-workspace-runner.mjs";
 import { createL1SettlementRunnerFromEnv } from "./runtime-l1-settlement-runner.mjs";
-import { createWorkspaceRestorePolicyRunnerFromEnv } from "./runtime-workspace-restore-policy-runner.mjs";
+import { createWorkspaceRestoreRunnerFromEnv } from "./runtime-workspace-restore-runner.mjs";
 import {
   createAgent as createAgentState,
   createRun as createRunState,
@@ -711,8 +711,8 @@ export class AgentgresRuntimeStateStore {
       options.cteePrivateWorkspaceRunner ?? createCteePrivateWorkspaceRunnerFromEnv(process.env);
     this.l1SettlementRunner =
       options.l1SettlementRunner ?? createL1SettlementRunnerFromEnv(process.env);
-    this.workspaceRestoreApplyPolicyRunner =
-      options.workspaceRestoreApplyPolicyRunner ?? createWorkspaceRestorePolicyRunnerFromEnv(process.env);
+    this.workspaceRestoreRunner =
+      options.workspaceRestoreRunner ?? createWorkspaceRestoreRunnerFromEnv(process.env);
     this.schemaVersion = "ioi.agentgres.runtime.v0";
     this.ensureDirs();
     this.modelMounting = new ModelMountingState({
@@ -792,7 +792,7 @@ export class AgentgresRuntimeStateStore {
       notFound,
       runtimeError,
       writeJson,
-      workspaceRestoreApplyPolicyRunner: this.workspaceRestoreApplyPolicyRunner,
+      workspaceRestoreRunner: this.workspaceRestoreRunner,
     });
     this.diagnosticsFeedbackSurface = createRuntimeDiagnosticsFeedbackSurface({
       compactDiagnosticsFeedback,
