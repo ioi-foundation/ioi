@@ -8,12 +8,7 @@ export function validateContinuationSafety({
   if (!previousState) {
     return { mode: "new", previous_response_id: null, fallback_allowed: false, mismatch_fields: [] };
   }
-  const allowFallback = truthy(
-    body.allow_continuation_fallback ??
-      body.allowContinuationFallback ??
-      body.allow_route_fallback ??
-      body.allowRouteFallback,
-  );
+  const allowFallback = truthy(body.allow_continuation_fallback);
   const mismatchFields = [];
   if (previousState.route_id !== selection.route.id) mismatchFields.push("route_id");
   if (previousState.endpoint_id !== selection.endpoint.id) mismatchFields.push("endpoint_id");

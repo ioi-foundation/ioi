@@ -4781,12 +4781,20 @@ function runBridge() {
     /previous_response_id:\s*null/.test(modelMountingValidation) &&
       /fallback_allowed:\s*false/.test(modelMountingValidation) &&
       /mismatch_fields:\s*\[\]/.test(modelMountingValidation) &&
+      /const allowFallback = truthy\(body\.allow_continuation_fallback\);/.test(modelMountingValidation) &&
       /previous_response_id:\s*previousState\.id/.test(modelMountingValidation) &&
       /fallback_allowed:\s*allowFallback/.test(modelMountingValidation) &&
       /mismatch_fields:\s*mismatchFields/.test(modelMountingValidation) &&
+      !/body\.(?:allowContinuationFallback|allow_route_fallback|allowRouteFallback)\b/.test(
+        modelMountingValidation,
+      ) &&
       !/previousResponseId:\s*previousState\.id/.test(modelMountingValidation) &&
       !/fallbackAllowed:\s*allowFallback/.test(modelMountingValidation) &&
       !/mismatchFields:\s*mismatchFields/.test(modelMountingValidation) &&
+      /retiredAliases = \["allowContinuationFallback", "allow_route_fallback", "allowRouteFallback"\]/.test(
+        modelMountingValidationTest,
+      ) &&
+      /required: "allow_continuation_fallback"/.test(modelMountingValidationTest) &&
       /previous_response_ref:\s*optionalRef\(receiptDetails\.previous_response_id\)/.test(modelInvocationOps) &&
       /previous_response_id:\s*previousResponseId/.test(modelInvocationReceiptDetailsObject) &&
       !/previous_response_ref:\s*optionalRef\(receiptDetails\.previousResponseId\)/.test(modelInvocationOps) &&

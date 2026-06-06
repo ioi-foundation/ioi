@@ -107,6 +107,38 @@ test("model mounting validation rejects unsafe continuation route changes", () =
   assert.deepEqual(error.details.mismatch_fields, ["route_id"]);
 });
 
+test("model mounting validation fails closed on retired continuation fallback aliases", () => {
+  const selection = {
+    route: { id: "route.local-first" },
+    endpoint: { id: "endpoint.local", modelId: "model.local" },
+  };
+  const previousState = {
+    id: "resp-1",
+    route_id: "route.other",
+    endpoint_id: "endpoint.other",
+    selected_model: "model.other",
+  };
+  const retiredAliases = ["allowContinuationFallback", "allow_route_fallback", "allowRouteFallback"];
+
+  for (const retiredAlias of retiredAliases) {
+    const error = captureError(() => validateContinuationSafety({
+      previousState,
+      selection,
+      body: { [retiredAlias]: true },
+      runtimeError,
+      truthy: Boolean,
+    }));
+
+    assert.equal(error.status, 409);
+    assert.equal(error.code, "continuation_route_mismatch");
+    assert.deepEqual(error.details, {
+      previous_response_id: "resp-1",
+      mismatch_fields: ["route_id", "endpoint_id", "model"],
+      required: "allow_continuation_fallback",
+    });
+  }
+});
+
 test("model mounting validation accepts matching receipt gates", () => {
   const receipts = new Map([
     ["receipt-route", {
