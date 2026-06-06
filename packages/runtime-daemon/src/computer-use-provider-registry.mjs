@@ -78,8 +78,8 @@ export function computerUseProviderRegistryReport() {
 
 export function computerUseProviderForLane(lane, options = {}) {
   const requestedLane = normalizeLane(lane);
-  const providerHint = cleanString(options.providerHint ?? options.provider_id ?? options.providerKind);
-  const sessionMode = cleanString(options.sessionMode ?? options.session_mode);
+  const providerHint = cleanString(options.provider_id);
+  const sessionMode = cleanString(options.session_mode);
   const registry = computerUseProviderRegistryReport();
   const laneProviders = registry.providers.filter((provider) => provider.lane === requestedLane);
   const hinted = laneProviders.find((provider) =>

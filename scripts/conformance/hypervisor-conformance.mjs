@@ -398,6 +398,12 @@ function runBridge() {
   const visualGuiLocalExecutorTest = exists("packages/runtime-daemon/src/visual-gui-local-executor.test.mjs")
     ? read("packages/runtime-daemon/src/visual-gui-local-executor.test.mjs")
     : "";
+  const computerUseProviderRegistry = exists("packages/runtime-daemon/src/computer-use-provider-registry.mjs")
+    ? read("packages/runtime-daemon/src/computer-use-provider-registry.mjs")
+    : "";
+  const computerUseProviderRegistryTest = exists("packages/runtime-daemon/src/computer-use-provider-registry.test.mjs")
+    ? read("packages/runtime-daemon/src/computer-use-provider-registry.test.mjs")
+    : "";
   const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
     ? read("packages/runtime-daemon/src/model-mounting.mjs")
     : "";
@@ -1347,6 +1353,24 @@ function runBridge() {
       "packages/runtime-daemon/src/visual-gui-local-executor.test.mjs",
     ],
     "Phase 10/11 is pending: visual GUI local-executor request detection must ignore retired camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "computer-use-provider-selection-aliases-retired",
+    /const providerHint = cleanString\(options\.provider_id\);/.test(computerUseProviderRegistry) &&
+      /const sessionMode = cleanString\(options\.session_mode\);/.test(computerUseProviderRegistry) &&
+      /computer-use provider selection ignores retired hint aliases/.test(
+        computerUseProviderRegistryTest,
+      ) &&
+      /providerHint:\s*"local_container"/.test(computerUseProviderRegistryTest) &&
+      /providerKind:\s*"local_container"/.test(computerUseProviderRegistryTest) &&
+      /sessionMode:\s*"unsupported_retired_mode"/.test(computerUseProviderRegistryTest) &&
+      !/\boptions\.(?:providerHint|providerKind|sessionMode)\b/.test(computerUseProviderRegistry),
+    [
+      "packages/runtime-daemon/src/computer-use-provider-registry.mjs",
+      "packages/runtime-daemon/src/computer-use-provider-registry.test.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use provider selection must use canonical provider_id/session_mode without retired camelCase hint aliases",
   );
   assertCheck(
     result,

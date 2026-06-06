@@ -12666,6 +12666,11 @@ thread projection now reads canonical `agent.runtime_profile`,
 `agent.runtimeProfile`, `agent.runtimeBridgeId`, and `agent.runtimeBridgeSource`
 no longer shape projected runtime identity.
 
+Slice 423 removes computer-use provider selection aliases:
+computer-use provider selection now reads canonical `provider_id` and
+`session_mode` hints only; retired `providerHint`, `providerKind`, and
+`sessionMode` no longer influence provider routing.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
