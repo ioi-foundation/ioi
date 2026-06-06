@@ -688,14 +688,10 @@ export interface RuntimeMcpToolSearchInput extends RuntimeMcpListOptions {
   query?: string;
   q?: string;
   search?: string;
-  toolId?: string;
   tool_id?: string;
-  toolName?: string;
   tool_name?: string;
   exact?: boolean;
-  liveDiscovery?: boolean;
   live_discovery?: boolean;
-  catalogPreviewLimit?: number;
   catalog_preview_limit?: number;
   limit?: number;
 }

@@ -7565,6 +7565,18 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs")
     : "";
+  const runtimeMcpGetToolFromCatalogBlock =
+    runtimeMcpCatalogSurface.match(
+      /async getMcpToolFromCatalog\(store, toolId, request = \{\}\) \{[\s\S]*?\n    \},\n    async searchMcpToolCatalog/,
+    )?.[0] ?? "";
+  const runtimeMcpSearchToolCatalogBlock =
+    runtimeMcpCatalogSurface.match(
+      /async searchMcpToolCatalog\(store, request = \{\}\) \{[\s\S]*?\n    \},\n    validateMcp/,
+    )?.[0] ?? "";
+  const runtimeMcpCatalogPreviewLimitBlock =
+    runtimeMcpHelpers.match(
+      /export function mcpCatalogPreviewLimit\(request = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpToolSearchLimit/,
+    )?.[0] ?? "";
   const agentIdeTerminalRunLaunch = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
   )
@@ -7677,6 +7689,9 @@ function runCompositor() {
     : "";
   const runtimeMcpSdkListOptionsBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpListOptions[\s\S]*?\n}\n/)?.[0] ??
+    "";
+  const runtimeMcpSdkToolSearchInputBlock =
+    agentSdkSubstrateClient.match(/export interface RuntimeMcpToolSearchInput[\s\S]*?\n}\n/)?.[0] ??
     "";
   const agentSdkTesting = exists("packages/agent-sdk/src/testing.ts")
     ? read("packages/agent-sdk/src/testing.ts")
@@ -10196,6 +10211,40 @@ function runCompositor() {
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP catalog/list/search requests must use canonical snake_case identity fields without camelCase compatibility aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-tool-search-request-aliases-retired",
+    /request\.tool_id/.test(runtimeMcpSearchToolCatalogBlock) &&
+      /request\.server_id/.test(runtimeMcpSearchToolCatalogBlock) &&
+      /request\.live_discovery/.test(runtimeMcpSearchToolCatalogBlock) &&
+      /request\.catalog_preview_limit/.test(runtimeMcpCatalogPreviewLimitBlock) &&
+      /request\.mcp_catalog_preview_limit/.test(runtimeMcpCatalogPreviewLimitBlock) &&
+      /request\.preview_limit/.test(runtimeMcpCatalogPreviewLimitBlock) &&
+      /^\s*tool_id\?: string;/m.test(runtimeMcpSdkToolSearchInputBlock) &&
+      /^\s*tool_name\?: string;/m.test(runtimeMcpSdkToolSearchInputBlock) &&
+      /^\s*live_discovery\?: boolean;/m.test(runtimeMcpSdkToolSearchInputBlock) &&
+      /^\s*catalog_preview_limit\?: number;/m.test(runtimeMcpSdkToolSearchInputBlock) &&
+      /toolId: "mcp\.workspace\.docs\.search"/.test(runtimeMcpCatalogSurfaceTest) &&
+      /serverId: "mcp\.workspace\.docs"/.test(runtimeMcpCatalogSurfaceTest) &&
+      /liveDiscovery: true/.test(runtimeMcpCatalogSurfaceTest) &&
+      /catalogPreviewLimit: 1/.test(runtimeMcpCatalogSurfaceTest) &&
+      !/request\.(?:toolId|serverId|liveDiscovery)\b/.test(
+        `${runtimeMcpSearchToolCatalogBlock}\n${runtimeMcpGetToolFromCatalogBlock}`,
+      ) &&
+      !/request\.(?:catalogPreviewLimit|mcpCatalogPreviewLimit|previewLimit)\b/.test(
+        runtimeMcpCatalogPreviewLimitBlock,
+      ) &&
+      !/^\s*(?:toolId|serverId|liveDiscovery|catalogPreviewLimit)\?:/m.test(
+        runtimeMcpSdkToolSearchInputBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP tool search/fetch requests must use canonical snake_case fields without camelCase compatibility aliases",
   );
   assertCheck(
     result,

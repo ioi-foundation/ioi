@@ -183,7 +183,6 @@ export function createRuntimeMcpCatalogSurface({
       return this.getMcpToolFromCatalog(store, toolId, {
         ...request,
         thread_id: threadId,
-        threadId,
         servers: this.listMcpServers(store, { ...request, thread_id: threadId }),
         agent,
       });
@@ -192,16 +191,15 @@ export function createRuntimeMcpCatalogSurface({
       const result = await this.searchMcpToolCatalog(store, {
         ...request,
         tool_id: toolId,
-        toolId,
         exact: true,
         limit: Math.max(Number(request.limit ?? 0), maxLiveCatalogPreviewLimit),
       });
-      const requested = optionalStringDep(toolId ?? request.tool_id ?? request.toolId);
+      const requested = optionalStringDep(toolId ?? request.tool_id);
       const tool = result.tools.find((candidate) => mcpToolIdentityMatchesDep(candidate, requested)) ?? null;
       if (!tool) {
         throw notFoundDep("MCP tool not found.", {
           toolId: requested ?? null,
-          serverId: request.server_id ?? request.serverId ?? null,
+          serverId: request.server_id ?? null,
         });
       }
       return {
@@ -222,10 +220,10 @@ export function createRuntimeMcpCatalogSurface({
     },
     async searchMcpToolCatalog(store, request = {}) {
       const query = optionalStringDep(request.q ?? request.query ?? request.search) ?? "";
-      const requestedToolId = optionalStringDep(request.tool_id ?? request.toolId);
+      const requestedToolId = optionalStringDep(request.tool_id);
       const exact = request.exact === true || request.exact === "true";
-      const serverFilter = optionalStringDep(request.server_id ?? request.serverId);
-      const liveDiscovery = request.live_discovery !== false && request.liveDiscovery !== false;
+      const serverFilter = optionalStringDep(request.server_id);
+      const liveDiscovery = request.live_discovery !== false;
       const limit = mcpToolSearchLimitDep(request);
       const servers = normalizeArrayDep(request.servers).filter((server) =>
         serverFilter ? resolveMcpServerRecordDep([server], serverFilter) : true,

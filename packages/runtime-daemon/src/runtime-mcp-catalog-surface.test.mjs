@@ -176,7 +176,11 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
 
   const globalSearch = await surface.searchMcpTools(store, {
     query: "diff",
-    liveDiscovery: false,
+    live_discovery: false,
+    liveDiscovery: true,
+    toolId: "mcp.workspace.docs.search",
+    serverId: "mcp.workspace.docs",
+    catalogPreviewLimit: 1,
   });
   assert.equal(globalSearch.schema_version, "ioi.runtime.mcp-tool-search.v1");
   assert.equal(globalSearch.status, "completed");
@@ -187,15 +191,19 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
   const threadSearch = await surface.searchMcpTools(store, {
     thread_id: "thread-agent-one",
     query: "diff",
-    liveDiscovery: false,
+    live_discovery: false,
+    liveDiscovery: true,
   });
   assert.equal(threadSearch.server_count, 2);
   assert.deepEqual(threadSearch.tools.map((tool) => tool.stableToolId), ["mcp.agent.git.diff"]);
   assert.equal(calls.some((call) => call.name === "agentForThread"), true);
 
   const fetched = await surface.getMcpTool(store, "mcp.agent.git.diff", {
-    threadId: "thread-agent-one",
-    liveDiscovery: false,
+    thread_id: "thread-agent-one",
+    threadId: "thread-retired",
+    live_discovery: false,
+    liveDiscovery: true,
+    toolId: "mcp.workspace.docs.search",
   });
   assert.equal(fetched.object, "ioi.runtime_mcp_tool_fetch");
   assert.equal(fetched.status, "completed");
@@ -205,7 +213,7 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
   assert.equal(fetched.returned_count, 1);
 
   await assert.rejects(
-    () => surface.getMcpTool(store, "mcp.missing.nope", { liveDiscovery: false }),
+    () => surface.getMcpTool(store, "mcp.missing.nope", { live_discovery: false }),
     (error) => error.status === 404 && error.code === "not_found",
   );
 });

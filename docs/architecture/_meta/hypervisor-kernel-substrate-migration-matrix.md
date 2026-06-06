@@ -12436,6 +12436,13 @@ canonical `thread_id`, `agent_id`, and `server_id` request fields; retired
 camelCase `threadId`, `agentId`, and `serverId` identity filters are ignored
 by the catalog surface and remain absent from SDK list options.
 
+Slice 392 removes MCP tool-search request aliases:
+runtime MCP tool search/fetch and catalog-preview helpers, plus SDK MCP tool
+search inputs, now use canonical `tool_id`, `server_id`, `live_discovery`,
+and snake_case preview-limit request fields only; retired camelCase
+`toolId`, `serverId`, `liveDiscovery`, and `catalogPreviewLimit` request
+fields are ignored and no longer advertised by SDK tool-search inputs.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

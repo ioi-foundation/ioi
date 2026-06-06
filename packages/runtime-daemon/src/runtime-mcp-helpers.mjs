@@ -390,11 +390,8 @@ export function mcpToolMatchesQuery(tool = {}, query) {
 export function mcpCatalogPreviewLimit(request = {}) {
   return boundedPositiveInteger(
     request.catalog_preview_limit ??
-      request.catalogPreviewLimit ??
       request.mcp_catalog_preview_limit ??
-      request.mcpCatalogPreviewLimit ??
-      request.preview_limit ??
-      request.previewLimit,
+      request.preview_limit,
     MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT,
     MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT,
   );
