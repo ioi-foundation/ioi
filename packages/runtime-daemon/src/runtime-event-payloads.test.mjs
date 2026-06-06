@@ -127,6 +127,29 @@ const retiredReviewGateSummaryAliasKeys = [
   "workflowNodeId",
 ];
 
+const retiredGithubPrCreatePlanSummaryAliasKeys = [
+  "eventKind",
+  "planId",
+  "repositoryContextId",
+  "branchPolicyId",
+  "githubContextId",
+  "issueContextId",
+  "prAttemptId",
+  "reviewGateId",
+  "dryRun",
+  "toolName",
+  "repoFullName",
+  "baseBranch",
+  "headBranch",
+  "issueNumber",
+  "reviewGateStatus",
+  "reviewSatisfied",
+  "mutationAttempted",
+  "mutationExecuted",
+  "networkLookupPerformed",
+  "workflowNodeId",
+];
+
 const retiredRuntimeTaskSummaryAliasKeys = [
   "eventKind",
   "taskId",
@@ -808,6 +831,111 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   assert.notEqual(reviewGate.workflow_node_id, "retired.review-gate");
   for (const key of retiredReviewGateSummaryAliasKeys) {
     assert.equal(Object.hasOwn(reviewGate, key), false);
+  }
+
+  const githubPrCreatePlan = runtime.payloadSummaryForRunEvent({
+    id: "event-github-pr-create-plan",
+    type: "github_pr_create_plan",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      event_kind: "GitHubPrCreatePlan.Canonical",
+      eventKind: "RetiredGitHubPrCreatePlan",
+      plan_id: "github-pr-create-plan-one",
+      planId: "retired-pr-create-plan",
+      repository_context_id: "repo-context-one",
+      repositoryContextId: "retired-repo-context",
+      branch_policy_id: "branch-policy-one",
+      branchPolicyId: "retired-branch-policy",
+      github_context_id: "github-context-one",
+      githubContextId: "retired-github-context",
+      issue_context_id: "issue-context-one",
+      issueContextId: "retired-issue-context",
+      pr_attempt_id: "pr-attempt-one",
+      prAttemptId: "retired-pr-attempt",
+      review_gate_id: "review-gate-one",
+      reviewGateId: "retired-review-gate",
+      status: "blocked",
+      decision: "blocked",
+      dry_run: true,
+      dryRun: false,
+      tool_name: "github__pr_create",
+      toolName: "retired_tool",
+      repo_full_name: "ioi-foundation/ioi",
+      repoFullName: "retired/repo",
+      base_branch: "main",
+      baseBranch: "retired-main",
+      head_branch: "feature/substrate",
+      headBranch: "retired-head",
+      issue_number: 42,
+      issueNumber: 404,
+      review_gate_status: "blocked",
+      reviewGateStatus: "retired",
+      review_satisfied: false,
+      reviewSatisfied: true,
+      request: {
+        payload_hash: "payload-hash-one",
+        payloadHash: "retired-payload-hash",
+        body_included: false,
+        bodyIncluded: true,
+        token_included: false,
+        tokenIncluded: true,
+      },
+      authority: {
+        required_scopes: ["github.pr.create"],
+        requiredScopes: ["retired.scope"],
+        missing_scopes: ["github.pr.create"],
+        missingScopes: ["retired.scope"],
+        scope_granted: false,
+        scopeGranted: true,
+      },
+      blockers: ["dry_run_only"],
+      warnings: ["github_pr_create_plan_dry_run"],
+      mutation_attempted: false,
+      mutationAttempted: true,
+      mutation_executed: false,
+      mutationExecuted: true,
+      network_lookup_performed: false,
+      networkLookupPerformed: true,
+      workflow_node_id: "runtime.github-pr-create",
+      workflowNodeId: "retired.github-pr-create",
+      redaction: { profile: "github_pr_create_plan_safe" },
+    },
+  });
+
+  assert.equal(githubPrCreatePlan.event_kind, "GitHubPrCreatePlan.Canonical");
+  assert.equal(githubPrCreatePlan.plan_id, "github-pr-create-plan-one");
+  assert.equal(githubPrCreatePlan.repository_context_id, "repo-context-one");
+  assert.equal(githubPrCreatePlan.branch_policy_id, "branch-policy-one");
+  assert.equal(githubPrCreatePlan.github_context_id, "github-context-one");
+  assert.equal(githubPrCreatePlan.issue_context_id, "issue-context-one");
+  assert.equal(githubPrCreatePlan.pr_attempt_id, "pr-attempt-one");
+  assert.equal(githubPrCreatePlan.review_gate_id, "review-gate-one");
+  assert.equal(githubPrCreatePlan.dry_run, true);
+  assert.equal(githubPrCreatePlan.tool_name, "github__pr_create");
+  assert.equal(githubPrCreatePlan.repo_full_name, "ioi-foundation/ioi");
+  assert.equal(githubPrCreatePlan.base_branch, "main");
+  assert.equal(githubPrCreatePlan.head_branch, "feature/substrate");
+  assert.equal(githubPrCreatePlan.issue_number, 42);
+  assert.equal(githubPrCreatePlan.review_gate_status, "blocked");
+  assert.equal(githubPrCreatePlan.review_satisfied, false);
+  assert.equal(githubPrCreatePlan.request_payload_hash, "payload-hash-one");
+  assert.equal(githubPrCreatePlan.request_body_included, false);
+  assert.equal(githubPrCreatePlan.request_token_included, false);
+  assert.deepEqual(githubPrCreatePlan.required_authority_scopes, ["github.pr.create"]);
+  assert.deepEqual(githubPrCreatePlan.missing_authority_scopes, ["github.pr.create"]);
+  assert.equal(githubPrCreatePlan.authority_scope_granted, false);
+  assert.equal(githubPrCreatePlan.blocker_count, 1);
+  assert.equal(githubPrCreatePlan.warning_count, 1);
+  assert.equal(githubPrCreatePlan.mutation_attempted, false);
+  assert.equal(githubPrCreatePlan.mutation_executed, false);
+  assert.equal(githubPrCreatePlan.network_lookup_performed, false);
+  assert.equal(githubPrCreatePlan.workflow_node_id, "runtime.github-pr-create");
+  assert.notEqual(githubPrCreatePlan.plan_id, "retired-pr-create-plan");
+  assert.notEqual(githubPrCreatePlan.request_payload_hash, "retired-payload-hash");
+  assert.notEqual(githubPrCreatePlan.workflow_node_id, "retired.github-pr-create");
+  for (const key of retiredGithubPrCreatePlanSummaryAliasKeys) {
+    assert.equal(Object.hasOwn(githubPrCreatePlan, key), false);
   }
 
   const task = runtime.payloadSummaryForRunEvent({
