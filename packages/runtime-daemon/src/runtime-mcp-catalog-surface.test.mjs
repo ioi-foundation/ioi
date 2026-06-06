@@ -62,9 +62,9 @@ function harness() {
     mcpToolsForServers(servers) {
       return servers.flatMap((item) =>
         (item.tools ?? []).map((tool) => ({
-          serverId: item.id,
-          toolName: tool.name,
-          stableToolId: `${item.id}.${tool.name}`,
+          server_id: item.id,
+          tool_name: tool.name,
+          stable_tool_id: `${item.id}.${tool.name}`,
         })),
       );
     },
@@ -142,9 +142,9 @@ test("runtime MCP catalog surface lists context servers and filters catalog rows
   );
   assert.deepEqual(surface.listMcpTools(store, { server_id: "mcp.agent.git", serverId: "retired-server" }), [
     {
-      serverId: "mcp.agent.git",
-      stableToolId: "mcp.agent.git.diff",
-      toolName: "diff",
+      server_id: "mcp.agent.git",
+      stable_tool_id: "mcp.agent.git.diff",
+      tool_name: "diff",
     },
   ]);
   assert.equal(surface.listMcpResources(store).length, 3);
@@ -218,7 +218,7 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
   assert.equal(globalSearch.schema_version, "ioi.runtime.mcp-tool-search.v1");
   assert.equal(globalSearch.status, "completed");
   assert.equal(globalSearch.server_count, 3);
-  assert.deepEqual(globalSearch.tools.map((tool) => tool.stableToolId), ["mcp.agent.git.diff"]);
+  assert.deepEqual(globalSearch.tools.map((tool) => tool.stable_tool_id), ["mcp.agent.git.diff"]);
   assert.equal(globalSearch.routes.get_tool, "/v1/mcp/tools/{tool_id}");
   assert.equal(Object.hasOwn(globalSearch, "schemaVersion"), false);
   assert.equal(Object.hasOwn(globalSearch, "liveDiscovery"), false);
@@ -234,7 +234,7 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
     liveDiscovery: true,
   });
   assert.equal(threadSearch.server_count, 2);
-  assert.deepEqual(threadSearch.tools.map((tool) => tool.stableToolId), ["mcp.agent.git.diff"]);
+  assert.deepEqual(threadSearch.tools.map((tool) => tool.stable_tool_id), ["mcp.agent.git.diff"]);
   assert.equal(calls.some((call) => call.name === "agentForThread"), true);
 
   const fetched = await surface.getMcpTool(store, "mcp.agent.git.diff", {

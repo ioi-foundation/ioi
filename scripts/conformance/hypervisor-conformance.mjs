@@ -10782,12 +10782,18 @@ function runCompositor() {
       /live_discovery:\s*liveDiscovery/.test(runtimeMcpSearchToolCatalogBlock) &&
       /catalog_summaries:\s*catalogSummaries/.test(runtimeMcpSearchToolCatalogBlock) &&
       /get_tool:\s*"\/v1\/mcp\/tools\/\{tool_id\}"/.test(runtimeMcpSearchToolCatalogBlock) &&
-      /tool_id:\s*requested/.test(runtimeMcpGetToolFromCatalogBlock) &&
+      /tool_id:\s*requested\s*\?\?\s*tool\.stable_tool_id\s*\?\?\s*null/.test(
+        runtimeMcpGetToolFromCatalogBlock,
+      ) &&
+      /server_id:\s*tool\.server_id\s*\?\?\s*null/.test(runtimeMcpGetToolFromCatalogBlock) &&
+      /tool_name:\s*tool\.tool_name\s*\?\?\s*null/.test(runtimeMcpGetToolFromCatalogBlock) &&
       /returned_count:\s*1/.test(runtimeMcpGetToolFromCatalogBlock) &&
       /Object\.hasOwn\(status,\s*"schemaVersion"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
       /Object\.hasOwn\(validation,\s*"issueCount"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
       /Object\.hasOwn\(globalSearch,\s*"catalogSummaries"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
       /Object\.hasOwn\(fetched,\s*"toolId"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
+      /stable_tool_id:\s*`\$\{item\.id\}\.\$\{tool\.name\}`/.test(runtimeMcpCatalogSurfaceTest) &&
+      /globalSearch\.tools\.map\(\(tool\) => tool\.stable_tool_id\)/.test(runtimeMcpCatalogSurfaceTest) &&
       !/^\s*(?:schemaVersion|serverCount|toolCount|resourceCount|promptCount|enabledServerCount)\s*:/m.test(
         runtimeMcpStatusBlock,
       ) &&
@@ -10801,7 +10807,14 @@ function runCompositor() {
         runtimeMcpSearchToolCatalogBlock,
       ) &&
       !/^\s*(?:getTool|invokeTool)\s*:/m.test(runtimeMcpSearchToolCatalogBlock) &&
-      !/^\s*(?:toolId|serverId|toolName|returnedCount)\s*:/m.test(runtimeMcpGetToolFromCatalogBlock),
+      !/\btool\.(?:stableToolId|serverId|toolName)\b/.test(runtimeMcpGetToolFromCatalogBlock) &&
+      !/^\s*(?:toolId|serverId|toolName|returnedCount)\s*:/m.test(runtimeMcpGetToolFromCatalogBlock) &&
+      !/(?:stableToolId|serverId|toolName):\s*(?:item\.id|tool\.name|`\$\{item\.id\}\.\$\{tool\.name\}`)/.test(
+        runtimeMcpCatalogSurfaceTest,
+      ) &&
+      !/(?:stableToolId|serverId|toolName):\s*"mcp\.agent\.git(?:\.diff)?"/.test(
+        runtimeMcpCatalogSurfaceTest,
+      ),
     [
       "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
