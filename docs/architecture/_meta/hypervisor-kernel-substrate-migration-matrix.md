@@ -12370,6 +12370,11 @@ approved retry persistence now requires the Rust budget-recovery state planner
 to return `workflow.run.retry_completed` before the daemon persists the run,
 rather than substituting the JS-side retry-completed operation kind.
 
+Slice 381 removes the diagnostics operator-override operation-kind fallback:
+completed override persistence now requires the Rust diagnostics state planner
+to return `diagnostics.operator_override.event` before the daemon persists the
+run, rather than substituting the JS-side override operation kind.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

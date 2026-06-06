@@ -486,6 +486,86 @@ test("diagnostics repair surface fails closed without Rust-planned override run"
   );
 });
 
+test("diagnostics repair surface fails closed without Rust-planned override operation kind", () => {
+  const calls = [];
+  const run = {
+    id: "run_blocked",
+    agentId: "agent_alpha",
+    status: "blocked",
+    turnStatus: "waiting_for_input",
+    diagnosticsBlockingGate: { status: "blocked" },
+    trace: { stopCondition: { reason: "lsp_diagnostics_blocked" } },
+    operatorControls: [],
+  };
+  const surface = createSurface({
+    calls,
+    diagnosticsOperatorOverrideStateUpdate: {
+      status: "planned",
+      run: diagnosticsOperatorOverrideStateUpdateForRequest({
+        run,
+        created_at: "2026-06-04T14:00:00.000Z",
+        event_id: "event_1",
+      }).run,
+    },
+  });
+  const events = [];
+  const idempotency = new Map();
+  const writes = [];
+  const store = {
+    runs: new Map([[run.id, run]]),
+    agentForThread() {
+      return { id: "agent_alpha", cwd: "/tmp/workspace" };
+    },
+    runtimeEventStream() {
+      return { idempotency };
+    },
+    getRun(runId) {
+      return this.runs.get(runId);
+    },
+    writeRun(updated, reason) {
+      writes.push({ updated, reason });
+    },
+    appendDiagnosticsOperatorOverrideEvent(input) {
+      return surface.appendDiagnosticsOperatorOverrideEvent(this, input);
+    },
+    appendRuntimeEvent(event) {
+      const stored = {
+        ...event,
+        event_id: `event_${events.length + 1}`,
+        seq: events.length + 1,
+        created_at: "2026-06-04T14:00:00.000Z",
+      };
+      events.push(stored);
+      idempotency.set(event.idempotency_key, stored);
+      return stored;
+    },
+  };
+
+  assert.throws(
+    () =>
+      surface.executeDiagnosticsOperatorOverride(store, "thread_alpha", {
+        request: { confirm: true, source: "runtime_auto" },
+        gateEvent: {
+          event_id: "event_gate",
+          turn_id: "turn_blocked",
+          workspace_root: "/tmp/workspace",
+          payload_summary: { turn_id: "turn_blocked", gate_id: "gate_alpha" },
+        },
+        decision: { decision_id: "decision_override" },
+        repairPolicy: { policy_id: "policy_alpha" },
+        snapshotId: "snapshot_alpha",
+        workflowGraphId: "graph_alpha",
+      }),
+    (error) => {
+      assert.equal(error.code, "diagnostics_operator_override_state_update_operation_kind_missing");
+      assert.equal(error.details.operationKind, "diagnostics.operator_override.event");
+      return true;
+    },
+  );
+  assert.equal(writes.length, 0);
+  assert.equal(store.runs.get("run_blocked").diagnosticsBlockingGate.status, "blocked");
+});
+
 test("diagnostics repair surface creates retry turns with injected diagnostics feedback", () => {
   const surface = createSurface();
   const events = [];

@@ -81,6 +81,32 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     return updatedRun;
   }
 
+  function plannedDiagnosticsOperatorOverrideOperationKind(stateUpdate, threadId, runId) {
+    const operationKind = optionalString(stateUpdate.operation_kind);
+    if (!operationKind) {
+      throw runtimeError({
+        status: 502,
+        code: "diagnostics_operator_override_state_update_operation_kind_missing",
+        message: "Rust diagnostics operator override planning did not return an operation kind.",
+        details: { threadId, runId, operationKind: "diagnostics.operator_override.event" },
+      });
+    }
+    if (operationKind !== "diagnostics.operator_override.event") {
+      throw runtimeError({
+        status: 502,
+        code: "diagnostics_operator_override_state_update_operation_kind_mismatch",
+        message: "Rust diagnostics operator override planning returned an unexpected operation kind.",
+        details: {
+          threadId,
+          runId,
+          expectedOperationKind: "diagnostics.operator_override.event",
+          operationKind,
+        },
+      });
+    }
+    return operationKind;
+  }
+
   function executeDiagnosticsRepairDecision(store, threadId, decisionRef, request = {}) {
     store.agentForThread(threadId);
     const target = optionalString(decisionRef ?? request.decision_id ?? request.decisionId ?? request.action);
@@ -376,8 +402,9 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         snapshot_id: snapshotId,
       });
       const updated = plannedDiagnosticsOperatorOverrideRunRecord(stateUpdate, threadId, run.id);
+      const operationKind = plannedDiagnosticsOperatorOverrideOperationKind(stateUpdate, threadId, run.id);
       store.runs.set(run.id, updated);
-      store.writeRun(updated, stateUpdate.operation_kind ?? "diagnostics.operator_override.event");
+      store.writeRun(updated, operationKind);
       turn = store.turnForRun(updated);
       nextTurnStatus = turn.status;
     }
