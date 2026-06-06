@@ -101,9 +101,8 @@ export function createRun(store, agentId, request = {}, deps = {}) {
   const agent = store.getAgent(agentId);
   ensureProviderAvailable(agent.runtime, agent.options);
   const mode = request.mode ?? "send";
-  const threadMode = request.threadMode ?? threadModeForRunMode(mode, agent.runtimeControls?.mode);
+  const threadMode = request.thread_mode ?? threadModeForRunMode(mode, agent.runtimeControls?.mode);
   const approvalMode =
-    request.approvalMode ??
     request.approval_mode ??
     agent.runtimeControls?.approvalMode ??
     approvalModeForThreadMode(threadMode);

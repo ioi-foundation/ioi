@@ -104,7 +104,7 @@ test("runtime-backed requests inherit model controls without overriding explicit
     runtimeProfile: "runtime_service",
     runtimeControls: {
       mode: "review",
-      approvalMode: "human_required",
+      approval_mode: "human_required",
       model: {
         id: "auto",
         routeId: "route.local-first",
@@ -138,8 +138,8 @@ test("runtime-backed requests inherit model controls without overriding explicit
 
 test("thread control request kind and model input infer compact operator updates", () => {
   assert.equal(threadRuntimeControlKind({ thinking: "off" }), "thinking");
-  assert.equal(threadRuntimeControlKind({ modelId: "auto" }), "model");
-  assert.equal(threadRuntimeControlKind({ interactionMode: "plan" }), "mode");
+  assert.equal(threadRuntimeControlKind({ model_id: "auto" }), "model");
+  assert.equal(threadRuntimeControlKind({ interaction_mode: "plan" }), "mode");
 
   const input = threadRuntimeControlModelInput(
     {
@@ -175,6 +175,52 @@ test("thread control request kind and model input infer compact operator updates
   assert.equal(Object.hasOwn(retiredAliasInput.model, "allow_hosted_fallback"), false);
   assert.equal(Object.hasOwn(retiredAliasInput.model, "allowHostedFallback"), false);
   assert.equal(retiredAliasInput.workflowNodeId, "runtime.model-router");
+});
+
+test("thread runtime control helpers ignore retired request aliases", () => {
+  const controlled = requestWithThreadRuntimeControls(
+    {
+      runtimeProfile: "runtime_service",
+      runtimeControls: {
+        mode: "agent",
+        approval_mode: "suggest",
+        model: { id: "auto" },
+      },
+    },
+    {
+      mode: "send",
+      threadMode: "review",
+      approvalMode: "human_required",
+      options: {},
+    },
+  );
+  assert.equal(controlled.threadMode, "agent");
+  assert.equal(controlled.approvalMode, "suggest");
+
+  for (const request of [
+    { reasoningEffort: "low" },
+    { modelId: "auto" },
+    { routeId: "route.local-first" },
+    { interactionMode: "plan" },
+  ]) {
+    assert.throws(
+      () => threadRuntimeControlKind(request),
+      /Thread runtime controls require mode, model, or thinking/,
+    );
+  }
+
+  const modelInput = threadRuntimeControlModelInput(
+    {
+      modelId: "alias-model",
+      routeId: "route.alias",
+      reasoningEffort: "high",
+    },
+    { model: { id: "existing-model", routeId: "route.existing" } },
+    {},
+  );
+  assert.equal(modelInput.model.id, "existing-model");
+  assert.equal(modelInput.model.routeId, "route.existing");
+  assert.equal(Object.hasOwn(modelInput.model, "reasoningEffort"), false);
 });
 
 test("model policy, workflow context, reasoning effort, and route receipt binding stay stable", () => {

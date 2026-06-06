@@ -11,10 +11,10 @@ import * as routeDecision from "../model-mounting/route-decision.mjs";
 
 export function initialThreadRuntimeControls(options = {}, modelRoute = {}, now = new Date().toISOString()) {
   const mode = normalizeThreadInteractionMode(
-    options.mode ?? options.threadMode ?? options.interactionMode ?? "agent",
+    options.mode ?? options.interaction_mode ?? "agent",
   );
   const approvalMode = normalizeThreadApprovalMode(
-    options.approvalMode ?? options.approval_mode,
+    options.approval_mode,
     approvalModeForThreadMode(mode),
   );
   return {
@@ -88,9 +88,8 @@ export function requestWithThreadRuntimeControls(agent, request = {}) {
   return {
     ...request,
     mode,
-    threadMode: request.threadMode ?? request.thread_mode ?? controls.mode,
+    threadMode: request.thread_mode ?? controls.mode,
     approvalMode:
-      request.approvalMode ??
       request.approval_mode ??
       controls.approvalMode ??
       approvalModeForThreadMode(controls.mode),
@@ -116,17 +115,16 @@ export function threadRuntimeControlKind(request = {}) {
   const value = optionalString(request.control ?? request.control_kind ?? request.kind ?? request.command)?.toLowerCase();
   if (value === "mode" || value === "model" || value === "thinking") return value;
   if (
-    request.reasoningEffort !== undefined ||
     request.reasoning_effort !== undefined ||
     request.thinking !== undefined ||
     request.effort !== undefined
   ) {
     return "thinking";
   }
-  if (request.model !== undefined || request.modelId !== undefined || request.model_id !== undefined || request.routeId !== undefined || request.route_id !== undefined) {
+  if (request.model !== undefined || request.model_id !== undefined || request.route_id !== undefined) {
     return "model";
   }
-  if (request.mode !== undefined || request.interactionMode !== undefined || request.interaction_mode !== undefined) {
+  if (request.mode !== undefined || request.interaction_mode !== undefined) {
     return "mode";
   }
   throw runtimeError({
@@ -146,14 +144,14 @@ export function threadRuntimeControlModelInput(request = {}, controls = {}, agen
   const modelId =
     optionalString(bodyModel.id ?? bodyModel.modelId ?? bodyModel.model_id) ??
     (typeof request.model === "string" ? optionalString(request.model) : undefined) ??
-    optionalString(request.modelId ?? request.model_id ?? request.id) ??
+    optionalString(request.model_id ?? request.id) ??
     existingModel.id ??
     agent.requestedModelId ??
     agent.modelId ??
     "auto";
   const routeId =
     optionalString(bodyModel.routeId ?? bodyModel.route_id ?? bodyModel.route) ??
-    optionalString(request.routeId ?? request.route_id ?? request.route) ??
+    optionalString(request.route_id ?? request.route) ??
     existingModel.routeId ??
     existingModel.route_id ??
     agent.modelRouteId ??
@@ -162,7 +160,6 @@ export function threadRuntimeControlModelInput(request = {}, controls = {}, agen
     bodyModel.reasoningEffort ??
       bodyModel.reasoning_effort ??
       bodyModel.thinking ??
-      request.reasoningEffort ??
       request.reasoning_effort ??
       request.thinking ??
       request.effort ??

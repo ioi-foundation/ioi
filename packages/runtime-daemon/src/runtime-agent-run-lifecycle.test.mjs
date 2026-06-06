@@ -250,6 +250,31 @@ test("createRun resolves route, memory, skill catalog, usage telemetry, and pers
   assert.equal(statePlannerCalls.at(-1).request.run.id, "run.test");
 });
 
+test("createRun ignores retired thread and approval mode request aliases before Rust planning", () => {
+  const store = fakeStore();
+  const statePlannerCalls = [];
+  const testDeps = deps({ statePlannerCalls });
+  const agent = createAgent(store, { local: { cwd: "/workspace/project" } }, testDeps);
+
+  const run = createRun(
+    store,
+    agent.id,
+    {
+      mode: "send",
+      prompt: "hello",
+      threadMode: "review",
+      approvalMode: "manual",
+    },
+    testDeps,
+  );
+
+  assert.equal(run.threadMode, "agent");
+  assert.equal(run.approvalMode, "on-request");
+  assert.equal(statePlannerCalls.at(-1).operation, "plan_run_create_state_update");
+  assert.equal(statePlannerCalls.at(-1).request.run.threadMode, "agent");
+  assert.equal(statePlannerCalls.at(-1).request.run.approvalMode, "on-request");
+});
+
 test("createRun fails closed without Rust-planned operation kind", () => {
   const store = fakeStore();
   const agent = createAgent(store, { local: { cwd: "/workspace/project" } }, deps());

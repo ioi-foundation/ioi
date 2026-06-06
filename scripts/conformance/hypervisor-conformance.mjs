@@ -2674,6 +2674,11 @@ function runBridge() {
       /retiredAliasInput\.workflowNodeId, "runtime\.model-router"/.test(
         threadRuntimeControlsTest,
       ) &&
+      /thread runtime control helpers ignore retired request aliases/.test(
+        threadRuntimeControlsTest,
+      ) &&
+      /threadMode: "review"/.test(threadRuntimeControlsTest) &&
+      /approvalMode: "human_required"/.test(threadRuntimeControlsTest) &&
       /store\.routeRequests\[0\]\.context\.workflowGraphId, null/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
@@ -2681,7 +2686,7 @@ function runBridge() {
         runtimeThreadControlSurfaceTest,
       ) &&
       !/request\.(?:workflowNodeId|workflowGraphId|requestedBy|interactionMode|approvalMode|idempotencyKey)\b/.test(runtimeThreadControlSurface) &&
-      !/request\.workflowNodeId\b/.test(threadRuntimeControls) &&
+      !/request\.(?:workflowNodeId|threadMode|approvalMode|interactionMode|reasoningEffort|modelId|routeId)\b/.test(threadRuntimeControls) &&
       !/request\.(?:workflow_node_id|workflow_graph_id|idempotency_key)\s*\?\?\s*request\./.test(
         runtimeThreadControlSurface,
       ),
@@ -3015,6 +3020,10 @@ function runBridge() {
       /createRun fails closed without Rust-planned operation kind/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
+      /createRun ignores retired thread and approval mode request aliases before Rust planning/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      !/request\.(?:threadMode|approvalMode)\b/.test(runtimeAgentRunLifecycle) &&
       /thread store fails closed without Rust-planned status agent/.test(threadStoreTest) &&
       /thread store fails closed without Rust-planned status operation kind/.test(
         threadStoreTest,
