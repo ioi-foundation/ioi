@@ -7,6 +7,19 @@ import test from "node:test";
 
 import { createRuntimeWorkspaceSnapshotSurface } from "./runtime-workspace-snapshot-surface.mjs";
 
+const RETIRED_WORKSPACE_ARTIFACT_ALIASES = [
+  "schemaVersion",
+  "threadId",
+  "toolName",
+  "toolCallId",
+  "workspaceRoot",
+  "mediaType",
+  "receiptId",
+  "contentBytes",
+  "contentHash",
+  "createdAt",
+];
+
 function runtimeError({ status, code, message, details }) {
   const error = new Error(message);
   error.status = status;
@@ -329,6 +342,14 @@ test("workspace snapshot surface prepares snapshots and persists content artifac
   assert.match(snapshot.record.snapshotId, /^workspace_snapshot_tool_call_alpha_/);
   assert.equal(snapshot.artifactRecord.channel, "workspace-snapshot");
   assert.equal(snapshot.artifactRecord.created_at, "2026-06-04T15:00:00.000Z");
+  assert.equal(snapshot.artifactRecord.schema_version, "ioi.runtime.coding-tool-artifact.v1");
+  assert.equal(snapshot.artifactRecord.thread_id, "thread_alpha");
+  assert.equal(snapshot.artifactRecord.tool_name, "file.apply_patch");
+  assert.equal(snapshot.artifactRecord.tool_call_id, "tool_call_alpha");
+  assert.equal(snapshot.artifactRecord.workspace_root, "/workspace");
+  for (const field of RETIRED_WORKSPACE_ARTIFACT_ALIASES) {
+    assert.equal(Object.hasOwn(snapshot.artifactRecord, field), false);
+  }
   assert.equal(store.codingArtifacts.get(snapshot.artifactRecord.id), snapshot.artifactRecord);
   assert.equal(writes.length, 1);
   assert.match(writes[0].filePath, /workspace_snapshot_tool_call_alpha_.*_content\.json$/);
@@ -467,6 +488,15 @@ test("workspace snapshot surface materializes restore artifacts and appends rest
 
   assert.equal(previewArtifact.channel, "restore-preview");
   assert.equal(applyArtifact.channel, "restore-apply");
+  for (const artifactRecord of [previewArtifact, applyArtifact]) {
+    assert.equal(artifactRecord.schema_version, "ioi.runtime.coding-tool-artifact.v1");
+    assert.equal(artifactRecord.thread_id, "thread_alpha");
+    assert.equal(artifactRecord.tool_call_id, "workspace_snapshot_alpha");
+    assert.equal(artifactRecord.workspace_root, "/workspace");
+    for (const field of RETIRED_WORKSPACE_ARTIFACT_ALIASES) {
+      assert.equal(Object.hasOwn(artifactRecord, field), false);
+    }
+  }
   assert.equal(previewEvent.status, "completed");
   assert.equal(previewEvent.payload_schema_version, "ioi.runtime.workspace-restore-preview.v1");
   assert.equal(applyEvent.status, "blocked");

@@ -10674,6 +10674,28 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "workspace-snapshot-artifact-output-aliases-retired",
+    /RETIRED_WORKSPACE_ARTIFACT_ALIASES/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /Object\.hasOwn\(snapshot\.artifactRecord,\s*field\),\s*false/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(artifactRecord,\s*field\),\s*false/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      !/function materializeWorkspaceSnapshotArtifact(?:(?!\n  function appendWorkspaceSnapshotEvent)[\s\S])*?\b(?:schemaVersion|threadId|toolName|toolCallId|workspaceRoot|mediaType|receiptId|contentBytes|contentHash|createdAt)\s*:/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      !/function materializeWorkspaceRestoreArtifact(?:(?!\n  function appendWorkspaceRestorePreviewEvent)[\s\S])*?\b(?:schemaVersion|threadId|toolName|toolCallId|workspaceRoot|mediaType|receiptId|contentBytes|contentHash|createdAt)\s*:/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: workspace snapshot/restore artifact records must expose canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "workspace-change-review-aliases-retired",
     /schema_version:\s*WORKSPACE_CHANGE_REVIEW_SCHEMA_VERSION/.test(
       workspaceChangeInspection,

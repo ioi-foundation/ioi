@@ -174,30 +174,20 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const content = JSON.stringify(artifactPayload ?? snapshot, null, 2);
     const artifactRecord = {
       schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-      schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
       id: artifactId,
       thread_id: threadId,
-      threadId,
       tool_name: "file.apply_patch",
-      toolName: "file.apply_patch",
       tool_call_id: toolCallId,
-      toolCallId,
       workspace_root: workspaceRoot,
-      workspaceRoot,
       name: "workspace-snapshot-content.json",
       channel: "workspace-snapshot",
       media_type: "application/json",
-      mediaType: "application/json",
       redaction: "workspace_snapshot_content_artifact",
       receipt_id: receiptId,
-      receiptId,
       content,
       content_bytes: Buffer.byteLength(content, "utf8"),
-      contentBytes: Buffer.byteLength(content, "utf8"),
       content_hash: doctorHash(content),
-      contentHash: doctorHash(content),
       created_at: createdAt,
-      createdAt,
     };
     store.codingArtifacts.set(artifactRecord.id, artifactRecord);
     writeJson(store.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
@@ -803,30 +793,20 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const content = JSON.stringify(value, null, 2);
     const artifactRecord = {
       schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-      schemaVersion: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
       id: artifactId,
       thread_id: threadId,
-      threadId,
       tool_name: toolName,
-      toolName,
       tool_call_id: snapshotId,
-      toolCallId: snapshotId,
       workspace_root: workspaceRoot,
-      workspaceRoot,
       name,
       channel,
       media_type: "application/json",
-      mediaType: "application/json",
       redaction,
       receipt_id: receiptId,
-      receiptId,
       content,
       content_bytes: Buffer.byteLength(content, "utf8"),
-      contentBytes: Buffer.byteLength(content, "utf8"),
       content_hash: doctorHash(content),
-      contentHash: doctorHash(content),
       created_at: createdAt,
-      createdAt,
     };
     store.codingArtifacts.set(artifactRecord.id, artifactRecord);
     writeJson(store.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
