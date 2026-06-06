@@ -160,7 +160,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         const body = await readBody(request);
         writeJsonResponse(
           response,
-          store.createConversationArtifact(optionalString(body.thread_id ?? body.threadId) ?? "thread_standalone", body),
+          store.createConversationArtifact(optionalString(body.thread_id) ?? "thread_standalone", body),
           201,
         );
         return;

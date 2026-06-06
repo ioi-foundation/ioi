@@ -711,7 +711,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "artifacts" && !segments[4]) {
-      writeJsonResponse(response, store.listConversationArtifacts({ threadId }));
+      writeJsonResponse(response, store.listConversationArtifacts({ thread_id: threadId }));
       return;
     }
     if (request.method === "POST" && action === "artifacts" && !segments[4]) {

@@ -7615,6 +7615,28 @@ function runCompositor() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
+  const conversationArtifacts = exists("packages/runtime-daemon/src/conversation-artifacts.mjs")
+    ? read("packages/runtime-daemon/src/conversation-artifacts.mjs")
+    : "";
+  const conversationArtifactsTest = exists("packages/runtime-daemon/src/conversation-artifacts.test.mjs")
+    ? read("packages/runtime-daemon/src/conversation-artifacts.test.mjs")
+    : "";
+  const runtimeConversationArtifactSurface = exists(
+    "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs")
+    : "";
+  const runtimeConversationArtifactSurfaceTest = exists(
+    "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs")
+    : "";
+  const publicRuntimeRoutes = exists("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
+    ? read("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
+    : "";
+  const runtimeRouteHandlers = exists("packages/runtime-daemon/src/runtime-route-handlers.mjs")
+    ? read("packages/runtime-daemon/src/runtime-route-handlers.mjs")
+    : "";
   const runtimeRunReadSurface = exists("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     : "";
@@ -8298,6 +8320,11 @@ function runCompositor() {
   const liveRuntimeDaemonMcpFixtures = exists("scripts/lib/live-runtime-daemon-contract/mcp-fixtures.mjs")
     ? read("scripts/lib/live-runtime-daemon-contract/mcp-fixtures.mjs")
     : "";
+  const conversationArtifactProofScript = exists(
+    "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
+  )
+    ? read("scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs")
+    : "";
   function blockBetween(text, startMarker, endMarker) {
     const startIndex = text.indexOf(startMarker);
     if (startIndex < 0) return "";
@@ -8503,6 +8530,41 @@ function runCompositor() {
     'if (event.type !== "model_route_decision") return summary;',
     "  }\n  \n\n  return",
   );
+  const conversationArtifactCreateRecordBlock = blockBetween(
+    conversationArtifacts,
+    "const record = {",
+    "      evidence: {",
+  );
+  const conversationArtifactUnsupportedActionResultBlock = blockBetween(
+    conversationArtifacts,
+    'status: "rejected",',
+    "        artifact: this.#withInlinePreview(record),",
+  );
+  const conversationArtifactCompletedActionResultBlock = blockBetween(
+    conversationArtifacts,
+    'status: "completed",',
+    "      receipt,",
+  );
+  const conversationArtifactRevisionBlock = blockBetween(
+    conversationArtifacts,
+    "return {\n      schema_version: CONVERSATION_ARTIFACT_REVISION_SCHEMA_VERSION",
+    "    };\n  }\n\n  #withInlinePreview",
+  );
+  const conversationArtifactReceiptBlock = blockBetween(
+    conversationArtifacts,
+    "const receipt = {",
+    "    };\n    writeJson",
+  );
+  const conversationArtifactSdkTypesBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface ConversationArtifactRef",
+    "export interface ConversationArtifactActionResult",
+  );
+  const conversationArtifactSdkListMethodBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "async listConversationArtifacts",
+    "async createConversationArtifact",
+  );
   assertCheck(
     result,
     "rust-projection-core",
@@ -8523,6 +8585,58 @@ function runCompositor() {
       /WorkflowCompositorAcceptedTruthForbidden/.test(projectionCore),
     ["crates/services/src/agentic/runtime/kernel/projection.rs"],
     "Phase 11 is pending: compositor must be unable to create accepted truth directly",
+  );
+  assertCheck(
+    result,
+    "conversation-artifact-aliases-retired",
+    /thread_id:\s*input\.thread_id \?\? null/.test(conversationArtifacts) &&
+      /turn_id:\s*input\.turn_id \?\? null/.test(conversationArtifacts) &&
+      /output_modality:\s*input\.output_modality \?\? null/.test(conversationArtifacts) &&
+      /const threadId = query\.thread_id \?\? null/.test(conversationArtifacts) &&
+      /\.filter\(\(record\) => !threadId \|\| record\.thread_id === threadId\)/.test(conversationArtifacts) &&
+      /thread_id:\s*threadId/.test(runtimeConversationArtifactSurface) &&
+      /store\.listConversationArtifacts\(\{ thread_id: threadId \}\)/.test(runtimeRouteHandlers) &&
+      /optionalString\(body\.thread_id\)/.test(publicRuntimeRoutes) &&
+      /listConversationArtifacts\(input\?: \{ thread_id\?: string \}\)/.test(agentSdkSubstrateClient) &&
+      /async listConversationArtifacts\(input: \{ thread_id\?: string \} = \{\}\)/.test(
+        conversationArtifactSdkListMethodBlock,
+      ) &&
+      /\?thread_id=\$\{encodeURIComponent\(threadId\)\}/.test(conversationArtifactSdkListMethodBlock) &&
+      /client\.listConversationArtifacts\(\{ thread_id: threadId \}\)/.test(conversationArtifactProofScript) &&
+      /artifact_class: artifactClass/.test(conversationArtifactProofScript) &&
+      !/^\s*(?:schemaVersion|artifactId|threadId|turnId|artifactClass|outputModality|stateLabel|generatedFiles|sourceRefs|originalRefs|projectionRefs|previewRefs|traceRefs|policyRefs|receiptRefs|actionSchemaVersion|latestRevisionId|exportRefs|promotionRefs|createdAt|updatedAt|previewInline)\s*:/m.test(
+        conversationArtifactCreateRecordBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|policyVerdict)\s*:/m.test(conversationArtifactUnsupportedActionResultBlock) &&
+      !/^\s*schemaVersion\s*:/m.test(conversationArtifactCompletedActionResultBlock) &&
+      !/^\s*(?:schemaVersion|revisionId|artifactId|sourceRefs|originalRefs|projectionRefs|previewRefs|logRefs|rollbackRefs|createdAt)\s*:/m.test(
+        conversationArtifactRevisionBlock,
+      ) &&
+      !/^\s*(?:artifactId|policyRefs|createdAt)\s*:/m.test(conversationArtifactReceiptBlock) &&
+      /Object\.hasOwn\(artifact,\s*key\),\s*false/.test(conversationArtifactsTest) &&
+      /Object\.hasOwn\(revision,\s*key\),\s*false/.test(conversationArtifactsTest) &&
+      /Object\.hasOwn\(ref,\s*key\),\s*false/.test(conversationArtifactsTest) &&
+      /Object\.hasOwn\(receipt,\s*key\),\s*false/.test(conversationArtifactsTest) &&
+      /surface\.listConversationArtifacts\(store, \{ thread_id: "thread-one" \}\)/.test(
+        runtimeConversationArtifactSurfaceTest,
+      ) &&
+      !/^\s*(?:fileName|mediaType|revisionId|artifactId|threadId|artifactClass|stateLabel|sourceRefs|originalRefs|projectionRefs|previewRefs|traceRefs|policyRefs|receiptRefs|latestRevisionId|exportRefs|promotionRefs|createdAt|updatedAt)\?:/m.test(
+        conversationArtifactSdkTypesBlock,
+      ) &&
+      !/listConversationArtifacts\(input\?: \{ threadId/.test(agentSdkSubstrateClient) &&
+      !/input\.threadId/.test(conversationArtifactSdkListMethodBlock) &&
+      !/\?threadId=/.test(conversationArtifactSdkListMethodBlock),
+    [
+      "packages/runtime-daemon/src/conversation-artifacts.mjs",
+      "packages/runtime-daemon/src/conversation-artifacts.test.mjs",
+      "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
+      "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+      "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
+    ],
+    "Phase 10/11 is pending: conversation artifact records, refs, revisions, actions, routes, and SDK queries must use the canonical snake_case contract without duplicate compatibility aliases",
   );
   assertCheck(
     result,

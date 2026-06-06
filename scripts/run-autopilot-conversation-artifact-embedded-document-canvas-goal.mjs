@@ -118,7 +118,7 @@ async function runHeadlessLifecycleProof(outputDir) {
     const threadId = threadIdOf(thread);
     for (const artifactClass of ARTIFACT_CLASSES) {
       const created = await client.createConversationArtifact(threadId, {
-        artifactClass,
+        artifact_class: artifactClass,
         title: `${artifactClass.replace(/_/g, " ")} fixture`,
         prompt: `Create a disposable ${artifactClass} conversation artifact for the campaign proof.`,
         summary: `Headless proof fixture for ${artifactClass}.`,
@@ -126,7 +126,7 @@ async function runHeadlessLifecycleProof(outputDir) {
       artifacts.push(artifactOf(created));
     }
 
-    const byClass = Object.fromEntries(artifacts.map((artifact) => [artifact.artifactClass ?? artifact.artifact_class, artifact]));
+    const byClass = Object.fromEntries(artifacts.map((artifact) => [artifact.artifact_class, artifact]));
     const actionPlan = {
       markdown_html_report: ["edit", "export", "promote"],
       static_html_js: ["rebuild", "export", "promote"],
@@ -162,7 +162,7 @@ async function runHeadlessLifecycleProof(outputDir) {
     });
 
     const reactAfter = await client.getConversationArtifact(byClass.react_vite_app.id);
-    const packageRef = (reactAfter.sourceRefs ?? reactAfter.source_refs ?? []).find((ref) => ref.fileName === "package.json");
+    const packageRef = (reactAfter.source_refs ?? []).find((ref) => ref.file_name === "package.json");
     const reactWorkspace = packageRef ? dirname(fullArtifactPath(stateDir, packageRef)) : null;
     if (reactWorkspace) {
       const outDir = join(reactWorkspace, "dist-real");
@@ -173,24 +173,24 @@ async function runHeadlessLifecycleProof(outputDir) {
       });
     }
 
-    const finalArtifacts = await client.listConversationArtifacts({ threadId });
+    const finalArtifacts = await client.listConversationArtifacts({ thread_id: threadId });
     const artifactRecords = Array.isArray(finalArtifacts) ? finalArtifacts : finalArtifacts?.artifacts ?? [];
     const summary = artifactRecords.map((artifact) => ({
       id: artifact.id,
-      artifactClass: artifact.artifactClass ?? artifact.artifact_class,
+      artifactClass: artifact.artifact_class,
       status: artifact.status,
       revisions: (artifact.revisions ?? []).length,
-      sourceRefs: (artifact.sourceRefs ?? artifact.source_refs ?? []).length,
-      originalRefs: (artifact.originalRefs ?? artifact.original_refs ?? []).length,
-      projectionRefs: (artifact.projectionRefs ?? artifact.projection_refs ?? []).length,
-      previewRefs: (artifact.previewRefs ?? artifact.preview_refs ?? []).length,
-      exportRefs: (artifact.exportRefs ?? artifact.export_refs ?? []).map((ref) => ({
-        fileName: ref.fileName,
-        mediaType: ref.mediaType,
+      sourceRefs: (artifact.source_refs ?? []).length,
+      originalRefs: (artifact.original_refs ?? []).length,
+      projectionRefs: (artifact.projection_refs ?? []).length,
+      previewRefs: (artifact.preview_refs ?? []).length,
+      exportRefs: (artifact.export_refs ?? []).map((ref) => ({
+        fileName: ref.file_name,
+        mediaType: ref.media_type,
       })),
-      promotionRefs: (artifact.promotionRefs ?? artifact.promotion_refs ?? []).length,
-      policyRefs: artifact.policyRefs ?? artifact.policy_refs ?? [],
-      receiptRefs: artifact.receiptRefs ?? artifact.receipt_refs ?? [],
+      promotionRefs: (artifact.promotion_refs ?? []).length,
+      policyRefs: artifact.policy_refs ?? [],
+      receiptRefs: artifact.receipt_refs ?? [],
       renderer: artifact.renderer,
       fidelity: artifact.fidelity ?? null,
     }));
@@ -209,7 +209,7 @@ async function runHeadlessLifecycleProof(outputDir) {
       assertCheck(summary.some((item) => item.exportRefs.some((ref) => ref.mediaType === "application/vnd.oasis.opendocument.text")), "Imported document export uses a document media type"),
       assertCheck(summary.some((item) => item.artifactClass === "diff_patch" && item.status === "rolled_back"), "Diff/patch artifact supports rollback after approval/apply"),
       assertCheck(summary.some((item) => item.promotionRefs >= 1), "Promotion refs are written through the daemon lifecycle"),
-      assertCheck(rejectedAction?.status === "rejected" && rejectedAction?.policyVerdict?.allowed === false, "Unsupported generated UI action is rejected by typed artifact policy"),
+      assertCheck(rejectedAction?.status === "rejected" && rejectedAction?.policy_verdict?.allowed === false, "Unsupported generated UI action is rejected by typed artifact policy"),
       assertCheck(viteBuild?.ok, "Disposable React/Vite artifact workspace builds with local Vite support command", { status: viteBuild?.status }),
     ];
     const proof = {

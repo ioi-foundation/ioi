@@ -6,7 +6,7 @@ import { createRuntimeConversationArtifactSurface } from "./runtime-conversation
 function harness() {
   const calls = [];
   const artifacts = new Map([
-    ["artifact-one", { artifactId: "artifact-one", title: "One" }],
+    ["artifact-one", { artifact_id: "artifact-one", title: "One" }],
   ]);
   const surface = createRuntimeConversationArtifactSurface({
     notFound(message, details) {
@@ -23,7 +23,7 @@ function harness() {
       },
       create(input) {
         calls.push({ name: "create", input });
-        return { artifactId: "artifact-created", ...input };
+        return { artifact_id: "artifact-created", ...input };
       },
       exportArtifact(artifactId, input) {
         calls.push({ name: "exportArtifact", artifactId, input });
@@ -43,7 +43,7 @@ function harness() {
       },
       revisions(artifactId) {
         calls.push({ name: "revisions", artifactId });
-        return [{ revisionId: "revision-one" }];
+        return [{ revision_id: "revision-one" }];
       },
     },
   };
@@ -54,19 +54,19 @@ test("conversation artifact surface delegates create, list, get, and revisions",
   const { calls, store, surface } = harness();
 
   assert.deepEqual(surface.createConversationArtifact(store, "thread-one", { title: "Draft" }), {
-    artifactId: "artifact-created",
+    artifact_id: "artifact-created",
     title: "Draft",
-    threadId: "thread-one",
+    thread_id: "thread-one",
   });
-  assert.deepEqual(surface.listConversationArtifacts(store, { threadId: "thread-one" }), [
-    { artifactId: "artifact-one", title: "One" },
+  assert.deepEqual(surface.listConversationArtifacts(store, { thread_id: "thread-one" }), [
+    { artifact_id: "artifact-one", title: "One" },
   ]);
   assert.deepEqual(surface.getConversationArtifact(store, "artifact-one"), {
-    artifactId: "artifact-one",
+    artifact_id: "artifact-one",
     title: "One",
   });
   assert.deepEqual(surface.listConversationArtifactRevisions(store, "artifact-one"), [
-    { revisionId: "revision-one" },
+    { revision_id: "revision-one" },
   ]);
 
   assert.deepEqual(calls.map((call) => call.name), [

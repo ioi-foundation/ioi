@@ -83,14 +83,14 @@ function dataRef({ artifactId, revisionId, role, filePath, root }) {
     ref: `artifact://${artifactId}/${revisionId}/${role}/${path.basename(filePath)}`,
     role,
     path: relativeRef(root, filePath),
-    fileName: path.basename(filePath),
-    mediaType: mediaTypeForFile(filePath),
+    file_name: path.basename(filePath),
+    media_type: mediaTypeForFile(filePath),
   };
 }
 
 function safeReadInlinePreview(rootDir, ref = {}) {
   const relativePath = String(ref.path || "");
-  const mediaType = String(ref.mediaType || ref.media_type || "");
+  const mediaType = String(ref.media_type || "");
   if (!relativePath || !/^(text\/html|text\/markdown|text\/csv|application\/json|text\/x-diff|text\/plain)/i.test(mediaType)) {
     return null;
   }
@@ -107,11 +107,9 @@ function safeReadInlinePreview(rootDir, ref = {}) {
   const text = fs.readFileSync(resolved, "utf8").slice(0, maxBytes);
   return {
     media_type: mediaType,
-    mediaType,
     text,
     truncated: stat.size > maxBytes,
     source_ref: ref.ref || null,
-    sourceRef: ref.ref || null,
   };
 }
 
@@ -148,7 +146,7 @@ function generatedWebFilesFromInput(value = {}) {
 }
 
 function generatedArtifactInput(input = {}) {
-  return input.generatedFiles || input.generated_files || input.generatedWeb || input.generated_web || null;
+  return input.generated_files || null;
 }
 
 function artifactSourceRequiredError(message) {
@@ -381,7 +379,7 @@ export class ConversationArtifactStore {
   }
 
   create(input = {}) {
-    const classId = artifactClass(input.artifactClass ?? input.artifact_class ?? input.class);
+    const classId = artifactClass(input.artifact_class);
     const title = String(input.title || defaultTitleForClass(classId));
     const generatedFiles = generatedArtifactInput(input);
     assertStaticWebsiteGeneratedSource(classId, generatedFiles);
@@ -405,26 +403,18 @@ export class ConversationArtifactStore {
     });
     const record = {
       schema_version: CONVERSATION_ARTIFACT_SCHEMA_VERSION,
-      schemaVersion: CONVERSATION_ARTIFACT_SCHEMA_VERSION,
       object: "ioi.conversation_artifact",
       id: artifactId,
       artifact_id: artifactId,
-      artifactId,
-      thread_id: input.threadId ?? input.thread_id ?? null,
-      threadId: input.threadId ?? input.thread_id ?? null,
-      turn_id: input.turnId ?? input.turn_id ?? null,
-      turnId: input.turnId ?? input.turn_id ?? null,
+      thread_id: input.thread_id ?? null,
+      turn_id: input.turn_id ?? null,
       artifact_class: classId,
-      artifactClass: classId,
-      output_modality: input.outputModality ?? input.output_modality ?? input.intentFrame?.artifact?.outputModality ?? null,
-      outputModality: input.outputModality ?? input.output_modality ?? input.intentFrame?.artifact?.outputModality ?? null,
+      output_modality: input.output_modality ?? null,
       title,
       status: classId === "diff_patch" ? "approval_required" : "preview_ready",
       state_label: classId === "diff_patch" ? "Approval required" : "Preview ready",
-      stateLabel: classId === "diff_patch" ? "Approval required" : "Preview ready",
       summary: input.summary || `${renderer.label} is ready.`,
       generated_files: generatedFiles,
-      generatedFiles,
       renderer: {
         ...renderer,
         sandboxed: true,
@@ -433,29 +423,18 @@ export class ConversationArtifactStore {
         actions: "typed_daemon_requests",
       },
       source_refs: revision.source_refs,
-      sourceRefs: revision.source_refs,
       original_refs: revision.original_refs,
-      originalRefs: revision.original_refs,
       projection_refs: revision.projection_refs,
-      projectionRefs: revision.projection_refs,
       preview_refs: revision.preview_refs,
-      previewRefs: revision.preview_refs,
       trace_refs: [`trace:conversation-artifact:${artifactId}`],
-      traceRefs: [`trace:conversation-artifact:${artifactId}`],
       policy_refs: DEFAULT_POLICY_REFS,
-      policyRefs: DEFAULT_POLICY_REFS,
       receipt_refs: [receipt.id],
-      receiptRefs: [receipt.id],
       action_schema_version: CONVERSATION_ARTIFACT_ACTION_SCHEMA_VERSION,
-      actionSchemaVersion: CONVERSATION_ARTIFACT_ACTION_SCHEMA_VERSION,
       actions: actionListForClass(classId),
       revisions: [revision],
       latest_revision_id: revision.id,
-      latestRevisionId: revision.id,
       export_refs: [],
-      exportRefs: [],
       promotion_refs: [],
-      promotionRefs: [],
       fidelity: classId === "imported_document"
         ? {
             status: "projection_ready",
@@ -464,9 +443,7 @@ export class ConversationArtifactStore {
           }
         : null,
       created_at: createdAt,
-      createdAt,
       updated_at: createdAt,
-      updatedAt: createdAt,
       evidence: {
         runtimeOwned: true,
         guiOwnsExecutionSemantics: false,
@@ -479,9 +456,9 @@ export class ConversationArtifactStore {
   }
 
   list(query = {}) {
-    const threadId = query.threadId ?? query.thread_id ?? null;
+    const threadId = query.thread_id ?? null;
     return [...this.records.values()]
-      .filter((record) => !threadId || record.thread_id === threadId || record.threadId === threadId)
+      .filter((record) => !threadId || record.thread_id === threadId)
       .sort((left, right) => String(right.updated_at).localeCompare(String(left.updated_at)))
       .map((record) => this.#withInlinePreview(record));
   }
@@ -509,13 +486,10 @@ export class ConversationArtifactStore {
         policyRefs: DEFAULT_POLICY_REFS,
       });
       record.receipt_refs = [...new Set([...(record.receipt_refs ?? []), receipt.id])];
-      record.receiptRefs = record.receipt_refs;
       record.updated_at = nowIso();
-      record.updatedAt = record.updated_at;
       this.#write(record);
       return {
         schema_version: CONVERSATION_ARTIFACT_ACTION_SCHEMA_VERSION,
-        schemaVersion: CONVERSATION_ARTIFACT_ACTION_SCHEMA_VERSION,
         object: "ioi.conversation_artifact_action_result",
         action,
         status: "rejected",
@@ -524,16 +498,12 @@ export class ConversationArtifactStore {
           allowed: false,
           reason: "Artifact actions must be declared typed daemon requests.",
         },
-        policyVerdict: {
-          allowed: false,
-          reason: "Artifact actions must be declared typed daemon requests.",
-        },
         artifact: this.#withInlinePreview(record),
         receipt,
       };
     }
     const suppliedGeneratedFiles = generatedArtifactInput(input);
-    const generatedFilesForRevision = suppliedGeneratedFiles || record.generated_files || record.generatedFiles;
+    const generatedFilesForRevision = suppliedGeneratedFiles || record.generated_files;
     if (["edit", "rebuild", "compare"].includes(action)) {
       assertStaticWebsiteGeneratedSource(record.artifact_class, generatedFilesForRevision);
     }
@@ -556,22 +526,15 @@ export class ConversationArtifactStore {
       });
       if (suppliedGeneratedFiles) {
         record.generated_files = suppliedGeneratedFiles;
-        record.generatedFiles = record.generated_files;
       }
       record.revisions.push(revision);
       record.latest_revision_id = revision.id;
-      record.latestRevisionId = revision.id;
       record.source_refs = revision.source_refs;
-      record.sourceRefs = revision.source_refs;
       record.original_refs = revision.original_refs;
-      record.originalRefs = revision.original_refs;
       record.projection_refs = revision.projection_refs;
-      record.projectionRefs = revision.projection_refs;
       record.preview_refs = revision.preview_refs;
-      record.previewRefs = revision.preview_refs;
       record.status = action === "compare" || record.artifact_class === "imported_document" ? "compare_ready" : "preview_ready";
       record.state_label = action === "rebuild" ? "Preview rebuilt" : "Compare ready";
-      record.stateLabel = record.state_label;
     } else if (action === "export" || action === "export_summary") {
       const exportDir = path.join(this.assetsDir, artifactId, "exports");
       let exportFile = path.join(exportDir, `${slug(record.title)}-${hash(now)}.html`);
@@ -599,55 +562,39 @@ export class ConversationArtifactStore {
       }
       const ref = dataRef({ artifactId, revisionId: record.latest_revision_id, role: "export", filePath: exportFile, root: this.rootDir });
       record.export_refs.push(ref);
-      record.exportRefs = record.export_refs;
       record.status = "export_ready";
       record.state_label = "Export ready";
-      record.stateLabel = "Export ready";
     } else if (action === "promote") {
       const promotion = {
         ref: `promotion://${artifactId}/${hash(now)}`,
         target: input.target || "workspace",
         status: "promoted",
         created_at: now,
-        createdAt: now,
       };
       record.promotion_refs.push(promotion);
-      record.promotionRefs = record.promotion_refs;
       record.status = "promoted";
       record.state_label = "Promoted";
-      record.stateLabel = "Promoted";
     } else if (action === "apply" || action === "approve") {
       record.status = "applied";
       record.state_label = action === "approve" ? "Approved" : "Applied";
-      record.stateLabel = record.state_label;
     } else if (action === "rollback") {
       const revision = record.revisions[Math.max(0, record.revisions.length - 2)] ?? record.revisions[0];
       record.latest_revision_id = revision.id;
-      record.latestRevisionId = revision.id;
       record.source_refs = revision.source_refs;
-      record.sourceRefs = revision.source_refs;
       record.original_refs = revision.original_refs;
-      record.originalRefs = revision.original_refs;
       record.projection_refs = revision.projection_refs;
-      record.projectionRefs = revision.projection_refs;
       record.preview_refs = revision.preview_refs;
-      record.previewRefs = revision.preview_refs;
       record.status = "rolled_back";
       record.state_label = "Rolled back";
-      record.stateLabel = "Rolled back";
     } else if (action === "capture") {
       record.status = "captured";
       record.state_label = "Observation captured";
-      record.stateLabel = "Observation captured";
     }
     record.receipt_refs = [...new Set([...(record.receipt_refs ?? []), receipt.id])];
-    record.receiptRefs = record.receipt_refs;
     record.updated_at = now;
-    record.updatedAt = now;
     this.#write(record);
     return {
       schema_version: CONVERSATION_ARTIFACT_ACTION_SCHEMA_VERSION,
-      schemaVersion: CONVERSATION_ARTIFACT_ACTION_SCHEMA_VERSION,
       object: "ioi.conversation_artifact_action_result",
       action,
       status: "completed",
@@ -673,41 +620,30 @@ export class ConversationArtifactStore {
     const createdAt = nowIso();
     return {
       schema_version: CONVERSATION_ARTIFACT_REVISION_SCHEMA_VERSION,
-      schemaVersion: CONVERSATION_ARTIFACT_REVISION_SCHEMA_VERSION,
       object: "ioi.conversation_artifact_revision",
       id: revisionId,
       revision_id: revisionId,
-      revisionId,
       artifact_id: artifactId,
-      artifactId,
       status: "ready",
       summary,
       source_refs: toRefs("source", files.sources),
-      sourceRefs: toRefs("source", files.sources),
       original_refs: toRefs("original", files.originals),
-      originalRefs: toRefs("original", files.originals),
       projection_refs: toRefs("projection", files.projections),
-      projectionRefs: toRefs("projection", files.projections),
       preview_refs: toRefs("preview", files.previews),
-      previewRefs: toRefs("preview", files.previews),
       log_refs: toRefs("log", files.logs),
-      logRefs: toRefs("log", files.logs),
       rollback_refs: toRefs("rollback", files.rollbackRefs),
-      rollbackRefs: toRefs("rollback", files.rollbackRefs),
       created_at: createdAt,
-      createdAt,
     };
   }
 
   #withInlinePreview(record) {
     if (!record) return record;
-    const previewRefs = record.preview_refs ?? record.previewRefs ?? [];
+    const previewRefs = record.preview_refs ?? [];
     const inline = safeReadInlinePreview(this.rootDir, previewRefs[0]);
     if (!inline) return { ...record };
     return {
       ...record,
       preview_inline: inline,
-      previewInline: inline,
     };
   }
 
@@ -716,21 +652,18 @@ export class ConversationArtifactStore {
       id: `receipt_artifact_${slug(action)}_${hash(`${artifactId}:${action}:${Date.now()}:${crypto.randomUUID()}`)}`,
       kind: "conversation_artifact",
       artifact_id: artifactId,
-      artifactId,
       action,
       summary,
       policy_refs: policyRefs,
-      policyRefs,
       redaction: "trace_only",
       created_at: nowIso(),
-      createdAt: nowIso(),
     };
     writeJson(path.join(this.receiptsDir, `${receipt.id}.json`), receipt);
     return receipt;
   }
 
   #write(record) {
-    const { preview_inline, previewInline, ...persisted } = record;
+    const { preview_inline, ...persisted } = record;
     this.records.set(persisted.id, persisted);
     writeJson(path.join(this.recordsDir, `${persisted.id}.json`), persisted);
   }

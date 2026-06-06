@@ -67,72 +67,50 @@ export interface ConversationArtifactRef {
   ref: string;
   role: string;
   path?: string;
-  fileName?: string;
-  mediaType?: string;
+  file_name?: string;
+  media_type?: string;
 }
 
 export interface ConversationArtifactRevision {
   id: string;
   revision_id?: string;
-  revisionId?: string;
   artifact_id?: string;
-  artifactId?: string;
   status: string;
   summary?: string;
   source_refs?: ConversationArtifactRef[];
-  sourceRefs?: ConversationArtifactRef[];
   original_refs?: ConversationArtifactRef[];
-  originalRefs?: ConversationArtifactRef[];
   projection_refs?: ConversationArtifactRef[];
-  projectionRefs?: ConversationArtifactRef[];
   preview_refs?: ConversationArtifactRef[];
-  previewRefs?: ConversationArtifactRef[];
   log_refs?: ConversationArtifactRef[];
-  logRefs?: ConversationArtifactRef[];
+  rollback_refs?: ConversationArtifactRef[];
   created_at?: string;
-  createdAt?: string;
 }
 
 export interface ConversationArtifactRecord {
   id: string;
   artifact_id?: string;
-  artifactId?: string;
   thread_id?: string | null;
-  threadId?: string | null;
   artifact_class?: string;
-  artifactClass?: string;
   title: string;
   status: string;
   state_label?: string;
-  stateLabel?: string;
   summary?: string;
   renderer?: Record<string, unknown>;
   source_refs?: ConversationArtifactRef[];
-  sourceRefs?: ConversationArtifactRef[];
   original_refs?: ConversationArtifactRef[];
-  originalRefs?: ConversationArtifactRef[];
   projection_refs?: ConversationArtifactRef[];
-  projectionRefs?: ConversationArtifactRef[];
   preview_refs?: ConversationArtifactRef[];
-  previewRefs?: ConversationArtifactRef[];
   trace_refs?: string[];
-  traceRefs?: string[];
   policy_refs?: string[];
-  policyRefs?: string[];
   receipt_refs?: string[];
-  receiptRefs?: string[];
   actions?: string[];
   revisions?: ConversationArtifactRevision[];
   latest_revision_id?: string;
-  latestRevisionId?: string;
   export_refs?: ConversationArtifactRef[];
-  exportRefs?: ConversationArtifactRef[];
   promotion_refs?: Record<string, unknown>[];
-  promotionRefs?: Record<string, unknown>[];
   created_at?: string;
-  createdAt?: string;
   updated_at?: string;
-  updatedAt?: string;
+  preview_inline?: Record<string, unknown>;
 }
 
 export interface ConversationArtifactActionResult {
@@ -1487,7 +1465,7 @@ export interface RuntimeSubstrateClient {
   conversation(runId: string): Promise<ConversationMessage[]>;
   listArtifacts(runId: string): Promise<RuntimeArtifact[]>;
   downloadArtifact(runId: string, artifactId: string): Promise<RuntimeArtifact>;
-  listConversationArtifacts(input?: { threadId?: string; thread_id?: string }): Promise<ConversationArtifactRecord[]>;
+  listConversationArtifacts(input?: { thread_id?: string }): Promise<ConversationArtifactRecord[]>;
   createConversationArtifact(threadId: string, input: Record<string, unknown>): Promise<{
     artifact: ConversationArtifactRecord;
     receipt?: RuntimeReceipt;
@@ -2130,9 +2108,9 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     );
   }
 
-  async listConversationArtifacts(input: { threadId?: string; thread_id?: string } = {}): Promise<ConversationArtifactRecord[]> {
-    const threadId = input.threadId ?? input.thread_id;
-    const query = threadId ? `?threadId=${encodeURIComponent(threadId)}` : "";
+  async listConversationArtifacts(input: { thread_id?: string } = {}): Promise<ConversationArtifactRecord[]> {
+    const threadId = input.thread_id;
+    const query = threadId ? `?thread_id=${encodeURIComponent(threadId)}` : "";
     return this.request("listConversationArtifacts", "GET", `/v1/conversation-artifacts${query}`);
   }
 

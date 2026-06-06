@@ -20,7 +20,7 @@ export function createRuntimeConversationArtifactSurface({
     createConversationArtifact(store, threadId, input = {}) {
       return store.conversationArtifacts.create({
         ...input,
-        threadId,
+        thread_id: threadId,
       });
     },
     listConversationArtifacts(store, query = {}) {
