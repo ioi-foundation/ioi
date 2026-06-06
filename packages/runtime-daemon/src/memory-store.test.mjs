@@ -25,11 +25,26 @@ test("agent memory store writes records, edits, deletes, and policies without lo
       agent,
       threadId: "thread.memory",
       scope: "thread",
+      workflow: { memory_key: "launch" },
+    });
+    store.remember({
+      text: "Remember the support checklist.",
+      agent,
+      threadId: "thread.memory",
+      scope: "thread",
+      workflow: { memory_key: "support" },
     });
 
     assert.equal("appendOperation" in store, false);
     assert.equal(remembered.receipt.kind, "memory_write");
     assert.equal(fs.existsSync(path.join(store.memoryDir, `${remembered.record.id}.json`)), true);
+    assert.equal(store.list({ agent, threadId: "thread.memory", memory_key: "launch" }).length, 1);
+    assert.equal(store.list({ agent, threadId: "thread.memory", memoryKey: "launch" }).length, 2);
+    assert.equal(store.projection({ agent, threadId: "thread.memory", filters: { memory_key: "launch" } }).filters.memory_key, "launch");
+    assert.equal(
+      Object.hasOwn(store.projection({ agent, threadId: "thread.memory", filters: { memory_key: "launch" } }).filters, "memoryKey"),
+      false,
+    );
 
     const edited = store.updateRecord({
       id: remembered.record.id,

@@ -136,8 +136,8 @@ export class AgentMemoryStore {
     return { record: deleted, receipt, operation: "delete" };
   }
 
-  list({ agent, threadId, workspace, includeGlobal = true, scope, memoryKey, query, q, limit, redaction } = {}) {
-    const filters = memoryListFilters({ scope, memoryKey, query, q, limit, redaction });
+  list({ agent, threadId, workspace, includeGlobal = true, scope, memory_key, query, limit, redaction } = {}) {
+    const filters = memoryListFilters({ scope, memory_key, query, limit, redaction });
     const records = [...this.records.values()]
       .filter((record) => {
         if (includeGlobal && record.scope === "global") return true;
@@ -147,7 +147,7 @@ export class AgentMemoryStore {
         return false;
       })
       .filter((record) => !filters.scope || record.scope === filters.scope)
-      .filter((record) => !filters.memoryKey || record.memoryKey === filters.memoryKey)
+      .filter((record) => !filters.memory_key || record.memoryKey === filters.memory_key)
       .filter((record) => !filters.query || memoryRecordSearchText(record).includes(filters.query))
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
     const limited = filters.limit ? records.slice(0, filters.limit) : records;
@@ -361,11 +361,11 @@ function optionalMemoryString(value) {
   return text ? text : null;
 }
 
-function memoryListFilters({ scope, memoryKey, query, q, limit, redaction } = {}) {
+function memoryListFilters({ scope, memory_key, query, limit, redaction } = {}) {
   return {
     scope: optionalMemoryString(scope),
-    memoryKey: optionalMemoryString(memoryKey),
-    query: optionalMemoryString(query ?? q)?.toLowerCase() ?? null,
+    memory_key: optionalMemoryString(memory_key),
+    query: optionalMemoryString(query)?.toLowerCase() ?? null,
     limit: normalizeMemoryLimit(limit),
     redaction: redaction === "redacted" ? "redacted" : "none",
   };

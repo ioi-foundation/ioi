@@ -82,9 +82,9 @@ export function createRuntimeMemoryHelpers({
 
   function hasExplicitSubagentMemorySelector(options = {}) {
     return Boolean(
-      optionalString(options.memoryKey ?? options.memory_key) ??
-        optionalString(options.query ?? options.q ?? options.memoryQuery ?? options.memory_query) ??
-        optionalString(options.scope ?? options.memoryScope ?? options.memory_scope),
+      optionalString(options.memory_key) ??
+        optionalString(options.query) ??
+        optionalString(options.scope),
     );
   }
 
@@ -120,11 +120,11 @@ export function createRuntimeMemoryHelpers({
 
   function memoryListFilters(options = {}) {
     return {
-      scope: options.scope ?? options.memoryScope ?? options.memory_scope,
-      memoryKey: options.memoryKey ?? options.memory_key,
-      query: options.query ?? options.q ?? options.memoryQuery ?? options.memory_query,
-      limit: options.limit ?? options.memoryLimit ?? options.memory_limit,
-      redaction: options.redaction ?? options.memoryRedaction ?? options.memory_redaction,
+      scope: options.scope,
+      memory_key: options.memory_key,
+      query: options.query,
+      limit: options.limit,
+      redaction: options.redaction,
     };
   }
 

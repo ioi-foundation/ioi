@@ -12739,6 +12739,12 @@ canonical `workflow_node_id` drives mutation row projection, and raw mutation
 objects can no longer spread retired compatibility fields into the returned
 daemon facade envelope.
 
+Slice 435 removes runtime memory filter aliases:
+runtime memory helper filters and memory-store projection filters now use
+canonical `memory_key`, `query`, `limit`, and `redaction` fields only; retired
+`memoryKey`, `memoryQuery`, `memoryScope`, `memoryLimit`, `memoryRedaction`, and
+`q` filter aliases no longer select inherited or listed memory.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

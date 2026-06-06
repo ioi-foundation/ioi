@@ -8810,6 +8810,34 @@ function runCompositor() {
   const runtimeMemoryManagerTest = exists("packages/runtime-daemon/src/memory-manager.test.mjs")
     ? read("packages/runtime-daemon/src/memory-manager.test.mjs")
     : "";
+  const runtimeMemoryHelpers = exists("packages/runtime-daemon/src/runtime-memory-helpers.mjs")
+    ? read("packages/runtime-daemon/src/runtime-memory-helpers.mjs")
+    : "";
+  const runtimeMemoryHelpersTest = exists("packages/runtime-daemon/src/runtime-memory-helpers.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-memory-helpers.test.mjs")
+    : "";
+  const runtimeMemoryStore = exists("packages/runtime-daemon/src/memory-store.mjs")
+    ? read("packages/runtime-daemon/src/memory-store.mjs")
+    : "";
+  const runtimeMemoryStoreTest = exists("packages/runtime-daemon/src/memory-store.test.mjs")
+    ? read("packages/runtime-daemon/src/memory-store.test.mjs")
+    : "";
+  const runtimeMemoryListFiltersBlock =
+    runtimeMemoryHelpers.match(
+      /function memoryListFilters\(options = \{\}\) \{[\s\S]*?\n  \}\n\n  function memoryEventKind/,
+    )?.[0] ?? "";
+  const runtimeMemoryExplicitSelectorBlock =
+    runtimeMemoryHelpers.match(
+      /function hasExplicitSubagentMemorySelector\(options = \{\}\) \{[\s\S]*?\n  \}\n\n  function memoryWriteBlockReason/,
+    )?.[0] ?? "";
+  const runtimeMemoryStoreListBlock =
+    runtimeMemoryStore.match(
+      /list\(\{ agent, threadId, workspace, includeGlobal = true,[\s\S]*?\n  \}\n\n  write\(record\)/,
+    )?.[0] ?? "";
+  const runtimeMemoryStoreListFiltersBlock =
+    runtimeMemoryStore.match(
+      /function memoryListFilters\(\{ scope,[\s\S]*?\n}\n\nfunction normalizeMemoryLimit/,
+    )?.[0] ?? "";
   const runtimeMemoryStatusForProjectionBlock =
     runtimeMemoryManager.match(
       /export function memoryStatusForProjection\(projection = \{\}\) \{[\s\S]*?\n}\n\nexport function validateMemoryProjection/,
@@ -9341,6 +9369,55 @@ function runCompositor() {
       "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
     ],
     "Phase 10/11 is pending: runtime memory mutation payloads must expose canonical snake_case fields without duplicate camelCase facade aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-memory-filter-aliases-retired",
+    /memory_key:\s*options\.memory_key/.test(runtimeMemoryListFiltersBlock) &&
+      /query:\s*options\.query/.test(runtimeMemoryListFiltersBlock) &&
+      /limit:\s*options\.limit/.test(runtimeMemoryListFiltersBlock) &&
+      /redaction:\s*options\.redaction/.test(runtimeMemoryListFiltersBlock) &&
+      /optionalString\(options\.memory_key\)/.test(runtimeMemoryExplicitSelectorBlock) &&
+      /optionalString\(options\.query\)/.test(runtimeMemoryExplicitSelectorBlock) &&
+      /optionalString\(options\.scope\)/.test(runtimeMemoryExplicitSelectorBlock) &&
+      /list\(\{ agent, threadId, workspace, includeGlobal = true, scope, memory_key, query, limit, redaction \} = \{\}\)/.test(
+        runtimeMemoryStoreListBlock,
+      ) &&
+      /memoryListFilters\(\{ scope, memory_key, query, limit, redaction \}\)/.test(
+        runtimeMemoryStoreListBlock,
+      ) &&
+      /!filters\.memory_key \|\| record\.memoryKey === filters\.memory_key/.test(
+        runtimeMemoryStoreListBlock,
+      ) &&
+      /memory_key:\s*optionalMemoryString\(memory_key\)/.test(runtimeMemoryStoreListFiltersBlock) &&
+      /runtime\.hasExplicitSubagentMemorySelector\(\{ memoryKey: "project" \}\), false/.test(
+        runtimeMemoryHelpersTest,
+      ) &&
+      /runtime\.memoryListFilters\(\{[\s\S]*memoryKey: "retired_key"[\s\S]*memoryQuery: "retired_query"/.test(
+        runtimeMemoryHelpersTest,
+      ) &&
+      /memory_key: "project"/.test(runtimeMemoryHelpersTest) &&
+      /store\.list\(\{ agent, threadId: "thread\.memory", memory_key: "launch" \}\)\.length, 1/.test(
+        runtimeMemoryStoreTest,
+      ) &&
+      /store\.list\(\{ agent, threadId: "thread\.memory", memoryKey: "launch" \}\)\.length, 2/.test(
+        runtimeMemoryStoreTest,
+      ) &&
+      /Object\.hasOwn\(store\.projection\([\s\S]*\)\.filters, "memoryKey"\),\s*false/.test(
+        runtimeMemoryStoreTest,
+      ) &&
+      !/\boptions\.(?:memoryKey|memoryQuery|memoryScope|memoryLimit|memoryRedaction|q)\b/.test(
+        `${runtimeMemoryListFiltersBlock}\n${runtimeMemoryExplicitSelectorBlock}`,
+      ) &&
+      !/^\s*memoryKey\s*:/.test(runtimeMemoryListFiltersBlock) &&
+      !/\{ scope, memoryKey, query, q, limit, redaction \}/.test(runtimeMemoryStore),
+    [
+      "packages/runtime-daemon/src/runtime-memory-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-memory-helpers.test.mjs",
+      "packages/runtime-daemon/src/memory-store.mjs",
+      "packages/runtime-daemon/src/memory-store.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime memory filter helpers and store projections must use canonical memory_key/query fields without retired camelCase filter aliases",
   );
   assertCheck(
     result,

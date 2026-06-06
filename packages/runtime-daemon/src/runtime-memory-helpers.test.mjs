@@ -113,24 +113,45 @@ test("subagent memory request helpers preserve receiver and inheritance selector
   assert.equal(runtime.shouldInheritSubagentMemory("none", { query: "fact" }), false);
   assert.equal(runtime.shouldInheritSubagentMemory("read_only", {}), true);
   assert.equal(runtime.shouldInheritSubagentMemory("explicit", {}), false);
-  assert.equal(runtime.shouldInheritSubagentMemory("explicit", { memory_query: "fact" }), true);
+  assert.equal(runtime.shouldInheritSubagentMemory("explicit", { query: "fact" }), true);
   assert.equal(runtime.hasExplicitSubagentMemorySelector({ memory_key: "project" }), true);
+  assert.equal(runtime.hasExplicitSubagentMemorySelector({ memoryKey: "project" }), false);
+  assert.equal(runtime.hasExplicitSubagentMemorySelector({ memoryQuery: "fact" }), false);
+  assert.equal(runtime.hasExplicitSubagentMemorySelector({ memoryScope: "thread" }), false);
   assert.equal(runtime.hasExplicitSubagentMemorySelector({}), false);
 });
 
-test("memory list filters normalize request aliases", () => {
+test("memory list filters use canonical request fields only", () => {
   const runtime = helpers();
   assert.deepEqual(runtime.memoryListFilters({
-    memory_scope: "thread",
-    memory_key: "project",
-    memory_query: "fact",
-    memory_limit: 3,
-    memory_redaction: "redacted",
-  }), {
     scope: "thread",
-    memoryKey: "project",
+    memory_key: "project",
     query: "fact",
     limit: 3,
     redaction: "redacted",
+    memoryScope: "retired_scope",
+    memoryKey: "retired_key",
+    memoryQuery: "retired_query",
+    memoryLimit: 99,
+    memoryRedaction: "none",
+  }), {
+    scope: "thread",
+    memory_key: "project",
+    query: "fact",
+    limit: 3,
+    redaction: "redacted",
+  });
+  assert.deepEqual(runtime.memoryListFilters({
+    memoryScope: "thread",
+    memoryKey: "project",
+    memoryQuery: "fact",
+    memoryLimit: 3,
+    memoryRedaction: "redacted",
+  }), {
+    scope: undefined,
+    memory_key: undefined,
+    query: undefined,
+    limit: undefined,
+    redaction: undefined,
   });
 });
