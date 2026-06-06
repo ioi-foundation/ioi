@@ -14,7 +14,6 @@ pub enum StepModuleRouterError {
     InvalidInvocation(Vec<StepModuleValidationError>),
     InvalidResult(Vec<StepModuleValidationError>),
     InvocationResultMismatch,
-    DirectJsAuthoritativeMutation,
     HashFailed(String),
 }
 
@@ -54,9 +53,6 @@ impl StepModuleRouterCore {
         }
 
         let authoritative_transition = is_authoritative_transition(result);
-        if invocation.execution.backend == StepModuleBackend::DaemonJs && authoritative_transition {
-            return Err(StepModuleRouterError::DirectJsAuthoritativeMutation);
-        }
 
         let mut record = StepModuleExecutionAdmissionRecord {
             schema_version: STEP_MODULE_ROUTER_ADMISSION_SCHEMA_VERSION.to_string(),
@@ -202,20 +198,6 @@ mod tests {
     }
 
     #[test]
-    fn daemon_js_shadow_projection_is_not_authoritative() {
-        let record = StepModuleRouterCore
-            .admit_execution(
-                &invocation(StepModuleBackend::DaemonJs),
-                &result(StepModuleProjectionStatus::Shadow),
-            )
-            .expect("projection-only JS facade is allowed");
-
-        assert_eq!(record.backend, StepModuleBackend::DaemonJs);
-        assert!(!record.authoritative_transition);
-        assert!(record.admission_hash.starts_with("sha256:"));
-    }
-
-    #[test]
     fn direct_js_authoritative_mutation_fails() {
         assert_eq!(
             DIRECT_JS_AUTHORITATIVE_MUTATION_NEGATIVE_CONFORMANCE,
@@ -229,7 +211,34 @@ mod tests {
             )
             .expect_err("daemon_js cannot admit authoritative mutation");
 
-        assert_eq!(error, StepModuleRouterError::DirectJsAuthoritativeMutation);
+        assert_eq!(
+            error,
+            StepModuleRouterError::InvalidInvocation(vec![
+                StepModuleValidationError::BackendKindMismatch {
+                    kind: StepModuleKind::DaemonNativeTool,
+                    backend: StepModuleBackend::DaemonJs,
+                },
+            ]),
+        );
+    }
+
+    #[test]
+    fn daemon_js_shadow_projection_fails_closed() {
+        let error = StepModuleRouterCore
+            .admit_execution(
+                &invocation(StepModuleBackend::DaemonJs),
+                &result(StepModuleProjectionStatus::Shadow),
+            )
+            .expect_err("daemon_js cannot admit projection-only execution");
+
+        assert!(matches!(
+            error,
+            StepModuleRouterError::InvalidInvocation(errors)
+                if errors.contains(&StepModuleValidationError::BackendKindMismatch {
+                    kind: StepModuleKind::DaemonNativeTool,
+                    backend: StepModuleBackend::DaemonJs,
+                })
+        ));
     }
 
     #[test]

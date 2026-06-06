@@ -386,9 +386,6 @@ fn backend_allowed_for_kind(kind: &StepModuleKind, backend: &StepModuleBackend) 
         (kind, backend),
         (
             StepModuleKind::DaemonNativeTool,
-            StepModuleBackend::DaemonJs
-        ) | (
-            StepModuleKind::DaemonNativeTool,
             StepModuleBackend::RustWasm
         ) | (
             StepModuleKind::RustWasmServiceModule,
@@ -422,7 +419,7 @@ mod tests {
             action_proposal_ref: "action:test".to_string(),
             gate_result_ref: "gate:test".to_string(),
             module_ref: StepModuleRef {
-                kind: StepModuleKind::DaemonNativeTool,
+                kind: StepModuleKind::WorkloadJob,
                 id: "workspace.status".to_string(),
                 version: "1".to_string(),
                 manifest_ref: None,
@@ -458,7 +455,7 @@ mod tests {
                 leakage_profile_ref: None,
             },
             execution: StepModuleExecution {
-                backend: StepModuleBackend::DaemonJs,
+                backend: StepModuleBackend::WorkloadGrpc,
                 idempotency_key: "idem:test".to_string(),
                 deadline_ms: 1_000,
                 resource_lease_ref: None,
@@ -499,6 +496,23 @@ mod tests {
     #[test]
     fn valid_step_module_invocation_passes() {
         assert_eq!(valid_invocation().validate(), Ok(()));
+    }
+
+    #[test]
+    fn daemon_js_backend_is_rejected() {
+        let mut invocation = valid_invocation();
+        invocation.module_ref.kind = StepModuleKind::DaemonNativeTool;
+        invocation.execution.backend = StepModuleBackend::DaemonJs;
+
+        let errors = invocation
+            .validate()
+            .expect_err("daemon_js backend must fail terminal StepModule validation");
+        assert!(
+            errors.contains(&StepModuleValidationError::BackendKindMismatch {
+                kind: StepModuleKind::DaemonNativeTool,
+                backend: StepModuleBackend::DaemonJs,
+            })
+        );
     }
 
     #[test]

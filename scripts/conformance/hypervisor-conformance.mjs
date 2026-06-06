@@ -300,6 +300,12 @@ function runAbi() {
   const stepModuleAbi = exists("packages/runtime-daemon/src/step-module-abi.mjs")
     ? read("packages/runtime-daemon/src/step-module-abi.mjs")
     : "";
+  const rustStepModule = exists("crates/services/src/agentic/runtime/kernel/step_module.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/step_module.rs")
+    : "";
+  const rustStepRouter = exists("crates/services/src/agentic/runtime/kernel/step_router.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/step_router.rs")
+    : "";
 
   assertCheck(
     result,
@@ -354,10 +360,15 @@ function runAbi() {
       /executionBackend = "workload_grpc"/.test(stepModuleAbi) &&
       !/executionBackend = "daemon_js"/.test(stepModuleAbi) &&
       !/backend === "daemon_js"/.test(stepModuleAbi) &&
+      !/StepModuleKind::DaemonNativeTool,\s*StepModuleBackend::DaemonJs/.test(rustStepModule) &&
+      /fn daemon_js_backend_is_rejected/.test(rustStepModule) &&
+      /fn daemon_js_shadow_projection_fails_closed/.test(rustStepRouter) &&
       /StepModule ABI rejects retired daemon_js execution backend/.test(
         read("packages/runtime-daemon/src/step-module-abi.test.mjs"),
       ),
     [
+      "crates/services/src/agentic/runtime/kernel/step_module.rs",
+      "crates/services/src/agentic/runtime/kernel/step_router.rs",
       "packages/runtime-daemon/src/step-module-abi.mjs",
       "packages/runtime-daemon/src/step-module-abi.test.mjs",
       "packages/runtime-daemon/src/coding-tools.mjs",
