@@ -9169,6 +9169,10 @@ function runCompositor() {
     runtimeDaemonIndex.match(/addEvent\("hook_dry_run_plan", "Hook dry-run plan recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeHookInvocationLedgerEventProducerBlock =
     runtimeDaemonIndex.match(/addEvent\("hook_invocation_ledger", "Hook invocation ledger recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
+  const runtimeMemoryMutationEventProducerBlock =
+    runtimeDaemonIndex.match(/for \(const mutation of memoryMutations\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
+  const runtimeSubagentMemoryInheritanceEventProducerBlock =
+    runtimeDaemonIndex.match(/if \(subagentMemoryInheritance\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
   const runtimeUsageEvents = exists("packages/runtime-daemon/src/runtime-usage-events.mjs")
     ? read("packages/runtime-daemon/src/runtime-usage-events.mjs")
     : "";
@@ -11059,6 +11063,36 @@ function runCompositor() {
       ) &&
       !/\.\.\.hookInvocationLedger|^\s*(?:receiptId|escalationReceiptIds|eventKind|workflowNodeId|ledgerId|manifestId|dryRunPlanId|emittedEventKinds|invocationCount|wouldRunCount|blockedCount|skippedCount|escalationCount|hookExecutionEnabled|commandExecutionEnabled)\s*:/m.test(
         runtimeHookInvocationLedgerEventProducerBlock,
+      ) &&
+      runtimeMemoryMutationEventProducerBlock.length > 0 &&
+      /canonicalMemoryMutationEventPayload\(mutation\.record \?\? mutation\.policy \?\? \{\}\)/.test(
+        runtimeMemoryMutationEventProducerBlock,
+      ) &&
+      /event_kind:\s*memoryEventKind\(operation\)/.test(runtimeMemoryMutationEventProducerBlock) &&
+      /receipt_id:\s*mutation\.receipt\?\.id \?\? null/.test(
+        runtimeMemoryMutationEventProducerBlock,
+      ) &&
+      /workflow_node_id:\s*\n\s*canonicalMemoryWorkflowNodeId/.test(
+        runtimeMemoryMutationEventProducerBlock,
+      ) &&
+      !/\.\.\.\(mutation\.record \?\? mutation\.policy \?\? \{\}\)|^\s*(?:eventKind|receiptId|workflowNodeId)\s*:/m.test(
+        runtimeMemoryMutationEventProducerBlock,
+      ) &&
+      runtimeSubagentMemoryInheritanceEventProducerBlock.length > 0 &&
+      /canonicalSubagentMemoryInheritanceEventPayload\(subagentMemoryInheritance\)/.test(
+        runtimeSubagentMemoryInheritanceEventProducerBlock,
+      ) &&
+      /event_kind:\s*"SubagentMemoryInheritance"/.test(
+        runtimeSubagentMemoryInheritanceEventProducerBlock,
+      ) &&
+      /receipt_id:\s*subagentMemoryReceipt\?\.id \?\? null/.test(
+        runtimeSubagentMemoryInheritanceEventProducerBlock,
+      ) &&
+      /workflow_node_id:\s*"runtime\.subagent-memory"/.test(
+        runtimeSubagentMemoryInheritanceEventProducerBlock,
+      ) &&
+      !/\.\.\.subagentMemoryInheritance|^\s*(?:eventKind|receiptId|workflowNodeId)\s*:/m.test(
+        runtimeSubagentMemoryInheritanceEventProducerBlock,
       ) &&
       /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
       /retiredComputerUseSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&

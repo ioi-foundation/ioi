@@ -3811,6 +3811,67 @@ export class AgentgresRuntimeStateStore {
   }
 }
 
+function canonicalMemoryWorkflowNodeId(value = {}) {
+  return value?.workflow_node_id ?? value?.workflowNodeId ?? null;
+}
+
+function canonicalMemoryMutationEventPayload(value = {}) {
+  const isPolicy = value.object === "ioi.agent_memory_policy";
+  return {
+    schema_version: value.schema_version ?? value.schemaVersion ?? null,
+    object: value.object ?? null,
+    memory_record_id: isPolicy
+      ? value.memory_record_id ?? null
+      : value.memory_record_id ?? value.id ?? null,
+    memory_policy_id: isPolicy
+      ? value.memory_policy_id ?? value.id ?? null
+      : value.memory_policy_id ?? null,
+    scope: value.scope ?? null,
+    fact: value.fact ?? null,
+    memory_key: value.memory_key ?? value.memoryKey ?? null,
+    agent_id: value.agent_id ?? value.agentId ?? null,
+    thread_id: value.thread_id ?? value.threadId ?? null,
+    workspace: value.workspace ?? null,
+    target_type: value.target_type ?? value.targetType ?? null,
+    target_id: value.target_id ?? value.targetId ?? null,
+    disabled: Boolean(value.disabled),
+    injection_enabled: value.injection_enabled ?? value.injectionEnabled ?? null,
+    read_only: value.read_only ?? value.readOnly ?? null,
+    write_requires_approval: value.write_requires_approval ?? value.writeRequiresApproval ?? null,
+    retention: value.retention ?? null,
+    workflow_graph_id: value.workflow_graph_id ?? value.workflowGraphId ?? null,
+    workflow_node_id: canonicalMemoryWorkflowNodeId(value),
+    workflow_node_type: value.workflow_node_type ?? value.workflowNodeType ?? null,
+    source: value.source ?? null,
+    redaction: value.redaction ?? "none",
+    created_at: value.created_at ?? value.createdAt ?? null,
+    updated_at: value.updated_at ?? value.updatedAt ?? null,
+    deleted_at: value.deleted_at ?? value.deletedAt ?? null,
+    evidence_refs: normalizeArray(value.evidence_refs ?? value.evidenceRefs),
+  };
+}
+
+function canonicalSubagentMemoryInheritanceEventPayload(value = {}) {
+  return {
+    schema_version: value.schema_version ?? null,
+    object: value.object ?? null,
+    parent_agent_id: value.parent_agent_id ?? null,
+    subagent_name: value.subagent_name ?? null,
+    thread_id: value.thread_id ?? null,
+    mode: value.mode ?? null,
+    requested_mode: value.requested_mode ?? null,
+    parent_policy_id: value.parent_policy_id ?? null,
+    effective_policy_id: value.effective_policy_id ?? null,
+    inherited_record_ids: normalizeArray(value.inherited_record_ids),
+    inherited_record_count: normalizeArray(value.inherited_record_ids).length,
+    write_allowed: value.write_allowed ?? null,
+    write_block_reason: value.write_block_reason ?? null,
+    filters: value.filters ?? {},
+    evidence_refs: normalizeArray(value.evidence_refs),
+    redaction: value.effective_policy?.redaction ?? "none",
+  };
+}
+
 function buildRun({
   agent,
   mode,
@@ -5028,20 +5089,22 @@ function buildRun({
   for (const mutation of memoryMutations) {
     const operation = mutation.operation ?? "write";
     addEvent("memory_update", memoryEventSummary(operation), {
-      ...(mutation.record ?? mutation.policy ?? {}),
+      ...canonicalMemoryMutationEventPayload(mutation.record ?? mutation.policy ?? {}),
       operation,
-      eventKind: memoryEventKind(operation),
-      receiptId: mutation.receipt?.id ?? null,
-      workflowNodeId: mutation.record?.workflowNodeId ?? "runtime.memory-policy",
+      event_kind: memoryEventKind(operation),
+      receipt_id: mutation.receipt?.id ?? null,
+      workflow_node_id:
+        canonicalMemoryWorkflowNodeId(mutation.record ?? mutation.policy) ??
+        "runtime.memory-policy",
     });
   }
   if (subagentMemoryInheritance) {
     addEvent("memory_update", "Subagent memory inheritance resolved", {
-      ...subagentMemoryInheritance,
+      ...canonicalSubagentMemoryInheritanceEventPayload(subagentMemoryInheritance),
       operation: "subagent_inheritance",
-      eventKind: "SubagentMemoryInheritance",
-      receiptId: subagentMemoryReceipt?.id ?? null,
-      workflowNodeId: "runtime.subagent-memory",
+      event_kind: "SubagentMemoryInheritance",
+      receipt_id: subagentMemoryReceipt?.id ?? null,
+      workflow_node_id: "runtime.subagent-memory",
     });
   }
   if (diagnosticsFeedback) {
