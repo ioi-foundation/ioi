@@ -147,10 +147,12 @@ export function normalizeApprovalRequestStateUpdateBridgeResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_APPROVAL_STATE_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
     operation_kind: optionalString(result.operation_kind ?? record.operation_kind) ?? "approval.required",
+    target_kind: optionalString(result.target_kind ?? record.target_kind) ?? "run",
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
       objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
     run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
+    agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
   };
 }
 
@@ -163,10 +165,12 @@ export function normalizeApprovalDecisionStateUpdateBridgeResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_APPROVAL_STATE_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
     operation_kind: optionalString(result.operation_kind ?? record.operation_kind) ?? "approval.approve",
+    target_kind: optionalString(result.target_kind ?? record.target_kind) ?? "run",
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
       objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
     run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
+    agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
   };
 }
 
@@ -179,10 +183,12 @@ export function normalizeApprovalRevokeStateUpdateBridgeResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_APPROVAL_STATE_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
     operation_kind: optionalString(result.operation_kind ?? record.operation_kind) ?? "approval.revoke",
+    target_kind: optionalString(result.target_kind ?? record.target_kind) ?? "run",
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
       objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
     run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
+    agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
   };
 }
 

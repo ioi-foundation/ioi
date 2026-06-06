@@ -40,9 +40,24 @@ function approvalRequestStateUpdateForRequest(request = {}) {
     createdAt: request.created_at,
   };
   const run = request.run ?? {};
+  if (request.target_kind === "agent") {
+    return {
+      status: "planned",
+      operation_kind: "approval.required",
+      target_kind: "agent",
+      updated_at: request.created_at,
+      operator_control: control,
+      run: null,
+      agent: {
+        ...request.agent,
+        updatedAt: request.created_at,
+      },
+    };
+  }
   return {
     status: "planned",
     operation_kind: "approval.required",
+    target_kind: "run",
     updated_at: request.created_at,
     operator_control: control,
     run: {
@@ -78,9 +93,24 @@ function approvalDecisionStateUpdateForRequest(request = {}) {
     createdAt: request.created_at,
   };
   const run = request.run ?? {};
+  if (request.target_kind === "agent") {
+    return {
+      status: "planned",
+      operation_kind: `approval.${request.decision}`,
+      target_kind: "agent",
+      updated_at: request.created_at,
+      operator_control: control,
+      run: null,
+      agent: {
+        ...request.agent,
+        updatedAt: request.created_at,
+      },
+    };
+  }
   return {
     status: "planned",
     operation_kind: `approval.${request.decision}`,
+    target_kind: "run",
     updated_at: request.created_at,
     operator_control: control,
     run: {
@@ -115,11 +145,26 @@ function approvalRevokeStateUpdateForRequest(request = {}) {
     createdAt: request.created_at,
   };
   const run = request.run ?? {};
+  if (request.target_kind === "agent") {
+    return {
+      status: "planned",
+      operation_kind: "approval.revoke",
+      target_kind: "agent",
+      updated_at: request.created_at,
+      operator_control: control,
+      run: null,
+      agent: {
+        ...request.agent,
+        updatedAt: request.created_at,
+      },
+    };
+  }
   const traceWithDecision = appendOperatorControlForTest(run.trace?.approvalDecisions, control);
   const decisions = appendOperatorControlForTest(run.approvalDecisions, control);
   return {
     status: "planned",
     operation_kind: "approval.revoke",
+    target_kind: "run",
     updated_at: request.created_at,
     operator_control: control,
     run: {
@@ -322,6 +367,51 @@ test("approval surface revokes approval leases and records prior decisions", () 
     "event_3",
   );
   assert.equal(surface.latestApprovalDecisionEvent(store, "thread_alpha", "approval-one"), store.events[2]);
+});
+
+test("approval surface routes runless agent approval updates through Rust planner", () => {
+  const calls = [];
+  const surface = createSurface({ calls });
+  const store = createStore();
+  store.runs.clear();
+
+  const requestResult = surface.requestThreadApproval(store, "thread_alpha", {
+    approval_id: "approval-one",
+    reason: "Need permission",
+  });
+  const requestCall = calls.find((call) => call.name === "planApprovalRequestStateUpdate");
+  assert.equal(requestCall.request.target_kind, "agent");
+  assert.equal(requestCall.request.run, null);
+  assert.equal(requestCall.request.agent.id, "agent_alpha");
+  assert.equal(requestResult.agent_id, "agent_alpha");
+  assert.equal(store.writes[0].type, "agent");
+  assert.equal(store.writes[0].operationKind, "approval.required");
+  assert.equal(store.agents.get("agent_alpha").updatedAt, store.events[0].created_at);
+
+  const decisionResult = surface.decideThreadApproval(store, "thread_alpha", "approval-one", {
+    decision: "approve",
+    reason: "Looks good",
+  });
+  const decisionCall = calls.find((call) => call.name === "planApprovalDecisionStateUpdate");
+  assert.equal(decisionCall.request.target_kind, "agent");
+  assert.equal(decisionCall.request.run, null);
+  assert.equal(decisionCall.request.agent.id, "agent_alpha");
+  assert.equal(decisionResult.agent_id, "agent_alpha");
+  assert.equal(store.writes[1].type, "agent");
+  assert.equal(store.writes[1].operationKind, "approval.approve");
+  assert.equal(store.agents.get("agent_alpha").updatedAt, store.events[1].created_at);
+
+  const revokeResult = surface.revokeThreadApproval(store, "thread_alpha", "approval-one", {
+    reason: "Changed my mind",
+  });
+  const revokeCall = calls.find((call) => call.name === "planApprovalRevokeStateUpdate");
+  assert.equal(revokeCall.request.target_kind, "agent");
+  assert.equal(revokeCall.request.run, null);
+  assert.equal(revokeCall.request.agent.id, "agent_alpha");
+  assert.equal(revokeResult.agent_id, "agent_alpha");
+  assert.equal(store.writes[2].type, "agent");
+  assert.equal(store.writes[2].operationKind, "approval.revoke");
+  assert.equal(store.agents.get("agent_alpha").updatedAt, store.events[2].created_at);
 });
 
 test("approval surface fails closed for missing approval ids and requests", () => {

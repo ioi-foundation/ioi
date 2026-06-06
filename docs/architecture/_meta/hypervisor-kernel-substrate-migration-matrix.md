@@ -12234,6 +12234,14 @@ event binding, `updatedAt` assignment, and `thread.mcp_*` operation kind through
 draft registry/status payloads for the runtime event, then persists only the
 Rust-planned agent record after the MCP event exists.
 
+Slice 357 retires runless approval agent fallback updates in JS:
+`ApprovalRequestStateUpdateCore`, `ApprovalDecisionStateUpdateCore`, and
+`ApprovalRevokeStateUpdateCore` now accept `target_kind: "agent"` for runless
+approval request/decision/revoke flows, return the Rust-planned agent touch,
+and leave the daemon approval surface to append the approval event and persist
+only the returned agent record instead of constructing `{ ...agent, updatedAt }`
+fallback mutations in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

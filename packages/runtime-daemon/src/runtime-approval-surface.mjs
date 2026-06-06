@@ -101,6 +101,19 @@ export function createRuntimeApprovalSurface(deps = {}) {
     );
   }
 
+  function plannedApprovalAgentRecord(stateUpdate, threadId, operationKind) {
+    const updatedAgent = stateUpdate.agent;
+    if (!updatedAgent?.id) {
+      throw runtimeError({
+        status: 502,
+        code: "approval_agent_state_update_planner_invalid",
+        message: "Rust approval state planning did not return an agent record.",
+        details: { threadId, operationKind },
+      });
+    }
+    return updatedAgent;
+  }
+
   function requestThreadApproval(store, threadId, request = {}) {
     const agent = store.agentForThread(threadId);
     const { run, turnId } = resolveApprovalTarget(store, agent, threadId, request, "", { notFound });
@@ -265,9 +278,24 @@ export function createRuntimeApprovalSurface(deps = {}) {
       };
     }
 
-    const updatedAgent = { ...agent, updatedAt: event.created_at };
-    store.agents.set(agent.id, updatedAgent);
-    store.writeAgent(updatedAgent, "approval.required");
+    const stateUpdate = approvalStateRunnerDep.planApprovalRequestStateUpdate({
+      target_kind: "agent",
+      thread_id: threadId,
+      run_id: null,
+      run: null,
+      agent,
+      event_id: event.event_id,
+      seq: event.seq,
+      created_at: event.created_at,
+      approval_id: approvalId,
+      source,
+      reason,
+      receipt_refs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+    });
+    const updatedAgent = plannedApprovalAgentRecord(stateUpdate, threadId, "approval.required");
+    store.agents.set(updatedAgent.id, updatedAgent);
+    store.writeAgent(updatedAgent, stateUpdate.operation_kind ?? "approval.required");
     return {
       ...store.threadForAgent(updatedAgent),
       approval_id: approvalId,
@@ -431,9 +459,28 @@ export function createRuntimeApprovalSurface(deps = {}) {
         policy_decision_refs: event.policy_decision_refs,
       };
     }
-    const updatedAgent = { ...agent, updatedAt: event.created_at };
-    store.agents.set(agent.id, updatedAgent);
-    store.writeAgent(updatedAgent, `approval.${decision}`);
+    const stateUpdate = approvalStateRunnerDep.planApprovalDecisionStateUpdate({
+      target_kind: "agent",
+      thread_id: threadId,
+      run_id: null,
+      run: null,
+      agent,
+      event_id: event.event_id,
+      seq: event.seq,
+      created_at: event.created_at,
+      approval_id: normalizedApprovalId,
+      lease_id: leaseMetadata.leaseId,
+      lease_status: leaseStatus,
+      decision,
+      status,
+      source,
+      reason,
+      receipt_refs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+    });
+    const updatedAgent = plannedApprovalAgentRecord(stateUpdate, threadId, `approval.${decision}`);
+    store.agents.set(updatedAgent.id, updatedAgent);
+    store.writeAgent(updatedAgent, stateUpdate.operation_kind ?? `approval.${decision}`);
     return {
       ...store.threadForAgent(updatedAgent),
       approval_id: normalizedApprovalId,
@@ -630,9 +677,25 @@ export function createRuntimeApprovalSurface(deps = {}) {
         policy_decision_refs: event.policy_decision_refs,
       };
     }
-    const updatedAgent = { ...agent, updatedAt: event.created_at };
-    store.agents.set(agent.id, updatedAgent);
-    store.writeAgent(updatedAgent, "approval.revoke");
+    const stateUpdate = approvalStateRunnerDep.planApprovalRevokeStateUpdate({
+      target_kind: "agent",
+      thread_id: threadId,
+      run_id: null,
+      run: null,
+      agent,
+      event_id: event.event_id,
+      seq: event.seq,
+      created_at: event.created_at,
+      approval_id: normalizedApprovalId,
+      lease_id: leaseMetadata.leaseId,
+      source,
+      reason,
+      receipt_refs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+    });
+    const updatedAgent = plannedApprovalAgentRecord(stateUpdate, threadId, "approval.revoke");
+    store.agents.set(updatedAgent.id, updatedAgent);
+    store.writeAgent(updatedAgent, stateUpdate.operation_kind ?? "approval.revoke");
     return {
       ...store.threadForAgent(updatedAgent),
       approval_id: normalizedApprovalId,

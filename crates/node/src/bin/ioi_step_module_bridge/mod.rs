@@ -1730,9 +1730,11 @@ fn plan_approval_request_state_update(
         "record": record.clone(),
         "status": record.status.clone(),
         "operation_kind": record.operation_kind.clone(),
+        "target_kind": record.target_kind.clone(),
         "updated_at": record.updated_at.clone(),
         "operator_control": record.operator_control.clone(),
         "run": record.run.clone(),
+        "agent": record.agent.clone(),
     }))
 }
 
@@ -1768,9 +1770,11 @@ fn plan_approval_decision_state_update(
         "record": record.clone(),
         "status": record.status.clone(),
         "operation_kind": record.operation_kind.clone(),
+        "target_kind": record.target_kind.clone(),
         "updated_at": record.updated_at.clone(),
         "operator_control": record.operator_control.clone(),
         "run": record.run.clone(),
+        "agent": record.agent.clone(),
     }))
 }
 
@@ -1803,9 +1807,11 @@ fn plan_approval_revoke_state_update(
         "record": record.clone(),
         "status": record.status.clone(),
         "operation_kind": record.operation_kind.clone(),
+        "target_kind": record.target_kind.clone(),
         "updated_at": record.updated_at.clone(),
         "operator_control": record.operator_control.clone(),
         "run": record.run.clone(),
+        "agent": record.agent.clone(),
     }))
 }
 
@@ -6411,6 +6417,50 @@ mod tests {
             response["run"]["trace"]["approvalRequests"][0]["eventId"],
             "event_approval"
         );
+    }
+
+    #[test]
+    fn bridge_plans_approval_request_agent_state_update_through_rust_core() {
+        let request: ApprovalRequestStateUpdateBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_approval_request_state_update",
+            "backend": "rust_authority",
+            "request": {
+                "schema_version": "ioi.runtime.approval-request-state-update-request.v1",
+                "target_kind": "agent",
+                "thread_id": "thread_alpha",
+                "run_id": null,
+                "run": null,
+                "agent": {
+                    "id": "agent_alpha",
+                    "cwd": "/workspace/project"
+                },
+                "event_id": "event_approval",
+                "seq": 3,
+                "created_at": "2026-06-06T04:30:00.000Z",
+                "approval_id": "approval_alpha",
+                "source": "runtime_auto",
+                "reason": "Need permission",
+                "receipt_refs": ["receipt_approval"],
+                "policy_decision_refs": ["policy_approval"]
+            }
+        }))
+        .expect("approval request agent state update bridge request");
+
+        let response = plan_approval_request_state_update(request)
+            .expect("approval agent state update planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_approval_request_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "approval.required");
+        assert_eq!(response["target_kind"], "agent");
+        assert!(response["run"].is_null());
+        assert_eq!(response["agent"]["id"], "agent_alpha");
+        assert_eq!(response["agent"]["updatedAt"], "2026-06-06T04:30:00.000Z");
     }
 
     #[test]

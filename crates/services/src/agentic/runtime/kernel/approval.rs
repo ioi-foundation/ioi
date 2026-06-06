@@ -267,9 +267,13 @@ pub struct CodingToolApprovalPlan {
 pub struct ApprovalRequestStateUpdateRequest {
     pub schema_version: String,
     #[serde(default)]
+    pub target_kind: Option<String>,
+    #[serde(default)]
     pub thread_id: Option<String>,
     #[serde(default)]
     pub run_id: Option<String>,
+    #[serde(default)]
+    pub agent: Value,
     pub run: Value,
     pub event_id: String,
     pub seq: u64,
@@ -289,6 +293,7 @@ pub struct ApprovalRequestStateUpdateRecord {
     pub object: String,
     pub status: String,
     pub operation_kind: String,
+    pub target_kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -296,6 +301,8 @@ pub struct ApprovalRequestStateUpdateRecord {
     pub updated_at: String,
     pub operator_control: Value,
     pub run: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent: Option<Value>,
     pub generated_at: String,
 }
 
@@ -303,9 +310,13 @@ pub struct ApprovalRequestStateUpdateRecord {
 pub struct ApprovalDecisionStateUpdateRequest {
     pub schema_version: String,
     #[serde(default)]
+    pub target_kind: Option<String>,
+    #[serde(default)]
     pub thread_id: Option<String>,
     #[serde(default)]
     pub run_id: Option<String>,
+    #[serde(default)]
+    pub agent: Value,
     pub run: Value,
     pub event_id: String,
     pub seq: u64,
@@ -331,6 +342,7 @@ pub struct ApprovalDecisionStateUpdateRecord {
     pub object: String,
     pub status: String,
     pub operation_kind: String,
+    pub target_kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -338,6 +350,8 @@ pub struct ApprovalDecisionStateUpdateRecord {
     pub updated_at: String,
     pub operator_control: Value,
     pub run: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent: Option<Value>,
     pub generated_at: String,
 }
 
@@ -345,9 +359,13 @@ pub struct ApprovalDecisionStateUpdateRecord {
 pub struct ApprovalRevokeStateUpdateRequest {
     pub schema_version: String,
     #[serde(default)]
+    pub target_kind: Option<String>,
+    #[serde(default)]
     pub thread_id: Option<String>,
     #[serde(default)]
     pub run_id: Option<String>,
+    #[serde(default)]
+    pub agent: Value,
     pub run: Value,
     pub event_id: String,
     pub seq: u64,
@@ -370,6 +388,7 @@ pub struct ApprovalRevokeStateUpdateRecord {
     pub object: String,
     pub status: String,
     pub operation_kind: String,
+    pub target_kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -377,6 +396,8 @@ pub struct ApprovalRevokeStateUpdateRecord {
     pub updated_at: String,
     pub operator_control: Value,
     pub run: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent: Option<Value>,
     pub generated_at: String,
 }
 
@@ -398,6 +419,8 @@ impl ApprovalRequestStateUpdateCore {
         request: &ApprovalRequestStateUpdateRequest,
     ) -> Result<ApprovalRequestStateUpdateRecord, ApprovalRequestStateUpdateError> {
         request.validate()?;
+        let target_kind =
+            approval_state_update_target_kind(request.target_kind.as_deref(), &request.run);
         let thread_id = optional_trimmed(request.thread_id.as_deref());
         let run_id = optional_trimmed(request.run_id.as_deref());
         let source = optional_trimmed(Some(request.source.as_str()))
@@ -417,53 +440,66 @@ impl ApprovalRequestStateUpdateCore {
             "policyDecisionRefs": request.policy_decision_refs.clone(),
             "createdAt": request.created_at,
         });
-        let mut run = object_value(&request.run)
-            .ok_or(ApprovalRequestStateUpdateError::MissingField("run"))?;
-        let prior_status = run
-            .get("status")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string();
-        run.insert(
-            "updatedAt".to_string(),
-            Value::String(request.created_at.clone()),
-        );
-        run.insert(
-            "turnStatus".to_string(),
-            Value::String("waiting_for_approval".to_string()),
-        );
-        if matches!(prior_status.as_str(), "queued" | "running") {
-            run.insert("status".to_string(), Value::String("blocked".to_string()));
-        }
-        let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
-        trace.insert(
-            "operatorControls".to_string(),
-            append_operator_control(trace.get("operatorControls"), &operator_control),
-        );
-        trace.insert(
-            "approvalRequests".to_string(),
-            append_operator_control(trace.get("approvalRequests"), &operator_control),
-        );
-        run.insert("trace".to_string(), Value::Object(trace));
-        run.insert(
-            "operatorControls".to_string(),
-            append_operator_control(run.get("operatorControls"), &operator_control),
-        );
-        run.insert(
-            "approvalRequests".to_string(),
-            append_operator_control(run.get("approvalRequests"), &operator_control),
-        );
+        let (run, agent) = if target_kind == "run" {
+            let mut run = object_value(&request.run)
+                .ok_or(ApprovalRequestStateUpdateError::MissingField("run"))?;
+            let prior_status = run
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            run.insert(
+                "updatedAt".to_string(),
+                Value::String(request.created_at.clone()),
+            );
+            run.insert(
+                "turnStatus".to_string(),
+                Value::String("waiting_for_approval".to_string()),
+            );
+            if matches!(prior_status.as_str(), "queued" | "running") {
+                run.insert("status".to_string(), Value::String("blocked".to_string()));
+            }
+            let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
+            trace.insert(
+                "operatorControls".to_string(),
+                append_operator_control(trace.get("operatorControls"), &operator_control),
+            );
+            trace.insert(
+                "approvalRequests".to_string(),
+                append_operator_control(trace.get("approvalRequests"), &operator_control),
+            );
+            run.insert("trace".to_string(), Value::Object(trace));
+            run.insert(
+                "operatorControls".to_string(),
+                append_operator_control(run.get("operatorControls"), &operator_control),
+            );
+            run.insert(
+                "approvalRequests".to_string(),
+                append_operator_control(run.get("approvalRequests"), &operator_control),
+            );
+            (Value::Object(run), None)
+        } else {
+            let mut agent = object_value(&request.agent)
+                .ok_or(ApprovalRequestStateUpdateError::MissingField("agent"))?;
+            agent.insert(
+                "updatedAt".to_string(),
+                Value::String(request.created_at.clone()),
+            );
+            (Value::Null, Some(Value::Object(agent)))
+        };
 
         Ok(ApprovalRequestStateUpdateRecord {
             schema_version: APPROVAL_REQUEST_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
             object: "ioi.runtime_approval_request_state_update".to_string(),
             status: "planned".to_string(),
             operation_kind: "approval.required".to_string(),
+            target_kind,
             thread_id,
             run_id,
             updated_at: request.created_at.clone(),
             operator_control,
-            run: Value::Object(run),
+            run,
+            agent,
             generated_at: "rust_authority_core".to_string(),
         })
     }
@@ -475,6 +511,8 @@ impl ApprovalDecisionStateUpdateCore {
         request: &ApprovalDecisionStateUpdateRequest,
     ) -> Result<ApprovalDecisionStateUpdateRecord, ApprovalDecisionStateUpdateError> {
         request.validate()?;
+        let target_kind =
+            approval_state_update_target_kind(request.target_kind.as_deref(), &request.run);
         let thread_id = optional_trimmed(request.thread_id.as_deref());
         let run_id = optional_trimmed(request.run_id.as_deref());
         let source = optional_trimmed(Some(request.source.as_str()))
@@ -500,47 +538,60 @@ impl ApprovalDecisionStateUpdateCore {
             "policyDecisionRefs": request.policy_decision_refs.clone(),
             "createdAt": request.created_at,
         });
-        let mut run = object_value(&request.run)
-            .ok_or(ApprovalDecisionStateUpdateError::MissingField("run"))?;
-        run.insert(
-            "updatedAt".to_string(),
-            Value::String(request.created_at.clone()),
-        );
-        if decision == "reject" {
+        let (run, agent) = if target_kind == "run" {
+            let mut run = object_value(&request.run)
+                .ok_or(ApprovalDecisionStateUpdateError::MissingField("run"))?;
             run.insert(
-                "turnStatus".to_string(),
-                Value::String("waiting_for_input".to_string()),
+                "updatedAt".to_string(),
+                Value::String(request.created_at.clone()),
             );
-        }
-        let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
-        trace.insert(
-            "operatorControls".to_string(),
-            append_operator_control(trace.get("operatorControls"), &operator_control),
-        );
-        trace.insert(
-            "approvalDecisions".to_string(),
-            append_operator_control(trace.get("approvalDecisions"), &operator_control),
-        );
-        run.insert("trace".to_string(), Value::Object(trace));
-        run.insert(
-            "operatorControls".to_string(),
-            append_operator_control(run.get("operatorControls"), &operator_control),
-        );
-        run.insert(
-            "approvalDecisions".to_string(),
-            append_operator_control(run.get("approvalDecisions"), &operator_control),
-        );
+            if decision == "reject" {
+                run.insert(
+                    "turnStatus".to_string(),
+                    Value::String("waiting_for_input".to_string()),
+                );
+            }
+            let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
+            trace.insert(
+                "operatorControls".to_string(),
+                append_operator_control(trace.get("operatorControls"), &operator_control),
+            );
+            trace.insert(
+                "approvalDecisions".to_string(),
+                append_operator_control(trace.get("approvalDecisions"), &operator_control),
+            );
+            run.insert("trace".to_string(), Value::Object(trace));
+            run.insert(
+                "operatorControls".to_string(),
+                append_operator_control(run.get("operatorControls"), &operator_control),
+            );
+            run.insert(
+                "approvalDecisions".to_string(),
+                append_operator_control(run.get("approvalDecisions"), &operator_control),
+            );
+            (Value::Object(run), None)
+        } else {
+            let mut agent = object_value(&request.agent)
+                .ok_or(ApprovalDecisionStateUpdateError::MissingField("agent"))?;
+            agent.insert(
+                "updatedAt".to_string(),
+                Value::String(request.created_at.clone()),
+            );
+            (Value::Null, Some(Value::Object(agent)))
+        };
 
         Ok(ApprovalDecisionStateUpdateRecord {
             schema_version: APPROVAL_DECISION_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
             object: "ioi.runtime_approval_decision_state_update".to_string(),
             status: "planned".to_string(),
             operation_kind: format!("approval.{decision}"),
+            target_kind,
             thread_id,
             run_id,
             updated_at: request.created_at.clone(),
             operator_control,
-            run: Value::Object(run),
+            run,
+            agent,
             generated_at: "rust_authority_core".to_string(),
         })
     }
@@ -552,6 +603,8 @@ impl ApprovalRevokeStateUpdateCore {
         request: &ApprovalRevokeStateUpdateRequest,
     ) -> Result<ApprovalRevokeStateUpdateRecord, ApprovalRevokeStateUpdateError> {
         request.validate()?;
+        let target_kind =
+            approval_state_update_target_kind(request.target_kind.as_deref(), &request.run);
         let thread_id = optional_trimmed(request.thread_id.as_deref());
         let run_id = optional_trimmed(request.run_id.as_deref());
         let source = optional_trimmed(Some(request.source.as_str()))
@@ -574,53 +627,66 @@ impl ApprovalRevokeStateUpdateCore {
             "policyDecisionRefs": request.policy_decision_refs.clone(),
             "createdAt": request.created_at,
         });
-        let mut run = object_value(&request.run)
-            .ok_or(ApprovalRevokeStateUpdateError::MissingField("run"))?;
-        run.insert(
-            "updatedAt".to_string(),
-            Value::String(request.created_at.clone()),
-        );
-        run.insert(
-            "turnStatus".to_string(),
-            Value::String("waiting_for_input".to_string()),
-        );
-        let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
-        trace.insert(
-            "operatorControls".to_string(),
-            append_operator_control(trace.get("operatorControls"), &operator_control),
-        );
-        trace.insert(
-            "approvalDecisions".to_string(),
-            append_operator_control(trace.get("approvalDecisions"), &operator_control),
-        );
-        trace.insert(
-            "approvalRevocations".to_string(),
-            append_operator_control(trace.get("approvalRevocations"), &operator_control),
-        );
-        run.insert("trace".to_string(), Value::Object(trace));
-        run.insert(
-            "operatorControls".to_string(),
-            append_operator_control(run.get("operatorControls"), &operator_control),
-        );
-        run.insert(
-            "approvalDecisions".to_string(),
-            append_operator_control(run.get("approvalDecisions"), &operator_control),
-        );
-        run.insert(
-            "approvalRevocations".to_string(),
-            append_operator_control(run.get("approvalRevocations"), &operator_control),
-        );
+        let (run, agent) = if target_kind == "run" {
+            let mut run = object_value(&request.run)
+                .ok_or(ApprovalRevokeStateUpdateError::MissingField("run"))?;
+            run.insert(
+                "updatedAt".to_string(),
+                Value::String(request.created_at.clone()),
+            );
+            run.insert(
+                "turnStatus".to_string(),
+                Value::String("waiting_for_input".to_string()),
+            );
+            let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
+            trace.insert(
+                "operatorControls".to_string(),
+                append_operator_control(trace.get("operatorControls"), &operator_control),
+            );
+            trace.insert(
+                "approvalDecisions".to_string(),
+                append_operator_control(trace.get("approvalDecisions"), &operator_control),
+            );
+            trace.insert(
+                "approvalRevocations".to_string(),
+                append_operator_control(trace.get("approvalRevocations"), &operator_control),
+            );
+            run.insert("trace".to_string(), Value::Object(trace));
+            run.insert(
+                "operatorControls".to_string(),
+                append_operator_control(run.get("operatorControls"), &operator_control),
+            );
+            run.insert(
+                "approvalDecisions".to_string(),
+                append_operator_control(run.get("approvalDecisions"), &operator_control),
+            );
+            run.insert(
+                "approvalRevocations".to_string(),
+                append_operator_control(run.get("approvalRevocations"), &operator_control),
+            );
+            (Value::Object(run), None)
+        } else {
+            let mut agent = object_value(&request.agent)
+                .ok_or(ApprovalRevokeStateUpdateError::MissingField("agent"))?;
+            agent.insert(
+                "updatedAt".to_string(),
+                Value::String(request.created_at.clone()),
+            );
+            (Value::Null, Some(Value::Object(agent)))
+        };
 
         Ok(ApprovalRevokeStateUpdateRecord {
             schema_version: APPROVAL_REVOKE_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
             object: "ioi.runtime_approval_revoke_state_update".to_string(),
             status: "planned".to_string(),
             operation_kind: "approval.revoke".to_string(),
+            target_kind,
             thread_id,
             run_id,
             updated_at: request.created_at.clone(),
             operator_control,
-            run: Value::Object(run),
+            run,
+            agent,
             generated_at: "rust_authority_core".to_string(),
         })
     }
@@ -771,8 +837,12 @@ impl ApprovalRequestStateUpdateRequest {
                 actual: self.schema_version.clone(),
             });
         }
-        if !self.run.is_object() {
+        let target_kind = approval_state_update_target_kind(self.target_kind.as_deref(), &self.run);
+        if target_kind == "run" && !self.run.is_object() {
             return Err(ApprovalRequestStateUpdateError::MissingField("run"));
+        }
+        if target_kind == "agent" && !self.agent.is_object() {
+            return Err(ApprovalRequestStateUpdateError::MissingField("agent"));
         }
         if optional_trimmed(Some(self.event_id.as_str())).is_none() {
             return Err(ApprovalRequestStateUpdateError::MissingField("event_id"));
@@ -798,8 +868,12 @@ impl ApprovalDecisionStateUpdateRequest {
                 actual: self.schema_version.clone(),
             });
         }
-        if !self.run.is_object() {
+        let target_kind = approval_state_update_target_kind(self.target_kind.as_deref(), &self.run);
+        if target_kind == "run" && !self.run.is_object() {
             return Err(ApprovalDecisionStateUpdateError::MissingField("run"));
+        }
+        if target_kind == "agent" && !self.agent.is_object() {
+            return Err(ApprovalDecisionStateUpdateError::MissingField("agent"));
         }
         if optional_trimmed(Some(self.event_id.as_str())).is_none() {
             return Err(ApprovalDecisionStateUpdateError::MissingField("event_id"));
@@ -838,8 +912,12 @@ impl ApprovalRevokeStateUpdateRequest {
                 actual: self.schema_version.clone(),
             });
         }
-        if !self.run.is_object() {
+        let target_kind = approval_state_update_target_kind(self.target_kind.as_deref(), &self.run);
+        if target_kind == "run" && !self.run.is_object() {
             return Err(ApprovalRevokeStateUpdateError::MissingField("run"));
+        }
+        if target_kind == "agent" && !self.agent.is_object() {
+            return Err(ApprovalRevokeStateUpdateError::MissingField("agent"));
         }
         if optional_trimmed(Some(self.event_id.as_str())).is_none() {
             return Err(ApprovalRevokeStateUpdateError::MissingField("event_id"));
@@ -1027,6 +1105,15 @@ fn normalized_approval_decision(value: Option<&str>) -> Option<String> {
     }
 }
 
+fn approval_state_update_target_kind(value: Option<&str>, run: &Value) -> String {
+    match optional_trimmed(value).as_deref() {
+        Some("agent") => "agent".to_string(),
+        Some("run") => "run".to_string(),
+        _ if run.is_object() => "run".to_string(),
+        _ => "agent".to_string(),
+    }
+}
+
 fn object_value(value: &Value) -> Option<serde_json::Map<String, Value>> {
     value.as_object().cloned()
 }
@@ -1129,8 +1216,10 @@ mod tests {
     fn approval_request_state_update_request() -> ApprovalRequestStateUpdateRequest {
         ApprovalRequestStateUpdateRequest {
             schema_version: APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            target_kind: None,
             thread_id: Some("thread_alpha".to_string()),
             run_id: Some("run_alpha".to_string()),
+            agent: Value::Null,
             run: json!({
                 "id": "run_alpha",
                 "agentId": "agent_alpha",
@@ -1152,8 +1241,10 @@ mod tests {
     fn approval_decision_state_update_request() -> ApprovalDecisionStateUpdateRequest {
         ApprovalDecisionStateUpdateRequest {
             schema_version: APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            target_kind: None,
             thread_id: Some("thread_alpha".to_string()),
             run_id: Some("run_alpha".to_string()),
+            agent: Value::Null,
             run: json!({
                 "id": "run_alpha",
                 "agentId": "agent_alpha",
@@ -1179,8 +1270,10 @@ mod tests {
     fn approval_revoke_state_update_request() -> ApprovalRevokeStateUpdateRequest {
         ApprovalRevokeStateUpdateRequest {
             schema_version: APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            target_kind: None,
             thread_id: Some("thread_alpha".to_string()),
             run_id: Some("run_alpha".to_string()),
+            agent: Value::Null,
             run: json!({
                 "id": "run_alpha",
                 "agentId": "agent_alpha",
@@ -1275,6 +1368,7 @@ mod tests {
         );
         assert_eq!(record.status, "planned");
         assert_eq!(record.operation_kind, "approval.required");
+        assert_eq!(record.target_kind, "run");
         assert_eq!(record.operator_control["control"], "approval_request");
         assert_eq!(record.operator_control["approvalId"], "approval_alpha");
         assert_eq!(record.run["status"], "blocked");
@@ -1287,6 +1381,31 @@ mod tests {
             record.run["operatorControls"][0]["receiptRefs"][0],
             "receipt_approval"
         );
+    }
+
+    #[test]
+    fn rust_authority_plans_approval_request_agent_state_update() {
+        let mut request = approval_request_state_update_request();
+        request.target_kind = Some("agent".to_string());
+        request.run_id = None;
+        request.run = Value::Null;
+        request.agent = json!({
+            "id": "agent_alpha",
+            "cwd": "/workspace",
+            "updatedAt": "2026-06-06T04:00:00.000Z"
+        });
+
+        let record = ApprovalRequestStateUpdateCore
+            .plan(&request)
+            .expect("approval request agent state update");
+
+        assert_eq!(record.target_kind, "agent");
+        assert!(record.run.is_null());
+        assert_eq!(
+            record.agent.as_ref().expect("agent record")["updatedAt"],
+            "2026-06-06T04:30:00.000Z"
+        );
+        assert_eq!(record.operation_kind, "approval.required");
     }
 
     #[test]
@@ -1319,6 +1438,7 @@ mod tests {
         );
         assert_eq!(record.status, "planned");
         assert_eq!(record.operation_kind, "approval.approve");
+        assert_eq!(record.target_kind, "run");
         assert_eq!(record.operator_control["control"], "approval_decision");
         assert_eq!(record.operator_control["leaseId"], "lease_alpha");
         assert_eq!(record.run["turnStatus"], "waiting_for_approval");
@@ -1330,6 +1450,31 @@ mod tests {
             record.run["operatorControls"][0]["receiptRefs"][0],
             "receipt_decision"
         );
+    }
+
+    #[test]
+    fn rust_authority_plans_approval_decision_agent_state_update() {
+        let mut request = approval_decision_state_update_request();
+        request.target_kind = Some("agent".to_string());
+        request.run_id = None;
+        request.run = Value::Null;
+        request.agent = json!({
+            "id": "agent_alpha",
+            "cwd": "/workspace",
+            "updatedAt": "2026-06-06T04:00:00.000Z"
+        });
+
+        let record = ApprovalDecisionStateUpdateCore
+            .plan(&request)
+            .expect("approval decision agent state update");
+
+        assert_eq!(record.target_kind, "agent");
+        assert!(record.run.is_null());
+        assert_eq!(
+            record.agent.as_ref().expect("agent record")["updatedAt"],
+            "2026-06-06T04:35:00.000Z"
+        );
+        assert_eq!(record.operation_kind, "approval.approve");
     }
 
     #[test]
@@ -1378,6 +1523,7 @@ mod tests {
         );
         assert_eq!(record.status, "planned");
         assert_eq!(record.operation_kind, "approval.revoke");
+        assert_eq!(record.target_kind, "run");
         assert_eq!(record.operator_control["control"], "approval_revoke");
         assert_eq!(record.operator_control["leaseStatus"], "revoked");
         assert_eq!(record.run["turnStatus"], "waiting_for_input");
@@ -1393,6 +1539,31 @@ mod tests {
             record.run["operatorControls"][0]["policyDecisionRefs"][0],
             "policy_revoke"
         );
+    }
+
+    #[test]
+    fn rust_authority_plans_approval_revoke_agent_state_update() {
+        let mut request = approval_revoke_state_update_request();
+        request.target_kind = Some("agent".to_string());
+        request.run_id = None;
+        request.run = Value::Null;
+        request.agent = json!({
+            "id": "agent_alpha",
+            "cwd": "/workspace",
+            "updatedAt": "2026-06-06T04:00:00.000Z"
+        });
+
+        let record = ApprovalRevokeStateUpdateCore
+            .plan(&request)
+            .expect("approval revoke agent state update");
+
+        assert_eq!(record.target_kind, "agent");
+        assert!(record.run.is_null());
+        assert_eq!(
+            record.agent.as_ref().expect("agent record")["updatedAt"],
+            "2026-06-06T04:40:00.000Z"
+        );
+        assert_eq!(record.operation_kind, "approval.revoke");
     }
 
     #[test]
