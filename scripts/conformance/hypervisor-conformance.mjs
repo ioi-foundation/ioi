@@ -1081,6 +1081,51 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: coding-tool budget block details must expose canonical snake_case fields without duplicate camelCase aliases",
   );
+  const codingToolBudgetBlockBody =
+    runtimeCodingToolGovernanceSurface.match(
+      /  function blockCodingToolForBudget\(store, \{[\s\S]*?(?=\n  return \{)/,
+    )?.[0] ?? "";
+  assertCheck(
+    result,
+    "coding-tool-governance-budget-block-response-aliases-retired",
+    /schema_version:\s*CODING_TOOL_RESULT_SCHEMA_VERSION/.test(codingToolBudgetBlockBody) &&
+      /tool_name:\s*toolId/.test(codingToolBudgetBlockBody) &&
+      /budget_status:\s*"exceeded"/.test(codingToolBudgetBlockBody) &&
+      /context_budget_status:\s*budgetPolicy\.status/.test(codingToolBudgetBlockBody) &&
+      /context_budget:\s*budgetPolicy/.test(codingToolBudgetBlockBody) &&
+      /input_summary:\s*codingToolInputSummary\(toolId,\s*input\)/.test(
+        codingToolBudgetBlockBody,
+      ) &&
+      /policy_decision_refs:\s*policyDecisionRefs/.test(codingToolBudgetBlockBody) &&
+      /receipt_refs:\s*event\.receipt_refs/.test(codingToolBudgetBlockBody) &&
+      !/schemaVersion:\s*CODING_TOOL_RESULT_SCHEMA_VERSION/.test(codingToolBudgetBlockBody) &&
+      !/toolName:\s*toolId/.test(codingToolBudgetBlockBody) &&
+      !/budgetStatus:\s*"exceeded"/.test(codingToolBudgetBlockBody) &&
+      !/contextBudgetStatus:\s*budgetPolicy\.status/.test(codingToolBudgetBlockBody) &&
+      !/contextBudget:\s*budgetPolicy/.test(codingToolBudgetBlockBody) &&
+      !/inputSummary:\s*codingToolInputSummary/.test(codingToolBudgetBlockBody) &&
+      !/policyDecisionRefs:\s*event\.policy_decision_refs/.test(codingToolBudgetBlockBody) &&
+      !/receiptRefs:\s*event\.receipt_refs/.test(codingToolBudgetBlockBody) &&
+      !/approvalRequired:\s*false/.test(codingToolBudgetBlockBody) &&
+      !/workspaceSnapshot:\s*null/.test(codingToolBudgetBlockBody) &&
+      !/workspaceSnapshotEvent:\s*null/.test(codingToolBudgetBlockBody) &&
+      !/autoDiagnostics:\s*null/.test(codingToolBudgetBlockBody) &&
+      !/toolContract:\s*toolContract/.test(codingToolBudgetBlockBody) &&
+      /Object\.hasOwn\(result,\s*field\),\s*false/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*field\),\s*false/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.event\.payload_summary,\s*field\),\s*false/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool governance budget block responses must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
   assertCheck(
     result,
     "coding-tool-approval-retry-manifest-alias-retired",

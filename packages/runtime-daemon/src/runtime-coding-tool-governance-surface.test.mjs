@@ -282,6 +282,8 @@ test("coding-tool governance blocks tools for budget with event envelope", () =>
   assert.deepEqual(result.policy_decision_refs, ["policy-budget"]);
   assert.deepEqual(result.rollback_refs, ["rollback-one"]);
   assert.equal(result.result.error.code, "coding_tool_budget_exceeded");
+  assert.equal(result.result.schema_version, "ioi.runtime.coding-tool-result.v1");
+  assert.equal(result.result.tool_name, "file.write");
   assert.deepEqual(result.result.error.details.budget_usage_telemetry, {
     totalTokens: 100,
   });
@@ -292,6 +294,29 @@ test("coding-tool governance blocks tools for budget with event envelope", () =>
     ),
     false,
   );
+  for (const field of [
+    "budgetStatus",
+    "contextBudget",
+    "receiptRefs",
+    "policyDecisionRefs",
+    "workspaceSnapshot",
+    "workspaceSnapshotEvent",
+    "autoDiagnostics",
+    "diagnosticsRepairContext",
+    "toolContract",
+  ]) {
+    assert.equal(Object.hasOwn(result, field), false);
+  }
+  for (const field of [
+    "schemaVersion",
+    "toolName",
+    "budgetStatus",
+    "contextBudgetStatus",
+    "contextBudget",
+    "inputSummary",
+  ]) {
+    assert.equal(Object.hasOwn(result.result, field), false);
+  }
   assert.equal(result.event.payload_summary.result_summary.reason, "coding_tool_budget_exceeded");
   assert.deepEqual(result.event.payload_summary.budget_usage_telemetry, {
     totalTokens: 100,
@@ -303,5 +328,15 @@ test("coding-tool governance blocks tools for budget with event envelope", () =>
     ),
     false,
   );
+  for (const field of [
+    "approvalRequired",
+    "budgetStatus",
+    "contextBudgetStatus",
+    "contextBudget",
+    "policyDecisionRefs",
+    "diagnosticsRepairContext",
+  ]) {
+    assert.equal(Object.hasOwn(result.event.payload_summary, field), false);
+  }
   assert.equal(result.event.payload_summary.receipt_count, 2);
 });
