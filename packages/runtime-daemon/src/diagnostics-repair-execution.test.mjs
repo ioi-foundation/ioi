@@ -91,8 +91,21 @@ test("diagnostics repair execution projections preserve public envelopes", () =>
   });
   assert.equal(retry.object, "ioi.runtime_diagnostics_repair_retry");
   assert.equal(retry.thread_id, "thread-one");
-  assert.equal(retry.turnId, "turn-retry");
-  assert.deepEqual(retry.receiptRefs, ["receipt-one"]);
+  assert.equal(retry.turn_id, "turn-retry");
+  assert.deepEqual(retry.receipt_refs, ["receipt-one"]);
+  for (const field of [
+    "schemaVersion",
+    "threadId",
+    "turnId",
+    "requestId",
+    "repairTurn",
+    "receiptRefs",
+    "artifactRefs",
+    "policyDecisionRefs",
+    "rollbackRefs",
+  ]) {
+    assert.equal(Object.hasOwn(retry, field), false);
+  }
 
   const override = runtime.diagnosticsOperatorOverrideResultFromEvent({
     threadId: "thread-one",
@@ -106,7 +119,25 @@ test("diagnostics repair execution projections preserve public envelopes", () =>
     },
   });
   assert.equal(override.object, "ioi.runtime_diagnostics_operator_override");
-  assert.equal(override.approvalRequired, true);
+  assert.equal(override.approval_required, true);
   assert.equal(override.approval_satisfied, true);
-  assert.equal(override.continuationAllowed, true);
+  assert.equal(override.continuation_allowed, true);
+  for (const field of [
+    "schemaVersion",
+    "threadId",
+    "overrideStatus",
+    "gateEventId",
+    "targetTurnId",
+    "targetRunId",
+    "approvalRequired",
+    "approvalSatisfied",
+    "approvalSource",
+    "continuationAllowed",
+    "receiptRefs",
+    "artifactRefs",
+    "policyDecisionRefs",
+    "rollbackRefs",
+  ]) {
+    assert.equal(Object.hasOwn(override, field), false);
+  }
 });

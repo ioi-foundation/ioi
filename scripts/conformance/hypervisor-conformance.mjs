@@ -10807,6 +10807,53 @@ function runCompositor() {
     ],
     "Phase 10/11 is pending: diagnostics repair decision execution results must expose canonical snake_case fields without duplicate camelCase aliases",
   );
+  const diagnosticsRepairRetryResultBody =
+    diagnosticsRepairExecution.match(
+      /  function diagnosticsRepairRetryResultFromEvent\(\{ threadId, event, turn = null, run = null \} = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsOperatorOverrideResultFromEvent)/,
+    )?.[0] ?? "";
+  const diagnosticsOperatorOverrideResultBody =
+    diagnosticsRepairExecution.match(
+      /  function diagnosticsOperatorOverrideResultFromEvent\(\{ threadId, event, turn = null \} = \{\}\) \{[\s\S]*?(?=\n  function workspaceRestoreApplyAllowsConflicts)/,
+    )?.[0] ?? "";
+  assertCheck(
+    result,
+    "diagnostics-repair-helper-result-aliases-retired",
+    /schema_version:\s*DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION/.test(
+      diagnosticsRepairRetryResultBody,
+    ) &&
+      /thread_id:\s*threadId/.test(diagnosticsRepairRetryResultBody) &&
+      /turn_id:\s*repairTurn\?\.turn_id \?\? payload\.retry_turn_id \?\? null/.test(
+        diagnosticsRepairRetryResultBody,
+      ) &&
+      /request_id:\s*repairTurn\?\.request_id \?\? run\?\.id \?\? payload\.retry_request_id \?\? null/.test(
+        diagnosticsRepairRetryResultBody,
+      ) &&
+      /receipt_refs:\s*normalizeArray\(event\?\.receipt_refs\)/.test(
+        diagnosticsRepairRetryResultBody,
+      ) &&
+      /approval_required:\s*Boolean\(payload\.approval_required \?\? payload\.approvalRequired\)/.test(
+        diagnosticsOperatorOverrideResultBody,
+      ) &&
+      /continuation_allowed:\s*Boolean\(payload\.continuation_allowed \?\? payload\.continuationAllowed\)/.test(
+        diagnosticsOperatorOverrideResultBody,
+      ) &&
+      /receipt_refs:\s*normalizeArray\(event\?\.receipt_refs\)/.test(
+        diagnosticsOperatorOverrideResultBody,
+      ) &&
+      !/^\s*(?:schemaVersion|threadId|turnId|requestId|repairTurn|receiptRefs|artifactRefs|policyDecisionRefs|rollbackRefs)\s*:/m.test(
+        diagnosticsRepairRetryResultBody,
+      ) &&
+      !/^\s*(?:schemaVersion|threadId|overrideStatus|gateEventId|targetTurnId|targetRunId|approvalRequired|approvalSatisfied|approvalSource|continuationAllowed|receiptRefs|artifactRefs|policyDecisionRefs|rollbackRefs)\s*:/m.test(
+        diagnosticsOperatorOverrideResultBody,
+      ) &&
+      /Object\.hasOwn\(retry,\s*field\),\s*false/.test(diagnosticsRepairExecutionTest) &&
+      /Object\.hasOwn\(override,\s*field\),\s*false/.test(diagnosticsRepairExecutionTest),
+    [
+      "packages/runtime-daemon/src/diagnostics-repair-execution.mjs",
+      "packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs",
+    ],
+    "Phase 10/11 is pending: diagnostics repair helper result envelopes must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
   assertCheck(
     result,
     "runtime-event-envelope-compat-aliases-retired",
