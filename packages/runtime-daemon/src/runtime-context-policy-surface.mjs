@@ -16,7 +16,6 @@ import {
   turnIdForRun,
 } from "./runtime-identifiers.mjs";
 import {
-  appendOperatorControl,
   operatorControlSource,
   optionalString,
 } from "./runtime-value-helpers.mjs";
@@ -24,7 +23,6 @@ import {
 export function createRuntimeContextPolicySurface({
   RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION: compactionPolicySchemaVersion = RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
   RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION: contextBudgetSchemaVersion = RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
-  appendOperatorControl: appendOperatorControlDep = appendOperatorControl,
   contextPolicyRunner: contextPolicyRunnerDep = createContextPolicyRunnerFromEnv(),
   contextBudgetUsageTelemetryFromRequest: contextBudgetUsageTelemetryFromRequestDep = contextBudgetUsageTelemetryFromRequest,
   evaluateCompactionPolicyDecision: evaluateCompactionPolicyDecisionDep = evaluateCompactionPolicyDecision,
@@ -95,39 +93,29 @@ export function createRuntimeContextPolicySurface({
         redaction_profile: plan.redaction_profile,
         fixture_profile: fixtureProfileForAgentDep(agent),
       });
-      const control = {
-        control: "compact",
+      const stateUpdate = contextPolicyRunnerDep.planContextCompactionStateUpdate({
+        thread_id: threadId,
+        agent_id: agent.id,
+        run_id: latestRun?.id ?? null,
+        target_kind: latestRun ? "run" : "agent",
+        run: latestRun ?? null,
+        agent,
+        event_id: event.event_id,
+        seq: event.seq,
+        created_at: event.created_at,
         source,
         reason,
         scope,
-        eventId: event.event_id,
-        seq: event.seq,
-        createdAt: event.created_at,
-      };
+      });
       if (latestRun) {
-        const updated = {
-          ...latestRun,
-          updatedAt: event.created_at,
-          trace: {
-            ...latestRun.trace,
-            operatorControls: appendOperatorControlDep(latestRun.trace?.operatorControls, control),
-            contextCompaction: {
-              reason,
-              scope,
-              eventId: event.event_id,
-              seq: event.seq,
-              compactedTokens: 0,
-            },
-          },
-          operatorControls: appendOperatorControlDep(latestRun.operatorControls, control),
-        };
+        const updated = stateUpdate.run ?? latestRun;
         store.runs.set(latestRun.id, updated);
-        store.writeRun(updated, "thread.compact");
+        store.writeRun(updated, stateUpdate.operation_kind ?? "thread.compact");
         return store.threadForAgent(agent);
       }
-      const updatedAgent = { ...agent, updatedAt: event.created_at };
+      const updatedAgent = stateUpdate.agent ?? { ...agent, updatedAt: event.created_at };
       store.agents.set(agent.id, updatedAgent);
-      store.writeAgent(updatedAgent, "thread.compact");
+      store.writeAgent(updatedAgent, stateUpdate.operation_kind ?? "thread.compact");
       return store.threadForAgent(updatedAgent);
     },
 

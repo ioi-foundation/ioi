@@ -72,7 +72,9 @@ use policy::{
     CompactionPolicyCore, CompactionPolicyError, CompactionPolicyRecord, CompactionPolicyRequest,
     ContextBudgetPolicyCore, ContextBudgetPolicyError, ContextBudgetPolicyRecord,
     ContextBudgetPolicyRequest, ContextCompactionPlanCore, ContextCompactionPlanError,
-    ContextCompactionPlanRecord, ContextCompactionPlanRequest,
+    ContextCompactionPlanRecord, ContextCompactionPlanRequest, ContextCompactionStateUpdateCore,
+    ContextCompactionStateUpdateError, ContextCompactionStateUpdateRecord,
+    ContextCompactionStateUpdateRequest,
 };
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
 use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
@@ -152,6 +154,13 @@ impl RuntimeKernelService {
         request: &ContextCompactionPlanRequest,
     ) -> Result<ContextCompactionPlanRecord, ContextCompactionPlanError> {
         ContextCompactionPlanCore.plan(request)
+    }
+
+    pub fn plan_context_compaction_state_update(
+        &self,
+        request: &ContextCompactionStateUpdateRequest,
+    ) -> Result<ContextCompactionStateUpdateRecord, ContextCompactionStateUpdateError> {
+        ContextCompactionStateUpdateCore.plan(request)
     }
 
     pub fn issue_capability_lease(

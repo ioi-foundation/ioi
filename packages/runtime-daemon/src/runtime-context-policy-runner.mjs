@@ -11,6 +11,8 @@ export const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.compaction-policy-request.v1";
 export const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.context-compaction-plan-request.v1";
+export const CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.context-compaction-state-update-request.v1";
 export const RUST_CONTEXT_POLICY_BACKEND = "rust_policy";
 
 export function createContextPolicyRunnerFromEnv(env = process.env, options = {}) {
@@ -60,6 +62,14 @@ export class RustContextPolicyRunner {
     return normalizeContextCompactionPlanBridgeResult(this.evaluateRawPolicy({
       operation: "plan_context_compaction",
       schemaVersion: CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planContextCompactionStateUpdate(request = {}) {
+    return normalizeContextCompactionStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_context_compaction_state_update",
+      schemaVersion: CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -269,6 +279,26 @@ export function normalizeContextCompactionPlanBridgeResult(value = {}) {
     scope: optionalString(result.scope ?? record.scope) ?? "thread",
     requested_by: optionalString(result.requested_by ?? record.requested_by) ?? "operator",
     previous_latest_seq: numberValue(result.previous_latest_seq ?? record.previous_latest_seq) ?? 0,
+  };
+}
+
+export function normalizeContextCompactionStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source: result.source ?? record.source ?? "rust_context_compaction_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "planned",
+    target_kind: optionalString(result.target_kind ?? record.target_kind) ?? "agent",
+    operation_kind: optionalString(result.operation_kind ?? record.operation_kind) ?? "thread.compact",
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    operator_control:
+      objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
+    context_compaction:
+      objectRecord(result.context_compaction) ?? objectRecord(record.context_compaction) ?? null,
+    run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
+    agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
   };
 }
 

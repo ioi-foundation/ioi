@@ -67,6 +67,71 @@ function contextCompactionPlanForRequest(request = {}) {
   };
 }
 
+function contextCompactionStateUpdateForRequest(request = {}) {
+  const operationKind = "thread.compact";
+  const operatorControl = {
+    control: "compact",
+    source: request.source,
+    reason: request.reason,
+    scope: request.scope,
+    eventId: request.event_id,
+    seq: request.seq,
+    createdAt: request.created_at,
+  };
+  const contextCompaction = {
+    reason: request.reason,
+    scope: request.scope,
+    eventId: request.event_id,
+    seq: request.seq,
+    compactedTokens: 0,
+  };
+  if (request.target_kind === "run") {
+    const run = request.run ?? {};
+    const traceControls = appendOperatorControlForTest(run.trace?.operatorControls, operatorControl);
+    const runControls = appendOperatorControlForTest(run.operatorControls, operatorControl);
+    return {
+      status: "planned",
+      target_kind: "run",
+      operation_kind: operationKind,
+      updated_at: request.created_at,
+      operator_control: operatorControl,
+      context_compaction: contextCompaction,
+      run: {
+        ...run,
+        updatedAt: request.created_at,
+        trace: {
+          ...run.trace,
+          operatorControls: traceControls,
+          contextCompaction,
+        },
+        operatorControls: runControls,
+      },
+      agent: null,
+    };
+  }
+  return {
+    status: "planned",
+    target_kind: "agent",
+    operation_kind: operationKind,
+    updated_at: request.created_at,
+    operator_control: operatorControl,
+    context_compaction: contextCompaction,
+    run: null,
+    agent: {
+      ...(request.agent ?? {}),
+      updatedAt: request.created_at,
+    },
+  };
+}
+
+function appendOperatorControlForTest(value, control) {
+  const entries = Array.isArray(value) ? [...value] : [];
+  if (!entries.some((entry) => entry?.eventId === control.eventId)) {
+    entries.push(control);
+  }
+  return entries;
+}
+
 function harness({ contextResult = baseResult(), compactionResult = null, compactionPlan = null } = {}) {
   const calls = [];
   const events = [];
@@ -102,6 +167,10 @@ function harness({ contextResult = baseResult(), compactionResult = null, compac
       planContextCompaction(request) {
         calls.push({ name: "planContextCompaction", request });
         return compactionPlan ?? contextCompactionPlanForRequest(request);
+      },
+      planContextCompactionStateUpdate(request) {
+        calls.push({ name: "planContextCompactionStateUpdate", request });
+        return contextCompactionStateUpdateForRequest(request);
       },
     },
     eventStreamIdForThread(threadId) {
@@ -323,6 +392,14 @@ test("context policy surface compacts latest run and records operator control", 
   assert.equal(events[0].fixture_profile, "fixture-agent-one");
   assert.match(events[0].receipt_refs[0], /^receipt_run-one_context_compaction_/);
   assert.equal(calls.find((call) => call.name === "planContextCompaction").request.reason, "trim context");
+  assert.equal(
+    calls.find((call) => call.name === "planContextCompactionStateUpdate").request.event_id,
+    "event-1",
+  );
+  assert.equal(
+    calls.find((call) => call.name === "planContextCompactionStateUpdate").request.target_kind,
+    "run",
+  );
   assert.equal(savedRun.trace.contextCompaction.reason, "trim context");
   assert.equal(savedRun.operatorControls[0].control, "compact");
   assert.equal(calls.find((call) => call.name === "writeRun").operationKind, "thread.compact");
@@ -341,6 +418,10 @@ test("context policy surface compacts runless thread by touching agent state", (
   assert.equal(events[0].turn_id, "");
   assert.equal(events[0].payload.run_id, null);
   assert.match(events[0].receipt_refs[0], /^receipt_agent-one_context_compaction_/);
+  assert.equal(
+    calls.find((call) => call.name === "planContextCompactionStateUpdate").request.target_kind,
+    "agent",
+  );
   assert.equal(savedAgent.updatedAt, events[0].created_at);
   assert.equal(calls.find((call) => call.name === "writeAgent").operationKind, "thread.compact");
 });

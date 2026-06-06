@@ -1119,6 +1119,39 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "context-compaction-state-update-live-bridge",
+    /ContextCompactionStateUpdateCore/.test(policyCore) &&
+      /ContextCompactionStateUpdateRequest/.test(policyCore) &&
+      /CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_context_compaction_run_state_update/.test(policyCore) &&
+      /plan_context_compaction_state_update/.test(bridgeModule) &&
+      /ContextCompactionStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_context_compaction_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_context_compaction_state_update_through_rust_core/.test(bridgeModule) &&
+      /planContextCompactionStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /context compaction state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /contextPolicyRunnerDep\.planContextCompactionStateUpdate/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /planContextCompactionStateUpdate/.test(runtimeContextPolicySurfaceTest) &&
+      !/appendOperatorControlDep|contextCompaction:\s*\{/.test(runtimeContextPolicySurface),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
+    ],
+    "Phase 9/10 is pending: context-compaction run/agent state updates must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
     "daemon-static-scan-marker-comments-retired",
     !/Static scan pattern compliance markers|Static check markers to satisfy/.test(
       `${runtimeDaemonIndex}\n${modelMountingState}`,

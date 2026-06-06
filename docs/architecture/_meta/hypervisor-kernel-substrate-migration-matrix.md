@@ -12134,6 +12134,13 @@ passing `turn_id` into the bridge request; the daemon context-policy facade
 consumes those Rust-owned fields when appending context-budget events instead
 of deriving event identity from `policy_decision_id` in JS.
 
+Slice 345 moves context-compaction run/agent state-update planning into Rust:
+`ContextCompactionStateUpdateCore` now owns operator-control trace mutation,
+contextCompaction trace shape, updatedAt assignment, operation kind, and the
+runless agent touch plan through `plan_context_compaction_state_update`; the
+daemon context-policy facade applies the Rust-planned run/agent record to the
+existing store/write shell instead of constructing the mutation in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

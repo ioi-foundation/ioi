@@ -16,6 +16,10 @@ pub const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.context-compaction-plan-request.v1";
 pub const CONTEXT_COMPACTION_PLAN_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.context-compaction-plan.v1";
+pub const CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.context-compaction-state-update-request.v1";
+pub const CONTEXT_COMPACTION_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.context-compaction-state-update.v1";
 pub const CONTEXT_COMPACTION_PAYLOAD_SCHEMA_VERSION: &str = "ioi.runtime.context-compaction.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,6 +76,15 @@ pub enum CompactionPolicyError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContextCompactionPlanError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ContextCompactionStateUpdateError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -382,6 +395,47 @@ pub struct ContextCompactionPlanRecord {
     pub reason: String,
     pub scope: String,
     pub previous_latest_seq: u64,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContextCompactionStateUpdateRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub target_kind: Option<String>,
+    pub thread_id: String,
+    pub agent_id: String,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    #[serde(default)]
+    pub run: Option<Value>,
+    pub agent: Value,
+    pub event_id: String,
+    pub seq: u64,
+    pub created_at: String,
+    pub source: String,
+    pub reason: String,
+    pub scope: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContextCompactionStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub target_kind: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub agent_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    pub updated_at: String,
+    pub operator_control: Value,
+    pub context_compaction: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent: Option<Value>,
     pub generated_at: String,
 }
 
@@ -813,6 +867,96 @@ impl ContextCompactionPlanCore {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct ContextCompactionStateUpdateCore;
+
+impl ContextCompactionStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &ContextCompactionStateUpdateRequest,
+    ) -> Result<ContextCompactionStateUpdateRecord, ContextCompactionStateUpdateError> {
+        request.validate()?;
+        let thread_id = optional_trimmed(Some(request.thread_id.as_str())).unwrap();
+        let agent_id = optional_trimmed(Some(request.agent_id.as_str())).unwrap();
+        let run_id = optional_trimmed(request.run_id.as_deref());
+        let source = optional_trimmed(Some(request.source.as_str()))
+            .unwrap_or_else(|| "sdk_client".to_string());
+        let reason = optional_trimmed(Some(request.reason.as_str()))
+            .unwrap_or_else(|| "operator requested context compaction".to_string());
+        let scope =
+            optional_trimmed(Some(request.scope.as_str())).unwrap_or_else(|| "thread".to_string());
+        let target_kind = context_compaction_state_target_kind(
+            request.target_kind.as_deref(),
+            request.run.as_ref(),
+        );
+        let operator_control = json!({
+            "control": "compact",
+            "source": source.clone(),
+            "reason": reason.clone(),
+            "scope": scope.clone(),
+            "eventId": request.event_id,
+            "seq": request.seq,
+            "createdAt": request.created_at,
+        });
+        let context_compaction = json!({
+            "reason": reason.clone(),
+            "scope": scope.clone(),
+            "eventId": request.event_id,
+            "seq": request.seq,
+            "compactedTokens": 0,
+        });
+
+        let (run, agent) = if target_kind == "run" {
+            let mut run = object_value(
+                request
+                    .run
+                    .as_ref()
+                    .ok_or(ContextCompactionStateUpdateError::MissingField("run"))?,
+            )
+            .ok_or(ContextCompactionStateUpdateError::MissingField("run"))?;
+            run.insert(
+                "updatedAt".to_string(),
+                Value::String(request.created_at.clone()),
+            );
+            let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
+            let trace_controls =
+                append_operator_control(trace.get("operatorControls"), &operator_control);
+            trace.insert("operatorControls".to_string(), trace_controls);
+            trace.insert("contextCompaction".to_string(), context_compaction.clone());
+            run.insert("trace".to_string(), Value::Object(trace));
+            let run_controls =
+                append_operator_control(run.get("operatorControls"), &operator_control);
+            run.insert("operatorControls".to_string(), run_controls);
+            (Some(Value::Object(run)), None)
+        } else {
+            let mut agent = object_value(&request.agent)
+                .ok_or(ContextCompactionStateUpdateError::MissingField("agent"))?;
+            agent.insert(
+                "updatedAt".to_string(),
+                Value::String(request.created_at.clone()),
+            );
+            (None, Some(Value::Object(agent)))
+        };
+
+        Ok(ContextCompactionStateUpdateRecord {
+            schema_version: CONTEXT_COMPACTION_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_context_compaction_state_update".to_string(),
+            status: "planned".to_string(),
+            target_kind,
+            operation_kind: "thread.compact".to_string(),
+            thread_id,
+            agent_id,
+            run_id,
+            updated_at: request.created_at.clone(),
+            operator_control,
+            context_compaction,
+            run,
+            agent,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
 impl CompactionPolicyRequest {
     pub fn validate(&self) -> Result<(), CompactionPolicyError> {
         if self.schema_version != COMPACTION_POLICY_REQUEST_SCHEMA_VERSION {
@@ -844,6 +988,44 @@ impl ContextCompactionPlanRequest {
         }
         if optional_trimmed(Some(self.agent_id.as_str())).is_none() {
             return Err(ContextCompactionPlanError::MissingField("agent_id"));
+        }
+        Ok(())
+    }
+}
+
+impl ContextCompactionStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), ContextCompactionStateUpdateError> {
+        if self.schema_version != CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(ContextCompactionStateUpdateError::InvalidSchemaVersion {
+                expected: CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(ContextCompactionStateUpdateError::MissingField("thread_id"));
+        }
+        if optional_trimmed(Some(self.agent_id.as_str())).is_none() {
+            return Err(ContextCompactionStateUpdateError::MissingField("agent_id"));
+        }
+        if optional_trimmed(Some(self.event_id.as_str())).is_none() {
+            return Err(ContextCompactionStateUpdateError::MissingField("event_id"));
+        }
+        if self.seq == 0 {
+            return Err(ContextCompactionStateUpdateError::MissingField("seq"));
+        }
+        if optional_trimmed(Some(self.created_at.as_str())).is_none() {
+            return Err(ContextCompactionStateUpdateError::MissingField(
+                "created_at",
+            ));
+        }
+        if !self.agent.is_object() {
+            return Err(ContextCompactionStateUpdateError::MissingField("agent"));
+        }
+        if context_compaction_state_target_kind(self.target_kind.as_deref(), self.run.as_ref())
+            == "run"
+            && !matches!(self.run.as_ref(), Some(value) if value.is_object())
+        {
+            return Err(ContextCompactionStateUpdateError::MissingField("run"));
         }
         Ok(())
     }
@@ -1071,6 +1253,40 @@ fn operator_control_source(value: Option<&str>) -> String {
     "sdk_client".to_string()
 }
 
+fn context_compaction_state_target_kind(value: Option<&str>, run: Option<&Value>) -> String {
+    match value
+        .and_then(|value| optional_trimmed(Some(value)))
+        .map(|value| value.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("agent") => "agent".to_string(),
+        Some("run") => "run".to_string(),
+        _ if run.is_some() => "run".to_string(),
+        _ => "agent".to_string(),
+    }
+}
+
+fn object_value(value: &Value) -> Option<serde_json::Map<String, Value>> {
+    value.as_object().cloned()
+}
+
+fn append_operator_control(existing: Option<&Value>, control: &Value) -> Value {
+    let control_event_id = control.get("eventId").and_then(Value::as_str);
+    let mut entries = existing
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let exists = control_event_id.is_some_and(|event_id| {
+        entries
+            .iter()
+            .any(|entry| entry.get("eventId").and_then(Value::as_str) == Some(event_id))
+    });
+    if !exists {
+        entries.push(control.clone());
+    }
+    Value::Array(entries)
+}
+
 fn compaction_status(action: &str, execute_compaction: bool, approval_satisfied: bool) -> String {
     match action {
         "stop" => "blocked".to_string(),
@@ -1211,6 +1427,31 @@ mod tests {
             event_stream_id: Some("thread_budget:events".to_string()),
             previous_latest_seq: Some(7),
             idempotency_key: None,
+        }
+    }
+
+    fn context_compaction_state_update_request() -> ContextCompactionStateUpdateRequest {
+        ContextCompactionStateUpdateRequest {
+            schema_version: CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            target_kind: Some("run".to_string()),
+            thread_id: "thread_budget".to_string(),
+            agent_id: "agent_budget".to_string(),
+            run_id: Some("run_budget".to_string()),
+            run: Some(json!({
+                "id": "run_budget",
+                "agentId": "agent_budget",
+                "trace": {},
+            })),
+            agent: json!({
+                "id": "agent_budget",
+                "cwd": "/workspace",
+            }),
+            event_id: "event_budget".to_string(),
+            seq: 8,
+            created_at: "2026-06-06T03:40:00.000Z".to_string(),
+            source: "react_flow".to_string(),
+            reason: "trim context".to_string(),
+            scope: "thread".to_string(),
         }
     }
 
@@ -1434,6 +1675,47 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_plans_context_compaction_run_state_update() {
+        let record = ContextCompactionStateUpdateCore
+            .plan(&context_compaction_state_update_request())
+            .expect("context compaction state update");
+
+        assert_eq!(
+            record.schema_version,
+            CONTEXT_COMPACTION_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.target_kind, "run");
+        assert_eq!(record.operation_kind, "thread.compact");
+        assert_eq!(record.operator_control["eventId"], "event_budget");
+        assert_eq!(record.operator_control["seq"], 8);
+        assert_eq!(record.context_compaction["reason"], "trim context");
+        let run = record.run.expect("updated run");
+        assert_eq!(run["updatedAt"], "2026-06-06T03:40:00.000Z");
+        assert_eq!(run["trace"]["contextCompaction"]["eventId"], "event_budget");
+        assert_eq!(run["trace"]["operatorControls"][0]["control"], "compact");
+        assert_eq!(run["operatorControls"][0]["eventId"], "event_budget");
+        assert!(record.agent.is_none());
+    }
+
+    #[test]
+    fn rust_policy_plans_context_compaction_runless_agent_update() {
+        let mut request = context_compaction_state_update_request();
+        request.target_kind = Some("agent".to_string());
+        request.run = None;
+        request.run_id = None;
+
+        let record = ContextCompactionStateUpdateCore
+            .plan(&request)
+            .expect("runless context compaction state update");
+
+        assert_eq!(record.target_kind, "agent");
+        assert!(record.run.is_none());
+        let agent = record.agent.expect("updated agent");
+        assert_eq!(agent["updatedAt"], "2026-06-06T03:40:00.000Z");
+    }
+
+    #[test]
     fn rust_policy_rejects_invalid_compaction_schema() {
         let mut request = compaction_request();
         request.schema_version = "legacy.schema".to_string();
@@ -1464,6 +1746,24 @@ mod tests {
             error,
             ContextCompactionPlanError::InvalidSchemaVersion {
                 expected: CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_context_compaction_state_update_schema() {
+        let mut request = context_compaction_state_update_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = ContextCompactionStateUpdateCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            ContextCompactionStateUpdateError::InvalidSchemaVersion {
+                expected: CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );
