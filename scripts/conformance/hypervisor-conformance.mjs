@@ -7905,6 +7905,30 @@ function runCtee() {
   );
   assertCheck(
     result,
+    "ctee-runner-request-aliases-retired",
+    /RETIRED_CTEE_PRIVATE_WORKSPACE_RUNNER_ALIASES/.test(cteePrivateWorkspaceRunner) &&
+      /ctee_private_workspace_runner_request_aliases_retired/.test(cteePrivateWorkspaceRunner) &&
+      /assertCanonicalCteePrivateWorkspaceRunnerRequest\(request\);/.test(
+        cteePrivateWorkspaceRunner,
+      ) &&
+      /node_trust:\s*request\.node_trust/.test(cteePrivateWorkspaceRunner) &&
+      /expected_heads:\s*request\.expected_heads\s*\?\?\s*\[\]/.test(
+        cteePrivateWorkspaceRunner,
+      ) &&
+      !/request\.nodeTrust/.test(cteePrivateWorkspaceRunner) &&
+      !/request\.expectedHeads/.test(cteePrivateWorkspaceRunner) &&
+      /cTEE private workspace runner rejects retired bridge request aliases before command invocation/.test(
+        cteePrivateWorkspaceRunnerTest,
+      ) &&
+      /assert\.deepEqual\(calls,\s*\[\]\)/.test(cteePrivateWorkspaceRunnerTest),
+    [
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs",
+    ],
+    "Phase 7/11 is pending: cTEE Private Workspace runner must fail closed on retired bridge aliases before invoking the Rust command",
+  );
+  assertCheck(
+    result,
     "ctee-sdk-ide-admission-surface",
     /executeCteePrivateWorkspaceAction/.test(agentSdkSubstrateClient) &&
       /RuntimeCteePrivateWorkspaceActionInput/.test(agentSdkSubstrateClient) &&

@@ -155,6 +155,35 @@ test("cTEE private workspace runner can be configured from env", () => {
   assert.equal(runner.command, "mock-ctee-bridge");
 });
 
+test("cTEE private workspace runner rejects retired bridge request aliases before command invocation", () => {
+  const calls = [];
+  const runner = new RustCteePrivateWorkspaceRunner({
+    command: "mock-ctee-bridge",
+    spawnSyncImpl() {
+      calls.push("spawned");
+      return { status: 0, stdout: "{}", stderr: "" };
+    },
+  });
+  const request = cteeRequest();
+
+  assert.throws(
+    () =>
+      runner.executeAction({
+        ...request,
+        nodeTrust: request.node_trust,
+        expectedHeads: request.expected_heads,
+      }),
+    (error) =>
+      error.code === "ctee_private_workspace_runner_request_aliases_retired" &&
+      error.details.status === 400 &&
+      error.details.retired_aliases.includes("nodeTrust") &&
+      error.details.retired_aliases.includes("expectedHeads") &&
+      Object.hasOwn(error.details, "nodeTrust") === false &&
+      Object.hasOwn(error.details, "expectedHeads") === false,
+  );
+  assert.deepEqual(calls, []);
+});
+
 test("cTEE private workspace runner fails closed without command", () => {
   const runner = createCteePrivateWorkspaceRunnerFromEnv({});
 

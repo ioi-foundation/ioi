@@ -5,6 +5,11 @@ export const CTEE_PRIVATE_WORKSPACE_COMMAND_ARGS_ENV = "IOI_CTEE_PRIVATE_WORKSPA
 export const CTEE_PRIVATE_WORKSPACE_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
 export const RUST_CTEE_PRIVATE_WORKSPACE_BACKEND = "ctee_operator";
 
+const RETIRED_CTEE_PRIVATE_WORKSPACE_RUNNER_ALIASES = [
+  "nodeTrust",
+  "expectedHeads",
+];
+
 export function createCteePrivateWorkspaceRunnerFromEnv(env = process.env, options = {}) {
   return new RustCteePrivateWorkspaceRunner({
     command: options.command ?? env[CTEE_PRIVATE_WORKSPACE_COMMAND_ENV] ?? null,
@@ -25,13 +30,14 @@ export class RustCteePrivateWorkspaceRunner {
   }
 
   executeAction(request = {}) {
+    assertCanonicalCteePrivateWorkspaceRunnerRequest(request);
     const bridgeRequest = {
       schema_version: CTEE_PRIVATE_WORKSPACE_COMMAND_SCHEMA_VERSION,
       operation: "execute_private_workspace_ctee_action",
       backend: RUST_CTEE_PRIVATE_WORKSPACE_BACKEND,
       invocation: request.invocation,
-      node_trust: request.node_trust ?? request.nodeTrust,
-      expected_heads: request.expected_heads ?? request.expectedHeads ?? [],
+      node_trust: request.node_trust,
+      expected_heads: request.expected_heads ?? [],
     };
     return normalizeCteePrivateWorkspaceBridgeResult(this.invokeBridge(bridgeRequest));
   }
@@ -96,6 +102,23 @@ export class RustCteePrivateWorkspaceRunner {
     }
     return parsed.result ?? parsed;
   }
+}
+
+function assertCanonicalCteePrivateWorkspaceRunnerRequest(request = {}) {
+  const record = objectRecord(request) ?? {};
+  const retiredAliases = RETIRED_CTEE_PRIVATE_WORKSPACE_RUNNER_ALIASES.filter((field) =>
+    Object.hasOwn(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new CteePrivateWorkspaceRunnerError(
+    "Private Workspace cTEE runner request aliases are retired; use canonical snake_case bridge fields.",
+    "ctee_private_workspace_runner_request_aliases_retired",
+    {
+      status: 400,
+      retired_aliases: retiredAliases,
+      canonical_fields: ["node_trust", "expected_heads"],
+    },
+  );
 }
 
 export class CteePrivateWorkspaceRunnerError extends Error {
