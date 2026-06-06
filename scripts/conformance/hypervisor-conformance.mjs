@@ -8640,6 +8640,10 @@ function runCompositor() {
     workspaceTrustState.match(
       /function acknowledgeWorkspaceTrustWarning\(store, threadId, warningId, request = \{\}\) \{[\s\S]*?\n  \}/,
     )?.[0] ?? "";
+  const workspaceTrustWarningBody =
+    workspaceTrustState.match(
+      /function appendWorkspaceTrustWarningEvent\(store, \{[\s\S]*?\n  function acknowledgeWorkspaceTrustWarning/,
+    )?.[0] ?? "";
   const diagnosticsRepairExecution = exists("packages/runtime-daemon/src/diagnostics-repair-execution.mjs")
     ? read("packages/runtime-daemon/src/diagnostics-repair-execution.mjs")
     : "";
@@ -12672,6 +12676,21 @@ function runCompositor() {
     result,
     "workspace-trust-acknowledgement-aliases-retired",
     /retiredWorkspaceTrustAcknowledgementAliases/.test(workspaceTrustState) &&
+      /const modeWorkflowNodeId =\s*\n\s*request\.workflow_node_id \?\?\s*\n\s*modeEvent\?\.workflow_node_id \?\?/.test(
+        workspaceTrustWarningBody,
+      ) &&
+      /const workflowNodeId =\s*\n\s*request\.workspace_trust_workflow_node_id \?\?\s*\n\s*request\.trust_warning_workflow_node_id \?\?/.test(
+        workspaceTrustWarningBody,
+      ) &&
+      /workspace trust warning ignores retired request aliases/.test(
+        workspaceTrustStateTest,
+      ) &&
+      /workspaceTrustWorkflowNodeId: "runtime\.workspace-trust\.retired"/.test(
+        workspaceTrustStateTest,
+      ) &&
+      /trustWarningWorkflowNodeId: "runtime\.trust-warning\.retired"/.test(
+        workspaceTrustStateTest,
+      ) &&
       /workspace_trust_acknowledgement_request_aliases_retired/.test(
         workspaceTrustAcknowledgementBody,
       ) &&
@@ -12713,6 +12732,9 @@ function runCompositor() {
       ) &&
       !/\brequest\.(?:warningId|sourceEventId|requestedBy|workflowGraphId|workflowNodeId|idempotencyKey|eventKind|componentKind|payloadSchemaVersion)\b/.test(
         workspaceTrustAcknowledgementBody,
+      ) &&
+      !/\brequest\.(?:workflowNodeId|workspaceTrustWorkflowNodeId|trustWarningWorkflowNodeId)\b/.test(
+        workspaceTrustWarningBody,
       ) &&
       !/^\s*(?:warningId|sourceEventId|workflowGraphId|workflowNodeId|eventKind|componentKind|payloadSchemaVersion):/m.test(
         runtimeWorkspaceTrustAcknowledgementControlRequestBody,

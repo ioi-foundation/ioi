@@ -27,14 +27,11 @@ export function createWorkspaceTrustState({
     if (mode !== "review" && mode !== "yolo") return null;
     const modeWorkflowNodeId =
       request.workflow_node_id ??
-      request.workflowNodeId ??
       modeEvent?.workflow_node_id ??
       "runtime.thread-mode";
     const workflowNodeId =
       request.workspace_trust_workflow_node_id ??
-      request.workspaceTrustWorkflowNodeId ??
       request.trust_warning_workflow_node_id ??
-      request.trustWarningWorkflowNodeId ??
       `${modeWorkflowNodeId}.workspace-trust`;
     const payload = workspaceTrustWarningRecordForMode({
       agent,

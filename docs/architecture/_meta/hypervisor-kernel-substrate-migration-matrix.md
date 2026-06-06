@@ -12880,6 +12880,13 @@ workflow edit proposal and apply events now consume canonical `idempotency_key`
 request fields only; retired `idempotencyKey` fields no longer steer proposal or
 apply event de-duplication before approval/projection handling.
 
+Slice 457 completes workspace-trust warning alias retirement:
+workspace trust warning events now derive mode and warning workflow identity from
+canonical `workflow_node_id`, `workspace_trust_workflow_node_id`, and
+`trust_warning_workflow_node_id` fields only; retired `workflowNodeId`,
+`workspaceTrustWorkflowNodeId`, and `trustWarningWorkflowNodeId` fields no longer
+steer warning projection identity before acknowledgement handling.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -95,6 +95,29 @@ test("workspace trust state emits warnings only for trust-sensitive modes", () =
   assert.equal(event.fixture_profile, "fixture.test");
 });
 
+test("workspace trust warning ignores retired request aliases", () => {
+  const { agent, state, store } = createHarness();
+
+  const event = state.appendWorkspaceTrustWarningEvent(store, {
+    agent,
+    threadId: "thread_a",
+    controls: { mode: "review", approvalMode: "auto_review" },
+    request: {
+      workflowNodeId: "runtime.mode.retired",
+      workspaceTrustWorkflowNodeId: "runtime.workspace-trust.retired",
+      trustWarningWorkflowNodeId: "runtime.trust-warning.retired",
+    },
+    source: "test",
+    requestedBy: "operator",
+    workflowGraphId: "graph",
+    modeEvent: { workflow_node_id: "runtime.mode.canonical-event" },
+    now: "2026-06-04T00:00:00.000Z",
+  });
+
+  assert.equal(event.workflow_node_id, "runtime.mode.canonical-event.workspace-trust");
+  assert.equal(event.payload_summary.workflow_node_id, "runtime.mode.canonical-event.workspace-trust");
+});
+
 test("workspace trust acknowledgement validates warning id and missing warnings", () => {
   const { state, store } = createHarness();
 
