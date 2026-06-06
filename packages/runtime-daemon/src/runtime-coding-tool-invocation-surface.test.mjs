@@ -220,6 +220,85 @@ test("coding tool invocation surface replays duplicate idempotent tool events", 
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 
+test("coding tool invocation surface ignores retired request identity aliases", () => {
+  const runnerCalls = [];
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool(input) {
+      runnerCalls.push(input);
+      return {
+        backend: "rust_workload_live",
+        mode: "live",
+        blocking: true,
+        source: "rust_workload_command",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://rust-live/workspace.status",
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: "invocation://rust-live/workspace.status",
+          status: "success",
+          receipt_refs: ["receipt://rust-live/workspace.status"],
+          artifact_refs: [],
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: null,
+          resulting_head: null,
+          workflow_projection: {
+            workflow_graph_id: input.context.workflowGraphId,
+            workflow_node_id: input.context.workflowNodeId,
+            component_kind: "CodingToolNode",
+            status: "live",
+            attempt_id: "attempt://rust-live/workspace.status",
+            evidence_refs: [],
+            receipt_refs: ["receipt://rust-live/workspace.status"],
+          },
+        },
+        bridge_result: {
+          router_admission: {
+            schema_version: "ioi.step_module_router_admission.v1",
+            backend: "workload_grpc",
+          },
+          shadow_observation: {
+            tool: "workspace.status",
+            result: {
+              schemaVersion: "ioi.runtime.coding-tool-result.v1",
+              workspaceRoot: "/tmp/workspace",
+              git: { available: true },
+              changedFiles: [],
+              counts: { changed: 0, untracked: 0, ignored: 0 },
+              shellFallbackUsed: false,
+            },
+          },
+        },
+      };
+    },
+  };
+  const surface = createSurface({ stepModuleRunner: liveRunner });
+  const store = createStore();
+
+  const result = surface.invokeThreadTool(store, "thread_alpha", "workspace.status", {
+    tool_call_id: "tool_status_alias_retired",
+    turnId: "turn_retired",
+    workflowGraphId: "graph_retired",
+    workflowNodeId: "node_retired",
+    input: {},
+  });
+
+  assert.equal(runnerCalls.length, 1);
+  assert.equal(runnerCalls[0].context.taskId, "task:turn_latest");
+  assert.equal(runnerCalls[0].context.workflowGraphId, null);
+  assert.equal(runnerCalls[0].context.workflowNodeId, "runtime.coding-tool.workspace.status");
+  assert.equal(result.turn_id, "turn_latest");
+  assert.equal(result.workflow_graph_id, null);
+  assert.equal(result.workflow_node_id, "runtime.coding-tool.workspace.status");
+  assert.equal(result.event.turn_id, "turn_latest");
+  assert.equal(result.event.workflow_graph_id, null);
+  assert.equal(result.event.workflow_node_id, "runtime.coding-tool.workspace.status");
+});
+
 test("coding tool invocation surface runs workspace.status through rust workload live path", () => {
   const runnerCalls = [];
   const liveRunner = {

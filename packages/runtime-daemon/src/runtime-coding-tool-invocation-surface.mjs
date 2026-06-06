@@ -84,13 +84,13 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     }
     const input = codingToolInputForRequest(request);
     const turnId =
-      optionalString(request.turn_id ?? request.turnId) ??
+      optionalString(request.turn_id) ??
       optionalString(store.threadForAgent(agent).latest_turn_id) ??
       "";
     const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      optionalString(request.workflow_node_id) ??
       `runtime.coding-tool.${safeId(normalizedToolId)}`;
-    const workflowGraphId = optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    const workflowGraphId = optionalString(request.workflow_graph_id) ?? null;
     const toolCallId =
       optionalString(request.tool_call_id ?? request.toolCallId) ??
       `coding_tool_${doctorHash(`${threadId}:${normalizedToolId}:${JSON.stringify(input)}:${Date.now()}`).slice(0, 16)}`;

@@ -1035,6 +1035,35 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: Rust live coding-tool results must expose canonical router_admission without the retired routerAdmission response alias",
   );
+  assertCheck(
+    result,
+    "coding-tool-invocation-request-identity-aliases-retired",
+    /optionalString\(request\.turn_id\)/.test(runtimeCodingToolInvocationSurface) &&
+      /optionalString\(request\.workflow_node_id\)/.test(runtimeCodingToolInvocationSurface) &&
+      /optionalString\(request\.workflow_graph_id\) \?\? null/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /coding tool invocation surface ignores retired request identity aliases/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /turnId: "turn_retired"/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /workflowGraphId: "graph_retired"/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /workflowNodeId: "node_retired"/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /runnerCalls\[0\]\.context\.workflowGraphId, null/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /runnerCalls\[0\]\.context\.workflowNodeId, "runtime\.coding-tool\.workspace\.status"/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId)\b/.test(
+        runtimeCodingToolInvocationSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: Rust live coding-tool invocation identity must use canonical turn_id/workflow ids without retired request aliases",
+  );
   const codingToolRustLiveResultBody =
     runtimeCodingToolInvocationSurface.match(
       /function codingToolResultForRustLiveStepModule\(toolId, stepModuleProjection = \{\}\) \{[\s\S]*?\n\}/,

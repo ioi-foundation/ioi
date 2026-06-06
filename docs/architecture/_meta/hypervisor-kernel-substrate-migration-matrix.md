@@ -12792,6 +12792,13 @@ retired `turnId`, `workflowGraphId`, `workflowNodeId`, and `receiptRefs` request
 fields no longer steer approval event identity or receipt binding before Rust
 authority state-update planning.
 
+Slice 443 removes coding-tool invocation request identity aliases:
+Rust-live coding-tool invocation now consumes canonical `turn_id`,
+`workflow_graph_id`, and `workflow_node_id` only; retired `turnId`,
+`workflowGraphId`, and `workflowNodeId` request fields no longer steer
+StepModule context, workflow projection identity, or runtime event identity
+before the Rust workload command bridge executes the admitted tool.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
