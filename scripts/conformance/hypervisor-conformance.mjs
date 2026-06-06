@@ -713,6 +713,12 @@ function runBridge() {
   const runtimeBridgeThreadTest = exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs")
     ? read("packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs")
     : "";
+  const runtimeApiBridge = exists("packages/runtime-daemon/src/runtime-api-bridge.mjs")
+    ? read("packages/runtime-daemon/src/runtime-api-bridge.mjs")
+    : "";
+  const runtimeApiBridgeTest = exists("packages/runtime-daemon/src/runtime-api-bridge.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-api-bridge.test.mjs")
+    : "";
   const threadStore = exists("packages/runtime-daemon/src/threads/thread-store.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-store.mjs")
     : "";
@@ -2936,6 +2942,13 @@ function runBridge() {
       /runtime bridge turn creation fails closed without Rust-planned operation kind/.test(
         runtimeBridgeThreadTest,
       ) &&
+      /runtime profile request normalization ignores retired camelCase aliases/.test(
+        runtimeApiBridgeTest,
+      ) &&
+      /runtimeProfileForRequest\(\{ runtimeProfile: "runtime" \}\), "fixture"/.test(
+        runtimeApiBridgeTest,
+      ) &&
+      !/request\.runtimeProfile|options\.runtimeProfile/.test(runtimeApiBridge) &&
       !/const updated = \{\s*\.\.\.agent,\s*runtimeProfile,\s*runtimeSessionId/s.test(
         runtimeBridgeThread,
       ) &&
@@ -2950,6 +2963,8 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-api-bridge.mjs",
+      "packages/runtime-daemon/src/runtime-api-bridge.test.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],

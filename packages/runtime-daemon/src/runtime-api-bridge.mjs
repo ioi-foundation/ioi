@@ -6,9 +6,7 @@ const FIXTURE_RUNTIME_PROFILES = new Set(["fixture", "agentgres_fixture", "local
 export function runtimeProfileForRequest(request = {}, options = {}) {
   return normalizeRuntimeProfile(
     request.runtime_profile ??
-      request.runtimeProfile ??
       options.runtime_profile ??
-      options.runtimeProfile ??
       process.env.IOI_RUNTIME_DAEMON_PROFILE ??
       "fixture",
   );
