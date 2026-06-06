@@ -2836,6 +2836,8 @@ function runReceipts() {
   const catalogProviderConfigTest = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs")
     : "";
+  const catalogProviderRuntimeMaterialFromBodyBlock =
+    catalogProviderConfig.match(/export function catalogProviderRuntimeMaterialFromBody[\s\S]*?export function catalogProviderAuthConfig/)?.[0] ?? "";
   const oauthCredentialProvider = exists("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs")
     : "";
@@ -4329,6 +4331,37 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
     ],
     "Phase 7/11 is pending: catalog provider auth/config fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-catalog-provider-source-request-aliases-retired",
+    /RETIRED_CATALOG_PROVIDER_SOURCE_REQUEST_ALIASES/.test(catalogProviderConfig) &&
+      /CANONICAL_CATALOG_PROVIDER_SOURCE_REQUEST_FIELDS/.test(catalogProviderConfig) &&
+      /catalog_provider_source_request_aliases_retired/.test(catalogProviderConfig) &&
+      /assertCanonicalCatalogProviderSourceRequestBody\(body\);[\s\S]*body\.manifest_path \?\? body\.path \?\? null/.test(
+        catalogProviderRuntimeMaterialFromBodyBlock,
+      ) &&
+      /body\.base_url \?\? body\.url \?\? null/.test(catalogProviderRuntimeMaterialFromBodyBlock) &&
+      !/body\.(?:manifestPath|baseUrl)\b/.test(catalogProviderConfig) &&
+      /catalog provider source request aliases fail closed before vault binding/.test(
+        catalogProviderConfigTest,
+      ) &&
+      /retired_aliases,\s*\[\s*"manifestPath"\s*\]/.test(catalogProviderConfigTest) &&
+      /retired_aliases,\s*\[\s*"baseUrl"\s*\]/.test(catalogProviderConfigTest) &&
+      /canonical_fields,\s*\[\s*"manifest_path",\s*"base_url"\s*\]/.test(catalogProviderConfigTest) &&
+      /assert\.equal\(state\.bound\.length,\s*0\)/.test(catalogProviderConfigTest) &&
+      /assert\.equal\(state\.writeVaultRefsCount\(\),\s*0\)/.test(catalogProviderConfigTest) &&
+      /catalogProviderRuntimeMaterialFromBody\("catalog\.local_manifest",\s*\{ manifest_path:/.test(
+        catalogProviderConfigTest,
+      ) &&
+      /catalogProviderRuntimeMaterialFromBody\("catalog\.custom_http",\s*\{ base_url:/.test(
+        catalogProviderConfigTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
+    ],
+    "Phase 7/11 is pending: catalog provider source request bodies must fail closed on retired camelCase source aliases before vault binding",
   );
   assertCheck(
     result,

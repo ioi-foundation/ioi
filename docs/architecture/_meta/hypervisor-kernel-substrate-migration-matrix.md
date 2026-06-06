@@ -11911,6 +11911,13 @@ and `cleanupModelStorage` fails closed on retired `removeOrphans` before
 filesystem scanning. Canonical `cleanup_partial`, `dry_run`, and
 `remove_orphans` remain the accepted request boundary.
 
+Slice 312 retires catalog-provider source request aliases:
+`catalogProviderRuntimeMaterialFromBody` now fails closed on retired
+`manifestPath` and `baseUrl` before catalog source material can be bound to
+vault refs. Canonical `manifest_path` and `base_url` remain accepted, while
+internal runtime material records continue to use their existing `manifestPath`
+and `baseUrl` fields.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

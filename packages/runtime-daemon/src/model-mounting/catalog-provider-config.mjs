@@ -18,6 +18,16 @@ const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1";
 
 export const MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS = ["catalog.local_manifest", "catalog.custom_http", "catalog.huggingface"];
 
+const RETIRED_CATALOG_PROVIDER_SOURCE_REQUEST_ALIASES = [
+  "manifestPath",
+  "baseUrl",
+];
+
+const CANONICAL_CATALOG_PROVIDER_SOURCE_REQUEST_FIELDS = [
+  "manifest_path",
+  "base_url",
+];
+
 export function assertConfigurableCatalogProvider(providerId) {
   if (!MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS.includes(providerId)) {
     throw runtimeError({
@@ -131,14 +141,31 @@ export function catalogProviderConfigUpdate(providerId, body, existing = null, u
   };
 }
 
-export function catalogProviderRuntimeMaterialFromBody(providerId, body) {
+export function catalogProviderRuntimeMaterialFromBody(providerId, body = {}) {
+  assertCanonicalCatalogProviderSourceRequestBody(body);
   const source =
     providerId === "catalog.local_manifest"
-      ? body.manifest_path ?? body.manifestPath ?? body.path ?? null
+      ? body.manifest_path ?? body.path ?? null
       : providerId === "catalog.custom_http" || providerId === "catalog.huggingface"
-        ? body.base_url ?? body.baseUrl ?? body.url ?? null
+        ? body.base_url ?? body.url ?? null
         : null;
   return source === null ? {} : catalogProviderRuntimeMaterialFromValue(providerId, source);
+}
+
+function assertCanonicalCatalogProviderSourceRequestBody(body = {}) {
+  const retiredAliases = RETIRED_CATALOG_PROVIDER_SOURCE_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw runtimeError({
+    status: 400,
+    code: "catalog_provider_source_request_aliases_retired",
+    message: "Catalog provider source request aliases are retired; use canonical snake_case request fields.",
+    details: {
+      retired_aliases: retiredAliases,
+      canonical_fields: CANONICAL_CATALOG_PROVIDER_SOURCE_REQUEST_FIELDS,
+    },
+  });
 }
 
 export function catalogProviderAuthConfig(providerId, body, existing = null, state) {

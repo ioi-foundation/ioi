@@ -7,6 +7,7 @@ import {
   catalogProviderAuthHeaders,
   catalogProviderConfigUpdate,
   catalogProviderMaterialVaultRef,
+  catalogProviderRuntimeMaterialFromBody,
   catalogProviderRuntimeMaterialFromValue,
   normalizeCatalogAuthScheme,
 } from "./catalog-provider-config.mjs";
@@ -74,6 +75,44 @@ test("catalog provider config updates bind source material to vault refs", () =>
   assert.equal(state.bound[0].vaultRef, catalogProviderMaterialVaultRef("catalog.custom_http"));
   assert.equal(state.bound[0].material, "https://catalog.example.test");
   assert.equal(state.writeVaultRefsCount(), 1);
+});
+
+test("catalog provider source request aliases fail closed before vault binding", () => {
+  const state = createState();
+
+  assert.throws(
+    () =>
+      catalogProviderConfigUpdate(
+        "catalog.local_manifest",
+        { manifestPath: "./manifest.json" },
+        null,
+        "2026-06-03T12:00:00.000Z",
+        state,
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "catalog_provider_source_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["manifestPath"]);
+      assert.deepEqual(error.details.canonical_fields, ["manifest_path", "base_url"]);
+      return true;
+    },
+  );
+  assert.equal(state.bound.length, 0);
+  assert.equal(state.writeVaultRefsCount(), 0);
+
+  assert.throws(
+    () =>
+      catalogProviderRuntimeMaterialFromBody("catalog.custom_http", {
+        baseUrl: "https://catalog.example.test",
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "catalog_provider_source_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["baseUrl"]);
+      assert.deepEqual(error.details.canonical_fields, ["manifest_path", "base_url"]);
+      return true;
+    },
+  );
 });
 
 test("catalog provider auth headers resolve vault material without plaintext persistence", async () => {
@@ -215,5 +254,13 @@ test("catalog provider config validates provider ids and auth schemes", () => {
   assert.equal(
     catalogProviderRuntimeMaterialFromValue("catalog.local_manifest", "./manifest.json").manifestPath,
     path.resolve("./manifest.json"),
+  );
+  assert.equal(
+    catalogProviderRuntimeMaterialFromBody("catalog.local_manifest", { manifest_path: "./manifest.json" }).manifestPath,
+    path.resolve("./manifest.json"),
+  );
+  assert.equal(
+    catalogProviderRuntimeMaterialFromBody("catalog.custom_http", { base_url: "https://catalog.example.test/" }).baseUrl,
+    "https://catalog.example.test",
   );
 });
