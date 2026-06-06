@@ -6601,7 +6601,12 @@ function runReceipts() {
       /agentgres_canonical_state_projection/.test(runtimeRunReadSurface) &&
       /runStateWatermark/.test(runtimeRunReadSurface) &&
       /agentgres_canonical_state_projection/.test(runtimeDoctorReport) &&
-      /runStateWatermark/.test(runtimeDoctorReport),
+      /runStateWatermark/.test(runtimeDoctorReport) &&
+      /tool\.stable_tool_id/.test(runtimeDoctorReport) &&
+      /listTools: \(\) => \[\{ stable_tool_id: "fs\.read" \}\]/.test(
+        read("packages/runtime-daemon/src/runtime-doctor-report.test.mjs"),
+      ) &&
+      !/tool\.stableToolId/.test(runtimeDoctorReport),
     [
       "packages/runtime-daemon/src/threads/thread-persistence.mjs",
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",

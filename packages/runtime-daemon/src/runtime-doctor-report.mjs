@@ -59,7 +59,7 @@ export function createRuntimeDoctorReport({
         store.listTools().length > 0 ? "pass" : "blocked",
         true,
         `${store.listTools().length} governed runtime tool(s) are registered.`,
-        store.listTools().map((tool) => tool.stableToolId),
+        store.listTools().map((tool) => tool.stable_tool_id),
       ),
       doctorCheck(
         "workflow.react_flow_registry",

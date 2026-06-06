@@ -48,7 +48,7 @@ function createHarness({ exists = () => true, env = {} } = {}) {
       activeHookSetHash: "hook-hash",
       validationIssueCount: 0,
     }),
-    listTools: () => [{ stableToolId: "fs.read" }],
+    listTools: () => [{ stable_tool_id: "fs.read" }],
     runs: new Map([["run-one", {}], ["run-two", {}], ["run-three", {}]]),
     listRuntimeNodes: () => [{ id: "hosted", endpoint: "https://provider.example" }],
   };
