@@ -11562,9 +11562,9 @@ function runCompositor() {
     diagnosticsRepairExecution.match(
       /  function diagnosticsRepairExecutionStatus\(result = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsRepairRetryResultFromEvent)/,
     )?.[0] ?? "";
-  assertCheck(
-    result,
-    "diagnostics-repair-helper-result-aliases-retired",
+	  assertCheck(
+	    result,
+	    "diagnostics-repair-helper-result-aliases-retired",
     /schema_version:\s*DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION/.test(
       diagnosticsRepairRetryResultBody,
     ) &&
@@ -11618,12 +11618,85 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/diagnostics-repair-execution.mjs",
       "packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs",
-    ],
-    "Phase 10/11 is pending: diagnostics repair helper result envelopes must expose canonical snake_case fields without duplicate camelCase aliases",
-  );
+	    ],
+	    "Phase 10/11 is pending: diagnostics repair helper result envelopes must expose canonical snake_case fields without duplicate camelCase aliases",
+	  );
+  const sdkWorkspaceRestorePreviewResult =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeWorkspaceRestorePreviewResult \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  const sdkWorkspaceRestoreApplyResult =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeWorkspaceRestoreApplyResult \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  const sdkDiagnosticsRepairRetryResult =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeDiagnosticsRepairRetryResult \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  const sdkDiagnosticsOperatorOverrideResult =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeDiagnosticsOperatorOverrideResult \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  const sdkDiagnosticsRepairDecisionExecutionResult =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeDiagnosticsRepairDecisionExecutionResult \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  const sdkDiagnosticsRepairResultBlocks = [
+    sdkWorkspaceRestorePreviewResult,
+    sdkWorkspaceRestoreApplyResult,
+    sdkDiagnosticsRepairRetryResult,
+    sdkDiagnosticsOperatorOverrideResult,
+    sdkDiagnosticsRepairDecisionExecutionResult,
+  ].join("\n");
   assertCheck(
     result,
-    "runtime-event-envelope-compat-aliases-retired",
+    "agent-sdk-diagnostics-repair-result-aliases-retired",
+    /schema_version:\s*string;/.test(sdkWorkspaceRestorePreviewResult) &&
+      /thread_id:\s*string;/.test(sdkWorkspaceRestorePreviewResult) &&
+      /snapshot_id:\s*string;/.test(sdkWorkspaceRestorePreviewResult) &&
+      /preview_status:\s*string;/.test(sdkWorkspaceRestorePreviewResult) &&
+      /restore_preview_event\?:\s*RuntimeEventEnvelope \| null;/.test(
+        sdkWorkspaceRestorePreviewResult,
+      ) &&
+      /schema_version:\s*string;/.test(sdkWorkspaceRestoreApplyResult) &&
+      /apply_status:\s*string;/.test(sdkWorkspaceRestoreApplyResult) &&
+      /policy_decision_refs:\s*string\[\];/.test(sdkWorkspaceRestoreApplyResult) &&
+      /restore_apply_event\?:\s*RuntimeEventEnvelope \| null;/.test(
+        sdkWorkspaceRestoreApplyResult,
+      ) &&
+      /schema_version:\s*string;/.test(sdkDiagnosticsRepairRetryResult) &&
+      /thread_id:\s*string;/.test(sdkDiagnosticsRepairRetryResult) &&
+      /repair_turn\?:\s*RuntimeTurnRecord \| null;/.test(sdkDiagnosticsRepairRetryResult) &&
+      /receipt_refs:\s*string\[\];/.test(sdkDiagnosticsRepairRetryResult) &&
+      /schema_version:\s*string;/.test(sdkDiagnosticsOperatorOverrideResult) &&
+      /override_status\?:\s*string;/.test(sdkDiagnosticsOperatorOverrideResult) &&
+      /continuation_allowed\?:\s*boolean;/.test(sdkDiagnosticsOperatorOverrideResult) &&
+      /schema_version:\s*string;/.test(sdkDiagnosticsRepairDecisionExecutionResult) &&
+      /decision_id:\s*string;/.test(sdkDiagnosticsRepairDecisionExecutionResult) &&
+      /repair_policy\?:\s*Record<string, unknown>;/.test(
+        sdkDiagnosticsRepairDecisionExecutionResult,
+      ) &&
+      /repair_retry\?:\s*RuntimeDiagnosticsRepairRetryResult;/.test(
+        sdkDiagnosticsRepairDecisionExecutionResult,
+      ) &&
+      /operator_override\?:\s*RuntimeDiagnosticsOperatorOverrideResult;/.test(
+        sdkDiagnosticsRepairDecisionExecutionResult,
+      ) &&
+      /restore_preview\?:\s*RuntimeWorkspaceRestorePreviewResult;/.test(
+        sdkDiagnosticsRepairDecisionExecutionResult,
+      ) &&
+      /restore_apply\?:\s*RuntimeWorkspaceRestoreApplyResult;/.test(
+        sdkDiagnosticsRepairDecisionExecutionResult,
+      ) &&
+      !/^\s*(?:schemaVersion|threadId|snapshotId|previewStatus|previewSupported|applySupported|fileCount|readyCount|noopCount|conflictCount|blockedCount|receiptRefs|artifactRefs|rollbackRefs|restorePreviewEvent|applyStatus|approvalRequired|approvalSatisfied|appliedCount|applyNoopCount|applyBlockedCount|failedCount|policyDecisionRefs|restoreApplyEvent|turnId|requestId|repairTurn|overrideStatus|gateEventId|gateId|targetTurnId|targetRunId|approvalRequired|approvalSatisfied|approvalSource|continuationAllowed|decisionId|policyId|workflowGraphId|workflowNodeId|repairPolicy|repairRetry|repairRetryEvent|operatorOverride|operatorOverrideEvent|restorePreview|restoreApply)\??:/.test(
+        sdkDiagnosticsRepairResultBlocks,
+      ),
+    ["packages/agent-sdk/src/substrate-client.ts"],
+    "Phase 10/11 is pending: Agent SDK diagnostics repair result contracts must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+	  assertCheck(
+	    result,
+	    "runtime-event-envelope-compat-aliases-retired",
     !/\bid:\s*String\(seq\)|timestamp_ms:|event:\s*eventKind/.test(runtimeEventEnvelopes) &&
       /retiredEnvelopeAliasKeys/.test(runtimeEventEnvelopesTest) &&
       /event\.event_id\s*\?\?\s*event\.seq/.test(runtimeHttpUtils) &&
