@@ -1722,6 +1722,10 @@ test("subagent surface cancels subagents with inherited cancellation metadata", 
   assert.deepEqual(result.receipt_refs, result.event.receipt_refs);
   assertNoOwnKeys(result, retiredSubagentLifecycleResultEnvelopeAliasKeys);
   assert.equal(store.writes[0].operationKind, "subagent.cancel");
+  assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
+  assert.equal(store.stateUpdates[0].input.operation_kind, "subagent.cancel");
+  assert.equal(store.stateUpdates[0].input.thread_id, "thread_1");
+  assert.equal(store.stateUpdates[0].input.subagent.subagent_id, "subagent_1");
   assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
   assert.deepEqual(saved.receipt_refs, [
     "receipt_run_1",
@@ -1732,6 +1736,31 @@ test("subagent surface cancels subagents with inherited cancellation metadata", 
   assertNoOwnKeys(saved.cancellation, retiredSubagentNestedCancellationAliasKeys);
   assertCanonicalSubagentRecordOutput(saved);
   assertCanonicalSubagentStoreWrites(store);
+});
+
+test("subagent cancel fails closed without Rust-planned subagent record", () => {
+  const store = createStore({
+    subagentStateUpdate: {
+      status: "planned",
+      operation_kind: "subagent.cancel",
+      subagent: null,
+    },
+  });
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T13:30:00.000Z",
+    nowMs: () => 1780589400000,
+  });
+  store.surface = surface;
+
+  assert.throws(
+    () => surface.cancelSubagent(store, "thread_1", "subagent_1", {
+      source: "agent_studio",
+      reason: "parent_cancel",
+    }),
+    (error) => error.code === "subagent_record_state_update_planner_invalid",
+  );
+  assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
+  assert.equal(store.writes.length, 0);
 });
 
 test("subagent cancel ignores retired camelCase request aliases", () => {

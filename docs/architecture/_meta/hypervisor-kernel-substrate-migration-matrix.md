@@ -12323,6 +12323,11 @@ Slice 371 routes subagent assignment persistence through Rust planning:
 `SubagentRecordStateUpdateCore`, persists only the Rust-planned record for
 `subagent.assign`, and fails closed when the planner omits it.
 
+Slice 372 moves subagent cancellation persistence behind Rust planning:
+`cancelSubagent` now validates and persists only the `SubagentRecordStateUpdateCore`
+record for `subagent.cancel`, while still using the daemon-owned run cancellation
+path before the subagent lifecycle projection is admitted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
