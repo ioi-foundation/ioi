@@ -51,7 +51,7 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
   }
 
   function resolveWorkflowEditTarget(agent, request = {}) {
-    const rawPath = optionalString(request.workflow_path ?? request.workflowPath);
+    const rawPath = optionalString(request.workflow_path);
     if (!rawPath) return { workflowPath: null, workflowRelativePath: null };
     const workflowPath = path.resolve(agent.cwd, rawPath);
     const workflowRelativePath = relativePathForWorkspace(workflowPath, agent.cwd);
@@ -67,7 +67,7 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
   function proposeWorkflowEdit(store, threadId, request = {}) {
     const { agent, run, turnId } = workflowEditThreadContext(store, threadId, request);
     const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "workflow-author";
+    const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "workflow-author";
     const workflowGraphId = optionalString(request.workflow_graph_id) ?? null;
     const targetWorkflowNodeIds = uniqueStrings(
       [
@@ -87,10 +87,8 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     const workflowPatch =
       request.workflow_patch && typeof request.workflow_patch === "object"
         ? request.workflow_patch
-        : request.workflowPatch && typeof request.workflowPatch === "object"
-          ? request.workflowPatch
-          : null;
-    const codeDiff = optionalString(request.code_diff ?? request.codeDiff) ?? null;
+        : null;
+    const codeDiff = optionalString(request.code_diff) ?? null;
     const editIntentHash = doctorHash(
       JSON.stringify({
         title,
@@ -103,13 +101,13 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       }),
     ).slice(0, 16);
     const editIntentId =
-      optionalString(request.edit_intent_id ?? request.editIntentId) ??
+      optionalString(request.edit_intent_id) ??
       `workflow_edit_intent_${editIntentHash}`;
     const proposalId =
-      optionalString(request.proposal_id ?? request.proposalId) ??
+      optionalString(request.proposal_id) ??
       `workflow_edit_proposal_${editIntentHash}`;
     const approvalId =
-      optionalString(request.approval_id ?? request.approvalId) ??
+      optionalString(request.approval_id) ??
       `approval_workflow_edit_${safeId(proposalId)}`;
     const workflowNodeId =
       optionalString(request.workflow_node_id) ??
@@ -162,7 +160,7 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       `receipt_${runOrAgentId}_workflow_edit_proposed_${safeId(proposalId)}`,
     ]);
     const policyDecisionRefs = uniqueStrings([
-      ...normalizeArray(request.policy_decision_refs ?? request.policyDecisionRefs),
+      ...normalizeArray(request.policy_decision_refs),
       `policy_${runOrAgentId}_workflow_edit_proposal_only`,
     ]);
     const now = new Date().toISOString();
@@ -376,7 +374,7 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
   function applyWorkflowEditProposal(store, threadId, proposalId, request = {}) {
     const { agent, run, turnId } = workflowEditThreadContext(store, threadId, request);
     const normalizedProposalId =
-      optionalString(proposalId ?? request.proposal_id ?? request.proposalId) ??
+      optionalString(proposalId ?? request.proposal_id) ??
       (() => {
         throw runtimeErrorDep({
           status: 400,
@@ -394,7 +392,7 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     }
     const proposalPayload = proposalEvent.payload_summary ?? proposalEvent.payload ?? {};
     const approvalId =
-      optionalString(request.approval_id ?? request.approvalId) ??
+      optionalString(request.approval_id) ??
       optionalString(proposalPayload.approval_id ?? proposalPayload.approvalId);
     const approvalSatisfaction = workflowEditApprovalSatisfaction(store, {
       threadId,
@@ -452,7 +450,7 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       };
     }
     const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "workflow-author";
+    const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "workflow-author";
     const workflowGraphId =
       optionalString(request.workflow_graph_id) ??
       optionalString(proposalEvent.workflow_graph_id) ??

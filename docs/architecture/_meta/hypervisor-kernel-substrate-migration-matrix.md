@@ -12934,6 +12934,15 @@ planning; retired `requestedBy`, `approvalAction`, `toolId`, `toolName`,
 no longer steer approval gate payloads, lease policy metadata, refs, decision
 hashes, or Rust-planned approval state updates.
 
+Slice 464 completes workflow-edit proposal handoff alias retirement:
+workflow edit proposal/apply request handling now consumes canonical
+`workflow_path`, `workflow_patch`, `code_diff`, `edit_intent_id`, `proposal_id`,
+`approval_id`, `requested_by`, and `policy_decision_refs` fields only before
+approval handoff and projection; retired `workflowPath`, `workflowPatch`,
+`codeDiff`, `editIntentId`, `proposalId`, `approvalId`, `requestedBy`, and
+`policyDecisionRefs` no longer steer proposal identity, patch content, approval
+identity, actor attribution, or policy refs.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

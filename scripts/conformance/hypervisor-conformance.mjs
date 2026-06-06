@@ -3066,6 +3066,13 @@ function runBridge() {
       /turnId: "turn_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
       /workflowGraphId: "graph_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
       /workflowNodeId: "node_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
+      /requestedBy: "operator_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
+      /workflowPath: "workflows\/retired\.json"/.test(runtimeWorkflowEditSurfaceTest) &&
+      /workflowPatch: \{ ok: true \}/.test(runtimeWorkflowEditSurfaceTest) &&
+      /codeDiff: "diff_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
+      /editIntentId: "intent_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
+      /proposalId: "proposal_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
+      /approvalId: "approval_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
       /targetWorkflowNodeIds: \["node_target_retired"\]/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
@@ -3076,6 +3083,8 @@ function runBridge() {
       /idempotencyKey: "workflow_edit_apply_idempotency_retired"/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
+      /proposalId: "proposal_apply_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
+      /approvalId: "approval_apply_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
       /workflow-edit surface accepts canonical idempotency keys/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
@@ -3086,20 +3095,34 @@ function runBridge() {
         runtimeWorkflowEditSurfaceTest,
       ) &&
       /receiptRefs: \["receipt_retired"\]/.test(runtimeWorkflowEditSurfaceTest) &&
+      /policyDecisionRefs: \["policy_retired"\]/.test(runtimeWorkflowEditSurfaceTest) &&
       /approvalRequest\.receipt_refs\.includes\("receipt_retired"\), false/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      !/request\.(?:turnId|workflowNodeId|workflowGraphId|receiptRefs|targetWorkflowNodeIds|boundedTargets|idempotencyKey)\b/.test(
+      /approvalRequest\.policy_decision_refs\.includes\("policy_retired"\), false/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /proposalEvent\.payload_summary\.requested_by,\s*"workflow-author"/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /proposalEvent\.payload_summary\.workflow_relative_path,\s*"workflows\/canonical\.json"/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /proposalEvent\.payload_summary\.code_diff,\s*null/.test(runtimeWorkflowEditSurfaceTest) &&
+      /applied\.event\.payload_summary\.requested_by,\s*"workflow-author"/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId|requestedBy|workflowPath|workflowPatch|codeDiff|editIntentId|proposalId|approvalId|receiptRefs|policyDecisionRefs|targetWorkflowNodeIds|boundedTargets|idempotencyKey)\b/.test(
         runtimeWorkflowEditSurface,
       ) &&
-      !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|receipt_refs|target_workflow_node_ids|bounded_targets|idempotency_key)\s*\?\?\s*request\./.test(
+      !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|requested_by|workflow_path|workflow_patch|code_diff|edit_intent_id|proposal_id|approval_id|receipt_refs|policy_decision_refs|target_workflow_node_ids|bounded_targets|idempotency_key)\s*\?\?\s*request\./.test(
         runtimeWorkflowEditSurface,
       ),
     [
       "packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs",
       "packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: workflow edit proposal/apply paths must use canonical request identity, target, and receipt fields before approval and projection handling",
+    "Phase 10/11 is pending: workflow edit proposal/apply paths must use canonical request identity, target, patch, approval, and receipt fields before approval and projection handling",
   );
   assertCheck(
     result,

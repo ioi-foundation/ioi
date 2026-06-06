@@ -137,17 +137,17 @@ test("workflow-edit surface proposes workflow edits with approval manifest alias
 
   const result = surface.proposeWorkflowEdit(store, "thread_alpha", {
     source: "agent_studio",
-    proposalId: "proposal_one",
-    editIntentId: "intent_one",
-    approvalId: "approval_one",
+    proposal_id: "proposal_one",
+    edit_intent_id: "intent_one",
+    approval_id: "approval_one",
     title: "Change workflow",
     summary: "Update workflow step",
-    workflowPath: "workflows/demo.json",
-    workflowPatch: { nodes: [{ id: "node_1" }] },
+    workflow_path: "workflows/demo.json",
+    workflow_patch: { nodes: [{ id: "node_1" }] },
     target_workflow_node_ids: ["node_1"],
     bounded_targets: ["node_2", "node_1"],
     receipt_refs: ["receipt_request"],
-    policyDecisionRefs: ["policy_request"],
+    policy_decision_refs: ["policy_request"],
   });
   const proposalEvent = store.events[0];
   const approvalRequest = store.calls[0].request;
@@ -182,8 +182,15 @@ test("workflow-edit surface ignores retired request identity aliases", () => {
   const proposal = surface.proposeWorkflowEdit(store, "thread_alpha", {
     proposal_id: "proposal_retired_aliases",
     approval_id: "approval_retired_aliases",
+    workflow_path: "workflows/canonical.json",
+    workflow_patch: { ok: "canonical" },
+    requestedBy: "operator_retired",
     workflowPath: "workflows/retired.json",
     workflowPatch: { ok: true },
+    codeDiff: "diff_retired",
+    editIntentId: "intent_retired",
+    proposalId: "proposal_retired",
+    approvalId: "approval_retired",
     turnId: "turn_retired",
     workflowGraphId: "graph_retired",
     workflowNodeId: "node_retired",
@@ -191,6 +198,7 @@ test("workflow-edit surface ignores retired request identity aliases", () => {
     boundedTargets: ["node_bound_retired"],
     idempotencyKey: "workflow_edit_idempotency_retired",
     receiptRefs: ["receipt_retired"],
+    policyDecisionRefs: ["policy_retired"],
   });
   const proposalEvent = store.events[0];
   const approvalRequest = store.calls[0].request;
@@ -203,17 +211,31 @@ test("workflow-edit surface ignores retired request identity aliases", () => {
     "thread:thread_alpha:workflow.edit.proposed:proposal_retired_aliases",
   );
   assert.deepEqual(proposalEvent.payload_summary.target_workflow_node_ids, []);
+  assert.equal(proposalEvent.payload_summary.requested_by, "workflow-author");
+  assert.equal(proposalEvent.payload_summary.workflow_relative_path, "workflows/canonical.json");
+  assert.deepEqual(proposalEvent.payload_summary.workflow_patch, { ok: "canonical" });
+  assert.equal(proposalEvent.payload_summary.code_diff, null);
+  assert.equal(proposalEvent.payload_summary.edit_intent_id, proposal.edit_intent_id);
+  assert.notEqual(proposalEvent.payload_summary.edit_intent_id, "intent_retired");
+  assert.equal(proposal.proposal_id, "proposal_retired_aliases");
+  assert.equal(proposal.approval_id, "approval_retired_aliases");
   assert.equal(proposal.receipt_refs.includes("receipt_retired"), false);
+  assert.equal(proposal.policy_decision_refs.includes("policy_retired"), false);
   assert.equal(approvalRequest.turn_id, "turn_alpha");
   assert.equal(approvalRequest.workflow_graph_id, null);
   assert.equal(approvalRequest.workflow_node_id, "runtime.workflow-edit-proposal.proposal_retired_aliases");
   assert.equal(approvalRequest.receipt_refs.includes("receipt_retired"), false);
-  for (const field of ["turnId", "workflowGraphId", "workflowNodeId", "receiptRefs"]) {
+  assert.equal(approvalRequest.policy_decision_refs.includes("policy_retired"), false);
+  assert.equal(approvalRequest.approval_id, "approval_retired_aliases");
+  for (const field of ["turnId", "workflowGraphId", "workflowNodeId", "receiptRefs", "policyDecisionRefs"]) {
     assert.equal(Object.hasOwn(approvalRequest, field), false);
   }
 
   store.approve(proposal.approval_id);
   const applied = surface.applyWorkflowEditProposal(store, "thread_alpha", proposal.proposal_id, {
+    requestedBy: "operator_apply_retired",
+    proposalId: "proposal_apply_retired",
+    approvalId: "approval_apply_retired",
     workflowGraphId: "graph_apply_retired",
     workflowNodeId: "node_apply_retired",
     idempotencyKey: "workflow_edit_apply_idempotency_retired",
@@ -225,6 +247,8 @@ test("workflow-edit surface ignores retired request identity aliases", () => {
     applied.event.idempotency_key,
     "thread:thread_alpha:workflow.edit.applied:proposal_retired_aliases:approval_retired_aliases",
   );
+  assert.equal(applied.event.payload_summary.requested_by, "workflow-author");
+  assert.equal(applied.event.payload_summary.approval_id, "approval_retired_aliases");
 });
 
 test("workflow-edit surface accepts canonical idempotency keys", () => {
@@ -251,10 +275,10 @@ test("workflow-edit surface blocks apply until proposal approval is satisfied", 
   const store = createStore();
   const surface = createSurface();
   const proposal = surface.proposeWorkflowEdit(store, "thread_alpha", {
-    proposalId: "proposal_blocked",
-    approvalId: "approval_blocked",
-    workflowPath: "workflows/blocked.json",
-    workflowPatch: { ok: true },
+    proposal_id: "proposal_blocked",
+    approval_id: "approval_blocked",
+    workflow_path: "workflows/blocked.json",
+    workflow_patch: { ok: true },
   });
 
   const result = surface.applyWorkflowEditProposal(store, "thread_alpha", proposal.proposal_id, {});
@@ -271,10 +295,10 @@ test("workflow-edit surface applies approved proposals and replays idempotently"
   const store = createStore();
   const surface = createSurface();
   const proposal = surface.proposeWorkflowEdit(store, "thread_alpha", {
-    proposalId: "proposal_apply",
-    approvalId: "approval_apply",
-    workflowPath: "workflows/apply.json",
-    workflowPatch: { name: "applied", nodes: [{ id: "node_apply" }] },
+    proposal_id: "proposal_apply",
+    approval_id: "approval_apply",
+    workflow_path: "workflows/apply.json",
+    workflow_patch: { name: "applied", nodes: [{ id: "node_apply" }] },
   });
   store.approve(proposal.approval_id);
 
@@ -305,7 +329,7 @@ test("workflow-edit surface enforces workspace boundaries and required proposal 
   const surface = createSurface();
 
   assert.throws(
-    () => surface.proposeWorkflowEdit(store, "thread_alpha", { workflowPath: "../outside.json" }),
+    () => surface.proposeWorkflowEdit(store, "thread_alpha", { workflow_path: "../outside.json" }),
     (error) =>
       error.status === 403 &&
       error.code === "policy" &&
