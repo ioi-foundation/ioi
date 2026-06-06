@@ -986,13 +986,25 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
   assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.applied, true);
-  assert.equal(result.result.workspaceSnapshotId, "snapshot_alpha");
+  assert.equal(result.result.workspace_snapshot_id, "snapshot_alpha");
+  assert.equal(Object.hasOwn(result.result, "workspaceSnapshot"), false);
+  assert.equal(Object.hasOwn(result.result, "workspaceSnapshotId"), false);
   assert.ok(result.receipt_refs.includes("receipt://rust-live/file.apply_patch"));
   assert.ok(result.receipt_refs.includes("receipt_snapshot"));
   assert.ok(result.artifact_refs.includes("artifact_snapshot"));
   assert.equal(result.workspace_snapshot.snapshot_id, "snapshot_alpha");
   assert.equal(result.workspace_snapshot_event.event_id, "event_snapshot");
   assert.equal(result.auto_diagnostics.status, "completed");
+  for (const field of [
+    "workspaceSnapshot",
+    "workspaceSnapshotEvent",
+    "autoDiagnostics",
+    "stepModule",
+    "stepModuleError",
+    "commandStreamEvents",
+  ]) {
+    assert.equal(Object.hasOwn(result, field), false);
+  }
   assert.equal(result.step_module.result.agentgres_operation_refs[0], "agentgres://operation/file.apply_patch/README.md/after");
   assert.ok(store.calls.some((call) => call.name === "prepareSnapshot"));
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));

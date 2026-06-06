@@ -282,9 +282,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
         if (workspaceSnapshot) {
           result = {
             ...codingToolResultWithoutDrafts(result, []),
-            workspaceSnapshot: workspaceSnapshot.record,
             workspace_snapshot: workspaceSnapshot.record,
-            workspaceSnapshotId: workspaceSnapshot.record.snapshot_id,
             workspace_snapshot_id: workspaceSnapshot.record.snapshot_id,
           };
           artifactRefs.push(...workspaceSnapshot.record.artifact_refs);
@@ -420,17 +418,11 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       rollback_refs: event.rollback_refs,
       event,
       workspace_snapshot: workspaceSnapshot?.record ?? null,
-      workspaceSnapshot: workspaceSnapshot?.record ?? null,
       workspace_snapshot_event: workspaceSnapshotEvent,
-      workspaceSnapshotEvent,
       auto_diagnostics: autoDiagnostics,
-      autoDiagnostics,
       step_module: stepModuleProjection,
-      stepModule: stepModuleProjection,
       step_module_error: stepModuleError,
-      stepModuleError,
       command_stream_events: commandStreamEvents,
-      commandStreamEvents,
       result,
       error,
     };

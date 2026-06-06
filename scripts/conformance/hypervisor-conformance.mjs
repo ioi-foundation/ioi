@@ -1199,8 +1199,18 @@ function runBridge() {
       /Object\.hasOwn\(result\.result,\s*"receiptRefs"\),\s*false/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
+      /Object\.hasOwn\(result\.result,\s*"workspaceSnapshot"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"workspaceSnapshotId"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result,\s*field\),\s*false/.test(runtimeCodingToolInvocationSurfaceTest) &&
       !/^\s*(?:schemaVersion|toolName|rustWorkload|stepModuleBackend|executionResultRef|normalizedObservationRef|receiptRefs)\s*:/m.test(
         codingToolRustLiveResultBody,
+      ) &&
+      !/^\s*(?:workspaceSnapshot|workspaceSnapshotId|workspaceSnapshotEvent|autoDiagnostics|stepModule|stepModuleError|commandStreamEvents)\s*:/m.test(
+        runtimeCodingToolInvocationSurface,
       ),
     [
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
