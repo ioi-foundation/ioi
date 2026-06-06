@@ -205,7 +205,7 @@ export class AgentMemory {
     return this.client.listMemory(this.agentId, options);
   }
 
-  search(query: string, options: Omit<MemoryListOptions, "query" | "q"> = {}): Promise<AgentMemoryProjection> {
+  search(query: string, options: Omit<MemoryListOptions, "query"> = {}): Promise<AgentMemoryProjection> {
     return this.client.listMemory(this.agentId, { ...options, query });
   }
 

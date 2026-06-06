@@ -12752,6 +12752,13 @@ inherited records, write gating, and evidence; daemon event summaries, SDK
 projection types, and IDE delegation readers consume the canonical projection
 without duplicate camelCase facade fields.
 
+Slice 437 removes agent memory mutation request aliases:
+agent memory write, edit, delete, and policy mutation bodies now use canonical
+`thread_id`, `target_type`, and `target_id` steering only; retired `threadId`,
+`targetType`, and `targetId` body fields are ignored, and SDK memory list,
+mutation, policy, and send-option types advertise canonical snake_case memory
+identity, workflow, and write-approval fields.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

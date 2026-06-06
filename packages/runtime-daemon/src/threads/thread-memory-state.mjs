@@ -129,7 +129,7 @@ export function createThreadMemoryState({
 
   function rememberForAgentId(store, agentId, body = {}) {
     const agent = store.getAgent(agentId);
-    const threadId = body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id);
+    const threadId = body.thread_id ?? threadIdForAgent(agent.id);
     const policy = store.memory.effectivePolicy({
       agent,
       threadId,
@@ -168,10 +168,10 @@ export function createThreadMemoryState({
 
   function setMemoryPolicyForAgent(store, agentId, body = {}) {
     const agent = store.getAgent(agentId);
-    const threadId = body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id);
+    const threadId = body.thread_id ?? threadIdForAgent(agent.id);
     return store.memory.setPolicy({
-      targetType: body.targetType ?? body.target_type ?? "thread",
-      targetId: body.targetId ?? body.target_id ?? threadId,
+      targetType: body.target_type ?? "thread",
+      targetId: body.target_id ?? threadId,
       agent,
       threadId,
       workspace: agent.cwd,
@@ -188,7 +188,7 @@ export function createThreadMemoryState({
 
   function updateMemoryForAgentId(store, agentId, memoryId, body = {}) {
     const agent = store.getAgent(agentId);
-    const threadId = body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id);
+    const threadId = body.thread_id ?? threadIdForAgent(agent.id);
     const policy = store.memory.effectivePolicy({
       agent,
       threadId,
@@ -204,7 +204,7 @@ export function createThreadMemoryState({
 
   function deleteMemoryForAgentId(store, agentId, memoryId, body = {}) {
     const agent = store.getAgent(agentId);
-    const threadId = body.thread_id ?? body.threadId ?? threadIdForAgent(agent.id);
+    const threadId = body.thread_id ?? threadIdForAgent(agent.id);
     const policy = store.memory.effectivePolicy({
       agent,
       threadId,

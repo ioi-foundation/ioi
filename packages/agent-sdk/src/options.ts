@@ -106,20 +106,19 @@ export interface AgentOptions {
 export interface SendOptions {
   model?: ModelSelection;
   memory?: {
-    memoryKey?: string;
+    memory_key?: string;
     query?: string;
-    q?: string;
     limit?: number;
     remember?: string;
     disabled?: boolean;
-    threadId?: string;
-    injectionEnabled?: boolean;
-    readOnly?: boolean;
-    writeRequiresApproval?: boolean;
-    writeApproved?: boolean;
+    thread_id?: string;
+    injection_enabled?: boolean;
+    read_only?: boolean;
+    write_requires_approval?: boolean;
+    write_approved?: boolean;
     retention?: string;
     redaction?: "none" | "redacted" | string;
-    subagentInheritance?: "none" | "explicit" | "read_only" | "full" | string;
+    subagent_inheritance?: "none" | "explicit" | "read_only" | "full" | string;
     scope?: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
   };
   mcpServers?: Record<string, McpServerConfig>;

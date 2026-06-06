@@ -556,22 +556,21 @@ export interface AgentMemoryProjection {
 export interface MemoryListOptions {
   thread_id?: string;
   scope?: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
-  memoryKey?: string;
+  memory_key?: string;
   query?: string;
-  q?: string;
   limit?: number;
   redaction?: "none" | "redacted" | string;
 }
 
 export interface RememberMemoryInput {
   text: string;
-  memoryKey?: string;
+  memory_key?: string;
   scope?: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
-  threadId?: string;
-  workflowGraphId?: string;
-  workflowNodeId?: string;
-  workflowNodeType?: string;
-  writeApproved?: boolean;
+  thread_id?: string;
+  workflow_graph_id?: string;
+  workflow_node_id?: string;
+  workflow_node_type?: string;
+  write_approved?: boolean;
 }
 
 export interface RememberMemoryResult {
@@ -581,26 +580,26 @@ export interface RememberMemoryResult {
 
 export interface UpdateMemoryRecordInput {
   text: string;
-  threadId?: string;
-  writeApproved?: boolean;
+  thread_id?: string;
+  write_approved?: boolean;
 }
 
 export interface DeleteMemoryRecordInput {
-  threadId?: string;
-  writeApproved?: boolean;
+  thread_id?: string;
+  write_approved?: boolean;
 }
 
 export interface MemoryPolicyInput {
-  threadId?: string;
-  targetType?: "agent" | "thread" | "workflow" | "subagent" | string;
-  targetId?: string;
+  thread_id?: string;
+  target_type?: "agent" | "thread" | "workflow" | "subagent" | string;
+  target_id?: string;
   disabled?: boolean;
-  injectionEnabled?: boolean;
-  readOnly?: boolean;
-  writeRequiresApproval?: boolean;
+  injection_enabled?: boolean;
+  read_only?: boolean;
+  write_requires_approval?: boolean;
   retention?: string;
   redaction?: "none" | "redacted" | string;
-  subagentInheritance?: "none" | "explicit" | "read_only" | "full" | string;
+  subagent_inheritance?: "none" | "explicit" | "read_only" | "full" | string;
   scope?: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
 }
 
@@ -751,9 +750,7 @@ export interface RuntimeMcpServeRpcInput extends RuntimeMcpListOptions {
 }
 
 export interface RuntimeMemoryStatusOptions extends MemoryListOptions {
-  threadId?: string;
   thread_id?: string;
-  agentId?: string;
   agent_id?: string;
   [key: string]: unknown;
 }

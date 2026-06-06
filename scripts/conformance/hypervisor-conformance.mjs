@@ -8795,6 +8795,9 @@ function runCompositor() {
   const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
     ? read("packages/agent-sdk/src/substrate-client.ts")
     : "";
+  const agentSdkAgent = exists("packages/agent-sdk/src/agent.ts")
+    ? read("packages/agent-sdk/src/agent.ts")
+    : "";
   const agentSdkMessagesForRuntime = exists("packages/agent-sdk/src/messages.ts")
     ? read("packages/agent-sdk/src/messages.ts")
     : "";
@@ -8988,6 +8991,31 @@ function runCompositor() {
     agentSdkSubstrateClient,
     "export interface MemoryListOptions",
     "export interface RememberMemoryInput",
+  );
+  const agentMemorySdkRememberInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface RememberMemoryInput",
+    "export interface RememberMemoryResult",
+  );
+  const agentMemorySdkUpdateInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface UpdateMemoryRecordInput",
+    "export interface DeleteMemoryRecordInput",
+  );
+  const agentMemorySdkDeleteInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface DeleteMemoryRecordInput",
+    "export interface MemoryPolicyInput",
+  );
+  const agentMemorySdkPolicyInputBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface MemoryPolicyInput",
+    "export interface MemoryPolicyUpdateResult",
+  );
+  const agentSdkSendOptionsMemoryBlock = blockBetween(
+    exists("packages/agent-sdk/src/options.ts") ? read("packages/agent-sdk/src/options.ts") : "",
+    "  memory?: {",
+    "  };\n  mcpServers?:",
   );
   const agentMemorySdkListQueryBlock = blockBetween(
     agentSdkSubstrateClient,
@@ -9314,6 +9342,58 @@ function runCompositor() {
       "packages/agent-sdk/src/agent.ts",
     ],
     "Phase 10/11 is pending: agent memory read queries must use canonical thread_id without retired threadId compatibility aliases",
+  );
+  assertCheck(
+    result,
+    "agent-memory-mutation-request-aliases-retired",
+    /const threadId = body\.thread_id \?\? threadIdForAgent\(agent\.id\)/.test(
+      runtimeThreadMemoryState,
+    ) &&
+      /targetType:\s*body\.target_type \?\? "thread"/.test(runtimeThreadMemoryState) &&
+      /targetId:\s*body\.target_id \?\? threadId/.test(runtimeThreadMemoryState) &&
+      /state\.rememberForAgentId\(store, "agent_a", \{\n    text: "Retired thread",\n    threadId: "thread_retired"/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /state\.setMemoryPolicyForAgent\(store, "agent_a", \{\n    threadId: "thread_retired_policy"/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /policyCalls\.at\(-1\)\.threadId,\s*"thread_a"/.test(runtimeThreadMemoryStateTest) &&
+      /policyCalls\.at\(-1\)\.targetType,\s*"thread"/.test(runtimeThreadMemoryStateTest) &&
+      /policyCalls\.at\(-1\)\.targetId,\s*"thread_a"/.test(runtimeThreadMemoryStateTest) &&
+      /^\s*memory_key\?: string;/m.test(agentMemorySdkListOptionsBlock) &&
+      /^\s*thread_id\?: string;/m.test(agentMemorySdkRememberInputBlock) &&
+      /^\s*workflow_graph_id\?: string;/m.test(agentMemorySdkRememberInputBlock) &&
+      /^\s*workflow_node_id\?: string;/m.test(agentMemorySdkRememberInputBlock) &&
+      /^\s*write_approved\?: boolean;/m.test(agentMemorySdkRememberInputBlock) &&
+      /^\s*thread_id\?: string;/m.test(agentMemorySdkUpdateInputBlock) &&
+      /^\s*write_approved\?: boolean;/m.test(agentMemorySdkUpdateInputBlock) &&
+      /^\s*thread_id\?: string;/m.test(agentMemorySdkDeleteInputBlock) &&
+      /^\s*write_approved\?: boolean;/m.test(agentMemorySdkDeleteInputBlock) &&
+      /^\s*thread_id\?: string;/m.test(agentMemorySdkPolicyInputBlock) &&
+      /^\s*target_type\?:/m.test(agentMemorySdkPolicyInputBlock) &&
+      /^\s*target_id\?: string;/m.test(agentMemorySdkPolicyInputBlock) &&
+      /^\s*injection_enabled\?: boolean;/m.test(agentMemorySdkPolicyInputBlock) &&
+      /^\s*read_only\?: boolean;/m.test(agentMemorySdkPolicyInputBlock) &&
+      /^\s*write_requires_approval\?: boolean;/m.test(agentMemorySdkPolicyInputBlock) &&
+      /^\s*subagent_inheritance\?:/m.test(agentMemorySdkPolicyInputBlock) &&
+      /^\s*memory_key\?: string;/m.test(agentSdkSendOptionsMemoryBlock) &&
+      /^\s*thread_id\?: string;/m.test(agentSdkSendOptionsMemoryBlock) &&
+      /^\s*write_approved\?: boolean;/m.test(agentSdkSendOptionsMemoryBlock) &&
+      /search\(query: string, options: Omit<MemoryListOptions, "query"> = \{\}\)/.test(
+        agentSdkAgent,
+      ) &&
+      !/body\.(?:threadId|targetType|targetId)\b/.test(runtimeThreadMemoryState) &&
+      !/^\s*(?:memoryKey|q|threadId|workflowGraphId|workflowNodeId|workflowNodeType|writeApproved|targetType|targetId|injectionEnabled|readOnly|writeRequiresApproval|subagentInheritance)\?:/m.test(
+        `${agentMemorySdkListOptionsBlock}\n${agentMemorySdkRememberInputBlock}\n${agentMemorySdkUpdateInputBlock}\n${agentMemorySdkDeleteInputBlock}\n${agentMemorySdkPolicyInputBlock}\n${agentSdkSendOptionsMemoryBlock}`,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/src/options.ts",
+      "packages/agent-sdk/src/agent.ts",
+    ],
+    "Phase 10/11 is pending: agent memory mutation bodies and SDK memory options must use canonical snake_case identity and approval fields without retired camelCase aliases",
   );
   assertCheck(
     result,
