@@ -34,34 +34,19 @@ export interface RuntimeWorkerServicePackageControlRequestBody {
   source: typeof RUNTIME_WORKER_SERVICE_PACKAGE_SOURCE;
   actor: string;
   event_kind: typeof RUNTIME_WORKER_SERVICE_PACKAGE_SOURCE_EVENT_KIND;
-  eventKind: typeof RUNTIME_WORKER_SERVICE_PACKAGE_SOURCE_EVENT_KIND;
   component_kind: typeof RUNTIME_WORKER_SERVICE_PACKAGE_COMPONENT_KIND;
-  componentKind: typeof RUNTIME_WORKER_SERVICE_PACKAGE_COMPONENT_KIND;
   payload_schema_version: typeof RUNTIME_WORKER_SERVICE_PACKAGE_INVOCATION_SCHEMA_VERSION;
-  payloadSchemaVersion: typeof RUNTIME_WORKER_SERVICE_PACKAGE_INVOCATION_SCHEMA_VERSION;
   workflow_graph_id: string | null;
-  workflowGraphId: string | null;
   workflow_node_id: string;
-  workflowNodeId: string;
   package_kind: RuntimeWorkerServicePackageKind;
-  packageKind: RuntimeWorkerServicePackageKind;
   package_ref: string;
-  packageRef: string;
   manifest_ref: string;
-  manifestRef: string;
   invocation_id: string;
-  invocationId: string;
   expected_heads: string[];
-  expectedHeads: string[];
   admission_only: true;
-  admissionOnly: true;
   direct_truth_write_allowed: false;
-  directTruthWriteAllowed: false;
   mutation_allowed: false;
-  mutationAllowed: false;
   invocation: RuntimeWorkerServicePackageInvocation;
-  package_invocation: RuntimeWorkerServicePackageInvocation;
-  packageInvocation: RuntimeWorkerServicePackageInvocation;
 }
 
 export interface RuntimeWorkerServicePackageControlRequest {
@@ -191,34 +176,19 @@ export function createRuntimeWorkerServicePackageControlRequest(
       source: RUNTIME_WORKER_SERVICE_PACKAGE_SOURCE,
       actor: cleanString(params.actor) ?? "workflow-author",
       event_kind: RUNTIME_WORKER_SERVICE_PACKAGE_SOURCE_EVENT_KIND,
-      eventKind: RUNTIME_WORKER_SERVICE_PACKAGE_SOURCE_EVENT_KIND,
       component_kind: RUNTIME_WORKER_SERVICE_PACKAGE_COMPONENT_KIND,
-      componentKind: RUNTIME_WORKER_SERVICE_PACKAGE_COMPONENT_KIND,
       payload_schema_version: RUNTIME_WORKER_SERVICE_PACKAGE_INVOCATION_SCHEMA_VERSION,
-      payloadSchemaVersion: RUNTIME_WORKER_SERVICE_PACKAGE_INVOCATION_SCHEMA_VERSION,
       workflow_graph_id: workflowGraphId,
-      workflowGraphId,
       workflow_node_id: workflowNodeId,
-      workflowNodeId,
       package_kind: packageKind,
-      packageKind,
       package_ref: packageRef,
-      packageRef,
       manifest_ref: manifestRef,
-      manifestRef,
       invocation_id: invocationId,
-      invocationId,
       expected_heads: expectedHeads,
-      expectedHeads,
       admission_only: true,
-      admissionOnly: true,
       direct_truth_write_allowed: false,
-      directTruthWriteAllowed: false,
       mutation_allowed: false,
-      mutationAllowed: false,
       invocation,
-      package_invocation: invocation,
-      packageInvocation: invocation,
     },
   };
 }

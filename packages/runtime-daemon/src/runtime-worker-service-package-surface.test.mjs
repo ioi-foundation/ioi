@@ -187,6 +187,27 @@ test("worker/service package surface admits nested invocation through Rust runne
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "admitInvocation"]);
 });
 
+test("worker/service package surface rejects retired request aliases before agent lookup or Rust runner", () => {
+  const runtimeStore = store();
+  const surface = createRuntimeWorkerServicePackageSurface();
+
+  assert.throws(
+    () =>
+      surface.admitWorkerServicePackageInvocation(runtimeStore, "thread_surface", {
+        package_invocation: packageInvocation(),
+        packageInvocation: packageInvocation(),
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "worker_service_package_invocation_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["packageInvocation", "package_invocation"]);
+      assert.deepEqual(error.details.canonical_fields, ["invocation"]);
+      return true;
+    },
+  );
+  assert.deepEqual(runtimeStore.calls, []);
+});
+
 test("worker/service package surface exposes only canonical snake_case admission fields", () => {
   const result = createRuntimeWorkerServicePackageSurface().admitWorkerServicePackageInvocation(
     store(),

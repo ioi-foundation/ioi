@@ -37,6 +37,24 @@ function packageInvocation() {
   };
 }
 
+const retiredWorkerServicePackageRequestAliases = [
+  "eventKind",
+  "componentKind",
+  "payloadSchemaVersion",
+  "workflowGraphId",
+  "workflowNodeId",
+  "packageKind",
+  "packageRef",
+  "manifestRef",
+  "invocationId",
+  "expectedHeads",
+  "admissionOnly",
+  "directTruthWriteAllowed",
+  "mutationAllowed",
+  "package_invocation",
+  "packageInvocation",
+];
+
 test("builds worker/service package controls for daemon admission", () => {
   const request = createRuntimeWorkerServicePackageControlRequest({
     nodeId: "node-worker-service-package",
@@ -59,6 +77,9 @@ test("builds worker/service package controls for daemon admission", () => {
   assert.equal(request.body.admission_only, true);
   assert.equal(request.body.direct_truth_write_allowed, false);
   assert.equal(request.body.mutation_allowed, false);
+  for (const key of retiredWorkerServicePackageRequestAliases) {
+    assert.equal(Object.prototype.hasOwnProperty.call(request.body, key), false, `${key} must not be emitted`);
+  }
   assert.equal(request.endpoint.includes("/apply"), false);
 });
 
@@ -85,7 +106,7 @@ test("builds worker/service package controls from workflow package nodes", () =>
     request.body.workflow_node_id,
     "runtime.worker-service-package-invocation.worker-service-package-node",
   );
-  assert.equal(request.body.packageInvocation.package_ref, "worker://runtime-auditor");
+  assert.equal(request.body.invocation.package_ref, "worker://runtime-auditor");
 });
 
 test("worker/service package controls fail closed without admission refs", () => {

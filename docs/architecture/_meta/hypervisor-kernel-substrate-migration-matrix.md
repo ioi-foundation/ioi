@@ -11983,6 +11983,12 @@ wallet authority vault-ref resolution. Canonical `auth_scheme`,
 `auth_header_name`, `api_format`, `base_url`, `privacy_class`, and
 `evidence_refs` remain accepted.
 
+Slice 323 retires worker/service package admission wrapper aliases: the daemon
+surface now fails closed on retired `packageInvocation` and
+`package_invocation` request bodies before agent lookup or Rust package
+admission, and IDE worker/service package control requests emit canonical
+`invocation` bodies without duplicate wrapper aliases.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -4,6 +4,15 @@ import { objectRecord, optionalString } from "./runtime-value-helpers.mjs";
 export const WORKER_SERVICE_PACKAGE_ADMISSION_RESPONSE_SCHEMA_VERSION =
   "ioi.runtime.worker_service_package_admission.v1";
 
+const RETIRED_WORKER_SERVICE_PACKAGE_REQUEST_ALIASES = [
+  "packageInvocation",
+  "package_invocation",
+];
+
+const CANONICAL_WORKER_SERVICE_PACKAGE_REQUEST_FIELDS = [
+  "invocation",
+];
+
 export function createRuntimeWorkerServicePackageSurface(deps = {}) {
   const {
     runtimeError: runtimeErrorDep = runtimeError,
@@ -11,8 +20,8 @@ export function createRuntimeWorkerServicePackageSurface(deps = {}) {
 
   function invocationForRequest(request = {}) {
     const body = objectRecord(request) ?? {};
-    const nested =
-      objectRecord(body.invocation ?? body.package_invocation ?? body.packageInvocation) ?? {};
+    assertCanonicalWorkerServicePackageRequestBody(body);
+    const nested = objectRecord(body.invocation) ?? {};
     const invocation = Object.keys(nested).length > 0 ? nested : body;
     if (Object.keys(invocation).length === 0) {
       throw runtimeErrorDep({
@@ -24,9 +33,25 @@ export function createRuntimeWorkerServicePackageSurface(deps = {}) {
     return invocation;
   }
 
+  function assertCanonicalWorkerServicePackageRequestBody(body = {}) {
+    const retiredAliases = RETIRED_WORKER_SERVICE_PACKAGE_REQUEST_ALIASES.filter((field) =>
+      Object.hasOwn(body, field),
+    );
+    if (retiredAliases.length === 0) return;
+    throw runtimeErrorDep({
+      status: 400,
+      code: "worker_service_package_invocation_request_aliases_retired",
+      message: "Worker/service package invocation request aliases are retired; use invocation.",
+      details: {
+        retired_aliases: retiredAliases,
+        canonical_fields: CANONICAL_WORKER_SERVICE_PACKAGE_REQUEST_FIELDS,
+      },
+    });
+  }
+
   function admitWorkerServicePackageInvocation(store, threadId, request = {}) {
-    const agent = store.agentForThread(threadId);
     const invocation = invocationForRequest(request);
+    const agent = store.agentForThread(threadId);
     const admission = store.workerServicePackageRunner.admitInvocation(invocation);
     const record = objectRecord(admission.record) ?? {};
     return {

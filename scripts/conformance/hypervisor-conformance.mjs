@@ -2443,6 +2443,40 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "worker-service-package-admission-request-aliases-retired",
+    /RETIRED_WORKER_SERVICE_PACKAGE_REQUEST_ALIASES/.test(workerServicePackageSurface) &&
+      /CANONICAL_WORKER_SERVICE_PACKAGE_REQUEST_FIELDS/.test(workerServicePackageSurface) &&
+      /worker_service_package_invocation_request_aliases_retired/.test(workerServicePackageSurface) &&
+      /assertCanonicalWorkerServicePackageRequestBody\(body\);[\s\S]*objectRecord\(body\.invocation\)/.test(
+        workerServicePackageSurface,
+      ) &&
+      !/body\.(?:packageInvocation|package_invocation)\b/.test(workerServicePackageSurface) &&
+      /worker\/service package surface rejects retired request aliases before agent lookup or Rust runner/.test(
+        workerServicePackageSurfaceTest,
+      ) &&
+      /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(workerServicePackageSurfaceTest) &&
+      /retiredWorkerServicePackageRequestAliases/.test(workerServicePackageControlNodesTest) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*key\)/.test(
+        workerServicePackageControlNodesTest,
+      ) &&
+      !/^\s*package_invocation:\s*RuntimeWorkerServicePackageInvocation;/m.test(
+        workerServicePackageControlNodes,
+      ) &&
+      !/^\s*packageInvocation:\s*RuntimeWorkerServicePackageInvocation;/m.test(
+        workerServicePackageControlNodes,
+      ) &&
+      !/package_invocation:\s*invocation/.test(workerServicePackageControlNodes) &&
+      !/packageInvocation:\s*invocation/.test(workerServicePackageControlNodes),
+    [
+      "packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs",
+      "packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs",
+      "packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts",
+    ],
+    "Phase 8/11 is pending: worker/service package admission requests must fail closed on retired invocation wrapper aliases and IDE clients must emit canonical request bodies",
+  );
+  assertCheck(
+    result,
     "worker-service-package-sdk-ide-admission-surface",
     /admitWorkerServicePackageInvocation/.test(agentSdkSubstrateClient) &&
       /RuntimeWorkerServicePackageInvocationAdmissionInput/.test(agentSdkSubstrateClient) &&
