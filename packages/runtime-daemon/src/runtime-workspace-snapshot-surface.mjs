@@ -821,25 +821,25 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       event_stream_id: eventStreamIdForThread(threadId),
       thread_id: threadId,
       turn_id: turnId || "",
-      item_id: `${turnId || threadId}:item:workspace-restore-preview:${safeId(preview.snapshotId)}`,
+      item_id: `${turnId || threadId}:item:workspace-restore-preview:${safeId(preview.snapshot_id)}`,
       idempotency_key:
-        optionalString(preview.idempotency_key ?? preview.idempotencyKey) ??
-        `thread:${threadId}:workspace-restore-preview:${preview.snapshotId}:${doctorHash(
+        optionalString(preview.idempotency_key) ??
+        `thread:${threadId}:workspace-restore-preview:${preview.snapshot_id}:${doctorHash(
           JSON.stringify(preview.operations),
         ).slice(0, 12)}`,
       source: "runtime_auto",
       source_event_kind: "WorkspaceRestore.Previewed",
       event_kind: "workspace.restore.previewed",
-      status: preview.previewStatus === "ready" ? "completed" : "blocked",
+      status: preview.preview_status === "ready" ? "completed" : "blocked",
       actor: "runtime",
       workspace_root: workspaceRoot,
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
       component_kind: "restore_gate",
-      tool_call_id: preview.snapshotId,
-      artifact_refs: preview.artifactRefs,
-      receipt_refs: preview.receiptRefs,
-      rollback_refs: preview.rollbackRefs,
+      tool_call_id: preview.snapshot_id,
+      artifact_refs: preview.artifact_refs,
+      receipt_refs: preview.receipt_refs,
+      rollback_refs: preview.rollback_refs,
       payload_schema_version: WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION,
       payload_summary: {
         ...preview,
@@ -856,26 +856,26 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       event_stream_id: eventStreamIdForThread(threadId),
       thread_id: threadId,
       turn_id: turnId || "",
-      item_id: `${turnId || threadId}:item:workspace-restore-apply:${safeId(apply.snapshotId)}`,
+      item_id: `${turnId || threadId}:item:workspace-restore-apply:${safeId(apply.snapshot_id)}`,
       idempotency_key:
-        optionalString(apply.idempotency_key ?? apply.idempotencyKey) ??
-        `thread:${threadId}:workspace-restore-apply:${apply.snapshotId}:${doctorHash(
+        optionalString(apply.idempotency_key) ??
+        `thread:${threadId}:workspace-restore-apply:${apply.snapshot_id}:${doctorHash(
           JSON.stringify(apply.operations),
         ).slice(0, 12)}`,
       source: "runtime_auto",
       source_event_kind: "WorkspaceRestore.Applied",
       event_kind: "workspace.restore.applied",
-      status: apply.applyStatus === "blocked" ? "blocked" : apply.applyStatus === "failed" ? "failed" : "completed",
+      status: apply.apply_status === "blocked" ? "blocked" : apply.apply_status === "failed" ? "failed" : "completed",
       actor: "runtime",
       workspace_root: workspaceRoot,
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
       component_kind: "restore_gate",
-      tool_call_id: apply.snapshotId,
-      artifact_refs: apply.artifactRefs,
-      receipt_refs: apply.receiptRefs,
-      rollback_refs: apply.rollbackRefs,
-      policy_decision_refs: apply.policyDecisionRefs,
+      tool_call_id: apply.snapshot_id,
+      artifact_refs: apply.artifact_refs,
+      receipt_refs: apply.receipt_refs,
+      rollback_refs: apply.rollback_refs,
+      policy_decision_refs: apply.policy_decision_refs,
       payload_schema_version: WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION,
       payload_summary: {
         ...apply,

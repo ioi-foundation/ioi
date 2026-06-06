@@ -10696,6 +10696,27 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "workspace-restore-event-reader-aliases-retired",
+    /preview_status: "ready"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /apply_status: "blocked"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /policy_decision_refs: \["policy_apply"\]/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /previewEvent\.tool_call_id,\s*"workspace_snapshot_alpha"/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      !/function appendWorkspaceRestorePreviewEvent(?:(?!\n  function appendWorkspaceRestoreApplyEvent)[\s\S])*?\b(?:preview|apply)\.(?:snapshotId|previewStatus|applyStatus|artifactRefs|receiptRefs|rollbackRefs|policyDecisionRefs|idempotencyKey)\b/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      !/function appendWorkspaceRestoreApplyEvent(?:(?!\n  return \{)[\s\S])*?\b(?:preview|apply)\.(?:snapshotId|previewStatus|applyStatus|artifactRefs|receiptRefs|rollbackRefs|policyDecisionRefs|idempotencyKey)\b/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: workspace restore preview/apply event appenders must read canonical snake_case result fields without camelCase fallbacks",
+  );
+  assertCheck(
+    result,
     "workspace-change-review-aliases-retired",
     /schema_version:\s*WORKSPACE_CHANGE_REVIEW_SCHEMA_VERSION/.test(
       workspaceChangeInspection,

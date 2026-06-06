@@ -436,21 +436,21 @@ test("workspace snapshot surface materializes restore artifacts and appends rest
   const { surface, writes } = createSurface();
   const store = createStore();
   const preview = {
-    snapshotId: "workspace_snapshot_alpha",
-    previewStatus: "ready",
+    snapshot_id: "workspace_snapshot_alpha",
+    preview_status: "ready",
     operations: [{ path: "src/app.js", status: "ready" }],
-    artifactRefs: ["artifact_preview"],
-    receiptRefs: ["receipt_preview"],
-    rollbackRefs: ["workspace_snapshot_alpha"],
+    artifact_refs: ["artifact_preview"],
+    receipt_refs: ["receipt_preview"],
+    rollback_refs: ["workspace_snapshot_alpha"],
   };
   const apply = {
-    snapshotId: "workspace_snapshot_alpha",
-    applyStatus: "blocked",
-    operations: [{ path: "src/app.js", applyStatus: "blocked" }],
-    artifactRefs: ["artifact_apply"],
-    receiptRefs: ["receipt_apply"],
-    rollbackRefs: ["workspace_snapshot_alpha"],
-    policyDecisionRefs: ["policy_apply"],
+    snapshot_id: "workspace_snapshot_alpha",
+    apply_status: "blocked",
+    operations: [{ path: "src/app.js", apply_status: "blocked" }],
+    artifact_refs: ["artifact_apply"],
+    receipt_refs: ["receipt_apply"],
+    rollback_refs: ["workspace_snapshot_alpha"],
+    policy_decision_refs: ["policy_apply"],
   };
 
   const previewArtifact = surface.materializeWorkspaceRestorePreviewArtifact(store, {
@@ -498,6 +498,8 @@ test("workspace snapshot surface materializes restore artifacts and appends rest
     }
   }
   assert.equal(previewEvent.status, "completed");
+  assert.equal(previewEvent.tool_call_id, "workspace_snapshot_alpha");
+  assert.deepEqual(previewEvent.artifact_refs, ["artifact_preview"]);
   assert.equal(previewEvent.payload_schema_version, "ioi.runtime.workspace-restore-preview.v1");
   assert.equal(applyEvent.status, "blocked");
   assert.deepEqual(applyEvent.policy_decision_refs, ["policy_apply"]);
