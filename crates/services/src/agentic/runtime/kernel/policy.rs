@@ -61,6 +61,10 @@ pub const RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.runtime-bridge-turn-run-state-update-request.v1";
 pub const RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.runtime-bridge-turn-run-state-update.v1";
+pub const SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.subagent-record-state-update-request.v1";
+pub const SUBAGENT_RECORD_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.subagent-record-state-update.v1";
 pub const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.compaction-policy-request.v1";
 pub const COMPACTION_POLICY_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.compaction-policy.v1";
@@ -255,6 +259,20 @@ pub enum AgentStatusStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeBridgeTurnRunStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+    MismatchedField {
+        field: &'static str,
+        expected: String,
+        actual: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SubagentRecordStateUpdateError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -978,6 +996,27 @@ pub struct RuntimeBridgeTurnRunStateUpdateRecord {
     pub agent_id: String,
     pub updated_at: String,
     pub run: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SubagentRecordStateUpdateRequest {
+    pub schema_version: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub subagent: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SubagentRecordStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub subagent_id: String,
+    pub updated_at: String,
+    pub subagent: Value,
     pub generated_at: String,
 }
 
@@ -2568,6 +2607,39 @@ impl RuntimeBridgeTurnRunStateUpdateCore {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct SubagentRecordStateUpdateCore;
+
+impl SubagentRecordStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &SubagentRecordStateUpdateRequest,
+    ) -> Result<SubagentRecordStateUpdateRecord, SubagentRecordStateUpdateError> {
+        request.validate()?;
+        let subagent = object_value(&request.subagent)
+            .ok_or(SubagentRecordStateUpdateError::MissingField("subagent"))?;
+        let subagent_value = Value::Object(subagent.clone());
+        let subagent_id = optional_json_string(&subagent_value, "subagent_id").ok_or(
+            SubagentRecordStateUpdateError::MissingField("subagent.subagent_id"),
+        )?;
+        let updated_at = optional_json_string(&subagent_value, "updated_at").ok_or(
+            SubagentRecordStateUpdateError::MissingField("subagent.updated_at"),
+        )?;
+
+        Ok(SubagentRecordStateUpdateRecord {
+            schema_version: SUBAGENT_RECORD_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_subagent_record_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: request.operation_kind.clone(),
+            thread_id: request.thread_id.clone(),
+            subagent_id,
+            updated_at,
+            subagent: Value::Object(subagent),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
 impl CompactionPolicyRequest {
     pub fn validate(&self) -> Result<(), CompactionPolicyError> {
         if self.schema_version != COMPACTION_POLICY_REQUEST_SCHEMA_VERSION {
@@ -3112,6 +3184,57 @@ impl RuntimeBridgeTurnRunStateUpdateRequest {
             return Err(RuntimeBridgeTurnRunStateUpdateError::MissingField(
                 "projection.runId",
             ));
+        }
+        Ok(())
+    }
+}
+
+impl SubagentRecordStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), SubagentRecordStateUpdateError> {
+        if self.schema_version != SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(SubagentRecordStateUpdateError::InvalidSchemaVersion {
+                expected: SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if !matches!(
+            self.operation_kind.as_str(),
+            "subagent.spawn"
+                | "subagent.wait"
+                | "subagent.input"
+                | "subagent.resume"
+                | "subagent.assign"
+                | "subagent.cancel"
+        ) {
+            return Err(SubagentRecordStateUpdateError::MissingField(
+                "operation_kind",
+            ));
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(SubagentRecordStateUpdateError::MissingField("thread_id"));
+        }
+        let subagent = object_value(&self.subagent)
+            .ok_or(SubagentRecordStateUpdateError::MissingField("subagent"))?;
+        let subagent_value = Value::Object(subagent);
+        for field in ["subagent_id", "parent_thread_id", "status", "updated_at"] {
+            if optional_json_string(&subagent_value, field).is_none() {
+                return Err(SubagentRecordStateUpdateError::MissingField(match field {
+                    "subagent_id" => "subagent.subagent_id",
+                    "parent_thread_id" => "subagent.parent_thread_id",
+                    "status" => "subagent.status",
+                    "updated_at" => "subagent.updated_at",
+                    _ => "subagent",
+                }));
+            }
+        }
+        let parent_thread_id =
+            optional_json_string(&subagent_value, "parent_thread_id").unwrap_or_default();
+        if parent_thread_id != self.thread_id {
+            return Err(SubagentRecordStateUpdateError::MismatchedField {
+                field: "subagent.parent_thread_id",
+                expected: self.thread_id.clone(),
+                actual: parent_thread_id,
+            });
         }
         Ok(())
     }
@@ -4462,6 +4585,23 @@ mod tests {
         }
     }
 
+    fn subagent_record_state_update_request() -> SubagentRecordStateUpdateRequest {
+        SubagentRecordStateUpdateRequest {
+            schema_version: SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            operation_kind: "subagent.wait".to_string(),
+            thread_id: "thread_1".to_string(),
+            subagent: json!({
+                "schema_version": "ioi.runtime.subagent.v1",
+                "object": "ioi.runtime_subagent",
+                "subagent_id": "subagent_1",
+                "parent_thread_id": "thread_1",
+                "status": "completed",
+                "lifecycle_status": "completed",
+                "updated_at": "2026-06-06T07:04:00.000Z"
+            }),
+        }
+    }
+
     #[test]
     fn rust_policy_blocks_context_budget_excess() {
         let mut request = budget_request();
@@ -5184,6 +5324,43 @@ mod tests {
             RuntimeBridgeTurnRunStateUpdateError::InvalidSchemaVersion {
                 expected: RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.runtime-bridge-turn-run-state-update".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_plans_subagent_record_state_update() {
+        let record = SubagentRecordStateUpdateCore
+            .plan(&subagent_record_state_update_request())
+            .expect("subagent record state update");
+
+        assert_eq!(
+            record.schema_version,
+            SUBAGENT_RECORD_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "subagent.wait");
+        assert_eq!(record.thread_id, "thread_1");
+        assert_eq!(record.subagent_id, "subagent_1");
+        assert_eq!(record.updated_at, "2026-06-06T07:04:00.000Z");
+        assert_eq!(record.subagent["subagent_id"], "subagent_1");
+    }
+
+    #[test]
+    fn rust_policy_rejects_subagent_record_state_update_thread_mismatch() {
+        let mut request = subagent_record_state_update_request();
+        request.thread_id = "thread_other".to_string();
+
+        let error = SubagentRecordStateUpdateCore
+            .plan(&request)
+            .expect_err("thread mismatch should be rejected");
+
+        assert_eq!(
+            error,
+            SubagentRecordStateUpdateError::MismatchedField {
+                field: "subagent.parent_thread_id",
+                expected: "thread_other".to_string(),
+                actual: "thread_1".to_string(),
             }
         );
     }

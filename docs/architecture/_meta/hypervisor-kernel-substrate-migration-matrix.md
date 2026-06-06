@@ -12302,6 +12302,12 @@ drafts against the normalized bridge projection and returns the only run record
 the daemon may persist for `turn.runtime_bridge.submit`; the daemon fails closed
 when Rust omits the planned run instead of writing the JS draft directly.
 
+Slice 368 moves subagent wait persistence behind Rust planning:
+`SubagentRecordStateUpdateCore` validates canonical subagent lifecycle records,
+binds them to the expected parent thread, and returns the only subagent record
+the daemon may persist for `subagent.wait`; `waitSubagent` now fails closed when
+Rust omits the planned record instead of writing the JS-staged record directly.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

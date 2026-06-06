@@ -7097,8 +7097,17 @@ function runCompositor() {
   const projectionCore = exists("crates/services/src/agentic/runtime/kernel/projection.rs")
     ? read("crates/services/src/agentic/runtime/kernel/projection.rs")
     : "";
+  const policyCore = exists("crates/services/src/agentic/runtime/kernel/policy.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/policy.rs")
+    : "";
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
+    : "";
+  const runtimeContextPolicyRunner = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+    : "";
+  const runtimeContextPolicyRunnerTest = exists("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
     : "";
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
@@ -8241,8 +8250,8 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-record-write-output-aliases-retired",
-    runtimeSubagentSavedRecordWriteCalls === 6 &&
-      runtimeSubagentCanonicalSavedRecordWrites === runtimeSubagentSavedRecordWriteCalls &&
+    runtimeSubagentSavedRecordWriteCalls === 5 &&
+      runtimeSubagentCanonicalSavedRecordWrites === 6 &&
       /assertCanonicalSubagentStoreWrites/.test(runtimeSubagentSurfaceTest) &&
       /assertCanonicalSubagentRecordOutput\(saved\)/.test(runtimeSubagentSurfaceTest) &&
       /"eventId"/.test(runtimeSubagentSurfaceTest) &&
@@ -8253,6 +8262,48 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent lifecycle writes must persist canonical snake_case records without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-wait-state-update-live-bridge",
+    /SubagentRecordStateUpdateCore/.test(policyCore) &&
+      /SubagentRecordStateUpdateRequest/.test(policyCore) &&
+      /SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_subagent_record_state_update/.test(policyCore) &&
+      /rust_policy_rejects_subagent_record_state_update_thread_mismatch/.test(
+        policyCore,
+      ) &&
+      /plan_subagent_record_state_update/.test(bridgeModule) &&
+      /SubagentRecordStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_subagent_record_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_subagent_record_state_update_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /subagent record state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
+        runtimeSubagentSurface,
+      ) &&
+      /subagent wait fails closed without Rust-planned subagent record/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      !/store\.writeSubagent\(saved,\s*"subagent\.wait"\)/.test(
+        runtimeSubagentSurface,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: subagent wait lifecycle persistence must be planned by Rust policy core through the command bridge",
   );
   assertCheck(
     result,

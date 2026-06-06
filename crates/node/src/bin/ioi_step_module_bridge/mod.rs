@@ -33,6 +33,7 @@ use ioi_services::agentic::runtime::kernel::policy::{
     RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
     RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateRequest,
     RuntimeBridgeTurnRunStateUpdateCore, RuntimeBridgeTurnRunStateUpdateRequest,
+    SubagentRecordStateUpdateCore, SubagentRecordStateUpdateRequest,
     ThreadControlAgentStateUpdateCore, ThreadControlAgentStateUpdateRequest,
     ThreadMemoryAgentStateUpdateCore, ThreadMemoryAgentStateUpdateRequest,
 };
@@ -457,6 +458,16 @@ struct RuntimeBridgeTurnRunStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct SubagentRecordStateUpdateBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: SubagentRecordStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct AgentCreateStateUpdateBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -759,6 +770,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_runtime_bridge_turn_run_state_update(request)
+        }
+        "plan_subagent_record_state_update" => {
+            let request: SubagentRecordStateUpdateBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_subagent_record_state_update(request)
         }
         "plan_agent_create_state_update" => {
             let request: AgentCreateStateUpdateBridgeRequest = serde_json::from_value(raw_request)
@@ -2241,6 +2258,40 @@ fn plan_runtime_bridge_turn_run_state_update(
         "operation_kind": record.operation_kind.clone(),
         "updated_at": record.updated_at.clone(),
         "run": record.run.clone(),
+    }))
+}
+
+fn plan_subagent_record_state_update(
+    request: SubagentRecordStateUpdateBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_subagent_record_state_update" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = SubagentRecordStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new("subagent_record_state_update_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_subagent_record_state_update_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "subagent": record.subagent.clone(),
     }))
 }
 
@@ -7557,6 +7608,42 @@ mod tests {
         assert_eq!(response["operation_kind"], "turn.runtime_bridge.submit");
         assert_eq!(response["run"]["id"], "run_runtime_bridge");
         assert_eq!(response["run"]["agentId"], "agent_1");
+    }
+
+    #[test]
+    fn bridge_plans_subagent_record_state_update_through_rust_core() {
+        let request: SubagentRecordStateUpdateBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_subagent_record_state_update",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.subagent-record-state-update-request.v1",
+                "operation_kind": "subagent.wait",
+                "thread_id": "thread_1",
+                "subagent": {
+                    "schema_version": "ioi.runtime.subagent.v1",
+                    "object": "ioi.runtime_subagent",
+                    "subagent_id": "subagent_1",
+                    "parent_thread_id": "thread_1",
+                    "status": "completed",
+                    "lifecycle_status": "completed",
+                    "updated_at": "2026-06-06T07:04:00.000Z"
+                }
+            }
+        }))
+        .expect("subagent record state update bridge request");
+
+        let response =
+            plan_subagent_record_state_update(request).expect("subagent state update planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_subagent_record_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "subagent.wait");
+        assert_eq!(response["subagent"]["subagent_id"], "subagent_1");
     }
 
     #[test]

@@ -3,16 +3,17 @@ import test from "node:test";
 
 import { createRuntimeSubagentSurface } from "./runtime-subagent-surface.mjs";
 
-function createStore() {
+function createStore({ subagentStateUpdate } = {}) {
   const parentAgent = {
     id: "agent_parent",
     cwd: "/tmp/runtime-subagent-surface-test",
   };
-  return {
+  const store = {
     parentAgent,
     agents: new Map([[parentAgent.id, parentAgent]]),
     events: [],
     eventInputs: [],
+    stateUpdates: [],
     writes: [],
     runs: new Map([
       ["run_1", {
@@ -150,6 +151,19 @@ function createStore() {
       this.eventInputs.push(input);
       return this.surface.appendThreadSubagentControlEvent(this, input);
     },
+    contextPolicyRunner: {
+      planSubagentRecordStateUpdate(request = {}) {
+        store.stateUpdates.push({
+          operation: "plan_subagent_record_state_update",
+          input: request,
+        });
+        return subagentStateUpdate ?? {
+          status: "planned",
+          operation_kind: request.operation_kind,
+          subagent: request.subagent,
+        };
+      },
+    },
     subagentProjection(record) {
       return this.surface.subagentProjection(record);
     },
@@ -158,6 +172,7 @@ function createStore() {
       this.writes.push({ record, operationKind });
     },
   };
+  return store;
 }
 
 function assertCanonicalSubagentBudgetUsageTelemetry(record) {
@@ -871,10 +886,38 @@ test("subagent surface waits, persists status, and returns result envelope", () 
   assert.deepEqual(result.receipt_refs, result.event.receipt_refs);
   assertNoOwnKeys(result, retiredSubagentLifecycleResultEnvelopeAliasKeys);
   assert.equal(store.writes[0].operationKind, "subagent.wait");
+  assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
+  assert.equal(store.stateUpdates[0].input.operation_kind, "subagent.wait");
+  assert.equal(store.stateUpdates[0].input.thread_id, "thread_1");
+  assert.equal(store.stateUpdates[0].input.subagent.subagent_id, "subagent_1");
   assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
   assert.equal(store.subagents.get("subagent_1").waited_at, "2026-06-04T12:30:00.000Z");
   assertCanonicalSubagentRecordOutput(store.subagents.get("subagent_1"));
   assertCanonicalSubagentStoreWrites(store);
+});
+
+test("subagent wait fails closed without Rust-planned subagent record", () => {
+  const store = createStore({
+    subagentStateUpdate: {
+      status: "planned",
+      operation_kind: "subagent.wait",
+      subagent: null,
+    },
+  });
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T12:30:00.000Z",
+    nowMs: () => 1780587000000,
+  });
+  store.surface = surface;
+
+  assert.throws(
+    () => surface.waitSubagent(store, "thread_1", "subagent_1", {
+      source: "agent_studio",
+    }),
+    (error) => error.code === "subagent_record_state_update_planner_invalid",
+  );
+  assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
+  assert.equal(store.writes.length, 0);
 });
 
 test("subagent surface reads result with validated output contract projection", () => {

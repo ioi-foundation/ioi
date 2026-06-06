@@ -20,6 +20,7 @@ import {
   RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RustContextPolicyRunner,
+  SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 } from "./runtime-context-policy-runner.mjs";
@@ -972,6 +973,60 @@ test("runtime bridge turn run state update runner sends Rust state update bridge
   assert.equal(result.source, "rust_runtime_bridge_turn_run_state_update_command");
   assert.equal(result.operation_kind, "turn.runtime_bridge.submit");
   assert.equal(result.run.id, "run_runtime");
+});
+
+test("subagent record state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_subagent_record_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "subagent.wait",
+            updated_at: "2026-06-06T07:04:00.000Z",
+            subagent: {
+              subagent_id: "subagent_1",
+              parent_thread_id: "thread_1",
+              status: "completed",
+              updated_at: "2026-06-06T07:04:00.000Z",
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planSubagentRecordStateUpdate({
+    operation_kind: "subagent.wait",
+    thread_id: "thread_1",
+    subagent: {
+      subagent_id: "subagent_1",
+      parent_thread_id: "thread_1",
+      status: "completed",
+      updated_at: "2026-06-06T07:04:00.000Z",
+    },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_subagent_record_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "subagent.wait");
+  assert.equal(captured.request.subagent.subagent_id, "subagent_1");
+  assert.equal(result.source, "rust_subagent_record_state_update_command");
+  assert.equal(result.operation_kind, "subagent.wait");
+  assert.equal(result.subagent.subagent_id, "subagent_1");
 });
 
 test("agent create state update runner sends Rust state update bridge request", () => {
