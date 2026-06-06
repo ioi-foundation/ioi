@@ -12296,6 +12296,12 @@ agent status projections; `thread-store.updateAgent` supplies the requested
 status, operation kind, and timestamp, then fails closed unless Rust returns the
 agent record to persist.
 
+Slice 367 moves runtime-bridge turn run persistence behind Rust planning:
+`RuntimeBridgeTurnRunStateUpdateCore` now validates runtime bridge turn run
+drafts against the normalized bridge projection and returns the only run record
+the daemon may persist for `turn.runtime_bridge.submit`; the daemon fails closed
+when Rust omits the planned run instead of writing the JS draft directly.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

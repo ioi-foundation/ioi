@@ -167,9 +167,33 @@ export async function createRuntimeBridgeTurn(store, { agent, threadId, request,
     threadId,
   });
   for (const event of projection.events) store.appendRuntimeEvent(event);
-  const run = runtimeBridgeRunRecord({ agent, request, projection });
+  const runDraft = runtimeBridgeRunRecord({ agent, request, projection });
+  const contextPolicyRunner = store.contextPolicyRunner;
+  if (typeof contextPolicyRunner?.planRuntimeBridgeTurnRunStateUpdate !== "function") {
+    throw deps.runtimeError({
+      status: 500,
+      code: "runtime_bridge_turn_run_state_update_planner_unavailable",
+      message: "Runtime bridge turn run updates require Rust policy state-update planning.",
+      details: { threadId, runId: runDraft.id },
+    });
+  }
+  const stateUpdate = contextPolicyRunner.planRuntimeBridgeTurnRunStateUpdate({
+    thread_id: threadId,
+    agent,
+    projection,
+    run: runDraft,
+  });
+  const run = stateUpdate.run;
+  if (!run?.id) {
+    throw deps.runtimeError({
+      status: 502,
+      code: "runtime_bridge_turn_run_state_update_planner_invalid",
+      message: "Rust runtime bridge turn planning did not return a run record.",
+      details: { threadId, runId: runDraft.id },
+    });
+  }
   store.runs.set(run.id, run);
-  store.writeRun(run, "turn.runtime_bridge.submit");
+  store.writeRun(run, stateUpdate.operation_kind ?? "turn.runtime_bridge.submit");
   for (const turnId of inFlightTurnIds) {
     store.unregisterInFlightRuntimeTurn(threadId, turnId);
   }

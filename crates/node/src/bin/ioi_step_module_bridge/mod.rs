@@ -32,6 +32,7 @@ use ioi_services::agentic::runtime::kernel::policy::{
     OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore, RunCancelStateUpdateRequest,
     RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
     RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateRequest,
+    RuntimeBridgeTurnRunStateUpdateCore, RuntimeBridgeTurnRunStateUpdateRequest,
     ThreadControlAgentStateUpdateCore, ThreadControlAgentStateUpdateRequest,
     ThreadMemoryAgentStateUpdateCore, ThreadMemoryAgentStateUpdateRequest,
 };
@@ -446,6 +447,16 @@ struct RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct RuntimeBridgeTurnRunStateUpdateBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: RuntimeBridgeTurnRunStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct AgentCreateStateUpdateBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -742,6 +753,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_runtime_bridge_thread_start_agent_state_update(request)
+        }
+        "plan_runtime_bridge_turn_run_state_update" => {
+            let request: RuntimeBridgeTurnRunStateUpdateBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_runtime_bridge_turn_run_state_update(request)
         }
         "plan_agent_create_state_update" => {
             let request: AgentCreateStateUpdateBridgeRequest = serde_json::from_value(raw_request)
@@ -2187,6 +2204,43 @@ fn plan_runtime_bridge_thread_start_agent_state_update(
         "updated_at": record.updated_at.clone(),
         "bridge_start": record.bridge_start.clone(),
         "agent": record.agent.clone(),
+    }))
+}
+
+fn plan_runtime_bridge_turn_run_state_update(
+    request: RuntimeBridgeTurnRunStateUpdateBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_runtime_bridge_turn_run_state_update" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = RuntimeBridgeTurnRunStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "runtime_bridge_turn_run_state_update_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_runtime_bridge_turn_run_state_update_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "run": record.run.clone(),
     }))
 }
 
@@ -7460,6 +7514,49 @@ mod tests {
         assert_eq!(response["agent"]["runtimeSessionId"], "session_runtime");
         assert_eq!(response["agent"]["runtimeBridgeId"], "bridge_runtime");
         assert_eq!(response["agent"]["fixtureProfile"], Value::Null);
+    }
+
+    #[test]
+    fn bridge_plans_runtime_bridge_turn_run_state_update_through_rust_core() {
+        let request: RuntimeBridgeTurnRunStateUpdateBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_runtime_bridge_turn_run_state_update",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.runtime-bridge-turn-run-state-update-request.v1",
+                "thread_id": "thread_1",
+                "agent": {
+                    "id": "agent_1",
+                    "cwd": "/workspace"
+                },
+                "projection": {
+                    "runId": "run_runtime_bridge",
+                    "turnId": "turn_runtime_bridge"
+                },
+                "run": {
+                    "id": "run_runtime_bridge",
+                    "agentId": "agent_1",
+                    "mode": "send",
+                    "status": "completed",
+                    "createdAt": "2026-06-06T06:34:00.000Z",
+                    "updatedAt": "2026-06-06T06:35:00.000Z"
+                }
+            }
+        }))
+        .expect("runtime bridge turn run state update bridge request");
+
+        let response = plan_runtime_bridge_turn_run_state_update(request)
+            .expect("runtime bridge turn run state update planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_runtime_bridge_turn_run_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "turn.runtime_bridge.submit");
+        assert_eq!(response["run"]["id"], "run_runtime_bridge");
+        assert_eq!(response["run"]["agentId"], "agent_1");
     }
 
     #[test]

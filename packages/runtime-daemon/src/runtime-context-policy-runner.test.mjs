@@ -16,6 +16,7 @@ import {
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RustContextPolicyRunner,
@@ -915,6 +916,62 @@ test("runtime bridge thread start agent state update runner sends Rust state upd
   assert.equal(result.operation_kind, "thread.runtime_bridge.start");
   assert.equal(result.bridge_start.bridgeId, "bridge_runtime");
   assert.equal(result.agent.runtimeSessionId, "session_runtime");
+});
+
+test("runtime bridge turn run state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_runtime_bridge_turn_run_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "turn.runtime_bridge.submit",
+            updated_at: "2026-06-06T06:35:00.000Z",
+            run: {
+              id: "run_runtime",
+              agentId: "agent_1",
+              status: "completed",
+              updatedAt: "2026-06-06T06:35:00.000Z",
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planRuntimeBridgeTurnRunStateUpdate({
+    thread_id: "thread_1",
+    agent: { id: "agent_1", cwd: "/workspace" },
+    projection: { runId: "run_runtime" },
+    run: {
+      id: "run_runtime",
+      agentId: "agent_1",
+      mode: "send",
+      status: "completed",
+      createdAt: "2026-06-06T06:34:00.000Z",
+      updatedAt: "2026-06-06T06:35:00.000Z",
+    },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_bridge_turn_run_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.projection.runId, "run_runtime");
+  assert.equal(result.source, "rust_runtime_bridge_turn_run_state_update_command");
+  assert.equal(result.operation_kind, "turn.runtime_bridge.submit");
+  assert.equal(result.run.id, "run_runtime");
 });
 
 test("agent create state update runner sends Rust state update bridge request", () => {

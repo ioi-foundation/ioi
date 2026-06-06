@@ -57,6 +57,10 @@ pub const RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION:
     "ioi.runtime.runtime-bridge-thread-start-agent-state-update-request.v1";
 pub const RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.runtime-bridge-thread-start-agent-state-update.v1";
+pub const RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.runtime-bridge-turn-run-state-update-request.v1";
+pub const RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.runtime-bridge-turn-run-state-update.v1";
 pub const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.compaction-policy-request.v1";
 pub const COMPACTION_POLICY_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.compaction-policy.v1";
@@ -247,6 +251,20 @@ pub enum AgentStatusStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RuntimeBridgeTurnRunStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+    MismatchedField {
+        field: &'static str,
+        expected: String,
+        actual: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -937,6 +955,29 @@ pub struct RuntimeBridgeThreadStartAgentStateUpdateRecord {
     pub updated_at: String,
     pub bridge_start: Value,
     pub agent: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeBridgeTurnRunStateUpdateRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    pub agent: Value,
+    pub projection: Value,
+    pub run: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeBridgeTurnRunStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub run_id: String,
+    pub agent_id: String,
+    pub updated_at: String,
+    pub run: Value,
     pub generated_at: String,
 }
 
@@ -2477,6 +2518,56 @@ impl RuntimeBridgeThreadStartAgentStateUpdateCore {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct RuntimeBridgeTurnRunStateUpdateCore;
+
+impl RuntimeBridgeTurnRunStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &RuntimeBridgeTurnRunStateUpdateRequest,
+    ) -> Result<RuntimeBridgeTurnRunStateUpdateRecord, RuntimeBridgeTurnRunStateUpdateError> {
+        request.validate()?;
+        let run = object_value(&request.run)
+            .ok_or(RuntimeBridgeTurnRunStateUpdateError::MissingField("run"))?;
+        let run_value = Value::Object(run.clone());
+        let projection = object_value(&request.projection).ok_or(
+            RuntimeBridgeTurnRunStateUpdateError::MissingField("projection"),
+        )?;
+        let projection_value = Value::Object(projection);
+        let run_id = optional_json_string(&run_value, "id")
+            .ok_or(RuntimeBridgeTurnRunStateUpdateError::MissingField("run.id"))?;
+        let agent_id = optional_json_string(&run_value, "agentId").ok_or(
+            RuntimeBridgeTurnRunStateUpdateError::MissingField("run.agentId"),
+        )?;
+        let updated_at = optional_json_string(&run_value, "updatedAt").ok_or(
+            RuntimeBridgeTurnRunStateUpdateError::MissingField("run.updatedAt"),
+        )?;
+        let projection_run_id = optional_json_string(&projection_value, "runId").ok_or(
+            RuntimeBridgeTurnRunStateUpdateError::MissingField("projection.runId"),
+        )?;
+        if projection_run_id != run_id {
+            return Err(RuntimeBridgeTurnRunStateUpdateError::MismatchedField {
+                field: "projection.runId",
+                expected: run_id,
+                actual: projection_run_id,
+            });
+        }
+
+        Ok(RuntimeBridgeTurnRunStateUpdateRecord {
+            schema_version: RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_bridge_turn_run_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: "turn.runtime_bridge.submit".to_string(),
+            thread_id: request.thread_id.clone(),
+            run_id,
+            agent_id,
+            updated_at,
+            run: Value::Object(run),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
 impl CompactionPolicyRequest {
     pub fn validate(&self) -> Result<(), CompactionPolicyError> {
         if self.schema_version != COMPACTION_POLICY_REQUEST_SCHEMA_VERSION {
@@ -2962,6 +3053,64 @@ impl RuntimeBridgeThreadStartAgentStateUpdateRequest {
         if optional_json_string(&agent_value, "id").is_none() {
             return Err(RuntimeBridgeThreadStartAgentStateUpdateError::MissingField(
                 "agent.id",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl RuntimeBridgeTurnRunStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), RuntimeBridgeTurnRunStateUpdateError> {
+        if self.schema_version != RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(RuntimeBridgeTurnRunStateUpdateError::InvalidSchemaVersion {
+                expected: RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(RuntimeBridgeTurnRunStateUpdateError::MissingField(
+                "thread_id",
+            ));
+        }
+        let agent = object_value(&self.agent)
+            .ok_or(RuntimeBridgeTurnRunStateUpdateError::MissingField("agent"))?;
+        let agent_value = Value::Object(agent);
+        let agent_id = optional_json_string(&agent_value, "id").ok_or(
+            RuntimeBridgeTurnRunStateUpdateError::MissingField("agent.id"),
+        )?;
+        let projection = object_value(&self.projection).ok_or(
+            RuntimeBridgeTurnRunStateUpdateError::MissingField("projection"),
+        )?;
+        let projection_value = Value::Object(projection);
+        let run = object_value(&self.run)
+            .ok_or(RuntimeBridgeTurnRunStateUpdateError::MissingField("run"))?;
+        let run_value = Value::Object(run);
+        for field in ["id", "agentId", "mode", "status", "createdAt", "updatedAt"] {
+            if optional_json_string(&run_value, field).is_none() {
+                return Err(RuntimeBridgeTurnRunStateUpdateError::MissingField(
+                    match field {
+                        "id" => "run.id",
+                        "agentId" => "run.agentId",
+                        "mode" => "run.mode",
+                        "status" => "run.status",
+                        "createdAt" => "run.createdAt",
+                        "updatedAt" => "run.updatedAt",
+                        _ => "run",
+                    },
+                ));
+            }
+        }
+        let run_agent_id = optional_json_string(&run_value, "agentId").unwrap_or_default();
+        if run_agent_id != agent_id {
+            return Err(RuntimeBridgeTurnRunStateUpdateError::MismatchedField {
+                field: "run.agentId",
+                expected: agent_id,
+                actual: run_agent_id,
+            });
+        }
+        if optional_json_string(&projection_value, "runId").is_none() {
+            return Err(RuntimeBridgeTurnRunStateUpdateError::MissingField(
+                "projection.runId",
             ));
         }
         Ok(())
@@ -4290,6 +4439,29 @@ mod tests {
         }
     }
 
+    fn runtime_bridge_turn_run_state_update_request() -> RuntimeBridgeTurnRunStateUpdateRequest {
+        RuntimeBridgeTurnRunStateUpdateRequest {
+            schema_version: RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: "thread_1".to_string(),
+            agent: json!({
+                "id": "agent_1",
+                "cwd": "/workspace"
+            }),
+            projection: json!({
+                "runId": "run_runtime_bridge",
+                "turnId": "turn_runtime_bridge"
+            }),
+            run: json!({
+                "id": "run_runtime_bridge",
+                "agentId": "agent_1",
+                "mode": "send",
+                "status": "completed",
+                "createdAt": "2026-06-06T06:34:00.000Z",
+                "updatedAt": "2026-06-06T06:35:00.000Z"
+            }),
+        }
+    }
+
     #[test]
     fn rust_policy_blocks_context_budget_excess() {
         let mut request = budget_request();
@@ -4926,6 +5098,25 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_plans_runtime_bridge_turn_run_state_update() {
+        let record = RuntimeBridgeTurnRunStateUpdateCore
+            .plan(&runtime_bridge_turn_run_state_update_request())
+            .expect("runtime bridge turn run state update");
+
+        assert_eq!(
+            record.schema_version,
+            RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "turn.runtime_bridge.submit");
+        assert_eq!(record.thread_id, "thread_1");
+        assert_eq!(record.run_id, "run_runtime_bridge");
+        assert_eq!(record.agent_id, "agent_1");
+        assert_eq!(record.updated_at, "2026-06-06T06:35:00.000Z");
+        assert_eq!(record.run["id"], "run_runtime_bridge");
+    }
+
+    #[test]
     fn rust_policy_rejects_invalid_mcp_control_agent_state_update_schema() {
         let mut request = mcp_control_agent_state_update_request();
         request.schema_version = "legacy.mcp-control-state-update".to_string();
@@ -4975,6 +5166,24 @@ mod tests {
             RuntimeBridgeThreadStartAgentStateUpdateError::InvalidSchemaVersion {
                 expected: RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.runtime-bridge-start-state-update".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_runtime_bridge_turn_run_state_update_schema() {
+        let mut request = runtime_bridge_turn_run_state_update_request();
+        request.schema_version = "legacy.runtime-bridge-turn-run-state-update".to_string();
+
+        let error = RuntimeBridgeTurnRunStateUpdateCore
+            .plan(&request)
+            .expect_err("invalid schema should be rejected");
+
+        assert_eq!(
+            error,
+            RuntimeBridgeTurnRunStateUpdateError::InvalidSchemaVersion {
+                expected: RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.runtime-bridge-turn-run-state-update".to_string(),
             }
         );
     }

@@ -1586,32 +1586,64 @@ function runBridge() {
     result,
     "runtime-bridge-thread-start-agent-state-update-live-bridge",
     /RuntimeBridgeThreadStartAgentStateUpdateCore/.test(policyCore) &&
+      /RuntimeBridgeTurnRunStateUpdateCore/.test(policyCore) &&
       /RuntimeBridgeThreadStartAgentStateUpdateRequest/.test(policyCore) &&
+      /RuntimeBridgeTurnRunStateUpdateRequest/.test(policyCore) &&
       /RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_runtime_bridge_thread_start_agent_state_update/.test(policyCore) &&
+      /rust_policy_plans_runtime_bridge_turn_run_state_update/.test(policyCore) &&
       /rust_policy_rejects_invalid_runtime_bridge_thread_start_agent_state_update_schema/.test(
         policyCore,
       ) &&
+      /rust_policy_rejects_invalid_runtime_bridge_turn_run_state_update_schema/.test(
+        policyCore,
+      ) &&
       /plan_runtime_bridge_thread_start_agent_state_update/.test(bridgeModule) &&
+      /plan_runtime_bridge_turn_run_state_update/.test(bridgeModule) &&
       /RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /RuntimeBridgeTurnRunStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_runtime_bridge_thread_start_agent_state_update_command/.test(bridgeModule) &&
+      /rust_runtime_bridge_turn_run_state_update_command/.test(bridgeModule) &&
       /bridge_plans_runtime_bridge_thread_start_agent_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
+      /bridge_plans_runtime_bridge_turn_run_state_update_through_rust_core/.test(
+        bridgeModule,
+      ) &&
       /planRuntimeBridgeThreadStartAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeContextPolicyRunner) &&
       /RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
       /runtime bridge thread start agent state update runner sends Rust state update bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
+      /runtime bridge turn run state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /contextPolicyRunner\.planRuntimeBridgeThreadStartAgentStateUpdate/.test(
+        runtimeBridgeThread,
+      ) &&
+      /contextPolicyRunner\.planRuntimeBridgeTurnRunStateUpdate/.test(
         runtimeBridgeThread,
       ) &&
       /runtime bridge thread creation fails closed without Rust-planned agent projection/.test(
         runtimeBridgeThreadTest,
       ) &&
+      /runtime bridge turn creation fails closed without Rust-planned run projection/.test(
+        runtimeBridgeThreadTest,
+      ) &&
       !/const updated = \{\s*\.\.\.agent,\s*runtimeProfile,\s*runtimeSessionId/s.test(
+        runtimeBridgeThread,
+      ) &&
+      !/store\.runs\.set\(runDraft\.id,\s*runDraft\)/.test(
+        runtimeBridgeThread,
+      ) &&
+      !/store\.writeRun\(runDraft,/.test(
         runtimeBridgeThread,
       ),
     [

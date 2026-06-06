@@ -98,7 +98,9 @@ use policy::{
     RunCreateStateUpdateRecord, RunCreateStateUpdateRequest,
     RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateError,
     RuntimeBridgeThreadStartAgentStateUpdateRecord,
-    RuntimeBridgeThreadStartAgentStateUpdateRequest, ThreadControlAgentStateUpdateCore,
+    RuntimeBridgeThreadStartAgentStateUpdateRequest, RuntimeBridgeTurnRunStateUpdateCore,
+    RuntimeBridgeTurnRunStateUpdateError, RuntimeBridgeTurnRunStateUpdateRecord,
+    RuntimeBridgeTurnRunStateUpdateRequest, ThreadControlAgentStateUpdateCore,
     ThreadControlAgentStateUpdateError, ThreadControlAgentStateUpdateRecord,
     ThreadControlAgentStateUpdateRequest, ThreadMemoryAgentStateUpdateCore,
     ThreadMemoryAgentStateUpdateError, ThreadMemoryAgentStateUpdateRecord,
@@ -280,6 +282,13 @@ impl RuntimeKernelService {
         RuntimeBridgeThreadStartAgentStateUpdateError,
     > {
         RuntimeBridgeThreadStartAgentStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_runtime_bridge_turn_run_state_update(
+        &self,
+        request: &RuntimeBridgeTurnRunStateUpdateRequest,
+    ) -> Result<RuntimeBridgeTurnRunStateUpdateRecord, RuntimeBridgeTurnRunStateUpdateError> {
+        RuntimeBridgeTurnRunStateUpdateCore.plan(request)
     }
 
     pub fn plan_agent_create_state_update(
