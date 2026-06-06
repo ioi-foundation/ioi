@@ -14,7 +14,7 @@ export function createThreadForkState({
       },
       model: request.options?.model ? request.options.model : { id: sourceThread.model_route },
     };
-    const idempotencyKey = request.idempotency_key ?? request.idempotencyKey;
+    const idempotencyKey = request.idempotency_key;
     const streamId = eventStreamIdForThread(threadId);
     if (idempotencyKey) {
       const duplicate = store.runtimeEventStream(streamId).idempotency.get(String(idempotencyKey));
@@ -51,8 +51,8 @@ export function createThreadForkState({
       actor: "user",
       created_at: now,
       workspace_root: sourceAgent.cwd,
-      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
-      workflow_node_id: request.workflow_node_id ?? request.workflowNodeId ?? "runtime.thread-fork",
+      workflow_graph_id: request.workflow_graph_id ?? null,
+      workflow_node_id: request.workflow_node_id ?? "runtime.thread-fork",
       component_kind: "thread_fork",
       payload_schema_version: "ioi.runtime.thread-fork.v1",
       payload: {

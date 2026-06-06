@@ -12836,6 +12836,12 @@ thread memory control/status events now consume canonical `turn_id`,
 event identity, memory status projection identity, or Rust policy-core
 thread-memory state-update planning.
 
+Slice 449 removes thread-fork request aliases:
+thread fork routing now consumes canonical `idempotency_key`,
+`workflow_graph_id`, and `workflow_node_id` request fields only; retired
+`idempotencyKey`, `workflowGraphId`, and `workflowNodeId` fields no longer steer
+duplicate fork lookup, fork event identity, or fork workflow projection context.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

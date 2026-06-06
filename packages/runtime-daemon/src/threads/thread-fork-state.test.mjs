@@ -70,7 +70,7 @@ test("thread fork state returns idempotent duplicate fork results", () => {
     },
   });
 
-  const result = state.forkThread(store, "thread_a", { idempotencyKey: "fork-key" });
+  const result = state.forkThread(store, "thread_a", { idempotency_key: "fork-key" });
 
   assert.equal(result.thread_id, "thread_fork");
   assert.equal(result.source_thread_id, "thread_a");
@@ -90,8 +90,8 @@ test("thread fork state creates fork agents and emits fork events", () => {
       local: { cwd: "/override" },
       model: { id: "route.override" },
     },
-    workflowGraphId: "graph",
-    workflowNodeId: "node.fork",
+    workflow_graph_id: "graph",
+    workflow_node_id: "node.fork",
   });
 
   assert.equal(result.thread_id, "thread_fork");
@@ -109,6 +109,31 @@ test("thread fork state creates fork agents and emits fork events", () => {
   assert.equal(events[0].payload.reason, "branch experiment");
   assert.equal(events[0].payload.requested_by, "operator_one");
   assert.equal(events[0].fixture_profile, "fixture.test");
+});
+
+test("thread fork state ignores retired request identity aliases", () => {
+  const { calls, events, state, store } = createHarness({
+    duplicate: {
+      payload_summary: {
+        fork_thread_id: "thread_duplicate",
+        source_latest_seq: 39,
+      },
+    },
+  });
+
+  const result = state.forkThread(store, "thread_a", {
+    idempotencyKey: "fork-key",
+    workflowGraphId: "graph_retired",
+    workflowNodeId: "node_retired",
+  });
+
+  assert.equal(result.thread_id, "thread_fork");
+  assert.equal(result.forked_from_seq, 42);
+  assert.equal(calls.some((call) => call.type === "createAgent"), true);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].workflow_graph_id, null);
+  assert.equal(events[0].workflow_node_id, "runtime.thread-fork");
+  assert.equal(events[0].idempotency_key, "thread:thread_a:operator.fork:thread_fork");
 });
 
 test("thread fork state defaults fork options and idempotency", () => {

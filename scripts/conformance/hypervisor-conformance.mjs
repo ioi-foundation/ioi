@@ -695,6 +695,12 @@ function runBridge() {
   const runtimeThreadMemoryStateTest = exists("packages/runtime-daemon/src/threads/thread-memory-state.test.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-memory-state.test.mjs")
     : "";
+  const runtimeThreadForkState = exists("packages/runtime-daemon/src/threads/thread-fork-state.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-fork-state.mjs")
+    : "";
+  const runtimeThreadForkStateTest = exists("packages/runtime-daemon/src/threads/thread-fork-state.test.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-fork-state.test.mjs")
+    : "";
   const runtimeBridgeThread = exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
     ? read("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
     : "";
@@ -2516,6 +2522,39 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
     ],
     "Phase 10/11 is pending: thread-memory event identity must use canonical turn_id/workflow ids before Rust state planning",
+  );
+  assertCheck(
+    result,
+    "thread-fork-request-aliases-retired",
+    /const idempotencyKey = request\.idempotency_key;/.test(runtimeThreadForkState) &&
+      /workflow_graph_id: request\.workflow_graph_id \?\? null/.test(runtimeThreadForkState) &&
+      /workflow_node_id: request\.workflow_node_id \?\? "runtime\.thread-fork"/.test(
+        runtimeThreadForkState,
+      ) &&
+      /thread fork state ignores retired request identity aliases/.test(
+        runtimeThreadForkStateTest,
+      ) &&
+      /idempotencyKey: "fork-key"/.test(runtimeThreadForkStateTest) &&
+      /workflowGraphId: "graph_retired"/.test(runtimeThreadForkStateTest) &&
+      /workflowNodeId: "node_retired"/.test(runtimeThreadForkStateTest) &&
+      /events\[0\]\.workflow_graph_id, null/.test(runtimeThreadForkStateTest) &&
+      /events\[0\]\.workflow_node_id, "runtime\.thread-fork"/.test(
+        runtimeThreadForkStateTest,
+      ) &&
+      /events\[0\]\.idempotency_key, "thread:thread_a:operator\.fork:thread_fork"/.test(
+        runtimeThreadForkStateTest,
+      ) &&
+      !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
+        runtimeThreadForkState,
+      ) &&
+      !/request\.(?:workflow_graph_id|workflow_node_id|idempotency_key)\s*\?\?\s*request\./.test(
+        runtimeThreadForkState,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/thread-fork-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-fork-state.test.mjs",
+    ],
+    "Phase 10/11 is pending: thread fork request routing must use canonical idempotency_key/workflow ids only",
   );
   assertCheck(
     result,
