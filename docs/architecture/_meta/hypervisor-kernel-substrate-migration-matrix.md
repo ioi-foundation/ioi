@@ -12865,6 +12865,11 @@ Rust live coding-tool invocation now consumes canonical `idempotency_key` reques
 fields only; retired `idempotencyKey` fields no longer steer duplicate event
 lookup before StepModuleRunner dispatch or admitted invocation event identity.
 
+Slice 454 completes thread-control idempotency alias retirement:
+thread mode/thinking/model control events now consume canonical `idempotency_key`
+request fields only; retired `idempotencyKey` fields no longer steer control
+event de-duplication or Rust-planned agent state updates.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

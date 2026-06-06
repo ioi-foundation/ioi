@@ -2397,10 +2397,28 @@ function runBridge() {
       ) &&
       /workflowGraphId: "graph_retired"/.test(runtimeThreadControlSurfaceTest) &&
       /workflowNodeId: "node_retired"/.test(runtimeThreadControlSurfaceTest) &&
+      /idempotencyKey: "thread_control_idempotency_retired"/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
       /workflowGraphId: "graph_model_retired"/.test(runtimeThreadControlSurfaceTest) &&
       /workflowNodeId: "node_model_retired"/.test(runtimeThreadControlSurfaceTest) &&
+      /idempotencyKey: "thread_thinking_idempotency_retired"/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /thread control surface accepts canonical idempotency key/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /idempotency_key: "thread_control_idempotency_canonical"/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
       /modeResult\.event\.workflow_graph_id, null/.test(runtimeThreadControlSurfaceTest) &&
       /modeResult\.event\.workflow_node_id, "runtime\.thread-mode"/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /assert\.match\(modeResult\.event\.idempotency_key, \/\^thread:thread_1:control\\\.mode:\//.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /assert\.match\(modelResult\.event\.idempotency_key, \/\^thread:thread_1:control\\\.thinking:\//.test(
         runtimeThreadControlSurfaceTest,
       ) &&
       /workflowNodeId: "node-retired"/.test(threadRuntimeControlsTest) &&
@@ -2413,9 +2431,9 @@ function runBridge() {
       /store\.routeRequests\[0\]\.context\.workflowNodeId, "runtime\.model-router"/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
-      !/request\.(?:workflowNodeId|workflowGraphId)\b/.test(runtimeThreadControlSurface) &&
+      !/request\.(?:workflowNodeId|workflowGraphId|idempotencyKey)\b/.test(runtimeThreadControlSurface) &&
       !/request\.workflowNodeId\b/.test(threadRuntimeControls) &&
-      !/request\.(?:workflow_node_id|workflow_graph_id)\s*\?\?\s*request\./.test(
+      !/request\.(?:workflow_node_id|workflow_graph_id|idempotency_key)\s*\?\?\s*request\./.test(
         runtimeThreadControlSurface,
       ),
     [

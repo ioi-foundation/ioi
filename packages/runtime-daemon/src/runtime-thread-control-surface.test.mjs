@@ -222,10 +222,12 @@ test("thread control surface ignores retired request identity aliases", () => {
     mode: "review",
     workflowGraphId: "graph_retired",
     workflowNodeId: "node_retired",
+    idempotencyKey: "thread_control_idempotency_retired",
   });
 
   assert.equal(modeResult.event.workflow_graph_id, null);
   assert.equal(modeResult.event.workflow_node_id, "runtime.thread-mode");
+  assert.match(modeResult.event.idempotency_key, /^thread:thread_1:control\.mode:/);
   assert.equal(store.events[1].workflow_graph_id, null);
 
   const modelResult = surface.updateThreadThinking(store, "thread_1", {
@@ -236,12 +238,27 @@ test("thread control surface ignores retired request identity aliases", () => {
     },
     workflowGraphId: "graph_model_retired",
     workflowNodeId: "node_model_retired",
+    idempotencyKey: "thread_thinking_idempotency_retired",
   });
 
   assert.equal(store.routeRequests[0].context.workflowGraphId, null);
   assert.equal(store.routeRequests[0].context.workflowNodeId, "runtime.model-router");
   assert.equal(modelResult.event.workflow_graph_id, null);
   assert.equal(modelResult.event.workflow_node_id, "runtime.model-router");
+  assert.match(modelResult.event.idempotency_key, /^thread:thread_1:control\.thinking:/);
+});
+
+test("thread control surface accepts canonical idempotency key", () => {
+  const store = createStore();
+  const plannerCalls = [];
+  const surface = createSurface(plannerCalls);
+
+  const result = surface.updateThreadMode(store, "thread_1", {
+    mode: "review",
+    idempotency_key: "thread_control_idempotency_canonical",
+  });
+
+  assert.equal(result.event.idempotency_key, "thread_control_idempotency_canonical");
 });
 
 test("thread control surface fails closed without Rust-planned operation kind", () => {

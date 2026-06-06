@@ -288,7 +288,6 @@ export function createRuntimeThreadControlSurface({
         item_id: `${threadId}:item:${controlKind}-control:${controlHash}`,
         idempotency_key:
           request.idempotency_key ??
-          request.idempotencyKey ??
           `thread:${threadId}:control.${controlKind}:${controlHash}`,
         source,
         source_event_kind:
