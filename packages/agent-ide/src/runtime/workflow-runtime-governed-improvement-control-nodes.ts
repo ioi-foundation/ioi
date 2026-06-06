@@ -46,53 +46,29 @@ export interface RuntimeGovernedImprovementControlRequestBody {
   source: typeof RUNTIME_GOVERNED_IMPROVEMENT_SOURCE;
   actor: string;
   event_kind: typeof RUNTIME_GOVERNED_IMPROVEMENT_SOURCE_EVENT_KIND;
-  eventKind: typeof RUNTIME_GOVERNED_IMPROVEMENT_SOURCE_EVENT_KIND;
   component_kind: typeof RUNTIME_GOVERNED_IMPROVEMENT_COMPONENT_KIND;
-  componentKind: typeof RUNTIME_GOVERNED_IMPROVEMENT_COMPONENT_KIND;
   payload_schema_version: typeof RUNTIME_GOVERNED_IMPROVEMENT_PROPOSAL_SCHEMA_VERSION;
-  payloadSchemaVersion: typeof RUNTIME_GOVERNED_IMPROVEMENT_PROPOSAL_SCHEMA_VERSION;
   workflow_graph_id: string | null;
-  workflowGraphId: string | null;
   workflow_node_id: string;
-  workflowNodeId: string;
   proposal_id: string;
-  proposalId: string;
   target_ref: string;
-  targetRef: string;
   candidate_ref: string;
-  candidateRef: string;
   surface: RuntimeGovernedImprovementSurface;
   source_trace_ref: string;
-  sourceTraceRef: string;
   eval_receipt_refs: string[];
-  evalReceiptRefs: string[];
   verifier_receipt_refs: string[];
-  verifierReceiptRefs: string[];
   approval_ref: string;
-  approvalRef: string;
   rollback_ref: string;
-  rollbackRef: string;
   agentgres_operation_ref: string;
-  agentgresOperationRef: string;
   expected_heads: string[];
-  expectedHeads: string[];
   state_root_before: string;
-  stateRootBefore: string;
   state_root_after: string;
-  stateRootAfter: string;
   resulting_head: string;
-  resultingHead: string;
   approval_mode: "human_required";
-  approvalMode: "human_required";
   proposal_only: true;
-  proposalOnly: true;
   mutation_allowed: false;
-  mutationAllowed: false;
   mutation_executed: false;
-  mutationExecuted: false;
   proposal: RuntimeGovernedImprovementProposal;
-  proposal_payload: RuntimeGovernedImprovementProposal;
-  proposalPayload: RuntimeGovernedImprovementProposal;
 }
 
 export interface RuntimeGovernedImprovementControlRequest {
@@ -289,53 +265,29 @@ export function createRuntimeGovernedImprovementControlRequest(
       source: RUNTIME_GOVERNED_IMPROVEMENT_SOURCE,
       actor: cleanString(params.actor) ?? "workflow-author",
       event_kind: RUNTIME_GOVERNED_IMPROVEMENT_SOURCE_EVENT_KIND,
-      eventKind: RUNTIME_GOVERNED_IMPROVEMENT_SOURCE_EVENT_KIND,
       component_kind: RUNTIME_GOVERNED_IMPROVEMENT_COMPONENT_KIND,
-      componentKind: RUNTIME_GOVERNED_IMPROVEMENT_COMPONENT_KIND,
       payload_schema_version: RUNTIME_GOVERNED_IMPROVEMENT_PROPOSAL_SCHEMA_VERSION,
-      payloadSchemaVersion: RUNTIME_GOVERNED_IMPROVEMENT_PROPOSAL_SCHEMA_VERSION,
       workflow_graph_id: workflowGraphId,
-      workflowGraphId,
       workflow_node_id: workflowNodeId,
-      workflowNodeId,
       proposal_id: proposalId,
-      proposalId,
       target_ref: targetRef,
-      targetRef,
       candidate_ref: candidateRef,
-      candidateRef,
       surface,
       source_trace_ref: sourceTraceRef,
-      sourceTraceRef,
       eval_receipt_refs: evalReceiptRefs,
-      evalReceiptRefs,
       verifier_receipt_refs: verifierReceiptRefs,
-      verifierReceiptRefs,
       approval_ref: approvalRef,
-      approvalRef,
       rollback_ref: rollbackRef,
-      rollbackRef,
       agentgres_operation_ref: agentgresOperationRef,
-      agentgresOperationRef,
       expected_heads: expectedHeads,
-      expectedHeads,
       state_root_before: stateRootBefore,
-      stateRootBefore,
       state_root_after: stateRootAfter,
-      stateRootAfter,
       resulting_head: resultingHead,
-      resultingHead,
       approval_mode: "human_required",
-      approvalMode: "human_required",
       proposal_only: true,
-      proposalOnly: true,
       mutation_allowed: false,
-      mutationAllowed: false,
       mutation_executed: false,
-      mutationExecuted: false,
       proposal,
-      proposal_payload: proposal,
-      proposalPayload: proposal,
     },
   };
 }

@@ -2797,6 +2797,46 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "governed-meta-improvement-admission-request-aliases-retired",
+    /RETIRED_GOVERNED_IMPROVEMENT_REQUEST_ALIASES/.test(governedImprovementSurface) &&
+      /CANONICAL_GOVERNED_IMPROVEMENT_REQUEST_FIELDS/.test(governedImprovementSurface) &&
+      /governed_improvement_proposal_request_aliases_retired/.test(
+        governedImprovementSurface,
+      ) &&
+      /assertCanonicalGovernedImprovementRequestBody\(body\);[\s\S]*objectRecord\(body\.proposal\)/.test(
+        governedImprovementSurface,
+      ) &&
+      !/body\.(?:proposalPayload|proposal_payload)\b/.test(governedImprovementSurface) &&
+      /governed improvement surface rejects retired request aliases before agent lookup or Rust runner/.test(
+        governedImprovementSurfaceTest,
+      ) &&
+      /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(
+        governedImprovementSurfaceTest,
+      ) &&
+      /retiredGovernedImprovementRequestAliases/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*key\)/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      !/^\s*proposal_payload:\s*RuntimeGovernedImprovementProposal;/m.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/^\s*proposalPayload:\s*RuntimeGovernedImprovementProposal;/m.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/proposal_payload:\s*proposal/.test(governedImprovementControlNodes) &&
+      !/proposalPayload:\s*proposal/.test(governedImprovementControlNodes),
+    [
+      "packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs",
+      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
+    ],
+    "Phase 9/11 is pending: governed-improvement admission requests must fail closed on retired proposal wrapper aliases and IDE clients must emit canonical request bodies",
+  );
+  assertCheck(
+    result,
     "governed-meta-improvement-sdk-ide-review-surface",
     /admitGovernedImprovementProposal/.test(agentSdkSubstrateClient) &&
       /RuntimeGovernedImprovementProposalAdmissionInput/.test(agentSdkSubstrateClient) &&

@@ -12001,6 +12001,12 @@ bodies before agent lookup or Rust cTEE execution, and IDE cTEE Private
 Workspace control requests emit canonical `action` bodies without duplicate
 wrapper aliases.
 
+Slice 326 retires governed meta-improvement proposal admission wrapper aliases:
+the daemon surface now fails closed on retired `proposalPayload` and
+`proposal_payload` request bodies before agent lookup or Rust governed
+proposal admission, and IDE governed-improvement control requests emit
+canonical `proposal` bodies without duplicate wrapper aliases.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

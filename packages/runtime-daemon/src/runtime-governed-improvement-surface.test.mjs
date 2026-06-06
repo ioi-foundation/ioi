@@ -74,6 +74,27 @@ const GOVERNED_IMPROVEMENT_ADMISSION_CAMEL_ALIASES = [
   "rollbackRef",
 ];
 
+test("governed improvement surface rejects retired request aliases before agent lookup or Rust runner", () => {
+  const runtimeStore = store();
+  const surface = createRuntimeGovernedImprovementSurface();
+
+  assert.throws(
+    () =>
+      surface.admitGovernedImprovementProposal(runtimeStore, "thread_surface", {
+        proposal_payload: proposal(),
+        proposalPayload: proposal(),
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "governed_improvement_proposal_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["proposalPayload", "proposal_payload"]);
+      assert.deepEqual(error.details.canonical_fields, ["proposal"]);
+      return true;
+    },
+  );
+  assert.deepEqual(runtimeStore.calls, []);
+});
+
 test("governed improvement surface admits nested proposal through Rust runner", () => {
   const runtimeStore = store();
   const surface = createRuntimeGovernedImprovementSurface();

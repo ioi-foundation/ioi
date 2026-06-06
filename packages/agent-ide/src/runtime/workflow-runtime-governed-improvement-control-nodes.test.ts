@@ -28,6 +28,33 @@ function proposal(): RuntimeGovernedImprovementProposal {
   };
 }
 
+const retiredGovernedImprovementRequestAliases = [
+  "eventKind",
+  "componentKind",
+  "payloadSchemaVersion",
+  "workflowGraphId",
+  "workflowNodeId",
+  "proposalId",
+  "targetRef",
+  "candidateRef",
+  "sourceTraceRef",
+  "evalReceiptRefs",
+  "verifierReceiptRefs",
+  "approvalRef",
+  "rollbackRef",
+  "agentgresOperationRef",
+  "expectedHeads",
+  "stateRootBefore",
+  "stateRootAfter",
+  "resultingHead",
+  "approvalMode",
+  "proposalOnly",
+  "mutationAllowed",
+  "mutationExecuted",
+  "proposal_payload",
+  "proposalPayload",
+];
+
 test("builds governed improvement proposal controls for daemon admission", () => {
   const request = createRuntimeGovernedImprovementControlRequest({
     threadId: "thread-ide",
@@ -56,8 +83,11 @@ test("builds governed improvement proposal controls for daemon admission", () =>
   assert.equal(request.body.mutation_executed, false);
   assert.deepEqual(request.body.eval_receipt_refs, ["receipt://eval/ide-holdout-pass"]);
   assert.deepEqual(request.body.verifier_receipt_refs, ["receipt://verifier/ide-regression-pass"]);
-  assert.equal(request.body.proposal_payload.proposal_id, "proposal://runtime-improvement/ide");
-  assert.equal(request.body.proposalPayload.approval_ref, "approval://wallet/runtime-improvement/ide");
+  assert.equal(request.body.proposal.proposal_id, "proposal://runtime-improvement/ide");
+  assert.equal(request.body.proposal.approval_ref, "approval://wallet/runtime-improvement/ide");
+  for (const key of retiredGovernedImprovementRequestAliases) {
+    assert.equal(Object.prototype.hasOwnProperty.call(request.body, key), false, `${key} must not be emitted`);
+  }
 });
 
 test("builds governed improvement controls from workflow proposal nodes", () => {
@@ -79,10 +109,10 @@ test("builds governed improvement controls from workflow proposal nodes", () => 
   assert.equal(request.threadId, "thread-from-node");
   assert.equal(request.proposalId, "proposal://runtime-improvement/ide");
   assert.equal(
-    request.body.workflowNodeId,
+    request.body.workflow_node_id,
     "runtime.governed-improvement-proposal.governed-improvement-node",
   );
-  assert.equal(request.body.workflowGraphId, "workflow-from-node");
+  assert.equal(request.body.workflow_graph_id, "workflow-from-node");
   assert.equal(request.body.actor, "runtime-reviewer");
 });
 

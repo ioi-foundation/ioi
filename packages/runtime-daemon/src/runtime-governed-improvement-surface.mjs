@@ -4,6 +4,15 @@ import { objectRecord, optionalString } from "./runtime-value-helpers.mjs";
 export const GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION =
   "ioi.runtime.governed_improvement_admission.v1";
 
+const RETIRED_GOVERNED_IMPROVEMENT_REQUEST_ALIASES = [
+  "proposalPayload",
+  "proposal_payload",
+];
+
+const CANONICAL_GOVERNED_IMPROVEMENT_REQUEST_FIELDS = [
+  "proposal",
+];
+
 export function createRuntimeGovernedImprovementSurface(deps = {}) {
   const {
     runtimeError: runtimeErrorDep = runtimeError,
@@ -11,7 +20,8 @@ export function createRuntimeGovernedImprovementSurface(deps = {}) {
 
   function proposalForRequest(request = {}) {
     const body = objectRecord(request) ?? {};
-    const nested = objectRecord(body.proposal ?? body.proposal_payload ?? body.proposalPayload) ?? {};
+    assertCanonicalGovernedImprovementRequestBody(body);
+    const nested = objectRecord(body.proposal) ?? {};
     const proposal = Object.keys(nested).length > 0 ? nested : body;
     if (Object.keys(proposal).length === 0) {
       throw runtimeErrorDep({
@@ -23,9 +33,25 @@ export function createRuntimeGovernedImprovementSurface(deps = {}) {
     return proposal;
   }
 
+  function assertCanonicalGovernedImprovementRequestBody(body = {}) {
+    const retiredAliases = RETIRED_GOVERNED_IMPROVEMENT_REQUEST_ALIASES.filter((field) =>
+      Object.hasOwn(body, field),
+    );
+    if (retiredAliases.length === 0) return;
+    throw runtimeErrorDep({
+      status: 400,
+      code: "governed_improvement_proposal_request_aliases_retired",
+      message: "Governed improvement proposal request aliases are retired; use proposal.",
+      details: {
+        retired_aliases: retiredAliases,
+        canonical_fields: CANONICAL_GOVERNED_IMPROVEMENT_REQUEST_FIELDS,
+      },
+    });
+  }
+
   function admitGovernedImprovementProposal(store, threadId, request = {}) {
-    const agent = store.agentForThread(threadId);
     const proposal = proposalForRequest(request);
+    const agent = store.agentForThread(threadId);
     const admission = store.governedImprovementRunner.admitProposal(proposal);
     const record = objectRecord(admission.record) ?? {};
     return {
