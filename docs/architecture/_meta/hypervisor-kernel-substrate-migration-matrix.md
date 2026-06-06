@@ -12525,6 +12525,13 @@ runtime MCP serve status and JSON-RPC invocation context now use canonical
 `threadId`, `workflowGraphId`, and `workflowNodeId` request fields no longer
 bind served-thread status or served coding-tool invocation metadata.
 
+Slice 407 removes MCP serve output aliases:
+runtime MCP serve status and JSON-RPC error payloads now expose canonical
+snake_case fields only for runtime metadata: `schema_version`,
+`protocol_version`, `allowed_tool_ids`, `tool_count`, `serve_for_thread`,
+`evidence_refs`, `allowed_tools`, and `supported_methods`; duplicate camelCase
+facade fields are retired from that serve surface.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -7573,6 +7573,9 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs")
     : "";
+  const runtimeMcpServeStatusBlock =
+    runtimeMcpServeSurface.match(/mcpServeStatus\(store, options = \{\}\) \{[\s\S]*?\n    \},\n    mcpServeToolCatalog/)?.[0] ??
+    "";
   const runtimeMcpControlSurface = exists("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
     : "";
@@ -10550,6 +10553,31 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
     ],
     "Phase 10/11 is pending: MCP serve requests must use canonical thread_id/workflow_graph_id/workflow_node_id without retired camelCase context aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-serve-output-aliases-retired",
+    /schema_version:\s*schemaVersion/.test(runtimeMcpServeStatusBlock) &&
+      /protocol_version:\s*protocolVersion/.test(runtimeMcpServeStatusBlock) &&
+      /allowed_tool_ids:\s*allowedToolIds/.test(runtimeMcpServeStatusBlock) &&
+      /tool_count:\s*tools\.length/.test(runtimeMcpServeStatusBlock) &&
+      /serve_for_thread:\s*"\/v1\/threads\/\{thread_id\}\/mcp\/serve"/.test(runtimeMcpServeStatusBlock) &&
+      /evidence_refs:\s*\["mcp\.serve\.http_jsonrpc",\s*"coding_tool_receipt"\]/.test(runtimeMcpServeStatusBlock) &&
+      /allowed_tools:\s*mcpServeAllowedToolIdsDep\(request\)/.test(runtimeMcpServeSurface) &&
+      /supported_methods:\s*\[/.test(runtimeMcpServeSurface) &&
+      /Object\.hasOwn\(status,\s*"allowedToolIds"\),\s*false/.test(runtimeMcpServeSurfaceTest) &&
+      /Object\.hasOwn\(disallowed\.error\.data,\s*"allowedTools"\),\s*false/.test(runtimeMcpServeSurfaceTest) &&
+      /Object\.hasOwn\(unsupported\.error\.data,\s*"supportedMethods"\),\s*false/.test(runtimeMcpServeSurfaceTest) &&
+      !/^\s*(?:schemaVersion|protocolVersion|allowedToolIds|toolCount|evidenceRefs)\s*:/m.test(
+        runtimeMcpServeStatusBlock,
+      ) &&
+      !/serveForThread\s*:/.test(runtimeMcpServeStatusBlock) &&
+      !/\b(?:allowedTools|supportedMethods)\s*:/.test(runtimeMcpServeSurface),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP serve status and error payloads must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

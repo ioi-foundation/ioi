@@ -37,24 +37,19 @@ export function createRuntimeMcpServeSurface({
       const tools = this.mcpServeToolCatalog(store, options);
       return {
         schema_version: schemaVersion,
-        schemaVersion,
         object: "ioi.runtime_mcp_serve_status",
         status: "ready",
         transport: "http_jsonrpc",
         protocol_version: protocolVersion,
-        protocolVersion,
         thread_id: optionalStringDep(options.thread_id) ?? null,
         allowed_tool_ids: allowedToolIds,
-        allowedToolIds,
         tool_count: tools.length,
-        toolCount: tools.length,
         tools,
         routes: {
           serve: "/v1/mcp/serve",
-          serveForThread: "/v1/threads/{thread_id}/mcp/serve",
+          serve_for_thread: "/v1/threads/{thread_id}/mcp/serve",
         },
         evidence_refs: ["mcp.serve.http_jsonrpc", "coding_tool_receipt"],
-        evidenceRefs: ["mcp.serve.http_jsonrpc", "coding_tool_receipt"],
       };
     },
     mcpServeToolCatalog(store, options = {}) {
@@ -125,7 +120,7 @@ export function createRuntimeMcpServeSurface({
           const toolId = mcpServeToolIdForNameDep(toolName, request);
           if (!toolId) {
             return mcpJsonRpcErrorDep(id, -32602, `MCP serve tool is not allowed: ${toolName ?? "missing"}.`, {
-              allowedTools: mcpServeAllowedToolIdsDep(request),
+              allowed_tools: mcpServeAllowedToolIdsDep(request),
             });
           }
           const input = params.arguments && typeof params.arguments === "object" && !Array.isArray(params.arguments)
@@ -146,7 +141,7 @@ export function createRuntimeMcpServeSurface({
           return mcpJsonRpcResultDep(id, mcpServeToolCallResultDep(invocation));
         }
         return mcpJsonRpcErrorDep(id, -32601, `MCP method not found: ${method}.`, {
-          supportedMethods: [
+          supported_methods: [
             "initialize",
             "notifications/initialized",
             "ping",

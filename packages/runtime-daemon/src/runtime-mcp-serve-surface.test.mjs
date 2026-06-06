@@ -75,8 +75,14 @@ test("runtime MCP serve surface projects status and allowed tool catalog", () =>
   assert.deepEqual(status.allowed_tool_ids, ["git.diff"]);
   assert.equal(status.tool_count, 1);
   assert.deepEqual(status.tools.map((tool) => tool.name), ["git.diff"]);
-  assert.equal(status.routes.serveForThread, "/v1/threads/{thread_id}/mcp/serve");
+  assert.equal(status.routes.serve_for_thread, "/v1/threads/{thread_id}/mcp/serve");
   assert.deepEqual(status.evidence_refs, ["mcp.serve.http_jsonrpc", "coding_tool_receipt"]);
+  assert.equal(Object.hasOwn(status, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(status, "protocolVersion"), false);
+  assert.equal(Object.hasOwn(status, "allowedToolIds"), false);
+  assert.equal(Object.hasOwn(status, "toolCount"), false);
+  assert.equal(Object.hasOwn(status, "evidenceRefs"), false);
+  assert.equal(Object.hasOwn(status.routes, "serveForThread"), false);
 });
 
 test("runtime MCP serve surface handles JSON-RPC lifecycle and batch notifications", async () => {
@@ -136,7 +142,8 @@ test("runtime MCP serve surface invokes allowed tools and rejects malformed requ
     { onlyDiff: true },
   );
   assert.equal(disallowed.error.code, -32602);
-  assert.deepEqual(disallowed.error.data.allowedTools, ["git.diff"]);
+  assert.deepEqual(disallowed.error.data.allowed_tools, ["git.diff"]);
+  assert.equal(Object.hasOwn(disallowed.error.data, "allowedTools"), false);
 
   const unsupported = await surface.handleSingleMcpServeJsonRpc(
     store,
@@ -144,7 +151,8 @@ test("runtime MCP serve surface invokes allowed tools and rejects malformed requ
     { jsonrpc: "2.0", id: 6, method: "resources/read" },
   );
   assert.equal(unsupported.error.code, -32601);
-  assert.equal(unsupported.error.data.supportedMethods.includes("tools/call"), true);
+  assert.equal(unsupported.error.data.supported_methods.includes("tools/call"), true);
+  assert.equal(Object.hasOwn(unsupported.error.data, "supportedMethods"), false);
 
   const response = await surface.handleSingleMcpServeJsonRpc(
     store,
