@@ -12167,9 +12167,11 @@ function runCompositor() {
       /threadId: "thread-retired"/.test(runtimeMcpServeSurfaceTest) &&
       /workflowGraphId: "retired\.graph"/.test(runtimeMcpServeSurfaceTest) &&
       /workflowNodeId: "retired\.node"/.test(runtimeMcpServeSurfaceTest) &&
+      /toolName: "git\.diff"/.test(runtimeMcpServeSurfaceTest) &&
       /workflow_graph_id: "runtime\.mcp-serve"/.test(runtimeMcpServeSurfaceTest) &&
       !/(?:options|request)\.threadId\b/.test(runtimeMcpServeSurface) &&
-      !/request\.(?:workflowGraphId|workflowNodeId)\b/.test(runtimeMcpServeSurface),
+      !/request\.(?:workflowGraphId|workflowNodeId)\b/.test(runtimeMcpServeSurface) &&
+      !/params\.toolName\b/.test(runtimeMcpServeSurface),
     [
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",

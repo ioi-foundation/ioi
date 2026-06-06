@@ -145,6 +145,16 @@ test("runtime MCP serve surface invokes allowed tools and rejects malformed requ
   assert.deepEqual(disallowed.error.data.allowed_tools, ["git.diff"]);
   assert.equal(Object.hasOwn(disallowed.error.data, "allowedTools"), false);
 
+  const retiredToolName = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    { jsonrpc: "2.0", id: 9, method: "tools/call", params: { toolName: "git.diff" } },
+    { onlyDiff: true },
+  );
+  assert.equal(retiredToolName.error.code, -32602);
+  assert.match(retiredToolName.error.message, /missing/);
+  assert.deepEqual(invocations, []);
+
   const unsupported = await surface.handleSingleMcpServeJsonRpc(
     store,
     "thread-one",

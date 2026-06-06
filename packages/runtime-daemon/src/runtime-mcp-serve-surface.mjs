@@ -116,7 +116,7 @@ export function createRuntimeMcpServeSurface({
         }
         if (method === "tools/call") {
           const params = message.params && typeof message.params === "object" ? message.params : {};
-          const toolName = optionalStringDep(params.name ?? params.tool_name ?? params.toolName);
+          const toolName = optionalStringDep(params.name ?? params.tool_name);
           const toolId = mcpServeToolIdForNameDep(toolName, request);
           if (!toolId) {
             return mcpJsonRpcErrorDep(id, -32602, `MCP serve tool is not allowed: ${toolName ?? "missing"}.`, {
