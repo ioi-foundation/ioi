@@ -83,7 +83,7 @@ export function createRuntimeThreadControlSurface({
       const controlKind = threadRuntimeControlKindDep(request);
       const source = operatorControlSourceDep(request.source);
       const requestedBy =
-        optionalStringDep(request.actor ?? request.requested_by ?? request.requestedBy) ??
+        optionalStringDep(request.actor ?? request.requested_by) ??
         "operator";
       const workflowGraphId = request.workflow_graph_id ?? null;
       const existingControls = normalizedAgentRuntimeControlsDep(agent);
@@ -96,10 +96,10 @@ export function createRuntimeThreadControlSurface({
 
       if (controlKind === "mode") {
         const mode = normalizeThreadInteractionModeDep(
-          request.mode ?? request.interaction_mode ?? request.interactionMode ?? request.value,
+          request.mode ?? request.interaction_mode ?? request.value,
         );
         const approvalMode = normalizeThreadApprovalModeDep(
-          request.approval_mode ?? request.approvalMode,
+          request.approval_mode,
           approvalModeForThreadModeDep(mode),
         );
         nextControls.mode = mode;

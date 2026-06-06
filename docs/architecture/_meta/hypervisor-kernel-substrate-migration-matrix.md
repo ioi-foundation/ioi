@@ -12916,6 +12916,13 @@ to Rust policy-core planning; retired `requestedBy` no longer steers the
 compaction requested-by actor in the Rust `planContextCompaction` bridge request
 or the resulting daemon projection.
 
+Slice 462 completes thread-control mode handoff alias retirement:
+thread runtime mode control now consumes canonical `interaction_mode`,
+`approval_mode`, `requested_by`, and `actor` fields only before route projection
+and Rust policy-core agent state-update planning; retired `interactionMode`,
+`approvalMode`, and `requestedBy` no longer steer mode selection, approval mode,
+or requested-by actor for daemon authority events.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -2482,6 +2482,15 @@ function runBridge() {
       ) &&
       /workflowGraphId: "graph_retired"/.test(runtimeThreadControlSurfaceTest) &&
       /workflowNodeId: "node_retired"/.test(runtimeThreadControlSurfaceTest) &&
+      /interactionMode: "yolo"/.test(runtimeThreadControlSurfaceTest) &&
+      /approvalMode: "never"/.test(runtimeThreadControlSurfaceTest) &&
+      /requestedBy: "operator_retired"/.test(runtimeThreadControlSurfaceTest) &&
+      /modeResult\.event\.payload\.requested_by,\s*"operator"/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /plannerCalls\[0\]\.controls\.approvalMode,\s*"human_required"/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
       /idempotencyKey: "thread_control_idempotency_retired"/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
@@ -2516,7 +2525,7 @@ function runBridge() {
       /store\.routeRequests\[0\]\.context\.workflowNodeId, "runtime\.model-router"/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
-      !/request\.(?:workflowNodeId|workflowGraphId|idempotencyKey)\b/.test(runtimeThreadControlSurface) &&
+      !/request\.(?:workflowNodeId|workflowGraphId|requestedBy|interactionMode|approvalMode|idempotencyKey)\b/.test(runtimeThreadControlSurface) &&
       !/request\.workflowNodeId\b/.test(threadRuntimeControls) &&
       !/request\.(?:workflow_node_id|workflow_graph_id|idempotency_key)\s*\?\?\s*request\./.test(
         runtimeThreadControlSurface,

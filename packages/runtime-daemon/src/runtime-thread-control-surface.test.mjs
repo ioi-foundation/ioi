@@ -220,15 +220,24 @@ test("thread control surface ignores retired request identity aliases", () => {
 
   const modeResult = surface.updateThreadMode(store, "thread_1", {
     mode: "review",
+    interactionMode: "yolo",
+    approvalMode: "never",
+    requestedBy: "operator_retired",
     workflowGraphId: "graph_retired",
     workflowNodeId: "node_retired",
     idempotencyKey: "thread_control_idempotency_retired",
   });
 
+  assert.equal(modeResult.event.payload.mode, "review");
+  assert.equal(modeResult.event.payload.approval_mode, "human_required");
+  assert.equal(modeResult.event.payload.requested_by, "operator");
   assert.equal(modeResult.event.workflow_graph_id, null);
   assert.equal(modeResult.event.workflow_node_id, "runtime.thread-mode");
   assert.match(modeResult.event.idempotency_key, /^thread:thread_1:control\.mode:/);
   assert.equal(store.events[1].workflow_graph_id, null);
+  assert.equal(store.events[1].payload_summary.approval_mode, "human_required");
+  assert.equal(plannerCalls[0].controls.mode, "review");
+  assert.equal(plannerCalls[0].controls.approvalMode, "human_required");
 
   const modelResult = surface.updateThreadThinking(store, "thread_1", {
     thinking: "off",
