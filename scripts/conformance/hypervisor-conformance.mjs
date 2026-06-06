@@ -3953,6 +3953,39 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-download-metadata-request-aliases-retired",
+    /RETIRED_MODEL_DOWNLOAD_METADATA_REQUEST_ALIASES/.test(catalogDownloadOperations) &&
+      /CANONICAL_MODEL_DOWNLOAD_METADATA_REQUEST_FIELDS/.test(catalogDownloadOperations) &&
+      /model_download_metadata_request_aliases_retired/.test(catalogDownloadOperations) &&
+      /assertCanonicalModelDownloadMetadataRequestBody\(body\);[\s\S]*const now = state\.nowIso\(\);/.test(
+        downloadModelBlock,
+      ) &&
+      /displayName:\s*body\.display_name \?\? modelId/.test(downloadModelBlock) &&
+      /contextWindow:\s*body\.context_window \?\? metadata\.contextWindow \?\? null/.test(
+        downloadModelBlock,
+      ) &&
+      /privacyClass:\s*body\.privacy_class \?\? "local_private"/.test(downloadModelBlock) &&
+      !/body\.(?:displayName|contextWindow|privacyClass)\b/.test(downloadModelBlock) &&
+      /downloadModel rejects retired metadata request aliases before timestamp or receipt/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /retired_aliases,\s*\[\s*"displayName",\s*"contextWindow",\s*"privacyClass",\s*\]/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /canonical_fields,\s*\[\s*"display_name",\s*"context_window",\s*"privacy_class",\s*\]/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /assert\.equal\(nowCount,\s*0\)/.test(catalogDownloadOperationsTest) &&
+      /assert\.equal\(state\.receipts\.length,\s*0\)/.test(catalogDownloadOperationsTest) &&
+      /assert\.equal\(state\.writes\.length,\s*0\)/.test(catalogDownloadOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: direct model download request bodies must fail closed on retired camelCase metadata aliases before timestamping or receipt creation",
+  );
+  assertCheck(
+    result,
     "model-mount-catalog-download-receipt-detail-aliases-retired",
     /source_url_hash:\s*sourceHash/.test(catalogDownloadErrorDetailsHelper) &&
       /evidence_refs:\s*evidenceRefs/.test(catalogDownloadErrorDetailsHelper) &&

@@ -93,6 +93,18 @@ const CANONICAL_MODEL_DOWNLOAD_CONTROL_REQUEST_FIELDS = [
   "expected_checksum",
 ];
 
+const RETIRED_MODEL_DOWNLOAD_METADATA_REQUEST_ALIASES = [
+  "displayName",
+  "contextWindow",
+  "privacyClass",
+];
+
+const CANONICAL_MODEL_DOWNLOAD_METADATA_REQUEST_FIELDS = [
+  "display_name",
+  "context_window",
+  "privacy_class",
+];
+
 function catalogDownloadErrorDetails(sourceHash, evidenceRefs) {
   return { source_url_hash: sourceHash, evidence_refs: evidenceRefs };
 }
@@ -307,6 +319,7 @@ export async function downloadModel(state, body = {}, deps = {}) {
   } = deps;
   assertCanonicalModelDownloadIdentityRequestBody(body);
   assertCanonicalModelDownloadControlRequestBody(body);
+  assertCanonicalModelDownloadMetadataRequestBody(body);
   const now = state.nowIso();
   const modelId = requireString(body.model_id, "model_id");
   const providerId = body.provider_id ?? "provider.autopilot.local";
@@ -512,15 +525,15 @@ export async function downloadModel(state, body = {}, deps = {}) {
     id: `download.${makeSafeId(modelId)}`,
     providerId,
     modelId,
-    displayName: body.display_name ?? body.displayName ?? modelId,
+    displayName: body.display_name ?? modelId,
     family: body.family ?? metadata.family ?? "download",
     format: body.format ?? variantMetadata.format ?? metadata.format ?? "gguf",
     quantization: body.quantization ?? variantMetadata.quantization ?? metadata.quantization ?? null,
     sizeBytes: completedBytes,
     checksum,
-    contextWindow: body.context_window ?? body.contextWindow ?? metadata.contextWindow ?? null,
+    contextWindow: body.context_window ?? metadata.contextWindow ?? null,
     capabilities: normalizeScopeList(body.capabilities, ["chat"]),
-    privacyClass: body.privacy_class ?? body.privacyClass ?? "local_private",
+    privacyClass: body.privacy_class ?? "local_private",
     source: publicSource(source),
     sourceLabel,
     sourceUrlHash: hash(source),
@@ -614,6 +627,22 @@ function assertCanonicalModelDownloadControlRequestBody(body = {}) {
     details: {
       retired_aliases: retiredAliases,
       canonical_fields: CANONICAL_MODEL_DOWNLOAD_CONTROL_REQUEST_FIELDS,
+    },
+  });
+}
+
+function assertCanonicalModelDownloadMetadataRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MODEL_DOWNLOAD_METADATA_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw runtimeError({
+    status: 400,
+    code: "model_download_metadata_request_aliases_retired",
+    message: "Model download metadata request aliases are retired; use canonical snake_case request fields.",
+    details: {
+      retired_aliases: retiredAliases,
+      canonical_fields: CANONICAL_MODEL_DOWNLOAD_METADATA_REQUEST_FIELDS,
     },
   });
 }

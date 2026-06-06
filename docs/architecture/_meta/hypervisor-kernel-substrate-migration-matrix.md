@@ -11938,6 +11938,11 @@ before timestamping, receipt creation, or writes. Canonical `bytes_total`,
 `max_bytes`, `simulate_failure`, `failure_reason`, `queued_only`, and
 `expected_checksum` remain accepted.
 
+Slice 316 retires direct model download metadata request aliases:
+`downloadModel` now fails closed on retired `displayName`, `contextWindow`,
+and `privacyClass` before timestamping, receipt creation, or writes. Canonical
+`display_name`, `context_window`, and `privacy_class` remain accepted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
