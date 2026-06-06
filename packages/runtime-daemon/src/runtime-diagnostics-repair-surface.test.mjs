@@ -77,16 +77,16 @@ function createStore({ action = "restore_apply", status = "available", snapshotR
     payload_summary: { workspace_snapshot_refs: snapshotRefs },
   };
   const decision = {
-    decisionId: "decision_alpha",
+    decision_id: "decision_alpha",
     action,
     status,
-    workspaceSnapshotRefs: snapshotRefs,
-    restoreConflictPolicy: "allow_override",
+    workspace_snapshot_refs: snapshotRefs,
+    restore_conflict_policy: "allow_override",
   };
   const repairPolicy = {
-    policyId: "policy_alpha",
-    workspaceSnapshotRefs: snapshotRefs,
-    restoreConflictPolicy: "clean_preview_only",
+    policy_id: "policy_alpha",
+    workspace_snapshot_refs: snapshotRefs,
+    restore_conflict_policy: "clean_preview_only",
   };
   return {
     calls,
@@ -127,13 +127,13 @@ function createStore({ action = "restore_apply", status = "available", snapshotR
   };
 }
 
-test("diagnostics repair surface routes restore apply with stable request aliases", () => {
+test("diagnostics repair surface routes restore apply with canonical request fields", () => {
   const surface = createSurface();
   const store = createStore();
 
   const result = surface.executeDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", {
     confirm: true,
-    allowConflicts: true,
+    allow_conflicts: true,
   });
 
   assert.equal(result.action, "restore_apply");
@@ -143,8 +143,80 @@ test("diagnostics repair surface routes restore apply with stable request aliase
   assert.equal(apply.snapshotId, "snapshot_alpha");
   assert.equal(apply.request.workflow_node_id, "runtime.lsp-diagnostics.repair.restore-apply");
   assert.equal(apply.request.idempotency_key, "thread:thread_alpha:diagnostics-repair-apply:decision_alpha:snapshot_alpha:approval-key");
-  assert.equal(apply.request.restoreConflictPolicy, "allow_override");
+  assert.equal(Object.hasOwn(apply.request, "restoreConflictPolicy"), false);
+  assert.equal(Object.hasOwn(apply.request, "allowConflicts"), false);
+  assert.equal(Object.hasOwn(apply.request, "approvalGranted"), false);
   assert.equal(apply.request.restore_conflict_policy, "allow_override");
+  assert.equal(apply.request.allow_conflicts, true);
+});
+
+test("diagnostics repair restore rejects retired request aliases before workspace restore call", () => {
+  for (const action of ["restore_preview", "restore_apply"]) {
+    const surface = createSurface();
+    const store = createStore({ action });
+    const retiredRequest = {
+      snapshotId: "snapshot_alias",
+      workflowGraphId: "graph_alias",
+      workflowNodeId: "node_alias",
+      restorePreviewIdempotencyKey: "preview_idempotency_alias",
+      restoreApplyIdempotencyKey: "apply_idempotency_alias",
+      approvalDecision: "approved",
+      policyDecision: "allow",
+      confirmRestoreApply: true,
+      applyConfirmed: true,
+      approvalGranted: true,
+      allowConflicts: true,
+      overrideConflicts: true,
+      restoreConflictPolicy: "allow_override",
+      conflictPolicy: "override_conflicts",
+    };
+
+    assert.throws(
+      () => surface.executeDiagnosticsRepairDecision(store, "thread_alpha", "decision_alpha", retiredRequest),
+      (error) => {
+        assert.equal(error.status, 400);
+        assert.equal(error.code, "diagnostics_repair_restore_request_aliases_retired");
+        assert.deepEqual(error.details.retired_aliases, [
+          "snapshotId",
+          "workflowGraphId",
+          "workflowNodeId",
+          "restorePreviewIdempotencyKey",
+          "restoreApplyIdempotencyKey",
+          "approvalDecision",
+          "policyDecision",
+          "confirmRestoreApply",
+          "applyConfirmed",
+          "approvalGranted",
+          "allowConflicts",
+          "overrideConflicts",
+          "restoreConflictPolicy",
+          "conflictPolicy",
+        ]);
+        assert.deepEqual(error.details.canonical_fields, [
+          "snapshot_id",
+          "workflow_graph_id",
+          "workflow_node_id",
+          "restore_preview_idempotency_key",
+          "restore_apply_idempotency_key",
+          "approval_decision",
+          "policy_decision",
+          "confirm_restore_apply",
+          "apply_confirmed",
+          "approval_granted",
+          "allow_conflicts",
+          "override_conflicts",
+          "restore_conflict_policy",
+          "conflict_policy",
+        ]);
+        return true;
+      },
+    );
+    assert.equal(
+      store.calls.some((call) => call.name === "preview" || call.name === "apply"),
+      false,
+      "workspace restore call must not run for retired diagnostics repair restore request aliases",
+    );
+  }
 });
 
 test("diagnostics repair surface routes retry, override, and preview actions", () => {

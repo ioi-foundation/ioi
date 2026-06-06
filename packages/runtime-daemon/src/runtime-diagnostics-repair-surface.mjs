@@ -21,6 +21,40 @@ import {
   uniqueStrings,
 } from "./runtime-value-helpers.mjs";
 
+const RETIRED_DIAGNOSTICS_REPAIR_RESTORE_REQUEST_ALIASES = [
+  "snapshotId",
+  "workflowGraphId",
+  "workflowNodeId",
+  "restorePreviewIdempotencyKey",
+  "restoreApplyIdempotencyKey",
+  "approvalDecision",
+  "policyDecision",
+  "confirmRestoreApply",
+  "applyConfirmed",
+  "approvalGranted",
+  "allowConflicts",
+  "overrideConflicts",
+  "restoreConflictPolicy",
+  "conflictPolicy",
+];
+
+const CANONICAL_DIAGNOSTICS_REPAIR_RESTORE_REQUEST_FIELDS = [
+  "snapshot_id",
+  "workflow_graph_id",
+  "workflow_node_id",
+  "restore_preview_idempotency_key",
+  "restore_apply_idempotency_key",
+  "approval_decision",
+  "policy_decision",
+  "confirm_restore_apply",
+  "apply_confirmed",
+  "approval_granted",
+  "allow_conflicts",
+  "override_conflicts",
+  "restore_conflict_policy",
+  "conflict_policy",
+];
+
 export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   const {
     diagnosticsRepairApplyApprovalKey,
@@ -76,8 +110,9 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         details: { threadId, decisionRef: target, action, status: decision.status },
       });
     }
+    assertCanonicalDiagnosticsRepairRestoreRequestBody(action, request);
     const snapshotId =
-      optionalString(request.snapshot_id ?? request.snapshotId) ??
+      optionalString(request.snapshot_id) ??
       uniqueStrings([
         ...normalizeArray(decision.workspaceSnapshotRefs ?? decision.workspace_snapshot_refs),
         ...normalizeArray(repairPolicy.workspaceSnapshotRefs ?? repairPolicy.workspace_snapshot_refs),
@@ -91,11 +126,9 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         details: { threadId, decisionRef: target, action },
       });
     }
-    const workflowGraphId = optionalString(
-      request.workflow_graph_id ?? request.workflowGraphId ?? gateEvent.workflow_graph_id,
-    );
+    const workflowGraphId = optionalString(request.workflow_graph_id ?? gateEvent.workflow_graph_id);
     const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      optionalString(request.workflow_node_id) ??
       (action === "repair_retry"
         ? LSP_DIAGNOSTICS_REPAIR_RETRY_NODE_ID
         : action === "operator_override"
@@ -131,42 +164,25 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
             workflow_graph_id: workflowGraphId,
             workflow_node_id: workflowNodeId,
             idempotency_key:
-              optionalString(request.restore_apply_idempotency_key ?? request.restoreApplyIdempotencyKey) ??
+              optionalString(request.restore_apply_idempotency_key) ??
               `thread:${threadId}:diagnostics-repair-apply:${decisionId}:${snapshotId}:${diagnosticsRepairApplyApprovalKey(request)}`,
             actor: request.actor ?? "operator",
             approval: request.approval,
-            approvalDecision: request.approvalDecision,
             approval_decision: request.approval_decision,
-            policyDecision: request.policyDecision,
             policy_decision: request.policy_decision,
             decision: request.decision,
             confirm: request.confirm,
             confirmed: request.confirmed,
-            confirmRestoreApply: request.confirmRestoreApply,
             confirm_restore_apply: request.confirm_restore_apply,
-            applyConfirmed: request.applyConfirmed,
             apply_confirmed: request.apply_confirmed,
-            approvalGranted: request.approvalGranted,
             approval_granted: request.approval_granted,
             approved: request.approved,
-            allowConflicts: request.allowConflicts,
             allow_conflicts: request.allow_conflicts,
-            overrideConflicts: request.overrideConflicts,
             override_conflicts: request.override_conflicts,
-            restoreConflictPolicy:
-              request.restoreConflictPolicy ??
-              request.restore_conflict_policy ??
-              decision.restoreConflictPolicy ??
-              decision.restore_conflict_policy ??
-              repairPolicy.restoreConflictPolicy ??
-              repairPolicy.restore_conflict_policy,
             restore_conflict_policy:
               request.restore_conflict_policy ??
-              request.restoreConflictPolicy ??
               decision.restore_conflict_policy ??
-              decision.restoreConflictPolicy ??
-              repairPolicy.restore_conflict_policy ??
-              repairPolicy.restoreConflictPolicy,
+              repairPolicy.restore_conflict_policy,
             diagnostics_repair_decision_id: decisionId,
             diagnostics_repair_action: action,
             diagnostics_blocking_gate_event_id: gateEvent.event_id,
@@ -176,7 +192,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
             workflow_graph_id: workflowGraphId,
             workflow_node_id: workflowNodeId,
             idempotency_key:
-              optionalString(request.restore_preview_idempotency_key ?? request.restorePreviewIdempotencyKey) ??
+              optionalString(request.restore_preview_idempotency_key) ??
               `thread:${threadId}:diagnostics-repair-preview:${decisionId}:${snapshotId}:${action}`,
             actor: request.actor ?? "operator",
             diagnostics_repair_decision_id: decisionId,
@@ -251,6 +267,23 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       rollback_refs: event.rollback_refs,
       summary: `Executed diagnostics repair decision ${action}${snapshotId ? ` for ${snapshotId}` : ""}.`,
     };
+  }
+
+  function assertCanonicalDiagnosticsRepairRestoreRequestBody(action, request = {}) {
+    if (!["restore_preview", "restore_apply"].includes(action)) return;
+    const retiredAliases = RETIRED_DIAGNOSTICS_REPAIR_RESTORE_REQUEST_ALIASES.filter((field) =>
+      Object.prototype.hasOwnProperty.call(request, field),
+    );
+    if (retiredAliases.length === 0) return;
+    throw runtimeError({
+      status: 400,
+      code: "diagnostics_repair_restore_request_aliases_retired",
+      message: "Diagnostics repair restore request aliases are retired; use canonical snake_case fields.",
+      details: {
+        retired_aliases: retiredAliases,
+        canonical_fields: CANONICAL_DIAGNOSTICS_REPAIR_RESTORE_REQUEST_FIELDS,
+      },
+    });
   }
 
   function executeDiagnosticsOperatorOverride(store, threadId, {

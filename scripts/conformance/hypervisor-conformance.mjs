@@ -6013,6 +6013,12 @@ function runCompositor() {
   const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     : "";
+  const runtimeDiagnosticsRepairSurface = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs")
+    : "";
+  const runtimeDiagnosticsRepairSurfaceTest = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
+    : "";
   const runtimeAgentRunLifecycle = exists("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     : "";
@@ -8589,6 +8595,33 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
     ],
     "Phase 10/11 is pending: workspace restore preview/apply requests must fail closed on retired workflow/idempotency camelCase aliases before projection events are emitted",
+  );
+  assertCheck(
+    result,
+    "diagnostics-repair-restore-request-aliases-retired",
+    /RETIRED_DIAGNOSTICS_REPAIR_RESTORE_REQUEST_ALIASES/.test(runtimeDiagnosticsRepairSurface) &&
+      /CANONICAL_DIAGNOSTICS_REPAIR_RESTORE_REQUEST_FIELDS/.test(runtimeDiagnosticsRepairSurface) &&
+      /diagnostics_repair_restore_request_aliases_retired/.test(runtimeDiagnosticsRepairSurface) &&
+      /assertCanonicalDiagnosticsRepairRestoreRequestBody\(action, request\);[\s\S]*optionalString\(request\.snapshot_id\)/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/request\.(?:snapshotId|workflowGraphId|workflowNodeId|restorePreviewIdempotencyKey|restoreApplyIdempotencyKey|approvalDecision|policyDecision|confirmRestoreApply|applyConfirmed|approvalGranted|allowConflicts|overrideConflicts|restoreConflictPolicy|conflictPolicy)\b/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /diagnostics repair surface routes restore apply with canonical request fields/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics repair restore rejects retired request aliases before workspace restore call/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /workspace restore call must not run for retired diagnostics repair restore request aliases/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: diagnostics repair restore decisions must fail closed on retired restore request aliases before calling workspace restore preview/apply",
   );
   assertCheck(
     result,

@@ -12027,6 +12027,14 @@ apply requests now fail closed on retired `workflowGraphId`,
 `workflowNodeId`, and `idempotencyKey` aliases before agent lookup, snapshot
 artifact reads, or workflow projection event emission.
 
+Slice 331 retires diagnostics repair restore request aliases: diagnostics
+repair restore preview/apply decisions now fail closed on retired camelCase
+request aliases such as `snapshotId`, `workflowGraphId`,
+`restoreApplyIdempotencyKey`, `approvalGranted`, `allowConflicts`, and
+`restoreConflictPolicy` before calling workspace restore preview/apply, and
+the restore request forwarded to the workspace surface uses canonical
+snake_case fields only.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
