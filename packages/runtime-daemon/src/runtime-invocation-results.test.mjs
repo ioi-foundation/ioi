@@ -14,7 +14,7 @@ function createProjections() {
   });
 }
 
-test("coding tool invocation result preserves replay and workspace snapshot aliases", () => {
+test("coding tool invocation result uses canonical replay and workspace snapshot fields", () => {
   const projections = createProjections();
   const event = {
     status: "completed",
@@ -40,8 +40,16 @@ test("coding tool invocation result preserves replay and workspace snapshot alia
   assert.equal(result.tool_name, "file__write");
   assert.equal(result.tool_call_id, "event_call");
   assert.equal(result.workspace_root, "/agent");
-  assert.equal(result.idempotentReplay, true);
-  assert.deepEqual(result.workspaceSnapshot, { snapshotId: "snap_1" });
+  assert.equal(result.idempotent_replay, true);
+  assert.deepEqual(result.workspace_snapshot, { snapshotId: "snap_1" });
+  for (const field of [
+    "idempotentReplay",
+    "workspaceSnapshot",
+    "workspaceSnapshotEvent",
+    "autoDiagnostics",
+  ]) {
+    assert.equal(Object.hasOwn(result, field), false);
+  }
   assert.equal(result.error, null);
 });
 
@@ -64,15 +72,18 @@ test("computer-use browser discovery result normalizes object records", () => {
   assert.equal(result.shell_fallback_used, false);
 });
 
-test("computer-use control result carries handoff and cleanup aliases", () => {
+test("computer-use control result uses canonical control, handoff, and cleanup fields", () => {
   const projections = createProjections();
   const event = {
     status: "completed",
     payload_summary: {
       toolRef: "computer_use__control",
-      controlReceipt: { control_ref: "control_1" },
-      humanHandoffState: "returned",
-      cleanupReceipt: { cleanup_ref: "cleanup_1" },
+      control_receipt: { control_ref: "control_1" },
+      controlReceipt: { control_ref: "retired_control_alias" },
+      human_handoff_state: "returned",
+      humanHandoffState: "retired_handoff_alias",
+      cleanup_receipt: { cleanup_ref: "cleanup_1" },
+      cleanupReceipt: { cleanup_ref: "retired_cleanup_alias" },
     },
   };
   const result = projections.computerUseControlInvocationResultFromEvent(event, {
@@ -82,9 +93,17 @@ test("computer-use control result carries handoff and cleanup aliases", () => {
 
   assert.equal(result.thread_id, "thread_1");
   assert.equal(result.turn_id, "turn_1");
-  assert.deepEqual(result.result.controlReceipt, { control_ref: "control_1" });
+  assert.deepEqual(result.result.control_receipt, { control_ref: "control_1" });
   assert.equal(result.result.human_handoff_state, "returned");
-  assert.deepEqual(result.result.cleanup, { cleanup_ref: "cleanup_1" });
+  assert.deepEqual(result.result.cleanup_receipt, { cleanup_ref: "cleanup_1" });
+  assert.equal(Object.hasOwn(result, "idempotentReplay"), false);
+  for (const field of [
+    "controlReceipt",
+    "humanHandoffState",
+    "cleanup",
+  ]) {
+    assert.equal(Object.hasOwn(result.result, field), false);
+  }
   assert.equal(result.error, null);
 });
 

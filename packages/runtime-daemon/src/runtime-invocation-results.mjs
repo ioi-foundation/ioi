@@ -49,13 +49,9 @@ export function createRuntimeInvocationResultProjections(deps = {}) {
       rollback_refs: event.rollback_refs,
       event,
       idempotent_replay: true,
-      idempotentReplay: true,
-      workspace_snapshot: result?.workspace_snapshot ?? result?.workspaceSnapshot ?? null,
-      workspaceSnapshot: result?.workspaceSnapshot ?? result?.workspace_snapshot ?? null,
+      workspace_snapshot: result?.workspace_snapshot ?? null,
       workspace_snapshot_event: null,
-      workspaceSnapshotEvent: null,
       auto_diagnostics: null,
-      autoDiagnostics: null,
       result,
       error: payload.error ?? null,
     };
@@ -84,13 +80,9 @@ export function createRuntimeInvocationResultProjections(deps = {}) {
       rollback_refs: event.rollback_refs,
       event,
       idempotent_replay: true,
-      idempotentReplay: true,
       workspace_snapshot: null,
-      workspaceSnapshot: null,
       workspace_snapshot_event: null,
-      workspaceSnapshotEvent: null,
       auto_diagnostics: null,
-      autoDiagnostics: null,
       result,
       error: payload.error ?? null,
     };
@@ -98,7 +90,7 @@ export function createRuntimeInvocationResultProjections(deps = {}) {
 
   function computerUseControlInvocationResultFromEvent(event, context = {}) {
     const payload = event.payload_summary ?? event.payload ?? {};
-    const result = objectRecord(payload.control_receipt ?? payload.controlReceipt);
+    const result = objectRecord(payload.control_receipt);
     return {
       schema_version: "ioi.runtime.computer-use-control-result.v1",
       object: "ioi.runtime_computer_use_control_result",
@@ -117,14 +109,10 @@ export function createRuntimeInvocationResultProjections(deps = {}) {
       rollback_refs: event.rollback_refs,
       event,
       idempotent_replay: true,
-      idempotentReplay: true,
       result: {
-        controlReceipt: result,
         control_receipt: result,
-        humanHandoffState: payload.human_handoff_state ?? payload.humanHandoffState ?? null,
-        human_handoff_state: payload.human_handoff_state ?? payload.humanHandoffState ?? null,
-        cleanup: payload.cleanup_receipt ?? payload.cleanupReceipt ?? null,
-        cleanup_receipt: payload.cleanup_receipt ?? payload.cleanupReceipt ?? null,
+        human_handoff_state: payload.human_handoff_state ?? null,
+        cleanup_receipt: payload.cleanup_receipt ?? null,
       },
       error: null,
     };

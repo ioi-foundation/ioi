@@ -594,6 +594,23 @@ function runBridge() {
   const runtimeCodingToolResultsTest = exists("packages/runtime-daemon/src/runtime-coding-tool-results.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-results.test.mjs")
     : "";
+  const runtimeInvocationResults = exists("packages/runtime-daemon/src/runtime-invocation-results.mjs")
+    ? read("packages/runtime-daemon/src/runtime-invocation-results.mjs")
+    : "";
+  const runtimeInvocationResultsTest = exists("packages/runtime-daemon/src/runtime-invocation-results.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-invocation-results.test.mjs")
+    : "";
+  const runtimeInvocationResultReplayBodies = [
+    runtimeInvocationResults.match(
+      /function codingToolInvocationResultFromEvent\(event, context = \{\}\) \{[\s\S]*?\n  \}/,
+    )?.[0] ?? "",
+    runtimeInvocationResults.match(
+      /function computerUseBrowserDiscoveryInvocationResultFromEvent\(event, context = \{\}\) \{[\s\S]*?\n  \}/,
+    )?.[0] ?? "",
+    runtimeInvocationResults.match(
+      /function computerUseControlInvocationResultFromEvent\(event, context = \{\}\) \{[\s\S]*?\n  \}/,
+    )?.[0] ?? "",
+  ].join("\n");
   const codingToolContracts = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
     : "";
@@ -1217,6 +1234,33 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
     "Phase 10/11 is pending: Rust live coding-tool result wrappers must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-invocation-result-replay-aliases-retired",
+    /workspace_snapshot:\s*result\?\.workspace_snapshot \?\? null/.test(runtimeInvocationResults) &&
+      /control_receipt:\s*result/.test(runtimeInvocationResults) &&
+      /human_handoff_state:\s*payload\.human_handoff_state \?\? null/.test(runtimeInvocationResults) &&
+      /cleanup_receipt:\s*payload\.cleanup_receipt \?\? null/.test(runtimeInvocationResults) &&
+      !/\b(?:idempotentReplay|workspaceSnapshot|workspaceSnapshotEvent|autoDiagnostics|controlReceipt|humanHandoffState)\s*:/.test(
+        runtimeInvocationResultReplayBodies,
+      ) &&
+      !/payload\.(?:controlReceipt|humanHandoffState|cleanupReceipt)\b/.test(
+        runtimeInvocationResultReplayBodies,
+      ) &&
+      /coding tool invocation result uses canonical replay and workspace snapshot fields/.test(
+        runtimeInvocationResultsTest,
+      ) &&
+      /computer-use control result uses canonical control, handoff, and cleanup fields/.test(
+        runtimeInvocationResultsTest,
+      ) &&
+      /Object\.hasOwn\(result,\s*field\),\s*false/.test(runtimeInvocationResultsTest) &&
+      /Object\.hasOwn\(result\.result,\s*field\),\s*false/.test(runtimeInvocationResultsTest),
+    [
+      "packages/runtime-daemon/src/runtime-invocation-results.mjs",
+      "packages/runtime-daemon/src/runtime-invocation-results.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime invocation replay projections must expose canonical snake_case fields without duplicate camelCase replay aliases",
   );
   assertCheck(
     result,
