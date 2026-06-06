@@ -971,15 +971,24 @@ function runBridge() {
       /ContextBudgetPolicyRequest/.test(policyCore) &&
       /CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_blocks_context_budget_excess/.test(policyCore) &&
+      /runtime_event_item_id/.test(policyCore) &&
+      /runtime_event_idempotency_key/.test(policyCore) &&
       /evaluate_context_budget_policy/.test(bridgeModule) &&
       /ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
       /rust_context_budget_policy_command/.test(bridgeModule) &&
       /bridge_evaluates_context_budget_policy_through_rust_core/.test(bridgeModule) &&
+      /runtime_event_idempotency_key/.test(bridgeModule) &&
       /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
       /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
       /evaluateContextBudgetPolicy/.test(runtimeContextPolicyRunner) &&
+      /runtime_event_item_id/.test(runtimeContextPolicyRunner) &&
       /context budget policy runner sends generic Rust policy bridge request/.test(
         runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.runtime_event_item_id/.test(runtimeContextPolicySurface) &&
+      /result\.runtime_event_idempotency_key/.test(runtimeContextPolicySurface) &&
+      !/context-budget:\$\{safeIdDep\(result\.policy_decision_id\)\}/.test(
+        runtimeContextPolicySurface,
       ) &&
       /context policy runner fails closed without bridge command/.test(
         runtimeContextPolicyRunnerTest,

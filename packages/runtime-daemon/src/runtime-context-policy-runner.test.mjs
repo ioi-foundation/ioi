@@ -34,6 +34,11 @@ test("context budget policy runner sends generic Rust policy bridge request", ()
             violations: [{ id: "total_tokens" }],
             warnings: [],
             would_block: true,
+            runtime_event_kind: "policy.blocked",
+            runtime_event_status: "blocked",
+            runtime_event_item_id: "turn_1:item:context-budget:policy_context_budget_thread_test_blocked",
+            runtime_event_idempotency_key:
+              "thread:thread_1:context-budget:policy_context_budget_thread_test_blocked",
             summary: "Context budget blocked: total tokens exceeded.",
           },
         }),
@@ -47,6 +52,7 @@ test("context budget policy runner sends generic Rust policy bridge request", ()
     thresholds: { max_total_tokens: 100, warn_at_ratio: 0.8 },
     mode: "block",
     thread_id: "thread_1",
+    turn_id: "turn_1",
   });
 
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
@@ -56,6 +62,12 @@ test("context budget policy runner sends generic Rust policy bridge request", ()
   assert.equal(captured.request.usage_telemetry.total_tokens, 120);
   assert.equal(result.source, "rust_context_budget_policy_command");
   assert.equal(result.status, "blocked");
+  assert.equal(result.runtime_event_kind, "policy.blocked");
+  assert.equal(result.runtime_event_status, "blocked");
+  assert.equal(
+    result.runtime_event_idempotency_key,
+    "thread:thread_1:context-budget:policy_context_budget_thread_test_blocked",
+  );
   assert.deepEqual(result.policy_decision_refs, ["policy_context_budget_thread_test_blocked"]);
 });
 

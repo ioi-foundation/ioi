@@ -1542,6 +1542,10 @@ fn evaluate_context_budget_policy_bridge(
         "warnings": record.warnings.clone(),
         "violations": record.violations.clone(),
         "would_block": record.would_block,
+        "runtime_event_kind": record.runtime_event_kind.clone(),
+        "runtime_event_status": record.runtime_event_status.clone(),
+        "runtime_event_item_id": record.runtime_event_item_id.clone(),
+        "runtime_event_idempotency_key": record.runtime_event_idempotency_key.clone(),
         "summary": record.summary.clone(),
     }))
 }
@@ -5679,6 +5683,7 @@ mod tests {
                 "mode": "block",
                 "scope": "thread",
                 "thread_id": "thread_budget",
+                "turn_id": "turn_budget",
                 "workflow_graph_id": "graph_budget",
                 "workflow_node_id": "node_budget",
                 "source": "react_flow"
@@ -5699,6 +5704,16 @@ mod tests {
         assert_eq!(response["record"]["component_kind"], "context_budget");
         assert_eq!(response["usage_summary"]["total_tokens"], 120.0);
         assert_eq!(response["violations"][0]["id"], "total_tokens");
+        assert_eq!(response["runtime_event_kind"], "policy.blocked");
+        assert_eq!(response["runtime_event_status"], "blocked");
+        assert!(response["runtime_event_item_id"]
+            .as_str()
+            .expect("runtime event item id")
+            .starts_with("turn_budget:item:context-budget:policy_context_budget_thread_"));
+        assert!(response["runtime_event_idempotency_key"]
+            .as_str()
+            .expect("runtime event idempotency key")
+            .starts_with("thread:thread_budget:context-budget:policy_context_budget_thread_"));
     }
 
     #[test]

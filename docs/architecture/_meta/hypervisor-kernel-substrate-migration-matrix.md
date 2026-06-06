@@ -12127,6 +12127,13 @@ idempotency key; the daemon context-policy facade consumes those Rust-owned
 fields when appending policy and compact events instead of deriving them from
 `policy_decision_id` in JS.
 
+Slice 344 moves context-budget runtime-event identity into Rust: the Rust
+`ContextBudgetPolicyCore` result now carries canonical context-budget runtime
+event kind/status, item ID, and event idempotency key, with daemon callers
+passing `turn_id` into the bridge request; the daemon context-policy facade
+consumes those Rust-owned fields when appending context-budget events instead
+of deriving event identity from `policy_decision_id` in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

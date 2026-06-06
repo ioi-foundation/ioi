@@ -41,6 +41,7 @@ function budgetRunnerMock({ capture = null } = {}) {
       mode: request.mode,
       scope: request.scope,
       thread_id: request.thread_id,
+      turn_id: request.turn_id,
       run_id: request.run_id,
       workflow_graph_id: request.workflow_graph_id,
       workflow_node_id: request.workflow_node_id,
@@ -55,6 +56,11 @@ function budgetRunnerMock({ capture = null } = {}) {
       warnings: [],
       violations,
       would_block: wouldBlock,
+      runtime_event_kind: status === "blocked" ? "policy.blocked" : "context_budget.evaluated",
+      runtime_event_status: status === "blocked" ? "blocked" : "completed",
+      runtime_event_item_id: `${request.turn_id ?? request.thread_id}:item:context-budget:policy_context_budget_thread_mock`,
+      runtime_event_idempotency_key:
+        `thread:${request.thread_id}:context-budget:policy_context_budget_thread_mock`,
       summary:
         status === "blocked"
           ? "Context budget blocked: total tokens exceeded."
@@ -216,6 +222,7 @@ test("context budget policy warns in simulate mode and blocks in block mode", ()
         warn_at_ratio: 0.8,
       },
       workflowNodeId: "node-budget",
+      turnId: "turn-budget",
     },
     budgetRunner: budgetRunnerMock({
       capture: (request) => {
@@ -226,6 +233,7 @@ test("context budget policy warns in simulate mode and blocks in block mode", ()
 
   assert.equal(capturedRequest.schema_version, "ioi.runtime.context-budget-policy-request.v1");
   assert.equal(capturedRequest.workflow_node_id, "node-budget");
+  assert.equal(capturedRequest.turn_id, "turn-budget");
   assert.equal(simulated.status, "warn");
   assert.equal(simulated.would_block, true);
   assert.equal(simulated.thread_id, "thread-1");

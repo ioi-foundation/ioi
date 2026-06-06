@@ -143,6 +143,7 @@ export function evaluateContextBudgetPolicy({
     optionalString(request.run_id ?? request.runId) ??
     optionalString(canonicalUsageTelemetry.run_id) ??
     null;
+  const turnId = optionalString(request.turn_id ?? request.turnId) ?? null;
   return budgetRunner.evaluateContextBudgetPolicy({
     schema_version: CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
     usage_telemetry: canonicalUsageTelemetry,
@@ -155,6 +156,7 @@ export function evaluateContextBudgetPolicy({
     mode,
     scope,
     thread_id: threadId,
+    turn_id: turnId,
     run_id: runId,
     source: operatorControlSource(request.source),
     actor: optionalString(request.actor) ?? "operator",

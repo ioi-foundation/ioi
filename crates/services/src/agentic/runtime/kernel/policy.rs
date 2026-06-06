@@ -93,6 +93,8 @@ pub struct ContextBudgetPolicyRequest {
     #[serde(default)]
     pub thread_id: Option<String>,
     #[serde(default)]
+    pub turn_id: Option<String>,
+    #[serde(default)]
     pub run_id: Option<String>,
     #[serde(default)]
     pub tool_id: Option<String>,
@@ -168,6 +170,8 @@ pub struct ContextBudgetPolicyRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub run_id: Option<String>,
     pub source: String,
     pub actor: String,
@@ -189,6 +193,10 @@ pub struct ContextBudgetPolicyRecord {
     pub warnings: Vec<ContextBudgetCheck>,
     pub violations: Vec<ContextBudgetCheck>,
     pub would_block: bool,
+    pub runtime_event_kind: String,
+    pub runtime_event_status: String,
+    pub runtime_event_item_id: String,
+    pub runtime_event_idempotency_key: String,
     pub simulation_mode: bool,
     pub summary: String,
     pub generated_at: String,
@@ -443,6 +451,7 @@ impl ContextBudgetPolicyCore {
         });
         let thread_id =
             optional_trimmed(request.thread_id.as_deref()).or(usage_summary.thread_id.clone());
+        let turn_id = optional_trimmed(request.turn_id.as_deref());
         let run_id = optional_trimmed(request.run_id.as_deref()).or(usage_summary.run_id.clone());
         let workflow_node_id = optional_trimmed(request.workflow_node_id.as_deref())
             .unwrap_or_else(|| "runtime.context-budget".to_string());
@@ -492,6 +501,22 @@ impl ContextBudgetPolicyCore {
             decision_short
         );
         let summary = budget_summary(&status, &violations, &warnings);
+        let runtime_event_kind = context_budget_runtime_event_kind(&status);
+        let runtime_event_status = context_budget_runtime_event_status(&status);
+        let event_scope = turn_id
+            .as_deref()
+            .or(thread_id.as_deref())
+            .unwrap_or(scope.as_str());
+        let runtime_event_item_id = format!(
+            "{}:item:context-budget:{}",
+            event_scope,
+            safe_id(&policy_decision_id)
+        );
+        let runtime_event_idempotency_key = format!(
+            "thread:{}:context-budget:{}",
+            thread_id.as_deref().unwrap_or(scope.as_str()),
+            safe_id(&policy_decision_id)
+        );
         let decision = ContextBudgetDecision {
             policy_decision_id: policy_decision_id.clone(),
             status: status.clone(),
@@ -510,6 +535,7 @@ impl ContextBudgetPolicyCore {
             mode: mode.clone(),
             scope,
             thread_id,
+            turn_id,
             run_id,
             source: optional_trimmed(request.source.as_deref())
                 .unwrap_or_else(|| "react_flow".to_string()),
@@ -532,6 +558,10 @@ impl ContextBudgetPolicyCore {
             warnings,
             violations,
             would_block,
+            runtime_event_kind,
+            runtime_event_status,
+            runtime_event_item_id,
+            runtime_event_idempotency_key,
             simulation_mode: mode == "simulate",
             summary,
             generated_at: "rust_policy_core".to_string(),
@@ -935,6 +965,22 @@ fn budget_summary(
     "Context budget is within policy.".to_string()
 }
 
+fn context_budget_runtime_event_kind(status: &str) -> String {
+    if status == "blocked" {
+        "policy.blocked".to_string()
+    } else {
+        "context_budget.evaluated".to_string()
+    }
+}
+
+fn context_budget_runtime_event_status(status: &str) -> String {
+    if status == "blocked" {
+        "blocked".to_string()
+    } else {
+        "completed".to_string()
+    }
+}
+
 fn number_field(value: &Value, key: &str) -> f64 {
     value
         .get(key)
@@ -1100,6 +1146,7 @@ mod tests {
             mode: Some("block".to_string()),
             scope: Some("thread".to_string()),
             thread_id: Some("thread_budget".to_string()),
+            turn_id: Some("turn_budget".to_string()),
             run_id: None,
             tool_id: Some("file.inspect".to_string()),
             tool_call_id: Some("call_budget".to_string()),
@@ -1186,6 +1233,7 @@ mod tests {
         assert_eq!(record.event_kind, "RuntimeContextBudget.Evaluate");
         assert_eq!(record.component_kind, "context_budget");
         assert_eq!(record.workflow_node_id, "node_budget");
+        assert_eq!(record.turn_id.as_deref(), Some("turn_budget"));
         assert_eq!(record.usage_summary.total_tokens, 120.0);
         assert_eq!(record.violations[0].id, "total_tokens");
         assert!(record
@@ -1195,6 +1243,14 @@ mod tests {
             record.policy_decision_refs,
             vec![record.policy_decision_id.clone()]
         );
+        assert_eq!(record.runtime_event_kind, "policy.blocked");
+        assert_eq!(record.runtime_event_status, "blocked");
+        assert!(record
+            .runtime_event_item_id
+            .starts_with("turn_budget:item:context-budget:policy_context_budget_thread_"));
+        assert!(record
+            .runtime_event_idempotency_key
+            .starts_with("thread:thread_budget:context-budget:policy_context_budget_thread_"));
     }
 
     #[test]
@@ -1221,6 +1277,8 @@ mod tests {
             .expect("budget warning");
 
         assert_eq!(record.status, "warn");
+        assert_eq!(record.runtime_event_kind, "context_budget.evaluated");
+        assert_eq!(record.runtime_event_status, "completed");
         assert_eq!(record.warnings[0].severity, "warning");
         assert!(record.violations.is_empty());
     }

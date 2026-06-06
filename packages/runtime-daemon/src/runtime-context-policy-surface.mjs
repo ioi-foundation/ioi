@@ -19,7 +19,6 @@ import {
   appendOperatorControl,
   operatorControlSource,
   optionalString,
-  safeId,
 } from "./runtime-value-helpers.mjs";
 
 export function createRuntimeContextPolicySurface({
@@ -36,7 +35,6 @@ export function createRuntimeContextPolicySurface({
   optionalString: optionalStringDep = optionalString,
   runtimeError,
   runtimeSessionIdForAgent: runtimeSessionIdForAgentDep = runtimeSessionIdForAgent,
-  safeId: safeIdDep = safeId,
   threadIdForAgent: threadIdForAgentDep = threadIdForAgent,
   turnIdForRun: turnIdForRunDep = turnIdForRun,
 } = {}) {
@@ -150,6 +148,15 @@ export function createRuntimeContextPolicySurface({
           : requestedThreadId
             ? store.usageForThread(requestedThreadId)
             : store.listUsage({ group_by: "thread" }));
+      let eventAgent = null;
+      let eventLatestRun = run ?? null;
+      if (requestedThreadId && !eventLatestRun) {
+        eventAgent = store.agentForThread(requestedThreadId);
+        eventLatestRun = store.listRuns(eventAgent.id).at(-1) ?? null;
+      }
+      const eventTurnId =
+        optionalStringDep(request.turn_id ?? request.turnId) ??
+        (eventLatestRun ? turnIdForRunDep(eventLatestRun.id) : null);
       const result = evaluateContextBudgetPolicyDep({
         usageTelemetry,
         request: {
@@ -157,6 +164,8 @@ export function createRuntimeContextPolicySurface({
           scope,
           threadId: requestedThreadId,
           thread_id: requestedThreadId,
+          turnId: eventTurnId,
+          turn_id: eventTurnId,
           runId: requestedRunId,
           run_id: requestedRunId,
         },
@@ -164,25 +173,22 @@ export function createRuntimeContextPolicySurface({
 
       if (!requestedThreadId) return result;
 
-      const agent = store.agentForThread(requestedThreadId);
-      const latestRun = run ?? store.listRuns(agent.id).at(-1) ?? null;
+      const agent = eventAgent ?? store.agentForThread(requestedThreadId);
       const now = new Date().toISOString();
-      const eventKind =
-        result.status === "blocked" ? "policy.blocked" : "context_budget.evaluated";
       const event = store.appendRuntimeEvent({
         event_stream_id: eventStreamIdForThreadDep(requestedThreadId),
         thread_id: requestedThreadId,
-        turn_id: latestRun ? turnIdForRunDep(latestRun.id) : "",
-        item_id: `${latestRun ? turnIdForRunDep(latestRun.id) : requestedThreadId}:item:context-budget:${safeIdDep(result.policy_decision_id)}`,
+        turn_id: eventTurnId ?? "",
+        item_id: result.runtime_event_item_id,
         idempotency_key:
           optionalStringDep(request.idempotency_key ?? request.idempotencyKey) ??
-          `thread:${requestedThreadId}:context-budget:${safeIdDep(result.policy_decision_id)}`,
+          result.runtime_event_idempotency_key,
         source: operatorControlSourceDep(request.source),
         source_event_kind:
           optionalStringDep(request.eventKind ?? request.event_kind) ??
           "RuntimeContextBudget.Evaluate",
-        event_kind: eventKind,
-        status: result.status === "blocked" ? "blocked" : "completed",
+        event_kind: result.runtime_event_kind,
+        status: result.runtime_event_status,
         actor: optionalStringDep(request.actor) ?? "operator",
         created_at: now,
         workspace_root: agent.cwd,

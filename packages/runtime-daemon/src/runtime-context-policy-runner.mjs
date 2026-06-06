@@ -175,6 +175,17 @@ export function normalizeContextBudgetPolicyBridgeResult(value = {}) {
     warnings: arrayValue(result.warnings ?? record.warnings),
     violations: arrayValue(result.violations ?? record.violations),
     would_block: Boolean(result.would_block ?? record.would_block),
+    runtime_event_kind:
+      optionalString(result.runtime_event_kind ?? record.runtime_event_kind) ??
+      "context_budget.evaluated",
+    runtime_event_status:
+      optionalString(result.runtime_event_status ?? record.runtime_event_status) ?? "completed",
+    runtime_event_item_id: optionalString(
+      result.runtime_event_item_id ?? record.runtime_event_item_id,
+    ),
+    runtime_event_idempotency_key: optionalString(
+      result.runtime_event_idempotency_key ?? record.runtime_event_idempotency_key,
+    ),
     summary: optionalString(result.summary ?? record.summary) ?? null,
   };
 }

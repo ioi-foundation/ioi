@@ -5,11 +5,16 @@ import { RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION } from "./runtime-contract-consta
 import { createRuntimeContextPolicySurface } from "./runtime-context-policy-surface.mjs";
 
 function baseResult(overrides = {}) {
+  const status = overrides.status ?? "passed";
   return {
-    status: "passed",
+    status,
     policy_decision_id: "policy-one",
     receipt_refs: ["receipt-one"],
     policy_decision_refs: ["policy-one"],
+    runtime_event_kind: status === "blocked" ? "policy.blocked" : "context_budget.evaluated",
+    runtime_event_status: status === "blocked" ? "blocked" : "completed",
+    runtime_event_item_id: "turn-run-one:item:context-budget:rust-budget-policy",
+    runtime_event_idempotency_key: "thread:thread-agent-one:context-budget:rust-budget-policy",
     ...overrides,
   };
 }
@@ -113,9 +118,6 @@ function harness({ contextResult = baseResult(), compactionResult = null, compac
       error.details = input;
       return error;
     },
-    safeId(value) {
-      return String(value).replace(/[^a-z0-9_-]+/gi, "_");
-    },
     threadIdForAgent(agentId) {
       return `thread-${agentId}`;
     },
@@ -203,6 +205,8 @@ test("context policy surface evaluates context budget and appends thread event",
   assert.equal(result.event_id, "event-1");
   assert.equal(events[0].event_kind, "policy.blocked");
   assert.equal(events[0].status, "blocked");
+  assert.equal(events[0].item_id, "turn-run-one:item:context-budget:rust-budget-policy");
+  assert.equal(events[0].idempotency_key, "thread:thread-agent-one:context-budget:rust-budget-policy");
   assert.equal(events[0].component_kind, "context_budget");
   assert.equal(events[0].payload_schema_version, RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION);
   assert.equal(events[0].turn_id, "turn-run-one");
