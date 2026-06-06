@@ -22,7 +22,7 @@ function helpers() {
   });
 }
 
-test("diagnostics repair policy config normalizes request, input, and tool-pack aliases", () => {
+test("diagnostics repair policy config normalizes canonical request, input, and tool-pack fields", () => {
   const runtime = helpers();
 
   assert.deepEqual(runtime.diagnosticsRepairPolicyConfig({
@@ -50,6 +50,52 @@ test("diagnostics repair policy config normalizes request, input, and tool-pack 
   assert.equal(runtime.normalizeRestorePolicy("blocked"), "disabled");
   assert.equal(runtime.normalizeRestoreConflictPolicy("force"), "allow_override");
   assert.equal(runtime.normalizeDiagnosticsRepairDefault("continue"), "operator_override");
+});
+
+test("diagnostics repair policy config ignores retired request, input, and tool-pack aliases", () => {
+  const runtime = helpers();
+
+  assert.deepEqual(runtime.diagnosticsRepairPolicyConfig({
+    restorePolicy: "preview",
+    restoreConflictPolicy: "approval",
+    diagnosticsRepairDefault: "restore_apply",
+    defaultRepairDecision: "operator_override",
+    operatorOverrideRequiresApproval: "false",
+    toolPack: {
+      coding: {
+        restorePolicy: "preview",
+        restoreConflictPolicy: "approval",
+        conflictPolicy: "force",
+        diagnosticsRepairDefault: "restore_apply",
+        defaultRepairDecision: "operator_override",
+        operatorOverrideRequiresApproval: "false",
+      },
+    },
+    options: {
+      toolPack: {
+        restorePolicy: "preview",
+        defaultRepairDecision: "restore_apply",
+      },
+    },
+  }, {
+    restorePolicy: "preview",
+    restoreConflictPolicy: "approval",
+    diagnosticsRepairDefault: "restore_apply",
+    defaultRepairDecision: "operator_override",
+    operatorOverrideRequiresApproval: "false",
+  }), {
+    restorePolicy: "apply_with_approval",
+    restore_policy: "apply_with_approval",
+    restoreConflictPolicy: "block",
+    restore_conflict_policy: "block",
+    diagnosticsRepairDefault: "repair_retry",
+    diagnostics_repair_default: "repair_retry",
+    operatorOverrideRequiresApproval: true,
+    operator_override_requires_approval: true,
+  });
+
+  assert.equal(runtime.hasDiagnosticsRepairPolicyConfig({ restorePolicy: "preview" }, {}), false);
+  assert.equal(runtime.hasDiagnosticsRepairPolicyConfig({ restore_policy: "preview" }, {}), true);
 });
 
 test("diagnostics repair contexts emit canonical fields and rollback refs", () => {
@@ -97,7 +143,7 @@ test("diagnostics repair contexts emit canonical fields and rollback refs", () =
     "lsp.diagnostics",
   );
   assert.equal(runtime.diagnosticsRepairContextForToolPack({}, {}, "file.read"), null);
-  assert.equal(runtime.hasDiagnosticsRepairPolicyConfig({ restorePolicy: "preview" }, {}), true);
+  assert.equal(runtime.hasDiagnosticsRepairPolicyConfig({ restore_policy: "preview" }, {}), true);
 });
 
 test("diagnostics repair contexts ignore retired context aliases", () => {

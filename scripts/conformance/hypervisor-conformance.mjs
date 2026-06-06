@@ -13273,6 +13273,53 @@ function runCompositor() {
     diagnosticsRepairPolicy.match(
       /  function diagnosticsRepairContextForRequest\(request = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsRepairContextRecord)/,
     )?.[0] ?? "";
+  const diagnosticsRepairPolicyConfigBody =
+    diagnosticsRepairPolicy.match(
+      /  function diagnosticsRepairPolicyConfig\(request = \{\}, input = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsRepairPolicyConfigForContexts)/,
+    )?.[0] ?? "";
+  const hasDiagnosticsRepairPolicyConfigBody =
+    diagnosticsRepairPolicy.match(
+      /  function hasDiagnosticsRepairPolicyConfig\(request = \{\}, input = \{\}\) \{[\s\S]*?(?=\n  function normalizeDiagnosticsMode)/,
+    )?.[0] ?? "";
+  assertCheck(
+    result,
+    "diagnostics-repair-policy-config-aliases-retired",
+    /request\.tool_pack/.test(diagnosticsRepairPolicyConfigBody) &&
+      /request\.options\?\.tool_pack/.test(diagnosticsRepairPolicyConfigBody) &&
+      /request\.restore_policy/.test(diagnosticsRepairPolicyConfigBody) &&
+      /input\.restore_policy/.test(diagnosticsRepairPolicyConfigBody) &&
+      /request\.restore_conflict_policy/.test(diagnosticsRepairPolicyConfigBody) &&
+      /input\.restore_conflict_policy/.test(diagnosticsRepairPolicyConfigBody) &&
+      /request\.diagnostics_repair_default/.test(diagnosticsRepairPolicyConfigBody) &&
+      /input\.diagnostics_repair_default/.test(diagnosticsRepairPolicyConfigBody) &&
+      /request\.default_repair_decision/.test(diagnosticsRepairPolicyConfigBody) &&
+      /input\.default_repair_decision/.test(diagnosticsRepairPolicyConfigBody) &&
+      /request\.operator_override_requires_approval/.test(diagnosticsRepairPolicyConfigBody) &&
+      /input\.operator_override_requires_approval/.test(diagnosticsRepairPolicyConfigBody) &&
+      !/\b(?:request|input)\.(?:toolPack|restorePolicy|restoreConflictPolicy|diagnosticsRepairDefault|defaultRepairDecision|operatorOverrideRequiresApproval)\b/.test(
+        `${diagnosticsRepairPolicyConfigBody}\n${hasDiagnosticsRepairPolicyConfigBody}`,
+      ) &&
+      !/\brequest\.options\?\.(?:toolPack|restorePolicy|restoreConflictPolicy|diagnosticsRepairDefault|defaultRepairDecision|operatorOverrideRequiresApproval)\b/.test(
+        `${diagnosticsRepairPolicyConfigBody}\n${hasDiagnosticsRepairPolicyConfigBody}`,
+      ) &&
+      !/\bpack\.(?:restorePolicy|restoreConflictPolicy|conflictPolicy|diagnosticsRepairDefault|defaultRepairDecision|operatorOverrideRequiresApproval)\b/.test(
+        `${diagnosticsRepairPolicyConfigBody}\n${hasDiagnosticsRepairPolicyConfigBody}`,
+      ) &&
+      /diagnostics repair policy config ignores retired request, input, and tool-pack aliases/.test(
+        diagnosticsRepairPolicyTest,
+      ) &&
+      /restorePolicy:\s*"preview"/.test(diagnosticsRepairPolicyTest) &&
+      /restoreConflictPolicy:\s*"approval"/.test(diagnosticsRepairPolicyTest) &&
+      /diagnosticsRepairDefault:\s*"restore_apply"/.test(diagnosticsRepairPolicyTest) &&
+      /defaultRepairDecision:\s*"operator_override"/.test(diagnosticsRepairPolicyTest) &&
+      /operatorOverrideRequiresApproval:\s*"false"/.test(diagnosticsRepairPolicyTest) &&
+      /toolPack:\s*\{/.test(diagnosticsRepairPolicyTest),
+    [
+      "packages/runtime-daemon/src/diagnostics-repair-policy.mjs",
+      "packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs",
+    ],
+    "Phase 10/11 is pending: diagnostics repair policy config must use canonical snake_case request, input, and tool_pack fields without retired camelCase fallbacks",
+  );
 	  assertCheck(
 	    result,
 	    "diagnostics-repair-policy-context-aliases-retired",

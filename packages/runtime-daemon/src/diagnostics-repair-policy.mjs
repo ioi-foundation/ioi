@@ -11,46 +11,30 @@ export function createDiagnosticsRepairPolicyHelpers({
   uniqueStrings,
 } = {}) {
   function diagnosticsRepairPolicyConfig(request = {}, input = {}) {
-    const packRoot = request.toolPack ?? request.tool_pack ?? request.options?.toolPack ?? request.options?.tool_pack ?? {};
+    const packRoot = request.tool_pack ?? request.options?.tool_pack ?? {};
     const pack = packRoot?.coding ?? packRoot;
     const restorePolicy = normalizeRestorePolicy(
-      request.restorePolicy ??
-        request.restore_policy ??
-        input.restorePolicy ??
+      request.restore_policy ??
         input.restore_policy ??
-        pack.restorePolicy ??
         pack.restore_policy,
     );
     const restoreConflictPolicy = normalizeRestoreConflictPolicy(
-      request.restoreConflictPolicy ??
-        request.restore_conflict_policy ??
-        input.restoreConflictPolicy ??
+      request.restore_conflict_policy ??
         input.restore_conflict_policy ??
-        pack.restoreConflictPolicy ??
         pack.restore_conflict_policy ??
-        pack.conflictPolicy ??
         pack.conflict_policy,
     );
     const diagnosticsRepairDefault = normalizeDiagnosticsRepairDefault(
-      request.diagnosticsRepairDefault ??
-        request.diagnostics_repair_default ??
-        request.defaultRepairDecision ??
+      request.diagnostics_repair_default ??
         request.default_repair_decision ??
-        input.diagnosticsRepairDefault ??
         input.diagnostics_repair_default ??
-        input.defaultRepairDecision ??
         input.default_repair_decision ??
-        pack.diagnosticsRepairDefault ??
         pack.diagnostics_repair_default ??
-        pack.defaultRepairDecision ??
         pack.default_repair_decision,
     );
     const operatorOverrideRequiresApproval = normalizeBooleanOption(
-      request.operatorOverrideRequiresApproval ??
-        request.operator_override_requires_approval ??
-        input.operatorOverrideRequiresApproval ??
+      request.operator_override_requires_approval ??
         input.operator_override_requires_approval ??
-        pack.operatorOverrideRequiresApproval ??
         pack.operator_override_requires_approval,
       true,
     );
@@ -94,38 +78,23 @@ export function createDiagnosticsRepairPolicyHelpers({
   }
 
   function hasDiagnosticsRepairPolicyConfig(request = {}, input = {}) {
-    const packRoot = request.toolPack ?? request.tool_pack ?? request.options?.toolPack ?? request.options?.tool_pack ?? {};
+    const packRoot = request.tool_pack ?? request.options?.tool_pack ?? {};
     const pack = packRoot?.coding ?? packRoot;
     return [
-      request.restorePolicy,
       request.restore_policy,
-      request.restoreConflictPolicy,
       request.restore_conflict_policy,
-      request.diagnosticsRepairDefault,
       request.diagnostics_repair_default,
-      request.defaultRepairDecision,
       request.default_repair_decision,
-      request.operatorOverrideRequiresApproval,
       request.operator_override_requires_approval,
-      input.restorePolicy,
       input.restore_policy,
-      input.restoreConflictPolicy,
       input.restore_conflict_policy,
-      input.diagnosticsRepairDefault,
       input.diagnostics_repair_default,
-      input.defaultRepairDecision,
       input.default_repair_decision,
-      input.operatorOverrideRequiresApproval,
       input.operator_override_requires_approval,
-      pack.restorePolicy,
       pack.restore_policy,
-      pack.restoreConflictPolicy,
       pack.restore_conflict_policy,
-      pack.diagnosticsRepairDefault,
       pack.diagnostics_repair_default,
-      pack.defaultRepairDecision,
       pack.default_repair_decision,
-      pack.operatorOverrideRequiresApproval,
       pack.operator_override_requires_approval,
     ].some((value) => value !== undefined && value !== null);
   }
