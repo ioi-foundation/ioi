@@ -11889,6 +11889,35 @@ function runCompositor() {
     ],
     "Phase 10/11 is pending: post-edit diagnostics repair contexts must emit canonical snake_case fields without duplicate camelCase compatibility aliases",
   );
+  assertCheck(
+    result,
+    "diagnostics-feedback-pending-mode-request-aliases-retired",
+    /RETIRED_PENDING_DIAGNOSTICS_FEEDBACK_REQUEST_ALIASES/.test(
+      runtimeDiagnosticsFeedbackSurface,
+    ) &&
+      /pending_diagnostics_feedback_request_aliases_retired/.test(
+        runtimeDiagnosticsFeedbackSurface,
+      ) &&
+      /assertCanonicalPendingDiagnosticsFeedbackRequest\(request\);/.test(
+        runtimeDiagnosticsFeedbackSurface,
+      ) &&
+      /request\.diagnostics_mode/.test(runtimeDiagnosticsFeedbackSurface) &&
+      /request\.options\?\.diagnostics_mode/.test(runtimeDiagnosticsFeedbackSurface) &&
+      !/request\.diagnosticsMode/.test(runtimeDiagnosticsFeedbackSurface) &&
+      !/request\.options\?\.diagnosticsMode/.test(runtimeDiagnosticsFeedbackSurface) &&
+      /diagnostics feedback surface rejects retired pending mode aliases/.test(
+        runtimeDiagnosticsFeedbackSurfaceTest,
+      ) &&
+      /diagnosticsMode:\s*"blocking"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
+      /options:\s*\{\s*diagnosticsMode:\s*"skip"\s*\}/.test(
+        runtimeDiagnosticsFeedbackSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: pending diagnostics feedback mode requests must fail closed on retired camelCase aliases",
+  );
   const diagnosticsRepairContextRecordBody =
     diagnosticsRepairPolicy.match(
       /  function diagnosticsRepairContextRecord\(value\) \{[\s\S]*?(?=\n  function diagnosticsRollbackRepairPolicy)/,

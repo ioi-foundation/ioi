@@ -194,14 +194,37 @@ test("diagnostics feedback surface returns pending diagnostics after last inject
   ]);
 
   const feedback = surface.pendingDiagnosticsFeedbackForNextTurn(store, "thread_alpha", {
-    diagnosticsMode: "blocking",
+    diagnostics_mode: "blocking",
   });
 
   assert.equal(feedback.mode, "blocking");
   assert.equal(feedback.diagnosticCount, 2);
   assert.deepEqual(feedback.eventIds, ["event_old", "event_diagnostics"]);
   assert.equal(
-    surface.pendingDiagnosticsFeedbackForNextTurn(store, "thread_alpha", { diagnosticsMode: "skip" }),
+    surface.pendingDiagnosticsFeedbackForNextTurn(store, "thread_alpha", { diagnostics_mode: "skip" }),
     null,
+  );
+});
+
+test("diagnostics feedback surface rejects retired pending mode aliases", () => {
+  const surface = createSurface();
+  const store = createStore();
+
+  assert.throws(
+    () => surface.pendingDiagnosticsFeedbackForNextTurn(store, "thread_alpha", { diagnosticsMode: "blocking" }),
+    (error) =>
+      error.code === "pending_diagnostics_feedback_request_aliases_retired" &&
+      error.details.retired_aliases.includes("diagnosticsMode") &&
+      Object.hasOwn(error.details, "diagnosticsMode") === false,
+  );
+  assert.throws(
+    () =>
+      surface.pendingDiagnosticsFeedbackForNextTurn(store, "thread_alpha", {
+        options: { diagnosticsMode: "skip" },
+      }),
+    (error) =>
+      error.code === "pending_diagnostics_feedback_request_aliases_retired" &&
+      error.details.retired_aliases.includes("options.diagnosticsMode") &&
+      Object.hasOwn(error.details, "diagnosticsMode") === false,
   );
 });

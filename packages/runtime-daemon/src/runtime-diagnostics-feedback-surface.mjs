@@ -5,6 +5,11 @@ import {
 } from "./runtime-contract-constants.mjs";
 import { doctorHash, normalizeArray, optionalString, uniqueStrings } from "./runtime-value-helpers.mjs";
 
+const RETIRED_PENDING_DIAGNOSTICS_FEEDBACK_REQUEST_ALIASES = [
+  "diagnosticsMode",
+  "options.diagnosticsMode",
+];
+
 export function createRuntimeDiagnosticsFeedbackSurface(deps = {}) {
   const {
     compactDiagnosticsFeedback,
@@ -83,10 +88,9 @@ export function createRuntimeDiagnosticsFeedbackSurface(deps = {}) {
   }
 
   function pendingDiagnosticsFeedbackForNextTurn(store, threadId, request = {}) {
+    assertCanonicalPendingDiagnosticsFeedbackRequest(request);
     const injectionMode = normalizeDiagnosticsMode(
-      request.diagnosticsMode ??
-        request.diagnostics_mode ??
-        request.options?.diagnosticsMode ??
+      request.diagnostics_mode ??
         request.options?.diagnostics_mode ??
         "advisory",
     );
@@ -115,4 +119,29 @@ export function createRuntimeDiagnosticsFeedbackSurface(deps = {}) {
     maybeRunPostEditDiagnostics,
     pendingDiagnosticsFeedbackForNextTurn,
   };
+}
+
+function assertCanonicalPendingDiagnosticsFeedbackRequest(request = {}) {
+  const retiredAliases = [];
+  if (Object.hasOwn(request, "diagnosticsMode")) {
+    retiredAliases.push("diagnosticsMode");
+  }
+  if (
+    request.options &&
+    typeof request.options === "object" &&
+    !Array.isArray(request.options) &&
+    Object.hasOwn(request.options, "diagnosticsMode")
+  ) {
+    retiredAliases.push("options.diagnosticsMode");
+  }
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Pending diagnostics feedback request aliases are retired; use canonical diagnostics_mode.",
+  );
+  error.code = "pending_diagnostics_feedback_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: ["diagnostics_mode", "options.diagnostics_mode"],
+  };
+  throw error;
 }
