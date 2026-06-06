@@ -608,6 +608,12 @@ function runBridge() {
   const runtimeApprovalSurfaceTest = exists("packages/runtime-daemon/src/runtime-approval-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-approval-surface.test.mjs")
     : "";
+  const runtimeApprovalLease = exists("packages/runtime-daemon/src/runtime-approval-lease.mjs")
+    ? read("packages/runtime-daemon/src/runtime-approval-lease.mjs")
+    : "";
+  const runtimeApprovalLeaseTest = exists("packages/runtime-daemon/src/runtime-approval-lease.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-approval-lease.test.mjs")
+    : "";
   const runtimeApprovalStateRunner = exists("packages/runtime-daemon/src/runtime-approval-state-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-approval-state-runner.mjs")
     : "";
@@ -1977,6 +1983,25 @@ function runBridge() {
         runtimeApprovalSurfaceTest,
       ) &&
       /receiptRefs: \["receipt_retired"\]/.test(runtimeApprovalSurfaceTest) &&
+      /requestedBy: "operator_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /approvalAction: "shell\.run"/.test(runtimeApprovalSurfaceTest) &&
+      /toolId: "tool_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /effectClass: "effect_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /riskDomain: "risk_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /approvalId: "approval_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /contextPressure: 0\.99/.test(runtimeApprovalSurfaceTest) &&
+      /sourceEventId: "source_event_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /policyDecisionRefs: \["policy_retired"\]/.test(runtimeApprovalSurfaceTest) &&
+      /authorityScopeRequirements: \["authority_retired"\]/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /approvalManifest: \{ toolId: "manifest_retired" \}/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /ttlMs: 60000/.test(runtimeApprovalSurfaceTest) &&
+      /expectedReceiptRefs: \["receipt_expected_retired"\]/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
       /workflowGraphId: "graph_decision_retired"/.test(runtimeApprovalSurfaceTest) &&
       /workflowNodeId: "node_decision_retired"/.test(runtimeApprovalSurfaceTest) &&
       /idempotencyKey: "approval_decision_idempotency_retired"/.test(
@@ -2000,12 +2025,34 @@ function runBridge() {
       /store\.events\[0\]\.receipt_refs\.includes\("receipt_retired"\), false/.test(
         runtimeApprovalSurfaceTest,
       ) &&
-      !/request\.(?:turnId|workflowNodeId|workflowGraphId|receiptRefs|idempotencyKey)\b/.test(runtimeApprovalSurface),
+      /store\.events\[0\]\.policy_decision_refs\.includes\("policy_retired"\), false/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /store\.events\[0\]\.payload_summary\.requested_by,\s*"operator"/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /store\.events\[0\]\.payload_summary\.approval_manifest,\s*null/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /store\.events\[0\]\.payload_summary\.approval_lease\.ttl_ms,\s*null/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /approval lease metadata for request ignores retired request aliases/.test(
+        runtimeApprovalLeaseTest,
+      ) &&
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId|requestedBy|approvalAction|toolId|toolName|effectClass|riskDomain|approvalId|contextPressure|pressureStatus|contextPressureStatus|alertId|alertEventId|sourceEventId|policyDecisionRefs|authorityScopeRequirements|approvalManifest|receiptRefs|idempotencyKey)\b/.test(
+        runtimeApprovalSurface,
+      ) &&
+      !/request\.(?:ttlMs|leaseTtlMs|expiresAt|expectedReceiptRefs|authorityScopeRequirements|leaseId|policyHash)\b/.test(
+        runtimeApprovalLease,
+      ),
     [
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-lease.mjs",
+      "packages/runtime-daemon/src/runtime-approval-lease.test.mjs",
     ],
-    "Phase 10/11 is pending: approval request, decision, and revoke surfaces must use canonical turn_id, workflow ids, and receipt_refs without retired request aliases",
+    "Phase 10/11 is pending: approval request, decision, and revoke surfaces must use canonical request and lease fields without retired request aliases",
   );
   const runtimeContextBudgetEvaluationBlock =
     runtimeContextPolicySurface.match(

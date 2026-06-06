@@ -26,13 +26,13 @@ function createLease() {
   });
 }
 
-test("approval lease metadata for request applies ttl, hash, aliases, and revoke endpoint", () => {
+test("approval lease metadata for request uses canonical fields", () => {
   const lease = createLease();
   const metadata = lease.approvalLeaseMetadataForRequest({
     request: {
-      ttlMs: 1000,
-      expectedReceiptRefs: ["receipt_1", "receipt_1"],
-      authorityScopeRequirements: ["workspace.write"],
+      ttl_ms: 1000,
+      expected_receipt_refs: ["receipt_1", "receipt_1"],
+      authority_scope_requirements: ["workspace.write"],
     },
     approvalId: "approval 1",
     action: "file.write",
@@ -49,6 +49,33 @@ test("approval lease metadata for request applies ttl, hash, aliases, and revoke
   assert.deepEqual(metadata.expectedReceiptRefs, ["receipt_1"]);
   assert.deepEqual(metadata.authority_scope_requirements, ["workspace.write"]);
   assert.equal(metadata.revokeEndpoint, "/v1/threads/thread_1/approvals/approval%201/revoke");
+});
+
+test("approval lease metadata for request ignores retired request aliases", () => {
+  const lease = createLease();
+  const metadata = lease.approvalLeaseMetadataForRequest({
+    request: {
+      ttlMs: 1000,
+      leaseTtlMs: 2000,
+      expiresAt: "2026-06-03T12:00:05.000Z",
+      expectedReceiptRefs: ["receipt_retired"],
+      authorityScopeRequirements: ["scope_retired"],
+      leaseId: "lease_retired",
+      policyHash: "policy_retired",
+    },
+    approvalId: "approval 1",
+    action: "file.write",
+    scope: "thread",
+    now: "2026-06-03T12:00:00.000Z",
+    threadId: "thread_1",
+  });
+
+  assert.equal(metadata.ttl_ms, null);
+  assert.equal(metadata.expires_at, null);
+  assert.deepEqual(metadata.expected_receipt_refs, []);
+  assert.deepEqual(metadata.authority_scope_requirements, []);
+  assert.equal(metadata.lease_id, "approval_lease_approval_1");
+  assert.notEqual(metadata.policy_hash, "policy_retired");
 });
 
 test("approval lease metadata from payload supports nested and top-level aliases", () => {

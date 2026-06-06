@@ -12923,6 +12923,17 @@ and Rust policy-core agent state-update planning; retired `interactionMode`,
 `approvalMode`, and `requestedBy` no longer steer mode selection, approval mode,
 or requested-by actor for daemon authority events.
 
+Slice 463 completes approval request handoff alias retirement:
+approval request, decision, revoke, and request-side approval lease metadata now
+consume canonical request fields only before Rust authority state-update
+planning; retired `requestedBy`, `approvalAction`, `toolId`, `toolName`,
+`effectClass`, `riskDomain`, `approvalId`, `contextPressure`, `pressureStatus`,
+`contextPressureStatus`, `alertId`, `alertEventId`, `sourceEventId`,
+`policyDecisionRefs`, `authorityScopeRequirements`, `approvalManifest`, `ttlMs`,
+`leaseTtlMs`, `expiresAt`, `expectedReceiptRefs`, `leaseId`, and `policyHash`
+no longer steer approval gate payloads, lease policy metadata, refs, decision
+hashes, or Rust-planned approval state updates.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

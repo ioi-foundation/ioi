@@ -55,7 +55,6 @@ function resolveApprovalTarget(store, agent, threadId, request = {}, fallbackTur
 
 function requestApprovalManifest(request = {}) {
   if (request.approval_manifest && typeof request.approval_manifest === "object") return request.approval_manifest;
-  if (request.approvalManifest && typeof request.approvalManifest === "object") return request.approvalManifest;
   return null;
 }
 
@@ -156,23 +155,23 @@ export function createRuntimeApprovalSurface(deps = {}) {
     const agent = store.agentForThread(threadId);
     const { run, turnId } = resolveApprovalTarget(store, agent, threadId, request, "", { notFound });
     const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "operator";
     const reason =
       optionalString(request.reason ?? request.message ?? request.input) ??
       "operator requested approval";
     const action =
-      optionalString(request.action ?? request.approval_action ?? request.approvalAction) ??
+      optionalString(request.action ?? request.approval_action) ??
       "request_approval";
     const toolId =
-      optionalString(request.tool_id ?? request.toolId ?? request.tool_name ?? request.toolName) ??
+      optionalString(request.tool_id ?? request.tool_name) ??
       null;
-    const effectClass = optionalString(request.effect_class ?? request.effectClass) ?? null;
-    const riskDomain = optionalString(request.risk_domain ?? request.riskDomain) ?? null;
+    const effectClass = optionalString(request.effect_class) ?? null;
+    const riskDomain = optionalString(request.risk_domain) ?? null;
     const runOrAgentId = run?.id ?? agent.id;
     const approvalSeed = `${threadId}:${turnId || "thread"}:${reason}`;
     const approvalHash = crypto.createHash("sha256").update(approvalSeed).digest("hex").slice(0, 16);
     const approvalId =
-      optionalString(request.approval_id ?? request.approvalId) ??
+      optionalString(request.approval_id) ??
       `approval_context_pressure_${safeId(threadId)}_${safeId(turnId || "thread")}_${approvalHash}`;
     const workflowNodeId =
       optionalString(request.workflow_node_id) ??
@@ -181,19 +180,16 @@ export function createRuntimeApprovalSurface(deps = {}) {
     const pressure = contextBudgetNumber(
       request.pressure,
       request.context_pressure,
-      request.contextPressure,
     );
     const pressureStatus =
       optionalString(
         request.pressure_status ??
-          request.pressureStatus ??
-          request.context_pressure_status ??
-          request.contextPressureStatus,
+          request.context_pressure_status,
       ) ?? null;
     const alertId =
-      optionalString(request.alert_id ?? request.alertId ?? request.alert_event_id ?? request.alertEventId) ??
+      optionalString(request.alert_id ?? request.alert_event_id) ??
       null;
-    const sourceEventId = optionalString(request.source_event_id ?? request.sourceEventId) ?? null;
+    const sourceEventId = optionalString(request.source_event_id) ?? null;
     const leaseMetadata = approvalLeaseMetadataForRequest({
       request,
       approvalId,
@@ -207,7 +203,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       `receipt_${runOrAgentId}_approval_required_${safeId(approvalId)}`,
     ]);
     const policyDecisionRefs = uniqueStrings([
-      ...normalizeArray(request.policy_decision_refs ?? request.policyDecisionRefs),
+      ...normalizeArray(request.policy_decision_refs),
       `policy_${runOrAgentId}_approval_required`,
     ]);
     const now = leaseMetadata.created_at;
@@ -248,7 +244,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
         risk_domain: riskDomain,
         riskDomain,
         authority_scope_requirements: normalizeArray(
-          request.authority_scope_requirements ?? request.authorityScopeRequirements,
+          request.authority_scope_requirements,
         ),
         expected_receipt_refs: leaseMetadata.expected_receipt_refs,
         expectedReceiptRefs: leaseMetadata.expectedReceiptRefs,
@@ -358,13 +354,13 @@ export function createRuntimeApprovalSurface(deps = {}) {
   function decideThreadApproval(store, threadId, approvalId, request = {}) {
     const agent = store.agentForThread(threadId);
     const normalizedApprovalId =
-      optionalString(approvalId ?? request.approval_id ?? request.approvalId) ??
+      optionalString(approvalId ?? request.approval_id) ??
       (() => {
         throw approvalRequiredError(runtimeError, threadId);
       })();
     const decision = approvalDecisionForRequest(request.decision ?? request.action ?? request.status);
     const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "operator";
     const reason = optionalString(request.reason ?? request.message ?? request.input) ?? null;
     const { run, turnId } = resolveApprovalTarget(store, agent, threadId, request, "", { notFound });
     const now = new Date().toISOString();
@@ -556,7 +552,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
   function revokeThreadApproval(store, threadId, approvalId, request = {}) {
     const agent = store.agentForThread(threadId);
     const normalizedApprovalId =
-      optionalString(approvalId ?? request.approval_id ?? request.approvalId) ??
+      optionalString(approvalId ?? request.approval_id) ??
       (() => {
         throw approvalRevokeRequiredError(runtimeError, threadId);
       })();
@@ -579,7 +575,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
         )
         .at(-1) ?? null;
     const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
+    const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "operator";
     const reason =
       optionalString(request.reason ?? request.message ?? request.input) ??
       "operator revoked approval lease";

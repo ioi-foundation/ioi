@@ -426,6 +426,26 @@ test("approval surface ignores retired request identity aliases", () => {
   surface.requestThreadApproval(store, "thread_alpha", {
     approval_id: "approval-one",
     reason: "Need permission",
+    requestedBy: "operator_retired",
+    approvalAction: "shell.run",
+    toolId: "tool_retired",
+    toolName: "tool_name_retired",
+    effectClass: "effect_retired",
+    riskDomain: "risk_retired",
+    approvalId: "approval_retired",
+    contextPressure: 0.99,
+    pressureStatus: "critical",
+    contextPressureStatus: "critical",
+    alertId: "alert_retired",
+    alertEventId: "alert_event_retired",
+    sourceEventId: "source_event_retired",
+    policyDecisionRefs: ["policy_retired"],
+    authorityScopeRequirements: ["authority_retired"],
+    approvalManifest: { toolId: "manifest_retired" },
+    ttlMs: 60000,
+    expectedReceiptRefs: ["receipt_expected_retired"],
+    leaseId: "lease_retired",
+    policyHash: "policy_hash_retired",
     turnId: "turn_retired",
     workflowGraphId: "graph_retired",
     workflowNodeId: "node_retired",
@@ -439,9 +459,30 @@ test("approval surface ignores retired request identity aliases", () => {
   assert.equal(store.events[0].workflow_node_id.includes("node_retired"), false);
   assert.equal(store.events[0].idempotency_key, "thread:thread_alpha:approval.required:approval-one");
   assert.equal(store.events[0].receipt_refs.includes("receipt_retired"), false);
+  assert.equal(store.events[0].policy_decision_refs.includes("policy_retired"), false);
+  assert.equal(store.events[0].payload_summary.requested_by, "operator");
+  assert.equal(store.events[0].payload_summary.action, "request_approval");
+  assert.equal(store.events[0].payload_summary.tool_id, null);
+  assert.equal(store.events[0].payload_summary.effect_class, null);
+  assert.equal(store.events[0].payload_summary.risk_domain, null);
+  assert.equal(store.events[0].payload_summary.pressure, null);
+  assert.equal(store.events[0].payload_summary.pressure_status, null);
+  assert.equal(store.events[0].payload_summary.alert_id, null);
+  assert.equal(store.events[0].payload_summary.source_event_id, null);
+  assert.deepEqual(store.events[0].payload_summary.authority_scope_requirements, []);
+  assert.equal(store.events[0].payload_summary.approval_manifest, null);
+  assert.equal(store.events[0].payload_summary.approval_lease.ttl_ms, null);
+  assert.deepEqual(store.events[0].payload_summary.approval_lease.expected_receipt_refs, []);
+  assert.equal(store.events[0].payload_summary.approval_lease.lease_id, "approval_lease_approval-one");
+  assert.notEqual(store.events[0].payload_summary.approval_lease.policy_hash, "policy_hash_retired");
+  const requestStateUpdate = store.runs.get("run_alpha").approvalRequests[0];
+  assert.equal(requestStateUpdate.approvalId, "approval-one");
+  assert.equal(requestStateUpdate.policyDecisionRefs.includes("policy_retired"), false);
 
   surface.decideThreadApproval(store, "thread_alpha", "approval-one", {
     decision: "approve",
+    requestedBy: "operator_decision_retired",
+    approvalId: "approval_decision_retired",
     turnId: "turn_retired",
     workflowGraphId: "graph_decision_retired",
     workflowNodeId: "node_decision_retired",
@@ -453,8 +494,11 @@ test("approval surface ignores retired request identity aliases", () => {
   assert.match(store.events[1].workflow_node_id, /^runtime\.approval\./);
   assert.equal(store.events[1].workflow_node_id.includes("node_decision_retired"), false);
   assert.match(store.events[1].idempotency_key, /^thread:thread_alpha:approval\.approve:approval-one:/);
+  assert.equal(store.events[1].payload_summary.requested_by, "operator");
 
   surface.revokeThreadApproval(store, "thread_alpha", "approval-one", {
+    requestedBy: "operator_revoke_retired",
+    approvalId: "approval_revoke_retired",
     turnId: "turn_retired",
     workflowGraphId: "graph_revoke_retired",
     workflowNodeId: "node_revoke_retired",
@@ -466,6 +510,7 @@ test("approval surface ignores retired request identity aliases", () => {
   assert.equal(store.events[2].workflow_node_id, store.events[0].workflow_node_id);
   assert.equal(store.events[2].workflow_node_id.includes("node_revoke_retired"), false);
   assert.match(store.events[2].idempotency_key, /^thread:thread_alpha:approval\.revoke:approval-one:/);
+  assert.equal(store.events[2].payload_summary.requested_by, "operator");
 });
 
 test("approval surface accepts canonical idempotency keys", () => {

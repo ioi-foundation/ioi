@@ -30,22 +30,22 @@ export function createRuntimeApprovalLease(deps = {}) {
 
   function approvalLeaseMetadataForRequest({ request = {}, approvalId, action, scope, now, threadId } = {}) {
     const ttlMs = optionalPositiveInteger(
-      request.ttl_ms ?? request.ttlMs ?? request.lease_ttl_ms ?? request.leaseTtlMs,
+      request.ttl_ms ?? request.lease_ttl_ms,
     );
     const expiresAt =
-      optionalString(request.expires_at ?? request.expiresAt) ??
+      optionalString(request.expires_at) ??
       (ttlMs ? new Date(Date.parse(now) + ttlMs).toISOString() : null);
     const expectedReceiptRefs = uniqueStrings(
-      normalizeArray(request.expected_receipt_refs ?? request.expectedReceiptRefs),
+      normalizeArray(request.expected_receipt_refs),
     );
     const authorityScopeRequirements = uniqueStrings(
-      normalizeArray(request.authority_scope_requirements ?? request.authorityScopeRequirements),
+      normalizeArray(request.authority_scope_requirements),
     );
     const leaseId =
-      optionalString(request.lease_id ?? request.leaseId) ??
+      optionalString(request.lease_id) ??
       `approval_lease_${safeId(approvalId)}`;
     const policyHash =
-      optionalString(request.policy_hash ?? request.policyHash) ??
+      optionalString(request.policy_hash) ??
       doctorHash(
         JSON.stringify({
           approvalId,
