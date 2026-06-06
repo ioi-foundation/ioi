@@ -554,6 +554,9 @@ function runBridge() {
   const runtimeRunEventHelpersTest = exists("packages/runtime-daemon/src/runtime-run-event-helpers.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-event-helpers.test.mjs")
     : "";
+  const computerUseControlPayloadSummaryBlock = [
+    ...runtimeDaemonIndex.matchAll(/const payloadSummary = \{[\s\S]*?\n\s*\};/g),
+  ].map((match) => match[0]).find((block) => block.includes("computer_use_control_receipt_ref")) ?? "";
   const runtimeCodingToolResults = exists("packages/runtime-daemon/src/runtime-coding-tool-results.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-results.mjs")
     : "";
@@ -1337,6 +1340,31 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-run-event-helpers.test.mjs",
     ],
     "Phase 10/11 is pending: runtime run computer-use artifact readers must reject retired camelCase visual artifact fallback aliases",
+  );
+  assertCheck(
+    result,
+    "computer-use-control-payload-aliases-retired",
+    /schema_version:\s*COMPUTER_USE_CONTRACT_SCHEMA_VERSION/.test(computerUseControlPayloadSummaryBlock) &&
+      /computer_use:\s*true/.test(computerUseControlPayloadSummaryBlock) &&
+      /computer_use_step:\s*action === "cleanup" \? "cleanup" : "commit_or_handoff"/.test(
+        computerUseControlPayloadSummaryBlock,
+      ) &&
+      /tool_ref:\s*toolId/.test(computerUseControlPayloadSummaryBlock) &&
+      /workflow_graph_id:\s*workflowGraphId/.test(computerUseControlPayloadSummaryBlock) &&
+      /workflow_node_id:\s*workflowNodeId/.test(computerUseControlPayloadSummaryBlock) &&
+      /authority_scopes:\s*\[`computer_use\.control\.\$\{action\}`\]/.test(computerUseControlPayloadSummaryBlock) &&
+      /fail_closed_when_unavailable:\s*true/.test(computerUseControlPayloadSummaryBlock) &&
+      /control_receipt:\s*controlReceipt/.test(computerUseControlPayloadSummaryBlock) &&
+      /human_handoff_state:\s*humanHandoffState/.test(computerUseControlPayloadSummaryBlock) &&
+      /cleanup_receipt:\s*cleanupReceipt/.test(computerUseControlPayloadSummaryBlock) &&
+      /receipt_id:\s*receiptRef/.test(computerUseControlPayloadSummaryBlock) &&
+      !/^\s*(?:schemaVersion|computerUse|computerUseStep|toolRef|workflowGraphId|workflowNodeId|authorityScopes|failClosedWhenUnavailable|controlReceipt|humanHandoffState|cleanupReceipt|receiptId)\s*[:,]?/m.test(
+        computerUseControlPayloadSummaryBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use control event payloads must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

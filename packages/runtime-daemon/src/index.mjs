@@ -2425,13 +2425,10 @@ export class AgentgresRuntimeStateStore {
     };
     const payloadSummary = {
       schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
-      schemaVersion: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
       event_kind: "ComputerUse.Control",
       source: "runtime_thread_tool",
-      computerUse: true,
       computer_use: true,
       computer_use_step: action === "cleanup" ? "cleanup" : "commit_or_handoff",
-      computerUseStep: action === "cleanup" ? "cleanup" : "commit_or_handoff",
       computer_use_lane: optionalString(input.lane ?? input.computerUseLane ?? input.computer_use_lane) ??
         "native_browser",
       computer_use_session_mode:
@@ -2441,24 +2438,15 @@ export class AgentgresRuntimeStateStore {
       computer_use_control_action: action,
       computer_use_control_receipt_ref: receiptRef,
       tool_ref: toolId,
-      toolRef: toolId,
       workflow_graph_id: workflowGraphId,
-      workflowGraphId,
       workflow_node_id: workflowNodeId,
-      workflowNodeId,
       authority_scopes: [`computer_use.control.${action}`],
-      authorityScopes: [`computer_use.control.${action}`],
       fail_closed_when_unavailable: true,
-      failClosedWhenUnavailable: true,
       summary: `Computer-use ${action} control receipt emitted`,
       control_receipt: controlReceipt,
-      controlReceipt,
       human_handoff_state: humanHandoffState,
-      humanHandoffState,
       cleanup_receipt: cleanupReceipt,
-      cleanupReceipt,
       receipt_id: receiptRef,
-      receiptId: receiptRef,
     };
     const event = this.appendRuntimeEvent({
       event_stream_id: eventStreamIdForThread(threadId),
