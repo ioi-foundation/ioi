@@ -236,16 +236,16 @@ function normalizeVisualTarget(target, index, coordinateSpaceId) {
   const bounds = objectValue(target.bounds) ? normalizeBounds(target.bounds, coordinateSpaceId) : null;
   return {
     target_ref:
-      cleanString(target.target_ref ?? target.targetRef ?? target.id) ??
+      cleanString(target.target_ref) ??
       `target_visual_${index + 1}`,
     label: cleanString(target.label ?? target.name) ?? `Visual target ${index + 1}`,
     role: cleanString(target.role) ?? "region",
-    semantic_ids: stringArray(target.semantic_ids ?? target.semanticIds),
+    semantic_ids: stringArray(target.semantic_ids),
     selectors: stringArray(target.selectors),
-    som_id: finiteNumber(target.som_id ?? target.somId),
+    som_id: finiteNumber(target.som_id),
     confidence: finiteNumber(target.confidence) ?? 0.5,
-    available_actions: stringArray(target.available_actions ?? target.availableActions).length > 0
-      ? stringArray(target.available_actions ?? target.availableActions)
+    available_actions: stringArray(target.available_actions).length > 0
+      ? stringArray(target.available_actions)
       : ["inspect"],
     ...(bounds ? { bounds } : {}),
   };
@@ -275,27 +275,27 @@ function normalizeVisualAffordances({ rawAffordances, targets, runId }) {
 }
 
 function normalizeAffordance(affordance, index, runId) {
-  const targetRef = cleanString(affordance.target_ref ?? affordance.targetRef);
+  const targetRef = cleanString(affordance.target_ref);
   return {
     affordance_ref:
-      cleanString(affordance.affordance_ref ?? affordance.affordanceRef) ??
+      cleanString(affordance.affordance_ref) ??
       `affordance_${safeId(runId)}_visual_${index + 1}`,
     target_ref: targetRef ?? "target_visual_1",
-    possible_action: cleanString(affordance.possible_action ?? affordance.possibleAction) ?? "inspect",
-    action_preconditions: stringArray(affordance.action_preconditions ?? affordance.actionPreconditions),
-    action_confidence: finiteNumber(affordance.action_confidence ?? affordance.actionConfidence) ?? 0.5,
+    possible_action: cleanString(affordance.possible_action) ?? "inspect",
+    action_preconditions: stringArray(affordance.action_preconditions),
+    action_confidence: finiteNumber(affordance.action_confidence) ?? 0.5,
     expected_state_transition:
-      cleanString(affordance.expected_state_transition ?? affordance.expectedStateTransition) ??
+      cleanString(affordance.expected_state_transition) ??
       "no_external_effect",
-    risk_class: cleanString(affordance.risk_class ?? affordance.riskClass) ?? "read_only",
+    risk_class: cleanString(affordance.risk_class) ?? "read_only",
     required_authority:
-      cleanString(affordance.required_authority ?? affordance.requiredAuthority) ??
+      cleanString(affordance.required_authority) ??
       "computer_use.visual_gui.read",
     required_confirmation:
-      Boolean(affordance.required_confirmation ?? affordance.requiredConfirmation ?? false),
-    fallback_action_paths: stringArray(affordance.fallback_action_paths ?? affordance.fallbackActionPaths),
+      Boolean(affordance.required_confirmation ?? false),
+    fallback_action_paths: stringArray(affordance.fallback_action_paths),
     invalidation_conditions: stringArray(
-      affordance.invalidation_conditions ?? affordance.invalidationConditions,
+      affordance.invalidation_conditions,
     ),
   };
 }
@@ -308,7 +308,7 @@ function normalizeBounds(bounds, coordinateSpaceId) {
   if (x === null || y === null || width === null || height === null) return null;
   return {
     coordinate_space_id:
-      cleanString(bounds.coordinate_space_id ?? bounds.coordinateSpaceId) ?? coordinateSpaceId,
+      cleanString(bounds.coordinate_space_id) ?? coordinateSpaceId,
     x,
     y,
     width,

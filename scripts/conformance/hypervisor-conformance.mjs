@@ -585,6 +585,12 @@ function runBridge() {
   const computerUseInputsTest = exists("packages/runtime-daemon/src/computer-use-inputs.test.mjs")
     ? read("packages/runtime-daemon/src/computer-use-inputs.test.mjs")
     : "";
+  const computerUseVisualObservation = exists("packages/runtime-daemon/src/computer-use-visual-observation.mjs")
+    ? read("packages/runtime-daemon/src/computer-use-visual-observation.mjs")
+    : "";
+  const computerUseVisualObservationTest = exists("packages/runtime-daemon/src/computer-use-visual-observation.test.mjs")
+    ? read("packages/runtime-daemon/src/computer-use-visual-observation.test.mjs")
+    : "";
   const runtimeRunEventHelpers = exists("packages/runtime-daemon/src/runtime-run-event-helpers.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-event-helpers.mjs")
     : "";
@@ -1545,6 +1551,43 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10/11 is pending: computer-use visual metadata helpers must emit canonical snake_case fields without duplicate camelCase output aliases",
+  );
+  assertCheck(
+    result,
+    "computer-use-visual-observation-target-aliases-retired",
+    /cleanString\(target\.target_ref\)/.test(computerUseVisualObservation) &&
+      /semantic_ids: stringArray\(target\.semantic_ids\)/.test(computerUseVisualObservation) &&
+      /som_id: finiteNumber\(target\.som_id\)/.test(computerUseVisualObservation) &&
+      /stringArray\(target\.available_actions\)\.length > 0/.test(computerUseVisualObservation) &&
+      /cleanString\(affordance\.target_ref\)/.test(computerUseVisualObservation) &&
+      /cleanString\(affordance\.affordance_ref\)/.test(computerUseVisualObservation) &&
+      /possible_action: cleanString\(affordance\.possible_action\)/.test(computerUseVisualObservation) &&
+      /action_preconditions: stringArray\(affordance\.action_preconditions\)/.test(
+        computerUseVisualObservation,
+      ) &&
+      /cleanString\(bounds\.coordinate_space_id\) \?\? coordinateSpaceId/.test(
+        computerUseVisualObservation,
+      ) &&
+      /computer-use visual observation projects canonical target and affordance fields/.test(
+        computerUseVisualObservationTest,
+      ) &&
+      /computer-use visual observation ignores retired target and affordance aliases/.test(
+        computerUseVisualObservationTest,
+      ) &&
+      /targetRef: "target_legacy"/.test(computerUseVisualObservationTest) &&
+      /availableActions: \["click"\]/.test(computerUseVisualObservationTest) &&
+      !/\btarget\.(?:targetRef|id|semanticIds|somId|availableActions)\b/.test(
+        computerUseVisualObservation,
+      ) &&
+      !/\baffordance\.(?:targetRef|affordanceRef|possibleAction|actionPreconditions|actionConfidence|expectedStateTransition|riskClass|requiredAuthority|requiredConfirmation|fallbackActionPaths|invalidationConditions)\b/.test(
+        computerUseVisualObservation,
+      ) &&
+      !/\bbounds\.coordinateSpaceId\b/.test(computerUseVisualObservation),
+    [
+      "packages/runtime-daemon/src/computer-use-visual-observation.mjs",
+      "packages/runtime-daemon/src/computer-use-visual-observation.test.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use visual observation target and affordance projection must use canonical snake_case fields without retired aliases",
   );
   assertCheck(
     result,
