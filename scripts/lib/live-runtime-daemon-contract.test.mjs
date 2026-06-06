@@ -5771,9 +5771,9 @@ test("local daemon emits deterministic model route fallback decisions with recei
       id: "route.unavailable-primary",
       role: "test_unavailable",
       privacy: "local_or_enterprise",
-      providerEligibility: ["openai"],
+      provider_eligibility: ["openai"],
       fallback: ["endpoint.local.auto"],
-      deniedProviders: [],
+      denied_providers: [],
       status: "active",
     });
     const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {

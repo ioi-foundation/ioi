@@ -11883,6 +11883,12 @@ Slice 307 retires the Anthropic-compatible messages `maxTokens` request alias:
 before daemon invocation routing and forwards only canonical `max_tokens` into
 the model invocation body.
 
+Slice 308 canonicalizes the live runtime-daemon route fallback fixture after
+route-upsert alias retirement: direct `upsertRoute` test seeding now uses
+`provider_eligibility` and `denied_providers`, and bridge conformance guards
+against reintroducing those retired camelCase route-upsert aliases in the live
+contract fixture.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

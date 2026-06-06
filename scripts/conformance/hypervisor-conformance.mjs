@@ -1408,10 +1408,14 @@ function runBridge() {
       ) &&
       /canonical_fields,\s*\[\s*"max_cost_usd",\s*"max_latency_ms",\s*"provider_eligibility",\s*"denied_providers",\s*"last_selected_model",\s*"last_receipt_id",\s*\]/.test(
         modelRoutesTest,
+      ) &&
+      !/(?:providerEligibility|deniedProviders)/.test(
+        read("scripts/lib/live-runtime-daemon-contract.test.mjs"),
       ),
     [
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
+      "scripts/lib/live-runtime-daemon-contract.test.mjs",
     ],
     "Phase 3/10 is pending: model route upsert request bodies must fail closed on retired camelCase policy/status aliases before route state writes",
   );
