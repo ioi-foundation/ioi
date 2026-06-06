@@ -12779,6 +12779,12 @@ subagent inheritance from canonical `thread_id`, `write_approved`, and
 `writeApproved`, and `subagentInheritance` fields no longer steer run-memory or
 handoff-memory behavior.
 
+Slice 441 removes coding-tool approval override aliases:
+Rust-planned coding-tool approval manifests now treat canonical
+`approval_granted` as the only UI override signal; retired `approvalGranted` and
+`approved` request fields no longer set `ui_override_requested` before the Rust
+authority planner evaluates the manifest.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

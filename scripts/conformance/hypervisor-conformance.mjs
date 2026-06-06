@@ -1600,6 +1600,29 @@ function runBridge() {
     ],
     "Phase 9/10 is pending: coding-tool approval manifests must be planned by Rust authority core through the command bridge",
   );
+  assertCheck(
+    result,
+    "coding-tool-approval-ui-override-aliases-retired",
+    /ui_override_requested:\s*Boolean\(request\.approval_granted\)/.test(
+      runtimeCodingToolApproval,
+    ) &&
+      /approval_granted:\s*true/.test(runtimeCodingToolApprovalTest) &&
+      /coding tool approval manifest ignores retired UI override aliases/.test(
+        runtimeCodingToolApprovalTest,
+      ) &&
+      /approvalGranted:\s*true/.test(runtimeCodingToolApprovalTest) &&
+      /approved:\s*true/.test(runtimeCodingToolApprovalTest) &&
+      /request\.ui_override_requested\),\s*\[false,\s*false\]/.test(runtimeCodingToolApprovalTest) &&
+      !/ui_override_requested:\s*Boolean\(request\.approval_granted \?\?/.test(
+        runtimeCodingToolApproval,
+      ) &&
+      !/\brequest\.(?:approvalGranted|approved)\b/.test(runtimeCodingToolApproval),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool approval UI override must use canonical approval_granted without retired request aliases",
+  );
   const codingToolApprovalBlockBody =
     runtimeCodingToolGovernanceSurface.match(
       /  function blockCodingToolForApproval\(store, \{[\s\S]*?(?=\n  function blockCodingToolForBudget)/,

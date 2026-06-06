@@ -120,7 +120,7 @@ export function createCodingToolApprovalPolicy(deps = {}) {
       requested_mode: requestedMode,
       normalized_requested_mode: normalizedRequestedMode,
       requested_approval_mode: requestedApprovalMode,
-      ui_override_requested: Boolean(request.approval_granted ?? request.approvalGranted ?? request.approved),
+      ui_override_requested: Boolean(request.approval_granted),
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
       workflow_policy: workflowPolicy,

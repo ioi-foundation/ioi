@@ -158,7 +158,7 @@ test("coding tool approval manifest is planned by Rust authority runner", () => 
     },
     input: { path: "src/app.js" },
     request: {
-      approvalGranted: true,
+      approval_granted: true,
       approvalMode: "human_required",
       threadMode: "agent",
     },
@@ -180,6 +180,32 @@ test("coding tool approval manifest is planned by Rust authority runner", () => 
   assert.deepEqual(manifest.authority_scope_requirements, ["workspace.write"]);
   assert.deepEqual(manifest.input_summary, { toolId: "file__write", keys: ["path"] });
   assert.match(manifest.input_hash, /^sha256:/);
+});
+
+test("coding tool approval manifest ignores retired UI override aliases", () => {
+  const capturedRequests = [];
+  const policy = createPolicy({
+    approvalRunner: approvalRunnerMock({
+      capture: (request) => {
+        capturedRequests.push(request);
+      },
+    }),
+  });
+
+  for (const request of [{ approvalGranted: true }, { approved: true }]) {
+    policy.codingToolApprovalManifestForThread({
+      agent: { mode: "agent", runtimeControls: { mode: "plan", approvalMode: "suggest" } },
+      threadId: "thread_1",
+      toolId: "file__write",
+      toolCallId: "call_1",
+      toolContract: { effectClass: "workspace_write" },
+      input: { path: "src/app.js" },
+      request,
+    });
+  }
+
+  assert.equal(capturedRequests.length, 2);
+  assert.deepEqual(capturedRequests.map((request) => request.ui_override_requested), [false, false]);
 });
 
 test("coding tool approval manifest is omitted when no approval gate applies", () => {
