@@ -12242,6 +12242,12 @@ and leave the daemon approval surface to append the approval event and persist
 only the returned agent record instead of constructing `{ ...agent, updatedAt }`
 fallback mutations in JS.
 
+Slice 358 retires context-compaction state-update fallbacks in JS:
+`ContextCompactionStateUpdateCore` already plans both run and runless-agent
+targets; the daemon context-policy surface now fails closed when the Rust
+planner omits the selected target record, and no longer falls back to
+`latestRun` or `{ ...agent, updatedAt }` for `thread.compact` persistence.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

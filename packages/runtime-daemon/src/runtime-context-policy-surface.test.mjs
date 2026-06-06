@@ -132,7 +132,12 @@ function appendOperatorControlForTest(value, control) {
   return entries;
 }
 
-function harness({ contextResult = baseResult(), compactionResult = null, compactionPlan = null } = {}) {
+function harness({
+  contextResult = baseResult(),
+  compactionResult = null,
+  compactionPlan = null,
+  compactionStateUpdate = null,
+} = {}) {
   const calls = [];
   const events = [];
   const run = { id: "run-one", agentId: "agent-one", trace: {} };
@@ -170,7 +175,7 @@ function harness({ contextResult = baseResult(), compactionResult = null, compac
       },
       planContextCompactionStateUpdate(request) {
         calls.push({ name: "planContextCompactionStateUpdate", request });
-        return contextCompactionStateUpdateForRequest(request);
+        return compactionStateUpdate ?? contextCompactionStateUpdateForRequest(request);
       },
     },
     eventStreamIdForThread(threadId) {
@@ -424,4 +429,39 @@ test("context policy surface compacts runless thread by touching agent state", (
   );
   assert.equal(savedAgent.updatedAt, events[0].created_at);
   assert.equal(calls.find((call) => call.name === "writeAgent").operationKind, "thread.compact");
+});
+
+test("context policy surface fails closed without Rust-planned compaction target records", () => {
+  const runHarness = harness({
+    compactionStateUpdate: {
+      status: "planned",
+      target_kind: "run",
+      operation_kind: "thread.compact",
+      run: null,
+      agent: null,
+    },
+  });
+
+  assert.throws(
+    () => runHarness.surface.compactThread(runHarness.store, "thread-agent-one", {}),
+    (error) => error.details?.code === "context_compaction_state_update_planner_invalid",
+  );
+  assert.equal(runHarness.calls.some((call) => call.name === "writeRun"), false);
+
+  const agentHarness = harness({
+    compactionStateUpdate: {
+      status: "planned",
+      target_kind: "agent",
+      operation_kind: "thread.compact",
+      run: null,
+      agent: null,
+    },
+  });
+  agentHarness.store.runs.clear();
+
+  assert.throws(
+    () => agentHarness.surface.compactThread(agentHarness.store, "thread-agent-one", {}),
+    (error) => error.details?.code === "context_compaction_state_update_planner_invalid",
+  );
+  assert.equal(agentHarness.calls.some((call) => call.name === "writeAgent"), false);
 });

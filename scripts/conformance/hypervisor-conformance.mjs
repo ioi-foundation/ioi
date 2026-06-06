@@ -1611,6 +1611,7 @@ function runBridge() {
       /ContextCompactionStateUpdateRequest/.test(policyCore) &&
       /CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_context_compaction_run_state_update/.test(policyCore) &&
+      /rust_policy_plans_context_compaction_runless_agent_update/.test(policyCore) &&
       /plan_context_compaction_state_update/.test(bridgeModule) &&
       /ContextCompactionStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_context_compaction_state_update_command/.test(bridgeModule) &&
@@ -1625,8 +1626,17 @@ function runBridge() {
       /contextPolicyRunnerDep\.planContextCompactionStateUpdate/.test(
         runtimeContextPolicySurface,
       ) &&
+      /plannedContextCompactionRunRecord/.test(runtimeContextPolicySurface) &&
+      /plannedContextCompactionAgentRecord/.test(runtimeContextPolicySurface) &&
       /planContextCompactionStateUpdate/.test(runtimeContextPolicySurfaceTest) &&
-      !/appendOperatorControlDep|contextCompaction:\s*\{/.test(runtimeContextPolicySurface),
+      /context policy surface fails closed without Rust-planned compaction target records/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      !/appendOperatorControlDep|contextCompaction:\s*\{/.test(runtimeContextPolicySurface) &&
+      !/stateUpdate\.run\s*\?\?\s*latestRun/.test(runtimeContextPolicySurface) &&
+      !/stateUpdate\.agent\s*\?\?\s*\{\s*\.\.\.agent,\s*updatedAt: event\.created_at\s*\}/.test(
+        runtimeContextPolicySurface,
+      ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
