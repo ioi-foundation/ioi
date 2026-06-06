@@ -3024,6 +3024,10 @@ function runReceipts() {
     catalogDownloadOperations.match(/function transferReceiptDetails\(transfer\) \{[\s\S]*?\n\}/)?.[0] ?? "";
   const catalogDownloadTransferEventDetailsHelper =
     catalogDownloadOperations.match(/function transferEventReceiptDetails\(details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "";
+  const catalogApprovalDecisionBlock =
+    catalogHelpers.match(/export function catalogApprovalDecision[\s\S]*?export function normalizeDownloadPolicy/)?.[0] ?? "";
+  const normalizeDownloadPolicyBlock =
+    catalogHelpers.match(/export function normalizeDownloadPolicy[\s\S]*?export function assertDownloadPolicyAllowed/)?.[0] ?? "";
   const runtimeEngineReceiptBlocks = [
     ...runtimeEngines.matchAll(/state\.lifecycleReceipt\("runtime_engine_(?:select|update|profile_remove)",\s*\{[\s\S]*?\n\s+\}\);/g),
   ].map((match) => match[0]).join("\n");
@@ -4087,6 +4091,47 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs",
     ],
     "Phase 9/11 is pending: catalog helper fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-catalog-download-policy-request-aliases-retired",
+    /RETIRED_CATALOG_DOWNLOAD_POLICY_REQUEST_ALIASES/.test(catalogHelpers) &&
+      /CANONICAL_CATALOG_DOWNLOAD_POLICY_REQUEST_FIELDS/.test(catalogHelpers) &&
+      /catalog_download_policy_request_aliases_retired/.test(catalogHelpers) &&
+      /assertCanonicalCatalogDownloadPolicyRequestBody\(body\);[\s\S]*const approved = Boolean\(body\.transfer_approved \?\? isFixture\);/.test(
+        catalogApprovalDecisionBlock,
+      ) &&
+      /assertCanonicalCatalogDownloadPolicyRequestBody\(body\);[\s\S]*body\.bandwidth_bps \?\?[\s\S]*body\.bandwidth_limit_bps \?\?[\s\S]*process\.env\.IOI_MODEL_DOWNLOAD_BANDWIDTH_BPS/.test(
+        normalizeDownloadPolicyBlock,
+      ) &&
+      /const retryLimit = normalizeNonNegativeInteger\(body\.retry_limit \?\? body\.retries \?\? 0,\s*0\);/.test(
+        normalizeDownloadPolicyBlock,
+      ) &&
+      /const resume = truthy\(body\.resume \?\? body\.resume_download \?\? true\);/.test(
+        normalizeDownloadPolicyBlock,
+      ) &&
+      /const cleanupPartialOnCancel = truthy\(body\.cleanup_partial \?\? true\);/.test(
+        normalizeDownloadPolicyBlock,
+      ) &&
+      !/body\.(?:transferApproved|bandwidthBps|bandwidthLimitBps|retryLimit|resumeDownload|cleanupPartial)\b/.test(
+        `${catalogApprovalDecisionBlock}\n${normalizeDownloadPolicyBlock}`,
+      ) &&
+      /catalog download policy accepts canonical request fields/.test(catalogHelpersTest) &&
+      /catalog download policy rejects retired request aliases/.test(catalogHelpersTest) &&
+      /retired_aliases,\s*\[\s*"transferApproved",\s*"bandwidthBps",\s*"bandwidthLimitBps",\s*"retryLimit",\s*"resumeDownload",\s*"cleanupPartial",\s*\]/.test(
+        catalogHelpersTest,
+      ) &&
+      /canonical_fields,\s*\[\s*"transfer_approved",\s*"bandwidth_bps",\s*"bandwidth_limit_bps",\s*"retry_limit",\s*"resume_download",\s*"cleanup_partial",\s*\]/.test(
+        catalogHelpersTest,
+      ) &&
+      /catalogApprovalDecision\(\{ isFixture: false,\s*body: \{ transferApproved: true \} \}\)/.test(
+        catalogHelpersTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs",
+    ],
+    "Phase 9/11 is pending: catalog download policy helpers must fail closed on retired camelCase policy aliases before approval or transfer policy evaluation",
   );
   assertCheck(
     result,

@@ -12,6 +12,24 @@ import {
   truthy,
 } from "./io.mjs";
 
+const RETIRED_CATALOG_DOWNLOAD_POLICY_REQUEST_ALIASES = [
+  "transferApproved",
+  "bandwidthBps",
+  "bandwidthLimitBps",
+  "retryLimit",
+  "resumeDownload",
+  "cleanupPartial",
+];
+
+const CANONICAL_CATALOG_DOWNLOAD_POLICY_REQUEST_FIELDS = [
+  "transfer_approved",
+  "bandwidth_bps",
+  "bandwidth_limit_bps",
+  "retry_limit",
+  "resume_download",
+  "cleanup_partial",
+];
+
 export function modelCatalogFileFormat(filePath) {
   const lower = String(filePath ?? "").toLowerCase();
   if (lower.endsWith(".gguf")) return "gguf";
@@ -155,7 +173,8 @@ export function catalogRecommendation({ backendCompatibility, benchmarkReadiness
 }
 
 export function catalogApprovalDecision({ isFixture, body = {} }) {
-  const approved = Boolean(body.transfer_approved ?? body.transferApproved ?? isFixture);
+  assertCanonicalCatalogDownloadPolicyRequestBody(body);
+  const approved = Boolean(body.transfer_approved ?? isFixture);
   return {
     required: !isFixture,
     approved,
@@ -164,16 +183,15 @@ export function catalogApprovalDecision({ isFixture, body = {} }) {
 }
 
 export function normalizeDownloadPolicy(body = {}, { isFixture, maxBytes, source } = {}) {
+  assertCanonicalCatalogDownloadPolicyRequestBody(body);
   const bandwidthLimitBps = normalizeOptionalBytes(
     body.bandwidth_bps ??
-      body.bandwidthBps ??
       body.bandwidth_limit_bps ??
-      body.bandwidthLimitBps ??
       process.env.IOI_MODEL_DOWNLOAD_BANDWIDTH_BPS,
   );
-  const retryLimit = normalizeNonNegativeInteger(body.retry_limit ?? body.retryLimit ?? body.retries ?? 0, 0);
-  const resume = truthy(body.resume ?? body.resume_download ?? body.resumeDownload ?? true);
-  const cleanupPartialOnCancel = truthy(body.cleanup_partial ?? body.cleanupPartial ?? true);
+  const retryLimit = normalizeNonNegativeInteger(body.retry_limit ?? body.retries ?? 0, 0);
+  const resume = truthy(body.resume ?? body.resume_download ?? true);
+  const cleanupPartialOnCancel = truthy(body.cleanup_partial ?? true);
   const approvalDecision = catalogApprovalDecision({ isFixture, body });
   return {
     maxBytes,
@@ -188,6 +206,22 @@ export function normalizeDownloadPolicy(body = {}, { isFixture, maxBytes, source
     status: approvalDecision.required && !approvalDecision.approved ? "blocked_approval_required" : "ready",
     evidenceRefs: ["model_download_transfer_policy", "external_transfer_approval_receipt"],
   };
+}
+
+function assertCanonicalCatalogDownloadPolicyRequestBody(body = {}) {
+  const retiredAliases = RETIRED_CATALOG_DOWNLOAD_POLICY_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw runtimeError({
+    status: 400,
+    code: "catalog_download_policy_request_aliases_retired",
+    message: "Catalog download policy request aliases are retired; use canonical snake_case request fields.",
+    details: {
+      retired_aliases: retiredAliases,
+      canonical_fields: CANONICAL_CATALOG_DOWNLOAD_POLICY_REQUEST_FIELDS,
+    },
+  });
 }
 
 export function assertDownloadPolicyAllowed(policy, source) {

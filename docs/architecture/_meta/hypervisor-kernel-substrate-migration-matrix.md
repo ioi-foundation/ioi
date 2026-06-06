@@ -11943,6 +11943,14 @@ Slice 316 retires direct model download metadata request aliases:
 and `privacyClass` before timestamping, receipt creation, or writes. Canonical
 `display_name`, `context_window`, and `privacy_class` remain accepted.
 
+Slice 317 retires catalog download policy helper request aliases:
+`catalogApprovalDecision` and `normalizeDownloadPolicy` now fail closed on
+retired `transferApproved`, `bandwidthBps`, `bandwidthLimitBps`, `retryLimit`,
+`resumeDownload`, and `cleanupPartial` before approval or transfer policy
+evaluation. Canonical `transfer_approved`, `bandwidth_bps`,
+`bandwidth_limit_bps`, `retry_limit`, `resume_download`, and
+`cleanup_partial` remain accepted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
