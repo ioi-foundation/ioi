@@ -420,15 +420,15 @@ function payloadSummaryForRunEvent(event) {
     if (event.type === "skill_hook_manifest") {
       return {
         ...summary,
-        event_kind: event.data?.eventKind ?? "ActiveSkillHookManifest",
-        manifest_id: event.data?.manifestId ?? null,
-        active_skill_set_hash: event.data?.activeSkillSetHash ?? null,
-        active_hook_set_hash: event.data?.activeHookSetHash ?? null,
-        selected_skill_count: normalizeArray(event.data?.selectedSkillIds).length,
-        selected_hook_count: normalizeArray(event.data?.selectedHookIds).length,
-        mutation_blocked_hook_count: normalizeArray(event.data?.mutationBlockedHookIds).length,
-        hook_execution_enabled: Boolean(event.data?.hookExecution?.enabled),
-        workflow_node_id: event.data?.workflowNodeId ?? null,
+        event_kind: event.data?.event_kind ?? "ActiveSkillHookManifest",
+        manifest_id: event.data?.manifest_id ?? null,
+        active_skill_set_hash: event.data?.active_skill_set_hash ?? null,
+        active_hook_set_hash: event.data?.active_hook_set_hash ?? null,
+        selected_skill_count: normalizeArray(event.data?.selected_skill_ids).length,
+        selected_hook_count: normalizeArray(event.data?.selected_hook_ids).length,
+        mutation_blocked_hook_count: normalizeArray(event.data?.mutation_blocked_hook_ids).length,
+        hook_execution_enabled: Boolean(event.data?.hook_execution?.enabled),
+        workflow_node_id: event.data?.workflow_node_id ?? null,
         redaction: event.data?.redaction?.profile ?? "active_skill_hook_manifest_safe",
       };
     }

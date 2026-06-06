@@ -9129,6 +9129,8 @@ function runCompositor() {
     runtimeEventPayloads.match(/if \(event\.type === "review_gate"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeGithubPrCreatePlanPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "github_pr_create_plan"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimeSkillHookManifestPayloadSummaryBlock =
+    runtimeEventPayloads.match(/if \(event\.type === "skill_hook_manifest"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeTaskPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "runtime_task"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeChecklistPayloadSummaryBlock =
@@ -9157,6 +9159,8 @@ function runCompositor() {
     runtimeDaemonIndex.match(/addEvent\("review_gate", "Review gate decision recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeGithubPrCreatePlanEventProducerBlock =
     runtimeDaemonIndex.match(/addEvent\("github_pr_create_plan", "GitHub PR create dry-run plan recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
+  const runtimeSkillHookManifestEventProducerBlock =
+    runtimeDaemonIndex.match(/addEvent\("skill_hook_manifest", "Active skill and hook manifest recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeUsageEvents = exists("packages/runtime-daemon/src/runtime-usage-events.mjs")
     ? read("packages/runtime-daemon/src/runtime-usage-events.mjs")
     : "";
@@ -10790,6 +10794,22 @@ function runCompositor() {
       !/event\.data\?\.authority\?\.(?:requiredScopes|missingScopes|scopeGranted)\b/.test(
         runtimeGithubPrCreatePlanPayloadSummaryBlock,
       ) &&
+      runtimeSkillHookManifestPayloadSummaryBlock.length > 0 &&
+      /event_kind:\s*event\.data\?\.event_kind \?\? "ActiveSkillHookManifest"/.test(
+        runtimeSkillHookManifestPayloadSummaryBlock,
+      ) &&
+      /manifest_id:\s*event\.data\?\.manifest_id \?\? null/.test(
+        runtimeSkillHookManifestPayloadSummaryBlock,
+      ) &&
+      /selected_skill_count:\s*normalizeArray\(event\.data\?\.selected_skill_ids\)\.length/.test(
+        runtimeSkillHookManifestPayloadSummaryBlock,
+      ) &&
+      /hook_execution_enabled:\s*Boolean\(event\.data\?\.hook_execution\?\.enabled\)/.test(
+        runtimeSkillHookManifestPayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.(?:eventKind|manifestId|activeSkillSetHash|activeHookSetHash|selectedSkillIds|selectedHookIds|mutationBlockedHookIds|hookExecution|workflowNodeId)\b/.test(
+        runtimeSkillHookManifestPayloadSummaryBlock,
+      ) &&
       runtimeTaskPayloadSummaryBlock.length > 0 &&
       /event_kind:\s*event\.data\?\.event_kind \?\? "RuntimeTaskRecord"/.test(
         runtimeTaskPayloadSummaryBlock,
@@ -10960,6 +10980,20 @@ function runCompositor() {
       !/\.\.\.githubPrCreatePlan|^\s*(?:receiptId|eventKind|workflowNodeId|planId|repositoryContextId|branchPolicyId|githubContextId|issueContextId|prAttemptId|reviewGateId|dryRun|toolName|repoFullName|baseBranch|headBranch|issueNumber|reviewGateStatus|reviewSatisfied|mutationAttempted|mutationExecuted|networkLookupPerformed)\s*:/m.test(
         runtimeGithubPrCreatePlanEventProducerBlock,
       ) &&
+      runtimeSkillHookManifestEventProducerBlock.length > 0 &&
+      /event_kind:\s*"ActiveSkillHookManifest"/.test(runtimeSkillHookManifestEventProducerBlock) &&
+      /manifest_id:\s*activeSkillHookManifest\.manifestId \?\? null/.test(
+        runtimeSkillHookManifestEventProducerBlock,
+      ) &&
+      /selected_skill_ids:\s*normalizeArray\(activeSkillHookManifest\.selectedSkillIds\)/.test(
+        runtimeSkillHookManifestEventProducerBlock,
+      ) &&
+      /workflow_node_id:\s*"runtime\.skill-hook-manifest"/.test(
+        runtimeSkillHookManifestEventProducerBlock,
+      ) &&
+      !/\.\.\.activeSkillHookManifest|^\s*(?:receiptId|eventKind|workflowNodeId|manifestId|activeSkillSetHash|activeHookSetHash|selectedSkillIds|selectedHookIds|mutationBlockedHookIds|hookExecution)\s*:/m.test(
+        runtimeSkillHookManifestEventProducerBlock,
+      ) &&
       /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
       /retiredComputerUseSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredMemorySummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
@@ -10970,6 +11004,7 @@ function runCompositor() {
       /retiredPrAttemptSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredReviewGateSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredGithubPrCreatePlanSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredSkillHookManifestSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeTaskSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeChecklistSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeJobSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
@@ -10982,6 +11017,7 @@ function runCompositor() {
       /eventKind: "RetiredPrAttemptRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredReviewGateDecision"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredGitHubPrCreatePlan"/.test(runtimeEventPayloadsTest) &&
+      /eventKind: "RetiredActiveSkillHookManifest"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeTaskRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeChecklistRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredJobCompleted"/.test(runtimeEventPayloadsTest) &&
@@ -10997,6 +11033,7 @@ function runCompositor() {
       /workflowNodeId: "retired\.review-gate"/.test(runtimeEventPayloadsTest) &&
       /payloadHash: "retired-payload-hash"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.github-pr-create"/.test(runtimeEventPayloadsTest) &&
+      /workflowNodeId: "retired\.skill-hook-manifest"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.repository-context"/.test(runtimeEventPayloadsTest) &&
       /memoryRecordId: "retired-memory"/.test(runtimeEventPayloadsTest) &&
       /memoryPolicyId: "retired-policy"/.test(runtimeEventPayloadsTest) &&

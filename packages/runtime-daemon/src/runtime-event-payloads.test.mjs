@@ -150,6 +150,18 @@ const retiredGithubPrCreatePlanSummaryAliasKeys = [
   "workflowNodeId",
 ];
 
+const retiredSkillHookManifestSummaryAliasKeys = [
+  "eventKind",
+  "manifestId",
+  "activeSkillSetHash",
+  "activeHookSetHash",
+  "selectedSkillIds",
+  "selectedHookIds",
+  "mutationBlockedHookIds",
+  "hookExecution",
+  "workflowNodeId",
+];
+
 const retiredRuntimeTaskSummaryAliasKeys = [
   "eventKind",
   "taskId",
@@ -936,6 +948,50 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   assert.notEqual(githubPrCreatePlan.workflow_node_id, "retired.github-pr-create");
   for (const key of retiredGithubPrCreatePlanSummaryAliasKeys) {
     assert.equal(Object.hasOwn(githubPrCreatePlan, key), false);
+  }
+
+  const skillHookManifest = runtime.payloadSummaryForRunEvent({
+    id: "event-skill-hook-manifest",
+    type: "skill_hook_manifest",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      event_kind: "ActiveSkillHookManifest.Canonical",
+      eventKind: "RetiredActiveSkillHookManifest",
+      manifest_id: "skill-hook-manifest-one",
+      manifestId: "retired-skill-hook-manifest",
+      active_skill_set_hash: "skill-set-hash-one",
+      activeSkillSetHash: "retired-skill-set-hash",
+      active_hook_set_hash: "hook-set-hash-one",
+      activeHookSetHash: "retired-hook-set-hash",
+      selected_skill_ids: ["skill-one", "skill-two"],
+      selectedSkillIds: ["retired-skill"],
+      selected_hook_ids: ["hook-one"],
+      selectedHookIds: ["retired-hook"],
+      mutation_blocked_hook_ids: ["hook-two"],
+      mutationBlockedHookIds: ["retired-blocked-hook"],
+      hook_execution: { enabled: false },
+      hookExecution: { enabled: true },
+      workflow_node_id: "runtime.skill-hook-manifest",
+      workflowNodeId: "retired.skill-hook-manifest",
+      redaction: { profile: "active_skill_hook_manifest_safe" },
+    },
+  });
+
+  assert.equal(skillHookManifest.event_kind, "ActiveSkillHookManifest.Canonical");
+  assert.equal(skillHookManifest.manifest_id, "skill-hook-manifest-one");
+  assert.equal(skillHookManifest.active_skill_set_hash, "skill-set-hash-one");
+  assert.equal(skillHookManifest.active_hook_set_hash, "hook-set-hash-one");
+  assert.equal(skillHookManifest.selected_skill_count, 2);
+  assert.equal(skillHookManifest.selected_hook_count, 1);
+  assert.equal(skillHookManifest.mutation_blocked_hook_count, 1);
+  assert.equal(skillHookManifest.hook_execution_enabled, false);
+  assert.equal(skillHookManifest.workflow_node_id, "runtime.skill-hook-manifest");
+  assert.notEqual(skillHookManifest.manifest_id, "retired-skill-hook-manifest");
+  assert.notEqual(skillHookManifest.active_skill_set_hash, "retired-skill-set-hash");
+  assert.notEqual(skillHookManifest.workflow_node_id, "retired.skill-hook-manifest");
+  for (const key of retiredSkillHookManifestSummaryAliasKeys) {
+    assert.equal(Object.hasOwn(skillHookManifest, key), false);
   }
 
   const task = runtime.payloadSummaryForRunEvent({

@@ -4964,10 +4964,19 @@ function buildRun({
     redaction: githubPrCreatePlan.redaction,
   });
   addEvent("skill_hook_manifest", "Active skill and hook manifest recorded", {
-    ...activeSkillHookManifest,
-    receiptId: skillHookReceipt.id,
-    eventKind: "ActiveSkillHookManifest",
-    workflowNodeId: "runtime.skill-hook-manifest",
+    event_kind: "ActiveSkillHookManifest",
+    manifest_id: activeSkillHookManifest.manifestId ?? null,
+    active_skill_set_hash: activeSkillHookManifest.activeSkillSetHash ?? null,
+    active_hook_set_hash: activeSkillHookManifest.activeHookSetHash ?? null,
+    selected_skill_ids: normalizeArray(activeSkillHookManifest.selectedSkillIds),
+    selected_hook_ids: normalizeArray(activeSkillHookManifest.selectedHookIds),
+    mutation_blocked_hook_ids: normalizeArray(activeSkillHookManifest.mutationBlockedHookIds),
+    hook_execution: {
+      enabled: Boolean(activeSkillHookManifest.hookExecution?.enabled),
+    },
+    receipt_id: skillHookReceipt.id,
+    workflow_node_id: "runtime.skill-hook-manifest",
+    redaction: activeSkillHookManifest.redaction,
   });
   addEvent("hook_dry_run_plan", "Hook dry-run plan recorded", {
     ...hookDryRunPlan,
