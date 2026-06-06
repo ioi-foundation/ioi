@@ -12733,6 +12733,12 @@ canonical snake_case fields only; duplicate `schemaVersion`, count, evidence,
 thread, agent, receipt, memory-key, and workflow-node camelCase facade aliases
 are ignored or absent in focused tests and guarded by compositor conformance.
 
+Slice 434 removes runtime memory mutation aliases:
+runtime memory mutation payloads now expose canonical snake_case fields only,
+canonical `workflow_node_id` drives mutation row projection, and raw mutation
+objects can no longer spread retired compatibility fields into the returned
+daemon facade envelope.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -338,7 +338,6 @@ export function createThreadMemoryState({
       ...status,
       records: payloadRecordList,
       receipt_refs: receiptRefs,
-      receiptRefs,
     }).map((row) =>
       row.row_kind === "memory_record" && (!memoryRecordId || row.memory_record_id === memoryRecordId)
         ? {
@@ -346,38 +345,29 @@ export function createThreadMemoryState({
             label: memoryMutationRowLabel(operation),
             raw_input: memoryMutationRawInput(operation),
             memory_operation: operation,
-            workflow_node_id: record?.workflowNodeId ?? memoryWorkflowNodeId(operation),
+            workflow_node_id: record?.workflow_node_id ?? memoryWorkflowNodeId(operation),
           }
         : row,
     );
     const payload = {
       ...status,
       schema_version: schemaVersion,
-      schemaVersion,
       object: "ioi.runtime_memory_manager_mutation",
       event_kind: memoryEventKind(operation),
       control_kind: controlKind,
       memory_operation: operation,
-      memoryOperation: operation,
       mutation_status: "completed",
-      mutationStatus: "completed",
       thread_id: threadId,
-      threadId,
       agent_id: agent.id,
-      agentId: agent.id,
       record,
       records: payloadRecordList,
       policy,
       receipt,
       memory_record_id: memoryRecordId,
-      memoryRecordId,
       memory_policy_id: memoryPolicyId,
-      memoryPolicyId,
       receipt_refs: receiptRefs,
-      receiptRefs,
       rows: mutationRows,
       memory_rows: mutationRows,
-      memoryRows: mutationRows,
       summary: memoryMutationSummary(operation, { record, policy }),
     };
     const result = store.appendThreadMemoryControlEvent({
@@ -396,7 +386,6 @@ export function createThreadMemoryState({
       policyDecisionKind: operation,
     });
     return {
-      ...mutation,
       ...result,
       record,
       policy,

@@ -150,11 +150,25 @@ function createHarness(options = {}) {
       },
       remember(input) {
         calls.push({ type: "remember", input });
-        return { record: { id: "memory_new", workflowNodeId: "runtime.memory" }, receipt: { id: "receipt_memory_new" } };
+        return {
+          record: {
+            id: "memory_new",
+            workflow_node_id: "runtime.memory.canonical",
+            workflowNodeId: "runtime.memory.retired",
+          },
+          receipt: { id: "receipt_memory_new" },
+        };
       },
       updateRecord(input) {
         calls.push({ type: "updateRecord", input });
-        return { record: { id: input.id, workflowNodeId: "runtime.memory.edit" }, receipt: { id: `receipt_${input.id}` } };
+        return {
+          record: {
+            id: input.id,
+            workflow_node_id: "runtime.memory.edit.canonical",
+            workflowNodeId: "runtime.memory.edit.retired",
+          },
+          receipt: { id: `receipt_${input.id}` },
+        };
       },
     },
   };
@@ -241,9 +255,24 @@ test("thread memory state records write, edit, and delete mutations", () => {
   assert.equal(write.record.id, "memory_new");
   assert.equal(write.receipt_refs[0], "receipt_memory_new");
   assert.equal(write.rows[0].label, "Memory write");
+  assert.equal(write.rows[0].workflow_node_id, "runtime.memory.canonical");
+  for (const field of [
+    "schemaVersion",
+    "memoryOperation",
+    "mutationStatus",
+    "threadId",
+    "agentId",
+    "memoryRecordId",
+    "memoryPolicyId",
+    "receiptRefs",
+    "memoryRows",
+  ]) {
+    assert.equal(Object.hasOwn(write, field), false);
+  }
 
   const edit = state.updateMemoryForThread(store, "thread_a", "memory_1", { text: "Edited" });
   assert.equal(edit.operation, "edit");
+  assert.equal(edit.rows[0].workflow_node_id, "runtime.memory.edit.canonical");
   assert.equal(calls.find((call) => call.type === "updateRecord").input.source, "memory_edit_api");
 
   const deleted = state.deleteMemoryForAgentId(store, "agent_a", "memory_1", { source: "test_delete" });

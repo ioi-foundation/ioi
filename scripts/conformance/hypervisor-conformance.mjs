@@ -8822,6 +8822,12 @@ function runCompositor() {
     runtimeMemoryManager.match(
       /export function memoryRowsForStatus\(status = \{\}\) \{[\s\S]*?\n}\n\nfunction validateMemoryPolicy/,
     )?.[0] ?? "";
+  const runtimeThreadMemoryMutationBlock =
+    runtimeThreadMemoryState.match(
+      /function recordThreadMemoryMutation\(store, threadId, mutation = \{\}, request = \{\}, operation = "write", schemaVersion\) \{[\s\S]*?\n  \}\n\n  function appendThreadMemoryControlEvent/,
+    )?.[0] ?? "";
+  const runtimeThreadMemoryMutationPayloadBlock =
+    runtimeThreadMemoryMutationBlock.match(/const payload = \{[\s\S]*?\n    \};/)?.[0] ?? "";
   const runtimeMcpSdkListOptionsBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpListOptions[\s\S]*?\n}\n/)?.[0] ??
     "";
@@ -9303,6 +9309,38 @@ function runCompositor() {
       "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
     ],
     "Phase 10/11 is pending: runtime memory status, validation, and rows must expose canonical snake_case fields without duplicate camelCase facade aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-memory-mutation-output-aliases-retired",
+    /schema_version:\s*schemaVersion/.test(runtimeThreadMemoryMutationBlock) &&
+      /memory_operation:\s*operation/.test(runtimeThreadMemoryMutationBlock) &&
+      /mutation_status:\s*"completed"/.test(runtimeThreadMemoryMutationBlock) &&
+      /thread_id:\s*threadId/.test(runtimeThreadMemoryMutationBlock) &&
+      /agent_id:\s*agent\.id/.test(runtimeThreadMemoryMutationBlock) &&
+      /memory_record_id:\s*memoryRecordId/.test(runtimeThreadMemoryMutationBlock) &&
+      /memory_policy_id:\s*memoryPolicyId/.test(runtimeThreadMemoryMutationBlock) &&
+      /receipt_refs:\s*receiptRefs/.test(runtimeThreadMemoryMutationBlock) &&
+      /memory_rows:\s*mutationRows/.test(runtimeThreadMemoryMutationBlock) &&
+      /workflow_node_id:\s*record\?\.workflow_node_id \?\? memoryWorkflowNodeId\(operation\)/.test(
+        runtimeThreadMemoryMutationBlock,
+      ) &&
+      /workflow_node_id: "runtime\.memory\.canonical"/.test(runtimeThreadMemoryStateTest) &&
+      /workflowNodeId: "runtime\.memory\.retired"/.test(runtimeThreadMemoryStateTest) &&
+      /Object\.hasOwn\(write,\s*field\),\s*false/.test(runtimeThreadMemoryStateTest) &&
+      /write\.rows\[0\]\.workflow_node_id,\s*"runtime\.memory\.canonical"/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      !/^\s*(?:schemaVersion|memoryOperation|mutationStatus|threadId|agentId|memoryRecordId|memoryPolicyId|receiptRefs|memoryRows)\s*[:,]/m.test(
+        runtimeThreadMemoryMutationPayloadBlock,
+      ) &&
+      !/\brecord\?\.workflowNodeId\b/.test(runtimeThreadMemoryMutationBlock) &&
+      !/\.\.\.mutation\b/.test(runtimeThreadMemoryMutationBlock),
+    [
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime memory mutation payloads must expose canonical snake_case fields without duplicate camelCase facade aliases",
   );
   assertCheck(
     result,
