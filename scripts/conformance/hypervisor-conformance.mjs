@@ -417,6 +417,12 @@ function runBridge() {
   const visualGuiLocalExecutorTest = exists("packages/runtime-daemon/src/visual-gui-local-executor.test.mjs")
     ? read("packages/runtime-daemon/src/visual-gui-local-executor.test.mjs")
     : "";
+  const visualGuiLocalCapture = exists("packages/runtime-daemon/src/visual-gui-local-capture.mjs")
+    ? read("packages/runtime-daemon/src/visual-gui-local-capture.mjs")
+    : "";
+  const visualGuiLocalCaptureTest = exists("packages/runtime-daemon/src/visual-gui-local-capture.test.mjs")
+    ? read("packages/runtime-daemon/src/visual-gui-local-capture.test.mjs")
+    : "";
   const computerUseProviderRegistry = exists("packages/runtime-daemon/src/computer-use-provider-registry.mjs")
     ? read("packages/runtime-daemon/src/computer-use-provider-registry.mjs")
     : "";
@@ -1559,6 +1565,56 @@ function runBridge() {
       "packages/runtime-daemon/src/visual-gui-local-executor.test.mjs",
     ],
     "Phase 10/11 is pending: visual GUI local-executor request detection must ignore retired camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "visual-gui-local-capture-aliases-retired",
+    /booleanValue\(input\.capture_screen\)/.test(visualGuiLocalCapture) &&
+      /booleanValue\(input\.local_capture\)/.test(visualGuiLocalCapture) &&
+      /booleanValue\(input\.capture_visual_gui\)/.test(visualGuiLocalCapture) &&
+      /input\.capture_provider\s*\?\?\s*input\.local_capture_provider/.test(
+        visualGuiLocalCapture,
+      ) &&
+      /capture_fixture_png_base64/.test(visualGuiLocalCapture) &&
+      /capture_screen:\s*true/.test(visualGuiLocalExecutor) &&
+      /capture_provider:\s*\n\s*cleanString\(input\.local_gui_executor_provider\)/.test(
+        visualGuiLocalExecutor,
+      ) &&
+      /capture_fixture_png_base64:\s*\n\s*input\.local_gui_executor_fixture_png_base64/.test(
+        visualGuiLocalExecutor,
+      ) &&
+      /preflightCapture\.inputPatch\?\.screenshot_path/.test(visualGuiLocalExecutor) &&
+      /visual GUI local capture request detector ignores retired aliases/.test(
+        visualGuiLocalCaptureTest,
+      ) &&
+      /visual GUI local fixture capture emits canonical patch fields only/.test(
+        visualGuiLocalCaptureTest,
+      ) &&
+      /visual GUI local unavailable patch emits canonical clearing fields only/.test(
+        visualGuiLocalCaptureTest,
+      ) &&
+      /Object\.hasOwn\(result\.inputPatch,\s*key\),\s*false/.test(
+        visualGuiLocalCaptureTest,
+      ) &&
+      !/\binput\.(?:captureScreen|localCapture|captureVisualGui|captureProvider|localCaptureProvider|captureAxTree|captureAccessibilityTree|captureFixturePngBase64|captureFixtureAxTree|captureFixtureAxJson|captureCoordinateSpaceId|coordinateSpaceId|captureAppName|appName|captureWindowTitle|windowTitle|viewportWidth|viewportHeight|detectedPatterns)\b/.test(
+        visualGuiLocalCapture,
+      ) &&
+      !/^\s*(?:screenshotPath|coordinateSpaceId|detectedPatterns|computerUseVisualCaptureReceipt|axPath|appName|windowTitle|viewportWidth|viewportHeight|visualTargets|targetRef|availableActions)\s*:/m.test(
+        visualGuiLocalCapture,
+      ) &&
+      !/\b(?:screenshotRef|screenshotPath|somRef|somPath|axRef|axPath|appName|windowTitle|visualTargets|detectedPatterns)\s*:\s*undefined/.test(
+        visualGuiLocalCapture,
+      ) &&
+      !/\binput\.(?:captureProvider|captureFixturePngBase64)\b/.test(
+        visualGuiLocalExecutor,
+      ) &&
+      !/preflightCapture\.inputPatch\?\.screenshotPath/.test(visualGuiLocalExecutor),
+    [
+      "packages/runtime-daemon/src/visual-gui-local-capture.mjs",
+      "packages/runtime-daemon/src/visual-gui-local-capture.test.mjs",
+      "packages/runtime-daemon/src/visual-gui-local-executor.mjs",
+    ],
+    "Phase 10/11 is pending: visual GUI local capture must use canonical snake_case request and patch fields without retired camelCase aliases",
   );
   assertCheck(
     result,

@@ -109,14 +109,13 @@ export async function executeLocalVisualGuiAction({
   const preflightCapture = captureLocalVisualGuiObservation({
     input: {
       ...input,
-      captureScreen: true,
-      captureProvider:
+      capture_screen: true,
+      capture_provider:
         cleanString(input.local_gui_executor_provider) === "fixture"
           ? "fixture"
-          : input.captureProvider ?? input.capture_provider,
-      captureFixturePngBase64:
+          : input.capture_provider,
+      capture_fixture_png_base64:
         input.local_gui_executor_fixture_png_base64 ??
-        input.captureFixturePngBase64 ??
         input.capture_fixture_png_base64,
     },
     captureDir,
@@ -137,7 +136,7 @@ export async function executeLocalVisualGuiAction({
         preflightReceipt: preflightCapture?.receipt ?? null,
       });
     }
-    const currentScreenshotPath = preflightCapture.inputPatch?.screenshotPath;
+    const currentScreenshotPath = preflightCapture.inputPatch?.screenshot_path;
     const currentScreenshotBase64 = currentScreenshotPath
       ? fs.readFileSync(currentScreenshotPath).toString("base64")
       : null;

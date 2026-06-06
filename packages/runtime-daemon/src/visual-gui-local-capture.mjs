@@ -10,10 +10,10 @@ const DEFAULT_CAPTURE_TIMEOUT_MS = 5000;
 
 export function visualGuiLocalCaptureRequested(input = {}) {
   return Boolean(
-    booleanValue(input.captureScreen ?? input.capture_screen) ??
-      booleanValue(input.localCapture ?? input.local_capture) ??
-      booleanValue(input.captureVisualGui ?? input.capture_visual_gui) ??
-      cleanString(input.captureProvider ?? input.capture_provider ?? input.localCaptureProvider ?? input.local_capture_provider),
+    booleanValue(input.capture_screen) ??
+      booleanValue(input.local_capture) ??
+      booleanValue(input.capture_visual_gui) ??
+      cleanString(input.capture_provider ?? input.local_capture_provider),
   );
 }
 
@@ -30,13 +30,11 @@ export function captureLocalVisualGuiObservation({
   const screenshotPath = path.join(captureRoot, `${captureRef}.png`);
   const axPath = path.join(captureRoot, `${captureRef}.ax.json`);
   const requestedProvider = cleanString(
-    input.captureProvider ??
-      input.capture_provider ??
-      input.localCaptureProvider ??
+    input.capture_provider ??
       input.local_capture_provider,
   );
   const captureAxTree = Boolean(
-    booleanValue(input.captureAxTree ?? input.capture_ax_tree ?? input.captureAccessibilityTree ?? input.capture_accessibility_tree),
+    booleanValue(input.capture_ax_tree ?? input.capture_accessibility_tree),
   );
   const warnings = [];
   const cleanupPaths = [];
@@ -51,12 +49,12 @@ export function captureLocalVisualGuiObservation({
         warnings: ["Fixture visual capture provider requires IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE=1."],
       });
     }
-    const fixtureBase64 = cleanString(input.captureFixturePngBase64 ?? input.capture_fixture_png_base64);
+    const fixtureBase64 = cleanString(input.capture_fixture_png_base64);
     if (!fixtureBase64) {
       return unavailableCapture({
         captureRef,
         reason: "fixture_png_missing",
-        warnings: ["Fixture visual capture provider requires captureFixturePngBase64."],
+        warnings: ["Fixture visual capture provider requires capture_fixture_png_base64."],
       });
     }
     try {
@@ -110,8 +108,8 @@ export function captureLocalVisualGuiObservation({
 
   let axWritten = false;
   if (captureAxTree) {
-    const fixtureAxTree = input.captureFixtureAxTree ?? input.capture_fixture_ax_tree;
-    const fixtureAxJson = cleanString(input.captureFixtureAxJson ?? input.capture_fixture_ax_json);
+    const fixtureAxTree = input.capture_fixture_ax_tree;
+    const fixtureAxJson = cleanString(input.capture_fixture_ax_json);
     if (requestedProvider === "fixture" && (fixtureAxTree || fixtureAxJson)) {
       const axContent =
         fixtureAxJson ??
@@ -127,21 +125,19 @@ export function captureLocalVisualGuiObservation({
   const dimensions = pngDimensions(screenshotBuffer);
   const coordinateSpaceId =
     cleanString(
-      input.captureCoordinateSpaceId ??
-        input.capture_coordinate_space_id ??
-        input.coordinateSpaceId ??
+      input.capture_coordinate_space_id ??
         input.coordinate_space_id,
     ) ?? `screen_${safeId(toolCallId)}_local_capture`;
   const appName =
-    cleanString(input.captureAppName ?? input.capture_app_name) ??
-    cleanString(input.appName ?? input.app_name);
+    cleanString(input.capture_app_name) ??
+    cleanString(input.app_name);
   const windowTitle =
-    cleanString(input.captureWindowTitle ?? input.capture_window_title) ??
-    cleanString(input.windowTitle ?? input.window_title);
+    cleanString(input.capture_window_title) ??
+    cleanString(input.window_title);
   const viewportWidth =
-    positiveNumber(input.viewportWidth ?? input.viewport_width) ?? dimensions?.width ?? null;
+    positiveNumber(input.viewport_width) ?? dimensions?.width ?? null;
   const viewportHeight =
-    positiveNumber(input.viewportHeight ?? input.viewport_height) ?? dimensions?.height ?? null;
+    positiveNumber(input.viewport_height) ?? dimensions?.height ?? null;
   const contentHash = sha256(screenshotBuffer);
   const axHash = axWritten ? sha256(fs.readFileSync(axPath)) : null;
   const receipt = {
@@ -164,7 +160,7 @@ export function captureLocalVisualGuiObservation({
     source_path_included: false,
   };
   const detectedPatterns = uniqueStrings([
-    ...arrayValue(input.detectedPatterns ?? input.detected_patterns)
+    ...arrayValue(input.detected_patterns)
       .map((value) => cleanString(value))
       .filter(Boolean),
     "local_gui_capture",
@@ -172,32 +168,25 @@ export function captureLocalVisualGuiObservation({
     axWritten ? "accessibility_tree" : null,
   ]);
   const inputPatch = {
-    screenshotPath,
     screenshot_path: screenshotPath,
-    coordinateSpaceId,
     coordinate_space_id: coordinateSpaceId,
-    detectedPatterns,
     detected_patterns: detectedPatterns,
-    computerUseVisualCaptureReceipt: receipt,
     computer_use_visual_capture_receipt: receipt,
-    ...(axWritten ? { axPath, ax_path: axPath } : {}),
-    ...(appName ? { appName, app_name: appName } : {}),
-    ...(windowTitle ? { windowTitle, window_title: windowTitle } : {}),
-    ...(viewportWidth ? { viewportWidth, viewport_width: viewportWidth } : {}),
-    ...(viewportHeight ? { viewportHeight, viewport_height: viewportHeight } : {}),
+    ...(axWritten ? { ax_path: axPath } : {}),
+    ...(appName ? { app_name: appName } : {}),
+    ...(windowTitle ? { window_title: windowTitle } : {}),
+    ...(viewportWidth ? { viewport_width: viewportWidth } : {}),
+    ...(viewportHeight ? { viewport_height: viewportHeight } : {}),
   };
   if (!hasVisualTargets(input) && viewportWidth && viewportHeight) {
     const visualTargets = [
       {
-        targetRef: `target_${safeId(toolCallId)}_captured_surface`,
         target_ref: `target_${safeId(toolCallId)}_captured_surface`,
         label: windowTitle ?? appName ?? "Captured visual surface",
         role: appName || windowTitle ? "application" : "screen",
         confidence: 0.65,
-        availableActions: ["inspect"],
         available_actions: ["inspect"],
         bounds: {
-          coordinateSpaceId,
           coordinate_space_id: coordinateSpaceId,
           x: 0,
           y: 0,
@@ -206,7 +195,6 @@ export function captureLocalVisualGuiObservation({
         },
       },
     ];
-    inputPatch.visualTargets = visualTargets;
     inputPatch.visual_targets = visualTargets;
   }
   return {
@@ -220,25 +208,15 @@ export function captureLocalVisualGuiObservation({
 export function visualGuiLocalCaptureUnavailablePatch(input = {}) {
   if (hasSuppliedObservationSource(input)) return {};
   return {
-    screenshotRef: undefined,
     screenshot_ref: undefined,
-    screenshotPath: undefined,
     screenshot_path: undefined,
-    somRef: undefined,
     som_ref: undefined,
-    somPath: undefined,
     som_path: undefined,
-    axRef: undefined,
     ax_ref: undefined,
-    axPath: undefined,
     ax_path: undefined,
-    appName: undefined,
     app_name: undefined,
-    windowTitle: undefined,
     window_title: undefined,
-    visualTargets: undefined,
     visual_targets: undefined,
-    detectedPatterns: undefined,
     detected_patterns: undefined,
   };
 }
@@ -392,20 +370,20 @@ function displayServer() {
 
 function hasSuppliedObservationSource(input) {
   return Boolean(
-    cleanString(input.screenshotRef ?? input.screenshot_ref) ||
-      cleanString(input.screenshotPath ?? input.screenshot_path) ||
-      cleanString(input.somRef ?? input.som_ref) ||
-      cleanString(input.somPath ?? input.som_path) ||
-      cleanString(input.axRef ?? input.ax_ref) ||
-      cleanString(input.axPath ?? input.ax_path) ||
-      cleanString(input.appName ?? input.app_name) ||
-      cleanString(input.windowTitle ?? input.window_title) ||
+    cleanString(input.screenshot_ref) ||
+      cleanString(input.screenshot_path) ||
+      cleanString(input.som_ref) ||
+      cleanString(input.som_path) ||
+      cleanString(input.ax_ref) ||
+      cleanString(input.ax_path) ||
+      cleanString(input.app_name) ||
+      cleanString(input.window_title) ||
       hasVisualTargets(input),
   );
 }
 
 function hasVisualTargets(input) {
-  return arrayValue(input.visualTargets ?? input.visual_targets).length > 0;
+  return arrayValue(input.visual_targets).length > 0;
 }
 
 function pngDimensions(buffer) {
