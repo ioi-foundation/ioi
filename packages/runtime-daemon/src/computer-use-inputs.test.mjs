@@ -62,11 +62,21 @@ test("computer-use inputs project visual metadata and unavailable relaunch recei
       detected_patterns: ["auth_wall"],
     },
   });
-  assert.equal(metadata.screenshotRef, "shot-1");
-  assert.equal(metadata.viewportWidth, 1280);
-  assert.equal(metadata.viewportHeight, 720);
-  assert.equal(metadata.visualTargets.length, 1);
-  assert.deepEqual(metadata.detectedPatterns, ["auth_wall"]);
+  assert.equal(metadata.screenshot_ref, "shot-1");
+  assert.equal(metadata.viewport_width, 1280);
+  assert.equal(metadata.viewport_height, 720);
+  assert.equal(metadata.visual_targets.length, 1);
+  assert.deepEqual(metadata.detected_patterns, ["auth_wall"]);
+  for (const key of [
+    "screenshotRef",
+    "viewportWidth",
+    "viewportHeight",
+    "visualTargets",
+    "detectedPatterns",
+    "computerUseVisualObservation",
+  ]) {
+    assert.equal(Object.hasOwn(metadata, key), false, `retired visual metadata alias ${key} must be absent`);
+  }
   assert.equal(visualGuiMediaTypeForPath("/tmp/a.webp"), "image/webp");
 
   const unavailable = nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch({

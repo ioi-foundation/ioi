@@ -128,23 +128,23 @@ export function visualGuiObservationMetadataForInput(input = {}) {
   );
   const metadata = {};
   const stringFields = [
-    ["screenshotRef", "screenshot_ref"],
-    ["somRef", "som_ref"],
-    ["axRef", "ax_ref"],
-    ["accessibilityTreeRef", "accessibility_tree_ref"],
-    ["appName", "app_name"],
-    ["windowTitle", "window_title"],
-    ["coordinateSpaceId", "coordinate_space_id"],
-    ["redactionReportRef", "redaction_report_ref"],
+    ["screenshot_ref", "screenshotRef"],
+    ["som_ref", "somRef"],
+    ["ax_ref", "axRef"],
+    ["accessibility_tree_ref", "accessibilityTreeRef"],
+    ["app_name", "appName"],
+    ["window_title", "windowTitle"],
+    ["coordinate_space_id", "coordinateSpaceId"],
+    ["redaction_report_ref", "redactionReportRef"],
   ];
-  for (const [camelKey, snakeKey] of stringFields) {
+  for (const [snakeKey, camelKey] of stringFields) {
     const value = optionalString(
       input[camelKey] ??
         input[snakeKey] ??
         visualObservation?.[camelKey] ??
         visualObservation?.[snakeKey],
     );
-    if (value) metadata[camelKey] = value;
+    if (value) metadata[snakeKey] = value;
   }
   const width = visualGuiFiniteNumber(
     input.viewportWidth ??
@@ -158,8 +158,8 @@ export function visualGuiObservationMetadataForInput(input = {}) {
       visualObservation?.viewportHeight ??
       visualObservation?.viewport_height,
   );
-  if (width !== null) metadata.viewportWidth = width;
-  if (height !== null) metadata.viewportHeight = height;
+  if (width !== null) metadata.viewport_width = width;
+  if (height !== null) metadata.viewport_height = height;
   const visualTargets = normalizeArray(
     input.visualTargets ??
       input.visual_targets ??
@@ -180,11 +180,11 @@ export function visualGuiObservationMetadataForInput(input = {}) {
       visualObservation?.detectedPatterns ??
       visualObservation?.detected_patterns,
   );
-  if (visualTargets.length > 0) metadata.visualTargets = visualTargets;
-  if (visualAffordances.length > 0) metadata.visualAffordances = visualAffordances;
-  if (detectedPatterns.length > 0) metadata.detectedPatterns = detectedPatterns;
+  if (visualTargets.length > 0) metadata.visual_targets = visualTargets;
+  if (visualAffordances.length > 0) metadata.visual_affordances = visualAffordances;
+  if (detectedPatterns.length > 0) metadata.detected_patterns = detectedPatterns;
   if (Object.keys(visualObservation).length > 0) {
-    metadata.computerUseVisualObservation = visualObservation;
+    metadata.computer_use_visual_observation = visualObservation;
   }
   return metadata;
 }

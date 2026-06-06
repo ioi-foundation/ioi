@@ -542,6 +542,12 @@ function runBridge() {
   const runtimeCodingToolArtifactSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs")
     : "";
+  const computerUseInputs = exists("packages/runtime-daemon/src/computer-use-inputs.mjs")
+    ? read("packages/runtime-daemon/src/computer-use-inputs.mjs")
+    : "";
+  const computerUseInputsTest = exists("packages/runtime-daemon/src/computer-use-inputs.test.mjs")
+    ? read("packages/runtime-daemon/src/computer-use-inputs.test.mjs")
+    : "";
   const runtimeCodingToolResults = exists("packages/runtime-daemon/src/runtime-coding-tool-results.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-results.mjs")
     : "";
@@ -1280,6 +1286,32 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10/11 is pending: visual GUI artifact materialization must expose canonical snake_case output and error fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "computer-use-visual-metadata-output-aliases-retired",
+    /\["screenshot_ref",\s*"screenshotRef"\]/.test(computerUseInputs) &&
+      /\["som_ref",\s*"somRef"\]/.test(computerUseInputs) &&
+      /\["ax_ref",\s*"axRef"\]/.test(computerUseInputs) &&
+      /for \(const \[snakeKey,\s*camelKey\] of stringFields\)/.test(computerUseInputs) &&
+      /metadata\[snakeKey\]\s*=\s*value/.test(computerUseInputs) &&
+      /metadata\.viewport_width\s*=\s*width/.test(computerUseInputs) &&
+      /metadata\.viewport_height\s*=\s*height/.test(computerUseInputs) &&
+      /metadata\.visual_targets\s*=\s*visualTargets/.test(computerUseInputs) &&
+      /metadata\.visual_affordances\s*=\s*visualAffordances/.test(computerUseInputs) &&
+      /metadata\.detected_patterns\s*=\s*detectedPatterns/.test(computerUseInputs) &&
+      /metadata\.computer_use_visual_observation\s*=\s*visualObservation/.test(computerUseInputs) &&
+      /assert\.equal\(Object\.hasOwn\(metadata,\s*key\),\s*false,\s*`retired visual metadata alias/.test(computerUseInputsTest) &&
+      /"screenshot_ref"/.test(runtimeDaemonIndex) &&
+      /"visual_targets"/.test(runtimeDaemonIndex) &&
+      !/metadata\[camelKey\]\s*=\s*value/.test(computerUseInputs) &&
+      !/\bmetadata\.(?:screenshotRef|somRef|axRef|accessibilityTreeRef|appName|windowTitle|coordinateSpaceId|redactionReportRef|viewportWidth|viewportHeight|visualTargets|visualAffordances|detectedPatterns|computerUseVisualObservation)\s*=/.test(computerUseInputs),
+    [
+      "packages/runtime-daemon/src/computer-use-inputs.mjs",
+      "packages/runtime-daemon/src/computer-use-inputs.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use visual metadata helpers must emit canonical snake_case fields without duplicate camelCase output aliases",
   );
   assertCheck(
     result,
