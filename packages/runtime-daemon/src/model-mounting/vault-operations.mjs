@@ -1,9 +1,21 @@
 import { requiredString } from "./provider-registry.mjs";
 
+const RETIRED_VAULT_OPERATION_REQUEST_ALIASES = [
+  "vaultRef",
+  "secret",
+  "value",
+];
+
+const CANONICAL_VAULT_OPERATION_REQUEST_FIELDS = [
+  "vault_ref",
+  "material",
+];
+
 export function bindVaultRef(state, body = {}, deps = {}) {
   const { requiredString: requiredStringDep = requiredString } = deps;
-  const vaultRef = requiredStringDep(body.vault_ref ?? body.vaultRef, "vault_ref");
-  const material = requiredStringDep(body.material ?? body.secret ?? body.value, "material");
+  assertCanonicalVaultOperationRequestBody(body);
+  const vaultRef = requiredStringDep(body.vault_ref, "vault_ref");
+  const material = requiredStringDep(body.material, "material");
   const metadata = state.vault.bindVaultRef({
     vaultRef,
     material,
@@ -27,7 +39,8 @@ export function listVaultRefs(state) {
 
 export function vaultRefMetadata(state, body = {}, deps = {}) {
   const { requiredString: requiredStringDep = requiredString } = deps;
-  const vaultRef = requiredStringDep(body.vault_ref ?? body.vaultRef, "vault_ref");
+  assertCanonicalVaultOperationRequestBody(body);
+  const vaultRef = requiredStringDep(body.vault_ref, "vault_ref");
   return state.vault.vaultRefMetadata(vaultRef);
 }
 
@@ -48,7 +61,8 @@ export function vaultHealth(state) {
 
 export function removeVaultRef(state, body = {}, deps = {}) {
   const { requiredString: requiredStringDep = requiredString } = deps;
-  const vaultRef = requiredStringDep(body.vault_ref ?? body.vaultRef, "vault_ref");
+  assertCanonicalVaultOperationRequestBody(body);
+  const vaultRef = requiredStringDep(body.vault_ref, "vault_ref");
   const metadata = state.vault.removeVaultRef(
     vaultRef,
     body.purpose ?? "operator_provider_auth_remove",
@@ -62,4 +76,19 @@ export function removeVaultRef(state, body = {}, deps = {}) {
   });
   state.writeProjection();
   return { ...metadata, receiptId: receipt.id };
+}
+
+function assertCanonicalVaultOperationRequestBody(body = {}) {
+  const retiredAliases = RETIRED_VAULT_OPERATION_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error("Vault operation request aliases are retired; use canonical snake_case request fields.");
+  error.status = 400;
+  error.code = "vault_operation_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_VAULT_OPERATION_REQUEST_FIELDS,
+  };
+  throw error;
 }

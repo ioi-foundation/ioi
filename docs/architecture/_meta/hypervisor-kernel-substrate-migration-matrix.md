@@ -11965,6 +11965,11 @@ Slice 319 retires destructive-confirmation request aliases:
 confirmation is evaluated. Canonical `confirm_destructive` and
 `destructive_confirmed` remain accepted.
 
+Slice 320 retires vault operation request aliases: `bindVaultRef`,
+`vaultRefMetadata`, and `removeVaultRef` now fail closed on retired `vaultRef`,
+`secret`, and `value` before vault lookup, binding, or removal. Canonical
+`vault_ref` and `material` remain accepted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

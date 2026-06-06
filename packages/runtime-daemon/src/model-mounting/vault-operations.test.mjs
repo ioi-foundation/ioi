@@ -85,8 +85,8 @@ test("vault operations bind refs, persist metadata, and emit redacted receipts",
   const state = createState();
 
   const result = bindVaultRef(state, {
-    vaultRef: "vault://provider/custom/api-key",
-    secret: "custom-secret",
+    vault_ref: "vault://provider/custom/api-key",
+    material: "custom-secret",
     purpose: "provider.auth:custom",
     label: "Custom auth",
   });
@@ -120,7 +120,7 @@ test("vault operations bind refs, persist metadata, and emit redacted receipts",
 test("vault operations project status, health receipt, and removal receipt", () => {
   const state = createState();
   bindVaultRef(state, {
-    vaultRef: "vault://provider/custom/api-key",
+    vault_ref: "vault://provider/custom/api-key",
     material: "custom-secret",
   });
   state.calls.length = 0;
@@ -137,7 +137,7 @@ test("vault operations project status, health receipt, and removal receipt", () 
   assert.deepEqual(state.receipts[0].evidenceRefs, ["VaultPort.health"]);
 
   const removed = removeVaultRef(state, {
-    vaultRef: "vault://provider/custom/api-key",
+    vault_ref: "vault://provider/custom/api-key",
     purpose: "operator_provider_auth_remove:test",
   });
   assert.equal(removed.configured, false);
@@ -150,11 +150,54 @@ test("vault operations project status, health receipt, and removal receipt", () 
   assert.equal(listVaultRefs(state).length, 0);
 });
 
+test("vault operations reject retired request aliases before vault access", () => {
+  const state = createState();
+
+  assert.throws(
+    () =>
+      bindVaultRef(state, {
+        vaultRef: "vault://provider/custom/api-key",
+        secret: "custom-secret",
+        value: "custom-secret-alt",
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "vault_operation_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["vaultRef", "secret", "value"]);
+      assert.deepEqual(error.details.canonical_fields, ["vault_ref", "material"]);
+      return true;
+    },
+  );
+  assert.deepEqual(state.calls, []);
+
+  assert.throws(
+    () => vaultRefMetadata(state, { vaultRef: "vault://provider/custom/api-key" }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "vault_operation_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["vaultRef"]);
+      return true;
+    },
+  );
+  assert.deepEqual(state.calls, []);
+
+  assert.throws(
+    () => removeVaultRef(state, { vaultRef: "vault://provider/custom/api-key" }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "vault_operation_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["vaultRef"]);
+      return true;
+    },
+  );
+  assert.deepEqual(state.calls, []);
+});
+
 test("vault operations preserve required field errors", () => {
   const state = createState();
 
   assert.throws(
-    () => bindVaultRef(state, { vaultRef: "vault://provider/custom/api-key" }),
+    () => bindVaultRef(state, { vault_ref: "vault://provider/custom/api-key" }),
     (error) => error.status === 400 && error.details.field === "material",
   );
   assert.throws(

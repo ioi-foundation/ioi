@@ -2888,6 +2888,14 @@ function runReceipts() {
   const vaultPortTest = exists("packages/runtime-daemon/src/model-mounting/vault-port.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/vault-port.test.mjs")
     : "";
+  const vaultOperations = exists("packages/runtime-daemon/src/model-mounting/vault-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/vault-operations.mjs")
+    : "";
+  const vaultOperationsTest = exists("packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs")
+    : "";
+  const vaultOperationsRequestBlocks =
+    vaultOperations.match(/export function bindVaultRef[\s\S]*?function assertCanonicalVaultOperationRequestBody/)?.[0] ?? "";
   const modelMountStore = exists("packages/runtime-daemon/src/model-mounting/store.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.mjs")
     : "";
@@ -4886,6 +4894,32 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/vault-port.test.mjs",
     ],
     "Phase 7/11 is pending: wallet authority and vault fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-vault-operation-request-aliases-retired",
+    /RETIRED_VAULT_OPERATION_REQUEST_ALIASES/.test(vaultOperations) &&
+      /CANONICAL_VAULT_OPERATION_REQUEST_FIELDS/.test(vaultOperations) &&
+      /vault_operation_request_aliases_retired/.test(vaultOperations) &&
+      /assertCanonicalVaultOperationRequestBody\(body\);[\s\S]*const vaultRef = requiredStringDep\(body\.vault_ref,\s*"vault_ref"\);[\s\S]*const material = requiredStringDep\(body\.material,\s*"material"\);/.test(
+        vaultOperationsRequestBlocks,
+      ) &&
+      /export function vaultRefMetadata[\s\S]*?assertCanonicalVaultOperationRequestBody\(body\);[\s\S]*requiredStringDep\(body\.vault_ref,\s*"vault_ref"\)/.test(
+        vaultOperationsRequestBlocks,
+      ) &&
+      /export function removeVaultRef[\s\S]*?assertCanonicalVaultOperationRequestBody\(body\);[\s\S]*requiredStringDep\(body\.vault_ref,\s*"vault_ref"\)/.test(
+        vaultOperationsRequestBlocks,
+      ) &&
+      !/body\.(?:vaultRef|secret|value)\b/.test(vaultOperationsRequestBlocks) &&
+      /vault operations reject retired request aliases before vault access/.test(vaultOperationsTest) &&
+      /retired_aliases,\s*\[\s*"vaultRef",\s*"secret",\s*"value"\s*\]/.test(vaultOperationsTest) &&
+      /canonical_fields,\s*\[\s*"vault_ref",\s*"material"\s*\]/.test(vaultOperationsTest) &&
+      /assert\.deepEqual\(state\.calls,\s*\[\]\)/.test(vaultOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/vault-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs",
+    ],
+    "Phase 7/11 is pending: vault operation request bodies must fail closed on retired aliases before vault lookup, binding, or removal",
   );
   assertCheck(
     result,
