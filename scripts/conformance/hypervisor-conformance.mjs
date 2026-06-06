@@ -2867,6 +2867,49 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "governed-meta-improvement-proposal-payload-aliases-retired",
+    /RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_PAYLOAD_FIELDS/.test(
+      governedImprovementControlNodes,
+    ) &&
+      /assertCanonicalGovernedImprovementProposalPayload\(proposalSeed\);/.test(
+        governedImprovementControlNodes,
+      ) &&
+      /assertCanonicalGovernedImprovementProposalPayload\(params\.input\);/.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/proposalSeed\.schemaVersion/.test(governedImprovementControlNodes) &&
+      !/stringField\(proposalSeed,\s*"(?:proposalId|targetRef|candidateRef|sourceTraceRef|approvalRef|rollbackRef|agentgresOperationRef|stateRootBefore|stateRootAfter|resultingHead)"\)/.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/stringArrayField\(proposalSeed,\s*"(?:evalReceiptRefs|verifierReceiptRefs|expectedHeads)"\)/.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/stringAtPath\(params\.input,\s*"(?:proposalId|targetRef|candidateRef|sourceTraceRef|approvalRef|rollbackRef|agentgresOperationRef|stateRootBefore|stateRootAfter|resultingHead)"\)/.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/stringArrayAtPath\(params\.input,\s*"(?:evalReceiptRefs|verifierReceiptRefs|expectedHeads)"\)/.test(
+        governedImprovementControlNodes,
+      ) &&
+      /retiredGovernedImprovementProposalPayloadAliases/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body\.proposal,\s*key\)/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /governed improvement controls reject retired proposal payload aliases/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /governed improvement controls reject raw input proposal payload aliases/.test(
+        governedImprovementControlNodesTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
+    ],
+    "Phase 10/11 is pending: governed-improvement IDE proposal payloads must fail closed on retired camelCase aliases instead of forwarding them inside canonical proposal requests",
+  );
+  assertCheck(
+    result,
     "governed-meta-improvement-sdk-ide-review-surface",
     /admitGovernedImprovementProposal/.test(agentSdkSubstrateClient) &&
       /RuntimeGovernedImprovementProposalAdmissionInput/.test(agentSdkSubstrateClient) &&

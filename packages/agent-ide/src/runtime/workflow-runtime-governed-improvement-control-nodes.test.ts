@@ -60,6 +60,23 @@ const retiredGovernedImprovementProposalInputFields = [
   "proposalPayload",
 ];
 
+const retiredGovernedImprovementProposalPayloadAliases = [
+  "schemaVersion",
+  "proposalId",
+  "targetRef",
+  "candidateRef",
+  "sourceTraceRef",
+  "evalReceiptRefs",
+  "verifierReceiptRefs",
+  "approvalRef",
+  "rollbackRef",
+  "agentgresOperationRef",
+  "expectedHeads",
+  "stateRootBefore",
+  "stateRootAfter",
+  "resultingHead",
+];
+
 test("builds governed improvement proposal controls for daemon admission", () => {
   const request = createRuntimeGovernedImprovementControlRequest({
     threadId: "thread-ide",
@@ -93,6 +110,9 @@ test("builds governed improvement proposal controls for daemon admission", () =>
   for (const key of retiredGovernedImprovementRequestAliases) {
     assert.equal(Object.prototype.hasOwnProperty.call(request.body, key), false, `${key} must not be emitted`);
   }
+  for (const key of retiredGovernedImprovementProposalPayloadAliases) {
+    assert.equal(Object.prototype.hasOwnProperty.call(request.body.proposal, key), false, `${key} must not be emitted`);
+  }
 });
 
 test("builds governed improvement controls from canonical input proposal", () => {
@@ -121,6 +141,36 @@ test("governed improvement controls reject retired proposal input field aliases"
       /retired proposal input field aliases/,
     );
   }
+});
+
+test("governed improvement controls reject retired proposal payload aliases", () => {
+  for (const key of retiredGovernedImprovementProposalPayloadAliases) {
+    assert.throws(
+      () =>
+        createRuntimeGovernedImprovementControlRequest({
+          threadId: "thread-ide",
+          proposal: {
+            ...proposal(),
+            [key]: "retired",
+          },
+        }),
+      /retired proposal payload aliases/,
+    );
+  }
+});
+
+test("governed improvement controls reject raw input proposal payload aliases", () => {
+  assert.throws(
+    () =>
+      createRuntimeGovernedImprovementControlRequest({
+        threadId: "thread-ide",
+        input: {
+          ...proposal(),
+          proposalId: "proposal://runtime-improvement/retired",
+        },
+      }),
+    /retired proposal payload aliases/,
+  );
 });
 
 test("builds governed improvement controls from workflow proposal nodes", () => {

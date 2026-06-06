@@ -12012,6 +12012,11 @@ fallbacks: IDE governed-improvement controls now build requests from canonical
 `proposal` input only and fail closed when asked to use retired
 `proposalPayload` or `proposal_payload` proposal input fields.
 
+Slice 328 retires governed meta-improvement IDE proposal payload aliases:
+proposal payloads now fail closed on retired camelCase fields such as
+`proposalId`, `approvalRef`, `expectedHeads`, and `stateRootAfter` instead of
+forwarding those aliases inside canonical governed-improvement requests.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -26,6 +26,23 @@ const RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_INPUT_FIELDS = [
   "proposalPayload",
 ] as const;
 
+const RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_PAYLOAD_FIELDS = [
+  "schemaVersion",
+  "proposalId",
+  "targetRef",
+  "candidateRef",
+  "sourceTraceRef",
+  "evalReceiptRefs",
+  "verifierReceiptRefs",
+  "approvalRef",
+  "rollbackRef",
+  "agentgresOperationRef",
+  "expectedHeads",
+  "stateRootBefore",
+  "stateRootAfter",
+  "resultingHead",
+] as const;
+
 export type RuntimeGovernedImprovementSurface =
   (typeof RUNTIME_GOVERNED_IMPROVEMENT_SURFACES)[number];
 
@@ -135,29 +152,27 @@ export function createRuntimeGovernedImprovementControlRequest(
     objectRecord(params.proposal) ??
     objectAtPath(params.input, proposalField) ??
     {};
+  assertCanonicalGovernedImprovementProposalPayload(proposalSeed);
+  assertCanonicalGovernedImprovementProposalPayload(params.input);
   const schemaVersion =
     cleanString(proposalSeed.schema_version) ??
-    cleanString(proposalSeed.schemaVersion) ??
     RUNTIME_GOVERNED_IMPROVEMENT_PROPOSAL_SCHEMA_VERSION;
   const proposalId = requiredString(
     cleanString(params.proposalId) ??
-      stringField(proposalSeed, "proposal_id", "proposalId") ??
-      stringAtPath(params.input, "proposal_id") ??
-      stringAtPath(params.input, "proposalId"),
+      stringField(proposalSeed, "proposal_id") ??
+      stringAtPath(params.input, "proposal_id"),
     "proposal_id",
   );
   const targetRef = requiredString(
     cleanString(params.targetRef) ??
-      stringField(proposalSeed, "target_ref", "targetRef") ??
-      stringAtPath(params.input, "target_ref") ??
-      stringAtPath(params.input, "targetRef"),
+      stringField(proposalSeed, "target_ref") ??
+      stringAtPath(params.input, "target_ref"),
     "target_ref",
   );
   const candidateRef = requiredString(
     cleanString(params.candidateRef) ??
-      stringField(proposalSeed, "candidate_ref", "candidateRef") ??
-      stringAtPath(params.input, "candidate_ref") ??
-      stringAtPath(params.input, "candidateRef"),
+      stringField(proposalSeed, "candidate_ref") ??
+      stringAtPath(params.input, "candidate_ref"),
     "candidate_ref",
   );
   const surface = requiredSurface(
@@ -167,72 +182,62 @@ export function createRuntimeGovernedImprovementControlRequest(
   );
   const sourceTraceRef = requiredString(
     cleanString(params.sourceTraceRef) ??
-      stringField(proposalSeed, "source_trace_ref", "sourceTraceRef") ??
-      stringAtPath(params.input, "source_trace_ref") ??
-      stringAtPath(params.input, "sourceTraceRef"),
+      stringField(proposalSeed, "source_trace_ref") ??
+      stringAtPath(params.input, "source_trace_ref"),
     "source_trace_ref",
   );
   const evalReceiptRefs = requiredStringArray(
     params.evalReceiptRefs ??
-      stringArrayField(proposalSeed, "eval_receipt_refs", "evalReceiptRefs") ??
-      stringArrayAtPath(params.input, "eval_receipt_refs") ??
-      stringArrayAtPath(params.input, "evalReceiptRefs"),
+      stringArrayField(proposalSeed, "eval_receipt_refs") ??
+      stringArrayAtPath(params.input, "eval_receipt_refs"),
     "eval_receipt_refs",
   );
   const verifierReceiptRefs = requiredStringArray(
     params.verifierReceiptRefs ??
-      stringArrayField(proposalSeed, "verifier_receipt_refs", "verifierReceiptRefs") ??
-      stringArrayAtPath(params.input, "verifier_receipt_refs") ??
-      stringArrayAtPath(params.input, "verifierReceiptRefs"),
+      stringArrayField(proposalSeed, "verifier_receipt_refs") ??
+      stringArrayAtPath(params.input, "verifier_receipt_refs"),
     "verifier_receipt_refs",
   );
   const approvalRef = requiredString(
     cleanString(params.approvalRef) ??
-      stringField(proposalSeed, "approval_ref", "approvalRef") ??
-      stringAtPath(params.input, "approval_ref") ??
-      stringAtPath(params.input, "approvalRef"),
+      stringField(proposalSeed, "approval_ref") ??
+      stringAtPath(params.input, "approval_ref"),
     "approval_ref",
   );
   const rollbackRef = requiredString(
     cleanString(params.rollbackRef) ??
-      stringField(proposalSeed, "rollback_ref", "rollbackRef") ??
-      stringAtPath(params.input, "rollback_ref") ??
-      stringAtPath(params.input, "rollbackRef"),
+      stringField(proposalSeed, "rollback_ref") ??
+      stringAtPath(params.input, "rollback_ref"),
     "rollback_ref",
   );
   const agentgresOperationRef = requiredString(
     cleanString(params.agentgresOperationRef) ??
-      stringField(proposalSeed, "agentgres_operation_ref", "agentgresOperationRef") ??
-      stringAtPath(params.input, "agentgres_operation_ref") ??
-      stringAtPath(params.input, "agentgresOperationRef"),
+      stringField(proposalSeed, "agentgres_operation_ref") ??
+      stringAtPath(params.input, "agentgres_operation_ref"),
     "agentgres_operation_ref",
   );
   const expectedHeads = requiredStringArray(
     params.expectedHeads ??
-      stringArrayField(proposalSeed, "expected_heads", "expectedHeads") ??
-      stringArrayAtPath(params.input, "expected_heads") ??
-      stringArrayAtPath(params.input, "expectedHeads"),
+      stringArrayField(proposalSeed, "expected_heads") ??
+      stringArrayAtPath(params.input, "expected_heads"),
     "expected_heads",
   );
   const stateRootBefore = requiredString(
     cleanString(params.stateRootBefore) ??
-      stringField(proposalSeed, "state_root_before", "stateRootBefore") ??
-      stringAtPath(params.input, "state_root_before") ??
-      stringAtPath(params.input, "stateRootBefore"),
+      stringField(proposalSeed, "state_root_before") ??
+      stringAtPath(params.input, "state_root_before"),
     "state_root_before",
   );
   const stateRootAfter = requiredString(
     cleanString(params.stateRootAfter) ??
-      stringField(proposalSeed, "state_root_after", "stateRootAfter") ??
-      stringAtPath(params.input, "state_root_after") ??
-      stringAtPath(params.input, "stateRootAfter"),
+      stringField(proposalSeed, "state_root_after") ??
+      stringAtPath(params.input, "state_root_after"),
     "state_root_after",
   );
   const resultingHead = requiredString(
     cleanString(params.resultingHead) ??
-      stringField(proposalSeed, "resulting_head", "resultingHead") ??
-      stringAtPath(params.input, "resulting_head") ??
-      stringAtPath(params.input, "resultingHead"),
+      stringField(proposalSeed, "resulting_head") ??
+      stringAtPath(params.input, "resulting_head"),
     "resulting_head",
   );
   const workflowGraphId = cleanString(params.workflowGraphId) ?? null;
@@ -354,6 +359,18 @@ function assertCanonicalGovernedImprovementProposalInputField(field: string): vo
       "governed improvement proposal controls no longer accept retired proposal input field aliases; use proposal.",
     );
   }
+}
+
+function assertCanonicalGovernedImprovementProposalPayload(source: unknown): void {
+  const record = objectRecord(source);
+  if (!record) return;
+  const retiredAliases = RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_PAYLOAD_FIELDS.filter(
+    (field) => Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new Error(
+    `governed improvement proposal controls no longer accept retired proposal payload aliases: ${retiredAliases.join(", ")}`,
+  );
 }
 
 function cleanString(value: unknown): string | null {
