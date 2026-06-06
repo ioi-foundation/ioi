@@ -72,13 +72,13 @@ export function createRuntimeMcpCatalogSurface({
     },
     listMcpTools(store, options = {}) {
       const servers = this.mcpServersForContext(store, options);
-      const serverFilter = optionalStringDep(options.server_id ?? options.serverId);
+      const serverFilter = optionalStringDep(options.server_id);
       return mcpToolsForServersDep(
         serverFilter ? servers.filter((server) => server.id === serverFilter) : servers,
       );
     },
     async searchMcpTools(store, options = {}) {
-      const threadId = optionalStringDep(options.thread_id ?? options.threadId);
+      const threadId = optionalStringDep(options.thread_id);
       if (threadId) return this.searchThreadMcpTools(store, threadId, options);
       return this.searchMcpToolCatalog(store, {
         ...options,
@@ -87,7 +87,7 @@ export function createRuntimeMcpCatalogSurface({
       });
     },
     async getMcpTool(store, toolId, options = {}) {
-      const threadId = optionalStringDep(options.thread_id ?? options.threadId);
+      const threadId = optionalStringDep(options.thread_id);
       if (threadId) return this.getThreadMcpTool(store, threadId, toolId, options);
       return this.getMcpToolFromCatalog(store, toolId, {
         ...options,
@@ -97,14 +97,14 @@ export function createRuntimeMcpCatalogSurface({
     },
     listMcpResources(store, options = {}) {
       const servers = this.mcpServersForContext(store, options);
-      const serverFilter = optionalStringDep(options.server_id ?? options.serverId);
+      const serverFilter = optionalStringDep(options.server_id);
       return mcpResourcesForServersDep(
         serverFilter ? servers.filter((server) => server.id === serverFilter) : servers,
       );
     },
     listMcpPrompts(store, options = {}) {
       const servers = this.mcpServersForContext(store, options);
-      const serverFilter = optionalStringDep(options.server_id ?? options.serverId);
+      const serverFilter = optionalStringDep(options.server_id);
       return mcpPromptsForServersDep(
         serverFilter ? servers.filter((server) => server.id === serverFilter) : servers,
       );
@@ -357,9 +357,9 @@ export function createRuntimeMcpCatalogSurface({
       };
     },
     mcpServersForContext(store, options = {}) {
-      const threadId = optionalStringDep(options.thread_id ?? options.threadId);
+      const threadId = optionalStringDep(options.thread_id);
       const agentId =
-        optionalStringDep(options.agent_id ?? options.agentId) ??
+        optionalStringDep(options.agent_id) ??
         (threadId ? agentIdForThreadDep(threadId) : undefined);
       const sourceMode = mcpConfigSourceModeForRequestDep(options);
       const servers = [];

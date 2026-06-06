@@ -114,10 +114,16 @@ test("runtime MCP catalog surface lists context servers and filters catalog rows
     "mcp.workspace.docs",
     "model-search",
   ]);
-  assert.deepEqual(surface.listMcpServers(store, { thread_id: "thread-agent-one" }).map((item) => item.id), [
-    "mcp.agent.git",
-    "model-search",
-  ]);
+  assert.deepEqual(
+    surface
+      .listMcpServers(store, {
+        thread_id: "thread-agent-one",
+        threadId: "thread-retired",
+        agentId: "retired-agent",
+      })
+      .map((item) => item.id),
+    ["mcp.agent.git", "model-search"],
+  );
   assert.deepEqual(
     surface
       .listMcpServers(store, {
@@ -127,7 +133,7 @@ test("runtime MCP catalog surface lists context servers and filters catalog rows
       .map((item) => item.id),
     ["mcp.workspace.docs"],
   );
-  assert.deepEqual(surface.listMcpTools(store, { server_id: "mcp.agent.git" }), [
+  assert.deepEqual(surface.listMcpTools(store, { server_id: "mcp.agent.git", serverId: "retired-server" }), [
     {
       serverId: "mcp.agent.git",
       stableToolId: "mcp.agent.git.diff",

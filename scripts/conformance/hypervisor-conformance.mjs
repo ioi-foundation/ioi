@@ -7557,6 +7557,14 @@ function runCompositor() {
   const runtimeMcpManager = exists("packages/runtime-daemon/src/mcp-manager.mjs")
     ? read("packages/runtime-daemon/src/mcp-manager.mjs")
     : "";
+  const runtimeMcpCatalogSurface = exists("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
+    : "";
+  const runtimeMcpCatalogSurfaceTest = exists(
+    "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs")
+    : "";
   const agentIdeTerminalRunLaunch = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
   )
@@ -10167,6 +10175,27 @@ function runCompositor() {
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP source-mode requests must use canonical snake_case fields without camelCase compatibility aliases or SDK escape hatches",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-catalog-identity-request-aliases-retired",
+    /options\.thread_id/.test(runtimeMcpCatalogSurface) &&
+      /options\.agent_id/.test(runtimeMcpCatalogSurface) &&
+      /options\.server_id/.test(runtimeMcpCatalogSurface) &&
+      /threadId: "thread-retired"/.test(runtimeMcpCatalogSurfaceTest) &&
+      /agentId: "retired-agent"/.test(runtimeMcpCatalogSurfaceTest) &&
+      /serverId: "retired-server"/.test(runtimeMcpCatalogSurfaceTest) &&
+      /^\s*thread_id\?: string;/m.test(runtimeMcpSdkListOptionsBlock) &&
+      /^\s*agent_id\?: string;/m.test(runtimeMcpSdkListOptionsBlock) &&
+      /^\s*server_id\?: string;/m.test(runtimeMcpSdkListOptionsBlock) &&
+      !/options\.(?:threadId|agentId|serverId)\b/.test(runtimeMcpCatalogSurface) &&
+      !/^\s*(?:threadId|agentId|serverId)\?:/m.test(runtimeMcpSdkListOptionsBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP catalog/list/search requests must use canonical snake_case identity fields without camelCase compatibility aliases",
   );
   assertCheck(
     result,

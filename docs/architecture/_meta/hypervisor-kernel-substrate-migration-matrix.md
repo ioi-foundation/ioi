@@ -12430,6 +12430,12 @@ and SDK MCP list options now use canonical `config_source`,
 camelCase `configSource`, `mcpConfigSourceMode`, and `configSourceMode`
 request fields are ignored and no longer advertised by the SDK list options.
 
+Slice 391 removes MCP catalog identity request aliases:
+runtime MCP catalog/list/search surfaces and SDK MCP list options now use only
+canonical `thread_id`, `agent_id`, and `server_id` request fields; retired
+camelCase `threadId`, `agentId`, and `serverId` identity filters are ignored
+by the catalog surface and remain absent from SDK list options.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
