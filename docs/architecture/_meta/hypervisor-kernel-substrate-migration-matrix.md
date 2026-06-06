@@ -11904,6 +11904,13 @@ inspection or writes, while canonical `model_id`, `source_path`, `local_path`,
 `import_mode`, `provider_id`, `display_name`, `size_bytes`,
 `context_window`, and `privacy_class` remain accepted.
 
+Slice 311 retires model storage request aliases: `cancelDownload` now fails
+closed on retired `cleanupPartial` before download-job lookup,
+`deleteModelArtifact` fails closed on retired `dryRun` before artifact lookup,
+and `cleanupModelStorage` fails closed on retired `removeOrphans` before
+filesystem scanning. Canonical `cleanup_partial`, `dry_run`, and
+`remove_orphans` remain the accepted request boundary.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

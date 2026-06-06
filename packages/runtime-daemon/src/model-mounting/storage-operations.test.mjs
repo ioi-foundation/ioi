@@ -127,6 +127,32 @@ test("downloadStatus returns jobs and fails closed for missing ids", () => {
   );
 });
 
+test("cancelDownload rejects retired cleanup alias before job lookup", () => {
+  const state = fakeState();
+  let lookupCount = 0;
+  state.downloadStatus = () => {
+    lookupCount += 1;
+    throw new Error("download lookup should not run");
+  };
+
+  assert.throws(
+    () => cancelDownload(state, "job.active", { cleanupPartial: false }, deps),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_storage_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["cleanupPartial"]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "cleanup_partial",
+        "dry_run",
+        "remove_orphans",
+      ]);
+      return true;
+    },
+  );
+  assert.equal(lookupCount, 0);
+  assert.equal(state.receipts.length, 0);
+});
+
 test("cancelDownload records cleanup and preserves terminal jobs", () => {
   const root = tempRoot();
   const state = fakeState(root);
@@ -160,6 +186,32 @@ test("cancelDownload records cleanup and preserves terminal jobs", () => {
   assert.equal(state.writes.at(-1)[0], "model-downloads");
   assert.equal(state.projections, 1);
   assert.equal(cancelDownload(state, "job.done", {}, deps).status, "completed");
+});
+
+test("deleteModelArtifact rejects retired dry-run alias before artifact lookup", () => {
+  const state = fakeState();
+  let lookupCount = 0;
+  state.getModel = () => {
+    lookupCount += 1;
+    throw new Error("artifact lookup should not run");
+  };
+
+  assert.throws(
+    () => deleteModelArtifact(state, "artifact.llama", { dryRun: true }, deps),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_storage_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["dryRun"]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "cleanup_partial",
+        "dry_run",
+        "remove_orphans",
+      ]);
+      return true;
+    },
+  );
+  assert.equal(lookupCount, 0);
+  assert.equal(state.receipts.length, 0);
 });
 
 test("deleteModelArtifact supports dry-run, loaded conflict, and deletion cleanup", () => {
@@ -222,6 +274,35 @@ test("deleteModelArtifact supports dry-run, loaded conflict, and deletion cleanu
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "projectedFreedBytes"), false);
   assert.equal(state.writes.at(-2)[0], "model-artifacts");
   assert.equal(state.writes.at(-1)[0], "model-endpoints");
+});
+
+test("cleanupModelStorage rejects retired cleanup alias before scanning", () => {
+  const state = fakeState();
+  let scanCount = 0;
+  const cleanupDeps = {
+    ...deps,
+    listModelFiles() {
+      scanCount += 1;
+      throw new Error("storage scan should not run");
+    },
+  };
+
+  assert.throws(
+    () => cleanupModelStorage(state, { removeOrphans: true }, cleanupDeps),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_storage_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["removeOrphans"]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "cleanup_partial",
+        "dry_run",
+        "remove_orphans",
+      ]);
+      return true;
+    },
+  );
+  assert.equal(scanCount, 0);
+  assert.equal(state.receipts.length, 0);
 });
 
 test("cleanupModelStorage scans, gates destructive cleanup, and removes confirmed orphans", () => {

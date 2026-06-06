@@ -1,6 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
 
+const RETIRED_MODEL_STORAGE_REQUEST_ALIASES = [
+  "cleanupPartial",
+  "dryRun",
+  "removeOrphans",
+];
+
+const CANONICAL_MODEL_STORAGE_REQUEST_FIELDS = [
+  "cleanup_partial",
+  "dry_run",
+  "remove_orphans",
+];
+
 export function cancelDownload(state, jobId, body = {}, deps = {}) {
   const {
     cleanupPartialDownload,
@@ -8,11 +20,12 @@ export function cancelDownload(state, jobId, body = {}, deps = {}) {
     fileSizeIfExists,
     truthy,
   } = deps;
+  assertCanonicalModelStorageRequestBody(body);
   const job = state.downloadStatus(jobId);
   if (["completed", "failed", "canceled"].includes(job.status)) {
     return job;
   }
-  const cleanupPartial = truthy(body.cleanup_partial ?? body.cleanupPartial ?? true);
+  const cleanupPartial = truthy(body.cleanup_partial ?? true);
   const destructiveConfirmation = destructiveConfirmationState(body, { required: cleanupPartial, action: "download_cancel_cleanup" });
   const partialPath = job.targetPath ? `${job.targetPath}.part` : null;
   const metadataPath = partialPath ? `${partialPath}.json` : null;
@@ -68,6 +81,7 @@ export function deleteModelArtifact(state, id, body = {}, deps = {}) {
     stableHash,
     truthy,
   } = deps;
+  assertCanonicalModelStorageRequestBody(body);
   const artifact = state.getModel(id);
   const endpointIds = [...state.endpoints.values()].filter((endpoint) => endpoint.artifactId === artifact.id).map((endpoint) => endpoint.id);
   const instanceIds = [...state.instances.values()]
@@ -75,7 +89,7 @@ export function deleteModelArtifact(state, id, body = {}, deps = {}) {
     .map((instance) => instance.id);
   const projectedFreedBytes = fileSizeIfExists(artifact.artifactPath);
   const destructiveConfirmation = destructiveConfirmationState(body, { required: projectedFreedBytes > 0 || endpointIds.length > 0, action: "model_artifact_delete" });
-  if (truthy(body.dry_run ?? body.dryRun)) {
+  if (truthy(body.dry_run)) {
     const receipt = state.lifecycleReceipt("model_artifact_delete_dry_run", {
       artifact_id: artifact.id,
       model_id: artifact.modelId,
@@ -160,11 +174,12 @@ export function cleanupModelStorage(state, body = {}, deps = {}) {
     stableHash,
     truthy,
   } = deps;
+  assertCanonicalModelStorageRequestBody(body);
   const knownPaths = new Set([...state.artifacts.values()].map((artifact) => artifact.artifactPath).filter(Boolean));
   const files = listModelFiles(state.modelRoot);
   const orphans = files.filter((filePath) => !knownPaths.has(filePath));
   const orphanBytes = orphans.reduce((total, filePath) => total + fileSizeIfExists(filePath), 0);
-  const removeOrphans = truthy(body.remove_orphans ?? body.removeOrphans ?? false);
+  const removeOrphans = truthy(body.remove_orphans ?? false);
   const destructiveConfirmation = destructiveConfirmationState(body, { required: removeOrphans && orphans.length > 0, action: "model_storage_cleanup" });
   if (removeOrphans && destructiveConfirmation.required && !destructiveConfirmation.confirmed) {
     throw runtimeError({
@@ -217,4 +232,21 @@ export function cleanupModelStorage(state, body = {}, deps = {}) {
     destructiveConfirmation,
     receiptId: receipt.id,
   };
+}
+
+function assertCanonicalModelStorageRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MODEL_STORAGE_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model storage request aliases are retired; use canonical snake_case request fields.",
+  );
+  error.status = 400;
+  error.code = "model_storage_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_MODEL_STORAGE_REQUEST_FIELDS,
+  };
+  throw error;
 }

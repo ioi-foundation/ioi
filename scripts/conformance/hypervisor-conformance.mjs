@@ -2991,6 +2991,12 @@ function runReceipts() {
     storageOperations.match(/state\.lifecycleReceipt\("model_artifact_delete",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
     storageOperations.match(/state\.lifecycleReceipt\("model_storage_cleanup",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
   ].join("\n");
+  const cancelDownloadBlock =
+    storageOperations.match(/export function cancelDownload[\s\S]*?export function downloadStatus/)?.[0] ?? "";
+  const deleteModelArtifactBlock =
+    storageOperations.match(/export function deleteModelArtifact[\s\S]*?export function cleanupModelStorage/)?.[0] ?? "";
+  const cleanupModelStorageBlock =
+    storageOperations.match(/export function cleanupModelStorage[\s\S]*?function assertCanonicalModelStorageRequestBody/)?.[0] ?? "";
   const mcpServerReceiptDetailsHelper =
     mcpWorkflowOperations.match(/function mcpServerReceiptDetails\(server\) \{[\s\S]*?\n\}/)?.[0] ?? "";
   const mcpToolReceiptDetailsObject =
@@ -3652,6 +3658,42 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs",
     ],
     "Phase 9/11 is pending: endpoint mount/unmount request bodies must fail closed on retired camelCase endpoint/provider/backend/load aliases before state lookup or writes",
+  );
+  assertCheck(
+    result,
+    "model-mount-storage-request-aliases-retired",
+    /RETIRED_MODEL_STORAGE_REQUEST_ALIASES/.test(storageOperations) &&
+      /CANONICAL_MODEL_STORAGE_REQUEST_FIELDS/.test(storageOperations) &&
+      /model_storage_request_aliases_retired/.test(storageOperations) &&
+      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*state\.downloadStatus\(jobId\)/.test(
+        cancelDownloadBlock,
+      ) &&
+      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*state\.getModel\(id\)/.test(
+        deleteModelArtifactBlock,
+      ) &&
+      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*listModelFiles\(state\.modelRoot\)/.test(
+        cleanupModelStorageBlock,
+      ) &&
+      /truthy\(body\.cleanup_partial \?\? true\)/.test(cancelDownloadBlock) &&
+      /truthy\(body\.dry_run\)/.test(deleteModelArtifactBlock) &&
+      /truthy\(body\.remove_orphans \?\? false\)/.test(cleanupModelStorageBlock) &&
+      !/body\.(?:cleanupPartial|dryRun|removeOrphans)\b/.test(storageOperations) &&
+      /cancelDownload rejects retired cleanup alias before job lookup/.test(storageOperationsTest) &&
+      /deleteModelArtifact rejects retired dry-run alias before artifact lookup/.test(
+        storageOperationsTest,
+      ) &&
+      /cleanupModelStorage rejects retired cleanup alias before scanning/.test(storageOperationsTest) &&
+      /retired_aliases,\s*\[\s*"cleanupPartial"\s*\]/.test(storageOperationsTest) &&
+      /retired_aliases,\s*\[\s*"dryRun"\s*\]/.test(storageOperationsTest) &&
+      /retired_aliases,\s*\[\s*"removeOrphans"\s*\]/.test(storageOperationsTest) &&
+      /canonical_fields,\s*\[\s*"cleanup_partial",\s*"dry_run",\s*"remove_orphans",\s*\]/.test(
+        storageOperationsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/storage-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: model storage request bodies must fail closed on retired camelCase cleanup/dry-run/orphan aliases before state lookup or filesystem scanning",
   );
   assertCheck(
     result,
