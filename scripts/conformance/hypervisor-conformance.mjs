@@ -1501,6 +1501,10 @@ function runBridge() {
       /contextPolicyRunnerDep\.planThreadControlAgentStateUpdate/.test(
         runtimeThreadControlSurface,
       ) &&
+      /requiredThreadControlOperationKind/.test(runtimeThreadControlSurface) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*`thread\.\$\{controlKind\}`/.test(
+        runtimeThreadControlSurface,
+      ) &&
       !/modelId:\s*modelRoute\.selectedModel|runtimeControls:\s*nextControls/.test(
         runtimeThreadControlSurface,
       ) &&
@@ -1508,6 +1512,9 @@ function runBridge() {
         runtimeThreadControlSurfaceTest,
       ) &&
       /thread control surface updates model controls through route selection and Rust planner/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /thread control surface fails closed without Rust-planned operation kind/.test(
         runtimeThreadControlSurfaceTest,
       ),
     [

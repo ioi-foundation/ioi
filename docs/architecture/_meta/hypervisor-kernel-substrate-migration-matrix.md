@@ -12375,6 +12375,11 @@ completed override persistence now requires the Rust diagnostics state planner
 to return `diagnostics.operator_override.event` before the daemon persists the
 run, rather than substituting the JS-side override operation kind.
 
+Slice 382 removes the thread-control operation-kind fallback: mode/model/thinking
+agent-control persistence now requires the Rust thread-control state planner to
+return the exact `thread.*` control operation kind before the daemon persists
+the agent projection, rather than substituting the JS-side control kind.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

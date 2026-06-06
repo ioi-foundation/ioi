@@ -72,7 +72,7 @@ function createStore() {
   return store;
 }
 
-function createSurface(plannerCalls = []) {
+function createSurface(plannerCalls = [], { threadControlStateUpdate = null } = {}) {
   return createRuntimeThreadControlSurface({
     contextPolicyRunner: {
       planThreadControlAgentStateUpdate(request = {}) {
@@ -96,6 +96,7 @@ function createSurface(plannerCalls = []) {
           operation_kind: `thread.${request.control_kind}`,
           updated_at: request.updated_at,
           agent,
+          ...threadControlStateUpdate,
         };
       },
     },
@@ -210,6 +211,33 @@ test("thread control surface updates model controls through route selection and 
   assert.equal(plannerCalls[0].control_kind, "thinking");
   assert.equal(plannerCalls[0].model_route.receiptId, "receipt_route_1");
   assert.equal(plannerCalls[0].controls.model.selectedModel, "local-model");
+});
+
+test("thread control surface fails closed without Rust-planned operation kind", () => {
+  const store = createStore();
+  const plannerCalls = [];
+  const surface = createSurface(plannerCalls, {
+    threadControlStateUpdate: {
+      operation_kind: null,
+    },
+  });
+
+  assert.throws(
+    () =>
+      surface.updateThreadMode(store, "thread_1", {
+        mode: "review",
+        actor: "operator_1",
+        source: "agent_studio",
+      }),
+    (error) => {
+      assert.equal(error.code, "thread_control_state_update_operation_kind_missing");
+      assert.equal(error.details.operationKind, "thread.mode");
+      return true;
+    },
+  );
+  assert.equal(store.writes.length, 0);
+  assert.equal(store.agents.get("agent_1").runtimeControls.mode, "agent");
+  assert.equal(plannerCalls.length, 1);
 });
 
 test("thread control surface delegates workspace trust acknowledgement", () => {
