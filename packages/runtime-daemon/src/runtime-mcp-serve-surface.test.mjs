@@ -7,9 +7,9 @@ function harness() {
   const agentChecks = [];
   const invocations = [];
   const tools = [
-    { stableToolId: "workspace.status", displayName: "Workspace status", inputSchema: { type: "object" } },
-    { stableToolId: "git.diff", displayName: "Git diff", inputSchema: { type: "object" } },
-    { stableToolId: "test.run", displayName: "Run tests", inputSchema: { type: "object" } },
+    { stable_tool_id: "workspace.status", display_name: "Workspace status", input_schema: { type: "object" } },
+    { stable_tool_id: "git.diff", display_name: "Git diff", input_schema: { type: "object" } },
+    { stable_tool_id: "test.run", display_name: "Run tests", input_schema: { type: "object" } },
   ];
   const allowedToolIds = (options = {}) =>
     options.onlyDiff === true ? ["git.diff"] : ["workspace.status", "git.diff"];
@@ -29,10 +29,10 @@ function harness() {
     },
     mcpServeToolDescriptor(tool) {
       return {
-        name: tool.stableToolId,
-        title: tool.displayName,
-        inputSchema: tool.inputSchema,
-        _meta: { stableToolId: tool.stableToolId },
+        name: tool.stable_tool_id,
+        title: tool.display_name,
+        inputSchema: tool.input_schema,
+        _meta: { stableToolId: tool.stable_tool_id },
       };
     },
     mcpServeToolIdForName(name, options = {}) {

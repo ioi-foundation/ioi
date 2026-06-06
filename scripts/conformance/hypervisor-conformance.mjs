@@ -10720,10 +10720,11 @@ function runCompositor() {
       /mime_type:\s*optionalString/.test(runtimeMcpManagerResourceRecordBlock) &&
       /stable_prompt_id:\s*stableId/.test(runtimeMcpManagerPromptRecordBlock) &&
       /prompt_arguments:\s*Array\.isArray/.test(runtimeMcpManagerPromptRecordBlock) &&
-      /allowedToolIds\.has\(tool\.stable_tool_id \?\? tool\.stableToolId\)/.test(runtimeMcpServeSurface) &&
+      /allowedToolIds\.has\(tool\.stable_tool_id\)/.test(runtimeMcpServeSurface) &&
       /Object\.hasOwn\(tool,\s*"stableToolId"\),\s*false/.test(runtimeMcpManagerTest) &&
       /Object\.hasOwn\(resource,\s*"stableResourceId"\),\s*false/.test(runtimeMcpManagerTest) &&
       /Object\.hasOwn\(prompt,\s*"stablePromptId"\),\s*false/.test(runtimeMcpManagerTest) &&
+      !/tool\.stableToolId/.test(runtimeMcpServeSurface) &&
       !/^\s*(?:schemaVersion|stableToolId|displayName|serverId|serverLabel|toolName|primitiveCapabilities|authorityScopeRequirements|effectClass|riskDomain|inputSchema|outputSchema|evidenceRequirements|workflowNodeType|workflowConfigFields|workflowNodeId|receiptRefs)\s*:/m.test(
         runtimeMcpManagerToolRecordBlock,
       ) &&

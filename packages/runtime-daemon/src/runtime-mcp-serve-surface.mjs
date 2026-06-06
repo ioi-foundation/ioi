@@ -55,7 +55,7 @@ export function createRuntimeMcpServeSurface({
     mcpServeToolCatalog(store, options = {}) {
       const allowedToolIds = new Set(mcpServeAllowedToolIdsDep(options));
       return codingToolContractsDep()
-        .filter((tool) => allowedToolIds.has(tool.stable_tool_id ?? tool.stableToolId))
+        .filter((tool) => allowedToolIds.has(tool.stable_tool_id))
         .map((tool) => mcpServeToolDescriptorDep(tool));
     },
     async handleMcpServeJsonRpc(store, threadId, message, request = {}) {
