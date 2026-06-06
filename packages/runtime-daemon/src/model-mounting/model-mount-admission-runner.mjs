@@ -372,9 +372,9 @@ function normalizeProviderResultBridgeResult(value = {}) {
     backend: result.backend ?? RUST_MODEL_MOUNT_ADMISSION_BACKEND,
     record,
     provider_result_ref:
-      result.provider_result_ref ?? result.providerResultRef ?? record.provider_result_ref ?? null,
+      result.provider_result_ref ?? record.provider_result_ref ?? null,
     provider_result_hash:
-      result.provider_result_hash ?? result.providerResultHash ?? record.provider_result_hash ?? null,
+      result.provider_result_hash ?? record.provider_result_hash ?? null,
     receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
   };

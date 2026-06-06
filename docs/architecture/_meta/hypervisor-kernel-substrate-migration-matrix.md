@@ -12685,6 +12685,12 @@ context-budget runtime events from canonical `workflow_graph_id`,
 `workflow_node_id`, and `event_kind` only; retired camelCase request aliases no
 longer shape the bridge request or emitted event metadata.
 
+Slice 426 removes provider-result admission bridge aliases:
+the Rust model_mount provider-result admission command now returns canonical
+`provider_result_ref` and `provider_result_hash` only, and the daemon admission
+runner no longer accepts retired `providerResultRef` / `providerResultHash`
+bridge fallbacks when normalizing Rust admission output.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

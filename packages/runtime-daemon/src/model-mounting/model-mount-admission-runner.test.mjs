@@ -662,6 +662,8 @@ test("Rust model_mount admission runner sends provider result admission bridge r
   assert.equal(calls[0].request.request.execution_backend, "js_provider_driver_observation");
   assert.equal(result.provider_result_ref, "model_mount://provider_result/test");
   assert.equal(result.provider_result_hash, "sha256:provider-result-test");
+  assert.equal(Object.hasOwn(result, "providerResultRef"), false);
+  assert.equal(Object.hasOwn(result, "providerResultHash"), false);
   assert.deepEqual(result.evidence_refs, ["rust_model_mount_provider_result_admission"]);
 });
 

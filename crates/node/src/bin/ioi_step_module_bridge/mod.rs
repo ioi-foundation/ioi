@@ -1268,10 +1268,8 @@ fn admit_model_mount_provider_result(
         "source": "rust_model_mount_provider_result_command",
         "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
         "record": record,
-        "provider_result_ref": provider_result_ref.clone(),
-        "providerResultRef": provider_result_ref,
-        "provider_result_hash": provider_result_hash.clone(),
-        "providerResultHash": provider_result_hash,
+        "provider_result_ref": provider_result_ref,
+        "provider_result_hash": provider_result_hash,
         "receipt_refs": receipt_refs,
         "evidence_refs": evidence_refs,
     }))

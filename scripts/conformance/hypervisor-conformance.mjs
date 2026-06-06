@@ -4967,6 +4967,12 @@ function runReceipts() {
   const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     : "";
+  const modelMountAdmissionRunner = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
+    : "";
+  const modelMountAdmissionRunnerTest = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
+    : "";
   const conversationOps = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
     : "";
@@ -6593,6 +6599,15 @@ function runReceipts() {
       ) &&
       /admit_model_mount_provider_result/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ) &&
+      /"provider_result_ref":\s*provider_result_ref/.test(bridgeModule) &&
+      /"provider_result_hash":\s*provider_result_hash/.test(bridgeModule) &&
+      !/providerResultRef|providerResultHash/.test(bridgeModule) &&
+      !/providerResultRef|providerResultHash/.test(
+        modelMountAdmissionRunner,
+      ) &&
+      /Object\.hasOwn\(result,\s*"providerResultRef"\),\s*false/.test(
+        modelMountAdmissionRunnerTest,
       ) &&
       /model_mount_provider_result_admission_required/.test(modelInvocationOps),
     [
