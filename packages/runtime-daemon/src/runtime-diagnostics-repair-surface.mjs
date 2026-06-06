@@ -10,9 +10,9 @@ import {
   lifecycleStatusForRun,
   runIdForTurn,
 } from "./runtime-identifiers.mjs";
+import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
 import { notFound, runtimeError as defaultRuntimeError } from "./runtime-http-utils.mjs";
 import {
-  appendOperatorControl,
   doctorHash,
   normalizeArray,
   operatorControlSource,
@@ -64,6 +64,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     diagnosticsOperatorOverrideResultFromEvent,
     diagnosticsRepairRetryFeedback,
     diagnosticsRepairRetryResultFromEvent,
+    contextPolicyRunner: contextPolicyRunnerDep = createContextPolicyRunnerFromEnv(),
     runtimeError = defaultRuntimeError,
   } = deps;
 
@@ -346,56 +347,24 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
 
     if (targetRunId && status === "completed") {
       const run = store.getRun(targetRunId);
-      const control = {
-        control: "diagnostics_operator_override",
-        source: operatorControlSource(request.source),
-        decisionId,
-        gateEventId: gateEvent?.event_id ?? null,
-        approvalRequired: approval.required,
-        approvalSatisfied: approval.satisfied,
-        approvalSource: approval.source,
-        snapshotId,
-        eventId: event.event_id,
+      const stateUpdate = contextPolicyRunnerDep.planDiagnosticsOperatorOverrideStateUpdate({
+        thread_id: threadId,
+        run_id: run.id,
+        run,
+        event_id: event.event_id,
         seq: event.seq,
-        createdAt: event.created_at,
-      };
-      const updatedDiagnosticsBlockingGate = run.diagnosticsBlockingGate
-        ? {
-            ...run.diagnosticsBlockingGate,
-            status: "overridden",
-            decision: "operator_override",
-            continuationAllowed: true,
-            continuation_allowed: true,
-            approvalRequired: approval.required,
-            approval_required: approval.required,
-            approvalSatisfied: approval.satisfied,
-            approval_satisfied: approval.satisfied,
-            operatorOverrideEventId: event.event_id,
-            operator_override_event_id: event.event_id,
-          }
-        : run.diagnosticsBlockingGate;
-      const updated = {
-        ...run,
-        status: "completed",
-        turnStatus: undefined,
-        updatedAt: event.created_at,
-        result: "Operator override granted; blocking diagnostics gate marked continuation-allowed.",
-        diagnosticsBlockingGate: updatedDiagnosticsBlockingGate,
-        trace: {
-          ...run.trace,
-          diagnosticsBlockingGate: updatedDiagnosticsBlockingGate,
-          stopCondition: {
-            ...(run.trace?.stopCondition ?? {}),
-            reason: "operator_override_granted",
-            evidenceSufficient: true,
-            rationale: "Operator override granted continuation despite blocking diagnostics.",
-          },
-          operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
-        },
-        operatorControls: appendOperatorControl(run.operatorControls, control),
-      };
+        created_at: event.created_at,
+        decision_id: decisionId,
+        gate_event_id: gateEvent?.event_id ?? null,
+        source: operatorControlSource(request.source),
+        approval_required: approval.required,
+        approval_satisfied: approval.satisfied,
+        approval_source: approval.source,
+        snapshot_id: snapshotId,
+      });
+      const updated = stateUpdate.run ?? run;
       store.runs.set(run.id, updated);
-      store.writeRun(updated, "diagnostics.operator_override.event");
+      store.writeRun(updated, stateUpdate.operation_kind ?? "diagnostics.operator_override.event");
       turn = store.turnForRun(updated);
       nextTurnStatus = turn.status;
     }

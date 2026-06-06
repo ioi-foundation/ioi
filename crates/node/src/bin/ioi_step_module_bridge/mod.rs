@@ -24,6 +24,7 @@ use ioi_services::agentic::runtime::kernel::policy::{
     CompactionPolicyCore, CompactionPolicyRequest, ContextBudgetPolicyCore,
     ContextBudgetPolicyRequest, ContextCompactionPlanCore, ContextCompactionPlanRequest,
     ContextCompactionStateUpdateCore, ContextCompactionStateUpdateRequest,
+    DiagnosticsOperatorOverrideStateUpdateCore, DiagnosticsOperatorOverrideStateUpdateRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -356,6 +357,16 @@ struct CodingToolBudgetRecoveryStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct DiagnosticsOperatorOverrideStateUpdateBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: DiagnosticsOperatorOverrideStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -575,6 +586,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_coding_tool_budget_recovery_state_update(request)
+        }
+        "plan_diagnostics_operator_override_state_update" => {
+            let request: DiagnosticsOperatorOverrideStateUpdateBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_diagnostics_operator_override_state_update(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -1916,6 +1933,44 @@ fn plan_coding_tool_budget_recovery_state_update(
         })?;
     Ok(json!({
         "source": "rust_coding_tool_budget_recovery_state_update_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "operator_control": record.operator_control.clone(),
+        "run": record.run.clone(),
+    }))
+}
+
+fn plan_diagnostics_operator_override_state_update(
+    request: DiagnosticsOperatorOverrideStateUpdateBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_diagnostics_operator_override_state_update" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = DiagnosticsOperatorOverrideStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "diagnostics_operator_override_state_update_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_diagnostics_operator_override_state_update_command",
         "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
         "record": record.clone(),
         "status": record.status.clone(),
@@ -6398,6 +6453,74 @@ mod tests {
         assert_eq!(
             response["run"]["trace"]["operatorControls"][0]["control"],
             "coding_tool_budget_recovery"
+        );
+    }
+
+    #[test]
+    fn bridge_plans_diagnostics_operator_override_state_update_through_rust_core() {
+        let request: DiagnosticsOperatorOverrideStateUpdateBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": COMMAND_SCHEMA_VERSION,
+                "operation": "plan_diagnostics_operator_override_state_update",
+                "backend": "rust_policy",
+                "request": {
+                    "schema_version": "ioi.runtime.diagnostics-operator-override-state-update-request.v1",
+                    "thread_id": "thread_budget",
+                    "run_id": "run_blocked",
+                    "run": {
+                        "id": "run_blocked",
+                        "agentId": "agent_budget",
+                        "status": "blocked",
+                        "turnStatus": "waiting_for_input",
+                        "diagnosticsBlockingGate": {
+                            "status": "blocked"
+                        },
+                        "trace": {
+                            "stopCondition": {
+                                "reason": "lsp_diagnostics_blocked"
+                            }
+                        },
+                        "operatorControls": []
+                    },
+                    "event_id": "event_override",
+                    "seq": 10,
+                    "created_at": "2026-06-06T04:15:00.000Z",
+                    "decision_id": "decision_override",
+                    "gate_event_id": "event_gate",
+                    "source": "runtime_auto",
+                    "approval_required": true,
+                    "approval_satisfied": true,
+                    "approval_source": "boolean_confirmation",
+                    "snapshot_id": "snapshot_alpha"
+                }
+            }))
+            .expect("diagnostics operator override state update bridge request");
+
+        let response = plan_diagnostics_operator_override_state_update(request)
+            .expect("diagnostics operator override state update planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_diagnostics_operator_override_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(
+            response["operation_kind"],
+            "diagnostics.operator_override.event"
+        );
+        assert_eq!(
+            response["operator_control"]["control"],
+            "diagnostics_operator_override"
+        );
+        assert_eq!(response["run"]["status"], "completed");
+        assert_eq!(
+            response["run"]["diagnosticsBlockingGate"]["status"],
+            "overridden"
+        );
+        assert_eq!(
+            response["run"]["trace"]["operatorControls"][0]["eventId"],
+            "event_override"
         );
     }
 

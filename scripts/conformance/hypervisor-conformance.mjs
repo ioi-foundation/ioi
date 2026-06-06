@@ -544,6 +544,12 @@ function runBridge() {
   const runtimeCodingToolBudgetRecoverySurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
     : "";
+  const runtimeDiagnosticsRepairSurface = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs")
+    : "";
+  const runtimeDiagnosticsRepairSurfaceTest = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
+    : "";
   const runtimeContextPolicySurface = exists("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
     : "";
@@ -1196,6 +1202,43 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
     ],
     "Phase 9/10 is pending: coding-tool budget recovery retry state updates must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "diagnostics-operator-override-state-update-live-bridge",
+    /DiagnosticsOperatorOverrideStateUpdateCore/.test(policyCore) &&
+      /DiagnosticsOperatorOverrideStateUpdateRequest/.test(policyCore) &&
+      /DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_diagnostics_operator_override_state_update/.test(policyCore) &&
+      /plan_diagnostics_operator_override_state_update/.test(bridgeModule) &&
+      /DiagnosticsOperatorOverrideStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_diagnostics_operator_override_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_diagnostics_operator_override_state_update_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /planDiagnosticsOperatorOverrideStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /diagnostics operator override state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /contextPolicyRunnerDep\.planDiagnosticsOperatorOverrideStateUpdate/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /planDiagnosticsOperatorOverrideStateUpdate/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      !/control:\s*"diagnostics_operator_override"|appendOperatorControl/.test(
+        runtimeDiagnosticsRepairSurface,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    ],
+    "Phase 9/10 is pending: diagnostics operator override run state updates must be planned by Rust policy core through the command bridge",
   );
   assertCheck(
     result,

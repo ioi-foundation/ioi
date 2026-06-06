@@ -9,6 +9,7 @@ import {
   CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
   CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
+  DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RustContextPolicyRunner,
 } from "./runtime-context-policy-runner.mjs";
 
@@ -391,6 +392,77 @@ test("coding tool budget recovery state update runner sends Rust state update br
   assert.equal(result.operation_kind, "workflow.run.retry_completed");
   assert.equal(result.operator_control.approvalId, "approval_budget");
   assert.equal(result.run.trace.operatorControls[0].eventId, "event_retry");
+});
+
+test("diagnostics operator override state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_diagnostics_operator_override_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "diagnostics.operator_override.event",
+            updated_at: "2026-06-06T04:15:00.000Z",
+            operator_control: {
+              control: "diagnostics_operator_override",
+              decisionId: "decision_override",
+              eventId: "event_override",
+            },
+            run: {
+              id: "run_blocked",
+              status: "completed",
+              diagnosticsBlockingGate: { status: "overridden" },
+              trace: {
+                operatorControls: [
+                  {
+                    control: "diagnostics_operator_override",
+                    eventId: "event_override",
+                  },
+                ],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planDiagnosticsOperatorOverrideStateUpdate({
+    thread_id: "thread_budget",
+    run_id: "run_blocked",
+    run: { id: "run_blocked", status: "blocked", trace: {} },
+    event_id: "event_override",
+    seq: 10,
+    created_at: "2026-06-06T04:15:00.000Z",
+    decision_id: "decision_override",
+    gate_event_id: "event_gate",
+    source: "runtime_auto",
+    approval_required: true,
+    approval_satisfied: true,
+    approval_source: "boolean_confirmation",
+    snapshot_id: "snapshot_alpha",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_diagnostics_operator_override_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.decision_id, "decision_override");
+  assert.equal(result.source, "rust_diagnostics_operator_override_state_update_command");
+  assert.equal(result.operation_kind, "diagnostics.operator_override.event");
+  assert.equal(result.operator_control.decisionId, "decision_override");
+  assert.equal(result.run.trace.operatorControls[0].eventId, "event_override");
 });
 
 test("context policy runner fails closed without bridge command", () => {

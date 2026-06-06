@@ -13,6 +13,10 @@ pub const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str 
     "ioi.runtime.coding-tool-budget-recovery-state-update-request.v1";
 pub const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.coding-tool-budget-recovery-state-update.v1";
+pub const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.diagnostics-operator-override-state-update-request.v1";
+pub const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.diagnostics-operator-override-state-update.v1";
 pub const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.compaction-policy-request.v1";
 pub const COMPACTION_POLICY_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.compaction-policy.v1";
@@ -98,6 +102,15 @@ pub enum ContextCompactionStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CodingToolBudgetRecoveryStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DiagnosticsOperatorOverrideStateUpdateError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -473,6 +486,47 @@ pub struct CodingToolBudgetRecoveryStateUpdateRequest {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CodingToolBudgetRecoveryStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    pub updated_at: String,
+    pub operator_control: Value,
+    pub run: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DiagnosticsOperatorOverrideStateUpdateRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    pub run: Value,
+    pub event_id: String,
+    pub seq: u64,
+    pub created_at: String,
+    pub decision_id: String,
+    #[serde(default)]
+    pub gate_event_id: Option<String>,
+    pub source: String,
+    #[serde(default)]
+    pub approval_required: bool,
+    #[serde(default)]
+    pub approval_satisfied: bool,
+    #[serde(default)]
+    pub approval_source: Option<String>,
+    #[serde(default)]
+    pub snapshot_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DiagnosticsOperatorOverrideStateUpdateRecord {
     pub schema_version: String,
     pub object: String,
     pub status: String,
@@ -1063,6 +1117,147 @@ impl CodingToolBudgetRecoveryStateUpdateCore {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct DiagnosticsOperatorOverrideStateUpdateCore;
+
+impl DiagnosticsOperatorOverrideStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &DiagnosticsOperatorOverrideStateUpdateRequest,
+    ) -> Result<
+        DiagnosticsOperatorOverrideStateUpdateRecord,
+        DiagnosticsOperatorOverrideStateUpdateError,
+    > {
+        request.validate()?;
+        let thread_id = optional_trimmed(request.thread_id.as_deref());
+        let run_id = optional_trimmed(request.run_id.as_deref());
+        let decision_id = optional_trimmed(Some(request.decision_id.as_str())).unwrap();
+        let source = operator_control_source(Some(request.source.as_str()));
+        let gate_event_id = optional_trimmed(request.gate_event_id.as_deref());
+        let approval_source =
+            optional_trimmed(request.approval_source.as_deref()).unwrap_or_else(|| {
+                if request.approval_satisfied {
+                    "satisfied".to_string()
+                } else {
+                    "missing".to_string()
+                }
+            });
+        let snapshot_id = optional_trimmed(request.snapshot_id.as_deref());
+        let operator_control = json!({
+            "control": "diagnostics_operator_override",
+            "source": source,
+            "decisionId": decision_id,
+            "gateEventId": gate_event_id,
+            "approvalRequired": request.approval_required,
+            "approvalSatisfied": request.approval_satisfied,
+            "approvalSource": approval_source,
+            "snapshotId": snapshot_id,
+            "eventId": request.event_id,
+            "seq": request.seq,
+            "createdAt": request.created_at,
+        });
+        let mut run = object_value(&request.run).ok_or(
+            DiagnosticsOperatorOverrideStateUpdateError::MissingField("run"),
+        )?;
+        let updated_gate = run
+            .get("diagnosticsBlockingGate")
+            .and_then(object_value)
+            .map(|mut gate| {
+                gate.insert(
+                    "status".to_string(),
+                    Value::String("overridden".to_string()),
+                );
+                gate.insert(
+                    "decision".to_string(),
+                    Value::String("operator_override".to_string()),
+                );
+                gate.insert("continuationAllowed".to_string(), Value::Bool(true));
+                gate.insert("continuation_allowed".to_string(), Value::Bool(true));
+                gate.insert(
+                    "approvalRequired".to_string(),
+                    Value::Bool(request.approval_required),
+                );
+                gate.insert(
+                    "approval_required".to_string(),
+                    Value::Bool(request.approval_required),
+                );
+                gate.insert(
+                    "approvalSatisfied".to_string(),
+                    Value::Bool(request.approval_satisfied),
+                );
+                gate.insert(
+                    "approval_satisfied".to_string(),
+                    Value::Bool(request.approval_satisfied),
+                );
+                gate.insert(
+                    "operatorOverrideEventId".to_string(),
+                    Value::String(request.event_id.clone()),
+                );
+                gate.insert(
+                    "operator_override_event_id".to_string(),
+                    Value::String(request.event_id.clone()),
+                );
+                Value::Object(gate)
+            });
+        run.insert("status".to_string(), Value::String("completed".to_string()));
+        run.remove("turnStatus");
+        run.insert(
+            "updatedAt".to_string(),
+            Value::String(request.created_at.clone()),
+        );
+        run.insert(
+            "result".to_string(),
+            Value::String(
+                "Operator override granted; blocking diagnostics gate marked continuation-allowed."
+                    .to_string(),
+            ),
+        );
+        if let Some(updated_gate) = updated_gate.clone() {
+            run.insert("diagnosticsBlockingGate".to_string(), updated_gate);
+        }
+        let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
+        if let Some(updated_gate) = updated_gate {
+            trace.insert("diagnosticsBlockingGate".to_string(), updated_gate);
+        }
+        let mut stop_condition = trace
+            .get("stopCondition")
+            .and_then(object_value)
+            .unwrap_or_default();
+        stop_condition.insert(
+            "reason".to_string(),
+            Value::String("operator_override_granted".to_string()),
+        );
+        stop_condition.insert("evidenceSufficient".to_string(), Value::Bool(true));
+        stop_condition.insert(
+            "rationale".to_string(),
+            Value::String(
+                "Operator override granted continuation despite blocking diagnostics.".to_string(),
+            ),
+        );
+        trace.insert("stopCondition".to_string(), Value::Object(stop_condition));
+        let trace_controls =
+            append_operator_control(trace.get("operatorControls"), &operator_control);
+        trace.insert("operatorControls".to_string(), trace_controls);
+        run.insert("trace".to_string(), Value::Object(trace));
+        let run_controls = append_operator_control(run.get("operatorControls"), &operator_control);
+        run.insert("operatorControls".to_string(), run_controls);
+
+        Ok(DiagnosticsOperatorOverrideStateUpdateRecord {
+            schema_version: DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_RESULT_SCHEMA_VERSION
+                .to_string(),
+            object: "ioi.runtime_diagnostics_operator_override_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: "diagnostics.operator_override.event".to_string(),
+            thread_id,
+            run_id,
+            updated_at: request.created_at.clone(),
+            operator_control,
+            run: Value::Object(run),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
 impl CompactionPolicyRequest {
     pub fn validate(&self) -> Result<(), CompactionPolicyError> {
         if self.schema_version != COMPACTION_POLICY_REQUEST_SCHEMA_VERSION {
@@ -1170,6 +1365,46 @@ impl CodingToolBudgetRecoveryStateUpdateRequest {
         if optional_trimmed(Some(self.approval_id.as_str())).is_none() {
             return Err(CodingToolBudgetRecoveryStateUpdateError::MissingField(
                 "approval_id",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl DiagnosticsOperatorOverrideStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), DiagnosticsOperatorOverrideStateUpdateError> {
+        if self.schema_version != DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION
+        {
+            return Err(
+                DiagnosticsOperatorOverrideStateUpdateError::InvalidSchemaVersion {
+                    expected: DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                    actual: self.schema_version.clone(),
+                },
+            );
+        }
+        if !self.run.is_object() {
+            return Err(DiagnosticsOperatorOverrideStateUpdateError::MissingField(
+                "run",
+            ));
+        }
+        if optional_trimmed(Some(self.event_id.as_str())).is_none() {
+            return Err(DiagnosticsOperatorOverrideStateUpdateError::MissingField(
+                "event_id",
+            ));
+        }
+        if self.seq == 0 {
+            return Err(DiagnosticsOperatorOverrideStateUpdateError::MissingField(
+                "seq",
+            ));
+        }
+        if optional_trimmed(Some(self.created_at.as_str())).is_none() {
+            return Err(DiagnosticsOperatorOverrideStateUpdateError::MissingField(
+                "created_at",
+            ));
+        }
+        if optional_trimmed(Some(self.decision_id.as_str())).is_none() {
+            return Err(DiagnosticsOperatorOverrideStateUpdateError::MissingField(
+                "decision_id",
             ));
         }
         Ok(())
@@ -1622,6 +1857,41 @@ mod tests {
         }
     }
 
+    fn diagnostics_operator_override_state_update_request(
+    ) -> DiagnosticsOperatorOverrideStateUpdateRequest {
+        DiagnosticsOperatorOverrideStateUpdateRequest {
+            schema_version: DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION
+                .to_string(),
+            thread_id: Some("thread_budget".to_string()),
+            run_id: Some("run_blocked".to_string()),
+            run: json!({
+                "id": "run_blocked",
+                "agentId": "agent_budget",
+                "status": "blocked",
+                "turnStatus": "waiting_for_input",
+                "diagnosticsBlockingGate": {
+                    "status": "blocked"
+                },
+                "trace": {
+                    "stopCondition": {
+                        "reason": "lsp_diagnostics_blocked"
+                    }
+                },
+                "operatorControls": []
+            }),
+            event_id: "event_override".to_string(),
+            seq: 10,
+            created_at: "2026-06-06T04:15:00.000Z".to_string(),
+            decision_id: "decision_override".to_string(),
+            gate_event_id: Some("event_gate".to_string()),
+            source: "runtime_auto".to_string(),
+            approval_required: true,
+            approval_satisfied: true,
+            approval_source: Some("boolean_confirmation".to_string()),
+            snapshot_id: Some("snapshot_alpha".to_string()),
+        }
+    }
+
     #[test]
     fn rust_policy_blocks_context_budget_excess() {
         let mut request = budget_request();
@@ -1905,6 +2175,43 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_plans_diagnostics_operator_override_state_update() {
+        let record = DiagnosticsOperatorOverrideStateUpdateCore
+            .plan(&diagnostics_operator_override_state_update_request())
+            .expect("diagnostics operator override state update");
+
+        assert_eq!(
+            record.schema_version,
+            DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "diagnostics.operator_override.event");
+        assert_eq!(
+            record.operator_control["control"],
+            "diagnostics_operator_override"
+        );
+        assert_eq!(record.operator_control["decisionId"], "decision_override");
+        assert_eq!(record.run["status"], "completed");
+        assert!(record.run.get("turnStatus").is_none());
+        assert_eq!(
+            record.run["diagnosticsBlockingGate"]["status"],
+            "overridden"
+        );
+        assert_eq!(
+            record.run["diagnosticsBlockingGate"]["continuation_allowed"],
+            true
+        );
+        assert_eq!(
+            record.run["trace"]["stopCondition"]["reason"],
+            "operator_override_granted"
+        );
+        assert_eq!(
+            record.run["trace"]["operatorControls"][0]["eventId"],
+            "event_override"
+        );
+    }
+
+    #[test]
     fn rust_policy_rejects_invalid_compaction_schema() {
         let mut request = compaction_request();
         request.schema_version = "legacy.schema".to_string();
@@ -1971,6 +2278,24 @@ mod tests {
             error,
             CodingToolBudgetRecoveryStateUpdateError::InvalidSchemaVersion {
                 expected: CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_diagnostics_operator_override_state_update_schema() {
+        let mut request = diagnostics_operator_override_state_update_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = DiagnosticsOperatorOverrideStateUpdateCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            DiagnosticsOperatorOverrideStateUpdateError::InvalidSchemaVersion {
+                expected: DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );

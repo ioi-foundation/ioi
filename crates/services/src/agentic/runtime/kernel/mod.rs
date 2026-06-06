@@ -82,7 +82,9 @@ use policy::{
     ContextBudgetPolicyRequest, ContextCompactionPlanCore, ContextCompactionPlanError,
     ContextCompactionPlanRecord, ContextCompactionPlanRequest, ContextCompactionStateUpdateCore,
     ContextCompactionStateUpdateError, ContextCompactionStateUpdateRecord,
-    ContextCompactionStateUpdateRequest,
+    ContextCompactionStateUpdateRequest, DiagnosticsOperatorOverrideStateUpdateCore,
+    DiagnosticsOperatorOverrideStateUpdateError, DiagnosticsOperatorOverrideStateUpdateRecord,
+    DiagnosticsOperatorOverrideStateUpdateRequest,
 };
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
 use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
@@ -198,6 +200,16 @@ impl RuntimeKernelService {
     ) -> Result<CodingToolBudgetRecoveryStateUpdateRecord, CodingToolBudgetRecoveryStateUpdateError>
     {
         CodingToolBudgetRecoveryStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_diagnostics_operator_override_state_update(
+        &self,
+        request: &DiagnosticsOperatorOverrideStateUpdateRequest,
+    ) -> Result<
+        DiagnosticsOperatorOverrideStateUpdateRecord,
+        DiagnosticsOperatorOverrideStateUpdateError,
+    > {
+        DiagnosticsOperatorOverrideStateUpdateCore.plan(request)
     }
 
     pub fn issue_capability_lease(

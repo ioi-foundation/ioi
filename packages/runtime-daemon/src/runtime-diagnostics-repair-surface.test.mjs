@@ -11,8 +11,83 @@ function runtimeError({ status, code, message, details }) {
   return error;
 }
 
-function createSurface() {
+function diagnosticsOperatorOverrideStateUpdateForRequest(request = {}) {
+  const control = {
+    control: "diagnostics_operator_override",
+    source: request.source,
+    decisionId: request.decision_id,
+    gateEventId: request.gate_event_id,
+    approvalRequired: request.approval_required,
+    approvalSatisfied: request.approval_satisfied,
+    approvalSource: request.approval_source,
+    snapshotId: request.snapshot_id,
+    eventId: request.event_id,
+    seq: request.seq,
+    createdAt: request.created_at,
+  };
+  const run = request.run ?? {};
+  const updatedDiagnosticsBlockingGate = run.diagnosticsBlockingGate
+    ? {
+        ...run.diagnosticsBlockingGate,
+        status: "overridden",
+        decision: "operator_override",
+        continuationAllowed: true,
+        continuation_allowed: true,
+        approvalRequired: request.approval_required,
+        approval_required: request.approval_required,
+        approvalSatisfied: request.approval_satisfied,
+        approval_satisfied: request.approval_satisfied,
+        operatorOverrideEventId: request.event_id,
+        operator_override_event_id: request.event_id,
+      }
+    : null;
+  const updated = {
+    ...run,
+    status: "completed",
+    updatedAt: request.created_at,
+    result: "Operator override granted; blocking diagnostics gate marked continuation-allowed.",
+    trace: {
+      ...run.trace,
+      ...(updatedDiagnosticsBlockingGate ? { diagnosticsBlockingGate: updatedDiagnosticsBlockingGate } : {}),
+      stopCondition: {
+        ...(run.trace?.stopCondition ?? {}),
+        reason: "operator_override_granted",
+        evidenceSufficient: true,
+        rationale: "Operator override granted continuation despite blocking diagnostics.",
+      },
+      operatorControls: appendOperatorControlForTest(run.trace?.operatorControls, control),
+    },
+    operatorControls: appendOperatorControlForTest(run.operatorControls, control),
+  };
+  delete updated.turnStatus;
+  if (updatedDiagnosticsBlockingGate) {
+    updated.diagnosticsBlockingGate = updatedDiagnosticsBlockingGate;
+  }
+  return {
+    status: "planned",
+    operation_kind: "diagnostics.operator_override.event",
+    updated_at: request.created_at,
+    operator_control: control,
+    run: updated,
+  };
+}
+
+function appendOperatorControlForTest(value, control) {
+  const entries = Array.isArray(value) ? [...value] : [];
+  if (!entries.some((entry) => entry?.eventId === control.eventId)) {
+    entries.push(control);
+  }
+  return entries;
+}
+
+function createSurface({ calls = [] } = {}) {
   return createRuntimeDiagnosticsRepairSurface({
+    contextPolicyRunner: {
+      planDiagnosticsOperatorOverrideStateUpdate(request) {
+        calls.push({ name: "planDiagnosticsOperatorOverrideStateUpdate", request });
+        return diagnosticsOperatorOverrideStateUpdateForRequest(request);
+      },
+    },
     diagnosticsOperatorOverrideApprovalForRequest(request = {}) {
       const required = request.operatorOverrideRequiresApproval !== false;
       const satisfied = !required || request.confirm === true || request.operatorOverrideApproved === true;
@@ -261,7 +336,8 @@ test("diagnostics repair surface fails closed for invalid or unavailable decisio
 });
 
 test("diagnostics repair surface executes operator override and updates the blocked turn", () => {
-  const surface = createSurface();
+  const calls = [];
+  const surface = createSurface({ calls });
   const events = [];
   const idempotency = new Map();
   const run = {
@@ -328,6 +404,10 @@ test("diagnostics repair surface executes operator override and updates the bloc
   assert.equal(events[0].event_stream_id, "thread_alpha:events");
   assert.equal(events[0].payload_summary.approval_satisfied, true);
   assert.equal(events[0].payload_summary.continuation_allowed, true);
+  assert.equal(
+    calls.find((call) => call.name === "planDiagnosticsOperatorOverrideStateUpdate").request.event_id,
+    "event_1",
+  );
 });
 
 test("diagnostics repair surface creates retry turns with injected diagnostics feedback", () => {

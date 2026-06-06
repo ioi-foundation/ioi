@@ -9,6 +9,8 @@ export const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-budget-policy-request.v1";
 export const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-budget-recovery-state-update-request.v1";
+export const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.diagnostics-operator-override-state-update-request.v1";
 export const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.compaction-policy-request.v1";
 export const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION =
@@ -80,6 +82,14 @@ export class RustContextPolicyRunner {
     return normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult(this.evaluateRawPolicy({
       operation: "plan_coding_tool_budget_recovery_state_update",
       schemaVersion: CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planDiagnosticsOperatorOverrideStateUpdate(request = {}) {
+    return normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_diagnostics_operator_override_state_update",
+      schemaVersion: DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -326,6 +336,27 @@ export function normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult(value =
     operation_kind:
       optionalString(result.operation_kind ?? record.operation_kind) ??
       "workflow.run.retry_completed",
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    operator_control:
+      objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
+    run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
+  };
+}
+
+export function normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_diagnostics_operator_override_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "planned",
+    operation_kind:
+      optionalString(result.operation_kind ?? record.operation_kind) ??
+      "diagnostics.operator_override.event",
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
       objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,

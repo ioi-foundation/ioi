@@ -12176,6 +12176,15 @@ approvalRevocations, and operatorControls mutation through
 approval-revoke event and applies the Rust-planned run record instead of
 constructing the approval-revoke mutation in JS.
 
+Slice 350 moves diagnostics operator-override run state-update planning into
+Rust: `DiagnosticsOperatorOverrideStateUpdateCore` now owns the
+diagnostics-operator-override operator-control record, diagnostics blocking
+gate override mutation, completed run transition, stopped-condition rewrite,
+updatedAt/result assignment, and trace/top-level operatorControls mutation
+through `plan_diagnostics_operator_override_state_update`; the daemon
+diagnostics repair surface appends the override event and applies the
+Rust-planned run record instead of constructing the override mutation in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
