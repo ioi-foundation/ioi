@@ -12290,6 +12290,12 @@ session/bridge metadata after `runtimeBridge.startThread`; the daemon bridge
 thread helper invokes the runtime bridge and normalizes events, then fails
 closed unless Rust returns the agent projection to persist before event append.
 
+Slice 366 moves daemon agent status projection to Rust:
+`AgentStatusStateUpdateCore` now owns archive/unarchive/resume/close/reload
+agent status projections; `thread-store.updateAgent` supplies the requested
+status, operation kind, and timestamp, then fails closed unless Rust returns the
+agent record to persist.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

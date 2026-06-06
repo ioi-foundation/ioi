@@ -13,11 +13,38 @@ export function getAgent(store, agentId, deps = {}) {
   return agent;
 }
 
-export function updateAgent(store, agentId, status, operationKind) {
+export function updateAgent(store, agentId, status, operationKind, deps = {}) {
+  const {
+    runtimeError = ({ status: errorStatus = 500, code = "agent_status_state_update_error", message, details }) =>
+      Object.assign(new Error(message), { status: errorStatus, code, details }),
+  } = deps;
   const agent = store.getAgent(agentId);
-  const updated = { ...agent, status, updatedAt: new Date().toISOString() };
-  store.agents.set(agentId, updated);
-  store.writeAgent(updated, operationKind);
+  const contextPolicyRunner = store.contextPolicyRunner;
+  if (typeof contextPolicyRunner?.planAgentStatusStateUpdate !== "function") {
+    throw runtimeError({
+      status: 500,
+      code: "agent_status_state_update_planner_unavailable",
+      message: "Agent status updates require Rust policy state-update planning.",
+      details: { agentId, status, operationKind },
+    });
+  }
+  const stateUpdate = contextPolicyRunner.planAgentStatusStateUpdate({
+    agent,
+    status,
+    operation_kind: operationKind,
+    updated_at: new Date().toISOString(),
+  });
+  const updated = stateUpdate.agent;
+  if (!updated?.id) {
+    throw runtimeError({
+      status: 502,
+      code: "agent_status_state_update_planner_invalid",
+      message: "Rust agent status state planning did not return an agent record.",
+      details: { agentId, status, operationKind },
+    });
+  }
+  store.agents.set(updated.id, updated);
+  store.writeAgent(updated, stateUpdate.operation_kind ?? operationKind);
   return updated;
 }
 

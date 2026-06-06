@@ -29,6 +29,8 @@ export const AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.agent-create-state-update-request.v1";
 export const RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.run-create-state-update-request.v1";
+export const AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.agent-status-state-update-request.v1";
 export const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.compaction-policy-request.v1";
 export const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION =
@@ -180,6 +182,14 @@ export class RustContextPolicyRunner {
     return normalizeRunCreateStateUpdateBridgeResult(this.evaluateRawPolicy({
       operation: "plan_run_create_state_update",
       schemaVersion: RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planAgentStatusStateUpdate(request = {}) {
+    return normalizeAgentStatusStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_agent_status_state_update",
+      schemaVersion: AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -643,6 +653,25 @@ export function normalizeRunCreateStateUpdateBridgeResult(value = {}) {
     created_at: optionalString(result.created_at ?? record.created_at) ?? null,
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
+  };
+}
+
+export function normalizeAgentStatusStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_agent_status_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "planned",
+    operation_kind:
+      optionalString(result.operation_kind ?? record.operation_kind) ??
+      "agent.status",
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
   };
 }
 

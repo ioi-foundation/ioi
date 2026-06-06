@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
@@ -964,6 +965,54 @@ test("agent create state update runner sends Rust state update bridge request", 
   assert.equal(result.source, "rust_agent_create_state_update_command");
   assert.equal(result.operation_kind, "agent.create");
   assert.equal(result.agent.id, "agent_create_one");
+});
+
+test("agent status state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_agent_status_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "agent.archive",
+            updated_at: "2026-06-06T06:25:00.000Z",
+            agent: {
+              id: "agent_1",
+              status: "archived",
+              updatedAt: "2026-06-06T06:25:00.000Z",
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planAgentStatusStateUpdate({
+    agent: { id: "agent_1", status: "active" },
+    status: "archived",
+    operation_kind: "agent.archive",
+    updated_at: "2026-06-06T06:25:00.000Z",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_agent_status_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.status, "archived");
+  assert.equal(result.source, "rust_agent_status_state_update_command");
+  assert.equal(result.operation_kind, "agent.archive");
+  assert.equal(result.agent.status, "archived");
 });
 
 test("run create state update runner sends Rust state update bridge request", () => {

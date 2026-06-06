@@ -41,6 +41,10 @@ pub const RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.run-create-state-update-request.v1";
 pub const RUN_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.run-create-state-update.v1";
+pub const AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.agent-status-state-update-request.v1";
+pub const AGENT_STATUS_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.agent-status-state-update.v1";
 pub const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-control-agent-state-update-request.v1";
 pub const MCP_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -229,6 +233,15 @@ pub enum ThreadMemoryAgentStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RuntimeBridgeThreadStartAgentStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AgentStatusStateUpdateError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -826,6 +839,27 @@ pub struct RunCreateStateUpdateRecord {
     pub created_at: String,
     pub updated_at: String,
     pub run: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentStatusStateUpdateRequest {
+    pub schema_version: String,
+    pub agent: Value,
+    pub status: String,
+    pub operation_kind: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentStatusStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub agent_id: String,
+    pub updated_at: String,
+    pub agent: Value,
     pub generated_at: String,
 }
 
@@ -2260,6 +2294,38 @@ impl RunCreateStateUpdateCore {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct AgentStatusStateUpdateCore;
+
+impl AgentStatusStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &AgentStatusStateUpdateRequest,
+    ) -> Result<AgentStatusStateUpdateRecord, AgentStatusStateUpdateError> {
+        request.validate()?;
+        let mut agent = object_value(&request.agent)
+            .ok_or(AgentStatusStateUpdateError::MissingField("agent"))?;
+        let agent_id = optional_json_string(&Value::Object(agent.clone()), "id")
+            .ok_or(AgentStatusStateUpdateError::MissingField("agent.id"))?;
+        agent.insert("status".to_string(), Value::String(request.status.clone()));
+        agent.insert(
+            "updatedAt".to_string(),
+            Value::String(request.updated_at.clone()),
+        );
+
+        Ok(AgentStatusStateUpdateRecord {
+            schema_version: AGENT_STATUS_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_agent_status_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: request.operation_kind.clone(),
+            agent_id,
+            updated_at: request.updated_at.clone(),
+            agent: Value::Object(agent),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct McpControlAgentStateUpdateCore;
 
 impl McpControlAgentStateUpdateCore {
@@ -2750,6 +2816,33 @@ impl RunCreateStateUpdateRequest {
             return Err(RunCreateStateUpdateError::MissingField(
                 "run.trace.usage_telemetry",
             ));
+        }
+        Ok(())
+    }
+}
+
+impl AgentStatusStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), AgentStatusStateUpdateError> {
+        if self.schema_version != AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(AgentStatusStateUpdateError::InvalidSchemaVersion {
+                expected: AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        let agent =
+            object_value(&self.agent).ok_or(AgentStatusStateUpdateError::MissingField("agent"))?;
+        let agent_value = Value::Object(agent);
+        if optional_json_string(&agent_value, "id").is_none() {
+            return Err(AgentStatusStateUpdateError::MissingField("agent.id"));
+        }
+        if optional_trimmed(Some(self.status.as_str())).is_none() {
+            return Err(AgentStatusStateUpdateError::MissingField("status"));
+        }
+        if optional_trimmed(Some(self.operation_kind.as_str())).is_none() {
+            return Err(AgentStatusStateUpdateError::MissingField("operation_kind"));
+        }
+        if optional_trimmed(Some(self.updated_at.as_str())).is_none() {
+            return Err(AgentStatusStateUpdateError::MissingField("updated_at"));
         }
         Ok(())
     }
@@ -4124,6 +4217,21 @@ mod tests {
         }
     }
 
+    fn agent_status_state_update_request() -> AgentStatusStateUpdateRequest {
+        AgentStatusStateUpdateRequest {
+            schema_version: AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            agent: json!({
+                "id": "agent_status_one",
+                "status": "active",
+                "createdAt": "2026-06-06T05:15:00.000Z",
+                "updatedAt": "2026-06-06T05:15:00.000Z"
+            }),
+            status: "archived".to_string(),
+            operation_kind: "agent.archive".to_string(),
+            updated_at: "2026-06-06T06:25:00.000Z".to_string(),
+        }
+    }
+
     fn mcp_control_agent_state_update_request() -> McpControlAgentStateUpdateRequest {
         McpControlAgentStateUpdateRequest {
             schema_version: MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
@@ -4739,6 +4847,24 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_plans_agent_status_state_update() {
+        let record = AgentStatusStateUpdateCore
+            .plan(&agent_status_state_update_request())
+            .expect("agent status state update");
+
+        assert_eq!(
+            record.schema_version,
+            AGENT_STATUS_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "agent.archive");
+        assert_eq!(record.agent_id, "agent_status_one");
+        assert_eq!(record.updated_at, "2026-06-06T06:25:00.000Z");
+        assert_eq!(record.agent["status"], "archived");
+        assert_eq!(record.agent["updatedAt"], "2026-06-06T06:25:00.000Z");
+    }
+
+    #[test]
     fn rust_policy_plans_mcp_control_agent_state_update() {
         let record = McpControlAgentStateUpdateCore
             .plan(&mcp_control_agent_state_update_request())
@@ -5028,6 +5154,24 @@ mod tests {
             error,
             RunCreateStateUpdateError::InvalidSchemaVersion {
                 expected: RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_agent_status_state_update_schema() {
+        let mut request = agent_status_state_update_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = AgentStatusStateUpdateCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            AgentStatusStateUpdateError::InvalidSchemaVersion {
+                expected: AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );

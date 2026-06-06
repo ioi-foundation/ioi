@@ -76,13 +76,14 @@ use model_mount::{
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use policy::{
     AgentCreateStateUpdateCore, AgentCreateStateUpdateError, AgentCreateStateUpdateRecord,
-    AgentCreateStateUpdateRequest, CodingToolBudgetRecoveryStateUpdateCore,
-    CodingToolBudgetRecoveryStateUpdateError, CodingToolBudgetRecoveryStateUpdateRecord,
-    CodingToolBudgetRecoveryStateUpdateRequest, CompactionPolicyCore, CompactionPolicyError,
-    CompactionPolicyRecord, CompactionPolicyRequest, ContextBudgetPolicyCore,
-    ContextBudgetPolicyError, ContextBudgetPolicyRecord, ContextBudgetPolicyRequest,
-    ContextCompactionPlanCore, ContextCompactionPlanError, ContextCompactionPlanRecord,
-    ContextCompactionPlanRequest, ContextCompactionStateUpdateCore,
+    AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore, AgentStatusStateUpdateError,
+    AgentStatusStateUpdateRecord, AgentStatusStateUpdateRequest,
+    CodingToolBudgetRecoveryStateUpdateCore, CodingToolBudgetRecoveryStateUpdateError,
+    CodingToolBudgetRecoveryStateUpdateRecord, CodingToolBudgetRecoveryStateUpdateRequest,
+    CompactionPolicyCore, CompactionPolicyError, CompactionPolicyRecord, CompactionPolicyRequest,
+    ContextBudgetPolicyCore, ContextBudgetPolicyError, ContextBudgetPolicyRecord,
+    ContextBudgetPolicyRequest, ContextCompactionPlanCore, ContextCompactionPlanError,
+    ContextCompactionPlanRecord, ContextCompactionPlanRequest, ContextCompactionStateUpdateCore,
     ContextCompactionStateUpdateError, ContextCompactionStateUpdateRecord,
     ContextCompactionStateUpdateRequest, DiagnosticsOperatorOverrideStateUpdateCore,
     DiagnosticsOperatorOverrideStateUpdateError, DiagnosticsOperatorOverrideStateUpdateRecord,
@@ -293,6 +294,13 @@ impl RuntimeKernelService {
         request: &RunCreateStateUpdateRequest,
     ) -> Result<RunCreateStateUpdateRecord, RunCreateStateUpdateError> {
         RunCreateStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_agent_status_state_update(
+        &self,
+        request: &AgentStatusStateUpdateRequest,
+    ) -> Result<AgentStatusStateUpdateRecord, AgentStatusStateUpdateError> {
+        AgentStatusStateUpdateCore.plan(request)
     }
 
     pub fn issue_capability_lease(

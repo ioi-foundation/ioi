@@ -50,10 +50,33 @@ function deps(calls = []) {
   };
 }
 
-function fakeStore() {
+function fakeStore(options = {}) {
+  const calls = [];
   return {
     agents: new Map(),
-    calls: [],
+    calls,
+    contextPolicyRunner:
+      Object.hasOwn(options, "agentStatusStateUpdate")
+        ? {
+            planAgentStatusStateUpdate(request = {}) {
+              calls.push({ operation: "plan_agent_status_state_update", input: request });
+              return options.agentStatusStateUpdate;
+            },
+          }
+        : {
+            planAgentStatusStateUpdate(request = {}) {
+              calls.push({ operation: "plan_agent_status_state_update", input: request });
+              return {
+                status: "planned",
+                operation_kind: request.operation_kind,
+                agent: {
+                  ...request.agent,
+                  status: request.status,
+                  updatedAt: request.updated_at,
+                },
+              };
+            },
+          },
     inFlightRuntimeTurns: new Map(),
     runs: new Map(),
     stateDir: "/state",
@@ -168,12 +191,32 @@ test("thread store updates and deletes agents without canonical runs", () => {
 
   const updated = updateAgent(store, "agent_1", "archived", "agent.archive");
   assert.equal(updated.status, "archived");
+  const planner = store.calls.find((call) => call.operation === "plan_agent_status_state_update");
+  assert.equal(planner.input.status, "archived");
+  assert.equal(planner.input.operation_kind, "agent.archive");
   assert.equal(store.calls.at(-1).operationKind, "agent.archive");
 
   deleteAgent(store, "agent_1", deps(store.calls));
   assert.equal(store.agents.has("agent_1"), false);
   assert.equal(store.calls.some((call) => call.operation === "append_operation"), false);
   assert.equal(store.calls.some((call) => call.operation === "remove_quiet"), true);
+});
+
+test("thread store fails closed without Rust-planned status agent", () => {
+  const store = fakeStore({
+    agentStatusStateUpdate: {
+      status: "planned",
+      operation_kind: "agent.archive",
+      agent: null,
+    },
+  });
+  store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
+
+  assert.throws(
+    () => updateAgent(store, "agent_1", "archived", "agent.archive"),
+    (error) => error.code === "agent_status_state_update_planner_invalid",
+  );
+  assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
 });
 
 test("thread store blocks permanent delete when runs exist", () => {

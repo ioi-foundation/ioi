@@ -941,7 +941,9 @@ export class AgentgresRuntimeStateStore {
   }
 
   updateAgent(agentId, status, operationKind) {
-    return updateAgentState(this, agentId, status, operationKind);
+    return updateAgentState(this, agentId, status, operationKind, {
+      runtimeError,
+    });
   }
 
   deleteAgent(agentId) {
