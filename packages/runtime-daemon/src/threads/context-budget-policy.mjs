@@ -131,19 +131,19 @@ export function evaluateContextBudgetPolicy({
   const mode = contextBudgetMode(request.mode);
   const scope = optionalString(request.scope) ?? canonicalUsageTelemetry.scope ?? "thread";
   const workflowNodeId =
-    optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+    optionalString(request.workflow_node_id) ??
     "runtime.context-budget";
   const workflowGraphId =
-    optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+    optionalString(request.workflow_graph_id) ?? null;
   const threadId =
-    optionalString(request.thread_id ?? request.threadId) ??
+    optionalString(request.thread_id) ??
     optionalString(canonicalUsageTelemetry.thread_id) ??
     null;
   const runId =
-    optionalString(request.run_id ?? request.runId) ??
+    optionalString(request.run_id) ??
     optionalString(canonicalUsageTelemetry.run_id) ??
     null;
-  const turnId = optionalString(request.turn_id ?? request.turnId) ?? null;
+  const turnId = optionalString(request.turn_id) ?? null;
   return budgetRunner.evaluateContextBudgetPolicy({
     schema_version: CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
     usage_telemetry: canonicalUsageTelemetry,
@@ -161,7 +161,7 @@ export function evaluateContextBudgetPolicy({
     source: operatorControlSource(request.source),
     actor: optionalString(request.actor) ?? "operator",
     event_kind:
-      optionalString(request.event_kind ?? request.eventKind) ??
+      optionalString(request.event_kind) ??
       "RuntimeContextBudget.Evaluate",
     component_kind: "context_budget",
     workflow_graph_id: workflowGraphId,

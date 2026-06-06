@@ -12671,6 +12671,13 @@ computer-use provider selection now reads canonical `provider_id` and
 `session_mode` hints only; retired `providerHint`, `providerKind`, and
 `sessionMode` no longer influence provider routing.
 
+Slice 424 removes context-budget identity request aliases:
+generic context-budget policy evaluation now builds the Rust policy-core bridge
+request from canonical `workflow_node_id`, `workflow_graph_id`, `thread_id`,
+`run_id`, `turn_id`, and `event_kind` only; retired camelCase request aliases
+such as `workflowNodeId`, `workflowGraphId`, `threadId`, `runId`, `turnId`, and
+`eventKind` no longer shape the admitted policy request.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

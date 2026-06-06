@@ -221,8 +221,8 @@ test("context budget policy warns in simulate mode and blocks in block mode", ()
         max_context_pressure: 0.95,
         warn_at_ratio: 0.8,
       },
-      workflowNodeId: "node-budget",
-      turnId: "turn-budget",
+      workflow_node_id: "node-budget",
+      turn_id: "turn-budget",
     },
     budgetRunner: budgetRunnerMock({
       capture: (request) => {
@@ -252,6 +252,43 @@ test("context budget policy warns in simulate mode and blocks in block mode", ()
   });
   assert.equal(blocked.status, "blocked");
   assert.match(blocked.summary, /Context budget blocked/);
+});
+
+test("context budget policy ignores retired identity request aliases", () => {
+  let capturedRequest = null;
+  const result = evaluateContextBudgetPolicy({
+    usageTelemetry: {
+      total_tokens: 120,
+      estimated_cost_usd: 0.6,
+      context_pressure: 0.91,
+      thread_id: "thread-canonical-telemetry",
+    },
+    request: {
+      mode: "simulate",
+      max_total_tokens: 100,
+      workflowNodeId: "node-retired",
+      workflowGraphId: "graph-retired",
+      threadId: "thread-retired",
+      runId: "run-retired",
+      turnId: "turn-retired",
+      eventKind: "RuntimeContextBudget.Retired",
+    },
+    budgetRunner: budgetRunnerMock({
+      capture: (request) => {
+        capturedRequest = request;
+      },
+    }),
+  });
+
+  assert.equal(capturedRequest.workflow_node_id, "runtime.context-budget");
+  assert.equal(capturedRequest.workflow_graph_id, null);
+  assert.equal(capturedRequest.thread_id, "thread-canonical-telemetry");
+  assert.equal(capturedRequest.run_id, null);
+  assert.equal(capturedRequest.turn_id, null);
+  assert.equal(capturedRequest.event_kind, "RuntimeContextBudget.Evaluate");
+  assert.equal(result.workflow_node_id, "runtime.context-budget");
+  assert.equal(result.thread_id, "thread-canonical-telemetry");
+  assert.equal(result.event_kind, "RuntimeContextBudget.Evaluate");
 });
 
 test("coding tool budget policy reads canonical tool pack fields and annotates runtime context", () => {

@@ -1877,6 +1877,14 @@ function runBridge() {
       /budgetRunner\.evaluateContextBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
       /capturedRequest\.schema_version,\s*"ioi\.runtime\.context-budget-policy-request\.v1"/.test(
         codingToolBudgetPolicySurfaceTest,
+      ) &&
+      /context budget policy ignores retired identity request aliases/.test(
+        codingToolBudgetPolicySurfaceTest,
+      ) &&
+      /workflowNodeId:\s*"node-retired"/.test(codingToolBudgetPolicySurfaceTest) &&
+      /eventKind:\s*"RuntimeContextBudget\.Retired"/.test(codingToolBudgetPolicySurfaceTest) &&
+      !/request\.(?:workflowNodeId|workflowGraphId|threadId|runId|turnId|eventKind)\b/.test(
+        codingToolBudgetPolicySurface,
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
