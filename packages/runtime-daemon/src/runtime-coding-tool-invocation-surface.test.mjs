@@ -188,7 +188,7 @@ test("coding tool invocation surface rejects non-live coding-tool runners before
         toolCallId: "tool_alpha",
         workflowGraphId: "graph_alpha",
         source: "runtime_auto",
-        rollbackRefs: ["rollback_request"],
+        rollback_refs: ["rollback_request"],
         input: { patch: "*** Begin Patch\n*** End Patch\n" },
       }),
     (error) => {
@@ -420,6 +420,8 @@ test("coding tool invocation surface runs workspace.status through rust workload
     toolCallId: "tool_status",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_status",
+    rollback_refs: ["rollback_canonical"],
+    rollbackRefs: ["rollback_retired"],
     input: { includeIgnored: true },
   });
 
@@ -442,6 +444,8 @@ test("coding tool invocation surface runs workspace.status through rust workload
   assert.equal(result.step_module.backend, "rust_workload_live");
   assert.equal(result.event.payload_summary.step_module_backend, "rust_workload_live");
   assert.equal(result.event.payload_summary.approval_required, false);
+  assert.deepEqual(result.event.rollback_refs, ["rollback_canonical"]);
+  assert.equal(result.event.rollback_refs.includes("rollback_retired"), false);
   for (const field of [
     "approvalRequired",
     "approvalSatisfied",

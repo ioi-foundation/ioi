@@ -114,7 +114,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     const receiptId = `receipt_coding_tool_${safeId(normalizedToolId)}_${doctorHash(
       `${threadId}:${normalizedToolId}:${toolCallId}`,
     ).slice(0, 12)}`;
-    const requestRollbackRefs = uniqueStrings(normalizeArray(request.rollbackRefs ?? request.rollback_refs));
+    const requestRollbackRefs = uniqueStrings(normalizeArray(request.rollback_refs));
     const diagnosticsRepairContext =
       diagnosticsRepairContextForRequest(request) ??
       diagnosticsRepairContextForToolPack(request, input, normalizedToolId);

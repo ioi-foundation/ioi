@@ -1109,6 +1109,27 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: Rust live coding-tool invocation identity must use canonical turn_id/workflow ids without retired request aliases",
   );
+  assertCheck(
+    result,
+    "coding-tool-invocation-rollback-request-alias-retired",
+    /const requestRollbackRefs = uniqueStrings\(normalizeArray\(request\.rollback_refs\)\);/.test(
+      runtimeCodingToolInvocationSurface,
+    ) &&
+      !/request\.rollbackRefs\b/.test(runtimeCodingToolInvocationSurface) &&
+      /rollback_refs: \["rollback_canonical"\]/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /rollbackRefs: \["rollback_retired"\]/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /result\.event\.rollback_refs,\s*\["rollback_canonical"\]/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /result\.event\.rollback_refs\.includes\("rollback_retired"\), false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: Rust live coding-tool invocation rollback refs must use canonical rollback_refs without retired rollbackRefs fallback",
+  );
   const codingToolRustLiveResultBody =
     runtimeCodingToolInvocationSurface.match(
       /function codingToolResultForRustLiveStepModule\(toolId, stepModuleProjection = \{\}\) \{[\s\S]*?\n\}/,
