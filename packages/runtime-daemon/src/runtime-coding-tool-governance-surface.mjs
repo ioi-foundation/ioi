@@ -35,7 +35,7 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
   } = deps;
 
   function codingToolApprovalSatisfaction(store, { threadId, approvalManifest, request }) {
-    const approvalId = optionalString(request.approval_id ?? request.approvalId);
+    const approvalId = optionalString(request.approval_id);
     if (!approvalId) return { satisfied: false, reason: "approval_id_missing" };
     const approvalRequestEvent = store.latestApprovalRequestEvent(threadId, approvalId);
     if (!approvalRequestEvent) return { satisfied: false, approvalId, reason: "approval_request_missing" };

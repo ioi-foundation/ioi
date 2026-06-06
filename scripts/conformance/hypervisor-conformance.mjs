@@ -1802,9 +1802,29 @@ function runBridge() {
     runtimeCodingToolGovernanceSurface.match(
       /  function blockCodingToolForApproval\(store, \{[\s\S]*?(?=\n  function blockCodingToolForBudget)/,
     )?.[0] ?? "";
+  const codingToolApprovalSatisfactionBody =
+    runtimeCodingToolGovernanceSurface.match(
+      /  function codingToolApprovalSatisfaction\(store, \{[\s\S]*?(?=\n  function blockCodingToolForApproval)/,
+    )?.[0] ?? "";
   const codingToolInvocationPayloadSummaryBlock =
     runtimeCodingToolInvocationSurface.match(/const payloadSummary = \{[\s\S]*?\n    \};/)
       ?.[0] ?? "";
+  assertCheck(
+    result,
+    "coding-tool-approval-satisfaction-request-alias-retired",
+    /const approvalId = optionalString\(request\.approval_id\);/.test(
+      codingToolApprovalSatisfactionBody,
+    ) &&
+      !/request\.approvalId\b/.test(codingToolApprovalSatisfactionBody) &&
+      /request: \{ approval_id: "approval-one" \}/.test(runtimeCodingToolGovernanceSurfaceTest) &&
+      /request: \{ approvalId: "approval-one" \}/.test(runtimeCodingToolGovernanceSurfaceTest) &&
+      /approval_id_missing/.test(runtimeCodingToolGovernanceSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool approval satisfaction must use canonical approval_id without retired approvalId request fallback",
+  );
   assertCheck(
     result,
     "coding-tool-approval-block-response-aliases-retired",

@@ -106,7 +106,7 @@ test("coding-tool governance reports approval satisfaction states", () => {
   const approved = createSurface().codingToolApprovalSatisfaction(approvedStore, {
     threadId: "thread-one",
     approvalManifest: { toolId: "file.write" },
-    request: { approvalId: "approval-one" },
+    request: { approval_id: "approval-one" },
   });
 
   assert.deepEqual(approved, {
@@ -130,7 +130,7 @@ test("coding-tool governance reports approval satisfaction states", () => {
     createSurface().codingToolApprovalSatisfaction(createStore(), {
       threadId: "thread-one",
       approvalManifest: {},
-      request: { approvalId: "missing" },
+      request: { approval_id: "missing" },
     }).reason,
     "approval_request_missing",
   );
@@ -138,7 +138,7 @@ test("coding-tool governance reports approval satisfaction states", () => {
     createSurface({ manifestsMatch: false }).codingToolApprovalSatisfaction(approvedStore, {
       threadId: "thread-one",
       approvalManifest: { toolId: "file.write" },
-      request: { approvalId: "approval-one" },
+      request: { approval_id: "approval-one" },
     }).reason,
     "approval_manifest_mismatch",
   );
@@ -146,9 +146,17 @@ test("coding-tool governance reports approval satisfaction states", () => {
     createSurface().codingToolApprovalSatisfaction(createStore({ approvalEvent: approvalEvent() }), {
       threadId: "thread-one",
       approvalManifest: { toolId: "file.write" },
-      request: { approvalId: "approval-one" },
+      request: { approval_id: "approval-one" },
     }).reason,
     "approval_decision_missing",
+  );
+  assert.equal(
+    createSurface().codingToolApprovalSatisfaction(approvedStore, {
+      threadId: "thread-one",
+      approvalManifest: { toolId: "file.write" },
+      request: { approvalId: "approval-one" },
+    }).reason,
+    "approval_id_missing",
   );
 });
 
@@ -161,7 +169,7 @@ test("coding-tool governance rejects non-approved or expired decisions", () => {
     {
       threadId: "thread-one",
       approvalManifest: { toolId: "file.write" },
-      request: { approvalId: "approval-one" },
+      request: { approval_id: "approval-one" },
     },
   );
   const expired = createSurface({ expired: true }).codingToolApprovalSatisfaction(
@@ -172,7 +180,7 @@ test("coding-tool governance rejects non-approved or expired decisions", () => {
     {
       threadId: "thread-one",
       approvalManifest: { toolId: "file.write" },
-      request: { approvalId: "approval-one" },
+      request: { approval_id: "approval-one" },
     },
   );
 
