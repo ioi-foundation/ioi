@@ -12344,6 +12344,11 @@ and `createRun` now require the Rust state-update planner to return the exact
 `agent.create` or `run.create` operation kind before any in-memory record or
 write is admitted, rather than substituting the legacy JS-side fallback.
 
+Slice 376 removes the run-cancel operation-kind fallback: `cancelRun` now
+requires `RunCancelStateUpdateCore` to return the exact `run.cancel`
+operation kind before the canceled run record is placed in memory or written,
+instead of substituting the JS-side cancellation operation kind.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

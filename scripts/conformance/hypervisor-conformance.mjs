@@ -1437,12 +1437,17 @@ function runBridge() {
       ) &&
       /contextPolicyRunner\.planRunCancelStateUpdate/.test(runtimeRunCancellation) &&
       /plannedRunCancelRecord/.test(runtimeRunCancellation) &&
+      /plannedRunCancelOperationKind/.test(runtimeRunCancellation) &&
       !/runtimeTaskRecord|runtimeJobRecord|runtimeChecklistRecord|makeEvent|artifact\(/.test(
         runtimeRunCancellation,
       ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeRunCancellation) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"run\.cancel"/.test(runtimeRunCancellation) &&
       /plan_run_cancel_state_update/.test(runtimeRunCancellationTest) &&
       /cancelRun fails closed without Rust-planned run record/.test(runtimeRunCancellationTest) &&
+      /cancelRun fails closed without Rust-planned operation kind/.test(
+        runtimeRunCancellationTest,
+      ) &&
       /contextPolicyRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",

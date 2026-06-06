@@ -431,3 +431,35 @@ test("cancelRun fails closed without Rust-planned run record", () => {
   assert.equal(state.writes.length, 0);
   assert.equal(state.runs.get(run.id), run);
 });
+
+test("cancelRun fails closed without Rust-planned operation kind", () => {
+  const run = {
+    id: "run_cancel_missing_operation_kind",
+    agentId: "agent_one",
+    status: "running",
+    objective: "Cancel without an operation kind",
+    mode: "send",
+    createdAt: "2026-06-04T00:00:00.000Z",
+    updatedAt: "2026-06-04T00:00:01.000Z",
+    events: [],
+    trace: { events: [], receipts: [], qualityLedger: {} },
+    receipts: [],
+    artifacts: [],
+  };
+  const state = fakeState(run);
+  const calls = [];
+  const plannedRun = plannedCancellationRun(run, "2026-06-06T04:45:00.000Z");
+
+  assert.throws(
+    () => cancelRun(state, run.id, deps(calls, { status: "planned", run: plannedRun })),
+    (error) => {
+      assert.equal(error.code, "run_cancel_state_update_operation_kind_missing");
+      assert.equal(error.details.runId, run.id);
+      assert.equal(error.details.operation_kind, "run.cancel");
+      return true;
+    },
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(state.writes.length, 0);
+  assert.equal(state.runs.get(run.id), run);
+});
