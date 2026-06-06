@@ -309,7 +309,6 @@ export function validateMcpServerRecords(servers = []) {
         code: "mcp_transport_unsupported",
         severity: "error",
         server_id: server.id,
-        serverId: server.id,
         transport,
         message: "MCP server transport must be stdio, http, or sse.",
       });
@@ -319,7 +318,6 @@ export function validateMcpServerRecords(servers = []) {
         code: "mcp_server_transport_missing",
         severity: "error",
         server_id: server.id,
-        serverId: server.id,
         message: "MCP stdio server must declare a command.",
       });
     }
@@ -328,7 +326,6 @@ export function validateMcpServerRecords(servers = []) {
         code: "mcp_server_transport_missing",
         severity: "error",
         server_id: server.id,
-        serverId: server.id,
         message: "MCP HTTP/SSE server must declare a remote URL.",
       });
     }
@@ -337,7 +334,6 @@ export function validateMcpServerRecords(servers = []) {
         code: "mcp_remote_url_invalid",
         severity: "error",
         server_id: server.id,
-        serverId: server.id,
         message: "MCP HTTP/SSE server URL must use http:// or https://.",
       });
     }
@@ -349,7 +345,6 @@ export function validateMcpServerRecords(servers = []) {
         code: "mcp_remote_network_blocked",
         severity: "error",
         server_id: server.id,
-        serverId: server.id,
         message: "MCP HTTP/SSE server requires network egress in containment policy.",
       });
     }
@@ -360,7 +355,6 @@ export function validateMcpServerRecords(servers = []) {
           code: "mcp_secret_not_vault_ref",
           severity: "error",
           server_id: server.id,
-          serverId: server.id,
           key,
           message: "MCP env/header secrets must be represented as vault:// refs before activation.",
         });
@@ -371,14 +365,12 @@ export function validateMcpServerRecords(servers = []) {
         code: "mcp_allowed_tools_empty",
         severity: "warning",
         server_id: server.id,
-        serverId: server.id,
         message: "No allowed_tools list is declared; invocation remains unavailable until tools are narrowed.",
       });
     }
   }
   return {
     schema_version: RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
     ok: issues.length === 0,
     issues,
     warnings,

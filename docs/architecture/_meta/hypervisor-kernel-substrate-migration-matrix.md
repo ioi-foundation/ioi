@@ -12567,6 +12567,11 @@ only; duplicate camelCase facade fields such as `schemaVersion`, `toolCallId`,
 `receiptRequired`, and `evidenceRefs` are retired from the invocation payload
 surface.
 
+Slice 413 removes MCP manager validation output aliases:
+the MCP manager validation helper now emits canonical snake_case validation
+metadata only; duplicate camelCase facade fields such as `schemaVersion` and
+issue/warning `serverId` are retired from validation output.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

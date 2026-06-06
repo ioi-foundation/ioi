@@ -7557,6 +7557,13 @@ function runCompositor() {
   const runtimeMcpManager = exists("packages/runtime-daemon/src/mcp-manager.mjs")
     ? read("packages/runtime-daemon/src/mcp-manager.mjs")
     : "";
+  const runtimeMcpManagerTest = exists("packages/runtime-daemon/src/mcp-manager.test.mjs")
+    ? read("packages/runtime-daemon/src/mcp-manager.test.mjs")
+    : "";
+  const runtimeMcpManagerValidationBlock =
+    runtimeMcpManager.match(
+      /export function validateMcpServerRecords\(servers = \[\]\) \{[\s\S]*?\n}\n\nexport async function discoverMcpStdioCatalog/,
+    )?.[0] ?? "";
   const runtimeMcpCatalogSurface = exists("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
     : "";
@@ -10615,6 +10622,24 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
     ],
     "Phase 10/11 is pending: MCP serve status and error payloads must expose canonical snake_case output fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-manager-validation-output-aliases-retired",
+    /schema_version:\s*RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION/.test(
+      runtimeMcpManagerValidationBlock,
+    ) &&
+      /server_id:\s*server\.id/.test(runtimeMcpManagerValidationBlock) &&
+      /Object\.hasOwn\(validation,\s*"schemaVersion"\),\s*false/.test(runtimeMcpManagerTest) &&
+      /Object\.hasOwn\(validation\.issues\[0\],\s*"serverId"\),\s*false/.test(runtimeMcpManagerTest) &&
+      /Object\.hasOwn\(validation\.warnings\[0\],\s*"serverId"\),\s*false/.test(runtimeMcpManagerTest) &&
+      !/^\s*schemaVersion\s*:/.test(runtimeMcpManagerValidationBlock) &&
+      !/^\s*serverId\s*:/.test(runtimeMcpManagerValidationBlock),
+    [
+      "packages/runtime-daemon/src/mcp-manager.mjs",
+      "packages/runtime-daemon/src/mcp-manager.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP manager validation output must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,
