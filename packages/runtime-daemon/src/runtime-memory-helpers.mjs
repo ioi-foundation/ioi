@@ -63,9 +63,7 @@ export function createRuntimeMemoryHelpers({
       request.receiver ??
         request.options?.receiver ??
         request.subagent ??
-        request.options?.subagent ??
-        request.subagentName ??
-        request.options?.subagentName,
+        request.options?.subagent,
     ) ?? null;
   }
 

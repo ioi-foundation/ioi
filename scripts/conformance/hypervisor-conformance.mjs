@@ -10347,9 +10347,18 @@ function runCompositor() {
       /subagent memory inheritance ignores retired request aliases/.test(
         runtimeRunMemoryResolutionTest,
       ) &&
+      /runtime\.subagentReceiverForRequest\(\{ subagentName: "retired-worker" \}\), null/.test(
+        runtimeMemoryHelpersTest,
+      ) &&
+      /runtime\.subagentReceiverForRequest\(\{ options: \{ subagentName: "retired-worker" \} \}\), null/.test(
+        runtimeMemoryHelpersTest,
+      ) &&
       /subagentInheritance: "full"/.test(runtimeRunMemoryResolutionTest) &&
       /subagent_inheritance: "none"/.test(runtimeRunMemoryResolutionTest) &&
       !/memoryOptions\.(?:threadId|subagentInheritance)\b/.test(runtimeRunMemoryResolution) &&
+      !/request(?:\.|\?\.)(?:subagentName)\b|request\.options\?\.(?:subagentName)\b/.test(
+        runtimeMemoryHelpers,
+      ) &&
       !/!options\.writeApproved/.test(runtimeRunMemoryResolutionTest),
     [
       "packages/runtime-daemon/src/threads/run-memory-resolution.mjs",

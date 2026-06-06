@@ -117,7 +117,10 @@ test("subagent memory policy and receipt preserve inheritance evidence", () => {
 test("subagent memory request helpers preserve receiver and inheritance selectors", () => {
   const runtime = helpers();
 
-  assert.equal(runtime.subagentReceiverForRequest({ options: { subagentName: "worker" } }), "worker");
+  assert.equal(runtime.subagentReceiverForRequest({ receiver: "worker" }), "worker");
+  assert.equal(runtime.subagentReceiverForRequest({ options: { subagent: "reviewer" } }), "reviewer");
+  assert.equal(runtime.subagentReceiverForRequest({ subagentName: "retired-worker" }), null);
+  assert.equal(runtime.subagentReceiverForRequest({ options: { subagentName: "retired-worker" } }), null);
   assert.equal(runtime.subagentReceiverForRequest({ receiver: "  " }), null);
   assert.equal(runtime.normalizeSubagentInheritanceMode("full"), "full");
   assert.equal(runtime.normalizeSubagentInheritanceMode("invalid"), "explicit");
