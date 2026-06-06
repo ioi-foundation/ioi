@@ -12822,6 +12822,13 @@ approval handoff fields; retired camelCase request aliases no longer steer
 workflow edit proposal identity, target-node scope, receipt binding, approval
 identity, or apply-event projection identity.
 
+Slice 447 removes thread-control request aliases:
+thread runtime control updates now consume canonical `workflow_graph_id` and
+`workflow_node_id` request fields only; retired `workflowGraphId` and
+`workflowNodeId` fields no longer steer thread-control events, workspace trust
+warning events, model route helper context, model control projection identity,
+or Rust policy-core state-update planning.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

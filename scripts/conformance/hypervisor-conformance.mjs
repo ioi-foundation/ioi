@@ -2348,6 +2348,49 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "thread-control-request-aliases-retired",
+    /const workflowGraphId = request\.workflow_graph_id \?\? null;/.test(
+      runtimeThreadControlSurface,
+    ) &&
+      /const workflowNodeId =\s*\n\s*request\.workflow_node_id \?\?/.test(
+        runtimeThreadControlSurface,
+      ) &&
+      /thread control surface ignores retired request identity aliases/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /workflowGraphId: "graph_retired"/.test(runtimeThreadControlSurfaceTest) &&
+      /workflowNodeId: "node_retired"/.test(runtimeThreadControlSurfaceTest) &&
+      /workflowGraphId: "graph_model_retired"/.test(runtimeThreadControlSurfaceTest) &&
+      /workflowNodeId: "node_model_retired"/.test(runtimeThreadControlSurfaceTest) &&
+      /modeResult\.event\.workflow_graph_id, null/.test(runtimeThreadControlSurfaceTest) &&
+      /modeResult\.event\.workflow_node_id, "runtime\.thread-mode"/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /workflowNodeId: "node-retired"/.test(threadRuntimeControlsTest) &&
+      /retiredAliasInput\.workflowNodeId, "runtime\.model-router"/.test(
+        threadRuntimeControlsTest,
+      ) &&
+      /store\.routeRequests\[0\]\.context\.workflowGraphId, null/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /store\.routeRequests\[0\]\.context\.workflowNodeId, "runtime\.model-router"/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      !/request\.(?:workflowNodeId|workflowGraphId)\b/.test(runtimeThreadControlSurface) &&
+      !/request\.workflowNodeId\b/.test(threadRuntimeControls) &&
+      !/request\.(?:workflow_node_id|workflow_graph_id)\s*\?\?\s*request\./.test(
+        runtimeThreadControlSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
+    ],
+    "Phase 10/11 is pending: thread-control request identity must use canonical workflow_graph_id/workflow_node_id before model routing and Rust state planning",
+  );
+  assertCheck(
+    result,
     "mcp-control-agent-state-update-live-bridge",
     /McpControlAgentStateUpdateCore/.test(policyCore) &&
       /McpControlAgentStateUpdateRequest/.test(policyCore) &&

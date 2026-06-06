@@ -168,12 +168,13 @@ test("thread control request kind and model input infer compact operator updates
   });
 
   const retiredAliasInput = threadRuntimeControlModelInput(
-    { model: { allowHostedFallback: true } },
+    { model: { allowHostedFallback: true }, workflowNodeId: "node-retired" },
     { model: {} },
     {},
   );
   assert.equal(Object.hasOwn(retiredAliasInput.model, "allow_hosted_fallback"), false);
   assert.equal(Object.hasOwn(retiredAliasInput.model, "allowHostedFallback"), false);
+  assert.equal(retiredAliasInput.workflowNodeId, "runtime.model-router");
 });
 
 test("model policy, workflow context, reasoning effort, and route receipt binding stay stable", () => {

@@ -156,7 +156,7 @@ test("thread control surface updates mode controls through Rust planner and emit
     mode: "review",
     actor: "operator_1",
     source: "agent_studio",
-    workflowGraphId: "graph_1",
+    workflow_graph_id: "graph_1",
   });
 
   assert.equal(result.control.schema_version, "ioi.runtime.thread-controls.v1");
@@ -190,8 +190,8 @@ test("thread control surface updates model controls through route selection and 
       routeId: "route.local-first",
       privacy: "local_private",
     },
-    workflowNodeId: "runtime.model-router.custom",
-    workflowGraphId: "graph_1",
+    workflow_node_id: "runtime.model-router.custom",
+    workflow_graph_id: "graph_1",
   });
 
   assert.equal(result.control.control_kind, "thinking");
@@ -211,6 +211,37 @@ test("thread control surface updates model controls through route selection and 
   assert.equal(plannerCalls[0].control_kind, "thinking");
   assert.equal(plannerCalls[0].model_route.receiptId, "receipt_route_1");
   assert.equal(plannerCalls[0].controls.model.selectedModel, "local-model");
+});
+
+test("thread control surface ignores retired request identity aliases", () => {
+  const store = createStore();
+  const plannerCalls = [];
+  const surface = createSurface(plannerCalls);
+
+  const modeResult = surface.updateThreadMode(store, "thread_1", {
+    mode: "review",
+    workflowGraphId: "graph_retired",
+    workflowNodeId: "node_retired",
+  });
+
+  assert.equal(modeResult.event.workflow_graph_id, null);
+  assert.equal(modeResult.event.workflow_node_id, "runtime.thread-mode");
+  assert.equal(store.events[1].workflow_graph_id, null);
+
+  const modelResult = surface.updateThreadThinking(store, "thread_1", {
+    thinking: "off",
+    model: {
+      id: "auto",
+      routeId: "route.local-first",
+    },
+    workflowGraphId: "graph_model_retired",
+    workflowNodeId: "node_model_retired",
+  });
+
+  assert.equal(store.routeRequests[0].context.workflowGraphId, null);
+  assert.equal(store.routeRequests[0].context.workflowNodeId, "runtime.model-router");
+  assert.equal(modelResult.event.workflow_graph_id, null);
+  assert.equal(modelResult.event.workflow_node_id, "runtime.model-router");
 });
 
 test("thread control surface fails closed without Rust-planned operation kind", () => {

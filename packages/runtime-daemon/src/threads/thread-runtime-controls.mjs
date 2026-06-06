@@ -176,7 +176,6 @@ export function threadRuntimeControlModelInput(request = {}, controls = {}, agen
     optionalString(
       bodyModel.workflowNodeId ??
         bodyModel.workflow_node_id ??
-        request.workflowNodeId ??
         request.workflow_node_id,
     ) ??
     existingModel.workflowNodeId ??

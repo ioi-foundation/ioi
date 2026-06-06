@@ -85,7 +85,7 @@ export function createRuntimeThreadControlSurface({
       const requestedBy =
         optionalStringDep(request.actor ?? request.requested_by ?? request.requestedBy) ??
         "operator";
-      const workflowGraphId = request.workflow_graph_id ?? request.workflowGraphId ?? null;
+      const workflowGraphId = request.workflow_graph_id ?? null;
       const existingControls = normalizedAgentRuntimeControlsDep(agent);
       const nextControls = {
         ...existingControls,
@@ -242,10 +242,10 @@ export function createRuntimeThreadControlSurface({
       const streamId = eventStreamIdForThreadDep(threadId);
       const workflowNodeId =
         request.workflow_node_id ??
-        request.workflowNodeId ??
         modelRoute?.decision?.workflowNodeId ??
-        controls.model?.workflowNodeId ??
-        (controlKind === "mode" ? "runtime.thread-mode" : "runtime.model-router");
+        (controlKind === "mode"
+          ? "runtime.thread-mode"
+          : controls.model?.workflowNodeId ?? "runtime.model-router");
       const payload =
         controlKind === "mode"
           ? {
