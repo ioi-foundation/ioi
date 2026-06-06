@@ -3424,6 +3424,11 @@ function runBridge() {
       /request\.fallback_reason/.test(modelRouteDecisionModule) &&
       !/request\.fallbackTriggered/.test(modelRouteDecisionModule) &&
       !/request\.fallbackReason/.test(modelRouteDecisionModule) &&
+      !/request\.reasoningEffort/.test(modelRouteDecisionModule) &&
+      !/request\.thinkingEffort/.test(modelRouteDecisionModule) &&
+      !/policy\.reasoningEffort/.test(modelRouteDecisionModule) &&
+      !/originalBody\.reasoningEffort/.test(modelRouteDecisionModule) &&
+      !/originalBody\.thinkingEffort/.test(modelRouteDecisionModule) &&
       /ignore retired hosted fallback policy alias/.test(
         read("packages/runtime-daemon/src/model-mounting/routes.test.mjs"),
       ) &&
@@ -3431,6 +3436,12 @@ function runBridge() {
         modelRouteDecisionTest,
       ) &&
       /ignore retired camelCase fallback request aliases/.test(
+        modelRouteDecisionTest,
+      ) &&
+      /ignore retired camelCase reasoning effort aliases/.test(
+        modelRouteDecisionTest,
+      ) &&
+      /provider request body ignores retired reasoning effort aliases/.test(
         modelRouteDecisionTest,
       ) &&
       /ignore retired legacy model route decision detail/.test(
@@ -3617,12 +3628,19 @@ function runBridge() {
       !/^\s*(?:reasoningEffort|localRemotePlacement|privacyPosture|costEstimateUsd|costEstimateSource|fallbackModel|fallbackEndpointId)\s*[:?]/m.test(agentSdkModelRouteDecisionType) &&
       /agent\.modelRouteDecision\?\.reasoning_effort/.test(threadTurnProjection) &&
       !/agent\.modelRouteDecision\?\.reasoningEffort/.test(threadTurnProjection) &&
+      !/request\.reasoningEffort/.test(modelRouteDecisionModule) &&
+      !/request\.thinkingEffort/.test(modelRouteDecisionModule) &&
+      !/policy\.reasoningEffort/.test(modelRouteDecisionModule) &&
+      !/originalBody\.reasoningEffort/.test(modelRouteDecisionModule) &&
+      !/originalBody\.thinkingEffort/.test(modelRouteDecisionModule) &&
       /model_route_decision[\s\S]*json_path_string\(value,\s*"\/reasoning_effort"\)/.test(agentTuiCli) &&
       !/model_route_decision\.and_then\(\|value\| json_path_string\(value,\s*"\/reasoningEffort"\)\)/.test(
         agentTuiCli,
       ) &&
       /tui_mode_status_reads_canonical_model_route_decision_reasoning/.test(agentTuiCli) &&
       /Object\.hasOwn\(decision,\s*"reasoningEffort"\),\s*false/.test(modelRouteDecisionTest) &&
+      /ignore retired camelCase reasoning effort aliases/.test(modelRouteDecisionTest) &&
+      /provider request body ignores retired reasoning effort aliases/.test(modelRouteDecisionTest) &&
       /Object\.hasOwn\(decision,\s*"costEstimateUsd"\),\s*false/.test(modelRouteDecisionTest) &&
       /Object\.hasOwn\(decision,\s*"fallbackModel"\),\s*false/.test(modelRouteDecisionTest) &&
       /modelRouteDecision:\s*\{\s*reasoning_effort:\s*"medium"\s*\}/.test(read("packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs")),

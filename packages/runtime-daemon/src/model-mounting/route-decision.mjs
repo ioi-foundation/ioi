@@ -140,12 +140,9 @@ export function workflowContextFromRouteRequest(body = {}) {
 function reasoningEffortFor(policy = {}, request = {}) {
   const value =
     policy.reasoning_effort ??
-    policy.reasoningEffort ??
     request.reasoning_effort ??
-    request.reasoningEffort ??
     request.thinking ??
-    request.thinking_effort ??
-    request.thinkingEffort;
+    request.thinking_effort;
   if (typeof value === "string" && value.trim()) return value.trim();
   return "provider_default";
 }
@@ -187,12 +184,9 @@ function applyProviderNativeReasoningControls(requestBody = {}, originalBody = {
   const policy = originalBody.model_policy ?? {};
   const effort = normalizeReasoningEffortValue(
     originalBody.reasoning_effort ??
-      originalBody.reasoningEffort ??
       originalBody.thinking ??
       originalBody.thinking_effort ??
-      originalBody.thinkingEffort ??
       policy.reasoning_effort ??
-      policy.reasoningEffort ??
       policy.thinking,
   );
   if (!effort) return;

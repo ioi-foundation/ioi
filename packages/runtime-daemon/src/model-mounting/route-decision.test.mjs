@@ -195,6 +195,24 @@ test("route decisions ignore retired camelCase fallback request aliases", () => 
   assert.doesNotMatch(decision.rationale, /legacy_route_unavailable/);
 });
 
+test("route decisions ignore retired camelCase reasoning effort aliases", () => {
+  const decision = createModelRouteDecision({
+    route: { id: "route.local-first", privacy: "local_or_enterprise" },
+    endpoint: { id: "endpoint.hosted", modelId: "model.hosted", providerId: "provider.hosted" },
+    provider: { id: "provider.hosted", kind: "openai", privacyClass: "hosted" },
+    policy: { reasoningEffort: "legacy-policy-high" },
+    request: {
+      reasoningEffort: "legacy-request-medium",
+      thinkingEffort: "legacy-request-low",
+    },
+    policyHash: "sha256:policy",
+    requestedModel: "auto",
+  });
+
+  assert.equal(decision.reasoning_effort, "provider_default");
+  assert.equal(Object.hasOwn(decision, "reasoningEffort"), false);
+});
+
 test("route decision workflow context ignores retired request aliases", () => {
   assert.deepEqual(workflowContextFromRouteRequest({
     workflow_graph_id: "graph-1",
@@ -277,6 +295,23 @@ test("provider request body maps Autopilot reasoning off to llama.cpp enable_thi
   assert.deepEqual(body.chat_template_kwargs, { enable_thinking: false });
   assert.equal(body.reasoningEffort, undefined);
   assert.equal(body.chatTemplateKwargs, undefined);
+});
+
+test("provider request body ignores retired reasoning effort aliases", () => {
+  const body = providerRequestBodyForRoute(
+    {
+      model: "qwen/qwen3.5-9b",
+      reasoningEffort: "none",
+      thinkingEffort: "none",
+      messages: [{ role: "user", content: "answer directly" }],
+    },
+    { modelId: "qwen/qwen3.5-9b", providerId: "provider.llama-cpp", driver: "llama_cpp" },
+  );
+
+  assert.equal(body.reasoning_effort, undefined);
+  assert.equal(body.chat_template_kwargs, undefined);
+  assert.equal(body.reasoningEffort, undefined);
+  assert.equal(body.thinkingEffort, undefined);
 });
 
 test("provider request body maps enabled Autopilot reasoning to llama.cpp enable_thinking true", () => {
