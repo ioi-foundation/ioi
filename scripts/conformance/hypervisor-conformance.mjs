@@ -10904,6 +10904,11 @@ function runCompositor() {
       /transport_execution:\s*transportExecution/.test(runtimeMcpInvocationEnvelopeBlock) &&
       /receipt_required:\s*true/.test(runtimeMcpInvocationEnvelopeBlock) &&
       /evidence_refs:\s*\[/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /tools\.find\(\(candidate\) => candidate\.tool_name === toolName\)/.test(
+        runtimeMcpInvokeThreadToolBlock,
+      ) &&
+      /optionalStringDep\(toolEntry\.side_effect_class\)/.test(runtimeMcpInvokeThreadToolBlock) &&
+      /toolEntry\.workflow_node_id/.test(runtimeMcpInvokeThreadToolBlock) &&
       /output = \{ ok: true, fixture: true, server_id: server\.id, tool_name: toolName \}/.test(
         runtimeMcpInvokeThreadToolBlock,
       ) &&
@@ -10920,6 +10925,12 @@ function runCompositor() {
         runtimeMcpInvocationEnvelopeBlock,
       ) &&
       !/^\s*(?:receiptRequired|executionMode)\s*:/m.test(runtimeMcpInvocationEnvelopeBlock) &&
+      !/\b(?:candidate|toolEntry)\.(?:toolName|sideEffectClass|workflowNodeId)\b/.test(
+        runtimeMcpInvokeThreadToolBlock,
+      ) &&
+      !/(?:serverId|toolName|stableToolId|sideEffectClass|workflowNodeId):\s*(?:item\.id|tool\.name|`\$\{item\.id\}\.\$\{tool\.name\}`|tool\.sideEffectClass|`runtime\.mcp-tool\.\$\{item\.id\}\.\$\{tool\.name\}`)/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
       !/output = \{[^}]*\b(?:serverId|toolName)\s*:/m.test(runtimeMcpInvokeThreadToolBlock),
     [
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",

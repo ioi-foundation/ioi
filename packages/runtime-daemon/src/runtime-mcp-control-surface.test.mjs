@@ -29,8 +29,8 @@ function harness({ stateUpdateOverride = null } = {}) {
     mcpRegistry: {
       servers: [
         server("mcp.docs", [
-          { name: "search", sideEffectClass: "read" },
-          { name: "write", sideEffectClass: "write" },
+          { name: "search", side_effect_class: "read" },
+          { name: "write", side_effect_class: "write" },
         ]),
       ],
     },
@@ -38,13 +38,11 @@ function harness({ stateUpdateOverride = null } = {}) {
   const mcpToolsForServers = (servers) =>
     servers.flatMap((item) =>
       (item.tools ?? []).map((tool) => ({
-        serverId: item.id,
         server_id: item.id,
-        toolName: tool.name,
         tool_name: tool.name,
-        stableToolId: `${item.id}.${tool.name}`,
-        sideEffectClass: tool.sideEffectClass ?? "read",
-        workflowNodeId: `runtime.mcp-tool.${item.id}.${tool.name}`,
+        stable_tool_id: `${item.id}.${tool.name}`,
+        side_effect_class: tool.side_effect_class ?? "read",
+        workflow_node_id: `runtime.mcp-tool.${item.id}.${tool.name}`,
       })),
     );
   const surface = createRuntimeMcpControlSurface({

@@ -526,7 +526,7 @@ export function createRuntimeMcpControlSurface({
       const toolName = target.toolName;
       const tools = mcpToolsForServersDep([server]);
       const toolEntry =
-        tools.find((candidate) => candidate.toolName === toolName || candidate.tool_name === toolName) ??
+        tools.find((candidate) => candidate.tool_name === toolName) ??
         null;
       if (!toolEntry) {
         throw notFoundDep(`MCP tool not found: ${toolName}`, {
@@ -538,7 +538,7 @@ export function createRuntimeMcpControlSurface({
       const input = request.input ?? request.arguments ?? request.args ?? {};
       const sideEffectClass =
         optionalStringDep(request.side_effect_class) ??
-        optionalStringDep(toolEntry.sideEffectClass) ??
+        optionalStringDep(toolEntry.side_effect_class) ??
         "read";
       const requiresApproval =
         request.requires_approval === true ||
@@ -681,7 +681,6 @@ export function createRuntimeMcpControlSurface({
         componentKind: "mcp_tool_call",
         workflowNodeId:
           optionalStringDep(request.workflow_node_id) ??
-          toolEntry.workflowNodeId ??
           toolEntry.workflow_node_id ??
           `runtime.mcp-tool.${safeIdDep(server.id)}.${safeIdDep(toolName)}`,
         payloadSchemaVersion: invocationSchemaVersion,
