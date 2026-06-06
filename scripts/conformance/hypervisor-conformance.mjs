@@ -9115,6 +9115,10 @@ function runCompositor() {
     runtimeEventPayloads.match(/if \(isComputerUseRunEventType\(event\.type\)\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeMemoryUpdatePayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "memory_update"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimeRepositoryContextPayloadSummaryBlock =
+    runtimeEventPayloads.match(/if \(event\.type === "repository_context"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimeRepositoryContextEventProducerBlock =
+    runtimeDaemonIndex.match(/addEvent\("repository_context", "Repository context recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeUsageEvents = exists("packages/runtime-daemon/src/runtime-usage-events.mjs")
     ? read("packages/runtime-daemon/src/runtime-usage-events.mjs")
     : "";
@@ -10624,11 +10628,45 @@ function runCompositor() {
       !/event\.data\?\.(?:eventKind|memoryRecordId|memoryPolicyId|workflowNodeId)\b/.test(
         runtimeMemoryUpdatePayloadSummaryBlock,
       ) &&
+      runtimeRepositoryContextPayloadSummaryBlock.length > 0 &&
+      /event_kind:\s*event\.data\?\.event_kind \?\? "RepositoryContext"/.test(
+        runtimeRepositoryContextPayloadSummaryBlock,
+      ) &&
+      /context_id:\s*event\.data\?\.context_id \?\? null/.test(
+        runtimeRepositoryContextPayloadSummaryBlock,
+      ) &&
+      /is_git_repository:\s*Boolean\(event\.data\?\.is_git_repository\)/.test(
+        runtimeRepositoryContextPayloadSummaryBlock,
+      ) &&
+      /repo_root_hash:\s*event\.data\?\.repo_root_hash \?\? null/.test(
+        runtimeRepositoryContextPayloadSummaryBlock,
+      ) &&
+      /workflow_node_id:\s*event\.data\?\.workflow_node_id \?\? null/.test(
+        runtimeRepositoryContextPayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.(?:eventKind|contextId|isGitRepository|repoRootHash|detachedHead|headShortSha|remoteCount|mutationExecuted|workflowNodeId)\b/.test(
+        runtimeRepositoryContextPayloadSummaryBlock,
+      ) &&
+      runtimeRepositoryContextEventProducerBlock.length > 0 &&
+      /event_kind:\s*"RepositoryContext"/.test(runtimeRepositoryContextEventProducerBlock) &&
+      /context_id:\s*repositoryContext\.contextId \?\? null/.test(
+        runtimeRepositoryContextEventProducerBlock,
+      ) &&
+      /is_git_repository:\s*Boolean\(repositoryContext\.isGitRepository\)/.test(
+        runtimeRepositoryContextEventProducerBlock,
+      ) &&
+      /workflow_node_id:\s*"runtime\.repository-context"/.test(
+        runtimeRepositoryContextEventProducerBlock,
+      ) &&
       /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
       /retiredComputerUseSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredMemorySummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredRepositoryContextSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredComputerUseEventKind"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredMemoryEventKind"/.test(runtimeEventPayloadsTest) &&
+      /eventKind: "RetiredRepositoryContext"/.test(runtimeEventPayloadsTest) &&
+      /contextId: "retired-repo-context"/.test(runtimeEventPayloadsTest) &&
+      /workflowNodeId: "retired\.repository-context"/.test(runtimeEventPayloadsTest) &&
       /memoryRecordId: "retired-memory"/.test(runtimeEventPayloadsTest) &&
       /memoryPolicyId: "retired-policy"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.memory\.node"/.test(runtimeEventPayloadsTest) &&

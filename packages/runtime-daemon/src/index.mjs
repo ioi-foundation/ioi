@@ -4722,8 +4722,19 @@ function buildRun({
   addEvent("repository_context", "Repository context recorded", {
     ...repositoryContext,
     receiptId: repositoryContextReceipt.id,
-    eventKind: "RepositoryContext",
-    workflowNodeId: "runtime.repository-context",
+    event_kind: "RepositoryContext",
+    context_id: repositoryContext.contextId ?? null,
+    is_git_repository: Boolean(repositoryContext.isGitRepository),
+    repo_root_hash: repositoryContext.repoRootHash ?? null,
+    detached_head: Boolean(repositoryContext.detachedHead),
+    head_short_sha: repositoryContext.headShortSha ?? null,
+    remote_count: repositoryContext.remoteCount ?? 0,
+    status: {
+      ...repositoryContext.status,
+      is_dirty: Boolean(repositoryContext.status?.isDirty),
+    },
+    mutation_executed: Boolean(repositoryContext.mutationExecuted),
+    workflow_node_id: "runtime.repository-context",
   });
   addEvent("branch_policy", "Branch policy decision recorded", {
     ...branchPolicy,

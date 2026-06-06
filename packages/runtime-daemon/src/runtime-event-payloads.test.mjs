@@ -30,6 +30,18 @@ const retiredMemorySummaryAliasKeys = [
   "workflowNodeId",
 ];
 
+const retiredRepositoryContextSummaryAliasKeys = [
+  "eventKind",
+  "contextId",
+  "isGitRepository",
+  "repoRootHash",
+  "detachedHead",
+  "headShortSha",
+  "remoteCount",
+  "mutationExecuted",
+  "workflowNodeId",
+];
+
 const retiredUsageSummaryReaderAliasKeys = [
   "eventKind",
   "schemaVersion",
@@ -264,21 +276,55 @@ test("runtime event payloads preserve repository and runtime record summaries", 
     runId: "run-one",
     agentId: "agent-one",
     data: {
-      contextId: "repo-context-one",
-      isGitRepository: true,
+      event_kind: "RepositoryContext.Canonical",
+      eventKind: "RetiredRepositoryContext",
+      context_id: "repo-context-one",
+      contextId: "retired-repo-context",
+      is_git_repository: true,
+      isGitRepository: false,
+      repo_root_hash: "repo-root-hash",
+      repoRootHash: "retired-repo-root-hash",
       branch: "main",
-      status: { isDirty: true, counts: { staged: 1, unstaged: 2, untracked: 3 } },
+      detached_head: false,
+      detachedHead: true,
+      head_short_sha: "abc123",
+      headShortSha: "retired-head",
+      remote_count: 2,
+      remoteCount: 99,
+      status: {
+        is_dirty: true,
+        isDirty: false,
+        counts: { staged: 1, unstaged: 2, untracked: 3 },
+      },
+      mutation_executed: false,
+      mutationExecuted: true,
+      workflow_node_id: "runtime.repository-context",
+      workflowNodeId: "retired.repository-context",
       redaction: { profile: "repository_context_safe" },
     },
   });
 
-  assert.equal(repo.event_kind, "RepositoryContext");
+  assert.equal(repo.event_kind, "RepositoryContext.Canonical");
   assert.equal(repo.context_id, "repo-context-one");
   assert.equal(repo.is_git_repository, true);
+  assert.equal(repo.repo_root_hash, "repo-root-hash");
+  assert.equal(repo.detached_head, false);
+  assert.equal(repo.head_short_sha, "abc123");
+  assert.equal(repo.remote_count, 2);
   assert.equal(repo.is_dirty, true);
   assert.equal(repo.staged_count, 1);
   assert.equal(repo.unstaged_count, 2);
   assert.equal(repo.untracked_count, 3);
+  assert.equal(repo.mutation_executed, false);
+  assert.equal(repo.workflow_node_id, "runtime.repository-context");
+  assert.notEqual(repo.context_id, "retired-repo-context");
+  assert.notEqual(repo.repo_root_hash, "retired-repo-root-hash");
+  assert.notEqual(repo.head_short_sha, "retired-head");
+  assert.notEqual(repo.remote_count, 99);
+  assert.notEqual(repo.workflow_node_id, "retired.repository-context");
+  for (const key of retiredRepositoryContextSummaryAliasKeys) {
+    assert.equal(Object.hasOwn(repo, key), false);
+  }
 
   const task = runtime.payloadSummaryForRunEvent({
     id: "event-two",
