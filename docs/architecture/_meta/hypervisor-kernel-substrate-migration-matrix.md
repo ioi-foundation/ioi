@@ -12308,6 +12308,11 @@ binds them to the expected parent thread, and returns the only subagent record
 the daemon may persist for `subagent.wait`; `waitSubagent` now fails closed when
 Rust omits the planned record instead of writing the JS-staged record directly.
 
+Slice 369 routes subagent input persistence through the same Rust state-update
+planner: `sendSubagentInput` now persists only the `SubagentRecordStateUpdateCore`
+record for `subagent.input` and fails closed when Rust does not return the
+planned subagent lifecycle record.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

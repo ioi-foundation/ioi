@@ -1008,6 +1008,10 @@ test("subagent surface sends input, persists history, and returns event", () => 
   assert.match(result.event.receipt_refs[1], /^receipt_subagent_send_input_/);
   assert.equal(result.result.result, "Created response: Follow up");
   assert.equal(store.writes[0].operationKind, "subagent.input");
+  assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
+  assert.equal(store.stateUpdates[0].input.operation_kind, "subagent.input");
+  assert.equal(store.stateUpdates[0].input.thread_id, "thread_1");
+  assert.equal(store.stateUpdates[0].input.subagent.subagent_id, "subagent_1");
   assertCanonicalPostSpawnSubagentLifecycleStagingRecord(store.eventInputs[0].record);
   assert.equal(saved.input_history[0].message, "Follow up");
   assertNoOwnKeys(saved.input_history[0], retiredSubagentNestedInputAliasKeys);
@@ -1025,6 +1029,31 @@ test("subagent surface sends input, persists history, and returns event", () => 
   assertCanonicalSubagentUsageTelemetry(saved);
   assert.ok(saved.evidence_refs.includes("runtime.subagent.input"));
   assert.ok(saved.evidence_refs.includes("run_created_3"));
+});
+
+test("subagent send input fails closed without Rust-planned subagent record", () => {
+  const store = createStore({
+    subagentStateUpdate: {
+      status: "planned",
+      operation_kind: "subagent.input",
+      subagent: null,
+    },
+  });
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T12:45:00.000Z",
+    nowMs: () => 1780587300000,
+  });
+  store.surface = surface;
+
+  assert.throws(
+    () => surface.sendSubagentInput(store, "thread_1", "subagent_1", {
+      source: "agent_studio",
+      input: "Follow up",
+    }),
+    (error) => error.code === "subagent_record_state_update_planner_invalid",
+  );
+  assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
+  assert.equal(store.writes.length, 0);
 });
 
 test("subagent send input ignores retired camelCase request aliases", () => {
