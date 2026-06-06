@@ -6214,6 +6214,10 @@ function runReceipts() {
     oauthCredentialProvider.match(
       /async exchangeAuthorizationCode\(\{ providerId, body = \{\} \}\) \{[\s\S]*?\n  }\n\n  async refreshAccessToken/,
     )?.[0] ?? "";
+  const oauthCredentialRefreshAccessTokenBlock =
+    oauthCredentialProvider.match(
+      /async refreshAccessToken\(session\) \{[\s\S]*?\n  }\n\n  revokeSession/,
+    )?.[0] ?? "";
   const oauthBoundary = exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs")
     : "";
@@ -8147,6 +8151,33 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
     ],
     "Phase 7/11 is pending: OAuth authorization-code exchange must use canonical snake_case request and token payload fields before vault binding",
+  );
+  assertCheck(
+    result,
+    "model-mount-oauth-refresh-response-aliases-retired",
+    /tokenPayload\.access_token/.test(oauthCredentialRefreshAccessTokenBlock) &&
+      /tokenPayload\.refresh_token/.test(oauthCredentialRefreshAccessTokenBlock) &&
+      /tokenPayload\.expires_in/.test(oauthCredentialRefreshAccessTokenBlock) &&
+      /OAuth credential provider refreshes access tokens with canonical response fields/.test(
+        oauthCredentialProviderTest,
+      ) &&
+      /OAuth credential provider ignores retired refresh token response aliases/.test(
+        oauthCredentialProviderTest,
+      ) &&
+      /accessToken: "retired-access-token"/.test(oauthCredentialProviderTest) &&
+      /refreshToken: "retired-refresh-token"/.test(oauthCredentialProviderTest) &&
+      /expiresIn: 600/.test(oauthCredentialProviderTest) &&
+      /assert\.equal\(vault\.bindings\.get\("vault:\/\/access"\)\.material,\s*"old-access"\)/.test(
+        oauthCredentialProviderTest,
+      ) &&
+      !/tokenPayload\.(?:accessToken|refreshToken|expiresIn)\b/.test(
+        oauthCredentialRefreshAccessTokenBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs",
+      "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
+    ],
+    "Phase 7/11 is pending: OAuth refresh must ignore retired camelCase token response aliases before vault binding",
   );
   assertCheck(
     result,

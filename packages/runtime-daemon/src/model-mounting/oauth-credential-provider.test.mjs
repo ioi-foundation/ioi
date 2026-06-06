@@ -531,6 +531,101 @@ test("OAuth credential provider refresh and access failures use canonical detail
   );
 });
 
+test("OAuth credential provider refreshes access tokens with canonical response fields", async () => {
+  const previousFetch = globalThis.fetch;
+  const vault = fakeVault();
+  const provider = new OAuthCredentialProvider({ now, vault });
+  vault.bindVaultRef({ vaultRef: "vault://access", material: "old-access", purpose: "oauth.access_token:catalog.huggingface" });
+  vault.bindVaultRef({ vaultRef: "vault://refresh", material: "refresh-token", purpose: "oauth.refresh_token:catalog.huggingface" });
+  vault.bindVaultRef({ vaultRef: "vault://token-endpoint", material: "https://auth.example.test/token", purpose: "oauth.token_endpoint:catalog.huggingface" });
+  vault.bindVaultRef({ vaultRef: "vault://client-id", material: "client-id", purpose: "oauth.client_id:catalog.huggingface" });
+
+  try {
+    globalThis.fetch = async (url, options) => {
+      const form = Object.fromEntries(new URLSearchParams(String(options.body)).entries());
+      assert.equal(url, "https://auth.example.test/token");
+      assert.equal(form.grant_type, "refresh_token");
+      assert.equal(form.refresh_token, "refresh-token");
+      assert.equal(form.client_id, "client-id");
+      return {
+        ok: true,
+        json: async () => ({
+          access_token: "new-access-token",
+          accessToken: "retired-access-token",
+          refresh_token: "new-refresh-token",
+          refreshToken: "retired-refresh-token",
+          expires_in: 600,
+          expiresIn: 1,
+          scope: "repo model",
+        }),
+      };
+    };
+
+    const refreshed = await provider.refreshAccessToken({
+      id: "session.one",
+      providerId: "catalog.huggingface",
+      status: "active",
+      accessVaultRef: "vault://access",
+      refreshVaultRef: "vault://refresh",
+      tokenEndpointVaultRef: "vault://token-endpoint",
+      clientIdVaultRef: "vault://client-id",
+      accessVaultRefHash: "hash:access",
+      refreshVaultRefHash: "hash:refresh",
+      refreshTokenHash: "hash:old-refresh",
+      refreshCount: 2,
+      scopes: ["repo"],
+      evidenceRefs: ["VaultOAuthSession"],
+    });
+
+    assert.equal(vault.bindings.get("vault://access").material, "new-access-token");
+    assert.equal(vault.bindings.get("vault://refresh").material, "new-refresh-token");
+    assert.equal(refreshed.expiresAt, "2026-06-03T00:10:00.000Z");
+    assert.equal(refreshed.refreshCount, 3);
+    assert.deepEqual(refreshed.scopes, ["repo", "model"]);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("OAuth credential provider ignores retired refresh token response aliases", async () => {
+  const previousFetch = globalThis.fetch;
+  const vault = fakeVault();
+  const provider = new OAuthCredentialProvider({ now, vault });
+  vault.bindVaultRef({ vaultRef: "vault://access", material: "old-access", purpose: "oauth.access_token:catalog.huggingface" });
+  vault.bindVaultRef({ vaultRef: "vault://refresh", material: "refresh-token", purpose: "oauth.refresh_token:catalog.huggingface" });
+  vault.bindVaultRef({ vaultRef: "vault://token-endpoint", material: "https://auth.example.test/token", purpose: "oauth.token_endpoint:catalog.huggingface" });
+
+  try {
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({
+        accessToken: "retired-access-token",
+        refreshToken: "retired-refresh-token",
+        expiresIn: 600,
+      }),
+    });
+
+    await assert.rejects(
+      () =>
+        provider.refreshAccessToken({
+          id: "session.one",
+          providerId: "catalog.huggingface",
+          status: "active",
+          accessVaultRef: "vault://access",
+          refreshVaultRef: "vault://refresh",
+          tokenEndpointVaultRef: "vault://token-endpoint",
+          refreshCount: 0,
+          scopes: ["repo"],
+        }),
+      (error) => error.code === "provider_error" && /did not return an access token/.test(error.message),
+    );
+    assert.equal(vault.bindings.get("vault://access").material, "old-access");
+    assert.equal(vault.bindings.get("vault://refresh").material, "refresh-token");
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
 test("OAuth credential provider revokes session vault refs", () => {
   const vault = fakeVault();
   const provider = new OAuthCredentialProvider({ now, vault });

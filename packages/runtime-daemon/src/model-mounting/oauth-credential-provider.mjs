@@ -433,14 +433,14 @@ export class OAuthCredentialProvider {
     };
     const response = await fetchOAuthToken(tokenEndpoint.material, payload);
     const tokenPayload = await parseOAuthTokenResponse(response);
-    const accessToken = requiredString(tokenPayload.access_token ?? tokenPayload.accessToken, "access_token");
+    const accessToken = requiredString(tokenPayload.access_token, "access_token");
     const accessBinding = this.vault.bindVaultRef({
       vaultRef: session.accessVaultRef,
       material: accessToken,
       purpose: `oauth.access_token:${session.providerId}`,
       label: `OAuth access token for ${session.providerId}`,
     });
-    const nextRefreshToken = tokenPayload.refresh_token ?? tokenPayload.refreshToken ?? null;
+    const nextRefreshToken = tokenPayload.refresh_token ?? null;
     let refreshBinding = null;
     if (nextRefreshToken) {
       refreshBinding = this.vault.bindVaultRef({
@@ -458,7 +458,7 @@ export class OAuthCredentialProvider {
       refreshVaultRefHash: refreshBinding?.vaultRefHash ?? session.refreshVaultRefHash ?? null,
       refreshTokenHash: nextRefreshToken ? stableHash(String(nextRefreshToken)) : session.refreshTokenHash ?? null,
       scopes: normalizeOAuthScopes(tokenPayload.scope, session.scopes ?? []),
-      expiresAt: oauthExpiresAt(this.now(), tokenPayload.expires_in ?? tokenPayload.expiresIn),
+      expiresAt: oauthExpiresAt(this.now(), tokenPayload.expires_in),
       lastRefreshedAt: this.now().toISOString(),
       refreshCount: Number(session.refreshCount ?? 0) + 1,
       evidenceRefs: normalizeScopes(
