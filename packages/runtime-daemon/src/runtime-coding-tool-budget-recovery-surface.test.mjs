@@ -368,6 +368,40 @@ test("budget recovery surface fails closed without Rust-planned retry run", () =
   );
 });
 
+test("budget recovery surface fails closed without Rust-planned operation kind", () => {
+  const calls = [];
+  const store = createStore();
+  const plannedRun = {
+    ...store.runs.get("run_alpha"),
+    operatorControls: [],
+  };
+  const surface = createSurface({
+    calls,
+    budgetRecoveryStateUpdate: {
+      status: "planned",
+      run: plannedRun,
+    },
+  });
+
+  surface.codingToolBudgetRecoveryForRun(store, "run_alpha", { action: "request_approval" });
+  surface.codingToolBudgetRecoveryForRun(store, "run_alpha", { action: "approve_override" });
+
+  assert.throws(
+    () =>
+      surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
+        action: "retry_approved",
+        source: "runtime_auto",
+      }),
+    (error) => {
+      assert.equal(error.code, "coding_tool_budget_recovery_state_update_operation_kind_missing");
+      assert.equal(error.details.operationKind, "workflow.run.retry_completed");
+      return true;
+    },
+  );
+  assert.equal(store.writes.length, 0);
+  assert.equal(store.runs.get("run_alpha").operatorControls, undefined);
+});
+
 test("budget recovery surface preserves the run/thread compatibility boundary", () => {
   const surface = createSurface();
   const store = createStore();

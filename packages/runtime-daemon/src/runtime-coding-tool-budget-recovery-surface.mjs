@@ -74,6 +74,32 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
     return updatedRun;
   }
 
+  function plannedCodingToolBudgetRecoveryOperationKind(stateUpdate, threadId, runId) {
+    const operationKind = optionalString(stateUpdate.operation_kind);
+    if (!operationKind) {
+      throw runtimeError({
+        status: 502,
+        code: "coding_tool_budget_recovery_state_update_operation_kind_missing",
+        message: "Rust coding-tool budget recovery state planning did not return an operation kind.",
+        details: { threadId, runId, operationKind: "workflow.run.retry_completed" },
+      });
+    }
+    if (operationKind !== "workflow.run.retry_completed") {
+      throw runtimeError({
+        status: 502,
+        code: "coding_tool_budget_recovery_state_update_operation_kind_mismatch",
+        message: "Rust coding-tool budget recovery state planning returned an unexpected operation kind.",
+        details: {
+          threadId,
+          runId,
+          expectedOperationKind: "workflow.run.retry_completed",
+          operationKind,
+        },
+      });
+    }
+    return operationKind;
+  }
+
   function latestCodingToolBudgetBlockedEventForRun(store, runId, sourceEventId = null) {
     const run = store.getRun(runId);
     const agent = store.getAgent(run.agentId);
@@ -380,8 +406,9 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
       policy_decision_refs: event.policy_decision_refs,
     });
     const updated = plannedCodingToolBudgetRecoveryRunRecord(stateUpdate, threadId, run.id);
+    const operationKind = plannedCodingToolBudgetRecoveryOperationKind(stateUpdate, threadId, run.id);
     store.runs.set(run.id, updated);
-    store.writeRun(updated, stateUpdate.operation_kind ?? "workflow.run.retry_completed");
+    store.writeRun(updated, operationKind);
     return codingToolBudgetRecoveryResult({
       action,
       status: "completed",

@@ -12365,6 +12365,11 @@ runless-agent compaction updates now require the Rust compaction state planner
 to return `thread.compact` before the daemon persists the selected target,
 rather than substituting the JS-side compaction operation kind.
 
+Slice 380 removes the coding-tool budget-recovery operation-kind fallback:
+approved retry persistence now requires the Rust budget-recovery state planner
+to return `workflow.run.retry_completed` before the daemon persists the run,
+rather than substituting the JS-side retry-completed operation kind.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
