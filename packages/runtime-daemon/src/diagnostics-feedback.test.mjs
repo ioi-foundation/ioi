@@ -83,7 +83,7 @@ test("post-edit diagnostics config normalizes command and repair policy aliases"
   assert.equal(config.repairPolicyConfig.operatorOverrideRequiresApproval, false);
 });
 
-test("compact diagnostics feedback preserves public aliases and bounded prompt context", () => {
+test("compact diagnostics feedback emits canonical envelope and bounded prompt context", () => {
   const runtime = helpers();
   const feedback = runtime.compactDiagnosticsFeedback({
     threadId: "thread-one",
@@ -116,20 +116,41 @@ test("compact diagnostics feedback preserves public aliases and bounded prompt c
 
   assert.equal(feedback.object, "ioi.runtime_lsp_diagnostics_injection");
   assert.equal(feedback.blocking, true);
-  assert.equal(feedback.diagnosticStatus, "findings");
-  assert.equal(feedback.diagnosticCount, 3);
-  assert.equal(feedback.injectedFindingCount, 2);
-  assert.equal(feedback.omittedFindingCount, 1);
-  assert.deepEqual(feedback.diagnosticEventIds, ["event-one"]);
-  assert.deepEqual(feedback.receiptRefs, ["receipt-one"]);
-  assert.deepEqual(feedback.rollbackRefs, ["rollback-one", "snapshot-one"]);
-  assert.deepEqual(feedback.workspaceSnapshotRefs, ["rollback-one", "snapshot-one"]);
-  assert.deepEqual(feedback.sourceToolCallIds, ["tool-call-one"]);
+  assert.equal(feedback.diagnostic_status, "findings");
+  assert.equal(feedback.diagnostic_count, 3);
+  assert.equal(feedback.injected_finding_count, 2);
+  assert.equal(feedback.omitted_finding_count, 1);
+  assert.deepEqual(feedback.diagnostic_event_ids, ["event-one"]);
+  assert.deepEqual(feedback.receipt_refs, ["receipt-one"]);
+  assert.deepEqual(feedback.rollback_refs, ["rollback-one", "snapshot-one"]);
+  assert.deepEqual(feedback.workspace_snapshot_refs, ["rollback-one", "snapshot-one"]);
+  assert.deepEqual(feedback.source_tool_call_ids, ["tool-call-one"]);
   assert.equal(feedback.findings[0].message, "first diagnostic message");
-  assert.match(feedback.promptText, /Post-edit diagnostics \(blocking, findings\)/);
-  assert.match(feedback.promptText, /1 additional finding/);
-  assert.equal(feedback.repairPolicy.restorePolicy, "preview_only");
-  assert.equal(feedback.repairPolicy.diagnosticsRepairDefault, "restore_preview");
+  assert.match(feedback.prompt_text, /Post-edit diagnostics \(blocking, findings\)/);
+  assert.match(feedback.prompt_text, /1 additional finding/);
+  assert.equal(feedback.repair_policy.restorePolicy, "preview_only");
+  assert.equal(feedback.repair_policy.diagnosticsRepairDefault, "restore_preview");
+  for (const field of [
+    "schemaVersion",
+    "injectionId",
+    "threadId",
+    "diagnosticStatus",
+    "diagnosticCount",
+    "injectedFindingCount",
+    "omittedFindingCount",
+    "diagnosticEventIds",
+    "receiptRefs",
+    "rollbackRefs",
+    "workspaceSnapshotRefs",
+    "sourceToolCallIds",
+    "diagnosticsRepairContexts",
+    "repairPolicyConfig",
+    "repairPolicy",
+    "receiptId",
+    "promptText",
+  ]) {
+    assert.equal(Object.hasOwn(feedback, field), false, `${field} alias must be absent`);
+  }
 });
 
 test("blocking gate and request feedback preserve repair policy refs", () => {
@@ -158,18 +179,43 @@ test("blocking gate and request feedback preserve repair policy refs", () => {
   assert.equal(gate.object, "ioi.runtime_lsp_diagnostics_blocking_gate");
   assert.equal(gate.status, "blocked");
   assert.equal(gate.reason, "post_edit_diagnostics_findings");
-  assert.equal(gate.requiresInput, true);
-  assert.equal(gate.workflowNodeId, "runtime.lsp-diagnostics.blocking-gate");
-  assert.deepEqual(gate.rollbackRefs, ["snapshot-one"]);
-  assert.deepEqual(gate.workspaceSnapshotRefs, ["snapshot-one"]);
-  assert.ok(gate.policyDecisionRefs.includes(gate.repairPolicy.policyId));
-  assert.ok(gate.recommendedNextActions.includes("repair_retry"));
+  assert.equal(gate.requires_input, true);
+  assert.equal(gate.workflow_node_id, "runtime.lsp-diagnostics.blocking-gate");
+  assert.deepEqual(gate.rollback_refs, ["snapshot-one"]);
+  assert.deepEqual(gate.workspace_snapshot_refs, ["snapshot-one"]);
+  assert.ok(gate.policy_decision_refs.includes(gate.repair_policy.policyId));
+  assert.ok(gate.recommended_next_actions.includes("repair_retry"));
   assert.equal(runtime.diagnosticsBlockingGateForFeedback({ blocking: false }), null);
+  for (const field of [
+    "schemaVersion",
+    "gateId",
+    "policyDecisionId",
+    "policyDecisionRefs",
+    "receiptId",
+    "requiresInput",
+    "diagnosticStatus",
+    "diagnosticCount",
+    "injectedFindingCount",
+    "omittedFindingCount",
+    "injectionId",
+    "diagnosticsReceiptId",
+    "diagnosticEventIds",
+    "rollbackRefs",
+    "workspaceSnapshotRefs",
+    "sourceToolCallIds",
+    "repairPolicy",
+    "repairDecisions",
+    "recommendedNextActions",
+    "workflowNodeId",
+    "componentKind",
+  ]) {
+    assert.equal(Object.hasOwn(gate, field), false, `${field} alias must be absent`);
+  }
 
   const request = runtime.requestWithDiagnosticsFeedback({ prompt: "fix it", context: { source: "test" } }, diagnosticsFeedback);
-  assert.equal(request.diagnosticsFeedback, diagnosticsFeedback);
   assert.equal(request.diagnostics_feedback, diagnosticsFeedback);
-  assert.equal(request.context.diagnosticsFeedback, diagnosticsFeedback);
+  assert.equal(Object.hasOwn(request, "diagnosticsFeedback"), false);
+  assert.equal(Object.hasOwn(request.context, "diagnosticsFeedback"), false);
   assert.equal(request.context.source, "test");
 
   assert.match(
@@ -178,7 +224,7 @@ test("blocking gate and request feedback preserve repair policy refs", () => {
   );
 });
 
-test("repair retry and runtime bridge injection events keep public envelopes", () => {
+test("repair retry and runtime bridge injection events use canonical envelopes", () => {
   const runtime = helpers();
   const repairFeedback = runtime.diagnosticsRepairRetryFeedback({
     threadId: "thread-one",
@@ -203,10 +249,10 @@ test("repair retry and runtime bridge injection events keep public envelopes", (
   assert.equal(repairFeedback.object, "ioi.runtime_lsp_diagnostics_injection");
   assert.equal(repairFeedback.mode, "repair_retry");
   assert.equal(repairFeedback.blocking, false);
-  assert.deepEqual(repairFeedback.rollbackRefs, ["snapshot-three", "rollback-one", "rollback-two"]);
-  assert.deepEqual(repairFeedback.workspaceSnapshotRefs, ["snapshot-three", "snapshot-one", "snapshot-two"]);
-  assert.deepEqual(repairFeedback.sourceToolCallIds, ["tool-call-one"]);
-  assert.deepEqual(repairFeedback.receiptRefs, [repairFeedback.receiptId, "receipt-one"]);
+  assert.deepEqual(repairFeedback.rollback_refs, ["snapshot-three", "rollback-one", "rollback-two"]);
+  assert.deepEqual(repairFeedback.workspace_snapshot_refs, ["snapshot-three", "snapshot-one", "snapshot-two"]);
+  assert.deepEqual(repairFeedback.source_tool_call_ids, ["tool-call-one"]);
+  assert.deepEqual(repairFeedback.receipt_refs, [repairFeedback.receipt_id, "receipt-one"]);
 
   const events = runtime.insertRuntimeBridgeDiagnosticsInjectionEvent({
     projection: {
@@ -229,7 +275,8 @@ test("repair retry and runtime bridge injection events keep public envelopes", (
   assert.equal(events[1].event_stream_id, "events_thread-one");
   assert.equal(events[1].payload.event_kind, "LspDiagnosticsInjected");
   assert.equal(events[1].payload.run_id, "run-one");
-  assert.deepEqual(events[1].receipt_refs, [repairFeedback.receiptId]);
+  assert.deepEqual(events[1].receipt_refs, [repairFeedback.receipt_id]);
+  assert.equal(events[1].idempotency_key.includes(repairFeedback.injection_id), true);
 });
 
 test("repair retry feedback ignores retired request, payload, and policy aliases", () => {
@@ -262,15 +309,15 @@ test("repair retry feedback ignores retired request, payload, and policy aliases
     snapshotId: null,
   });
 
-  assert.notEqual(repairFeedback.receiptId, "receipt-alias");
-  assert.notEqual(repairFeedback.promptText, "alias prompt");
-  assert.equal(repairFeedback.diagnosticStatus, "findings");
-  assert.equal(repairFeedback.diagnosticCount, 1);
-  assert.equal(repairFeedback.injectedFindingCount, 1);
-  assert.equal(repairFeedback.omittedFindingCount, 0);
-  assert.deepEqual(repairFeedback.diagnosticEventIds, []);
-  assert.deepEqual(repairFeedback.rollbackRefs, []);
-  assert.deepEqual(repairFeedback.workspaceSnapshotRefs, []);
-  assert.deepEqual(repairFeedback.sourceToolCallIds, []);
-  assert.deepEqual(repairFeedback.receiptRefs, [repairFeedback.receiptId]);
+  assert.notEqual(repairFeedback.receipt_id, "receipt-alias");
+  assert.notEqual(repairFeedback.prompt_text, "alias prompt");
+  assert.equal(repairFeedback.diagnostic_status, "findings");
+  assert.equal(repairFeedback.diagnostic_count, 1);
+  assert.equal(repairFeedback.injected_finding_count, 1);
+  assert.equal(repairFeedback.omitted_finding_count, 0);
+  assert.deepEqual(repairFeedback.diagnostic_event_ids, []);
+  assert.deepEqual(repairFeedback.rollback_refs, []);
+  assert.deepEqual(repairFeedback.workspace_snapshot_refs, []);
+  assert.deepEqual(repairFeedback.source_tool_call_ids, []);
+  assert.deepEqual(repairFeedback.receipt_refs, [repairFeedback.receipt_id]);
 });

@@ -219,7 +219,8 @@ test("createRun resolves route, memory, skill catalog, usage telemetry, and pers
       mode: "learn",
       options: { taskFamily: "schemas" },
       approval_mode: "manual",
-      diagnostics_feedback: { diagnosticStatus: "clean" },
+      diagnostics_feedback: { diagnostic_status: "clean" },
+      diagnosticsFeedback: { diagnostic_status: "alias" },
     },
     testDeps,
   );
@@ -238,6 +239,7 @@ test("createRun resolves route, memory, skill catalog, usage telemetry, and pers
   assert.equal(run.usage_telemetry, run.usage);
   assert.equal(run.trace.usage_telemetry, run.usage);
   assert.equal(run.trace.usage_telemetry.total_tokens, 7);
+  assert.deepEqual(run.diagnosticsFeedback, { diagnostic_status: "clean" });
   assertMissingKeys(run, retiredRuntimeRunUsageAliasKeys);
   assertMissingKeys(run.trace, retiredRuntimeRunUsageAliasKeys);
   assert.equal(store.resolveRunMemoryCall.prompt, "Learn governed task-family updates for schemas");

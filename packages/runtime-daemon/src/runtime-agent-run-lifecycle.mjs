@@ -124,7 +124,7 @@ export function createRun(store, agentId, request = {}, deps = {}) {
     modelRoute,
     memory,
     skillHookCatalog,
-    diagnosticsFeedback: request.diagnosticsFeedback ?? request.diagnostics_feedback ?? null,
+    diagnosticsFeedback: request.diagnostics_feedback ?? null,
   });
   const runtimeRunDraft = {
     ...run,

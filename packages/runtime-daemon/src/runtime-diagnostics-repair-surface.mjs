@@ -536,7 +536,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       },
       memory: request.memory,
       remember: request.remember,
-      diagnosticsFeedback,
+      diagnostics_feedback: diagnosticsFeedback,
     });
     const turn = store.turnForRun(run);
     const event = store.appendDiagnosticsRepairRetryTurnEvent({

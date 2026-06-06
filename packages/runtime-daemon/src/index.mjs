@@ -4004,12 +4004,12 @@ function buildRun({
       `Hook escalation receipts: ${hookInvocationLedger.escalationCount} blocked invocation(s) require declaration fixes`,
       ...(diagnosticsFeedback
         ? [
-            `Post-edit diagnostics: status=${diagnosticsFeedback.diagnosticStatus}, findings=${diagnosticsFeedback.diagnosticCount}, mode=${diagnosticsFeedback.mode}`,
+            `Post-edit diagnostics: status=${diagnosticsFeedback.diagnostic_status}, findings=${diagnosticsFeedback.diagnostic_count}, mode=${diagnosticsFeedback.mode}`,
           ]
         : []),
       ...(diagnosticsBlockingGate
         ? [
-            `Post-edit diagnostics blocking gate: id=${diagnosticsBlockingGate.gateId}, status=${diagnosticsBlockingGate.status}, decision=${diagnosticsBlockingGate.decision}`,
+            `Post-edit diagnostics blocking gate: id=${diagnosticsBlockingGate.gate_id}, status=${diagnosticsBlockingGate.status}, decision=${diagnosticsBlockingGate.decision}`,
           ]
         : []),
       ...memoryRecords.map((record) => `Memory fact (${record.scope}:${record.id}): ${record.fact}`),
@@ -4040,12 +4040,12 @@ function buildRun({
       activeSkillHookManifest.manifestId,
       hookDryRunPlan.planId,
       hookInvocationLedger.ledgerId,
-      diagnosticsFeedback?.injectionId,
-      diagnosticsBlockingGate?.gateId,
-      diagnosticsBlockingGate?.policyDecisionId,
-      ...(diagnosticsBlockingGate?.policyDecisionRefs ?? []),
-      ...(diagnosticsBlockingGate?.rollbackRefs ?? []),
-      diagnosticsBlockingGate?.receiptId,
+      diagnosticsFeedback?.injection_id,
+      diagnosticsBlockingGate?.gate_id,
+      diagnosticsBlockingGate?.policy_decision_id,
+      ...(diagnosticsBlockingGate?.policy_decision_refs ?? []),
+      ...(diagnosticsBlockingGate?.rollback_refs ?? []),
+      diagnosticsBlockingGate?.receipt_id,
       activeSkillHookManifest.activeSkillSetHash,
       activeSkillHookManifest.activeHookSetHash,
       ...agent.options.mcpServerNames,
@@ -4196,7 +4196,7 @@ function buildRun({
               description: diagnosticsBlockingGate
                 ? "Compact post-edit diagnostics were injected and stopped model continuation."
                 : "Compact post-edit diagnostics were injected before this model turn continued.",
-              status: diagnosticsFeedback.blocking && diagnosticsFeedback.diagnosticStatus === "findings"
+              status: diagnosticsFeedback.blocking && diagnosticsFeedback.diagnostic_status === "findings"
                 ? "blocked"
                 : "passed",
             },
@@ -4592,13 +4592,13 @@ function buildRun({
   const hookEscalationReceipts = hookEscalationReceiptsForLedger(hookInvocationLedger);
   const diagnosticsInjectionReceipt = diagnosticsFeedback
     ? {
-        id: diagnosticsFeedback.receiptId,
+        id: diagnosticsFeedback.receipt_id,
         kind: "lsp_diagnostics_injection",
         summary: diagnosticsFeedback.summary,
         redaction: "redacted",
         evidenceRefs: [
-          diagnosticsFeedback.injectionId,
-          ...normalizeArray(diagnosticsFeedback.diagnosticEventIds),
+          diagnosticsFeedback.injection_id,
+          ...normalizeArray(diagnosticsFeedback.diagnostic_event_ids),
           "lsp.diagnostics.injected",
           "LspDiagnosticsNode",
         ],
@@ -4606,18 +4606,18 @@ function buildRun({
     : null;
   const diagnosticsBlockingGateReceipt = diagnosticsBlockingGate
     ? {
-        id: diagnosticsBlockingGate.receiptId,
+        id: diagnosticsBlockingGate.receipt_id,
         kind: "lsp_diagnostics_blocking_gate",
         summary: diagnosticsBlockingGate.summary,
         redaction: "redacted",
         evidenceRefs: [
-          diagnosticsBlockingGate.gateId,
-          diagnosticsBlockingGate.policyDecisionId,
-          ...normalizeArray(diagnosticsBlockingGate.policyDecisionRefs),
-          ...normalizeArray(diagnosticsBlockingGate.rollbackRefs),
-          diagnosticsBlockingGate.injectionId,
-          diagnosticsBlockingGate.diagnosticsReceiptId,
-          ...diagnosticsBlockingGate.diagnosticEventIds,
+          diagnosticsBlockingGate.gate_id,
+          diagnosticsBlockingGate.policy_decision_id,
+          ...normalizeArray(diagnosticsBlockingGate.policy_decision_refs),
+          ...normalizeArray(diagnosticsBlockingGate.rollback_refs),
+          diagnosticsBlockingGate.injection_id,
+          diagnosticsBlockingGate.diagnostics_receipt_id,
+          ...diagnosticsBlockingGate.diagnostic_event_ids,
           "policy.blocked",
           "LspDiagnosticsNode",
         ].filter(Boolean),
@@ -4822,18 +4822,18 @@ function buildRun({
   if (diagnosticsFeedback) {
     addEvent("lsp_diagnostics_injected", diagnosticsFeedback.summary, {
       ...diagnosticsFeedback,
-      eventKind: "LspDiagnosticsInjected",
-      receiptId: diagnosticsInjectionReceipt?.id ?? diagnosticsFeedback.receiptId,
-      workflowNodeId: LSP_DIAGNOSTICS_INJECTION_NODE_ID,
+      event_kind: "LspDiagnosticsInjected",
+      receipt_id: diagnosticsInjectionReceipt?.id ?? diagnosticsFeedback.receipt_id,
+      workflow_node_id: LSP_DIAGNOSTICS_INJECTION_NODE_ID,
     });
   }
   const diagnosticsBlockingGateEvent = diagnosticsBlockingGate
-    ? addEvent("policy_blocked", diagnosticsBlockingGate.summary, {
+      ? addEvent("policy_blocked", diagnosticsBlockingGate.summary, {
         ...diagnosticsBlockingGate,
-        eventKind: "LspDiagnosticsBlockingGate",
-        receiptId: diagnosticsBlockingGateReceipt?.id ?? diagnosticsBlockingGate.receiptId,
-        workflowNodeId: LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID,
-        componentKind: "lsp_diagnostics_gate",
+        event_kind: "LspDiagnosticsBlockingGate",
+        receipt_id: diagnosticsBlockingGateReceipt?.id ?? diagnosticsBlockingGate.receipt_id,
+        workflow_node_id: LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID,
+        component_kind: "lsp_diagnostics_gate",
       })
     : null;
   addEvent("task_state", "Task state written to Agentgres", taskState);

@@ -11409,9 +11409,9 @@ function runCompositor() {
 	    diagnosticsFeedback.match(
 	      /  function diagnosticsRepairRetryFeedback\(\{[\s\S]*?(?=\n  function compactDiagnosticsFeedback)/,
 	    )?.[0] ?? "";
-	  assertCheck(
-	    result,
-	    "diagnostics-repair-retry-feedback-reader-aliases-retired",
+		  assertCheck(
+		    result,
+		    "diagnostics-repair-retry-feedback-reader-aliases-retired",
 	    /const diagnosticStatus = optionalString\(payload\.diagnostic_status\) \?\? "findings";/.test(
 	      diagnosticsRepairRetryFeedbackBody,
 	    ) &&
@@ -11456,10 +11456,102 @@ function runCompositor() {
 	      "packages/runtime-daemon/src/diagnostics-feedback.mjs",
 	      "packages/runtime-daemon/src/diagnostics-feedback.test.mjs",
 	    ],
-	    "Phase 10/11 is pending: diagnostics repair retry feedback must read canonical request, payload, policy, receipt, and ref fields without retired camelCase fallbacks",
-	  );
-	  const diagnosticsRepairRetryResultBody =
-	    diagnosticsRepairExecution.match(
+		    "Phase 10/11 is pending: diagnostics repair retry feedback must read canonical request, payload, policy, receipt, and ref fields without retired camelCase fallbacks",
+		  );
+  const compactDiagnosticsFeedbackBody =
+    diagnosticsFeedback.match(
+      /  function compactDiagnosticsFeedback\(\{[\s\S]*?(?=\n  function compactDiagnosticFinding)/,
+    )?.[0] ?? "";
+  const diagnosticsBlockingGateForFeedbackBody =
+    diagnosticsFeedback.match(
+      /  function diagnosticsBlockingGateForFeedback\(diagnosticsFeedback\) \{[\s\S]*?(?=\n  function requestWithDiagnosticsFeedback)/,
+    )?.[0] ?? "";
+  const promptWithDiagnosticsFeedbackBody =
+    diagnosticsFeedback.match(
+      /  function promptWithDiagnosticsFeedback\(prompt, diagnosticsFeedback\) \{[\s\S]*?(?=\n  function diagnosticsFeedbackBlocksContinuation)/,
+    )?.[0] ?? "";
+  const requestWithDiagnosticsFeedbackBody =
+    diagnosticsFeedback.match(
+      /  function requestWithDiagnosticsFeedback\(request = \{\}, diagnosticsFeedback = null\) \{[\s\S]*?(?=\n  function insertRuntimeBridgeDiagnosticsInjectionEvent)/,
+    )?.[0] ?? "";
+  const insertRuntimeBridgeDiagnosticsInjectionEventBody =
+    diagnosticsFeedback.match(
+      /  function insertRuntimeBridgeDiagnosticsInjectionEvent\(\{[\s\S]*?(?=\n  return \{)/,
+    )?.[0] ?? "";
+  const diagnosticsRepairRetryFeedbackReturn =
+    diagnosticsRepairRetryFeedbackBody.match(/    return \{[\s\S]*?\n    \};/)?.[0] ?? "";
+  const compactDiagnosticsFeedbackReturn =
+    compactDiagnosticsFeedbackBody.match(/    return \{[\s\S]*?\n    \};/)?.[0] ?? "";
+  const diagnosticsBlockingGateForFeedbackReturn =
+    diagnosticsBlockingGateForFeedbackBody.match(/    return \{[\s\S]*?\n    \};/)?.[0] ?? "";
+  assertCheck(
+    result,
+    "diagnostics-feedback-envelope-aliases-retired",
+    /schema_version:\s*LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION/.test(
+      compactDiagnosticsFeedbackBody,
+    ) &&
+      /injection_id:\s*injectionId/.test(compactDiagnosticsFeedbackBody) &&
+      /thread_id:\s*threadId/.test(compactDiagnosticsFeedbackBody) &&
+      /diagnostic_status:\s*diagnosticStatus/.test(compactDiagnosticsFeedbackBody) &&
+      /diagnostic_count:\s*findings\.length/.test(compactDiagnosticsFeedbackBody) &&
+      /injected_finding_count:\s*visibleFindings\.length/.test(compactDiagnosticsFeedbackBody) &&
+      /omitted_finding_count:\s*omittedCount/.test(compactDiagnosticsFeedbackBody) &&
+      /diagnostic_event_ids:\s*diagnosticEventIds/.test(compactDiagnosticsFeedbackBody) &&
+      /receipt_refs:\s*uniqueStrings\(receiptRefs\)/.test(compactDiagnosticsFeedbackBody) &&
+      /receipt_id:\s*receiptId/.test(compactDiagnosticsFeedbackBody) &&
+      /prompt_text:\s*diagnosticsPromptText/.test(compactDiagnosticsFeedbackBody) &&
+      /schema_version:\s*LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION/.test(
+        diagnosticsBlockingGateForFeedbackBody,
+      ) &&
+      /gate_id:\s*gateId/.test(diagnosticsBlockingGateForFeedbackBody) &&
+      /policy_decision_id:\s*`policy_\$\{gateId\}`/.test(diagnosticsBlockingGateForFeedbackBody) &&
+      /requires_input:\s*true/.test(diagnosticsBlockingGateForFeedbackBody) &&
+      /diagnostic_status:\s*diagnosticsFeedback\.diagnostic_status/.test(
+        diagnosticsBlockingGateForFeedbackBody,
+      ) &&
+      /receipt_id:\s*`receipt_\$\{gateId\}`/.test(diagnosticsBlockingGateForFeedbackBody) &&
+      /recommended_next_actions:\s*normalizeArray\(repairPolicy\.decisions\)/.test(
+        diagnosticsBlockingGateForFeedbackBody,
+      ) &&
+      /workflow_node_id:\s*LSP_DIAGNOSTICS_BLOCKING_GATE_NODE_ID/.test(
+        diagnosticsBlockingGateForFeedbackBody,
+      ) &&
+      /diagnosticsFeedback\?\.prompt_text/.test(promptWithDiagnosticsFeedbackBody) &&
+      /diagnostics_feedback:\s*diagnosticsFeedback/.test(requestWithDiagnosticsFeedbackBody) &&
+      !/^ {6}diagnosticsFeedback,?\s*$/m.test(requestWithDiagnosticsFeedbackBody) &&
+      /diagnosticsFeedback\.injection_id/.test(insertRuntimeBridgeDiagnosticsInjectionEventBody) &&
+      /diagnosticsFeedback\.receipt_id/.test(insertRuntimeBridgeDiagnosticsInjectionEventBody) &&
+      !/^ {6}(?:schemaVersion|injectionId|threadId|diagnosticStatus|diagnosticCount|injectedFindingCount|omittedFindingCount|diagnosticEventIds|rollbackRefs|workspaceSnapshotRefs|sourceToolCallIds|diagnosticsRepairContexts|repairPolicyConfig|repairPolicy|receiptRefs|receiptId|promptText|gateId|policyDecisionId|policyDecisionRefs|requiresInput|diagnosticsReceiptId|repairDecisions|recommendedNextActions|workflowNodeId|componentKind)\s*:/m.test(
+        `${diagnosticsRepairRetryFeedbackReturn}\n${compactDiagnosticsFeedbackReturn}\n${diagnosticsBlockingGateForFeedbackReturn}`,
+      ) &&
+      !/\bdiagnosticsFeedback\.(?:injectionId|diagnosticStatus|diagnosticCount|injectedFindingCount|omittedFindingCount|diagnosticEventIds|rollbackRefs|workspaceSnapshotRefs|sourceToolCallIds|repairPolicy|receiptRefs|receiptId|promptText|gateId|policyDecisionId|policyDecisionRefs|requiresInput|diagnosticsReceiptId|repairDecisions|recommendedNextActions|workflowNodeId|componentKind)\b/.test(
+        `${diagnosticsBlockingGateForFeedbackBody}\n${promptWithDiagnosticsFeedbackBody}\n${insertRuntimeBridgeDiagnosticsInjectionEventBody}\n${runtimeDaemonIndex}\n${runtimeEventPayloads}`,
+      ) &&
+      !/request\.diagnosticsFeedback\b/.test(runtimeAgentRunLifecycle) &&
+      /diagnosticsFeedback:\s*\{\s*diagnostic_status:\s*"alias"\s*\}/.test(runtimeAgentRunLifecycleTest) &&
+      /assert\.deepEqual\(run\.diagnosticsFeedback,\s*\{\s*diagnostic_status:\s*"clean"\s*\}\)/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /compact diagnostics feedback emits canonical envelope/.test(diagnosticsFeedbackTest) &&
+      /alias must be absent/.test(diagnosticsFeedbackTest) &&
+      /runtime event payloads consume canonical diagnostics injection and blocking gate fields/.test(
+        runtimeEventPayloadsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/diagnostics-feedback.mjs",
+      "packages/runtime-daemon/src/diagnostics-feedback.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
+      "packages/runtime-daemon/src/runtime-event-payloads.mjs",
+      "packages/runtime-daemon/src/runtime-event-payloads.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: diagnostics feedback and blocking-gate envelopes must expose canonical snake_case fields without duplicate camelCase aliases or reader fallbacks",
+  );
+		  const diagnosticsRepairRetryResultBody =
+		    diagnosticsRepairExecution.match(
       /  function diagnosticsRepairRetryResultFromEvent\(\{ threadId, event, turn = null, run = null \} = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsOperatorOverrideResultFromEvent)/,
     )?.[0] ?? "";
   const diagnosticsOperatorOverrideResultBody =

@@ -143,7 +143,7 @@ test("runtime event payloads preserve computer-use and memory summaries", () => 
   assert.equal(memory.write_block_reason, "approval_required");
 });
 
-test("runtime event payloads preserve diagnostics injection and blocking gate aliases", () => {
+test("runtime event payloads consume canonical diagnostics injection and blocking gate fields", () => {
   const runtime = helpers();
 
   const injected = runtime.payloadSummaryForRunEvent({
@@ -152,12 +152,12 @@ test("runtime event payloads preserve diagnostics injection and blocking gate al
     runId: "run-one",
     agentId: "agent-one",
     data: {
-      injectionId: "injection-one",
-      diagnosticStatus: "findings",
-      diagnosticCount: 3,
-      injectedFindingCount: 2,
-      omittedFindingCount: 1,
-      diagnosticEventIds: ["diag-one"],
+      injection_id: "injection-one",
+      diagnostic_status: "findings",
+      diagnostic_count: 3,
+      injected_finding_count: 2,
+      omitted_finding_count: 1,
+      diagnostic_event_ids: ["diag-one"],
       rollback_refs: ["rollback-one"],
       workspace_snapshot_refs: ["snapshot-one"],
       source_tool_call_ids: ["tool-call-one"],
@@ -181,12 +181,12 @@ test("runtime event payloads preserve diagnostics injection and blocking gate al
     runId: "run-one",
     agentId: "agent-one",
     data: {
-      gateId: "gate-one",
-      policyDecisionId: "policy-one",
+      gate_id: "gate-one",
+      policy_decision_id: "policy-one",
       policy_decision_refs: ["policy-one", "policy-two"],
       reason: "post_edit_diagnostics_findings",
-      requiresInput: true,
-      recommendedNextActions: ["repair_retry"],
+      requires_input: true,
+      recommended_next_actions: ["repair_retry"],
       repair_decisions: [{ action: "repair_retry" }],
     },
   });
