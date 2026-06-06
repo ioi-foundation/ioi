@@ -12260,6 +12260,12 @@ continuity, runtime task/job/checklist projections, and cancellation receipts;
 the daemon cancellation helper now fails closed when Rust planning omits the
 run record instead of persisting the original run as a fallback.
 
+Slice 361 retires approval run state-update fallbacks in JS:
+the approval request/decision/revoke surfaces now require the Rust
+`Approval*StateUpdateCore` planners to return the selected run record for run
+targets, failing closed instead of persisting the pre-approval run when the
+planner output is malformed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

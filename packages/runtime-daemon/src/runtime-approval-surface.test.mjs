@@ -192,7 +192,12 @@ function appendOperatorControlForTest(value, control) {
   return entries;
 }
 
-function createSurface({ calls = [] } = {}) {
+function createSurface({
+  calls = [],
+  approvalRequestStateUpdate = null,
+  approvalDecisionStateUpdate = null,
+  approvalRevokeStateUpdate = null,
+} = {}) {
   const lease = createRuntimeApprovalLease({
     doctorHash,
     normalizeArray,
@@ -206,15 +211,15 @@ function createSurface({ calls = [] } = {}) {
     approvalStateRunner: {
       planApprovalRequestStateUpdate(request) {
         calls.push({ name: "planApprovalRequestStateUpdate", request });
-        return approvalRequestStateUpdateForRequest(request);
+        return approvalRequestStateUpdate ?? approvalRequestStateUpdateForRequest(request);
       },
       planApprovalDecisionStateUpdate(request) {
         calls.push({ name: "planApprovalDecisionStateUpdate", request });
-        return approvalDecisionStateUpdateForRequest(request);
+        return approvalDecisionStateUpdate ?? approvalDecisionStateUpdateForRequest(request);
       },
       planApprovalRevokeStateUpdate(request) {
         calls.push({ name: "planApprovalRevokeStateUpdate", request });
-        return approvalRevokeStateUpdateForRequest(request);
+        return approvalRevokeStateUpdate ?? approvalRevokeStateUpdateForRequest(request);
       },
     },
     notFound,
@@ -412,6 +417,74 @@ test("approval surface routes runless agent approval updates through Rust planne
   assert.equal(store.writes[2].type, "agent");
   assert.equal(store.writes[2].operationKind, "approval.revoke");
   assert.equal(store.agents.get("agent_alpha").updatedAt, store.events[2].created_at);
+});
+
+test("approval surface fails closed without Rust-planned run approval updates", () => {
+  const requestSurface = createSurface({
+    approvalRequestStateUpdate: {
+      status: "planned",
+      operation_kind: "approval.required",
+      target_kind: "run",
+      run: null,
+    },
+  });
+  const requestStore = createStore();
+
+  assert.throws(
+    () =>
+      requestSurface.requestThreadApproval(requestStore, "thread_alpha", {
+        approval_id: "approval-one",
+        reason: "Need permission",
+      }),
+    (error) => error.code === "approval_run_state_update_planner_invalid",
+  );
+  assert.equal(requestStore.writes.length, 0);
+
+  const decisionSurface = createSurface({
+    approvalDecisionStateUpdate: {
+      status: "planned",
+      operation_kind: "approval.approve",
+      target_kind: "run",
+      run: null,
+    },
+  });
+  const decisionStore = createStore();
+  decisionSurface.requestThreadApproval(decisionStore, "thread_alpha", {
+    approval_id: "approval-one",
+    reason: "Need permission",
+  });
+
+  assert.throws(
+    () =>
+      decisionSurface.decideThreadApproval(decisionStore, "thread_alpha", "approval-one", {
+        decision: "approve",
+      }),
+    (error) => error.code === "approval_run_state_update_planner_invalid",
+  );
+  assert.equal(decisionStore.writes.length, 1);
+
+  const revokeSurface = createSurface({
+    approvalRevokeStateUpdate: {
+      status: "planned",
+      operation_kind: "approval.revoke",
+      target_kind: "run",
+      run: null,
+    },
+  });
+  const revokeStore = createStore();
+  revokeSurface.requestThreadApproval(revokeStore, "thread_alpha", {
+    approval_id: "approval-one",
+    reason: "Need permission",
+  });
+  revokeSurface.decideThreadApproval(revokeStore, "thread_alpha", "approval-one", {
+    decision: "approve",
+  });
+
+  assert.throws(
+    () => revokeSurface.revokeThreadApproval(revokeStore, "thread_alpha", "approval-one", {}),
+    (error) => error.code === "approval_run_state_update_planner_invalid",
+  );
+  assert.equal(revokeStore.writes.length, 2);
 });
 
 test("approval surface fails closed for missing approval ids and requests", () => {

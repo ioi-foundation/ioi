@@ -114,6 +114,19 @@ export function createRuntimeApprovalSurface(deps = {}) {
     return updatedAgent;
   }
 
+  function plannedApprovalRunRecord(stateUpdate, threadId, runId, operationKind) {
+    const updatedRun = stateUpdate.run;
+    if (!updatedRun?.id) {
+      throw runtimeError({
+        status: 502,
+        code: "approval_run_state_update_planner_invalid",
+        message: "Rust approval state planning did not return a run record.",
+        details: { threadId, runId, operationKind },
+      });
+    }
+    return updatedRun;
+  }
+
   function requestThreadApproval(store, threadId, request = {}) {
     const agent = store.agentForThread(threadId);
     const { run, turnId } = resolveApprovalTarget(store, agent, threadId, request, "", { notFound });
@@ -263,7 +276,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
         receipt_refs: event.receipt_refs,
         policy_decision_refs: event.policy_decision_refs,
       });
-      const updated = stateUpdate.run ?? run;
+      const updated = plannedApprovalRunRecord(stateUpdate, threadId, run.id, "approval.required");
       store.runs.set(run.id, updated);
       store.writeRun(updated, stateUpdate.operation_kind ?? "approval.required");
       return {
@@ -440,7 +453,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
         receipt_refs: event.receipt_refs,
         policy_decision_refs: event.policy_decision_refs,
       });
-      const updated = stateUpdate.run ?? run;
+      const updated = plannedApprovalRunRecord(stateUpdate, threadId, run.id, `approval.${decision}`);
       store.runs.set(run.id, updated);
       store.writeRun(updated, stateUpdate.operation_kind ?? `approval.${decision}`);
       return {
@@ -657,7 +670,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
         receipt_refs: event.receipt_refs,
         policy_decision_refs: event.policy_decision_refs,
       });
-      const updated = stateUpdate.run ?? run;
+      const updated = plannedApprovalRunRecord(stateUpdate, threadId, run.id, "approval.revoke");
       store.runs.set(run.id, updated);
       store.writeRun(updated, stateUpdate.operation_kind ?? "approval.revoke");
       return {
