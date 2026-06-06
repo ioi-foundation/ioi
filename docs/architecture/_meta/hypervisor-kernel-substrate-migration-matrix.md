@@ -12209,6 +12209,15 @@ artifact refresh, stop-condition rewrite, quality-ledger failure label, and
 cancellation shell fetches the run and persists the Rust-planned record instead
 of constructing cancellation projections in JS.
 
+Slice 354 moves thread-control agent state-update planning into Rust:
+`ThreadControlAgentStateUpdateCore` now owns the persisted agent projection for
+mode/model/thinking controls, including runtimeControls, updatedAt assignment,
+and admitted model-route identity fields through
+`plan_thread_control_agent_state_update`; the daemon thread-control surface
+still appends the runtime control event and resolves admitted model routes, then
+persists only the Rust-planned agent record instead of constructing the final
+agent mutation in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

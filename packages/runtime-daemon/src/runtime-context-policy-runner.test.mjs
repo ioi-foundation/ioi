@@ -14,6 +14,7 @@ import {
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RustContextPolicyRunner,
+  THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 } from "./runtime-context-policy-runner.mjs";
 
 test("context budget policy runner sends generic Rust policy bridge request", () => {
@@ -673,6 +674,72 @@ test("run cancel state update runner sends Rust state update bridge request", ()
   assert.equal(result.operation_kind, "run.cancel");
   assert.equal(result.runtime_job.status, "canceled");
   assert.equal(result.run.events.at(-1).type, "canceled");
+});
+
+test("thread control agent state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_thread_control_agent_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "thread.thinking",
+            updated_at: "2026-06-06T05:00:00.000Z",
+            control: {
+              controlKind: "thinking",
+              eventId: "evt_thread_control",
+            },
+            agent: {
+              id: "agent_1",
+              modelId: "local-model",
+              runtimeControls: {
+                model: {
+                  selectedModel: "local-model",
+                },
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planThreadControlAgentStateUpdate({
+    thread_id: "thread_1",
+    agent: { id: "agent_1", runtimeControls: {} },
+    control_kind: "thinking",
+    controls: { model: { selectedModel: "local-model" } },
+    event_id: "evt_thread_control",
+    seq: 7,
+    created_at: "2026-06-06T05:00:00.000Z",
+    model_route: {
+      requestedModelId: "auto",
+      selectedModel: "local-model",
+      routeId: "route.local-first",
+    },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_thread_control_agent_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.control_kind, "thinking");
+  assert.equal(captured.request.model_route.selectedModel, "local-model");
+  assert.equal(result.source, "rust_thread_control_agent_state_update_command");
+  assert.equal(result.operation_kind, "thread.thinking");
+  assert.equal(result.control.eventId, "evt_thread_control");
+  assert.equal(result.agent.modelId, "local-model");
 });
 
 test("context policy runner fails closed without bridge command", () => {

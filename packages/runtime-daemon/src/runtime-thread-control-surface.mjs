@@ -12,6 +12,7 @@ import {
   fixtureProfileForAgent,
   runtimeSessionIdForAgent,
 } from "./runtime-identifiers.mjs";
+import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
 import { runtimeError } from "./runtime-http-utils.mjs";
 import {
   operatorControlSource,
@@ -31,6 +32,7 @@ import { createWorkspaceTrustState } from "./threads/workspace-trust-state.mjs";
 
 export function createRuntimeThreadControlSurface({
   approvalModeForThreadMode: approvalModeForThreadModeDep = approvalModeForThreadMode,
+  contextPolicyRunner: contextPolicyRunnerDep = createContextPolicyRunnerFromEnv(),
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
   fixtureProfileForAgent: fixtureProfileForAgentDep = fixtureProfileForAgent,
   normalizeThreadApprovalMode: normalizeThreadApprovalModeDep = normalizeThreadApprovalMode,
@@ -91,7 +93,6 @@ export function createRuntimeThreadControlSurface({
         updatedAt: now,
       };
       let modelRoute = null;
-      let updatedAgent = agent;
 
       if (controlKind === "mode") {
         const mode = normalizeThreadInteractionModeDep(
@@ -137,20 +138,10 @@ export function createRuntimeThreadControlSurface({
           workflowNodeId: modelRoute.decision?.workflowNodeId ?? modelInput.workflowNodeId,
           updatedAt: now,
         };
-        updatedAgent = {
-          ...updatedAgent,
-          modelId: modelRoute.selectedModel,
-          requestedModelId: modelRoute.requestedModelId,
-          modelRouteId: modelRoute.routeId,
-          modelRouteEndpointId: modelRoute.endpointId,
-          modelRouteProviderId: modelRoute.providerId,
-          modelRouteReceiptId: modelRoute.receiptId,
-          modelRouteDecision: modelRoute.decision,
-        };
       }
 
       const event = this.appendThreadRuntimeControlEvent(store, {
-        agent: updatedAgent,
+        agent,
         threadId,
         controlKind,
         controls: nextControls,
@@ -164,7 +155,7 @@ export function createRuntimeThreadControlSurface({
       const workspaceTrustWarningEvent =
         controlKind === "mode"
           ? this.appendWorkspaceTrustWarningEvent(store, {
-              agent: updatedAgent,
+              agent,
               threadId,
               controls: nextControls,
               request,
@@ -175,13 +166,38 @@ export function createRuntimeThreadControlSurface({
               now,
             })
           : null;
-      updatedAgent = {
-        ...updatedAgent,
-        runtimeControls: nextControls,
-        updatedAt: workspaceTrustWarningEvent?.created_at ?? event.created_at,
-      };
-      store.agents.set(agent.id, updatedAgent);
-      store.writeAgent(updatedAgent, `thread.${controlKind}`);
+      if (typeof contextPolicyRunnerDep?.planThreadControlAgentStateUpdate !== "function") {
+        throw runtimeErrorDep({
+          status: 500,
+          code: "thread_control_state_update_planner_unavailable",
+          message: "Thread control updates require Rust policy state-update planning.",
+          details: { threadId, controlKind },
+        });
+      }
+      const stateUpdate = contextPolicyRunnerDep.planThreadControlAgentStateUpdate({
+        thread_id: threadId,
+        agent,
+        control_kind: controlKind,
+        controls: nextControls,
+        event_id: event.event_id,
+        seq: event.seq,
+        created_at: event.created_at,
+        updated_at: workspaceTrustWarningEvent?.created_at ?? event.created_at,
+        workspace_trust_warning_event_id: workspaceTrustWarningEvent?.event_id ?? null,
+        workspace_trust_warning_created_at: workspaceTrustWarningEvent?.created_at ?? null,
+        model_route: modelRoute,
+      });
+      const updatedAgent = stateUpdate.agent;
+      if (!updatedAgent?.id) {
+        throw runtimeErrorDep({
+          status: 502,
+          code: "thread_control_state_update_planner_invalid",
+          message: "Rust policy state-update planning did not return an agent record.",
+          details: { threadId, controlKind },
+        });
+      }
+      store.agents.set(updatedAgent.id, updatedAgent);
+      store.writeAgent(updatedAgent, stateUpdate.operation_kind ?? `thread.${controlKind}`);
       const thread = store.threadForAgent(updatedAgent);
       const workspaceTrustWarning = workspaceTrustWarningEvent?.payload_summary ?? null;
       return {

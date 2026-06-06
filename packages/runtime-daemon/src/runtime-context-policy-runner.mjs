@@ -17,6 +17,8 @@ export const OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.operator-steer-state-update-request.v1";
 export const RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.run-cancel-state-update-request.v1";
+export const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.thread-control-agent-state-update-request.v1";
 export const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.compaction-policy-request.v1";
 export const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION =
@@ -120,6 +122,14 @@ export class RustContextPolicyRunner {
     return normalizeRunCancelStateUpdateBridgeResult(this.evaluateRawPolicy({
       operation: "plan_run_cancel_state_update",
       schemaVersion: RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planThreadControlAgentStateUpdate(request = {}) {
+    return normalizeThreadControlAgentStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_thread_control_agent_state_update",
+      schemaVersion: THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -459,6 +469,27 @@ export function normalizeRunCancelStateUpdateBridgeResult(value = {}) {
     runtime_checklist:
       objectRecord(result.runtime_checklist) ?? objectRecord(record.runtime_checklist) ?? null,
     run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
+  };
+}
+
+export function normalizeThreadControlAgentStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_thread_control_agent_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "planned",
+    operation_kind:
+      optionalString(result.operation_kind ?? record.operation_kind) ??
+      "thread.control",
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    control:
+      objectRecord(result.control) ?? objectRecord(record.control) ?? null,
+    agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
   };
 }
 

@@ -27,7 +27,8 @@ use ioi_services::agentic::runtime::kernel::policy::{
     DiagnosticsOperatorOverrideStateUpdateCore, DiagnosticsOperatorOverrideStateUpdateRequest,
     OperatorInterruptStateUpdateCore, OperatorInterruptStateUpdateRequest,
     OperatorSteerStateUpdateCore, OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore,
-    RunCancelStateUpdateRequest,
+    RunCancelStateUpdateRequest, ThreadControlAgentStateUpdateCore,
+    ThreadControlAgentStateUpdateRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -400,6 +401,16 @@ struct RunCancelStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct ThreadControlAgentStateUpdateBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ThreadControlAgentStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -642,6 +653,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
             let request: RunCancelStateUpdateBridgeRequest = serde_json::from_value(raw_request)
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_run_cancel_state_update(request)
+        }
+        "plan_thread_control_agent_state_update" => {
+            let request: ThreadControlAgentStateUpdateBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_thread_control_agent_state_update(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -2140,6 +2157,44 @@ fn plan_run_cancel_state_update(
         "runtime_job": record.runtime_job.clone(),
         "runtime_checklist": record.runtime_checklist.clone(),
         "run": record.run.clone(),
+    }))
+}
+
+fn plan_thread_control_agent_state_update(
+    request: ThreadControlAgentStateUpdateBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_thread_control_agent_state_update" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = ThreadControlAgentStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "thread_control_agent_state_update_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_thread_control_agent_state_update_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "control": record.control.clone(),
+        "agent": record.agent.clone(),
     }))
 }
 
@@ -6842,6 +6897,75 @@ mod tests {
         assert_eq!(response["run"]["events"][1]["type"], "runtime_task");
         assert_eq!(response["run"]["events"][3]["type"], "job_canceled");
         assert_eq!(response["runtime_job"]["status"], "canceled");
+    }
+
+    #[test]
+    fn bridge_plans_thread_control_agent_state_update_through_rust_core() {
+        let request: ThreadControlAgentStateUpdateBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_thread_control_agent_state_update",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.thread-control-agent-state-update-request.v1",
+                "thread_id": "thread_1",
+                "agent": {
+                    "id": "agent_1",
+                    "cwd": "/workspace",
+                    "runtimeControls": {
+                        "mode": "agent",
+                        "approvalMode": "suggest",
+                        "model": {
+                            "id": "auto",
+                            "routeId": "route.local-first"
+                        }
+                    }
+                },
+                "control_kind": "thinking",
+                "controls": {
+                    "mode": "agent",
+                    "approvalMode": "suggest",
+                    "model": {
+                        "id": "auto",
+                        "routeId": "route.local-first",
+                        "selectedModel": "local-model"
+                    },
+                    "updatedAt": "2026-06-06T05:00:00.000Z"
+                },
+                "event_id": "evt_thread_control",
+                "seq": 7,
+                "created_at": "2026-06-06T05:00:00.000Z",
+                "model_route": {
+                    "requestedModelId": "auto",
+                    "selectedModel": "local-model",
+                    "routeId": "route.local-first",
+                    "endpointId": "endpoint_1",
+                    "providerId": "provider_1",
+                    "receiptId": "receipt_route_1",
+                    "decision": {
+                        "workflowNodeId": "runtime.model-router.custom"
+                    }
+                }
+            }
+        }))
+        .expect("thread control agent state update bridge request");
+
+        let response = plan_thread_control_agent_state_update(request)
+            .expect("thread control agent state update planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_thread_control_agent_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "thread.thinking");
+        assert_eq!(response["control"]["controlKind"], "thinking");
+        assert_eq!(
+            response["agent"]["runtimeControls"]["model"]["selectedModel"],
+            "local-model"
+        );
+        assert_eq!(response["agent"]["modelId"], "local-model");
+        assert_eq!(response["agent"]["modelRouteReceiptId"], "receipt_route_1");
     }
 
     #[test]

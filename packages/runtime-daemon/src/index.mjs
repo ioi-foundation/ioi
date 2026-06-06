@@ -853,7 +853,9 @@ export class AgentgresRuntimeStateStore {
       runtimeTaskRecordForRun,
     });
     this.toolSurface = createRuntimeToolSurface();
-    this.threadControlSurface = createRuntimeThreadControlSurface();
+    this.threadControlSurface = createRuntimeThreadControlSurface({
+      contextPolicyRunner: this.contextPolicyRunner,
+    });
     this.subagentSurface = createRuntimeSubagentSurface();
     this.threadTurnProjection = createThreadTurnProjection({
       eventStreamIdForThread,

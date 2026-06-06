@@ -29,6 +29,10 @@ pub const RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.run-cancel-state-update-request.v1";
 pub const RUN_CANCEL_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.run-cancel-state-update.v1";
+pub const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.thread-control-agent-state-update-request.v1";
+pub const THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.thread-control-agent-state-update.v1";
 pub const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.compaction-policy-request.v1";
 pub const COMPACTION_POLICY_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.compaction-policy.v1";
@@ -155,6 +159,16 @@ pub enum RunCancelStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ThreadControlAgentStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+    UnsupportedControlKind(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -674,6 +688,40 @@ pub struct RunCancelStateUpdateRecord {
     pub runtime_job: Value,
     pub runtime_checklist: Value,
     pub run: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThreadControlAgentStateUpdateRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    pub agent: Value,
+    pub control_kind: String,
+    pub controls: Value,
+    pub event_id: String,
+    pub seq: u64,
+    pub created_at: String,
+    #[serde(default)]
+    pub updated_at: Option<String>,
+    #[serde(default)]
+    pub workspace_trust_warning_event_id: Option<String>,
+    #[serde(default)]
+    pub workspace_trust_warning_created_at: Option<String>,
+    #[serde(default, alias = "modelRoute")]
+    pub model_route: Option<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThreadControlAgentStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub agent_id: String,
+    pub updated_at: String,
+    pub control: Value,
+    pub agent: Value,
     pub generated_at: String,
 }
 
@@ -1873,6 +1921,94 @@ impl RunCancelStateUpdateCore {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct ThreadControlAgentStateUpdateCore;
+
+impl ThreadControlAgentStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &ThreadControlAgentStateUpdateRequest,
+    ) -> Result<ThreadControlAgentStateUpdateRecord, ThreadControlAgentStateUpdateError> {
+        request.validate()?;
+        let mut agent = object_value(&request.agent)
+            .ok_or(ThreadControlAgentStateUpdateError::MissingField("agent"))?;
+        let agent_id = optional_json_string(&Value::Object(agent.clone()), "id")
+            .ok_or(ThreadControlAgentStateUpdateError::MissingField("agent.id"))?;
+        let control_kind = normalized_thread_control_kind(request.control_kind.as_str())?;
+        let controls = object_value(&request.controls)
+            .ok_or(ThreadControlAgentStateUpdateError::MissingField("controls"))?;
+        let updated_at = optional_trimmed(request.updated_at.as_deref())
+            .or_else(|| optional_trimmed(request.workspace_trust_warning_created_at.as_deref()))
+            .unwrap_or_else(|| request.created_at.clone());
+
+        if control_kind != "mode" {
+            let model_route = request.model_route.as_ref().and_then(object_value).ok_or(
+                ThreadControlAgentStateUpdateError::MissingField("model_route"),
+            )?;
+            let model_route_value = Value::Object(model_route.clone());
+            let selected_model = optional_json_string(&model_route_value, "selectedModel").ok_or(
+                ThreadControlAgentStateUpdateError::MissingField("model_route.selectedModel"),
+            )?;
+            let requested_model_id = optional_json_string(&model_route_value, "requestedModelId")
+                .ok_or(ThreadControlAgentStateUpdateError::MissingField(
+                "model_route.requestedModelId",
+            ))?;
+            let route_id = optional_json_string(&model_route_value, "routeId").ok_or(
+                ThreadControlAgentStateUpdateError::MissingField("model_route.routeId"),
+            )?;
+
+            agent.insert("modelId".to_string(), Value::String(selected_model));
+            agent.insert(
+                "requestedModelId".to_string(),
+                Value::String(requested_model_id),
+            );
+            agent.insert("modelRouteId".to_string(), Value::String(route_id));
+            insert_optional_string_field(
+                &mut agent,
+                "modelRouteEndpointId",
+                optional_json_string(&model_route_value, "endpointId"),
+            );
+            insert_optional_string_field(
+                &mut agent,
+                "modelRouteProviderId",
+                optional_json_string(&model_route_value, "providerId"),
+            );
+            insert_optional_string_field(
+                &mut agent,
+                "modelRouteReceiptId",
+                optional_json_string(&model_route_value, "receiptId"),
+            );
+            agent.insert(
+                "modelRouteDecision".to_string(),
+                model_route.get("decision").cloned().unwrap_or(Value::Null),
+            );
+        }
+
+        agent.insert("runtimeControls".to_string(), Value::Object(controls));
+        agent.insert("updatedAt".to_string(), Value::String(updated_at.clone()));
+        let control = json!({
+            "controlKind": control_kind,
+            "eventId": request.event_id,
+            "seq": request.seq,
+            "createdAt": request.created_at,
+            "workspaceTrustWarningEventId": request.workspace_trust_warning_event_id,
+        });
+
+        Ok(ThreadControlAgentStateUpdateRecord {
+            schema_version: THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_thread_control_agent_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: format!("thread.{control_kind}"),
+            thread_id: request.thread_id.clone(),
+            agent_id,
+            updated_at,
+            control,
+            agent: Value::Object(agent),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
 impl CompactionPolicyRequest {
     pub fn validate(&self) -> Result<(), CompactionPolicyError> {
         if self.schema_version != COMPACTION_POLICY_REQUEST_SCHEMA_VERSION {
@@ -2089,6 +2225,46 @@ impl RunCancelStateUpdateRequest {
         }
         if optional_trimmed(Some(self.canceled_at.as_str())).is_none() {
             return Err(RunCancelStateUpdateError::MissingField("canceled_at"));
+        }
+        Ok(())
+    }
+}
+
+impl ThreadControlAgentStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), ThreadControlAgentStateUpdateError> {
+        if self.schema_version != THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(ThreadControlAgentStateUpdateError::InvalidSchemaVersion {
+                expected: THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(ThreadControlAgentStateUpdateError::MissingField(
+                "thread_id",
+            ));
+        }
+        if !self.agent.is_object() {
+            return Err(ThreadControlAgentStateUpdateError::MissingField("agent"));
+        }
+        if !self.controls.is_object() {
+            return Err(ThreadControlAgentStateUpdateError::MissingField("controls"));
+        }
+        let control_kind = normalized_thread_control_kind(self.control_kind.as_str())?;
+        if optional_trimmed(Some(self.event_id.as_str())).is_none() {
+            return Err(ThreadControlAgentStateUpdateError::MissingField("event_id"));
+        }
+        if self.seq == 0 {
+            return Err(ThreadControlAgentStateUpdateError::MissingField("seq"));
+        }
+        if optional_trimmed(Some(self.created_at.as_str())).is_none() {
+            return Err(ThreadControlAgentStateUpdateError::MissingField(
+                "created_at",
+            ));
+        }
+        if control_kind != "mode" && self.model_route.as_ref().and_then(object_value).is_none() {
+            return Err(ThreadControlAgentStateUpdateError::MissingField(
+                "model_route",
+            ));
         }
         Ok(())
     }
@@ -2331,6 +2507,34 @@ fn context_compaction_state_target_kind(value: Option<&str>, run: Option<&Value>
 
 fn object_value(value: &Value) -> Option<serde_json::Map<String, Value>> {
     value.as_object().cloned()
+}
+
+fn insert_optional_string_field(
+    target: &mut serde_json::Map<String, Value>,
+    key: &str,
+    value: Option<String>,
+) {
+    target.insert(
+        key.to_string(),
+        value.map(Value::String).unwrap_or(Value::Null),
+    );
+}
+
+fn normalized_thread_control_kind(
+    value: &str,
+) -> Result<String, ThreadControlAgentStateUpdateError> {
+    match optional_trimmed(Some(value))
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "mode" => Ok("mode".to_string()),
+        "model" => Ok("model".to_string()),
+        "thinking" => Ok("thinking".to_string()),
+        other => Err(ThreadControlAgentStateUpdateError::UnsupportedControlKind(
+            other.to_string(),
+        )),
+    }
 }
 
 fn append_operator_control(existing: Option<&Value>, control: &Value) -> Value {
@@ -3217,6 +3421,60 @@ mod tests {
         }
     }
 
+    fn thread_control_agent_state_update_request(
+        control_kind: &str,
+    ) -> ThreadControlAgentStateUpdateRequest {
+        ThreadControlAgentStateUpdateRequest {
+            schema_version: THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: "thread_1".to_string(),
+            agent: json!({
+                "id": "agent_1",
+                "cwd": "/workspace",
+                "modelId": "previous-model",
+                "runtimeControls": {
+                    "mode": "agent",
+                    "approvalMode": "suggest",
+                    "model": {
+                        "id": "auto",
+                        "routeId": "route.local-first"
+                    }
+                }
+            }),
+            control_kind: control_kind.to_string(),
+            controls: json!({
+                "mode": "review",
+                "approvalMode": "human_required",
+                "model": {
+                    "id": "auto",
+                    "routeId": "route.local-first",
+                    "selectedModel": "local-model",
+                    "endpointId": "endpoint_1",
+                    "providerId": "provider_1",
+                    "receiptId": "receipt_route_1"
+                },
+                "updatedAt": "2026-06-06T05:00:00.000Z"
+            }),
+            event_id: "evt_thread_control".to_string(),
+            seq: 7,
+            created_at: "2026-06-06T05:00:00.000Z".to_string(),
+            updated_at: None,
+            workspace_trust_warning_event_id: None,
+            workspace_trust_warning_created_at: None,
+            model_route: Some(json!({
+                "requestedModelId": "auto",
+                "selectedModel": "local-model",
+                "routeId": "route.local-first",
+                "endpointId": "endpoint_1",
+                "providerId": "provider_1",
+                "receiptId": "receipt_route_1",
+                "decision": {
+                    "routeId": "route.local-first",
+                    "workflowNodeId": "runtime.model-router.custom"
+                }
+            })),
+        }
+    }
+
     #[test]
     fn rust_policy_blocks_context_budget_excess() {
         let mut request = budget_request();
@@ -3681,6 +3939,62 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_plans_thread_mode_agent_state_update() {
+        let mut request = thread_control_agent_state_update_request("mode");
+        request.model_route = None;
+        request.workspace_trust_warning_event_id = Some("evt_workspace_warning".to_string());
+        request.workspace_trust_warning_created_at = Some("2026-06-06T05:00:01.000Z".to_string());
+
+        let record = ThreadControlAgentStateUpdateCore
+            .plan(&request)
+            .expect("thread mode agent state update");
+
+        assert_eq!(
+            record.schema_version,
+            THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "thread.mode");
+        assert_eq!(record.thread_id, "thread_1");
+        assert_eq!(record.agent_id, "agent_1");
+        assert_eq!(record.updated_at, "2026-06-06T05:00:01.000Z");
+        assert_eq!(record.control["controlKind"], "mode");
+        assert_eq!(
+            record.control["workspaceTrustWarningEventId"],
+            "evt_workspace_warning"
+        );
+        assert_eq!(record.agent["runtimeControls"]["mode"], "review");
+        assert_eq!(record.agent["updatedAt"], "2026-06-06T05:00:01.000Z");
+        assert_eq!(record.agent["modelId"], "previous-model");
+    }
+
+    #[test]
+    fn rust_policy_plans_thread_model_agent_state_update() {
+        let request = thread_control_agent_state_update_request("thinking");
+
+        let record = ThreadControlAgentStateUpdateCore
+            .plan(&request)
+            .expect("thread model agent state update");
+
+        assert_eq!(record.operation_kind, "thread.thinking");
+        assert_eq!(record.updated_at, "2026-06-06T05:00:00.000Z");
+        assert_eq!(
+            record.agent["runtimeControls"]["model"]["selectedModel"],
+            "local-model"
+        );
+        assert_eq!(record.agent["modelId"], "local-model");
+        assert_eq!(record.agent["requestedModelId"], "auto");
+        assert_eq!(record.agent["modelRouteId"], "route.local-first");
+        assert_eq!(record.agent["modelRouteEndpointId"], "endpoint_1");
+        assert_eq!(record.agent["modelRouteProviderId"], "provider_1");
+        assert_eq!(record.agent["modelRouteReceiptId"], "receipt_route_1");
+        assert_eq!(
+            record.agent["modelRouteDecision"]["workflowNodeId"],
+            "runtime.model-router.custom"
+        );
+    }
+
+    #[test]
     fn rust_policy_rejects_invalid_context_compaction_plan_schema() {
         let mut request = context_compaction_plan_request();
         request.schema_version = "legacy.schema".to_string();
@@ -3801,6 +4115,24 @@ mod tests {
             error,
             RunCancelStateUpdateError::InvalidSchemaVersion {
                 expected: RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_thread_control_agent_state_update_schema() {
+        let mut request = thread_control_agent_state_update_request("mode");
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = ThreadControlAgentStateUpdateCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            ThreadControlAgentStateUpdateError::InvalidSchemaVersion {
+                expected: THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );

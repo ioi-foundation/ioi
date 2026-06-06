@@ -1352,6 +1352,51 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "thread-control-agent-state-update-live-bridge",
+    /ThreadControlAgentStateUpdateCore/.test(policyCore) &&
+      /ThreadControlAgentStateUpdateRequest/.test(policyCore) &&
+      /THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_thread_mode_agent_state_update/.test(policyCore) &&
+      /rust_policy_plans_thread_model_agent_state_update/.test(policyCore) &&
+      /plan_thread_control_agent_state_update/.test(bridgeModule) &&
+      /ThreadControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_thread_control_agent_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_thread_control_agent_state_update_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /planThreadControlAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /thread control agent state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+      /contextPolicyRunnerDep\.planThreadControlAgentStateUpdate/.test(
+        runtimeThreadControlSurface,
+      ) &&
+      !/modelId:\s*modelRoute\.selectedModel|runtimeControls:\s*nextControls/.test(
+        runtimeThreadControlSurface,
+      ) &&
+      /thread control surface updates mode controls through Rust planner/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /thread control surface updates model controls through route selection and Rust planner/.test(
+        runtimeThreadControlSurfaceTest,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 9/10 is pending: thread-control agent state updates must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
     "compaction-policy-live-bridge",
     /CompactionPolicyCore/.test(policyCore) &&
       /CompactionPolicyRequest/.test(policyCore) &&

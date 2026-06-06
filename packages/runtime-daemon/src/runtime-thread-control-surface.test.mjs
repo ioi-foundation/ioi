@@ -72,8 +72,33 @@ function createStore() {
   return store;
 }
 
-function createSurface() {
+function createSurface(plannerCalls = []) {
   return createRuntimeThreadControlSurface({
+    contextPolicyRunner: {
+      planThreadControlAgentStateUpdate(request = {}) {
+        plannerCalls.push(request);
+        const agent = {
+          ...request.agent,
+          runtimeControls: request.controls,
+          updatedAt: request.updated_at,
+        };
+        if (request.model_route) {
+          agent.modelId = request.model_route.selectedModel;
+          agent.requestedModelId = request.model_route.requestedModelId;
+          agent.modelRouteId = request.model_route.routeId;
+          agent.modelRouteEndpointId = request.model_route.endpointId;
+          agent.modelRouteProviderId = request.model_route.providerId;
+          agent.modelRouteReceiptId = request.model_route.receiptId;
+          agent.modelRouteDecision = request.model_route.decision;
+        }
+        return {
+          status: "planned",
+          operation_kind: `thread.${request.control_kind}`,
+          updated_at: request.updated_at,
+          agent,
+        };
+      },
+    },
     nowIso: () => "2026-06-04T12:00:00.000Z",
     workspaceTrustState: {
       appendWorkspaceTrustWarningEvent(store, input) {
@@ -121,9 +146,10 @@ function createSurface() {
   });
 }
 
-test("thread control surface updates mode controls and emits workspace trust warning", () => {
+test("thread control surface updates mode controls through Rust planner and emits workspace trust warning", () => {
   const store = createStore();
-  const surface = createSurface();
+  const plannerCalls = [];
+  const surface = createSurface(plannerCalls);
 
   const result = surface.updateThreadMode(store, "thread_1", {
     mode: "review",
@@ -143,11 +169,18 @@ test("thread control surface updates mode controls and emits workspace trust war
   assert.equal(store.events[1].event_kind, "workspace.trust_warning");
   assert.equal(store.agents.get("agent_1").runtimeControls.mode, "review");
   assert.equal(store.writes[0].operationKind, "thread.mode");
+  assert.equal(plannerCalls.length, 1);
+  assert.equal(plannerCalls[0].control_kind, "mode");
+  assert.equal(plannerCalls[0].thread_id, "thread_1");
+  assert.equal(plannerCalls[0].event_id, "evt_1");
+  assert.equal(plannerCalls[0].workspace_trust_warning_event_id, "evt_2");
+  assert.equal(plannerCalls[0].controls.mode, "review");
 });
 
-test("thread control surface updates model controls through route selection", () => {
+test("thread control surface updates model controls through route selection and Rust planner", () => {
   const store = createStore();
-  const surface = createSurface();
+  const plannerCalls = [];
+  const surface = createSurface(plannerCalls);
 
   const result = surface.updateThreadThinking(store, "thread_1", {
     thinking: "off",
@@ -173,6 +206,10 @@ test("thread control surface updates model controls through route selection", ()
   assert.equal(store.routeRequests[0].context.evidenceRefs[0], "runtime_thread_thinking_control");
   assert.equal(store.agents.get("agent_1").modelRouteReceiptId, "receipt_route_1");
   assert.equal(store.writes[0].operationKind, "thread.thinking");
+  assert.equal(plannerCalls.length, 1);
+  assert.equal(plannerCalls[0].control_kind, "thinking");
+  assert.equal(plannerCalls[0].model_route.receiptId, "receipt_route_1");
+  assert.equal(plannerCalls[0].controls.model.selectedModel, "local-model");
 });
 
 test("thread control surface delegates workspace trust acknowledgement", () => {
