@@ -7565,6 +7565,14 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs")
     : "";
+  const runtimeMcpControlSurface = exists("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
+    : "";
+  const runtimeMcpControlSurfaceTest = exists(
+    "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs")
+    : "";
   const runtimeMcpGetToolFromCatalogBlock =
     runtimeMcpCatalogSurface.match(
       /async getMcpToolFromCatalog\(store, toolId, request = \{\}\) \{[\s\S]*?\n    \},\n    async searchMcpToolCatalog/,
@@ -7692,6 +7700,12 @@ function runCompositor() {
     "";
   const runtimeMcpSdkToolSearchInputBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpToolSearchInput[\s\S]*?\n}\n/)?.[0] ??
+    "";
+  const runtimeMcpSdkServerControlInputBlock =
+    agentSdkSubstrateClient.match(/export interface RuntimeMcpServerControlInput[\s\S]*?\n}\n/)?.[0] ??
+    "";
+  const runtimeMcpSdkToolInvokeInputBlock =
+    agentSdkSubstrateClient.match(/export interface RuntimeMcpToolInvokeInput[\s\S]*?\n}\n/)?.[0] ??
     "";
   const agentSdkTesting = exists("packages/agent-sdk/src/testing.ts")
     ? read("packages/agent-sdk/src/testing.ts")
@@ -10245,6 +10259,31 @@ function runCompositor() {
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP tool search/fetch requests must use canonical snake_case fields without camelCase compatibility aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-control-thread-request-alias-retired",
+    /input\.thread_id/.test(runtimeMcpControlSurface) &&
+      /request\.thread_id/.test(runtimeMcpControlSurface) &&
+      /threadId: "thread-retired"/.test(runtimeMcpControlSurfaceTest) &&
+      /surface\.importMcp\(store, \{ threadId: "thread-agent-one"/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /surface\.invokeMcpTool\(store, \{\s*threadId: "thread-agent-one"/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /^\s*thread_id\?: string;/m.test(runtimeMcpSdkServerControlInputBlock) &&
+      /^\s*thread_id\?: string;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
+      !/(?:input|request)\.threadId\b/.test(runtimeMcpControlSurface) &&
+      !/^\s*threadId\?:/m.test(
+        `${runtimeMcpSdkServerControlInputBlock}\n${runtimeMcpSdkToolInvokeInputBlock}`,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP control/invoke requests must use canonical thread_id without the retired threadId compatibility alias",
   );
   assertCheck(
     result,

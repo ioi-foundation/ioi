@@ -711,7 +711,6 @@ export interface RuntimeMcpValidationInput {
 }
 
 export interface RuntimeMcpServerControlInput extends RuntimeMcpValidationInput {
-  threadId?: string;
   thread_id?: string;
   serverId?: string;
   server_id?: string;
@@ -735,7 +734,6 @@ export interface RuntimeMcpServerMutationInput extends RuntimeMcpServerControlIn
 }
 
 export interface RuntimeMcpToolInvokeInput extends RuntimeMcpValidationInput {
-  threadId?: string;
   thread_id?: string;
   serverId?: string;
   server_id?: string;

@@ -185,9 +185,14 @@ test("runtime MCP control surface applies add, remove, and blocked mutation enve
     () => surface.importMcp(store, {}),
     (error) => error.status === 400 && error.code === "mcp_thread_required",
   );
+  assert.throws(
+    () => surface.importMcp(store, { threadId: "thread-agent-one", servers: [] }),
+    (error) => error.status === 400 && error.code === "mcp_thread_required",
+  );
 
   const added = surface.addMcpServer(store, {
     thread_id: "thread-agent-one",
+    threadId: "thread-retired",
     id: "mcp.extra",
     tools: [{ name: "extra" }],
   });
@@ -304,4 +309,40 @@ test("runtime MCP control surface invokes tools with receipt-backed policy outco
     "mcp_invoke",
     "mcp_invoke",
   ]);
+});
+
+test("runtime MCP control surface ignores retired threadId request alias", async () => {
+  const { store, surface } = harness();
+
+  assert.throws(
+    () =>
+      surface.addMcpServer(store, {
+        threadId: "thread-agent-one",
+        id: "mcp.retired",
+        tools: [{ name: "retired" }],
+      }),
+    (error) => error.status === 400 && error.code === "mcp_thread_required",
+  );
+  assert.throws(
+    () => surface.setMcpServerEnabled(store, "mcp.docs", false, { threadId: "thread-agent-one" }),
+    (error) => error.status === 400 && error.code === "mcp_thread_required",
+  );
+
+  await assert.rejects(
+    () =>
+      surface.invokeMcpTool(store, {
+        threadId: "thread-agent-one",
+        tool_id: "mcp.docs.search",
+      }),
+    (error) => error.status === 400 && error.code === "mcp_thread_required",
+  );
+
+  const invoked = await surface.invokeMcpTool(store, {
+    thread_id: "thread-agent-one",
+    threadId: "thread-retired",
+    tool_id: "mcp.docs.search",
+    input: { q: "canonical" },
+  });
+  assert.equal(invoked.status, "completed");
+  assert.equal(invoked.thread_id, "thread-agent-one");
 });

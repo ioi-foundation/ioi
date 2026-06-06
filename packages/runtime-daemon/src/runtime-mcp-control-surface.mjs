@@ -80,7 +80,7 @@ export function createRuntimeMcpControlSurface({
 } = {}) {
   return {
     importMcp(store, input = {}) {
-      const threadId = optionalStringDep(input.thread_id ?? input.threadId);
+      const threadId = optionalStringDep(input.thread_id);
       if (!threadId) {
         throw runtimeErrorDep({
           status: 400,
@@ -91,7 +91,7 @@ export function createRuntimeMcpControlSurface({
       return this.importThreadMcp(store, threadId, input);
     },
     addMcpServer(store, input = {}) {
-      const threadId = optionalStringDep(input.thread_id ?? input.threadId);
+      const threadId = optionalStringDep(input.thread_id);
       if (!threadId) {
         throw runtimeErrorDep({
           status: 400,
@@ -151,7 +151,7 @@ export function createRuntimeMcpControlSurface({
       };
     },
     removeMcpServer(store, serverId, input = {}) {
-      const threadId = optionalStringDep(input.thread_id ?? input.threadId);
+      const threadId = optionalStringDep(input.thread_id);
       if (!threadId) {
         throw runtimeErrorDep({
           status: 400,
@@ -452,7 +452,7 @@ export function createRuntimeMcpControlSurface({
       };
     },
     setMcpServerEnabled(store, serverId, enabled, request = {}) {
-      const threadId = optionalStringDep(request.thread_id ?? request.threadId);
+      const threadId = optionalStringDep(request.thread_id);
       if (!threadId) {
         throw runtimeErrorDep({
           status: 400,
@@ -531,7 +531,7 @@ export function createRuntimeMcpControlSurface({
       });
     },
     async invokeMcpTool(store, request = {}) {
-      const threadId = optionalStringDep(request.thread_id ?? request.threadId);
+      const threadId = optionalStringDep(request.thread_id);
       if (!threadId) {
         throw runtimeErrorDep({
           status: 400,

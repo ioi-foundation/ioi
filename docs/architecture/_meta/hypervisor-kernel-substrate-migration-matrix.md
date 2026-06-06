@@ -12443,6 +12443,12 @@ and snake_case preview-limit request fields only; retired camelCase
 `toolId`, `serverId`, `liveDiscovery`, and `catalogPreviewLimit` request
 fields are ignored and no longer advertised by SDK tool-search inputs.
 
+Slice 393 removes the MCP control thread request alias:
+runtime MCP import/add/remove/invoke request entry points and SDK MCP
+control/invoke request types now require canonical `thread_id`; retired
+camelCase `threadId` request fields no longer route MCP registry mutations or
+tool invocations and are absent from the SDK control/invoke input types.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
