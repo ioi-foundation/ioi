@@ -490,8 +490,8 @@ test("Rust model_mount admission runner sends native-local provider lifecycle br
               evidence_refs: ["rust_model_mount_provider_lifecycle"],
             },
             status: "loaded",
-            backendId: "backend.autopilot.native-local.fixture",
-            providerBackend: "autopilot.native_local.fixture",
+            backend_id: "backend.autopilot.native-local.fixture",
+            provider_backend: "autopilot.native_local.fixture",
             driver: "native_local",
             execution_backend: "rust_model_mount_native_local_lifecycle",
             lifecycle_hash: "sha256:lifecycle",
@@ -515,6 +515,8 @@ test("Rust model_mount admission runner sends native-local provider lifecycle br
   assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
   assert.equal(result.executionBackend, "rust_model_mount_native_local_lifecycle");
   assert.equal(result.lifecycle_hash, "sha256:lifecycle");
+  assert.equal(Object.hasOwn(result.result, "providerBackend"), false);
+  assert.equal(Object.hasOwn(result.result, "backendId"), false);
 });
 
 test("Rust model_mount admission runner sends local provider inventory bridge request", () => {
@@ -542,12 +544,12 @@ test("Rust model_mount admission runner sends local provider inventory bridge re
               evidence_refs: ["rust_model_mount_provider_inventory"],
             },
             status: "listed",
-            backendId: "backend.autopilot.native-local.fixture",
-            providerBackend: "autopilot.native_local.fixture",
+            backend_id: "backend.autopilot.native-local.fixture",
+            provider_backend: "autopilot.native_local.fixture",
             driver: "native_local",
             execution_backend: "rust_model_mount_native_local_inventory",
-            itemRefs: ["model_instance://native/qwen3"],
-            itemCount: 1,
+            item_refs: ["model_instance://native/qwen3"],
+            item_count: 1,
             inventory_hash: "sha256:inventory",
             evidence_refs: ["rust_model_mount_provider_inventory"],
           },
@@ -571,6 +573,10 @@ test("Rust model_mount admission runner sends local provider inventory bridge re
   assert.deepEqual(result.itemRefs, ["model_instance://native/qwen3"]);
   assert.equal(result.itemCount, 1);
   assert.equal(result.inventory_hash, "sha256:inventory");
+  assert.equal(Object.hasOwn(result.result, "providerBackend"), false);
+  assert.equal(Object.hasOwn(result.result, "backendId"), false);
+  assert.equal(Object.hasOwn(result.result, "itemRefs"), false);
+  assert.equal(Object.hasOwn(result.result, "itemCount"), false);
 });
 
 test("Rust model_mount admission runner sends model instance lifecycle bridge request", () => {

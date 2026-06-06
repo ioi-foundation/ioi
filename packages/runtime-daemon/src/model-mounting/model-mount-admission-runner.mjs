@@ -308,8 +308,8 @@ function normalizeProviderLifecycleBridgeResult(value = {}) {
     backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND,
     result: record,
     status: result.status ?? record.status ?? null,
-    backendId: result.backendId ?? result.backend_id ?? record.backend_id ?? null,
-    providerBackend: result.providerBackend ?? result.provider_backend ?? record.backend ?? null,
+    backendId: result.backend_id ?? record.backend_id ?? null,
+    providerBackend: result.provider_backend ?? record.backend ?? null,
     driver: result.driver ?? record.driver ?? null,
     executionBackend: result.execution_backend ?? record.execution_backend ?? null,
     lifecycle_hash: result.lifecycle_hash ?? record.lifecycle_hash ?? null,
@@ -321,9 +321,7 @@ function normalizeProviderLifecycleBridgeResult(value = {}) {
 function normalizeProviderInventoryBridgeResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const record = result.result && typeof result.result === "object" ? result.result : {};
-  const itemRefs = Array.isArray(result.itemRefs)
-    ? result.itemRefs
-    : Array.isArray(result.item_refs)
+  const itemRefs = Array.isArray(result.item_refs)
       ? result.item_refs
       : Array.isArray(record.item_refs)
         ? record.item_refs
@@ -333,12 +331,12 @@ function normalizeProviderInventoryBridgeResult(value = {}) {
     backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
     result: record,
     status: result.status ?? record.status ?? null,
-    backendId: result.backendId ?? result.backend_id ?? record.backend_id ?? null,
-    providerBackend: result.providerBackend ?? result.provider_backend ?? record.backend ?? null,
+    backendId: result.backend_id ?? record.backend_id ?? null,
+    providerBackend: result.provider_backend ?? record.backend ?? null,
     driver: result.driver ?? record.driver ?? null,
     executionBackend: result.execution_backend ?? record.execution_backend ?? null,
     itemRefs,
-    itemCount: result.itemCount ?? result.item_count ?? record.item_count ?? itemRefs.length,
+    itemCount: result.item_count ?? record.item_count ?? itemRefs.length,
     inventory_hash: result.inventory_hash ?? record.inventory_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
     backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],

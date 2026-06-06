@@ -12691,6 +12691,13 @@ the Rust model_mount provider-result admission command now returns canonical
 runner no longer accepts retired `providerResultRef` / `providerResultHash`
 bridge fallbacks when normalizing Rust admission output.
 
+Slice 427 removes provider lifecycle/inventory bridge aliases:
+the Rust model_mount provider lifecycle and inventory commands now return
+canonical `backend_id`, `provider_backend`, `item_refs`, and `item_count` bridge
+fields only, and the daemon admission runner no longer accepts retired
+`backendId`, `providerBackend`, `itemRefs`, or `itemCount` bridge fallbacks
+while normalizing Rust lifecycle and inventory output.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

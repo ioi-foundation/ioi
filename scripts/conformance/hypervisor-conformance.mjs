@@ -3783,9 +3783,24 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-native-local-lifecycle-live-bridge",
-    /plan_model_mount_provider_lifecycle/.test(bridgeModule) &&
+    (() => {
+      const providerLifecycleBridgeBlock =
+        bridgeModule.match(/fn plan_model_mount_provider_lifecycle[\s\S]*?(?=\nfn plan_model_mount_provider_inventory)/)?.[0] ?? "";
+      const providerLifecycleRunnerBlock =
+        modelMountAdmissionRunner.match(/function normalizeProviderLifecycleBridgeResult[\s\S]*?(?=\n\nfunction normalizeProviderInventoryBridgeResult)/)?.[0] ?? "";
+      return /plan_model_mount_provider_lifecycle/.test(bridgeModule) &&
       /ModelMountProviderLifecycleRequest/.test(bridgeModule) &&
       /bridge_plans_native_local_model_mount_provider_lifecycle_through_rust_core/.test(bridgeModule) &&
+      /"backend_id":\s*backend_id/.test(providerLifecycleBridgeBlock) &&
+      /"provider_backend":\s*backend/.test(providerLifecycleBridgeBlock) &&
+      !/"(?:backendId|providerBackend)":/.test(providerLifecycleBridgeBlock) &&
+      /backendId:\s*result\.backend_id \?\? record\.backend_id \?\? null/.test(
+        providerLifecycleRunnerBlock,
+      ) &&
+      /providerBackend:\s*result\.provider_backend \?\? record\.backend \?\? null/.test(
+        providerLifecycleRunnerBlock,
+      ) &&
+      !/result\.(?:backendId|providerBackend)\b/.test(providerLifecycleRunnerBlock) &&
       /planProviderLifecycle/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_provider_lifecycle_command/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND/.test(modelMountAdmissionRunner) &&
@@ -3803,7 +3818,8 @@ function runBridge() {
       /model_mount_fixture_provider_lifecycle_planning_required/.test(providerLocalDrivers) &&
       /plans health through Rust model_mount/.test(read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs")) &&
       /fixture provider driver plans health and lifecycle through Rust model_mount/.test(read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs")) &&
-      /rust_model_mount_provider_lifecycle/.test(read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs")),
+      /rust_model_mount_provider_lifecycle/.test(read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs"));
+    })(),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
@@ -3816,9 +3832,32 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-local-provider-inventory-live-bridge",
-    /plan_model_mount_provider_inventory/.test(bridgeModule) &&
+    (() => {
+      const providerInventoryBridgeBlock =
+        bridgeModule.match(/fn plan_model_mount_provider_inventory[\s\S]*?(?=\nfn plan_model_mount_instance_lifecycle)/)?.[0] ?? "";
+      const providerInventoryRunnerBlock =
+        modelMountAdmissionRunner.match(/function normalizeProviderInventoryBridgeResult[\s\S]*?(?=\n\nfunction normalizeInstanceLifecycleBridgeResult)/)?.[0] ?? "";
+      return /plan_model_mount_provider_inventory/.test(bridgeModule) &&
       /ModelMountProviderInventoryRequest/.test(bridgeModule) &&
       /bridge_plans_local_model_mount_provider_inventory_through_rust_core/.test(bridgeModule) &&
+      /"backend_id":\s*backend_id/.test(providerInventoryBridgeBlock) &&
+      /"provider_backend":\s*backend/.test(providerInventoryBridgeBlock) &&
+      /"item_refs":\s*item_refs/.test(providerInventoryBridgeBlock) &&
+      /"item_count":\s*item_count/.test(providerInventoryBridgeBlock) &&
+      !/"(?:backendId|providerBackend|itemRefs|itemCount)":/.test(providerInventoryBridgeBlock) &&
+      /const itemRefs = Array\.isArray\(result\.item_refs\)/.test(
+        providerInventoryRunnerBlock,
+      ) &&
+      /backendId:\s*result\.backend_id \?\? record\.backend_id \?\? null/.test(
+        providerInventoryRunnerBlock,
+      ) &&
+      /providerBackend:\s*result\.provider_backend \?\? record\.backend \?\? null/.test(
+        providerInventoryRunnerBlock,
+      ) &&
+      /itemCount:\s*result\.item_count \?\? record\.item_count \?\? itemRefs\.length/.test(
+        providerInventoryRunnerBlock,
+      ) &&
+      !/result\.(?:backendId|providerBackend|itemRefs|itemCount)\b/.test(providerInventoryRunnerBlock) &&
       /planProviderInventory/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_provider_inventory_command/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(modelMountAdmissionRunner) &&
@@ -3841,7 +3880,8 @@ function runBridge() {
       ) &&
       /rust_model_mount_provider_inventory/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs"),
-      ),
+      );
+    })(),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",

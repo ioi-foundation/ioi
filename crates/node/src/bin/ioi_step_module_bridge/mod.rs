@@ -1123,9 +1123,7 @@ fn plan_model_mount_provider_lifecycle(
         "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
         "result": result,
         "status": status,
-        "backendId": backend_id.clone(),
         "backend_id": backend_id,
-        "providerBackend": backend.clone(),
         "provider_backend": backend,
         "driver": driver,
         "execution_backend": execution_backend,
@@ -1174,15 +1172,11 @@ fn plan_model_mount_provider_inventory(
         "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
         "result": result,
         "status": status,
-        "backendId": backend_id.clone(),
         "backend_id": backend_id,
-        "providerBackend": backend.clone(),
         "provider_backend": backend,
         "driver": driver,
         "execution_backend": execution_backend,
-        "itemRefs": item_refs.clone(),
         "item_refs": item_refs,
-        "itemCount": item_count,
         "item_count": item_count,
         "inventory_hash": inventory_hash,
         "evidence_refs": evidence_refs,
@@ -5752,13 +5746,15 @@ mod tests {
         );
         assert_eq!(response["status"], "loaded");
         assert_eq!(
-            response["backendId"],
+            response["backend_id"],
             "backend.autopilot.native-local.fixture"
         );
         assert_eq!(
-            response["providerBackend"],
+            response["provider_backend"],
             "autopilot.native_local.fixture"
         );
+        assert!(response.get("backendId").is_none());
+        assert!(response.get("providerBackend").is_none());
         assert_eq!(response["driver"], "native_local");
         assert!(response["lifecycle_hash"]
             .as_str()
@@ -5805,15 +5801,19 @@ mod tests {
         );
         assert_eq!(response["status"], "listed");
         assert_eq!(
-            response["backendId"],
+            response["backend_id"],
             "backend.autopilot.native-local.fixture"
         );
         assert_eq!(
-            response["providerBackend"],
+            response["provider_backend"],
             "autopilot.native_local.fixture"
         );
         assert_eq!(response["driver"], "native_local");
-        assert_eq!(response["itemCount"], 1);
+        assert_eq!(response["item_count"], 1);
+        assert!(response.get("backendId").is_none());
+        assert!(response.get("providerBackend").is_none());
+        assert!(response.get("itemRefs").is_none());
+        assert!(response.get("itemCount").is_none());
         assert!(response["inventory_hash"]
             .as_str()
             .expect("inventory hash")
