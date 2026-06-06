@@ -18,6 +18,26 @@ function settlementAttempt() {
   };
 }
 
+const retiredL1SettlementRequestAliases = [
+  "eventKind",
+  "componentKind",
+  "payloadSchemaVersion",
+  "workflowGraphId",
+  "workflowNodeId",
+  "settlementRef",
+  "domainRef",
+  "stateRootRef",
+  "triggerRefs",
+  "receiptRefs",
+  "admissionOnly",
+  "directTruthWriteAllowed",
+  "mutationAllowed",
+  "defaultRuntimeSettlementAllowed",
+  "settlementTriggerCheckedByRust",
+  "settlement_attempt",
+  "settlementAttempt",
+];
+
 test("builds L1 settlement controls for daemon admission", () => {
   const request = createRuntimeL1SettlementControlRequest({
     nodeId: "node-l1-settlement",
@@ -42,6 +62,9 @@ test("builds L1 settlement controls for daemon admission", () => {
   assert.equal(request.body.direct_truth_write_allowed, false);
   assert.equal(request.body.default_runtime_settlement_allowed, false);
   assert.equal(request.body.settlement_trigger_checked_by_rust, true);
+  for (const key of retiredL1SettlementRequestAliases) {
+    assert.equal(Object.prototype.hasOwnProperty.call(request.body, key), false, `${key} must not be emitted`);
+  }
   assert.equal(request.endpoint.includes("/apply"), false);
 });
 
@@ -65,7 +88,7 @@ test("builds L1 settlement controls from workflow nodes", () => {
   assert.equal(request.body.actor, "runtime-composer");
   assert.equal(request.body.workflow_graph_id, "workflow.l1-node");
   assert.equal(request.body.workflow_node_id, "runtime.l1-settlement-attempt.l1-settlement-node");
-  assert.equal(request.body.settlementAttempt.settlement_ref, "l1://settlement/marketplace-payment");
+  assert.equal(request.body.attempt.settlement_ref, "l1://settlement/marketplace-payment");
 });
 
 test("L1 settlement controls fail closed without trigger refs", () => {

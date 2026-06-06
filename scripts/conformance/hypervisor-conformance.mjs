@@ -2612,6 +2612,40 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "l1-settlement-admission-request-aliases-retired",
+    /RETIRED_L1_SETTLEMENT_REQUEST_ALIASES/.test(l1SettlementSurface) &&
+      /CANONICAL_L1_SETTLEMENT_REQUEST_FIELDS/.test(l1SettlementSurface) &&
+      /l1_settlement_attempt_request_aliases_retired/.test(l1SettlementSurface) &&
+      /assertCanonicalL1SettlementRequestBody\(body\);[\s\S]*objectRecord\(body\.attempt\)/.test(
+        l1SettlementSurface,
+      ) &&
+      !/body\.(?:settlementAttempt|settlement_attempt)\b/.test(l1SettlementSurface) &&
+      /L1 settlement surface rejects retired request aliases before agent lookup or Rust runner/.test(
+        l1SettlementSurfaceTest,
+      ) &&
+      /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(l1SettlementSurfaceTest) &&
+      /retiredL1SettlementRequestAliases/.test(l1SettlementControlNodesTest) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*key\)/.test(
+        l1SettlementControlNodesTest,
+      ) &&
+      !/^\s*settlement_attempt:\s*RuntimeL1SettlementAttempt;/m.test(
+        l1SettlementControlNodes,
+      ) &&
+      !/^\s*settlementAttempt:\s*RuntimeL1SettlementAttempt;/m.test(
+        l1SettlementControlNodes,
+      ) &&
+      !/settlement_attempt:\s*attempt/.test(l1SettlementControlNodes) &&
+      !/settlementAttempt:\s*attempt/.test(l1SettlementControlNodes),
+    [
+      "packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs",
+      "packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts",
+    ],
+    "Phase 8/11 is pending: L1 settlement admission requests must fail closed on retired attempt wrapper aliases and IDE clients must emit canonical request bodies",
+  );
+  assertCheck(
+    result,
     "l1-settlement-sdk-ide-admission-surface",
     /admitL1SettlementAttempt/.test(agentSdkSubstrateClient) &&
       /RuntimeL1SettlementAttemptAdmissionInput/.test(agentSdkSubstrateClient) &&

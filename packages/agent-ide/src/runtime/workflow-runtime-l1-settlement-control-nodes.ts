@@ -25,38 +25,21 @@ export interface RuntimeL1SettlementControlRequestBody {
   source: typeof RUNTIME_L1_SETTLEMENT_SOURCE;
   actor: string;
   event_kind: typeof RUNTIME_L1_SETTLEMENT_SOURCE_EVENT_KIND;
-  eventKind: typeof RUNTIME_L1_SETTLEMENT_SOURCE_EVENT_KIND;
   component_kind: typeof RUNTIME_L1_SETTLEMENT_COMPONENT_KIND;
-  componentKind: typeof RUNTIME_L1_SETTLEMENT_COMPONENT_KIND;
   payload_schema_version: typeof RUNTIME_L1_SETTLEMENT_ATTEMPT_SCHEMA_VERSION;
-  payloadSchemaVersion: typeof RUNTIME_L1_SETTLEMENT_ATTEMPT_SCHEMA_VERSION;
   workflow_graph_id: string | null;
-  workflowGraphId: string | null;
   workflow_node_id: string;
-  workflowNodeId: string;
   settlement_ref: string;
-  settlementRef: string;
   domain_ref: string;
-  domainRef: string;
   state_root_ref: string;
-  stateRootRef: string;
   trigger_refs: string[];
-  triggerRefs: string[];
   receipt_refs: string[];
-  receiptRefs: string[];
   admission_only: true;
-  admissionOnly: true;
   direct_truth_write_allowed: false;
-  directTruthWriteAllowed: false;
   mutation_allowed: false;
-  mutationAllowed: false;
   default_runtime_settlement_allowed: false;
-  defaultRuntimeSettlementAllowed: false;
   settlement_trigger_checked_by_rust: true;
-  settlementTriggerCheckedByRust: true;
   attempt: RuntimeL1SettlementAttempt;
-  settlement_attempt: RuntimeL1SettlementAttempt;
-  settlementAttempt: RuntimeL1SettlementAttempt;
 }
 
 export interface RuntimeL1SettlementControlRequest {
@@ -174,38 +157,21 @@ export function createRuntimeL1SettlementControlRequest(
       source: RUNTIME_L1_SETTLEMENT_SOURCE,
       actor: cleanString(params.actor) ?? "workflow-author",
       event_kind: RUNTIME_L1_SETTLEMENT_SOURCE_EVENT_KIND,
-      eventKind: RUNTIME_L1_SETTLEMENT_SOURCE_EVENT_KIND,
       component_kind: RUNTIME_L1_SETTLEMENT_COMPONENT_KIND,
-      componentKind: RUNTIME_L1_SETTLEMENT_COMPONENT_KIND,
       payload_schema_version: RUNTIME_L1_SETTLEMENT_ATTEMPT_SCHEMA_VERSION,
-      payloadSchemaVersion: RUNTIME_L1_SETTLEMENT_ATTEMPT_SCHEMA_VERSION,
       workflow_graph_id: workflowGraphId,
-      workflowGraphId,
       workflow_node_id: workflowNodeId,
-      workflowNodeId,
       settlement_ref: settlementRef,
-      settlementRef,
       domain_ref: domainRef,
-      domainRef,
       state_root_ref: stateRootRef,
-      stateRootRef,
       trigger_refs: triggerRefs,
-      triggerRefs,
       receipt_refs: receiptRefs,
-      receiptRefs,
       admission_only: true,
-      admissionOnly: true,
       direct_truth_write_allowed: false,
-      directTruthWriteAllowed: false,
       mutation_allowed: false,
-      mutationAllowed: false,
       default_runtime_settlement_allowed: false,
-      defaultRuntimeSettlementAllowed: false,
       settlement_trigger_checked_by_rust: true,
-      settlementTriggerCheckedByRust: true,
       attempt,
-      settlement_attempt: attempt,
-      settlementAttempt: attempt,
     },
   };
 }

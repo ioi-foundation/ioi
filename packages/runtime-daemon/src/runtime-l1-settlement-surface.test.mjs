@@ -82,6 +82,27 @@ test("L1 settlement surface admits nested attempt through Rust runner", () => {
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "admitAttempt"]);
 });
 
+test("L1 settlement surface rejects retired request aliases before agent lookup or Rust runner", () => {
+  const runtimeStore = store();
+  const surface = createRuntimeL1SettlementSurface();
+
+  assert.throws(
+    () =>
+      surface.admitL1SettlementAttempt(runtimeStore, "thread_surface", {
+        settlement_attempt: settlementAttempt(),
+        settlementAttempt: settlementAttempt(),
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "l1_settlement_attempt_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["settlementAttempt", "settlement_attempt"]);
+      assert.deepEqual(error.details.canonical_fields, ["attempt"]);
+      return true;
+    },
+  );
+  assert.deepEqual(runtimeStore.calls, []);
+});
+
 test("L1 settlement surface exposes only canonical snake_case admission fields", () => {
   const result = createRuntimeL1SettlementSurface().admitL1SettlementAttempt(
     store(),

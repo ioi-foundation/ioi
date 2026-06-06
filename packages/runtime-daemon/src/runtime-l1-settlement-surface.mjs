@@ -4,6 +4,15 @@ import { objectRecord, optionalString } from "./runtime-value-helpers.mjs";
 export const L1_SETTLEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION =
   "ioi.runtime.l1_settlement_admission.v1";
 
+const RETIRED_L1_SETTLEMENT_REQUEST_ALIASES = [
+  "settlementAttempt",
+  "settlement_attempt",
+];
+
+const CANONICAL_L1_SETTLEMENT_REQUEST_FIELDS = [
+  "attempt",
+];
+
 export function createRuntimeL1SettlementSurface(deps = {}) {
   const {
     runtimeError: runtimeErrorDep = runtimeError,
@@ -11,8 +20,8 @@ export function createRuntimeL1SettlementSurface(deps = {}) {
 
   function attemptForRequest(request = {}) {
     const body = objectRecord(request) ?? {};
-    const nested =
-      objectRecord(body.attempt ?? body.settlement_attempt ?? body.settlementAttempt) ?? {};
+    assertCanonicalL1SettlementRequestBody(body);
+    const nested = objectRecord(body.attempt) ?? {};
     const attempt = Object.keys(nested).length > 0 ? nested : body;
     if (Object.keys(attempt).length === 0) {
       throw runtimeErrorDep({
@@ -24,9 +33,25 @@ export function createRuntimeL1SettlementSurface(deps = {}) {
     return attempt;
   }
 
+  function assertCanonicalL1SettlementRequestBody(body = {}) {
+    const retiredAliases = RETIRED_L1_SETTLEMENT_REQUEST_ALIASES.filter((field) =>
+      Object.hasOwn(body, field),
+    );
+    if (retiredAliases.length === 0) return;
+    throw runtimeErrorDep({
+      status: 400,
+      code: "l1_settlement_attempt_request_aliases_retired",
+      message: "L1 settlement attempt request aliases are retired; use attempt.",
+      details: {
+        retired_aliases: retiredAliases,
+        canonical_fields: CANONICAL_L1_SETTLEMENT_REQUEST_FIELDS,
+      },
+    });
+  }
+
   function admitL1SettlementAttempt(store, threadId, request = {}) {
-    const agent = store.agentForThread(threadId);
     const attempt = attemptForRequest(request);
+    const agent = store.agentForThread(threadId);
     const admission = store.l1SettlementRunner.admitAttempt(attempt);
     const record = objectRecord(admission.record) ?? {};
     return {

@@ -11989,6 +11989,12 @@ surface now fails closed on retired `packageInvocation` and
 admission, and IDE worker/service package control requests emit canonical
 `invocation` bodies without duplicate wrapper aliases.
 
+Slice 324 retires L1 settlement admission wrapper aliases: the daemon surface
+now fails closed on retired `settlementAttempt` and `settlement_attempt`
+request bodies before agent lookup or Rust trigger-guard admission, and IDE L1
+settlement control requests emit canonical `attempt` bodies without duplicate
+wrapper aliases.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
