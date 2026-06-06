@@ -8835,6 +8835,12 @@ function runCompositor() {
   const runtimeMemoryStoreTest = exists("packages/runtime-daemon/src/memory-store.test.mjs")
     ? read("packages/runtime-daemon/src/memory-store.test.mjs")
     : "";
+  const runtimeWorkflowMemory = exists("packages/runtime-daemon/src/model-mounting/workflow-memory.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/workflow-memory.mjs")
+    : "";
+  const runtimeWorkflowMemoryTest = exists("packages/runtime-daemon/src/model-mounting/workflow-memory.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/workflow-memory.test.mjs")
+    : "";
   const runtimeMemoryListFiltersBlock =
     runtimeMemoryHelpers.match(
       /function memoryListFilters\(options = \{\}\) \{[\s\S]*?\n  \}\n\n  function memoryEventKind/,
@@ -8851,6 +8857,14 @@ function runCompositor() {
     runtimeMemoryStore.match(
       /function memoryListFilters\(\{ scope,[\s\S]*?\n}\n\nfunction normalizeMemoryLimit/,
     )?.[0] ?? "";
+  const runtimeWorkflowMemoryOptionKeysBlock =
+    runtimeWorkflowMemory.match(/const MEMORY_OPTION_KEYS = \[[\s\S]*?\n\];/)?.[0] ?? "";
+  const runtimeWorkflowMemoryOptionsBlock =
+    runtimeWorkflowMemory.match(
+      /export function workflowMemoryOptionsFromBody\(body = \{\}\) \{[\s\S]*?\n}\n\nexport function workflowMemoryWriteBlockReason/,
+    )?.[0] ?? "";
+  const runtimeWorkflowMemoryWriteBlock =
+    runtimeWorkflowMemory.match(/export function workflowMemoryWriteBlockReason\(memory\) \{[\s\S]*?\n}/)?.[0] ?? "";
   const runtimeSubagentMemoryInheritanceReturnBlock =
     runtimeRunMemoryResolution.match(
       /return \{\n      schema_version: "ioi\.agent-runtime\.subagent-memory-inheritance\.v1",[\s\S]*?\n    \};/,
@@ -9527,6 +9541,47 @@ function runCompositor() {
       "packages/runtime-daemon/src/memory-store.test.mjs",
     ],
     "Phase 10/11 is pending: runtime memory filter helpers and store projections must use canonical memory_key/query fields without retired camelCase filter aliases",
+  );
+  assertCheck(
+    result,
+    "workflow-memory-option-aliases-retired",
+    /"memory_key"/.test(runtimeWorkflowMemoryOptionKeysBlock) &&
+      /"injection_enabled"/.test(runtimeWorkflowMemoryOptionKeysBlock) &&
+      /"read_only"/.test(runtimeWorkflowMemoryOptionKeysBlock) &&
+      /"write_requires_approval"/.test(runtimeWorkflowMemoryOptionKeysBlock) &&
+      /"write_approved"/.test(runtimeWorkflowMemoryOptionKeysBlock) &&
+      /"subagent_inheritance"/.test(runtimeWorkflowMemoryOptionKeysBlock) &&
+      /memory_key:\s*optionalString\(pick\("memory_key"\)\)/.test(runtimeWorkflowMemoryOptionsBlock) &&
+      /injection_enabled:\s*injectionEnabled \?\? true/.test(runtimeWorkflowMemoryOptionsBlock) &&
+      /read_only:\s*optionalBoolean\(pick\("read_only"\)\) \?\? false/.test(runtimeWorkflowMemoryOptionsBlock) &&
+      /write_requires_approval:\s*optionalBoolean\(pick\("write_requires_approval"\)\) \?\? false/.test(
+        runtimeWorkflowMemoryOptionsBlock,
+      ) &&
+      /write_approved:\s*optionalBoolean\(pick\("write_approved"\)\) \?\? false/.test(
+        runtimeWorkflowMemoryOptionsBlock,
+      ) &&
+      /subagent_inheritance:\s*optionalString\(pick\("subagent_inheritance"\)\) \?\? "explicit"/.test(
+        runtimeWorkflowMemoryOptionsBlock,
+      ) &&
+      /memory\.read_only/.test(runtimeWorkflowMemoryWriteBlock) &&
+      /memory\.write_requires_approval && !memory\.write_approved/.test(runtimeWorkflowMemoryWriteBlock) &&
+      /retired camelCase and memory-prefixed aliases/.test(runtimeWorkflowMemoryTest) &&
+      /assert\.equal\(options,\s*null\)/.test(runtimeWorkflowMemoryTest) &&
+      /Object\.hasOwn\(options,\s*"memoryKey"\),\s*false/.test(runtimeWorkflowMemoryTest) &&
+      /writeRequiresApproval:\s*true/.test(runtimeWorkflowMemoryTest) &&
+      /write_requires_approval:\s*true/.test(runtimeWorkflowMemoryTest) &&
+      !/"(?:memoryKey|memoryScope|memoryInjectionEnabled|memoryDisabled|memoryReadOnly|memoryWriteRequiresApproval|memoryWriteApproved|memorySubagentInheritance|memoryRetention|memoryRedaction|memoryRemember|injectionEnabled|readOnly|writeRequiresApproval|writeApproved|subagentInheritance)"/.test(
+        runtimeWorkflowMemoryOptionKeysBlock,
+      ) &&
+      !/\b(?:memoryKey|memoryScope|memoryInjectionEnabled|memoryDisabled|memoryReadOnly|memoryWriteRequiresApproval|memoryWriteApproved|memorySubagentInheritance|memoryRetention|memoryRedaction|memoryRemember|injectionEnabled|readOnly|writeRequiresApproval|writeApproved|subagentInheritance):/.test(
+        runtimeWorkflowMemoryOptionsBlock,
+      ) &&
+      !/memory\.(?:readOnly|writeRequiresApproval|writeApproved)\b/.test(runtimeWorkflowMemoryWriteBlock),
+    [
+      "packages/runtime-daemon/src/model-mounting/workflow-memory.mjs",
+      "packages/runtime-daemon/src/model-mounting/workflow-memory.test.mjs",
+    ],
+    "Phase 10/11 is pending: workflow/model-mount memory options must consume and emit canonical snake_case fields without retired JS facade aliases",
   );
   assertCheck(
     result,

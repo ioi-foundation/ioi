@@ -1,41 +1,15 @@
 const MEMORY_OPTION_KEYS = [
-  "memoryKey",
   "memory_key",
   "scope",
-  "memoryScope",
-  "memory_scope",
-  "injectionEnabled",
-  "memoryInjectionEnabled",
   "injection_enabled",
-  "memory_injection_enabled",
   "disabled",
-  "memoryDisabled",
-  "memory_disabled",
-  "readOnly",
-  "memoryReadOnly",
   "read_only",
-  "memory_read_only",
-  "writeRequiresApproval",
-  "memoryWriteRequiresApproval",
   "write_requires_approval",
-  "memory_write_requires_approval",
-  "writeApproved",
-  "memoryWriteApproved",
   "write_approved",
-  "memory_write_approved",
-  "subagentInheritance",
-  "memorySubagentInheritance",
   "subagent_inheritance",
-  "memory_subagent_inheritance",
   "retention",
-  "memoryRetention",
-  "memory_retention",
   "redaction",
-  "memoryRedaction",
-  "memory_redaction",
   "remember",
-  "memoryRemember",
-  "memory_remember",
 ];
 
 export function workflowMemoryOptionsFromBody(body = {}) {
@@ -54,34 +28,20 @@ export function workflowMemoryOptionsFromBody(body = {}) {
     }
     return undefined;
   };
-  const injectionEnabled = optionalBoolean(
-    pick("injectionEnabled", "memoryInjectionEnabled", "injection_enabled", "memory_injection_enabled"),
-  );
-  const disabledValue = optionalBoolean(pick("disabled", "memoryDisabled", "memory_disabled"));
+  const injectionEnabled = optionalBoolean(pick("injection_enabled"));
+  const disabledValue = optionalBoolean(pick("disabled"));
   const options = {
-    memoryKey: optionalString(pick("memoryKey", "memory_key")),
-    scope: optionalString(pick("scope", "memoryScope", "memory_scope")) ?? "thread",
-    injectionEnabled: injectionEnabled ?? true,
+    memory_key: optionalString(pick("memory_key")),
+    scope: optionalString(pick("scope")) ?? "thread",
+    injection_enabled: injectionEnabled ?? true,
     disabled: disabledValue ?? injectionEnabled === false,
-    readOnly: optionalBoolean(pick("readOnly", "memoryReadOnly", "read_only", "memory_read_only")) ?? false,
-    writeRequiresApproval:
-      optionalBoolean(
-        pick(
-          "writeRequiresApproval",
-          "memoryWriteRequiresApproval",
-          "write_requires_approval",
-          "memory_write_requires_approval",
-        ),
-      ) ?? false,
-    writeApproved:
-      optionalBoolean(pick("writeApproved", "memoryWriteApproved", "write_approved", "memory_write_approved")) ?? false,
-    subagentInheritance:
-      optionalString(
-        pick("subagentInheritance", "memorySubagentInheritance", "subagent_inheritance", "memory_subagent_inheritance"),
-      ) ?? "explicit",
-    retention: optionalString(pick("retention", "memoryRetention", "memory_retention")),
-    redaction: optionalString(pick("redaction", "memoryRedaction", "memory_redaction")) ?? "none",
-    remember: optionalString(pick("remember", "memoryRemember", "memory_remember")),
+    read_only: optionalBoolean(pick("read_only")) ?? false,
+    write_requires_approval: optionalBoolean(pick("write_requires_approval")) ?? false,
+    write_approved: optionalBoolean(pick("write_approved")) ?? false,
+    subagent_inheritance: optionalString(pick("subagent_inheritance")) ?? "explicit",
+    retention: optionalString(pick("retention")),
+    redaction: optionalString(pick("redaction")) ?? "none",
+    remember: optionalString(pick("remember")),
   };
   return Object.fromEntries(Object.entries(options).filter(([, value]) => value !== undefined && value !== null && value !== ""));
 }
@@ -89,8 +49,8 @@ export function workflowMemoryOptionsFromBody(body = {}) {
 export function workflowMemoryWriteBlockReason(memory) {
   if (!memory?.remember) return null;
   if (memory.disabled) return "memory_disabled";
-  if (memory.readOnly) return "memory_read_only";
-  if (memory.writeRequiresApproval && !memory.writeApproved) return "memory_write_requires_approval";
+  if (memory.read_only) return "memory_read_only";
+  if (memory.write_requires_approval && !memory.write_approved) return "memory_write_requires_approval";
   return null;
 }
 

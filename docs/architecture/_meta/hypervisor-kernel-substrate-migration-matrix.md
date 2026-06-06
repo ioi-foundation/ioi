@@ -12759,6 +12759,13 @@ agent memory write, edit, delete, and policy mutation bodies now use canonical
 mutation, policy, and send-option types advertise canonical snake_case memory
 identity, workflow, and write-approval fields.
 
+Slice 438 removes workflow memory option aliases:
+workflow/model-mount memory option parsing now consumes and emits canonical
+`memory_key`, `injection_enabled`, `read_only`, `write_requires_approval`,
+`write_approved`, and `subagent_inheritance` fields only; retired camelCase and
+`memory*`-prefixed JS facade aliases no longer create workflow memory config or
+satisfy write-approval policy checks.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
