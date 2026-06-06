@@ -496,6 +496,12 @@ function runBridge() {
   const runtimeCodingToolGovernanceSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs")
     : "";
+  const runtimeCodingToolApproval = exists("packages/runtime-daemon/src/runtime-coding-tool-approval.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-approval.mjs")
+    : "";
+  const runtimeCodingToolApprovalTest = exists("packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs")
+    : "";
   const codingTools = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
     : "";
@@ -871,6 +877,22 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs",
     ],
     "Phase 10/11 is pending: coding-tool budget block responses must expose canonical budget_usage_telemetry without duplicate budgetUsageTelemetry",
+  );
+  assertCheck(
+    result,
+    "coding-tool-approval-retry-manifest-alias-retired",
+    !/camelCaseKey/.test(runtimeCodingToolApproval) &&
+      !/requestedManifest\[camelCaseKey\(key\)\]/.test(runtimeCodingToolApproval) &&
+      !/retryManifest\[camelCaseKey\(key\)\]/.test(runtimeCodingToolApproval) &&
+      /requestedManifest\[key\]/.test(runtimeCodingToolApproval) &&
+      /retryManifest\[key\]/.test(runtimeCodingToolApproval) &&
+      /coding tool approval retry match rejects retired camelCase manifests/.test(runtimeCodingToolApprovalTest) &&
+      /Object\.hasOwn\(camelRetry,\s*"threadId"\)/.test(runtimeCodingToolApprovalTest),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool approval retry matching must fail closed on retired camelCase manifest fields",
   );
   assertCheck(
     result,

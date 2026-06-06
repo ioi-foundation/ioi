@@ -8,10 +8,6 @@ function defaultNormalizeArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
-function camelCaseKey(key) {
-  return String(key).replace(/_([a-z])/g, (_, char) => char.toUpperCase());
-}
-
 export function createCodingToolApprovalPolicy(deps = {}) {
   const approvalModeForThreadMode = deps.approvalModeForThreadMode || (() => "suggest");
   const codingToolInputSummary = deps.codingToolInputSummary || (() => ({}));
@@ -210,13 +206,13 @@ export function createCodingToolApprovalPolicy(deps = {}) {
   function codingToolApprovalManifestsMatch(requestedManifest, retryManifest) {
     if (!requestedManifest || !retryManifest) return false;
     for (const key of ["thread_id", "tool_id", "tool_call_id", "effect_class", "input_hash"]) {
-      const left = optionalString(requestedManifest[key] ?? requestedManifest[camelCaseKey(key)]);
-      const right = optionalString(retryManifest[key] ?? retryManifest[camelCaseKey(key)]);
+      const left = optionalString(requestedManifest[key]);
+      const right = optionalString(retryManifest[key]);
       if (left && right && left !== right) return false;
       if (!left || !right) return false;
     }
-    const requestedNode = optionalString(requestedManifest.workflow_node_id ?? requestedManifest.workflowNodeId);
-    const retryNode = optionalString(retryManifest.workflow_node_id ?? retryManifest.workflowNodeId);
+    const requestedNode = optionalString(requestedManifest.workflow_node_id);
+    const retryNode = optionalString(retryManifest.workflow_node_id);
     if (requestedNode && retryNode && requestedNode !== retryNode) return false;
     return true;
   }

@@ -110,7 +110,7 @@ test("coding tool approval manifest is omitted when no approval gate applies", (
   }), null);
 });
 
-test("coding tool approval retry match supports snake and camel aliases", () => {
+test("coding tool approval retry match rejects retired camelCase manifests", () => {
   const policy = createPolicy();
   const requested = {
     thread_id: "thread_1",
@@ -120,7 +120,15 @@ test("coding tool approval retry match supports snake and camel aliases", () => 
     input_hash: "hash_1",
     workflow_node_id: "node_1",
   };
-  const retry = {
+  const canonicalRetry = {
+    thread_id: "thread_1",
+    tool_id: "file__write",
+    tool_call_id: "call_1",
+    effect_class: "workspace_write",
+    input_hash: "hash_1",
+    workflow_node_id: "node_1",
+  };
+  const camelRetry = {
     threadId: "thread_1",
     toolId: "file__write",
     toolCallId: "call_1",
@@ -129,8 +137,10 @@ test("coding tool approval retry match supports snake and camel aliases", () => 
     workflowNodeId: "node_1",
   };
 
-  assert.equal(policy.codingToolApprovalManifestsMatch(requested, retry), true);
-  assert.equal(policy.codingToolApprovalManifestsMatch(requested, { ...retry, inputHash: "hash_2" }), false);
-  assert.equal(policy.codingToolApprovalManifestsMatch(requested, { ...retry, workflowNodeId: "node_2" }), false);
+  assert.equal(policy.codingToolApprovalManifestsMatch(requested, canonicalRetry), true);
+  assert.equal(policy.codingToolApprovalManifestsMatch(requested, camelRetry), false);
+  assert.equal(Object.hasOwn(camelRetry, "threadId"), true);
+  assert.equal(policy.codingToolApprovalManifestsMatch(requested, { ...canonicalRetry, input_hash: "hash_2" }), false);
+  assert.equal(policy.codingToolApprovalManifestsMatch(requested, { ...canonicalRetry, workflow_node_id: "node_2" }), false);
   assert.equal(policy.codingToolApprovalManifestsMatch(requested, null), false);
 });

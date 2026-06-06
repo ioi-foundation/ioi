@@ -12069,6 +12069,11 @@ surface calls `capture_workspace_snapshot_files` through the same
 `IOI_WORKSPACE_RESTORE_COMMAND` bridge and the old JS snapshot capture helper
 body is retired.
 
+Slice 336 retires coding-tool approval retry manifest aliases: approval retry
+matching now compares only canonical snake_case manifest keys and fails closed
+when a retry supplies retired camelCase approval-manifest fields such as
+`threadId`, `toolCallId`, `effectClass`, `inputHash`, or `workflowNodeId`.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
