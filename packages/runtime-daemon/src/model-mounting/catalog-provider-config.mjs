@@ -28,6 +28,24 @@ const CANONICAL_CATALOG_PROVIDER_SOURCE_REQUEST_FIELDS = [
   "base_url",
 ];
 
+const RETIRED_CATALOG_PROVIDER_AUTH_REQUEST_ALIASES = [
+  "authVaultRef",
+  "vault_ref",
+  "vaultRef",
+  "api_key_vault_ref",
+  "apiKeyVaultRef",
+  "authScheme",
+  "authHeaderName",
+  "oauthSessionId",
+];
+
+const CANONICAL_CATALOG_PROVIDER_AUTH_REQUEST_FIELDS = [
+  "auth_vault_ref",
+  "auth_scheme",
+  "auth_header_name",
+  "oauth_session_id",
+];
+
 export function assertConfigurableCatalogProvider(providerId) {
   if (!MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS.includes(providerId)) {
     throw runtimeError({
@@ -40,6 +58,7 @@ export function assertConfigurableCatalogProvider(providerId) {
 }
 
 export function catalogProviderConfigUpdate(providerId, body, existing = null, updatedAt, state) {
+  assertCanonicalCatalogProviderAuthRequestBody(body);
   const enabled = body.enabled === undefined ? existing?.enabled ?? true : truthy(body.enabled);
   const materialFromBody = catalogProviderRuntimeMaterialFromBody(providerId, body);
   let runtimeMaterial = catalogProviderHasSourceMaterial(materialFromBody)
@@ -168,8 +187,9 @@ function assertCanonicalCatalogProviderSourceRequestBody(body = {}) {
   });
 }
 
-export function catalogProviderAuthConfig(providerId, body, existing = null, state) {
-  const authVaultInput = firstOwn(body, ["auth_vault_ref", "authVaultRef", "vault_ref", "vaultRef", "api_key_vault_ref", "apiKeyVaultRef"]);
+export function catalogProviderAuthConfig(providerId, body = {}, existing = null, state) {
+  assertCanonicalCatalogProviderAuthRequestBody(body);
+  const authVaultInput = firstOwn(body, ["auth_vault_ref"]);
   const authVaultRef =
     authVaultInput.has
       ? typeof authVaultInput.value === "string" && authVaultInput.value.trim()
@@ -181,12 +201,12 @@ export function catalogProviderAuthConfig(providerId, body, existing = null, sta
     : authVaultInput.has
       ? null
       : existing?.authVaultRefHash ?? null;
-  const rawScheme = body.auth_scheme ?? body.authScheme ?? existing?.catalogAuthScheme ?? existing?.authScheme ?? "bearer";
+  const rawScheme = body.auth_scheme ?? existing?.catalogAuthScheme ?? "bearer";
   const catalogAuthScheme = normalizeCatalogAuthScheme(rawScheme);
-  const rawHeaderName = body.auth_header_name ?? body.authHeaderName ?? existing?.catalogAuthHeaderName ?? existing?.authHeaderName ?? "authorization";
+  const rawHeaderName = body.auth_header_name ?? existing?.catalogAuthHeaderName ?? "authorization";
   const catalogAuthHeaderName = normalizeProviderAuthHeaderName(rawHeaderName);
   const catalogAuthHeaderNameHash = stableHash(catalogAuthHeaderName);
-  const oauthSessionInput = firstOwn(body, ["oauth_session_id", "oauthSessionId"]);
+  const oauthSessionInput = firstOwn(body, ["oauth_session_id"]);
   const oauthSessionId =
     oauthSessionInput.has
       ? typeof oauthSessionInput.value === "string" && oauthSessionInput.value.trim()
@@ -219,6 +239,22 @@ export function catalogProviderAuthConfig(providerId, body, existing = null, sta
     oauthSessionHash,
     oauthBoundary,
   };
+}
+
+function assertCanonicalCatalogProviderAuthRequestBody(body = {}) {
+  const retiredAliases = RETIRED_CATALOG_PROVIDER_AUTH_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw runtimeError({
+    status: 400,
+    code: "catalog_provider_auth_request_aliases_retired",
+    message: "Catalog provider auth request aliases are retired; use canonical snake_case request fields.",
+    details: {
+      retired_aliases: retiredAliases,
+      canonical_fields: CANONICAL_CATALOG_PROVIDER_AUTH_REQUEST_FIELDS,
+    },
+  });
 }
 
 export function firstOwn(value, keys) {

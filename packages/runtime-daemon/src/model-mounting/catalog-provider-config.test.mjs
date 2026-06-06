@@ -4,6 +4,7 @@ import path from "node:path";
 
 import {
   assertConfigurableCatalogProvider,
+  catalogProviderAuthConfig,
   catalogProviderAuthHeaders,
   catalogProviderConfigUpdate,
   catalogProviderMaterialVaultRef,
@@ -113,6 +114,101 @@ test("catalog provider source request aliases fail closed before vault binding",
       return true;
     },
   );
+});
+
+test("catalog provider auth request aliases fail closed before source or auth binding", () => {
+  const state = createState();
+  let authResolveCount = 0;
+  state.walletAuthority.resolveVaultRef = (vaultRef) => {
+    authResolveCount += 1;
+    return { vaultRefHash: `hash:${vaultRef}` };
+  };
+
+  assert.throws(
+    () =>
+      catalogProviderConfigUpdate(
+        "catalog.custom_http",
+        {
+          base_url: "https://catalog.example.test/",
+          authVaultRef: "vault://catalog/auth",
+          vault_ref: "vault://catalog/auth-alt",
+          vaultRef: "vault://catalog/auth-alt-2",
+          api_key_vault_ref: "vault://catalog/api-key",
+          apiKeyVaultRef: "vault://catalog/api-key-2",
+          authScheme: "api_key",
+          authHeaderName: "X-Catalog-Key",
+          oauthSessionId: "session-1",
+        },
+        null,
+        "2026-06-03T12:00:00.000Z",
+        state,
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "catalog_provider_auth_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "authVaultRef",
+        "vault_ref",
+        "vaultRef",
+        "api_key_vault_ref",
+        "apiKeyVaultRef",
+        "authScheme",
+        "authHeaderName",
+        "oauthSessionId",
+      ]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "auth_vault_ref",
+        "auth_scheme",
+        "auth_header_name",
+        "oauth_session_id",
+      ]);
+      return true;
+    },
+  );
+  assert.equal(state.bound.length, 0);
+  assert.equal(state.writeVaultRefsCount(), 0);
+  assert.equal(authResolveCount, 0);
+
+  assert.throws(
+    () => catalogProviderAuthConfig("catalog.custom_http", { authHeaderName: "X-Catalog-Key" }, null, state),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "catalog_provider_auth_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["authHeaderName"]);
+      return true;
+    },
+  );
+  assert.equal(authResolveCount, 0);
+});
+
+test("catalog provider auth config accepts canonical request fields", () => {
+  const state = createState();
+  state.oauthSessions.set("session-1", {
+    id: "session-1",
+    status: "active",
+    scopes: ["read"],
+  });
+
+  const auth = catalogProviderAuthConfig(
+    "catalog.huggingface",
+    {
+      auth_vault_ref: "vault://catalog/auth",
+      auth_scheme: "oauth2",
+      auth_header_name: "X-Catalog-Key",
+      oauth_session_id: "session-1",
+    },
+    null,
+    state,
+  );
+
+  assert.equal(auth.authVaultRef, "vault://catalog/auth");
+  assert.equal(auth.authVaultRefHash, "hash:vault://catalog/auth");
+  assert.equal(auth.catalogAuthConfigured, true);
+  assert.equal(auth.catalogAuthScheme, "oauth2");
+  assert.equal(auth.catalogAuthHeaderName, "x-catalog-key");
+  assert.equal(auth.oauthSessionId, "session-1");
+  assert.equal(typeof auth.oauthSessionHash, "string");
+  assert.equal(auth.oauthBoundary.status, "active");
 });
 
 test("catalog provider auth headers resolve vault material without plaintext persistence", async () => {

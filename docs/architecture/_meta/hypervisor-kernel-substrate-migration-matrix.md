@@ -11951,6 +11951,14 @@ evaluation. Canonical `transfer_approved`, `bandwidth_bps`,
 `bandwidth_limit_bps`, `retry_limit`, `resume_download`, and
 `cleanup_partial` remain accepted.
 
+Slice 318 retires catalog-provider auth request aliases:
+`catalogProviderConfigUpdate` and `catalogProviderAuthConfig` now fail closed
+on retired `authVaultRef`, `vault_ref`, `vaultRef`, `api_key_vault_ref`,
+`apiKeyVaultRef`, `authScheme`, `authHeaderName`, and `oauthSessionId` before
+source vault binding, wallet authority vault-ref resolution, or OAuth session
+lookup. Canonical `auth_vault_ref`, `auth_scheme`, `auth_header_name`, and
+`oauth_session_id` remain accepted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

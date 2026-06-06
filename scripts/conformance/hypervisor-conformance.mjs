@@ -2838,6 +2838,8 @@ function runReceipts() {
     : "";
   const catalogProviderRuntimeMaterialFromBodyBlock =
     catalogProviderConfig.match(/export function catalogProviderRuntimeMaterialFromBody[\s\S]*?export function catalogProviderAuthConfig/)?.[0] ?? "";
+  const catalogProviderAuthConfigBlock =
+    catalogProviderConfig.match(/export function catalogProviderAuthConfig[\s\S]*?function assertCanonicalCatalogProviderAuthRequestBody/)?.[0] ?? "";
   const oauthCredentialProvider = exists("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs")
     : "";
@@ -4573,6 +4575,48 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
     ],
     "Phase 7/11 is pending: catalog provider source request bodies must fail closed on retired camelCase source aliases before vault binding",
+  );
+  assertCheck(
+    result,
+    "model-mount-catalog-provider-auth-request-aliases-retired",
+    /RETIRED_CATALOG_PROVIDER_AUTH_REQUEST_ALIASES/.test(catalogProviderConfig) &&
+      /CANONICAL_CATALOG_PROVIDER_AUTH_REQUEST_FIELDS/.test(catalogProviderConfig) &&
+      /catalog_provider_auth_request_aliases_retired/.test(catalogProviderConfig) &&
+      /export function catalogProviderConfigUpdate[\s\S]*?assertCanonicalCatalogProviderAuthRequestBody\(body\);[\s\S]*?state\.vault\.bindVaultRef/.test(
+        catalogProviderConfig,
+      ) &&
+      /firstOwn\(body,\s*\["auth_vault_ref"\]\)/.test(catalogProviderAuthConfigBlock) &&
+      /body\.auth_scheme \?\? existing\?\.catalogAuthScheme \?\? "bearer"/.test(
+        catalogProviderAuthConfigBlock,
+      ) &&
+      /body\.auth_header_name \?\? existing\?\.catalogAuthHeaderName \?\? "authorization"/.test(
+        catalogProviderAuthConfigBlock,
+      ) &&
+      /firstOwn\(body,\s*\["oauth_session_id"\]\)/.test(catalogProviderAuthConfigBlock) &&
+      !/body\.(?:authVaultRef|vaultRef|apiKeyVaultRef|authScheme|authHeaderName|oauthSessionId)\b/.test(
+        catalogProviderAuthConfigBlock,
+      ) &&
+      !/firstOwn\(body,\s*\[[^\]]*(?:"vault_ref"|"api_key_vault_ref"|"authVaultRef"|"vaultRef"|"apiKeyVaultRef"|"oauthSessionId")/.test(
+        catalogProviderAuthConfigBlock,
+      ) &&
+      /catalog provider auth request aliases fail closed before source or auth binding/.test(
+        catalogProviderConfigTest,
+      ) &&
+      /catalog provider auth config accepts canonical request fields/.test(catalogProviderConfigTest) &&
+      /"authVaultRef"[\s\S]*"vault_ref"[\s\S]*"vaultRef"[\s\S]*"api_key_vault_ref"[\s\S]*"apiKeyVaultRef"[\s\S]*"authScheme"[\s\S]*"authHeaderName"[\s\S]*"oauthSessionId"/.test(
+        catalogProviderConfigTest,
+      ) &&
+      /canonical_fields,\s*\[\s*"auth_vault_ref"\s*,\s*"auth_scheme"\s*,\s*"auth_header_name"\s*,\s*"oauth_session_id"\s*,?\s*\]/.test(
+        catalogProviderConfigTest,
+      ) &&
+      /assert\.equal\(state\.bound\.length,\s*0\)/.test(catalogProviderConfigTest) &&
+      /assert\.equal\(state\.writeVaultRefsCount\(\),\s*0\)/.test(catalogProviderConfigTest) &&
+      /assert\.equal\(authResolveCount,\s*0\)/.test(catalogProviderConfigTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
+    ],
+    "Phase 7/11 is pending: catalog provider auth request bodies must fail closed on retired auth aliases before source vault binding or auth resolution",
   );
   assertCheck(
     result,
