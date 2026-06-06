@@ -246,7 +246,7 @@ export function createRuntimeContextPolicySurface({
           workflow_node_id: result.compact_workflow_node_id,
           idempotency_key:
             optionalStringDep(request.compact_idempotency_key ?? request.compactIdempotencyKey) ??
-            `thread:${requestedThreadId}:compaction-policy:compact:${safeIdDep(result.policy_decision_id)}`,
+            result.compact_idempotency_key,
         });
         compactEvent =
           store.runtimeEventsForStream(streamId, { sinceSeq: previousLatestSeq }).find(
@@ -257,32 +257,20 @@ export function createRuntimeContextPolicySurface({
         result.compaction_seq = compactEvent?.seq ?? null;
       }
       const now = new Date().toISOString();
-      const eventKind =
-        result.action === "stop"
-          ? "policy.blocked"
-          : result.action === "approval_required"
-            ? "approval.required"
-            : "compaction_policy.evaluated";
-      const eventStatus =
-        result.action === "stop"
-          ? "blocked"
-          : result.action === "approval_required"
-            ? "waiting"
-            : "completed";
       const event = store.appendRuntimeEvent({
         event_stream_id: streamId,
         thread_id: requestedThreadId,
         turn_id: turnId,
-        item_id: `${turnId || requestedThreadId}:item:compaction-policy:${safeIdDep(result.policy_decision_id)}`,
+        item_id: result.runtime_event_item_id,
         idempotency_key:
           optionalStringDep(request.idempotency_key ?? request.idempotencyKey) ??
-          `thread:${requestedThreadId}:compaction-policy:${safeIdDep(result.policy_decision_id)}`,
+          result.runtime_event_idempotency_key,
         source: operatorControlSourceDep(request.source),
         source_event_kind:
           optionalStringDep(request.eventKind ?? request.event_kind) ??
           "RuntimeCompactionPolicy.Evaluate",
-        event_kind: eventKind,
-        status: eventStatus,
+        event_kind: result.runtime_event_kind,
+        status: result.runtime_event_status,
         actor: optionalStringDep(request.actor) ?? "operator",
         created_at: now,
         workspace_root: agent.cwd,

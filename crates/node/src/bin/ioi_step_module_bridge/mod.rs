@@ -1586,6 +1586,11 @@ fn evaluate_compaction_policy(
         "compaction_requested": record.compaction_requested,
         "compact_reason": record.compact_reason.clone(),
         "compact_scope": record.compact_scope.clone(),
+        "runtime_event_kind": record.runtime_event_kind.clone(),
+        "runtime_event_status": record.runtime_event_status.clone(),
+        "runtime_event_item_id": record.runtime_event_item_id.clone(),
+        "runtime_event_idempotency_key": record.runtime_event_idempotency_key.clone(),
+        "compact_idempotency_key": record.compact_idempotency_key.clone(),
         "compact_workflow_node_id": record.compact_workflow_node_id.clone(),
         "continuation_allowed": record.continuation_allowed,
         "summary": record.summary.clone(),
@@ -5786,6 +5791,18 @@ mod tests {
         assert_eq!(response["action"], "approval_required");
         assert_eq!(response["selected_action"], "compact");
         assert_eq!(response["budget_status"], "blocked");
+        assert_eq!(response["runtime_event_kind"], "approval.required");
+        assert_eq!(response["runtime_event_status"], "waiting");
+        assert!(response["runtime_event_item_id"]
+            .as_str()
+            .expect("runtime event item id")
+            .starts_with("turn_budget:item:compaction-policy:policy_compaction_thread_budget_"));
+        assert!(response["compact_idempotency_key"]
+            .as_str()
+            .expect("compact idempotency key")
+            .starts_with(
+                "thread:thread_budget:compaction-policy:compact:policy_compaction_thread_budget_"
+            ));
         assert!(response["approval_id"]
             .as_str()
             .expect("approval id")

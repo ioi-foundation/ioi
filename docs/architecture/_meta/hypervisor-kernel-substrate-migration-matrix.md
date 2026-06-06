@@ -12120,6 +12120,13 @@ refs, event/source/component kinds, and runless agent fallback refs through
 planned event and updates the existing run/agent store records without
 recomputing the canonical compaction event envelope in JS.
 
+Slice 343 moves compaction-policy runtime-event identity into Rust: the Rust
+`CompactionPolicyCore` result now carries canonical compaction-policy runtime
+event kind/status, item ID, event idempotency key, and downstream compact
+idempotency key; the daemon context-policy facade consumes those Rust-owned
+fields when appending policy and compact events instead of deriving them from
+`policy_decision_id` in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

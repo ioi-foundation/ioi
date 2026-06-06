@@ -1040,15 +1040,25 @@ function runBridge() {
       /COMPACTION_POLICY_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_requires_compaction_approval_before_compacting/.test(policyCore) &&
       /rust_policy_compacts_when_approval_is_granted/.test(policyCore) &&
+      /runtime_event_item_id/.test(policyCore) &&
+      /compact_idempotency_key/.test(policyCore) &&
       /evaluate_compaction_policy/.test(bridgeModule) &&
       /CompactionPolicyBridgeRequest/.test(bridgeModule) &&
       /rust_compaction_policy_command/.test(bridgeModule) &&
       /bridge_evaluates_compaction_policy_through_rust_core/.test(bridgeModule) &&
+      /runtime_event_idempotency_key/.test(bridgeModule) &&
       /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
       /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
       /evaluateCompactionPolicy/.test(runtimeContextPolicyRunner) &&
+      /runtime_event_item_id/.test(runtimeContextPolicyRunner) &&
       /compaction policy runner sends Rust policy bridge request/.test(
         runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.runtime_event_item_id/.test(runtimeContextPolicySurface) &&
+      /result\.runtime_event_idempotency_key/.test(runtimeContextPolicySurface) &&
+      /result\.compact_idempotency_key/.test(runtimeContextPolicySurface) &&
+      !/compaction-policy:\$\{safeIdDep\(result\.policy_decision_id\)\}/.test(
+        runtimeContextPolicySurface,
       ) &&
       /policyRunner\.evaluateCompactionPolicy/.test(codingToolBudgetPolicySurface) &&
       /capturedRequest\.schema_version,\s*"ioi\.runtime\.compaction-policy-request\.v1"/.test(

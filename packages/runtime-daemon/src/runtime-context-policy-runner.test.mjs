@@ -136,6 +136,13 @@ test("compaction policy runner sends Rust policy bridge request", () => {
             compaction_requested: false,
             compact_reason: "Compaction policy blocked: Context budget blocked.",
             compact_scope: "thread",
+            runtime_event_kind: "approval.required",
+            runtime_event_status: "waiting",
+            runtime_event_item_id: "turn_1:item:compaction-policy:policy_compaction_thread_test_waiting",
+            runtime_event_idempotency_key:
+              "thread:thread_1:compaction-policy:policy_compaction_thread_test_waiting",
+            compact_idempotency_key:
+              "thread:thread_1:compaction-policy:compact:policy_compaction_thread_test_waiting",
             compact_workflow_node_id: "runtime.context-compact",
             continuation_allowed: true,
             summary: "Compaction policy requires operator approval before compacting.",
@@ -161,6 +168,12 @@ test("compaction policy runner sends Rust policy bridge request", () => {
   assert.equal(result.source, "rust_compaction_policy_command");
   assert.equal(result.action, "approval_required");
   assert.equal(result.approval_required, true);
+  assert.equal(result.runtime_event_kind, "approval.required");
+  assert.equal(result.runtime_event_status, "waiting");
+  assert.equal(
+    result.compact_idempotency_key,
+    "thread:thread_1:compaction-policy:compact:policy_compaction_thread_test_waiting",
+  );
 });
 
 test("context compaction runner sends Rust plan bridge request", () => {

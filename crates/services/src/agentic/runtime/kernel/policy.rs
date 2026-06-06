@@ -287,6 +287,11 @@ pub struct CompactionPolicyRecord {
     pub compaction_seq: Option<u64>,
     pub compact_reason: String,
     pub compact_scope: String,
+    pub runtime_event_kind: String,
+    pub runtime_event_status: String,
+    pub runtime_event_item_id: String,
+    pub runtime_event_idempotency_key: String,
+    pub compact_idempotency_key: String,
     pub continuation_allowed: bool,
     pub receipt_refs: Vec<String>,
     pub policy_decision_refs: Vec<String>,
@@ -622,6 +627,24 @@ impl CompactionPolicyCore {
             None
         };
         let status = compaction_status(&action, execute_compaction, approval_satisfied);
+        let runtime_event_kind = compaction_runtime_event_kind(&action);
+        let runtime_event_status = compaction_runtime_event_status(&action);
+        let event_scope = turn_id.as_deref().unwrap_or(request.thread_id.as_str());
+        let runtime_event_item_id = format!(
+            "{}:item:compaction-policy:{}",
+            event_scope,
+            safe_id(&policy_decision_id)
+        );
+        let runtime_event_idempotency_key = format!(
+            "thread:{}:compaction-policy:{}",
+            request.thread_id,
+            safe_id(&policy_decision_id)
+        );
+        let compact_idempotency_key = format!(
+            "thread:{}:compaction-policy:compact:{}",
+            request.thread_id,
+            safe_id(&policy_decision_id)
+        );
         let summary = compaction_summary(&action, execute_compaction);
 
         Ok(CompactionPolicyRecord {
@@ -656,6 +679,11 @@ impl CompactionPolicyCore {
             compaction_seq: None,
             compact_reason,
             compact_scope,
+            runtime_event_kind,
+            runtime_event_status,
+            runtime_event_item_id,
+            runtime_event_idempotency_key,
+            compact_idempotency_key,
             continuation_allowed,
             receipt_refs: vec![receipt_id],
             policy_decision_refs: vec![policy_decision_id.clone()],
@@ -1008,6 +1036,22 @@ fn compaction_status(action: &str, execute_compaction: bool, approval_satisfied:
     }
 }
 
+fn compaction_runtime_event_kind(action: &str) -> String {
+    match action {
+        "stop" => "policy.blocked".to_string(),
+        "approval_required" => "approval.required".to_string(),
+        _ => "compaction_policy.evaluated".to_string(),
+    }
+}
+
+fn compaction_runtime_event_status(action: &str) -> String {
+    match action {
+        "stop" => "blocked".to_string(),
+        "approval_required" => "waiting".to_string(),
+        _ => "completed".to_string(),
+    }
+}
+
 fn compaction_summary(action: &str, execute_compaction: bool) -> String {
     match action {
         "stop" => "Compaction policy blocked continuation.".to_string(),
@@ -1223,6 +1267,17 @@ mod tests {
         assert!(record
             .policy_decision_id
             .starts_with("policy_compaction_thread_budget_"));
+        assert_eq!(record.runtime_event_kind, "approval.required");
+        assert_eq!(record.runtime_event_status, "waiting");
+        assert!(record
+            .runtime_event_item_id
+            .starts_with("turn_budget:item:compaction-policy:policy_compaction_thread_budget_"));
+        assert!(record.runtime_event_idempotency_key.starts_with(
+            "thread:thread_budget:compaction-policy:policy_compaction_thread_budget_"
+        ));
+        assert!(record.compact_idempotency_key.starts_with(
+            "thread:thread_budget:compaction-policy:compact:policy_compaction_thread_budget_"
+        ));
         assert_eq!(
             record.policy_decision_refs,
             vec![record.policy_decision_id.clone()]
@@ -1241,6 +1296,8 @@ mod tests {
 
         assert_eq!(record.action, "compact");
         assert_eq!(record.status, "compacted");
+        assert_eq!(record.runtime_event_kind, "compaction_policy.evaluated");
+        assert_eq!(record.runtime_event_status, "completed");
         assert!(record.approval_satisfied);
         assert!(record.execute_compaction);
         assert!(record.compaction_requested);

@@ -204,6 +204,20 @@ export function normalizeCompactionPolicyBridgeResult(value = {}) {
     compaction_seq: numberValue(result.compaction_seq ?? record.compaction_seq),
     compact_reason: optionalString(result.compact_reason ?? record.compact_reason) ?? null,
     compact_scope: optionalString(result.compact_scope ?? record.compact_scope) ?? "thread",
+    runtime_event_kind:
+      optionalString(result.runtime_event_kind ?? record.runtime_event_kind) ??
+      "compaction_policy.evaluated",
+    runtime_event_status:
+      optionalString(result.runtime_event_status ?? record.runtime_event_status) ?? "completed",
+    runtime_event_item_id: optionalString(
+      result.runtime_event_item_id ?? record.runtime_event_item_id,
+    ),
+    runtime_event_idempotency_key: optionalString(
+      result.runtime_event_idempotency_key ?? record.runtime_event_idempotency_key,
+    ),
+    compact_idempotency_key: optionalString(
+      result.compact_idempotency_key ?? record.compact_idempotency_key,
+    ),
     compact_workflow_node_id:
       optionalString(result.compact_workflow_node_id ?? record.compact_workflow_node_id) ??
       "runtime.context-compact",

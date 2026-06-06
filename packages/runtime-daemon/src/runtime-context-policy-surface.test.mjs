@@ -85,6 +85,11 @@ function harness({ contextResult = baseResult(), compactionResult = null, compac
         workflow_node_id: "node-one",
         receipt_refs: ["receipt-compaction"],
         policy_decision_refs: ["policy-compaction"],
+        runtime_event_kind: "compaction_policy.evaluated",
+        runtime_event_status: "completed",
+        runtime_event_item_id: "turn-run-one:item:compaction-policy:rust-policy-item",
+        runtime_event_idempotency_key: "thread:thread-agent-one:compaction-policy:rust-policy-event",
+        compact_idempotency_key: "thread:thread-agent-one:compaction-policy:compact:rust-policy-event",
         ...compactionResult,
       };
     },
@@ -234,6 +239,9 @@ test("compaction policy surface appends approval or compact events", () => {
       workflow_graph_id: "graph-compact",
       workflow_node_id: "node-policy",
       policy_decision_id: "policy compact",
+      runtime_event_item_id: "turn-run-one:item:compaction-policy:rust-compact-policy",
+      runtime_event_idempotency_key: "thread:thread-agent-one:compaction-policy:rust-compact-policy",
+      compact_idempotency_key: "thread:thread-agent-one:compaction-policy:compact:rust-compact-policy",
     },
   });
 
@@ -244,6 +252,8 @@ test("compaction policy surface appends approval or compact events", () => {
 
   assert.equal(result.compaction_executed, true);
   assert.equal(result.compaction_event_id, "event-compacted");
+  assert.equal(events[0].item_id, "turn-run-one:item:compaction-policy:rust-compact-policy");
+  assert.equal(events[0].idempotency_key, "thread:thread-agent-one:compaction-policy:rust-compact-policy");
   assert.equal(events[0].event_kind, "compaction_policy.evaluated");
   assert.equal(events[0].status, "completed");
   assert.deepEqual(events[0].artifact_refs, ["artifact-compaction"]);
@@ -255,7 +265,7 @@ test("compaction policy surface appends approval or compact events", () => {
     actor: "operator",
     workflow_graph_id: "graph-compact",
     workflow_node_id: "node-compact",
-    idempotency_key: "thread:thread-agent-one:compaction-policy:compact:policy_compact",
+    idempotency_key: "thread:thread-agent-one:compaction-policy:compact:rust-compact-policy",
   });
 });
 
@@ -265,6 +275,10 @@ test("compaction policy surface handles required thread and approval-required st
       action: "approval_required",
       approval_id: "approval-one",
       policy_decision_id: "policy approval",
+      runtime_event_kind: "approval.required",
+      runtime_event_status: "waiting",
+      runtime_event_item_id: "turn-run-one:item:compaction-policy:rust-approval-policy",
+      runtime_event_idempotency_key: "thread:thread-agent-one:compaction-policy:rust-approval-policy",
     },
   });
 
