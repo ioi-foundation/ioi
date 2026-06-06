@@ -23,6 +23,11 @@ import {
   SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  normalizeAgentCreateStateUpdateBridgeResult,
+  normalizeContextCompactionStateUpdateBridgeResult,
+  normalizeOperatorInterruptStateUpdateBridgeResult,
+  normalizeSubagentRecordStateUpdateBridgeResult,
+  normalizeThreadControlAgentStateUpdateBridgeResult,
 } from "./runtime-context-policy-runner.mjs";
 
 test("context budget policy runner sends generic Rust policy bridge request", () => {
@@ -1189,5 +1194,75 @@ test("context policy runner fails closed without bridge command", () => {
   assert.throws(
     () => runner.evaluateContextBudgetPolicy({ usage_telemetry: { total_tokens: 1 } }),
     /Context policy requires IOI_STEP_MODULE_COMMAND/,
+  );
+});
+
+test("context policy state update runner fails closed without Rust-planned operation kinds", () => {
+  assert.throws(
+    () =>
+      normalizeContextCompactionStateUpdateBridgeResult({
+        status: "planned",
+        target_kind: "agent",
+        agent: { id: "agent_alpha" },
+      }),
+    (error) => {
+      assert.equal(error.code, "context_compaction_state_update_operation_kind_missing");
+      assert.equal(error.details.operationKind, "thread.compact");
+      return true;
+    },
+  );
+  assert.throws(
+    () =>
+      normalizeOperatorInterruptStateUpdateBridgeResult({
+        status: "planned",
+        operation_kind: "turn.steer",
+        run: { id: "run_alpha" },
+      }),
+    (error) => {
+      assert.equal(error.code, "operator_interrupt_state_update_operation_kind_mismatch");
+      assert.equal(error.details.expectedOperationKind, "turn.interrupt");
+      assert.equal(error.details.operationKind, "turn.steer");
+      return true;
+    },
+  );
+  assert.throws(
+    () =>
+      normalizeThreadControlAgentStateUpdateBridgeResult({
+        status: "planned",
+        operation_kind: "agent.status",
+        agent: { id: "agent_alpha" },
+      }),
+    (error) => {
+      assert.equal(error.code, "thread_control_agent_state_update_operation_kind_mismatch");
+      assert.equal(error.details.expectedPrefix, "thread.");
+      assert.equal(error.details.operationKind, "agent.status");
+      return true;
+    },
+  );
+  assert.throws(
+    () =>
+      normalizeSubagentRecordStateUpdateBridgeResult({
+        status: "planned",
+        subagent: { id: "subagent_alpha" },
+      }),
+    (error) => {
+      assert.equal(error.code, "subagent_record_state_update_operation_kind_missing");
+      assert.equal(error.details.operationKind, "subagent.");
+      return true;
+    },
+  );
+  assert.throws(
+    () =>
+      normalizeAgentCreateStateUpdateBridgeResult({
+        status: "planned",
+        operation_kind: "run.create",
+        agent: { id: "agent_alpha" },
+      }),
+    (error) => {
+      assert.equal(error.code, "agent_create_state_update_operation_kind_mismatch");
+      assert.equal(error.details.expectedOperationKind, "agent.create");
+      assert.equal(error.details.operationKind, "run.create");
+      return true;
+    },
   );
 });

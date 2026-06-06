@@ -12410,6 +12410,14 @@ authority output to include an allowed `approval.*` operation kind instead of
 defaulting missing bridge fields in JS before the approval surface validates and
 persists the projection.
 
+Slice 388 removes the context-policy runner operation-kind fallback:
+context compaction, budget recovery, diagnostics override, operator
+interrupt/steer, run cancel, thread/MCP/memory controls, runtime bridge,
+subagent, agent create/run create, and agent status state-update bridge
+normalization now requires Rust policy output to include an exact or
+namespace-valid operation kind instead of defaulting missing bridge fields in
+JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

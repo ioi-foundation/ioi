@@ -307,6 +307,42 @@ export class ContextPolicyRunnerError extends Error {
   }
 }
 
+function requiredContextPolicyBridgeOperationKind(result, record, options = {}) {
+  const {
+    codePrefix,
+    expectedOperationKind = null,
+    expectedOperationKinds = expectedOperationKind ? [expectedOperationKind] : [],
+    expectedPrefix = null,
+  } = options;
+  const operationKind = optionalString(result.operation_kind ?? record.operation_kind);
+  if (!operationKind) {
+    throw new ContextPolicyRunnerError(
+      "Rust context policy bridge result did not include an operation kind.",
+      `${codePrefix}_operation_kind_missing`,
+      {
+        operationKind: expectedOperationKinds[0] ?? expectedPrefix ?? null,
+        expectedOperationKinds,
+        expectedPrefix,
+      },
+    );
+  }
+  if (expectedOperationKinds.length > 0 && !expectedOperationKinds.includes(operationKind)) {
+    throw new ContextPolicyRunnerError(
+      "Rust context policy bridge result included an unexpected operation kind.",
+      `${codePrefix}_operation_kind_mismatch`,
+      { expectedOperationKind: expectedOperationKinds[0], expectedOperationKinds, operationKind },
+    );
+  }
+  if (expectedPrefix && !operationKind.startsWith(expectedPrefix)) {
+    throw new ContextPolicyRunnerError(
+      "Rust context policy bridge result included an unexpected operation kind.",
+      `${codePrefix}_operation_kind_mismatch`,
+      { expectedPrefix, operationKind },
+    );
+  }
+  return operationKind;
+}
+
 export function normalizeContextBudgetPolicyBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
@@ -431,7 +467,10 @@ export function normalizeContextCompactionStateUpdateBridgeResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
     target_kind: optionalString(result.target_kind ?? record.target_kind) ?? "agent",
-    operation_kind: optionalString(result.operation_kind ?? record.operation_kind) ?? "thread.compact",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "context_compaction_state_update",
+      expectedOperationKind: "thread.compact",
+    }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
       objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
@@ -453,9 +492,10 @@ export function normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult(value =
       "rust_coding_tool_budget_recovery_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ??
-      "workflow.run.retry_completed",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "coding_tool_budget_recovery_state_update",
+      expectedOperationKind: "workflow.run.retry_completed",
+    }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
       objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
@@ -474,9 +514,10 @@ export function normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult(valu
       "rust_diagnostics_operator_override_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ??
-      "diagnostics.operator_override.event",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "diagnostics_operator_override_state_update",
+      expectedOperationKind: "diagnostics.operator_override.event",
+    }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
       objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
@@ -495,8 +536,10 @@ export function normalizeOperatorInterruptStateUpdateBridgeResult(value = {}) {
       "rust_operator_interrupt_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ?? "turn.interrupt",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "operator_interrupt_state_update",
+      expectedOperationKind: "turn.interrupt",
+    }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
       objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
@@ -517,8 +560,10 @@ export function normalizeOperatorSteerStateUpdateBridgeResult(value = {}) {
       "rust_operator_steer_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ?? "turn.steer",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "operator_steer_state_update",
+      expectedOperationKind: "turn.steer",
+    }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
       objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
@@ -537,8 +582,10 @@ export function normalizeRunCancelStateUpdateBridgeResult(value = {}) {
       "rust_run_cancel_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ?? "run.cancel",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "run_cancel_state_update",
+      expectedOperationKind: "run.cancel",
+    }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     stop_condition:
       objectRecord(result.stop_condition) ?? objectRecord(record.stop_condition) ?? null,
@@ -563,9 +610,10 @@ export function normalizeThreadControlAgentStateUpdateBridgeResult(value = {}) {
       "rust_thread_control_agent_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ??
-      "thread.control",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "thread_control_agent_state_update",
+      expectedPrefix: "thread.",
+    }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     control:
       objectRecord(result.control) ?? objectRecord(record.control) ?? null,
@@ -584,9 +632,10 @@ export function normalizeMcpControlAgentStateUpdateBridgeResult(value = {}) {
       "rust_mcp_control_agent_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ??
-      "thread.mcp_control",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "mcp_control_agent_state_update",
+      expectedPrefix: "thread.",
+    }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     control:
       objectRecord(result.control) ?? objectRecord(record.control) ?? null,
@@ -605,9 +654,10 @@ export function normalizeThreadMemoryAgentStateUpdateBridgeResult(value = {}) {
       "rust_thread_memory_agent_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ??
-      "thread.memory",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "thread_memory_agent_state_update",
+      expectedPrefix: "thread.",
+    }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     control:
       objectRecord(result.control) ?? objectRecord(record.control) ?? null,
@@ -626,9 +676,10 @@ export function normalizeRuntimeBridgeThreadStartAgentStateUpdateBridgeResult(va
       "rust_runtime_bridge_thread_start_agent_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ??
-      "thread.runtime_bridge.start",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "runtime_bridge_thread_start_agent_state_update",
+      expectedOperationKind: "thread.runtime_bridge.start",
+    }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     bridge_start:
       objectRecord(result.bridge_start) ?? objectRecord(record.bridge_start) ?? null,
@@ -647,9 +698,10 @@ export function normalizeRuntimeBridgeTurnRunStateUpdateBridgeResult(value = {})
       "rust_runtime_bridge_turn_run_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ??
-      "turn.runtime_bridge.submit",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "runtime_bridge_turn_run_state_update",
+      expectedOperationKind: "turn.runtime_bridge.submit",
+    }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
   };
@@ -666,9 +718,10 @@ export function normalizeSubagentRecordStateUpdateBridgeResult(value = {}) {
       "rust_subagent_record_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ??
-      "subagent.state_update",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "subagent_record_state_update",
+      expectedPrefix: "subagent.",
+    }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     subagent: objectRecord(result.subagent) ?? objectRecord(record.subagent) ?? null,
   };
@@ -685,9 +738,10 @@ export function normalizeAgentCreateStateUpdateBridgeResult(value = {}) {
       "rust_agent_create_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ??
-      "agent.create",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "agent_create_state_update",
+      expectedOperationKind: "agent.create",
+    }),
     created_at: optionalString(result.created_at ?? record.created_at) ?? null,
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
@@ -705,9 +759,10 @@ export function normalizeRunCreateStateUpdateBridgeResult(value = {}) {
       "rust_run_create_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ??
-      "run.create",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "run_create_state_update",
+      expectedOperationKind: "run.create",
+    }),
     created_at: optionalString(result.created_at ?? record.created_at) ?? null,
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
@@ -725,9 +780,10 @@ export function normalizeAgentStatusStateUpdateBridgeResult(value = {}) {
       "rust_agent_status_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind:
-      optionalString(result.operation_kind ?? record.operation_kind) ??
-      "agent.status",
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "agent_status_state_update",
+      expectedPrefix: "agent.",
+    }),
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
   };

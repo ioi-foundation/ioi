@@ -1939,6 +1939,13 @@ function runBridge() {
       /context compaction state update runner sends Rust state update bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
+      /requiredContextPolicyBridgeOperationKind/.test(runtimeContextPolicyRunner) &&
+      /context policy state update runner fails closed without Rust-planned operation kinds/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?/.test(
+        runtimeContextPolicyRunner,
+      ) &&
       /contextPolicyRunnerDep\.planContextCompactionStateUpdate/.test(
         runtimeContextPolicySurface,
       ) &&
