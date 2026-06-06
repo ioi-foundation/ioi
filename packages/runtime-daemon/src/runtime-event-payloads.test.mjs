@@ -105,6 +105,28 @@ const retiredPrAttemptSummaryAliasKeys = [
   "workflowNodeId",
 ];
 
+const retiredReviewGateSummaryAliasKeys = [
+  "eventKind",
+  "gateId",
+  "repositoryContextId",
+  "branchPolicyId",
+  "githubContextId",
+  "prAttemptId",
+  "repoFullName",
+  "defaultBranch",
+  "reviewRequired",
+  "reviewSatisfied",
+  "approvalRequired",
+  "approvalSatisfied",
+  "requiredReviewers",
+  "requiredChecks",
+  "mutationAllowed",
+  "prCreationAllowed",
+  "mutationExecuted",
+  "networkLookupPerformed",
+  "workflowNodeId",
+];
+
 const retiredRuntimeTaskSummaryAliasKeys = [
   "eventKind",
   "taskId",
@@ -705,6 +727,87 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   assert.notEqual(prAttempt.workflow_node_id, "retired.pr-attempt");
   for (const key of retiredPrAttemptSummaryAliasKeys) {
     assert.equal(Object.hasOwn(prAttempt, key), false);
+  }
+
+  const reviewGate = runtime.payloadSummaryForRunEvent({
+    id: "event-review-gate",
+    type: "review_gate",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      event_kind: "ReviewGateDecision.Canonical",
+      eventKind: "RetiredReviewGateDecision",
+      gate_id: "review-gate-one",
+      gateId: "retired-review-gate",
+      repository_context_id: "repo-context-one",
+      repositoryContextId: "retired-repo-context",
+      branch_policy_id: "branch-policy-one",
+      branchPolicyId: "retired-branch-policy",
+      github_context_id: "github-context-one",
+      githubContextId: "retired-github-context",
+      pr_attempt_id: "pr-attempt-one",
+      prAttemptId: "retired-pr-attempt",
+      status: "blocked",
+      decision: "blocked",
+      repo_full_name: "ioi-foundation/ioi",
+      repoFullName: "retired/repo",
+      branch: "feature/substrate",
+      default_branch: "main",
+      defaultBranch: "retired-main",
+      review_required: true,
+      reviewRequired: false,
+      review_satisfied: false,
+      reviewSatisfied: true,
+      approval_required: true,
+      approvalRequired: false,
+      approval_satisfied: false,
+      approvalSatisfied: true,
+      required_reviewers: ["code-owner"],
+      requiredReviewers: ["retired-reviewer"],
+      required_checks: ["branch_policy_passed"],
+      requiredChecks: ["retired-check"],
+      blockers: ["review_not_satisfied"],
+      warnings: ["review_gate_preview_only"],
+      mutation_allowed: false,
+      mutationAllowed: true,
+      pr_creation_allowed: false,
+      prCreationAllowed: true,
+      mutation_executed: false,
+      mutationExecuted: true,
+      network_lookup_performed: false,
+      networkLookupPerformed: true,
+      workflow_node_id: "runtime.review-gate",
+      workflowNodeId: "retired.review-gate",
+      redaction: { profile: "review_gate_safe" },
+    },
+  });
+
+  assert.equal(reviewGate.event_kind, "ReviewGateDecision.Canonical");
+  assert.equal(reviewGate.gate_id, "review-gate-one");
+  assert.equal(reviewGate.repository_context_id, "repo-context-one");
+  assert.equal(reviewGate.branch_policy_id, "branch-policy-one");
+  assert.equal(reviewGate.github_context_id, "github-context-one");
+  assert.equal(reviewGate.pr_attempt_id, "pr-attempt-one");
+  assert.equal(reviewGate.repo_full_name, "ioi-foundation/ioi");
+  assert.equal(reviewGate.default_branch, "main");
+  assert.equal(reviewGate.review_required, true);
+  assert.equal(reviewGate.review_satisfied, false);
+  assert.equal(reviewGate.approval_required, true);
+  assert.equal(reviewGate.approval_satisfied, false);
+  assert.deepEqual(reviewGate.required_reviewers, ["code-owner"]);
+  assert.deepEqual(reviewGate.required_checks, ["branch_policy_passed"]);
+  assert.equal(reviewGate.blocker_count, 1);
+  assert.equal(reviewGate.warning_count, 1);
+  assert.equal(reviewGate.mutation_allowed, false);
+  assert.equal(reviewGate.pr_creation_allowed, false);
+  assert.equal(reviewGate.mutation_executed, false);
+  assert.equal(reviewGate.network_lookup_performed, false);
+  assert.equal(reviewGate.workflow_node_id, "runtime.review-gate");
+  assert.notEqual(reviewGate.gate_id, "retired-review-gate");
+  assert.notDeepEqual(reviewGate.required_reviewers, ["retired-reviewer"]);
+  assert.notEqual(reviewGate.workflow_node_id, "retired.review-gate");
+  for (const key of retiredReviewGateSummaryAliasKeys) {
+    assert.equal(Object.hasOwn(reviewGate, key), false);
   }
 
   const task = runtime.payloadSummaryForRunEvent({

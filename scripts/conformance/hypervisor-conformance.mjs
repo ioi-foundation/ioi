@@ -9125,6 +9125,8 @@ function runCompositor() {
     runtimeEventPayloads.match(/if \(event\.type === "issue_context"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimePrAttemptPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "pr_attempt"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimeReviewGatePayloadSummaryBlock =
+    runtimeEventPayloads.match(/if \(event\.type === "review_gate"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeTaskPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "runtime_task"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeChecklistPayloadSummaryBlock =
@@ -9149,6 +9151,8 @@ function runCompositor() {
     runtimeDaemonIndex.match(/addEvent\("issue_context", "Issue context recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimePrAttemptEventProducerBlock =
     runtimeDaemonIndex.match(/addEvent\("pr_attempt", "PR attempt preview recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
+  const runtimeReviewGateEventProducerBlock =
+    runtimeDaemonIndex.match(/addEvent\("review_gate", "Review gate decision recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeUsageEvents = exists("packages/runtime-daemon/src/runtime-usage-events.mjs")
     ? read("packages/runtime-daemon/src/runtime-usage-events.mjs")
     : "";
@@ -10744,6 +10748,22 @@ function runCompositor() {
       !/event\.data\?\.authority\?\.(?:requiredScopes|missingScopes|scopeGranted)\b/.test(
         runtimePrAttemptPayloadSummaryBlock,
       ) &&
+      runtimeReviewGatePayloadSummaryBlock.length > 0 &&
+      /event_kind:\s*event\.data\?\.event_kind \?\? "ReviewGateDecision"/.test(
+        runtimeReviewGatePayloadSummaryBlock,
+      ) &&
+      /gate_id:\s*event\.data\?\.gate_id \?\? null/.test(
+        runtimeReviewGatePayloadSummaryBlock,
+      ) &&
+      /required_reviewers:\s*normalizeArray\(event\.data\?\.required_reviewers\)/.test(
+        runtimeReviewGatePayloadSummaryBlock,
+      ) &&
+      /pr_creation_allowed:\s*Boolean\(event\.data\?\.pr_creation_allowed\)/.test(
+        runtimeReviewGatePayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.(?:eventKind|gateId|repositoryContextId|branchPolicyId|githubContextId|prAttemptId|repoFullName|defaultBranch|reviewRequired|reviewSatisfied|approvalRequired|approvalSatisfied|requiredReviewers|requiredChecks|mutationAllowed|prCreationAllowed|mutationExecuted|networkLookupPerformed|workflowNodeId)\b/.test(
+        runtimeReviewGatePayloadSummaryBlock,
+      ) &&
       runtimeTaskPayloadSummaryBlock.length > 0 &&
       /event_kind:\s*event\.data\?\.event_kind \?\? "RuntimeTaskRecord"/.test(
         runtimeTaskPayloadSummaryBlock,
@@ -10883,6 +10903,20 @@ function runCompositor() {
       !/\.\.\.prAttempt|^\s*(?:receiptId|eventKind|workflowNodeId|attemptId|repositoryContextId|branchPolicyId|githubContextId|repoFullName|defaultBranch|headShortSha|branchArtifact|diffArtifact|mutationAttempted|mutationExecuted|networkLookupPerformed)\s*:/m.test(
         runtimePrAttemptEventProducerBlock,
       ) &&
+      runtimeReviewGateEventProducerBlock.length > 0 &&
+      /event_kind:\s*"ReviewGateDecision"/.test(runtimeReviewGateEventProducerBlock) &&
+      /gate_id:\s*reviewGate\.gateId \?\? null/.test(
+        runtimeReviewGateEventProducerBlock,
+      ) &&
+      /required_reviewers:\s*normalizeArray\(reviewGate\.requiredReviewers\)/.test(
+        runtimeReviewGateEventProducerBlock,
+      ) &&
+      /workflow_node_id:\s*"runtime\.review-gate"/.test(
+        runtimeReviewGateEventProducerBlock,
+      ) &&
+      !/\.\.\.reviewGate|^\s*(?:receiptId|eventKind|workflowNodeId|gateId|repositoryContextId|branchPolicyId|githubContextId|prAttemptId|repoFullName|defaultBranch|reviewRequired|reviewSatisfied|approvalRequired|approvalSatisfied|requiredReviewers|requiredChecks|mutationAllowed|prCreationAllowed|mutationExecuted|networkLookupPerformed)\s*:/m.test(
+        runtimeReviewGateEventProducerBlock,
+      ) &&
       /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
       /retiredComputerUseSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredMemorySummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
@@ -10891,6 +10925,7 @@ function runCompositor() {
       /retiredGithubContextSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredIssueContextSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredPrAttemptSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredReviewGateSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeTaskSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeChecklistSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeJobSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
@@ -10901,6 +10936,7 @@ function runCompositor() {
       /eventKind: "RetiredGitHubContext"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredIssueContext"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredPrAttemptRecord"/.test(runtimeEventPayloadsTest) &&
+      /eventKind: "RetiredReviewGateDecision"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeTaskRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeChecklistRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredJobCompleted"/.test(runtimeEventPayloadsTest) &&
@@ -10913,6 +10949,7 @@ function runCompositor() {
       /workflowNodeId: "retired\.issue-context"/.test(runtimeEventPayloadsTest) &&
       /diffHash: "retired-diff-hash"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.pr-attempt"/.test(runtimeEventPayloadsTest) &&
+      /workflowNodeId: "retired\.review-gate"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.repository-context"/.test(runtimeEventPayloadsTest) &&
       /memoryRecordId: "retired-memory"/.test(runtimeEventPayloadsTest) &&
       /memoryPolicyId: "retired-policy"/.test(runtimeEventPayloadsTest) &&
