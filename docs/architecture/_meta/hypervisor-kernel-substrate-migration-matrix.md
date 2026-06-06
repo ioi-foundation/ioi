@@ -12334,6 +12334,11 @@ Slice 373 moves subagent spawn persistence behind Rust planning:
 `store.writeSubagent(saved, "subagent.*")` lifecycle writes in the subagent
 surface.
 
+Slice 374 removes subagent lifecycle operation-kind fallbacks: the daemon now
+requires `SubagentRecordStateUpdateCore` to return the exact expected
+`operation_kind` for every subagent lifecycle persistence path and fails closed
+instead of substituting a JS-side `subagent.*` fallback.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

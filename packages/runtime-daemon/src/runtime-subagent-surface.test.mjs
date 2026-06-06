@@ -157,7 +157,11 @@ function createStore({ subagentStateUpdate } = {}) {
           operation: "plan_subagent_record_state_update",
           input: request,
         });
-        return subagentStateUpdate ?? {
+        const configuredStateUpdate =
+          typeof subagentStateUpdate === "function"
+            ? subagentStateUpdate(request)
+            : subagentStateUpdate;
+        return configuredStateUpdate ?? {
           status: "planned",
           operation_kind: request.operation_kind,
           subagent: request.subagent,
@@ -717,6 +721,33 @@ test("subagent spawn fails closed without Rust-planned subagent record", () => {
       role: "planner",
     }),
     (error) => error.code === "subagent_record_state_update_planner_invalid",
+  );
+  assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
+  assert.equal(store.writes.length, 0);
+});
+
+test("subagent spawn fails closed without Rust-planned operation kind", () => {
+  const store = createStore({
+    subagentStateUpdate: (request) => ({
+      status: "planned",
+      subagent: request.subagent,
+    }),
+  });
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T12:15:00.000Z",
+    nowMs: () => 1780586100000,
+  });
+  store.surface = surface;
+
+  assert.throws(
+    () => surface.spawnSubagent(store, "thread_1", {
+      source: "agent_studio",
+      prompt: "Plan the migration",
+      role: "planner",
+    }),
+    (error) =>
+      error.code === "subagent_record_state_update_operation_kind_missing" &&
+      error.details.operation_kind === "subagent.spawn",
   );
   assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
   assert.equal(store.writes.length, 0);

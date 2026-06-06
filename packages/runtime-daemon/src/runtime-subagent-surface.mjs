@@ -145,6 +145,27 @@ export function createRuntimeSubagentSurface({
   validateSubagentOutputContract: validateSubagentOutputContractDep = validateSubagentOutputContract,
   uniqueStrings: uniqueStringsDep = uniqueStrings,
 } = {}) {
+  function requiredPlannedSubagentOperationKind(stateUpdate, expectedOperationKind, details = {}) {
+    const operationKind = optionalStringDep(stateUpdate?.operation_kind);
+    if (!operationKind) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "subagent_record_state_update_operation_kind_missing",
+        message: "Rust policy state-update planning did not return an operation kind.",
+        details: { ...details, operation_kind: expectedOperationKind },
+      });
+    }
+    if (operationKind !== expectedOperationKind) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "subagent_record_state_update_operation_kind_mismatch",
+        message: "Rust policy state-update planning returned an unexpected operation kind.",
+        details: { ...details, expected_operation_kind: expectedOperationKind, operation_kind: operationKind },
+      });
+    }
+    return operationKind;
+  }
+
   return {
     listSubagents(store, threadId, options = {}) {
       const parentAgent = store.agentForThread(threadId);
@@ -370,7 +391,13 @@ export function createRuntimeSubagentSurface({
           details: { thread_id: threadId, subagent_id: subagentId, operation_kind: "subagent.spawn" },
         });
       }
-      store.writeSubagent(planned, stateUpdate.operation_kind ?? "subagent.spawn");
+      store.writeSubagent(
+        planned,
+        requiredPlannedSubagentOperationKind(stateUpdate, "subagent.spawn", {
+          thread_id: threadId,
+          subagent_id: subagentId,
+        }),
+      );
       if (budgetStatus.status === "exceeded") {
         throw policyErrorDep("Subagent budget limit exceeded.", {
           thread_id: threadId,
@@ -448,7 +475,13 @@ export function createRuntimeSubagentSurface({
           details: { thread_id: threadId, subagent_id: subagentId, operation_kind: "subagent.wait" },
         });
       }
-      store.writeSubagent(planned, stateUpdate.operation_kind ?? "subagent.wait");
+      store.writeSubagent(
+        planned,
+        requiredPlannedSubagentOperationKind(stateUpdate, "subagent.wait", {
+          thread_id: threadId,
+          subagent_id: subagentId,
+        }),
+      );
       return {
         ...planned.result,
         subagent: this.subagentProjection(planned),
@@ -610,7 +643,13 @@ export function createRuntimeSubagentSurface({
           details: { thread_id: threadId, subagent_id: subagentId, operation_kind: "subagent.input" },
         });
       }
-      store.writeSubagent(planned, stateUpdate.operation_kind ?? "subagent.input");
+      store.writeSubagent(
+        planned,
+        requiredPlannedSubagentOperationKind(stateUpdate, "subagent.input", {
+          thread_id: threadId,
+          subagent_id: subagentId,
+        }),
+      );
       if (budgetStatus.status === "exceeded") {
         throw policyErrorDep("Subagent budget limit exceeded.", {
           thread_id: threadId,
@@ -777,7 +816,13 @@ export function createRuntimeSubagentSurface({
           details: { thread_id: threadId, subagent_id: subagentId, operation_kind: "subagent.resume" },
         });
       }
-      store.writeSubagent(planned, stateUpdate.operation_kind ?? "subagent.resume");
+      store.writeSubagent(
+        planned,
+        requiredPlannedSubagentOperationKind(stateUpdate, "subagent.resume", {
+          thread_id: threadId,
+          subagent_id: subagentId,
+        }),
+      );
       if (budgetStatus.status === "exceeded") {
         throw policyErrorDep("Subagent budget limit exceeded.", {
           thread_id: threadId,
@@ -915,7 +960,13 @@ export function createRuntimeSubagentSurface({
           details: { thread_id: threadId, subagent_id: subagentId, operation_kind: "subagent.assign" },
         });
       }
-      store.writeSubagent(planned, stateUpdate.operation_kind ?? "subagent.assign");
+      store.writeSubagent(
+        planned,
+        requiredPlannedSubagentOperationKind(stateUpdate, "subagent.assign", {
+          thread_id: threadId,
+          subagent_id: subagentId,
+        }),
+      );
       return {
         ...this.subagentProjection(planned),
         assignment: assignmentRecord,
@@ -1024,7 +1075,13 @@ export function createRuntimeSubagentSurface({
           details: { thread_id: threadId, subagent_id: subagentId, operation_kind: "subagent.cancel" },
         });
       }
-      store.writeSubagent(planned, stateUpdate.operation_kind ?? "subagent.cancel");
+      store.writeSubagent(
+        planned,
+        requiredPlannedSubagentOperationKind(stateUpdate, "subagent.cancel", {
+          thread_id: threadId,
+          subagent_id: subagentId,
+        }),
+      );
       return {
         ...planned.result,
         subagent: this.subagentProjection(planned),

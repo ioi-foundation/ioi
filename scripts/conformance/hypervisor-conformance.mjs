@@ -8292,6 +8292,12 @@ function runCompositor() {
       /subagent wait fails closed without Rust-planned subagent record/.test(
         runtimeSubagentSurfaceTest,
       ) &&
+      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*"subagent\.wait"/.test(
+        runtimeSubagentSurface,
+      ) &&
+      !/stateUpdate\.operation_kind \?\? "subagent\.wait"/.test(
+        runtimeSubagentSurface,
+      ) &&
       !/store\.writeSubagent\(saved,\s*"subagent\.wait"\)/.test(
         runtimeSubagentSurface,
       ),
@@ -8315,8 +8321,14 @@ function runCompositor() {
       /subagent spawn fails closed without Rust-planned subagent record/.test(
         runtimeSubagentSurfaceTest,
       ) &&
+      /subagent spawn fails closed without Rust-planned operation kind/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
       /operation_kind:\s*"subagent\.spawn"/.test(runtimeSubagentSurface) &&
-      /store\.writeSubagent\(planned,\s*stateUpdate\.operation_kind \?\? "subagent\.spawn"\)/.test(
+      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*"subagent\.spawn"/.test(
+        runtimeSubagentSurface,
+      ) &&
+      !/stateUpdate\.operation_kind \?\? "subagent\.spawn"/.test(
         runtimeSubagentSurface,
       ) &&
       !/store\.writeSubagent\(saved,\s*"subagent\.spawn"\)/.test(
@@ -8340,7 +8352,10 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ) &&
       /operation_kind:\s*"subagent\.input"/.test(runtimeSubagentSurface) &&
-      /store\.writeSubagent\(planned,\s*stateUpdate\.operation_kind \?\? "subagent\.input"\)/.test(
+      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*"subagent\.input"/.test(
+        runtimeSubagentSurface,
+      ) &&
+      !/stateUpdate\.operation_kind \?\? "subagent\.input"/.test(
         runtimeSubagentSurface,
       ) &&
       !/store\.writeSubagent\(saved,\s*"subagent\.input"\)/.test(
@@ -8364,7 +8379,10 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ) &&
       /operation_kind:\s*"subagent\.resume"/.test(runtimeSubagentSurface) &&
-      /store\.writeSubagent\(planned,\s*stateUpdate\.operation_kind \?\? "subagent\.resume"\)/.test(
+      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*"subagent\.resume"/.test(
+        runtimeSubagentSurface,
+      ) &&
+      !/stateUpdate\.operation_kind \?\? "subagent\.resume"/.test(
         runtimeSubagentSurface,
       ) &&
       !/store\.writeSubagent\(saved,\s*"subagent\.resume"\)/.test(
@@ -8388,7 +8406,10 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ) &&
       /operation_kind:\s*"subagent\.assign"/.test(runtimeSubagentSurface) &&
-      /store\.writeSubagent\(planned,\s*stateUpdate\.operation_kind \?\? "subagent\.assign"\)/.test(
+      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*"subagent\.assign"/.test(
+        runtimeSubagentSurface,
+      ) &&
+      !/stateUpdate\.operation_kind \?\? "subagent\.assign"/.test(
         runtimeSubagentSurface,
       ) &&
       !/store\.writeSubagent\(saved,\s*"subagent\.assign"\)/.test(
@@ -8412,7 +8433,10 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ) &&
       /operation_kind:\s*"subagent\.cancel"/.test(runtimeSubagentSurface) &&
-      /store\.writeSubagent\(planned,\s*stateUpdate\.operation_kind \?\? "subagent\.cancel"\)/.test(
+      /requiredPlannedSubagentOperationKind\(stateUpdate,\s*"subagent\.cancel"/.test(
+        runtimeSubagentSurface,
+      ) &&
+      !/stateUpdate\.operation_kind \?\? "subagent\.cancel"/.test(
         runtimeSubagentSurface,
       ) &&
       !/store\.writeSubagent\(saved,\s*"subagent\.cancel"\)/.test(
