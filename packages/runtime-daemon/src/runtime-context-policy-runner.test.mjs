@@ -14,6 +14,7 @@ import {
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RustContextPolicyRunner,
@@ -855,6 +856,64 @@ test("thread memory agent state update runner sends Rust state update bridge req
   assert.equal(result.operation_kind, "thread.memory_status");
   assert.equal(result.control.eventId, "event_memory_status");
   assert.equal(result.agent.updatedAt, "2026-06-06T06:05:00.000Z");
+});
+
+test("runtime bridge thread start agent state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_runtime_bridge_thread_start_agent_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "thread.runtime_bridge.start",
+            updated_at: "2026-06-06T06:15:00.000Z",
+            bridge_start: {
+              sessionId: "session_runtime",
+              bridgeId: "bridge_runtime",
+            },
+            agent: {
+              id: "agent_1",
+              runtimeSessionId: "session_runtime",
+              runtimeBridgeId: "bridge_runtime",
+              updatedAt: "2026-06-06T06:15:00.000Z",
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planRuntimeBridgeThreadStartAgentStateUpdate({
+    thread_id: "thread_1",
+    agent: { id: "agent_1", cwd: "/workspace" },
+    runtime_profile: "runtime_service",
+    session_id: "session_runtime",
+    bridge_id: "bridge_runtime",
+    status: "active",
+    source: "runtime_service",
+    updated_at: "2026-06-06T06:15:00.000Z",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_runtime_bridge_thread_start_agent_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.session_id, "session_runtime");
+  assert.equal(result.source, "rust_runtime_bridge_thread_start_agent_state_update_command");
+  assert.equal(result.operation_kind, "thread.runtime_bridge.start");
+  assert.equal(result.bridge_start.bridgeId, "bridge_runtime");
+  assert.equal(result.agent.runtimeSessionId, "session_runtime");
 });
 
 test("agent create state update runner sends Rust state update bridge request", () => {

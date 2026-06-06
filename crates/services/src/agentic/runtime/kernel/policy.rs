@@ -49,6 +49,10 @@ pub const THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-memory-agent-state-update-request.v1";
 pub const THREAD_MEMORY_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-memory-agent-state-update.v1";
+pub const RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.runtime-bridge-thread-start-agent-state-update-request.v1";
+pub const RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.runtime-bridge-thread-start-agent-state-update.v1";
 pub const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.compaction-policy-request.v1";
 pub const COMPACTION_POLICY_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.compaction-policy.v1";
@@ -216,6 +220,15 @@ pub enum McpControlAgentStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ThreadMemoryAgentStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RuntimeBridgeThreadStartAgentStateUpdateError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -862,6 +875,33 @@ pub struct ThreadMemoryAgentStateUpdateRecord {
     pub agent_id: String,
     pub updated_at: String,
     pub control: Value,
+    pub agent: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeBridgeThreadStartAgentStateUpdateRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    pub agent: Value,
+    pub runtime_profile: String,
+    pub session_id: String,
+    pub bridge_id: String,
+    pub status: String,
+    pub source: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeBridgeThreadStartAgentStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    pub agent_id: String,
+    pub updated_at: String,
+    pub bridge_start: Value,
     pub agent: Value,
     pub generated_at: String,
 }
@@ -2303,6 +2343,74 @@ impl ThreadMemoryAgentStateUpdateCore {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct RuntimeBridgeThreadStartAgentStateUpdateCore;
+
+impl RuntimeBridgeThreadStartAgentStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &RuntimeBridgeThreadStartAgentStateUpdateRequest,
+    ) -> Result<
+        RuntimeBridgeThreadStartAgentStateUpdateRecord,
+        RuntimeBridgeThreadStartAgentStateUpdateError,
+    > {
+        request.validate()?;
+        let mut agent = object_value(&request.agent).ok_or(
+            RuntimeBridgeThreadStartAgentStateUpdateError::MissingField("agent"),
+        )?;
+        let agent_id = optional_json_string(&Value::Object(agent.clone()), "id").ok_or(
+            RuntimeBridgeThreadStartAgentStateUpdateError::MissingField("agent.id"),
+        )?;
+        agent.insert(
+            "runtimeProfile".to_string(),
+            Value::String(request.runtime_profile.clone()),
+        );
+        agent.insert(
+            "runtimeSessionId".to_string(),
+            Value::String(request.session_id.clone()),
+        );
+        agent.insert(
+            "runtimeBridgeId".to_string(),
+            Value::String(request.bridge_id.clone()),
+        );
+        agent.insert(
+            "runtimeBridgeStatus".to_string(),
+            Value::String(request.status.clone()),
+        );
+        agent.insert(
+            "runtimeBridgeSource".to_string(),
+            Value::String(request.source.clone()),
+        );
+        agent.insert("fixtureProfile".to_string(), Value::Null);
+        agent.insert(
+            "updatedAt".to_string(),
+            Value::String(request.updated_at.clone()),
+        );
+        let bridge_start = json!({
+            "runtimeProfile": request.runtime_profile,
+            "sessionId": request.session_id,
+            "bridgeId": request.bridge_id,
+            "status": request.status,
+            "source": request.source,
+            "updatedAt": request.updated_at,
+        });
+
+        Ok(RuntimeBridgeThreadStartAgentStateUpdateRecord {
+            schema_version: RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION
+                .to_string(),
+            object: "ioi.runtime_bridge_thread_start_agent_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: "thread.runtime_bridge.start".to_string(),
+            thread_id: request.thread_id.clone(),
+            agent_id,
+            updated_at: request.updated_at.clone(),
+            bridge_start,
+            agent: Value::Object(agent),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
 impl CompactionPolicyRequest {
     pub fn validate(&self) -> Result<(), CompactionPolicyError> {
         if self.schema_version != COMPACTION_POLICY_REQUEST_SCHEMA_VERSION {
@@ -2716,6 +2824,52 @@ impl ThreadMemoryAgentStateUpdateRequest {
         let agent_value = Value::Object(object_value(&self.agent).unwrap_or_default());
         if optional_json_string(&agent_value, "id").is_none() {
             return Err(ThreadMemoryAgentStateUpdateError::MissingField("agent.id"));
+        }
+        Ok(())
+    }
+}
+
+impl RuntimeBridgeThreadStartAgentStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), RuntimeBridgeThreadStartAgentStateUpdateError> {
+        if self.schema_version
+            != RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION
+        {
+            return Err(
+                RuntimeBridgeThreadStartAgentStateUpdateError::InvalidSchemaVersion {
+                    expected: RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                    actual: self.schema_version.clone(),
+                },
+            );
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(RuntimeBridgeThreadStartAgentStateUpdateError::MissingField(
+                "thread_id",
+            ));
+        }
+        if !self.agent.is_object() {
+            return Err(RuntimeBridgeThreadStartAgentStateUpdateError::MissingField(
+                "agent",
+            ));
+        }
+        for (field, value) in [
+            ("runtime_profile", self.runtime_profile.as_str()),
+            ("session_id", self.session_id.as_str()),
+            ("bridge_id", self.bridge_id.as_str()),
+            ("status", self.status.as_str()),
+            ("source", self.source.as_str()),
+            ("updated_at", self.updated_at.as_str()),
+        ] {
+            if optional_trimmed(Some(value)).is_none() {
+                return Err(RuntimeBridgeThreadStartAgentStateUpdateError::MissingField(
+                    field,
+                ));
+            }
+        }
+        let agent_value = Value::Object(object_value(&self.agent).unwrap_or_default());
+        if optional_json_string(&agent_value, "id").is_none() {
+            return Err(RuntimeBridgeThreadStartAgentStateUpdateError::MissingField(
+                "agent.id",
+            ));
         }
         Ok(())
     }
@@ -4007,6 +4161,27 @@ mod tests {
         }
     }
 
+    fn runtime_bridge_thread_start_agent_state_update_request(
+    ) -> RuntimeBridgeThreadStartAgentStateUpdateRequest {
+        RuntimeBridgeThreadStartAgentStateUpdateRequest {
+            schema_version: RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION
+                .to_string(),
+            thread_id: "thread_1".to_string(),
+            agent: json!({
+                "id": "agent_1",
+                "cwd": "/workspace",
+                "fixtureProfile": "fixture.local",
+                "updatedAt": "2026-06-06T05:00:00.000Z"
+            }),
+            runtime_profile: "runtime_service".to_string(),
+            session_id: "session_runtime".to_string(),
+            bridge_id: "bridge_runtime".to_string(),
+            status: "active".to_string(),
+            source: "runtime_service".to_string(),
+            updated_at: "2026-06-06T06:15:00.000Z".to_string(),
+        }
+    }
+
     #[test]
     fn rust_policy_blocks_context_budget_excess() {
         let mut request = budget_request();
@@ -4603,6 +4778,28 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_plans_runtime_bridge_thread_start_agent_state_update() {
+        let record = RuntimeBridgeThreadStartAgentStateUpdateCore
+            .plan(&runtime_bridge_thread_start_agent_state_update_request())
+            .expect("runtime bridge thread start agent state update");
+
+        assert_eq!(
+            record.schema_version,
+            RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "thread.runtime_bridge.start");
+        assert_eq!(record.thread_id, "thread_1");
+        assert_eq!(record.agent_id, "agent_1");
+        assert_eq!(record.updated_at, "2026-06-06T06:15:00.000Z");
+        assert_eq!(record.bridge_start["sessionId"], "session_runtime");
+        assert_eq!(record.agent["runtimeProfile"], "runtime_service");
+        assert_eq!(record.agent["runtimeSessionId"], "session_runtime");
+        assert_eq!(record.agent["runtimeBridgeId"], "bridge_runtime");
+        assert_eq!(record.agent["fixtureProfile"], Value::Null);
+    }
+
+    #[test]
     fn rust_policy_rejects_invalid_mcp_control_agent_state_update_schema() {
         let mut request = mcp_control_agent_state_update_request();
         request.schema_version = "legacy.mcp-control-state-update".to_string();
@@ -4634,6 +4831,24 @@ mod tests {
             ThreadMemoryAgentStateUpdateError::InvalidSchemaVersion {
                 expected: THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.thread-memory-state-update".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_runtime_bridge_thread_start_agent_state_update_schema() {
+        let mut request = runtime_bridge_thread_start_agent_state_update_request();
+        request.schema_version = "legacy.runtime-bridge-start-state-update".to_string();
+
+        let error = RuntimeBridgeThreadStartAgentStateUpdateCore
+            .plan(&request)
+            .expect_err("invalid schema should be rejected");
+
+        assert_eq!(
+            error,
+            RuntimeBridgeThreadStartAgentStateUpdateError::InvalidSchemaVersion {
+                expected: RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.runtime-bridge-start-state-update".to_string(),
             }
         );
     }

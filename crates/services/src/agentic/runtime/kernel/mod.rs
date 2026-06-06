@@ -94,7 +94,10 @@ use policy::{
     OperatorSteerStateUpdateError, OperatorSteerStateUpdateRecord, OperatorSteerStateUpdateRequest,
     RunCancelStateUpdateCore, RunCancelStateUpdateError, RunCancelStateUpdateRecord,
     RunCancelStateUpdateRequest, RunCreateStateUpdateCore, RunCreateStateUpdateError,
-    RunCreateStateUpdateRecord, RunCreateStateUpdateRequest, ThreadControlAgentStateUpdateCore,
+    RunCreateStateUpdateRecord, RunCreateStateUpdateRequest,
+    RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateError,
+    RuntimeBridgeThreadStartAgentStateUpdateRecord,
+    RuntimeBridgeThreadStartAgentStateUpdateRequest, ThreadControlAgentStateUpdateCore,
     ThreadControlAgentStateUpdateError, ThreadControlAgentStateUpdateRecord,
     ThreadControlAgentStateUpdateRequest, ThreadMemoryAgentStateUpdateCore,
     ThreadMemoryAgentStateUpdateError, ThreadMemoryAgentStateUpdateRecord,
@@ -266,6 +269,16 @@ impl RuntimeKernelService {
         request: &ThreadMemoryAgentStateUpdateRequest,
     ) -> Result<ThreadMemoryAgentStateUpdateRecord, ThreadMemoryAgentStateUpdateError> {
         ThreadMemoryAgentStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_runtime_bridge_thread_start_agent_state_update(
+        &self,
+        request: &RuntimeBridgeThreadStartAgentStateUpdateRequest,
+    ) -> Result<
+        RuntimeBridgeThreadStartAgentStateUpdateRecord,
+        RuntimeBridgeThreadStartAgentStateUpdateError,
+    > {
+        RuntimeBridgeThreadStartAgentStateUpdateCore.plan(request)
     }
 
     pub fn plan_agent_create_state_update(

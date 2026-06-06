@@ -30,6 +30,7 @@ use ioi_services::agentic::runtime::kernel::policy::{
     OperatorInterruptStateUpdateCore, OperatorInterruptStateUpdateRequest,
     OperatorSteerStateUpdateCore, OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore,
     RunCancelStateUpdateRequest, RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
+    RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateRequest,
     ThreadControlAgentStateUpdateCore, ThreadControlAgentStateUpdateRequest,
     ThreadMemoryAgentStateUpdateCore, ThreadMemoryAgentStateUpdateRequest,
 };
@@ -434,6 +435,16 @@ struct ThreadMemoryAgentStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: RuntimeBridgeThreadStartAgentStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct AgentCreateStateUpdateBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -714,6 +725,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_thread_memory_agent_state_update(request)
+        }
+        "plan_runtime_bridge_thread_start_agent_state_update" => {
+            let request: RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_runtime_bridge_thread_start_agent_state_update(request)
         }
         "plan_agent_create_state_update" => {
             let request: AgentCreateStateUpdateBridgeRequest = serde_json::from_value(raw_request)
@@ -2115,6 +2132,44 @@ fn plan_thread_memory_agent_state_update(
         "operation_kind": record.operation_kind.clone(),
         "updated_at": record.updated_at.clone(),
         "control": record.control.clone(),
+        "agent": record.agent.clone(),
+    }))
+}
+
+fn plan_runtime_bridge_thread_start_agent_state_update(
+    request: RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_runtime_bridge_thread_start_agent_state_update" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = RuntimeBridgeThreadStartAgentStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "runtime_bridge_thread_start_agent_state_update_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_runtime_bridge_thread_start_agent_state_update_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "bridge_start": record.bridge_start.clone(),
         "agent": record.agent.clone(),
     }))
 }
@@ -7313,6 +7368,48 @@ mod tests {
         assert_eq!(response["control"]["controlKind"], "memory_status");
         assert_eq!(response["agent"]["id"], "agent_1");
         assert_eq!(response["agent"]["updatedAt"], "2026-06-06T06:05:00.000Z");
+    }
+
+    #[test]
+    fn bridge_plans_runtime_bridge_thread_start_agent_state_update_through_rust_core() {
+        let request: RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": COMMAND_SCHEMA_VERSION,
+                "operation": "plan_runtime_bridge_thread_start_agent_state_update",
+                "backend": "rust_policy",
+                "request": {
+                    "schema_version": "ioi.runtime.runtime-bridge-thread-start-agent-state-update-request.v1",
+                    "thread_id": "thread_1",
+                    "agent": {
+                        "id": "agent_1",
+                        "cwd": "/workspace",
+                        "fixtureProfile": "fixture.local",
+                        "updatedAt": "2026-06-06T05:00:00.000Z"
+                    },
+                    "runtime_profile": "runtime_service",
+                    "session_id": "session_runtime",
+                    "bridge_id": "bridge_runtime",
+                    "status": "active",
+                    "source": "runtime_service",
+                    "updated_at": "2026-06-06T06:15:00.000Z"
+                }
+            }))
+            .expect("runtime bridge thread start agent state update bridge request");
+
+        let response = plan_runtime_bridge_thread_start_agent_state_update(request)
+            .expect("runtime bridge thread start agent state update planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_runtime_bridge_thread_start_agent_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "thread.runtime_bridge.start");
+        assert_eq!(response["bridge_start"]["sessionId"], "session_runtime");
+        assert_eq!(response["agent"]["runtimeSessionId"], "session_runtime");
+        assert_eq!(response["agent"]["runtimeBridgeId"], "bridge_runtime");
+        assert_eq!(response["agent"]["fixtureProfile"], Value::Null);
     }
 
     #[test]

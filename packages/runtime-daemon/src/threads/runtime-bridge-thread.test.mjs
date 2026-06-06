@@ -44,12 +44,31 @@ function deps() {
   };
 }
 
-function fakeStore({ bridgeResult, bridgeError } = {}) {
+function fakeStore({ bridgeResult, bridgeError, bridgeStartStateUpdate } = {}) {
   const calls = [];
   const agents = new Map();
   return {
     calls,
     agents,
+    contextPolicyRunner: {
+      planRuntimeBridgeThreadStartAgentStateUpdate(request = {}) {
+        calls.push({ operation: "plan_runtime_bridge_thread_start_agent_state_update", input: request });
+        return bridgeStartStateUpdate ?? {
+          status: "planned",
+          operation_kind: "thread.runtime_bridge.start",
+          agent: {
+            ...request.agent,
+            runtimeProfile: request.runtime_profile,
+            runtimeSessionId: request.session_id,
+            runtimeBridgeId: request.bridge_id,
+            runtimeBridgeStatus: request.status,
+            runtimeBridgeSource: request.source,
+            fixtureProfile: null,
+            updatedAt: request.updated_at,
+          },
+        };
+      },
+    },
     runtimeBridge: {
       bridgeId: "bridge_default",
       async startThread(input) {
@@ -212,9 +231,40 @@ test("runtime bridge thread creation starts bridge and persists updated agent", 
   assert.equal(write.agent.runtimeSessionId, "session_runtime");
   assert.equal(write.agent.runtimeBridgeId, "bridge_runtime");
   assert.equal(write.agent.fixtureProfile, null);
+  const planner = store.calls.find((call) => call.operation === "plan_runtime_bridge_thread_start_agent_state_update");
+  assert.equal(planner.input.thread_id, "thread_agent_runtime");
+  assert.equal(planner.input.session_id, "session_runtime");
+  assert.equal(planner.input.bridge_id, "bridge_runtime");
 
   assert.equal(store.calls.some((call) => call.operation === "append_event"), true);
   assert.equal(thread.runtime_session_id, "session_runtime");
+});
+
+test("runtime bridge thread creation fails closed without Rust-planned agent projection", async () => {
+  const store = fakeStore({
+    bridgeStartStateUpdate: {
+      status: "planned",
+      operation_kind: "thread.runtime_bridge.start",
+      agent: null,
+    },
+  });
+
+  await assert.rejects(
+    createRuntimeBridgeThread(store, {
+      request: { runtime_profile: "runtime_service" },
+      options: { local: { cwd: "/workspace" } },
+      runtimeProfile: "runtime_service",
+    }, deps()),
+    (error) => error.code === "runtime_bridge_thread_start_state_update_planner_invalid",
+  );
+  assert.equal(
+    store.calls.some((call) => call.operation === "write_agent"),
+    false,
+  );
+  assert.equal(
+    store.calls.some((call) => call.operation === "append_event"),
+    false,
+  );
 });
 
 test("runtime bridge thread creation maps bridge unavailable errors", async () => {

@@ -31,18 +31,36 @@ export async function createRuntimeBridgeThread(store, { request, options, runti
     normalizeArray: deps.normalizeArray,
     runtimeError: deps.runtimeError,
   });
-  const updated = {
-    ...agent,
-    runtimeProfile,
-    runtimeSessionId: projection.sessionId,
-    runtimeBridgeId: projection.bridgeId,
-    runtimeBridgeStatus: projection.status,
-    runtimeBridgeSource: projection.source,
-    fixtureProfile: null,
-    updatedAt: projection.updatedAt,
-  };
-  store.agents.set(agent.id, updated);
-  store.writeAgent(updated, "thread.runtime_bridge.start");
+  const contextPolicyRunner = store.contextPolicyRunner;
+  if (typeof contextPolicyRunner?.planRuntimeBridgeThreadStartAgentStateUpdate !== "function") {
+    throw deps.runtimeError({
+      status: 500,
+      code: "runtime_bridge_thread_start_state_update_planner_unavailable",
+      message: "Runtime bridge thread start updates require Rust policy state-update planning.",
+      details: { threadId, runtimeProfile },
+    });
+  }
+  const stateUpdate = contextPolicyRunner.planRuntimeBridgeThreadStartAgentStateUpdate({
+    thread_id: threadId,
+    agent,
+    runtime_profile: runtimeProfile,
+    session_id: projection.sessionId,
+    bridge_id: projection.bridgeId,
+    status: projection.status,
+    source: projection.source,
+    updated_at: projection.updatedAt,
+  });
+  const updated = stateUpdate.agent;
+  if (!updated?.id) {
+    throw deps.runtimeError({
+      status: 502,
+      code: "runtime_bridge_thread_start_state_update_planner_invalid",
+      message: "Rust runtime bridge thread start planning did not return an agent record.",
+      details: { threadId, runtimeProfile },
+    });
+  }
+  store.agents.set(updated.id, updated);
+  store.writeAgent(updated, stateUpdate.operation_kind ?? "thread.runtime_bridge.start");
   for (const event of projection.events) store.appendRuntimeEvent(event);
   return store.threadForAgent(updated);
 }
