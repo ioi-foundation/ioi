@@ -2920,6 +2920,8 @@ function runReceipts() {
   const artifactEndpointOperationsTest = exists("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs")
     : "";
+  const artifactEndpointImportBlock =
+    artifactEndpointOperations.match(/export function importModel[\s\S]*?export function mountEndpoint/)?.[0] ?? "";
   const artifactEndpointMountBlock =
     artifactEndpointOperations.match(/export function mountEndpoint[\s\S]*?export function unmountEndpoint/)?.[0] ?? "";
   const artifactEndpointUnmountBlock =
@@ -3589,6 +3591,34 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs",
     ],
     "Phase 9/11 is pending: artifact endpoint lifecycle receipts must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-import-request-aliases-retired",
+    /RETIRED_MODEL_IMPORT_REQUEST_ALIASES/.test(artifactEndpointOperations) &&
+      /model_import_request_aliases_retired/.test(artifactEndpointOperations) &&
+      /assertCanonicalModelImportRequestBody\(body\);/.test(artifactEndpointImportBlock) &&
+      /requiredString\(body\.model_id,\s*"model_id"\)/.test(artifactEndpointImportBlock) &&
+      /body\.path \?\? body\.source_path \?\? body\.local_path/.test(artifactEndpointImportBlock) &&
+      /normalizeImportMode\(body\.import_mode \?\? body\.mode/.test(artifactEndpointImportBlock) &&
+      /provider_id:\s*body\.provider_id \?\?/.test(artifactEndpointImportBlock) &&
+      /providerId:\s*body\.provider_id \?\?/.test(artifactEndpointImportBlock) &&
+      /displayName:\s*body\.display_name \?\? modelId/.test(artifactEndpointImportBlock) &&
+      /sizeBytes:\s*body\.size_bytes \?\? importedInfo\?\.sizeBytes/.test(artifactEndpointImportBlock) &&
+      /contextWindow:\s*body\.context_window \?\? metadata\.contextWindow/.test(artifactEndpointImportBlock) &&
+      /privacyClass:\s*body\.privacy_class \?\? "local_private"/.test(artifactEndpointImportBlock) &&
+      !/body\.(?:modelId|sourcePath|localPath|importMode|providerId|displayName|sizeBytes|contextWindow|privacyClass)\b/.test(
+        artifactEndpointImportBlock,
+      ) &&
+      /model import rejects retired request aliases before artifact inspection/.test(artifactEndpointOperationsTest) &&
+      /retired_aliases,\s*\[\s*"modelId",\s*"sourcePath",\s*"localPath",\s*"importMode",\s*"providerId",\s*"displayName",\s*"sizeBytes",\s*"contextWindow",\s*"privacyClass",\s*\]/.test(
+        artifactEndpointOperationsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: model import request bodies must fail closed on retired camelCase model/source/provider/metadata aliases before artifact inspection or writes",
   );
   assertCheck(
     result,

@@ -11897,6 +11897,13 @@ provider/artifact lookup, and `unmountEndpoint` fails closed on retired
 `api_format`, `base_url`, `privacy_class`, `backend_id`, `load_policy`, and
 `endpoint_id` remain the accepted boundary.
 
+Slice 310 retires model import request aliases: `importModel` now fails closed
+on retired `modelId`, `sourcePath`, `localPath`, `importMode`, `providerId`,
+`displayName`, `sizeBytes`, `contextWindow`, and `privacyClass` before artifact
+inspection or writes, while canonical `model_id`, `source_path`, `local_path`,
+`import_mode`, `provider_id`, `display_name`, `size_bytes`,
+`context_window`, and `privacy_class` remain accepted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

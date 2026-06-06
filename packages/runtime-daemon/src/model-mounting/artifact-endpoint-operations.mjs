@@ -1,3 +1,27 @@
+const RETIRED_MODEL_IMPORT_REQUEST_ALIASES = [
+  "modelId",
+  "sourcePath",
+  "localPath",
+  "importMode",
+  "providerId",
+  "displayName",
+  "sizeBytes",
+  "contextWindow",
+  "privacyClass",
+];
+
+const CANONICAL_MODEL_IMPORT_REQUEST_FIELDS = [
+  "model_id",
+  "source_path",
+  "local_path",
+  "import_mode",
+  "provider_id",
+  "display_name",
+  "size_bytes",
+  "context_window",
+  "privacy_class",
+];
+
 const RETIRED_ENDPOINT_MOUNT_REQUEST_ALIASES = [
   "modelId",
   "providerId",
@@ -34,17 +58,18 @@ export function importModel(state, body = {}, deps = {}) {
     schemaVersion,
     stableHash,
   } = deps;
+  assertCanonicalModelImportRequestBody(body);
   const now = state.nowIso();
-  const modelId = requiredString(body.model_id ?? body.modelId, "model_id");
-  const sourcePath = body.path ?? body.source_path ?? body.sourcePath ?? body.local_path ?? body.localPath ?? null;
+  const modelId = requiredString(body.model_id, "model_id");
+  const sourcePath = body.path ?? body.source_path ?? body.local_path ?? null;
   const sourceInfo = sourcePath ? inspectLocalArtifact(sourcePath) : null;
-  const importMode = normalizeImportMode(body.import_mode ?? body.importMode ?? body.mode ?? (sourceInfo ? "reference" : "operator"));
+  const importMode = normalizeImportMode(body.import_mode ?? body.mode ?? (sourceInfo ? "reference" : "operator"));
   if (importMode === "dry_run") {
     const targetPreview = sourceInfo ? importTargetPath(state.modelRoot, modelId, sourceInfo.path) : null;
     const metadata = sourceInfo ? parseLocalModelMetadata(sourceInfo.path) : {};
     const receipt = state.lifecycleReceipt("model_import_dry_run", {
       model_id: modelId,
-      provider_id: body.provider_id ?? body.providerId ?? (sourceInfo ? "provider.autopilot.local" : "provider.local.folder"),
+      provider_id: body.provider_id ?? (sourceInfo ? "provider.autopilot.local" : "provider.local.folder"),
       source_path_hash: sourceInfo?.path ? stableHash(sourceInfo.path) : null,
       target_path_hash: targetPreview ? stableHash(targetPreview) : null,
       import_mode: importMode,
@@ -66,17 +91,17 @@ export function importModel(state, body = {}, deps = {}) {
   const metadata = inspectedPath ? parseLocalModelMetadata(inspectedPath) : {};
   const artifact = {
     id: body.id ?? `import.${safeId(modelId)}`,
-    providerId: body.provider_id ?? body.providerId ?? (sourceInfo ? "provider.autopilot.local" : "provider.local.folder"),
+    providerId: body.provider_id ?? (sourceInfo ? "provider.autopilot.local" : "provider.local.folder"),
     modelId,
-    displayName: body.display_name ?? body.displayName ?? modelId,
+    displayName: body.display_name ?? modelId,
     family: body.family ?? metadata.family ?? "imported",
     format: body.format ?? metadata.format ?? null,
     quantization: body.quantization ?? metadata.quantization ?? null,
-    sizeBytes: body.size_bytes ?? body.sizeBytes ?? importedInfo?.sizeBytes ?? null,
+    sizeBytes: body.size_bytes ?? importedInfo?.sizeBytes ?? null,
     checksum: body.checksum ?? importedInfo?.checksum ?? null,
-    contextWindow: body.context_window ?? body.contextWindow ?? metadata.contextWindow ?? null,
+    contextWindow: body.context_window ?? metadata.contextWindow ?? null,
     capabilities: normalizeScopes(body.capabilities, ["chat"]),
-    privacyClass: body.privacy_class ?? body.privacyClass ?? "local_private",
+    privacyClass: body.privacy_class ?? "local_private",
     source: body.source ?? (sourceInfo ? "local_path_import" : "operator_import"),
     importMode,
     artifactPath: inspectedPath,
@@ -174,6 +199,23 @@ export function unmountEndpoint(state, body = {}, deps = {}) {
     provider_id: endpoint.providerId,
   });
   return updated;
+}
+
+function assertCanonicalModelImportRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MODEL_IMPORT_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model import request aliases are retired; use canonical snake_case request fields.",
+  );
+  error.status = 400;
+  error.code = "model_import_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_MODEL_IMPORT_REQUEST_FIELDS,
+  };
+  throw error;
 }
 
 function assertCanonicalEndpointMountRequestBody(body = {}) {

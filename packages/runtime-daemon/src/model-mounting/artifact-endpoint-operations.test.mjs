@@ -121,6 +121,76 @@ const deps = {
   },
 };
 
+test("model import rejects retired request aliases before artifact inspection", () => {
+  const state = fakeState();
+  const calls = [];
+  state.nowIso = () => {
+    calls.push(["nowIso"]);
+    return state.now;
+  };
+
+  assert.throws(
+    () =>
+      importModel(
+        state,
+        {
+          modelId: "llama-test",
+          sourcePath: "/tmp/model.gguf",
+          localPath: "/tmp/model.gguf",
+          importMode: "copy",
+          providerId: "provider.local.folder",
+          displayName: "Llama Test",
+          sizeBytes: 123,
+          contextWindow: 8192,
+          privacyClass: "local_private",
+        },
+        {
+          ...deps,
+          requiredString(...args) {
+            calls.push(["requiredString", ...args]);
+            return args[0];
+          },
+          inspectLocalArtifact(...args) {
+            calls.push(["inspectLocalArtifact", ...args]);
+            return {};
+          },
+        },
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_import_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "modelId",
+        "sourcePath",
+        "localPath",
+        "importMode",
+        "providerId",
+        "displayName",
+        "sizeBytes",
+        "contextWindow",
+        "privacyClass",
+      ]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "model_id",
+        "source_path",
+        "local_path",
+        "import_mode",
+        "provider_id",
+        "display_name",
+        "size_bytes",
+        "context_window",
+        "privacy_class",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "modelId"), false);
+      assert.equal(Object.hasOwn(error.details, "importMode"), false);
+      return true;
+    },
+  );
+  assert.deepEqual(calls, []);
+  assert.equal(state.artifacts.size, 0);
+  assert.equal(state.receipts.length, 0);
+});
+
 test("model import dry-run returns hashes and receipt without mutating artifacts", () => {
   const state = fakeState();
 
