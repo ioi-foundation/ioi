@@ -8836,6 +8836,10 @@ function runCompositor() {
     diagnosticsRepairExecution.match(
       /function workspaceRestoreApplyApprovalForRequest\(request = \{\}\) \{[\s\S]*?\n  \}/,
     )?.[0] ?? "";
+  const diagnosticsOperatorOverrideApprovalHelper =
+    diagnosticsRepairExecution.match(
+      /function diagnosticsOperatorOverrideApprovalForRequest\(request = \{\}, \{ decision = \{\}, repairPolicy = \{\} \} = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsOperatorOverrideApprovalKey)/,
+    )?.[0] ?? "";
   const workspaceRestoreApplyConflictHelper =
     diagnosticsRepairExecution.match(
       /function workspaceRestoreApplyAllowsConflicts\(request = \{\}\) \{[\s\S]*?\n  \}/,
@@ -12542,6 +12546,43 @@ function runCompositor() {
       "packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs",
     ],
     "Phase 10/11 is pending: workspace restore preview/apply requests must fail closed on retired workflow/idempotency/apply-policy camelCase aliases before projection events are emitted",
+  );
+  assertCheck(
+    result,
+    "diagnostics-operator-override-approval-aliases-retired",
+    /request\.operator_override_requires_approval/.test(diagnosticsOperatorOverrideApprovalHelper) &&
+      /request\.operator_override_approval/.test(diagnosticsOperatorOverrideApprovalHelper) &&
+      /request\.approval_decision/.test(diagnosticsOperatorOverrideApprovalHelper) &&
+      /request\.policy_decision/.test(diagnosticsOperatorOverrideApprovalHelper) &&
+      /request\.operator_override_approved/.test(diagnosticsOperatorOverrideApprovalHelper) &&
+      /request\.override_approved/.test(diagnosticsOperatorOverrideApprovalHelper) &&
+      /request\.approval_granted/.test(diagnosticsOperatorOverrideApprovalHelper) &&
+      /decision\.requires_approval/.test(diagnosticsOperatorOverrideApprovalHelper) &&
+      /repairPolicy\.operator_override_requires_approval/.test(
+        diagnosticsOperatorOverrideApprovalHelper,
+      ) &&
+      !/\brequest\.(?:operatorOverrideRequiresApproval|operatorOverrideApproval|approvalDecision|policyDecision|operatorOverrideApproved|overrideApproved|approvalGranted)\b/.test(
+        diagnosticsOperatorOverrideApprovalHelper,
+      ) &&
+      !/\bdecision\.requiresApproval\b/.test(diagnosticsOperatorOverrideApprovalHelper) &&
+      !/\brepairPolicy\.operatorOverrideRequiresApproval\b/.test(
+        diagnosticsOperatorOverrideApprovalHelper,
+      ) &&
+      /operator override approval ignores retired request, decision, and policy aliases/.test(
+        diagnosticsRepairExecutionTest,
+      ) &&
+      /operatorOverrideRequiresApproval:\s*"false"/.test(diagnosticsRepairExecutionTest) &&
+      /operatorOverrideApproval:\s*"override"/.test(diagnosticsRepairExecutionTest) &&
+      /approvalDecision:\s*"approved"/.test(diagnosticsRepairExecutionTest) &&
+      /policyDecision:\s*"approved"/.test(diagnosticsRepairExecutionTest) &&
+      /operatorOverrideApproved:\s*true/.test(diagnosticsRepairExecutionTest) &&
+      /overrideApproved:\s*true/.test(diagnosticsRepairExecutionTest) &&
+      /approvalGranted:\s*true/.test(diagnosticsRepairExecutionTest),
+    [
+      "packages/runtime-daemon/src/diagnostics-repair-execution.mjs",
+      "packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs",
+    ],
+    "Phase 10/11 is pending: diagnostics operator override approval must use canonical snake_case authority fields without retired camelCase fallbacks",
   );
   assertCheck(
     result,

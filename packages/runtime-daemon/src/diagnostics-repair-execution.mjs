@@ -35,21 +35,15 @@ export function createDiagnosticsRepairExecutionHelpers({
 
   function diagnosticsOperatorOverrideApprovalForRequest(request = {}, { decision = {}, repairPolicy = {} } = {}) {
     const required = normalizeBooleanOption(
-      request.operatorOverrideRequiresApproval ??
-        request.operator_override_requires_approval ??
-        decision.requiresApproval ??
+      request.operator_override_requires_approval ??
         decision.requires_approval ??
-        repairPolicy.operatorOverrideRequiresApproval ??
         repairPolicy.operator_override_requires_approval,
       true,
     );
     const text = optionalString(
-      request.operatorOverrideApproval ??
-        request.operator_override_approval ??
+      request.operator_override_approval ??
         request.approval ??
-        request.approvalDecision ??
         request.approval_decision ??
-        request.policyDecision ??
         request.policy_decision ??
         request.decision ??
         request.status,
@@ -66,13 +60,10 @@ export function createDiagnosticsRepairExecutionHelpers({
       "override",
     ];
     const approvedBoolean = [
-      request.operatorOverrideApproved,
       request.operator_override_approved,
-      request.overrideApproved,
       request.override_approved,
       request.confirm,
       request.confirmed,
-      request.approvalGranted,
       request.approval_granted,
       request.approved,
     ].some((value) => value === true || value === "true");
