@@ -138,6 +138,28 @@ export class RuntimeApprovalStateRunnerError extends Error {
   }
 }
 
+function requiredApprovalBridgeOperationKind(result, record, expectedOperationKind, codePrefix) {
+  const expectedOperationKinds = Array.isArray(expectedOperationKind)
+    ? expectedOperationKind
+    : [expectedOperationKind];
+  const operationKind = optionalString(result.operation_kind ?? record.operation_kind);
+  if (!operationKind) {
+    throw new RuntimeApprovalStateRunnerError(
+      "Rust approval state bridge result did not include an operation kind.",
+      `${codePrefix}_operation_kind_missing`,
+      { operationKind: expectedOperationKinds[0], expectedOperationKinds },
+    );
+  }
+  if (!expectedOperationKinds.includes(operationKind)) {
+    throw new RuntimeApprovalStateRunnerError(
+      "Rust approval state bridge result included an unexpected operation kind.",
+      `${codePrefix}_operation_kind_mismatch`,
+      { expectedOperationKind: expectedOperationKinds[0], expectedOperationKinds, operationKind },
+    );
+  }
+  return operationKind;
+}
+
 export function normalizeApprovalRequestStateUpdateBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
@@ -146,7 +168,12 @@ export function normalizeApprovalRequestStateUpdateBridgeResult(value = {}) {
     source: result.source ?? record.source ?? "rust_approval_request_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_APPROVAL_STATE_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind: optionalString(result.operation_kind ?? record.operation_kind) ?? "approval.required",
+    operation_kind: requiredApprovalBridgeOperationKind(
+      result,
+      record,
+      "approval.required",
+      "approval_request_state_update",
+    ),
     target_kind: optionalString(result.target_kind ?? record.target_kind) ?? "run",
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
@@ -164,7 +191,12 @@ export function normalizeApprovalDecisionStateUpdateBridgeResult(value = {}) {
     source: result.source ?? record.source ?? "rust_approval_decision_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_APPROVAL_STATE_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind: optionalString(result.operation_kind ?? record.operation_kind) ?? "approval.approve",
+    operation_kind: requiredApprovalBridgeOperationKind(
+      result,
+      record,
+      ["approval.approve", "approval.reject"],
+      "approval_decision_state_update",
+    ),
     target_kind: optionalString(result.target_kind ?? record.target_kind) ?? "run",
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
@@ -182,7 +214,12 @@ export function normalizeApprovalRevokeStateUpdateBridgeResult(value = {}) {
     source: result.source ?? record.source ?? "rust_approval_revoke_state_update_command",
     backend: result.backend ?? record.backend ?? RUST_APPROVAL_STATE_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "planned",
-    operation_kind: optionalString(result.operation_kind ?? record.operation_kind) ?? "approval.revoke",
+    operation_kind: requiredApprovalBridgeOperationKind(
+      result,
+      record,
+      "approval.revoke",
+      "approval_revoke_state_update",
+    ),
     target_kind: optionalString(result.target_kind ?? record.target_kind) ?? "run",
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:

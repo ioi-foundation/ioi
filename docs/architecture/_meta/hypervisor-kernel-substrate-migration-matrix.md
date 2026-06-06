@@ -12404,6 +12404,12 @@ requires the Rust approval state planner to return the exact `approval.*`
 operation kind before the daemon persists the projection, rather than
 substituting the JS-side approval operation kind.
 
+Slice 387 removes the approval-state runner operation-kind fallback:
+approval request/decision/revoke bridge result normalization now requires Rust
+authority output to include an allowed `approval.*` operation kind instead of
+defaulting missing bridge fields in JS before the approval surface validates and
+persists the projection.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

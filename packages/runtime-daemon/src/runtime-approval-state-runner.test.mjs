@@ -7,6 +7,9 @@ import {
   APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   APPROVAL_STATE_COMMAND_SCHEMA_VERSION,
   RustRuntimeApprovalStateRunner,
+  normalizeApprovalDecisionStateUpdateBridgeResult,
+  normalizeApprovalRequestStateUpdateBridgeResult,
+  normalizeApprovalRevokeStateUpdateBridgeResult,
 } from "./runtime-approval-state-runner.mjs";
 
 test("approval request state runner sends Rust authority bridge request", () => {
@@ -141,6 +144,51 @@ test("approval request state runner fails closed without bridge command", () => 
   assert.throws(
     () => runner.planApprovalRequestStateUpdate({ run: {}, approval_id: "approval_alpha" }),
     /Runtime approval state updates require IOI_STEP_MODULE_COMMAND/,
+  );
+});
+
+test("approval state runner fails closed without Rust-planned operation kinds", () => {
+  assert.throws(
+    () =>
+      normalizeApprovalRequestStateUpdateBridgeResult({
+        status: "planned",
+        target_kind: "run",
+        run: { id: "run_alpha" },
+      }),
+    (error) => {
+      assert.equal(error.code, "approval_request_state_update_operation_kind_missing");
+      assert.equal(error.details.operationKind, "approval.required");
+      return true;
+    },
+  );
+  assert.throws(
+    () =>
+      normalizeApprovalDecisionStateUpdateBridgeResult({
+        status: "planned",
+        operation_kind: "approval.required",
+        target_kind: "run",
+        run: { id: "run_alpha" },
+      }),
+    (error) => {
+      assert.equal(error.code, "approval_decision_state_update_operation_kind_mismatch");
+      assert.equal(error.details.expectedOperationKind, "approval.approve");
+      assert.deepEqual(error.details.expectedOperationKinds, ["approval.approve", "approval.reject"]);
+      assert.equal(error.details.operationKind, "approval.required");
+      return true;
+    },
+  );
+  assert.throws(
+    () =>
+      normalizeApprovalRevokeStateUpdateBridgeResult({
+        status: "planned",
+        target_kind: "run",
+        run: { id: "run_alpha" },
+      }),
+    (error) => {
+      assert.equal(error.code, "approval_revoke_state_update_operation_kind_missing");
+      assert.equal(error.details.operationKind, "approval.revoke");
+      return true;
+    },
   );
 });
 

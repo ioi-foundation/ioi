@@ -1056,6 +1056,12 @@ function runBridge() {
       /approval request state runner fails closed without bridge command/.test(
         runtimeApprovalStateRunnerTest,
       ) &&
+      /approval state runner fails closed without Rust-planned operation kinds/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
+      !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.required"/.test(
+        runtimeApprovalStateRunner,
+      ) &&
       /approvalStateRunnerDep\.planApprovalRequestStateUpdate/.test(runtimeApprovalSurface) &&
       /plannedApprovalRunRecord/.test(runtimeApprovalSurface) &&
       /plannedApprovalAgentRecord/.test(runtimeApprovalSurface) &&
@@ -1107,6 +1113,12 @@ function runBridge() {
       ) &&
       /approval decision state runner sends Rust authority bridge request/.test(
         runtimeApprovalStateRunnerTest,
+      ) &&
+      /approval state runner fails closed without Rust-planned operation kinds/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
+      !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.approve"/.test(
+        runtimeApprovalStateRunner,
       ) &&
       /approvalStateRunnerDep\.planApprovalDecisionStateUpdate/.test(runtimeApprovalSurface) &&
       /plannedApprovalRunRecord/.test(runtimeApprovalSurface) &&
@@ -1161,6 +1173,12 @@ function runBridge() {
       ) &&
       /approval revoke state runner sends Rust authority bridge request/.test(
         runtimeApprovalStateRunnerTest,
+      ) &&
+      /approval state runner fails closed without Rust-planned operation kinds/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
+      !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.revoke"/.test(
+        runtimeApprovalStateRunner,
       ) &&
       /approvalStateRunnerDep\.planApprovalRevokeStateUpdate/.test(runtimeApprovalSurface) &&
       /plannedApprovalRunRecord/.test(runtimeApprovalSurface) &&
