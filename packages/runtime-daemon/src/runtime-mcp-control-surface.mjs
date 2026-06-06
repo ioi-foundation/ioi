@@ -757,7 +757,7 @@ export function createRuntimeMcpControlSurface({
     async recordThreadMcpStatus(store, threadId, request = {}) {
       const agent = store.agentForThread(threadId);
       let status = store.mcpStatus({ ...request, thread_id: threadId });
-      if (request.live_discovery === true || request.liveDiscovery === true) {
+      if (request.live_discovery === true) {
         status = await this.mcpStatusWithLiveDiscovery(store, status, agent, request);
       }
       return this.appendThreadMcpControlEvent(store, {

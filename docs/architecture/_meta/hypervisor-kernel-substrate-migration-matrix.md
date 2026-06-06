@@ -12489,6 +12489,11 @@ runtime MCP stdio invocation transport options now use canonical `mcp_mode`;
 retired camelCase `mcpMode` request fields no longer configure MCP invocation
 transport mode and remain absent from SDK invoke input types.
 
+Slice 401 removes the MCP control live-discovery request alias:
+runtime MCP control status recording now uses canonical `live_discovery`;
+retired camelCase `liveDiscovery` request fields no longer trigger MCP live
+catalog discovery through the control surface.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

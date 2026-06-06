@@ -10413,6 +10413,18 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-mcp-control-live-discovery-request-alias-retired",
+    /request\.live_discovery/.test(runtimeMcpControlSurface) &&
+      /liveDiscovery: true/.test(runtimeMcpControlSurfaceTest) &&
+      !/request\.liveDiscovery\b/.test(runtimeMcpControlSurface),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP control status requests must use canonical live_discovery without the retired liveDiscovery compatibility alias",
+  );
+  assertCheck(
+    result,
     "runtime-mcp-invoke-identity-request-aliases-retired",
     /request\.tool_id/.test(runtimeMcpResolveToolRecordBlock) &&
       /request\.server_id/.test(runtimeMcpResolveToolRecordBlock) &&
