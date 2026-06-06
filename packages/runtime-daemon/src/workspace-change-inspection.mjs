@@ -3,39 +3,31 @@ const WORKSPACE_CHANGE_REVIEW_SCHEMA_VERSION = "ioi.runtime.workspace-change-rev
 export function emptyWorkspaceChangeReviewSnapshot(threadId, sessionId) {
   return {
     schema_version: WORKSPACE_CHANGE_REVIEW_SCHEMA_VERSION,
-    schemaVersion: WORKSPACE_CHANGE_REVIEW_SCHEMA_VERSION,
     thread_id: threadId,
-    threadId,
     session_id: sessionId,
-    sessionId,
     status: "empty",
     source: "daemon",
     workspace_change_reviews: [],
-    workspaceChangeReviews: [],
     hunk_previews: [],
-    hunkPreviews: [],
   };
 }
 
 export function normalizeWorkspaceChangeReviewInspection({
-  bridgeResult,
+  bridge_result,
   agent,
   threadId,
   sessionId,
 } = {}) {
-  const rawReviews = normalizeArray(bridgeResult?.workspace_change_reviews ?? bridgeResult?.workspaceChangeReviews);
+  const rawReviews = normalizeArray(bridge_result?.workspace_change_reviews);
   const rawChanges = normalizeArray(
-    bridgeResult?.latest_trajectory?.workspace_changes ??
-      bridgeResult?.latestTrajectory?.workspaceChanges ??
-      bridgeResult?.workspace_changes ??
-      bridgeResult?.workspaceChanges ??
-      bridgeResult?.trajectory?.workspace_changes ??
-      bridgeResult?.trajectory?.workspaceChanges,
+    bridge_result?.latest_trajectory?.workspace_changes ??
+      bridge_result?.workspace_changes ??
+      bridge_result?.trajectory?.workspace_changes,
   );
-  const changesById = new Map(rawChanges.map((change) => [optionalString(change?.change_id ?? change?.changeId), change]));
+  const changesById = new Map(rawChanges.map((change) => [optionalString(change?.change_id), change]));
   const hunkPreviews = rawReviews
     .map((review) => {
-      const changeId = optionalString(review?.change_id ?? review?.changeId);
+      const changeId = optionalString(review?.change_id);
       const change = changesById.get(changeId) ?? rawChanges.find((candidate) => {
         const path = optionalString(candidate?.path);
         return path && path === optionalString(review?.path);
@@ -48,87 +40,65 @@ export function normalizeWorkspaceChangeReviewInspection({
   const status = hunkPreviews.length ? "ready" : rawReviews.length ? "metadata_only" : "empty";
   return {
     schema_version: WORKSPACE_CHANGE_REVIEW_SCHEMA_VERSION,
-    schemaVersion: WORKSPACE_CHANGE_REVIEW_SCHEMA_VERSION,
     thread_id: threadId,
-    threadId,
     session_id: sessionId,
-    sessionId,
-    runtime_profile: agent?.runtimeProfile ?? agent?.runtime_profile ?? "unknown",
-    runtimeProfile: agent?.runtimeProfile ?? agent?.runtime_profile ?? "unknown",
+    runtime_profile: agent?.runtime_profile ?? agent?.runtimeProfile ?? "unknown",
     source: "daemon",
     status,
     workspace_change_reviews: rawReviews.map((review) => publicReviewState(review)),
-    workspaceChangeReviews: rawReviews.map((review) => publicReviewState(review)),
     hunk_previews: hunkPreviews,
-    hunkPreviews,
   };
 }
 
 function publicReviewState(review = {}) {
   return {
-    change_id: optionalString(review.change_id ?? review.changeId),
-    changeId: optionalString(review.change_id ?? review.changeId),
+    change_id: optionalString(review.change_id),
     lifecycle: optionalString(review.lifecycle),
     path: optionalString(review.path) || null,
-    hunk_count: boundedInteger(review.hunk_count ?? review.hunkCount),
-    hunkCount: boundedInteger(review.hunk_count ?? review.hunkCount),
-    accept_available: Boolean(review.accept_available ?? review.acceptAvailable),
-    acceptAvailable: Boolean(review.accept_available ?? review.acceptAvailable),
-    reject_available: Boolean(review.reject_available ?? review.rejectAvailable),
-    rejectAvailable: Boolean(review.reject_available ?? review.rejectAvailable),
-    rollback_available: Boolean(review.rollback_available ?? review.rollbackAvailable),
-    rollbackAvailable: Boolean(review.rollback_available ?? review.rollbackAvailable),
+    hunk_count: boundedInteger(review.hunk_count),
+    accept_available: Boolean(review.accept_available),
+    reject_available: Boolean(review.reject_available),
+    rollback_available: Boolean(review.rollback_available),
     stale: Boolean(review.stale),
-    stale_reason: optionalString(review.stale_reason ?? review.staleReason) || null,
-    staleReason: optionalString(review.stale_reason ?? review.staleReason) || null,
+    stale_reason: optionalString(review.stale_reason) || null,
   };
 }
 
 function hunkPreviewForReview(review = {}, change = {}) {
   const publicReview = publicReviewState(review);
-  const changeId = publicReview.changeId || optionalString(change?.change_id ?? change?.changeId);
+  const changeId = publicReview.change_id || optionalString(change?.change_id);
   const file = publicReview.path || optionalString(change?.path) || "workspace";
   const lifecycle = publicReview.lifecycle || optionalString(change?.lifecycle, "proposed");
   const status = publicReview.stale
     ? "stale"
-    : publicReview.acceptAvailable || publicReview.rejectAvailable
+    : publicReview.accept_available || publicReview.reject_available
       ? "needs_review"
-      : publicReview.rollbackAvailable
+      : publicReview.rollback_available
         ? "applied"
         : lifecycle || "observed";
   return normalizeArray(change?.hunks).map((hunk, index) => {
-    const hunkIndex = boundedInteger(hunk?.hunk_index ?? hunk?.hunkIndex ?? index);
-    const before = compactHunkText(hunk?.search_text ?? hunk?.searchText ?? "");
-    const after = compactHunkText(hunk?.replace_text ?? hunk?.replaceText ?? hunk?.content_text ?? hunk?.contentText ?? "");
+    const hunkIndex = boundedInteger(hunk?.hunk_index ?? index);
+    const before = compactHunkText(hunk?.search_text ?? "");
+    const after = compactHunkText(hunk?.replace_text ?? hunk?.content_text ?? "");
     const kind = optionalString(hunk?.kind, "edit");
     return {
       id: `${changeId || file}:hunk:${hunkIndex}`,
       change_id: changeId,
-      changeId,
       file,
       title: `${humanizeLifecycle(status)} hunk ${hunkIndex + 1}`,
       status,
       lifecycle,
       kind,
       hunk_index: hunkIndex,
-      hunkIndex,
-      line_start: nullableInteger(hunk?.line_start ?? hunk?.lineStart),
-      lineStart: nullableInteger(hunk?.line_start ?? hunk?.lineStart),
-      line_end: nullableInteger(hunk?.line_end ?? hunk?.lineEnd),
-      lineEnd: nullableInteger(hunk?.line_end ?? hunk?.lineEnd),
+      line_start: nullableInteger(hunk?.line_start),
+      line_end: nullableInteger(hunk?.line_end),
       before,
       after,
-      beforeContent: before,
-      afterContent: after,
-      accept_available: publicReview.acceptAvailable,
-      acceptAvailable: publicReview.acceptAvailable,
-      reject_available: publicReview.rejectAvailable,
-      rejectAvailable: publicReview.rejectAvailable,
-      rollback_available: publicReview.rollbackAvailable,
-      rollbackAvailable: publicReview.rollbackAvailable,
+      accept_available: publicReview.accept_available,
+      reject_available: publicReview.reject_available,
+      rollback_available: publicReview.rollback_available,
       stale: publicReview.stale,
-      stale_reason: publicReview.staleReason,
-      staleReason: publicReview.staleReason,
+      stale_reason: publicReview.stale_reason,
     };
   });
 }

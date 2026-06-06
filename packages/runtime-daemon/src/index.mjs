@@ -3255,7 +3255,7 @@ export class AgentgresRuntimeStateStore {
     if (WORKSPACE_CHANGE_CONTROL_TOOL_IDS.has(normalizedToolId)) {
       return await this.controlWorkspaceChangeForThread(threadId, {
         ...request,
-        toolId: normalizedToolId,
+        tool_id: normalizedToolId,
       });
     }
     if (COMPUTER_USE_CONTROL_TOOL_IDS.has(normalizedToolId)) {

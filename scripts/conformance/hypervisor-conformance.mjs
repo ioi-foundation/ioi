@@ -7353,6 +7353,18 @@ function runCompositor() {
   const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     : "";
+  const workspaceChangeInspection = exists("packages/runtime-daemon/src/workspace-change-inspection.mjs")
+    ? read("packages/runtime-daemon/src/workspace-change-inspection.mjs")
+    : "";
+  const workspaceChangeInspectionTest = exists("packages/runtime-daemon/src/workspace-change-inspection.test.mjs")
+    ? read("packages/runtime-daemon/src/workspace-change-inspection.test.mjs")
+    : "";
+  const workspaceChangeState = exists("packages/runtime-daemon/src/threads/workspace-change-state.mjs")
+    ? read("packages/runtime-daemon/src/threads/workspace-change-state.mjs")
+    : "";
+  const workspaceChangeStateTest = exists("packages/runtime-daemon/src/threads/workspace-change-state.test.mjs")
+    ? read("packages/runtime-daemon/src/threads/workspace-change-state.test.mjs")
+    : "";
   const diagnosticsRepairExecution = exists("packages/runtime-daemon/src/diagnostics-repair-execution.mjs")
     ? read("packages/runtime-daemon/src/diagnostics-repair-execution.mjs")
     : "";
@@ -10380,6 +10392,69 @@ function runCompositor() {
       "packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs",
     ],
     "Phase 10/11 is pending: workspace restore preview/apply requests must fail closed on retired workflow/idempotency/apply-policy camelCase aliases before projection events are emitted",
+  );
+  assertCheck(
+    result,
+    "workspace-change-review-aliases-retired",
+    /schema_version:\s*WORKSPACE_CHANGE_REVIEW_SCHEMA_VERSION/.test(
+      workspaceChangeInspection,
+    ) &&
+      /workspace_change_reviews:\s*\[\]/.test(workspaceChangeInspection) &&
+      /hunk_previews:\s*\[\]/.test(workspaceChangeInspection) &&
+      /const rawReviews = normalizeArray\(bridge_result\?\.workspace_change_reviews\)/.test(
+        workspaceChangeInspection,
+      ) &&
+      /change_id:\s*optionalString\(review\.change_id\)/.test(
+        workspaceChangeInspection,
+      ) &&
+      /accept_available:\s*Boolean\(review\.accept_available\)/.test(
+        workspaceChangeInspection,
+      ) &&
+      /line_start:\s*nullableInteger\(hunk\?\.line_start\)/.test(
+        workspaceChangeInspection,
+      ) &&
+      /retiredWorkspaceChangeControlAliases/.test(workspaceChangeState) &&
+      /workspace_change_control_request_aliases_retired/.test(workspaceChangeState) &&
+      /const toolId = optionalString\(request\.tool_id\)/.test(workspaceChangeState) &&
+      /const changeId = optionalString\(input\.change_id \?\? input\.workspace_change_id\)/.test(
+        workspaceChangeState,
+      ) &&
+      /tool_id:\s*normalizedToolId/.test(runtimeDaemonIndex) &&
+      /Object\.hasOwn\(inspection,\s*"schemaVersion"\),\s*false/.test(
+        workspaceChangeInspectionTest,
+      ) &&
+      /Object\.hasOwn\(inspection\.hunk_previews\[0\],\s*"changeId"\),\s*false/.test(
+        workspaceChangeInspectionTest,
+      ) &&
+      /workspace change control rejects retired request aliases/.test(
+        workspaceChangeStateTest,
+      ) &&
+      /Object\.hasOwn\(controlled,\s*"schemaVersion"\),\s*false/.test(
+        workspaceChangeStateTest,
+      ) &&
+      /Object\.hasOwn\(controlled\.result,\s*"changeId"\),\s*false/.test(
+        workspaceChangeStateTest,
+      ) &&
+      !/^\s*(?:schemaVersion|threadId|sessionId|runtimeProfile|workspaceChangeReviews|hunkPreviews|changeId|hunkCount|acceptAvailable|rejectAvailable|rollbackAvailable|staleReason|hunkIndex|lineStart|lineEnd|beforeContent|afterContent)\s*:/m.test(
+        workspaceChangeInspection,
+      ) &&
+      !/\b(?:bridge_result|review|change|hunk|publicReview)\?\.(?:workspaceChangeReviews|latestTrajectory|workspaceChanges|changeId|hunkCount|acceptAvailable|rejectAvailable|rollbackAvailable|staleReason|hunkIndex|searchText|replaceText|contentText|lineStart|lineEnd)\b/.test(
+        workspaceChangeInspection,
+      ) &&
+      !/^\s*(?:schemaVersion|threadId|sessionId|toolId|changeId|receiptRefs|bridgeResult)\s*:/m.test(
+        workspaceChangeState,
+      ) &&
+      !/\b(?:request|input)\.(?:toolId|createdAt|requestHash|workspaceChangeId)\b/.test(
+        workspaceChangeState,
+      ),
+    [
+      "packages/runtime-daemon/src/workspace-change-inspection.mjs",
+      "packages/runtime-daemon/src/workspace-change-inspection.test.mjs",
+      "packages/runtime-daemon/src/threads/workspace-change-state.mjs",
+      "packages/runtime-daemon/src/threads/workspace-change-state.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 10/11 is pending: workspace-change review/control daemon envelopes must use canonical snake_case fields and fail closed on retired request aliases",
   );
   assertCheck(
     result,

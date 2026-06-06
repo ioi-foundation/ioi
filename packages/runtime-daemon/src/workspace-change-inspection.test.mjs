@@ -8,7 +8,7 @@ test("workspace change inspection projects public hunk previews without receipt 
     threadId: "thread_one",
     sessionId: "session_one",
     agent: { runtimeProfile: "runtime_service" },
-    bridgeResult: {
+    bridge_result: {
       workspace_change_reviews: [
         {
           change_id: "workspace_change:file__edit:1",
@@ -44,13 +44,18 @@ test("workspace change inspection projects public hunk previews without receipt 
   });
 
   assert.equal(inspection.status, "ready");
-  assert.equal(inspection.hunkPreviews.length, 1);
-  assert.equal(inspection.hunkPreviews[0].changeId, "workspace_change:file__edit:1");
-  assert.equal(inspection.hunkPreviews[0].file, "src/app.js");
-  assert.equal(inspection.hunkPreviews[0].acceptAvailable, true);
-  assert.equal(inspection.hunkPreviews[0].rejectAvailable, true);
-  assert.match(inspection.hunkPreviews[0].before, /old/);
-  assert.match(inspection.hunkPreviews[0].after, /new/);
+  assert.equal(inspection.hunk_previews.length, 1);
+  assert.equal(inspection.hunk_previews[0].change_id, "workspace_change:file__edit:1");
+  assert.equal(inspection.hunk_previews[0].file, "src/app.js");
+  assert.equal(inspection.hunk_previews[0].accept_available, true);
+  assert.equal(inspection.hunk_previews[0].reject_available, true);
+  assert.match(inspection.hunk_previews[0].before, /old/);
+  assert.match(inspection.hunk_previews[0].after, /new/);
+  assert.equal(Object.hasOwn(inspection, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(inspection, "workspaceChangeReviews"), false);
+  assert.equal(Object.hasOwn(inspection, "hunkPreviews"), false);
+  assert.equal(Object.hasOwn(inspection.hunk_previews[0], "changeId"), false);
+  assert.equal(Object.hasOwn(inspection.hunk_previews[0], "acceptAvailable"), false);
   const rendered = JSON.stringify(inspection);
   assert.doesNotMatch(rendered, /receipt_should_not_project/);
   assert.doesNotMatch(rendered, /evidence_should_not_project/);
@@ -61,7 +66,7 @@ test("workspace change inspection accepts bridge top-level workspace change fall
     threadId: "thread_two",
     sessionId: "session_two",
     agent: { runtimeProfile: "runtime_service" },
-    bridgeResult: {
+    bridge_result: {
       workspace_change_reviews: [
         {
           change_id: "workspace_change:file__edit:fallback",
@@ -90,8 +95,8 @@ test("workspace change inspection accepts bridge top-level workspace change fall
   });
 
   assert.equal(inspection.status, "ready");
-  assert.equal(inspection.hunkPreviews.length, 1);
-  assert.equal(inspection.hunkPreviews[0].rollbackAvailable, true);
-  assert.match(inspection.hunkPreviews[0].before, /toFixed/);
-  assert.match(inspection.hunkPreviews[0].after, /'\$'/);
+  assert.equal(inspection.hunk_previews.length, 1);
+  assert.equal(inspection.hunk_previews[0].rollback_available, true);
+  assert.match(inspection.hunk_previews[0].before, /toFixed/);
+  assert.match(inspection.hunk_previews[0].after, /'\$'/);
 });

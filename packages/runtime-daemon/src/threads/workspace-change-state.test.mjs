@@ -63,6 +63,8 @@ test("workspace change inspection returns empty fallback for fixture threads", a
   assert.equal(inspected.session_id, "session_agent_fixture");
   assert.deepEqual(inspected.workspace_change_reviews, []);
   assert.deepEqual(inspected.hunk_previews, []);
+  assert.equal(Object.hasOwn(inspected, "runtimeProfile"), false);
+  assert.equal(Object.hasOwn(inspected, "threadId"), false);
 });
 
 test("workspace change inspection calls runtime bridge and normalizes hunk previews", async () => {
@@ -102,6 +104,7 @@ test("workspace change inspection calls runtime bridge and normalizes hunk previ
   assert.equal(bridgeCalls[0].projection, "workspace_change_reviews");
   assert.equal(inspected.status, "ready");
   assert.equal(inspected.hunk_previews[0].change_id, "workspace_change:file:1");
+  assert.equal(Object.hasOwn(inspected.hunk_previews[0], "changeId"), false);
 });
 
 test("workspace change control maps tool ids to bridge actions and result envelope", async () => {
@@ -134,20 +137,24 @@ test("workspace change control maps tool ids to bridge actions and result envelo
   });
 
   const controlled = await controlWorkspaceChangeForThread(store, "thread_runtime", {
-    toolId: "workspace_change__reject",
+    tool_id: "workspace_change__reject",
     input: {
-      changeId: "workspace_change:file:1",
+      change_id: "workspace_change:file:1",
       reason: "operator rejected hunk",
     },
-    createdAt: "2026-06-03T00:00:00.000Z",
+    created_at: "2026-06-03T00:00:00.000Z",
   }, deps());
 
   assert.equal(bridgeCalls[0].action, "workspace_change_reject");
   assert.equal(bridgeCalls[0].sessionId, "session_runtime");
   assert.equal(bridgeCalls[0].changeId, "workspace_change:file:1");
   assert.equal(controlled.schema_version, "ioi.runtime.workspace-change-control.daemon.v1");
+  assert.equal(Object.hasOwn(controlled, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(controlled, "changeId"), false);
+  assert.equal(Object.hasOwn(controlled, "receiptRefs"), false);
   assert.equal(controlled.status, "rejected");
-  assert.equal(controlled.result.changeId, "workspace_change:file:1");
+  assert.equal(controlled.result.change_id, "workspace_change:file:1");
+  assert.equal(Object.hasOwn(controlled.result, "changeId"), false);
   assert.match(controlled.receipt_refs[0], /^receipt_workspace_change_workspace_change_reject_/);
 });
 
@@ -162,7 +169,31 @@ test("workspace change control requires change id", async () => {
   });
 
   await assert.rejects(
-    controlWorkspaceChangeForThread(store, "thread_runtime", { toolId: "workspace_change__accept" }, deps()),
+    controlWorkspaceChangeForThread(store, "thread_runtime", { tool_id: "workspace_change__accept" }, deps()),
     /Workspace change control requires changeId/,
+  );
+});
+
+test("workspace change control rejects retired request aliases", async () => {
+  const store = fakeStore({
+    agent: {
+      id: "agent_runtime",
+      cwd: "/workspace",
+      runtimeProfile: "runtime_service",
+      runtimeSessionId: "session_runtime",
+    },
+  });
+
+  await assert.rejects(
+    controlWorkspaceChangeForThread(store, "thread_runtime", {
+      toolId: "workspace_change__accept",
+      input: { changeId: "workspace_change:file:1" },
+    }, deps()),
+    (error) =>
+      error.code === "workspace_change_control_request_aliases_retired" &&
+      error.details.thread_id === "thread_runtime" &&
+      error.details.retired_aliases.includes("toolId") &&
+      error.details.retired_aliases.includes("changeId") &&
+      Object.hasOwn(error.details, "threadId") === false,
   );
 });

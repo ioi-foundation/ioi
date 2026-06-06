@@ -16,7 +16,6 @@ export async function inspectWorkspaceChangeReviewsForThread(store, threadId, re
     return {
       ...emptyWorkspaceChangeReviewSnapshot(threadId, sessionId),
       runtime_profile: agent.runtimeProfile ?? "fixture",
-      runtimeProfile: agent.runtimeProfile ?? "fixture",
       status: "not_runtime_backed",
     };
   }
@@ -34,7 +33,7 @@ export async function inspectWorkspaceChangeReviewsForThread(store, threadId, re
       ...request,
     });
     return normalizeWorkspaceChangeReviewInspection({
-      bridgeResult,
+      bridge_result: bridgeResult,
       agent,
       threadId,
       sessionId,
@@ -68,17 +67,24 @@ export async function controlWorkspaceChangeForThread(store, threadId, request =
       details: { reason: "workspace_change_control_requires_runtime_service" },
     });
   }
-  const toolId = optionalString(request.toolId ?? request.tool_id);
+  const retiredAliases = retiredWorkspaceChangeControlAliases(request);
+  if (retiredAliases.length > 0) {
+    throw runtimeError({
+      status: 400,
+      code: "workspace_change_control_request_aliases_retired",
+      message: "Workspace change control request uses retired aliases.",
+      details: { thread_id: threadId, retired_aliases: retiredAliases },
+    });
+  }
+  const toolId = optionalString(request.tool_id);
   const input = request.input && typeof request.input === "object" ? request.input : request;
-  const changeId = optionalString(
-    input.changeId ?? input.change_id ?? input.workspaceChangeId ?? input.workspace_change_id,
-  );
+  const changeId = optionalString(input.change_id ?? input.workspace_change_id);
   if (!changeId) {
     throw runtimeError({
       status: 400,
       code: "workspace_change_control_contract",
       message: "Workspace change control requires changeId.",
-      details: { threadId, operation: "control_thread", toolId },
+      details: { thread_id: threadId, operation: "control_thread", tool_id: toolId },
     });
   }
   const action = toolId === "workspace_change__reject"
@@ -91,7 +97,7 @@ export async function controlWorkspaceChangeForThread(store, threadId, request =
     operation: "control_thread",
   });
   const sessionId = runtimeSessionIdForAgent(agent);
-  const createdAt = optionalString(request.createdAt ?? request.created_at) ?? new Date().toISOString();
+  const createdAt = optionalString(request.created_at) ?? new Date().toISOString();
   try {
     const bridgeResult = await store.runtimeBridge.controlThread({
       sessionId,
@@ -102,13 +108,13 @@ export async function controlWorkspaceChangeForThread(store, threadId, request =
         optionalString(input.reason ?? request.reason ?? request.message) ??
         `operator requested ${action.replace(/_/g, " ")}`,
       requestHash:
-        optionalString(request.requestHash ?? request.request_hash) ??
+        optionalString(request.request_hash) ??
         doctorHash(`${threadId}:${changeId}:${action}:${createdAt}`).slice(0, 16),
       changeId,
       createdAt,
     });
     const inspection = normalizeWorkspaceChangeReviewInspection({
-      bridgeResult: bridgeResult?.inspection ?? bridgeResult,
+      bridge_result: bridgeResult?.inspection ?? bridgeResult,
       agent,
       threadId,
       sessionId,
@@ -121,29 +127,21 @@ export async function controlWorkspaceChangeForThread(store, threadId, request =
     const receiptRef = `receipt_workspace_change_${safeId(action)}_${doctorHash(`${threadId}:${changeId}:${createdAt}`).slice(0, 12)}`;
     return {
       schema_version: "ioi.runtime.workspace-change-control.daemon.v1",
-      schemaVersion: "ioi.runtime.workspace-change-control.daemon.v1",
       thread_id: threadId,
-      threadId,
       session_id: sessionId,
-      sessionId,
       tool_id: toolId,
-      toolId,
       action,
       change_id: changeId,
-      changeId,
       source: "daemon",
       status,
       receipt_refs: [receiptRef],
-      receiptRefs: [receiptRef],
       bridge_result: bridgeResult,
-      bridgeResult,
       inspection,
       result: {
         action,
-        changeId,
+        change_id: changeId,
         status,
         inspection,
-        receiptRefs: [receiptRef],
         receipt_refs: [receiptRef],
       },
     };
@@ -157,4 +155,19 @@ export async function controlWorkspaceChangeForThread(store, threadId, request =
     }
     throw error;
   }
+}
+
+function retiredWorkspaceChangeControlAliases(request = {}) {
+  const input = request.input && typeof request.input === "object" ? request.input : {};
+  return [
+    ["toolId", request],
+    ["createdAt", request],
+    ["requestHash", request],
+    ["changeId", request],
+    ["workspaceChangeId", request],
+    ["changeId", input],
+    ["workspaceChangeId", input],
+  ]
+    .filter(([key, container]) => Object.hasOwn(container, key))
+    .map(([key]) => key);
 }
