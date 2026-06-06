@@ -429,6 +429,7 @@ test("approval surface ignores retired request identity aliases", () => {
     turnId: "turn_retired",
     workflowGraphId: "graph_retired",
     workflowNodeId: "node_retired",
+    idempotencyKey: "approval_request_idempotency_retired",
     receiptRefs: ["receipt_retired"],
   });
 
@@ -436,6 +437,7 @@ test("approval surface ignores retired request identity aliases", () => {
   assert.equal(store.events[0].workflow_graph_id, null);
   assert.match(store.events[0].workflow_node_id, /^runtime\.approval\./);
   assert.equal(store.events[0].workflow_node_id.includes("node_retired"), false);
+  assert.equal(store.events[0].idempotency_key, "thread:thread_alpha:approval.required:approval-one");
   assert.equal(store.events[0].receipt_refs.includes("receipt_retired"), false);
 
   surface.decideThreadApproval(store, "thread_alpha", "approval-one", {
@@ -443,23 +445,49 @@ test("approval surface ignores retired request identity aliases", () => {
     turnId: "turn_retired",
     workflowGraphId: "graph_decision_retired",
     workflowNodeId: "node_decision_retired",
+    idempotencyKey: "approval_decision_idempotency_retired",
   });
 
   assert.equal(store.events[1].turn_id, "turn_alpha");
   assert.equal(store.events[1].workflow_graph_id, null);
   assert.match(store.events[1].workflow_node_id, /^runtime\.approval\./);
   assert.equal(store.events[1].workflow_node_id.includes("node_decision_retired"), false);
+  assert.match(store.events[1].idempotency_key, /^thread:thread_alpha:approval\.approve:approval-one:/);
 
   surface.revokeThreadApproval(store, "thread_alpha", "approval-one", {
     turnId: "turn_retired",
     workflowGraphId: "graph_revoke_retired",
     workflowNodeId: "node_revoke_retired",
+    idempotencyKey: "approval_revoke_idempotency_retired",
   });
 
   assert.equal(store.events[2].turn_id, "turn_alpha");
   assert.equal(store.events[2].workflow_graph_id, null);
   assert.equal(store.events[2].workflow_node_id, store.events[0].workflow_node_id);
   assert.equal(store.events[2].workflow_node_id.includes("node_revoke_retired"), false);
+  assert.match(store.events[2].idempotency_key, /^thread:thread_alpha:approval\.revoke:approval-one:/);
+});
+
+test("approval surface accepts canonical idempotency keys", () => {
+  const surface = createSurface();
+  const store = createStore();
+
+  surface.requestThreadApproval(store, "thread_alpha", {
+    approval_id: "approval-one",
+    reason: "Need permission",
+    idempotency_key: "approval_request_idempotency_canonical",
+  });
+  surface.decideThreadApproval(store, "thread_alpha", "approval-one", {
+    decision: "approve",
+    idempotency_key: "approval_decision_idempotency_canonical",
+  });
+  surface.revokeThreadApproval(store, "thread_alpha", "approval-one", {
+    idempotency_key: "approval_revoke_idempotency_canonical",
+  });
+
+  assert.equal(store.events[0].idempotency_key, "approval_request_idempotency_canonical");
+  assert.equal(store.events[1].idempotency_key, "approval_decision_idempotency_canonical");
+  assert.equal(store.events[2].idempotency_key, "approval_revoke_idempotency_canonical");
 });
 
 test("approval surface fails closed without Rust-planned run approval updates", () => {

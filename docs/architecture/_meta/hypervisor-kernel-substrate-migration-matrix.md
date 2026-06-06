@@ -12854,6 +12854,12 @@ fields only; retired `idempotencyKey` and `compactIdempotencyKey` fields no
 longer steer Rust policy planning, runtime event de-duplication, or compaction
 execution event identity.
 
+Slice 452 completes approval idempotency alias retirement:
+approval request, decision, and revoke events now consume canonical
+`idempotency_key` request fields only; retired `idempotencyKey` fields no longer
+steer approval runtime event de-duplication or Rust-planned approval state
+transitions.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

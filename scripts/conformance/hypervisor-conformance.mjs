@@ -1923,15 +1923,34 @@ function runBridge() {
       /turnId: "turn_retired"/.test(runtimeApprovalSurfaceTest) &&
       /workflowGraphId: "graph_retired"/.test(runtimeApprovalSurfaceTest) &&
       /workflowNodeId: "node_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /idempotencyKey: "approval_request_idempotency_retired"/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
       /receiptRefs: \["receipt_retired"\]/.test(runtimeApprovalSurfaceTest) &&
       /workflowGraphId: "graph_decision_retired"/.test(runtimeApprovalSurfaceTest) &&
       /workflowNodeId: "node_decision_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /idempotencyKey: "approval_decision_idempotency_retired"/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
       /workflowGraphId: "graph_revoke_retired"/.test(runtimeApprovalSurfaceTest) &&
       /workflowNodeId: "node_revoke_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /idempotencyKey: "approval_revoke_idempotency_retired"/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /approval surface accepts canonical idempotency keys/.test(runtimeApprovalSurfaceTest) &&
+      /idempotency_key: "approval_request_idempotency_canonical"/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /idempotency_key: "approval_decision_idempotency_canonical"/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /idempotency_key: "approval_revoke_idempotency_canonical"/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
       /store\.events\[0\]\.receipt_refs\.includes\("receipt_retired"\), false/.test(
         runtimeApprovalSurfaceTest,
       ) &&
-      !/request\.(?:turnId|workflowNodeId|workflowGraphId|receiptRefs)\b/.test(runtimeApprovalSurface),
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId|receiptRefs|idempotencyKey)\b/.test(runtimeApprovalSurface),
     [
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.test.mjs",

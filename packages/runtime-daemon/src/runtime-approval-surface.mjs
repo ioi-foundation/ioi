@@ -218,7 +218,6 @@ export function createRuntimeApprovalSurface(deps = {}) {
       item_id: `${turnId || threadId}:item:approval-required:${safeId(approvalId)}`,
       idempotency_key:
         request.idempotency_key ??
-        request.idempotencyKey ??
         `thread:${threadId}:approval.required:${approvalId}`,
       source,
       source_event_kind: "OperatorApproval.Request",
@@ -402,7 +401,6 @@ export function createRuntimeApprovalSurface(deps = {}) {
       item_id: `${turnId || threadId}:item:approval-${decision}:${safeId(normalizedApprovalId)}`,
       idempotency_key:
         request.idempotency_key ??
-        request.idempotencyKey ??
         `thread:${threadId}:approval.${decision}:${normalizedApprovalId}:${decisionHash}`,
       source,
       source_event_kind: `OperatorApproval.${decisionVerb}`,
@@ -630,7 +628,6 @@ export function createRuntimeApprovalSurface(deps = {}) {
       item_id: `${turnId || threadId}:item:approval-revoke:${safeId(normalizedApprovalId)}`,
       idempotency_key:
         request.idempotency_key ??
-        request.idempotencyKey ??
         `thread:${threadId}:approval.revoke:${normalizedApprovalId}:${revokeHash}`,
       source,
       source_event_kind: "OperatorApproval.Revoke",
