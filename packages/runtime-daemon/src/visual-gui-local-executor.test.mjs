@@ -1,10 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import {
   executeLocalVisualGuiAction,
   visualGuiLocalExecutorRequested,
 } from "./visual-gui-local-executor.mjs";
+
+const fixturePngBase64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAADZ5rWJAAAAFElEQVR42mP8z8AARLJgwi+Q5gIAWUMGAf2v7z8AAAAASUVORK5CYII=";
 
 test("visual GUI local executor request detector accepts canonical fields", () => {
   const request = { actionKind: "click", approvalRef: "approval_visual_gui" };
@@ -165,6 +171,87 @@ test("visual GUI local executor screenshot resolution ignores retired aliases", 
   }
 });
 
+test("visual GUI local executor action payloads use canonical fields only", async () => {
+  await withFixtureExecution(async (captureDir) => {
+    for (const { actionKind, inputPatch, expectedAction } of [
+      {
+        actionKind: "type_text",
+        inputPatch: { input_text: "ship it" },
+        expectedAction: "type_text",
+      },
+      {
+        actionKind: "key_press",
+        inputPatch: { key_text: "Enter" },
+        expectedAction: "key_press",
+      },
+      {
+        actionKind: "scroll",
+        inputPatch: { scroll_y: 240, scroll_x: 0 },
+        expectedAction: "scroll",
+      },
+    ]) {
+      const result = await executeLocalVisualGuiAction({
+        actionKind,
+        approvalRef: "approval_visual_gui",
+        input: fixtureExecutionInput(actionKind, inputPatch),
+        captureDir,
+        artifactResolver: screenshotArtifactResolver,
+      });
+      assert.equal(result.status, "completed");
+      assert.equal(result.execution_receipt.action, expectedAction);
+    }
+  });
+});
+
+test("visual GUI local executor action payloads ignore retired aliases", async () => {
+  await withFixtureExecution(async (captureDir) => {
+    for (const { actionKind, inputPatch } of [
+      {
+        actionKind: "type_text",
+        inputPatch: { text: "legacy text" },
+      },
+      {
+        actionKind: "type_text",
+        inputPatch: { value: "legacy value" },
+      },
+      {
+        actionKind: "type_text",
+        inputPatch: { inputText: "legacy input" },
+      },
+      {
+        actionKind: "key_press",
+        inputPatch: { key: "Enter" },
+      },
+      {
+        actionKind: "key_press",
+        inputPatch: { keyText: "Enter" },
+      },
+      {
+        actionKind: "scroll",
+        inputPatch: { scrollY: 240 },
+      },
+      {
+        actionKind: "scroll",
+        inputPatch: { scrollX: 24 },
+      },
+      {
+        actionKind: "scroll",
+        inputPatch: { dy: 240, dx: 0 },
+      },
+    ]) {
+      const result = await executeLocalVisualGuiAction({
+        actionKind,
+        approvalRef: "approval_visual_gui",
+        input: fixtureExecutionInput(actionKind, inputPatch),
+        captureDir,
+        artifactResolver: screenshotArtifactResolver,
+      });
+      assert.equal(result.status, "blocked");
+      assert.equal(result.error_class, "invalid_action_payload");
+    }
+  });
+});
+
 function visualTarget(targetRef, overrides = {}) {
   return {
     target_ref: targetRef,
@@ -184,4 +271,43 @@ function visualTarget(targetRef, overrides = {}) {
     available_actions: ["click"],
     ...overrides,
   };
+}
+
+function fixtureExecutionInput(actionKind, inputPatch = {}) {
+  return {
+    screenshot_ref: "artifact_screenshot_one",
+    target_ref: "target_one",
+    visual_targets: [visualTarget("target_one", { available_actions: [actionKind] })],
+    local_gui_executor_provider: "fixture",
+    capture_fixture_png_base64: fixturePngBase64,
+    ...inputPatch,
+  };
+}
+
+function screenshotArtifactResolver(ref) {
+  assert.equal(ref, "artifact_screenshot_one");
+  return { content: fixturePngBase64 };
+}
+
+async function withFixtureExecution(callback) {
+  const previousCaptureFixture = process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE;
+  const previousExecutorFixture = process.env.IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE;
+  const captureDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-visual-executor-test-"));
+  process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE = "1";
+  process.env.IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE = "1";
+  try {
+    await callback(captureDir);
+  } finally {
+    restoreEnv("IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE", previousCaptureFixture);
+    restoreEnv("IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE", previousExecutorFixture);
+    fs.rmSync(captureDir, { recursive: true, force: true });
+  }
+}
+
+function restoreEnv(name, value) {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
 }

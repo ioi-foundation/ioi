@@ -1603,6 +1603,34 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "visual-gui-local-executor-action-payload-aliases-retired",
+    /const text = cleanString\(input\.input_text\) \?\? textFromPrompt\(prompt\);/.test(
+      visualGuiLocalExecutor,
+    ) &&
+      /const key = cleanString\(input\.key_text\) \?\? keyFromPrompt\(prompt\);/.test(
+        visualGuiLocalExecutor,
+      ) &&
+      /const dy = finiteNumber\(input\.scroll_y\) \?\? 0;/.test(visualGuiLocalExecutor) &&
+      /const dx = finiteNumber\(input\.scroll_x\) \?\? 0;/.test(visualGuiLocalExecutor) &&
+      /visual GUI local executor action payloads use canonical fields only/.test(
+        visualGuiLocalExecutorTest,
+      ) &&
+      /visual GUI local executor action payloads ignore retired aliases/.test(
+        visualGuiLocalExecutorTest,
+      ) &&
+      /inputPatch: \{ inputText: "legacy input" \}/.test(visualGuiLocalExecutorTest) &&
+      /inputPatch: \{ scrollY: 240 \}/.test(visualGuiLocalExecutorTest) &&
+      !/\binput\.(?:value|inputText|key|keyText|scrollX|scrollY|dx|dy)\b/.test(
+        visualGuiLocalExecutor,
+      ),
+    [
+      "packages/runtime-daemon/src/visual-gui-local-executor.mjs",
+      "packages/runtime-daemon/src/visual-gui-local-executor.test.mjs",
+    ],
+    "Phase 10/11 is pending: visual GUI local-executor action payloads must use canonical input_text/key_text/scroll_x/scroll_y without retired aliases",
+  );
+  assertCheck(
+    result,
     "visual-gui-local-capture-aliases-retired",
     /booleanValue\(input\.capture_screen\)/.test(visualGuiLocalCapture) &&
       /booleanValue\(input\.local_capture\)/.test(visualGuiLocalCapture) &&

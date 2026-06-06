@@ -318,19 +318,19 @@ function actionPayloadForKind({ input, actionKind, target, prompt }) {
     return { ok: true, value: { action: "click", targetPoint } };
   }
   if (actionKind === "type_text") {
-    const text = cleanString(input.text ?? input.value ?? input.inputText ?? input.input_text) ?? textFromPrompt(prompt);
-    if (!text) return { ok: false, error: "Approved type_text action requires text/inputText/value." };
+    const text = cleanString(input.input_text) ?? textFromPrompt(prompt);
+    if (!text) return { ok: false, error: "Approved type_text action requires input_text or a quoted type prompt." };
     return { ok: true, value: { action: "type_text", targetPoint, text } };
   }
   if (actionKind === "key_press") {
-    const key = cleanString(input.key ?? input.keyText ?? input.key_text) ?? keyFromPrompt(prompt);
-    if (!key) return { ok: false, error: "Approved key_press action requires key/keyText." };
+    const key = cleanString(input.key_text) ?? keyFromPrompt(prompt);
+    if (!key) return { ok: false, error: "Approved key_press action requires key_text or a key prompt." };
     return { ok: true, value: { action: "key_press", targetPoint, key } };
   }
   if (actionKind === "scroll") {
-    const dy = finiteNumber(input.scrollY ?? input.scroll_y ?? input.dy) ?? 0;
-    const dx = finiteNumber(input.scrollX ?? input.scroll_x ?? input.dx) ?? 0;
-    if (dx === 0 && dy === 0) return { ok: false, error: "Approved scroll action requires scrollX/scrollY." };
+    const dy = finiteNumber(input.scroll_y) ?? 0;
+    const dx = finiteNumber(input.scroll_x) ?? 0;
+    if (dx === 0 && dy === 0) return { ok: false, error: "Approved scroll action requires scroll_x or scroll_y." };
     return { ok: true, value: { action: "scroll", targetPoint, dx, dy } };
   }
   return { ok: false, error: `Unsupported visual GUI action ${actionKind}.` };
