@@ -12386,6 +12386,12 @@ state planner to return the exact `thread.*` memory operation kind before the
 daemon persists the agent projection, rather than substituting the JS-side
 control kind.
 
+Slice 384 removes the MCP-control operation-kind fallback: MCP add/import/remove,
+enable/disable/status/validate/invoke persistence now requires the Rust MCP
+control state planner to return the exact `thread.*` MCP operation kind before
+the daemon persists the agent projection, rather than substituting the JS-side
+control kind.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

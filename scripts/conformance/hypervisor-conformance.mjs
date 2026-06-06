@@ -1550,12 +1550,19 @@ function runBridge() {
       /contextPolicyRunnerDep\.planMcpControlAgentStateUpdate/.test(
         runtimeMcpControlSurface,
       ) &&
+      /requiredMcpControlOperationKind/.test(runtimeMcpControlSurface) &&
       /mcpStatusForAgent/.test(runtimeMcpControlSurface) &&
       !/store\.agents\.set\(agent\.id,\s*updatedAgent\)/.test(runtimeMcpControlSurface) &&
       !/store\.writeAgent\(updatedAgent,\s*`thread\.\$\{controlKind\}`\)/.test(
         runtimeMcpControlSurface,
       ) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*`thread\.\$\{controlKind\}`/.test(
+        runtimeMcpControlSurface,
+      ) &&
       /planMcpControlAgentStateUpdate/.test(runtimeMcpControlSurfaceTest) &&
+      /runtime MCP control surface fails closed without Rust-planned operation kind/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
       /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",

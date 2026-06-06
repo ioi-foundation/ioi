@@ -903,9 +903,37 @@ export function createRuntimeMcpControlSurface({
           details: { threadId, controlKind },
         });
       }
+      const operationKind = requiredMcpControlOperationKind(stateUpdate, threadId, controlKind);
       store.agents.set(updatedAgent.id, updatedAgent);
-      store.writeAgent(updatedAgent, stateUpdate.operation_kind ?? `thread.${controlKind}`);
+      store.writeAgent(updatedAgent, operationKind);
       return result;
     },
   };
+
+  function requiredMcpControlOperationKind(stateUpdate, threadId, controlKind) {
+    const expectedOperationKind = `thread.${controlKind}`;
+    const operationKind = optionalStringDep(stateUpdate.operation_kind);
+    if (!operationKind) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "mcp_control_state_update_operation_kind_missing",
+        message: "Rust policy state-update planning did not return an operation kind.",
+        details: { threadId, controlKind, operationKind: expectedOperationKind },
+      });
+    }
+    if (operationKind !== expectedOperationKind) {
+      throw runtimeErrorDep({
+        status: 502,
+        code: "mcp_control_state_update_operation_kind_mismatch",
+        message: "Rust policy state-update planning returned an unexpected operation kind.",
+        details: {
+          threadId,
+          controlKind,
+          expectedOperationKind,
+          operationKind,
+        },
+      });
+    }
+    return operationKind;
+  }
 }

@@ -17,7 +17,7 @@ function server(id, tools = [{ name: "search" }], extra = {}) {
   };
 }
 
-function harness() {
+function harness({ stateUpdateOverride = null } = {}) {
   const events = [];
   const statePlannerCalls = [];
   const writes = [];
@@ -66,6 +66,7 @@ function harness() {
             ...request.agent,
             updatedAt: request.created_at,
           },
+          ...stateUpdateOverride,
         };
       },
     },
@@ -248,6 +249,31 @@ test("runtime MCP control surface records enable, status, and validation control
     "mcp_status",
     "mcp_validate",
   ]);
+});
+
+test("runtime MCP control surface fails closed without Rust-planned operation kind", () => {
+  const { statePlannerCalls, store, surface, writes } = harness({
+    stateUpdateOverride: {
+      operation_kind: null,
+    },
+  });
+
+  assert.throws(
+    () =>
+      surface.addMcpServer(store, {
+        thread_id: "thread-agent-one",
+        id: "mcp.extra",
+        tools: [{ name: "extra" }],
+      }),
+    (error) => {
+      assert.equal(error.code, "mcp_control_state_update_operation_kind_missing");
+      assert.equal(error.details.operationKind, "thread.mcp_add");
+      return true;
+    },
+  );
+  assert.equal(writes.length, 0);
+  assert.equal(statePlannerCalls.length, 1);
+  assert.equal(store.agents.get("agent-one").mcpRegistry.servers.length, 1);
 });
 
 test("runtime MCP control surface invokes tools with receipt-backed policy outcomes", async () => {
