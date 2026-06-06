@@ -17,7 +17,7 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
-    CodingToolBudgetPolicyCore, CodingToolBudgetPolicyRequest,
+    ContextBudgetPolicyCore, ContextBudgetPolicyRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -270,13 +270,13 @@ struct CodingToolApprovalBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
-struct CodingToolBudgetPolicyBridgeRequest {
+struct ContextBudgetPolicyBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
     operation: String,
     #[serde(default)]
     backend: Option<String>,
-    request: CodingToolBudgetPolicyRequest,
+    request: ContextBudgetPolicyRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -449,8 +449,13 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_coding_tool_approval_manifest(request)
         }
+        "evaluate_context_budget_policy" => {
+            let request: ContextBudgetPolicyBridgeRequest = serde_json::from_value(raw_request)
+                .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            evaluate_context_budget_policy(request)
+        }
         "evaluate_coding_tool_budget_policy" => {
-            let request: CodingToolBudgetPolicyBridgeRequest = serde_json::from_value(raw_request)
+            let request: ContextBudgetPolicyBridgeRequest = serde_json::from_value(raw_request)
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             evaluate_coding_tool_budget_policy(request)
         }
@@ -1444,8 +1449,33 @@ fn plan_coding_tool_approval_manifest(
     }))
 }
 
+fn evaluate_context_budget_policy(
+    request: ContextBudgetPolicyBridgeRequest,
+) -> Result<Value, BridgeError> {
+    evaluate_context_budget_policy_bridge(
+        request,
+        "evaluate_context_budget_policy",
+        "rust_context_budget_policy_command",
+        "context_budget_policy_invalid",
+    )
+}
+
 fn evaluate_coding_tool_budget_policy(
-    request: CodingToolBudgetPolicyBridgeRequest,
+    request: ContextBudgetPolicyBridgeRequest,
+) -> Result<Value, BridgeError> {
+    evaluate_context_budget_policy_bridge(
+        request,
+        "evaluate_coding_tool_budget_policy",
+        "rust_coding_tool_budget_policy_command",
+        "coding_tool_budget_policy_invalid",
+    )
+}
+
+fn evaluate_context_budget_policy_bridge(
+    request: ContextBudgetPolicyBridgeRequest,
+    expected_operation: &'static str,
+    source: &'static str,
+    error_code: &'static str,
 ) -> Result<Value, BridgeError> {
     if request.schema_version != COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
@@ -1456,19 +1486,17 @@ fn evaluate_coding_tool_budget_policy(
             ),
         ));
     }
-    if request.operation != "evaluate_coding_tool_budget_policy" {
+    if request.operation != expected_operation {
         return Err(BridgeError::new(
             "operation_unsupported",
             format!("unsupported operation {}", request.operation),
         ));
     }
-    let record = CodingToolBudgetPolicyCore
+    let record = ContextBudgetPolicyCore
         .evaluate(&request.request)
-        .map_err(|error| {
-            BridgeError::new("coding_tool_budget_policy_invalid", format!("{error:?}"))
-        })?;
+        .map_err(|error| BridgeError::new(error_code, format!("{error:?}")))?;
     Ok(json!({
-        "source": "rust_coding_tool_budget_policy_command",
+        "source": source,
         "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
         "record": record.clone(),
         "status": record.status.clone(),
@@ -5499,8 +5527,50 @@ mod tests {
     }
 
     #[test]
+    fn bridge_evaluates_context_budget_policy_through_rust_core() {
+        let request: ContextBudgetPolicyBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "evaluate_context_budget_policy",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.context-budget-policy-request.v1",
+                "usage_telemetry": {
+                    "total_tokens": 120,
+                    "estimated_cost_usd": 0.03,
+                    "context_pressure": 0.2
+                },
+                "thresholds": {
+                    "max_total_tokens": 100,
+                    "warn_at_ratio": 0.8
+                },
+                "mode": "block",
+                "scope": "thread",
+                "thread_id": "thread_budget",
+                "workflow_graph_id": "graph_budget",
+                "workflow_node_id": "node_budget",
+                "source": "react_flow"
+            }
+        }))
+        .expect("context budget bridge request");
+
+        let response =
+            evaluate_context_budget_policy(request).expect("context budget policy evaluated");
+
+        assert_eq!(response["source"], "rust_context_budget_policy_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "blocked");
+        assert_eq!(
+            response["record"]["event_kind"],
+            "RuntimeContextBudget.Evaluate"
+        );
+        assert_eq!(response["record"]["component_kind"], "context_budget");
+        assert_eq!(response["usage_summary"]["total_tokens"], 120.0);
+        assert_eq!(response["violations"][0]["id"], "total_tokens");
+    }
+
+    #[test]
     fn bridge_evaluates_coding_tool_budget_policy_through_rust_core() {
-        let request: CodingToolBudgetPolicyBridgeRequest = serde_json::from_value(json!({
+        let request: ContextBudgetPolicyBridgeRequest = serde_json::from_value(json!({
             "schema_version": COMMAND_SCHEMA_VERSION,
             "operation": "evaluate_coding_tool_budget_policy",
             "backend": "rust_policy",

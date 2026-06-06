@@ -1,24 +1,26 @@
 import { spawnSync } from "node:child_process";
 
-export const CODING_TOOL_BUDGET_COMMAND_ENV = "IOI_STEP_MODULE_COMMAND";
-export const CODING_TOOL_BUDGET_COMMAND_ARGS_ENV = "IOI_STEP_MODULE_COMMAND_ARGS";
-export const CODING_TOOL_BUDGET_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const CONTEXT_BUDGET_POLICY_COMMAND_ENV = "IOI_STEP_MODULE_COMMAND";
+export const CONTEXT_BUDGET_POLICY_COMMAND_ARGS_ENV = "IOI_STEP_MODULE_COMMAND_ARGS";
+export const CONTEXT_BUDGET_POLICY_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.context-budget-policy-request.v1";
 export const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-budget-policy-request.v1";
-export const RUST_CODING_TOOL_BUDGET_BACKEND = "rust_policy";
+export const RUST_CONTEXT_BUDGET_POLICY_BACKEND = "rust_policy";
 
-export function createCodingToolBudgetRunnerFromEnv(env = process.env, options = {}) {
-  return new RustCodingToolBudgetRunner({
-    command: options.command ?? env[CODING_TOOL_BUDGET_COMMAND_ENV] ?? null,
+export function createContextBudgetPolicyRunnerFromEnv(env = process.env, options = {}) {
+  return new RustContextBudgetPolicyRunner({
+    command: options.command ?? env[CONTEXT_BUDGET_POLICY_COMMAND_ENV] ?? null,
     args:
       options.args ??
-      parseCommandArgs(env[CODING_TOOL_BUDGET_COMMAND_ARGS_ENV]),
+      parseCommandArgs(env[CONTEXT_BUDGET_POLICY_COMMAND_ARGS_ENV]),
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
 }
 
-export class RustCodingToolBudgetRunner {
+export class RustContextBudgetPolicyRunner {
   constructor(options = {}) {
     this.command = optionalString(options.command);
     this.args = normalizeArgs(options.args);
@@ -26,35 +28,51 @@ export class RustCodingToolBudgetRunner {
     this.mockResult = options.mockResult;
   }
 
-  evaluateBudgetPolicy(request = {}) {
-    const bridgeRequest = {
-      schema_version: CODING_TOOL_BUDGET_COMMAND_SCHEMA_VERSION,
+  evaluateContextBudgetPolicy(request = {}) {
+    return this.evaluatePolicy({
+      operation: "evaluate_context_budget_policy",
+      schemaVersion: CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+      request,
+    });
+  }
+
+  evaluateCodingToolBudgetPolicy(request = {}) {
+    return this.evaluatePolicy({
       operation: "evaluate_coding_tool_budget_policy",
-      backend: RUST_CODING_TOOL_BUDGET_BACKEND,
+      schemaVersion: CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+      request,
+    });
+  }
+
+  evaluatePolicy({ operation, schemaVersion, request }) {
+    const bridgeRequest = {
+      schema_version: CONTEXT_BUDGET_POLICY_COMMAND_SCHEMA_VERSION,
+      operation,
+      backend: RUST_CONTEXT_BUDGET_POLICY_BACKEND,
       request: {
         ...(objectRecord(request) ?? {}),
-        schema_version: CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+        schema_version: schemaVersion,
       },
     };
-    return normalizeCodingToolBudgetBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeContextBudgetPolicyBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
   invokeBridge(request) {
     if (this.mockResult) {
       const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
       return {
-        source: "rust_coding_tool_budget_policy_mock",
-        backend: request.backend ?? RUST_CODING_TOOL_BUDGET_BACKEND,
+        source: "rust_context_budget_policy_mock",
+        backend: request.backend ?? RUST_CONTEXT_BUDGET_POLICY_BACKEND,
         ...value,
       };
     }
     if (!this.command) {
-      throw new CodingToolBudgetRunnerError(
-        "Coding-tool budget policy requires IOI_STEP_MODULE_COMMAND for Rust policy evaluation.",
-        "coding_tool_budget_bridge_unconfigured",
+      throw new ContextBudgetPolicyRunnerError(
+        "Context budget policy requires IOI_STEP_MODULE_COMMAND for Rust policy evaluation.",
+        "context_budget_policy_bridge_unconfigured",
         {
-          env: CODING_TOOL_BUDGET_COMMAND_ENV,
-          argsEnv: CODING_TOOL_BUDGET_COMMAND_ARGS_ENV,
+          env: CONTEXT_BUDGET_POLICY_COMMAND_ENV,
+          argsEnv: CONTEXT_BUDGET_POLICY_COMMAND_ARGS_ENV,
         },
       );
     }
@@ -64,16 +82,16 @@ export class RustCodingToolBudgetRunner {
       windowsHide: true,
     });
     if (output.error) {
-      throw new CodingToolBudgetRunnerError(
-        "Failed to spawn Rust coding-tool budget bridge command.",
-        "coding_tool_budget_bridge_spawn_failed",
+      throw new ContextBudgetPolicyRunnerError(
+        "Failed to spawn Rust context budget policy bridge command.",
+        "context_budget_policy_bridge_spawn_failed",
         { error: String(output.error?.message ?? output.error) },
       );
     }
     if (output.status !== 0) {
-      throw new CodingToolBudgetRunnerError(
-        "Rust coding-tool budget bridge command failed.",
-        "coding_tool_budget_bridge_failed",
+      throw new ContextBudgetPolicyRunnerError(
+        "Rust context budget policy bridge command failed.",
+        "context_budget_policy_bridge_failed",
         {
           status: output.status,
           stderr: String(output.stderr ?? "").slice(0, 4096),
@@ -84,16 +102,16 @@ export class RustCodingToolBudgetRunner {
     try {
       parsed = JSON.parse(String(output.stdout ?? ""));
     } catch (error) {
-      throw new CodingToolBudgetRunnerError(
-        "Rust coding-tool budget bridge command returned invalid JSON.",
-        "coding_tool_budget_bridge_invalid_json",
+      throw new ContextBudgetPolicyRunnerError(
+        "Rust context budget policy bridge command returned invalid JSON.",
+        "context_budget_policy_bridge_invalid_json",
         { error: String(error?.message ?? error) },
       );
     }
     if (parsed?.ok === false) {
-      throw new CodingToolBudgetRunnerError(
-        parsed.error?.message ?? "Rust coding-tool budget policy rejected the request.",
-        parsed.error?.code ?? "coding_tool_budget_bridge_rejected",
+      throw new ContextBudgetPolicyRunnerError(
+        parsed.error?.message ?? "Rust context budget policy rejected the request.",
+        parsed.error?.code ?? "context_budget_policy_bridge_rejected",
         { error: parsed.error },
       );
     }
@@ -101,23 +119,23 @@ export class RustCodingToolBudgetRunner {
   }
 }
 
-export class CodingToolBudgetRunnerError extends Error {
-  constructor(message, code = "coding_tool_budget_runner_error", details = {}) {
+export class ContextBudgetPolicyRunnerError extends Error {
+  constructor(message, code = "context_budget_policy_runner_error", details = {}) {
     super(message);
-    this.name = "CodingToolBudgetRunnerError";
+    this.name = "ContextBudgetPolicyRunnerError";
     this.status = details.status ?? 502;
     this.code = code;
     this.details = details;
   }
 }
 
-export function normalizeCodingToolBudgetBridgeResult(value = {}) {
+export function normalizeContextBudgetPolicyBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
     ...record,
-    source: result.source ?? record.source ?? "rust_coding_tool_budget_policy_command",
-    backend: result.backend ?? record.backend ?? RUST_CODING_TOOL_BUDGET_BACKEND,
+    source: result.source ?? record.source ?? "rust_context_budget_policy_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_BUDGET_POLICY_BACKEND,
     status: optionalString(result.status ?? record.status) ?? "ok",
     mode: optionalString(result.mode ?? record.mode) ?? "simulate",
     usage_telemetry: objectRecord(result.usage_telemetry) ?? objectRecord(record.usage_telemetry) ?? {},

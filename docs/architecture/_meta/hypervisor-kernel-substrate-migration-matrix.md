@@ -12088,11 +12088,20 @@ daemon constructor wiring, and focused tests after Rust authority planning
 became the canonical gate.
 
 Slice 339 moves coding-tool budget preflight policy into Rust: the Rust
-`CodingToolBudgetPolicyCore` now evaluates canonical coding-tool usage
-telemetry, thresholds, warn/block mode, checks, policy decision refs, receipt
-refs, and block/warn status through `evaluate_coding_tool_budget_policy`; the
-daemon context-budget facade only shapes the canonical request and no longer
-owns the coding-tool budget gate decision.
+context-budget policy core now evaluates canonical coding-tool usage telemetry,
+thresholds, warn/block mode, checks, policy decision refs, receipt refs, and
+block/warn status through `evaluate_coding_tool_budget_policy`; the daemon
+context-budget facade only shapes the canonical request and no longer owns the
+coding-tool budget gate decision.
+
+Slice 340 moves generic context-budget policy evaluation into Rust: the Rust
+`ContextBudgetPolicyCore` now owns shared runtime context-budget telemetry
+summaries, threshold checks, warn/block status, policy decision refs, and
+receipt refs through `evaluate_context_budget_policy`; the daemon
+context-budget facade builds the canonical request, appends runtime events, and
+no longer retains the JS budget-check/summary helper bodies. The coding-tool
+budget preflight is now a specialization of the same Rust context-budget core
+rather than a separately named JS policy runner.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

@@ -69,8 +69,8 @@ use model_mount::{
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use policy::{
-    CodingToolBudgetPolicyCore, CodingToolBudgetPolicyError, CodingToolBudgetPolicyRecord,
-    CodingToolBudgetPolicyRequest,
+    ContextBudgetPolicyCore, ContextBudgetPolicyError, ContextBudgetPolicyRecord,
+    ContextBudgetPolicyRequest,
 };
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
 use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
@@ -124,11 +124,18 @@ impl RuntimeKernelService {
         CodingToolApprovalCore.plan_manifest(request)
     }
 
+    pub fn evaluate_context_budget_policy(
+        &self,
+        request: &ContextBudgetPolicyRequest,
+    ) -> Result<ContextBudgetPolicyRecord, ContextBudgetPolicyError> {
+        ContextBudgetPolicyCore.evaluate(request)
+    }
+
     pub fn evaluate_coding_tool_budget_policy(
         &self,
-        request: &CodingToolBudgetPolicyRequest,
-    ) -> Result<CodingToolBudgetPolicyRecord, CodingToolBudgetPolicyError> {
-        CodingToolBudgetPolicyCore.evaluate(request)
+        request: &ContextBudgetPolicyRequest,
+    ) -> Result<ContextBudgetPolicyRecord, ContextBudgetPolicyError> {
+        self.evaluate_context_budget_policy(request)
     }
 
     pub fn issue_capability_lease(

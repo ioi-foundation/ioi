@@ -2,15 +2,12 @@ import crypto from "node:crypto";
 
 import {
   RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
-  RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
 } from "../runtime-contract-constants.mjs";
 import {
-  runtimeUsageTelemetrySummary,
-} from "../usage-telemetry.mjs";
-import {
   CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
-  createCodingToolBudgetRunnerFromEnv,
-} from "../runtime-coding-tool-budget-runner.mjs";
+  CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+  createContextBudgetPolicyRunnerFromEnv,
+} from "../runtime-context-budget-policy-runner.mjs";
 
 export function contextBudgetUsageTelemetryFromRequest(request = {}) {
   return contextBudgetFirstObject(
@@ -26,7 +23,7 @@ export function codingToolBudgetPolicyForRequest({
   toolCallId = null,
   workflowGraphId = null,
   workflowNodeId = null,
-  budgetRunner = createCodingToolBudgetRunnerFromEnv(),
+  budgetRunner = createContextBudgetPolicyRunnerFromEnv(),
 } = {}) {
   const codingPack = codingToolBudgetConfigForRequest(request);
   const usageTelemetry = contextBudgetFirstObject(
@@ -86,7 +83,7 @@ export function codingToolBudgetPolicyForRequest({
         codingPack.budgetMode,
     ) ?? "simulate",
   );
-  return budgetRunner.evaluateBudgetPolicy({
+  return budgetRunner.evaluateCodingToolBudgetPolicy({
     schema_version: CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
     usage_telemetry: usageTelemetry,
     thresholds: {
@@ -128,47 +125,15 @@ export function codingToolBudgetConfigForRequest(request = {}) {
   };
 }
 
-export function evaluateContextBudgetPolicy({ usageTelemetry, request = {} } = {}) {
-  const usageSummary = contextBudgetUsageSummary(usageTelemetry);
+export function evaluateContextBudgetPolicy({
+  usageTelemetry,
+  request = {},
+  budgetRunner = createContextBudgetPolicyRunnerFromEnv(),
+} = {}) {
+  const canonicalUsageTelemetry = contextBudgetFirstObject(usageTelemetry) ?? {};
   const thresholds = contextBudgetThresholds(request);
   const mode = contextBudgetMode(request.mode);
-  const warnAtRatio = contextBudgetNumber(
-    thresholds.warnAtRatio,
-    thresholds.warn_at_ratio,
-  ) ?? 0.8;
-  const checks = [
-    contextBudgetCheck({
-      id: "total_tokens",
-      label: "total tokens",
-      actual: usageSummary.total_tokens,
-      limit: thresholds.max_total_tokens,
-      warnAtRatio,
-    }),
-    contextBudgetCheck({
-      id: "estimated_cost_usd",
-      label: "estimated cost USD",
-      actual: usageSummary.estimated_cost_usd,
-      limit: thresholds.max_cost_usd,
-      warnAtRatio,
-    }),
-    contextBudgetCheck({
-      id: "context_pressure",
-      label: "context pressure",
-      actual: usageSummary.context_pressure,
-      limit: thresholds.max_context_pressure,
-      warnAtRatio,
-    }),
-  ].filter(Boolean);
-  const violations = checks.filter((check) => check.severity === "violation");
-  const warnings = checks.filter((check) => check.severity === "warning");
-  const wouldBlock = violations.length > 0;
-  const status =
-    wouldBlock && mode === "block"
-      ? "blocked"
-      : wouldBlock || warnings.length > 0
-        ? "warn"
-        : "ok";
-  const scope = optionalString(request.scope) ?? usageSummary.scope ?? "thread";
+  const scope = optionalString(request.scope) ?? canonicalUsageTelemetry.scope ?? "thread";
   const workflowNodeId =
     optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
     "runtime.context-budget";
@@ -176,131 +141,34 @@ export function evaluateContextBudgetPolicy({ usageTelemetry, request = {} } = {
     optionalString(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
   const threadId =
     optionalString(request.thread_id ?? request.threadId) ??
-    usageSummary.thread_id ??
+    optionalString(canonicalUsageTelemetry.thread_id) ??
     null;
   const runId =
-    optionalString(request.run_id ?? request.runId) ?? usageSummary.run_id ?? null;
-  const decisionHash = doctorHash(
-    JSON.stringify({
-      scope,
-      threadId,
-      runId,
-      workflowGraphId,
-      workflowNodeId,
-      status,
-      mode,
-      checks,
-    }),
-  ).slice(0, 16);
-  const policyDecisionId = `policy_context_budget_${safeId(scope)}_${decisionHash}_${status}`;
-  const receiptId = `receipt_context_budget_${safeId(scope)}_${decisionHash}`;
-  const summary =
-    status === "blocked"
-      ? `Context budget blocked: ${violations.map((check) => check.label).join(", ")} exceeded.`
-      : status === "warn"
-        ? `Context budget warning: ${[...violations, ...warnings].map((check) => check.label).join(", ")} near or over limit.`
-        : "Context budget is within policy.";
-  const generatedAt = new Date().toISOString();
-  const policyDecision = {
-    policy_decision_id: policyDecisionId,
-    policyDecisionId,
-    status,
-    mode,
-    would_block: wouldBlock,
-    wouldBlock,
-    summary,
-    checks,
-    violations,
-    warnings,
-  };
-  return {
-    schema_version: RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
-    object: "ioi.runtime_context_budget_policy",
-    status,
+    optionalString(request.run_id ?? request.runId) ??
+    optionalString(canonicalUsageTelemetry.run_id) ??
+    null;
+  return budgetRunner.evaluateContextBudgetPolicy({
+    schema_version: CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+    usage_telemetry: canonicalUsageTelemetry,
+    thresholds: {
+      max_total_tokens: thresholds.max_total_tokens,
+      max_cost_usd: thresholds.max_cost_usd,
+      max_context_pressure: thresholds.max_context_pressure,
+      warn_at_ratio: thresholds.warn_at_ratio,
+    },
     mode,
     scope,
     thread_id: threadId,
-    threadId,
     run_id: runId,
-    runId,
-    source: optionalString(request.source) ?? "react_flow",
+    source: operatorControlSource(request.source),
     actor: optionalString(request.actor) ?? "operator",
     event_kind:
       optionalString(request.event_kind ?? request.eventKind) ??
       "RuntimeContextBudget.Evaluate",
-    eventKind:
-      optionalString(request.eventKind ?? request.event_kind) ??
-      "RuntimeContextBudget.Evaluate",
     component_kind: "context_budget",
-    componentKind: "context_budget",
-    payload_schema_version: RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
-    payloadSchemaVersion: RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
     workflow_graph_id: workflowGraphId,
-    workflowGraphId,
     workflow_node_id: workflowNodeId,
-    workflowNodeId,
-    thresholds,
-    usage_telemetry: usageTelemetry,
-    usageTelemetry,
-    usage_summary: usageSummary,
-    usageSummary,
-    policy_decision_id: policyDecisionId,
-    policyDecisionId,
-    policy_decision: policyDecision,
-    policyDecision,
-    receipt_refs: [receiptId],
-    receiptRefs: [receiptId],
-    policy_decision_refs: [policyDecisionId],
-    policyDecisionRefs: [policyDecisionId],
-    warnings,
-    violations,
-    would_block: wouldBlock,
-    wouldBlock,
-    simulation_mode: request.simulation_mode ?? request.simulationMode ?? mode === "simulate",
-    simulationMode: request.simulationMode ?? request.simulation_mode ?? mode === "simulate",
-    summary,
-    generated_at: generatedAt,
-    generatedAt,
-  };
-}
-
-export function contextBudgetUsageSummary(usageTelemetry = {}) {
-  if (Array.isArray(usageTelemetry?.usage)) {
-    const usage = usageTelemetry.usage;
-    const totalTokens = usage.reduce(
-      (total, entry) => total + (contextBudgetNumber(entry.total_tokens) ?? 0),
-      0,
-    );
-    const costUsd = usage.reduce(
-      (total, entry) =>
-        total + (contextBudgetNumber(entry.estimated_cost_usd) ?? 0),
-      0,
-    );
-    const pressure = usage.reduce(
-      (max, entry) =>
-        Math.max(max, contextBudgetNumber(entry.context_pressure) ?? 0),
-      0,
-    );
-    return {
-      ...runtimeUsageTelemetrySummary({
-        total_tokens: totalTokens,
-        estimated_cost_usd: costUsd,
-        context_pressure: pressure,
-        source_counts: { runs: usage.length, subagents: 0 },
-      }),
-      scope: usageTelemetry.scope ?? "workflow",
-      thread_id: usageTelemetry.thread_id ?? null,
-      run_id: usageTelemetry.run_id ?? null,
-    };
-  }
-  const summary = runtimeUsageTelemetrySummary(usageTelemetry ?? {});
-  return {
-    ...summary,
-    scope: usageTelemetry?.scope ?? "thread",
-    thread_id: usageTelemetry?.thread_id ?? null,
-    run_id: usageTelemetry?.run_id ?? null,
-  };
+  });
 }
 
 export function contextBudgetThresholds(request = {}) {
@@ -355,22 +223,6 @@ export function contextBudgetThresholds(request = {}) {
       request.warn_at_ratio,
     ) ?? 0.8,
   };
-}
-
-export function contextBudgetCheck({ id, label, actual, limit, warnAtRatio }) {
-  const resolvedActual = contextBudgetNumber(actual);
-  const resolvedLimit = contextBudgetNumber(limit);
-  if (resolvedActual === null || resolvedLimit === null || resolvedLimit <= 0) {
-    return null;
-  }
-  const ratio = Math.round((resolvedActual / resolvedLimit) * 10000) / 10000;
-  if (resolvedActual > resolvedLimit) {
-    return { id, label, actual: resolvedActual, limit: resolvedLimit, ratio, severity: "violation" };
-  }
-  if (resolvedActual >= resolvedLimit * warnAtRatio) {
-    return { id, label, actual: resolvedActual, limit: resolvedLimit, ratio, severity: "warning" };
-  }
-  return { id, label, actual: resolvedActual, limit: resolvedLimit, ratio, severity: "ok" };
 }
 
 export function contextBudgetNumber(...values) {

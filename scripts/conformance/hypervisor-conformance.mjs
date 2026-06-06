@@ -514,11 +514,11 @@ function runBridge() {
   const runtimeCodingToolApprovalRunnerTest = exists("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs")
     : "";
-  const runtimeCodingToolBudgetRunner = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-runner.mjs")
-    ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-runner.mjs")
+  const runtimeContextBudgetPolicyRunner = exists("packages/runtime-daemon/src/runtime-context-budget-policy-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-budget-policy-runner.mjs")
     : "";
-  const runtimeCodingToolBudgetRunnerTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-runner.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-runner.test.mjs")
+  const runtimeContextBudgetPolicyRunnerTest = exists("packages/runtime-daemon/src/runtime-context-budget-policy-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-budget-policy-runner.test.mjs")
     : "";
   const codingToolBudgetPolicySurface = exists("packages/runtime-daemon/src/threads/context-budget-policy.mjs")
     ? read("packages/runtime-daemon/src/threads/context-budget-policy.mjs")
@@ -960,25 +960,56 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "context-budget-policy-live-bridge",
+    /ContextBudgetPolicyCore/.test(policyCore) &&
+      /ContextBudgetPolicyRequest/.test(policyCore) &&
+      /CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_blocks_context_budget_excess/.test(policyCore) &&
+      /evaluate_context_budget_policy/.test(bridgeModule) &&
+      /ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
+      /rust_context_budget_policy_command/.test(bridgeModule) &&
+      /bridge_evaluates_context_budget_policy_through_rust_core/.test(bridgeModule) &&
+      /createContextBudgetPolicyRunnerFromEnv/.test(runtimeContextBudgetPolicyRunner) &&
+      /RustContextBudgetPolicyRunner/.test(runtimeContextBudgetPolicyRunner) &&
+      /evaluateContextBudgetPolicy/.test(runtimeContextBudgetPolicyRunner) &&
+      /context budget policy runner sends generic Rust policy bridge request/.test(
+        runtimeContextBudgetPolicyRunnerTest,
+      ) &&
+      /context budget policy runner fails closed without bridge command/.test(
+        runtimeContextBudgetPolicyRunnerTest,
+      ) &&
+      /budgetRunner\.evaluateContextBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
+      /capturedRequest\.schema_version,\s*"ioi\.runtime\.context-budget-policy-request\.v1"/.test(
+        codingToolBudgetPolicySurfaceTest,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-budget-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-budget-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
+      "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
+    ],
+    "Phase 9/10 is pending: generic context-budget policy must be evaluated by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
     "coding-tool-budget-policy-live-bridge",
-    /CodingToolBudgetPolicyCore/.test(policyCore) &&
-      /CodingToolBudgetPolicyRequest/.test(policyCore) &&
+    /ContextBudgetPolicyCore/.test(policyCore) &&
+      /ContextBudgetPolicyRequest/.test(policyCore) &&
       /CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_blocks_coding_tool_budget_excess/.test(policyCore) &&
       /evaluate_coding_tool_budget_policy/.test(bridgeModule) &&
-      /CodingToolBudgetPolicyBridgeRequest/.test(bridgeModule) &&
+      /ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
       /rust_coding_tool_budget_policy_command/.test(bridgeModule) &&
       /bridge_evaluates_coding_tool_budget_policy_through_rust_core/.test(bridgeModule) &&
-      /createCodingToolBudgetRunnerFromEnv/.test(runtimeCodingToolBudgetRunner) &&
-      /RustCodingToolBudgetRunner/.test(runtimeCodingToolBudgetRunner) &&
-      /evaluateBudgetPolicy/.test(runtimeCodingToolBudgetRunner) &&
+      /createContextBudgetPolicyRunnerFromEnv/.test(runtimeContextBudgetPolicyRunner) &&
+      /RustContextBudgetPolicyRunner/.test(runtimeContextBudgetPolicyRunner) &&
+      /evaluateCodingToolBudgetPolicy/.test(runtimeContextBudgetPolicyRunner) &&
       /coding tool budget runner sends Rust policy bridge request/.test(
-        runtimeCodingToolBudgetRunnerTest,
+        runtimeContextBudgetPolicyRunnerTest,
       ) &&
-      /coding tool budget runner fails closed without bridge command/.test(
-        runtimeCodingToolBudgetRunnerTest,
-      ) &&
-      /budgetRunner\.evaluateBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
+      /budgetRunner\.evaluateCodingToolBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
       /coding tool budget policy reads canonical tool pack fields and annotates runtime context/.test(
         codingToolBudgetPolicySurfaceTest,
       ) &&
@@ -988,8 +1019,8 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-coding-tool-budget-runner.mjs",
-      "packages/runtime-daemon/src/runtime-coding-tool-budget-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-budget-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-budget-policy-runner.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
     ],
@@ -7157,11 +7188,10 @@ function runCompositor() {
       !/usageTelemetry(?:\?\.|\.)(?:threadId|runId)/.test(
         contextBudgetPolicy,
       ) &&
+      !/contextBudgetUsageSummary/.test(contextBudgetPolicy) &&
+      !/contextBudgetCheck/.test(contextBudgetPolicy) &&
       /retiredContextBudgetUsageInputAliasKeys/.test(contextBudgetPolicyTest) &&
       /context budget usage telemetry ignores retired request aliases/.test(
-        contextBudgetPolicyTest,
-      ) &&
-      /context budget usage summary ignores retired data aliases/.test(
         contextBudgetPolicyTest,
       ),
     [

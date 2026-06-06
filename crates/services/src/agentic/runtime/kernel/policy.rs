@@ -3,10 +3,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
+pub const CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.context-budget-policy-request.v1";
+pub const CONTEXT_BUDGET_POLICY_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.context-budget-policy.v1";
 pub const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.coding-tool-budget-policy-request.v1";
-pub const CODING_TOOL_BUDGET_POLICY_RESULT_SCHEMA_VERSION: &str =
-    "ioi.runtime.context-budget-policy.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyEvaluationRecord {
@@ -41,7 +43,7 @@ impl PolicyEvaluationRecord {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum CodingToolBudgetPolicyError {
+pub enum ContextBudgetPolicyError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -51,12 +53,12 @@ pub enum CodingToolBudgetPolicyError {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CodingToolBudgetPolicyRequest {
+pub struct ContextBudgetPolicyRequest {
     pub schema_version: String,
     #[serde(default)]
     pub usage_telemetry: Value,
     #[serde(default)]
-    pub thresholds: CodingToolBudgetThresholds,
+    pub thresholds: ContextBudgetThresholds,
     #[serde(default)]
     pub mode: Option<String>,
     #[serde(default)]
@@ -77,10 +79,14 @@ pub struct CodingToolBudgetPolicyRequest {
     pub source: Option<String>,
     #[serde(default)]
     pub actor: Option<String>,
+    #[serde(default)]
+    pub event_kind: Option<String>,
+    #[serde(default)]
+    pub component_kind: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-pub struct CodingToolBudgetThresholds {
+pub struct ContextBudgetThresholds {
     #[serde(default)]
     pub max_total_tokens: Option<f64>,
     #[serde(default)]
@@ -92,7 +98,7 @@ pub struct CodingToolBudgetThresholds {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CodingToolBudgetUsageSummary {
+pub struct ContextBudgetUsageSummary {
     pub total_tokens: f64,
     pub estimated_cost_usd: f64,
     pub context_pressure: f64,
@@ -104,7 +110,7 @@ pub struct CodingToolBudgetUsageSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CodingToolBudgetCheck {
+pub struct ContextBudgetCheck {
     pub id: String,
     pub label: String,
     pub actual: f64,
@@ -114,19 +120,19 @@ pub struct CodingToolBudgetCheck {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CodingToolBudgetDecision {
+pub struct ContextBudgetDecision {
     pub policy_decision_id: String,
     pub status: String,
     pub mode: String,
     pub would_block: bool,
     pub summary: String,
-    pub checks: Vec<CodingToolBudgetCheck>,
-    pub violations: Vec<CodingToolBudgetCheck>,
-    pub warnings: Vec<CodingToolBudgetCheck>,
+    pub checks: Vec<ContextBudgetCheck>,
+    pub violations: Vec<ContextBudgetCheck>,
+    pub warnings: Vec<ContextBudgetCheck>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CodingToolBudgetPolicyRecord {
+pub struct ContextBudgetPolicyRecord {
     pub schema_version: String,
     pub object: String,
     pub status: String,
@@ -146,15 +152,15 @@ pub struct CodingToolBudgetPolicyRecord {
     pub workflow_node_id: String,
     pub tool_id: Option<String>,
     pub tool_call_id: Option<String>,
-    pub thresholds: CodingToolBudgetThresholds,
+    pub thresholds: ContextBudgetThresholds,
     pub usage_telemetry: Value,
-    pub usage_summary: CodingToolBudgetUsageSummary,
+    pub usage_summary: ContextBudgetUsageSummary,
     pub policy_decision_id: String,
-    pub policy_decision: CodingToolBudgetDecision,
+    pub policy_decision: ContextBudgetDecision,
     pub receipt_refs: Vec<String>,
     pub policy_decision_refs: Vec<String>,
-    pub warnings: Vec<CodingToolBudgetCheck>,
-    pub violations: Vec<CodingToolBudgetCheck>,
+    pub warnings: Vec<ContextBudgetCheck>,
+    pub violations: Vec<ContextBudgetCheck>,
     pub would_block: bool,
     pub simulation_mode: bool,
     pub summary: String,
@@ -162,13 +168,13 @@ pub struct CodingToolBudgetPolicyRecord {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct CodingToolBudgetPolicyCore;
+pub struct ContextBudgetPolicyCore;
 
-impl CodingToolBudgetPolicyCore {
+impl ContextBudgetPolicyCore {
     pub fn evaluate(
         &self,
-        request: &CodingToolBudgetPolicyRequest,
-    ) -> Result<CodingToolBudgetPolicyRecord, CodingToolBudgetPolicyError> {
+        request: &ContextBudgetPolicyRequest,
+    ) -> Result<ContextBudgetPolicyRecord, ContextBudgetPolicyError> {
         request.validate()?;
         let usage_summary = budget_usage_summary(&request.usage_telemetry);
         let warn_at_ratio = request.thresholds.warn_at_ratio.unwrap_or(0.8);
@@ -231,6 +237,23 @@ impl CodingToolBudgetPolicyCore {
         let workflow_node_id = optional_trimmed(request.workflow_node_id.as_deref())
             .unwrap_or_else(|| "runtime.context-budget".to_string());
         let workflow_graph_id = optional_trimmed(request.workflow_graph_id.as_deref());
+        let is_coding_tool =
+            request.schema_version == CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION;
+        let event_kind = optional_trimmed(request.event_kind.as_deref()).unwrap_or_else(|| {
+            if is_coding_tool {
+                "RuntimeCodingToolBudget.Evaluate".to_string()
+            } else {
+                "RuntimeContextBudget.Evaluate".to_string()
+            }
+        });
+        let component_kind =
+            optional_trimmed(request.component_kind.as_deref()).unwrap_or_else(|| {
+                if is_coding_tool {
+                    "coding_tool".to_string()
+                } else {
+                    "context_budget".to_string()
+                }
+            });
         let decision_hash = budget_hash(&json!({
             "scope": scope,
             "thread_id": thread_id,
@@ -259,7 +282,7 @@ impl CodingToolBudgetPolicyCore {
             decision_short
         );
         let summary = budget_summary(&status, &violations, &warnings);
-        let decision = CodingToolBudgetDecision {
+        let decision = ContextBudgetDecision {
             policy_decision_id: policy_decision_id.clone(),
             status: status.clone(),
             mode: mode.clone(),
@@ -270,8 +293,8 @@ impl CodingToolBudgetPolicyCore {
             warnings: warnings.clone(),
         };
 
-        Ok(CodingToolBudgetPolicyRecord {
-            schema_version: CODING_TOOL_BUDGET_POLICY_RESULT_SCHEMA_VERSION.to_string(),
+        Ok(ContextBudgetPolicyRecord {
+            schema_version: CONTEXT_BUDGET_POLICY_RESULT_SCHEMA_VERSION.to_string(),
             object: "ioi.runtime_context_budget_policy".to_string(),
             status: status.clone(),
             mode: mode.clone(),
@@ -282,9 +305,9 @@ impl CodingToolBudgetPolicyCore {
                 .unwrap_or_else(|| "react_flow".to_string()),
             actor: optional_trimmed(request.actor.as_deref())
                 .unwrap_or_else(|| "operator".to_string()),
-            event_kind: "RuntimeCodingToolBudget.Evaluate".to_string(),
-            component_kind: "coding_tool".to_string(),
-            payload_schema_version: CODING_TOOL_BUDGET_POLICY_RESULT_SCHEMA_VERSION.to_string(),
+            event_kind,
+            component_kind,
+            payload_schema_version: CONTEXT_BUDGET_POLICY_RESULT_SCHEMA_VERSION.to_string(),
             workflow_graph_id,
             workflow_node_id,
             tool_id: optional_trimmed(request.tool_id.as_deref()),
@@ -306,22 +329,24 @@ impl CodingToolBudgetPolicyCore {
     }
 }
 
-impl CodingToolBudgetPolicyRequest {
-    pub fn validate(&self) -> Result<(), CodingToolBudgetPolicyError> {
-        if self.schema_version != CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION {
-            return Err(CodingToolBudgetPolicyError::InvalidSchemaVersion {
-                expected: CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+impl ContextBudgetPolicyRequest {
+    pub fn validate(&self) -> Result<(), ContextBudgetPolicyError> {
+        if self.schema_version != CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION
+            && self.schema_version != CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION
+        {
+            return Err(ContextBudgetPolicyError::InvalidSchemaVersion {
+                expected: CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
                 actual: self.schema_version.clone(),
             });
         }
         if !self.usage_telemetry.is_object() {
-            return Err(CodingToolBudgetPolicyError::MissingField("usage_telemetry"));
+            return Err(ContextBudgetPolicyError::MissingField("usage_telemetry"));
         }
         Ok(())
     }
 }
 
-fn budget_usage_summary(value: &Value) -> CodingToolBudgetUsageSummary {
+fn budget_usage_summary(value: &Value) -> ContextBudgetUsageSummary {
     if let Some(entries) = value.get("usage").and_then(Value::as_array) {
         let total_tokens = entries
             .iter()
@@ -335,7 +360,7 @@ fn budget_usage_summary(value: &Value) -> CodingToolBudgetUsageSummary {
             .iter()
             .map(|entry| number_field(entry, "context_pressure"))
             .fold(0.0, f64::max);
-        return CodingToolBudgetUsageSummary {
+        return ContextBudgetUsageSummary {
             total_tokens,
             estimated_cost_usd,
             context_pressure,
@@ -344,7 +369,7 @@ fn budget_usage_summary(value: &Value) -> CodingToolBudgetUsageSummary {
             scope: string_field(value, "scope").unwrap_or_else(|| "workflow".to_string()),
         };
     }
-    CodingToolBudgetUsageSummary {
+    ContextBudgetUsageSummary {
         total_tokens: number_field(value, "total_tokens"),
         estimated_cost_usd: number_field(value, "estimated_cost_usd"),
         context_pressure: number_field(value, "context_pressure"),
@@ -360,7 +385,7 @@ fn budget_check(
     actual: f64,
     limit: Option<f64>,
     warn_at_ratio: f64,
-) -> Option<CodingToolBudgetCheck> {
+) -> Option<ContextBudgetCheck> {
     let limit = limit?;
     if limit <= 0.0 {
         return None;
@@ -373,7 +398,7 @@ fn budget_check(
     } else {
         "ok"
     };
-    Some(CodingToolBudgetCheck {
+    Some(ContextBudgetCheck {
         id: id.to_string(),
         label: label.to_string(),
         actual,
@@ -393,8 +418,8 @@ fn budget_mode(value: Option<&str>) -> String {
 
 fn budget_summary(
     status: &str,
-    violations: &[CodingToolBudgetCheck],
-    warnings: &[CodingToolBudgetCheck],
+    violations: &[ContextBudgetCheck],
+    warnings: &[ContextBudgetCheck],
 ) -> String {
     if status == "blocked" {
         return format!(
@@ -465,9 +490,9 @@ fn safe_id(value: &str) -> String {
     output.trim_matches('_').to_string()
 }
 
-fn budget_hash(value: &Value) -> Result<String, CodingToolBudgetPolicyError> {
+fn budget_hash(value: &Value) -> Result<String, ContextBudgetPolicyError> {
     let bytes = serde_json::to_vec(value)
-        .map_err(|error| CodingToolBudgetPolicyError::HashFailed(error.to_string()))?;
+        .map_err(|error| ContextBudgetPolicyError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
@@ -475,15 +500,15 @@ fn budget_hash(value: &Value) -> Result<String, CodingToolBudgetPolicyError> {
 mod tests {
     use super::*;
 
-    fn budget_request() -> CodingToolBudgetPolicyRequest {
-        CodingToolBudgetPolicyRequest {
+    fn budget_request() -> ContextBudgetPolicyRequest {
+        ContextBudgetPolicyRequest {
             schema_version: CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION.to_string(),
             usage_telemetry: json!({
                 "total_tokens": 120,
                 "estimated_cost_usd": 0.03,
                 "context_pressure": 0.2,
             }),
-            thresholds: CodingToolBudgetThresholds {
+            thresholds: ContextBudgetThresholds {
                 max_total_tokens: Some(100.0),
                 max_cost_usd: None,
                 max_context_pressure: None,
@@ -499,22 +524,29 @@ mod tests {
             workflow_node_id: Some("node_budget".to_string()),
             source: Some("react_flow".to_string()),
             actor: None,
+            event_kind: None,
+            component_kind: None,
         }
     }
 
     #[test]
-    fn rust_policy_blocks_coding_tool_budget_excess() {
-        let record = CodingToolBudgetPolicyCore
-            .evaluate(&budget_request())
+    fn rust_policy_blocks_context_budget_excess() {
+        let mut request = budget_request();
+        request.schema_version = CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION.to_string();
+        request.tool_id = None;
+        request.tool_call_id = None;
+
+        let record = ContextBudgetPolicyCore
+            .evaluate(&request)
             .expect("budget record");
 
         assert_eq!(
             record.schema_version,
-            CODING_TOOL_BUDGET_POLICY_RESULT_SCHEMA_VERSION
+            CONTEXT_BUDGET_POLICY_RESULT_SCHEMA_VERSION
         );
         assert_eq!(record.status, "blocked");
-        assert_eq!(record.event_kind, "RuntimeCodingToolBudget.Evaluate");
-        assert_eq!(record.component_kind, "coding_tool");
+        assert_eq!(record.event_kind, "RuntimeContextBudget.Evaluate");
+        assert_eq!(record.component_kind, "context_budget");
         assert_eq!(record.workflow_node_id, "node_budget");
         assert_eq!(record.usage_summary.total_tokens, 120.0);
         assert_eq!(record.violations[0].id, "total_tokens");
@@ -528,12 +560,25 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_blocks_coding_tool_budget_excess() {
+        let record = ContextBudgetPolicyCore
+            .evaluate(&budget_request())
+            .expect("coding-tool budget record");
+
+        assert_eq!(record.status, "blocked");
+        assert_eq!(record.event_kind, "RuntimeCodingToolBudget.Evaluate");
+        assert_eq!(record.component_kind, "coding_tool");
+        assert_eq!(record.tool_id.as_deref(), Some("file.inspect"));
+        assert_eq!(record.tool_call_id.as_deref(), Some("call_budget"));
+    }
+
+    #[test]
     fn rust_policy_warns_coding_tool_budget_near_limit() {
         let mut request = budget_request();
         request.usage_telemetry = json!({ "total_tokens": 90 });
         request.mode = Some("warn".to_string());
 
-        let record = CodingToolBudgetPolicyCore
+        let record = ContextBudgetPolicyCore
             .evaluate(&request)
             .expect("budget warning");
 
@@ -547,14 +592,14 @@ mod tests {
         let mut request = budget_request();
         request.schema_version = "legacy.schema".to_string();
 
-        let error = CodingToolBudgetPolicyCore
+        let error = ContextBudgetPolicyCore
             .evaluate(&request)
             .expect_err("schema should fail");
 
         assert_eq!(
             error,
-            CodingToolBudgetPolicyError::InvalidSchemaVersion {
-                expected: CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+            ContextBudgetPolicyError::InvalidSchemaVersion {
+                expected: CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );
