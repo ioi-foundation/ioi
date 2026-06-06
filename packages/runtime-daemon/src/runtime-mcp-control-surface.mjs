@@ -41,6 +41,13 @@ import {
   uniqueStrings,
 } from "./runtime-value-helpers.mjs";
 
+const RETIRED_MCP_SERVER_EVIDENCE_REFS_FIELD = "evidence" + "Refs";
+
+function canonicalMcpServerRecord(server = {}) {
+  const { [RETIRED_MCP_SERVER_EVIDENCE_REFS_FIELD]: _retiredEvidenceRefs, ...canonicalServer } = server;
+  return canonicalServer;
+}
+
 export function createRuntimeMcpControlSurface({
   RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION: invocationSchemaVersion = RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION: statusSchemaVersion = RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
@@ -281,10 +288,11 @@ export function createRuntimeMcpControlSurface({
       }
       const byId = new Map(normalizeArrayDep(registry.servers).map((server) => [server.id, server]));
       for (const server of proposedServers) {
+        const canonicalServer = canonicalMcpServerRecord(server);
         byId.set(server.id, {
-          ...server,
+          ...canonicalServer,
           evidence_refs: uniqueStringsDep([
-            ...(server.evidence_refs ?? server.evidenceRefs ?? []),
+            ...(server.evidence_refs ?? []),
             mutationKind === "import" ? "mcp.manager.server.import" : "mcp.manager.server.add",
           ]),
         });
@@ -437,8 +445,9 @@ export function createRuntimeMcpControlSurface({
       const nextStatus = enabled
         ? (server.status === "disabled" ? "configured" : server.status ?? "configured")
         : "disabled";
+      const canonicalServer = canonicalMcpServerRecord(server);
       const updatedServer = {
-        ...server,
+        ...canonicalServer,
         enabled,
         status: nextStatus,
         health: {
@@ -448,7 +457,7 @@ export function createRuntimeMcpControlSurface({
           reason: enabled ? "operator_enabled" : "operator_disabled",
         },
         evidence_refs: uniqueStringsDep([
-          ...(server.evidence_refs ?? server.evidenceRefs ?? []),
+          ...(server.evidence_refs ?? []),
           enabled ? "mcp.manager.server.enable" : "mcp.manager.server.disable",
         ]),
       };

@@ -12721,6 +12721,12 @@ runtime MCP catalog exposure and summary helpers now consume canonical
 fields only; control/catalog surfaces pass the canonical helper contract and the
 retired camelCase helper-option names are ignored in focused tests.
 
+Slice 432 removes MCP normalized-server record aliases:
+runtime MCP source filtering and server mutation evidence accumulation now read
+canonical `source_scope` and `evidence_refs` from normalized server records only;
+retired `sourceScope` and `evidenceRefs` internal record fallbacks are ignored in
+focused tests and guarded by compositor conformance.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

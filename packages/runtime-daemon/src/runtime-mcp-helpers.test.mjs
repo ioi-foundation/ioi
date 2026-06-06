@@ -313,6 +313,7 @@ test("runtime MCP helpers normalize mutation inputs and registry projections", (
     }),
     "workspace",
   );
-  assert.equal(mcpServerMatchesConfigSourceMode({ sourceScope: "global" }, "global"), true);
-  assert.equal(mcpServerMatchesConfigSourceMode({ sourceScope: "global" }, "workspace"), false);
+  assert.equal(mcpServerMatchesConfigSourceMode({ sourceScope: "global" }, "global"), false);
+  assert.equal(mcpServerMatchesConfigSourceMode({ source_scope: "global", sourceScope: "workspace" }, "global"), true);
+  assert.equal(mcpServerMatchesConfigSourceMode({ source_scope: "global" }, "workspace"), false);
 });

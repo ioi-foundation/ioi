@@ -397,7 +397,7 @@ export function mcpConfigSourceModeForRequest(request = {}) {
 
 export function mcpServerMatchesConfigSourceMode(server = {}, sourceMode = "workspace_and_global") {
   if (sourceMode === "workspace_and_global") return true;
-  const sourceScope = optionalString(server.sourceScope ?? server.source_scope) ?? "workspace";
+  const sourceScope = optionalString(server.source_scope) ?? "workspace";
   if (sourceMode === "global") return sourceScope === "global";
   if (sourceMode === "workspace") return sourceScope !== "global";
   return true;

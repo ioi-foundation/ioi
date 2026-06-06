@@ -8521,6 +8521,10 @@ function runCompositor() {
     runtimeMcpHelpers.match(
       /export function mcpRegistryWithServers\(registry = \{\}, servers = \[\]\) \{[\s\S]*?\n}\n\nexport function mcpConfigSourceModeForRequest/,
     )?.[0] ?? "";
+  const runtimeMcpServerSourceModeBlock =
+    runtimeMcpHelpers.match(
+      /export function mcpServerMatchesConfigSourceMode\(server = \{\}, sourceMode = "workspace_and_global"\) \{[\s\S]*?\n}\n\nexport function boundedPositiveInteger/,
+    )?.[0] ?? "";
   const runtimeMcpManager = exists("packages/runtime-daemon/src/mcp-manager.mjs")
     ? read("packages/runtime-daemon/src/mcp-manager.mjs")
     : "";
@@ -12950,6 +12954,12 @@ function runCompositor() {
       /Object\.hasOwn\(server,\s*"schemaVersion"\),\s*false/.test(runtimeMcpManagerTest) &&
       /Object\.hasOwn\(server,\s*"vaultBoundary"\),\s*false/.test(runtimeMcpManagerTest) &&
       /Object\.hasOwn\(record,\s*"sourceScope"\),\s*false/.test(runtimeMcpHelpersTest) &&
+      /const sourceScope = optionalString\(server\.source_scope\) \?\? "workspace";/.test(
+        runtimeMcpServerSourceModeBlock,
+      ) &&
+      /mcpServerMatchesConfigSourceMode\(\{ sourceScope: "global" \}, "global"\), false/.test(
+        runtimeMcpHelpersTest,
+      ) &&
       /Object\.hasOwn\(registry,\s*"serverCount"\),\s*false/.test(runtimeMcpHelpersTest) &&
       !/^\s*(?:schemaVersion|workspaceRoot|serverCount|resourceCount|promptCount)\s*:/m.test(
         runtimeMcpManagerRegistryBlock,
@@ -12962,6 +12972,9 @@ function runCompositor() {
       ) &&
       !/^\s*(?:serverCount|toolCount|resourceCount|promptCount)\s*:/m.test(
         runtimeMcpRegistryWithServersBlock,
+      ) &&
+      !/server\.sourceScope\b/.test(
+        runtimeMcpServerSourceModeBlock,
       ),
     [
       "packages/runtime-daemon/src/mcp-manager.mjs",
@@ -13206,13 +13219,27 @@ function runCompositor() {
       /Object\.hasOwn\(disabled\.server,\s*"evidenceRefs"\),\s*false/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
+      /addedServer\.evidence_refs\.includes\("retired\.alias"\), false/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /addedServer\.evidence_refs\.includes\("mcp\.manager\.server\.add"\), true/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /disabled\.server\.evidence_refs\.includes\("retired\.alias"\), false/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /disabled\.server\.evidence_refs\.includes\("mcp\.manager\.server\.disable"\), true/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
       !/serverId:\s*server\.id/.test(runtimeMcpRemoveThreadServerBlock) &&
       !/removedCount\s*:/.test(runtimeMcpRemoveThreadServerBlock) &&
       !/proposedServers\s*:/.test(runtimeMcpApplyThreadServerMutationBlock) &&
       !/\[\`\$\{mutationKind\}Count`\]/.test(runtimeMcpApplyThreadServerMutationBlock) &&
       !/evidenceRefs\s*:/.test(runtimeMcpApplyThreadServerMutationBlock) &&
+      !/server\.evidenceRefs\b/.test(runtimeMcpApplyThreadServerMutationBlock) &&
       !/serverId:\s*updatedServer\.id/.test(runtimeMcpSetThreadServerEnabledBlock) &&
-      !/evidenceRefs\s*:/.test(runtimeMcpSetThreadServerEnabledBlock),
+      !/evidenceRefs\s*:/.test(runtimeMcpSetThreadServerEnabledBlock) &&
+      !/server\.evidenceRefs\b/.test(runtimeMcpSetThreadServerEnabledBlock),
     [
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
