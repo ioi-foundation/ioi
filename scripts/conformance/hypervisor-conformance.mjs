@@ -9874,6 +9874,16 @@ function runCompositor() {
     const endIndex = remainder.indexOf(endMarker, startMarker.length);
     return endIndex < 0 ? remainder : remainder.slice(0, endIndex);
   }
+  const runtimeBridgeComputerUseTraceBlock = blockBetween(
+    runtimeRecordProjections,
+    "function runtimeBridgeComputerUseTrace",
+    "function runtimeBridgeRunStateFromTrace",
+  );
+  const runtimeBridgeComputerUseTrajectoryBlock = blockBetween(
+    runtimeRecordProjections,
+    "function runtimeBridgeTrajectoryFromComputerUseEvents",
+    "function runtimeTaskRecordForRun",
+  );
   const runtimeUsageSdkTelemetryBlock = blockBetween(
     agentSdkSubstrateClient,
     "export interface RuntimeUsageTelemetry",
@@ -11335,6 +11345,48 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
     ],
     "Phase 10/11 is pending: runtime bridge run records must not emit retired usage telemetry aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-bridge-computer-use-trace-aliases-retired",
+    runtimeBridgeComputerUseTraceBlock.length > 0 &&
+      /runtime bridge computer-use trace emits canonical projection fields only/.test(
+        runtimeRecordProjectionsTest,
+      ) &&
+      /runtime_event_id:\s*event\.data\?\.runtime_event_id \?\? null/.test(
+        runtimeBridgeComputerUseTraceBlock,
+      ) &&
+      /workflow_node_id:\s*event\.data\?\.workflow_node_id \?\? null/.test(
+        runtimeBridgeComputerUseTraceBlock,
+      ) &&
+      /receipt_refs:\s*normalizeArray\(event\.data\?\.receipt_refs\)/.test(
+        runtimeBridgeComputerUseTraceBlock,
+      ) &&
+      runtimeBridgeComputerUseTrajectoryBlock.length > 0 &&
+      /runtime_event_ref:\s*event\.data\?\.runtime_event_id \?\? null/.test(
+        runtimeBridgeComputerUseTrajectoryBlock,
+      ) &&
+      /workflow_node_id:\s*event\.data\?\.workflow_node_id \?\? null/.test(
+        runtimeBridgeComputerUseTrajectoryBlock,
+      ) &&
+      /assertMissingKeys\(trace\.events\[0\], \[/.test(runtimeRecordProjectionsTest) &&
+      !/^\s*(?:schemaVersion|runId|turnId|eventCount|environmentSelection|runState|observationBundle|targetIndex|affordanceGraph|actionProposal|actionReceipt|outcomeContract|commitGate|recoveryPolicy|humanHandoffState|contractIngest|retentionMode)\s*:/m.test(
+        runtimeBridgeComputerUseTraceBlock,
+      ) &&
+      !/^\s*(?:runtimeEventId|runtimeEventKind|workflowNodeId|componentKind|receiptRefs|artifactRefs)\s*:/m.test(
+        runtimeBridgeComputerUseTraceBlock,
+      ) &&
+      !/event\.data\?\.(?:runtimeEventId|runtimeEventKind|workflowNodeId|componentKind|receiptRefs|artifactRefs)\b/.test(
+        runtimeBridgeComputerUseTraceBlock,
+      ) &&
+      !/event\.data\?\.(?:runtimeEventId|workflowNodeId)\b/.test(
+        runtimeBridgeComputerUseTrajectoryBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-record-projections.mjs",
+      "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime bridge computer-use trace artifacts must emit canonical snake_case projection fields without retired camelCase aliases",
   );
   assertCheck(
     result,

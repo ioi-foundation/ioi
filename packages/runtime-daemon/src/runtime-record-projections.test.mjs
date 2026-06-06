@@ -14,7 +14,7 @@ function assertMissingKeys(record, keys) {
   }
 }
 
-function projections() {
+function projections(overrides = {}) {
   return createRuntimeRecordProjections({
     COMPUTER_USE_CONTRACT_SCHEMA_VERSION: "computer.v1",
     artifact: (runId, name, mediaType, receiptId, content, redaction) => ({
@@ -46,6 +46,7 @@ function projections() {
     threadIdForAgent: (agentId) => `thread_${agentId}`,
     turnIdForRun: (runId) => `turn_${runId}`,
     uniqueStrings: (values) => [...new Set(values.filter(Boolean).map(String))],
+    ...overrides,
   });
 }
 
@@ -80,4 +81,80 @@ test("runtime bridge run record emits canonical usage telemetry only", () => {
   assert.ok(traceArtifact);
   assert.equal(traceArtifact.content.usage_telemetry, run.usage);
   assertMissingKeys(traceArtifact.content, retiredRuntimeBridgeUsageAliasKeys);
+});
+
+test("runtime bridge computer-use trace emits canonical projection fields only", () => {
+  const runtime = projections({
+    isComputerUseRunEventType: (type) => String(type).startsWith("computer_use_"),
+  });
+  const trace = runtime.runtimeBridgeComputerUseTrace({
+    projection: {
+      runId: "run_bridge",
+      turnId: "turn_bridge",
+      prompt: "Observe UI",
+    },
+    events: [
+      {
+        id: "event-one",
+        type: "computer_use_observation",
+        summary: "Observed UI",
+        data: {
+          runtime_event_id: "event-canonical",
+          runtimeEventId: "event-retired",
+          runtime_event_kind: "computer_use.observation",
+          runtimeEventKind: "retired.kind",
+          workflow_node_id: "node-canonical",
+          workflowNodeId: "node-retired",
+          component_kind: "computer_use",
+          componentKind: "retired_component",
+          receipt_refs: ["receipt-canonical"],
+          receiptRefs: ["receipt-retired"],
+          artifact_refs: ["artifact-canonical"],
+          artifactRefs: ["artifact-retired"],
+          observation_bundle: {
+            observation_ref: "observation-one",
+            target_index_ref: "target-one",
+            lane: "native_browser",
+            retention_mode: "local_redacted_artifacts",
+          },
+        },
+      },
+    ],
+  });
+
+  assert.equal(trace.run_id, "run_bridge");
+  assert.equal(trace.event_count, 1);
+  assert.equal(trace.events[0].runtime_event_id, "event-canonical");
+  assert.equal(trace.events[0].workflow_node_id, "node-canonical");
+  assert.deepEqual(trace.events[0].receipt_refs, ["receipt-canonical"]);
+  assert.equal(trace.trajectory_bundle.entries[0].runtime_event_ref, "event-canonical");
+  assert.equal(trace.trajectory_bundle.entries[0].workflow_node_id, "node-canonical");
+
+  assertMissingKeys(trace, [
+    "schemaVersion",
+    "runId",
+    "turnId",
+    "eventCount",
+    "environmentSelection",
+    "runState",
+    "observationBundle",
+    "targetIndex",
+    "affordanceGraph",
+    "actionProposal",
+    "actionReceipt",
+    "outcomeContract",
+    "commitGate",
+    "recoveryPolicy",
+    "humanHandoffState",
+    "contractIngest",
+    "retentionMode",
+  ]);
+  assertMissingKeys(trace.events[0], [
+    "runtimeEventId",
+    "runtimeEventKind",
+    "workflowNodeId",
+    "componentKind",
+    "receiptRefs",
+    "artifactRefs",
+  ]);
 });
