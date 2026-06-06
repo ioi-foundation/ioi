@@ -7604,6 +7604,14 @@ function runCompositor() {
     runtimeMcpCatalogSurface.match(
       /async searchMcpToolCatalog\(store, request = \{\}\) \{[\s\S]*?\n    \},\n    validateMcp/,
     )?.[0] ?? "";
+  const runtimeMcpStatusBlock =
+    runtimeMcpCatalogSurface.match(
+      /mcpStatus\(store, options = \{\}\) \{[\s\S]*?\n    \},\n    async searchThreadMcpTools/,
+    )?.[0] ?? "";
+  const runtimeMcpValidateBlock =
+    runtimeMcpCatalogSurface.match(
+      /validateMcp\(store, input = \{\}\) \{[\s\S]*?\n    \},\n    mcpServersForContext/,
+    )?.[0] ?? "";
   const runtimeMcpCatalogPreviewLimitBlock =
     runtimeMcpHelpers.match(
       /export function mcpCatalogPreviewLimit\(request = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpToolSearchLimit/,
@@ -10617,6 +10625,46 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
     ],
     "Phase 10/11 is pending: MCP catalog summary/exposure helpers must expose canonical snake_case output fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-catalog-surface-output-aliases-retired",
+    /schema_version:\s*statusSchemaVersion/.test(runtimeMcpStatusBlock) &&
+      /server_count:\s*servers\.length/.test(runtimeMcpStatusBlock) &&
+      /enabled_server_count:\s*servers\.filter/.test(runtimeMcpStatusBlock) &&
+      /search_tools:\s*"\/v1\/mcp\/tools\/search"/.test(runtimeMcpStatusBlock) &&
+      /serve_for_thread:\s*"\/v1\/threads\/\{thread_id\}\/mcp\/serve"/.test(runtimeMcpStatusBlock) &&
+      /schema_version:\s*validationSchemaVersion/.test(runtimeMcpValidateBlock) &&
+      /issue_count:\s*validation\.issues\.length/.test(runtimeMcpValidateBlock) &&
+      /schema_version:\s*toolSearchSchemaVersion/.test(runtimeMcpSearchToolCatalogBlock) &&
+      /live_discovery:\s*liveDiscovery/.test(runtimeMcpSearchToolCatalogBlock) &&
+      /catalog_summaries:\s*catalogSummaries/.test(runtimeMcpSearchToolCatalogBlock) &&
+      /get_tool:\s*"\/v1\/mcp\/tools\/\{tool_id\}"/.test(runtimeMcpSearchToolCatalogBlock) &&
+      /tool_id:\s*requested/.test(runtimeMcpGetToolFromCatalogBlock) &&
+      /returned_count:\s*1/.test(runtimeMcpGetToolFromCatalogBlock) &&
+      /Object\.hasOwn\(status,\s*"schemaVersion"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
+      /Object\.hasOwn\(validation,\s*"issueCount"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
+      /Object\.hasOwn\(globalSearch,\s*"catalogSummaries"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
+      /Object\.hasOwn\(fetched,\s*"toolId"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
+      !/^\s*(?:schemaVersion|serverCount|toolCount|resourceCount|promptCount|enabledServerCount)\s*:/m.test(
+        runtimeMcpStatusBlock,
+      ) &&
+      !/^\s*(?:searchTools|getTool|importServers|addServer|removeServer|enableServer|disableServer|invokeTool|serveForThread)\s*:/m.test(
+        runtimeMcpStatusBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|serverCount|toolCount|resourceCount|promptCount|issueCount|warningCount)\s*:/m.test(
+        runtimeMcpValidateBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|liveDiscovery|serverCount|toolCount|returnedCount|catalogSummaries)\s*:/m.test(
+        runtimeMcpSearchToolCatalogBlock,
+      ) &&
+      !/^\s*(?:getTool|invokeTool)\s*:/m.test(runtimeMcpSearchToolCatalogBlock) &&
+      !/^\s*(?:toolId|serverId|toolName|returnedCount)\s*:/m.test(runtimeMcpGetToolFromCatalogBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP catalog status, validation, search, and fetch surfaces must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

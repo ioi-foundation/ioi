@@ -12538,6 +12538,13 @@ projection fields only for counts, hashes, preview metadata, routes, execution
 mode, and error codes; duplicate camelCase facade fields are retired from the
 catalog summary helper surface.
 
+Slice 409 removes MCP catalog-surface output aliases:
+runtime MCP catalog status, validation, tool search, and tool fetch projections
+now emit canonical snake_case metadata and route names only; duplicate
+camelCase facade fields such as `schemaVersion`, `serverCount`,
+`catalogSummaries`, `returnedCount`, `toolId`, and `searchTools` are retired
+from the catalog surface.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

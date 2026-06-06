@@ -164,7 +164,15 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.equal(status.prompt_count, 3);
   assert.equal(status.enabled_server_count, 3);
   assert.equal(status.validation.server_count, 3);
-  assert.equal(status.routes.searchTools, "/v1/mcp/tools/search");
+  assert.equal(status.routes.search_tools, "/v1/mcp/tools/search");
+  assert.equal(Object.hasOwn(status, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(status, "serverCount"), false);
+  assert.equal(Object.hasOwn(status, "toolCount"), false);
+  assert.equal(Object.hasOwn(status, "enabledServerCount"), false);
+  assert.equal(Object.hasOwn(status.validation, "serverCount"), false);
+  assert.equal(Object.hasOwn(status.validation, "toolCount"), false);
+  assert.equal(Object.hasOwn(status.routes, "searchTools"), false);
+  assert.equal(Object.hasOwn(status.routes, "serveForThread"), false);
 
   const validation = surface.validateMcp(store, {
     cwd: "/custom",
@@ -177,6 +185,10 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.equal(validation.server_count, 2);
   assert.equal(validation.issue_count, 1);
   assert.equal(validation.tools.length, 2);
+  assert.equal(Object.hasOwn(validation, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(validation, "serverCount"), false);
+  assert.equal(Object.hasOwn(validation, "issueCount"), false);
+  assert.equal(Object.hasOwn(validation, "warningCount"), false);
   assert.deepEqual(
     calls.find((call) => call.name === "mcpServerRecordsFromValidationInput")?.workspaceRoot,
     "/resolved/custom",
@@ -207,7 +219,13 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
   assert.equal(globalSearch.status, "completed");
   assert.equal(globalSearch.server_count, 3);
   assert.deepEqual(globalSearch.tools.map((tool) => tool.stableToolId), ["mcp.agent.git.diff"]);
-  assert.equal(globalSearch.routes.getTool, "/v1/mcp/tools/{tool_id}");
+  assert.equal(globalSearch.routes.get_tool, "/v1/mcp/tools/{tool_id}");
+  assert.equal(Object.hasOwn(globalSearch, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(globalSearch, "liveDiscovery"), false);
+  assert.equal(Object.hasOwn(globalSearch, "serverCount"), false);
+  assert.equal(Object.hasOwn(globalSearch, "returnedCount"), false);
+  assert.equal(Object.hasOwn(globalSearch, "catalogSummaries"), false);
+  assert.equal(Object.hasOwn(globalSearch.routes, "getTool"), false);
 
   const threadSearch = await surface.searchMcpTools(store, {
     thread_id: "thread-agent-one",
@@ -232,10 +250,18 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
   assert.equal(fetched.server_id, "mcp.agent.git");
   assert.equal(fetched.tool_name, "diff");
   assert.equal(fetched.returned_count, 1);
+  assert.equal(Object.hasOwn(fetched, "toolId"), false);
+  assert.equal(Object.hasOwn(fetched, "serverId"), false);
+  assert.equal(Object.hasOwn(fetched, "toolName"), false);
+  assert.equal(Object.hasOwn(fetched, "returnedCount"), false);
 
   await assert.rejects(
     () => surface.getMcpTool(store, "mcp.missing.nope", { live_discovery: false }),
-    (error) => error.status === 404 && error.code === "not_found",
+    (error) =>
+      error.status === 404 &&
+      error.code === "not_found" &&
+      error.details.tool_id === "mcp.missing.nope" &&
+      Object.hasOwn(error.details, "toolId") === false,
   );
 });
 
