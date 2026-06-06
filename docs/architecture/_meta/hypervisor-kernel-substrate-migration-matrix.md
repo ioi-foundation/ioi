@@ -12478,6 +12478,12 @@ canonical `execution_mode` and `live_transport`; retired camelCase
 `executionMode` and `liveTransport` request fields no longer select live MCP
 transport execution and are absent from SDK invoke input types.
 
+Slice 399 removes the MCP invoke policy request aliases:
+runtime MCP invocation policy evaluation and SDK MCP invoke inputs now use
+canonical `side_effect_class`, `requires_approval`, and `approved`; retired
+camelCase `sideEffectClass`, `requiresApproval`, and `approvalGranted` request
+fields no longer influence MCP invocation approval policy.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

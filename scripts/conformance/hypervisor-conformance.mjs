@@ -10379,6 +10379,26 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-mcp-invoke-policy-request-aliases-retired",
+    /request\.side_effect_class/.test(runtimeMcpInvokeThreadToolBlock) &&
+      /request\.requires_approval/.test(runtimeMcpInvokeThreadToolBlock) &&
+      /request\.approval_granted/.test(runtimeMcpInvokeThreadToolBlock) &&
+      /sideEffectClass: "write"/.test(runtimeMcpControlSurfaceTest) &&
+      /requiresApproval: true/.test(runtimeMcpControlSurfaceTest) &&
+      /approvalGranted: true/.test(runtimeMcpControlSurfaceTest) &&
+      /^\s*side_effect_class\?: string;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
+      /^\s*requires_approval\?: boolean;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
+      !/request\.(?:sideEffectClass|requiresApproval|approvalGranted)\b/.test(runtimeMcpInvokeThreadToolBlock) &&
+      !/^\s*(?:sideEffectClass|requiresApproval)\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP invoke policy requests must use canonical side_effect_class/requires_approval/approved fields without retired camelCase policy aliases",
+  );
+  assertCheck(
+    result,
     "runtime-mcp-invoke-identity-request-aliases-retired",
     /request\.tool_id/.test(runtimeMcpResolveToolRecordBlock) &&
       /request\.server_id/.test(runtimeMcpResolveToolRecordBlock) &&

@@ -429,3 +429,55 @@ test("runtime MCP control surface ignores retired timeoutMs request alias", asyn
   });
   assert.equal(transportCalls.at(-1).options.timeoutMs, undefined);
 });
+
+test("runtime MCP control surface ignores retired invoke policy aliases", async () => {
+  const { store, surface } = harness();
+
+  const canonicalSideEffect = await surface.invokeMcpTool(store, {
+    thread_id: "thread-agent-one",
+    tool_id: "mcp.docs.search",
+    side_effect_class: "write",
+    sideEffectClass: "read",
+  });
+  assert.equal(canonicalSideEffect.status, "blocked");
+  assert.deepEqual(canonicalSideEffect.invocation.blockers, ["approval_required"]);
+
+  const retiredSideEffect = await surface.invokeMcpTool(store, {
+    thread_id: "thread-agent-one",
+    tool_id: "mcp.docs.search",
+    sideEffectClass: "write",
+  });
+  assert.equal(retiredSideEffect.status, "completed");
+
+  const canonicalRequiresApproval = await surface.invokeMcpTool(store, {
+    thread_id: "thread-agent-one",
+    tool_id: "mcp.docs.search",
+    requires_approval: true,
+    requiresApproval: false,
+  });
+  assert.equal(canonicalRequiresApproval.status, "blocked");
+  assert.deepEqual(canonicalRequiresApproval.invocation.blockers, ["approval_required"]);
+
+  const retiredRequiresApproval = await surface.invokeMcpTool(store, {
+    thread_id: "thread-agent-one",
+    tool_id: "mcp.docs.search",
+    requiresApproval: true,
+  });
+  assert.equal(retiredRequiresApproval.status, "completed");
+
+  const canonicalApproved = await surface.invokeMcpTool(store, {
+    thread_id: "thread-agent-one",
+    tool_id: "mcp.docs.write",
+    approved: true,
+    approvalGranted: false,
+  });
+  assert.equal(canonicalApproved.status, "completed");
+
+  const retiredApprovalGranted = await surface.invokeMcpTool(store, {
+    thread_id: "thread-agent-one",
+    tool_id: "mcp.docs.write",
+    approvalGranted: true,
+  });
+  assert.equal(retiredApprovalGranted.status, "blocked");
+  assert.deepEqual(retiredApprovalGranted.invocation.blockers, ["approval_required"]);
+});

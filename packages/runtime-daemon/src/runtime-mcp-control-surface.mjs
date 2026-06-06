@@ -576,12 +576,11 @@ export function createRuntimeMcpControlSurface({
       }
       const input = request.input ?? request.arguments ?? request.args ?? {};
       const sideEffectClass =
-        optionalStringDep(request.side_effect_class ?? request.sideEffectClass) ??
+        optionalStringDep(request.side_effect_class) ??
         optionalStringDep(toolEntry.sideEffectClass) ??
         "read";
       const requiresApproval =
         request.requires_approval === true ||
-        request.requiresApproval === true ||
         (sideEffectClass !== "none" && sideEffectClass !== "read");
       const approvalMode =
         optionalStringDep(agent.runtimeControls?.approval_mode ?? agent.runtimeControls?.approvalMode) ??
@@ -589,7 +588,6 @@ export function createRuntimeMcpControlSurface({
       const approved =
         request.approved === true ||
         request.approval_granted === true ||
-        request.approvalGranted === true ||
         approvalMode === "yolo";
       const validation = validateMcpServerRecordsDep([server]);
       const blockers = [

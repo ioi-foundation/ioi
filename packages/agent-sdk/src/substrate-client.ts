@@ -739,9 +739,7 @@ export interface RuntimeMcpToolInvokeInput extends RuntimeMcpValidationInput {
   tool?: string;
   input?: Record<string, unknown>;
   arguments?: Record<string, unknown>;
-  sideEffectClass?: string;
   side_effect_class?: string;
-  requiresApproval?: boolean;
   requires_approval?: boolean;
   approved?: boolean;
   live_transport?: boolean;
