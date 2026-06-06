@@ -57,6 +57,27 @@ function createStore() {
   };
 }
 
+const retiredArtifactRecordAliasKeys = [
+  "schemaVersion",
+  "threadId",
+  "toolName",
+  "toolCallId",
+  "workspaceRoot",
+  "mediaType",
+  "receiptId",
+  "contentBytes",
+  "contentHash",
+  "createdAt",
+  "sourcePathHash",
+  "sourcePathIncluded",
+];
+
+function assertNoRetiredArtifactRecordAliases(record) {
+  for (const key of retiredArtifactRecordAliasKeys) {
+    assert.equal(Object.hasOwn(record, key), false, `retired artifact record alias ${key} must be absent`);
+  }
+}
+
 test("coding-tool artifact surface materializes drafts with stable artifact records", () => {
   const { surface, writes } = createSurface();
   const store = createStore();
@@ -88,9 +109,11 @@ test("coding-tool artifact surface materializes drafts with stable artifact reco
   assert.equal(records[0].tool_call_id, "tool_call_alpha");
   assert.equal(records[0].content_bytes, 5);
   assert.equal(records[0].created_at, "2026-06-04T14:00:00.000Z");
+  assertNoRetiredArtifactRecordAliases(records[0]);
   assert.equal(store.codingArtifacts.get(records[0].id), records[0]);
   assert.equal(writes.length, 1);
   assert.equal(writes[0].filePath, "/tmp/runtime-coding-tool-artifacts/artifacts/artifact_coding_tool_tool_call_alpha_stdout.json");
+  assertNoRetiredArtifactRecordAliases(writes[0].value);
 });
 
 test("coding-tool artifact surface reads artifacts inside the owning thread", () => {
@@ -294,7 +317,9 @@ test("coding-tool artifact surface materializes visual GUI observation artifacts
   assert.equal(result.artifacts[0].encoding, "base64");
   assert.equal(result.artifacts[0].content, Buffer.from([1, 2, 3]).toString("base64"));
   assert.equal(result.artifacts[0].source_path_included, false);
+  assertNoRetiredArtifactRecordAliases(result.artifacts[0]);
   assert.equal(writes.length, 1);
+  assertNoRetiredArtifactRecordAliases(writes[0].value);
 });
 
 test("coding-tool artifact surface skips visual GUI paths with explicit refs", () => {

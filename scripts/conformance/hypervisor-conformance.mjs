@@ -523,6 +523,16 @@ function runBridge() {
   const runtimeCodingToolArtifactSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
     : "";
+  const codingToolArtifactDraftMaterializerBlock = runtimeCodingToolArtifactSurface.match(
+    /function materializeCodingToolArtifactDrafts[\s\S]*?(?=\n\n  function readCodingToolArtifact)/,
+  )?.[0] ?? "";
+  const codingToolVisualArtifactMaterializerBlock = runtimeCodingToolArtifactSurface.match(
+    /function materializeVisualGuiObservationArtifacts[\s\S]*?(?=\n\n  return \{)/,
+  )?.[0] ?? "";
+  const codingToolArtifactRecordBlocks = [
+    codingToolArtifactDraftMaterializerBlock.match(/const artifactRecord = \{[\s\S]*?\n\s*\};/)?.[0] ?? "",
+    codingToolVisualArtifactMaterializerBlock.match(/const artifactRecord = \{[\s\S]*?\n\s*\};/)?.[0] ?? "",
+  ].join("\n");
   const runtimeCodingToolArtifactSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs")
     : "";
@@ -1182,6 +1192,43 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
     "Phase 10/11 is pending: coding-tool artifact result projections must expose canonical snake_case fields without duplicate camelCase output aliases",
+  );
+  assertCheck(
+    result,
+    "coding-tool-artifact-record-storage-aliases-retired",
+    /schema_version:\s*CODING_TOOL_ARTIFACT_SCHEMA_VERSION/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /thread_id:\s*threadId/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /tool_name:\s*toolId/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /tool_call_id:\s*toolCallId/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /workspace_root:\s*workspaceRoot/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /media_type:\s*mediaType/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /receipt_id:\s*receiptId/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /content_bytes:\s*contentBytes/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /content_hash:\s*contentHash/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /created_at:\s*createdAt/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /schema_version:\s*CODING_TOOL_ARTIFACT_SCHEMA_VERSION/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /thread_id:\s*threadId/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /tool_name:\s*toolId/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /tool_call_id:\s*toolCallId/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /workspace_root:\s*workspaceRoot/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /media_type:\s*mediaType/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /receipt_id:\s*receiptId/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /content_bytes:\s*contentBuffer\.byteLength/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /content_hash:\s*doctorHash\(content\)/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /source_path_hash:\s*doctorHash\(resolvedPath\)/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /source_path_included:\s*false/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /created_at:\s*createdAt/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /assertNoRetiredArtifactRecordAliases\(records\[0\]\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /assertNoRetiredArtifactRecordAliases\(writes\[0\]\.value\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /assertNoRetiredArtifactRecordAliases\(result\.artifacts\[0\]\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      !/^\s*(?:schemaVersion|threadId|toolName|toolCallId|workspaceRoot|mediaType|receiptId|contentBytes|contentHash|createdAt|sourcePathHash|sourcePathIncluded)\s*[:,]/m.test(
+        codingToolArtifactRecordBlocks,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool artifact records must be stored with canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,
