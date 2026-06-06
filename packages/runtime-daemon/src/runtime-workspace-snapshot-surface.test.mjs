@@ -350,6 +350,15 @@ test("workspace snapshot surface prepares snapshots and persists content artifac
   for (const field of RETIRED_WORKSPACE_ARTIFACT_ALIASES) {
     assert.equal(Object.hasOwn(snapshot.artifactRecord, field), false);
   }
+  const contentPayload = JSON.parse(snapshot.artifactRecord.content);
+  assert.equal(contentPayload.schema_version, "ioi.runtime.workspace-snapshot.v1");
+  assert.equal(contentPayload.thread_id, "thread_alpha");
+  assert.equal(contentPayload.turn_id, "turn_alpha");
+  assert.equal(contentPayload.workspace_root, "/workspace");
+  assert.equal(contentPayload.snapshot_id, snapshot.record.snapshot_id);
+  for (const field of ["schemaVersion", "threadId", "turnId", "workspaceRoot", "snapshotId", "snapshotHash"]) {
+    assert.equal(Object.hasOwn(contentPayload, field), false);
+  }
   assert.equal(store.codingArtifacts.get(snapshot.artifactRecord.id), snapshot.artifactRecord);
   assert.equal(writes.length, 1);
   assert.match(writes[0].filePath, /workspace_snapshot_tool_call_alpha_.*_content\.json$/);

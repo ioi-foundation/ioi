@@ -133,17 +133,12 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       summary: `Workspace snapshot recorded ${files.length} changed file(s) for ${toolCallId}.`,
     };
     const artifactPayload = {
-      schemaVersion: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
+      schema_version: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
       object: "ioi.runtime_workspace_snapshot_content",
-      snapshotId,
       snapshot_id: snapshotId,
-      snapshotHash,
       snapshot_hash: snapshotHash,
-      threadId,
       thread_id: threadId,
-      turnId: turnId || null,
       turn_id: turnId || null,
-      workspaceRoot,
       workspace_root: workspaceRoot,
       trigger: record.trigger,
       capture: record.capture,

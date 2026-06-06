@@ -10696,6 +10696,27 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "workspace-snapshot-content-payload-aliases-retired",
+    /const contentPayload = JSON\.parse\(snapshot\.artifactRecord\.content\);/.test(
+      runtimeWorkspaceSnapshotSurfaceTest,
+    ) &&
+      /Object\.hasOwn\(contentPayload,\s*field\),\s*false/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /"schemaVersion"[\s\S]*"threadId"[\s\S]*"turnId"[\s\S]*"workspaceRoot"[\s\S]*"snapshotId"[\s\S]*"snapshotHash"/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      !/const artifactPayload = \{(?:(?!\n    const artifactRecord = materializeWorkspaceSnapshotArtifact)[\s\S])*?\b(?:schemaVersion|threadId|turnId|workspaceRoot|snapshotId|snapshotHash)\s*:/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: workspace snapshot content artifact payload must expose canonical snake_case top-level identity fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "workspace-restore-event-reader-aliases-retired",
     /preview_status: "ready"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
       /apply_status: "blocked"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
