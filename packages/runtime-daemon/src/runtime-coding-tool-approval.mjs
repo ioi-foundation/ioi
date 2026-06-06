@@ -1,3 +1,8 @@
+import {
+  CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION,
+  createCodingToolApprovalRunnerFromEnv,
+} from "./runtime-coding-tool-approval-runner.mjs";
+
 function defaultOptionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -9,9 +14,9 @@ function defaultNormalizeArray(value) {
 }
 
 export function createCodingToolApprovalPolicy(deps = {}) {
+  const approvalRunner = deps.approvalRunner ?? createCodingToolApprovalRunnerFromEnv(deps.env ?? process.env);
   const approvalModeForThreadMode = deps.approvalModeForThreadMode || (() => "suggest");
   const codingToolInputSummary = deps.codingToolInputSummary || (() => ({}));
-  const doctorHash = deps.doctorHash || ((value) => String(value ?? ""));
   const normalizeArray = deps.normalizeArray || defaultNormalizeArray;
   const normalizeThreadApprovalMode = deps.normalizeThreadApprovalMode || ((value, fallback) => value || fallback);
   const normalizeThreadInteractionMode = deps.normalizeThreadInteractionMode || ((value) => String(value || "agent"));
@@ -25,6 +30,38 @@ export function createCodingToolApprovalPolicy(deps = {}) {
   }
 
   function codingToolWorkflowApprovalPolicy(request = {}) {
+    const workflowPolicy = codingToolWorkflowApprovalRequestForRust(request);
+    const requiresApproval = Boolean(workflowPolicy.requires_approval);
+    const nodeRequiresApproval = workflowPolicy.node_approval_override === "require_approval";
+    const approvalModeRequiresApproval =
+      workflowPolicy.approval_mode === "human_required" || workflowPolicy.approval_mode === "policy_required";
+    const trustRequiresApproval = ["untrusted", "restricted", "review_required"].includes(
+      workflowPolicy.trust_profile.toLowerCase(),
+    );
+    const reason = nodeRequiresApproval
+      ? "workflow_node_requires_approval"
+      : approvalModeRequiresApproval
+        ? "workflow_approval_mode_requires_approval"
+        : trustRequiresApproval
+          ? "workflow_trust_profile_requires_approval"
+          : "workflow_approval_mode_requires_approval";
+    return {
+      schema_version: "ioi.runtime.workflow-tool-approval-policy.v1",
+      schemaVersion: "ioi.runtime.workflow-tool-approval-policy.v1",
+      source: "react_flow",
+      requires_approval: requiresApproval,
+      requiresApproval,
+      node_approval_override: workflowPolicy.node_approval_override,
+      nodeApprovalOverride: workflowPolicy.node_approval_override,
+      approval_mode: workflowPolicy.approval_mode,
+      approvalMode: workflowPolicy.approval_mode,
+      trust_profile: workflowPolicy.trust_profile,
+      trustProfile: workflowPolicy.trust_profile,
+      reason,
+    };
+  }
+
+  function codingToolWorkflowApprovalRequestForRust(request = {}) {
     const codingPack =
       request.toolPack && typeof request.toolPack === "object" && !Array.isArray(request.toolPack)
         ? request.toolPack.coding && typeof request.toolPack.coding === "object" && !Array.isArray(request.toolPack.coding)
@@ -56,35 +93,20 @@ export function createCodingToolApprovalPolicy(deps = {}) {
       request.requiresApproval ??
       codingPack.requires_approval ??
       codingPack.requiresApproval;
-    const requestRequiresApproval = Boolean(explicitRequiresApproval);
-    const nodeRequiresApproval = nodeApprovalOverride === "require_approval";
     const approvalModeRequiresApproval =
       approvalMode === "human_required" || approvalMode === "policy_required";
-    const requiresApproval =
-      requestRequiresApproval || nodeRequiresApproval || approvalModeRequiresApproval;
     const trustRequiresApproval = ["untrusted", "restricted", "review_required"].includes(
       trustProfile.toLowerCase(),
     );
-    const reason = requestRequiresApproval || nodeRequiresApproval
-      ? "workflow_node_requires_approval"
-      : approvalModeRequiresApproval
-        ? "workflow_approval_mode_requires_approval"
-        : trustRequiresApproval
-          ? "workflow_trust_profile_requires_approval"
-          : "workflow_approval_mode_requires_approval";
     return {
-      schema_version: "ioi.runtime.workflow-tool-approval-policy.v1",
-      schemaVersion: "ioi.runtime.workflow-tool-approval-policy.v1",
-      source: "react_flow",
-      requires_approval: requiresApproval || trustRequiresApproval,
-      requiresApproval: requiresApproval || trustRequiresApproval,
       node_approval_override: nodeApprovalOverride,
-      nodeApprovalOverride,
       approval_mode: approvalMode,
-      approvalMode,
       trust_profile: trustProfile,
-      trustProfile,
-      reason,
+      requires_approval:
+        Boolean(explicitRequiresApproval) ||
+        nodeApprovalOverride === "require_approval" ||
+        approvalModeRequiresApproval ||
+        trustRequiresApproval,
     };
   }
 
@@ -100,26 +122,13 @@ export function createCodingToolApprovalPolicy(deps = {}) {
     workflowGraphId,
     workflowNodeId,
   }) {
-    const effectClass = optionalString(toolContract?.effectClass) ?? "unknown";
-    if (!codingToolEffectRequiresApproval(effectClass)) return null;
+    const effectClass = optionalString(toolContract?.effect_class ?? toolContract?.effectClass) ?? "unknown";
     const controls = normalizedAgentRuntimeControls(agent);
-    const workflowPolicy = codingToolWorkflowApprovalPolicy(request);
+    const workflowPolicy = codingToolWorkflowApprovalRequestForRust(request);
     const threadMode = normalizeThreadInteractionMode(controls.mode ?? agent.mode ?? "agent");
     const approvalMode = normalizeThreadApprovalMode(controls.approvalMode, approvalModeForThreadMode(threadMode));
-    const modeRequiresApproval = threadMode === "plan" || threadMode === "review";
-    const approvalModeRequiresApproval = approvalMode === "human_required" || approvalMode === "policy_required";
     const requestedApprovalMode =
-      optionalString(request.approval_mode ?? request.approvalMode ?? workflowPolicy.approvalMode) ?? null;
-    const workflowApprovalModeRequiresApproval =
-      requestedApprovalMode === "human_required" || requestedApprovalMode === "policy_required";
-    if (
-      !modeRequiresApproval &&
-      !approvalModeRequiresApproval &&
-      !workflowPolicy.requiresApproval &&
-      !workflowApprovalModeRequiresApproval
-    ) {
-      return null;
-    }
+      optionalString(request.approval_mode ?? request.approvalMode ?? workflowPolicy.approval_mode) ?? null;
     const requestedMode = optionalString(request.mode ?? request.threadMode ?? request.thread_mode) ?? null;
     let normalizedRequestedMode = null;
     if (requestedMode) {
@@ -129,78 +138,33 @@ export function createCodingToolApprovalPolicy(deps = {}) {
         normalizedRequestedMode = requestedMode.toLowerCase().replace(/-/g, "_");
       }
     }
-    const policyReason = modeRequiresApproval
-      ? threadMode === "review"
-        ? "thread_review_mode_requires_approval"
-        : "thread_plan_mode_requires_approval"
-      : approvalModeRequiresApproval
-        ? `approval_mode_${approvalMode}_requires_approval`
-        : workflowPolicy.reason;
     const scopeRequirements = uniqueStrings(
       normalizeArray(toolContract?.authorityScopeRequirements ?? toolContract?.authority_scope_requirements),
     );
-    const inputHash = doctorHash(JSON.stringify(input ?? {}));
-    return {
-      schema_version: "ioi.runtime.coding-tool-approval-manifest.v1",
-      schemaVersion: "ioi.runtime.coding-tool-approval-manifest.v1",
-      object: "ioi.runtime_coding_tool_approval_manifest",
-      action: "coding_tool.invoke",
-      status: "approval_required",
-      approval_required: true,
-      approvalRequired: true,
-      policy_reason: policyReason,
-      policyReason,
-      daemon_enforced: true,
-      daemonEnforced: true,
-      ui_override_ignored:
-        Boolean(request.approval_granted ?? request.approvalGranted ?? request.approved) ||
-        Boolean(requestedApprovalMode && requestedApprovalMode !== approvalMode) ||
-        Boolean(normalizedRequestedMode && normalizedRequestedMode !== threadMode),
-      workflow_policy: workflowPolicy,
-      workflowPolicy,
+    const plan = approvalRunner.planApprovalManifest({
+      schema_version: CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION,
       thread_id: threadId,
-      threadId,
       turn_id: turnId || null,
-      turnId: turnId || null,
       tool_id: toolId,
-      toolId,
       tool_call_id: toolCallId,
-      toolCallId,
       effect_class: effectClass,
-      effectClass,
       risk_domain: optionalString(toolContract?.riskDomain ?? toolContract?.risk_domain) ?? "unknown",
-      riskDomain: optionalString(toolContract?.riskDomain ?? toolContract?.risk_domain) ?? "unknown",
       authority_scope_requirements: scopeRequirements,
-      authorityScopeRequirements: scopeRequirements,
       primitive_capabilities: normalizeArray(toolContract?.primitiveCapabilities ?? toolContract?.primitive_capabilities),
-      primitiveCapabilities: normalizeArray(toolContract?.primitiveCapabilities ?? toolContract?.primitive_capabilities),
       thread_mode: threadMode,
-      threadMode,
       approval_mode: approvalMode,
-      approvalMode,
       trust_profile: "local_private",
-      trustProfile: "local_private",
-      workflow_trust_profile: workflowPolicy.trustProfile,
-      workflowTrustProfile: workflowPolicy.trustProfile,
-      node_requires_approval: workflowPolicy.requiresApproval,
-      nodeRequiresApproval: workflowPolicy.requiresApproval,
-      node_approval_override: workflowPolicy.nodeApprovalOverride,
-      nodeApprovalOverride: workflowPolicy.nodeApprovalOverride,
       requested_mode: requestedMode,
-      requestedMode,
       normalized_requested_mode: normalizedRequestedMode,
-      normalizedRequestedMode,
       requested_approval_mode: requestedApprovalMode,
-      requestedApprovalMode,
+      ui_override_requested: Boolean(request.approval_granted ?? request.approvalGranted ?? request.approved),
       workflow_graph_id: workflowGraphId,
-      workflowGraphId,
       workflow_node_id: workflowNodeId,
-      workflowNodeId,
+      workflow_policy: workflowPolicy,
       input_summary: codingToolInputSummary(toolId, input),
-      inputSummary: codingToolInputSummary(toolId, input),
-      input_hash: inputHash,
-      inputHash,
-    };
+      input,
+    });
+    return plan.manifest ?? null;
   }
 
   function codingToolApprovalManifestsMatch(requestedManifest, retryManifest) {

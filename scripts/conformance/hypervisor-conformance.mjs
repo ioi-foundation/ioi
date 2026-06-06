@@ -481,6 +481,9 @@ function runBridge() {
   const agentgresAdmissionCoreForBridge = exists("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     ? read("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     : "";
+  const approvalCore = exists("crates/services/src/agentic/runtime/kernel/approval.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/approval.rs")
+    : "";
   const stepModuleRunner = exists("packages/runtime-daemon/src/step-module-runner.mjs")
     ? read("packages/runtime-daemon/src/step-module-runner.mjs")
     : "";
@@ -501,6 +504,12 @@ function runBridge() {
     : "";
   const runtimeCodingToolApprovalTest = exists("packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs")
+    : "";
+  const runtimeCodingToolApprovalRunner = exists("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs")
+    : "";
+  const runtimeCodingToolApprovalRunnerTest = exists("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs")
     : "";
   const codingTools = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
@@ -893,6 +902,42 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
     ],
     "Phase 10/11 is pending: coding-tool approval retry matching must fail closed on retired camelCase manifest fields",
+  );
+  assertCheck(
+    result,
+    "coding-tool-approval-manifest-live-bridge",
+    /CodingToolApprovalCore/.test(approvalCore) &&
+      /CodingToolApprovalRequest/.test(approvalCore) &&
+      /CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
+      /CODING_TOOL_APPROVAL_MANIFEST_SCHEMA_VERSION/.test(approvalCore) &&
+      /rust_authority_plans_coding_tool_approval_manifest/.test(approvalCore) &&
+      /plan_coding_tool_approval_manifest/.test(bridgeModule) &&
+      /CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
+      /rust_coding_tool_approval_command/.test(bridgeModule) &&
+      /bridge_plans_coding_tool_approval_manifest_through_rust_core/.test(bridgeModule) &&
+      /createCodingToolApprovalRunnerFromEnv/.test(runtimeCodingToolApprovalRunner) &&
+      /RustCodingToolApprovalRunner/.test(runtimeCodingToolApprovalRunner) &&
+      /planApprovalManifest/.test(runtimeCodingToolApprovalRunner) &&
+      /coding tool approval runner sends Rust authority bridge request/.test(
+        runtimeCodingToolApprovalRunnerTest,
+      ) &&
+      /coding tool approval runner fails closed without bridge command/.test(
+        runtimeCodingToolApprovalRunnerTest,
+      ) &&
+      /approvalRunner\.planApprovalManifest/.test(runtimeCodingToolApproval) &&
+      !/const modeRequiresApproval/.test(runtimeCodingToolApproval) &&
+      /coding tool approval manifest is planned by Rust authority runner/.test(
+        runtimeCodingToolApprovalTest,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/approval.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
+    ],
+    "Phase 9/10 is pending: coding-tool approval manifests must be planned by Rust authority core through the command bridge",
   );
   assertCheck(
     result,

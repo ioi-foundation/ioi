@@ -3,6 +3,9 @@ use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeRunStateCommitRequest,
     RuntimeStatePersistenceRecord, StorageBackendWriteProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
+use ioi_services::agentic::runtime::kernel::approval::{
+    CodingToolApprovalCore, CodingToolApprovalRequest,
+};
 use ioi_services::agentic::runtime::kernel::ctee::{CteeNodeTrust, PrivateWorkspaceCteeModule};
 use ioi_services::agentic::runtime::kernel::marketplace::{
     WorkerServicePackageInvocationCore, WorkerServicePackageInvocationRequest,
@@ -254,6 +257,16 @@ struct WorkspaceSnapshotCaptureBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct CodingToolApprovalBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: CodingToolApprovalRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -417,6 +430,11 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             capture_workspace_snapshot_files(request)
+        }
+        "plan_coding_tool_approval_manifest" => {
+            let request: CodingToolApprovalBridgeRequest = serde_json::from_value(raw_request)
+                .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_coding_tool_approval_manifest(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -1368,6 +1386,43 @@ fn capture_workspace_snapshot_files(
         "captured_file_count": capture.captured_file_count,
         "omitted_file_count": capture.omitted_file_count,
         "content_captured": capture.content_captured,
+    }))
+}
+
+fn plan_coding_tool_approval_manifest(
+    request: CodingToolApprovalBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_coding_tool_approval_manifest" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let plan = CodingToolApprovalCore
+        .plan_manifest(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "coding_tool_approval_manifest_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_coding_tool_approval_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "plan": plan.clone(),
+        "approval_required": plan.approval_required,
+        "workflow_policy": plan.workflow_policy.clone(),
+        "manifest": plan.manifest.clone(),
+        "input_hash": plan.input_hash.clone(),
     }))
 }
 
@@ -5315,6 +5370,72 @@ mod tests {
         assert_eq!(response["files"][0]["path"], "src/app.js");
         assert_eq!(response["files"][0]["before"]["content"].is_null(), true);
         assert_eq!(response["content_files"][0]["before"]["content"], "old");
+    }
+
+    #[test]
+    fn bridge_plans_coding_tool_approval_manifest_through_rust_core() {
+        let request: CodingToolApprovalBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_coding_tool_approval_manifest",
+            "backend": "rust_authority",
+            "request": {
+                "schema_version": "ioi.runtime.coding-tool-approval-request.v1",
+                "thread_id": "thread_approval",
+                "turn_id": "turn_approval",
+                "tool_id": "file.apply_patch",
+                "tool_call_id": "call_approval",
+                "effect_class": "workspace_write",
+                "risk_domain": "workspace",
+                "authority_scope_requirements": ["workspace.write", "workspace.write"],
+                "primitive_capabilities": ["fs.write"],
+                "thread_mode": "plan",
+                "approval_mode": "suggest",
+                "trust_profile": "local_private",
+                "requested_mode": "agent",
+                "normalized_requested_mode": "agent",
+                "requested_approval_mode": "human_required",
+                "workflow_graph_id": "graph_approval",
+                "workflow_node_id": "node_approval",
+                "workflow_policy": {
+                    "node_approval_override": "inherit",
+                    "approval_mode": "human_required",
+                    "trust_profile": "restricted",
+                    "requires_approval": false
+                },
+                "input_summary": {
+                    "path": "src/app.js",
+                    "dryRun": false
+                },
+                "input": {
+                    "path": "src/app.js",
+                    "dry_run": false
+                }
+            }
+        }))
+        .expect("coding-tool approval bridge request");
+
+        let response = plan_coding_tool_approval_manifest(request)
+            .expect("coding-tool approval manifest planned");
+
+        assert_eq!(response["source"], "rust_coding_tool_approval_command");
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(response["approval_required"], true);
+        assert_eq!(
+            response["manifest"]["schema_version"],
+            "ioi.runtime.coding-tool-approval-manifest.v1"
+        );
+        assert_eq!(
+            response["manifest"]["policy_reason"],
+            "thread_plan_mode_requires_approval"
+        );
+        assert_eq!(
+            response["manifest"]["authority_scope_requirements"],
+            json!(["workspace.write"])
+        );
+        assert!(response["input_hash"]
+            .as_str()
+            .expect("input hash")
+            .starts_with("sha256:"));
     }
 
     #[test]

@@ -3,11 +3,11 @@ import test from "node:test";
 
 import { createCodingToolApprovalPolicy } from "./runtime-coding-tool-approval.mjs";
 
-function createPolicy() {
+function createPolicy(options = {}) {
   return createCodingToolApprovalPolicy({
+    approvalRunner: options.approvalRunner ?? approvalRunnerMock(),
     approvalModeForThreadMode: (mode) => mode === "review" ? "human_required" : "suggest",
     codingToolInputSummary: (toolId, input) => ({ toolId, keys: Object.keys(input || {}).sort() }),
-    doctorHash: (value) => `hash_${Buffer.from(String(value)).toString("hex").slice(0, 12)}`,
     normalizeArray: (value) => Array.isArray(value) ? value : [],
     normalizeThreadApprovalMode: (value, fallback) => value || fallback,
     normalizeThreadInteractionMode: (value) => {
@@ -19,6 +19,100 @@ function createPolicy() {
     optionalString: (value) => typeof value === "string" ? value.trim() || null : null,
     uniqueStrings: (values = []) => [...new Set(values.filter(Boolean))],
   });
+}
+
+function approvalRunnerMock({ capture = null } = {}) {
+  return {
+    planApprovalManifest(request) {
+      capture?.(request);
+      if (request.effect_class === "local_read") {
+        return {
+          approval_required: false,
+          workflow_policy: {
+            schema_version: "ioi.runtime.workflow-tool-approval-policy.v1",
+            source: "react_flow",
+            requires_approval: false,
+            node_approval_override: "inherit",
+            approval_mode: null,
+            trust_profile: "local_private",
+            reason: "workflow_approval_mode_requires_approval",
+          },
+          manifest: null,
+          input_hash: "sha256:local-read",
+        };
+      }
+      const approvalRequired =
+        request.thread_mode === "plan" ||
+        request.thread_mode === "review" ||
+        request.approval_mode === "human_required" ||
+        request.approval_mode === "policy_required" ||
+        Boolean(request.workflow_policy.requires_approval) ||
+        request.requested_approval_mode === "human_required" ||
+        request.requested_approval_mode === "policy_required";
+      if (!approvalRequired) {
+        return {
+          approval_required: false,
+          workflow_policy: {
+            schema_version: "ioi.runtime.workflow-tool-approval-policy.v1",
+            source: "react_flow",
+            requires_approval: false,
+            node_approval_override: request.workflow_policy.node_approval_override,
+            approval_mode: request.workflow_policy.approval_mode,
+            trust_profile: request.workflow_policy.trust_profile,
+            reason: "workflow_approval_mode_requires_approval",
+          },
+          manifest: null,
+          input_hash: "sha256:no-approval",
+        };
+      }
+      const workflowPolicy = {
+        schema_version: "ioi.runtime.workflow-tool-approval-policy.v1",
+        source: "react_flow",
+        requires_approval: true,
+        node_approval_override: request.workflow_policy.node_approval_override,
+        approval_mode: request.workflow_policy.approval_mode,
+        trust_profile: request.workflow_policy.trust_profile,
+        reason: "workflow_node_requires_approval",
+      };
+      return {
+        approval_required: true,
+        workflow_policy: workflowPolicy,
+        manifest: {
+          schema_version: "ioi.runtime.coding-tool-approval-manifest.v1",
+          object: "ioi.runtime_coding_tool_approval_manifest",
+          action: "coding_tool.invoke",
+          status: "approval_required",
+          approval_required: true,
+          policy_reason: "thread_plan_mode_requires_approval",
+          daemon_enforced: true,
+          ui_override_ignored: true,
+          workflow_policy: workflowPolicy,
+          thread_id: request.thread_id,
+          turn_id: request.turn_id,
+          tool_id: request.tool_id,
+          tool_call_id: request.tool_call_id,
+          effect_class: request.effect_class,
+          risk_domain: request.risk_domain,
+          authority_scope_requirements: request.authority_scope_requirements,
+          primitive_capabilities: request.primitive_capabilities,
+          thread_mode: request.thread_mode,
+          approval_mode: request.approval_mode,
+          trust_profile: request.trust_profile,
+          workflow_trust_profile: workflowPolicy.trust_profile,
+          node_requires_approval: workflowPolicy.requires_approval,
+          node_approval_override: workflowPolicy.node_approval_override,
+          requested_mode: request.requested_mode,
+          normalized_requested_mode: request.normalized_requested_mode,
+          requested_approval_mode: request.requested_approval_mode,
+          workflow_graph_id: request.workflow_graph_id,
+          workflow_node_id: request.workflow_node_id,
+          input_summary: request.input_summary,
+          input_hash: "sha256:rust-planned",
+        },
+        input_hash: "sha256:rust-planned",
+      };
+    },
+  };
 }
 
 test("coding tool effect approval is not required for local reads", () => {
@@ -55,8 +149,15 @@ test("workflow approval policy normalizes nested coding pack controls", () => {
   assert.equal(workflow.reason, "workflow_node_requires_approval");
 });
 
-test("coding tool approval manifest preserves schema aliases and detects ignored UI overrides", () => {
-  const policy = createPolicy();
+test("coding tool approval manifest is planned by Rust authority runner", () => {
+  let capturedRequest = null;
+  const policy = createPolicy({
+    approvalRunner: approvalRunnerMock({
+      capture: (request) => {
+        capturedRequest = request;
+      },
+    }),
+  });
   const manifest = policy.codingToolApprovalManifestForThread({
     agent: {
       mode: "agent",
@@ -85,15 +186,20 @@ test("coding tool approval manifest preserves schema aliases and detects ignored
     workflowNodeId: "node_1",
   });
 
-  assert.equal(manifest.schemaVersion, "ioi.runtime.coding-tool-approval-manifest.v1");
+  assert.equal(capturedRequest.schema_version, "ioi.runtime.coding-tool-approval-request.v1");
+  assert.equal(capturedRequest.workflow_policy.node_approval_override, "inherit");
+  assert.equal(capturedRequest.workflow_policy.approval_mode, "human_required");
+  assert.equal(capturedRequest.ui_override_requested, true);
+  assert.deepEqual(capturedRequest.input_summary, { toolId: "file__write", keys: ["path"] });
+  assert.equal(manifest.schema_version, "ioi.runtime.coding-tool-approval-manifest.v1");
   assert.equal(manifest.status, "approval_required");
-  assert.equal(manifest.policyReason, "thread_plan_mode_requires_approval");
+  assert.equal(manifest.policy_reason, "thread_plan_mode_requires_approval");
   assert.equal(manifest.ui_override_ignored, true);
-  assert.equal(manifest.threadMode, "plan");
-  assert.equal(manifest.approvalMode, "suggest");
-  assert.deepEqual(manifest.authorityScopeRequirements, ["workspace.write"]);
-  assert.deepEqual(manifest.inputSummary, { toolId: "file__write", keys: ["path"] });
-  assert.match(manifest.inputHash, /^hash_/);
+  assert.equal(manifest.thread_mode, "plan");
+  assert.equal(manifest.approval_mode, "suggest");
+  assert.deepEqual(manifest.authority_scope_requirements, ["workspace.write"]);
+  assert.deepEqual(manifest.input_summary, { toolId: "file__write", keys: ["path"] });
+  assert.match(manifest.input_hash, /^sha256:/);
 });
 
 test("coding tool approval manifest is omitted when no approval gate applies", () => {

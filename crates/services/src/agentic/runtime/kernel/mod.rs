@@ -37,7 +37,10 @@ use agentgres_admission::{
     RuntimeStateTransitionRecord, RuntimeStateTransitionRequest,
     StorageBackendWriteAdmissionRecord, StorageBackendWriteProposal,
 };
-use approval::{ApprovalScopeContext, AuthorityScopeMatcher, ScopeMatchDecision};
+use approval::{
+    ApprovalScopeContext, AuthorityScopeMatcher, CodingToolApprovalCore, CodingToolApprovalError,
+    CodingToolApprovalPlan, CodingToolApprovalRequest, ScopeMatchDecision,
+};
 use authority::{
     ExternalCapabilityExitAuthorityRecord, ExternalCapabilityExitRequest, WalletAuthorityCore,
     WalletAuthorityError,
@@ -108,6 +111,13 @@ impl RuntimeKernelService {
         context: &ApprovalScopeContext,
     ) -> ScopeMatchDecision {
         AuthorityScopeMatcher::evaluate(authority, context)
+    }
+
+    pub fn plan_coding_tool_approval_manifest(
+        &self,
+        request: &CodingToolApprovalRequest,
+    ) -> Result<CodingToolApprovalPlan, CodingToolApprovalError> {
+        CodingToolApprovalCore.plan_manifest(request)
     }
 
     pub fn issue_capability_lease(

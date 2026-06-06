@@ -1,7 +1,17 @@
 use ioi_types::app::{ActionRequest, ActionTarget, ApprovalAuthority, ApprovalGrant};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use url::Url;
+
+pub const CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-approval-request.v1";
+pub const CODING_TOOL_APPROVAL_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-approval-result.v1";
+pub const CODING_TOOL_APPROVAL_MANIFEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-approval-manifest.v1";
+pub const WORKFLOW_TOOL_APPROVAL_POLICY_SCHEMA_VERSION: &str =
+    "ioi.runtime.workflow-tool-approval-policy.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApprovalScopeContext {
@@ -86,6 +96,272 @@ pub struct ScopeMatchDecision {
     pub allowed: bool,
     pub matched_scope: Option<String>,
     pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CodingToolApprovalError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+    HashFailed(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolApprovalRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    #[serde(default)]
+    pub turn_id: Option<String>,
+    pub tool_id: String,
+    pub tool_call_id: String,
+    #[serde(default)]
+    pub effect_class: Option<String>,
+    #[serde(default)]
+    pub risk_domain: Option<String>,
+    #[serde(default)]
+    pub authority_scope_requirements: Vec<String>,
+    #[serde(default)]
+    pub primitive_capabilities: Vec<String>,
+    #[serde(default)]
+    pub thread_mode: Option<String>,
+    #[serde(default)]
+    pub approval_mode: Option<String>,
+    #[serde(default)]
+    pub trust_profile: Option<String>,
+    #[serde(default)]
+    pub requested_mode: Option<String>,
+    #[serde(default)]
+    pub normalized_requested_mode: Option<String>,
+    #[serde(default)]
+    pub requested_approval_mode: Option<String>,
+    #[serde(default)]
+    pub ui_override_requested: bool,
+    #[serde(default)]
+    pub workflow_graph_id: Option<String>,
+    #[serde(default)]
+    pub workflow_node_id: Option<String>,
+    #[serde(default)]
+    pub workflow_policy: CodingToolWorkflowApprovalRequest,
+    #[serde(default)]
+    pub input_summary: Value,
+    #[serde(default)]
+    pub input: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct CodingToolWorkflowApprovalRequest {
+    #[serde(default)]
+    pub node_approval_override: Option<String>,
+    #[serde(default)]
+    pub approval_mode: Option<String>,
+    #[serde(default)]
+    pub trust_profile: Option<String>,
+    #[serde(default)]
+    pub requires_approval: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CodingToolWorkflowApprovalPolicy {
+    pub schema_version: String,
+    pub source: String,
+    pub requires_approval: bool,
+    pub node_approval_override: String,
+    pub approval_mode: Option<String>,
+    pub trust_profile: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolApprovalManifest {
+    pub schema_version: String,
+    pub object: String,
+    pub action: String,
+    pub status: String,
+    pub approval_required: bool,
+    pub policy_reason: String,
+    pub daemon_enforced: bool,
+    pub ui_override_ignored: bool,
+    pub workflow_policy: CodingToolWorkflowApprovalPolicy,
+    pub thread_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+    pub tool_id: String,
+    pub tool_call_id: String,
+    pub effect_class: String,
+    pub risk_domain: String,
+    pub authority_scope_requirements: Vec<String>,
+    pub primitive_capabilities: Vec<String>,
+    pub thread_mode: String,
+    pub approval_mode: String,
+    pub trust_profile: String,
+    pub workflow_trust_profile: String,
+    pub node_requires_approval: bool,
+    pub node_approval_override: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requested_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub normalized_requested_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requested_approval_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_graph_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_node_id: Option<String>,
+    pub input_summary: Value,
+    pub input_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolApprovalPlan {
+    pub schema_version: String,
+    pub source: String,
+    pub approval_required: bool,
+    pub workflow_policy: CodingToolWorkflowApprovalPolicy,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manifest: Option<CodingToolApprovalManifest>,
+    pub input_hash: String,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct CodingToolApprovalCore;
+
+impl CodingToolApprovalCore {
+    pub fn plan_manifest(
+        &self,
+        request: &CodingToolApprovalRequest,
+    ) -> Result<CodingToolApprovalPlan, CodingToolApprovalError> {
+        request.validate()?;
+        let effect_class = normalized_string(request.effect_class.as_deref(), "unknown");
+        let risk_domain = normalized_string(request.risk_domain.as_deref(), "unknown");
+        let thread_mode = normalized_string(request.thread_mode.as_deref(), "agent");
+        let approval_mode = normalized_string(request.approval_mode.as_deref(), "suggest");
+        let trust_profile = normalized_string(request.trust_profile.as_deref(), "local_private");
+        let workflow_policy = workflow_approval_policy(&request.workflow_policy);
+        let input_hash = value_hash(&request.input)?;
+
+        if effect_class.eq_ignore_ascii_case("local_read") {
+            return Ok(CodingToolApprovalPlan {
+                schema_version: CODING_TOOL_APPROVAL_RESULT_SCHEMA_VERSION.to_string(),
+                source: "rust_authority_coding_tool_approval_core".to_string(),
+                approval_required: false,
+                workflow_policy,
+                manifest: None,
+                input_hash,
+            });
+        }
+
+        let mode_requires_approval = thread_mode == "plan" || thread_mode == "review";
+        let approval_mode_requires_approval =
+            approval_mode == "human_required" || approval_mode == "policy_required";
+        let requested_approval_mode = optional_trimmed(request.requested_approval_mode.as_deref())
+            .or_else(|| workflow_policy.approval_mode.clone());
+        let workflow_approval_mode_requires_approval = requested_approval_mode
+            .as_deref()
+            .map(|mode| mode == "human_required" || mode == "policy_required")
+            .unwrap_or(false);
+        let approval_required = mode_requires_approval
+            || approval_mode_requires_approval
+            || workflow_policy.requires_approval
+            || workflow_approval_mode_requires_approval;
+
+        if !approval_required {
+            return Ok(CodingToolApprovalPlan {
+                schema_version: CODING_TOOL_APPROVAL_RESULT_SCHEMA_VERSION.to_string(),
+                source: "rust_authority_coding_tool_approval_core".to_string(),
+                approval_required: false,
+                workflow_policy,
+                manifest: None,
+                input_hash,
+            });
+        }
+
+        let requested_mode = optional_trimmed(request.requested_mode.as_deref());
+        let normalized_requested_mode =
+            optional_trimmed(request.normalized_requested_mode.as_deref()).or_else(|| {
+                requested_mode
+                    .as_deref()
+                    .map(|mode| mode.to_ascii_lowercase().replace('-', "_"))
+            });
+        let policy_reason = if mode_requires_approval {
+            if thread_mode == "review" {
+                "thread_review_mode_requires_approval".to_string()
+            } else {
+                "thread_plan_mode_requires_approval".to_string()
+            }
+        } else if approval_mode_requires_approval {
+            format!("approval_mode_{approval_mode}_requires_approval")
+        } else {
+            workflow_policy.reason.clone()
+        };
+        let ui_override_ignored = request.ui_override_requested
+            || requested_approval_mode
+                .as_deref()
+                .map(|mode| mode != approval_mode)
+                .unwrap_or(false)
+            || normalized_requested_mode
+                .as_deref()
+                .map(|mode| mode != thread_mode)
+                .unwrap_or(false);
+
+        let manifest = CodingToolApprovalManifest {
+            schema_version: CODING_TOOL_APPROVAL_MANIFEST_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_coding_tool_approval_manifest".to_string(),
+            action: "coding_tool.invoke".to_string(),
+            status: "approval_required".to_string(),
+            approval_required: true,
+            policy_reason,
+            daemon_enforced: true,
+            ui_override_ignored,
+            workflow_policy: workflow_policy.clone(),
+            thread_id: request.thread_id.trim().to_string(),
+            turn_id: optional_trimmed(request.turn_id.as_deref()),
+            tool_id: request.tool_id.trim().to_string(),
+            tool_call_id: request.tool_call_id.trim().to_string(),
+            effect_class,
+            risk_domain,
+            authority_scope_requirements: unique_trimmed(&request.authority_scope_requirements),
+            primitive_capabilities: unique_trimmed(&request.primitive_capabilities),
+            thread_mode: thread_mode.clone(),
+            approval_mode,
+            trust_profile,
+            workflow_trust_profile: workflow_policy.trust_profile.clone(),
+            node_requires_approval: workflow_policy.requires_approval,
+            node_approval_override: workflow_policy.node_approval_override.clone(),
+            requested_mode,
+            normalized_requested_mode,
+            requested_approval_mode,
+            workflow_graph_id: optional_trimmed(request.workflow_graph_id.as_deref()),
+            workflow_node_id: optional_trimmed(request.workflow_node_id.as_deref()),
+            input_summary: request.input_summary.clone(),
+            input_hash: input_hash.clone(),
+        };
+
+        Ok(CodingToolApprovalPlan {
+            schema_version: CODING_TOOL_APPROVAL_RESULT_SCHEMA_VERSION.to_string(),
+            source: "rust_authority_coding_tool_approval_core".to_string(),
+            approval_required: true,
+            workflow_policy,
+            manifest: Some(manifest),
+            input_hash,
+        })
+    }
+}
+
+impl CodingToolApprovalRequest {
+    pub fn validate(&self) -> Result<(), CodingToolApprovalError> {
+        if self.schema_version != CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION {
+            return Err(CodingToolApprovalError::InvalidSchemaVersion {
+                expected: CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_coding_tool_field("thread_id", &self.thread_id)?;
+        require_coding_tool_field("tool_id", &self.tool_id)?;
+        require_coding_tool_field("tool_call_id", &self.tool_call_id)?;
+        Ok(())
+    }
 }
 
 pub struct AuthorityScopeMatcher;
@@ -195,6 +471,88 @@ fn host_label(raw: &str) -> Option<String> {
         .and_then(|url| url.host_str().map(|host| host.to_ascii_lowercase()))
 }
 
+fn workflow_approval_policy(
+    request: &CodingToolWorkflowApprovalRequest,
+) -> CodingToolWorkflowApprovalPolicy {
+    let node_approval_override =
+        normalized_string(request.node_approval_override.as_deref(), "inherit");
+    let approval_mode = optional_trimmed(request.approval_mode.as_deref());
+    let trust_profile = normalized_string(request.trust_profile.as_deref(), "local_private");
+    let node_requires_approval = node_approval_override == "require_approval";
+    let approval_mode_requires_approval = approval_mode
+        .as_deref()
+        .map(|mode| mode == "human_required" || mode == "policy_required")
+        .unwrap_or(false);
+    let trust_requires_approval = matches!(
+        trust_profile.as_str(),
+        "untrusted" | "restricted" | "review_required"
+    );
+    let requires_approval = request.requires_approval
+        || node_requires_approval
+        || approval_mode_requires_approval
+        || trust_requires_approval;
+    let reason = if request.requires_approval || node_requires_approval {
+        "workflow_node_requires_approval"
+    } else if approval_mode_requires_approval {
+        "workflow_approval_mode_requires_approval"
+    } else if trust_requires_approval {
+        "workflow_trust_profile_requires_approval"
+    } else {
+        "workflow_approval_mode_requires_approval"
+    };
+
+    CodingToolWorkflowApprovalPolicy {
+        schema_version: WORKFLOW_TOOL_APPROVAL_POLICY_SCHEMA_VERSION.to_string(),
+        source: "react_flow".to_string(),
+        requires_approval,
+        node_approval_override,
+        approval_mode,
+        trust_profile,
+        reason: reason.to_string(),
+    }
+}
+
+fn normalized_string(value: Option<&str>, fallback: &str) -> String {
+    optional_trimmed(value)
+        .unwrap_or_else(|| fallback.to_string())
+        .to_ascii_lowercase()
+        .replace('-', "_")
+}
+
+fn optional_trimmed(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn unique_trimmed(values: &[String]) -> Vec<String> {
+    values.iter().fold(Vec::new(), |mut unique, value| {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() && !unique.iter().any(|existing| existing == trimmed) {
+            unique.push(trimmed.to_string());
+        }
+        unique
+    })
+}
+
+fn require_coding_tool_field(
+    field: &'static str,
+    value: &str,
+) -> Result<(), CodingToolApprovalError> {
+    if value.trim().is_empty() {
+        Err(CodingToolApprovalError::MissingField(field))
+    } else {
+        Ok(())
+    }
+}
+
+fn value_hash(value: &Value) -> Result<String, CodingToolApprovalError> {
+    let bytes = serde_json::to_vec(value)
+        .map_err(|error| CodingToolApprovalError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,6 +568,103 @@ mod tests {
             revoked: false,
             scope_allowlist: scopes.into_iter().map(str::to_string).collect(),
         }
+    }
+
+    fn coding_tool_request(effect_class: &str) -> CodingToolApprovalRequest {
+        CodingToolApprovalRequest {
+            schema_version: CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: "thread_1".to_string(),
+            turn_id: Some("turn_1".to_string()),
+            tool_id: "file.apply_patch".to_string(),
+            tool_call_id: "call_1".to_string(),
+            effect_class: Some(effect_class.to_string()),
+            risk_domain: Some("workspace".to_string()),
+            authority_scope_requirements: vec![
+                "workspace.write".to_string(),
+                "workspace.write".to_string(),
+            ],
+            primitive_capabilities: vec!["fs.write".to_string()],
+            thread_mode: Some("plan".to_string()),
+            approval_mode: Some("suggest".to_string()),
+            trust_profile: Some("local_private".to_string()),
+            requested_mode: Some("agent".to_string()),
+            normalized_requested_mode: Some("agent".to_string()),
+            requested_approval_mode: Some("human_required".to_string()),
+            ui_override_requested: true,
+            workflow_graph_id: Some("graph_1".to_string()),
+            workflow_node_id: Some("node_1".to_string()),
+            workflow_policy: CodingToolWorkflowApprovalRequest {
+                node_approval_override: Some("inherit".to_string()),
+                approval_mode: Some("human_required".to_string()),
+                trust_profile: Some("restricted".to_string()),
+                requires_approval: false,
+            },
+            input_summary: serde_json::json!({ "path": "src/app.js" }),
+            input: serde_json::json!({ "path": "src/app.js", "dry_run": false }),
+        }
+    }
+
+    #[test]
+    fn rust_authority_plans_coding_tool_approval_manifest() {
+        let plan = CodingToolApprovalCore
+            .plan_manifest(&coding_tool_request("workspace_write"))
+            .expect("approval manifest");
+        let manifest = plan.manifest.expect("manifest required");
+
+        assert_eq!(
+            plan.schema_version,
+            CODING_TOOL_APPROVAL_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(
+            manifest.schema_version,
+            CODING_TOOL_APPROVAL_MANIFEST_SCHEMA_VERSION
+        );
+        assert!(plan.approval_required);
+        assert_eq!(manifest.policy_reason, "thread_plan_mode_requires_approval");
+        assert_eq!(manifest.thread_mode, "plan");
+        assert_eq!(manifest.workflow_trust_profile, "restricted");
+        assert_eq!(
+            manifest.authority_scope_requirements,
+            vec!["workspace.write"]
+        );
+        assert_eq!(manifest.ui_override_ignored, true);
+        assert!(manifest.input_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn rust_authority_omits_local_read_coding_tool_approval_manifest() {
+        let mut request = coding_tool_request("local_read");
+        request.thread_mode = Some("agent".to_string());
+        request.approval_mode = Some("suggest".to_string());
+        request.workflow_policy.requires_approval = false;
+        request.workflow_policy.approval_mode = None;
+        request.workflow_policy.trust_profile = Some("local_private".to_string());
+
+        let plan = CodingToolApprovalCore
+            .plan_manifest(&request)
+            .expect("local read plan");
+
+        assert!(!plan.approval_required);
+        assert!(plan.manifest.is_none());
+        assert_eq!(plan.workflow_policy.requires_approval, false);
+    }
+
+    #[test]
+    fn rust_authority_rejects_invalid_coding_tool_approval_schema() {
+        let mut request = coding_tool_request("workspace_write");
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = CodingToolApprovalCore
+            .plan_manifest(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            CodingToolApprovalError::InvalidSchemaVersion {
+                expected: CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
     }
 
     #[test]

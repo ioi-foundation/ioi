@@ -12074,6 +12074,13 @@ matching now compares only canonical snake_case manifest keys and fails closed
 when a retry supplies retired camelCase approval-manifest fields such as
 `threadId`, `toolCallId`, `effectClass`, `inputHash`, or `workflowNodeId`.
 
+Slice 337 moves coding-tool approval manifest planning into Rust authority
+core: `CodingToolApprovalCore` now owns the approval-required decision,
+workflow approval policy, ignored UI override flag, authority-scope
+normalization, and canonical approval manifest/input hash; the daemon facade
+calls `plan_coding_tool_approval_manifest` through the Rust command bridge
+instead of recomputing the approval gate in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
