@@ -86,7 +86,7 @@ test("diagnostics feedback surface invokes lsp diagnostics with repair context",
     patchToolCallId: "patch_alpha",
     workflowGraphId: "graph_alpha",
     request: {
-      workflowNodeId: "patch_node",
+      workflow_node_id: "patch_node",
     },
     patchResult: {
       changedFiles: [
@@ -113,9 +113,53 @@ test("diagnostics feedback surface invokes lsp diagnostics with repair context",
   const request = store.calls[0].request;
   assert.equal(request.workflow_node_id, "runtime.coding-tool.lsp-diagnostics.auto");
   assert.deepEqual(request.rollback_refs, ["snapshot_alpha", "rollback_alpha"]);
-  assert.equal(request.diagnostics_repair_context.workspaceSnapshotId, "snapshot_alpha");
-  assert.equal(request.diagnostics_repair_context.sourceWorkflowNodeId, "patch_node");
+  assert.equal(request.diagnostics_repair_context.workspace_snapshot_id, "snapshot_alpha");
+  assert.equal(request.diagnostics_repair_context.source_workflow_node_id, "patch_node");
+  assert.equal(request.diagnostics_repair_context.changed_files[0].before_hash, "before_hash");
+  assert.equal(request.diagnostics_repair_context.changed_files[0].after_hash, "after_hash");
+  for (const field of [
+    "schemaVersion",
+    "sourceToolName",
+    "sourceToolCallId",
+    "sourceWorkflowGraphId",
+    "sourceWorkflowNodeId",
+    "workspaceSnapshotId",
+    "restorePolicy",
+    "restoreConflictPolicy",
+    "diagnosticsRepairDefault",
+    "operatorOverrideRequiresApproval",
+    "rollbackRefs",
+    "changedFiles",
+  ]) {
+    assert.equal(Object.hasOwn(request.diagnostics_repair_context, field), false);
+  }
+  assert.equal(Object.hasOwn(request.diagnostics_repair_context.changed_files[0], "beforeHash"), false);
+  assert.equal(Object.hasOwn(request.diagnostics_repair_context.changed_files[0], "afterHash"), false);
+  assert.equal(Object.hasOwn(request.diagnostics_repair_context.changed_files[0], "diagnosticsRecommended"), false);
   assert.deepEqual(request.input.paths, ["src/app.js"]);
+});
+
+test("diagnostics feedback repair context ignores retired source workflow request alias", () => {
+  const surface = createSurface();
+  const store = createStore();
+
+  surface.maybeRunPostEditDiagnostics(store, {
+    threadId: "thread_alpha",
+    turnId: "turn_alpha",
+    patchToolCallId: "patch_alpha",
+    workflowGraphId: "graph_alpha",
+    request: {
+      workflowNodeId: "patch_alias",
+    },
+    patchResult: {
+      changedFiles: [{ path: "src/app.js" }],
+      workspaceSnapshotId: "snapshot_alpha",
+    },
+  });
+
+  const request = store.calls[0].request;
+  assert.equal(request.diagnostics_repair_context.source_workflow_node_id, null);
+  assert.equal(Object.hasOwn(request.diagnostics_repair_context, "sourceWorkflowNodeId"), false);
 });
 
 test("diagnostics feedback surface returns pending diagnostics after last injection", () => {

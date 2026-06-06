@@ -7681,6 +7681,14 @@ function runCompositor() {
   const runtimeDiagnosticsRepairSurfaceTest = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
     : "";
+  const runtimeDiagnosticsFeedbackSurface = exists("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs")
+    : "";
+  const runtimeDiagnosticsFeedbackSurfaceTest = exists(
+    "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs")
+    : "";
   const runtimeAgentRunLifecycle = exists("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     : "";
@@ -11274,6 +11282,53 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
     ],
     "Phase 10/11 is pending: diagnostics repair operator-override and repair-retry helpers must read canonical ids, refs, idempotency keys, and diagnostics feedback without retired camelCase fallbacks",
+  );
+  assertCheck(
+    result,
+    "diagnostics-feedback-repair-context-aliases-retired",
+    /schema_version:\s*DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION/.test(
+      runtimeDiagnosticsFeedbackSurface,
+    ) &&
+      /source_tool_name:\s*"file\.apply_patch"/.test(runtimeDiagnosticsFeedbackSurface) &&
+      /source_tool_call_id:\s*patchToolCallId/.test(runtimeDiagnosticsFeedbackSurface) &&
+      /source_workflow_graph_id:\s*workflowGraphId/.test(runtimeDiagnosticsFeedbackSurface) &&
+      /source_workflow_node_id:\s*optionalString\(request\.workflow_node_id\) \?\? null/.test(
+        runtimeDiagnosticsFeedbackSurface,
+      ) &&
+      /workspace_snapshot_id:\s*workspaceSnapshotId \?\? null/.test(runtimeDiagnosticsFeedbackSurface) &&
+      /restore_policy:\s*repairPolicyConfig\.restorePolicy/.test(runtimeDiagnosticsFeedbackSurface) &&
+      /restore_conflict_policy:\s*repairPolicyConfig\.restoreConflictPolicy/.test(
+        runtimeDiagnosticsFeedbackSurface,
+      ) &&
+      /diagnostics_repair_default:\s*repairPolicyConfig\.diagnosticsRepairDefault/.test(
+        runtimeDiagnosticsFeedbackSurface,
+      ) &&
+      /operator_override_requires_approval:\s*repairPolicyConfig\.operatorOverrideRequiresApproval/.test(
+        runtimeDiagnosticsFeedbackSurface,
+      ) &&
+      /changed_files:\s*normalizeArray\(patchResult\?\.changedFiles\)/.test(
+        runtimeDiagnosticsFeedbackSurface,
+      ) &&
+      !/^\s*(?:schemaVersion|sourceToolName|sourceToolCallId|sourceWorkflowGraphId|sourceWorkflowNodeId|workspaceSnapshotId|restorePolicy|restoreConflictPolicy|diagnosticsRepairDefault|operatorOverrideRequiresApproval|rollbackRefs|changedFiles|beforeHash|afterHash|diagnosticsRecommended)\s*:/m.test(
+        runtimeDiagnosticsFeedbackSurface,
+      ) &&
+      !/\brequest\.workflowNodeId\b/.test(runtimeDiagnosticsFeedbackSurface) &&
+      /diagnostics feedback repair context ignores retired source workflow request alias/.test(
+        runtimeDiagnosticsFeedbackSurfaceTest,
+      ) &&
+      /workflowNodeId:\s*"patch_alias"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
+      /source_workflow_node_id,\s*null/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
+      /Object\.hasOwn\(request\.diagnostics_repair_context,\s*field\),\s*false/.test(
+        runtimeDiagnosticsFeedbackSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(request\.diagnostics_repair_context\.changed_files\[0\],\s*"beforeHash"\),\s*false/.test(
+        runtimeDiagnosticsFeedbackSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: post-edit diagnostics repair contexts must emit canonical snake_case fields without duplicate camelCase compatibility aliases",
   );
   const diagnosticsRepairRetryResultBody =
     diagnosticsRepairExecution.match(
