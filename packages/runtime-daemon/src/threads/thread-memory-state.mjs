@@ -151,7 +151,7 @@ export function createThreadMemoryState({
 
   function listMemoryForAgent(store, agentId, options = {}) {
     const agent = store.getAgent(agentId);
-    const threadId = options.thread_id ?? options.threadId ?? threadIdForAgent(agent.id);
+    const threadId = options.thread_id ?? threadIdForAgent(agent.id);
     return store.memory.projection({
       agent,
       threadId,
@@ -162,7 +162,7 @@ export function createThreadMemoryState({
 
   function memoryPolicyForAgent(store, agentId, options = {}) {
     const agent = store.getAgent(agentId);
-    const threadId = options.thread_id ?? options.threadId ?? threadIdForAgent(agent.id);
+    const threadId = options.thread_id ?? threadIdForAgent(agent.id);
     return store.memory.effectivePolicy({ agent, threadId, workspace: agent.cwd });
   }
 
@@ -182,7 +182,7 @@ export function createThreadMemoryState({
 
   function memoryPathForAgent(store, agentId, options = {}) {
     const agent = store.getAgent(agentId);
-    const threadId = options.thread_id ?? options.threadId ?? threadIdForAgent(agent.id);
+    const threadId = options.thread_id ?? threadIdForAgent(agent.id);
     return store.memory.pathProjection({ agent, threadId, workspace: agent.cwd });
   }
 

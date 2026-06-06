@@ -175,8 +175,12 @@ test("thread memory state projects thread and agent memory", () => {
     query: null,
     scope: "workspace",
   });
+  assert.equal(state.listMemoryForAgent(store, "agent_a", { thread_id: "thread_custom" }).threadId, "thread_custom");
+  assert.equal(state.listMemoryForAgent(store, "agent_a", { threadId: "thread_retired" }).threadId, "thread_a");
   assert.deepEqual(calls.filter((call) => call.type === "projection").map((call) => call.threadId), [
     "thread_a",
+    "thread_a",
+    "thread_custom",
     "thread_a",
   ]);
 });
@@ -185,7 +189,17 @@ test("thread memory state handles policies, paths, status, and validation", () =
   const { state, store } = createHarness();
 
   assert.equal(state.memoryPolicyForThread(store, "thread_a").id, "policy_thread_a");
+  assert.equal(state.memoryPolicyForAgent(store, "agent_a", { thread_id: "thread_custom" }).id, "policy_thread_custom");
+  assert.equal(state.memoryPolicyForAgent(store, "agent_a", { threadId: "thread_retired" }).id, "policy_thread_a");
   assert.equal(state.memoryPathForAgent(store, "agent_a").recordsPath, "/workspace/thread_a/memory");
+  assert.equal(
+    state.memoryPathForAgent(store, "agent_a", { thread_id: "thread_custom" }).recordsPath,
+    "/workspace/thread_custom/memory",
+  );
+  assert.equal(
+    state.memoryPathForAgent(store, "agent_a", { threadId: "thread_retired" }).recordsPath,
+    "/workspace/thread_a/memory",
+  );
   assert.deepEqual(state.memoryStatus(store, { thread_id: "thread_a" }), {
     status: "ready",
     record_count: 1,

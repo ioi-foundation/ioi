@@ -8266,6 +8266,12 @@ function runCompositor() {
   const agentSdkMessagesForRuntime = exists("packages/agent-sdk/src/messages.ts")
     ? read("packages/agent-sdk/src/messages.ts")
     : "";
+  const runtimeThreadMemoryState = exists("packages/runtime-daemon/src/threads/thread-memory-state.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-memory-state.mjs")
+    : "";
+  const runtimeThreadMemoryStateTest = exists("packages/runtime-daemon/src/threads/thread-memory-state.test.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-memory-state.test.mjs")
+    : "";
   const runtimeMcpSdkListOptionsBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpListOptions[\s\S]*?\n}\n/)?.[0] ??
     "";
@@ -8364,6 +8370,16 @@ function runCompositor() {
     agentSdkSubstrateClient,
     "function runtimeUsageListQuery",
     "function memoryListQuery",
+  );
+  const agentMemorySdkListOptionsBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface MemoryListOptions",
+    "export interface RememberMemoryInput",
+  );
+  const agentMemorySdkListQueryBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "function memoryListQuery",
+    "function toolListQuery",
   );
   const runtimeTaskSdkListOptionsBlock = blockBetween(
     agentSdkSubstrateClient,
@@ -8640,6 +8656,51 @@ function runCompositor() {
       "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
     ],
     "Phase 10/11 is pending: conversation artifact records, refs, revisions, actions, routes, and SDK queries must use the canonical snake_case contract without duplicate compatibility aliases",
+  );
+  assertCheck(
+    result,
+    "agent-memory-read-query-alias-retired",
+    /const threadId = options\.thread_id \?\? threadIdForAgent\(agent\.id\)/.test(
+      runtimeThreadMemoryState,
+    ) &&
+      /state\.listMemoryForAgent\(store, "agent_a", \{ thread_id: "thread_custom" \}\)/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /state\.listMemoryForAgent\(store, "agent_a", \{ threadId: "thread_retired" \}\)/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /state\.memoryPolicyForAgent\(store, "agent_a", \{ thread_id: "thread_custom" \}\)/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /state\.memoryPathForAgent\(store, "agent_a", \{ thread_id: "thread_custom" \}\)/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /^\s*thread_id\?: string;/m.test(agentMemorySdkListOptionsBlock) &&
+      /getMemoryPolicy\(agentId: string, options\?: \{ thread_id\?: string \}\)/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /memoryPath\(agentId: string, options\?: \{ thread_id\?: string \}\)/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /\?thread_id=\$\{encodeURIComponent\(options\.thread_id\)\}/.test(agentSdkSubstrateClient) &&
+      !/function listMemoryForAgent(?:(?!\n  function memoryPolicyForAgent)[\s\S])*options\.threadId\b/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      !/function memoryPolicyForAgent(?:(?!\n  function setMemoryPolicyForAgent)[\s\S])*options\.threadId\b/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      !/function memoryPathForAgent(?:(?!\n  function updateMemoryForAgentId)[\s\S])*options\.threadId\b/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      !/^\s*threadId\?: string;/m.test(agentMemorySdkListOptionsBlock) &&
+      !/\?threadId=/.test(agentMemorySdkListQueryBlock),
+    [
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/src/agent.ts",
+    ],
+    "Phase 10/11 is pending: agent memory read queries must use canonical thread_id without retired threadId compatibility aliases",
   );
   assertCheck(
     result,

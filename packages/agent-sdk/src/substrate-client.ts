@@ -554,7 +554,7 @@ export interface AgentMemoryProjection {
 }
 
 export interface MemoryListOptions {
-  threadId?: string;
+  thread_id?: string;
   scope?: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
   memoryKey?: string;
   query?: string;
@@ -1592,9 +1592,9 @@ export interface RuntimeSubstrateClient {
   listMemory(agentId: string, options?: MemoryListOptions): Promise<AgentMemoryProjection>;
   updateMemory(agentId: string, memoryId: string, input: UpdateMemoryRecordInput): Promise<RememberMemoryResult>;
   deleteMemory(agentId: string, memoryId: string, input?: DeleteMemoryRecordInput): Promise<RememberMemoryResult>;
-  getMemoryPolicy(agentId: string, options?: { threadId?: string }): Promise<AgentMemoryPolicy>;
+  getMemoryPolicy(agentId: string, options?: { thread_id?: string }): Promise<AgentMemoryPolicy>;
   setMemoryPolicy(agentId: string, input: MemoryPolicyInput): Promise<MemoryPolicyUpdateResult>;
-  memoryPath(agentId: string, options?: { threadId?: string }): Promise<AgentMemoryPathProjection>;
+  memoryPath(agentId: string, options?: { thread_id?: string }): Promise<AgentMemoryPathProjection>;
 }
 
 export interface RuntimeSubstrateClientOptions {
@@ -2711,8 +2711,8 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return this.request("deleteMemory", "DELETE", `/v1/agents/${encodePath(agentId)}/memory/${encodePath(memoryId)}`, input);
   }
 
-  async getMemoryPolicy(agentId: string, options: { threadId?: string } = {}): Promise<AgentMemoryPolicy> {
-    const query = options.threadId ? `?threadId=${encodeURIComponent(options.threadId)}` : "";
+  async getMemoryPolicy(agentId: string, options: { thread_id?: string } = {}): Promise<AgentMemoryPolicy> {
+    const query = options.thread_id ? `?thread_id=${encodeURIComponent(options.thread_id)}` : "";
     return this.request("getMemoryPolicy", "GET", `/v1/agents/${encodePath(agentId)}/memory/policy${query}`);
   }
 
@@ -2720,8 +2720,8 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return this.request("setMemoryPolicy", "PATCH", `/v1/agents/${encodePath(agentId)}/memory/policy`, input);
   }
 
-  async memoryPath(agentId: string, options: { threadId?: string } = {}): Promise<AgentMemoryPathProjection> {
-    const query = options.threadId ? `?threadId=${encodeURIComponent(options.threadId)}` : "";
+  async memoryPath(agentId: string, options: { thread_id?: string } = {}): Promise<AgentMemoryPathProjection> {
+    const query = options.thread_id ? `?thread_id=${encodeURIComponent(options.thread_id)}` : "";
     return this.request("memoryPath", "GET", `/v1/agents/${encodePath(agentId)}/memory/path${query}`);
   }
 

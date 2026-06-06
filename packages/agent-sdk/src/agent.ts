@@ -217,7 +217,7 @@ export class AgentMemory {
     return this.client.deleteMemory(this.agentId, memoryId, options);
   }
 
-  policy(options: { threadId?: string } = {}): Promise<AgentMemoryPolicy> {
+  policy(options: { thread_id?: string } = {}): Promise<AgentMemoryPolicy> {
     return this.client.getMemoryPolicy(this.agentId, options);
   }
 
@@ -225,7 +225,7 @@ export class AgentMemory {
     return this.client.setMemoryPolicy(this.agentId, policy);
   }
 
-  path(options: { threadId?: string } = {}): Promise<AgentMemoryPathProjection> {
+  path(options: { thread_id?: string } = {}): Promise<AgentMemoryPathProjection> {
     return this.client.memoryPath(this.agentId, options);
   }
 }
