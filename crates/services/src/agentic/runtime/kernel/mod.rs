@@ -68,6 +68,10 @@ use model_mount::{
     ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest,
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
+use policy::{
+    CodingToolBudgetPolicyCore, CodingToolBudgetPolicyError, CodingToolBudgetPolicyRecord,
+    CodingToolBudgetPolicyRequest,
+};
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
 use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
 use receipt_binder::{
@@ -118,6 +122,13 @@ impl RuntimeKernelService {
         request: &CodingToolApprovalRequest,
     ) -> Result<CodingToolApprovalPlan, CodingToolApprovalError> {
         CodingToolApprovalCore.plan_manifest(request)
+    }
+
+    pub fn evaluate_coding_tool_budget_policy(
+        &self,
+        request: &CodingToolBudgetPolicyRequest,
+    ) -> Result<CodingToolBudgetPolicyRecord, CodingToolBudgetPolicyError> {
+        CodingToolBudgetPolicyCore.evaluate(request)
     }
 
     pub fn issue_capability_lease(

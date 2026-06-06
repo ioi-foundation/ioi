@@ -7,6 +7,10 @@ import {
 import {
   runtimeUsageTelemetrySummary,
 } from "../usage-telemetry.mjs";
+import {
+  CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+  createCodingToolBudgetRunnerFromEnv,
+} from "../runtime-coding-tool-budget-runner.mjs";
 
 export function contextBudgetUsageTelemetryFromRequest(request = {}) {
   return contextBudgetFirstObject(
@@ -22,6 +26,7 @@ export function codingToolBudgetPolicyForRequest({
   toolCallId = null,
   workflowGraphId = null,
   workflowNodeId = null,
+  budgetRunner = createCodingToolBudgetRunnerFromEnv(),
 } = {}) {
   const codingPack = codingToolBudgetConfigForRequest(request);
   const usageTelemetry = contextBudgetFirstObject(
@@ -81,29 +86,23 @@ export function codingToolBudgetPolicyForRequest({
         codingPack.budgetMode,
     ) ?? "simulate",
   );
-  return evaluateContextBudgetPolicy({
-    usageTelemetry,
-    request: {
-      ...request,
-      mode,
-      thresholds,
-      scope: "thread",
-      threadId,
-      thread_id: threadId,
-      toolId,
-      tool_id: toolId,
-      toolCallId,
-      tool_call_id: toolCallId,
-      workflowGraphId,
-      workflow_graph_id: workflowGraphId,
-      workflowNodeId,
-      workflow_node_id: workflowNodeId,
-      source: operatorControlSource(request.source),
-      eventKind: "RuntimeCodingToolBudget.Evaluate",
-      event_kind: "RuntimeCodingToolBudget.Evaluate",
-      componentKind: "coding_tool",
-      component_kind: "coding_tool",
+  return budgetRunner.evaluateBudgetPolicy({
+    schema_version: CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+    usage_telemetry: usageTelemetry,
+    thresholds: {
+      max_total_tokens: thresholds.max_total_tokens,
+      max_cost_usd: thresholds.max_cost_usd,
+      max_context_pressure: thresholds.max_context_pressure,
+      warn_at_ratio: thresholds.warn_at_ratio,
     },
+    mode,
+    scope: "thread",
+    thread_id: threadId,
+    tool_id: toolId,
+    tool_call_id: toolCallId,
+    workflow_graph_id: workflowGraphId,
+    workflow_node_id: workflowNodeId,
+    source: operatorControlSource(request.source),
   });
 }
 

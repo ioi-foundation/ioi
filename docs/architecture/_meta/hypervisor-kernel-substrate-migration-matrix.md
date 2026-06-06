@@ -12087,6 +12087,13 @@ by Slice 337: `codingToolEffectRequiresApproval` and
 daemon constructor wiring, and focused tests after Rust authority planning
 became the canonical gate.
 
+Slice 339 moves coding-tool budget preflight policy into Rust: the Rust
+`CodingToolBudgetPolicyCore` now evaluates canonical coding-tool usage
+telemetry, thresholds, warn/block mode, checks, policy decision refs, receipt
+refs, and block/warn status through `evaluate_coding_tool_budget_policy`; the
+daemon context-budget facade only shapes the canonical request and no longer
+owns the coding-tool budget gate decision.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

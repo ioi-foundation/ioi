@@ -20,6 +20,38 @@ const retiredContextBudgetUsageInputAliasKeys = [
   "runtime_telemetry_summary",
 ];
 
+function budgetRunnerMock({ capture = null } = {}) {
+  return {
+    evaluateBudgetPolicy(request) {
+      capture?.(request);
+      return {
+        schema_version: "ioi.runtime.context-budget-policy.v1",
+        object: "ioi.runtime_context_budget_policy",
+        source: "rust_coding_tool_budget_policy_command",
+        backend: "rust_policy",
+        status: request.usage_telemetry.total_tokens > request.thresholds.max_total_tokens ? "blocked" : "warn",
+        mode: request.mode,
+        scope: request.scope,
+        thread_id: request.thread_id,
+        workflow_graph_id: request.workflow_graph_id,
+        workflow_node_id: request.workflow_node_id,
+        event_kind: "RuntimeCodingToolBudget.Evaluate",
+        component_kind: "coding_tool",
+        usage_telemetry: request.usage_telemetry,
+        usage_summary: { total_tokens: request.usage_telemetry.total_tokens },
+        policy_decision_id: "policy_context_budget_thread_mock",
+        policy_decision: { status: "warn" },
+        receipt_refs: ["receipt_context_budget_thread_mock"],
+        policy_decision_refs: ["policy_context_budget_thread_mock"],
+        warnings: [],
+        violations: [],
+        would_block: false,
+        summary: "Context budget warning: total tokens near or over limit.",
+      };
+    },
+  };
+}
+
 test("context budget telemetry and thresholds normalize canonical request fields", () => {
   const telemetry = { total_tokens: 12, estimated_cost_usd: 0.02, context_pressure: 0.3 };
   assert.equal(contextBudgetUsageTelemetryFromRequest({ usage_telemetry: telemetry }), telemetry);
@@ -148,6 +180,7 @@ test("context budget usage summary ignores retired data aliases", () => {
 });
 
 test("coding tool budget policy reads canonical tool pack fields and annotates runtime context", () => {
+  let capturedRequest = null;
   const result = codingToolBudgetPolicyForRequest({
     request: {
       source: "react_flow",
@@ -171,8 +204,18 @@ test("coding tool budget policy reads canonical tool pack fields and annotates r
     toolCallId: "call-1",
     workflowGraphId: "graph-1",
     workflowNodeId: "node-1",
+    budgetRunner: budgetRunnerMock({
+      capture: (request) => {
+        capturedRequest = request;
+      },
+    }),
   });
 
+  assert.equal(capturedRequest.schema_version, "ioi.runtime.coding-tool-budget-policy-request.v1");
+  assert.equal(capturedRequest.usage_telemetry.total_tokens, 90);
+  assert.equal(capturedRequest.thresholds.max_total_tokens, 100);
+  assert.equal(capturedRequest.thresholds.warn_at_ratio, 0.8);
+  assert.equal(capturedRequest.mode, "warn");
   assert.equal(result.status, "warn");
   assert.equal(result.event_kind, "RuntimeCodingToolBudget.Evaluate");
   assert.equal(result.scope, "thread");

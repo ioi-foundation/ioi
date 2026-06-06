@@ -16,6 +16,9 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountProviderInvocationRequest, ModelMountProviderLifecycleRequest,
     ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRequest,
 };
+use ioi_services::agentic::runtime::kernel::policy::{
+    CodingToolBudgetPolicyCore, CodingToolBudgetPolicyRequest,
+};
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
     AcceptedReceiptAppendIssuer, AcceptedReceiptAppendRequest, ReceiptBinder,
@@ -267,6 +270,16 @@ struct CodingToolApprovalBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct CodingToolBudgetPolicyBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: CodingToolBudgetPolicyRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -435,6 +448,11 @@ fn run_bridge() -> Result<Value, BridgeError> {
             let request: CodingToolApprovalBridgeRequest = serde_json::from_value(raw_request)
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_coding_tool_approval_manifest(request)
+        }
+        "evaluate_coding_tool_budget_policy" => {
+            let request: CodingToolBudgetPolicyBridgeRequest = serde_json::from_value(raw_request)
+                .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            evaluate_coding_tool_budget_policy(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -1423,6 +1441,48 @@ fn plan_coding_tool_approval_manifest(
         "workflow_policy": plan.workflow_policy.clone(),
         "manifest": plan.manifest.clone(),
         "input_hash": plan.input_hash.clone(),
+    }))
+}
+
+fn evaluate_coding_tool_budget_policy(
+    request: CodingToolBudgetPolicyBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "evaluate_coding_tool_budget_policy" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = CodingToolBudgetPolicyCore
+        .evaluate(&request.request)
+        .map_err(|error| {
+            BridgeError::new("coding_tool_budget_policy_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_coding_tool_budget_policy_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "mode": record.mode.clone(),
+        "usage_telemetry": record.usage_telemetry.clone(),
+        "usage_summary": record.usage_summary.clone(),
+        "policy_decision_id": record.policy_decision_id.clone(),
+        "policy_decision": record.policy_decision.clone(),
+        "receipt_refs": record.receipt_refs.clone(),
+        "policy_decision_refs": record.policy_decision_refs.clone(),
+        "warnings": record.warnings.clone(),
+        "violations": record.violations.clone(),
+        "would_block": record.would_block,
+        "summary": record.summary.clone(),
     }))
 }
 
@@ -5436,6 +5496,53 @@ mod tests {
             .as_str()
             .expect("input hash")
             .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn bridge_evaluates_coding_tool_budget_policy_through_rust_core() {
+        let request: CodingToolBudgetPolicyBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "evaluate_coding_tool_budget_policy",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.coding-tool-budget-policy-request.v1",
+                "usage_telemetry": {
+                    "total_tokens": 120,
+                    "estimated_cost_usd": 0.03,
+                    "context_pressure": 0.2
+                },
+                "thresholds": {
+                    "max_total_tokens": 100,
+                    "warn_at_ratio": 0.8
+                },
+                "mode": "block",
+                "scope": "thread",
+                "thread_id": "thread_budget",
+                "tool_id": "file.inspect",
+                "tool_call_id": "call_budget",
+                "workflow_graph_id": "graph_budget",
+                "workflow_node_id": "node_budget",
+                "source": "react_flow"
+            }
+        }))
+        .expect("coding-tool budget bridge request");
+
+        let response = evaluate_coding_tool_budget_policy(request)
+            .expect("coding-tool budget policy evaluated");
+
+        assert_eq!(response["source"], "rust_coding_tool_budget_policy_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "blocked");
+        assert_eq!(response["usage_summary"]["total_tokens"], 120.0);
+        assert_eq!(response["violations"][0]["id"], "total_tokens");
+        assert!(response["policy_decision_id"]
+            .as_str()
+            .expect("policy decision")
+            .starts_with("policy_context_budget_thread_"));
+        assert_eq!(
+            response["policy_decision_refs"][0],
+            response["policy_decision_id"]
+        );
     }
 
     #[test]
