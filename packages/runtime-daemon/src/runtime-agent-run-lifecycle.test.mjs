@@ -50,6 +50,7 @@ function fakeStore() {
 }
 
 function deps(overrides = {}) {
+  const { statePlannerCalls = [], ...rest } = overrides;
   return {
     approvalModeForThreadMode: (threadMode) => (threadMode === "agent" ? "on-request" : "read-only"),
     buildRun({ agent, mode, prompt, request, source, modelRoute, memory, skillHookCatalog, diagnosticsFeedback }) {
@@ -65,8 +66,28 @@ function deps(overrides = {}) {
         skillHookCatalog,
         diagnosticsFeedback,
         status: "completed",
+        createdAt: "2026-06-06T05:30:00.000Z",
+        updatedAt: "2026-06-06T05:30:00.000Z",
         trace: { taskState: { currentObjective: prompt } },
       };
+    },
+    contextPolicyRunner: {
+      planAgentCreateStateUpdate(request = {}) {
+        statePlannerCalls.push({ operation: "plan_agent_create_state_update", request });
+        return {
+          status: "planned",
+          operation_kind: "agent.create",
+          agent: request.agent,
+        };
+      },
+      planRunCreateStateUpdate(request = {}) {
+        statePlannerCalls.push({ operation: "plan_run_create_state_update", request });
+        return {
+          status: "planned",
+          operation_kind: "run.create",
+          run: request.run,
+        };
+      },
     },
     ensureProviderAvailable(runtime, options) {
       if (runtime !== "local" && !options.hostedEndpoint) {
@@ -102,7 +123,7 @@ function deps(overrides = {}) {
     }),
     threadIdForAgent: (agentId) => `thread.${agentId}`,
     threadModeForRunMode: (mode, fallback) => (mode === "send" ? "agent" : fallback ?? "ask"),
-    ...overrides,
+    ...rest,
   };
 }
 
@@ -119,6 +140,7 @@ function assertMissingKeys(record, keys) {
 
 test("createAgent resolves runtime, model route, controls, MCP registry, and persists agent", () => {
   const store = fakeStore();
+  const statePlannerCalls = [];
 
   const agent = createAgent(
     store,
@@ -128,7 +150,7 @@ test("createAgent resolves runtime, model route, controls, MCP registry, and per
       mcpServers: { docs: {} },
       mode: "agent",
     },
-    deps(),
+    deps({ statePlannerCalls }),
   );
 
   assert.equal(agent.id, "agent_uuid-1");
@@ -140,6 +162,8 @@ test("createAgent resolves runtime, model route, controls, MCP registry, and per
   assert.deepEqual(agent.options.mcpServerNames, ["docs"]);
   assert.equal(store.agents.get(agent.id), agent);
   assert.equal(store.writes[0].operationKind, "agent.create");
+  assert.equal(statePlannerCalls[0].operation, "plan_agent_create_state_update");
+  assert.equal(statePlannerCalls[0].request.agent.id, "agent_uuid-1");
   assert.deepEqual(store.resolveModelRouteCall.context.evidenceRefs, ["runtime_agent_model_route"]);
 });
 
@@ -154,7 +178,9 @@ test("createAgent preserves hosted provider availability failures", () => {
 
 test("createRun resolves route, memory, skill catalog, usage telemetry, and persists run", () => {
   const store = fakeStore();
-  const agent = createAgent(store, { local: { cwd: "/workspace/project" } }, deps());
+  const statePlannerCalls = [];
+  const testDeps = deps({ statePlannerCalls });
+  const agent = createAgent(store, { local: { cwd: "/workspace/project" } }, testDeps);
 
   const run = createRun(
     store,
@@ -165,7 +191,7 @@ test("createRun resolves route, memory, skill catalog, usage telemetry, and pers
       approval_mode: "manual",
       diagnostics_feedback: { diagnosticStatus: "clean" },
     },
-    deps(),
+    testDeps,
   );
 
   assert.equal(run.id, "run.test");
@@ -188,4 +214,6 @@ test("createRun resolves route, memory, skill catalog, usage telemetry, and pers
   assert.equal(store.skillHookCatalogCwd, "/workspace/project");
   assert.equal(store.runs.get(run.id), run);
   assert.equal(store.writes.at(-1).operationKind, "run.create");
+  assert.equal(statePlannerCalls.at(-1).operation, "plan_run_create_state_update");
+  assert.equal(statePlannerCalls.at(-1).request.run.id, "run.test");
 });

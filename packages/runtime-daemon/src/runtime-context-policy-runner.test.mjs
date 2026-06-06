@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
@@ -12,6 +13,7 @@ import {
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RustContextPolicyRunner,
   THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -740,6 +742,112 @@ test("thread control agent state update runner sends Rust state update bridge re
   assert.equal(result.operation_kind, "thread.thinking");
   assert.equal(result.control.eventId, "evt_thread_control");
   assert.equal(result.agent.modelId, "local-model");
+});
+
+test("agent create state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_agent_create_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "agent.create",
+            created_at: "2026-06-06T05:15:00.000Z",
+            updated_at: "2026-06-06T05:15:00.000Z",
+            agent: {
+              id: "agent_create_one",
+              status: "active",
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planAgentCreateStateUpdate({
+    agent: {
+      id: "agent_create_one",
+      status: "active",
+      createdAt: "2026-06-06T05:15:00.000Z",
+      updatedAt: "2026-06-06T05:15:00.000Z",
+    },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_agent_create_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.agent.id, "agent_create_one");
+  assert.equal(result.source, "rust_agent_create_state_update_command");
+  assert.equal(result.operation_kind, "agent.create");
+  assert.equal(result.agent.id, "agent_create_one");
+});
+
+test("run create state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_run_create_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "run.create",
+            created_at: "2026-06-06T05:16:00.000Z",
+            updated_at: "2026-06-06T05:16:00.000Z",
+            run: {
+              id: "run_create_one",
+              agentId: "agent_create_one",
+              usage_telemetry: { total_tokens: 7 },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planRunCreateStateUpdate({
+    run: {
+      id: "run_create_one",
+      agentId: "agent_create_one",
+      status: "completed",
+      mode: "send",
+      createdAt: "2026-06-06T05:16:00.000Z",
+      updatedAt: "2026-06-06T05:16:00.000Z",
+      usage: { total_tokens: 7 },
+      usage_telemetry: { total_tokens: 7 },
+      trace: { usage_telemetry: { total_tokens: 7 } },
+    },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_run_create_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.run.id, "run_create_one");
+  assert.equal(result.source, "rust_run_create_state_update_command");
+  assert.equal(result.operation_kind, "run.create");
+  assert.equal(result.run.usage_telemetry.total_tokens, 7);
 });
 
 test("context policy runner fails closed without bridge command", () => {

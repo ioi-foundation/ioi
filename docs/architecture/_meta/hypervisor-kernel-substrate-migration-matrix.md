@@ -12218,6 +12218,14 @@ still appends the runtime control event and resolves admitted model routes, then
 persists only the Rust-planned agent record instead of constructing the final
 agent mutation in JS.
 
+Slice 355 moves agent/run create state-update planning into Rust:
+`AgentCreateStateUpdateCore` and `RunCreateStateUpdateCore` now validate and
+own the final `agent.create` and `run.create` records, including required ids,
+timestamps, runtimeControls, and canonical run usage telemetry fields through
+`plan_agent_create_state_update` and `plan_run_create_state_update`; the daemon
+run lifecycle helper still assembles the draft from admitted route/memory/skill
+inputs, then persists only the Rust-planned create record.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

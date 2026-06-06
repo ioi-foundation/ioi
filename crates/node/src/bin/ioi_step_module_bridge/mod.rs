@@ -20,6 +20,7 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
+    AgentCreateStateUpdateCore, AgentCreateStateUpdateRequest,
     CodingToolBudgetRecoveryStateUpdateCore, CodingToolBudgetRecoveryStateUpdateRequest,
     CompactionPolicyCore, CompactionPolicyRequest, ContextBudgetPolicyCore,
     ContextBudgetPolicyRequest, ContextCompactionPlanCore, ContextCompactionPlanRequest,
@@ -27,8 +28,8 @@ use ioi_services::agentic::runtime::kernel::policy::{
     DiagnosticsOperatorOverrideStateUpdateCore, DiagnosticsOperatorOverrideStateUpdateRequest,
     OperatorInterruptStateUpdateCore, OperatorInterruptStateUpdateRequest,
     OperatorSteerStateUpdateCore, OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore,
-    RunCancelStateUpdateRequest, ThreadControlAgentStateUpdateCore,
-    ThreadControlAgentStateUpdateRequest,
+    RunCancelStateUpdateRequest, RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
+    ThreadControlAgentStateUpdateCore, ThreadControlAgentStateUpdateRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -411,6 +412,26 @@ struct ThreadControlAgentStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct AgentCreateStateUpdateBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: AgentCreateStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct RunCreateStateUpdateBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: RunCreateStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -659,6 +680,16 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_thread_control_agent_state_update(request)
+        }
+        "plan_agent_create_state_update" => {
+            let request: AgentCreateStateUpdateBridgeRequest = serde_json::from_value(raw_request)
+                .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_agent_create_state_update(request)
+        }
+        "plan_run_create_state_update" => {
+            let request: RunCreateStateUpdateBridgeRequest = serde_json::from_value(raw_request)
+                .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_run_create_state_update(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -2195,6 +2226,76 @@ fn plan_thread_control_agent_state_update(
         "updated_at": record.updated_at.clone(),
         "control": record.control.clone(),
         "agent": record.agent.clone(),
+    }))
+}
+
+fn plan_agent_create_state_update(
+    request: AgentCreateStateUpdateBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_agent_create_state_update" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = AgentCreateStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new("agent_create_state_update_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_agent_create_state_update_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "created_at": record.created_at.clone(),
+        "updated_at": record.updated_at.clone(),
+        "agent": record.agent.clone(),
+    }))
+}
+
+fn plan_run_create_state_update(
+    request: RunCreateStateUpdateBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_run_create_state_update" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = RunCreateStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new("run_create_state_update_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_run_create_state_update_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "created_at": record.created_at.clone(),
+        "updated_at": record.updated_at.clone(),
+        "run": record.run.clone(),
     }))
 }
 
@@ -6966,6 +7067,84 @@ mod tests {
         );
         assert_eq!(response["agent"]["modelId"], "local-model");
         assert_eq!(response["agent"]["modelRouteReceiptId"], "receipt_route_1");
+    }
+
+    #[test]
+    fn bridge_plans_agent_create_state_update_through_rust_core() {
+        let request: AgentCreateStateUpdateBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_agent_create_state_update",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.agent-create-state-update-request.v1",
+                "agent": {
+                    "id": "agent_create_bridge",
+                    "status": "active",
+                    "runtime": "local",
+                    "cwd": "/workspace",
+                    "runtimeControls": {
+                        "mode": "agent"
+                    },
+                    "createdAt": "2026-06-06T05:15:00.000Z",
+                    "updatedAt": "2026-06-06T05:15:00.000Z"
+                }
+            }
+        }))
+        .expect("agent create state update bridge request");
+
+        let response =
+            plan_agent_create_state_update(request).expect("agent create state update planned");
+
+        assert_eq!(response["source"], "rust_agent_create_state_update_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "agent.create");
+        assert_eq!(response["agent"]["id"], "agent_create_bridge");
+    }
+
+    #[test]
+    fn bridge_plans_run_create_state_update_through_rust_core() {
+        let request: RunCreateStateUpdateBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_run_create_state_update",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.run-create-state-update-request.v1",
+                "run": {
+                    "id": "run_create_bridge",
+                    "agentId": "agent_create_bridge",
+                    "status": "completed",
+                    "mode": "send",
+                    "createdAt": "2026-06-06T05:16:00.000Z",
+                    "updatedAt": "2026-06-06T05:16:00.000Z",
+                    "usage": {
+                        "total_tokens": 7
+                    },
+                    "usage_telemetry": {
+                        "total_tokens": 7
+                    },
+                    "trace": {
+                        "usage_telemetry": {
+                            "total_tokens": 7
+                        }
+                    }
+                }
+            }
+        }))
+        .expect("run create state update bridge request");
+
+        let response =
+            plan_run_create_state_update(request).expect("run create state update planned");
+
+        assert_eq!(response["source"], "rust_run_create_state_update_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "run.create");
+        assert_eq!(response["run"]["id"], "run_create_bridge");
+        assert_eq!(
+            response["run"]["trace"]["usage_telemetry"]["total_tokens"],
+            7
+        );
     }
 
     #[test]

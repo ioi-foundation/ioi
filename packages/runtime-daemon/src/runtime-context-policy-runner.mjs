@@ -19,6 +19,10 @@ export const RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.run-cancel-state-update-request.v1";
 export const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.thread-control-agent-state-update-request.v1";
+export const AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.agent-create-state-update-request.v1";
+export const RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.run-create-state-update-request.v1";
 export const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.compaction-policy-request.v1";
 export const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION =
@@ -130,6 +134,22 @@ export class RustContextPolicyRunner {
     return normalizeThreadControlAgentStateUpdateBridgeResult(this.evaluateRawPolicy({
       operation: "plan_thread_control_agent_state_update",
       schemaVersion: THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planAgentCreateStateUpdate(request = {}) {
+    return normalizeAgentCreateStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_agent_create_state_update",
+      schemaVersion: AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planRunCreateStateUpdate(request = {}) {
+    return normalizeRunCreateStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_run_create_state_update",
+      schemaVersion: RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -490,6 +510,46 @@ export function normalizeThreadControlAgentStateUpdateBridgeResult(value = {}) {
     control:
       objectRecord(result.control) ?? objectRecord(record.control) ?? null,
     agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
+  };
+}
+
+export function normalizeAgentCreateStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_agent_create_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "planned",
+    operation_kind:
+      optionalString(result.operation_kind ?? record.operation_kind) ??
+      "agent.create",
+    created_at: optionalString(result.created_at ?? record.created_at) ?? null,
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
+  };
+}
+
+export function normalizeRunCreateStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_run_create_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "planned",
+    operation_kind:
+      optionalString(result.operation_kind ?? record.operation_kind) ??
+      "run.create",
+    created_at: optionalString(result.created_at ?? record.created_at) ?? null,
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
   };
 }
 

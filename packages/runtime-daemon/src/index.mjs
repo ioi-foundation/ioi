@@ -905,6 +905,7 @@ export class AgentgresRuntimeStateStore {
 
   createAgent(options = {}) {
     return createAgentState(this, options, {
+      contextPolicyRunner: this.contextPolicyRunner,
       ensureProviderAvailable,
       initialThreadRuntimeControls,
       mcpRegistryForWorkspace,
@@ -938,6 +939,7 @@ export class AgentgresRuntimeStateStore {
     return createRunState(this, agentId, request, {
       approvalModeForThreadMode,
       buildRun,
+      contextPolicyRunner: this.contextPolicyRunner,
       ensureProviderAvailable,
       runtimeUsageTelemetryForRun,
       threadIdForAgent,

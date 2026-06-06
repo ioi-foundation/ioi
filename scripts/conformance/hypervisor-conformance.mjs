@@ -595,6 +595,14 @@ function runBridge() {
   const runtimeRunCancellationTest = exists("packages/runtime-daemon/src/runtime-run-cancellation.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-cancellation.test.mjs")
     : "";
+  const runtimeAgentRunLifecycle = exists("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
+    : "";
+  const runtimeAgentRunLifecycleTest = exists(
+    "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs")
+    : "";
   const threadRuntimeControls = exists("packages/runtime-daemon/src/threads/thread-runtime-controls.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-runtime-controls.mjs")
     : "";
@@ -1394,6 +1402,52 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 9/10 is pending: thread-control agent state updates must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "agent-run-create-state-update-live-bridge",
+    /AgentCreateStateUpdateCore/.test(policyCore) &&
+      /RunCreateStateUpdateCore/.test(policyCore) &&
+      /AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_agent_create_state_update/.test(policyCore) &&
+      /rust_policy_plans_run_create_state_update/.test(policyCore) &&
+      /plan_agent_create_state_update/.test(bridgeModule) &&
+      /plan_run_create_state_update/.test(bridgeModule) &&
+      /AgentCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /RunCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_agent_create_state_update_command/.test(bridgeModule) &&
+      /rust_run_create_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_agent_create_state_update_through_rust_core/.test(bridgeModule) &&
+      /bridge_plans_run_create_state_update_through_rust_core/.test(bridgeModule) &&
+      /planAgentCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planRunCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /agent create state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /run create state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /contextPolicyRunner\.planAgentCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      /contextPolicyRunner\.planRunCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      !/store\.agents\.set\(agent\.id,\s*agent\)|store\.runs\.set\(runtimeRun\.id,\s*runtimeRun\)/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+      /plan_agent_create_state_update/.test(runtimeAgentRunLifecycleTest) &&
+      /plan_run_create_state_update/.test(runtimeAgentRunLifecycleTest),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 9/10 is pending: agent/run create state updates must be planned by Rust policy core through the command bridge",
   );
   assertCheck(
     result,

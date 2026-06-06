@@ -5,6 +5,7 @@ import { runtimeUsageTelemetryForRun } from "./usage-telemetry.mjs";
 
 export function createAgent(store, options = {}, deps = {}) {
   const {
+    contextPolicyRunner,
     ensureProviderAvailable,
     initialThreadRuntimeControls,
     mcpRegistryForWorkspace,
@@ -42,15 +43,24 @@ export function createAgent(store, options = {}, deps = {}) {
     updatedAt: now,
     options: summarizeAgentOptions(cwd, options),
   };
-  store.agents.set(agent.id, agent);
-  store.writeAgent(agent, "agent.create");
-  return agent;
+  if (typeof contextPolicyRunner?.planAgentCreateStateUpdate !== "function") {
+    throw new Error("Agent creation requires Rust policy state-update planning.");
+  }
+  const stateUpdate = contextPolicyRunner.planAgentCreateStateUpdate({ agent });
+  const plannedAgent = stateUpdate.agent;
+  if (!plannedAgent?.id) {
+    throw new Error("Rust policy state-update planning did not return an agent record.");
+  }
+  store.agents.set(plannedAgent.id, plannedAgent);
+  store.writeAgent(plannedAgent, stateUpdate.operation_kind ?? "agent.create");
+  return plannedAgent;
 }
 
 export function createRun(store, agentId, request = {}, deps = {}) {
   const {
     approvalModeForThreadMode,
     buildRun,
+    contextPolicyRunner,
     ensureProviderAvailable,
     runtimeUsageTelemetryForRun: usageForRun = runtimeUsageTelemetryForRun,
     threadIdForAgent,
@@ -104,7 +114,15 @@ export function createRun(store, agentId, request = {}, deps = {}) {
       usage_telemetry: usageTelemetry,
     },
   };
-  store.runs.set(runtimeRun.id, runtimeRun);
-  store.writeRun(runtimeRun, "run.create");
-  return runtimeRun;
+  if (typeof contextPolicyRunner?.planRunCreateStateUpdate !== "function") {
+    throw new Error("Run creation requires Rust policy state-update planning.");
+  }
+  const stateUpdate = contextPolicyRunner.planRunCreateStateUpdate({ run: runtimeRun });
+  const plannedRun = stateUpdate.run;
+  if (!plannedRun?.id) {
+    throw new Error("Rust policy state-update planning did not return a run record.");
+  }
+  store.runs.set(plannedRun.id, plannedRun);
+  store.writeRun(plannedRun, stateUpdate.operation_kind ?? "run.create");
+  return plannedRun;
 }

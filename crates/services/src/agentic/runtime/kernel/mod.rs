@@ -75,12 +75,14 @@ use model_mount::{
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use policy::{
-    CodingToolBudgetRecoveryStateUpdateCore, CodingToolBudgetRecoveryStateUpdateError,
-    CodingToolBudgetRecoveryStateUpdateRecord, CodingToolBudgetRecoveryStateUpdateRequest,
-    CompactionPolicyCore, CompactionPolicyError, CompactionPolicyRecord, CompactionPolicyRequest,
-    ContextBudgetPolicyCore, ContextBudgetPolicyError, ContextBudgetPolicyRecord,
-    ContextBudgetPolicyRequest, ContextCompactionPlanCore, ContextCompactionPlanError,
-    ContextCompactionPlanRecord, ContextCompactionPlanRequest, ContextCompactionStateUpdateCore,
+    AgentCreateStateUpdateCore, AgentCreateStateUpdateError, AgentCreateStateUpdateRecord,
+    AgentCreateStateUpdateRequest, CodingToolBudgetRecoveryStateUpdateCore,
+    CodingToolBudgetRecoveryStateUpdateError, CodingToolBudgetRecoveryStateUpdateRecord,
+    CodingToolBudgetRecoveryStateUpdateRequest, CompactionPolicyCore, CompactionPolicyError,
+    CompactionPolicyRecord, CompactionPolicyRequest, ContextBudgetPolicyCore,
+    ContextBudgetPolicyError, ContextBudgetPolicyRecord, ContextBudgetPolicyRequest,
+    ContextCompactionPlanCore, ContextCompactionPlanError, ContextCompactionPlanRecord,
+    ContextCompactionPlanRequest, ContextCompactionStateUpdateCore,
     ContextCompactionStateUpdateError, ContextCompactionStateUpdateRecord,
     ContextCompactionStateUpdateRequest, DiagnosticsOperatorOverrideStateUpdateCore,
     DiagnosticsOperatorOverrideStateUpdateError, DiagnosticsOperatorOverrideStateUpdateRecord,
@@ -89,7 +91,8 @@ use policy::{
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
     OperatorSteerStateUpdateError, OperatorSteerStateUpdateRecord, OperatorSteerStateUpdateRequest,
     RunCancelStateUpdateCore, RunCancelStateUpdateError, RunCancelStateUpdateRecord,
-    RunCancelStateUpdateRequest, ThreadControlAgentStateUpdateCore,
+    RunCancelStateUpdateRequest, RunCreateStateUpdateCore, RunCreateStateUpdateError,
+    RunCreateStateUpdateRecord, RunCreateStateUpdateRequest, ThreadControlAgentStateUpdateCore,
     ThreadControlAgentStateUpdateError, ThreadControlAgentStateUpdateRecord,
     ThreadControlAgentStateUpdateRequest,
 };
@@ -245,6 +248,20 @@ impl RuntimeKernelService {
         request: &ThreadControlAgentStateUpdateRequest,
     ) -> Result<ThreadControlAgentStateUpdateRecord, ThreadControlAgentStateUpdateError> {
         ThreadControlAgentStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_agent_create_state_update(
+        &self,
+        request: &AgentCreateStateUpdateRequest,
+    ) -> Result<AgentCreateStateUpdateRecord, AgentCreateStateUpdateError> {
+        AgentCreateStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_run_create_state_update(
+        &self,
+        request: &RunCreateStateUpdateRequest,
+    ) -> Result<RunCreateStateUpdateRecord, RunCreateStateUpdateError> {
+        RunCreateStateUpdateCore.plan(request)
     }
 
     pub fn issue_capability_lease(

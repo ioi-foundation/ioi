@@ -33,6 +33,14 @@ pub const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-control-agent-state-update-request.v1";
 pub const THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-control-agent-state-update.v1";
+pub const AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.agent-create-state-update-request.v1";
+pub const AGENT_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.agent-create-state-update.v1";
+pub const RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.run-create-state-update-request.v1";
+pub const RUN_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.run-create-state-update.v1";
 pub const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.compaction-policy-request.v1";
 pub const COMPACTION_POLICY_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.compaction-policy.v1";
@@ -169,6 +177,24 @@ pub enum ThreadControlAgentStateUpdateError {
     },
     MissingField(&'static str),
     UnsupportedControlKind(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AgentCreateStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RunCreateStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -722,6 +748,45 @@ pub struct ThreadControlAgentStateUpdateRecord {
     pub updated_at: String,
     pub control: Value,
     pub agent: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentCreateStateUpdateRequest {
+    pub schema_version: String,
+    pub agent: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentCreateStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub agent_id: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub agent: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RunCreateStateUpdateRequest {
+    pub schema_version: String,
+    pub run: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RunCreateStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    pub run_id: String,
+    pub agent_id: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub run: Value,
     pub generated_at: String,
 }
 
@@ -2009,6 +2074,75 @@ impl ThreadControlAgentStateUpdateCore {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct AgentCreateStateUpdateCore;
+
+impl AgentCreateStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &AgentCreateStateUpdateRequest,
+    ) -> Result<AgentCreateStateUpdateRecord, AgentCreateStateUpdateError> {
+        request.validate()?;
+        let agent = object_value(&request.agent)
+            .ok_or(AgentCreateStateUpdateError::MissingField("agent"))?;
+        let agent_value = Value::Object(agent.clone());
+        let agent_id = optional_json_string(&agent_value, "id")
+            .ok_or(AgentCreateStateUpdateError::MissingField("agent.id"))?;
+        let created_at = optional_json_string(&agent_value, "createdAt")
+            .ok_or(AgentCreateStateUpdateError::MissingField("agent.createdAt"))?;
+        let updated_at = optional_json_string(&agent_value, "updatedAt")
+            .ok_or(AgentCreateStateUpdateError::MissingField("agent.updatedAt"))?;
+
+        Ok(AgentCreateStateUpdateRecord {
+            schema_version: AGENT_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_agent_create_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: "agent.create".to_string(),
+            agent_id,
+            created_at,
+            updated_at,
+            agent: Value::Object(agent),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct RunCreateStateUpdateCore;
+
+impl RunCreateStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &RunCreateStateUpdateRequest,
+    ) -> Result<RunCreateStateUpdateRecord, RunCreateStateUpdateError> {
+        request.validate()?;
+        let run =
+            object_value(&request.run).ok_or(RunCreateStateUpdateError::MissingField("run"))?;
+        let run_value = Value::Object(run.clone());
+        let run_id = optional_json_string(&run_value, "id")
+            .ok_or(RunCreateStateUpdateError::MissingField("run.id"))?;
+        let agent_id = optional_json_string(&run_value, "agentId")
+            .ok_or(RunCreateStateUpdateError::MissingField("run.agentId"))?;
+        let created_at = optional_json_string(&run_value, "createdAt")
+            .ok_or(RunCreateStateUpdateError::MissingField("run.createdAt"))?;
+        let updated_at = optional_json_string(&run_value, "updatedAt")
+            .ok_or(RunCreateStateUpdateError::MissingField("run.updatedAt"))?;
+
+        Ok(RunCreateStateUpdateRecord {
+            schema_version: RUN_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_run_create_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: "run.create".to_string(),
+            run_id,
+            agent_id,
+            created_at,
+            updated_at,
+            run: Value::Object(run),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
 impl CompactionPolicyRequest {
     pub fn validate(&self) -> Result<(), CompactionPolicyError> {
         if self.schema_version != COMPACTION_POLICY_REQUEST_SCHEMA_VERSION {
@@ -2264,6 +2398,89 @@ impl ThreadControlAgentStateUpdateRequest {
         if control_kind != "mode" && self.model_route.as_ref().and_then(object_value).is_none() {
             return Err(ThreadControlAgentStateUpdateError::MissingField(
                 "model_route",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl AgentCreateStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), AgentCreateStateUpdateError> {
+        if self.schema_version != AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(AgentCreateStateUpdateError::InvalidSchemaVersion {
+                expected: AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        let agent =
+            object_value(&self.agent).ok_or(AgentCreateStateUpdateError::MissingField("agent"))?;
+        let agent_value = Value::Object(agent);
+        for field in ["id", "status", "runtime", "cwd", "createdAt", "updatedAt"] {
+            if optional_json_string(&agent_value, field).is_none() {
+                return Err(AgentCreateStateUpdateError::MissingField(match field {
+                    "id" => "agent.id",
+                    "status" => "agent.status",
+                    "runtime" => "agent.runtime",
+                    "cwd" => "agent.cwd",
+                    "createdAt" => "agent.createdAt",
+                    "updatedAt" => "agent.updatedAt",
+                    _ => "agent",
+                }));
+            }
+        }
+        if !agent_value
+            .get("runtimeControls")
+            .is_some_and(Value::is_object)
+        {
+            return Err(AgentCreateStateUpdateError::MissingField(
+                "agent.runtimeControls",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl RunCreateStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), RunCreateStateUpdateError> {
+        if self.schema_version != RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(RunCreateStateUpdateError::InvalidSchemaVersion {
+                expected: RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        let run = object_value(&self.run).ok_or(RunCreateStateUpdateError::MissingField("run"))?;
+        let run_value = Value::Object(run);
+        for field in ["id", "agentId", "status", "mode", "createdAt", "updatedAt"] {
+            if optional_json_string(&run_value, field).is_none() {
+                return Err(RunCreateStateUpdateError::MissingField(match field {
+                    "id" => "run.id",
+                    "agentId" => "run.agentId",
+                    "status" => "run.status",
+                    "mode" => "run.mode",
+                    "createdAt" => "run.createdAt",
+                    "updatedAt" => "run.updatedAt",
+                    _ => "run",
+                }));
+            }
+        }
+        if !run_value.get("usage").is_some_and(Value::is_object) {
+            return Err(RunCreateStateUpdateError::MissingField("run.usage"));
+        }
+        if !run_value
+            .get("usage_telemetry")
+            .is_some_and(Value::is_object)
+        {
+            return Err(RunCreateStateUpdateError::MissingField(
+                "run.usage_telemetry",
+            ));
+        }
+        let trace = run_value
+            .get("trace")
+            .and_then(Value::as_object)
+            .ok_or(RunCreateStateUpdateError::MissingField("run.trace"))?;
+        if !trace.get("usage_telemetry").is_some_and(Value::is_object) {
+            return Err(RunCreateStateUpdateError::MissingField(
+                "run.trace.usage_telemetry",
             ));
         }
         Ok(())
@@ -3475,6 +3692,50 @@ mod tests {
         }
     }
 
+    fn agent_create_state_update_request() -> AgentCreateStateUpdateRequest {
+        AgentCreateStateUpdateRequest {
+            schema_version: AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            agent: json!({
+                "id": "agent_create_one",
+                "status": "active",
+                "runtime": "local",
+                "cwd": "/workspace",
+                "modelId": "local-model",
+                "runtimeControls": {
+                    "mode": "agent",
+                    "approvalMode": "suggest"
+                },
+                "createdAt": "2026-06-06T05:15:00.000Z",
+                "updatedAt": "2026-06-06T05:15:00.000Z"
+            }),
+        }
+    }
+
+    fn run_create_state_update_request() -> RunCreateStateUpdateRequest {
+        RunCreateStateUpdateRequest {
+            schema_version: RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            run: json!({
+                "id": "run_create_one",
+                "agentId": "agent_create_one",
+                "status": "completed",
+                "mode": "send",
+                "createdAt": "2026-06-06T05:16:00.000Z",
+                "updatedAt": "2026-06-06T05:16:00.000Z",
+                "usage": {
+                    "total_tokens": 7
+                },
+                "usage_telemetry": {
+                    "total_tokens": 7
+                },
+                "trace": {
+                    "usage_telemetry": {
+                        "total_tokens": 7
+                    }
+                }
+            }),
+        }
+    }
+
     #[test]
     fn rust_policy_blocks_context_budget_excess() {
         let mut request = budget_request();
@@ -3995,6 +4256,43 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_plans_agent_create_state_update() {
+        let record = AgentCreateStateUpdateCore
+            .plan(&agent_create_state_update_request())
+            .expect("agent create state update");
+
+        assert_eq!(
+            record.schema_version,
+            AGENT_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "agent.create");
+        assert_eq!(record.agent_id, "agent_create_one");
+        assert_eq!(record.created_at, "2026-06-06T05:15:00.000Z");
+        assert_eq!(record.updated_at, "2026-06-06T05:15:00.000Z");
+        assert_eq!(record.agent["runtimeControls"]["mode"], "agent");
+    }
+
+    #[test]
+    fn rust_policy_plans_run_create_state_update() {
+        let record = RunCreateStateUpdateCore
+            .plan(&run_create_state_update_request())
+            .expect("run create state update");
+
+        assert_eq!(
+            record.schema_version,
+            RUN_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "run.create");
+        assert_eq!(record.run_id, "run_create_one");
+        assert_eq!(record.agent_id, "agent_create_one");
+        assert_eq!(record.created_at, "2026-06-06T05:16:00.000Z");
+        assert_eq!(record.run["usage_telemetry"]["total_tokens"], 7);
+        assert_eq!(record.run["trace"]["usage_telemetry"]["total_tokens"], 7);
+    }
+
+    #[test]
     fn rust_policy_rejects_invalid_context_compaction_plan_schema() {
         let mut request = context_compaction_plan_request();
         request.schema_version = "legacy.schema".to_string();
@@ -4133,6 +4431,42 @@ mod tests {
             error,
             ThreadControlAgentStateUpdateError::InvalidSchemaVersion {
                 expected: THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_agent_create_state_update_schema() {
+        let mut request = agent_create_state_update_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = AgentCreateStateUpdateCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            AgentCreateStateUpdateError::InvalidSchemaVersion {
+                expected: AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_run_create_state_update_schema() {
+        let mut request = run_create_state_update_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = RunCreateStateUpdateCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            RunCreateStateUpdateError::InvalidSchemaVersion {
+                expected: RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );
