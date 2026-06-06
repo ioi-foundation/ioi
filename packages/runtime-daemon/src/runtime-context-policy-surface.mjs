@@ -62,6 +62,33 @@ export function createRuntimeContextPolicySurface({
     return updatedAgent;
   }
 
+  function plannedContextCompactionOperationKind(stateUpdate, threadId, targetId, targetKind) {
+    const operationKind = optionalStringDep(stateUpdate.operation_kind);
+    if (!operationKind) {
+      throw runtimeError({
+        status: 502,
+        code: "context_compaction_state_update_operation_kind_missing",
+        message: "Rust context compaction state planning did not return an operation kind.",
+        details: { threadId, targetId, targetKind, operationKind: "thread.compact" },
+      });
+    }
+    if (operationKind !== "thread.compact") {
+      throw runtimeError({
+        status: 502,
+        code: "context_compaction_state_update_operation_kind_mismatch",
+        message: "Rust context compaction state planning returned an unexpected operation kind.",
+        details: {
+          threadId,
+          targetId,
+          targetKind,
+          expectedOperationKind: "thread.compact",
+          operationKind,
+        },
+      });
+    }
+    return operationKind;
+  }
+
   return {
     compactThread(store, threadId, request = {}) {
       const agent = store.agentForThread(threadId);
@@ -135,13 +162,25 @@ export function createRuntimeContextPolicySurface({
       });
       if (latestRun) {
         const updated = plannedContextCompactionRunRecord(stateUpdate, threadId, latestRun.id);
+        const operationKind = plannedContextCompactionOperationKind(
+          stateUpdate,
+          threadId,
+          latestRun.id,
+          "run",
+        );
         store.runs.set(latestRun.id, updated);
-        store.writeRun(updated, stateUpdate.operation_kind ?? "thread.compact");
+        store.writeRun(updated, operationKind);
         return store.threadForAgent(agent);
       }
       const updatedAgent = plannedContextCompactionAgentRecord(stateUpdate, threadId, agent.id);
+      const operationKind = plannedContextCompactionOperationKind(
+        stateUpdate,
+        threadId,
+        agent.id,
+        "agent",
+      );
       store.agents.set(updatedAgent.id, updatedAgent);
-      store.writeAgent(updatedAgent, stateUpdate.operation_kind ?? "thread.compact");
+      store.writeAgent(updatedAgent, operationKind);
       return store.threadForAgent(updatedAgent);
     },
 

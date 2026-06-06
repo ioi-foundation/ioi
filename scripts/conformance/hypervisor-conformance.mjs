@@ -1862,13 +1862,20 @@ function runBridge() {
       ) &&
       /plannedContextCompactionRunRecord/.test(runtimeContextPolicySurface) &&
       /plannedContextCompactionAgentRecord/.test(runtimeContextPolicySurface) &&
+      /plannedContextCompactionOperationKind/.test(runtimeContextPolicySurface) &&
       /planContextCompactionStateUpdate/.test(runtimeContextPolicySurfaceTest) &&
       /context policy surface fails closed without Rust-planned compaction target records/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /context policy surface fails closed without Rust-planned compaction operation kind/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
       !/appendOperatorControlDep|contextCompaction:\s*\{/.test(runtimeContextPolicySurface) &&
       !/stateUpdate\.run\s*\?\?\s*latestRun/.test(runtimeContextPolicySurface) &&
       !/stateUpdate\.agent\s*\?\?\s*\{\s*\.\.\.agent,\s*updatedAt: event\.created_at\s*\}/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"thread\.compact"/.test(
         runtimeContextPolicySurface,
       ),
     [

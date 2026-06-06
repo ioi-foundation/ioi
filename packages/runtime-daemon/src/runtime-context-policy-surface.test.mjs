@@ -465,3 +465,54 @@ test("context policy surface fails closed without Rust-planned compaction target
   );
   assert.equal(agentHarness.calls.some((call) => call.name === "writeAgent"), false);
 });
+
+test("context policy surface fails closed without Rust-planned compaction operation kind", () => {
+  const runHarness = harness({
+    compactionStateUpdate: {
+      status: "planned",
+      target_kind: "run",
+      run: {
+        id: "run-one",
+        agentId: "agent-one",
+        trace: {},
+      },
+      agent: null,
+    },
+  });
+
+  assert.throws(
+    () => runHarness.surface.compactThread(runHarness.store, "thread-agent-one", {}),
+    (error) => {
+      assert.equal(error.details?.code, "context_compaction_state_update_operation_kind_missing");
+      assert.equal(error.details?.details.operationKind, "thread.compact");
+      return true;
+    },
+  );
+  assert.equal(runHarness.calls.some((call) => call.name === "writeRun"), false);
+  assert.equal(runHarness.store.runs.get("run-one").trace.contextCompaction, undefined);
+
+  const agentHarness = harness({
+    compactionStateUpdate: {
+      status: "planned",
+      target_kind: "agent",
+      run: null,
+      agent: {
+        id: "agent-one",
+        cwd: "/workspace",
+        updatedAt: "2026-06-06T00:00:00.000Z",
+      },
+    },
+  });
+  agentHarness.store.runs.clear();
+
+  assert.throws(
+    () => agentHarness.surface.compactThread(agentHarness.store, "thread-agent-one", {}),
+    (error) => {
+      assert.equal(error.details?.code, "context_compaction_state_update_operation_kind_missing");
+      assert.equal(error.details?.details.operationKind, "thread.compact");
+      return true;
+    },
+  );
+  assert.equal(agentHarness.calls.some((call) => call.name === "writeAgent"), false);
+  assert.equal(agentHarness.store.agents.get("agent-one").updatedAt, undefined);
+});

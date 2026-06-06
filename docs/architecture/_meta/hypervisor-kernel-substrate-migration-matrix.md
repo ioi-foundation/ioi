@@ -12360,6 +12360,11 @@ to return `thread.runtime_bridge.start` and `turn.runtime_bridge.submit`
 exactly before the daemon persists those records, rather than substituting
 JS-side bridge operation kinds.
 
+Slice 379 removes context-compaction operation-kind fallbacks: run-target and
+runless-agent compaction updates now require the Rust compaction state planner
+to return `thread.compact` before the daemon persists the selected target,
+rather than substituting the JS-side compaction operation kind.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
