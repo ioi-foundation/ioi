@@ -20,43 +20,31 @@ export function createDiagnosticsFeedbackHelpers({
   uniqueStrings,
 } = {}) {
   function postEditDiagnosticsConfig(request = {}, input = {}) {
-    const packRoot = request.toolPack ?? request.tool_pack ?? request.options?.toolPack ?? request.options?.tool_pack ?? {};
+    const packRoot = request.tool_pack ?? request.options?.tool_pack ?? {};
     const pack = packRoot?.coding ?? packRoot;
     const repairPolicyConfig = diagnosticsRepairPolicyConfig(request, input);
     const mode = normalizeDiagnosticsMode(
-      request.diagnosticsMode ??
-        request.diagnostics_mode ??
-        input.diagnosticsMode ??
+      request.diagnostics_mode ??
         input.diagnostics_mode ??
-        pack.diagnosticsMode ??
         pack.diagnostics_mode ??
-        pack.diagnosticMode ??
         pack.diagnostic_mode ??
         "advisory",
     );
     return {
       mode,
       commandId: optionalString(
-        request.diagnosticCommandId ??
-          request.diagnostic_command_id ??
-          input.diagnosticCommandId ??
+        request.diagnostic_command_id ??
           input.diagnostic_command_id ??
-          pack.defaultDiagnosticCommandId ??
           pack.default_diagnostic_command_id,
       ) ?? "auto",
       cwd: optionalString(input.cwd ?? request.cwd) ?? ".",
       timeoutMs:
-        input.diagnosticTimeoutMs ??
         input.diagnostic_timeout_ms ??
-        request.diagnosticTimeoutMs ??
         request.diagnostic_timeout_ms ??
-        pack.timeoutMs ??
         pack.timeout_ms ??
         30000,
       maxOutputBytes:
-        input.diagnosticMaxOutputBytes ??
         input.diagnostic_max_output_bytes ??
-        request.diagnosticMaxOutputBytes ??
         request.diagnostic_max_output_bytes ??
         4096,
       repairPolicyConfig,

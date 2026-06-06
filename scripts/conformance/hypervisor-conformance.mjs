@@ -13328,6 +13328,46 @@ function runCompositor() {
 	    ],
 	    "Phase 10/11 is pending: diagnostics repair policy contexts must canonicalize snake_case repair context fields without preserving retired camelCase aliases",
 	  );
+  const postEditDiagnosticsConfigBody =
+    diagnosticsFeedback.match(
+      /  function postEditDiagnosticsConfig\(request = \{\}, input = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsRepairRetryFeedback)/,
+    )?.[0] ?? "";
+  assertCheck(
+    result,
+    "diagnostics-feedback-post-edit-config-aliases-retired",
+    /request\.tool_pack/.test(postEditDiagnosticsConfigBody) &&
+      /request\.options\?\.tool_pack/.test(postEditDiagnosticsConfigBody) &&
+      /request\.diagnostics_mode/.test(postEditDiagnosticsConfigBody) &&
+      /input\.diagnostics_mode/.test(postEditDiagnosticsConfigBody) &&
+      /request\.diagnostic_command_id/.test(postEditDiagnosticsConfigBody) &&
+      /input\.diagnostic_command_id/.test(postEditDiagnosticsConfigBody) &&
+      /request\.diagnostic_timeout_ms/.test(postEditDiagnosticsConfigBody) &&
+      /input\.diagnostic_timeout_ms/.test(postEditDiagnosticsConfigBody) &&
+      /request\.diagnostic_max_output_bytes/.test(postEditDiagnosticsConfigBody) &&
+      /input\.diagnostic_max_output_bytes/.test(postEditDiagnosticsConfigBody) &&
+      !/\b(?:request|input)\.(?:toolPack|diagnosticsMode|diagnosticCommandId|diagnosticTimeoutMs|diagnosticMaxOutputBytes)\b/.test(
+        postEditDiagnosticsConfigBody,
+      ) &&
+      !/\brequest\.options\?\.(?:toolPack|diagnosticsMode|diagnosticCommandId|diagnosticTimeoutMs|diagnosticMaxOutputBytes)\b/.test(
+        postEditDiagnosticsConfigBody,
+      ) &&
+      !/\bpack\.(?:diagnosticsMode|diagnosticMode|defaultDiagnosticCommandId|timeoutMs)\b/.test(
+        postEditDiagnosticsConfigBody,
+      ) &&
+      /post-edit diagnostics config ignores retired request and input aliases/.test(
+        diagnosticsFeedbackTest,
+      ) &&
+      /diagnosticsMode:\s*"fail"/.test(diagnosticsFeedbackTest) &&
+      /diagnosticCommandId:\s*"alias\.command"/.test(diagnosticsFeedbackTest) &&
+      /diagnosticTimeoutMs:\s*1/.test(diagnosticsFeedbackTest) &&
+      /diagnosticMaxOutputBytes:\s*2/.test(diagnosticsFeedbackTest) &&
+      /toolPack:\s*\{/.test(diagnosticsFeedbackTest),
+    [
+      "packages/runtime-daemon/src/diagnostics-feedback.mjs",
+      "packages/runtime-daemon/src/diagnostics-feedback.test.mjs",
+    ],
+    "Phase 10/11 is pending: post-edit diagnostics config must use canonical snake_case request, input, and tool_pack fields without retired camelCase fallbacks",
+  );
 	  const diagnosticsRepairRetryFeedbackBody =
 	    diagnosticsFeedback.match(
 	      /  function diagnosticsRepairRetryFeedback\(\{[\s\S]*?(?=\n  function compactDiagnosticsFeedback)/,

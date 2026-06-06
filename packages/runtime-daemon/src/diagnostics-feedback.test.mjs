@@ -83,6 +83,41 @@ test("post-edit diagnostics config normalizes command and repair policy aliases"
   assert.equal(config.repairPolicyConfig.operatorOverrideRequiresApproval, false);
 });
 
+test("post-edit diagnostics config ignores retired request and input aliases", () => {
+  const runtime = helpers();
+
+  const config = runtime.postEditDiagnosticsConfig({
+    diagnosticsMode: "fail",
+    diagnosticCommandId: "alias.command",
+    diagnosticTimeoutMs: 1,
+    diagnosticMaxOutputBytes: 2,
+    toolPack: {
+      coding: {
+        diagnosticsMode: "blocking",
+        diagnosticMode: "fail",
+        defaultDiagnosticCommandId: "alias.pack.command",
+        timeoutMs: 3,
+      },
+    },
+    options: {
+      toolPack: {
+        diagnosticsMode: "skip",
+        defaultDiagnosticCommandId: "alias.options.command",
+      },
+    },
+  }, {
+    diagnosticsMode: "blocking",
+    diagnosticCommandId: "alias.input.command",
+    diagnosticTimeoutMs: 4,
+    diagnosticMaxOutputBytes: 5,
+  });
+
+  assert.equal(config.mode, "advisory");
+  assert.equal(config.commandId, "auto");
+  assert.equal(config.timeoutMs, 30000);
+  assert.equal(config.maxOutputBytes, 4096);
+});
+
 test("compact diagnostics feedback emits canonical envelope and bounded prompt context", () => {
   const runtime = helpers();
   const feedback = runtime.compactDiagnosticsFeedback({
