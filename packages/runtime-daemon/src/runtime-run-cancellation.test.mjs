@@ -83,13 +83,13 @@ function artifact(runId, name, mediaType, receiptId, content, redaction) {
   };
 }
 
-function deps(calls = []) {
+function deps(calls = [], stateUpdate = null) {
   return {
     now: () => "2026-06-06T04:45:00.000Z",
     contextPolicyRunner: {
       planRunCancelStateUpdate(request = {}) {
         calls.push({ operation: "plan_run_cancel_state_update", input: request });
-        return {
+        return stateUpdate ?? {
           status: "planned",
           operation_kind: "run.cancel",
           run: plannedCancellationRun(request.run, request.canceled_at),
@@ -404,4 +404,30 @@ test("cancelRun appends runtime task and checklist events when missing", () => {
   assert.equal(updated.runtimeTask.selectedStrategy, "daemon_dry_run_before_effect");
   assert.equal(updated.runtimeJob.eventCount, 5);
   assert.equal(updated.runtimeJob.terminalEventCount, 1);
+});
+
+test("cancelRun fails closed without Rust-planned run record", () => {
+  const run = {
+    id: "run_cancel_missing_plan",
+    agentId: "agent_one",
+    status: "running",
+    objective: "Cancel without a planner result",
+    mode: "send",
+    createdAt: "2026-06-04T00:00:00.000Z",
+    updatedAt: "2026-06-04T00:00:01.000Z",
+    events: [],
+    trace: { events: [], receipts: [], qualityLedger: {} },
+    receipts: [],
+    artifacts: [],
+  };
+  const state = fakeState(run);
+  const calls = [];
+
+  assert.throws(
+    () => cancelRun(state, run.id, deps(calls, { status: "planned", operation_kind: "run.cancel", run: null })),
+    (error) => error.code === "run_cancel_state_update_planner_invalid",
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(state.writes.length, 0);
+  assert.equal(state.runs.get(run.id), run);
 });

@@ -1386,10 +1386,13 @@ function runBridge() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /contextPolicyRunner\.planRunCancelStateUpdate/.test(runtimeRunCancellation) &&
+      /plannedRunCancelRecord/.test(runtimeRunCancellation) &&
       !/runtimeTaskRecord|runtimeJobRecord|runtimeChecklistRecord|makeEvent|artifact\(/.test(
         runtimeRunCancellation,
       ) &&
+      !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeRunCancellation) &&
       /plan_run_cancel_state_update/.test(runtimeRunCancellationTest) &&
+      /cancelRun fails closed without Rust-planned run record/.test(runtimeRunCancellationTest) &&
       /contextPolicyRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",

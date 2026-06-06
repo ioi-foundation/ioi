@@ -12254,6 +12254,12 @@ operator-override run mutation; the diagnostics repair surface now fails closed
 when Rust planning omits the run record instead of persisting the pre-override
 run as a fallback.
 
+Slice 360 retires run-cancel state-update fallback in JS:
+`RunCancelStateUpdateCore` remains the owner of canceled run status, terminal
+continuity, runtime task/job/checklist projections, and cancellation receipts;
+the daemon cancellation helper now fails closed when Rust planning omits the
+run record instead of persisting the original run as a fallback.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
