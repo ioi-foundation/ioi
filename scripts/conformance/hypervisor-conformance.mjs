@@ -3824,6 +3824,12 @@ function runBridge() {
       /workspace restore runner surfaces Rust policy rejection/.test(
         workspaceRestoreRunnerTest,
       ) &&
+      /Object\.hasOwn\(result,\s*field\),\s*false/.test(workspaceRestoreRunnerTest) &&
+      /Object\.hasOwn\(operations\[0\],\s*field\),\s*false/.test(workspaceRestoreRunnerTest) &&
+      /Object\.hasOwn\(capture,\s*field\),\s*false/.test(workspaceRestoreRunnerTest) &&
+      !/^\s*(?:allowConflicts|conflictPolicy|hardBlocked|conflictBlocked|policyStatus|applyStatus|policyDecisionRefs|operationPolicies|operationPolicyByPath|contentFiles|capturedFileCount|omittedFileCount|contentCaptured|receiptRefs|artifactRefs|contentHash|sizeBytes|mtimeMs|contentBytes|omittedReason|currentExists|currentHash|currentBytes|targetExists|targetHash|snapshotAfterExists|snapshotAfterHash|currentMatchesSnapshotPost|currentMatchesRestoreTarget|blockedReason|diffBytes|diffHash|diffTruncated|applyReason|appliedExists|appliedHash|appliedBytes|appliedMatchesTarget|errorMessage):/m.test(
+        workspaceRestoreRunner,
+      ) &&
       /workspaceRestoreRunner/.test(runtimeWorkspaceSnapshotSurface) &&
       /planWorkspaceRestoreApplyPolicy/.test(runtimeWorkspaceSnapshotSurface) &&
       /previewWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&

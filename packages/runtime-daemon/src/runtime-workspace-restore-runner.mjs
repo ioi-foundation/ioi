@@ -178,29 +178,16 @@ export function normalizeWorkspaceRestorePolicyBridgeResult(value = {}) {
       satisfied: Boolean(approval.satisfied),
       source: optionalString(approval.source) ?? "missing",
     },
-    allowConflicts: Boolean(result.allow_conflicts ?? plan.allow_conflicts),
     allow_conflicts: Boolean(result.allow_conflicts ?? plan.allow_conflicts),
-    conflictPolicy: optionalString(result.conflict_policy ?? plan.conflict_policy) ?? "clean_preview_only",
     conflict_policy: optionalString(result.conflict_policy ?? plan.conflict_policy) ?? "clean_preview_only",
-    hardBlocked: Boolean(result.hard_blocked ?? plan.hard_blocked),
     hard_blocked: Boolean(result.hard_blocked ?? plan.hard_blocked),
-    conflictBlocked: Boolean(result.conflict_blocked ?? plan.conflict_blocked),
     conflict_blocked: Boolean(result.conflict_blocked ?? plan.conflict_blocked),
-    policyStatus: optionalString(result.policy_status ?? plan.policy_status) ?? "blocked",
     policy_status: optionalString(result.policy_status ?? plan.policy_status) ?? "blocked",
-    applyStatus: optionalString(result.apply_status ?? plan.apply_status) ?? null,
     apply_status: optionalString(result.apply_status ?? plan.apply_status) ?? null,
-    policyDecisionRefs,
     policy_decision_refs: policyDecisionRefs,
-    operationPolicies,
     operation_policies: operationPolicies,
     summary: optionalString(result.summary ?? plan.summary) ?? null,
   };
-  normalized.operationPolicyByPath = new Map(
-    operationPolicies
-      .map((entry) => [optionalString(entry.path), optionalString(entry.apply_reason ?? entry.applyReason)])
-      .filter(([path, reason]) => path && reason),
-  );
   return normalized;
 }
 
@@ -225,13 +212,9 @@ export function normalizeWorkspaceSnapshotCaptureBridgeResult(value = {}) {
     source: result.source ?? "rust_workspace_snapshot_capture_command",
     backend: result.backend ?? RUST_WORKSPACE_RESTORE_BACKEND,
     files,
-    contentFiles,
     content_files: contentFiles,
-    capturedFileCount,
     captured_file_count: capturedFileCount,
-    omittedFileCount,
     omitted_file_count: omittedFileCount,
-    contentCaptured: Boolean(result.content_captured ?? capture.content_captured),
     content_captured: Boolean(result.content_captured ?? capture.content_captured),
   };
 }
@@ -311,9 +294,7 @@ function normalizeSnapshotCapturedFile(value) {
     changed: Boolean(record.changed),
     before: normalizeSnapshotCapturedSide(record.before),
     after: normalizeSnapshotCapturedSide(record.after),
-    receiptRefs: stringArray(record.receipt_refs ?? record.receiptRefs) ?? [],
     receipt_refs: stringArray(record.receipt_refs ?? record.receiptRefs) ?? [],
-    artifactRefs: stringArray(record.artifact_refs ?? record.artifactRefs) ?? [],
     artifact_refs: stringArray(record.artifact_refs ?? record.artifactRefs) ?? [],
     encoding: optionalString(record.encoding) ?? undefined,
   };
@@ -323,17 +304,11 @@ function normalizeSnapshotCapturedSide(value) {
   const side = objectRecord(value) ?? {};
   const normalized = {
     exists: Boolean(side.exists),
-    contentHash: optionalString(side.content_hash ?? side.contentHash),
     content_hash: optionalString(side.content_hash ?? side.contentHash),
-    sizeBytes: Number(side.size_bytes ?? side.sizeBytes ?? 0) || 0,
     size_bytes: Number(side.size_bytes ?? side.sizeBytes ?? 0) || 0,
-    mtimeMs: finiteNumber(side.mtime_ms ?? side.mtimeMs),
     mtime_ms: finiteNumber(side.mtime_ms ?? side.mtimeMs),
-    contentCaptured: Boolean(side.content_captured ?? side.contentCaptured),
     content_captured: Boolean(side.content_captured ?? side.contentCaptured),
-    contentBytes: Number(side.content_bytes ?? side.contentBytes ?? 0) || 0,
     content_bytes: Number(side.content_bytes ?? side.contentBytes ?? 0) || 0,
-    omittedReason: optionalString(side.omitted_reason ?? side.omittedReason),
     omitted_reason: optionalString(side.omitted_reason ?? side.omittedReason),
   };
   if (typeof side.content === "string") {
@@ -349,72 +324,48 @@ function normalizeWorkspaceRestoreOperation(value) {
     path: optionalString(record.path) ?? "unknown",
     operation: optionalString(record.operation) ?? "noop",
     status: optionalString(record.status) ?? "blocked",
-    currentExists: Boolean(record.current_exists ?? record.currentExists),
     current_exists: Boolean(record.current_exists ?? record.currentExists),
-    currentHash: optionalString(record.current_hash ?? record.currentHash),
     current_hash: optionalString(record.current_hash ?? record.currentHash),
-    currentBytes: Number(record.current_bytes ?? record.currentBytes ?? 0) || 0,
     current_bytes: Number(record.current_bytes ?? record.currentBytes ?? 0) || 0,
-    targetExists: Boolean(record.target_exists ?? record.targetExists),
     target_exists: Boolean(record.target_exists ?? record.targetExists),
-    targetHash: optionalString(record.target_hash ?? record.targetHash),
     target_hash: optionalString(record.target_hash ?? record.targetHash),
-    snapshotAfterExists: Boolean(record.snapshot_after_exists ?? record.snapshotAfterExists),
     snapshot_after_exists: Boolean(record.snapshot_after_exists ?? record.snapshotAfterExists),
-    snapshotAfterHash: optionalString(record.snapshot_after_hash ?? record.snapshotAfterHash),
     snapshot_after_hash: optionalString(record.snapshot_after_hash ?? record.snapshotAfterHash),
-    currentMatchesSnapshotPost: Boolean(
-      record.current_matches_snapshot_post ?? record.currentMatchesSnapshotPost,
-    ),
     current_matches_snapshot_post: Boolean(
       record.current_matches_snapshot_post ?? record.currentMatchesSnapshotPost,
-    ),
-    currentMatchesRestoreTarget: Boolean(
-      record.current_matches_restore_target ?? record.currentMatchesRestoreTarget,
     ),
     current_matches_restore_target: Boolean(
       record.current_matches_restore_target ?? record.currentMatchesRestoreTarget,
     ),
-    blockedReason: optionalString(record.blocked_reason ?? record.blockedReason),
     blocked_reason: optionalString(record.blocked_reason ?? record.blockedReason),
     diff: typeof record.diff === "string" ? record.diff : "",
-    diffBytes: Number(record.diff_bytes ?? record.diffBytes ?? 0) || 0,
     diff_bytes: Number(record.diff_bytes ?? record.diffBytes ?? 0) || 0,
-    diffHash: optionalString(record.diff_hash ?? record.diffHash) ?? null,
     diff_hash: optionalString(record.diff_hash ?? record.diffHash) ?? null,
-    diffTruncated: Boolean(record.diff_truncated ?? record.diffTruncated),
     diff_truncated: Boolean(record.diff_truncated ?? record.diffTruncated),
   };
   const applyStatus = optionalString(record.apply_status ?? record.applyStatus);
   if (applyStatus) {
-    normalized.applyStatus = applyStatus;
     normalized.apply_status = applyStatus;
   }
   const applyReason = optionalString(record.apply_reason ?? record.applyReason);
   if (applyReason) {
-    normalized.applyReason = applyReason;
     normalized.apply_reason = applyReason;
   }
   if (Object.hasOwn(record, "applied_exists") || Object.hasOwn(record, "appliedExists")) {
-    normalized.appliedExists = Boolean(record.applied_exists ?? record.appliedExists);
     normalized.applied_exists = Boolean(record.applied_exists ?? record.appliedExists);
   }
   const appliedHash = optionalString(record.applied_hash ?? record.appliedHash);
   if (appliedHash) {
-    normalized.appliedHash = appliedHash;
     normalized.applied_hash = appliedHash;
   }
   if (Object.hasOwn(record, "applied_bytes") || Object.hasOwn(record, "appliedBytes")) {
-    normalized.appliedBytes = Number(record.applied_bytes ?? record.appliedBytes ?? 0) || 0;
     normalized.applied_bytes = Number(record.applied_bytes ?? record.appliedBytes ?? 0) || 0;
   }
   if (Object.hasOwn(record, "applied_matches_target") || Object.hasOwn(record, "appliedMatchesTarget")) {
-    normalized.appliedMatchesTarget = Boolean(record.applied_matches_target ?? record.appliedMatchesTarget);
     normalized.applied_matches_target = Boolean(record.applied_matches_target ?? record.appliedMatchesTarget);
   }
   const errorMessage = optionalString(record.error_message ?? record.errorMessage);
   if (errorMessage) {
-    normalized.errorMessage = errorMessage;
     normalized.error_message = errorMessage;
   }
   return normalized;

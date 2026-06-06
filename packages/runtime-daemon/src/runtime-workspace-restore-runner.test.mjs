@@ -104,11 +104,24 @@ test("workspace restore runner sends apply policy bridge request", () => {
   assert.equal(calls[0].bridgeRequest.request.snapshot_id, "workspace_snapshot_alpha");
   assert.equal(result.source, "rust_workspace_restore_policy_command");
   assert.equal(result.approval.satisfied, true);
-  assert.equal(result.applyStatus, "applied");
-  assert.deepEqual(result.policyDecisionRefs, [
+  assert.equal(result.apply_status, "applied");
+  assert.deepEqual(result.policy_decision_refs, [
     "policy_workspace_restore_apply_workspace_snapshot_alpha_approval_satisfied",
   ]);
-  assert.equal(result.operationPolicyByPath.get("src/app.js"), "workspace_restore_apply_blocked_by_policy");
+  assert.equal(result.operation_policies[0].apply_reason, "workspace_restore_apply_blocked_by_policy");
+  for (const field of [
+    "allowConflicts",
+    "conflictPolicy",
+    "hardBlocked",
+    "conflictBlocked",
+    "policyStatus",
+    "applyStatus",
+    "policyDecisionRefs",
+    "operationPolicies",
+    "operationPolicyByPath",
+  ]) {
+    assert.equal(Object.hasOwn(result, field), false);
+  }
 });
 
 test("workspace restore runner sends preview operations bridge request", () => {
@@ -161,8 +174,25 @@ test("workspace restore runner sends preview operations bridge request", () => {
     WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(operations[0].status, "ready");
-  assert.equal(operations[0].currentExists, true);
+  assert.equal(operations[0].current_exists, true);
   assert.equal(operations[0].current_matches_snapshot_post, true);
+  for (const field of [
+    "currentExists",
+    "currentHash",
+    "currentBytes",
+    "targetExists",
+    "targetHash",
+    "snapshotAfterExists",
+    "snapshotAfterHash",
+    "currentMatchesSnapshotPost",
+    "currentMatchesRestoreTarget",
+    "blockedReason",
+    "diffBytes",
+    "diffHash",
+    "diffTruncated",
+  ]) {
+    assert.equal(Object.hasOwn(operations[0], field), false);
+  }
 });
 
 test("workspace restore runner sends apply operations bridge request", () => {
@@ -219,8 +249,19 @@ test("workspace restore runner sends apply operations bridge request", () => {
     calls[0].bridgeRequest.request.schema_version,
     WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(operations[0].applyStatus, "applied");
-  assert.equal(operations[0].appliedMatchesTarget, true);
+  assert.equal(operations[0].apply_status, "applied");
+  assert.equal(operations[0].applied_matches_target, true);
+  for (const field of [
+    "applyStatus",
+    "applyReason",
+    "appliedExists",
+    "appliedHash",
+    "appliedBytes",
+    "appliedMatchesTarget",
+    "errorMessage",
+  ]) {
+    assert.equal(Object.hasOwn(operations[0], field), false);
+  }
 });
 
 test("workspace restore runner sends snapshot capture bridge request", () => {
@@ -327,9 +368,25 @@ test("workspace restore runner sends snapshot capture bridge request", () => {
   );
   assert.equal(calls[0].bridgeRequest.request.changed_files[0].before_hash, "sha256-old");
   assert.equal(calls[0].bridgeRequest.request.content_drafts[0].before_content, "old");
-  assert.equal(capture.capturedFileCount, 1);
-  assert.equal(capture.files[0].before.contentHash, "sha256-old");
-  assert.equal(capture.contentFiles[0].before.content, "old");
+  assert.equal(capture.captured_file_count, 1);
+  assert.equal(capture.files[0].before.content_hash, "sha256-old");
+  assert.equal(capture.content_files[0].before.content, "old");
+  for (const field of ["contentFiles", "capturedFileCount", "omittedFileCount", "contentCaptured"]) {
+    assert.equal(Object.hasOwn(capture, field), false);
+  }
+  for (const field of ["receiptRefs", "artifactRefs"]) {
+    assert.equal(Object.hasOwn(capture.files[0], field), false);
+  }
+  for (const field of [
+    "contentHash",
+    "sizeBytes",
+    "mtimeMs",
+    "contentCaptured",
+    "contentBytes",
+    "omittedReason",
+  ]) {
+    assert.equal(Object.hasOwn(capture.files[0].before, field), false);
+  }
 });
 
 test("workspace restore runner can be configured from env", () => {

@@ -71,10 +71,10 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       contentDrafts: result.workspaceSnapshotDrafts ?? result.workspace_snapshot_drafts,
     });
     const files = capture.files;
-    const contentFiles = capture.contentFiles ?? capture.content_files ?? [];
+    const contentFiles = capture.content_files ?? [];
     if (!files.length) return null;
-    const capturedFileCount = Number(capture.capturedFileCount ?? capture.captured_file_count ?? 0) || 0;
-    const omittedFileCount = Number(capture.omittedFileCount ?? capture.omitted_file_count ?? 0) || 0;
+    const capturedFileCount = Number(capture.captured_file_count ?? 0) || 0;
+    const omittedFileCount = Number(capture.omitted_file_count ?? 0) || 0;
     const previewSupported = omittedFileCount === 0;
     const core = {
       schemaVersion: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
@@ -426,10 +426,10 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       operations: previewOperations,
     });
     const approval = gatePolicyPlan.approval;
-    const allowConflicts = Boolean(gatePolicyPlan.allowConflicts ?? gatePolicyPlan.allow_conflicts);
-    const conflictPolicy = gatePolicyPlan.conflictPolicy ?? gatePolicyPlan.conflict_policy ?? "clean_preview_only";
-    const hardBlocked = Boolean(gatePolicyPlan.hardBlocked ?? gatePolicyPlan.hard_blocked);
-    const conflictBlocked = Boolean(gatePolicyPlan.conflictBlocked ?? gatePolicyPlan.conflict_blocked);
+    const allowConflicts = Boolean(gatePolicyPlan.allow_conflicts);
+    const conflictPolicy = gatePolicyPlan.conflict_policy ?? "clean_preview_only";
+    const hardBlocked = Boolean(gatePolicyPlan.hard_blocked);
+    const conflictBlocked = Boolean(gatePolicyPlan.conflict_blocked);
     let operations = previewOperations.map((operation) => ({
       ...operation,
       applyStatus: "blocked",
@@ -452,16 +452,16 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       hardBlocked,
       conflictBlocked,
     });
-    const applyStatus = finalPolicyPlan.applyStatus ?? finalPolicyPlan.apply_status;
+    const applyStatus = finalPolicyPlan.apply_status;
     const previewStatus = counts.conflictCount || counts.blockedCount ? "blocked" : "ready";
     const policyDecisionRefs = normalizeArray(
-      finalPolicyPlan.policyDecisionRefs ?? finalPolicyPlan.policy_decision_refs,
+      finalPolicyPlan.policy_decision_refs,
     );
     const receiptId = `receipt_workspace_restore_apply_${safeId(normalizedSnapshotId)}_${doctorHash(
       JSON.stringify(operations.map((operation) => [
         operation.path,
-        operation.applyStatus ?? operation.apply_status,
-        operation.appliedHash ?? operation.applied_hash,
+        operation.apply_status,
+        operation.applied_hash,
       ])),
     ).slice(0, 12)}`;
     const artifactId = `artifact_workspace_restore_apply_${safeId(normalizedSnapshotId)}_${doctorHash(receiptId).slice(0, 12)}`;
@@ -615,7 +615,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     }
     const plan = workspaceRestoreRunner.planApplyPolicy(policyRequest);
     const approval = plan?.approval && typeof plan.approval === "object" ? plan.approval : null;
-    const applyStatus = plan?.applyStatus ?? plan?.apply_status;
+    const applyStatus = plan?.apply_status;
     if (!approval || typeof approval.satisfied !== "boolean") {
       throw runtimeError({
         status: 502,
@@ -698,7 +698,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
 
   function workspaceRestoreOperationApplyReason(policyPlan, operation) {
     const pathValue = optionalString(operation?.path);
-    const entries = normalizeArray(policyPlan?.operationPolicies ?? policyPlan?.operation_policies);
+    const entries = normalizeArray(policyPlan?.operation_policies);
     const policy = entries.find((entry) => optionalString(entry?.path) === pathValue);
     const reason = optionalString(policy?.applyReason ?? policy?.apply_reason);
     if (reason) return reason;
