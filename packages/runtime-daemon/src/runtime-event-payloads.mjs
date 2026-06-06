@@ -84,10 +84,14 @@ function payloadSummaryForRunEvent(event) {
     if (event.type === "memory_update") {
       return {
         ...summary,
-        event_kind: event.data?.eventKind ?? memoryEventKind(event.data?.operation),
+        event_kind: event.data?.event_kind ?? memoryEventKind(event.data?.operation),
         memory_operation: event.data?.operation ?? "write",
-        memory_record_id: event.data?.memoryRecordId ?? (event.data?.object === "ioi.agent_memory_record" ? event.data?.id : null),
-        memory_policy_id: event.data?.memoryPolicyId ?? (event.data?.object === "ioi.agent_memory_policy" ? event.data?.id : null),
+        memory_record_id:
+          event.data?.memory_record_id ??
+          (event.data?.object === "ioi.agent_memory_record" ? event.data?.id : null),
+        memory_policy_id:
+          event.data?.memory_policy_id ??
+          (event.data?.object === "ioi.agent_memory_policy" ? event.data?.id : null),
         subagent_name: event.data?.subagent_name ?? null,
         subagent_inheritance_mode: event.data?.mode ?? null,
         inherited_memory_count: normalizeArray(event.data?.inherited_record_ids).length,
@@ -95,7 +99,7 @@ function payloadSummaryForRunEvent(event) {
         write_block_reason: event.data?.write_block_reason ?? null,
         memory_scope: event.data?.scope ?? null,
         memory_thread_id: event.data?.thread_id ?? null,
-        workflow_node_id: event.data?.workflowNodeId ?? null,
+        workflow_node_id: event.data?.workflow_node_id ?? null,
         redaction: event.data?.redaction ?? "none",
       };
     }

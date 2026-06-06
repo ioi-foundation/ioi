@@ -23,6 +23,13 @@ const retiredComputerUseSummaryAliasKeys = [
   "authorityScopes",
 ];
 
+const retiredMemorySummaryAliasKeys = [
+  "eventKind",
+  "memoryRecordId",
+  "memoryPolicyId",
+  "workflowNodeId",
+];
+
 const retiredUsageSummaryReaderAliasKeys = [
   "eventKind",
   "schemaVersion",
@@ -158,21 +165,38 @@ test("runtime event payloads preserve computer-use and memory summaries", () => 
     runId: "run-one",
     agentId: "agent-one",
     data: {
+      event_kind: "MemoryPolicy.Canonical",
+      eventKind: "RetiredMemoryEventKind",
       operation: "policy_update",
       object: "ioi.agent_memory_policy",
       id: "policy-one",
+      memory_record_id: "memory-one",
+      memoryRecordId: "retired-memory",
+      memory_policy_id: "policy-one",
+      memoryPolicyId: "retired-policy",
       inherited_record_ids: ["memory-one", "memory-two"],
       write_allowed: false,
       write_block_reason: "approval_required",
+      workflow_node_id: "memory.node",
+      workflowNodeId: "retired.memory.node",
     },
   });
 
-  assert.equal(memory.event_kind, "MemoryPolicy");
+  assert.equal(memory.event_kind, "MemoryPolicy.Canonical");
   assert.equal(memory.memory_operation, "policy_update");
+  assert.equal(memory.memory_record_id, "memory-one");
   assert.equal(memory.memory_policy_id, "policy-one");
+  assert.equal(memory.workflow_node_id, "memory.node");
   assert.equal(memory.inherited_memory_count, 2);
   assert.equal(memory.write_allowed, false);
   assert.equal(memory.write_block_reason, "approval_required");
+  assert.notEqual(memory.event_kind, "RetiredMemoryEventKind");
+  assert.notEqual(memory.memory_record_id, "retired-memory");
+  assert.notEqual(memory.memory_policy_id, "retired-policy");
+  assert.notEqual(memory.workflow_node_id, "retired.memory.node");
+  for (const key of retiredMemorySummaryAliasKeys) {
+    assert.equal(Object.hasOwn(memory, key), false);
+  }
 });
 
 test("runtime event payloads consume canonical diagnostics injection and blocking gate fields", () => {

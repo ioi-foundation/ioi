@@ -9113,6 +9113,8 @@ function runCompositor() {
     : "";
   const runtimeComputerUsePayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(isComputerUseRunEventType\(event\.type\)\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimeMemoryUpdatePayloadSummaryBlock =
+    runtimeEventPayloads.match(/if \(event\.type === "memory_update"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeUsageEvents = exists("packages/runtime-daemon/src/runtime-usage-events.mjs")
     ? read("packages/runtime-daemon/src/runtime-usage-events.mjs")
     : "";
@@ -10606,9 +10608,30 @@ function runCompositor() {
       !/event\.data\?\.(?:eventKind|schemaVersion|workflowGraphId|workflowNodeId|workflowNodeIds|toolRef|authorityScopes)\b/.test(
         runtimeComputerUsePayloadSummaryBlock,
       ) &&
+      runtimeMemoryUpdatePayloadSummaryBlock.length > 0 &&
+      /event_kind:\s*event\.data\?\.event_kind \?\? memoryEventKind\(event\.data\?\.operation\)/.test(
+        runtimeMemoryUpdatePayloadSummaryBlock,
+      ) &&
+      /memory_record_id:\s*\n\s*event\.data\?\.memory_record_id \?\?/.test(
+        runtimeMemoryUpdatePayloadSummaryBlock,
+      ) &&
+      /memory_policy_id:\s*\n\s*event\.data\?\.memory_policy_id \?\?/.test(
+        runtimeMemoryUpdatePayloadSummaryBlock,
+      ) &&
+      /workflow_node_id:\s*event\.data\?\.workflow_node_id \?\? null/.test(
+        runtimeMemoryUpdatePayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.(?:eventKind|memoryRecordId|memoryPolicyId|workflowNodeId)\b/.test(
+        runtimeMemoryUpdatePayloadSummaryBlock,
+      ) &&
       /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
       /retiredComputerUseSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredMemorySummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredComputerUseEventKind"/.test(runtimeEventPayloadsTest) &&
+      /eventKind: "RetiredMemoryEventKind"/.test(runtimeEventPayloadsTest) &&
+      /memoryRecordId: "retired-memory"/.test(runtimeEventPayloadsTest) &&
+      /memoryPolicyId: "retired-policy"/.test(runtimeEventPayloadsTest) &&
+      /workflowNodeId: "retired\.memory\.node"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeIds: \["retired-node"\]/.test(runtimeEventPayloadsTest) &&
       /computerUse\.workflow_node_ids\.includes\("retired-node"\), false/.test(
         runtimeEventPayloadsTest,
