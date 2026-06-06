@@ -146,7 +146,7 @@ test("importMcpJson stores servers, emits receipts, and listMcpServers projects 
   const state = fakeState();
 
   const result = importMcpJson(state, {
-    mcpServers: {
+    mcp_servers: {
       Local: { command: "node", args: ["server.mjs"], allowed_tools: ["run"] },
       Remote: { url: "https://example.test/mcp", allowed_tools: ["search"] },
     },
@@ -164,6 +164,53 @@ test("importMcpJson stores servers, emits receipts, and listMcpServers projects 
   assert.equal(Object.hasOwn(state.receipts[0].payload.details, "importedAt"), false);
   assert.equal(state.writes.at(-1)[0], "mcp-servers");
   assert.deepEqual(listMcpServers(state, deps).map((server) => server.id), ["mcp.Local", "mcp.Remote"]);
+});
+
+test("importMcpJson rejects retired request aliases before state mutation", () => {
+  const state = fakeState();
+
+  assert.throws(
+    () =>
+      importMcpJson(state, {
+        mcpJson: {
+          servers: {
+            Local: { command: "node", args: ["server.mjs"] },
+          },
+        },
+        mcpServers: {
+          Remote: { url: "https://legacy.example.test/mcp" },
+        },
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_mcp_import_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["mcpJson", "mcpServers"]);
+      assert.deepEqual(error.details.canonical_fields, ["mcp_json", "mcp_servers", "servers"]);
+      return true;
+    },
+  );
+  assert.equal(state.mcpServers.size, 0);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.writes, []);
+
+  assert.throws(
+    () =>
+      importMcpJson(state, {
+        mcp_json: {
+          mcpServers: {
+            Local: { command: "node", args: ["server.mjs"] },
+          },
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "model_mount_mcp_import_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["mcp_json.mcpServers"]);
+      return true;
+    },
+  );
+  assert.equal(state.mcpServers.size, 0);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.writes, []);
 });
 
 test("invokeMcpTool enforces allowed tools and emits redacted fixture result", () => {

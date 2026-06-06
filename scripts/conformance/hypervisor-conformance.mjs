@@ -6320,6 +6320,8 @@ function runReceipts() {
   const mcpWorkflowOperationsTest = exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
     : "";
+  const mcpImportJsonBlock =
+    mcpWorkflowOperations.match(/export function importMcpJson[\s\S]*?function assertCanonicalMcpImportRequestBody/)?.[0] ?? "";
   const catalogHelpers = exists("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs")
     : "";
@@ -7191,6 +7193,31 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
     ],
     "Phase 9/11 is pending: MCP registration, import, tool invocation receipts, and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-mcp-import-request-aliases-retired",
+    /RETIRED_MCP_IMPORT_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
+      /CANONICAL_MCP_IMPORT_REQUEST_FIELDS/.test(mcpWorkflowOperations) &&
+      /assertCanonicalMcpImportRequestBody\(body\);/.test(mcpImportJsonBlock) &&
+      /const raw = body\.mcp_json \?\? body;/.test(mcpImportJsonBlock) &&
+      /const servers = raw\.mcp_servers \?\? raw\.servers \?\? \{\};/.test(mcpImportJsonBlock) &&
+      /model_mount_mcp_import_request_aliases_retired/.test(mcpWorkflowOperations) &&
+      /mcp_json\.mcpServers/.test(mcpWorkflowOperations) &&
+      !/body\.mcpJson\b/.test(mcpImportJsonBlock) &&
+      !/raw\.mcpServers\b/.test(mcpImportJsonBlock) &&
+      /importMcpJson rejects retired request aliases before state mutation/.test(
+        mcpWorkflowOperationsTest,
+      ) &&
+      /mcpJson:\s*\{/.test(mcpWorkflowOperationsTest) &&
+      /mcpServers:\s*\{/.test(mcpWorkflowOperationsTest) &&
+      /mcp_json:\s*\{[\s\S]*mcpServers:\s*\{/.test(mcpWorkflowOperationsTest) &&
+      /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(mcpWorkflowOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
+    ],
+    "Phase 10/11 is pending: model-mount MCP import requests must use canonical mcp_json/mcp_servers/servers without retired mcpJson/mcpServers aliases",
   );
   assertCheck(
     result,

@@ -11,6 +11,17 @@ const RETIRED_WORKFLOW_NODE_EXECUTION_REQUEST_ALIASES = [
   "workflowNodeType",
 ];
 
+const RETIRED_MCP_IMPORT_REQUEST_ALIASES = [
+  "mcpJson",
+  "mcpServers",
+];
+
+const CANONICAL_MCP_IMPORT_REQUEST_FIELDS = [
+  "mcp_json",
+  "mcp_servers",
+  "servers",
+];
+
 export function compileEphemeralMcpIntegrations(state, { authorization, body = {}, input }, deps = {}) {
   const {
     requiredString,
@@ -68,8 +79,9 @@ export function compileEphemeralMcpIntegrations(state, { authorization, body = {
 }
 
 export function importMcpJson(state, body = {}) {
-  const raw = body.mcp_json ?? body.mcpJson ?? body;
-  const servers = raw.mcpServers ?? raw.servers ?? {};
+  assertCanonicalMcpImportRequestBody(body);
+  const raw = body.mcp_json ?? body;
+  const servers = raw.mcp_servers ?? raw.servers ?? {};
   const imported = [];
   for (const [label, config] of Object.entries(servers)) {
     const server = state.normalizeMcpServer(label, config);
@@ -88,6 +100,23 @@ export function importMcpJson(state, body = {}) {
     count: imported.length,
     empty: imported.length === 0,
   };
+}
+
+function assertCanonicalMcpImportRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MCP_IMPORT_REQUEST_ALIASES.filter((field) => Object.prototype.hasOwnProperty.call(body, field));
+  const nestedRetiredAliases =
+    body.mcp_json && typeof body.mcp_json === "object" && Object.prototype.hasOwnProperty.call(body.mcp_json, "mcpServers")
+      ? ["mcp_json.mcpServers"]
+      : [];
+  if (retiredAliases.length === 0 && nestedRetiredAliases.length === 0) return;
+  const error = new Error("MCP import request uses retired compatibility aliases.");
+  error.status = 400;
+  error.code = "model_mount_mcp_import_request_aliases_retired";
+  error.details = {
+    retired_aliases: [...retiredAliases, ...nestedRetiredAliases],
+    canonical_fields: CANONICAL_MCP_IMPORT_REQUEST_FIELDS,
+  };
+  throw error;
 }
 
 export function normalizeMcpServer(state, label, config = {}, deps = {}) {
