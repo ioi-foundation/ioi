@@ -264,15 +264,15 @@ export class OAuthCredentialProvider {
   }
 
   async exchangeAuthorizationCode({ providerId, body = {} }) {
-    const sessionId = body.session_id ?? body.sessionId ?? `oauth_session.${safeId(providerId)}.${crypto.randomUUID()}`;
-    const tokenEndpointInput = requiredString(body.token_endpoint ?? body.tokenEndpoint, "token_endpoint");
-    const authorizationCode = requiredString(body.authorization_code ?? body.authorizationCode ?? body.code, "authorization_code");
+    const sessionId = body.session_id ?? `oauth_session.${safeId(providerId)}.${crypto.randomUUID()}`;
+    const tokenEndpointInput = requiredString(body.token_endpoint, "token_endpoint");
+    const authorizationCode = requiredString(body.authorization_code, "authorization_code");
     const scopes = normalizeOAuthScopes(body.scopes ?? body.scope, []);
-    const redirectUri = body.redirect_uri ?? body.redirectUri ?? null;
-    const clientIdInput = body.client_id ?? body.clientId ?? null;
-    const codeVerifierInput = body.code_verifier ?? body.codeVerifier ?? null;
-    const clientSecretVaultRef = body.client_secret_vault_ref ?? body.clientSecretVaultRef ?? null;
-    if (body.client_secret || body.clientSecret) {
+    const redirectUri = body.redirect_uri ?? null;
+    const clientIdInput = body.client_id ?? null;
+    const codeVerifierInput = body.code_verifier ?? null;
+    const clientSecretVaultRef = body.client_secret_vault_ref ?? null;
+    if (body.client_secret) {
       throw runtimeError({
         status: 403,
         code: "policy",
@@ -280,14 +280,14 @@ export class OAuthCredentialProvider {
         details: { client_secret: SECRET_REDACTION },
       });
     }
-    const tokenEndpointVaultRef = body.token_endpoint_vault_ref ?? body.tokenEndpointVaultRef ?? oauthSessionVaultRef(providerId, sessionId, "token-endpoint");
+    const tokenEndpointVaultRef = body.token_endpoint_vault_ref ?? oauthSessionVaultRef(providerId, sessionId, "token-endpoint");
     const tokenEndpointBinding = this.vault.bindVaultRef({
       vaultRef: tokenEndpointVaultRef,
       material: tokenEndpointInput,
       purpose: `oauth.token_endpoint:${providerId}`,
       label: `OAuth token endpoint for ${providerId}`,
     });
-    let clientIdVaultRef = body.client_id_vault_ref ?? body.clientIdVaultRef ?? null;
+    let clientIdVaultRef = body.client_id_vault_ref ?? null;
     let clientIdBinding = null;
     if (typeof clientIdInput === "string" && clientIdInput.trim()) {
       clientIdVaultRef = clientIdVaultRef ?? oauthSessionVaultRef(providerId, sessionId, "client-id");
@@ -324,17 +324,17 @@ export class OAuthCredentialProvider {
     const response = await fetchOAuthToken(tokenEndpointInput, payload);
     const tokenPayload = await parseOAuthTokenResponse(response);
     const now = this.now().toISOString();
-    const expiresAt = oauthExpiresAt(this.now(), tokenPayload.expires_in ?? tokenPayload.expiresIn);
-    const accessVaultRef = body.access_vault_ref ?? body.accessVaultRef ?? oauthSessionVaultRef(providerId, sessionId, "access-token");
+    const expiresAt = oauthExpiresAt(this.now(), tokenPayload.expires_in);
+    const accessVaultRef = body.access_vault_ref ?? oauthSessionVaultRef(providerId, sessionId, "access-token");
     const accessBinding = this.vault.bindVaultRef({
       vaultRef: accessVaultRef,
-      material: requiredString(tokenPayload.access_token ?? tokenPayload.accessToken, "access_token"),
+      material: requiredString(tokenPayload.access_token, "access_token"),
       purpose: `oauth.access_token:${providerId}`,
       label: `OAuth access token for ${providerId}`,
     });
-    const refreshToken = tokenPayload.refresh_token ?? tokenPayload.refreshToken ?? null;
+    const refreshToken = tokenPayload.refresh_token ?? null;
     const refreshVaultRef = refreshToken
-      ? body.refresh_vault_ref ?? body.refreshVaultRef ?? oauthSessionVaultRef(providerId, sessionId, "refresh-token")
+      ? body.refresh_vault_ref ?? oauthSessionVaultRef(providerId, sessionId, "refresh-token")
       : null;
     const refreshBinding = refreshToken
       ? this.vault.bindVaultRef({
@@ -351,7 +351,7 @@ export class OAuthCredentialProvider {
       status: "active",
       accessVaultRef,
       accessVaultRefHash: accessBinding.vaultRefHash,
-      accessTokenHash: stableHash(String(tokenPayload.access_token ?? tokenPayload.accessToken)),
+      accessTokenHash: stableHash(String(tokenPayload.access_token)),
       refreshVaultRef,
       refreshVaultRefHash: refreshBinding?.vaultRefHash ?? null,
       refreshTokenHash: refreshToken ? stableHash(String(refreshToken)) : null,

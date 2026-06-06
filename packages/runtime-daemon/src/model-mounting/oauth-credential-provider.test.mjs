@@ -262,6 +262,112 @@ test("OAuth credential provider keeps client secrets behind vault refs", async (
   );
 });
 
+test("OAuth credential provider exchanges authorization code with canonical vault bindings", async () => {
+  const previousFetch = globalThis.fetch;
+  const vault = fakeVault();
+  const provider = new OAuthCredentialProvider({ now, vault });
+  const fetchCalls = [];
+  try {
+    globalThis.fetch = async (url, options) => {
+      fetchCalls.push([url, Object.fromEntries(new URLSearchParams(String(options.body)).entries())]);
+      return {
+        ok: true,
+        json: async () => ({
+          access_token: "access-token",
+          accessToken: "retired-access-token",
+          refresh_token: "refresh-token",
+          refreshToken: "retired-refresh-token",
+          expires_in: 600,
+          expiresIn: 1,
+          scope: "repo model",
+        }),
+      };
+    };
+
+    const exchanged = await provider.exchangeAuthorizationCode({
+      providerId: "catalog.huggingface",
+      body: {
+        session_id: "session.exchange",
+        sessionId: "session.retired",
+        token_endpoint: "https://auth.example.test/token",
+        tokenEndpoint: "https://retired.example.test/token",
+        token_endpoint_vault_ref: "vault://oauth/token-endpoint",
+        tokenEndpointVaultRef: "vault://oauth/retired-token-endpoint",
+        authorization_code: "auth-code",
+        authorizationCode: "retired-auth-code",
+        redirect_uri: "https://app.example.test/callback",
+        redirectUri: "https://retired.example.test/callback",
+        client_id: "client-id",
+        clientId: "retired-client-id",
+        client_id_vault_ref: "vault://oauth/client-id",
+        clientIdVaultRef: "vault://oauth/retired-client-id",
+        code_verifier: "code-verifier",
+        codeVerifier: "retired-code-verifier",
+        access_vault_ref: "vault://oauth/access",
+        accessVaultRef: "vault://oauth/retired-access",
+        refresh_vault_ref: "vault://oauth/refresh",
+        refreshVaultRef: "vault://oauth/retired-refresh",
+        scopes: ["repo"],
+      },
+    });
+
+    assert.equal(fetchCalls[0][0], "https://auth.example.test/token");
+    assert.equal(fetchCalls[0][1].code, "auth-code");
+    assert.equal(fetchCalls[0][1].client_id, "client-id");
+    assert.equal(fetchCalls[0][1].redirect_uri, "https://app.example.test/callback");
+    assert.equal(fetchCalls[0][1].code_verifier, "code-verifier");
+    assert.equal(exchanged.session.id, "session.exchange");
+    assert.equal(exchanged.session.accessVaultRef, "vault://oauth/access");
+    assert.equal(exchanged.session.refreshVaultRef, "vault://oauth/refresh");
+    assert.equal(exchanged.session.tokenEndpointVaultRef, "vault://oauth/token-endpoint");
+    assert.equal(exchanged.session.clientIdVaultRef, "vault://oauth/client-id");
+    assert.equal(vault.bindings.get("vault://oauth/access").material, "access-token");
+    assert.equal(vault.bindings.get("vault://oauth/refresh").material, "refresh-token");
+    assert.equal(vault.bindings.has("vault://oauth/retired-access"), false);
+    assert.equal(vault.bindings.has("vault://oauth/retired-refresh"), false);
+    assert.equal(exchanged.session.expiresAt, "2026-06-03T00:10:00.000Z");
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("OAuth credential provider ignores retired exchange request aliases", async () => {
+  const previousFetch = globalThis.fetch;
+  const vault = fakeVault();
+  const provider = new OAuthCredentialProvider({ now, vault });
+  let fetched = false;
+  try {
+    globalThis.fetch = async () => {
+      fetched = true;
+      return { ok: true, json: async () => ({ access_token: "access-token" }) };
+    };
+    await assert.rejects(
+      () => provider.exchangeAuthorizationCode({
+        providerId: "catalog.huggingface",
+        body: {
+          sessionId: "session.retired",
+          tokenEndpoint: "https://auth.example.test/token",
+          tokenEndpointVaultRef: "vault://oauth/retired-token-endpoint",
+          authorizationCode: "auth-code",
+          code: "auth-code",
+          redirectUri: "https://app.example.test/callback",
+          clientId: "client-id",
+          clientIdVaultRef: "vault://oauth/retired-client-id",
+          codeVerifier: "code-verifier",
+          clientSecretVaultRef: "vault://oauth/retired-client-secret",
+          accessVaultRef: "vault://oauth/retired-access",
+          refreshVaultRef: "vault://oauth/retired-refresh",
+        },
+      }),
+      (error) => error.code === "validation" && /token_endpoint is required/.test(error.message),
+    );
+    assert.equal(fetched, false);
+    assert.equal(vault.bindings.size, 0);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
 test("OAuth credential provider rejects invalid authorization states with canonical details", async () => {
   const provider = new OAuthCredentialProvider({ now, vault: fakeVault() });
   const stateRecord = {

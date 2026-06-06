@@ -6210,6 +6210,10 @@ function runReceipts() {
     oauthCredentialProvider.match(
       /startAuthorization\(\{ providerId, body = \{\} \}\) \{[\s\S]*?\n  }\n\n  async completeAuthorization/,
     )?.[0] ?? "";
+  const oauthCredentialExchangeAuthorizationCodeBlock =
+    oauthCredentialProvider.match(
+      /async exchangeAuthorizationCode\(\{ providerId, body = \{\} \}\) \{[\s\S]*?\n  }\n\n  async refreshAccessToken/,
+    )?.[0] ?? "";
   const oauthBoundary = exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs")
     : "";
@@ -8100,6 +8104,49 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
     ],
     "Phase 7/11 is pending: OAuth start-authorization requests must use canonical snake_case fields and ignore retired camelCase/auth_url aliases before vault binding",
+  );
+  assertCheck(
+    result,
+    "model-mount-oauth-exchange-request-aliases-retired",
+    /body\.session_id/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /body\.token_endpoint/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /body\.authorization_code/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /body\.redirect_uri/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /body\.client_id/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /body\.code_verifier/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /body\.client_secret_vault_ref/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /body\.token_endpoint_vault_ref/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /body\.client_id_vault_ref/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /body\.access_vault_ref/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /body\.refresh_vault_ref/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /tokenPayload\.expires_in/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /tokenPayload\.access_token/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /tokenPayload\.refresh_token/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /OAuth credential provider exchanges authorization code with canonical vault bindings/.test(
+        oauthCredentialProviderTest,
+      ) &&
+      /OAuth credential provider ignores retired exchange request aliases/.test(
+        oauthCredentialProviderTest,
+      ) &&
+      /tokenEndpoint: "https:\/\/auth\.example\.test\/token"/.test(oauthCredentialProviderTest) &&
+      /authorizationCode: "auth-code"/.test(oauthCredentialProviderTest) &&
+      /clientIdVaultRef: "vault:\/\/oauth\/retired-client-id"/.test(oauthCredentialProviderTest) &&
+      /accessToken: "retired-access-token"/.test(oauthCredentialProviderTest) &&
+      /assert\.equal\(fetched,\s*false\)/.test(oauthCredentialProviderTest) &&
+      /assert\.equal\(vault\.bindings\.size,\s*0\)/.test(oauthCredentialProviderTest) &&
+      !/body\.(?:sessionId|tokenEndpoint|authorizationCode|redirectUri|clientId|codeVerifier|clientSecretVaultRef|tokenEndpointVaultRef|clientIdVaultRef|accessVaultRef|refreshVaultRef)\b/.test(
+        oauthCredentialExchangeAuthorizationCodeBlock,
+      ) &&
+      !/body\.code\b/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      !/body\.clientSecret\b/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      !/tokenPayload\.(?:expiresIn|accessToken|refreshToken)\b/.test(
+        oauthCredentialExchangeAuthorizationCodeBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs",
+      "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
+    ],
+    "Phase 7/11 is pending: OAuth authorization-code exchange must use canonical snake_case request and token payload fields before vault binding",
   );
   assertCheck(
     result,
