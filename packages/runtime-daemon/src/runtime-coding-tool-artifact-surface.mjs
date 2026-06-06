@@ -299,7 +299,7 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
           message: `Visual GUI observation artifact could not be read for ${spec.channel}.`,
           details: {
             channel: spec.channel,
-            sourcePathHash: doctorHash(resolvedPath),
+            source_path_hash: doctorHash(resolvedPath),
             error: error?.code ?? error?.message ?? "read_failed",
           },
         });
@@ -311,9 +311,9 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
           message: `Visual GUI observation artifact exceeds ${maxVisualArtifactBytes} bytes.`,
           details: {
             channel: spec.channel,
-            sourcePathHash: doctorHash(resolvedPath),
-            contentBytes: contentBuffer.byteLength,
-            maxBytes: maxVisualArtifactBytes,
+            source_path_hash: doctorHash(resolvedPath),
+            content_bytes: contentBuffer.byteLength,
+            max_bytes: maxVisualArtifactBytes,
           },
         });
       }
@@ -347,11 +347,11 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
       };
       store.codingArtifacts.set(artifactRecord.id, artifactRecord);
       writeJson(store.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
-      metadata[spec.refKey] = artifactId;
+      metadata[snakeCaseKey(spec.refKey)] = artifactId;
       artifactRefs.push(artifactId);
       artifacts.push(artifactRecord);
     }
-    return { metadata, artifactRefs, artifacts };
+    return { metadata, artifact_refs: artifactRefs, artifacts };
   }
 
   return {

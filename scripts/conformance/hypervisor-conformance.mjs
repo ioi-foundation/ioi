@@ -1260,6 +1260,29 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "coding-tool-visual-artifact-output-aliases-retired",
+    /metadata\[snakeCaseKey\(spec\.refKey\)\]\s*=\s*artifactId/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /return \{\s*metadata,\s*artifact_refs:\s*artifactRefs,\s*artifacts\s*\}/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /source_path_hash:\s*doctorHash\(resolvedPath\)/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /content_bytes:\s*contentBuffer\.byteLength/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /max_bytes:\s*maxVisualArtifactBytes/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /computerUseVisualArtifactRefs:\s*materializedVisualArtifacts\.artifact_refs/.test(runtimeDaemonIndex) &&
+      /assertNoRetiredVisualArtifactOutputAliases\(result\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /Object\.hasOwn\(error\.details,\s*"sourcePathHash"\)\s*===\s*false/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /Object\.hasOwn\(error\.details,\s*"maxBytes"\)\s*===\s*false/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      !/\bmetadata\[spec\.refKey\]\s*=\s*artifactId/.test(codingToolVisualArtifactMaterializerBlock) &&
+      !/return \{\s*metadata,\s*artifactRefs,\s*artifacts\s*\}/.test(codingToolVisualArtifactMaterializerBlock) &&
+      !/computerUseVisualArtifactRefs:\s*materializedVisualArtifacts\.artifactRefs/.test(runtimeDaemonIndex) &&
+      !/^\s*(?:sourcePathHash|contentBytes|maxBytes)\s*:/m.test(codingToolVisualArtifactMaterializerBlock),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 10/11 is pending: visual GUI artifact materialization must expose canonical snake_case output and error fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "coding-tool-budget-usage-response-alias-retired",
     !/budgetUsageTelemetry:\s*budgetPolicy\.usageTelemetry/.test(
       runtimeCodingToolInvocationSurface,

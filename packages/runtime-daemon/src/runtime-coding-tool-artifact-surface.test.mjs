@@ -93,6 +93,29 @@ function assertNoRetiredCommandStreamPayloadAliases(payloadSummary) {
   }
 }
 
+const retiredVisualArtifactOutputAliasKeys = [
+  "artifactRefs",
+];
+
+const retiredVisualArtifactMetadataAliasKeys = [
+  "screenshotRef",
+  "somRef",
+  "axRef",
+];
+
+function assertNoRetiredVisualArtifactOutputAliases(result) {
+  for (const key of retiredVisualArtifactOutputAliasKeys) {
+    assert.equal(Object.hasOwn(result, key), false, `retired visual artifact output alias ${key} must be absent`);
+  }
+  for (const key of retiredVisualArtifactMetadataAliasKeys) {
+    assert.equal(
+      Object.hasOwn(result.metadata, key),
+      false,
+      `retired visual artifact metadata alias ${key} must be absent`,
+    );
+  }
+}
+
 test("coding-tool artifact surface materializes drafts with stable artifact records", () => {
   const { surface, writes } = createSurface();
   const store = createStore();
@@ -326,11 +349,12 @@ test("coding-tool artifact surface materializes visual GUI observation artifacts
     },
   });
 
-  assert.deepEqual(result.artifactRefs, [
+  assert.deepEqual(result.artifact_refs, [
     "artifact_computer_use_visual_tool_call_alpha_visual-gui-screenshot",
   ]);
-  assert.equal(result.metadata.screenshotRef, "artifact_computer_use_visual_tool_call_alpha_visual-gui-screenshot");
-  assert.equal(result.metadata.somRef, undefined);
+  assert.equal(result.metadata.screenshot_ref, "artifact_computer_use_visual_tool_call_alpha_visual-gui-screenshot");
+  assert.equal(result.metadata.som_ref, undefined);
+  assertNoRetiredVisualArtifactOutputAliases(result);
   assert.equal(result.artifacts[0].media_type, "image/png");
   assert.equal(result.artifacts[0].encoding, "base64");
   assert.equal(result.artifacts[0].content, Buffer.from([1, 2, 3]).toString("base64"));
@@ -355,7 +379,8 @@ test("coding-tool artifact surface skips visual GUI paths with explicit refs", (
     },
   });
 
-  assert.deepEqual(result, { metadata: {}, artifactRefs: [], artifacts: [] });
+  assert.deepEqual(result, { metadata: {}, artifact_refs: [], artifacts: [] });
+  assertNoRetiredVisualArtifactOutputAliases(result);
 });
 
 test("coding-tool artifact surface fails closed for unreadable visual GUI artifacts", () => {
@@ -371,7 +396,11 @@ test("coding-tool artifact surface fails closed for unreadable visual GUI artifa
         workspaceRoot: "/missing",
         input: { screenshotPath: "missing.png" },
       }),
-    (error) => error.status === 400 && error.code === "computer_use_visual_artifact_unreadable",
+    (error) =>
+      error.status === 400 &&
+      error.code === "computer_use_visual_artifact_unreadable" &&
+      Object.hasOwn(error.details, "source_path_hash") &&
+      Object.hasOwn(error.details, "sourcePathHash") === false,
   );
 });
 
@@ -393,6 +422,9 @@ test("coding-tool artifact surface enforces visual GUI artifact size limit", () 
     (error) =>
       error.status === 413 &&
       error.code === "computer_use_visual_artifact_too_large" &&
-      error.details.maxBytes === 2,
+      error.details.max_bytes === 2 &&
+      error.details.content_bytes === 3 &&
+      Object.hasOwn(error.details, "maxBytes") === false &&
+      Object.hasOwn(error.details, "contentBytes") === false,
   );
 });

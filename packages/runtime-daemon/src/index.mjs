@@ -2858,7 +2858,7 @@ export class AgentgresRuntimeStateStore {
       computerUseActionKind: requestedActionKind,
       computerUseApprovalRef: requestedApprovalRef,
       computerUseTargetRef: requestedTargetRef,
-      computerUseVisualArtifactRefs: materializedVisualArtifacts.artifactRefs,
+      computerUseVisualArtifactRefs: materializedVisualArtifacts.artifact_refs,
       computerUseExecutionResult: visualGuiExecution,
       computerUseVisualGuiExecution: visualGuiExecution,
       ...visualObservationMetadata,
