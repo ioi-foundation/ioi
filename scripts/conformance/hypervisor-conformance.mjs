@@ -1568,6 +1568,41 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "visual-gui-local-executor-grounding-aliases-retired",
+    /input\.screenshot_ref\s*\?\?\s*[\r\n\s]*input\.observation_bundle\?\.screenshot_ref/.test(
+      visualGuiLocalExecutor,
+    ) &&
+      /cleanString\(targetRef \?\? input\.target_ref\)/.test(visualGuiLocalExecutor) &&
+      /arrayValue\(input\.visual_targets\)/.test(visualGuiLocalExecutor) &&
+      /arrayValue\(input\.computer_use_target_index\?\.targets\)/.test(visualGuiLocalExecutor) &&
+      /arrayValue\(input\.target_index\?\.targets\)/.test(visualGuiLocalExecutor) &&
+      /target_ref: cleanString\(target\.target_ref\)/.test(visualGuiLocalExecutor) &&
+      /arrayValue\(target\.available_actions\)/.test(visualGuiLocalExecutor) &&
+      /const width = finiteNumber\(bounds\.width\);/.test(visualGuiLocalExecutor) &&
+      /const height = finiteNumber\(bounds\.height\);/.test(visualGuiLocalExecutor) &&
+      /cleanString\(bounds\.coordinate_space_id\)/.test(visualGuiLocalExecutor) &&
+      /visual GUI local executor grounds only canonical visual target fields/.test(
+        visualGuiLocalExecutorTest,
+      ) &&
+      /visual GUI local executor screenshot resolution ignores retired aliases/.test(
+        visualGuiLocalExecutorTest,
+      ) &&
+      /computerUseObservationBundle: \{ screenshot_ref: "artifact_legacy" \}/.test(
+        visualGuiLocalExecutorTest,
+      ) &&
+      !/\binput\.(?:screenshotRef|computerUseObservationBundle|targetRef|visualTargets|computerUseTargetIndex|targetIndex)\b/.test(
+        visualGuiLocalExecutor,
+      ) &&
+      !/\btarget\.(?:targetRef|availableActions|id)\b/.test(visualGuiLocalExecutor) &&
+      !/\bbounds\.(?:coordinateSpaceId|w|h)\b/.test(visualGuiLocalExecutor),
+    [
+      "packages/runtime-daemon/src/visual-gui-local-executor.mjs",
+      "packages/runtime-daemon/src/visual-gui-local-executor.test.mjs",
+    ],
+    "Phase 10/11 is pending: visual GUI local-executor grounding must use canonical snake_case screenshot, target, index, action, and bounds fields without retired aliases",
+  );
+  assertCheck(
+    result,
     "visual-gui-local-capture-aliases-retired",
     /booleanValue\(input\.capture_screen\)/.test(visualGuiLocalCapture) &&
       /booleanValue\(input\.local_capture\)/.test(visualGuiLocalCapture) &&

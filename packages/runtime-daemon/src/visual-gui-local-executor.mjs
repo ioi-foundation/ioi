@@ -87,9 +87,7 @@ export async function executeLocalVisualGuiAction({
   }
 
   const screenshotRef = cleanString(
-    input.screenshotRef ??
-      input.screenshot_ref ??
-      input.computerUseObservationBundle?.screenshot_ref ??
+    input.screenshot_ref ??
       input.observation_bundle?.screenshot_ref,
   );
   const observedScreenshot = screenshotRef && artifactResolver
@@ -339,12 +337,12 @@ function actionPayloadForKind({ input, actionKind, target, prompt }) {
 }
 
 function resolveGroundedTarget(input, targetRef) {
-  const normalizedTargetRef = cleanString(targetRef ?? input.targetRef ?? input.target_ref);
+  const normalizedTargetRef = cleanString(targetRef ?? input.target_ref);
   if (!normalizedTargetRef) return null;
   const targets = [
-    ...arrayValue(input.visualTargets ?? input.visual_targets),
-    ...arrayValue(input.computerUseTargetIndex?.targets ?? input.computer_use_target_index?.targets),
-    ...arrayValue(input.targetIndex?.targets ?? input.target_index?.targets),
+    ...arrayValue(input.visual_targets),
+    ...arrayValue(input.computer_use_target_index?.targets),
+    ...arrayValue(input.target_index?.targets),
   ]
     .map((target) => normalizeTarget(target))
     .filter(Boolean);
@@ -356,12 +354,12 @@ function normalizeTarget(target) {
   const bounds = normalizeBounds(target.bounds);
   if (!bounds) return null;
   return {
-    target_ref: cleanString(target.target_ref ?? target.targetRef ?? target.id),
+    target_ref: cleanString(target.target_ref),
     label: cleanString(target.label ?? target.name) ?? "Visual target",
     role: cleanString(target.role) ?? "region",
     bounds,
     available_actions: uniqueStrings(
-      arrayValue(target.available_actions ?? target.availableActions)
+      arrayValue(target.available_actions)
         .map((value) => normalizeActionKind(value))
         .filter(Boolean),
     ),
@@ -372,9 +370,9 @@ function normalizeBounds(bounds) {
   if (!bounds || typeof bounds !== "object" || Array.isArray(bounds)) return null;
   const x = finiteNumber(bounds.x);
   const y = finiteNumber(bounds.y);
-  const width = finiteNumber(bounds.width ?? bounds.w);
-  const height = finiteNumber(bounds.height ?? bounds.h);
-  const coordinateSpaceId = cleanString(bounds.coordinate_space_id ?? bounds.coordinateSpaceId);
+  const width = finiteNumber(bounds.width);
+  const height = finiteNumber(bounds.height);
+  const coordinateSpaceId = cleanString(bounds.coordinate_space_id);
   if (x === null || y === null || !width || !height || !coordinateSpaceId) return null;
   return {
     coordinate_space_id: coordinateSpaceId,
