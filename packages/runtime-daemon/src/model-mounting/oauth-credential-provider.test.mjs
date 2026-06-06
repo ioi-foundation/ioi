@@ -57,22 +57,81 @@ test("OAuth credential provider starts authorization with vault-bound private st
     providerId: "catalog.huggingface",
     body: {
       state_id: "state.one",
+      stateId: "state.retired",
       session_id: "session.one",
+      sessionId: "session.retired",
       authorization_endpoint: "https://auth.example.test/oauth",
+      authorizationEndpoint: "https://retired.example.test/oauth",
+      auth_url: "https://retired.example.test/auth-url",
+      authUrl: "https://retired.example.test/authUrl",
       token_endpoint: "https://auth.example.test/token",
+      tokenEndpoint: "https://retired.example.test/token",
       redirect_uri: "https://app.example.test/callback",
+      redirectUri: "https://retired.example.test/callback",
       client_id: "client-id",
+      clientId: "retired-client-id",
+      pkce_required: true,
+      pkceRequired: false,
+      state_ttl_seconds: 600,
+      stateTtlSeconds: 1,
+      state_vault_ref: "vault://oauth/state",
+      stateVaultRef: "vault://oauth/retired-state",
+      code_verifier_vault_ref: "vault://oauth/code-verifier",
+      codeVerifierVaultRef: "vault://oauth/retired-code-verifier",
+      authorization_endpoint_vault_ref: "vault://oauth/authorization-endpoint",
+      authorizationEndpointVaultRef: "vault://oauth/retired-authorization-endpoint",
+      token_endpoint_vault_ref: "vault://oauth/token-endpoint",
+      tokenEndpointVaultRef: "vault://oauth/retired-token-endpoint",
+      redirect_uri_vault_ref: "vault://oauth/redirect-uri",
+      redirectUriVaultRef: "vault://oauth/retired-redirect-uri",
+      client_id_vault_ref: "vault://oauth/client-id",
+      clientIdVaultRef: "vault://oauth/retired-client-id",
       scopes: ["repo", "model"],
     },
   });
 
+  assert.equal(started.state.id, "state.one");
+  assert.equal(started.state.sessionId, "session.one");
   assert.equal(started.state.status, "pending");
   assert.equal(typeof started.evidence.stateVaultRefHash, "string");
   assert.match(started.authorizationUrl, /client_id=client-id/);
+  assert.doesNotMatch(started.authorizationUrl, /retired-client-id/);
   assert.doesNotMatch(started.authorizationUrlRedacted, /client-id/);
   assert.match(started.authorizationUrlRedacted, /state=%5BREDACTED%5D/);
   assert.equal(JSON.stringify(started.evidence).includes("vault://"), false);
   assert.equal(vault.bindings.size, 6);
+  assert.equal(vault.bindings.has("vault://oauth/state"), true);
+  assert.equal(vault.bindings.has("vault://oauth/retired-state"), false);
+});
+
+test("OAuth credential provider ignores retired start authorization request aliases", () => {
+  const vault = fakeVault();
+  const provider = new OAuthCredentialProvider({ now, vault });
+
+  assert.throws(
+    () => provider.startAuthorization({
+      providerId: "catalog.huggingface",
+      body: {
+        stateId: "state.retired",
+        sessionId: "session.retired",
+        authorizationEndpoint: "https://auth.example.test/oauth",
+        authUrl: "https://auth.example.test/auth-url",
+        tokenEndpoint: "https://auth.example.test/token",
+        redirectUri: "https://app.example.test/callback",
+        clientId: "client-id",
+        pkceRequired: false,
+        stateTtlSeconds: 1,
+        stateVaultRef: "vault://oauth/retired-state",
+        codeVerifierVaultRef: "vault://oauth/retired-code-verifier",
+        authorizationEndpointVaultRef: "vault://oauth/retired-authorization-endpoint",
+        tokenEndpointVaultRef: "vault://oauth/retired-token-endpoint",
+        redirectUriVaultRef: "vault://oauth/retired-redirect-uri",
+        clientIdVaultRef: "vault://oauth/retired-client-id",
+      },
+    }),
+    (error) => error.code === "validation" && /authorization_endpoint is required/.test(error.message),
+  );
+  assert.equal(vault.bindings.size, 0);
 });
 
 test("OAuth credential provider rejects callback when vault material is unavailable", async () => {

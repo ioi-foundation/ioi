@@ -31,32 +31,31 @@ export class OAuthCredentialProvider {
   }
 
   startAuthorization({ providerId, body = {} }) {
-    const stateId = body.state_id ?? body.stateId ?? `oauth_state.${safeId(providerId)}.${crypto.randomUUID()}`;
-    const sessionId = body.session_id ?? body.sessionId ?? `oauth_session.${safeId(providerId)}.${crypto.randomUUID()}`;
+    const stateId = body.state_id ?? `oauth_state.${safeId(providerId)}.${crypto.randomUUID()}`;
+    const sessionId = body.session_id ?? `oauth_session.${safeId(providerId)}.${crypto.randomUUID()}`;
     const authorizationEndpointInput = requiredString(
-      body.authorization_endpoint ?? body.authorizationEndpoint ?? body.auth_url ?? body.authUrl,
+      body.authorization_endpoint,
       "authorization_endpoint",
     );
-    const tokenEndpointInput = requiredString(body.token_endpoint ?? body.tokenEndpoint, "token_endpoint");
-    const redirectUriInput = requiredString(body.redirect_uri ?? body.redirectUri, "redirect_uri");
-    const clientIdInput = requiredString(body.client_id ?? body.clientId, "client_id");
+    const tokenEndpointInput = requiredString(body.token_endpoint, "token_endpoint");
+    const redirectUriInput = requiredString(body.redirect_uri, "redirect_uri");
+    const clientIdInput = requiredString(body.client_id, "client_id");
     const scopes = normalizeOAuthScopes(body.scopes ?? body.scope, []);
-    const pkceRequired =
-      body.pkce_required === undefined && body.pkceRequired === undefined ? true : truthy(body.pkce_required ?? body.pkceRequired);
-    const stateTtlSeconds = Number(body.state_ttl_seconds ?? body.stateTtlSeconds ?? 600);
+    const pkceRequired = body.pkce_required === undefined ? true : truthy(body.pkce_required);
+    const stateTtlSeconds = Number(body.state_ttl_seconds ?? 600);
     const ttlMs = Number.isFinite(stateTtlSeconds) ? Math.max(0, stateTtlSeconds) * 1000 : 600_000;
     const rawState = crypto.randomBytes(24).toString("base64url");
     const codeVerifier = crypto.randomBytes(48).toString("base64url");
     const codeChallenge = pkceRequired ? pkceS256Challenge(codeVerifier) : null;
-    const stateVaultRef = body.state_vault_ref ?? body.stateVaultRef ?? oauthSessionVaultRef(providerId, stateId, "state");
+    const stateVaultRef = body.state_vault_ref ?? oauthSessionVaultRef(providerId, stateId, "state");
     const codeVerifierVaultRef = pkceRequired
-      ? body.code_verifier_vault_ref ?? body.codeVerifierVaultRef ?? oauthSessionVaultRef(providerId, stateId, "code-verifier")
+      ? body.code_verifier_vault_ref ?? oauthSessionVaultRef(providerId, stateId, "code-verifier")
       : null;
     const authorizationEndpointVaultRef =
-      body.authorization_endpoint_vault_ref ?? body.authorizationEndpointVaultRef ?? oauthSessionVaultRef(providerId, stateId, "authorization-endpoint");
-    const tokenEndpointVaultRef = body.token_endpoint_vault_ref ?? body.tokenEndpointVaultRef ?? oauthSessionVaultRef(providerId, stateId, "token-endpoint");
-    const redirectUriVaultRef = body.redirect_uri_vault_ref ?? body.redirectUriVaultRef ?? oauthSessionVaultRef(providerId, stateId, "redirect-uri");
-    const clientIdVaultRef = body.client_id_vault_ref ?? body.clientIdVaultRef ?? oauthSessionVaultRef(providerId, stateId, "client-id");
+      body.authorization_endpoint_vault_ref ?? oauthSessionVaultRef(providerId, stateId, "authorization-endpoint");
+    const tokenEndpointVaultRef = body.token_endpoint_vault_ref ?? oauthSessionVaultRef(providerId, stateId, "token-endpoint");
+    const redirectUriVaultRef = body.redirect_uri_vault_ref ?? oauthSessionVaultRef(providerId, stateId, "redirect-uri");
+    const clientIdVaultRef = body.client_id_vault_ref ?? oauthSessionVaultRef(providerId, stateId, "client-id");
     const stateBinding = this.vault.bindVaultRef({
       vaultRef: stateVaultRef,
       material: rawState,

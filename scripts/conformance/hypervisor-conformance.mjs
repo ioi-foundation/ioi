@@ -6206,6 +6206,10 @@ function runReceipts() {
   const oauthCredentialProviderTest = exists("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs")
     : "";
+  const oauthCredentialStartAuthorizationBlock =
+    oauthCredentialProvider.match(
+      /startAuthorization\(\{ providerId, body = \{\} \}\) \{[\s\S]*?\n  }\n\n  async completeAuthorization/,
+    )?.[0] ?? "";
   const oauthBoundary = exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs")
     : "";
@@ -8061,6 +8065,41 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
     ],
     "Phase 7/11 is pending: catalog provider auth request bodies must fail closed on retired auth aliases before source vault binding or auth resolution",
+  );
+  assertCheck(
+    result,
+    "model-mount-oauth-start-request-aliases-retired",
+    /body\.state_id/.test(oauthCredentialStartAuthorizationBlock) &&
+      /body\.session_id/.test(oauthCredentialStartAuthorizationBlock) &&
+      /body\.authorization_endpoint/.test(oauthCredentialStartAuthorizationBlock) &&
+      /body\.token_endpoint/.test(oauthCredentialStartAuthorizationBlock) &&
+      /body\.redirect_uri/.test(oauthCredentialStartAuthorizationBlock) &&
+      /body\.client_id/.test(oauthCredentialStartAuthorizationBlock) &&
+      /body\.pkce_required/.test(oauthCredentialStartAuthorizationBlock) &&
+      /body\.state_ttl_seconds/.test(oauthCredentialStartAuthorizationBlock) &&
+      /body\.state_vault_ref/.test(oauthCredentialStartAuthorizationBlock) &&
+      /body\.code_verifier_vault_ref/.test(oauthCredentialStartAuthorizationBlock) &&
+      /body\.authorization_endpoint_vault_ref/.test(oauthCredentialStartAuthorizationBlock) &&
+      /body\.token_endpoint_vault_ref/.test(oauthCredentialStartAuthorizationBlock) &&
+      /body\.redirect_uri_vault_ref/.test(oauthCredentialStartAuthorizationBlock) &&
+      /body\.client_id_vault_ref/.test(oauthCredentialStartAuthorizationBlock) &&
+      /OAuth credential provider ignores retired start authorization request aliases/.test(
+        oauthCredentialProviderTest,
+      ) &&
+      /authorizationEndpoint: "https:\/\/auth\.example\.test\/oauth"/.test(oauthCredentialProviderTest) &&
+      /authUrl: "https:\/\/auth\.example\.test\/auth-url"/.test(oauthCredentialProviderTest) &&
+      /tokenEndpoint: "https:\/\/auth\.example\.test\/token"/.test(oauthCredentialProviderTest) &&
+      /clientId: "client-id"/.test(oauthCredentialProviderTest) &&
+      /stateVaultRef: "vault:\/\/oauth\/retired-state"/.test(oauthCredentialProviderTest) &&
+      /assert\.equal\(vault\.bindings\.size,\s*0\)/.test(oauthCredentialProviderTest) &&
+      !/body\.(?:stateId|sessionId|authorizationEndpoint|auth_url|authUrl|tokenEndpoint|redirectUri|clientId|pkceRequired|stateTtlSeconds|stateVaultRef|codeVerifierVaultRef|authorizationEndpointVaultRef|tokenEndpointVaultRef|redirectUriVaultRef|clientIdVaultRef)\b/.test(
+        oauthCredentialStartAuthorizationBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs",
+      "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
+    ],
+    "Phase 7/11 is pending: OAuth start-authorization requests must use canonical snake_case fields and ignore retired camelCase/auth_url aliases before vault binding",
   );
   assertCheck(
     result,
