@@ -72,6 +72,22 @@ const retiredGithubContextSummaryAliasKeys = [
   "workflowNodeId",
 ];
 
+const retiredIssueContextSummaryAliasKeys = [
+  "eventKind",
+  "contextId",
+  "repositoryContextId",
+  "githubContextId",
+  "prAttemptId",
+  "reviewGateId",
+  "repoFullName",
+  "issueProvided",
+  "issueNumber",
+  "sourceKind",
+  "networkLookupPerformed",
+  "mutationExecuted",
+  "workflowNodeId",
+];
+
 const retiredRuntimeTaskSummaryAliasKeys = [
   "eventKind",
   "taskId",
@@ -523,6 +539,66 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   assert.notEqual(github.workflow_node_id, "retired.github-context");
   for (const key of retiredGithubContextSummaryAliasKeys) {
     assert.equal(Object.hasOwn(github, key), false);
+  }
+
+  const issue = runtime.payloadSummaryForRunEvent({
+    id: "event-issue-context",
+    type: "issue_context",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      event_kind: "IssueContext.Canonical",
+      eventKind: "RetiredIssueContext",
+      context_id: "issue-context-one",
+      contextId: "retired-issue-context",
+      repository_context_id: "repo-context-one",
+      repositoryContextId: "retired-repo-context",
+      github_context_id: "github-context-one",
+      githubContextId: "retired-github-context",
+      pr_attempt_id: "pr-attempt-one",
+      prAttemptId: "retired-pr-attempt",
+      review_gate_id: "review-gate-one",
+      reviewGateId: "retired-review-gate",
+      status: "bound",
+      repo_full_name: "ioi-foundation/ioi",
+      repoFullName: "retired/repo",
+      bound: true,
+      issue_provided: true,
+      issueProvided: false,
+      issue_number: 42,
+      issueNumber: 404,
+      source_kind: "github_issue",
+      sourceKind: "retired_source",
+      warnings: ["needs_triage"],
+      network_lookup_performed: false,
+      networkLookupPerformed: true,
+      mutation_executed: false,
+      mutationExecuted: true,
+      workflow_node_id: "runtime.issue-context",
+      workflowNodeId: "retired.issue-context",
+      redaction: { profile: "issue_context_safe" },
+    },
+  });
+
+  assert.equal(issue.event_kind, "IssueContext.Canonical");
+  assert.equal(issue.context_id, "issue-context-one");
+  assert.equal(issue.repository_context_id, "repo-context-one");
+  assert.equal(issue.github_context_id, "github-context-one");
+  assert.equal(issue.pr_attempt_id, "pr-attempt-one");
+  assert.equal(issue.review_gate_id, "review-gate-one");
+  assert.equal(issue.repo_full_name, "ioi-foundation/ioi");
+  assert.equal(issue.issue_provided, true);
+  assert.equal(issue.issue_number, 42);
+  assert.equal(issue.source_kind, "github_issue");
+  assert.equal(issue.warning_count, 1);
+  assert.equal(issue.network_lookup_performed, false);
+  assert.equal(issue.mutation_executed, false);
+  assert.equal(issue.workflow_node_id, "runtime.issue-context");
+  assert.notEqual(issue.context_id, "retired-issue-context");
+  assert.notEqual(issue.issue_number, 404);
+  assert.notEqual(issue.workflow_node_id, "retired.issue-context");
+  for (const key of retiredIssueContextSummaryAliasKeys) {
+    assert.equal(Object.hasOwn(issue, key), false);
   }
 
   const task = runtime.payloadSummaryForRunEvent({

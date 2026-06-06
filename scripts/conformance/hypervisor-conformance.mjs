@@ -9121,6 +9121,8 @@ function runCompositor() {
     runtimeEventPayloads.match(/if \(event\.type === "branch_policy"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeGithubContextPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "github_context"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const runtimeIssueContextPayloadSummaryBlock =
+    runtimeEventPayloads.match(/if \(event\.type === "issue_context"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeTaskPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "runtime_task"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeChecklistPayloadSummaryBlock =
@@ -9141,6 +9143,8 @@ function runCompositor() {
     runtimeDaemonIndex.match(/addEvent\("branch_policy", "Branch policy decision recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeGithubContextEventProducerBlock =
     runtimeDaemonIndex.match(/addEvent\("github_context", "GitHub context recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
+  const runtimeIssueContextEventProducerBlock =
+    runtimeDaemonIndex.match(/addEvent\("issue_context", "Issue context recorded", \{[\s\S]*?\n  \}\);/)?.[0] ?? "";
   const runtimeUsageEvents = exists("packages/runtime-daemon/src/runtime-usage-events.mjs")
     ? read("packages/runtime-daemon/src/runtime-usage-events.mjs")
     : "";
@@ -10701,6 +10705,22 @@ function runCompositor() {
       !/event\.data\?\.(?:eventKind|contextId|repositoryContextId|branchPolicyId|githubRemotePresent|defaultRemoteName|repoFullName|defaultBranch|branchPolicyStatus|prCreationEligible|networkLookupPerformed|mutationExecuted|workflowNodeId)\b/.test(
         runtimeGithubContextPayloadSummaryBlock,
       ) &&
+      runtimeIssueContextPayloadSummaryBlock.length > 0 &&
+      /event_kind:\s*event\.data\?\.event_kind \?\? "IssueContext"/.test(
+        runtimeIssueContextPayloadSummaryBlock,
+      ) &&
+      /context_id:\s*event\.data\?\.context_id \?\? null/.test(
+        runtimeIssueContextPayloadSummaryBlock,
+      ) &&
+      /github_context_id:\s*event\.data\?\.github_context_id \?\? null/.test(
+        runtimeIssueContextPayloadSummaryBlock,
+      ) &&
+      /issue_number:\s*event\.data\?\.issue_number \?\? null/.test(
+        runtimeIssueContextPayloadSummaryBlock,
+      ) &&
+      !/event\.data\?\.(?:eventKind|contextId|repositoryContextId|githubContextId|prAttemptId|reviewGateId|repoFullName|issueProvided|issueNumber|sourceKind|networkLookupPerformed|mutationExecuted|workflowNodeId)\b/.test(
+        runtimeIssueContextPayloadSummaryBlock,
+      ) &&
       runtimeTaskPayloadSummaryBlock.length > 0 &&
       /event_kind:\s*event\.data\?\.event_kind \?\? "RuntimeTaskRecord"/.test(
         runtimeTaskPayloadSummaryBlock,
@@ -10809,12 +10829,27 @@ function runCompositor() {
       !/\.\.\.githubContext|^\s*(?:receiptId|eventKind|workflowNodeId|contextId|repositoryContextId|branchPolicyId|githubRemotePresent|defaultRemoteName|repoFullName|defaultBranch|branchPolicyStatus|prCreationEligible|networkLookupPerformed|mutationExecuted)\s*:/m.test(
         runtimeGithubContextEventProducerBlock,
       ) &&
+      runtimeIssueContextEventProducerBlock.length > 0 &&
+      /event_kind:\s*"IssueContext"/.test(runtimeIssueContextEventProducerBlock) &&
+      /context_id:\s*issueContext\.contextId \?\? null/.test(
+        runtimeIssueContextEventProducerBlock,
+      ) &&
+      /github_context_id:\s*issueContext\.githubContextId \?\? null/.test(
+        runtimeIssueContextEventProducerBlock,
+      ) &&
+      /workflow_node_id:\s*"runtime\.issue-context"/.test(
+        runtimeIssueContextEventProducerBlock,
+      ) &&
+      !/\.\.\.issueContext|^\s*(?:receiptId|eventKind|workflowNodeId|contextId|repositoryContextId|githubContextId|prAttemptId|reviewGateId|repoFullName|issueProvided|issueNumber|sourceKind|networkLookupPerformed|mutationExecuted)\s*:/m.test(
+        runtimeIssueContextEventProducerBlock,
+      ) &&
       /retiredPayloadKeys/.test(runtimeEventPayloadsTest) &&
       /retiredComputerUseSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredMemorySummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRepositoryContextSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredBranchPolicySummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredGithubContextSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
+      /retiredIssueContextSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeTaskSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeChecklistSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
       /retiredRuntimeJobSummaryAliasKeys/.test(runtimeEventPayloadsTest) &&
@@ -10823,6 +10858,7 @@ function runCompositor() {
       /eventKind: "RetiredRepositoryContext"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredBranchPolicyDecision"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredGitHubContext"/.test(runtimeEventPayloadsTest) &&
+      /eventKind: "RetiredIssueContext"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeTaskRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredRuntimeChecklistRecord"/.test(runtimeEventPayloadsTest) &&
       /eventKind: "RetiredJobCompleted"/.test(runtimeEventPayloadsTest) &&
@@ -10831,6 +10867,8 @@ function runCompositor() {
       /workflowNodeId: "retired\.branch-policy"/.test(runtimeEventPayloadsTest) &&
       /repoFullName: "retired\/repo"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.github-context"/.test(runtimeEventPayloadsTest) &&
+      /issueNumber: 404/.test(runtimeEventPayloadsTest) &&
+      /workflowNodeId: "retired\.issue-context"/.test(runtimeEventPayloadsTest) &&
       /workflowNodeId: "retired\.repository-context"/.test(runtimeEventPayloadsTest) &&
       /memoryRecordId: "retired-memory"/.test(runtimeEventPayloadsTest) &&
       /memoryPolicyId: "retired-policy"/.test(runtimeEventPayloadsTest) &&

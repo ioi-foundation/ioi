@@ -4844,10 +4844,24 @@ function buildRun({
     redaction: githubContext.redaction,
   });
   addEvent("issue_context", "Issue context recorded", {
-    ...issueContext,
-    receiptId: issueContextReceipt.id,
-    eventKind: "IssueContext",
-    workflowNodeId: "runtime.issue-context",
+    event_kind: "IssueContext",
+    context_id: issueContext.contextId ?? null,
+    repository_context_id: issueContext.repositoryContextId ?? null,
+    github_context_id: issueContext.githubContextId ?? null,
+    pr_attempt_id: issueContext.prAttemptId ?? null,
+    review_gate_id: issueContext.reviewGateId ?? null,
+    status: issueContext.status ?? null,
+    repo_full_name: issueContext.repoFullName ?? null,
+    bound: Boolean(issueContext.bound),
+    issue_provided: Boolean(issueContext.issueProvided),
+    issue_number: issueContext.issueNumber ?? null,
+    source_kind: issueContext.sourceKind ?? null,
+    warnings: normalizeArray(issueContext.warnings),
+    network_lookup_performed: Boolean(issueContext.networkLookupPerformed),
+    mutation_executed: Boolean(issueContext.mutationExecuted),
+    receipt_id: issueContextReceipt.id,
+    workflow_node_id: "runtime.issue-context",
+    redaction: issueContext.redaction,
   });
   addEvent("pr_attempt", "PR attempt preview recorded", {
     ...prAttempt,
