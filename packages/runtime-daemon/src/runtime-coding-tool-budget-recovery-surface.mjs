@@ -164,29 +164,18 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
     ]);
     const approvalManifest = {
       schema_version: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
-      schemaVersion: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
       action: "workflow_run.coding_budget_recovery",
       recovery_action: action,
-      recoveryAction: action,
       reason: WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
       source_event_id: sourceEventId,
-      sourceEventId,
       approval_id: approvalId,
-      approvalId,
       run_id: run.id,
-      runId: run.id,
       thread_id: threadId,
-      threadId,
       turn_id: turnId,
-      turnId,
       workflow_graph_id: workflowGraphId,
-      workflowGraphId,
       workflow_node_id: workflowNodeId,
-      workflowNodeId,
       target_node_ids: targetNodeIds,
-      targetNodeIds,
       recovery_policy: recoveryPolicy,
-      recoveryPolicy,
     };
 
     if (action === "request_approval") {
@@ -267,7 +256,7 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
 
     const approvalRequestEvent = store.latestApprovalRequestEvent(threadId, approvalId);
     const approvalDecisionEvent = store.latestApprovalDecisionEvent(threadId, approvalId);
-    if (recoveryPolicy.requiresApproval !== false) {
+    if (recoveryPolicy.requires_approval !== false) {
       if (!approvalRequestEvent) {
         return codingToolBudgetRecoveryResult({
           action,
@@ -366,18 +355,12 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
       payload: {
         ...approvalManifest,
         event_kind: "WorkflowRunCodingToolBudgetApprovedRetry",
-        eventKind: "WorkflowRunCodingToolBudgetApprovedRetry",
         recovery_action: "retry_approved",
-        recoveryAction: "retry_approved",
         status: "completed",
         approval_satisfied: true,
-        approvalSatisfied: true,
         approval_decision_event_id: approvalDecisionEvent?.event_id ?? null,
-        approvalDecisionEventId: approvalDecisionEvent?.event_id ?? null,
         retry_count: retryCount + 1,
-        retryCount: retryCount + 1,
         retry_limit: retryLimit,
-        retryLimit,
         control_surface: source,
         requested_by: actor,
       },

@@ -77,39 +77,27 @@ export function createCodingToolBudgetRecovery(deps = {}) {
       manifest.recoveryPolicy ??
       {};
     const policy = rawPolicy && typeof rawPolicy === "object" ? rawPolicy : {};
-    const retryLimit = Number(policy.retry_limit ?? policy.retryLimit ?? request.retry_limit ?? 1);
+    const retryLimit = Number(policy.retry_limit ?? request.retry_limit ?? 1);
     const normalizedTargetNodeIds = uniqueStrings([
-      ...normalizeArray(policy.target_node_ids ?? policy.targetNodeIds),
+      ...normalizeArray(policy.target_node_ids),
       ...targetNodeIds,
     ]);
     return {
-      ...policy,
       schema_version:
         policy.schema_version ??
-        policy.schemaVersion ??
         WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
-      schemaVersion:
-        policy.schemaVersion ??
-        policy.schema_version ??
-        WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
-      requires_approval: policy.requires_approval ?? policy.requiresApproval ?? true,
-      requiresApproval: policy.requiresApproval ?? policy.requires_approval ?? true,
-      allow_override: policy.allow_override ?? policy.allowOverride ?? true,
-      allowOverride: policy.allowOverride ?? policy.allow_override ?? true,
+      requires_approval: policy.requires_approval ?? true,
+      allow_override: policy.allow_override ?? true,
       retry_limit: Number.isFinite(retryLimit) && retryLimit > 0 ? Math.floor(retryLimit) : 1,
-      retryLimit: Number.isFinite(retryLimit) && retryLimit > 0 ? Math.floor(retryLimit) : 1,
-      approval_scope: policy.approval_scope ?? policy.approvalScope ?? "target_nodes",
-      approvalScope: policy.approvalScope ?? policy.approval_scope ?? "target_nodes",
-      operator_role: policy.operator_role ?? policy.operatorRole ?? "budget_operator",
-      operatorRole: policy.operatorRole ?? policy.operator_role ?? "budget_operator",
+      approval_scope: policy.approval_scope ?? "target_nodes",
+      operator_role: policy.operator_role ?? "budget_operator",
       target_node_ids: normalizedTargetNodeIds,
-      targetNodeIds: normalizedTargetNodeIds,
       source: policy.source ?? source,
     };
   }
 
   function recoveryPolicyRetryLimit(policy = {}) {
-    const retryLimit = Number(policy.retry_limit ?? policy.retryLimit ?? 1);
+    const retryLimit = Number(policy.retry_limit ?? 1);
     return Number.isFinite(retryLimit) && retryLimit > 0 ? Math.floor(retryLimit) : 1;
   }
 
@@ -168,46 +156,28 @@ export function createCodingToolBudgetRecovery(deps = {}) {
   }) {
     return {
       schema_version: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
-      schemaVersion: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
       status,
       action,
       recovery_action: action,
-      recoveryAction: action,
       reason,
       run_id: run.id,
-      runId: run.id,
       thread_id: threadId,
-      threadId,
       turn_id: turnId,
-      turnId,
       approval_id: approvalId,
-      approvalId,
       source_event_id: sourceEventId,
-      sourceEventId,
       target_node_ids: targetNodeIds,
-      targetNodeIds,
       workflow_graph_id: workflowGraphId,
-      workflowGraphId,
       workflow_node_id: workflowNodeId,
-      workflowNodeId,
       recovery_policy: recoveryPolicy,
-      recoveryPolicy,
       event_id: event?.event_id ?? null,
-      eventId: event?.event_id ?? null,
       seq: event?.seq ?? null,
       approval_event_id: approvalEvent?.event_id ?? null,
-      approvalEventId: approvalEvent?.event_id ?? null,
       approval_decision_event_id: decisionEvent?.event_id ?? null,
-      approvalDecisionEventId: decisionEvent?.event_id ?? null,
       receipt_refs: receiptRefs,
-      receiptRefs,
       policy_decision_refs: policyDecisionRefs,
-      policyDecisionRefs,
       event,
       approval_event: approvalEvent,
-      approvalEvent,
       decision_event: decisionEvent,
-      decisionEvent,
     };
   }
 

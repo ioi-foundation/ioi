@@ -260,10 +260,10 @@ test("budget recovery surface requests approval with stable manifest and refs", 
   });
 
   assert.equal(result.status, "waiting_for_approval");
-  assert.equal(result.approvalId, "approval_budget");
+  assert.equal(result.approval_id, "approval_budget");
   assert.equal(result.event.event_kind, "approval.required");
-  assert.deepEqual(result.targetNodeIds, ["node_budget"]);
-  assert.deepEqual(result.receiptRefs, [
+  assert.deepEqual(result.target_node_ids, ["node_budget"]);
+  assert.deepEqual(result.receipt_refs, [
     "receipt_blocked",
     "receipt_run_alpha_coding_tool_budget_recovery_request_approval_approval_budget",
     "receipt_approval_request",
@@ -273,9 +273,12 @@ test("budget recovery surface requests approval with stable manifest and refs", 
   assert.equal(request.turn_id, "turn_alpha");
   assert.equal(request.workflow_graph_id, "graph_alpha");
   assert.equal(request.workflow_node_id, "node_budget");
-  assert.equal(request.approval_manifest.schemaVersion, "ioi.workflow.coding-tool-budget-recovery.v1");
-  assert.equal(request.approval_manifest.recoveryPolicy.retryLimit, 1);
-  assert.equal(request.approval_manifest.workflowNodeId, "node_budget");
+  assert.equal(request.approval_manifest.schema_version, "ioi.workflow.coding-tool-budget-recovery.v1");
+  assert.equal(request.approval_manifest.recovery_policy.retry_limit, 1);
+  assert.equal(request.approval_manifest.workflow_node_id, "node_budget");
+  for (const alias of ["schemaVersion", "recoveryPolicy", "workflowNodeId"]) {
+    assert.equal(Object.hasOwn(request.approval_manifest, alias), false);
+  }
 });
 
 test("budget recovery surface ignores retired request identity aliases", () => {
@@ -321,16 +324,16 @@ test("budget recovery surface ignores retired request identity aliases", () => {
 
   assert.equal(result.status, "waiting_for_approval");
   assert.equal(result.action, "request_approval");
-  assert.equal(result.threadId, "thread_alpha");
-  assert.equal(result.sourceEventId, "event_budget_blocked");
-  assert.equal(result.approvalId, "approval_budget");
-  assert.equal(result.workflowGraphId, null);
-  assert.equal(result.workflowNodeId, "runtime.coding-tool-budget-recovery");
-  assert.deepEqual(result.targetNodeIds, []);
-  assert.equal(result.receiptRefs.includes("receipt_retired"), false);
-  assert.equal(result.policyDecisionRefs.includes("policy_retired"), false);
-  assert.equal(result.recoveryPolicy.requiresApproval, true);
-  assert.equal(result.recoveryPolicy.retryLimit, 1);
+  assert.equal(result.thread_id, "thread_alpha");
+  assert.equal(result.source_event_id, "event_budget_blocked");
+  assert.equal(result.approval_id, "approval_budget");
+  assert.equal(result.workflow_graph_id, null);
+  assert.equal(result.workflow_node_id, "runtime.coding-tool-budget-recovery");
+  assert.deepEqual(result.target_node_ids, []);
+  assert.equal(result.receipt_refs.includes("receipt_retired"), false);
+  assert.equal(result.policy_decision_refs.includes("policy_retired"), false);
+  assert.equal(result.recovery_policy.requires_approval, true);
+  assert.equal(result.recovery_policy.retry_limit, 1);
   const request = store.calls.find((call) => call.name === "requestThreadApproval").request;
   assert.equal(request.actor, "operator");
   assert.equal(request.turn_id, "turn_alpha");
@@ -338,14 +341,23 @@ test("budget recovery surface ignores retired request identity aliases", () => {
   assert.equal(request.workflow_node_id, "runtime.coding-tool-budget-recovery");
   assert.equal(request.receipt_refs.includes("receipt_retired"), false);
   assert.equal(request.policy_decision_refs.includes("policy_retired"), false);
-  assert.equal(request.approval_manifest.approvalId, "approval_budget");
-  assert.equal(request.approval_manifest.sourceEventId, "event_budget_blocked");
-  assert.equal(request.approval_manifest.recoveryPolicy.retryLimit, 1);
+  assert.equal(request.approval_manifest.approval_id, "approval_budget");
+  assert.equal(request.approval_manifest.source_event_id, "event_budget_blocked");
+  assert.equal(request.approval_manifest.recovery_policy.retry_limit, 1);
   assert.equal(Object.hasOwn(request, "turnId"), false);
   assert.equal(Object.hasOwn(request, "workflowGraphId"), false);
   assert.equal(Object.hasOwn(request, "workflowNodeId"), false);
   assert.equal(Object.hasOwn(request, "receiptRefs"), false);
   assert.equal(Object.hasOwn(request, "policyDecisionRefs"), false);
+  for (const alias of [
+    "approvalId",
+    "sourceEventId",
+    "recoveryPolicy",
+    "workflowNodeId",
+    "targetNodeIds",
+  ]) {
+    assert.equal(Object.hasOwn(request.approval_manifest, alias), false);
+  }
 });
 
 test("budget recovery surface blocks retry until approval is requested and approved", () => {
@@ -399,7 +411,8 @@ test("budget recovery surface records approved retry and enforces retry limit", 
     retry.event.idempotency_key,
     "run:run_alpha:coding-tool-budget-recovery.retry:approval_budget:1",
   );
-  assert.equal(retry.event.payload_summary.retryCount, 1);
+  assert.equal(retry.event.payload_summary.retry_count, 1);
+  assert.equal(Object.hasOwn(retry.event.payload_summary, "retryCount"), false);
   assert.equal(retry.event.fixture_profile, "fixture.local");
   assert.equal(
     calls.find((call) => call.name === "planCodingToolBudgetRecoveryStateUpdate").request.event_id,

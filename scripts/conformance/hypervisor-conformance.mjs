@@ -674,6 +674,9 @@ function runBridge() {
   const runtimeCodingToolBudgetRecovery = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs")
     : "";
+  const runtimeCodingToolBudgetRecoveryTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs")
+    : "";
   const runtimeCodingToolBudgetRecoverySurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
     : "";
@@ -9001,6 +9004,18 @@ function runCompositor() {
   const runtimeCodingToolInvocationSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     : "";
+  const runtimeCodingToolBudgetRecoverySurface = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs")
+    : "";
+  const runtimeCodingToolBudgetRecovery = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs")
+    : "";
+  const runtimeCodingToolBudgetRecoveryTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs")
+    : "";
+  const runtimeCodingToolBudgetRecoverySurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
+    : "";
   const runtimeWorkspaceSnapshotSurface = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
     : "";
@@ -9883,6 +9898,26 @@ function runCompositor() {
     runtimeRecordProjections,
     "function runtimeBridgeTrajectoryFromComputerUseEvents",
     "function runtimeTaskRecordForRun",
+  );
+  const codingToolBudgetRecoveryPolicyBlock = blockBetween(
+    runtimeCodingToolBudgetRecovery,
+    "function codingToolBudgetRecoveryPolicyFromInputs",
+    "function recoveryPolicyRetryLimit",
+  );
+  const codingToolBudgetRecoveryResultBlock = blockBetween(
+    runtimeCodingToolBudgetRecovery,
+    "return {\n      schema_version: WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION",
+    "\n  return {\n    codingToolBudgetRecoveryAction",
+  );
+  const codingToolBudgetRecoveryApprovalManifestBlock = blockBetween(
+    runtimeCodingToolBudgetRecoverySurface,
+    "const approvalManifest = {",
+    "\n    };\n\n    if (action === \"request_approval\")",
+  );
+  const codingToolBudgetRecoveryRetryPayloadBlock = blockBetween(
+    runtimeCodingToolBudgetRecoverySurface,
+    "payload: {\n        ...approvalManifest",
+    "\n      },\n      receipt_refs",
   );
   const runtimeUsageSdkTelemetryBlock = blockBetween(
     agentSdkSubstrateClient,
@@ -11387,6 +11422,73 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
     ],
     "Phase 10/11 is pending: runtime bridge computer-use trace artifacts must emit canonical snake_case projection fields without retired camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "coding-tool-budget-recovery-output-aliases-retired",
+    codingToolBudgetRecoveryPolicyBlock.length > 0 &&
+      codingToolBudgetRecoveryResultBlock.length > 0 &&
+      codingToolBudgetRecoveryApprovalManifestBlock.length > 0 &&
+      codingToolBudgetRecoveryRetryPayloadBlock.length > 0 &&
+      /budget recovery retry limit and result envelope emit canonical fields only/.test(
+        runtimeCodingToolBudgetRecoveryTest,
+      ) &&
+      /Object\.hasOwn\(policy,\s*alias\),\s*false/.test(
+        runtimeCodingToolBudgetRecoveryTest,
+      ) &&
+      /Object\.hasOwn\(result,\s*alias\),\s*false/.test(
+        runtimeCodingToolBudgetRecoveryTest,
+      ) &&
+      /Object\.hasOwn\(request\.approval_manifest,\s*alias\),\s*false/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /Object\.hasOwn\(retry\.event\.payload_summary,\s*"retryCount"\),\s*false/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /schema_version:\s*(?:\n\s*policy\.schema_version\s*\?\?\s*)?WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION/.test(
+        codingToolBudgetRecoveryPolicyBlock,
+      ) &&
+      /requires_approval:\s*policy\.requires_approval \?\? true/.test(
+        codingToolBudgetRecoveryPolicyBlock,
+      ) &&
+      /retry_limit:\s*Number\.isFinite\(retryLimit\)/.test(
+        codingToolBudgetRecoveryPolicyBlock,
+      ) &&
+      /schema_version:\s*WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION/.test(
+        codingToolBudgetRecoveryResultBlock,
+      ) &&
+      /recovery_action:\s*action/.test(codingToolBudgetRecoveryResultBlock) &&
+      /receipt_refs:\s*receiptRefs/.test(codingToolBudgetRecoveryResultBlock) &&
+      /schema_version:\s*WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION/.test(
+        codingToolBudgetRecoveryApprovalManifestBlock,
+      ) &&
+      /recovery_policy:\s*recoveryPolicy/.test(
+        codingToolBudgetRecoveryApprovalManifestBlock,
+      ) &&
+      /retry_count:\s*retryCount \+ 1/.test(codingToolBudgetRecoveryRetryPayloadBlock) &&
+      /retry_limit:\s*retryLimit/.test(codingToolBudgetRecoveryRetryPayloadBlock) &&
+      !/^\s*(?:schemaVersion|requiresApproval|allowOverride|retryLimit|approvalScope|operatorRole|targetNodeIds)\s*:/m.test(
+        codingToolBudgetRecoveryPolicyBlock,
+      ) &&
+      !/policy\.(?:schemaVersion|requiresApproval|allowOverride|retryLimit|approvalScope|operatorRole|targetNodeIds)\b/.test(
+        codingToolBudgetRecoveryPolicyBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|recoveryAction|runId|threadId|turnId|approvalId|sourceEventId|targetNodeIds|workflowGraphId|workflowNodeId|recoveryPolicy|eventId|approvalEventId|approvalDecisionEventId|receiptRefs|policyDecisionRefs|approvalEvent|decisionEvent)\s*[:,]/m.test(
+        codingToolBudgetRecoveryResultBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|recoveryAction|sourceEventId|approvalId|runId|threadId|turnId|workflowGraphId|workflowNodeId|targetNodeIds|recoveryPolicy)\s*[:,]/m.test(
+        codingToolBudgetRecoveryApprovalManifestBlock,
+      ) &&
+      !/^\s*(?:eventKind|recoveryAction|approvalSatisfied|approvalDecisionEventId|retryCount|retryLimit)\s*[:,]/m.test(
+        codingToolBudgetRecoveryRetryPayloadBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool budget recovery policy, result, manifest, and retry payload producers must emit canonical snake_case fields without retired camelCase aliases",
   );
   assertCheck(
     result,

@@ -37,8 +37,8 @@ test("budget recovery target nodes merge request, blocked payload, and event ids
   const recovery = createRecovery();
   const ids = recovery.codingToolBudgetRecoveryTargetNodeIds({
     request: {
-      targetNodeIds: ["node_a", "node_b"],
-      workflowNodeId: "node_request",
+      target_node_ids: ["node_a", "node_b"],
+      workflow_node_id: "node_request",
     },
     blockedEvent: {
       workflow_node_id: "node_event",
@@ -56,27 +56,38 @@ test("budget recovery policy applies defaults and bounded retry limit", () => {
   const recovery = createRecovery();
   const policy = recovery.codingToolBudgetRecoveryPolicyFromInputs({
     request: {
-      retryLimit: 2.8,
+      retry_limit: 2.8,
     },
     blockedPayload: {
-      approvalManifest: {
-        recoveryPolicy: {
-          requiresApproval: false,
-          allowOverride: false,
-          targetNodeIds: ["node_policy"],
+      approval_manifest: {
+        recovery_policy: {
+          requires_approval: false,
+          allow_override: false,
+          target_node_ids: ["node_policy"],
         },
       },
     },
     targetNodeIds: ["node_runtime", "node_policy"],
   });
 
-  assert.equal(policy.schemaVersion, "policy.v1");
+  assert.equal(policy.schema_version, "policy.v1");
   assert.equal(policy.requires_approval, false);
-  assert.equal(policy.allowOverride, false);
-  assert.equal(policy.retryLimit, 2);
-  assert.equal(policy.approvalScope, "target_nodes");
-  assert.equal(policy.operatorRole, "budget_operator");
-  assert.deepEqual(policy.targetNodeIds, ["node_policy", "node_runtime"]);
+  assert.equal(policy.allow_override, false);
+  assert.equal(policy.retry_limit, 2);
+  assert.equal(policy.approval_scope, "target_nodes");
+  assert.equal(policy.operator_role, "budget_operator");
+  assert.deepEqual(policy.target_node_ids, ["node_policy", "node_runtime"]);
+  for (const alias of [
+    "schemaVersion",
+    "requiresApproval",
+    "allowOverride",
+    "retryLimit",
+    "approvalScope",
+    "operatorRole",
+    "targetNodeIds",
+  ]) {
+    assert.equal(Object.hasOwn(policy, alias), false);
+  }
 });
 
 test("budget recovery detects coding-tool budget blocked runtime events", () => {
@@ -94,11 +105,11 @@ test("budget recovery detects coding-tool budget blocked runtime events", () => 
   }), false);
 });
 
-test("budget recovery retry limit and result envelope preserve aliases", () => {
+test("budget recovery retry limit and result envelope emit canonical fields only", () => {
   const recovery = createRecovery();
 
   assert.equal(recovery.recoveryPolicyRetryLimit({ retry_limit: 0 }), 1);
-  assert.equal(recovery.recoveryPolicyRetryLimit({ retryLimit: 3.7 }), 3);
+  assert.equal(recovery.recoveryPolicyRetryLimit({ retry_limit: 3.7 }), 3);
 
   const result = recovery.codingToolBudgetRecoveryResult({
     action: "retry_approved",
@@ -112,7 +123,7 @@ test("budget recovery retry limit and result envelope preserve aliases", () => {
     targetNodeIds: ["node_1"],
     workflowGraphId: "graph_1",
     workflowNodeId: "node_1",
-    recoveryPolicy: { retryLimit: 1 },
+    recoveryPolicy: { retry_limit: 1 },
     event: { event_id: "event_result", seq: 5 },
     approvalEvent: { event_id: "event_approval" },
     decisionEvent: { event_id: "event_decision" },
@@ -120,11 +131,33 @@ test("budget recovery retry limit and result envelope preserve aliases", () => {
     policyDecisionRefs: ["policy_1"],
   });
 
-  assert.equal(result.schemaVersion, "recovery.v1");
+  assert.equal(result.schema_version, "recovery.v1");
   assert.equal(result.recovery_action, "retry_approved");
-  assert.equal(result.runId, "run_1");
-  assert.equal(result.approvalDecisionEventId, "event_decision");
+  assert.equal(result.run_id, "run_1");
+  assert.equal(result.approval_decision_event_id, "event_decision");
   assert.deepEqual(result.target_node_ids, ["node_1"]);
-  assert.deepEqual(result.receiptRefs, ["receipt_1"]);
+  assert.deepEqual(result.receipt_refs, ["receipt_1"]);
   assert.deepEqual(result.policy_decision_refs, ["policy_1"]);
+  for (const alias of [
+    "schemaVersion",
+    "recoveryAction",
+    "runId",
+    "threadId",
+    "turnId",
+    "approvalId",
+    "sourceEventId",
+    "targetNodeIds",
+    "workflowGraphId",
+    "workflowNodeId",
+    "recoveryPolicy",
+    "eventId",
+    "approvalEventId",
+    "approvalDecisionEventId",
+    "receiptRefs",
+    "policyDecisionRefs",
+    "approvalEvent",
+    "decisionEvent",
+  ]) {
+    assert.equal(Object.hasOwn(result, alias), false);
+  }
 });
