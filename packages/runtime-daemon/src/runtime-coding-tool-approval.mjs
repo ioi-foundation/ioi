@@ -24,43 +24,6 @@ export function createCodingToolApprovalPolicy(deps = {}) {
   const optionalString = deps.optionalString || defaultOptionalString;
   const uniqueStrings = deps.uniqueStrings || ((values = []) => [...new Set(normalizeArray(values).filter(Boolean))]);
 
-  function codingToolEffectRequiresApproval(effectClass) {
-    const normalized = optionalString(effectClass)?.toLowerCase() ?? "unknown";
-    return normalized !== "local_read";
-  }
-
-  function codingToolWorkflowApprovalPolicy(request = {}) {
-    const workflowPolicy = codingToolWorkflowApprovalRequestForRust(request);
-    const requiresApproval = Boolean(workflowPolicy.requires_approval);
-    const nodeRequiresApproval = workflowPolicy.node_approval_override === "require_approval";
-    const approvalModeRequiresApproval =
-      workflowPolicy.approval_mode === "human_required" || workflowPolicy.approval_mode === "policy_required";
-    const trustRequiresApproval = ["untrusted", "restricted", "review_required"].includes(
-      workflowPolicy.trust_profile.toLowerCase(),
-    );
-    const reason = nodeRequiresApproval
-      ? "workflow_node_requires_approval"
-      : approvalModeRequiresApproval
-        ? "workflow_approval_mode_requires_approval"
-        : trustRequiresApproval
-          ? "workflow_trust_profile_requires_approval"
-          : "workflow_approval_mode_requires_approval";
-    return {
-      schema_version: "ioi.runtime.workflow-tool-approval-policy.v1",
-      schemaVersion: "ioi.runtime.workflow-tool-approval-policy.v1",
-      source: "react_flow",
-      requires_approval: requiresApproval,
-      requiresApproval,
-      node_approval_override: workflowPolicy.node_approval_override,
-      nodeApprovalOverride: workflowPolicy.node_approval_override,
-      approval_mode: workflowPolicy.approval_mode,
-      approvalMode: workflowPolicy.approval_mode,
-      trust_profile: workflowPolicy.trust_profile,
-      trustProfile: workflowPolicy.trust_profile,
-      reason,
-    };
-  }
-
   function codingToolWorkflowApprovalRequestForRust(request = {}) {
     const codingPack =
       request.toolPack && typeof request.toolPack === "object" && !Array.isArray(request.toolPack)
@@ -184,7 +147,5 @@ export function createCodingToolApprovalPolicy(deps = {}) {
   return {
     codingToolApprovalManifestForThread,
     codingToolApprovalManifestsMatch,
-    codingToolEffectRequiresApproval,
-    codingToolWorkflowApprovalPolicy,
   };
 }

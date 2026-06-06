@@ -925,6 +925,10 @@ function runBridge() {
         runtimeCodingToolApprovalRunnerTest,
       ) &&
       /approvalRunner\.planApprovalManifest/.test(runtimeCodingToolApproval) &&
+      !/codingToolEffectRequiresApproval/.test(runtimeCodingToolApproval) &&
+      !/codingToolWorkflowApprovalPolicy/.test(runtimeCodingToolApproval) &&
+      !/codingToolEffectRequiresApproval/.test(runtimeDaemonIndex) &&
+      !/codingToolWorkflowApprovalPolicy/.test(runtimeDaemonIndex) &&
       !/const modeRequiresApproval/.test(runtimeCodingToolApproval) &&
       /coding tool approval manifest is planned by Rust authority runner/.test(
         runtimeCodingToolApprovalTest,

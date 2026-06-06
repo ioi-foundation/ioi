@@ -115,11 +115,9 @@ function approvalRunnerMock({ capture = null } = {}) {
   };
 }
 
-test("coding tool effect approval is not required for local reads", () => {
+test("coding tool approval manifest is omitted for Rust-planned local reads", () => {
   const policy = createPolicy();
 
-  assert.equal(policy.codingToolEffectRequiresApproval("local_read"), false);
-  assert.equal(policy.codingToolEffectRequiresApproval("workspace_write"), true);
   assert.equal(policy.codingToolApprovalManifestForThread({
     agent: { mode: "agent" },
     threadId: "thread_1",
@@ -129,24 +127,6 @@ test("coding tool effect approval is not required for local reads", () => {
     input: { path: "README.md" },
     request: {},
   }), null);
-});
-
-test("workflow approval policy normalizes nested coding pack controls", () => {
-  const policy = createPolicy();
-  const workflow = policy.codingToolWorkflowApprovalPolicy({
-    toolPack: {
-      coding: {
-        nodeApprovalOverride: "require_approval",
-        approvalMode: "human_required",
-        trustProfile: "restricted",
-      },
-    },
-  });
-
-  assert.equal(workflow.requiresApproval, true);
-  assert.equal(workflow.nodeApprovalOverride, "require_approval");
-  assert.equal(workflow.approvalMode, "human_required");
-  assert.equal(workflow.reason, "workflow_node_requires_approval");
 });
 
 test("coding tool approval manifest is planned by Rust authority runner", () => {

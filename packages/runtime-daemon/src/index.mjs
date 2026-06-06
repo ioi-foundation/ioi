@@ -456,8 +456,6 @@ const {
 const {
   codingToolApprovalManifestForThread,
   codingToolApprovalManifestsMatch,
-  codingToolEffectRequiresApproval,
-  codingToolWorkflowApprovalPolicy,
 } = createCodingToolApprovalPolicy({
   approvalModeForThreadMode,
   codingToolInputSummary,

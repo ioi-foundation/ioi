@@ -12081,6 +12081,12 @@ normalization, and canonical approval manifest/input hash; the daemon facade
 calls `plan_coding_tool_approval_manifest` through the Rust command bridge
 instead of recomputing the approval gate in JS.
 
+Slice 338 retires the dead JS coding-tool approval helper exports left behind
+by Slice 337: `codingToolEffectRequiresApproval` and
+`codingToolWorkflowApprovalPolicy` are removed from the daemon approval module,
+daemon constructor wiring, and focused tests after Rust authority planning
+became the canonical gate.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
