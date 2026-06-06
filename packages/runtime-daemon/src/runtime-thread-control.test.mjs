@@ -194,9 +194,36 @@ function contextPolicyRunner(calls = [], overrides = {}) {
           ...request.agent,
           runtimeSessionId: request.session_id,
           runtimeBridgeId: request.bridge_id,
+          runtimeProfile: request.runtime_profile ?? request.agent?.runtimeProfile ?? request.agent?.runtime ?? "runtime_service",
           status: request.status === "active" ? "running" : request.status,
           updatedAt: request.updated_at,
         },
+      };
+    },
+    planAgentStatusStateUpdate(request = {}) {
+      calls.push({ operation: "plan_agent_status_state_update", input: request });
+      if (overrides.agentStatusStateUpdate) {
+        return overrides.agentStatusStateUpdate;
+      }
+      return {
+        status: "planned",
+        operation_kind: request.operation_kind,
+        agent: {
+          ...request.agent,
+          status: request.status,
+          updatedAt: request.updated_at,
+        },
+      };
+    },
+    planRuntimeBridgeTurnRunStateUpdate(request = {}) {
+      calls.push({ operation: "plan_runtime_bridge_turn_run_state_update", input: request });
+      if (overrides.runtimeBridgeTurnRunStateUpdate) {
+        return overrides.runtimeBridgeTurnRunStateUpdate;
+      }
+      return {
+        status: "planned",
+        operation_kind: "turn.runtime_bridge.submit",
+        run: request.run,
       };
     },
     planOperatorInterruptStateUpdate(request = {}) {
@@ -312,6 +339,92 @@ function appendOperatorControlForTest(value, control) {
   return entries;
 }
 
+function modelMountAdmissionRunnerForTest(calls) {
+  return {
+    admitRouteDecision(request) {
+      calls.push({ operation: "admit_model_mount_route_decision", input: request });
+      return {
+        source: "rust_model_mount_route_decision_test",
+        backend: "rust_model_mount_live",
+        record: {
+          ...request,
+          route_decision_ref: `model_mount://route_decision/${request.route_ref ?? "route"}`,
+          route_decision_hash: `sha256:route-decision:${request.route_ref ?? "route"}`,
+          receipt_refs: request.receipt_refs ?? [],
+        },
+        route_decision_ref: `model_mount://route_decision/${request.route_ref ?? "route"}`,
+        route_decision_hash: `sha256:route-decision:${request.route_ref ?? "route"}`,
+        receipt_refs: request.receipt_refs ?? [],
+        evidence_refs: ["rust_model_mount_core"],
+      };
+    },
+    planProviderLifecycle(request) {
+      calls.push({ operation: "plan_model_mount_provider_lifecycle", input: request });
+      const action = request.action ?? "load";
+      const status = request.target_status ?? (action === "unload" ? "unloaded" : "loaded");
+      return {
+        source: "rust_model_mount_provider_lifecycle_test",
+        backend: request.execution_backend ?? "rust_model_mount_fixture_lifecycle",
+        status,
+        backendId: request.backend_ref ?? "backend.runtime-control-test",
+        providerBackend: request.provider_backend ?? "local_folder",
+        driver: request.driver ?? "fixture",
+        executionBackend: request.execution_backend ?? "rust_model_mount_fixture_lifecycle",
+        lifecycle_hash: `provider_lifecycle_${action}_${status}`,
+        evidence_refs: [`model_mount://provider_lifecycle/${action}/${status}`],
+        backendEvidenceRefs: [`model_mount://provider_lifecycle/${action}/${status}`],
+        result: {
+          action,
+          status,
+          backend_id: request.backend_ref ?? "backend.runtime-control-test",
+          backend: request.provider_backend ?? "local_folder",
+          driver: request.driver ?? "fixture",
+          execution_backend: request.execution_backend ?? "rust_model_mount_fixture_lifecycle",
+          lifecycle_hash: `provider_lifecycle_${action}_${status}`,
+          evidence_refs: [`model_mount://provider_lifecycle/${action}/${status}`],
+        },
+      };
+    },
+    planInstanceLifecycle(request) {
+      calls.push({ operation: "plan_model_mount_instance_lifecycle", input: request });
+      const action = request.action ?? "load";
+      const status = request.target_status ?? (action === "unload" ? "unloaded" : "loaded");
+      return {
+        source: "rust_model_mount_instance_lifecycle_test",
+        backend: request.execution_backend ?? "rust_model_mount_instance_lifecycle",
+        action,
+        status,
+        backendId: request.backend_ref ?? "backend.runtime-control-test",
+        driver: request.driver ?? "fixture",
+        executionBackend: request.execution_backend ?? "rust_model_mount_instance_lifecycle",
+        provider_lifecycle_hash: request.provider_lifecycle_hash ?? `provider_lifecycle_${action}_${status}`,
+        instance_lifecycle_hash: `instance_lifecycle_${action}_${status}`,
+        evidence_refs: [
+          "rust_model_mount_instance_lifecycle",
+          `model_mount://instance_lifecycle/${action}/${status}`,
+        ],
+        backendEvidenceRefs: [
+          "rust_model_mount_instance_lifecycle",
+          `model_mount://instance_lifecycle/${action}/${status}`,
+        ],
+        result: {
+          action,
+          status,
+          backend_id: request.backend_ref ?? "backend.runtime-control-test",
+          driver: request.driver ?? "fixture",
+          execution_backend: request.execution_backend ?? "rust_model_mount_instance_lifecycle",
+          provider_lifecycle_hash: request.provider_lifecycle_hash ?? `provider_lifecycle_${action}_${status}`,
+          instance_lifecycle_hash: `instance_lifecycle_${action}_${status}`,
+          evidence_refs: [
+            "rust_model_mount_instance_lifecycle",
+            `model_mount://instance_lifecycle/${action}/${status}`,
+          ],
+        },
+      };
+    },
+  };
+}
+
 async function seedRuntimeControlModelRoute(store) {
   store.modelMounting.importModel({
     model_id: "runtime-control-test-model",
@@ -346,6 +459,8 @@ test("managed browser session inspect and control survive daemon store reconnect
   };
   let store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
+    contextPolicyRunner: contextPolicyRunner(calls),
+    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
     runtimeBridge: managedSessionReconnectBridge(calls, managedState),
   });
   try {
@@ -366,7 +481,7 @@ test("managed browser session inspect and control survive daemon store reconnect
     assert.equal(initialInspection.managed_sessions.sessions[0].control_state, "observe");
 
     const takeover = await store.controlManagedSessionForThread(thread.thread_id, {
-      managedSessionId: managedState.managedSessionId,
+      managed_session_id: managedState.managedSessionId,
       action: "take_over",
       reason: "operator takes over manual authentication handoff fixture",
     });
@@ -376,6 +491,8 @@ test("managed browser session inspect and control survive daemon store reconnect
     store.close();
     store = new AgentgresRuntimeStateStore(stateDir, {
       cwd: stateDir,
+      contextPolicyRunner: contextPolicyRunner(calls),
+      modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
       runtimeBridge: managedSessionReconnectBridge(calls, managedState),
     });
 
@@ -387,7 +504,7 @@ test("managed browser session inspect and control survive daemon store reconnect
     assert.equal(replayedAfterReconnect.managed_sessions.replay.source, "persisted_runtime_service_state");
 
     const returned = await store.controlManagedSessionForThread(thread.thread_id, {
-      managedSessionId: managedState.managedSessionId,
+      managed_session_id: managedState.managedSessionId,
       action: "return-agent",
       reason: "operator returns control after reconnect",
     });
@@ -421,6 +538,8 @@ test("managed browser session HTTP routes survive daemon service reconnect", asy
     daemon = await startRuntimeDaemonService({
       cwd: stateDir,
       stateDir,
+      contextPolicyRunner: contextPolicyRunner(calls),
+      modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
       runtimeBridge: managedSessionReconnectBridge(calls, managedState),
     });
     await seedRuntimeControlModelRoute(daemon.store);
@@ -443,7 +562,7 @@ test("managed browser session HTTP routes survive daemon service reconnect", asy
     const takeover = await fetchJson(`${sessionRoute}/control`, {
       method: "POST",
       body: JSON.stringify({
-        managedSessionId: managedState.managedSessionId,
+        managed_session_id: managedState.managedSessionId,
         action: "take_over",
         reason: "operator takes over manual authentication handoff fixture through HTTP route",
       }),
@@ -455,6 +574,8 @@ test("managed browser session HTTP routes survive daemon service reconnect", asy
     daemon = await startRuntimeDaemonService({
       cwd: stateDir,
       stateDir,
+      contextPolicyRunner: contextPolicyRunner(calls),
+      modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
       runtimeBridge: managedSessionReconnectBridge(calls, managedState),
     });
     const reconnectedSessionRoute = `${daemon.endpoint}/v1/threads/${thread.thread_id}/managed-sessions`;
@@ -468,7 +589,7 @@ test("managed browser session HTTP routes survive daemon service reconnect", asy
     const returned = await fetchJson(`${reconnectedSessionRoute}/control`, {
       method: "POST",
       body: JSON.stringify({
-        managedSessionId: managedState.managedSessionId,
+        managed_session_id: managedState.managedSessionId,
         action: "return-agent",
         reason: "operator returns control after HTTP reconnect",
       }),
@@ -497,6 +618,7 @@ test("runtime-backed interrupt and resume route through control_thread", async (
     cwd: stateDir,
     contextPolicyRunner: contextPolicyRunner(calls),
     runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(calls),
+    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
     runtimeBridge: runtimeControlBridge(calls),
   });
   try {
@@ -518,6 +640,8 @@ test("runtime-backed interrupt and resume route through control_thread", async (
     const interrupted = await store.interruptTurn(thread.thread_id, turnId, {
       source: "agent_studio",
       reason: "operator_stop",
+      workflowGraphId: "graph_retired",
+      workflowNodeId: "node_retired",
     });
     const resumed = await store.resumeThread(thread.thread_id, {
       source: "agent_studio",
@@ -532,6 +656,9 @@ test("runtime-backed interrupt and resume route through control_thread", async (
     assert.equal(controls[1].input.action, "resume");
     assert.equal(controls[1].input.sessionId, "session_runtime_control_test");
     assert.equal(interrupted.runtime_control.action, "stop");
+    const interruptEvent = interrupted.events.find((event) => event.event_kind === "turn.interrupted");
+    assert.equal(interruptEvent.workflow_graph_id, null);
+    assert.equal(interruptEvent.workflow_node_id, "runtime.operator-interrupt");
     assert.equal(resumed.runtime_control.action, "resume");
   } finally {
     store.close();
@@ -546,6 +673,7 @@ test("runtime-backed steering routes run update through Rust policy planner", as
     cwd: stateDir,
     contextPolicyRunner: contextPolicyRunner(calls),
     runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(calls),
+    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
     runtimeBridge: runtimeControlBridge(calls),
   });
   try {
@@ -567,6 +695,9 @@ test("runtime-backed steering routes run update through Rust policy planner", as
     const steered = store.steerTurn(thread.thread_id, turnId, {
       source: "agent_studio",
       guidance: "focus on the failing bridge assertion",
+      idempotencyKey: "operator_steer_idempotency_retired",
+      workflowGraphId: "graph_retired",
+      workflowNodeId: "node_retired",
     });
 
     const plannerCalls = calls.filter((call) => call.operation === "plan_operator_steer_state_update");
@@ -575,7 +706,14 @@ test("runtime-backed steering routes run update through Rust policy planner", as
     assert.equal(plannerCalls[0].input.turn_id, turnId);
     assert.equal(plannerCalls[0].input.run_id, run.id);
     assert.equal(plannerCalls[0].input.guidance, "focus on the failing bridge assertion");
-    assert.equal(steered.events.at(-1).event_kind, "turn.steered");
+    const steerEvent = steered.events.find((event) => event.event_kind === "turn.steered");
+    assert.ok(steerEvent);
+    assert.equal(
+      steerEvent.idempotency_key,
+      `turn:${turnId}:operator.steer:1edfd37d46c5349e`,
+    );
+    assert.equal(steerEvent.workflow_graph_id, null);
+    assert.equal(steerEvent.workflow_node_id, "runtime.operator-steer");
 
     const steerCommits = calls.filter(
       (call) =>
@@ -602,6 +740,7 @@ test("runtime-backed operator controls fail closed without Rust-planned runs", a
       interruptStateUpdate: { status: "planned", operation_kind: "turn.interrupt", run: null },
     }),
     runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(interruptCalls),
+    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(interruptCalls),
     runtimeBridge: runtimeControlBridge(interruptCalls),
   });
   try {
@@ -639,6 +778,7 @@ test("runtime-backed operator controls fail closed without Rust-planned runs", a
       steerStateUpdate: { status: "planned", operation_kind: "turn.steer", run: null },
     }),
     runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(steerCalls),
+    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(steerCalls),
     runtimeBridge: runtimeControlBridge(steerCalls),
   });
   try {
@@ -687,6 +827,7 @@ test("runtime-backed operator controls fail closed without Rust-planned operatio
       },
     }),
     runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(interruptCalls),
+    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(interruptCalls),
     runtimeBridge: runtimeControlBridge(interruptCalls),
   });
   try {
@@ -739,6 +880,7 @@ test("runtime-backed operator controls fail closed without Rust-planned operatio
       },
     }),
     runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(steerCalls),
+    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(steerCalls),
     runtimeBridge: runtimeControlBridge(steerCalls),
   });
   try {
@@ -791,6 +933,7 @@ test("runtime-backed in-flight turn can be interrupted before durable run projec
     cwd: stateDir,
     contextPolicyRunner: contextPolicyRunner(calls),
     runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(calls),
+    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
     runtimeBridge: runtimeControlBridge(calls, {
       async submitTurn(input, { onRuntimeEvent } = {}) {
         const startedEvent = {
@@ -867,7 +1010,13 @@ test("runtime-backed in-flight turn can be interrupted before durable run projec
 
 test("subagent budget block can be resumed and recovered after store reload", async () => {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-subagent-recovery-"));
-  const store = new AgentgresRuntimeStateStore(stateDir, { cwd: stateDir });
+  const calls = [];
+  const store = new AgentgresRuntimeStateStore(stateDir, {
+    cwd: stateDir,
+    contextPolicyRunner: contextPolicyRunner(calls),
+    runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(calls),
+    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
+  });
   try {
     await seedRuntimeControlModelRoute(store);
 
@@ -891,7 +1040,8 @@ test("subagent budget block can be resumed and recovered after store reload", as
         role: "failed-child",
         prompt: "This child intentionally exceeds a tiny token budget.",
         parentTurnId: `turn_${parentTurn.id.slice("run_".length)}`,
-        budget: { maxTokens: 1 },
+        budget: { max_input_tokens: 1 },
+        budget_usage_telemetry: { cumulative_input_tokens: 10 },
       });
     } catch (error) {
       blockedError = error;
@@ -907,12 +1057,17 @@ test("subagent budget block can be resumed and recovered after store reload", as
     const resumed = store.resumeSubagent(thread.thread_id, blockedChild.subagent_id, {
       source: "runtime-subagent-recovery-test",
       prompt: "Resume the failed child with a repaired budget.",
-      budget: { maxTokens: 10000 },
+      budget: { max_input_tokens: 10000 },
     });
     assert.equal(resumed.subagent.restart_status, "restarted");
     assert.notEqual(resumed.subagent.lifecycle_status, "blocked");
 
-    const reloaded = new AgentgresRuntimeStateStore(stateDir, { cwd: stateDir });
+    const reloaded = new AgentgresRuntimeStateStore(stateDir, {
+      cwd: stateDir,
+      contextPolicyRunner: contextPolicyRunner(calls),
+      runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(calls),
+      modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
+    });
     try {
       const recovered = reloaded
         .listSubagents(thread.thread_id)

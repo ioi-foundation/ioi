@@ -12887,6 +12887,12 @@ canonical `workflow_node_id`, `workspace_trust_workflow_node_id`, and
 `workspaceTrustWorkflowNodeId`, and `trustWarningWorkflowNodeId` fields no longer
 steer warning projection identity before acknowledgement handling.
 
+Slice 458 completes operator-control event identity alias retirement:
+operator interrupt and steer events now consume canonical `workflow_graph_id`,
+`workflow_node_id`, and steer `idempotency_key` fields only; retired
+`workflowGraphId`, `workflowNodeId`, and `idempotencyKey` fields no longer steer
+operator-control projection identity around the Rust-planned state-update bridge.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

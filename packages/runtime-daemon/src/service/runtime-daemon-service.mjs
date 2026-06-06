@@ -14,6 +14,8 @@ export async function startRuntimeDaemonServiceWithStore({
     cwd: options.cwd ?? process.cwd(),
     homeDir: options.homeDir,
     vaultSecrets: options.vaultSecrets,
+    contextPolicyRunner: options.contextPolicyRunner,
+    modelMountAdmissionRunner: options.modelMountAdmissionRunner,
     runtimeBridge: options.runtimeBridge,
   });
   const server = http.createServer((request, response) => {

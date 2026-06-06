@@ -716,6 +716,10 @@ function runBridge() {
   const runtimeThreadControlTest = exists("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
     : "";
+  const operatorInterruptTurnBody =
+    runtimeDaemonIndex.match(/async interruptTurn\(threadId, turnId, request = \{\}\) \{[\s\S]*?\n  steerTurn\(/)?.[0] ?? "";
+  const operatorSteerTurnBody =
+    runtimeDaemonIndex.match(/steerTurn\(threadId, turnId, request = \{\}\) \{[\s\S]*?\n  requestThreadApproval\(/)?.[0] ?? "";
   const runtimeRunCancellation = exists("packages/runtime-daemon/src/runtime-run-cancellation.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-cancellation.mjs")
     : "";
@@ -2242,6 +2246,15 @@ function runBridge() {
       !/control:\s*"interrupt"/.test(runtimeDaemonIndex) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeDaemonIndex) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.interrupt"/.test(runtimeDaemonIndex) &&
+      !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
+        operatorInterruptTurnBody,
+      ) &&
+      /workflowGraphId: "graph_retired"/.test(runtimeThreadControlTest) &&
+      /workflowNodeId: "node_retired"/.test(runtimeThreadControlTest) &&
+      /interruptEvent\.workflow_graph_id,\s*null/.test(runtimeThreadControlTest) &&
+      /interruptEvent\.workflow_node_id,\s*"runtime\.operator-interrupt"/.test(
+        runtimeThreadControlTest,
+      ) &&
       /contextPolicyRunner\(calls\)/.test(runtimeThreadControlTest) &&
       /runtime-backed operator controls fail closed without Rust-planned runs/.test(
         runtimeThreadControlTest,
@@ -2282,6 +2295,17 @@ function runBridge() {
       !/control:\s*"steer"|appendOperatorControl/.test(runtimeDaemonIndex) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeDaemonIndex) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.steer"/.test(runtimeDaemonIndex) &&
+      !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
+        operatorSteerTurnBody,
+      ) &&
+      /idempotencyKey: "operator_steer_idempotency_retired"/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /steerEvent\.idempotency_key/.test(runtimeThreadControlTest) &&
+      /steerEvent\.workflow_graph_id,\s*null/.test(runtimeThreadControlTest) &&
+      /steerEvent\.workflow_node_id,\s*"runtime\.operator-steer"/.test(
+        runtimeThreadControlTest,
+      ) &&
       /runtime-backed steering routes run update through Rust policy planner/.test(
         runtimeThreadControlTest,
       ) &&

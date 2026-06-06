@@ -1601,8 +1601,8 @@ export class AgentgresRuntimeStateStore {
       actor: "user",
       created_at: now,
       workspace_root: agent.cwd,
-      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
-      workflow_node_id: request.workflow_node_id ?? request.workflowNodeId ?? "runtime.operator-interrupt",
+      workflow_graph_id: request.workflow_graph_id ?? null,
+      workflow_node_id: request.workflow_node_id ?? "runtime.operator-interrupt",
       component_kind: "operator_control",
       payload_schema_version: "ioi.runtime.operator-control.v1",
       payload: {
@@ -1706,7 +1706,6 @@ export class AgentgresRuntimeStateStore {
       item_id: `${turnId}:item:operator-steer:${guidanceHash}`,
       idempotency_key:
         request.idempotency_key ??
-        request.idempotencyKey ??
         `turn:${turnId}:operator.steer:${guidanceHash}`,
       source,
       source_event_kind: "OperatorControl.Steer",
@@ -1715,8 +1714,8 @@ export class AgentgresRuntimeStateStore {
       actor: "user",
       created_at: now,
       workspace_root: agent.cwd,
-      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
-      workflow_node_id: request.workflow_node_id ?? request.workflowNodeId ?? "runtime.operator-steer",
+      workflow_graph_id: request.workflow_graph_id ?? null,
+      workflow_node_id: request.workflow_node_id ?? "runtime.operator-steer",
       component_kind: "operator_control",
       payload_schema_version: "ioi.runtime.operator-control.v1",
       payload: {
