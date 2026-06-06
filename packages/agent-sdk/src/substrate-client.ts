@@ -677,13 +677,11 @@ export interface RuntimeThreadToolInvocationResult {
 }
 
 export interface RuntimeMcpListOptions {
-  threadId?: string;
   thread_id?: string;
-  agentId?: string;
   agent_id?: string;
-  serverId?: string;
   server_id?: string;
-  [key: string]: unknown;
+  mcp_config_source_mode?: string;
+  config_source_mode?: string;
 }
 
 export interface RuntimeMcpToolSearchInput extends RuntimeMcpListOptions {

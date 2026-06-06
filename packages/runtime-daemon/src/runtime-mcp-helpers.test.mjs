@@ -143,18 +143,44 @@ test("runtime MCP helpers normalize mutation inputs and registry projections", (
   assert.equal(record.status, "configured");
 
   const records = mcpServerRecordsFromMutationInput({
-    configSource: "workspace",
+    config_source: "workspace",
+    configSource: "retired-camel-source",
     servers: {
       docs: { transport: "stdio", command: "npx" },
     },
   }, "/workspace", "fallback");
   assert.equal(records.length, 1);
   assert.equal(records[0].label, "docs");
+  assert.equal(records[0].source, "workspace");
+
+  const added = mcpServerRecordFromAddRequest({
+    label: "Git",
+    config_source: "runtime_control",
+    configSource: "retired-camel-source",
+    config: {
+      transport: "stdio",
+      command: "git",
+    },
+  }, "/workspace");
+  assert.equal(added.source, "runtime_control");
 
   const registry = mcpRegistryWithServers({}, [record]);
   assert.equal(registry.serverCount, 1);
   assert.equal(registry.toolCount, 1);
-  assert.equal(mcpConfigSourceModeForRequest({ configSourceMode: "global-only" }), "global");
+  assert.equal(
+    mcpConfigSourceModeForRequest({
+      config_source_mode: "global-only",
+      configSourceMode: "workspace",
+    }),
+    "global",
+  );
+  assert.equal(
+    mcpConfigSourceModeForRequest({
+      mcp_config_source_mode: "workspace-only",
+      mcpConfigSourceMode: "global",
+    }),
+    "workspace",
+  );
   assert.equal(mcpServerMatchesConfigSourceMode({ sourceScope: "global" }, "global"), true);
   assert.equal(mcpServerMatchesConfigSourceMode({ sourceScope: "global" }, "workspace"), false);
 });

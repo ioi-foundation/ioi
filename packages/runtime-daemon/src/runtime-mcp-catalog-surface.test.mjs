@@ -31,7 +31,7 @@ function harness() {
       return threadId.replace(/^thread-/, "");
     },
     mcpConfigSourceModeForRequest(options) {
-      return options.configSourceMode ?? "all";
+      return options.config_source_mode ?? options.mcp_config_source_mode ?? "all";
     },
     mcpPromptsForServers(servers) {
       return servers.flatMap((item) => item.prompts ?? []);
@@ -118,9 +118,15 @@ test("runtime MCP catalog surface lists context servers and filters catalog rows
     "mcp.agent.git",
     "model-search",
   ]);
-  assert.deepEqual(surface.listMcpServers(store, { configSourceMode: "workspace" }).map((item) => item.id), [
-    "mcp.workspace.docs",
-  ]);
+  assert.deepEqual(
+    surface
+      .listMcpServers(store, {
+        config_source_mode: "workspace",
+        configSourceMode: "thread",
+      })
+      .map((item) => item.id),
+    ["mcp.workspace.docs"],
+  );
   assert.deepEqual(surface.listMcpTools(store, { server_id: "mcp.agent.git" }), [
     {
       serverId: "mcp.agent.git",

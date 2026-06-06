@@ -12423,6 +12423,13 @@ runtime subagent list/spawn/resume/assign requests and SDK subagent request
 types now use only canonical `role`; the retired `subagent_role` request field
 is ignored by daemon control surfaces and no longer advertised by the SDK.
 
+Slice 390 removes MCP config-source request aliases:
+runtime MCP mutation/source-mode helpers, the MCP manager workspace registry,
+and SDK MCP list options now use canonical `config_source`,
+`mcp_config_source_mode`, and `config_source_mode` fields only; retired
+camelCase `configSource`, `mcpConfigSourceMode`, and `configSourceMode`
+request fields are ignored and no longer advertised by the SDK list options.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

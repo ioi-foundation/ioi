@@ -295,7 +295,7 @@ export function mcpRegistryWithServers(registry = {}, servers = []) {
 
 export function mcpServerRecordsFromMutationInput(request = {}, workspaceRoot, fallbackSource) {
   const raw = request.mcp_json ?? request.mcpJson ?? request;
-  const source = optionalString(request.config_source ?? request.configSource ?? raw.source) ?? fallbackSource;
+  const source = optionalString(request.config_source ?? raw.source) ?? fallbackSource;
   const servers = raw.mcpServers ?? raw.mcp_servers ?? raw.servers ?? request.servers;
   if (Array.isArray(servers)) {
     return servers.map((server, index) =>
@@ -329,7 +329,7 @@ export function mcpServerRecordFromAddRequest(request = {}, workspaceRoot) {
     optionalString(request.label ?? request.name ?? request.server_label ?? request.serverLabel) ??
     optionalString(config.label ?? config.name ?? config.id) ??
     "mcp";
-  const source = optionalString(request.config_source ?? request.configSource ?? config.source) ?? "runtime_mcp_add";
+  const source = optionalString(request.config_source ?? config.source) ?? "runtime_mcp_add";
   return normalizeMcpServerRecord(label, config, {
     workspaceRoot,
     source,
@@ -407,9 +407,7 @@ export function mcpToolSearchLimit(request = {}) {
 export function mcpConfigSourceModeForRequest(request = {}) {
   const text = optionalString(
     request.mcp_config_source_mode ??
-      request.mcpConfigSourceMode ??
-      request.config_source_mode ??
-      request.configSourceMode,
+      request.config_source_mode,
   )?.toLowerCase().replace(/[-\s]+/g, "_");
   if (["workspace", "workspace_only", "local", "local_only"].includes(text)) {
     return "workspace";

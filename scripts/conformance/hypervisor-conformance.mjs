@@ -7554,6 +7554,9 @@ function runCompositor() {
   const runtimeMcpHelpersTest = exists("packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs")
     : "";
+  const runtimeMcpManager = exists("packages/runtime-daemon/src/mcp-manager.mjs")
+    ? read("packages/runtime-daemon/src/mcp-manager.mjs")
+    : "";
   const agentIdeTerminalRunLaunch = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
   )
@@ -7664,6 +7667,9 @@ function runCompositor() {
   const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
     ? read("packages/agent-sdk/src/substrate-client.ts")
     : "";
+  const runtimeMcpSdkListOptionsBlock =
+    agentSdkSubstrateClient.match(/export interface RuntimeMcpListOptions[\s\S]*?\n}\n/)?.[0] ??
+    "";
   const agentSdkTesting = exists("packages/agent-sdk/src/testing.ts")
     ? read("packages/agent-sdk/src/testing.ts")
     : "";
@@ -10133,6 +10139,34 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
     ],
     "Phase 10/11 is pending: MCP serve result projection must use canonical runtime event_id and ignore retired event.id aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-config-source-request-aliases-retired",
+    /request\.config_source/.test(runtimeMcpHelpers) &&
+      /request\.mcp_config_source_mode/.test(runtimeMcpHelpers) &&
+      /request\.config_source_mode/.test(runtimeMcpHelpers) &&
+      /options\.mcp_config_source_mode\s*\?\?\s*options\.config_source_mode/.test(
+        runtimeMcpManager,
+      ) &&
+      /^\s*mcp_config_source_mode\?: string;/m.test(runtimeMcpSdkListOptionsBlock) &&
+      /^\s*config_source_mode\?: string;/m.test(runtimeMcpSdkListOptionsBlock) &&
+      /configSource: "retired-camel-source"/.test(runtimeMcpHelpersTest) &&
+      /configSourceMode: "workspace"/.test(runtimeMcpHelpersTest) &&
+      /mcpConfigSourceMode: "global"/.test(runtimeMcpHelpersTest) &&
+      !/request\.(?:configSource|mcpConfigSourceMode|configSourceMode)\b/.test(
+        runtimeMcpHelpers,
+      ) &&
+      !/options\.(?:mcpConfigSourceMode|configSourceMode)\b/.test(runtimeMcpManager) &&
+      !/^\s*(?:threadId|agentId|serverId)\?:/m.test(runtimeMcpSdkListOptionsBlock) &&
+      !/^\s*\[key: string\]: unknown;/m.test(runtimeMcpSdkListOptionsBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
+      "packages/runtime-daemon/src/mcp-manager.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP source-mode requests must use canonical snake_case fields without camelCase compatibility aliases or SDK escape hatches",
   );
   assertCheck(
     result,

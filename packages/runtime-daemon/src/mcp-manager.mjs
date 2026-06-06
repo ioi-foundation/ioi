@@ -17,10 +17,7 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
   const workspaceRoot = path.resolve(options.local?.cwd ?? cwd ?? process.cwd());
   const homeDir = path.resolve(options.homeDir ?? options.home_dir ?? process.env.HOME ?? os.homedir());
   const sourceMode = normalizeMcpConfigSourceMode(
-    options.mcpConfigSourceMode ??
-      options.mcp_config_source_mode ??
-      options.configSourceMode ??
-      options.config_source_mode,
+    options.mcp_config_source_mode ?? options.config_source_mode,
   );
   const servers = [];
   if (sourceMode !== "workspace") {
