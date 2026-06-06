@@ -17,6 +17,7 @@ import {
   mcpServerMatchesConfigSourceMode,
   mcpServerRecordFromAddRequest,
   mcpServerRecordsFromMutationInput,
+  mcpToolSearchLimit,
   mcpToolIdentityMatches,
   mcpToolMatchesQuery,
   mcpToolNamespaces,
@@ -152,7 +153,14 @@ test("runtime MCP helpers summarize and defer large catalogs", () => {
   assert.equal(exposure.summary.toolCount, 4);
   assert.equal(exposure.summary.fullCatalogIncluded, false);
   assert.deepEqual(mcpToolNamespaces(["docs__search", "git.diff", "file.inspect"]), ["docs", "file", "git"]);
-  assert.equal(mcpCatalogFullRequested({ catalogMode: "full" }), true);
+  assert.equal(mcpToolSearchLimit({ max_results: 7, maxResults: 99 }), 7);
+  assert.equal(mcpToolSearchLimit({ maxResults: 7 }), 25);
+  assert.equal(mcpCatalogFullRequested({ catalog_mode: "full", catalogMode: "summary" }), true);
+  assert.equal(mcpCatalogFullRequested({ mcp_catalog_mode: "full", mcpCatalogMode: "summary" }), true);
+  assert.equal(mcpCatalogFullRequested({ include_full_catalog: true, includeFullCatalog: false }), true);
+  assert.equal(mcpCatalogFullRequested({ catalogMode: "full" }), false);
+  assert.equal(mcpCatalogFullRequested({ mcpCatalogMode: "full" }), false);
+  assert.equal(mcpCatalogFullRequested({ includeFullCatalog: true }), false);
 });
 
 test("runtime MCP helpers normalize mutation inputs and registry projections", () => {
@@ -219,6 +227,19 @@ test("runtime MCP helpers normalize mutation inputs and registry projections", (
     mcpServer: { transport: "stdio", command: "retired" },
   }, "/workspace");
   assert.equal(canonicalServer.command, "npx");
+
+  const canonicalServerLabel = mcpServerRecordFromAddRequest({
+    server_label: "Canonical Label",
+    serverLabel: "Retired Label",
+    config: { transport: "stdio", command: "npx" },
+  }, "/workspace");
+  assert.equal(canonicalServerLabel.label, "Canonical Label");
+
+  const retiredServerLabel = mcpServerRecordFromAddRequest({
+    serverLabel: "Retired Label",
+    config: { transport: "stdio", command: "npx" },
+  }, "/workspace");
+  assert.equal(retiredServerLabel.label, "mcp");
 
   const retiredServer = mcpServerRecordFromAddRequest({
     label: "Retired",

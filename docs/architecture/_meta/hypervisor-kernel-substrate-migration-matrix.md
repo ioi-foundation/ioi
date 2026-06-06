@@ -12506,6 +12506,12 @@ canonical `turn_id`, `workflow_graph_id`, and `idempotency_key`; retired
 camelCase `turnId`, `workflowGraphId`, and `idempotencyKey` request fields no
 longer bind MCP control event metadata.
 
+Slice 404 removes MCP helper request aliases:
+runtime MCP helper parsing now uses canonical `server_label`, `max_results`,
+`catalog_mode`, `mcp_catalog_mode`, and `include_full_catalog`; retired
+camelCase `serverLabel`, `maxResults`, `catalogMode`, `mcpCatalogMode`, and
+`includeFullCatalog` request fields no longer influence MCP helper behavior.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

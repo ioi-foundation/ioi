@@ -324,7 +324,7 @@ export function mcpServerRecordFromAddRequest(request = {}, workspaceRoot) {
         ? request.config
         : request;
   const label =
-    optionalString(request.label ?? request.name ?? request.server_label ?? request.serverLabel) ??
+    optionalString(request.label ?? request.name ?? request.server_label) ??
     optionalString(config.label ?? config.name ?? config.id) ??
     "mcp";
   const source = optionalString(request.config_source ?? config.source) ?? "runtime_mcp_add";
@@ -396,7 +396,7 @@ export function mcpCatalogPreviewLimit(request = {}) {
 }
 
 export function mcpToolSearchLimit(request = {}) {
-  return boundedPositiveInteger(request.limit ?? request.max_results ?? request.maxResults, 25, 100);
+  return boundedPositiveInteger(request.limit ?? request.max_results, 25, 100);
 }
 
 export function mcpConfigSourceModeForRequest(request = {}) {
@@ -429,9 +429,9 @@ export function boundedPositiveInteger(value, fallback, max) {
 
 export function mcpCatalogFullRequested(request = {}) {
   const mode = optionalString(
-    request.catalog_mode ?? request.catalogMode ?? request.mcp_catalog_mode ?? request.mcpCatalogMode,
+    request.catalog_mode ?? request.mcp_catalog_mode,
   )?.toLowerCase();
-  return mode === "full" || request.include_full_catalog === true || request.includeFullCatalog === true;
+  return mode === "full" || request.include_full_catalog === true;
 }
 
 export function mcpCatalogExposureForStatus(server, catalog = {}, options = {}) {

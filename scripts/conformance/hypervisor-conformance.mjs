@@ -10480,6 +10480,28 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-mcp-helper-request-aliases-retired",
+    /request\.server_label/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
+      /request\.max_results/.test(runtimeMcpHelpers) &&
+      /request\.catalog_mode/.test(runtimeMcpHelpers) &&
+      /request\.mcp_catalog_mode/.test(runtimeMcpHelpers) &&
+      /request\.include_full_catalog/.test(runtimeMcpHelpers) &&
+      /serverLabel: "Retired Label"/.test(runtimeMcpHelpersTest) &&
+      /maxResults: 99/.test(runtimeMcpHelpersTest) &&
+      /catalogMode: "summary"/.test(runtimeMcpHelpersTest) &&
+      /mcpCatalogMode: "summary"/.test(runtimeMcpHelpersTest) &&
+      /includeFullCatalog: false/.test(runtimeMcpHelpersTest) &&
+      !/request\.serverLabel\b/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
+      !/request\.maxResults\b/.test(runtimeMcpHelpers) &&
+      !/request\.(?:catalogMode|mcpCatalogMode|includeFullCatalog)\b/.test(runtimeMcpHelpers),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP helper request parsing must use canonical server_label/max_results/catalog_mode/mcp_catalog_mode/include_full_catalog without retired camelCase aliases",
+  );
+  assertCheck(
+    result,
     "runtime-mcp-control-event-metadata-request-aliases-retired",
     /request\.turn_id/.test(runtimeMcpControlSurface) &&
       /request\.workflow_graph_id/.test(runtimeMcpControlSurface) &&
