@@ -12339,6 +12339,11 @@ requires `SubagentRecordStateUpdateCore` to return the exact expected
 `operation_kind` for every subagent lifecycle persistence path and fails closed
 instead of substituting a JS-side `subagent.*` fallback.
 
+Slice 375 removes agent/run lifecycle operation-kind fallbacks: `createAgent`
+and `createRun` now require the Rust state-update planner to return the exact
+`agent.create` or `run.create` operation kind before any in-memory record or
+write is admitted, rather than substituting the legacy JS-side fallback.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -176,6 +176,36 @@ test("createAgent preserves hosted provider availability failures", () => {
   );
 });
 
+test("createAgent fails closed without Rust-planned operation kind", () => {
+  const store = fakeStore();
+
+  assert.throws(
+    () =>
+      createAgent(
+        store,
+        { local: { cwd: "/workspace/project" } },
+        deps({
+          contextPolicyRunner: {
+            planAgentCreateStateUpdate(request = {}) {
+              return {
+                status: "planned",
+                agent: request.agent,
+              };
+            },
+          },
+        }),
+      ),
+    (error) => {
+      assert.equal(error.code, "runtime_lifecycle_state_update_operation_kind_missing");
+      assert.equal(error.details.record_kind, "agent");
+      assert.equal(error.details.operation_kind, "agent.create");
+      return true;
+    },
+  );
+  assert.equal(store.agents.size, 0);
+  assert.deepEqual(store.writes, []);
+});
+
 test("createRun resolves route, memory, skill catalog, usage telemetry, and persists run", () => {
   const store = fakeStore();
   const statePlannerCalls = [];
@@ -216,4 +246,37 @@ test("createRun resolves route, memory, skill catalog, usage telemetry, and pers
   assert.equal(store.writes.at(-1).operationKind, "run.create");
   assert.equal(statePlannerCalls.at(-1).operation, "plan_run_create_state_update");
   assert.equal(statePlannerCalls.at(-1).request.run.id, "run.test");
+});
+
+test("createRun fails closed without Rust-planned operation kind", () => {
+  const store = fakeStore();
+  const agent = createAgent(store, { local: { cwd: "/workspace/project" } }, deps());
+
+  assert.throws(
+    () =>
+      createRun(
+        store,
+        agent.id,
+        { mode: "send", prompt: "hello" },
+        deps({
+          contextPolicyRunner: {
+            planRunCreateStateUpdate(request = {}) {
+              return {
+                status: "planned",
+                run: request.run,
+              };
+            },
+          },
+        }),
+      ),
+    (error) => {
+      assert.equal(error.code, "runtime_lifecycle_state_update_operation_kind_missing");
+      assert.equal(error.details.record_kind, "run");
+      assert.equal(error.details.operation_kind, "run.create");
+      return true;
+    },
+  );
+  assert.equal(store.runs.size, 0);
+  assert.equal(store.writes.length, 1);
+  assert.equal(store.writes[0].operationKind, "agent.create");
 });

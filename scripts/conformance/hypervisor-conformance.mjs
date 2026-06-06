@@ -1697,6 +1697,14 @@ function runBridge() {
       ) &&
       /contextPolicyRunner\.planAgentCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
       /contextPolicyRunner\.planRunCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      /requiredPlannedOperationKind\(stateUpdate,\s*"agent\.create",\s*"agent"\)/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /requiredPlannedOperationKind\(stateUpdate,\s*"run\.create",\s*"run"\)/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"agent\.create"/.test(runtimeAgentRunLifecycle) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"run\.create"/.test(runtimeAgentRunLifecycle) &&
       /contextPolicyRunner\.planAgentStatusStateUpdate/.test(threadStore) &&
       !/store\.agents\.set\(agent\.id,\s*agent\)|store\.runs\.set\(runtimeRun\.id,\s*runtimeRun\)/.test(
         runtimeAgentRunLifecycle,
@@ -1704,6 +1712,12 @@ function runBridge() {
       /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
       /plan_agent_create_state_update/.test(runtimeAgentRunLifecycleTest) &&
       /plan_run_create_state_update/.test(runtimeAgentRunLifecycleTest) &&
+      /createAgent fails closed without Rust-planned operation kind/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createRun fails closed without Rust-planned operation kind/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
       /thread store fails closed without Rust-planned status agent/.test(threadStoreTest) &&
       !/const updated = \{ \.\.\.agent, status, updatedAt: new Date\(\)\.toISOString\(\) \}/.test(
         threadStore,

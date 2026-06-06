@@ -3,6 +3,37 @@ import path from "node:path";
 
 import { runtimeUsageTelemetryForRun } from "./usage-telemetry.mjs";
 
+function requiredPlannedOperationKind(stateUpdate, expectedOperationKind, recordKind) {
+  const operationKind =
+    typeof stateUpdate?.operation_kind === "string" && stateUpdate.operation_kind.trim()
+      ? stateUpdate.operation_kind
+      : null;
+  if (!operationKind) {
+    const error = new Error(
+      `Rust policy state-update planning did not return an operation kind for ${recordKind} creation.`,
+    );
+    error.code = "runtime_lifecycle_state_update_operation_kind_missing";
+    error.details = {
+      record_kind: recordKind,
+      operation_kind: expectedOperationKind,
+    };
+    throw error;
+  }
+  if (operationKind !== expectedOperationKind) {
+    const error = new Error(
+      `Rust policy state-update planning returned an unexpected operation kind for ${recordKind} creation.`,
+    );
+    error.code = "runtime_lifecycle_state_update_operation_kind_mismatch";
+    error.details = {
+      record_kind: recordKind,
+      expected_operation_kind: expectedOperationKind,
+      operation_kind: operationKind,
+    };
+    throw error;
+  }
+  return operationKind;
+}
+
 export function createAgent(store, options = {}, deps = {}) {
   const {
     contextPolicyRunner,
@@ -51,8 +82,9 @@ export function createAgent(store, options = {}, deps = {}) {
   if (!plannedAgent?.id) {
     throw new Error("Rust policy state-update planning did not return an agent record.");
   }
+  const operationKind = requiredPlannedOperationKind(stateUpdate, "agent.create", "agent");
   store.agents.set(plannedAgent.id, plannedAgent);
-  store.writeAgent(plannedAgent, stateUpdate.operation_kind ?? "agent.create");
+  store.writeAgent(plannedAgent, operationKind);
   return plannedAgent;
 }
 
@@ -122,7 +154,8 @@ export function createRun(store, agentId, request = {}, deps = {}) {
   if (!plannedRun?.id) {
     throw new Error("Rust policy state-update planning did not return a run record.");
   }
+  const operationKind = requiredPlannedOperationKind(stateUpdate, "run.create", "run");
   store.runs.set(plannedRun.id, plannedRun);
-  store.writeRun(plannedRun, stateUpdate.operation_kind ?? "run.create");
+  store.writeRun(plannedRun, operationKind);
   return plannedRun;
 }
