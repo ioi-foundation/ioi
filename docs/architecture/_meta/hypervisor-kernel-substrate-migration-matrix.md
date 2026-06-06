@@ -12484,6 +12484,11 @@ canonical `side_effect_class`, `requires_approval`, and `approved`; retired
 camelCase `sideEffectClass`, `requiresApproval`, and `approvalGranted` request
 fields no longer influence MCP invocation approval policy.
 
+Slice 400 removes the MCP invoke mode request alias:
+runtime MCP stdio invocation transport options now use canonical `mcp_mode`;
+retired camelCase `mcpMode` request fields no longer configure MCP invocation
+transport mode and remain absent from SDK invoke input types.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

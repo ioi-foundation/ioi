@@ -10399,6 +10399,20 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-mcp-invoke-mode-request-alias-retired",
+    /request\.mcp_mode/.test(runtimeMcpInvokeThreadToolBlock) &&
+      /mcpMode: "retired"/.test(runtimeMcpControlSurfaceTest) &&
+      !/request\.mcpMode\b/.test(runtimeMcpInvokeThreadToolBlock) &&
+      !/^\s*mcpMode\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP invoke transport options must use canonical mcp_mode without the retired mcpMode compatibility alias",
+  );
+  assertCheck(
+    result,
     "runtime-mcp-invoke-identity-request-aliases-retired",
     /request\.tool_id/.test(runtimeMcpResolveToolRecordBlock) &&
       /request\.server_id/.test(runtimeMcpResolveToolRecordBlock) &&

@@ -430,6 +430,28 @@ test("runtime MCP control surface ignores retired timeoutMs request alias", asyn
   assert.equal(transportCalls.at(-1).options.timeoutMs, undefined);
 });
 
+test("runtime MCP control surface ignores retired mcpMode request alias", async () => {
+  const { store, surface, transportCalls } = harness();
+
+  await surface.invokeMcpTool(store, {
+    thread_id: "thread-agent-one",
+    tool_id: "mcp.docs.search",
+    live_transport: true,
+    mcp_mode: "strict",
+    mcpMode: "retired",
+  });
+  assert.equal(transportCalls.at(-1).name, "invokeMcpStdioTool");
+  assert.equal(transportCalls.at(-1).options.mcpMode, "strict");
+
+  await surface.invokeMcpTool(store, {
+    thread_id: "thread-agent-one",
+    tool_id: "mcp.docs.search",
+    live_transport: true,
+    mcpMode: "retired",
+  });
+  assert.equal(transportCalls.at(-1).options.mcpMode, undefined);
+});
+
 test("runtime MCP control surface ignores retired invoke policy aliases", async () => {
   const { store, surface } = harness();
 
