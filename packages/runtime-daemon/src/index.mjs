@@ -4820,10 +4820,28 @@ function buildRun({
     redaction: branchPolicy.redaction,
   });
   addEvent("github_context", "GitHub context recorded", {
-    ...githubContext,
-    receiptId: githubContextReceipt.id,
-    eventKind: "GitHubContext",
-    workflowNodeId: "runtime.github-context",
+    event_kind: "GitHubContext",
+    context_id: githubContext.contextId ?? null,
+    repository_context_id: githubContext.repositoryContextId ?? null,
+    branch_policy_id: githubContext.branchPolicyId ?? null,
+    status: githubContext.status ?? null,
+    github_remote_present: Boolean(githubContext.githubRemotePresent),
+    default_remote_name: githubContext.defaultRemoteName ?? null,
+    owner: githubContext.owner ?? null,
+    repo: githubContext.repo ?? null,
+    repo_full_name: githubContext.repoFullName ?? null,
+    branch: githubContext.branch ?? null,
+    default_branch: githubContext.defaultBranch ?? null,
+    branch_policy_status: githubContext.branchPolicyStatus ?? null,
+    credentials: {
+      token_available: Boolean(githubContext.credentials?.tokenAvailable),
+    },
+    pr_creation_eligible: Boolean(githubContext.prCreationEligible),
+    network_lookup_performed: Boolean(githubContext.networkLookupPerformed),
+    mutation_executed: Boolean(githubContext.mutationExecuted),
+    receipt_id: githubContextReceipt.id,
+    workflow_node_id: "runtime.github-context",
+    redaction: githubContext.redaction,
   });
   addEvent("issue_context", "Issue context recorded", {
     ...issueContext,

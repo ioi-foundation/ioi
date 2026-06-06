@@ -56,6 +56,22 @@ const retiredBranchPolicySummaryAliasKeys = [
   "workflowNodeId",
 ];
 
+const retiredGithubContextSummaryAliasKeys = [
+  "eventKind",
+  "contextId",
+  "repositoryContextId",
+  "branchPolicyId",
+  "githubRemotePresent",
+  "defaultRemoteName",
+  "repoFullName",
+  "defaultBranch",
+  "branchPolicyStatus",
+  "prCreationEligible",
+  "networkLookupPerformed",
+  "mutationExecuted",
+  "workflowNodeId",
+];
+
 const retiredRuntimeTaskSummaryAliasKeys = [
   "eventKind",
   "taskId",
@@ -442,6 +458,71 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   assert.notEqual(branchPolicy.workflow_node_id, "retired.branch-policy");
   for (const key of retiredBranchPolicySummaryAliasKeys) {
     assert.equal(Object.hasOwn(branchPolicy, key), false);
+  }
+
+  const github = runtime.payloadSummaryForRunEvent({
+    id: "event-github-context",
+    type: "github_context",
+    runId: "run-one",
+    agentId: "agent-one",
+    data: {
+      event_kind: "GitHubContext.Canonical",
+      eventKind: "RetiredGitHubContext",
+      context_id: "github-context-one",
+      contextId: "retired-github-context",
+      repository_context_id: "repo-context-one",
+      repositoryContextId: "retired-repo-context",
+      branch_policy_id: "policy-one",
+      branchPolicyId: "retired-policy",
+      status: "available",
+      github_remote_present: true,
+      githubRemotePresent: false,
+      default_remote_name: "origin",
+      defaultRemoteName: "retired-origin",
+      owner: "ioi-foundation",
+      repo: "ioi",
+      repo_full_name: "ioi-foundation/ioi",
+      repoFullName: "retired/repo",
+      branch: "feature/canonical",
+      default_branch: "main",
+      defaultBranch: "retired-main",
+      branch_policy_status: "warning",
+      branchPolicyStatus: "retired-warning",
+      credentials: {
+        token_available: true,
+        tokenAvailable: false,
+      },
+      pr_creation_eligible: true,
+      prCreationEligible: false,
+      network_lookup_performed: false,
+      networkLookupPerformed: true,
+      mutation_executed: false,
+      mutationExecuted: true,
+      workflow_node_id: "runtime.github-context",
+      workflowNodeId: "retired.github-context",
+      redaction: { profile: "github_context_safe" },
+    },
+  });
+
+  assert.equal(github.event_kind, "GitHubContext.Canonical");
+  assert.equal(github.context_id, "github-context-one");
+  assert.equal(github.repository_context_id, "repo-context-one");
+  assert.equal(github.branch_policy_id, "policy-one");
+  assert.equal(github.github_remote_present, true);
+  assert.equal(github.default_remote_name, "origin");
+  assert.equal(github.repo_full_name, "ioi-foundation/ioi");
+  assert.equal(github.default_branch, "main");
+  assert.equal(github.branch_policy_status, "warning");
+  assert.equal(github.token_available, true);
+  assert.equal(github.pr_creation_eligible, true);
+  assert.equal(github.network_lookup_performed, false);
+  assert.equal(github.mutation_executed, false);
+  assert.equal(github.workflow_node_id, "runtime.github-context");
+  assert.notEqual(github.context_id, "retired-github-context");
+  assert.notEqual(github.repo_full_name, "retired/repo");
+  assert.notEqual(github.workflow_node_id, "retired.github-context");
+  for (const key of retiredGithubContextSummaryAliasKeys) {
+    assert.equal(Object.hasOwn(github, key), false);
   }
 
   const task = runtime.payloadSummaryForRunEvent({
