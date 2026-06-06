@@ -352,7 +352,6 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
       item_id: `${turnId}:item:coding-tool-budget-recovery:${safeId(approvalId)}:${retryCount + 1}`,
       idempotency_key:
         request.idempotency_key ??
-        request.idempotencyKey ??
         `run:${run.id}:coding-tool-budget-recovery.retry:${approvalId}:${retryCount + 1}`,
       source,
       source_event_kind: "WorkflowRunCodingToolBudgetApprovedRetry",

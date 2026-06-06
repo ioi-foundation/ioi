@@ -368,9 +368,14 @@ test("budget recovery surface records approved retry and enforces retry limit", 
   const retry = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
     action: "retry_approved",
     source: "runtime_auto",
+    idempotencyKey: "budget_recovery_idempotency_retired",
   });
   assert.equal(retry.status, "completed");
   assert.equal(retry.event.event_kind, "workflow.run.retry_completed");
+  assert.equal(
+    retry.event.idempotency_key,
+    "run:run_alpha:coding-tool-budget-recovery.retry:approval_budget:1",
+  );
   assert.equal(retry.event.payload_summary.retryCount, 1);
   assert.equal(retry.event.fixture_profile, "fixture.local");
   assert.equal(
@@ -386,6 +391,21 @@ test("budget recovery surface records approved retry and enforces retry limit", 
   assert.equal(limit.status, "blocked");
   assert.equal(limit.reason, "retry_limit_exceeded");
   assert.equal(store.events.filter((event) => event.event_kind === "workflow.run.retry_completed").length, 1);
+});
+
+test("budget recovery surface accepts canonical retry idempotency key", () => {
+  const surface = createSurface();
+  const store = createStore();
+
+  surface.codingToolBudgetRecoveryForRun(store, "run_alpha", { action: "request_approval" });
+  surface.codingToolBudgetRecoveryForRun(store, "run_alpha", { action: "approve_override" });
+  const retry = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
+    action: "retry_approved",
+    idempotency_key: "budget_recovery_idempotency_canonical",
+  });
+
+  assert.equal(retry.status, "completed");
+  assert.equal(retry.event.idempotency_key, "budget_recovery_idempotency_canonical");
 });
 
 test("budget recovery surface fails closed without Rust-planned retry run", () => {

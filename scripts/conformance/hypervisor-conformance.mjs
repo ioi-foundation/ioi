@@ -2139,10 +2139,22 @@ function runBridge() {
       /workflowNodeId: "node_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
       /targetNodeIds: \["node_target_retired"\]/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
       /receiptRefs: \["receipt_retired"\]/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /idempotencyKey: "budget_recovery_idempotency_retired"/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /budget recovery surface accepts canonical retry idempotency key/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /idempotency_key: "budget_recovery_idempotency_canonical"/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /retry\.event\.idempotency_key,\s*\n\s*"run:run_alpha:coding-tool-budget-recovery\.retry:approval_budget:1"/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
       /request\.receipt_refs\.includes\("receipt_retired"\), false/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      !/request\.(?:threadId|workflowNodeId|workflowGraphId|receiptRefs)\b/.test(
+      !/request\.(?:threadId|workflowNodeId|workflowGraphId|receiptRefs|idempotencyKey)\b/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       !/request\.(?:targetNodeIds|workflowNodeId)\b/.test(runtimeCodingToolBudgetRecovery),
