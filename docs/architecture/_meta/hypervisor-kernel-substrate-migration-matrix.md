@@ -12512,6 +12512,13 @@ runtime MCP helper parsing now uses canonical `server_label`, `max_results`,
 camelCase `serverLabel`, `maxResults`, `catalogMode`, `mcpCatalogMode`, and
 `includeFullCatalog` request fields no longer influence MCP helper behavior.
 
+Slice 405 removes MCP validation/serve request aliases:
+runtime MCP validation and serve helper parsing now use canonical
+`workspace_root`, `allowed_tools`, and `tool_ids`; retired camelCase
+`workspaceRoot`, `allowedTools`, and `toolIds` request fields no longer
+influence validation workspace resolution or served coding-tool allow-lists, and
+the SDK serve request type no longer advertises `allowedTools`.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

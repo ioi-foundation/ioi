@@ -7744,6 +7744,9 @@ function runCompositor() {
   const runtimeMcpSdkToolInvokeInputBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpToolInvokeInput[\s\S]*?\n}\n/)?.[0] ??
     "";
+  const runtimeMcpSdkServeRpcInputBlock =
+    agentSdkSubstrateClient.match(/export interface RuntimeMcpServeRpcInput[\s\S]*?\n}\n/)?.[0] ??
+    "";
   const agentSdkTesting = exists("packages/agent-sdk/src/testing.ts")
     ? read("packages/agent-sdk/src/testing.ts")
     : "";
@@ -10499,6 +10502,28 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
     ],
     "Phase 10/11 is pending: MCP helper request parsing must use canonical server_label/max_results/catalog_mode/mcp_catalog_mode/include_full_catalog without retired camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-serve-validation-request-aliases-retired",
+    /input\.workspace_root/.test(runtimeMcpCatalogSurface) &&
+      /options\.allowed_tools/.test(runtimeMcpHelpers) &&
+      /options\.tool_ids/.test(runtimeMcpHelpers) &&
+      /workspaceRoot: "\/retired"/.test(runtimeMcpCatalogSurfaceTest) &&
+      /allowedTools: \["file\.inspect"\]/.test(runtimeMcpHelpersTest) &&
+      /toolIds: \["test\.run"\]/.test(runtimeMcpHelpersTest) &&
+      /^\s*allowed_tools\?: string\[\];/m.test(runtimeMcpSdkServeRpcInputBlock) &&
+      !/input\.workspaceRoot\b/.test(runtimeMcpCatalogSurface) &&
+      !/options\.(?:allowedTools|toolIds)\b/.test(runtimeMcpHelpers) &&
+      !/^\s*allowedTools\?:/m.test(runtimeMcpSdkServeRpcInputBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP validation/serve requests must use canonical workspace_root/allowed_tools/tool_ids without retired camelCase workspaceRoot/allowedTools/toolIds aliases",
   );
   assertCheck(
     result,

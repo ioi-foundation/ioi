@@ -321,7 +321,7 @@ export function createRuntimeMcpCatalogSurface({
     },
     validateMcp(store, input = {}) {
       const workspaceRoot = pathResolve(
-        input.cwd ?? input.workspace_root ?? input.workspaceRoot ?? store.defaultCwd,
+        input.cwd ?? input.workspace_root ?? store.defaultCwd,
       );
       const servers = mcpServerRecordsFromValidationInputDep(input, workspaceRoot);
       const validation = validateMcpServerRecordsDep(servers);

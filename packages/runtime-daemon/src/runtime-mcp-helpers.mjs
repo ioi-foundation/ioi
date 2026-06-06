@@ -111,7 +111,7 @@ export function resolveMcpToolRecord(servers = [], toolId, request = {}) {
 
 export function mcpServeAllowedToolIds(options = {}) {
   const requested = normalizeStringList(
-    options.allowed_tools ?? options.allowedTools ?? options.tools ?? options.tool_ids ?? options.toolIds,
+    options.allowed_tools ?? options.tools ?? options.tool_ids,
   );
   const candidates = requested.length ? requested : RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS;
   return uniqueStrings(candidates).filter((toolId) =>

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS } from "./runtime-contract-constants.mjs";
 import {
   mcpCatalogExposureForStatus,
   mcpCatalogFullRequested,
@@ -64,10 +65,14 @@ test("runtime MCP helpers resolve servers and tools by stable identities", () =>
 
 test("runtime MCP helpers shape serve descriptors and tool results", () => {
   assert.deepEqual(mcpServeAllowedToolIds({
-    allowedTools: ["workspace.status", "git.diff", "not.allowed"],
+    allowed_tools: ["workspace.status", "git.diff", "not.allowed"],
+    allowedTools: ["file.inspect"],
+    toolIds: ["test.run"],
   }), ["workspace.status", "git.diff"]);
-  assert.equal(mcpServeToolIdForName("git.diff", { allowedTools: ["git.diff"] }), "git.diff");
-  assert.equal(mcpServeToolIdForName("git_diff", { allowedTools: ["git.diff"] }), null);
+  assert.equal(mcpServeToolIdForName("git.diff", { allowed_tools: ["git.diff"] }), "git.diff");
+  assert.equal(mcpServeToolIdForName("git_diff", { allowed_tools: ["git.diff"] }), null);
+  assert.deepEqual(mcpServeAllowedToolIds({ allowedTools: ["git.diff"] }), RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS);
+  assert.deepEqual(mcpServeAllowedToolIds({ toolIds: ["git.diff"] }), RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS);
 
   const descriptor = mcpServeToolDescriptor({
     stableToolId: "file.inspect",

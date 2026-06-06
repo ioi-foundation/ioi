@@ -768,7 +768,6 @@ export interface RuntimeMcpJsonRpcResponse {
 
 export interface RuntimeMcpServeRpcInput extends RuntimeMcpListOptions {
   message: RuntimeMcpJsonRpcRequest | RuntimeMcpJsonRpcRequest[];
-  allowedTools?: string[];
   allowed_tools?: string[];
   source?: "sdk_client" | "cli_tui" | "react_flow" | "mcp_serve" | string;
 }

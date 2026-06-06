@@ -153,7 +153,7 @@ test("runtime MCP catalog surface lists context servers and filters catalog rows
 });
 
 test("runtime MCP catalog surface projects status and validation envelopes", () => {
-  const { store, surface } = harness();
+  const { calls, store, surface } = harness();
 
   const status = surface.mcpStatus(store);
   assert.equal(status.schema_version, "ioi.runtime.mcp-manager-status.v1");
@@ -168,6 +168,7 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
 
   const validation = surface.validateMcp(store, {
     cwd: "/custom",
+    workspaceRoot: "/retired",
     servers: [server("mcp.valid"), server("mcp.invalid", "workspace", { invalid: true })],
   });
   assert.equal(validation.schema_version, "ioi.runtime.mcp-manager-validation.v1");
@@ -176,6 +177,19 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.equal(validation.server_count, 2);
   assert.equal(validation.issue_count, 1);
   assert.equal(validation.tools.length, 2);
+  assert.deepEqual(
+    calls.find((call) => call.name === "mcpServerRecordsFromValidationInput")?.workspaceRoot,
+    "/resolved/custom",
+  );
+
+  surface.validateMcp(store, {
+    workspaceRoot: "/retired",
+    servers: [server("mcp.valid")],
+  });
+  assert.deepEqual(
+    calls.filter((call) => call.name === "mcpServerRecordsFromValidationInput").at(-1)?.workspaceRoot,
+    "/resolved/workspace",
+  );
 });
 
 test("runtime MCP catalog surface searches and fetches tools through global and thread contexts", async () => {
