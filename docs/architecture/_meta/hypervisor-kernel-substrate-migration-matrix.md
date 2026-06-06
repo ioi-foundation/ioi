@@ -12328,6 +12328,12 @@ Slice 372 moves subagent cancellation persistence behind Rust planning:
 record for `subagent.cancel`, while still using the daemon-owned run cancellation
 path before the subagent lifecycle projection is admitted.
 
+Slice 373 moves subagent spawn persistence behind Rust planning:
+`spawnSubagent` now persists only the `SubagentRecordStateUpdateCore` record for
+`subagent.spawn`, including budget-blocked spawn records, leaving no direct
+`store.writeSubagent(saved, "subagent.*")` lifecycle writes in the subagent
+surface.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

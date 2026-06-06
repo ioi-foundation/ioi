@@ -347,7 +347,30 @@ export function createRuntimeSubagentSurface({
         output,
         outputContractStatus,
       });
-      store.writeSubagent(saved, "subagent.spawn");
+      const contextPolicyRunner = store.contextPolicyRunner;
+      if (typeof contextPolicyRunner?.planSubagentRecordStateUpdate !== "function") {
+        throw runtimeErrorDep({
+          status: 500,
+          code: "subagent_record_state_update_planner_unavailable",
+          message: "Subagent lifecycle updates require Rust policy state-update planning.",
+          details: { thread_id: threadId, subagent_id: subagentId, operation_kind: "subagent.spawn" },
+        });
+      }
+      const stateUpdate = contextPolicyRunner.planSubagentRecordStateUpdate({
+        operation_kind: "subagent.spawn",
+        thread_id: threadId,
+        subagent: saved,
+      });
+      const planned = stateUpdate.subagent;
+      if (!planned?.subagent_id) {
+        throw runtimeErrorDep({
+          status: 502,
+          code: "subagent_record_state_update_planner_invalid",
+          message: "Rust policy state-update planning did not return a subagent record.",
+          details: { thread_id: threadId, subagent_id: subagentId, operation_kind: "subagent.spawn" },
+        });
+      }
+      store.writeSubagent(planned, stateUpdate.operation_kind ?? "subagent.spawn");
       if (budgetStatus.status === "exceeded") {
         throw policyErrorDep("Subagent budget limit exceeded.", {
           thread_id: threadId,
@@ -355,14 +378,14 @@ export function createRuntimeSubagentSurface({
           subagent_id: subagentId,
           reason: "subagent_budget_exceeded",
           budget_status: budgetStatus.status,
-          subagent: this.subagentProjection(saved),
+          subagent: this.subagentProjection(planned),
           event_id: event.event_id,
           receipt_refs: event.receipt_refs,
           policy_decision_refs: event.policy_decision_refs,
         });
       }
       return {
-        ...this.subagentProjection(saved),
+        ...this.subagentProjection(planned),
         event,
       };
     },
