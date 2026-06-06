@@ -12710,6 +12710,11 @@ fields only for execution mode, server URL, protocol/server info, counts, listed
 items, and auth boundary; runtime MCP control live-discovery no longer reads the
 retired `executionMode` or `authBoundary` manager-output fallbacks.
 
+Slice 430 removes MCP invoke mode option aliases:
+runtime MCP tool invocation now passes canonical `mcp_mode` into the live stdio
+transport helper, and the MCP manager no longer accepts retired
+`options.mcpMode` fallbacks when setting `IOI_MCP_MODE`.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

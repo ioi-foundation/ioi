@@ -12752,8 +12752,17 @@ function runCompositor() {
     result,
     "runtime-mcp-invoke-mode-request-alias-retired",
     /request\.mcp_mode/.test(runtimeMcpInvokeThreadToolBlock) &&
+      /mcp_mode:\s*request\.mcp_mode/.test(runtimeMcpInvokeThreadToolBlock) &&
+      /IOI_MCP_MODE:\s*optionalString\(options\.mcp_mode\) \?\? "development"/.test(
+        runtimeMcpManager,
+      ) &&
       /mcpMode: "retired"/.test(runtimeMcpControlSurfaceTest) &&
+      /Object\.hasOwn\(transportCalls\.at\(-1\)\.options,\s*"mcpMode"\)/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
       !/request\.mcpMode\b/.test(runtimeMcpInvokeThreadToolBlock) &&
+      !/mcpMode:\s*request\.mcp_mode/.test(runtimeMcpInvokeThreadToolBlock) &&
+      !/options\.mcpMode\b/.test(runtimeMcpManager) &&
       !/^\s*mcpMode\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
     [
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",

@@ -567,7 +567,7 @@ export function createRuntimeMcpControlSurface({
             transportExecution = await invokeMcpStdioToolDep(server, toolName, input, {
               cwd: agent.cwd,
               timeout_ms: request.timeout_ms,
-              mcpMode: request.mcp_mode,
+              mcp_mode: request.mcp_mode,
             });
             output = transportExecution.result ?? {};
           } catch (error) {

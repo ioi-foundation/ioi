@@ -526,7 +526,8 @@ test("runtime MCP control surface ignores retired mcpMode request alias", async 
     mcpMode: "retired",
   });
   assert.equal(transportCalls.at(-1).name, "invokeMcpStdioTool");
-  assert.equal(transportCalls.at(-1).options.mcpMode, "strict");
+  assert.equal(transportCalls.at(-1).options.mcp_mode, "strict");
+  assert.equal(Object.hasOwn(transportCalls.at(-1).options, "mcpMode"), false);
 
   await surface.invokeMcpTool(store, {
     thread_id: "thread-agent-one",
@@ -534,7 +535,8 @@ test("runtime MCP control surface ignores retired mcpMode request alias", async 
     live_transport: true,
     mcpMode: "retired",
   });
-  assert.equal(transportCalls.at(-1).options.mcpMode, undefined);
+  assert.equal(transportCalls.at(-1).options.mcp_mode, undefined);
+  assert.equal(Object.hasOwn(transportCalls.at(-1).options, "mcpMode"), false);
 });
 
 test("runtime MCP control surface ignores retired liveDiscovery request alias", async () => {

@@ -755,7 +755,7 @@ async function withMcpStdioSession(server, options, callback) {
       PATH: process.env.PATH ?? "/usr/bin:/bin",
       HOME: cwd,
       TMPDIR: tmpDir,
-      IOI_MCP_MODE: optionalString(options.mcp_mode ?? options.mcpMode) ?? "development",
+      IOI_MCP_MODE: optionalString(options.mcp_mode) ?? "development",
       ...(options.env && typeof options.env === "object" && !Array.isArray(options.env)
         ? Object.fromEntries(
             Object.entries(options.env).map(([key, value]) => [key, String(value)]),
