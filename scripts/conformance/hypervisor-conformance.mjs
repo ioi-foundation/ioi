@@ -629,6 +629,10 @@ function runBridge() {
       /function computerUseControlInvocationResultFromEvent\(event, context = \{\}\) \{[\s\S]*?\n  \}/,
     )?.[0] ?? "",
   ].join("\n");
+  const runtimeInvocationNativeComputerUseResultBody =
+    runtimeInvocationResults.match(
+      /function computerUseNativeBrowserInvocationResultFromEvents\(events, context = \{\}\) \{[\s\S]*?\n  \}/,
+    )?.[0] ?? "";
   const codingToolContracts = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
     : "";
@@ -1282,6 +1286,46 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-invocation-results.test.mjs",
     ],
     "Phase 10/11 is pending: runtime invocation replay projections must expose canonical snake_case fields without duplicate camelCase replay aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-invocation-native-computer-use-payload-aliases-retired",
+    /firstPayload\.computer_use_lane/.test(runtimeInvocationNativeComputerUseResultBody) &&
+      /payloads\.find\(\(payload\) => payload\.observation_bundle\)/.test(
+        runtimeInvocationNativeComputerUseResultBody,
+      ) &&
+      /payloads\.find\(\(payload\) => payload\.computer_action\)/.test(
+        runtimeInvocationNativeComputerUseResultBody,
+      ) &&
+      /payloads\.find\(\(payload\) => payload\.cleanup_receipt\)/.test(
+        runtimeInvocationNativeComputerUseResultBody,
+      ) &&
+      /tool_name:\s*context\.toolId \?\? firstPayload\.tool_ref \?\? null/.test(
+        runtimeInvocationNativeComputerUseResultBody,
+      ) &&
+      /workflow_graph_id:\s*[\r\n\s]*context\.workflowGraphId \?\? firstPayload\.workflow_graph_id \?\? null/.test(
+        runtimeInvocationNativeComputerUseResultBody,
+      ) &&
+      /workflow_node_id:\s*[\r\n\s]*context\.workflowNodeId \?\? firstPayload\.workflow_node_id \?\? null/.test(
+        runtimeInvocationNativeComputerUseResultBody,
+      ) &&
+      !/\bidempotentReplay\s*:/.test(runtimeInvocationNativeComputerUseResultBody) &&
+      !/\b(?:firstPayload|payload)\.(?:computerUseLane|toolRef|workflowGraphId|workflowNodeId|environmentSelectionReceipt|observationBundle|targetIndex|affordanceGraph|actionProposal|computerUseRunState|computerAction|actionReceipt|verificationReceipt|outcomeContract|policyDecisionReceipt|commitGate|trajectoryBundle|cleanupReceipt|adapterContract|controlledRelaunchLaunchReceipt|contractIngest)\b/.test(
+        runtimeInvocationNativeComputerUseResultBody,
+      ) &&
+      /computerUseLane: "sandboxed hosted"/.test(runtimeInvocationResultsTest) &&
+      /toolRef: "computer_use__retired_alias"/.test(runtimeInvocationResultsTest) &&
+      /workflowGraphId: "graph_retired_alias"/.test(runtimeInvocationResultsTest) &&
+      /environmentSelectionReceipt: \{ env: "retired_alias" \}/.test(runtimeInvocationResultsTest) &&
+      /observationBundle: \{ screen: "retired_alias" \}/.test(runtimeInvocationResultsTest) &&
+      /computerAction: \{ action: "retired_alias" \}/.test(runtimeInvocationResultsTest) &&
+      /cleanupReceipt: \{ cleanup_ref: "retired_alias" \}/.test(runtimeInvocationResultsTest) &&
+      /Object\.hasOwn\(result,\s*"idempotentReplay"\),\s*false/.test(runtimeInvocationResultsTest),
+    [
+      "packages/runtime-daemon/src/runtime-invocation-results.mjs",
+      "packages/runtime-daemon/src/runtime-invocation-results.test.mjs",
+    ],
+    "Phase 10/11 is pending: native computer-use invocation replay must read canonical snake_case payloads without retired camelCase payload aliases",
   );
   assertCheck(
     result,

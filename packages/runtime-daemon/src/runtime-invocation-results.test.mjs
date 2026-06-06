@@ -119,6 +119,7 @@ test("native browser invocation result sorts events and merges payload/projectio
       rollback_refs: ["rollback_1"],
       payload_summary: {
         verification_receipt: { verified: true },
+        verificationReceipt: { verified: "retired_alias" },
       },
     },
     {
@@ -132,12 +133,18 @@ test("native browser invocation result sorts events and merges payload/projectio
       receipt_refs: ["receipt_a"],
       artifact_refs: ["artifact_a"],
       payload_summary: {
-        computerUseLane: "visual gui",
-        toolRef: "computer_use__visual_gui",
-        workflowGraphId: "graph_1",
-        workflowNodeId: "node_1",
-        environmentSelectionReceipt: { env: "local" },
-        observationBundle: { screen: "seen" },
+        computer_use_lane: "visual gui",
+        computerUseLane: "sandboxed hosted",
+        tool_ref: "computer_use__visual_gui",
+        toolRef: "computer_use__retired_alias",
+        workflow_graph_id: "graph_1",
+        workflowGraphId: "graph_retired_alias",
+        workflow_node_id: "node_1",
+        workflowNodeId: "node_retired_alias",
+        environment_selection_receipt: { env: "local" },
+        environmentSelectionReceipt: { env: "retired_alias" },
+        observation_bundle: { screen: "seen" },
+        observationBundle: { screen: "retired_alias" },
       },
     },
     {
@@ -146,7 +153,9 @@ test("native browser invocation result sorts events and merges payload/projectio
       status: "failed",
       payload_summary: {
         computer_action: { action: "click" },
-        cleanupReceipt: { cleanup_ref: "cleanup_1" },
+        computerAction: { action: "retired_alias" },
+        cleanup_receipt: { cleanup_ref: "cleanup_1" },
+        cleanupReceipt: { cleanup_ref: "retired_alias" },
       },
     },
   ], {
@@ -160,7 +169,10 @@ test("native browser invocation result sorts events and merges payload/projectio
   assert.equal(result.schema_version, "ioi.runtime.computer-use-visual-gui-result.v1");
   assert.equal(result.object, "ioi.runtime_computer_use_visual_gui_result");
   assert.equal(result.status, "failed");
+  assert.equal(result.tool_name, "computer_use__visual_gui");
   assert.equal(result.tool_call_id, "call_1");
+  assert.equal(result.workflow_graph_id, "graph_1");
+  assert.equal(result.workflow_node_id, "node_1");
   assert.deepEqual(result.event_refs, ["event_1", "event_2", "event_3"]);
   assert.deepEqual(result.receipt_refs, ["receipt_a", "receipt_b"]);
   assert.deepEqual(result.artifact_refs, ["artifact_a", "artifact_b"]);
@@ -171,4 +183,5 @@ test("native browser invocation result sorts events and merges payload/projectio
   assert.deepEqual(result.result.action, { action: "click" });
   assert.deepEqual(result.result.verification, { verified: true });
   assert.deepEqual(result.result.cleanup, { cleanup_ref: "cleanup_1" });
+  assert.equal(Object.hasOwn(result, "idempotentReplay"), false);
 });

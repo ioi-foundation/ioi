@@ -125,40 +125,26 @@ export function createRuntimeInvocationResultProjections(deps = {}) {
     const resultLane = optionalString(
       context.computerUseLane ??
         context.computer_use_lane ??
-        firstPayload.computer_use_lane ??
-        firstPayload.computerUseLane,
+        firstPayload.computer_use_lane,
     ) ?? "native_browser";
     const resultObjectLane = safeId(resultLane);
     const resultSchemaLane = resultObjectLane.replace(/_/g, "-");
-    const observationPayload =
-      payloads.find((payload) => payload.observation_bundle || payload.observationBundle) ?? {};
-    const actionPayload =
-      payloads.find((payload) => payload.computer_action || payload.computerAction) ?? {};
+    const observationPayload = payloads.find((payload) => payload.observation_bundle) ?? {};
+    const actionPayload = payloads.find((payload) => payload.computer_action) ?? {};
     const verificationPayload =
-      payloads.find((payload) => payload.verification_receipt || payload.verificationReceipt) ?? {};
-    const cleanupPayload =
-      payloads.find((payload) => payload.cleanup_receipt || payload.cleanupReceipt) ?? {};
-    const adapterPayload =
-      payloads.find((payload) => payload.adapter_contract || payload.adapterContract) ?? {};
+      payloads.find((payload) => payload.verification_receipt) ?? {};
+    const cleanupPayload = payloads.find((payload) => payload.cleanup_receipt) ?? {};
+    const adapterPayload = payloads.find((payload) => payload.adapter_contract) ?? {};
     const controlledRelaunchLaunchPayload =
-      payloads.find((payload) => (
-        payload.controlled_relaunch_launch_receipt ||
-        payload.controlledRelaunchLaunchReceipt
-      )) ?? {};
-    const affordancePayload =
-      payloads.find((payload) => payload.affordance_graph || payload.affordanceGraph) ?? {};
-    const proposalPayload =
-      payloads.find((payload) => payload.action_proposal || payload.actionProposal) ?? {};
+      payloads.find((payload) => payload.controlled_relaunch_launch_receipt) ?? {};
+    const affordancePayload = payloads.find((payload) => payload.affordance_graph) ?? {};
+    const proposalPayload = payloads.find((payload) => payload.action_proposal) ?? {};
     const policyDecisionPayload =
-      payloads.find((payload) => payload.policy_decision_receipt || payload.policyDecisionReceipt) ?? {};
-    const runStatePayload =
-      payloads.find((payload) => payload.computer_use_run_state || payload.computerUseRunState) ?? {};
-    const outcomePayload =
-      payloads.find((payload) => payload.outcome_contract || payload.outcomeContract) ?? {};
-    const commitGatePayload =
-      payloads.find((payload) => payload.commit_gate || payload.commitGate) ?? {};
-    const trajectoryPayload =
-      payloads.find((payload) => payload.trajectory_bundle || payload.trajectoryBundle) ?? {};
+      payloads.find((payload) => payload.policy_decision_receipt) ?? {};
+    const runStatePayload = payloads.find((payload) => payload.computer_use_run_state) ?? {};
+    const outcomePayload = payloads.find((payload) => payload.outcome_contract) ?? {};
+    const commitGatePayload = payloads.find((payload) => payload.commit_gate) ?? {};
+    const trajectoryPayload = payloads.find((payload) => payload.trajectory_bundle) ?? {};
     const projection = context.projection ?? {};
     const receiptRefs = uniqueStrings(orderedEvents.flatMap((event) => event.receipt_refs ?? []));
     const artifactRefs = uniqueStrings(orderedEvents.flatMap((event) => event.artifact_refs ?? []));
@@ -166,16 +152,16 @@ export function createRuntimeInvocationResultProjections(deps = {}) {
       schema_version: `ioi.runtime.computer-use-${resultSchemaLane}-result.v1`,
       object: `ioi.runtime_computer_use_${resultObjectLane}_result`,
       tool_pack: "computer_use",
-      tool_name: context.toolId ?? firstPayload.tool_ref ?? firstPayload.toolRef ?? null,
+      tool_name: context.toolId ?? firstPayload.tool_ref ?? null,
       tool_call_id: context.toolCallId ?? orderedEvents[0]?.tool_call_id ?? null,
       thread_id: context.threadId ?? orderedEvents[0]?.thread_id ?? null,
       turn_id: context.turnId ?? orderedEvents[0]?.turn_id ?? null,
       status: orderedEvents.every((event) => event.status !== "failed") ? "completed" : "failed",
       workspace_root: context.agent?.cwd ?? orderedEvents[0]?.workspace_root ?? null,
       workflow_graph_id:
-        context.workflowGraphId ?? firstPayload.workflow_graph_id ?? firstPayload.workflowGraphId ?? null,
+        context.workflowGraphId ?? firstPayload.workflow_graph_id ?? null,
       workflow_node_id:
-        context.workflowNodeId ?? firstPayload.workflow_node_id ?? firstPayload.workflowNodeId ?? null,
+        context.workflowNodeId ?? firstPayload.workflow_node_id ?? null,
       shell_fallback_used: false,
       receipt_refs: receiptRefs,
       artifact_refs: artifactRefs,
@@ -184,98 +170,79 @@ export function createRuntimeInvocationResultProjections(deps = {}) {
       event_refs: orderedEvents.map((event) => event.event_id),
       events: orderedEvents,
       idempotent_replay: true,
-      idempotentReplay: true,
       result: {
         environmentSelection:
           projection.environmentSelection ??
           firstPayload.environment_selection_receipt ??
-          firstPayload.environmentSelectionReceipt ??
           null,
         lease: projection.lease ?? firstPayload.lease ?? null,
         observation:
           projection.observation ??
           observationPayload.observation_bundle ??
-          observationPayload.observationBundle ??
           null,
         targetIndex:
           projection.targetIndex ??
           observationPayload.target_index ??
-          observationPayload.targetIndex ??
           null,
         affordanceGraph:
           projection.affordanceGraph ??
           affordancePayload.affordance_graph ??
-          affordancePayload.affordanceGraph ??
           null,
         actionProposal:
           projection.actionProposal ??
           proposalPayload.action_proposal ??
-          proposalPayload.actionProposal ??
           null,
         runState:
           projection.runState ??
           runStatePayload.computer_use_run_state ??
-          runStatePayload.computerUseRunState ??
           null,
         action:
           projection.action ??
           actionPayload.computer_action ??
-          actionPayload.computerAction ??
           null,
         actionReceipt:
           projection.actionReceipt ??
           actionPayload.action_receipt ??
-          actionPayload.actionReceipt ??
           null,
         verification:
           projection.verification ??
           verificationPayload.verification_receipt ??
-          verificationPayload.verificationReceipt ??
           null,
         outcomeContract:
           projection.outcomeContract ??
           outcomePayload.outcome_contract ??
-          outcomePayload.outcomeContract ??
           null,
         policyDecision:
           projection.policyDecision ??
           policyDecisionPayload.policy_decision_receipt ??
-          policyDecisionPayload.policyDecisionReceipt ??
           null,
         commitGate:
           projection.commitGate ??
           commitGatePayload.commit_gate ??
-          commitGatePayload.commitGate ??
           null,
         trajectory:
           projection.trajectory ??
           trajectoryPayload.trajectory_bundle ??
-          trajectoryPayload.trajectoryBundle ??
           null,
         cleanup:
           projection.cleanup ??
           cleanupPayload.cleanup_receipt ??
-          cleanupPayload.cleanupReceipt ??
           null,
         adapterContract:
           projection.adapterContract ??
           adapterPayload.adapter_contract ??
-          adapterPayload.adapterContract ??
           null,
         controlledRelaunchLaunch:
           projection.controlledRelaunchLaunchReceipt ??
           controlledRelaunchLaunchPayload.controlled_relaunch_launch_receipt ??
-          controlledRelaunchLaunchPayload.controlledRelaunchLaunchReceipt ??
           null,
         contractIngest:
           projection.contractIngest ??
           firstPayload.computer_use_contract_ingest ??
-          firstPayload.contractIngest ??
           null,
         contract_ingest:
           projection.contractIngest ??
           firstPayload.computer_use_contract_ingest ??
-          firstPayload.contractIngest ??
           null,
       },
       error: null,
