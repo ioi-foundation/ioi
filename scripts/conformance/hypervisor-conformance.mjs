@@ -1845,6 +1845,10 @@ function runBridge() {
     ],
     "Phase 9/10 is pending: approval revoke run state updates must be planned by Rust authority core through the command bridge",
   );
+  const runtimeContextBudgetEvaluationBlock =
+    runtimeContextPolicySurface.match(
+      /    evaluateContextBudget\(store, \{ threadId = null, runId = null, request = \{\} \} = \{\}\) \{[\s\S]*?(?=\n\n    evaluateCompactionPolicy)/,
+    )?.[0] ?? "";
   assertCheck(
     result,
     "context-budget-policy-live-bridge",
@@ -1873,6 +1877,12 @@ function runBridge() {
       ) &&
       /context policy runner fails closed without bridge command/.test(
         runtimeContextPolicyRunnerTest,
+      ) &&
+      /context policy surface ignores retired context-budget identity request aliases/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      !/\brequest\.(?:workflowNodeId|workflowGraphId|threadId|runId|turnId|eventKind)\b/.test(
+        runtimeContextBudgetEvaluationBlock,
       ) &&
       /budgetRunner\.evaluateContextBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
       /capturedRequest\.schema_version,\s*"ioi\.runtime\.context-budget-policy-request\.v1"/.test(

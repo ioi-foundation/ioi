@@ -185,10 +185,10 @@ export function createRuntimeContextPolicySurface({
     },
 
     evaluateContextBudget(store, { threadId = null, runId = null, request = {} } = {}) {
-      const requestedRunId = optionalStringDep(request.run_id ?? request.runId) ?? runId;
+      const requestedRunId = optionalStringDep(request.run_id) ?? runId;
       const run = requestedRunId ? store.getRun(requestedRunId) : null;
       const requestedThreadId =
-        optionalStringDep(request.thread_id ?? request.threadId) ??
+        optionalStringDep(request.thread_id) ??
         threadId ??
         (run ? threadIdForAgentDep(run.agentId) : null);
       const scope =
@@ -208,18 +208,26 @@ export function createRuntimeContextPolicySurface({
         eventLatestRun = store.listRuns(eventAgent.id).at(-1) ?? null;
       }
       const eventTurnId =
-        optionalStringDep(request.turn_id ?? request.turnId) ??
+        optionalStringDep(request.turn_id) ??
         (eventLatestRun ? turnIdForRunDep(eventLatestRun.id) : null);
+      const canonicalRequest = { ...request };
+      for (const retiredField of [
+        "eventKind",
+        "runId",
+        "threadId",
+        "turnId",
+        "workflowGraphId",
+        "workflowNodeId",
+      ]) {
+        delete canonicalRequest[retiredField];
+      }
       const result = evaluateContextBudgetPolicyDep({
         usageTelemetry,
         request: {
-          ...request,
+          ...canonicalRequest,
           scope,
-          threadId: requestedThreadId,
           thread_id: requestedThreadId,
-          turnId: eventTurnId,
           turn_id: eventTurnId,
-          runId: requestedRunId,
           run_id: requestedRunId,
         },
       });
@@ -238,16 +246,16 @@ export function createRuntimeContextPolicySurface({
           result.runtime_event_idempotency_key,
         source: operatorControlSourceDep(request.source),
         source_event_kind:
-          optionalStringDep(request.eventKind ?? request.event_kind) ??
+          optionalStringDep(request.event_kind) ??
           "RuntimeContextBudget.Evaluate",
         event_kind: result.runtime_event_kind,
         status: result.runtime_event_status,
         actor: optionalStringDep(request.actor) ?? "operator",
         created_at: now,
         workspace_root: agent.cwd,
-        workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
+        workflow_graph_id: request.workflow_graph_id ?? null,
         workflow_node_id:
-          request.workflow_node_id ?? request.workflowNodeId ?? "runtime.context-budget",
+          request.workflow_node_id ?? "runtime.context-budget",
         component_kind: "context_budget",
         payload_schema_version: contextBudgetSchemaVersion,
         payload_summary: result,

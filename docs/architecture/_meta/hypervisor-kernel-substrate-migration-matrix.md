@@ -12678,6 +12678,13 @@ request from canonical `workflow_node_id`, `workflow_graph_id`, `thread_id`,
 such as `workflowNodeId`, `workflowGraphId`, `threadId`, `runId`, `turnId`, and
 `eventKind` no longer shape the admitted policy request.
 
+Slice 425 removes context-policy surface identity request aliases:
+the daemon context-policy facade now sanitizes context-budget evaluation
+requests before calling the Rust policy-core bridge helper and appends
+context-budget runtime events from canonical `workflow_graph_id`,
+`workflow_node_id`, and `event_kind` only; retired camelCase request aliases no
+longer shape the bridge request or emitted event metadata.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

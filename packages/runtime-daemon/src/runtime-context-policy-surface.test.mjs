@@ -305,6 +305,41 @@ test("context policy surface can evaluate workflow-only budget without appending
   assert.deepEqual(events, []);
 });
 
+test("context policy surface ignores retired context-budget identity request aliases", () => {
+  const { calls, events, store, surface } = harness();
+
+  surface.evaluateContextBudget(store, {
+    threadId: "thread-agent-one",
+    request: {
+      usage_telemetry: { total_tokens: 12 },
+      workflowNodeId: "node-retired",
+      workflowGraphId: "graph-retired",
+      threadId: "thread-retired",
+      runId: "run-retired",
+      turnId: "turn-retired",
+      eventKind: "RuntimeContextBudget.Retired",
+    },
+  });
+
+  const policyRequest = calls.find((call) => call.name === "evaluateContextBudgetPolicy").input.request;
+  assert.equal(policyRequest.thread_id, "thread-agent-one");
+  assert.equal(policyRequest.run_id, null);
+  assert.equal(policyRequest.turn_id, "turn-run-one");
+  for (const field of [
+    "workflowNodeId",
+    "workflowGraphId",
+    "threadId",
+    "runId",
+    "turnId",
+    "eventKind",
+  ]) {
+    assert.equal(Object.hasOwn(policyRequest, field), false);
+  }
+  assert.equal(events[0].workflow_graph_id, null);
+  assert.equal(events[0].workflow_node_id, "runtime.context-budget");
+  assert.equal(events[0].source_event_kind, "RuntimeContextBudget.Evaluate");
+});
+
 test("compaction policy surface appends approval or compact events", () => {
   const { calls, events, store, surface } = harness({
     compactionResult: {
