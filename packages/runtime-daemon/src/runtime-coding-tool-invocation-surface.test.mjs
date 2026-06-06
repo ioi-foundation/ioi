@@ -1194,6 +1194,8 @@ test("coding tool invocation surface fails closed for budget blocks", () => {
       assert.deepEqual(error.details.budget_usage_telemetry, {
         prompt_tokens: 10,
       });
+      assert.equal(error.details.context_budget_status, "blocked");
+      assert.deepEqual(error.details.policy_decision_refs, ["policy_budget"]);
       assert.equal(
         Object.prototype.hasOwnProperty.call(
           error.details,
@@ -1201,6 +1203,15 @@ test("coding tool invocation surface fails closed for budget blocks", () => {
         ),
         false,
       );
+      for (const field of [
+        "contextBudgetStatus",
+        "contextBudget",
+        "eventId",
+        "receiptRefs",
+        "policyDecisionRefs",
+      ]) {
+        assert.equal(Object.hasOwn(error.details, field), false);
+      }
       return true;
     },
   );

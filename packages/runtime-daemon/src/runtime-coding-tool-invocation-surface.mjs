@@ -151,15 +151,10 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
         reason: "coding_tool_budget_exceeded",
         budget_status: "exceeded",
         context_budget_status: budgetPolicy.status,
-        contextBudgetStatus: budgetPolicy.status,
         context_budget: budgetPolicy,
-        contextBudget: budgetPolicy,
         budget_usage_telemetry: budgetPolicy.usage_telemetry,
-        eventId: blocked.event?.event_id ?? null,
         event_id: blocked.event?.event_id ?? null,
-        receiptRefs: blocked.receipt_refs,
         receipt_refs: blocked.receipt_refs,
-        policyDecisionRefs: blocked.policy_decision_refs,
         policy_decision_refs: blocked.policy_decision_refs,
       });
     }

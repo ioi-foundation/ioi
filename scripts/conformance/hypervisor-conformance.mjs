@@ -1052,6 +1052,37 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "coding-tool-budget-block-detail-aliases-retired",
+    /context_budget_status:\s*budgetPolicy\.status/.test(runtimeCodingToolInvocationSurface) &&
+      /context_budget:\s*budgetPolicy/.test(runtimeCodingToolInvocationSurface) &&
+      /event_id:\s*blocked\.event\?\.event_id \?\? null/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /receipt_refs:\s*blocked\.receipt_refs/.test(runtimeCodingToolInvocationSurface) &&
+      /policy_decision_refs:\s*blocked\.policy_decision_refs/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      !/contextBudgetStatus:\s*budgetPolicy\.status/.test(runtimeCodingToolInvocationSurface) &&
+      !/contextBudget:\s*budgetPolicy/.test(runtimeCodingToolInvocationSurface) &&
+      !/eventId:\s*blocked\.event\?\.event_id/.test(runtimeCodingToolInvocationSurface) &&
+      !/receiptRefs:\s*blocked\.receipt_refs/.test(runtimeCodingToolInvocationSurface) &&
+      !/policyDecisionRefs:\s*blocked\.policy_decision_refs/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*field\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /"contextBudgetStatus"[\s\S]*"contextBudget"[\s\S]*"eventId"[\s\S]*"receiptRefs"[\s\S]*"policyDecisionRefs"/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool budget block details must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "coding-tool-approval-retry-manifest-alias-retired",
     !/camelCaseKey/.test(runtimeCodingToolApproval) &&
       !/requestedManifest\[camelCaseKey\(key\)\]/.test(runtimeCodingToolApproval) &&
