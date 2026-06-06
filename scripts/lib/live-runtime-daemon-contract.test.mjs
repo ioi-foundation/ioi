@@ -575,34 +575,34 @@ test("local daemon exposes compact authority evidence summaries without trace pa
       component_kind: "capability_preflight",
       payload_schema_version: "ioi.workflow.capability-preflight.v1",
       payload: {
-        eventKind: "WorkflowRunCapabilityPreflightBlocked",
+        event_kind: "WorkflowRunCapabilityPreflightBlocked",
         reason: "workflow_capability_preflight_blocked",
-        runId: "workflow-run-policy-authority-proof",
+        run_id: "workflow-run-policy-authority-proof",
         summary: "Workflow run blocked by capability readiness preflight.",
         rows: [
           {
-            nodeId: "model-node",
-            nodeType: "agent_step",
-            bindingKind: "model_capability",
-            capabilityRef: "model-capability:route.local-first",
-            routeId: "route.local-first",
-            authorityScopeRequirements: ["model.chat:*"],
-            receiptRefs: ["receipt_model_capability_row"],
-            policyDecisionRefs: ["policy_model_capability_row"],
+            node_id: "model-node",
+            node_type: "agent_step",
+            binding_kind: "model_capability",
+            capability_ref: "model-capability:route.local-first",
+            route_id: "route.local-first",
+            authority_scope_requirements: ["model.chat:*"],
+            receipt_refs: ["receipt_model_capability_row"],
+            policy_decision_refs: ["policy_model_capability_row"],
           },
           {
-            nodeId: "tool-node",
-            nodeType: "tool_pack",
-            bindingKind: "tool_capability",
-            capabilityRef: "tool-capability:filesystem.write",
-            authorityScopeRequirements: ["filesystem.write"],
-            receiptRefs: ["receipt_tool_capability_row"],
+            node_id: "tool-node",
+            node_type: "tool_pack",
+            binding_kind: "tool_capability",
+            capability_ref: "tool-capability:filesystem.write",
+            authority_scope_requirements: ["filesystem.write"],
+            receipt_refs: ["receipt_tool_capability_row"],
           },
         ],
-        rawPayload: "sk-authorityevidenceshouldnotescape123456",
-        runtimeThreadEvents: [
+        raw_payload: "sk-authorityevidenceshouldnotescape123456",
+        runtime_thread_events: [
           {
-            receiptRefs: ["receipt_trace_surface_must_not_escape"],
+            receipt_refs: ["receipt_trace_surface_must_not_escape"],
             payload: "ghp_tracepayloadshouldnotescape123456",
           },
         ],
@@ -614,32 +614,37 @@ test("local daemon exposes compact authority evidence summaries without trace pa
     });
 
     const evidence = await fetchJson(`${daemon.endpoint}/api/v1/authority-evidence`);
-    assert.equal(evidence.schemaVersion, "ioi.authority-evidence-summary-list.v1");
-    assert.equal(evidence.rowCount, 2);
+    assert.equal(evidence.schema_version, "ioi.authority-evidence-summary-list.v1");
+    assert.equal(Object.hasOwn(evidence, "schemaVersion"), false);
+    assert.equal(Object.hasOwn(evidence, "rowCount"), false);
+    assert.equal(evidence.row_count, 2);
     assert.deepEqual(
-      evidence.items.map((row) => row.capabilityRef).sort(),
+      evidence.items.map((row) => row.capability_ref).sort(),
       [
         "model-capability:route.local-first",
         "tool-capability:filesystem.write",
       ],
     );
     const modelRow = evidence.items.find(
-      (row) => row.capabilityRef === "model-capability:route.local-first",
+      (row) => row.capability_ref === "model-capability:route.local-first",
     );
-    assert.equal(modelRow.routeId, "route.local-first");
-    assert.deepEqual(modelRow.authorityScopeRequirements, ["model.chat:*"]);
+    assert.equal(modelRow.route_id, "route.local-first");
+    assert.deepEqual(modelRow.authority_scope_requirements, ["model.chat:*"]);
+    assert.equal(Object.hasOwn(modelRow, "capabilityRef"), false);
+    assert.equal(Object.hasOwn(modelRow, "routeId"), false);
+    assert.equal(Object.hasOwn(modelRow, "authorityScopeRequirements"), false);
     assert.ok(
-      modelRow.receiptRefs.includes(
+      modelRow.receipt_refs.includes(
         "receipt_workflow_run_capability_preflight_authority_proof",
       ),
     );
-    assert.ok(modelRow.receiptRefs.includes("receipt_model_capability_row"));
+    assert.ok(modelRow.receipt_refs.includes("receipt_model_capability_row"));
     assert.ok(
-      modelRow.policyDecisionRefs.includes(
+      modelRow.policy_decision_refs.includes(
         "policy_workflow_run_capability_preflight_blocked_authority_proof",
       ),
     );
-    assert.ok(modelRow.policyDecisionRefs.includes("policy_model_capability_row"));
+    assert.ok(modelRow.policy_decision_refs.includes("policy_model_capability_row"));
     assert.equal(JSON.stringify(evidence).includes("sk-authorityevidence"), false);
     assert.equal(JSON.stringify(evidence).includes("tracepayloadshouldnotescape"), false);
     assert.equal(
@@ -652,8 +657,8 @@ test("local daemon exposes compact authority evidence summaries without trace pa
         "tool-capability:filesystem.write",
       )}`,
     );
-    assert.equal(filtered.rowCount, 1);
-    assert.equal(filtered.items[0].capabilityRef, "tool-capability:filesystem.write");
+    assert.equal(filtered.row_count, 1);
+    assert.equal(filtered.items[0].capability_ref, "tool-capability:filesystem.write");
   } finally {
     if (daemon) await daemon.close();
   }

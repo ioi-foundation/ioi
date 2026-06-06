@@ -4552,6 +4552,12 @@ function runReceipts() {
   const runtimeRunReadSurface = exists("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     : "";
+  const authorityEvidenceSummary = exists("packages/runtime-daemon/src/authority-evidence-summary.mjs")
+    ? read("packages/runtime-daemon/src/authority-evidence-summary.mjs")
+    : "";
+  const authorityEvidenceSummaryTest = exists("packages/runtime-daemon/src/authority-evidence-summary.test.mjs")
+    ? read("packages/runtime-daemon/src/authority-evidence-summary.test.mjs")
+    : "";
   const runtimeDoctorReport = exists("packages/runtime-daemon/src/runtime-doctor-report.mjs")
     ? read("packages/runtime-daemon/src/runtime-doctor-report.mjs")
     : "";
@@ -6658,6 +6664,40 @@ function runReceipts() {
       "packages/runtime-daemon/src/step-module-abi.test.mjs",
     ],
     "Phase 10/11 is pending: runtime and coding tool catalog records must expose canonical snake_case fields without camelCase compatibility aliases",
+  );
+  assertCheck(
+    result,
+    "authority-evidence-summary-aliases-retired",
+    /schema_version:\s*AUTHORITY_EVIDENCE_SUMMARY_LIST_SCHEMA_VERSION/.test(
+      authorityEvidenceSummary,
+    ) &&
+      /row_count:\s*rows\.length/.test(authorityEvidenceSummary) &&
+      /thread_id:\s*optionalString\(options\.thread_id\)/.test(authorityEvidenceSummary) &&
+      /capability_ref:\s*capabilityRef/.test(authorityEvidenceSummary) &&
+      /authority_scope_requirements:\s*authorityScopeRequirements/.test(
+        authorityEvidenceSummary,
+      ) &&
+      /node_type:\s*optionalString\(row\.node_type\)/.test(authorityEvidenceSummary) &&
+      /Object\.hasOwn\(summary,\s*"schemaVersion"\),\s*false/.test(
+        authorityEvidenceSummaryTest,
+      ) &&
+      /Object\.hasOwn\(summary,\s*"rowCount"\),\s*false/.test(
+        authorityEvidenceSummaryTest,
+      ) &&
+      /Object\.hasOwn\(row,\s*retiredKey\),\s*false/.test(
+        authorityEvidenceSummaryTest,
+      ) &&
+      !/^\s*(?:schemaVersion|rowCount|generatedAt|rows|capabilityRef|routeId|authorityScopes|authorityScopeRequirements|receiptRefs|policyDecisionRefs|sourceRunId|sourceEventId|threadId|turnId|workflowGraphId|workflowNodeId|nodeId|nodeType|bindingKind|componentKind|createdAt|createdAtMs|eventSeq)\s*:/m.test(
+        authorityEvidenceSummary,
+      ) &&
+      !/\b(?:options|payload|row|fallbackPayload)\.(?:threadId|runId|capabilityRef|routeId|eventKind|sourceKind|schemaVersion|issueCode|resultSummary|receiptRefs|policyDecisionRefs|capabilityRows|capabilityRefs|modelCapabilityRef|toolCapabilityRef|connectorCapabilityRef|authorityScopes|authorityScopeRequirements|lastRepairReceiptRefs|preflightReceiptRefs|sourceRunId|createdAt|workflowNodeId|nodeId|nodeType|bindingKind)\b/.test(
+        authorityEvidenceSummary,
+      ),
+    [
+      "packages/runtime-daemon/src/authority-evidence-summary.mjs",
+      "packages/runtime-daemon/src/authority-evidence-summary.test.mjs",
+    ],
+    "Phase 10/11 is pending: authority evidence summaries must expose canonical snake_case fields without camelCase compatibility aliases",
   );
   assertCheck(
     result,

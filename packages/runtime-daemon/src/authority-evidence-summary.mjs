@@ -5,10 +5,10 @@ export const AUTHORITY_EVIDENCE_SUMMARY_LIST_SCHEMA_VERSION =
 
 export function authorityEvidenceSummaryForEvents(events = [], options = {}) {
   const filters = {
-    threadId: optionalString(options.thread_id ?? options.threadId),
-    runId: optionalString(options.run_id ?? options.runId),
-    capabilityRef: optionalString(options.capability_ref ?? options.capabilityRef),
-    routeId: optionalString(options.route_id ?? options.routeId),
+    thread_id: optionalString(options.thread_id),
+    run_id: optionalString(options.run_id),
+    capability_ref: optionalString(options.capability_ref),
+    route_id: optionalString(options.route_id),
   };
   const rows = normalizeArray(events)
     .filter(authorityEvidenceSourceEvent)
@@ -17,21 +17,17 @@ export function authorityEvidenceSummaryForEvents(events = [], options = {}) {
     .sort((left, right) => {
       const timeDelta = (right.createdAtMs ?? 0) - (left.createdAtMs ?? 0);
       if (timeDelta !== 0) return timeDelta;
-      return String(right.eventSeq ?? "").localeCompare(String(left.eventSeq ?? ""));
+      return String(right.event_seq ?? "").localeCompare(String(left.event_seq ?? ""));
     });
   const generatedAt = new Date().toISOString();
   return {
     schema_version: AUTHORITY_EVIDENCE_SUMMARY_LIST_SCHEMA_VERSION,
-    schemaVersion: AUTHORITY_EVIDENCE_SUMMARY_LIST_SCHEMA_VERSION,
     object: "ioi.authority_evidence_summary_list",
     source: "runtime_event_projection",
     generated_at: generatedAt,
-    generatedAt,
     row_count: rows.length,
-    rowCount: rows.length,
     filters,
     items: rows,
-    rows,
   };
 }
 
@@ -42,16 +38,11 @@ function authorityEvidenceSourceEvent(event) {
     event?.source_event_kind,
     event?.component_kind,
     event?.payload_schema_version,
-    payload.eventKind,
     payload.event_kind,
     payload.reason,
-    payload.sourceKind,
     payload.source_kind,
-    payload.schemaVersion,
     payload.schema_version,
-    payload.issueCode,
     payload.issue_code,
-    payload.resultSummary?.reason,
     payload.result_summary?.reason,
   ]
     .map((value) => optionalString(value)?.toLowerCase())
@@ -73,19 +64,13 @@ function authorityEvidenceRowsFromRuntimeEvent(event) {
     : objectRecord(event?.payload);
   const eventReceiptRefs = uniqueStrings([
     ...normalizeArray(event?.receipt_refs),
-    ...normalizeArray(fallbackPayload.receiptRefs ?? fallbackPayload.receipt_refs),
+    ...normalizeArray(fallbackPayload.receipt_refs),
   ]);
   const eventPolicyDecisionRefs = uniqueStrings([
     ...normalizeArray(event?.policy_decision_refs),
-    ...normalizeArray(
-      fallbackPayload.policyDecisionRefs ?? fallbackPayload.policy_decision_refs,
-    ),
+    ...normalizeArray(fallbackPayload.policy_decision_refs),
   ]);
-  const rows = normalizeArray(
-    fallbackPayload.rows ??
-      fallbackPayload.capabilityRows ??
-      fallbackPayload.capability_rows,
-  );
+  const rows = normalizeArray(fallbackPayload.rows ?? fallbackPayload.capability_rows);
   if (rows.length > 0) {
     return rows
       .map((row, index) =>
@@ -100,12 +85,12 @@ function authorityEvidenceRowsFromRuntimeEvent(event) {
       )
       .filter(Boolean);
   }
-  return uniqueStrings(fallbackPayload.capabilityRefs ?? fallbackPayload.capability_refs)
+  return uniqueStrings(fallbackPayload.capability_refs)
     .map((capabilityRef, index) =>
       authorityEvidenceRowFromPreflightRow({
         event,
         payload: fallbackPayload,
-        row: { capabilityRef },
+        row: { capability_ref: capabilityRef },
         rowIndex: index,
         eventReceiptRefs,
         eventPolicyDecisionRefs,
@@ -124,37 +109,30 @@ function authorityEvidenceRowFromPreflightRow({
 }) {
   const capabilityRef =
     optionalString(
-      row.capabilityRef ??
-        row.capability_ref ??
-        row.modelCapabilityRef ??
+      row.capability_ref ??
         row.model_capability_ref ??
-        row.toolCapabilityRef ??
         row.tool_capability_ref ??
-        row.connectorCapabilityRef ??
         row.connector_capability_ref,
     ) ?? "";
   const routeId =
-    optionalString(row.routeId ?? row.route_id ?? payload.routeId ?? payload.route_id) ??
-    null;
+    optionalString(row.route_id ?? payload.route_id) ?? null;
   const authorityScopes = uniqueStrings([
-    ...normalizeArray(row.authorityScopes ?? row.authority_scopes),
-    ...normalizeArray(payload.authorityScopes ?? payload.authority_scopes),
+    ...normalizeArray(row.authority_scopes),
+    ...normalizeArray(payload.authority_scopes),
   ]);
   const authorityScopeRequirements = uniqueStrings([
-    ...normalizeArray(row.authorityScopeRequirements ?? row.authority_scope_requirements),
-    ...normalizeArray(
-      payload.authorityScopeRequirements ?? payload.authority_scope_requirements,
-    ),
+    ...normalizeArray(row.authority_scope_requirements),
+    ...normalizeArray(payload.authority_scope_requirements),
   ]);
   const receiptRefs = uniqueStrings([
     ...eventReceiptRefs,
-    ...normalizeArray(row.receiptRefs ?? row.receipt_refs),
-    ...normalizeArray(row.lastRepairReceiptRefs ?? row.last_repair_receipt_refs),
-    ...normalizeArray(row.preflightReceiptRefs ?? row.preflight_receipt_refs),
+    ...normalizeArray(row.receipt_refs),
+    ...normalizeArray(row.last_repair_receipt_refs),
+    ...normalizeArray(row.preflight_receipt_refs),
   ]);
   const policyDecisionRefs = uniqueStrings([
     ...eventPolicyDecisionRefs,
-    ...normalizeArray(row.policyDecisionRefs ?? row.policy_decision_refs),
+    ...normalizeArray(row.policy_decision_refs),
   ]);
   if (
     receiptRefs.length === 0 ||
@@ -167,26 +145,20 @@ function authorityEvidenceRowFromPreflightRow({
   }
   const sourceRunId =
     optionalString(
-      payload.runId ??
-        payload.run_id ??
-        payload.sourceRunId ??
+      payload.run_id ??
         payload.source_run_id ??
-        row.runId ??
         row.run_id ??
-        row.sourceRunId ??
         row.source_run_id,
     ) ?? null;
   const eventId = optionalString(event?.event_id) ?? null;
   const createdAt =
     optionalString(event?.created_at) ??
-    optionalString(payload.createdAt ?? payload.created_at);
+    optionalString(payload.created_at);
   const createdAtMs = createdAt ? Date.parse(createdAt) : null;
   const nodeId =
     optionalString(
-      row.nodeId ??
-        row.node_id ??
+      row.node_id ??
         event?.workflow_node_id ??
-        payload.workflowNodeId ??
         payload.workflow_node_id,
     ) ?? null;
   const id = `authority_evidence_${safeId(eventId ?? sourceRunId ?? "event")}_${
@@ -194,58 +166,40 @@ function authorityEvidenceRowFromPreflightRow({
   }`;
   return {
     schema_version: AUTHORITY_EVIDENCE_SUMMARY_SCHEMA_VERSION,
-    schemaVersion: AUTHORITY_EVIDENCE_SUMMARY_SCHEMA_VERSION,
     id,
     capability_ref: capabilityRef,
-    capabilityRef,
     route_id: routeId,
-    routeId,
     authority_scopes: authorityScopes,
-    authorityScopes,
     authority_scope_requirements: authorityScopeRequirements,
-    authorityScopeRequirements,
     receipt_refs: receiptRefs,
-    receiptRefs,
     policy_decision_refs: policyDecisionRefs,
-    policyDecisionRefs,
     source_run_id: sourceRunId,
-    sourceRunId,
     source_event_id: eventId,
-    sourceEventId: eventId,
     thread_id: optionalString(event?.thread_id) ?? null,
-    threadId: optionalString(event?.thread_id) ?? null,
     turn_id: optionalString(event?.turn_id) ?? null,
-    turnId: optionalString(event?.turn_id) ?? null,
     workflow_graph_id: optionalString(event?.workflow_graph_id) ?? null,
-    workflowGraphId: optionalString(event?.workflow_graph_id) ?? null,
     workflow_node_id: nodeId,
-    workflowNodeId: nodeId,
-    node_id: optionalString(row.nodeId ?? row.node_id) ?? nodeId,
-    nodeId: optionalString(row.nodeId ?? row.node_id) ?? nodeId,
-    node_type: optionalString(row.nodeType ?? row.node_type) ?? null,
-    nodeType: optionalString(row.nodeType ?? row.node_type) ?? null,
-    binding_kind: optionalString(row.bindingKind ?? row.binding_kind) ?? null,
-    bindingKind: optionalString(row.bindingKind ?? row.binding_kind) ?? null,
+    node_id: optionalString(row.node_id) ?? nodeId,
+    node_type: optionalString(row.node_type) ?? null,
+    binding_kind: optionalString(row.binding_kind) ?? null,
     component_kind: optionalString(event?.component_kind) ?? null,
-    componentKind: optionalString(event?.component_kind) ?? null,
     status: optionalString(event?.status ?? payload.status ?? row.status) ?? null,
     reason:
-      optionalString(payload.reason ?? payload.issueCode ?? payload.issue_code ?? row.reason) ??
+      optionalString(payload.reason ?? payload.issue_code ?? row.reason) ??
       null,
     created_at: createdAt ?? null,
-    createdAt: createdAt ?? null,
     created_at_ms: Number.isFinite(createdAtMs) ? createdAtMs : null,
-    createdAtMs: Number.isFinite(createdAtMs) ? createdAtMs : null,
     event_seq: event?.seq ?? null,
-    eventSeq: event?.seq ?? null,
   };
 }
 
 function authorityEvidenceRowMatchesFilters(row, filters) {
-  if (filters.threadId && row.threadId !== filters.threadId) return false;
-  if (filters.runId && row.sourceRunId !== filters.runId) return false;
-  if (filters.capabilityRef && row.capabilityRef !== filters.capabilityRef) return false;
-  if (filters.routeId && row.routeId !== filters.routeId) return false;
+  if (filters.thread_id && row.thread_id !== filters.thread_id) return false;
+  if (filters.run_id && row.source_run_id !== filters.run_id) return false;
+  if (filters.capability_ref && row.capability_ref !== filters.capability_ref) {
+    return false;
+  }
+  if (filters.route_id && row.route_id !== filters.route_id) return false;
   return true;
 }
 
