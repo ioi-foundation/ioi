@@ -449,11 +449,11 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
         { threadId, toolId },
       );
     }
-    const artifactId = optionalString(input.artifactId ?? input.artifact_id ?? input.artifactRef ?? input.artifact_ref);
+    const artifactId = optionalString(input.artifact_id ?? input.artifact_ref);
     if (!artifactId) {
       throw toolInputError(
         "artifact_read_id_required",
-        "artifact.read requires artifactId or artifactRef.",
+        "artifact.read requires artifact_id or artifact_ref.",
         { threadId, toolId },
       );
     }
@@ -464,8 +464,8 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
         schemaVersion: "ioi.runtime.coding-tool-data-plane.v1",
         source: "daemon_artifact_store",
         operation: toolId,
-        artifactId,
-        artifactRef: artifactId,
+        artifact_id: artifactId,
+        artifact_ref: artifactId,
         range,
         result: store.readCodingToolArtifact(threadId, artifactId, range),
       },
@@ -479,19 +479,19 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
         { threadId, toolId },
       );
     }
-    const toolCallId = optionalString(input.toolCallId ?? input.tool_call_id);
-    const artifactId = optionalString(input.artifactId ?? input.artifact_id ?? input.artifactRef ?? input.artifact_ref);
+    const toolCallId = optionalString(input.tool_call_id);
+    const artifactId = optionalString(input.artifact_id ?? input.artifact_ref);
     if (!toolCallId && !artifactId) {
       throw toolInputError(
         "tool_retrieve_result_target_required",
-        "tool.retrieve_result requires toolCallId or artifactId.",
+        "tool.retrieve_result requires tool_call_id or artifact_id.",
         { threadId, toolId },
       );
     }
     const range = artifactReadRange(input);
     const query = {
-      toolCallId,
-      artifactId,
+      tool_call_id: toolCallId,
+      artifact_id: artifactId,
       channel: optionalString(input.channel),
       range,
     };

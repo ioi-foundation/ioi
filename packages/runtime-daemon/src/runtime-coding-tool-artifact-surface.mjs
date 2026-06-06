@@ -113,18 +113,18 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
   }
 
   function retrieveCodingToolResult(store, threadId, query = {}) {
-    if (query.artifactId) {
+    if (query.artifact_id) {
       return {
-        ...readCodingToolArtifact(store, threadId, query.artifactId, query.range),
+        ...readCodingToolArtifact(store, threadId, query.artifact_id, query.range),
         shellFallbackUsed: false,
       };
     }
-    const toolCallId = optionalString(query.toolCallId);
+    const toolCallId = optionalString(query.tool_call_id);
     if (!toolCallId) {
       throw runtimeError({
         status: 400,
         code: "tool_retrieve_result_target_required",
-        message: "tool.retrieve_result requires a toolCallId or artifactId.",
+        message: "tool.retrieve_result requires a tool_call_id or artifact_id.",
         details: { threadId },
       });
     }

@@ -103,10 +103,10 @@ function createStore() {
       calls.push({ name: "retrieveResult", threadId, query });
       return {
         schemaVersion: "ioi.runtime.coding-tool-result.v1",
-        toolCallId: query.toolCallId ?? "tool_from_artifact",
-        artifactId: query.artifactId ?? "artifact_result",
-        artifactRef: query.artifactId ?? "artifact_result",
-        artifactRefs: [query.artifactId ?? "artifact_result"],
+        toolCallId: query.tool_call_id ?? "tool_from_artifact",
+        artifactId: query.artifact_id ?? "artifact_result",
+        artifactRef: query.artifact_id ?? "artifact_result",
+        artifactRefs: [query.artifact_id ?? "artifact_result"],
         channel: query.channel ?? "stdout",
         content: "stored result\n",
         contentHash: "result-content-hash",
@@ -115,7 +115,7 @@ function createStore() {
         lengthBytes: 14,
         totalBytes: 14,
         truncated: false,
-        availableArtifacts: [{ artifactId: query.artifactId ?? "artifact_result", channel: query.channel ?? "stdout" }],
+        availableArtifacts: [{ artifactId: query.artifact_id ?? "artifact_result", channel: query.channel ?? "stdout" }],
         receiptRefs: ["receipt_tool_retrieve_result"],
         shellFallbackUsed: false,
       };
@@ -940,7 +940,7 @@ test("coding tool invocation surface runs artifact.read through rust workload li
     toolCallId: "tool_artifact",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_artifact",
-    input: { artifactId: "artifact_alpha", offsetBytes: 2, lengthBytes: 8 },
+    input: { artifact_id: "artifact_alpha", offsetBytes: 2, lengthBytes: 8 },
   });
 
   assert.equal(result.status, "completed");
@@ -956,6 +956,15 @@ test("coding tool invocation surface runs artifact.read through rust workload li
   assert.ok(result.receipt_refs.includes("receipt://rust-live/artifact.read"));
   assert.ok(result.artifact_refs.includes("artifact_alpha"));
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+
+  const readCallsBeforeRetiredAlias = store.calls.filter((call) => call.name === "readArtifact").length;
+  const retiredArtifactAlias = surface.invokeThreadTool(store, "thread_alpha", "artifact.read", {
+    toolCallId: "tool_artifact_retired",
+    input: { artifactId: "artifact_alpha" },
+  });
+  assert.equal(retiredArtifactAlias.status, "failed");
+  assert.equal(retiredArtifactAlias.result.error.code, "artifact_read_id_required");
+  assert.equal(store.calls.filter((call) => call.name === "readArtifact").length, readCallsBeforeRetiredAlias);
 });
 
 test("coding tool invocation surface runs tool.retrieve_result through rust workload live path", () => {
@@ -1028,13 +1037,13 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
     toolCallId: "tool_retrieve",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_retrieve",
-    input: { toolCallId: "tool_patch", channel: "stdout", maxBytes: 32 },
+    input: { tool_call_id: "tool_patch", channel: "stdout", maxBytes: 32 },
   });
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
   assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
-  assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.query.toolCallId, "tool_patch");
+  assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.query.tool_call_id, "tool_patch");
   assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.result.content, "stored result\n");
   assert.ok(store.calls.some((call) => call.name === "retrieveResult"));
   assert.equal(result.result.rust_workload, true);
@@ -1044,6 +1053,15 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
   assert.ok(result.receipt_refs.includes("receipt://rust-live/tool.retrieve_result"));
   assert.ok(result.artifact_refs.includes("artifact_result"));
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+
+  const retrieveCallsBeforeRetiredAlias = store.calls.filter((call) => call.name === "retrieveResult").length;
+  const retiredRetrieveAlias = surface.invokeThreadTool(store, "thread_alpha", "tool.retrieve_result", {
+    toolCallId: "tool_retrieve_retired",
+    input: { toolCallId: "tool_patch" },
+  });
+  assert.equal(retiredRetrieveAlias.status, "failed");
+  assert.equal(retiredRetrieveAlias.result.error.code, "tool_retrieve_result_target_required");
+  assert.equal(store.calls.filter((call) => call.name === "retrieveResult").length, retrieveCallsBeforeRetiredAlias);
 });
 
 test("coding tool invocation surface runs computer_use.request_lease through rust workload live path", () => {

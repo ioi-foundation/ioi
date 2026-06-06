@@ -153,7 +153,7 @@ test("coding-tool artifact surface retrieves tool results by channel or artifact
   });
 
   const byChannel = surface.retrieveCodingToolResult(store, "thread_alpha", {
-    toolCallId: "tool_call_alpha",
+    tool_call_id: "tool_call_alpha",
     channel: "stderr",
   });
   assert.equal(byChannel.artifactId, "artifact_b");
@@ -161,10 +161,19 @@ test("coding-tool artifact surface retrieves tool results by channel or artifact
   assert.deepEqual(byChannel.availableArtifacts.map((artifact) => artifact.artifactId), ["artifact_b", "artifact_a"]);
 
   const byArtifact = surface.retrieveCodingToolResult(store, "thread_alpha", {
-    artifactId: "artifact_a",
+    artifact_id: "artifact_a",
   });
   assert.equal(byArtifact.artifactId, "artifact_a");
   assert.equal(byArtifact.shellFallbackUsed, false);
+
+  assert.throws(
+    () => surface.retrieveCodingToolResult(store, "thread_alpha", { toolCallId: "tool_call_alpha" }),
+    (error) => error.status === 400 && error.code === "tool_retrieve_result_target_required",
+  );
+  assert.throws(
+    () => surface.retrieveCodingToolResult(store, "thread_alpha", { artifactId: "artifact_a" }),
+    (error) => error.status === 400 && error.code === "tool_retrieve_result_target_required",
+  );
 });
 
 test("coding-tool artifact surface requires retrieve targets", () => {

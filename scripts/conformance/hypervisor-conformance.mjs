@@ -520,6 +520,12 @@ function runBridge() {
   const runtimeCodingToolInvocationSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     : "";
+  const runtimeCodingToolArtifactSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
+    : "";
+  const runtimeCodingToolArtifactSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs")
+    : "";
   const runtimeCodingToolGovernanceSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs")
     : "";
@@ -1020,6 +1026,41 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
     "Phase 10/11 is pending: Rust live coding-tool result wrappers must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "coding-tool-artifact-retrieval-input-aliases-retired",
+    /const artifactId = optionalString\(input\.artifact_id \?\? input\.artifact_ref\)/.test(
+      runtimeCodingToolInvocationSurface,
+    ) &&
+      /const toolCallId = optionalString\(input\.tool_call_id\)/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /artifact_id: artifactId/.test(runtimeCodingToolInvocationSurface) &&
+      /tool_call_id: toolCallId/.test(runtimeCodingToolInvocationSurface) &&
+      /if \(query\.artifact_id\)/.test(runtimeCodingToolArtifactSurface) &&
+      /const toolCallId = optionalString\(query\.tool_call_id\)/.test(
+        runtimeCodingToolArtifactSurface,
+      ) &&
+      /input: \{ artifact_id: "artifact_alpha"/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /input: \{ tool_call_id: "tool_patch"/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /input: \{ artifactId: "artifact_alpha" \}/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /input: \{ toolCallId: "tool_patch" \}/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /surface\.retrieveCodingToolResult\(store, "thread_alpha", \{ toolCallId: "tool_call_alpha" \}\)/.test(
+        runtimeCodingToolArtifactSurfaceTest,
+      ) &&
+      /surface\.retrieveCodingToolResult\(store, "thread_alpha", \{ artifactId: "artifact_a" \}\)/.test(
+        runtimeCodingToolArtifactSurfaceTest,
+      ) &&
+      !/input\.(?:artifactId|artifactRef|toolCallId)\b/.test(runtimeCodingToolInvocationSurface) &&
+      !/query\.(?:artifactId|toolCallId)\b/.test(runtimeCodingToolArtifactSurface),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: artifact.read and tool.retrieve_result must use canonical artifact_id/artifact_ref/tool_call_id without retired camelCase target aliases",
   );
   assertCheck(
     result,
