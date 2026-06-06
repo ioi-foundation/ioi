@@ -485,6 +485,31 @@ test("runtime MCP control surface ignores retired liveDiscovery request alias", 
   assert.equal(transportCalls.length, 0);
 });
 
+test("runtime MCP control surface ignores retired event metadata request aliases", async () => {
+  const { events, store, surface } = harness();
+
+  await surface.recordThreadMcpStatus(store, "thread-agent-one", {
+    turn_id: "turn-canonical",
+    turnId: "turn-retired",
+    workflow_graph_id: "graph-canonical",
+    workflowGraphId: "graph-retired",
+    idempotency_key: "idem-canonical",
+    idempotencyKey: "idem-retired",
+  });
+  assert.equal(events.at(-1).turn_id, "turn-canonical");
+  assert.equal(events.at(-1).workflow_graph_id, "graph-canonical");
+  assert.equal(events.at(-1).idempotency_key, "idem-canonical");
+
+  await surface.recordThreadMcpStatus(store, "thread-agent-one", {
+    turnId: "turn-retired",
+    workflowGraphId: "graph-retired",
+    idempotencyKey: "idem-retired",
+  });
+  assert.equal(events.at(-1).turn_id, "turn-one");
+  assert.equal(events.at(-1).workflow_graph_id, null);
+  assert.match(events.at(-1).idempotency_key, /^thread:thread-agent-one:mcp:mcp_status:/);
+});
+
 test("runtime MCP control surface ignores retired invoke policy aliases", async () => {
   const { store, surface } = harness();
 

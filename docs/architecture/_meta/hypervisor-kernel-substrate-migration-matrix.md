@@ -12500,6 +12500,12 @@ use canonical `mcp_json`, `mcp_servers`, `servers`, `server`, and `config`;
 retired camelCase `mcpJson`, `mcpServers`, and `mcpServer` request fields no
 longer supply MCP validation/import/add-server payloads.
 
+Slice 403 removes MCP control event metadata request aliases:
+runtime MCP control event construction and SDK MCP request inputs now use
+canonical `turn_id`, `workflow_graph_id`, and `idempotency_key`; retired
+camelCase `turnId`, `workflowGraphId`, and `idempotencyKey` request fields no
+longer bind MCP control event metadata.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -826,11 +826,11 @@ export function createRuntimeMcpControlSurface({
     }) {
       const thread = store.threadForAgent(agent);
       const turnId =
-        optionalStringDep(request.turn_id ?? request.turnId) ??
+        optionalStringDep(request.turn_id) ??
         optionalStringDep(thread.latest_turn_id) ??
         "";
       const source = operatorControlSourceDep(request.source);
-      const graphId = optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
+      const graphId = optionalStringDep(request.workflow_graph_id) ?? null;
       const nodeId =
         optionalStringDep(request.workflow_node_id) ??
         workflowNodeId;
@@ -850,7 +850,7 @@ export function createRuntimeMcpControlSurface({
         turn_id: turnId,
         item_id: `${turnId || threadId}:item:mcp:${safeIdDep(controlKind)}:${eventHash}`,
         idempotency_key:
-          optionalStringDep(request.idempotency_key ?? request.idempotencyKey) ??
+          optionalStringDep(request.idempotency_key) ??
           `thread:${threadId}:mcp:${controlKind}:${eventHash}`,
         source,
         source_event_kind: sourceEventKind,

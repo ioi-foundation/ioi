@@ -7738,6 +7738,9 @@ function runCompositor() {
   const runtimeMcpSdkServerMutationInputBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpServerMutationInput[\s\S]*?\n}\n/)?.[0] ??
     "";
+  const runtimeMcpSdkThreadMcpInputBlock =
+    agentSdkSubstrateClient.match(/export interface RuntimeThreadMcpInput[\s\S]*?\n}\n/)?.[0] ??
+    "";
   const runtimeMcpSdkToolInvokeInputBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpToolInvokeInput[\s\S]*?\n}\n/)?.[0] ??
     "";
@@ -10474,6 +10477,28 @@ function runCompositor() {
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP add-server requests must use canonical server/config without the retired mcpServer compatibility alias",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-control-event-metadata-request-aliases-retired",
+    /request\.turn_id/.test(runtimeMcpControlSurface) &&
+      /request\.workflow_graph_id/.test(runtimeMcpControlSurface) &&
+      /request\.idempotency_key/.test(runtimeMcpControlSurface) &&
+      /turnId: "turn-retired"/.test(runtimeMcpControlSurfaceTest) &&
+      /workflowGraphId: "graph-retired"/.test(runtimeMcpControlSurfaceTest) &&
+      /idempotencyKey: "idem-retired"/.test(runtimeMcpControlSurfaceTest) &&
+      /^\s*workflow_graph_id\?: string;/m.test(runtimeMcpSdkValidationInputBlock) &&
+      /^\s*turn_id\?: string;/m.test(runtimeMcpSdkThreadMcpInputBlock) &&
+      /^\s*idempotency_key\?: string;/m.test(runtimeMcpSdkThreadMcpInputBlock) &&
+      !/request\.(?:turnId|workflowGraphId|idempotencyKey)\b/.test(runtimeMcpControlSurface) &&
+      !/^\s*workflowGraphId\?:/m.test(runtimeMcpSdkValidationInputBlock) &&
+      !/^\s*(?:turnId|idempotencyKey)\?:/m.test(runtimeMcpSdkThreadMcpInputBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP control event metadata requests must use canonical turn_id/workflow_graph_id/idempotency_key without retired camelCase aliases",
   );
   assertCheck(
     result,

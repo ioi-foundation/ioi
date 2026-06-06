@@ -701,7 +701,6 @@ export interface RuntimeMcpValidationInput {
   servers?: unknown[] | Record<string, unknown>;
   cwd?: string;
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
-  workflowGraphId?: string;
   workflow_graph_id?: string;
   workflow_node_id?: string;
   [key: string]: unknown;
@@ -743,9 +742,7 @@ export interface RuntimeMcpToolInvokeInput extends RuntimeMcpValidationInput {
 }
 
 export interface RuntimeThreadMcpInput extends RuntimeMcpServerControlInput {
-  turnId?: string;
   turn_id?: string;
-  idempotencyKey?: string;
   idempotency_key?: string;
 }
 
