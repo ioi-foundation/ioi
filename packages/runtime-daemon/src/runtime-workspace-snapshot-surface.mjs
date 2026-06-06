@@ -67,8 +67,8 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
   ) {
     if (!result?.applied) return null;
     const capture = captureWorkspaceSnapshotFiles({
-      changedFiles: result.changedFiles ?? result.changed_files,
-      contentDrafts: result.workspaceSnapshotDrafts ?? result.workspace_snapshot_drafts,
+      changedFiles: result.changed_files,
+      contentDrafts: result.workspace_snapshot_drafts,
     });
     const files = capture.files;
     const contentFiles = capture.content_files ?? [];

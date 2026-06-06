@@ -7588,6 +7588,9 @@ function runCompositor() {
   const runtimeCodingToolInvocationSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")
     : "";
+  const runtimeCodingToolInvocationSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
+    : "";
   const runtimeWorkspaceSnapshotSurface = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
     : "";
@@ -10674,6 +10677,27 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
     ],
     "Phase 10/11 is pending: workspace snapshot list output must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "workspace-snapshot-capture-input-aliases-retired",
+    /changedFiles:\s*result\.changed_files/.test(runtimeWorkspaceSnapshotSurface) &&
+      /contentDrafts:\s*result\.workspace_snapshot_drafts/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/function prepareWorkspaceSnapshotForPatch(?:(?!\n  function materializeWorkspaceSnapshotArtifact)[\s\S])*?\bresult\.(?:changedFiles|workspaceSnapshotDrafts)\b/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      /changed_files: \[/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /workspace_snapshot_drafts: \[/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /changed_files: \[/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /workspace_snapshot_drafts: \[/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      !/workspaceSnapshotDrafts: \[/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      !/workspaceSnapshotDrafts: \[/.test(runtimeCodingToolInvocationSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: workspace snapshot capture must consume canonical changed_files and workspace_snapshot_drafts without daemon-side camelCase fallbacks",
   );
   assertCheck(
     result,

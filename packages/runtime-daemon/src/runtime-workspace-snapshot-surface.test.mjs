@@ -315,22 +315,22 @@ test("workspace snapshot surface prepares snapshots and persists content artifac
     workflowNodeId: "node_alpha",
     result: {
       applied: true,
-      changedFiles: [
+      changed_files: [
         {
           path: "src/app.js",
-          beforeHash: hash("old"),
-          afterHash: hash("newer"),
-          beforeExists: true,
-          afterExists: true,
-          beforeSizeBytes: 3,
-          afterSizeBytes: 5,
+          before_hash: hash("old"),
+          after_hash: hash("newer"),
+          before_exists: true,
+          after_exists: true,
+          before_size_bytes: 3,
+          after_size_bytes: 5,
         },
       ],
-      workspaceSnapshotDrafts: [
+      workspace_snapshot_drafts: [
         {
           path: "src/app.js",
-          beforeContent: "old",
-          afterContent: "newer",
+          before_content: "old",
+          after_content: "newer",
         },
       ],
     },
