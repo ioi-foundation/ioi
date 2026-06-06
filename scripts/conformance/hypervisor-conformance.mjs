@@ -5769,6 +5769,42 @@ function runCtee() {
   );
   assertCheck(
     result,
+    "ctee-admission-request-aliases-retired",
+    /RETIRED_CTEE_PRIVATE_WORKSPACE_REQUEST_ALIASES/.test(cteePrivateWorkspaceSurface) &&
+      /CANONICAL_CTEE_PRIVATE_WORKSPACE_REQUEST_FIELDS/.test(cteePrivateWorkspaceSurface) &&
+      /ctee_private_workspace_action_request_aliases_retired/.test(
+        cteePrivateWorkspaceSurface,
+      ) &&
+      /assertCanonicalCteePrivateWorkspaceRequestBody\(body\);[\s\S]*objectRecord\(body\.action\)/.test(
+        cteePrivateWorkspaceSurface,
+      ) &&
+      !/body\.(?:cteeAction|ctee_action)\b/.test(cteePrivateWorkspaceSurface) &&
+      /cTEE private workspace surface rejects retired request aliases before agent lookup or Rust runner/.test(
+        cteePrivateWorkspaceSurfaceTest,
+      ) &&
+      /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(cteePrivateWorkspaceSurfaceTest) &&
+      /retiredCteePrivateWorkspaceRequestAliases/.test(cteePrivateWorkspaceControlNodesTest) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*key\)/.test(
+        cteePrivateWorkspaceControlNodesTest,
+      ) &&
+      !/^\s*ctee_action:\s*RuntimeCteePrivateWorkspaceAction;/m.test(
+        cteePrivateWorkspaceControlNodes,
+      ) &&
+      !/^\s*cteeAction:\s*RuntimeCteePrivateWorkspaceAction;/m.test(
+        cteePrivateWorkspaceControlNodes,
+      ) &&
+      !/ctee_action:\s*action/.test(cteePrivateWorkspaceControlNodes) &&
+      !/cteeAction:\s*action/.test(cteePrivateWorkspaceControlNodes),
+    [
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs",
+      "packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts",
+    ],
+    "Phase 7/11 is pending: cTEE Private Workspace admission requests must fail closed on retired action wrapper aliases and IDE clients must emit canonical request bodies",
+  );
+  assertCheck(
+    result,
     "ctee-sdk-ide-admission-surface",
     /executeCteePrivateWorkspaceAction/.test(agentSdkSubstrateClient) &&
       /RuntimeCteePrivateWorkspaceActionInput/.test(agentSdkSubstrateClient) &&

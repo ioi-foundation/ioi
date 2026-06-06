@@ -4,6 +4,15 @@ import { objectRecord, optionalString } from "./runtime-value-helpers.mjs";
 export const CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION =
   "ioi.runtime.ctee_private_workspace_admission.v1";
 
+const RETIRED_CTEE_PRIVATE_WORKSPACE_REQUEST_ALIASES = [
+  "cteeAction",
+  "ctee_action",
+];
+
+const CANONICAL_CTEE_PRIVATE_WORKSPACE_REQUEST_FIELDS = [
+  "action",
+];
+
 export function createRuntimeCteePrivateWorkspaceSurface(deps = {}) {
   const {
     runtimeError: runtimeErrorDep = runtimeError,
@@ -11,8 +20,8 @@ export function createRuntimeCteePrivateWorkspaceSurface(deps = {}) {
 
   function actionForRequest(request = {}) {
     const body = objectRecord(request) ?? {};
-    const nested =
-      objectRecord(body.action ?? body.ctee_action ?? body.cteeAction) ?? {};
+    assertCanonicalCteePrivateWorkspaceRequestBody(body);
+    const nested = objectRecord(body.action) ?? {};
     const action = Object.keys(nested).length > 0 ? nested : body;
     if (Object.keys(action).length === 0) {
       throw runtimeErrorDep({
@@ -24,9 +33,25 @@ export function createRuntimeCteePrivateWorkspaceSurface(deps = {}) {
     return action;
   }
 
+  function assertCanonicalCteePrivateWorkspaceRequestBody(body = {}) {
+    const retiredAliases = RETIRED_CTEE_PRIVATE_WORKSPACE_REQUEST_ALIASES.filter((field) =>
+      Object.hasOwn(body, field),
+    );
+    if (retiredAliases.length === 0) return;
+    throw runtimeErrorDep({
+      status: 400,
+      code: "ctee_private_workspace_action_request_aliases_retired",
+      message: "Private Workspace cTEE action request aliases are retired; use action.",
+      details: {
+        retired_aliases: retiredAliases,
+        canonical_fields: CANONICAL_CTEE_PRIVATE_WORKSPACE_REQUEST_FIELDS,
+      },
+    });
+  }
+
   function executeCteePrivateWorkspaceAction(store, threadId, request = {}) {
-    const agent = store.agentForThread(threadId);
     const action = actionForRequest(request);
+    const agent = store.agentForThread(threadId);
     const admission = store.cteePrivateWorkspaceRunner.executeAction(action);
     const record = objectRecord(admission.record) ?? {};
     const result = objectRecord(admission.result) ?? objectRecord(record.result) ?? {};

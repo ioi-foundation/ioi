@@ -26,30 +26,17 @@ export interface RuntimeCteePrivateWorkspaceControlRequestBody {
   source: typeof RUNTIME_CTEE_PRIVATE_WORKSPACE_SOURCE;
   actor: string;
   event_kind: typeof RUNTIME_CTEE_PRIVATE_WORKSPACE_SOURCE_EVENT_KIND;
-  eventKind: typeof RUNTIME_CTEE_PRIVATE_WORKSPACE_SOURCE_EVENT_KIND;
   component_kind: typeof RUNTIME_CTEE_PRIVATE_WORKSPACE_COMPONENT_KIND;
-  componentKind: typeof RUNTIME_CTEE_PRIVATE_WORKSPACE_COMPONENT_KIND;
   workflow_graph_id: string | null;
-  workflowGraphId: string | null;
   workflow_node_id: string;
-  workflowNodeId: string;
   invocation_id: string;
-  invocationId: string;
   runtime_node_ref: string;
-  runtimeNodeRef: string;
   trusted_for_plaintext: boolean;
-  trustedForPlaintext: boolean;
   expected_heads: string[];
-  expectedHeads: string[];
   admission_only: true;
-  admissionOnly: true;
   direct_truth_write_allowed: false;
-  directTruthWriteAllowed: false;
   plaintext_custody_checked_by_rust: true;
-  plaintextCustodyCheckedByRust: true;
   action: RuntimeCteePrivateWorkspaceAction;
-  ctee_action: RuntimeCteePrivateWorkspaceAction;
-  cteeAction: RuntimeCteePrivateWorkspaceAction;
 }
 
 export interface RuntimeCteePrivateWorkspaceControlRequest {
@@ -162,30 +149,17 @@ export function createRuntimeCteePrivateWorkspaceControlRequest(
       source: RUNTIME_CTEE_PRIVATE_WORKSPACE_SOURCE,
       actor: cleanString(params.actor) ?? "workflow-author",
       event_kind: RUNTIME_CTEE_PRIVATE_WORKSPACE_SOURCE_EVENT_KIND,
-      eventKind: RUNTIME_CTEE_PRIVATE_WORKSPACE_SOURCE_EVENT_KIND,
       component_kind: RUNTIME_CTEE_PRIVATE_WORKSPACE_COMPONENT_KIND,
-      componentKind: RUNTIME_CTEE_PRIVATE_WORKSPACE_COMPONENT_KIND,
       workflow_graph_id: workflowGraphId,
-      workflowGraphId,
       workflow_node_id: workflowNodeId,
-      workflowNodeId,
       invocation_id: invocationId,
-      invocationId,
       runtime_node_ref: runtimeNodeRef,
-      runtimeNodeRef,
       trusted_for_plaintext: trustedForPlaintext,
-      trustedForPlaintext,
       expected_heads: expectedHeads,
-      expectedHeads,
       admission_only: true,
-      admissionOnly: true,
       direct_truth_write_allowed: false,
-      directTruthWriteAllowed: false,
       plaintext_custody_checked_by_rust: true,
-      plaintextCustodyCheckedByRust: true,
       action,
-      ctee_action: action,
-      cteeAction: action,
     },
   };
 }

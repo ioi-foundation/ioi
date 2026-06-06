@@ -146,6 +146,27 @@ test("cTEE private workspace surface executes nested action through Rust runner"
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "executeAction"]);
 });
 
+test("cTEE private workspace surface rejects retired request aliases before agent lookup or Rust runner", () => {
+  const runtimeStore = store();
+  const surface = createRuntimeCteePrivateWorkspaceSurface();
+
+  assert.throws(
+    () =>
+      surface.executeCteePrivateWorkspaceAction(runtimeStore, "thread_surface", {
+        ctee_action: cteeAction(),
+        cteeAction: cteeAction(),
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "ctee_private_workspace_action_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["cteeAction", "ctee_action"]);
+      assert.deepEqual(error.details.canonical_fields, ["action"]);
+      return true;
+    },
+  );
+  assert.deepEqual(runtimeStore.calls, []);
+});
+
 test("cTEE private workspace surface exposes only canonical snake_case admission fields", () => {
   const result = createRuntimeCteePrivateWorkspaceSurface().executeCteePrivateWorkspaceAction(
     store(),

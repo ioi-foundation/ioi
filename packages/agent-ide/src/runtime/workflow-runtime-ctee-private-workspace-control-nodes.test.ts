@@ -39,6 +39,22 @@ function cteeAction() {
   };
 }
 
+const retiredCteePrivateWorkspaceRequestAliases = [
+  "eventKind",
+  "componentKind",
+  "workflowGraphId",
+  "workflowNodeId",
+  "invocationId",
+  "runtimeNodeRef",
+  "trustedForPlaintext",
+  "expectedHeads",
+  "admissionOnly",
+  "directTruthWriteAllowed",
+  "plaintextCustodyCheckedByRust",
+  "ctee_action",
+  "cteeAction",
+];
+
 test("builds cTEE private workspace controls for daemon admission", () => {
   const request = createRuntimeCteePrivateWorkspaceControlRequest({
     nodeId: "node-ctee-private-workspace",
@@ -61,6 +77,9 @@ test("builds cTEE private workspace controls for daemon admission", () => {
   assert.equal(request.body.admission_only, true);
   assert.equal(request.body.direct_truth_write_allowed, false);
   assert.equal(request.body.plaintext_custody_checked_by_rust, true);
+  for (const key of retiredCteePrivateWorkspaceRequestAliases) {
+    assert.equal(Object.prototype.hasOwnProperty.call(request.body, key), false, `${key} must not be emitted`);
+  }
   assert.equal(request.endpoint.includes("/apply"), false);
 });
 
@@ -84,7 +103,7 @@ test("builds cTEE private workspace controls from workflow nodes", () => {
   assert.equal(request.body.actor, "runtime-composer");
   assert.equal(request.body.workflow_graph_id, "workflow.ctee-node");
   assert.equal(request.body.workflow_node_id, "runtime.ctee-private-workspace-action.ctee-node");
-  assert.equal(request.body.cteeAction.node_trust.runtime_node_ref, "node://rented-untrusted");
+  assert.equal(request.body.action.node_trust.runtime_node_ref, "node://rented-untrusted");
 });
 
 test("cTEE private workspace controls fail closed without admission refs", () => {
