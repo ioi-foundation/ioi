@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+  CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
   CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
   CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -323,6 +324,73 @@ test("context compaction state update runner sends Rust state update bridge requ
   assert.equal(result.operator_control.eventId, "event_1");
   assert.equal(result.context_compaction.compactedTokens, 0);
   assert.equal(result.run.trace.contextCompaction.eventId, "event_1");
+});
+
+test("coding tool budget recovery state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_coding_tool_budget_recovery_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "workflow.run.retry_completed",
+            updated_at: "2026-06-06T04:05:00.000Z",
+            operator_control: {
+              control: "coding_tool_budget_recovery",
+              approvalId: "approval_budget",
+              eventId: "event_retry",
+            },
+            run: {
+              id: "run_budget",
+              updatedAt: "2026-06-06T04:05:00.000Z",
+              trace: {
+                operatorControls: [
+                  {
+                    control: "coding_tool_budget_recovery",
+                    eventId: "event_retry",
+                  },
+                ],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planCodingToolBudgetRecoveryStateUpdate({
+    thread_id: "thread_budget",
+    run_id: "run_budget",
+    run: { id: "run_budget", trace: {} },
+    event_id: "event_retry",
+    seq: 9,
+    created_at: "2026-06-06T04:05:00.000Z",
+    approval_id: "approval_budget",
+    source: "runtime_auto",
+    receipt_refs: ["receipt_retry"],
+    policy_decision_refs: ["policy_retry"],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_coding_tool_budget_recovery_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.approval_id, "approval_budget");
+  assert.equal(result.source, "rust_coding_tool_budget_recovery_state_update_command");
+  assert.equal(result.operation_kind, "workflow.run.retry_completed");
+  assert.equal(result.operator_control.approvalId, "approval_budget");
+  assert.equal(result.run.trace.operatorControls[0].eventId, "event_retry");
 });
 
 test("context policy runner fails closed without bridge command", () => {

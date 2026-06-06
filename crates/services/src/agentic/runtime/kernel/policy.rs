@@ -9,6 +9,10 @@ pub const CONTEXT_BUDGET_POLICY_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.context-budget-policy.v1";
 pub const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.coding-tool-budget-policy-request.v1";
+pub const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-budget-recovery-state-update-request.v1";
+pub const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-budget-recovery-state-update.v1";
 pub const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.compaction-policy-request.v1";
 pub const COMPACTION_POLICY_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.compaction-policy.v1";
@@ -85,6 +89,15 @@ pub enum ContextCompactionPlanError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContextCompactionStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CodingToolBudgetRecoveryStateUpdateError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -436,6 +449,41 @@ pub struct ContextCompactionStateUpdateRecord {
     pub run: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent: Option<Value>,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolBudgetRecoveryStateUpdateRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    pub run: Value,
+    pub event_id: String,
+    pub seq: u64,
+    pub created_at: String,
+    pub approval_id: String,
+    pub source: String,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub policy_decision_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolBudgetRecoveryStateUpdateRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub operation_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    pub updated_at: String,
+    pub operator_control: Value,
+    pub run: Value,
     pub generated_at: String,
 }
 
@@ -957,6 +1005,64 @@ impl ContextCompactionStateUpdateCore {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct CodingToolBudgetRecoveryStateUpdateCore;
+
+impl CodingToolBudgetRecoveryStateUpdateCore {
+    pub fn plan(
+        &self,
+        request: &CodingToolBudgetRecoveryStateUpdateRequest,
+    ) -> Result<CodingToolBudgetRecoveryStateUpdateRecord, CodingToolBudgetRecoveryStateUpdateError>
+    {
+        request.validate()?;
+        let thread_id = optional_trimmed(request.thread_id.as_deref());
+        let run_id = optional_trimmed(request.run_id.as_deref());
+        let source = optional_trimmed(Some(request.source.as_str()))
+            .unwrap_or_else(|| "runtime_auto".to_string());
+        let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
+        let operator_control = json!({
+            "control": "coding_tool_budget_recovery",
+            "action": "retry_approved",
+            "approvalId": approval_id,
+            "status": "completed",
+            "source": source,
+            "eventId": request.event_id,
+            "seq": request.seq,
+            "receiptRefs": request.receipt_refs.clone(),
+            "policyDecisionRefs": request.policy_decision_refs.clone(),
+            "createdAt": request.created_at,
+        });
+        let mut run = object_value(&request.run).ok_or(
+            CodingToolBudgetRecoveryStateUpdateError::MissingField("run"),
+        )?;
+        run.insert(
+            "updatedAt".to_string(),
+            Value::String(request.created_at.clone()),
+        );
+        let mut trace = run.get("trace").and_then(object_value).unwrap_or_default();
+        let trace_controls =
+            append_operator_control(trace.get("operatorControls"), &operator_control);
+        trace.insert("operatorControls".to_string(), trace_controls);
+        run.insert("trace".to_string(), Value::Object(trace));
+        let run_controls = append_operator_control(run.get("operatorControls"), &operator_control);
+        run.insert("operatorControls".to_string(), run_controls);
+
+        Ok(CodingToolBudgetRecoveryStateUpdateRecord {
+            schema_version: CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_RESULT_SCHEMA_VERSION
+                .to_string(),
+            object: "ioi.runtime_coding_tool_budget_recovery_state_update".to_string(),
+            status: "planned".to_string(),
+            operation_kind: "workflow.run.retry_completed".to_string(),
+            thread_id,
+            run_id,
+            updated_at: request.created_at.clone(),
+            operator_control,
+            run: Value::Object(run),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
 impl CompactionPolicyRequest {
     pub fn validate(&self) -> Result<(), CompactionPolicyError> {
         if self.schema_version != COMPACTION_POLICY_REQUEST_SCHEMA_VERSION {
@@ -1026,6 +1132,45 @@ impl ContextCompactionStateUpdateRequest {
             && !matches!(self.run.as_ref(), Some(value) if value.is_object())
         {
             return Err(ContextCompactionStateUpdateError::MissingField("run"));
+        }
+        Ok(())
+    }
+}
+
+impl CodingToolBudgetRecoveryStateUpdateRequest {
+    pub fn validate(&self) -> Result<(), CodingToolBudgetRecoveryStateUpdateError> {
+        if self.schema_version != CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
+            return Err(
+                CodingToolBudgetRecoveryStateUpdateError::InvalidSchemaVersion {
+                    expected: CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                    actual: self.schema_version.clone(),
+                },
+            );
+        }
+        if !self.run.is_object() {
+            return Err(CodingToolBudgetRecoveryStateUpdateError::MissingField(
+                "run",
+            ));
+        }
+        if optional_trimmed(Some(self.event_id.as_str())).is_none() {
+            return Err(CodingToolBudgetRecoveryStateUpdateError::MissingField(
+                "event_id",
+            ));
+        }
+        if self.seq == 0 {
+            return Err(CodingToolBudgetRecoveryStateUpdateError::MissingField(
+                "seq",
+            ));
+        }
+        if optional_trimmed(Some(self.created_at.as_str())).is_none() {
+            return Err(CodingToolBudgetRecoveryStateUpdateError::MissingField(
+                "created_at",
+            ));
+        }
+        if optional_trimmed(Some(self.approval_id.as_str())).is_none() {
+            return Err(CodingToolBudgetRecoveryStateUpdateError::MissingField(
+                "approval_id",
+            ));
         }
         Ok(())
     }
@@ -1455,6 +1600,28 @@ mod tests {
         }
     }
 
+    fn coding_tool_budget_recovery_state_update_request(
+    ) -> CodingToolBudgetRecoveryStateUpdateRequest {
+        CodingToolBudgetRecoveryStateUpdateRequest {
+            schema_version: CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION
+                .to_string(),
+            thread_id: Some("thread_budget".to_string()),
+            run_id: Some("run_budget".to_string()),
+            run: json!({
+                "id": "run_budget",
+                "agentId": "agent_budget",
+                "trace": {},
+            }),
+            event_id: "event_retry".to_string(),
+            seq: 9,
+            created_at: "2026-06-06T04:05:00.000Z".to_string(),
+            approval_id: "approval_budget".to_string(),
+            source: "runtime_auto".to_string(),
+            receipt_refs: vec!["receipt_retry".to_string()],
+            policy_decision_refs: vec!["policy_retry".to_string()],
+        }
+    }
+
     #[test]
     fn rust_policy_blocks_context_budget_excess() {
         let mut request = budget_request();
@@ -1716,6 +1883,28 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_plans_coding_tool_budget_recovery_state_update() {
+        let record = CodingToolBudgetRecoveryStateUpdateCore
+            .plan(&coding_tool_budget_recovery_state_update_request())
+            .expect("coding tool budget recovery state update");
+
+        assert_eq!(
+            record.schema_version,
+            CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.operation_kind, "workflow.run.retry_completed");
+        assert_eq!(record.operator_control["approvalId"], "approval_budget");
+        assert_eq!(record.operator_control["receiptRefs"][0], "receipt_retry");
+        assert_eq!(record.run["updatedAt"], "2026-06-06T04:05:00.000Z");
+        assert_eq!(
+            record.run["trace"]["operatorControls"][0]["control"],
+            "coding_tool_budget_recovery"
+        );
+        assert_eq!(record.run["operatorControls"][0]["eventId"], "event_retry");
+    }
+
+    #[test]
     fn rust_policy_rejects_invalid_compaction_schema() {
         let mut request = compaction_request();
         request.schema_version = "legacy.schema".to_string();
@@ -1764,6 +1953,24 @@ mod tests {
             error,
             ContextCompactionStateUpdateError::InvalidSchemaVersion {
                 expected: CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_coding_tool_budget_recovery_state_update_schema() {
+        let mut request = coding_tool_budget_recovery_state_update_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = CodingToolBudgetRecoveryStateUpdateCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            CodingToolBudgetRecoveryStateUpdateError::InvalidSchemaVersion {
+                expected: CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );

@@ -5,13 +5,13 @@ import {
   turnIdForRun,
 } from "./runtime-identifiers.mjs";
 import { createCodingToolBudgetRecovery } from "./runtime-coding-tool-budget-recovery.mjs";
+import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
 import {
   WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION,
   WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION,
   WORKFLOW_RUN_CODING_TOOL_BUDGET_PREFLIGHT_BLOCKED_REASON,
 } from "./runtime-contract-constants.mjs";
 import {
-  appendOperatorControl,
   normalizeArray,
   operatorControlSource,
   optionalString,
@@ -40,6 +40,7 @@ function defaultApprovalReasonForDecisionEvent(event) {
 export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
   const {
     approvalReasonForDecisionEvent = defaultApprovalReasonForDecisionEvent,
+    contextPolicyRunner: contextPolicyRunnerDep = createContextPolicyRunnerFromEnv(),
     notFound = defaultNotFound,
     runtimeError = defaultRuntimeError,
   } = deps;
@@ -353,29 +354,21 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
       redaction_profile: "internal",
       fixture_profile: fixtureProfileForAgent(agent),
     });
-    const control = {
-      control: "coding_tool_budget_recovery",
-      action: "retry_approved",
-      approvalId,
-      status: "completed",
-      source,
-      eventId: event.event_id,
+    const stateUpdate = contextPolicyRunnerDep.planCodingToolBudgetRecoveryStateUpdate({
+      thread_id: threadId,
+      run_id: run.id,
+      run,
+      event_id: event.event_id,
       seq: event.seq,
-      receiptRefs: event.receipt_refs,
-      policyDecisionRefs: event.policy_decision_refs,
-      createdAt: event.created_at,
-    };
-    const updated = {
-      ...run,
-      updatedAt: event.created_at,
-      trace: {
-        ...run.trace,
-        operatorControls: appendOperatorControl(run.trace?.operatorControls, control),
-      },
-      operatorControls: appendOperatorControl(run.operatorControls, control),
-    };
+      created_at: event.created_at,
+      approval_id: approvalId,
+      source,
+      receipt_refs: event.receipt_refs,
+      policy_decision_refs: event.policy_decision_refs,
+    });
+    const updated = stateUpdate.run ?? run;
     store.runs.set(run.id, updated);
-    store.writeRun(updated, "workflow.run.retry_completed");
+    store.writeRun(updated, stateUpdate.operation_kind ?? "workflow.run.retry_completed");
     return codingToolBudgetRecoveryResult({
       action,
       status: "completed",

@@ -69,6 +69,8 @@ use model_mount::{
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use policy::{
+    CodingToolBudgetRecoveryStateUpdateCore, CodingToolBudgetRecoveryStateUpdateError,
+    CodingToolBudgetRecoveryStateUpdateRecord, CodingToolBudgetRecoveryStateUpdateRequest,
     CompactionPolicyCore, CompactionPolicyError, CompactionPolicyRecord, CompactionPolicyRequest,
     ContextBudgetPolicyCore, ContextBudgetPolicyError, ContextBudgetPolicyRecord,
     ContextBudgetPolicyRequest, ContextCompactionPlanCore, ContextCompactionPlanError,
@@ -161,6 +163,14 @@ impl RuntimeKernelService {
         request: &ContextCompactionStateUpdateRequest,
     ) -> Result<ContextCompactionStateUpdateRecord, ContextCompactionStateUpdateError> {
         ContextCompactionStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_coding_tool_budget_recovery_state_update(
+        &self,
+        request: &CodingToolBudgetRecoveryStateUpdateRequest,
+    ) -> Result<CodingToolBudgetRecoveryStateUpdateRecord, CodingToolBudgetRecoveryStateUpdateError>
+    {
+        CodingToolBudgetRecoveryStateUpdateCore.plan(request)
     }
 
     pub fn issue_capability_lease(

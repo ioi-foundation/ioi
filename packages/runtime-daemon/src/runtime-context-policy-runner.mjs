@@ -7,6 +7,8 @@ export const CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.context-budget-policy-request.v1";
 export const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-budget-policy-request.v1";
+export const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.coding-tool-budget-recovery-state-update-request.v1";
 export const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.compaction-policy-request.v1";
 export const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION =
@@ -70,6 +72,14 @@ export class RustContextPolicyRunner {
     return normalizeContextCompactionStateUpdateBridgeResult(this.evaluateRawPolicy({
       operation: "plan_context_compaction_state_update",
       schemaVersion: CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planCodingToolBudgetRecoveryStateUpdate(request = {}) {
+    return normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_coding_tool_budget_recovery_state_update",
+      schemaVersion: CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -299,6 +309,27 @@ export function normalizeContextCompactionStateUpdateBridgeResult(value = {}) {
       objectRecord(result.context_compaction) ?? objectRecord(record.context_compaction) ?? null,
     run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
     agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
+  };
+}
+
+export function normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_coding_tool_budget_recovery_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "planned",
+    operation_kind:
+      optionalString(result.operation_kind ?? record.operation_kind) ??
+      "workflow.run.retry_completed",
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    operator_control:
+      objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
+    run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
   };
 }
 

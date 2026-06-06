@@ -12141,6 +12141,14 @@ runless agent touch plan through `plan_context_compaction_state_update`; the
 daemon context-policy facade applies the Rust-planned run/agent record to the
 existing store/write shell instead of constructing the mutation in JS.
 
+Slice 346 moves coding-tool budget recovery retry state-update planning into
+Rust: `CodingToolBudgetRecoveryStateUpdateCore` now owns the retry-approved
+operator-control record, run updatedAt assignment, trace/top-level
+operatorControls mutation, and `workflow.run.retry_completed` operation kind
+through `plan_coding_tool_budget_recovery_state_update`; the daemon recovery
+surface appends the recovery event and applies the Rust-planned run record
+instead of constructing the retry mutation in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

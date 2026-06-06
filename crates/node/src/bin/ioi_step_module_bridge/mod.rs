@@ -17,6 +17,7 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
+    CodingToolBudgetRecoveryStateUpdateCore, CodingToolBudgetRecoveryStateUpdateRequest,
     CompactionPolicyCore, CompactionPolicyRequest, ContextBudgetPolicyCore,
     ContextBudgetPolicyRequest, ContextCompactionPlanCore, ContextCompactionPlanRequest,
     ContextCompactionStateUpdateCore, ContextCompactionStateUpdateRequest,
@@ -312,6 +313,16 @@ struct ContextCompactionStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct CodingToolBudgetRecoveryStateUpdateBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: CodingToolBudgetRecoveryStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -507,6 +518,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_context_compaction_state_update(request)
+        }
+        "plan_coding_tool_budget_recovery_state_update" => {
+            let request: CodingToolBudgetRecoveryStateUpdateBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_coding_tool_budget_recovery_state_update(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -1706,6 +1723,44 @@ fn plan_context_compaction_state_update(
         "context_compaction": record.context_compaction.clone(),
         "run": record.run.clone(),
         "agent": record.agent.clone(),
+    }))
+}
+
+fn plan_coding_tool_budget_recovery_state_update(
+    request: CodingToolBudgetRecoveryStateUpdateBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_coding_tool_budget_recovery_state_update" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = CodingToolBudgetRecoveryStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "coding_tool_budget_recovery_state_update_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_coding_tool_budget_recovery_state_update_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "operator_control": record.operator_control.clone(),
+        "run": record.run.clone(),
     }))
 }
 
@@ -5990,6 +6045,53 @@ mod tests {
         assert_eq!(
             response["run"]["trace"]["operatorControls"][0]["control"],
             "compact"
+        );
+    }
+
+    #[test]
+    fn bridge_plans_coding_tool_budget_recovery_state_update_through_rust_core() {
+        let request: CodingToolBudgetRecoveryStateUpdateBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": COMMAND_SCHEMA_VERSION,
+                "operation": "plan_coding_tool_budget_recovery_state_update",
+                "backend": "rust_policy",
+                "request": {
+                    "schema_version": "ioi.runtime.coding-tool-budget-recovery-state-update-request.v1",
+                    "thread_id": "thread_budget",
+                    "run_id": "run_budget",
+                    "run": {
+                        "id": "run_budget",
+                        "agentId": "agent_budget",
+                        "trace": {}
+                    },
+                    "event_id": "event_retry",
+                    "seq": 9,
+                    "created_at": "2026-06-06T04:05:00.000Z",
+                    "approval_id": "approval_budget",
+                    "source": "runtime_auto",
+                    "receipt_refs": ["receipt_retry"],
+                    "policy_decision_refs": ["policy_retry"]
+                }
+            }))
+            .expect("coding tool budget recovery state update bridge request");
+
+        let response = plan_coding_tool_budget_recovery_state_update(request)
+            .expect("coding tool budget recovery state update planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_coding_tool_budget_recovery_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "workflow.run.retry_completed");
+        assert_eq!(
+            response["operator_control"]["approvalId"],
+            "approval_budget"
+        );
+        assert_eq!(
+            response["run"]["trace"]["operatorControls"][0]["control"],
+            "coding_tool_budget_recovery"
         );
     }
 

@@ -18,10 +18,55 @@ function notFound(message, details) {
   return error;
 }
 
-function createSurface() {
+function codingToolBudgetRecoveryStateUpdateForRequest(request = {}) {
+  const control = {
+    control: "coding_tool_budget_recovery",
+    action: "retry_approved",
+    approvalId: request.approval_id,
+    status: "completed",
+    source: request.source,
+    eventId: request.event_id,
+    seq: request.seq,
+    receiptRefs: request.receipt_refs,
+    policyDecisionRefs: request.policy_decision_refs,
+    createdAt: request.created_at,
+  };
+  const run = request.run ?? {};
+  return {
+    status: "planned",
+    operation_kind: "workflow.run.retry_completed",
+    updated_at: request.created_at,
+    operator_control: control,
+    run: {
+      ...run,
+      updatedAt: request.created_at,
+      trace: {
+        ...run.trace,
+        operatorControls: appendOperatorControlForTest(run.trace?.operatorControls, control),
+      },
+      operatorControls: appendOperatorControlForTest(run.operatorControls, control),
+    },
+  };
+}
+
+function appendOperatorControlForTest(value, control) {
+  const entries = Array.isArray(value) ? [...value] : [];
+  if (!entries.some((entry) => entry?.eventId === control.eventId)) {
+    entries.push(control);
+  }
+  return entries;
+}
+
+function createSurface({ calls = [] } = {}) {
   return createRuntimeCodingToolBudgetRecoverySurface({
     approvalReasonForDecisionEvent(event) {
       return event?.payload_summary?.reason ?? "approval_not_satisfied";
+    },
+    contextPolicyRunner: {
+      planCodingToolBudgetRecoveryStateUpdate(request) {
+        calls.push({ name: "planCodingToolBudgetRecoveryStateUpdate", request });
+        return codingToolBudgetRecoveryStateUpdateForRequest(request);
+      },
     },
     notFound,
     runtimeError,
@@ -260,7 +305,8 @@ test("budget recovery surface blocks retry until approval is requested and appro
 });
 
 test("budget recovery surface records approved retry and enforces retry limit", () => {
-  const surface = createSurface();
+  const calls = [];
+  const surface = createSurface({ calls });
   const store = createStore();
 
   surface.codingToolBudgetRecoveryForRun(store, "run_alpha", { action: "request_approval" });
@@ -277,6 +323,10 @@ test("budget recovery surface records approved retry and enforces retry limit", 
   assert.equal(retry.event.event_kind, "workflow.run.retry_completed");
   assert.equal(retry.event.payload_summary.retryCount, 1);
   assert.equal(retry.event.fixture_profile, "fixture.local");
+  assert.equal(
+    calls.find((call) => call.name === "planCodingToolBudgetRecoveryStateUpdate").request.event_id,
+    retry.event.event_id,
+  );
   assert.equal(store.runs.get("run_alpha").operatorControls[0].action, "retry_approved");
   assert.equal(store.writes[0].operationKind, "workflow.run.retry_completed");
 

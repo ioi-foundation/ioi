@@ -526,6 +526,12 @@ function runBridge() {
   const codingToolBudgetPolicySurfaceTest = exists("packages/runtime-daemon/src/threads/context-budget-policy.test.mjs")
     ? read("packages/runtime-daemon/src/threads/context-budget-policy.test.mjs")
     : "";
+  const runtimeCodingToolBudgetRecoverySurface = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs")
+    : "";
+  const runtimeCodingToolBudgetRecoverySurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
+    : "";
   const runtimeContextPolicySurface = exists("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
     : "";
@@ -1040,6 +1046,43 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
     ],
     "Phase 9/10 is pending: coding-tool budget preflight must be evaluated by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "coding-tool-budget-recovery-state-update-live-bridge",
+    /CodingToolBudgetRecoveryStateUpdateCore/.test(policyCore) &&
+      /CodingToolBudgetRecoveryStateUpdateRequest/.test(policyCore) &&
+      /CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_coding_tool_budget_recovery_state_update/.test(policyCore) &&
+      /plan_coding_tool_budget_recovery_state_update/.test(bridgeModule) &&
+      /CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_coding_tool_budget_recovery_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_coding_tool_budget_recovery_state_update_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /planCodingToolBudgetRecoveryStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /coding tool budget recovery state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /contextPolicyRunnerDep\.planCodingToolBudgetRecoveryStateUpdate/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      /planCodingToolBudgetRecoveryStateUpdate/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      !/appendOperatorControl/.test(runtimeCodingToolBudgetRecoverySurface),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
+    ],
+    "Phase 9/10 is pending: coding-tool budget recovery retry state updates must be planned by Rust policy core through the command bridge",
   );
   assertCheck(
     result,
