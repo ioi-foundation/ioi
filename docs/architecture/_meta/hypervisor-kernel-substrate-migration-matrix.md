@@ -11889,6 +11889,14 @@ route-upsert alias retirement: direct `upsertRoute` test seeding now uses
 against reintroducing those retired camelCase route-upsert aliases in the live
 contract fixture.
 
+Slice 309 retires endpoint mount/unmount request aliases:
+`mountEndpoint` now fails closed on retired `modelId`, `providerId`,
+`apiFormat`, `baseUrl`, `privacyClass`, `backendId`, and `loadPolicy` before
+provider/artifact lookup, and `unmountEndpoint` fails closed on retired
+`endpointId` before endpoint lookup. Canonical `model_id`, `provider_id`,
+`api_format`, `base_url`, `privacy_class`, `backend_id`, `load_policy`, and
+`endpoint_id` remain the accepted boundary.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

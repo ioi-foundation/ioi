@@ -1,3 +1,26 @@
+const RETIRED_ENDPOINT_MOUNT_REQUEST_ALIASES = [
+  "modelId",
+  "providerId",
+  "apiFormat",
+  "baseUrl",
+  "privacyClass",
+  "backendId",
+  "loadPolicy",
+];
+
+const CANONICAL_ENDPOINT_MOUNT_REQUEST_FIELDS = [
+  "model_id",
+  "provider_id",
+  "api_format",
+  "base_url",
+  "privacy_class",
+  "backend_id",
+  "load_policy",
+];
+
+const RETIRED_ENDPOINT_UNMOUNT_REQUEST_ALIASES = ["endpointId"];
+const CANONICAL_ENDPOINT_UNMOUNT_REQUEST_FIELDS = ["endpoint_id"];
+
 export function importModel(state, body = {}, deps = {}) {
   const {
     importTargetPath,
@@ -87,8 +110,9 @@ export function mountEndpoint(state, body = {}, deps = {}) {
     runtimeError,
     safeId,
   } = deps;
+  assertCanonicalEndpointMountRequestBody(body);
   const now = state.nowIso();
-  const modelId = body.model_id ?? body.modelId;
+  const modelId = body.model_id;
   if (!modelId) {
     throw runtimeError({
       status: 400,
@@ -96,7 +120,7 @@ export function mountEndpoint(state, body = {}, deps = {}) {
       message: "Mounting a model endpoint requires an explicit model id.",
     });
   }
-  const explicitProviderId = body.provider_id ?? body.providerId;
+  const explicitProviderId = body.provider_id;
   const artifact = explicitProviderId ? null : state.getModel(modelId);
   const providerId = explicitProviderId ?? artifact.providerId;
   const provider = state.provider(providerId);
@@ -106,19 +130,18 @@ export function mountEndpoint(state, body = {}, deps = {}) {
     id: body.id ?? `endpoint.${safeId(providerId)}.${safeId(resolvedArtifact.modelId)}`,
     providerId,
     modelId: resolvedArtifact.modelId,
-    apiFormat: body.api_format ?? body.apiFormat ?? provider.apiFormat,
+    apiFormat: body.api_format ?? provider.apiFormat,
     driver,
     baseUrl:
       body.base_url ??
-      body.baseUrl ??
       provider.baseUrl ??
       (driver === "fixture" ? "local://ioi-daemon/model-fixture" : null),
     capabilities: normalizeScopes(body.capabilities, resolvedArtifact.capabilities),
-    privacyClass: body.privacy_class ?? body.privacyClass ?? provider.privacyClass,
+    privacyClass: body.privacy_class ?? provider.privacyClass,
     artifactId: resolvedArtifact.id,
     artifactPath: resolvedArtifact.artifactPath ?? null,
-    backendId: body.backend_id ?? body.backendId ?? defaultBackendForProvider(provider),
-    loadPolicy: normalizeLoadPolicy(body.load_policy ?? body.loadPolicy),
+    backendId: body.backend_id ?? defaultBackendForProvider(provider),
+    loadPolicy: normalizeLoadPolicy(body.load_policy),
     status: "mounted",
     mountedAt: now,
   };
@@ -135,7 +158,8 @@ export function mountEndpoint(state, body = {}, deps = {}) {
 
 export function unmountEndpoint(state, body = {}, deps = {}) {
   const { requiredString } = deps;
-  const endpointId = requiredString(body.endpoint_id ?? body.endpointId ?? body.id, "endpoint_id");
+  assertCanonicalEndpointUnmountRequestBody(body);
+  const endpointId = requiredString(body.endpoint_id ?? body.id, "endpoint_id");
   const endpoint = state.endpoint(endpointId);
   const updated = {
     ...endpoint,
@@ -150,4 +174,38 @@ export function unmountEndpoint(state, body = {}, deps = {}) {
     provider_id: endpoint.providerId,
   });
   return updated;
+}
+
+function assertCanonicalEndpointMountRequestBody(body = {}) {
+  const retiredAliases = RETIRED_ENDPOINT_MOUNT_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model endpoint mount request aliases are retired; use canonical snake_case request fields.",
+  );
+  error.status = 400;
+  error.code = "model_mount_endpoint_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_ENDPOINT_MOUNT_REQUEST_FIELDS,
+  };
+  throw error;
+}
+
+function assertCanonicalEndpointUnmountRequestBody(body = {}) {
+  const retiredAliases = RETIRED_ENDPOINT_UNMOUNT_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model endpoint unmount request aliases are retired; use canonical snake_case request fields.",
+  );
+  error.status = 400;
+  error.code = "model_unmount_endpoint_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_ENDPOINT_UNMOUNT_REQUEST_FIELDS,
+  };
+  throw error;
 }

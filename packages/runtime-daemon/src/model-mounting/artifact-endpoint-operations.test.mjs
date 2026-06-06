@@ -180,6 +180,68 @@ test("model import materializes local artifacts and writes projection", () => {
   assert.equal(state.projections, 1);
 });
 
+test("mount endpoint rejects retired request aliases before provider lookup", () => {
+  const state = fakeState();
+  const calls = [];
+  state.nowIso = () => {
+    calls.push(["nowIso"]);
+    return state.now;
+  };
+  state.getModel = (...args) => {
+    calls.push(["getModel", ...args]);
+    return null;
+  };
+  state.provider = (...args) => {
+    calls.push(["provider", ...args]);
+    return {};
+  };
+
+  assert.throws(
+    () =>
+      mountEndpoint(
+        state,
+        {
+          modelId: "llama-test",
+          providerId: "provider.fixture",
+          apiFormat: "openai",
+          baseUrl: "http://127.0.0.1:8080/v1",
+          privacyClass: "local_private",
+          backendId: "backend.native",
+          loadPolicy: "resident",
+        },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_endpoint_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "modelId",
+        "providerId",
+        "apiFormat",
+        "baseUrl",
+        "privacyClass",
+        "backendId",
+        "loadPolicy",
+      ]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "model_id",
+        "provider_id",
+        "api_format",
+        "base_url",
+        "privacy_class",
+        "backend_id",
+        "load_policy",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "modelId"), false);
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      return true;
+    },
+  );
+  assert.deepEqual(calls, []);
+  assert.equal(state.endpoints.size, 0);
+  assert.equal(state.receipts.length, 0);
+});
+
 test("mount endpoint derives provider, artifact, backend, load policy, and receipt", () => {
   const state = fakeState();
   state.artifacts.set("artifact.llama", {
@@ -207,6 +269,40 @@ test("mount endpoint derives provider, artifact, backend, load policy, and recei
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerId"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "loadPolicy"), false);
+});
+
+test("unmount endpoint rejects retired request aliases before endpoint lookup", () => {
+  const state = fakeState();
+  const calls = [];
+  state.endpoint = (...args) => {
+    calls.push(["endpoint", ...args]);
+    throw new Error("endpoint lookup should not run");
+  };
+
+  assert.throws(
+    () =>
+      unmountEndpoint(
+        state,
+        { endpointId: "endpoint.a" },
+        {
+          ...deps,
+          requiredString(...args) {
+            calls.push(["requiredString", ...args]);
+            return args[0];
+          },
+        },
+      ),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_unmount_endpoint_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["endpointId"]);
+      assert.deepEqual(error.details.canonical_fields, ["endpoint_id"]);
+      assert.equal(Object.hasOwn(error.details, "endpointId"), false);
+      return true;
+    },
+  );
+  assert.deepEqual(calls, []);
+  assert.equal(state.receipts.length, 0);
 });
 
 test("mount endpoint validates explicit model id and supports provider mount fallback", () => {

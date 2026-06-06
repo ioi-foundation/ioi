@@ -2920,6 +2920,10 @@ function runReceipts() {
   const artifactEndpointOperationsTest = exists("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs")
     : "";
+  const artifactEndpointMountBlock =
+    artifactEndpointOperations.match(/export function mountEndpoint[\s\S]*?export function unmountEndpoint/)?.[0] ?? "";
+  const artifactEndpointUnmountBlock =
+    artifactEndpointOperations.match(/export function unmountEndpoint[\s\S]*?function assertCanonicalEndpointMountRequestBody/)?.[0] ?? "";
   const mcpWorkflowOperations = exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs")
     : "";
@@ -3585,6 +3589,39 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs",
     ],
     "Phase 9/11 is pending: artifact endpoint lifecycle receipts must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-endpoint-request-aliases-retired",
+    /RETIRED_ENDPOINT_MOUNT_REQUEST_ALIASES/.test(artifactEndpointOperations) &&
+      /RETIRED_ENDPOINT_UNMOUNT_REQUEST_ALIASES/.test(artifactEndpointOperations) &&
+      /model_mount_endpoint_request_aliases_retired/.test(artifactEndpointOperations) &&
+      /model_unmount_endpoint_request_aliases_retired/.test(artifactEndpointOperations) &&
+      /assertCanonicalEndpointMountRequestBody\(body\);/.test(artifactEndpointMountBlock) &&
+      /assertCanonicalEndpointUnmountRequestBody\(body\);/.test(artifactEndpointUnmountBlock) &&
+      /const modelId = body\.model_id;/.test(artifactEndpointMountBlock) &&
+      /const explicitProviderId = body\.provider_id;/.test(artifactEndpointMountBlock) &&
+      /apiFormat:\s*body\.api_format \?\? provider\.apiFormat/.test(artifactEndpointMountBlock) &&
+      /body\.base_url \?\?\s*provider\.baseUrl/.test(artifactEndpointMountBlock) &&
+      /privacyClass:\s*body\.privacy_class \?\? provider\.privacyClass/.test(artifactEndpointMountBlock) &&
+      /backendId:\s*body\.backend_id \?\? defaultBackendForProvider\(provider\)/.test(artifactEndpointMountBlock) &&
+      /loadPolicy:\s*normalizeLoadPolicy\(body\.load_policy\)/.test(artifactEndpointMountBlock) &&
+      /requiredString\(body\.endpoint_id \?\? body\.id,\s*"endpoint_id"\)/.test(artifactEndpointUnmountBlock) &&
+      !/body\.(?:modelId|providerId|apiFormat|baseUrl|privacyClass|backendId|loadPolicy)\b/.test(
+        artifactEndpointMountBlock,
+      ) &&
+      !/body\.endpointId\b/.test(artifactEndpointUnmountBlock) &&
+      /mount endpoint rejects retired request aliases before provider lookup/.test(artifactEndpointOperationsTest) &&
+      /unmount endpoint rejects retired request aliases before endpoint lookup/.test(artifactEndpointOperationsTest) &&
+      /retired_aliases,\s*\[\s*"modelId",\s*"providerId",\s*"apiFormat",\s*"baseUrl",\s*"privacyClass",\s*"backendId",\s*"loadPolicy",\s*\]/.test(
+        artifactEndpointOperationsTest,
+      ) &&
+      /retired_aliases,\s*\[\s*"endpointId"\s*\]/.test(artifactEndpointOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs",
+    ],
+    "Phase 9/11 is pending: endpoint mount/unmount request bodies must fail closed on retired camelCase endpoint/provider/backend/load aliases before state lookup or writes",
   );
   assertCheck(
     result,
