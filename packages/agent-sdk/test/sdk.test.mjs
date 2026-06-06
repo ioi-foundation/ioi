@@ -492,15 +492,15 @@ test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
     }
     if (request.method === "GET" && url.pathname === "/v1/tools") {
       response.end(JSON.stringify([{
-        stableToolId: "sys.exec",
-        displayName: "Shell command",
-        primitiveCapabilities: ["prim:sys.exec"],
-        authorityScopeRequirements: ["scope:host.controlled_execution"],
-        effectClass: "local_command",
-        riskDomain: "host",
-        inputSchema: { type: "object" },
-        outputSchema: { type: "object" },
-        evidenceRequirements: ["shell_receipt"],
+        stable_tool_id: "sys.exec",
+        display_name: "Shell command",
+        primitive_capabilities: ["prim:sys.exec"],
+        authority_scope_requirements: ["scope:host.controlled_execution"],
+        effect_class: "local_command",
+        risk_domain: "host",
+        input_schema: { type: "object" },
+        output_schema: { type: "object" },
+        evidence_requirements: ["shell_receipt"],
       }]));
       return;
     }
@@ -531,10 +531,13 @@ test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
     assert.equal((await Cursor.account.get({ substrateClient: client })).source, "daemon");
     assert.equal((await Cursor.runtimeNodes.list({ substrateClient: client })).at(0)?.id, "daemon-local");
     const httpTools = await agent.tools();
-    assert.equal(httpTools.at(0)?.stableToolId, "sys.exec");
-    assert.equal(httpTools.at(0)?.approvalRequired, true);
-    assert.equal(httpTools.at(0)?.credentialReadiness.status, "not_required");
-    assert.equal(httpTools.at(0)?.receiptBehavior.requiredReceiptTypes.at(0), "shell_receipt");
+    assert.equal(httpTools.at(0)?.stable_tool_id, "sys.exec");
+    assert.equal(httpTools.at(0)?.approval_required, true);
+    assert.equal(httpTools.at(0)?.credential_readiness.status, "not_required");
+    assert.equal(httpTools.at(0)?.receipt_behavior.required_receipt_types.at(0), "shell_receipt");
+    assert.equal(Object.hasOwn(httpTools.at(0), "stableToolId"), false);
+    assert.equal(Object.hasOwn(httpTools.at(0), "approvalRequired"), false);
+    assert.equal(Object.hasOwn(httpTools.at(0), "receiptBehavior"), false);
     assert.ok(requests.includes("POST /v1/agents"));
     assert.ok(requests.includes("POST /v1/agents/agent_http/runs"));
     assert.ok(requests.includes("GET /v1/runs/run_http/events?lastEventId=run_http%3A0"));

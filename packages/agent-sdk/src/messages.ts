@@ -474,78 +474,74 @@ export type RuntimeToolCredentialReadinessStatus =
 
 export interface RuntimeToolCredentialReadiness {
   status: RuntimeToolCredentialReadinessStatus;
-  checkedAt?: string | null;
-  evidenceRefs?: string[];
+  checked_at?: string | null;
+  evidence_refs?: string[];
   reason?: string | null;
 }
 
 export interface RuntimeToolRateLimitProfile {
   policy: string;
   scope?: string | null;
-  maxCalls?: number | null;
-  windowMs?: number | null;
+  max_calls?: number | null;
+  window_ms?: number | null;
   burst?: number | null;
-  evidenceRefs?: string[];
+  evidence_refs?: string[];
 }
 
 export interface RuntimeToolIdempotencyBehavior {
   required: boolean;
   strategy: string;
-  keyScope?: string | null;
-  evidenceRefs?: string[];
+  key_scope?: string | null;
+  evidence_refs?: string[];
 }
 
 export interface RuntimeToolReceiptBehavior {
-  emitsReceipt: boolean;
-  receiptRequired: boolean;
-  requiredReceiptTypes: string[];
-  evidenceRequirements: string[];
+  emits_receipt: boolean;
+  receipt_required: boolean;
+  required_receipt_types: string[];
+  evidence_requirements: string[];
 }
 
 export interface RuntimeToolAvailability {
   available: boolean;
   reason?: string | null;
-  nodeType?: string | null;
-  configFields?: string[];
-  evidenceRefs?: string[];
+  node_type?: string | null;
+  config_fields?: string[];
+  evidence_refs?: string[];
 }
 
 export interface RuntimeToolMarketplaceExposure {
   eligible: boolean;
   reason?: string | null;
-  trustRequired?: boolean;
-  versionPinned?: boolean;
-  evidenceRefs?: string[];
+  trust_required?: boolean;
+  version_pinned?: boolean;
+  evidence_refs?: string[];
 }
 
 export interface RuntimeToolCatalogEntry {
-  schemaVersion?: string;
   schema_version?: string;
-  stableToolId: string;
-  stable_tool_id?: string;
-  displayName: string;
-  display_name?: string;
+  stable_tool_id: string;
+  display_name: string;
   description?: string | null;
   pack?: string;
-  primitiveCapabilities: string[];
-  authorityScopeRequirements: string[];
-  effectClass: string;
-  riskDomain: string;
-  inputSchema: Record<string, unknown>;
-  outputSchema: Record<string, unknown>;
-  evidenceRequirements: string[];
-  credentialReady?: boolean;
-  credentialReadiness?: RuntimeToolCredentialReadiness;
-  approvalRequired?: boolean;
+  primitive_capabilities: string[];
+  authority_scope_requirements: string[];
+  effect_class: string;
+  risk_domain: string;
+  input_schema: Record<string, unknown>;
+  output_schema: Record<string, unknown>;
+  evidence_requirements: string[];
+  credential_ready?: boolean;
+  credential_readiness?: RuntimeToolCredentialReadiness;
   approval_required?: boolean;
-  rateLimitProfile?: RuntimeToolRateLimitProfile;
-  idempotencyBehavior?: RuntimeToolIdempotencyBehavior;
-  receiptBehavior?: RuntimeToolReceiptBehavior;
-  workflowAvailability?: RuntimeToolAvailability;
-  agentAvailability?: RuntimeToolAvailability;
-  marketplaceExposure?: RuntimeToolMarketplaceExposure;
-  workflowNodeType?: string;
-  workflowConfigFields?: string[];
+  rate_limit_profile?: RuntimeToolRateLimitProfile;
+  idempotency_behavior?: RuntimeToolIdempotencyBehavior;
+  receipt_behavior?: RuntimeToolReceiptBehavior;
+  workflow_availability?: RuntimeToolAvailability;
+  agent_availability?: RuntimeToolAvailability;
+  marketplace_exposure?: RuntimeToolMarketplaceExposure;
+  workflow_node_type?: string;
+  workflow_config_fields?: string[];
 }
 
 export interface RuntimeMcpServerEntry {

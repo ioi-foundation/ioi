@@ -672,6 +672,9 @@ function runBridge() {
   const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
     ? read("packages/agent-sdk/src/substrate-client.ts")
     : "";
+  const agentSdkMessagesForRuntime = exists("packages/agent-sdk/src/messages.ts")
+    ? read("packages/agent-sdk/src/messages.ts")
+    : "";
   const agentSdkMessages = exists("packages/agent-sdk/src/messages.ts")
     ? read("packages/agent-sdk/src/messages.ts")
     : "";
@@ -7853,6 +7856,9 @@ function runCompositor() {
   const agentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
     ? read("packages/agent-sdk/src/substrate-client.ts")
     : "";
+  const agentSdkMessagesForRuntime = exists("packages/agent-sdk/src/messages.ts")
+    ? read("packages/agent-sdk/src/messages.ts")
+    : "";
   const runtimeMcpSdkListOptionsBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpListOptions[\s\S]*?\n}\n/)?.[0] ??
     "";
@@ -7921,6 +7927,16 @@ function runCompositor() {
     agentSdkSubstrateClient,
     "export interface RuntimeUsageTelemetry",
     "export interface RuntimeUsageListInput",
+  );
+  const runtimeToolCatalogEntryBlock = blockBetween(
+    agentSdkMessagesForRuntime,
+    "export interface RuntimeToolCatalogEntry",
+    "export interface RuntimeMcpServerEntry",
+  );
+  const runtimeToolCatalogNormalizerBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "function normalizeRuntimeToolCatalogEntry",
+    "function normalizeRuntimeToolCredentialReadiness",
   );
   const runtimeUsageSdkListInputBlock = blockBetween(
     agentSdkSubstrateClient,
@@ -9480,6 +9496,44 @@ function runCompositor() {
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK runtime usage telemetry types must not advertise retired identity/route aliases",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-runtime-tool-catalog-aliases-retired",
+    runtimeToolCatalogEntryBlock.length > 0 &&
+      /^\s*stable_tool_id: string;/m.test(runtimeToolCatalogEntryBlock) &&
+      /^\s*display_name: string;/m.test(runtimeToolCatalogEntryBlock) &&
+      /^\s*primitive_capabilities: string\[\];/m.test(runtimeToolCatalogEntryBlock) &&
+      /^\s*authority_scope_requirements: string\[\];/m.test(runtimeToolCatalogEntryBlock) &&
+      /^\s*effect_class: string;/m.test(runtimeToolCatalogEntryBlock) &&
+      /^\s*risk_domain: string;/m.test(runtimeToolCatalogEntryBlock) &&
+      /^\s*input_schema: Record<string, unknown>;/m.test(runtimeToolCatalogEntryBlock) &&
+      /^\s*output_schema: Record<string, unknown>;/m.test(runtimeToolCatalogEntryBlock) &&
+      /^\s*evidence_requirements: string\[\];/m.test(runtimeToolCatalogEntryBlock) &&
+      /^\s*credential_readiness\?: RuntimeToolCredentialReadiness;/m.test(runtimeToolCatalogEntryBlock) &&
+      /^\s*receipt_behavior\?: RuntimeToolReceiptBehavior;/m.test(runtimeToolCatalogEntryBlock) &&
+      /const stableToolId = toolString\(raw\.stable_tool_id\)/.test(runtimeToolCatalogNormalizerBlock) &&
+      /const displayName = toolString\(raw\.display_name\)/.test(runtimeToolCatalogNormalizerBlock) &&
+      /raw\.credential_readiness/.test(runtimeToolCatalogNormalizerBlock) &&
+      /stable_tool_id: stableToolId/.test(runtimeToolCatalogNormalizerBlock) &&
+      /Object\.hasOwn\(httpTools\.at\(0\), "stableToolId"\), false/.test(
+        read("packages/agent-sdk/test/sdk.test.mjs"),
+      ) &&
+      !/^\s*(?:schemaVersion|stableToolId|displayName|primitiveCapabilities|authorityScopeRequirements|effectClass|riskDomain|inputSchema|outputSchema|evidenceRequirements|credentialReady|credentialReadiness|approvalRequired|rateLimitProfile|idempotencyBehavior|receiptBehavior|workflowAvailability|agentAvailability|marketplaceExposure|workflowNodeType|workflowConfigFields)\??:/m.test(
+        runtimeToolCatalogEntryBlock,
+      ) &&
+      !/raw\.(?:stableToolId|displayName|primitiveCapabilities|authorityScopeRequirements|effectClass|riskDomain|inputSchema|outputSchema|evidenceRequirements|credentialReady|credentialReadiness|approvalRequired|rateLimitProfile|idempotencyBehavior|receiptBehavior|workflowAvailability|agentAvailability|marketplaceExposure|workflowNodeType|workflowConfigFields)\b/.test(
+        runtimeToolCatalogNormalizerBlock,
+      ) &&
+      !/^\s*(?:stableToolId|displayName|primitiveCapabilities|authorityScopeRequirements|effectClass|riskDomain|inputSchema|outputSchema|evidenceRequirements|credentialReady|credentialReadiness|approvalRequired|rateLimitProfile|idempotencyBehavior|receiptBehavior|workflowAvailability|agentAvailability|marketplaceExposure|workflowNodeType|workflowConfigFields)\s*:/m.test(
+        runtimeToolCatalogNormalizerBlock,
+      ),
+    [
+      "packages/agent-sdk/src/messages.ts",
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+    ],
+    "Phase 10/11 is pending: SDK runtime tool catalog entries must use canonical snake_case protocol fields without retired camelCase aliases",
   );
   assertCheck(
     result,
