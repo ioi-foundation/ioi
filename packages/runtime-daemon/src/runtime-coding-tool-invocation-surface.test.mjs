@@ -284,6 +284,7 @@ test("coding tool invocation surface ignores retired request identity aliases", 
     turnId: "turn_retired",
     workflowGraphId: "graph_retired",
     workflowNodeId: "node_retired",
+    idempotencyKey: "coding_tool_idempotency_retired",
     input: {},
   });
 
@@ -297,6 +298,51 @@ test("coding tool invocation surface ignores retired request identity aliases", 
   assert.equal(result.event.turn_id, "turn_latest");
   assert.equal(result.event.workflow_graph_id, null);
   assert.equal(result.event.workflow_node_id, "runtime.coding-tool.workspace.status");
+  assert.equal(result.event.idempotency_key, "thread:thread_alpha:coding-tool:tool_status_alias_retired");
+});
+
+test("coding tool invocation surface accepts canonical idempotency key", () => {
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool() {
+      return {
+        backend: "rust_workload_live",
+        mode: "live",
+        blocking: true,
+        source: "rust_workload_command",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://rust/workspace.status",
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          status: "success",
+          receipt_refs: ["receipt_step"],
+          artifact_refs: [],
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: null,
+          resulting_head: null,
+          workflow_projection: { status: "accepted" },
+          router_admission: {
+            schema_version: "ioi.step_module_router_admission.v1",
+            backend: "workload_grpc",
+          },
+        },
+      };
+    },
+  };
+  const surface = createSurface({ stepModuleRunner: liveRunner });
+  const store = createStore();
+
+  const result = surface.invokeThreadTool(store, "thread_alpha", "workspace.status", {
+    tool_call_id: "tool_status_canonical",
+    idempotency_key: "coding_tool_idempotency_canonical",
+    input: {},
+  });
+
+  assert.equal(result.event.idempotency_key, "coding_tool_idempotency_canonical");
 });
 
 test("coding tool invocation surface runs workspace.status through rust workload live path", () => {

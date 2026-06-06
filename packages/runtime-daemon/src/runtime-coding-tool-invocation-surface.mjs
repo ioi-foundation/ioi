@@ -95,7 +95,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       optionalString(request.tool_call_id ?? request.toolCallId) ??
       `coding_tool_${doctorHash(`${threadId}:${normalizedToolId}:${JSON.stringify(input)}:${Date.now()}`).slice(0, 16)}`;
     const codingToolIdempotencyKey =
-      optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+      optionalString(request.idempotency_key) ??
       `thread:${threadId}:coding-tool:${toolCallId}`;
     const duplicateToolEvent = store.runtimeEventStream(eventStreamIdForThread(threadId)).idempotency.get(
       codingToolIdempotencyKey,

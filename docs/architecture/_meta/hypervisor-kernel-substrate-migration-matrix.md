@@ -12860,6 +12860,11 @@ approval request, decision, and revoke events now consume canonical
 steer approval runtime event de-duplication or Rust-planned approval state
 transitions.
 
+Slice 453 completes coding-tool invocation idempotency alias retirement:
+Rust live coding-tool invocation now consumes canonical `idempotency_key` request
+fields only; retired `idempotencyKey` fields no longer steer duplicate event
+lookup before StepModuleRunner dispatch or admitted invocation event identity.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

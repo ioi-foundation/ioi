@@ -1064,13 +1064,25 @@ function runBridge() {
       /turnId: "turn_retired"/.test(runtimeCodingToolInvocationSurfaceTest) &&
       /workflowGraphId: "graph_retired"/.test(runtimeCodingToolInvocationSurfaceTest) &&
       /workflowNodeId: "node_retired"/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /idempotencyKey: "coding_tool_idempotency_retired"/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /coding tool invocation surface accepts canonical idempotency key/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /idempotency_key: "coding_tool_idempotency_canonical"/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
       /runnerCalls\[0\]\.context\.workflowGraphId, null/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
       /runnerCalls\[0\]\.context\.workflowNodeId, "runtime\.coding-tool\.workspace\.status"/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
-      !/request\.(?:turnId|workflowNodeId|workflowGraphId)\b/.test(
+      /result\.event\.idempotency_key, "thread:thread_alpha:coding-tool:tool_status_alias_retired"/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId|idempotencyKey)\b/.test(
         runtimeCodingToolInvocationSurface,
       ),
     [
