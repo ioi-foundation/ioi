@@ -12112,6 +12112,14 @@ only shapes the canonical request, executes the actual compaction event when
 Rust selects it, and no longer emits duplicate camelCase compaction-policy
 result aliases.
 
+Slice 342 moves context-compaction event planning into Rust: the Rust
+`ContextCompactionPlanCore` now owns context-compaction item IDs,
+idempotency keys, compact hashes, payload shape, receipt refs, policy decision
+refs, event/source/component kinds, and runless agent fallback refs through
+`plan_context_compaction`; the daemon context-policy facade appends the
+planned event and updates the existing run/agent store records without
+recomputing the canonical compaction event envelope in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

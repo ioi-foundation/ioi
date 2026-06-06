@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
+  CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
   CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
   CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
   RustContextPolicyRunner,
@@ -160,6 +161,67 @@ test("compaction policy runner sends Rust policy bridge request", () => {
   assert.equal(result.source, "rust_compaction_policy_command");
   assert.equal(result.action, "approval_required");
   assert.equal(result.approval_required, true);
+});
+
+test("context compaction runner sends Rust plan bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_context_compaction_plan_command",
+            backend: "rust_policy",
+            status: "planned",
+            item_id: "turn_1:item:context-compact:hash_one",
+            idempotency_key: "thread:thread_1:context.compact:hash_one",
+            compact_hash: "hash_one",
+            source_event_kind: "OperatorControl.Compact",
+            event_kind: "context.compacted",
+            component_kind: "context_compaction",
+            payload_schema_version: "ioi.runtime.context-compaction.v1",
+            payload: {
+              reason: "trim context",
+              requested_by: "operator_one",
+              previous_latest_seq: 7,
+            },
+            receipt_refs: ["receipt_run_1_context_compaction_hash_one"],
+            policy_decision_refs: ["policy_run_1_context_compaction_allow"],
+            artifact_refs: [],
+            rollback_refs: [],
+            redaction_profile: "internal",
+            reason: "trim context",
+            scope: "thread",
+            requested_by: "operator_one",
+            previous_latest_seq: 7,
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planContextCompaction({
+    thread_id: "thread_1",
+    agent_id: "agent_1",
+    run_id: "run_1",
+    reason: "trim context",
+    previous_latest_seq: 7,
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_context_compaction");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(captured.request.schema_version, CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION);
+  assert.equal(captured.request.thread_id, "thread_1");
+  assert.equal(result.source, "rust_context_compaction_plan_command");
+  assert.equal(result.event_kind, "context.compacted");
+  assert.equal(result.item_id, "turn_1:item:context-compact:hash_one");
+  assert.deepEqual(result.receipt_refs, ["receipt_run_1_context_compaction_hash_one"]);
 });
 
 test("context policy runner fails closed without bridge command", () => {

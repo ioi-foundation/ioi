@@ -529,6 +529,9 @@ function runBridge() {
   const runtimeContextPolicySurface = exists("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
     : "";
+  const runtimeContextPolicySurfaceTest = exists("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs")
+    : "";
   const codingTools = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
     : "";
@@ -1064,6 +1067,36 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
     ],
     "Phase 9/10 is pending: compaction policy decisions must be evaluated by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "context-compaction-plan-live-bridge",
+    /ContextCompactionPlanCore/.test(policyCore) &&
+      /ContextCompactionPlanRequest/.test(policyCore) &&
+      /CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_context_compaction_event_record/.test(policyCore) &&
+      /rust_policy_plans_runless_context_compaction_against_agent_ref/.test(policyCore) &&
+      /plan_context_compaction/.test(bridgeModule) &&
+      /ContextCompactionPlanBridgeRequest/.test(bridgeModule) &&
+      /rust_context_compaction_plan_command/.test(bridgeModule) &&
+      /bridge_plans_context_compaction_through_rust_core/.test(bridgeModule) &&
+      /planContextCompaction/.test(runtimeContextPolicyRunner) &&
+      /CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /context compaction runner sends Rust plan bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /contextPolicyRunnerDep\.planContextCompaction/.test(runtimeContextPolicySurface) &&
+      /planContextCompaction/.test(runtimeContextPolicySurfaceTest) &&
+      !/compactHash|createHash/.test(runtimeContextPolicySurface),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
+    ],
+    "Phase 9/10 is pending: context-compaction event planning must be produced by Rust policy core through the command bridge",
   );
   assertCheck(
     result,

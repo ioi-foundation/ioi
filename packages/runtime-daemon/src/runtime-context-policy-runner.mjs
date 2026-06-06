@@ -9,6 +9,8 @@ export const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-budget-policy-request.v1";
 export const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.compaction-policy-request.v1";
+export const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.context-compaction-plan-request.v1";
 export const RUST_CONTEXT_POLICY_BACKEND = "rust_policy";
 
 export function createContextPolicyRunnerFromEnv(env = process.env, options = {}) {
@@ -50,6 +52,14 @@ export class RustContextPolicyRunner {
     return normalizeCompactionPolicyBridgeResult(this.evaluateRawPolicy({
       operation: "evaluate_compaction_policy",
       schemaVersion: COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planContextCompaction(request = {}) {
+    return normalizeContextCompactionPlanBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_context_compaction",
+      schemaVersion: CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -199,6 +209,41 @@ export function normalizeCompactionPolicyBridgeResult(value = {}) {
       "runtime.context-compact",
     continuation_allowed: Boolean(result.continuation_allowed ?? record.continuation_allowed),
     summary: optionalString(result.summary ?? record.summary) ?? null,
+  };
+}
+
+export function normalizeContextCompactionPlanBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source: result.source ?? record.source ?? "rust_context_compaction_plan_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "planned",
+    event_source: optionalString(result.event_source ?? record.event_source ?? record.source) ?? "sdk_client",
+    actor: optionalString(result.actor ?? record.actor) ?? "user",
+    item_id: optionalString(result.item_id ?? record.item_id),
+    idempotency_key: optionalString(result.idempotency_key ?? record.idempotency_key),
+    compact_hash: optionalString(result.compact_hash ?? record.compact_hash),
+    source_event_kind:
+      optionalString(result.source_event_kind ?? record.source_event_kind) ??
+      "OperatorControl.Compact",
+    event_kind: optionalString(result.event_kind ?? record.event_kind) ?? "context.compacted",
+    component_kind:
+      optionalString(result.component_kind ?? record.component_kind) ?? "context_compaction",
+    payload_schema_version:
+      optionalString(result.payload_schema_version ?? record.payload_schema_version) ??
+      "ioi.runtime.context-compaction.v1",
+    payload: objectRecord(result.payload) ?? objectRecord(record.payload) ?? {},
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    policy_decision_refs: stringArray(result.policy_decision_refs ?? record.policy_decision_refs),
+    artifact_refs: stringArray(result.artifact_refs ?? record.artifact_refs),
+    rollback_refs: stringArray(result.rollback_refs ?? record.rollback_refs),
+    redaction_profile: optionalString(result.redaction_profile ?? record.redaction_profile) ?? "internal",
+    reason: optionalString(result.reason ?? record.reason) ?? null,
+    scope: optionalString(result.scope ?? record.scope) ?? "thread",
+    requested_by: optionalString(result.requested_by ?? record.requested_by) ?? "operator",
+    previous_latest_seq: numberValue(result.previous_latest_seq ?? record.previous_latest_seq) ?? 0,
   };
 }
 

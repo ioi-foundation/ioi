@@ -14,7 +14,55 @@ function baseResult(overrides = {}) {
   };
 }
 
-function harness({ contextResult = baseResult(), compactionResult = null } = {}) {
+function contextCompactionPlanForRequest(request = {}) {
+  const compactHash = "planhash";
+  const refOwner = request.run_id ?? request.agent_id;
+  return {
+    status: "planned",
+    thread_id: request.thread_id,
+    agent_id: request.agent_id,
+    turn_id: request.turn_id ?? undefined,
+    run_id: request.run_id ?? undefined,
+    session_id: request.session_id ?? undefined,
+    workspace_root: request.workspace_root ?? undefined,
+    item_id: `${request.turn_id || request.thread_id}:item:context-compact:${compactHash}`,
+    idempotency_key: request.idempotency_key ?? `thread:${request.thread_id}:context.compact:${compactHash}`,
+    event_source: request.source || "sdk_client",
+    source_event_kind: "OperatorControl.Compact",
+    event_kind: "context.compacted",
+    actor: "user",
+    workflow_graph_id: request.workflow_graph_id ?? null,
+    workflow_node_id: request.workflow_node_id ?? "runtime.context-compact",
+    component_kind: "context_compaction",
+    payload_schema_version: "ioi.runtime.context-compaction.v1",
+    payload: {
+      event_kind: "OperatorControl.Compact",
+      reason: request.reason ?? "operator requested context compaction",
+      scope: request.scope ?? "thread",
+      requested_by: request.requested_by ?? "operator",
+      control_surface: request.source || "sdk_client",
+      previous_latest_seq: request.previous_latest_seq ?? 0,
+      compacted_tokens: 0,
+      agent_id: request.agent_id,
+      thread_id: request.thread_id,
+      turn_id: request.turn_id ?? null,
+      run_id: request.run_id ?? null,
+      session_id: request.session_id ?? null,
+    },
+    receipt_refs: [`receipt_${refOwner}_context_compaction_${compactHash}`],
+    policy_decision_refs: [`policy_${refOwner}_context_compaction_allow`],
+    artifact_refs: [],
+    rollback_refs: [],
+    redaction_profile: "internal",
+    compact_hash: compactHash,
+    reason: request.reason ?? "operator requested context compaction",
+    scope: request.scope ?? "thread",
+    requested_by: request.requested_by ?? "operator",
+    previous_latest_seq: request.previous_latest_seq ?? 0,
+  };
+}
+
+function harness({ contextResult = baseResult(), compactionResult = null, compactionPlan = null } = {}) {
   const calls = [];
   const events = [];
   const run = { id: "run-one", agentId: "agent-one", trace: {} };
@@ -39,6 +87,12 @@ function harness({ contextResult = baseResult(), compactionResult = null } = {})
         policy_decision_refs: ["policy-compaction"],
         ...compactionResult,
       };
+    },
+    contextPolicyRunner: {
+      planContextCompaction(request) {
+        calls.push({ name: "planContextCompaction", request });
+        return compactionPlan ?? contextCompactionPlanForRequest(request);
+      },
     },
     eventStreamIdForThread(threadId) {
       return `stream-${threadId}`;
@@ -250,6 +304,7 @@ test("context policy surface compacts latest run and records operator control", 
   assert.equal(events[0].payload.session_id, "session-one");
   assert.equal(events[0].fixture_profile, "fixture-agent-one");
   assert.match(events[0].receipt_refs[0], /^receipt_run-one_context_compaction_/);
+  assert.equal(calls.find((call) => call.name === "planContextCompaction").request.reason, "trim context");
   assert.equal(savedRun.trace.contextCompaction.reason, "trim context");
   assert.equal(savedRun.operatorControls[0].control, "compact");
   assert.equal(calls.find((call) => call.name === "writeRun").operationKind, "thread.compact");

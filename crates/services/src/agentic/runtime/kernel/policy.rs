@@ -12,6 +12,11 @@ pub const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION: &str =
 pub const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.compaction-policy-request.v1";
 pub const COMPACTION_POLICY_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.compaction-policy.v1";
+pub const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.context-compaction-plan-request.v1";
+pub const CONTEXT_COMPACTION_PLAN_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.context-compaction-plan.v1";
+pub const CONTEXT_COMPACTION_PAYLOAD_SCHEMA_VERSION: &str = "ioi.runtime.context-compaction.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyEvaluationRecord {
@@ -63,6 +68,15 @@ pub enum CompactionPolicyError {
     },
     MissingField(&'static str),
     HashFailed(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ContextCompactionPlanError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -278,6 +292,83 @@ pub struct CompactionPolicyRecord {
     pub policy_decision_refs: Vec<String>,
     pub policy_decision_id: String,
     pub summary: String,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContextCompactionPlanRequest {
+    pub schema_version: String,
+    pub thread_id: String,
+    pub agent_id: String,
+    #[serde(default)]
+    pub turn_id: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    #[serde(default)]
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub scope: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub actor: Option<String>,
+    #[serde(default)]
+    pub requested_by: Option<String>,
+    #[serde(default)]
+    pub workflow_graph_id: Option<String>,
+    #[serde(default)]
+    pub workflow_node_id: Option<String>,
+    #[serde(default)]
+    pub event_stream_id: Option<String>,
+    #[serde(default)]
+    pub previous_latest_seq: Option<u64>,
+    #[serde(default)]
+    pub idempotency_key: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContextCompactionPlanRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub thread_id: String,
+    pub agent_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_root: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_stream_id: Option<String>,
+    pub item_id: String,
+    pub idempotency_key: String,
+    pub source: String,
+    pub source_event_kind: String,
+    pub event_kind: String,
+    pub actor: String,
+    pub requested_by: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_graph_id: Option<String>,
+    pub workflow_node_id: String,
+    pub component_kind: String,
+    pub payload_schema_version: String,
+    pub payload: Value,
+    pub receipt_refs: Vec<String>,
+    pub policy_decision_refs: Vec<String>,
+    pub artifact_refs: Vec<String>,
+    pub rollback_refs: Vec<String>,
+    pub redaction_profile: String,
+    pub compact_hash: String,
+    pub reason: String,
+    pub scope: String,
+    pub previous_latest_seq: u64,
     pub generated_at: String,
 }
 
@@ -575,6 +666,95 @@ impl CompactionPolicyCore {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct ContextCompactionPlanCore;
+
+impl ContextCompactionPlanCore {
+    pub fn plan(
+        &self,
+        request: &ContextCompactionPlanRequest,
+    ) -> Result<ContextCompactionPlanRecord, ContextCompactionPlanError> {
+        request.validate()?;
+        let thread_id = optional_trimmed(Some(request.thread_id.as_str())).unwrap();
+        let agent_id = optional_trimmed(Some(request.agent_id.as_str())).unwrap();
+        let turn_id = optional_trimmed(request.turn_id.as_deref());
+        let run_id = optional_trimmed(request.run_id.as_deref());
+        let session_id = optional_trimmed(request.session_id.as_deref());
+        let workspace_root = optional_trimmed(request.workspace_root.as_deref());
+        let source = operator_control_source(request.source.as_deref());
+        let actor =
+            optional_trimmed(request.actor.as_deref()).unwrap_or_else(|| "user".to_string());
+        let requested_by = optional_trimmed(request.requested_by.as_deref())
+            .unwrap_or_else(|| "operator".to_string());
+        let reason = optional_trimmed(request.reason.as_deref())
+            .unwrap_or_else(|| "operator requested context compaction".to_string());
+        let scope =
+            optional_trimmed(request.scope.as_deref()).unwrap_or_else(|| "thread".to_string());
+        let workflow_graph_id = optional_trimmed(request.workflow_graph_id.as_deref());
+        let workflow_node_id = optional_trimmed(request.workflow_node_id.as_deref())
+            .unwrap_or_else(|| "runtime.context-compact".to_string());
+        let event_stream_id = optional_trimmed(request.event_stream_id.as_deref());
+        let previous_latest_seq = request.previous_latest_seq.unwrap_or(0);
+        let compact_hash = context_compaction_hash(&reason, &scope);
+        let item_scope = turn_id.as_deref().unwrap_or(thread_id.as_str());
+        let item_id = format!("{item_scope}:item:context-compact:{compact_hash}");
+        let idempotency_key = optional_trimmed(request.idempotency_key.as_deref())
+            .unwrap_or_else(|| format!("thread:{thread_id}:context.compact:{compact_hash}"));
+        let ref_owner = run_id.as_deref().unwrap_or(agent_id.as_str());
+        let receipt_ref = format!("receipt_{ref_owner}_context_compaction_{compact_hash}");
+        let policy_decision_ref = format!("policy_{ref_owner}_context_compaction_allow");
+        let payload = json!({
+            "event_kind": "OperatorControl.Compact",
+            "reason": reason,
+            "scope": scope,
+            "requested_by": requested_by,
+            "control_surface": source,
+            "previous_latest_seq": previous_latest_seq,
+            "compacted_tokens": 0,
+            "agent_id": agent_id,
+            "thread_id": thread_id,
+            "turn_id": turn_id,
+            "run_id": run_id,
+            "session_id": session_id,
+        });
+
+        Ok(ContextCompactionPlanRecord {
+            schema_version: CONTEXT_COMPACTION_PLAN_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_context_compaction_plan".to_string(),
+            status: "planned".to_string(),
+            thread_id,
+            agent_id,
+            turn_id,
+            run_id,
+            session_id,
+            workspace_root,
+            event_stream_id,
+            item_id,
+            idempotency_key,
+            source,
+            source_event_kind: "OperatorControl.Compact".to_string(),
+            event_kind: "context.compacted".to_string(),
+            actor,
+            requested_by,
+            workflow_graph_id,
+            workflow_node_id,
+            component_kind: "context_compaction".to_string(),
+            payload_schema_version: CONTEXT_COMPACTION_PAYLOAD_SCHEMA_VERSION.to_string(),
+            payload,
+            receipt_refs: vec![receipt_ref],
+            policy_decision_refs: vec![policy_decision_ref],
+            artifact_refs: Vec::new(),
+            rollback_refs: Vec::new(),
+            redaction_profile: "internal".to_string(),
+            compact_hash,
+            reason,
+            scope,
+            previous_latest_seq,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
 impl CompactionPolicyRequest {
     pub fn validate(&self) -> Result<(), CompactionPolicyError> {
         if self.schema_version != COMPACTION_POLICY_REQUEST_SCHEMA_VERSION {
@@ -588,6 +768,24 @@ impl CompactionPolicyRequest {
         }
         if !self.context_budget.is_object() {
             return Err(CompactionPolicyError::MissingField("context_budget"));
+        }
+        Ok(())
+    }
+}
+
+impl ContextCompactionPlanRequest {
+    pub fn validate(&self) -> Result<(), ContextCompactionPlanError> {
+        if self.schema_version != CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION {
+            return Err(ContextCompactionPlanError::InvalidSchemaVersion {
+                expected: CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(ContextCompactionPlanError::MissingField("thread_id"));
+        }
+        if optional_trimmed(Some(self.agent_id.as_str())).is_none() {
+            return Err(ContextCompactionPlanError::MissingField("agent_id"));
         }
         Ok(())
     }
@@ -787,6 +985,18 @@ fn compaction_action(value: Option<&str>, fallback: &str) -> String {
     }
 }
 
+fn operator_control_source(value: Option<&str>) -> String {
+    if let Some(source) = optional_trimmed(value) {
+        if matches!(
+            source.as_str(),
+            "cli_tui" | "react_flow" | "sdk_client" | "runtime_auto" | "mcp_serve"
+        ) {
+            return source;
+        }
+    }
+    "sdk_client".to_string()
+}
+
 fn compaction_status(action: &str, execute_compaction: bool, approval_satisfied: bool) -> String {
     match action {
         "stop" => "blocked".to_string(),
@@ -817,6 +1027,12 @@ fn compaction_hash(value: &Value) -> Result<String, CompactionPolicyError> {
     let bytes = serde_json::to_vec(value)
         .map_err(|error| CompactionPolicyError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn context_compaction_hash(reason: &str, scope: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(format!("{reason}:{scope}").as_bytes());
+    hex::encode(hasher.finalize()).chars().take(16).collect()
 }
 
 #[cfg(test)]
@@ -882,6 +1098,28 @@ mod tests {
             source: Some("react_flow".to_string()),
             actor: Some("operator".to_string()),
             event_kind: None,
+        }
+    }
+
+    fn context_compaction_plan_request() -> ContextCompactionPlanRequest {
+        ContextCompactionPlanRequest {
+            schema_version: CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: "thread_budget".to_string(),
+            agent_id: "agent_budget".to_string(),
+            turn_id: Some("turn_budget".to_string()),
+            run_id: Some("run_budget".to_string()),
+            session_id: Some("session_budget".to_string()),
+            workspace_root: Some("/workspace".to_string()),
+            reason: Some("trim context".to_string()),
+            scope: Some("thread".to_string()),
+            source: Some("react_flow".to_string()),
+            actor: None,
+            requested_by: Some("operator_one".to_string()),
+            workflow_graph_id: Some("graph_budget".to_string()),
+            workflow_node_id: Some("node_compact".to_string()),
+            event_stream_id: Some("thread_budget:events".to_string()),
+            previous_latest_seq: Some(7),
+            idempotency_key: None,
         }
     }
 
@@ -1013,6 +1251,74 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_plans_context_compaction_event_record() {
+        let record = ContextCompactionPlanCore
+            .plan(&context_compaction_plan_request())
+            .expect("context compaction plan");
+
+        assert_eq!(
+            record.schema_version,
+            CONTEXT_COMPACTION_PLAN_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "planned");
+        assert_eq!(record.event_kind, "context.compacted");
+        assert_eq!(record.source_event_kind, "OperatorControl.Compact");
+        assert_eq!(record.component_kind, "context_compaction");
+        assert_eq!(
+            record.payload_schema_version,
+            CONTEXT_COMPACTION_PAYLOAD_SCHEMA_VERSION
+        );
+        assert!(record
+            .item_id
+            .starts_with("turn_budget:item:context-compact:"));
+        assert!(record
+            .idempotency_key
+            .starts_with("thread:thread_budget:context.compact:"));
+        assert!(record
+            .receipt_refs
+            .first()
+            .expect("receipt ref")
+            .starts_with("receipt_run_budget_context_compaction_"));
+        assert_eq!(
+            record.policy_decision_refs,
+            vec!["policy_run_budget_context_compaction_allow".to_string()]
+        );
+        assert_eq!(record.payload["reason"], "trim context");
+        assert_eq!(record.payload["requested_by"], "operator_one");
+        assert_eq!(record.payload["previous_latest_seq"], 7);
+        assert_eq!(record.payload["run_id"], "run_budget");
+        assert_eq!(record.payload["session_id"], "session_budget");
+    }
+
+    #[test]
+    fn rust_policy_plans_runless_context_compaction_against_agent_ref() {
+        let mut request = context_compaction_plan_request();
+        request.turn_id = None;
+        request.run_id = None;
+        request.idempotency_key = Some("custom-context-compact".to_string());
+
+        let record = ContextCompactionPlanCore
+            .plan(&request)
+            .expect("runless context compaction plan");
+
+        assert!(record
+            .item_id
+            .starts_with("thread_budget:item:context-compact:"));
+        assert_eq!(record.idempotency_key, "custom-context-compact");
+        assert!(record
+            .receipt_refs
+            .first()
+            .expect("receipt ref")
+            .starts_with("receipt_agent_budget_context_compaction_"));
+        assert_eq!(
+            record.policy_decision_refs,
+            vec!["policy_agent_budget_context_compaction_allow".to_string()]
+        );
+        assert!(record.payload["run_id"].is_null());
+        assert!(record.payload["turn_id"].is_null());
+    }
+
+    #[test]
     fn rust_policy_rejects_invalid_compaction_schema() {
         let mut request = compaction_request();
         request.schema_version = "legacy.schema".to_string();
@@ -1025,6 +1331,24 @@ mod tests {
             error,
             CompactionPolicyError::InvalidSchemaVersion {
                 expected: COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_context_compaction_plan_schema() {
+        let mut request = context_compaction_plan_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = ContextCompactionPlanCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            ContextCompactionPlanError::InvalidSchemaVersion {
+                expected: CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );

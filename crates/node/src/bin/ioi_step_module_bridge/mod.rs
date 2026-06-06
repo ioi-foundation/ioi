@@ -18,7 +18,7 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
 };
 use ioi_services::agentic::runtime::kernel::policy::{
     CompactionPolicyCore, CompactionPolicyRequest, ContextBudgetPolicyCore,
-    ContextBudgetPolicyRequest,
+    ContextBudgetPolicyRequest, ContextCompactionPlanCore, ContextCompactionPlanRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -291,6 +291,16 @@ struct CompactionPolicyBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct ContextCompactionPlanBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ContextCompactionPlanRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -474,6 +484,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
             let request: CompactionPolicyBridgeRequest = serde_json::from_value(raw_request)
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             evaluate_compaction_policy(request)
+        }
+        "plan_context_compaction" => {
+            let request: ContextCompactionPlanBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_context_compaction(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -1573,6 +1589,56 @@ fn evaluate_compaction_policy(
         "compact_workflow_node_id": record.compact_workflow_node_id.clone(),
         "continuation_allowed": record.continuation_allowed,
         "summary": record.summary.clone(),
+    }))
+}
+
+fn plan_context_compaction(
+    request: ContextCompactionPlanBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_context_compaction" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = ContextCompactionPlanCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new("context_compaction_plan_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_context_compaction_plan_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "event_source": record.source.clone(),
+        "actor": record.actor.clone(),
+        "item_id": record.item_id.clone(),
+        "idempotency_key": record.idempotency_key.clone(),
+        "compact_hash": record.compact_hash.clone(),
+        "source_event_kind": record.source_event_kind.clone(),
+        "event_kind": record.event_kind.clone(),
+        "component_kind": record.component_kind.clone(),
+        "payload_schema_version": record.payload_schema_version.clone(),
+        "payload": record.payload.clone(),
+        "receipt_refs": record.receipt_refs.clone(),
+        "policy_decision_refs": record.policy_decision_refs.clone(),
+        "artifact_refs": record.artifact_refs.clone(),
+        "rollback_refs": record.rollback_refs.clone(),
+        "redaction_profile": record.redaction_profile.clone(),
+        "reason": record.reason.clone(),
+        "scope": record.scope.clone(),
+        "requested_by": record.requested_by.clone(),
+        "previous_latest_seq": record.previous_latest_seq,
     }))
 }
 
@@ -5724,6 +5790,64 @@ mod tests {
             .as_str()
             .expect("approval id")
             .starts_with("approval_compaction_thread_budget_"));
+    }
+
+    #[test]
+    fn bridge_plans_context_compaction_through_rust_core() {
+        let request: ContextCompactionPlanBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_context_compaction",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.context-compaction-plan-request.v1",
+                "thread_id": "thread_budget",
+                "agent_id": "agent_budget",
+                "turn_id": "turn_budget",
+                "run_id": "run_budget",
+                "session_id": "session_budget",
+                "workspace_root": "/workspace",
+                "reason": "trim context",
+                "scope": "thread",
+                "source": "react_flow",
+                "requested_by": "operator_one",
+                "workflow_graph_id": "graph_budget",
+                "workflow_node_id": "node_compact",
+                "event_stream_id": "thread_budget:events",
+                "previous_latest_seq": 7
+            }
+        }))
+        .expect("context compaction plan bridge request");
+
+        let response = plan_context_compaction(request).expect("context compaction planned");
+
+        assert_eq!(response["source"], "rust_context_compaction_plan_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["event_kind"], "context.compacted");
+        assert_eq!(response["component_kind"], "context_compaction");
+        assert_eq!(
+            response["payload_schema_version"],
+            "ioi.runtime.context-compaction.v1"
+        );
+        assert!(response["item_id"]
+            .as_str()
+            .expect("item id")
+            .starts_with("turn_budget:item:context-compact:"));
+        assert!(response["idempotency_key"]
+            .as_str()
+            .expect("idempotency key")
+            .starts_with("thread:thread_budget:context.compact:"));
+        assert!(response["receipt_refs"][0]
+            .as_str()
+            .expect("receipt ref")
+            .starts_with("receipt_run_budget_context_compaction_"));
+        assert_eq!(
+            response["policy_decision_refs"][0],
+            "policy_run_budget_context_compaction_allow"
+        );
+        assert_eq!(response["payload"]["reason"], "trim context");
+        assert_eq!(response["payload"]["requested_by"], "operator_one");
+        assert_eq!(response["payload"]["previous_latest_seq"], 7);
     }
 
     #[test]

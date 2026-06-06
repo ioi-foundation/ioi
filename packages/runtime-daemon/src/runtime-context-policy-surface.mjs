@@ -1,9 +1,8 @@
-import crypto from "node:crypto";
-
 import {
   RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
   RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
 } from "./runtime-contract-constants.mjs";
+import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
 import {
   contextBudgetUsageTelemetryFromRequest,
   evaluateCompactionPolicyDecision,
@@ -27,6 +26,7 @@ export function createRuntimeContextPolicySurface({
   RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION: compactionPolicySchemaVersion = RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
   RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION: contextBudgetSchemaVersion = RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
   appendOperatorControl: appendOperatorControlDep = appendOperatorControl,
+  contextPolicyRunner: contextPolicyRunnerDep = createContextPolicyRunnerFromEnv(),
   contextBudgetUsageTelemetryFromRequest: contextBudgetUsageTelemetryFromRequestDep = contextBudgetUsageTelemetryFromRequest,
   evaluateCompactionPolicyDecision: evaluateCompactionPolicyDecisionDep = evaluateCompactionPolicyDecision,
   evaluateContextBudgetPolicy: evaluateContextBudgetPolicyDep = evaluateContextBudgetPolicy,
@@ -48,58 +48,53 @@ export function createRuntimeContextPolicySurface({
       const turnId =
         optionalStringDep(request.turn_id ?? request.turnId) ??
         (latestRun ? turnIdForRunDep(latestRun.id) : "");
-      const source = operatorControlSourceDep(request.source);
-      const requestedBy = optionalStringDep(request.actor ?? request.requested_by ?? request.requestedBy) ?? "operator";
-      const reason =
-        optionalStringDep(request.reason ?? request.message ?? request.input) ?? "operator requested context compaction";
-      const scope = optionalStringDep(request.scope) ?? "thread";
       const now = new Date().toISOString();
       const streamId = eventStreamIdForThreadDep(threadId);
       const previousLatestSeq = store.latestRuntimeEventSeq(streamId);
-      const compactHash = crypto
-        .createHash("sha256")
-        .update(`${reason}:${scope}`)
-        .digest("hex")
-        .slice(0, 16);
+      const plan = contextPolicyRunnerDep.planContextCompaction({
+        thread_id: threadId,
+        agent_id: agent.id,
+        turn_id: turnId || null,
+        run_id: latestRun?.id ?? null,
+        session_id: runtimeSessionIdForAgentDep(agent),
+        workspace_root: agent.cwd,
+        reason: optionalStringDep(request.reason ?? request.message ?? request.input) ?? null,
+        scope: optionalStringDep(request.scope) ?? null,
+        source: optionalStringDep(request.source) ?? null,
+        requested_by: optionalStringDep(request.actor ?? request.requested_by ?? request.requestedBy) ?? null,
+        workflow_graph_id: optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null,
+        workflow_node_id: optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ?? null,
+        event_stream_id: streamId,
+        previous_latest_seq: previousLatestSeq,
+        idempotency_key: optionalStringDep(request.idempotency_key ?? request.idempotencyKey) ?? null,
+      });
+      const source = plan.event_source ?? operatorControlSourceDep(request.source);
+      const reason =
+        optionalStringDep(plan.reason ?? plan.payload?.reason) ?? "operator requested context compaction";
+      const scope = optionalStringDep(plan.scope ?? plan.payload?.scope) ?? "thread";
       const event = store.appendRuntimeEvent({
         event_stream_id: streamId,
-        thread_id: threadId,
-        turn_id: turnId,
-        item_id: `${turnId || threadId}:item:context-compact:${compactHash}`,
-        idempotency_key:
-          request.idempotency_key ??
-          request.idempotencyKey ??
-          `thread:${threadId}:context.compact:${compactHash}`,
+        thread_id: plan.thread_id ?? threadId,
+        turn_id: plan.turn_id ?? turnId,
+        item_id: plan.item_id,
+        idempotency_key: plan.idempotency_key,
         source,
-        source_event_kind: "OperatorControl.Compact",
-        event_kind: "context.compacted",
+        source_event_kind: plan.source_event_kind,
+        event_kind: plan.event_kind,
         status: "completed",
-        actor: "user",
+        actor: plan.actor ?? "user",
         created_at: now,
-        workspace_root: agent.cwd,
-        workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
-        workflow_node_id: request.workflow_node_id ?? request.workflowNodeId ?? "runtime.context-compact",
-        component_kind: "context_compaction",
-        payload_schema_version: "ioi.runtime.context-compaction.v1",
-        payload: {
-          event_kind: "OperatorControl.Compact",
-          reason,
-          scope,
-          requested_by: requestedBy,
-          control_surface: source,
-          previous_latest_seq: previousLatestSeq,
-          compacted_tokens: 0,
-          agent_id: agent.id,
-          thread_id: threadId,
-          turn_id: turnId || null,
-          run_id: latestRun?.id ?? null,
-          session_id: runtimeSessionIdForAgentDep(agent),
-        },
-        receipt_refs: [`receipt_${latestRun?.id ?? agent.id}_context_compaction_${compactHash}`],
-        policy_decision_refs: [`policy_${latestRun?.id ?? agent.id}_context_compaction_allow`],
-        artifact_refs: [],
-        rollback_refs: [],
-        redaction_profile: "internal",
+        workspace_root: plan.workspace_root ?? agent.cwd,
+        workflow_graph_id: plan.workflow_graph_id ?? null,
+        workflow_node_id: plan.workflow_node_id ?? "runtime.context-compact",
+        component_kind: plan.component_kind,
+        payload_schema_version: plan.payload_schema_version,
+        payload: plan.payload,
+        receipt_refs: plan.receipt_refs,
+        policy_decision_refs: plan.policy_decision_refs,
+        artifact_refs: plan.artifact_refs,
+        rollback_refs: plan.rollback_refs,
+        redaction_profile: plan.redaction_profile,
         fixture_profile: fixtureProfileForAgentDep(agent),
       });
       const control = {
