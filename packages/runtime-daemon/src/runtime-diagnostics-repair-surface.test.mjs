@@ -852,12 +852,94 @@ test("diagnostics repair surface resolves decisions from the latest matching gat
   };
 
   const result = surface.resolveDiagnosticsRepairDecision(store, "thread_alpha", "restore_preview", {
-    gateId: "gate_alpha",
+    gate_id: "gate_alpha",
   });
 
   assert.equal(store.projected, true);
   assert.equal(result.repairPolicy.policy_id, "policy_new");
   assert.equal(result.decision.decision_id, "decision_preview");
+});
+
+test("diagnostics repair resolver ignores retired gate and decision aliases", () => {
+  const surface = createSurface();
+  const store = {
+    agentForThread() {
+      return { id: "agent_alpha" };
+    },
+    projectThreadEvents() {
+      this.projected = true;
+    },
+    runtimeEventsForStream() {
+      return [
+        {
+          seq: 1,
+          event_kind: "policy.blocked",
+          component_kind: "lsp_diagnostics_gate",
+          payload_summary: {
+            gateId: "gate_alias",
+            repairPolicy: {
+              policy_id: "policy_alias",
+              decisions: [{ decision_id: "decision_alias", action: "restore_preview" }],
+            },
+          },
+        },
+        {
+          seq: 2,
+          event_kind: "policy.blocked",
+          component_kind: "lsp_diagnostics_gate",
+          payload_summary: {
+            gate_id: "gate_alpha",
+            repair_policy: {
+              policy_id: "policy_alpha",
+            },
+            repairDecisions: [{ decision_id: "decision_retired", action: "repair_retry" }],
+          },
+        },
+        {
+          seq: 3,
+          event_kind: "policy.blocked",
+          component_kind: "lsp_diagnostics_gate",
+          payload_summary: {
+            gate_id: "gate_beta",
+            repair_policy: {
+              policy_id: "policy_beta",
+              decisions: [{ decisionId: "decision_retired", action: "operator_override" }],
+            },
+          },
+        },
+      ];
+    },
+  };
+
+  assert.throws(
+    () => surface.resolveDiagnosticsRepairDecision(store, "thread_alpha", "decision_alias", { gateId: "gate_alias" }),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.code, "not_found");
+      return true;
+    },
+  );
+  assert.throws(
+    () =>
+      surface.resolveDiagnosticsRepairDecision(store, "thread_alpha", "repair_retry", {
+        gate_id: "gate_alpha",
+        decisionAction: "repair_retry",
+      }),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.code, "not_found");
+      return true;
+    },
+  );
+  assert.throws(
+    () => surface.resolveDiagnosticsRepairDecision(store, "thread_alpha", "decision_retired", { gate_id: "gate_beta" }),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.code, "not_found");
+      return true;
+    },
+  );
+  assert.equal(store.projected, true);
 });
 
 test("diagnostics repair surface appends final execution events with action aliases", () => {
@@ -902,6 +984,44 @@ test("diagnostics repair surface appends final execution events with action alia
   assert.equal(event.payload_summary.operator_override_event_id, "event_override");
   assert.equal(event.payload_summary.operator_override_approval_satisfied, true);
   assert.deepEqual(event.payload_summary.rollback_refs, ["snapshot_alpha"]);
+});
+
+test("diagnostics repair final execution events ignore retired decision metadata aliases", () => {
+  const surface = createSurface();
+  const events = [];
+  const store = {
+    appendRuntimeEvent(event) {
+      const stored = {
+        ...event,
+        event_id: `event_${events.length + 1}`,
+        seq: events.length + 1,
+        created_at: "2026-06-04T14:00:00.000Z",
+      };
+      events.push(stored);
+      return stored;
+    },
+  };
+
+  const event = surface.appendDiagnosticsRepairDecisionExecutedEvent(store, {
+    threadId: "thread_alpha",
+    request: { idempotencyKey: "idempotency_alias" },
+    gateEvent: { event_id: "event_gate", turn_id: "turn_blocked", payload_summary: { gate_id: "gate_alpha" } },
+    decision: { decisionId: "decision_alias" },
+    repairPolicy: { policyId: "policy_alias" },
+    action: "restore_preview",
+    snapshotId: "snapshot_alpha",
+    workflowGraphId: "graph_alpha",
+    workflowNodeId: "runtime.lsp-diagnostics.restore-preview",
+    executionResult: {
+      status: "completed",
+      event: { event_id: "event_preview" },
+    },
+  });
+
+  assert.notEqual(event.idempotency_key, "idempotency_alias");
+  assert.equal(event.payload_summary.decision_id, "restore_preview");
+  assert.equal(event.payload_summary.policy_id, null);
+  assert.deepEqual(event.policy_decision_refs, ["restore_preview"]);
 });
 
 test("diagnostics repair final execution events ignore retired execution result aliases", () => {

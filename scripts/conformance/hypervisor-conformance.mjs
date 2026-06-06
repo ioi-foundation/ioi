@@ -11058,6 +11058,10 @@ function runCompositor() {
     runtimeDiagnosticsRepairSurface.match(
       /  function createDiagnosticsRepairRetryTurn\(store, threadId, \{[\s\S]*?(?=\n  function resolveDiagnosticsRepairDecision)/,
     )?.[0] ?? "";
+  const diagnosticsRepairDecisionResolverBody =
+    runtimeDiagnosticsRepairSurface.match(
+      /  function resolveDiagnosticsRepairDecision\(store, threadId, decisionRef, request = \{\}\) \{[\s\S]*?(?=\n  function appendDiagnosticsRepairDecisionExecutedEvent)/,
+    )?.[0] ?? "";
   assertCheck(
     result,
     "diagnostics-repair-decision-result-aliases-retired",
@@ -11110,6 +11114,76 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
     ],
     "Phase 10/11 is pending: diagnostics repair decision execution results must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "diagnostics-repair-decision-resolver-reader-aliases-retired",
+    /const gateId = optionalString\(request\.gate_id\);/.test(diagnosticsRepairDecisionResolverBody) &&
+      /optionalString\(request\.action \?\? request\.decision_action\)/.test(
+        diagnosticsRepairDecisionResolverBody,
+      ) &&
+      /event\.payload_summary\?\.gate_id === gateId \|\| event\.payload\?\.gate_id === gateId/.test(
+        diagnosticsRepairDecisionResolverBody,
+      ) &&
+      /const repairPolicy = gateEvent\.payload_summary\?\.repair_policy \?\? \{\};/.test(
+        diagnosticsRepairDecisionResolverBody,
+      ) &&
+      /repairPolicy\.decisions \?\? gateEvent\.payload_summary\?\.repair_decisions/.test(
+        diagnosticsRepairDecisionResolverBody,
+      ) &&
+      /const candidateId = optionalString\(candidate\.decision_id\)\?\.toLowerCase\(\);/.test(
+        diagnosticsRepairDecisionResolverBody,
+      ) &&
+      !/\b(?:request|event\.payload_summary|event\.payload|gateEvent\.payload_summary|candidate)\.(?:gateId|decisionAction|repairPolicy|repairDecisions|decisionId)\b/.test(
+        diagnosticsRepairDecisionResolverBody,
+      ) &&
+      /diagnostics repair resolver ignores retired gate and decision aliases/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /gateId:\s*"gate_alias"/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /decisionAction:\s*"repair_retry"/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /decisionId:\s*"decision_retired"/.test(runtimeDiagnosticsRepairSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: diagnostics repair decision resolution must consume canonical gate, action, policy, and decision fields without retired camelCase reader fallbacks",
+  );
+  assertCheck(
+    result,
+    "diagnostics-repair-final-event-metadata-aliases-retired",
+    /const decisionId = decision\?\.decision_id \?\? action;/.test(
+      diagnosticsRepairDecisionExecutedEventBody,
+    ) &&
+      /repairPolicy\?\.policy_id,\s*\n\s*\.\.\.normalizeArray\(gateEvent\?\.policy_decision_refs\)/.test(
+        diagnosticsRepairDecisionExecutedEventBody,
+      ) &&
+      /optionalString\(request\.idempotency_key\)/.test(diagnosticsRepairDecisionExecutedEventBody) &&
+      /policy_id:\s*repairPolicy\?\.policy_id \?\? null/.test(
+        diagnosticsRepairDecisionExecutedEventBody,
+      ) &&
+      !/\b(?:decision|repairPolicy|request)\?\.(?:decisionId|policyId|idempotencyKey)\b/.test(
+        diagnosticsRepairDecisionExecutedEventBody,
+      ) &&
+      !/\brequest\.idempotencyKey\b/.test(diagnosticsRepairDecisionExecutedEventBody) &&
+      /diagnostics repair final execution events ignore retired decision metadata aliases/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /idempotencyKey:\s*"idempotency_alias"/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /decisionId:\s*"decision_alias"/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /policyId:\s*"policy_alias"/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /event\.payload_summary\.decision_id,\s*"restore_preview"/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /event\.payload_summary\.policy_id,\s*null/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /event\.policy_decision_refs,\s*\["restore_preview"\]/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: diagnostics repair final execution events must read canonical decision metadata and idempotency fields without retired camelCase fallbacks",
   );
   assertCheck(
     result,

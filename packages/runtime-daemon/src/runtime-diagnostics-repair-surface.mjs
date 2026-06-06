@@ -653,30 +653,23 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
 
   function resolveDiagnosticsRepairDecision(store, threadId, decisionRef, request = {}) {
     store.projectThreadEvents(store.agentForThread(threadId));
-    const gateId = optionalString(request.gate_id ?? request.gateId);
+    const gateId = optionalString(request.gate_id);
     const target = optionalString(decisionRef)?.toLowerCase();
-    const action = optionalString(request.action ?? request.decision_action ?? request.decisionAction)?.toLowerCase();
+    const action = optionalString(request.action ?? request.decision_action)?.toLowerCase();
     const gateEvents = store.runtimeEventsForStream(eventStreamIdForThread(threadId), { sinceSeq: 0 })
       .filter((event) => event.event_kind === "policy.blocked" && event.component_kind === "lsp_diagnostics_gate")
       .filter((event) => {
         if (!gateId) return true;
-        return (
-          event.payload_summary?.gate_id === gateId ||
-          event.payload_summary?.gateId === gateId ||
-          event.payload?.gate_id === gateId ||
-          event.payload?.gateId === gateId
-        );
+        return event.payload_summary?.gate_id === gateId || event.payload?.gate_id === gateId;
       })
       .sort((left, right) => right.seq - left.seq);
     for (const gateEvent of gateEvents) {
-      const repairPolicy = gateEvent.payload_summary?.repair_policy ?? gateEvent.payload_summary?.repairPolicy ?? {};
+      const repairPolicy = gateEvent.payload_summary?.repair_policy ?? {};
       const decisions = normalizeArray(
-        repairPolicy.decisions ??
-          gateEvent.payload_summary?.repair_decisions ??
-          gateEvent.payload_summary?.repairDecisions,
+        repairPolicy.decisions ?? gateEvent.payload_summary?.repair_decisions,
       );
       const decision = decisions.find((candidate) => {
-        const candidateId = optionalString(candidate.decision_id ?? candidate.decisionId)?.toLowerCase();
+        const candidateId = optionalString(candidate.decision_id)?.toLowerCase();
         const candidateAction = optionalString(candidate.action)?.toLowerCase();
         return candidateId === target || candidateAction === target || (action && candidateAction === action);
       });
@@ -701,13 +694,13 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     workflowNodeId,
     executionResult,
   } = {}) {
-    const decisionId = decision?.decision_id ?? decision?.decisionId ?? action;
+    const decisionId = decision?.decision_id ?? action;
     const receiptId = `receipt_lsp_diagnostics_repair_${safeId(action)}_${doctorHash(
       `${threadId}:${decisionId}:${snapshotId}:${executionResult?.event?.event_id ?? ""}`,
     ).slice(0, 12)}`;
     const policyDecisionRefs = uniqueStrings([
       decisionId,
-      repairPolicy?.policy_id ?? repairPolicy?.policyId,
+      repairPolicy?.policy_id,
       ...normalizeArray(gateEvent?.policy_decision_refs),
       ...normalizeArray(executionResult?.policy_decision_refs),
     ]);
@@ -722,7 +715,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       turn_id: gateEvent?.turn_id ?? "",
       item_id: `${gateEvent?.turn_id || threadId}:item:diagnostics-repair:${safeId(String(decisionId))}`,
       idempotency_key:
-        optionalString(request.idempotency_key ?? request.idempotencyKey) ??
+        optionalString(request.idempotency_key) ??
         `thread:${threadId}:diagnostics-repair:${decisionId}:${snapshotId}:${action}:${
           action === "operator_override"
             ? diagnosticsOperatorOverrideApprovalKey(
@@ -754,7 +747,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         status: diagnosticsRepairExecutionStatus(executionResult),
         gate_event_id: gateEvent?.event_id ?? null,
         gate_id: gateEvent?.payload_summary?.gate_id ?? null,
-        policy_id: repairPolicy?.policy_id ?? repairPolicy?.policyId ?? null,
+        policy_id: repairPolicy?.policy_id ?? null,
         snapshot_id: snapshotId,
         workflow_graph_id: workflowGraphId,
         workflow_node_id: workflowNodeId,
