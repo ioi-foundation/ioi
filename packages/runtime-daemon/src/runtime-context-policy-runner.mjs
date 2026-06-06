@@ -15,6 +15,8 @@ export const OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.operator-interrupt-state-update-request.v1";
 export const OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.operator-steer-state-update-request.v1";
+export const RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.run-cancel-state-update-request.v1";
 export const COMPACTION_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.compaction-policy-request.v1";
 export const CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION =
@@ -110,6 +112,14 @@ export class RustContextPolicyRunner {
     return normalizeOperatorSteerStateUpdateBridgeResult(this.evaluateRawPolicy({
       operation: "plan_operator_steer_state_update",
       schemaVersion: OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planRunCancelStateUpdate(request = {}) {
+    return normalizeRunCancelStateUpdateBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_run_cancel_state_update",
+      schemaVersion: RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -422,6 +432,32 @@ export function normalizeOperatorSteerStateUpdateBridgeResult(value = {}) {
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     operator_control:
       objectRecord(result.operator_control) ?? objectRecord(record.operator_control) ?? null,
+    run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
+  };
+}
+
+export function normalizeRunCancelStateUpdateBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_run_cancel_state_update_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "planned",
+    operation_kind:
+      optionalString(result.operation_kind ?? record.operation_kind) ?? "run.cancel",
+    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
+    stop_condition:
+      objectRecord(result.stop_condition) ?? objectRecord(record.stop_condition) ?? null,
+    runtime_task:
+      objectRecord(result.runtime_task) ?? objectRecord(record.runtime_task) ?? null,
+    runtime_job:
+      objectRecord(result.runtime_job) ?? objectRecord(record.runtime_job) ?? null,
+    runtime_checklist:
+      objectRecord(result.runtime_checklist) ?? objectRecord(record.runtime_checklist) ?? null,
     run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
   };
 }

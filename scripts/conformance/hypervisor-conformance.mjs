@@ -589,6 +589,12 @@ function runBridge() {
   const runtimeThreadControlTest = exists("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
     : "";
+  const runtimeRunCancellation = exists("packages/runtime-daemon/src/runtime-run-cancellation.mjs")
+    ? read("packages/runtime-daemon/src/runtime-run-cancellation.mjs")
+    : "";
+  const runtimeRunCancellationTest = exists("packages/runtime-daemon/src/runtime-run-cancellation.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-run-cancellation.test.mjs")
+    : "";
   const threadRuntimeControls = exists("packages/runtime-daemon/src/threads/thread-runtime-controls.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-runtime-controls.mjs")
     : "";
@@ -1310,6 +1316,39 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-thread-control.test.mjs",
     ],
     "Phase 9/10 is pending: operator steer run state updates must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "run-cancel-state-update-live-bridge",
+    /RunCancelStateUpdateCore/.test(policyCore) &&
+      /RunCancelStateUpdateRequest/.test(policyCore) &&
+      /RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_run_cancel_state_update/.test(policyCore) &&
+      /plan_run_cancel_state_update/.test(bridgeModule) &&
+      /RunCancelStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /rust_run_cancel_state_update_command/.test(bridgeModule) &&
+      /bridge_plans_run_cancel_state_update_through_rust_core/.test(bridgeModule) &&
+      /planRunCancelStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /run cancel state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /contextPolicyRunner\.planRunCancelStateUpdate/.test(runtimeRunCancellation) &&
+      !/runtimeTaskRecord|runtimeJobRecord|runtimeChecklistRecord|makeEvent|artifact\(/.test(
+        runtimeRunCancellation,
+      ) &&
+      /plan_run_cancel_state_update/.test(runtimeRunCancellationTest) &&
+      /contextPolicyRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-run-cancellation.mjs",
+      "packages/runtime-daemon/src/runtime-run-cancellation.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 9/10 is pending: run cancellation state updates must be planned by Rust policy core through the command bridge",
   );
   assertCheck(
     result,

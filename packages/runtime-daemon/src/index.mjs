@@ -2042,17 +2042,7 @@ export class AgentgresRuntimeStateStore {
 
   cancelRun(runId) {
     return cancelRunState(this, runId, {
-      JOB_TERMINAL_EVENT_TYPES,
-      TERMINAL_EVENT_TYPES,
-      artifact,
-      attachChecklistToRuntimeJob,
-      makeEvent,
-      normalizeArray,
-      runtimeChecklistRecord,
-      runtimeJobRecord,
-      runtimeTaskRecord,
-      strategyForMode,
-      taskFamilyForMode,
+      contextPolicyRunner: this.contextPolicyRunner,
     });
   }
 

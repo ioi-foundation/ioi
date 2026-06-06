@@ -12,6 +12,7 @@ import {
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RustContextPolicyRunner,
 } from "./runtime-context-policy-runner.mjs";
 
@@ -603,6 +604,75 @@ test("operator steer state update runner sends Rust state update bridge request"
   assert.equal(result.operation_kind, "turn.steer");
   assert.equal(result.operator_control.guidance, "focus on the failing bridge assertion");
   assert.equal(result.run.trace.operatorControls[0].eventId, "event_steer");
+});
+
+test("run cancel state update runner sends Rust state update bridge request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-step-module-bridge",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_run_cancel_state_update_command",
+            backend: "rust_policy",
+            status: "planned",
+            operation_kind: "run.cancel",
+            updated_at: "2026-06-06T04:45:00.000Z",
+            stop_condition: {
+              reason: "marginal_improvement_too_low",
+            },
+            runtime_task: {
+              taskId: "task_run_cancel_one",
+              status: "canceled",
+            },
+            runtime_job: {
+              jobId: "job_run_cancel_one",
+              status: "canceled",
+            },
+            runtime_checklist: {
+              checklistId: "checklist_run_cancel_one",
+              status: "canceled",
+            },
+            run: {
+              id: "run_cancel_one",
+              status: "canceled",
+              events: [
+                { type: "delta" },
+                { type: "runtime_task" },
+                { type: "runtime_checklist" },
+                { type: "job_canceled" },
+                { type: "canceled" },
+              ],
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planRunCancelStateUpdate({
+    run_id: "run_cancel_one",
+    run: { id: "run_cancel_one", status: "running", trace: {} },
+    canceled_at: "2026-06-06T04:45:00.000Z",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_run_cancel_state_update");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.canceled_at, "2026-06-06T04:45:00.000Z");
+  assert.equal(result.source, "rust_run_cancel_state_update_command");
+  assert.equal(result.operation_kind, "run.cancel");
+  assert.equal(result.runtime_job.status, "canceled");
+  assert.equal(result.run.events.at(-1).type, "canceled");
 });
 
 test("context policy runner fails closed without bridge command", () => {

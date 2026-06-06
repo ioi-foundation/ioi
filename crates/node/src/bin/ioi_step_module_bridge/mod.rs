@@ -26,7 +26,8 @@ use ioi_services::agentic::runtime::kernel::policy::{
     ContextCompactionStateUpdateCore, ContextCompactionStateUpdateRequest,
     DiagnosticsOperatorOverrideStateUpdateCore, DiagnosticsOperatorOverrideStateUpdateRequest,
     OperatorInterruptStateUpdateCore, OperatorInterruptStateUpdateRequest,
-    OperatorSteerStateUpdateCore, OperatorSteerStateUpdateRequest,
+    OperatorSteerStateUpdateCore, OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore,
+    RunCancelStateUpdateRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -389,6 +390,16 @@ struct OperatorSteerStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct RunCancelStateUpdateBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: RunCancelStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -626,6 +637,11 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_operator_steer_state_update(request)
+        }
+        "plan_run_cancel_state_update" => {
+            let request: RunCancelStateUpdateBridgeRequest = serde_json::from_value(raw_request)
+                .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_run_cancel_state_update(request)
         }
         "admit_storage_backend_write" => {
             let request: StorageBackendWriteBridgeRequest = serde_json::from_value(raw_request)
@@ -2085,6 +2101,44 @@ fn plan_operator_steer_state_update(
         "operation_kind": record.operation_kind.clone(),
         "updated_at": record.updated_at.clone(),
         "operator_control": record.operator_control.clone(),
+        "run": record.run.clone(),
+    }))
+}
+
+fn plan_run_cancel_state_update(
+    request: RunCancelStateUpdateBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_run_cancel_state_update" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = RunCancelStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new("run_cancel_state_update_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_run_cancel_state_update_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "stop_condition": record.stop_condition.clone(),
+        "runtime_task": record.runtime_task.clone(),
+        "runtime_job": record.runtime_job.clone(),
+        "runtime_checklist": record.runtime_checklist.clone(),
         "run": record.run.clone(),
     }))
 }
@@ -6731,6 +6785,63 @@ mod tests {
             response["run"]["trace"]["operatorControls"][0]["eventId"],
             "event_steer"
         );
+    }
+
+    #[test]
+    fn bridge_plans_run_cancel_state_update_through_rust_core() {
+        let request: RunCancelStateUpdateBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_run_cancel_state_update",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.run-cancel-state-update-request.v1",
+                "run_id": "run_cancel_bridge",
+                "canceled_at": "2026-06-06T04:45:00.000Z",
+                "run": {
+                    "id": "run_cancel_bridge",
+                    "agentId": "agent_bridge",
+                    "status": "running",
+                    "objective": "Cancel bridge run",
+                    "mode": "send",
+                    "createdAt": "2026-06-04T00:00:00.000Z",
+                    "updatedAt": "2026-06-04T00:00:01.000Z",
+                    "events": [
+                        {
+                            "id": "run_cancel_bridge:event:000:delta",
+                            "type": "delta",
+                            "data": { "text": "partial" }
+                        },
+                        {
+                            "id": "run_cancel_bridge:event:001:completed",
+                            "type": "completed",
+                            "data": { "status": "completed" }
+                        }
+                    ],
+                    "trace": {
+                        "events": [],
+                        "receipts": [],
+                        "qualityLedger": {
+                            "failureOntologyLabels": []
+                        }
+                    },
+                    "receipts": [],
+                    "artifacts": []
+                }
+            }
+        }))
+        .expect("run cancel bridge request");
+
+        let response =
+            plan_run_cancel_state_update(request).expect("run cancel state update planned");
+
+        assert_eq!(response["source"], "rust_run_cancel_state_update_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "run.cancel");
+        assert_eq!(response["run"]["status"], "canceled");
+        assert_eq!(response["run"]["events"][1]["type"], "runtime_task");
+        assert_eq!(response["run"]["events"][3]["type"], "job_canceled");
+        assert_eq!(response["runtime_job"]["status"], "canceled");
     }
 
     #[test]

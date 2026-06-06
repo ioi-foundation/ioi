@@ -88,6 +88,8 @@ use policy::{
     OperatorInterruptStateUpdateError, OperatorInterruptStateUpdateRecord,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
     OperatorSteerStateUpdateError, OperatorSteerStateUpdateRecord, OperatorSteerStateUpdateRequest,
+    RunCancelStateUpdateCore, RunCancelStateUpdateError, RunCancelStateUpdateRecord,
+    RunCancelStateUpdateRequest,
 };
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
 use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
@@ -227,6 +229,13 @@ impl RuntimeKernelService {
         request: &OperatorSteerStateUpdateRequest,
     ) -> Result<OperatorSteerStateUpdateRecord, OperatorSteerStateUpdateError> {
         OperatorSteerStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_run_cancel_state_update(
+        &self,
+        request: &RunCancelStateUpdateRequest,
+    ) -> Result<RunCancelStateUpdateRecord, RunCancelStateUpdateError> {
+        RunCancelStateUpdateCore.plan(request)
     }
 
     pub fn issue_capability_lease(

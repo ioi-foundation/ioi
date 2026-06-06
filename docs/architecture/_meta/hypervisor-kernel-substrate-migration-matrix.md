@@ -12201,6 +12201,14 @@ updatedAt assignment, and trace/top-level operatorControls mutation through
 event and applies the Rust-planned run record instead of constructing the
 operator-control mutation in JS.
 
+Slice 353 moves run-cancel state-update planning into Rust:
+`RunCancelStateUpdateCore` now owns canceled run status, terminal event
+continuity, runtime task/job/checklist projection records, checklist receipt and
+artifact refresh, stop-condition rewrite, quality-ledger failure label, and
+`run.cancel` operation kind through `plan_run_cancel_state_update`; the daemon
+cancellation shell fetches the run and persists the Rust-planned record instead
+of constructing cancellation projections in JS.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

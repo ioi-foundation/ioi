@@ -83,19 +83,176 @@ function artifact(runId, name, mediaType, receiptId, content, redaction) {
   };
 }
 
-function deps() {
+function deps(calls = []) {
   return {
-    JOB_TERMINAL_EVENT_TYPES,
-    TERMINAL_EVENT_TYPES,
-    artifact,
-    attachChecklistToRuntimeJob,
-    makeEvent: runHelpers.makeEvent,
-    normalizeArray,
-    runtimeChecklistRecord,
-    runtimeJobRecord,
-    runtimeTaskRecord,
-    strategyForMode: runHelpers.strategyForMode,
-    taskFamilyForMode: runHelpers.taskFamilyForMode,
+    now: () => "2026-06-06T04:45:00.000Z",
+    contextPolicyRunner: {
+      planRunCancelStateUpdate(request = {}) {
+        calls.push({ operation: "plan_run_cancel_state_update", input: request });
+        return {
+          status: "planned",
+          operation_kind: "run.cancel",
+          run: plannedCancellationRun(request.run, request.canceled_at),
+        };
+      },
+    },
+  };
+}
+
+function plannedCancellationRun(run, canceledAt) {
+  const nonTerminalEvents = normalizeArray(run.events).filter(
+    (event) => !TERMINAL_EVENT_TYPES.has(event.type) && !JOB_TERMINAL_EVENT_TYPES.has(event.type),
+  );
+  const hasRuntimeTaskEvent = nonTerminalEvents.some((event) => event.type === "runtime_task");
+  const hasRuntimeChecklistEvent = nonTerminalEvents.some((event) => event.type === "runtime_checklist");
+  const finalEventCount =
+    nonTerminalEvents.length + (hasRuntimeTaskEvent ? 0 : 1) + (hasRuntimeChecklistEvent ? 0 : 1) + 2;
+  const runtimeTask = runtimeTaskRecord({
+    runId: run.id,
+    agent: { id: run.agentId },
+    prompt: run.objective,
+    mode: run.mode,
+    taskFamily: run.trace?.qualityLedger?.taskFamily ?? runHelpers.taskFamilyForMode(run.mode ?? "send"),
+    selectedStrategy: run.trace?.qualityLedger?.selectedStrategy ?? runHelpers.strategyForMode(run.mode ?? "send"),
+    createdAt: run.createdAt,
+    updatedAt: canceledAt,
+    status: "canceled",
+  });
+  let runtimeJob = runtimeJobRecord({
+    runtimeTask,
+    status: "canceled",
+    createdAt: run.createdAt,
+    updatedAt: canceledAt,
+    queuedAt: run.runtimeJob?.queuedAt ?? run.createdAt,
+    startedAt: run.runtimeJob?.startedAt ?? run.createdAt,
+    completedAt: canceledAt,
+    lifecycle: ["queued", "started", "canceled"],
+    eventCount: finalEventCount,
+    terminalEventCount: 1,
+    artifactNames: normalizeArray(run.artifacts).map((artifactItem) => artifactItem.name).filter(Boolean),
+    receiptKinds: normalizeArray(run.receipts).map((receipt) => receipt.kind).filter(Boolean),
+  });
+  const runtimeChecklist = runtimeChecklistRecord({
+    runtimeTask,
+    runtimeJob,
+    status: "canceled",
+    createdAt: run.createdAt,
+    updatedAt: canceledAt,
+  });
+  runtimeJob = attachChecklistToRuntimeJob(runtimeJob, runtimeChecklist);
+  const canceledEvents = nonTerminalEvents.map((event) => {
+    if (event.type === "runtime_task") {
+      return {
+        ...event,
+        data: {
+          ...runtimeTask,
+          receiptId: `receipt_${run.id}_runtime_task`,
+          eventKind: "RuntimeTaskRecord",
+          workflowNodeId: "runtime.runtime-task",
+        },
+      };
+    }
+    return event;
+  });
+  if (!hasRuntimeTaskEvent) {
+    canceledEvents.push(
+      runHelpers.makeEvent(run.id, run.agentId, canceledEvents.length, "runtime_task", "Runtime task record written", {
+        ...runtimeTask,
+        receiptId: `receipt_${run.id}_runtime_task`,
+        eventKind: "RuntimeTaskRecord",
+        workflowNodeId: "runtime.runtime-task",
+      }),
+    );
+  }
+  if (!hasRuntimeChecklistEvent) {
+    canceledEvents.push(
+      runHelpers.makeEvent(run.id, run.agentId, canceledEvents.length, "runtime_checklist", "Runtime checklist recorded", {
+        ...runtimeChecklist,
+        receiptId: `receipt_${run.id}_runtime_checklist`,
+        eventKind: "RuntimeChecklistRecord",
+        workflowNodeId: "runtime.runtime-checklist",
+      }),
+    );
+  }
+  canceledEvents.push(
+    runHelpers.makeEvent(run.id, run.agentId, canceledEvents.length, "job_canceled", "Runtime job canceled", {
+      ...runtimeJob,
+      lifecycleStatus: "canceled",
+      receiptId: `receipt_${run.id}_runtime_job`,
+      eventKind: "JobCanceled",
+      workflowNodeId: "runtime.runtime-job",
+    }),
+  );
+  canceledEvents.push(
+    runHelpers.makeEvent(run.id, run.agentId, canceledEvents.length, "canceled", "Run canceled", {
+      reason: "operator_cancel",
+      priorStatus: run.status,
+    }),
+  );
+  const runtimeChecklistReceipt = {
+    id: `receipt_${run.id}_runtime_checklist`,
+    kind: "runtime_checklist",
+    summary: runtimeChecklist.summary,
+    redaction: "redacted",
+    evidenceRefs: [
+      runtimeChecklist.checklistId,
+      runtimeTask.taskId,
+      runtimeJob.jobId,
+      "RuntimeChecklistNode",
+      "runtime.checklists.durable_projection",
+    ].filter(Boolean),
+  };
+  const receipts = [...normalizeArray(run.receipts), runtimeChecklistReceipt];
+  const artifacts = normalizeArray(run.artifacts).map((item) => {
+    if (item.name === "runtime-task.json") return { ...item, content: runtimeTask };
+    if (item.name === "runtime-job.json") return { ...item, content: runtimeJob };
+    if (item.name === "runtime-checklist.json") return { ...item, content: runtimeChecklist };
+    return item;
+  });
+  if (!artifacts.some((item) => item.name === "runtime-checklist.json")) {
+    artifacts.push(
+      artifact(
+        run.id,
+        "runtime-checklist.json",
+        "application/json",
+        runtimeChecklistReceipt.id,
+        runtimeChecklist,
+        "redacted",
+      ),
+    );
+  }
+  const trace = {
+    ...run.trace,
+    events: canceledEvents,
+    receipts,
+    runtimeTask,
+    runtimeJob,
+    runtimeChecklist,
+    stopCondition: {
+      reason: "marginal_improvement_too_low",
+      evidenceSufficient: true,
+      rationale:
+        "Cancellation became the single terminal event and replay cursor continuity was preserved.",
+    },
+    qualityLedger: {
+      ...run.trace.qualityLedger,
+      failureOntologyLabels: [
+        ...new Set([...(run.trace.qualityLedger?.failureOntologyLabels ?? []), "operator_cancel"]),
+      ],
+    },
+  };
+  return {
+    ...run,
+    status: "canceled",
+    updatedAt: canceledAt,
+    events: canceledEvents,
+    trace,
+    receipts,
+    artifacts,
+    runtimeTask,
+    runtimeJob,
+    runtimeChecklist,
+    result: "Run canceled with terminal event continuity preserved.",
   };
 }
 
@@ -164,9 +321,14 @@ test("cancelRun rewrites terminal continuity and durable runtime projections", (
     ],
   };
   const state = fakeState(run);
+  const calls = [];
 
-  const updated = cancelRun(state, run.id, deps());
+  const updated = cancelRun(state, run.id, deps(calls));
 
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].operation, "plan_run_cancel_state_update");
+  assert.equal(calls[0].input.run_id, run.id);
+  assert.equal(calls[0].input.canceled_at, "2026-06-06T04:45:00.000Z");
   assert.equal(updated.status, "canceled");
   assert.equal(updated.result, "Run canceled with terminal event continuity preserved.");
   assert.deepEqual(updated.events.map((event) => event.type), [
@@ -226,9 +388,11 @@ test("cancelRun appends runtime task and checklist events when missing", () => {
     artifacts: [],
   };
   const state = fakeState(run);
+  const calls = [];
 
-  const updated = cancelRun(state, run.id, deps());
+  const updated = cancelRun(state, run.id, deps(calls));
 
+  assert.equal(calls[0].operation, "plan_run_cancel_state_update");
   assert.deepEqual(updated.events.map((event) => event.type), [
     "delta",
     "runtime_task",
