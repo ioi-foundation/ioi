@@ -193,6 +193,8 @@ test("runtime MCP control surface applies add, remove, and blocked mutation enve
   const added = surface.addMcpServer(store, {
     thread_id: "thread-agent-one",
     threadId: "thread-retired",
+    workflow_node_id: "runtime.mcp-server.extra.canonical",
+    workflowNodeId: "runtime.mcp-server.extra.retired",
     id: "mcp.extra",
     tools: [{ name: "extra" }],
   });
@@ -200,6 +202,7 @@ test("runtime MCP control surface applies add, remove, and blocked mutation enve
   assert.equal(added.add_count, 1);
   assert.equal(added.policy_decision, "registry_write_allowed");
   assert.equal(events.at(-1).payload_schema_version, "status.schema");
+  assert.equal(events.at(-1).workflow_node_id, "runtime.mcp-server.extra.canonical");
   assert.equal(store.agents.get("agent-one").mcpRegistry.servers.some((item) => item.id === "mcp.extra"), true);
   assert.equal(statePlannerCalls.at(-1).control_kind, "mcp_add");
   assert.equal(statePlannerCalls.at(-1).agent.mcpRegistry.servers.some((item) => item.id === "mcp.extra"), true);
@@ -212,9 +215,12 @@ test("runtime MCP control surface applies add, remove, and blocked mutation enve
   const removed = surface.removeThreadMcpServer(store, "thread-agent-one", null, {
     server_id: "mcp.extra",
     serverId: "mcp.retired",
+    workflow_node_id: "runtime.mcp-server.remove.canonical",
+    workflowNodeId: "runtime.mcp-server.remove.retired",
   });
   assert.equal(removed.event_kind, "McpServerRemoved");
   assert.equal(removed.removed_count, 1);
+  assert.equal(events.at(-1).workflow_node_id, "runtime.mcp-server.remove.canonical");
   assert.equal(store.agents.get("agent-one").mcpRegistry.servers.some((item) => item.id === "mcp.extra"), false);
   assert.equal(statePlannerCalls.at(-1).control_kind, "mcp_remove");
 

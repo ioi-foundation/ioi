@@ -705,7 +705,6 @@ export interface RuntimeMcpValidationInput {
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
   workflowGraphId?: string;
   workflow_graph_id?: string;
-  workflowNodeId?: string;
   workflow_node_id?: string;
   [key: string]: unknown;
 }

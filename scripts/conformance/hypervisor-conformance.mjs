@@ -7717,6 +7717,9 @@ function runCompositor() {
   const runtimeMcpSdkToolSearchInputBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpToolSearchInput[\s\S]*?\n}\n/)?.[0] ??
     "";
+  const runtimeMcpSdkValidationInputBlock =
+    agentSdkSubstrateClient.match(/export interface RuntimeMcpValidationInput[\s\S]*?\n}\n/)?.[0] ??
+    "";
   const runtimeMcpSdkServerControlInputBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpServerControlInput[\s\S]*?\n}\n/)?.[0] ??
     "";
@@ -10316,6 +10319,22 @@ function runCompositor() {
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP server-control requests must use canonical server_id without the retired serverId compatibility alias",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-control-workflow-node-request-alias-retired",
+    /request\.workflow_node_id/.test(runtimeMcpControlSurface) &&
+      /workflowNodeId: "runtime\.mcp-server\.extra\.retired"/.test(runtimeMcpControlSurfaceTest) &&
+      /workflowNodeId: "runtime\.mcp-server\.remove\.retired"/.test(runtimeMcpControlSurfaceTest) &&
+      /^\s*workflow_node_id\?: string;/m.test(runtimeMcpSdkValidationInputBlock) &&
+      !/request\.workflowNodeId\b/.test(runtimeMcpControlSurface) &&
+      !/^\s*workflowNodeId\?:/m.test(runtimeMcpSdkValidationInputBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP control requests must use canonical workflow_node_id without the retired workflowNodeId compatibility alias",
   );
   assertCheck(
     result,

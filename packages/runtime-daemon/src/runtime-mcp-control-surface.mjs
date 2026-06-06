@@ -191,7 +191,7 @@ export function createRuntimeMcpControlSurface({
         sourceEventKind: "OperatorControl.McpAdd",
         eventKind: "mcp.server_added",
         workflowNodeId:
-          optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ??
+          optionalStringDep(request.workflow_node_id) ??
           `runtime.mcp-server.${safeIdDep(server.id)}`,
         serversToUpsert: [server],
       });
@@ -218,7 +218,7 @@ export function createRuntimeMcpControlSurface({
         eventKind: "mcp.server_removed",
         componentKind: "mcp_provider",
         workflowNodeId:
-          optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ??
+          optionalStringDep(request.workflow_node_id) ??
           `runtime.mcp-server.${safeIdDep(server.id)}`,
         payloadSchemaVersion: statusSchemaVersion,
         status: "completed",
@@ -510,7 +510,7 @@ export function createRuntimeMcpControlSurface({
         eventKind: enabled ? "mcp.server_enabled" : "mcp.server_disabled",
         componentKind: "mcp_provider",
         workflowNodeId:
-          optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ??
+          optionalStringDep(request.workflow_node_id) ??
           `runtime.mcp-server.${safeIdDep(updatedServer.id)}`,
         payloadSchemaVersion: statusSchemaVersion,
         status: "completed",
@@ -732,7 +732,7 @@ export function createRuntimeMcpControlSurface({
         eventKind: "mcp.tool_invocation",
         componentKind: "mcp_tool_call",
         workflowNodeId:
-          optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ??
+          optionalStringDep(request.workflow_node_id) ??
           toolEntry.workflowNodeId ??
           toolEntry.workflow_node_id ??
           `runtime.mcp-tool.${safeIdDep(server.id)}.${safeIdDep(toolName)}`,
@@ -834,7 +834,7 @@ export function createRuntimeMcpControlSurface({
       const source = operatorControlSourceDep(request.source);
       const graphId = optionalStringDep(request.workflow_graph_id ?? request.workflowGraphId) ?? null;
       const nodeId =
-        optionalStringDep(request.workflow_node_id ?? request.workflowNodeId) ??
+        optionalStringDep(request.workflow_node_id) ??
         workflowNodeId;
       const eventHash = doctorHashDep(`${threadId}:${controlKind}:${JSON.stringify(payload)}:${Date.now()}`).slice(0, 12);
       const receiptId = `receipt_mcp_${safeIdDep(controlKind)}_${eventHash}`;

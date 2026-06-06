@@ -12460,6 +12460,12 @@ runtime MCP server control paths and SDK server control inputs now use canonical
 `server_id`; retired camelCase `serverId` request fields no longer resolve MCP
 server-control targets and are absent from SDK control input types.
 
+Slice 396 removes the MCP control workflow-node request alias:
+runtime MCP control paths and SDK MCP validation-derived request inputs now use
+canonical `workflow_node_id`; retired camelCase `workflowNodeId` request fields
+no longer select MCP control workflow nodes and are absent from SDK MCP request
+input types.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
