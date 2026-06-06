@@ -237,11 +237,11 @@ export function mcpLiveExecutionModeForServer(server, request = {}) {
   }
   const transport = optionalString(server.transport)?.toLowerCase() ?? "stdio";
   if (transport === "stdio" && optionalString(server.command)) return "live_stdio";
-  if (transport === "http" && optionalString(server.server_url ?? server.serverUrl ?? server.endpoint)) return "live_http";
-  if (transport === "sse" && optionalString(server.server_url ?? server.serverUrl ?? server.endpoint)) return "live_sse";
+  if (transport === "http" && optionalString(server.server_url)) return "live_http";
+  if (transport === "sse" && optionalString(server.server_url)) return "live_sse";
   if (request.live_transport === true) {
     if (optionalString(server.command)) return "live_stdio";
-    if (optionalString(server.server_url ?? server.serverUrl ?? server.endpoint)) {
+    if (optionalString(server.server_url)) {
       return transport === "sse" ? "live_sse" : "live_http";
     }
   }

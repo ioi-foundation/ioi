@@ -15205,13 +15205,22 @@ function runCompositor() {
     "runtime-mcp-live-mode-request-aliases-retired",
     /request\.execution_mode/.test(runtimeMcpLiveExecutionModeBlock) &&
       /request\.live_transport/.test(runtimeMcpLiveExecutionModeBlock) &&
+      /transport === "http" && optionalString\(server\.server_url\)/.test(
+        runtimeMcpLiveExecutionModeBlock,
+      ) &&
+      /transport === "sse" && optionalString\(server\.server_url\)/.test(
+        runtimeMcpLiveExecutionModeBlock,
+      ) &&
       /executionMode: "live_stdio"/.test(runtimeMcpHelpersTest) &&
       /liveTransport: true/.test(runtimeMcpHelpersTest) &&
+      /endpoint: "http:\/\/mcp\.test"/.test(runtimeMcpHelpersTest) &&
+      /serverUrl: "http:\/\/mcp\.test\/sse"/.test(runtimeMcpHelpersTest) &&
       /^\s*execution_mode\?: "live_stdio" \| "live_http" \| "live_sse" \| "simulated_manager_receipt" \| string;/m.test(
         runtimeMcpSdkToolInvokeInputBlock,
       ) &&
       /^\s*live_transport\?: boolean;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
       !/request\.(?:executionMode|liveTransport)\b/.test(runtimeMcpLiveExecutionModeBlock) &&
+      !/server\.(?:serverUrl|endpoint)\b/.test(runtimeMcpLiveExecutionModeBlock) &&
       !/^\s*(?:executionMode|liveTransport)\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
     [
       "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",

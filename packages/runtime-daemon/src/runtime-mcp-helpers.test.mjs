@@ -128,8 +128,16 @@ test("runtime MCP helpers shape JSON-RPC envelopes and transport metadata", () =
   assert.equal(mcpJsonRpcErrorCodeFor({ status: 500 }), -32603);
 
   assert.equal(mcpLiveExecutionModeForServer({ transport: "stdio", command: "npx" }), "live_stdio");
-  assert.equal(mcpLiveExecutionModeForServer({ transport: "http", endpoint: "http://mcp.test" }), "live_http");
-  assert.equal(mcpLiveExecutionModeForServer({ transport: "sse", serverUrl: "http://mcp.test/sse" }), "live_sse");
+  assert.equal(
+    mcpLiveExecutionModeForServer({ transport: "http", server_url: "http://mcp.test", endpoint: "http://retired.test" }),
+    "live_http",
+  );
+  assert.equal(
+    mcpLiveExecutionModeForServer({ transport: "sse", server_url: "http://mcp.test/sse", serverUrl: "http://retired.test/sse" }),
+    "live_sse",
+  );
+  assert.equal(mcpLiveExecutionModeForServer({ transport: "http", endpoint: "http://mcp.test" }), null);
+  assert.equal(mcpLiveExecutionModeForServer({ transport: "sse", serverUrl: "http://mcp.test/sse" }), null);
   assert.equal(mcpLiveExecutionModeForServer({ transport: "stdio", command: "npx" }, { simulate: true }), null);
   assert.equal(
     mcpLiveExecutionModeForServer({ transport: "fixture" }, { execution_mode: "live_http", executionMode: "live_stdio" }),
