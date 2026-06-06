@@ -229,7 +229,7 @@ export function mcpJsonRpcErrorCodeFor(error) {
 }
 
 export function mcpLiveExecutionModeForServer(server, request = {}) {
-  const executionMode = optionalString(request.execution_mode ?? request.executionMode);
+  const executionMode = optionalString(request.execution_mode);
   if (
     request.simulated === true ||
     request.simulate === true ||
@@ -244,7 +244,7 @@ export function mcpLiveExecutionModeForServer(server, request = {}) {
   if (transport === "stdio" && optionalString(server.command)) return "live_stdio";
   if (transport === "http" && optionalString(server.server_url ?? server.serverUrl ?? server.endpoint)) return "live_http";
   if (transport === "sse" && optionalString(server.server_url ?? server.serverUrl ?? server.endpoint)) return "live_sse";
-  if (request.live_transport === true || request.liveTransport === true) {
+  if (request.live_transport === true) {
     if (optionalString(server.command)) return "live_stdio";
     if (optionalString(server.server_url ?? server.serverUrl ?? server.endpoint)) {
       return transport === "sse" ? "live_sse" : "live_http";

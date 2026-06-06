@@ -116,6 +116,22 @@ test("runtime MCP helpers shape JSON-RPC envelopes and transport metadata", () =
   assert.equal(mcpLiveExecutionModeForServer({ transport: "http", endpoint: "http://mcp.test" }), "live_http");
   assert.equal(mcpLiveExecutionModeForServer({ transport: "sse", serverUrl: "http://mcp.test/sse" }), "live_sse");
   assert.equal(mcpLiveExecutionModeForServer({ transport: "stdio", command: "npx" }, { simulate: true }), null);
+  assert.equal(
+    mcpLiveExecutionModeForServer({ transport: "fixture" }, { execution_mode: "live_http", executionMode: "live_stdio" }),
+    "live_http",
+  );
+  assert.equal(mcpLiveExecutionModeForServer({ transport: "fixture" }, { executionMode: "live_http" }), null);
+  assert.equal(
+    mcpLiveExecutionModeForServer(
+      { transport: "fixture", server_url: "http://mcp.test" },
+      { live_transport: true, liveTransport: false },
+    ),
+    "live_http",
+  );
+  assert.equal(
+    mcpLiveExecutionModeForServer({ transport: "fixture", server_url: "http://mcp.test" }, { liveTransport: true }),
+    null,
+  );
 });
 
 test("runtime MCP helpers summarize and defer large catalogs", () => {

@@ -7601,6 +7601,10 @@ function runCompositor() {
     runtimeMcpHelpers.match(
       /export function resolveMcpToolRecord\(servers = \[\], toolId, request = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpServeAllowedToolIds/,
     )?.[0] ?? "";
+  const runtimeMcpLiveExecutionModeBlock =
+    runtimeMcpHelpers.match(
+      /export function mcpLiveExecutionModeForServer\(server, request = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpTransportEvidenceRef/,
+    )?.[0] ?? "";
   const agentIdeTerminalRunLaunch = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
   )
@@ -10352,6 +10356,26 @@ function runCompositor() {
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP live transport requests must use canonical timeout_ms without the retired timeoutMs compatibility alias",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-live-mode-request-aliases-retired",
+    /request\.execution_mode/.test(runtimeMcpLiveExecutionModeBlock) &&
+      /request\.live_transport/.test(runtimeMcpLiveExecutionModeBlock) &&
+      /executionMode: "live_stdio"/.test(runtimeMcpHelpersTest) &&
+      /liveTransport: true/.test(runtimeMcpHelpersTest) &&
+      /^\s*execution_mode\?: "live_stdio" \| "live_http" \| "live_sse" \| "simulated_manager_receipt" \| string;/m.test(
+        runtimeMcpSdkToolInvokeInputBlock,
+      ) &&
+      /^\s*live_transport\?: boolean;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
+      !/request\.(?:executionMode|liveTransport)\b/.test(runtimeMcpLiveExecutionModeBlock) &&
+      !/^\s*(?:executionMode|liveTransport)\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP live transport requests must use canonical execution_mode/live_transport without retired camelCase live-mode aliases",
   );
   assertCheck(
     result,

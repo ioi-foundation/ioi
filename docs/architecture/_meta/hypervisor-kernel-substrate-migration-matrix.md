@@ -12472,6 +12472,12 @@ use canonical `timeout_ms`; retired camelCase `timeoutMs` request fields no
 longer configure MCP live discovery or tool invocation timeouts and are absent
 from SDK invoke input types.
 
+Slice 398 removes the MCP live-mode request aliases:
+runtime MCP live execution-mode selection and SDK MCP invoke inputs now use
+canonical `execution_mode` and `live_transport`; retired camelCase
+`executionMode` and `liveTransport` request fields no longer select live MCP
+transport execution and are absent from SDK invoke input types.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

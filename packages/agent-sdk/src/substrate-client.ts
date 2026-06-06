@@ -744,9 +744,7 @@ export interface RuntimeMcpToolInvokeInput extends RuntimeMcpValidationInput {
   requiresApproval?: boolean;
   requires_approval?: boolean;
   approved?: boolean;
-  liveTransport?: boolean;
   live_transport?: boolean;
-  executionMode?: "live_stdio" | "live_http" | "live_sse" | "simulated_manager_receipt" | string;
   execution_mode?: "live_stdio" | "live_http" | "live_sse" | "simulated_manager_receipt" | string;
   timeout_ms?: number;
 }
