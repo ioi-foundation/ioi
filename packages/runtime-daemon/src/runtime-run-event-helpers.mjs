@@ -282,8 +282,8 @@ export function createRuntimeRunEventHelpers({
 
   function computerUseArtifactRefsForRunEvent(event) {
     const data = objectRecord(event.data);
-    const observation = objectRecord(data?.observation_bundle ?? data?.observationBundle);
-    const cleanup = objectRecord(data?.cleanup_receipt ?? data?.cleanupReceipt);
+    const observation = objectRecord(data?.observation_bundle);
+    const cleanup = objectRecord(data?.cleanup_receipt);
     return uniqueStrings([
       "computer-use-trace.json",
       observation?.screenshot_ref,

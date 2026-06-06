@@ -1329,7 +1329,9 @@ function runBridge() {
       /normalizeArray\(data\?\.computer_use_visual_artifact_refs\)/.test(runtimeRunEventHelpers) &&
       /legacy-shot\.png/.test(runtimeRunEventHelpersTest) &&
       /\["computer-use-trace\.json"\]/.test(runtimeRunEventHelpersTest) &&
-      !/\b(?:observation|cleanup|data)\?\.(?:screenshotRef|somRef|axRef|retainedArtifactRefs|computerUseVisualArtifactRefs)\b/.test(runtimeRunEventHelpers),
+      /observationBundle:\s*\{\s*screenshot_ref: "legacy-shot\.png"/.test(runtimeRunEventHelpersTest) &&
+      !/\b(?:observation|cleanup|data)\?\.(?:screenshotRef|somRef|axRef|retainedArtifactRefs|computerUseVisualArtifactRefs|observationBundle|cleanupReceipt)\b/.test(runtimeRunEventHelpers) &&
+      !/objectRecord\(data\?\.(?:observation_bundle|cleanup_receipt)\s*\?\?\s*data\?\.(?:observationBundle|cleanupReceipt)\)/.test(runtimeRunEventHelpers),
     [
       "packages/runtime-daemon/src/runtime-run-event-helpers.mjs",
       "packages/runtime-daemon/src/runtime-run-event-helpers.test.mjs",

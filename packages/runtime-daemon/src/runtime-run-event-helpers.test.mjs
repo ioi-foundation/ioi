@@ -139,6 +139,18 @@ test("runtime run event helpers preserve computer-use artifact refs", () => {
   assert.deepEqual(runtime.computerUseArtifactRefsForRunEvent({
     type: "computer_use_action_executed",
     data: {
+      observationBundle: {
+        screenshot_ref: "legacy-shot.png",
+      },
+      cleanupReceipt: {
+        retained_artifact_refs: ["legacy-cleanup.json"],
+      },
+      computer_use_visual_artifact_refs: ["visual.png"],
+    },
+  }), ["computer-use-trace.json", "visual.png"]);
+  assert.deepEqual(runtime.computerUseArtifactRefsForRunEvent({
+    type: "computer_use_action_executed",
+    data: {
       observation_bundle: {
         screenshotRef: "legacy-shot.png",
         somRef: "legacy-som.json",
