@@ -7604,6 +7604,14 @@ function runCompositor() {
     runtimeMcpControlSurface.match(
       /removeThreadMcpServer\(store, threadId, serverId, request = \{\}\) \{[\s\S]*?\n    \},\n    applyThreadMcpServerMutation/,
     )?.[0] ?? "";
+  const runtimeMcpApplyThreadServerMutationBlock =
+    runtimeMcpControlSurface.match(
+      /applyThreadMcpServerMutation\(store, \{[\s\S]*?\n    \},\n    async mcpStatusWithLiveDiscovery/,
+    )?.[0] ?? "";
+  const runtimeMcpSetThreadServerEnabledBlock =
+    runtimeMcpControlSurface.match(
+      /setThreadMcpServerEnabled\(store, threadId, serverId, enabled, request = \{\}\) \{[\s\S]*?\n    \},\n    async invokeMcpTool/,
+    )?.[0] ?? "";
   const runtimeMcpGetToolFromCatalogBlock =
     runtimeMcpCatalogSurface.match(
       /async getMcpToolFromCatalog\(store, toolId, request = \{\}\) \{[\s\S]*?\n    \},\n    async searchMcpToolCatalog/,
@@ -10707,6 +10715,38 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
     ],
     "Phase 10/11 is pending: MCP control status and live-discovery payloads must expose canonical snake_case output fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-control-mutation-output-aliases-retired",
+    /server_id:\s*server\.id/.test(runtimeMcpRemoveThreadServerBlock) &&
+      /removed_count:\s*1/.test(runtimeMcpRemoveThreadServerBlock) &&
+      /proposed_servers:\s*proposedServers/.test(runtimeMcpApplyThreadServerMutationBlock) &&
+      /\[\`\$\{mutationKind\}_count`\]:\s*proposedServers\.length/.test(
+        runtimeMcpApplyThreadServerMutationBlock,
+      ) &&
+      /evidence_refs:\s*uniqueStringsDep/.test(runtimeMcpApplyThreadServerMutationBlock) &&
+      /server_id:\s*updatedServer\.id/.test(runtimeMcpSetThreadServerEnabledBlock) &&
+      /evidence_refs:\s*uniqueStringsDep/.test(runtimeMcpSetThreadServerEnabledBlock) &&
+      /Object\.hasOwn\(added,\s*"addCount"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
+      /Object\.hasOwn\(removed,\s*"serverId"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
+      /Object\.hasOwn\(removed,\s*"removedCount"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
+      /Object\.hasOwn\(blocked,\s*"proposedServers"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
+      /Object\.hasOwn\(disabled\.server,\s*"evidenceRefs"\),\s*false/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      !/serverId:\s*server\.id/.test(runtimeMcpRemoveThreadServerBlock) &&
+      !/removedCount\s*:/.test(runtimeMcpRemoveThreadServerBlock) &&
+      !/proposedServers\s*:/.test(runtimeMcpApplyThreadServerMutationBlock) &&
+      !/\[\`\$\{mutationKind\}Count`\]/.test(runtimeMcpApplyThreadServerMutationBlock) &&
+      !/evidenceRefs\s*:/.test(runtimeMcpApplyThreadServerMutationBlock) &&
+      !/serverId:\s*updatedServer\.id/.test(runtimeMcpSetThreadServerEnabledBlock) &&
+      !/evidenceRefs\s*:/.test(runtimeMcpSetThreadServerEnabledBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP control mutation payloads must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

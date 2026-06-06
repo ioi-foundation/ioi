@@ -12552,6 +12552,13 @@ camelCase facade fields such as `schemaVersion`, `serverCount`, `serverId`,
 `executionMode`, `returnedToolCount`, `catalogSummaries`, and `liveDiscovery`
 are retired from the control status surface.
 
+Slice 411 removes MCP control mutation output aliases:
+runtime MCP add/import/remove/enable/disable control payloads now emit
+canonical snake_case mutation metadata only; duplicate camelCase facade fields
+such as `serverId`, `removedCount`, `proposedServers`, dynamic
+`addCount`/`importCount`, and `evidenceRefs` are retired from the mutation
+surface.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

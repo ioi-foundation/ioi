@@ -219,6 +219,8 @@ test("runtime MCP control surface applies add, remove, and blocked mutation enve
   assert.equal(added.event_kind, "McpServerAdded");
   assert.equal(added.add_count, 1);
   assert.equal(added.policy_decision, "registry_write_allowed");
+  assert.equal(Object.hasOwn(added, "addCount"), false);
+  assert.equal(Object.hasOwn(store.agents.get("agent-one").mcpRegistry.servers.at(-1), "evidenceRefs"), false);
   assert.equal(events.at(-1).payload_schema_version, "status.schema");
   assert.equal(events.at(-1).workflow_node_id, "runtime.mcp-server.extra.canonical");
   assert.equal(store.agents.get("agent-one").mcpRegistry.servers.some((item) => item.id === "mcp.extra"), true);
@@ -238,6 +240,9 @@ test("runtime MCP control surface applies add, remove, and blocked mutation enve
   });
   assert.equal(removed.event_kind, "McpServerRemoved");
   assert.equal(removed.removed_count, 1);
+  assert.equal(removed.server_id, "mcp.extra");
+  assert.equal(Object.hasOwn(removed, "serverId"), false);
+  assert.equal(Object.hasOwn(removed, "removedCount"), false);
   assert.equal(events.at(-1).workflow_node_id, "runtime.mcp-server.remove.canonical");
   assert.equal(store.agents.get("agent-one").mcpRegistry.servers.some((item) => item.id === "mcp.extra"), false);
   assert.equal(statePlannerCalls.at(-1).control_kind, "mcp_remove");
@@ -255,6 +260,7 @@ test("runtime MCP control surface applies add, remove, and blocked mutation enve
   assert.equal(blocked.event_kind, "McpServersImportBlocked");
   assert.equal(blocked.policy_decision, "registry_write_blocked");
   assert.equal(blocked.issues[0].code, "invalid_server");
+  assert.equal(Object.hasOwn(blocked, "proposedServers"), false);
   assert.equal(events.at(-1).payload_schema_version, "validation.schema");
   assert.equal(statePlannerCalls.at(-1).control_kind, "mcp_import");
   assert.deepEqual(statePlannerCalls.map((call) => call.control_kind), [
@@ -270,7 +276,10 @@ test("runtime MCP control surface records enable, status, and validation control
   const disabled = surface.setThreadMcpServerEnabled(store, "thread-agent-one", "mcp.docs", false);
   assert.equal(disabled.event_kind, "McpServerDisabled");
   assert.equal(disabled.enabled, false);
+  assert.equal(disabled.server_id, "mcp.docs");
   assert.equal(disabled.server.status, "disabled");
+  assert.equal(Object.hasOwn(disabled, "serverId"), false);
+  assert.equal(Object.hasOwn(disabled.server, "evidenceRefs"), false);
   assert.equal(events.at(-1).event_kind, "mcp.server_disabled");
 
   const status = await surface.recordThreadMcpStatus(store, "thread-agent-one");

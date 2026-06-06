@@ -222,11 +222,9 @@ export function createRuntimeMcpControlSurface({
           thread_id: threadId,
           agent_id: updatedAgent.id,
           server_id: server.id,
-          serverId: server.id,
           server,
           removed: [server],
           removed_count: 1,
-          removedCount: 1,
           policy_decision: "registry_write_allowed",
           summary: `MCP server ${server.id} removed from the active runtime registry.`,
         },
@@ -273,7 +271,6 @@ export function createRuntimeMcpControlSurface({
             thread_id: threadId,
             agent_id: agent.id,
             proposed_servers: proposedServers,
-            proposedServers,
             validation,
             issues: validation.issues,
             warnings: validation.warnings,
@@ -287,10 +284,6 @@ export function createRuntimeMcpControlSurface({
         byId.set(server.id, {
           ...server,
           evidence_refs: uniqueStringsDep([
-            ...(server.evidence_refs ?? server.evidenceRefs ?? []),
-            mutationKind === "import" ? "mcp.manager.server.import" : "mcp.manager.server.add",
-          ]),
-          evidenceRefs: uniqueStringsDep([
             ...(server.evidence_refs ?? server.evidenceRefs ?? []),
             mutationKind === "import" ? "mcp.manager.server.import" : "mcp.manager.server.add",
           ]),
@@ -324,7 +317,6 @@ export function createRuntimeMcpControlSurface({
           servers: proposedServers,
           [mutationKind === "import" ? "imported" : "added"]: proposedServers,
           [`${mutationKind}_count`]: proposedServers.length,
-          [`${mutationKind}Count`]: proposedServers.length,
           policy_decision: "registry_write_allowed",
           summary:
             mutationKind === "import"
@@ -459,10 +451,6 @@ export function createRuntimeMcpControlSurface({
           ...(server.evidence_refs ?? server.evidenceRefs ?? []),
           enabled ? "mcp.manager.server.enable" : "mcp.manager.server.disable",
         ]),
-        evidenceRefs: uniqueStringsDep([
-          ...(server.evidence_refs ?? server.evidenceRefs ?? []),
-          enabled ? "mcp.manager.server.enable" : "mcp.manager.server.disable",
-        ]),
       };
       const servers = normalizeArrayDep(registry.servers).map((candidate) =>
         candidate.id === server.id ? updatedServer : candidate,
@@ -495,7 +483,6 @@ export function createRuntimeMcpControlSurface({
           thread_id: threadId,
           agent_id: updatedAgent.id,
           server_id: updatedServer.id,
-          serverId: updatedServer.id,
           enabled,
           server: updatedServer,
           servers: [updatedServer],
