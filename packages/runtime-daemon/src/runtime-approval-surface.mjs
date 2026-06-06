@@ -38,7 +38,7 @@ function approvalRevokeRequiredError(runtimeError, threadId) {
 function resolveApprovalTarget(store, agent, threadId, request = {}, fallbackTurnId = "", deps = {}) {
   const { notFound } = deps;
   const runs = store.listRuns(agent.id);
-  const requestedTurnId = optionalString(request.turn_id ?? request.turnId);
+  const requestedTurnId = optionalString(request.turn_id);
   let turnId = requestedTurnId ?? fallbackTurnId ?? "";
   let run = null;
   if (turnId) {
@@ -175,7 +175,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       optionalString(request.approval_id ?? request.approvalId) ??
       `approval_context_pressure_${safeId(threadId)}_${safeId(turnId || "thread")}_${approvalHash}`;
     const workflowNodeId =
-      optionalString(request.workflow_node_id ?? request.workflowNodeId) ??
+      optionalString(request.workflow_node_id) ??
       `runtime.approval.${safeId(approvalId)}`;
     const scope = optionalString(request.scope) ?? "thread";
     const pressure = contextBudgetNumber(
@@ -203,7 +203,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       threadId,
     });
     const receiptRefs = uniqueStrings([
-      ...normalizeArray(request.receipt_refs ?? request.receiptRefs),
+      ...normalizeArray(request.receipt_refs),
       `receipt_${runOrAgentId}_approval_required_${safeId(approvalId)}`,
     ]);
     const policyDecisionRefs = uniqueStrings([
@@ -227,7 +227,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       actor: "user",
       created_at: now,
       workspace_root: agent.cwd,
-      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
+      workflow_graph_id: request.workflow_graph_id ?? null,
       workflow_node_id: workflowNodeId,
       component_kind: "approval_gate",
       approval_id: approvalId,
@@ -393,10 +393,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       .update(`${normalizedApprovalId}:${decision}:${reason ?? ""}:${requestedBy}`)
       .digest("hex")
       .slice(0, 16);
-    const workflowNodeId =
-      request.workflow_node_id ??
-      request.workflowNodeId ??
-      `runtime.approval.${safeId(normalizedApprovalId)}`;
+    const workflowNodeId = request.workflow_node_id ?? `runtime.approval.${safeId(normalizedApprovalId)}`;
     const runOrAgentId = run?.id ?? agent.id;
     const event = store.appendRuntimeEvent({
       event_stream_id: eventStreamIdForThread(threadId),
@@ -414,7 +411,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
       actor: "user",
       created_at: now,
       workspace_root: agent.cwd,
-      workflow_graph_id: request.workflow_graph_id ?? request.workflowGraphId ?? null,
+      workflow_graph_id: request.workflow_graph_id ?? null,
       workflow_node_id: workflowNodeId,
       component_kind: "approval_gate",
       approval_id: normalizedApprovalId,
@@ -619,12 +616,10 @@ export function createRuntimeApprovalSurface(deps = {}) {
       .slice(0, 16);
     const workflowNodeId =
       request.workflow_node_id ??
-      request.workflowNodeId ??
       approvalRequestEvent.workflow_node_id ??
       `runtime.approval.${safeId(normalizedApprovalId)}`;
     const workflowGraphId =
       request.workflow_graph_id ??
-      request.workflowGraphId ??
       approvalRequestEvent.workflow_graph_id ??
       null;
     const runOrAgentId = run?.id ?? agent.id;

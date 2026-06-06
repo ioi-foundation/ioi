@@ -1868,6 +1868,32 @@ function runBridge() {
     ],
     "Phase 9/10 is pending: approval revoke run state updates must be planned by Rust authority core through the command bridge",
   );
+  assertCheck(
+    result,
+    "runtime-approval-request-aliases-retired",
+    /const requestedTurnId = optionalString\(request\.turn_id\);/.test(runtimeApprovalSurface) &&
+      /optionalString\(request\.workflow_node_id\)/.test(runtimeApprovalSurface) &&
+      /workflow_graph_id:\s*request\.workflow_graph_id \?\? null/.test(runtimeApprovalSurface) &&
+      /\.\.\.normalizeArray\(request\.receipt_refs\)/.test(runtimeApprovalSurface) &&
+      /approval surface ignores retired request identity aliases/.test(runtimeApprovalSurfaceTest) &&
+      /turnId: "turn_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /workflowGraphId: "graph_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /workflowNodeId: "node_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /receiptRefs: \["receipt_retired"\]/.test(runtimeApprovalSurfaceTest) &&
+      /workflowGraphId: "graph_decision_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /workflowNodeId: "node_decision_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /workflowGraphId: "graph_revoke_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /workflowNodeId: "node_revoke_retired"/.test(runtimeApprovalSurfaceTest) &&
+      /store\.events\[0\]\.receipt_refs\.includes\("receipt_retired"\), false/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      !/request\.(?:turnId|workflowNodeId|workflowGraphId|receiptRefs)\b/.test(runtimeApprovalSurface),
+    [
+      "packages/runtime-daemon/src/runtime-approval-surface.mjs",
+      "packages/runtime-daemon/src/runtime-approval-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: approval request, decision, and revoke surfaces must use canonical turn_id, workflow ids, and receipt_refs without retired request aliases",
+  );
   const runtimeContextBudgetEvaluationBlock =
     runtimeContextPolicySurface.match(
       /    evaluateContextBudget\(store, \{ threadId = null, runId = null, request = \{\} \} = \{\}\) \{[\s\S]*?(?=\n\n    evaluateCompactionPolicy)/,

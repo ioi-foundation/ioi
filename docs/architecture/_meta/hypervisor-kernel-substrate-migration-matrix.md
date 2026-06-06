@@ -12785,6 +12785,13 @@ Rust-planned coding-tool approval manifests now treat canonical
 `approved` request fields no longer set `ui_override_requested` before the Rust
 authority planner evaluates the manifest.
 
+Slice 442 removes approval request identity aliases:
+runtime approval request, decision, and revoke surfaces now consume canonical
+`turn_id`, `workflow_graph_id`, `workflow_node_id`, and `receipt_refs` only;
+retired `turnId`, `workflowGraphId`, `workflowNodeId`, and `receiptRefs` request
+fields no longer steer approval event identity or receipt binding before Rust
+authority state-update planning.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

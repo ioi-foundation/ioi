@@ -419,6 +419,49 @@ test("approval surface routes runless agent approval updates through Rust planne
   assert.equal(store.agents.get("agent_alpha").updatedAt, store.events[2].created_at);
 });
 
+test("approval surface ignores retired request identity aliases", () => {
+  const surface = createSurface();
+  const store = createStore();
+
+  surface.requestThreadApproval(store, "thread_alpha", {
+    approval_id: "approval-one",
+    reason: "Need permission",
+    turnId: "turn_retired",
+    workflowGraphId: "graph_retired",
+    workflowNodeId: "node_retired",
+    receiptRefs: ["receipt_retired"],
+  });
+
+  assert.equal(store.events[0].turn_id, "turn_alpha");
+  assert.equal(store.events[0].workflow_graph_id, null);
+  assert.match(store.events[0].workflow_node_id, /^runtime\.approval\./);
+  assert.equal(store.events[0].workflow_node_id.includes("node_retired"), false);
+  assert.equal(store.events[0].receipt_refs.includes("receipt_retired"), false);
+
+  surface.decideThreadApproval(store, "thread_alpha", "approval-one", {
+    decision: "approve",
+    turnId: "turn_retired",
+    workflowGraphId: "graph_decision_retired",
+    workflowNodeId: "node_decision_retired",
+  });
+
+  assert.equal(store.events[1].turn_id, "turn_alpha");
+  assert.equal(store.events[1].workflow_graph_id, null);
+  assert.match(store.events[1].workflow_node_id, /^runtime\.approval\./);
+  assert.equal(store.events[1].workflow_node_id.includes("node_decision_retired"), false);
+
+  surface.revokeThreadApproval(store, "thread_alpha", "approval-one", {
+    turnId: "turn_retired",
+    workflowGraphId: "graph_revoke_retired",
+    workflowNodeId: "node_revoke_retired",
+  });
+
+  assert.equal(store.events[2].turn_id, "turn_alpha");
+  assert.equal(store.events[2].workflow_graph_id, null);
+  assert.equal(store.events[2].workflow_node_id, store.events[0].workflow_node_id);
+  assert.equal(store.events[2].workflow_node_id.includes("node_revoke_retired"), false);
+});
+
 test("approval surface fails closed without Rust-planned run approval updates", () => {
   const requestSurface = createSurface({
     approvalRequestStateUpdate: {
