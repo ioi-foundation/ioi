@@ -104,14 +104,10 @@ function createSurface({ calls = [], diagnosticsOperatorOverrideStateUpdate = nu
     diagnosticsOperatorOverrideResultFromEvent({ threadId, event, turn = null } = {}) {
       const payload = event?.payload_summary ?? {};
       return {
-        threadId,
         thread_id: threadId,
         status: event?.status ?? "completed",
-        approvalRequired: Boolean(payload.approval_required),
         approval_required: Boolean(payload.approval_required),
-        approvalSatisfied: Boolean(payload.approval_satisfied),
         approval_satisfied: Boolean(payload.approval_satisfied),
-        continuationAllowed: Boolean(payload.continuation_allowed),
         continuation_allowed: Boolean(payload.continuation_allowed),
         turn,
         event,
@@ -127,14 +123,10 @@ function createSurface({ calls = [], diagnosticsOperatorOverrideStateUpdate = nu
     }),
     diagnosticsRepairRetryResultFromEvent({ threadId, event, turn = null, run = null } = {}) {
       return {
-        threadId,
         thread_id: threadId,
         status: event?.status ?? "completed",
-        turnId: turn?.turn_id ?? null,
         turn_id: turn?.turn_id ?? null,
-        requestId: turn?.request_id ?? run?.id ?? null,
         request_id: turn?.request_id ?? run?.id ?? null,
-        repairTurn: turn,
         repair_turn: turn,
         event,
         run,
@@ -183,7 +175,7 @@ function createStore({ action = "restore_apply", status = "available", snapshotR
     },
     createDiagnosticsRepairRetryTurn(threadId, input) {
       calls.push({ name: "retry", threadId, input });
-      return { status: "completed", repairTurn: { turn_id: "turn_repair" }, event: { event_id: "event_retry" } };
+      return { status: "completed", repair_turn: { turn_id: "turn_repair" }, event: { event_id: "event_retry" } };
     },
     executeDiagnosticsOperatorOverride(threadId, input) {
       calls.push({ name: "override", threadId, input });
@@ -424,7 +416,7 @@ test("diagnostics repair surface executes operator override and updates the bloc
   });
 
   assert.equal(result.status, "completed");
-  assert.equal(result.continuationAllowed, true);
+  assert.equal(result.continuation_allowed, true);
   assert.equal(store.runs.get("run_blocked").diagnosticsBlockingGate.status, "overridden");
   assert.equal(store.writes[0].reason, "diagnostics.operator_override.event");
   assert.equal(events[0].event_stream_id, "thread_alpha:events");
@@ -640,7 +632,7 @@ test("diagnostics repair surface creates retry turns with injected diagnostics f
     workflowGraphId: "graph_alpha",
   });
 
-  assert.equal(result.turnId, "turn_repair");
+  assert.equal(result.turn_id, "turn_repair");
   assert.equal(createRunCalls[0].agentId, "agent_alpha");
   assert.equal(createRunCalls[0].request.prompt, "Try the fix again");
   assert.equal(createRunCalls[0].request.options.diagnosticsMode, "skip");
@@ -740,4 +732,45 @@ test("diagnostics repair surface appends final execution events with action alia
   assert.equal(event.payload_summary.operator_override_event_id, "event_override");
   assert.equal(event.payload_summary.operator_override_approval_satisfied, true);
   assert.deepEqual(event.payload_summary.rollback_refs, ["snapshot_alpha"]);
+});
+
+test("diagnostics repair final execution events ignore retired execution result aliases", () => {
+  const surface = createSurface();
+  const events = [];
+  const store = {
+    appendRuntimeEvent(event) {
+      const stored = {
+        ...event,
+        event_id: `event_${events.length + 1}`,
+        seq: events.length + 1,
+        created_at: "2026-06-04T14:00:00.000Z",
+      };
+      events.push(stored);
+      return stored;
+    },
+  };
+
+  const event = surface.appendDiagnosticsRepairDecisionExecutedEvent(store, {
+    threadId: "thread_alpha",
+    request: { confirm: true },
+    gateEvent: { event_id: "event_gate", turn_id: "turn_blocked", payload_summary: { gate_id: "gate_alpha" } },
+    decision: { decision_id: "decision_retry" },
+    repairPolicy: { policy_id: "policy_alpha" },
+    action: "repair_retry",
+    snapshotId: "snapshot_alpha",
+    workflowGraphId: "graph_alpha",
+    workflowNodeId: "runtime.lsp-diagnostics.repair-retry",
+    executionResult: {
+      status: "completed",
+      event: { event_id: "event_retry" },
+      repairTurn: { turn_id: "turn_alias", request_id: "request_alias" },
+      approvalSatisfied: true,
+      rollback_refs: ["snapshot_alpha"],
+    },
+  });
+
+  assert.equal(event.payload_summary.repair_retry_event_id, "event_retry");
+  assert.equal(event.payload_summary.repair_retry_turn_id, null);
+  assert.equal(event.payload_summary.repair_retry_request_id, null);
+  assert.equal(event.payload_summary.approval_satisfied, null);
 });

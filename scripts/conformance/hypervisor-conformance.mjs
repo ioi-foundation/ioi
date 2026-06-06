@@ -10779,6 +10779,10 @@ function runCompositor() {
     runtimeDiagnosticsRepairSurface.match(
       /  function executeDiagnosticsRepairDecision\(store, threadId, decisionRef, request = \{\}\) \{[\s\S]*?(?=\n  function assertCanonicalDiagnosticsRepairRestoreRequestBody)/,
     )?.[0] ?? "";
+  const diagnosticsRepairDecisionExecutedEventBody =
+    runtimeDiagnosticsRepairSurface.match(
+      /  function appendDiagnosticsRepairDecisionExecutedEvent\(store, \{[\s\S]*?(?=\n  return \{)/,
+    )?.[0] ?? "";
   assertCheck(
     result,
     "diagnostics-repair-decision-result-aliases-retired",
@@ -10806,6 +10810,31 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
     ],
     "Phase 10/11 is pending: diagnostics repair decision execution results must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "diagnostics-repair-event-result-reader-aliases-retired",
+    /executionResult\?\.repair_turn\?\.turn_id/.test(diagnosticsRepairDecisionExecutedEventBody) &&
+      /executionResult\?\.repair_turn\?\.request_id/.test(diagnosticsRepairDecisionExecutedEventBody) &&
+      /executionResult\?\.override_status/.test(diagnosticsRepairDecisionExecutedEventBody) &&
+      /executionResult\?\.approval_required/.test(diagnosticsRepairDecisionExecutedEventBody) &&
+      /executionResult\?\.approval_satisfied/.test(diagnosticsRepairDecisionExecutedEventBody) &&
+      /executionResult\?\.continuation_allowed/.test(diagnosticsRepairDecisionExecutedEventBody) &&
+      /executionResult\?\.preview_status/.test(diagnosticsRepairDecisionExecutedEventBody) &&
+      /executionResult\?\.apply_status/.test(diagnosticsRepairDecisionExecutedEventBody) &&
+      !/executionResult\?\.(?:repairTurn|overrideStatus|approvalRequired|approvalSatisfied|continuationAllowed|previewStatus|applyStatus)\b/.test(
+        diagnosticsRepairDecisionExecutedEventBody,
+      ) &&
+      /diagnostics repair final execution events ignore retired execution result aliases/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /repairTurn:\s*\{ turn_id:\s*"turn_alias"/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /repair_retry_turn_id,\s*null/.test(runtimeDiagnosticsRepairSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: diagnostics repair final events must read canonical execution result fields without camelCase result fallbacks",
   );
   const diagnosticsRepairRetryResultBody =
     diagnosticsRepairExecution.match(

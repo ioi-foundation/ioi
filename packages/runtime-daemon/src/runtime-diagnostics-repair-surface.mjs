@@ -760,35 +760,23 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         workflow_node_id: workflowNodeId,
         repair_retry_event_id: action === "repair_retry" ? executionResult?.event?.event_id ?? null : null,
         repair_retry_turn_id:
-          action === "repair_retry"
-            ? executionResult?.repair_turn?.turn_id ?? executionResult?.repairTurn?.turn_id ?? null
-            : null,
+          action === "repair_retry" ? executionResult?.repair_turn?.turn_id ?? null : null,
         repair_retry_request_id:
-          action === "repair_retry"
-            ? executionResult?.repair_turn?.request_id ?? executionResult?.repairTurn?.request_id ?? null
-            : null,
+          action === "repair_retry" ? executionResult?.repair_turn?.request_id ?? null : null,
         operator_override_event_id: action === "operator_override" ? executionResult?.event?.event_id ?? null : null,
         operator_override_status:
-          action === "operator_override"
-            ? executionResult?.override_status ?? executionResult?.overrideStatus ?? executionResult?.status ?? null
-            : null,
+          action === "operator_override" ? executionResult?.override_status ?? executionResult?.status ?? null : null,
         operator_override_approval_required:
-          action === "operator_override"
-            ? executionResult?.approval_required ?? executionResult?.approvalRequired ?? null
-            : null,
+          action === "operator_override" ? executionResult?.approval_required ?? null : null,
         operator_override_approval_satisfied:
-          action === "operator_override"
-            ? executionResult?.approval_satisfied ?? executionResult?.approvalSatisfied ?? null
-            : null,
+          action === "operator_override" ? executionResult?.approval_satisfied ?? null : null,
         operator_override_continuation_allowed:
-          action === "operator_override"
-            ? executionResult?.continuation_allowed ?? executionResult?.continuationAllowed ?? null
-            : null,
+          action === "operator_override" ? executionResult?.continuation_allowed ?? null : null,
         restore_preview_event_id: action === "restore_preview" ? executionResult?.event?.event_id ?? null : null,
-        restore_preview_status: executionResult?.preview_status ?? executionResult?.previewStatus ?? null,
+        restore_preview_status: executionResult?.preview_status ?? null,
         restore_apply_event_id: action === "restore_apply" ? executionResult?.event?.event_id ?? null : null,
-        restore_apply_status: executionResult?.apply_status ?? executionResult?.applyStatus ?? null,
-        approval_satisfied: executionResult?.approval_satisfied ?? executionResult?.approvalSatisfied ?? null,
+        restore_apply_status: executionResult?.apply_status ?? null,
+        approval_satisfied: executionResult?.approval_satisfied ?? null,
         rollback_refs: rollbackRefs,
         receipt_refs: [receiptId],
         artifact_refs: artifactRefs,
