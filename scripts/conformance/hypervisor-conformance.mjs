@@ -7624,6 +7624,17 @@ function runCompositor() {
     runtimeMcpHelpers.match(
       /export function mcpLiveExecutionModeForServer\(server, request = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpTransportEvidenceRef/,
     )?.[0] ?? "";
+  const runtimeMcpCatalogExposureBlock =
+    runtimeMcpHelpers.match(
+      /export function mcpCatalogExposureForStatus\(server, catalog = \{\}, options = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpCatalogSummaryForServer/,
+    )?.[0] ?? "";
+  const runtimeMcpCatalogSummaryBlock =
+    runtimeMcpHelpers.match(
+      /export function mcpCatalogSummaryForServer\(server = \{\}, catalog = \{\}, options = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpToolNamespaces/,
+    )?.[0] ?? "";
+  const runtimeMcpCatalogSummaryReturnBlock =
+    runtimeMcpCatalogSummaryBlock.match(/return \{\n\s+schema_version:[\s\S]*?\n\s+\};/)?.[0] ??
+    "";
   const agentIdeTerminalRunLaunch = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
   )
@@ -10578,6 +10589,34 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
     ],
     "Phase 10/11 is pending: MCP serve status and error payloads must expose canonical snake_case output fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-catalog-summary-output-aliases-retired",
+    /preview_limit:\s*previewLimit/.test(runtimeMcpCatalogExposureBlock) &&
+      /full_catalog_included:\s*fullCatalogIncluded/.test(runtimeMcpCatalogExposureBlock) &&
+      /returned_tool_count:\s*exposedTools\.length/.test(runtimeMcpCatalogExposureBlock) &&
+      /search_route:\s*"\/v1\/mcp\/tools\/search"/.test(runtimeMcpCatalogExposureBlock) &&
+      /schema_version:\s*RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION/.test(runtimeMcpCatalogSummaryBlock) &&
+      /server_id:\s*server\.id/.test(runtimeMcpCatalogSummaryBlock) &&
+      /execution_mode:\s*options\.liveMode/.test(runtimeMcpCatalogSummaryBlock) &&
+      /tool_count:\s*tools\.length/.test(runtimeMcpCatalogSummaryBlock) &&
+      /full_catalog_included:\s*!deferred/.test(runtimeMcpCatalogSummaryBlock) &&
+      /error_code:\s*options\.errorCode/.test(runtimeMcpCatalogSummaryBlock) &&
+      /Object\.hasOwn\(exposure\.summary,\s*"toolCount"\),\s*false/.test(runtimeMcpHelpersTest) &&
+      /Object\.hasOwn\(exposure\.exposure,\s*"previewLimit"\),\s*false/.test(runtimeMcpHelpersTest) &&
+      !/^\s*(?:previewLimit|fullCatalogIncluded|returnedToolCount|returnedResourceCount|returnedPromptCount|searchRoute|fetchRoute)\s*:/m.test(
+        runtimeMcpCatalogExposureBlock,
+      ) &&
+      !/serverId:\s*server\.id/.test(runtimeMcpCatalogSummaryReturnBlock) &&
+      !/^\s*(?:schemaVersion|serverLabel|executionMode|catalogHash|toolCount|resourceCount|promptCount|namespaceCount|previewLimit|previewToolNames|fullCatalogIncluded|errorCode|searchRoute|fetchRoute)\s*:/m.test(
+        runtimeMcpCatalogSummaryReturnBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP catalog summary/exposure helpers must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

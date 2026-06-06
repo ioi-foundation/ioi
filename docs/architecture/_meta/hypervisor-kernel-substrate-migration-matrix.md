@@ -12532,6 +12532,12 @@ snake_case fields only for runtime metadata: `schema_version`,
 `evidence_refs`, `allowed_tools`, and `supported_methods`; duplicate camelCase
 facade fields are retired from that serve surface.
 
+Slice 408 removes MCP catalog summary output aliases:
+runtime MCP catalog summary/exposure helpers now emit canonical snake_case
+projection fields only for counts, hashes, preview metadata, routes, execution
+mode, and error codes; duplicate camelCase facade fields are retired from the
+catalog summary helper surface.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

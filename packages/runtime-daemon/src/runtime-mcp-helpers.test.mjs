@@ -155,8 +155,17 @@ test("runtime MCP helpers summarize and defer large catalogs", () => {
 
   assert.equal(exposure.tools.length, 2);
   assert.equal(exposure.exposure.deferred, true);
-  assert.equal(exposure.summary.toolCount, 4);
-  assert.equal(exposure.summary.fullCatalogIncluded, false);
+  assert.equal(exposure.summary.tool_count, 4);
+  assert.equal(exposure.summary.full_catalog_included, false);
+  assert.equal(exposure.exposure.preview_limit, 2);
+  assert.equal(Object.hasOwn(exposure.summary, "toolCount"), false);
+  assert.equal(Object.hasOwn(exposure.summary, "fullCatalogIncluded"), false);
+  assert.equal(Object.hasOwn(exposure.summary, "executionMode"), false);
+  assert.equal(Object.hasOwn(exposure.summary, "errorCode"), false);
+  assert.equal(Object.hasOwn(exposure.summary, "searchRoute"), false);
+  assert.equal(Object.hasOwn(exposure.exposure, "previewLimit"), false);
+  assert.equal(Object.hasOwn(exposure.exposure, "returnedToolCount"), false);
+  assert.equal(Object.hasOwn(exposure.exposure, "searchRoute"), false);
   assert.deepEqual(mcpToolNamespaces(["docs__search", "git.diff", "file.inspect"]), ["docs", "file", "git"]);
   assert.equal(mcpToolSearchLimit({ max_results: 7, maxResults: 99 }), 7);
   assert.equal(mcpToolSearchLimit({ maxResults: 7 }), 25);
