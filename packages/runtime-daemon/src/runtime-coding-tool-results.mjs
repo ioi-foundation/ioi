@@ -79,8 +79,8 @@ export function createRuntimeCodingToolResultHelpers({
   function codingToolArtifactReadResult(artifactRecord = {}, range = {}) {
     const content = String(artifactRecord.content ?? "");
     const buffer = Buffer.from(content, "utf8");
-    const offsetBytes = Math.max(0, Math.min(buffer.byteLength, Number(range.offsetBytes ?? range.offset_bytes ?? 0) || 0));
-    const lengthLimit = Math.max(1, Number(range.lengthBytes ?? range.length_bytes ?? range.maxBytes ?? range.max_bytes ?? 64 * 1024) || 64 * 1024);
+    const offsetBytes = Math.max(0, Math.min(buffer.byteLength, Number(range.offset_bytes ?? 0) || 0));
+    const lengthLimit = Math.max(1, Number(range.length_bytes ?? range.max_bytes ?? 64 * 1024) || 64 * 1024);
     const chunk = buffer.subarray(offsetBytes, Math.min(buffer.byteLength, offsetBytes + lengthLimit));
     const text = chunk.toString("utf8");
     const metadata = codingToolArtifactMetadata(artifactRecord);

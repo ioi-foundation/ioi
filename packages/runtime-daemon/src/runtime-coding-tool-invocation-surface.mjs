@@ -27,6 +27,7 @@ import {
   codingToolResultSummary,
   codingToolSourceEventKind,
   codingToolSummary,
+  retiredArtifactReadRangeAliases,
 } from "./coding-tools.mjs";
 import { createStepModuleRunnerFromEnv } from "./step-module-runner.mjs";
 
@@ -457,6 +458,7 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
         { threadId, toolId },
       );
     }
+    assertNoRetiredArtifactReadRangeAliases(input, { threadId, toolId, artifact_id: artifactId });
     const range = artifactReadRange(input);
     return {
       ...input,
@@ -488,6 +490,12 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
         { threadId, toolId },
       );
     }
+    assertNoRetiredArtifactReadRangeAliases(input, {
+      threadId,
+      toolId,
+      tool_call_id: toolCallId,
+      artifact_id: artifactId,
+    });
     const range = artifactReadRange(input);
     const query = {
       tool_call_id: toolCallId,
@@ -507,6 +515,19 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
     };
   }
   return input;
+}
+
+function assertNoRetiredArtifactReadRangeAliases(input = {}, details = {}) {
+  const retiredAliases = retiredArtifactReadRangeAliases(input);
+  if (retiredAliases.length === 0) return;
+  throw toolInputError(
+    "artifact_read_range_aliases_retired",
+    "Artifact read range aliases are retired; use canonical offset_bytes, length_bytes, or max_bytes.",
+    {
+      ...details,
+      retired_aliases: retiredAliases,
+    },
+  );
 }
 
 function toolInputError(code, message, details = {}) {

@@ -90,7 +90,7 @@ function createStore() {
         content: "stored artifact\n",
         content_hash: "artifact-content-hash",
         full_content_hash: "artifact-full-hash",
-        offset_bytes: range?.offsetBytes ?? 0,
+        offset_bytes: range?.offset_bytes ?? 0,
         length_bytes: 16,
         total_bytes: 16,
         truncated: false,
@@ -109,7 +109,7 @@ function createStore() {
         content: "stored result\n",
         content_hash: "result-content-hash",
         full_content_hash: "result-full-hash",
-        offset_bytes: query.range?.offsetBytes ?? 0,
+        offset_bytes: query.range?.offset_bytes ?? 0,
         length_bytes: 14,
         total_bytes: 14,
         truncated: false,
@@ -938,7 +938,7 @@ test("coding tool invocation surface runs artifact.read through rust workload li
     toolCallId: "tool_artifact",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_artifact",
-    input: { artifact_id: "artifact_alpha", offsetBytes: 2, lengthBytes: 8 },
+    input: { artifact_id: "artifact_alpha", offset_bytes: 2, length_bytes: 8 },
   });
 
   assert.equal(result.status, "completed");
@@ -965,6 +965,16 @@ test("coding tool invocation surface runs artifact.read through rust workload li
   });
   assert.equal(retiredArtifactAlias.status, "failed");
   assert.equal(retiredArtifactAlias.result.error.code, "artifact_read_id_required");
+  assert.equal(store.calls.filter((call) => call.name === "readArtifact").length, readCallsBeforeRetiredAlias);
+
+  const retiredRangeAlias = surface.invokeThreadTool(store, "thread_alpha", "artifact.read", {
+    toolCallId: "tool_artifact_range_retired",
+    input: { artifact_id: "artifact_alpha", offsetBytes: 2 },
+  });
+  assert.equal(retiredRangeAlias.status, "failed");
+  assert.equal(retiredRangeAlias.result.error.code, "artifact_read_range_aliases_retired");
+  assert.deepEqual(retiredRangeAlias.result.error.details.retired_aliases, ["offsetBytes"]);
+  assert.equal(Object.hasOwn(retiredRangeAlias.result.error.details, "offsetBytes"), false);
   assert.equal(store.calls.filter((call) => call.name === "readArtifact").length, readCallsBeforeRetiredAlias);
 });
 
@@ -1038,7 +1048,7 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
     toolCallId: "tool_retrieve",
     workflowGraphId: "graph_alpha",
     workflowNodeId: "node_retrieve",
-    input: { tool_call_id: "tool_patch", channel: "stdout", maxBytes: 32 },
+    input: { tool_call_id: "tool_patch", channel: "stdout", max_bytes: 32 },
   });
 
   assert.equal(result.status, "completed");
@@ -1065,6 +1075,16 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
   });
   assert.equal(retiredRetrieveAlias.status, "failed");
   assert.equal(retiredRetrieveAlias.result.error.code, "tool_retrieve_result_target_required");
+  assert.equal(store.calls.filter((call) => call.name === "retrieveResult").length, retrieveCallsBeforeRetiredAlias);
+
+  const retiredRetrieveRangeAlias = surface.invokeThreadTool(store, "thread_alpha", "tool.retrieve_result", {
+    toolCallId: "tool_retrieve_range_retired",
+    input: { tool_call_id: "tool_patch", maxBytes: 32 },
+  });
+  assert.equal(retiredRetrieveRangeAlias.status, "failed");
+  assert.equal(retiredRetrieveRangeAlias.result.error.code, "artifact_read_range_aliases_retired");
+  assert.deepEqual(retiredRetrieveRangeAlias.result.error.details.retired_aliases, ["maxBytes"]);
+  assert.equal(Object.hasOwn(retiredRetrieveRangeAlias.result.error.details, "maxBytes"), false);
   assert.equal(store.calls.filter((call) => call.name === "retrieveResult").length, retrieveCallsBeforeRetiredAlias);
 });
 

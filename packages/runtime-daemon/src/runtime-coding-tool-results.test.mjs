@@ -58,8 +58,8 @@ test("coding tool artifact read result slices content and emits stable receipt r
       media_type: "text/plain",
     },
     {
-      offsetBytes: 2,
-      lengthBytes: 3,
+      offset_bytes: 2,
+      length_bytes: 3,
     },
   );
 

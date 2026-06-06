@@ -532,6 +532,15 @@ function runBridge() {
   const runtimeCodingToolResultsTest = exists("packages/runtime-daemon/src/runtime-coding-tool-results.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-results.test.mjs")
     : "";
+  const codingToolContracts = exists("packages/runtime-daemon/src/coding-tools.mjs")
+    ? read("packages/runtime-daemon/src/coding-tools.mjs")
+    : "";
+  const artifactReadContractBlock = codingToolContracts.match(
+    /stable_tool_id:\s*"artifact\.read"[\s\S]*?(?=\n\s*\{\n\s*schema_version:\s*CODING_TOOL_PACK_SCHEMA_VERSION,\n\s*stable_tool_id:\s*"tool\.retrieve_result")/,
+  )?.[0] ?? "";
+  const toolRetrieveResultContractBlock = codingToolContracts.match(
+    /stable_tool_id:\s*"tool\.retrieve_result"[\s\S]*?(?=\n\s*\{\n\s*schema_version:\s*CODING_TOOL_PACK_SCHEMA_VERSION,\n\s*stable_tool_id:\s*"computer_use\.request_lease")/,
+  )?.[0] ?? "";
   const runtimeCodingToolGovernanceSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs")
     : "";
@@ -1067,6 +1076,69 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
     ],
     "Phase 10/11 is pending: artifact.read and tool.retrieve_result must use canonical artifact_id/artifact_ref/tool_call_id without retired camelCase target aliases",
+  );
+  assertCheck(
+    result,
+    "coding-tool-artifact-range-input-aliases-retired",
+    /required:\s*\["artifact_id"\]/.test(artifactReadContractBlock) &&
+      /artifact_id:\s*\{ type: "string" \}/.test(artifactReadContractBlock) &&
+      /artifact_ref:\s*\{ type: "string" \}/.test(artifactReadContractBlock) &&
+      /offset_bytes:\s*\{ type: "integer", minimum: 0 \}/.test(artifactReadContractBlock) &&
+      /length_bytes:\s*\{ type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES \}/.test(
+        artifactReadContractBlock,
+      ) &&
+      /max_bytes:\s*\{ type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES \}/.test(
+        artifactReadContractBlock,
+      ) &&
+      /tool_call_id:\s*\{ type: "string" \}/.test(toolRetrieveResultContractBlock) &&
+      /artifact_id:\s*\{ type: "string" \}/.test(toolRetrieveResultContractBlock) &&
+      /offset_bytes:\s*\{ type: "integer", minimum: 0 \}/.test(toolRetrieveResultContractBlock) &&
+      /length_bytes:\s*\{ type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES \}/.test(
+        toolRetrieveResultContractBlock,
+      ) &&
+      /max_bytes:\s*\{ type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES \}/.test(
+        toolRetrieveResultContractBlock,
+      ) &&
+      /export function retiredArtifactReadRangeAliases/.test(codingToolContracts) &&
+      /return \["offsetBytes", "lengthBytes", "maxBytes"\]\.filter/.test(codingToolContracts) &&
+      /offset_bytes:\s*boundedInteger\(input\.offset_bytes/.test(codingToolContracts) &&
+      /length_bytes:\s*boundedInteger\(\s*input\.length_bytes \?\? input\.max_bytes/.test(codingToolContracts) &&
+      /assertNoRetiredArtifactReadRangeAliases\(input, \{ threadId, toolId, artifact_id: artifactId \}\)/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /assertNoRetiredArtifactReadRangeAliases\(input,\s*\{\s*threadId,\s*toolId,\s*tool_call_id: toolCallId,\s*artifact_id: artifactId,\s*\}\)/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /assertNoRetiredArtifactReadRangeAliases\(range, \{ threadId, artifactId, operation: "artifact\.read" \}\)/.test(
+        runtimeCodingToolArtifactSurface,
+      ) &&
+      /assertNoRetiredArtifactReadRangeAliases\(query\.range, \{ threadId, operation: "tool\.retrieve_result" \}\)/.test(
+        runtimeCodingToolArtifactSurface,
+      ) &&
+      /artifact_read_range_aliases_retired/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      /artifact_read_range_aliases_retired/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /input: \{ artifact_id: "artifact_alpha", offset_bytes: 2, length_bytes: 8 \}/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /input: \{ tool_call_id: "tool_patch", channel: "stdout", max_bytes: 32 \}/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      !/\b(?:input|range|query\.range)\.(?:offsetBytes|lengthBytes|maxBytes)\b/.test(
+        `${runtimeCodingToolInvocationSurface}\n${runtimeCodingToolArtifactSurface}\n${runtimeCodingToolResults}`,
+      ) &&
+      !/\b(?:offsetBytes|lengthBytes|maxBytes):\s*\{ type: "integer"/.test(
+        `${artifactReadContractBlock}\n${toolRetrieveResultContractBlock}`,
+      ),
+    [
+      "packages/runtime-daemon/src/coding-tools.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-results.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-results.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: artifact read byte ranges must use canonical offset_bytes/length_bytes/max_bytes and fail closed on retired camelCase range aliases",
   );
   assertCheck(
     result,

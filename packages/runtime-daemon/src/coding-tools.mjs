@@ -322,19 +322,19 @@ export function codingToolContracts() {
       risk_domain: "artifact",
       input_schema: {
         type: "object",
-        required: ["artifactId"],
+        required: ["artifact_id"],
         additionalProperties: false,
         properties: {
-          artifactId: { type: "string" },
-          artifactRef: { type: "string" },
-          offsetBytes: { type: "integer", minimum: 0 },
-          lengthBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
-          maxBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
+          artifact_id: { type: "string" },
+          artifact_ref: { type: "string" },
+          offset_bytes: { type: "integer", minimum: 0 },
+          length_bytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
+          max_bytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
         },
       },
       output_schema: {
         type: "object",
-        required: ["artifactId", "offsetBytes", "lengthBytes", "content", "contentHash", "shellFallbackUsed"],
+        required: ["artifact_id", "offset_bytes", "length_bytes", "content", "content_hash", "shell_fallback_used"],
       },
       evidence_requirements: ["artifact_read_receipt", "coding_tool_receipt"],
       workflow_node_type: "ArtifactReadNode",
@@ -357,18 +357,18 @@ export function codingToolContracts() {
         type: "object",
         additionalProperties: false,
         properties: {
-          toolCallId: { type: "string" },
-          artifactId: { type: "string" },
-          artifactRef: { type: "string" },
+          tool_call_id: { type: "string" },
+          artifact_id: { type: "string" },
+          artifact_ref: { type: "string" },
           channel: { type: "string" },
-          offsetBytes: { type: "integer", minimum: 0 },
-          lengthBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
-          maxBytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
+          offset_bytes: { type: "integer", minimum: 0 },
+          length_bytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
+          max_bytes: { type: "integer", minimum: 1, maximum: CODING_TOOL_ARTIFACT_MAX_READ_BYTES },
         },
       },
       output_schema: {
         type: "object",
-        required: ["toolCallId", "artifactId", "content", "contentHash", "shellFallbackUsed"],
+        required: ["tool_call_id", "artifact_id", "content", "content_hash", "shell_fallback_used"],
       },
       evidence_requirements: ["tool_result_retrieval_receipt", "artifact_read_receipt", "coding_tool_receipt"],
       workflow_node_type: "ToolResultRetrievalNode",
@@ -623,15 +623,15 @@ export function codingToolInputSummary(toolId, input = {}) {
   }
   if (toolId === "artifact.read") {
     return {
-      artifactId: optionalString(input.artifactId ?? input.artifact_id ?? input.artifactRef ?? input.artifact_ref) ?? null,
-      offsetBytes: Number(input.offsetBytes ?? input.offset_bytes ?? 0),
-      lengthBytes: input.lengthBytes ?? input.length_bytes ?? input.maxBytes ?? input.max_bytes ?? null,
+      artifact_id: optionalString(input.artifact_id ?? input.artifact_ref) ?? null,
+      offset_bytes: Number(input.offset_bytes ?? 0),
+      length_bytes: input.length_bytes ?? input.max_bytes ?? null,
     };
   }
   if (toolId === "tool.retrieve_result") {
     return {
-      toolCallId: optionalString(input.toolCallId ?? input.tool_call_id) ?? null,
-      artifactId: optionalString(input.artifactId ?? input.artifact_id ?? input.artifactRef ?? input.artifact_ref) ?? null,
+      tool_call_id: optionalString(input.tool_call_id) ?? null,
+      artifact_id: optionalString(input.artifact_id ?? input.artifact_ref) ?? null,
       channel: optionalString(input.channel) ?? null,
     };
   }
@@ -709,18 +709,18 @@ export function codingToolResultSummary(toolId, result = {}) {
   }
   if (toolId === "artifact.read") {
     return {
-      artifactId: result?.artifactId ?? null,
-      offsetBytes: Number(result?.offsetBytes ?? 0),
-      lengthBytes: Number(result?.lengthBytes ?? 0),
+      artifact_id: result?.artifact_id ?? null,
+      offset_bytes: Number(result?.offset_bytes ?? 0),
+      length_bytes: Number(result?.length_bytes ?? 0),
       truncated: Boolean(result?.truncated),
     };
   }
   if (toolId === "tool.retrieve_result") {
     return {
-      toolCallId: result?.toolCallId ?? null,
-      artifactId: result?.artifactId ?? null,
-      offsetBytes: Number(result?.offsetBytes ?? 0),
-      lengthBytes: Number(result?.lengthBytes ?? 0),
+      tool_call_id: result?.tool_call_id ?? null,
+      artifact_id: result?.artifact_id ?? null,
+      offset_bytes: Number(result?.offset_bytes ?? 0),
+      length_bytes: Number(result?.length_bytes ?? 0),
       truncated: Boolean(result?.truncated),
     };
   }
@@ -760,10 +760,10 @@ export function codingToolSummary(toolId, result = {}, status = "completed") {
     return `Diagnostics ${result?.diagnosticStatus ?? "completed"} with ${Number(result?.diagnosticCount ?? 0)} finding(s).`;
   }
   if (toolId === "artifact.read") {
-    return `Read artifact ${result?.artifactId ?? "artifact"}.`;
+    return `Read artifact ${result?.artifact_id ?? "artifact"}.`;
   }
   if (toolId === "tool.retrieve_result") {
-    return `Retrieved tool result ${result?.toolCallId ?? result?.artifactId ?? "artifact"}.`;
+    return `Retrieved tool result ${result?.tool_call_id ?? result?.artifact_id ?? "artifact"}.`;
   }
   if (toolId === "computer_use.request_lease") {
     return `Recorded computer-use lease request ${result?.requestRef ?? ""}`.trim();
@@ -819,14 +819,19 @@ function computerUseActionKindForInput(input = {}) {
 
 export function artifactReadRange(input = {}) {
   return {
-    offsetBytes: boundedInteger(input.offsetBytes ?? input.offset_bytes, 0, 0, Number.MAX_SAFE_INTEGER),
-    lengthBytes: boundedInteger(
-      input.lengthBytes ?? input.length_bytes ?? input.maxBytes ?? input.max_bytes,
+    offset_bytes: boundedInteger(input.offset_bytes, 0, 0, Number.MAX_SAFE_INTEGER),
+    length_bytes: boundedInteger(
+      input.length_bytes ?? input.max_bytes,
       CODING_TOOL_ARTIFACT_DEFAULT_READ_BYTES,
       1,
       CODING_TOOL_ARTIFACT_MAX_READ_BYTES,
     ),
   };
+}
+
+export function retiredArtifactReadRangeAliases(input = {}) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return [];
+  return ["offsetBytes", "lengthBytes", "maxBytes"].filter((field) => Object.hasOwn(input, field));
 }
 
 function codingToolPathList(value) {

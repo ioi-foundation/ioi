@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { CODING_TOOL_RESULT_SCHEMA_VERSION } from "./coding-tools.mjs";
+import { CODING_TOOL_RESULT_SCHEMA_VERSION, retiredArtifactReadRangeAliases } from "./coding-tools.mjs";
 import { firstOptionalString, snakeCaseKey, visualGuiMediaTypeForPath } from "./computer-use-inputs.mjs";
 import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
 import {
@@ -100,6 +100,7 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
   }
 
   function readCodingToolArtifact(store, threadId, artifactId, range = {}) {
+    assertNoRetiredArtifactReadRangeAliases(range, { threadId, artifactId, operation: "artifact.read" });
     const artifactRecord = store.codingArtifacts.get(artifactId);
     if (!artifactRecord) throw notFound(`Artifact not found: ${artifactId}`, { threadId, artifactId });
     if (artifactRecord.thread_id && artifactRecord.thread_id !== threadId) {
@@ -113,6 +114,7 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
   }
 
   function retrieveCodingToolResult(store, threadId, query = {}) {
+    assertNoRetiredArtifactReadRangeAliases(query.range, { threadId, operation: "tool.retrieve_result" });
     if (query.artifact_id) {
       return {
         ...readCodingToolArtifact(store, threadId, query.artifact_id, query.range),
@@ -142,6 +144,20 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
       available_artifacts: artifacts.map(codingToolArtifactMetadata),
       shell_fallback_used: false,
     };
+  }
+
+  function assertNoRetiredArtifactReadRangeAliases(range = {}, details = {}) {
+    const retiredAliases = retiredArtifactReadRangeAliases(range);
+    if (retiredAliases.length === 0) return;
+    throw runtimeError({
+      status: 400,
+      code: "artifact_read_range_aliases_retired",
+      message: "Artifact read range aliases are retired; use canonical offset_bytes, length_bytes, or max_bytes.",
+      details: {
+        ...details,
+        retired_aliases: retiredAliases,
+      },
+    });
   }
 
   function appendCodingToolCommandStreamEvents(

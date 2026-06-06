@@ -108,8 +108,8 @@ test("coding-tool artifact surface reads artifacts inside the owning thread", ()
   });
 
   const result = surface.readCodingToolArtifact(store, "thread_alpha", "artifact_alpha", {
-    offsetBytes: 1,
-    lengthBytes: 3,
+    offset_bytes: 1,
+    length_bytes: 3,
   });
 
   assert.equal(result.schema_version, "ioi.runtime.coding-tool-artifact.v1");
@@ -120,6 +120,14 @@ test("coding-tool artifact surface reads artifacts inside the owning thread", ()
   for (const field of ["schemaVersion", "totalBytes", "artifactRefs", "shellFallbackUsed"]) {
     assert.equal(Object.hasOwn(result, field), false);
   }
+  assert.throws(
+    () => surface.readCodingToolArtifact(store, "thread_alpha", "artifact_alpha", { offsetBytes: 1 }),
+    (error) =>
+      error.status === 400 &&
+      error.code === "artifact_read_range_aliases_retired" &&
+      error.details.retired_aliases.includes("offsetBytes") &&
+      Object.hasOwn(error.details, "offsetBytes") === false,
+  );
 });
 
 test("coding-tool artifact surface blocks cross-thread reads", () => {
@@ -165,6 +173,7 @@ test("coding-tool artifact surface retrieves tool results by channel or artifact
 
   const byArtifact = surface.retrieveCodingToolResult(store, "thread_alpha", {
     artifact_id: "artifact_a",
+    range: { max_bytes: 16 },
   });
   assert.equal(byArtifact.artifact_id, "artifact_a");
   assert.equal(byArtifact.shell_fallback_used, false);
@@ -180,6 +189,17 @@ test("coding-tool artifact surface retrieves tool results by channel or artifact
   assert.throws(
     () => surface.retrieveCodingToolResult(store, "thread_alpha", { artifactId: "artifact_a" }),
     (error) => error.status === 400 && error.code === "tool_retrieve_result_target_required",
+  );
+  assert.throws(
+    () => surface.retrieveCodingToolResult(store, "thread_alpha", {
+      artifact_id: "artifact_a",
+      range: { maxBytes: 16 },
+    }),
+    (error) =>
+      error.status === 400 &&
+      error.code === "artifact_read_range_aliases_retired" &&
+      error.details.retired_aliases.includes("maxBytes") &&
+      Object.hasOwn(error.details, "maxBytes") === false,
   );
 });
 
