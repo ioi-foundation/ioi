@@ -251,6 +251,21 @@ function runDocs() {
     [GUIDE],
     "master guide live status must reflect the current Rust workload live default and fail-closed daemon_js selection",
   );
+  assertCheck(
+    result,
+    "matrix-test-diagnostics-rust-live-status-reconciled",
+    /Implementation Slice 21[\s\S]*execution_backend: rust_workload_live for all allowlisted test\.run command[\s\S]*legacy_paths_removed: true[\s\S]*compatibility_shims_remaining: \[\]/.test(
+      matrix,
+    ) &&
+      /Implementation Slice 22[\s\S]*execution_backend: rust_workload_live for all allowlisted diagnostics[\s\S]*legacy_paths_removed: true[\s\S]*compatibility_shims_remaining: \[\]/.test(
+        matrix,
+      ) &&
+      !/test\.run npm\.test, cargo\.test, and cargo\.check still need Rust\/workload|JS testRunTool remains as a legacy fallback|JS lspDiagnosticsTool remains as a legacy fallback/.test(
+        matrix,
+      ),
+    [MATRIX],
+    "migration matrix must mark completed test.run and lsp.diagnostics Rust workload live slices as reconciled without stale JS fallback notes",
+  );
   checkStaleLiveTerminology(result);
   return result;
 }

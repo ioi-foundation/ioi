@@ -1103,10 +1103,12 @@ ImplementationSlice:
     replay_or_shadow_comparison: node.test payload parity for passing, failing,
       and unsupported-backend fail-closed cases
   cleanup:
-    legacy_paths_removed: false
-    compatibility_shims_remaining:
-      - test.run npm.test, cargo.test, and cargo.check still need Rust/workload
-        implementations before the JS test runner body can be fully retired
+    legacy_paths_removed: true
+    compatibility_shims_remaining: []
+    cleanup_note: Initial node.test migration is reconciled with Slice 21; all
+      allowlisted test.run command ids now execute through the Rust workload
+      live bridge, and daemon_js test execution fallback is no longer accepted
+      for the live invocation surface.
   closeout:
     git_diff_check: required
     commit: required
@@ -1161,10 +1163,11 @@ ImplementationSlice:
     replay_or_shadow_comparison: npm.test, cargo.test, cargo.check, node.test,
       and disallowed-command fail-closed cases
   cleanup:
-    legacy_paths_removed: false
-    compatibility_shims_remaining:
-      - JS testRunTool remains as a legacy fallback until JS facade retirement
-        once Rust workload live mode is the only daemon execution configuration
+    legacy_paths_removed: true
+    compatibility_shims_remaining: []
+    cleanup_note: test.run now executes node.test, npm.test, cargo.test, and
+      cargo.check through the Rust workload live bridge; disallowed command ids
+      fail closed instead of falling back to daemon_js.
   closeout:
     git_diff_check: required
     commit: required
@@ -1218,11 +1221,11 @@ ImplementationSlice:
     replay_or_shadow_comparison: auto JavaScript path routing, TypeScript
       diagnostic parsing, and missing-local-tsc degraded Rust result
   cleanup:
-    legacy_paths_removed: false
-    compatibility_shims_remaining:
-      - JS lspDiagnosticsTool remains as a legacy fallback until JS facade
-        retirement once Rust workload live mode is the only daemon execution
-        configuration
+    legacy_paths_removed: true
+    compatibility_shims_remaining: []
+    cleanup_note: lsp.diagnostics now executes auto, node.check, and
+      typescript.check through the Rust workload live bridge; missing local tsc
+      degrades inside the Rust result without daemon_js fallback.
   closeout:
     git_diff_check: required
     commit: required
