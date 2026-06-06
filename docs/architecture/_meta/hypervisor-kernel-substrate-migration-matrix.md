@@ -12449,6 +12449,12 @@ control/invoke request types now require canonical `thread_id`; retired
 camelCase `threadId` request fields no longer route MCP registry mutations or
 tool invocations and are absent from the SDK control/invoke input types.
 
+Slice 394 removes MCP invoke identity request aliases:
+runtime MCP tool resolution/invocation and SDK MCP invoke request types now use
+canonical `tool_id`, `server_id`, and `tool_name` request fields; retired
+camelCase `toolId`, `serverId`, and `toolName` fields are ignored by daemon
+invoke routing and no longer advertised by SDK invoke input types.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

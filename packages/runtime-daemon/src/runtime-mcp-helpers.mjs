@@ -68,12 +68,12 @@ export function resolveMcpServerRecord(servers = [], requestedId) {
 }
 
 export function resolveMcpToolRecord(servers = [], toolId, request = {}) {
-  const requestedToolId = optionalString(toolId ?? request.tool_id ?? request.toolId);
+  const requestedToolId = optionalString(toolId ?? request.tool_id);
   const requestedServerId = optionalString(
-    request.server_id ?? request.serverId ?? request.server ?? request.server_label ?? request.serverLabel,
+    request.server_id ?? request.server ?? request.server_label,
   );
   let requestedToolName = optionalString(
-    request.tool_name ?? request.toolName ?? request.tool ?? request.name,
+    request.tool_name ?? request.tool ?? request.name,
   );
   let server = requestedServerId ? resolveMcpServerRecord(servers, requestedServerId) : null;
   if (!server && requestedToolId) {

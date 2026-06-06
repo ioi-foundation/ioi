@@ -7573,6 +7573,14 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs")
     : "";
+  const runtimeMcpInvokeToolBlock =
+    runtimeMcpControlSurface.match(
+      /async invokeMcpTool\(store, request = \{\}\) \{[\s\S]*?\n    \},\n    async invokeThreadMcpTool/,
+    )?.[0] ?? "";
+  const runtimeMcpInvokeThreadToolBlock =
+    runtimeMcpControlSurface.match(
+      /async invokeThreadMcpTool\(store, threadId, toolId, request = \{\}\) \{[\s\S]*?\n    \},\n    async recordThreadMcpStatus/,
+    )?.[0] ?? "";
   const runtimeMcpGetToolFromCatalogBlock =
     runtimeMcpCatalogSurface.match(
       /async getMcpToolFromCatalog\(store, toolId, request = \{\}\) \{[\s\S]*?\n    \},\n    async searchMcpToolCatalog/,
@@ -7584,6 +7592,10 @@ function runCompositor() {
   const runtimeMcpCatalogPreviewLimitBlock =
     runtimeMcpHelpers.match(
       /export function mcpCatalogPreviewLimit\(request = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpToolSearchLimit/,
+    )?.[0] ?? "";
+  const runtimeMcpResolveToolRecordBlock =
+    runtimeMcpHelpers.match(
+      /export function resolveMcpToolRecord\(servers = \[\], toolId, request = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpServeAllowedToolIds/,
     )?.[0] ?? "";
   const agentIdeTerminalRunLaunch = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
@@ -10284,6 +10296,39 @@ function runCompositor() {
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP control/invoke requests must use canonical thread_id without the retired threadId compatibility alias",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-invoke-identity-request-aliases-retired",
+    /request\.tool_id/.test(runtimeMcpResolveToolRecordBlock) &&
+      /request\.server_id/.test(runtimeMcpResolveToolRecordBlock) &&
+      /request\.tool_name/.test(runtimeMcpResolveToolRecordBlock) &&
+      /request\.tool_id/.test(runtimeMcpControlSurface) &&
+      /^\s*server_id\?: string;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
+      /^\s*tool_id\?: string;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
+      /^\s*tool_name\?: string;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
+      /toolId: "mcp\.retired\.nope"/.test(
+        `${runtimeMcpHelpersTest}\n${runtimeMcpControlSurfaceTest}`,
+      ) &&
+      /serverId: "mcp\.retired"/.test(
+        `${runtimeMcpHelpersTest}\n${runtimeMcpControlSurfaceTest}`,
+      ) &&
+      /toolName: "retired"/.test(
+        `${runtimeMcpHelpersTest}\n${runtimeMcpControlSurfaceTest}`,
+      ) &&
+      !/request\.(?:toolId|serverId|toolName)\b/.test(
+        `${runtimeMcpResolveToolRecordBlock}\n${runtimeMcpInvokeToolBlock}\n${runtimeMcpInvokeThreadToolBlock}`,
+      ) &&
+      !/input\.(?:toolId|serverId|toolName)\b/.test(agentSdkSubstrateClient) &&
+      !/^\s*(?:toolId|serverId|toolName)\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: MCP invoke requests must use canonical tool_id/server_id/tool_name without retired camelCase identity aliases",
   );
   assertCheck(
     result,

@@ -735,11 +735,8 @@ export interface RuntimeMcpServerMutationInput extends RuntimeMcpServerControlIn
 
 export interface RuntimeMcpToolInvokeInput extends RuntimeMcpValidationInput {
   thread_id?: string;
-  serverId?: string;
   server_id?: string;
-  toolId?: string;
   tool_id?: string;
-  toolName?: string;
   tool_name?: string;
   tool?: string;
   input?: Record<string, unknown>;
@@ -2475,7 +2472,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   }
 
   async invokeMcpTool(input: RuntimeMcpToolInvokeInput = {}): Promise<RuntimeMcpInvocationResult> {
-    const toolId = input.toolId ?? input.tool_id ?? `${input.serverId ?? input.server_id ?? "mcp"}.${input.toolName ?? input.tool_name ?? input.tool ?? "tool"}`;
+    const toolId = input.tool_id ?? `${input.server_id ?? "mcp"}.${input.tool_name ?? input.tool ?? "tool"}`;
     return this.request(
       "invokeMcpTool",
       "POST",
@@ -2629,7 +2626,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeMcpToolInvokeInput = {},
   ): Promise<RuntimeMcpInvocationResult> {
-    const toolId = input.toolId ?? input.tool_id ?? `${input.serverId ?? input.server_id ?? "mcp"}.${input.toolName ?? input.tool_name ?? input.tool ?? "tool"}`;
+    const toolId = input.tool_id ?? `${input.server_id ?? "mcp"}.${input.tool_name ?? input.tool ?? "tool"}`;
     return this.request(
       "invokeThreadMcpTool",
       "POST",

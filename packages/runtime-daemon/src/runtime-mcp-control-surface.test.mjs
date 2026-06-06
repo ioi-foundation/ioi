@@ -96,8 +96,8 @@ function harness({ stateUpdateOverride = null } = {}) {
       return "simulated manager receipt";
     },
     resolveMcpToolRecord(servers, toolId, request = {}) {
-      const requestedTool = request.tool_name ?? request.toolName ?? request.name ?? String(toolId ?? "").split(".").at(-1);
-      const requestedServer = request.server_id ?? request.serverId ?? String(toolId ?? "").split(".").slice(0, -1).join(".");
+      const requestedTool = request.tool_name ?? request.name ?? String(toolId ?? "").split(".").at(-1);
+      const requestedServer = request.server_id ?? String(toolId ?? "").split(".").slice(0, -1).join(".");
       const foundServer =
         servers.find((item) => item.id === requestedServer) ??
         servers.find((item) => (item.tools ?? []).some((tool) => tool.name === requestedTool));
@@ -341,8 +341,37 @@ test("runtime MCP control surface ignores retired threadId request alias", async
     thread_id: "thread-agent-one",
     threadId: "thread-retired",
     tool_id: "mcp.docs.search",
+    toolId: "mcp.retired.nope",
+    serverId: "mcp.retired",
+    toolName: "retired",
     input: { q: "canonical" },
   });
   assert.equal(invoked.status, "completed");
   assert.equal(invoked.thread_id, "thread-agent-one");
+});
+
+test("runtime MCP control surface ignores retired invoke identity aliases", async () => {
+  const { store, surface } = harness();
+
+  await assert.rejects(
+    () =>
+      surface.invokeMcpTool(store, {
+        thread_id: "thread-agent-one",
+        toolId: "mcp.docs.search",
+      }),
+    (error) => error.status === 404 && error.code === "not_found",
+  );
+
+  const invoked = await surface.invokeMcpTool(store, {
+    thread_id: "thread-agent-one",
+    server_id: "mcp.docs",
+    tool_name: "search",
+    toolId: "mcp.retired.nope",
+    serverId: "mcp.retired",
+    toolName: "retired",
+    input: { q: "canonical identity" },
+  });
+  assert.equal(invoked.status, "completed");
+  assert.equal(invoked.server_id, "mcp.docs");
+  assert.equal(invoked.tool_name, "search");
 });

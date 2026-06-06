@@ -42,6 +42,16 @@ test("runtime MCP helpers resolve servers and tools by stable identities", () =>
   assert.equal(byStableId.server.id, "mcp.workspace.docs");
   assert.equal(byStableId.toolName, "search");
 
+  const canonicalRequest = resolveMcpToolRecord(servers, null, {
+    server_id: "mcp.workspace.docs",
+    tool_name: "search",
+    serverId: "mcp.retired",
+    toolName: "retired",
+    toolId: "mcp.retired.nope",
+  });
+  assert.equal(canonicalRequest.server.id, "mcp.workspace.docs");
+  assert.equal(canonicalRequest.toolName, "search");
+
   assert.equal(mcpToolIdentityMatches({
     stableToolId: "mcp.workspace.docs.search",
     workflowNodeId: "runtime.mcp.docs.search",

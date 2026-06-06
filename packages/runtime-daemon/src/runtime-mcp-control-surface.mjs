@@ -537,10 +537,10 @@ export function createRuntimeMcpControlSurface({
           status: 400,
           code: "mcp_thread_required",
           message: "MCP tool invocation requires a thread_id so the daemon can apply the active MCP registry and approval policy.",
-          details: { toolId: request.tool_id ?? request.toolId ?? null },
+          details: { toolId: request.tool_id ?? null },
         });
       }
-      return this.invokeThreadMcpTool(store, threadId, request.tool_id ?? request.toolId, request);
+      return this.invokeThreadMcpTool(store, threadId, request.tool_id, request);
     },
     async invokeThreadMcpTool(store, threadId, toolId, request = {}) {
       const agent = store.agentForThread(threadId);
@@ -550,7 +550,7 @@ export function createRuntimeMcpControlSurface({
         throw notFoundDep("MCP server not found for invocation.", {
           threadId,
           toolId,
-          serverId: request.server_id ?? request.serverId ?? null,
+          serverId: request.server_id ?? null,
         });
       }
       if (!target.toolName) {
