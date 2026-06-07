@@ -61,6 +61,10 @@ Remaining terminal blockers:
 Matrix compaction timing:
 
 - Do not prune the slice ledger as a prerequisite to ordinary goal resumption.
+- When resuming the master-guide goal, continue the next Rust-core extraction or
+  JS-facade retirement slice first; treat matrix compaction as a scheduled
+  follow-up once that seam identifies which rows can be collapsed without
+  obscuring remaining terminal blockers.
 - Schedule a dedicated matrix-compaction pass after the next Rust-core
   extraction/facade-retirement seam is clear enough to preserve the live
   route-family owner map, terminal blockers, bridge-scaffolding guardrail,
