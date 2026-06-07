@@ -9,6 +9,14 @@ const RETIRED_GOVERNED_IMPROVEMENT_REQUEST_ALIASES = [
   "proposal_payload",
 ];
 
+const RETIRED_GOVERNED_IMPROVEMENT_TRUTH_FIELDS = [
+  "agentgres_operation_ref",
+  "expected_heads",
+  "state_root_before",
+  "state_root_after",
+  "resulting_head",
+];
+
 const CANONICAL_GOVERNED_IMPROVEMENT_REQUEST_FIELDS = [
   "proposal",
 ];
@@ -30,6 +38,7 @@ export function createRuntimeGovernedImprovementSurface(deps = {}) {
         message: "Governed improvement admission requires a proposal payload.",
       });
     }
+    assertNoClientSuppliedGovernedImprovementTruth(proposal);
     return proposal;
   }
 
@@ -45,6 +54,22 @@ export function createRuntimeGovernedImprovementSurface(deps = {}) {
       details: {
         retired_aliases: retiredAliases,
         canonical_fields: CANONICAL_GOVERNED_IMPROVEMENT_REQUEST_FIELDS,
+      },
+    });
+  }
+
+  function assertNoClientSuppliedGovernedImprovementTruth(proposal = {}) {
+    const retiredTruthFields = RETIRED_GOVERNED_IMPROVEMENT_TRUTH_FIELDS.filter((field) =>
+      Object.hasOwn(proposal, field),
+    );
+    if (retiredTruthFields.length === 0) return;
+    throw runtimeErrorDep({
+      status: 400,
+      code: "governed_improvement_agentgres_truth_fields_retired",
+      message: "Governed improvement Agentgres truth fields are Rust-derived and cannot be supplied by clients.",
+      details: {
+        retired_fields: retiredTruthFields,
+        derived_by: "rust_governed_evolution",
       },
     });
   }

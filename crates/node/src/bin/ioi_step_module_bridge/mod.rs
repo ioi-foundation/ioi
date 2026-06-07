@@ -7336,12 +7336,7 @@ mod tests {
                 "eval_receipt_refs": ["receipt://eval/bridge-holdout-pass"],
                 "verifier_receipt_refs": ["receipt://verifier/bridge-regression-pass"],
                 "approval_ref": "approval://wallet/runtime-improvement/bridge",
-                "rollback_ref": "rollback://skill/runtime-auditor/current",
-                "agentgres_operation_ref": "agentgres://runtime-improvement/operations/bridge",
-                "expected_heads": ["agentgres://runtime-improvement/head/before"],
-                "state_root_before": "sha256:runtime-improvement-before",
-                "state_root_after": "sha256:runtime-improvement-after",
-                "resulting_head": "agentgres://runtime-improvement/head/after"
+                "rollback_ref": "rollback://skill/runtime-auditor/current"
             }
         }))
         .expect("governed runtime improvement bridge request");
@@ -7355,14 +7350,26 @@ mod tests {
             response["record"]["proposal_id"],
             "proposal://runtime-improvement/bridge"
         );
-        assert_eq!(
-            response["agentgres_operation_ref"],
-            "agentgres://runtime-improvement/operations/bridge"
-        );
+        assert!(response["agentgres_operation_ref"]
+            .as_str()
+            .expect("operation ref")
+            .starts_with("agentgres://runtime-improvement/operations/"));
         assert_eq!(
             response["expected_heads"][0],
-            "agentgres://runtime-improvement/head/before"
+            "agentgres://runtime-improvement/head/current"
         );
+        assert!(response["state_root_before"]
+            .as_str()
+            .expect("state root before")
+            .starts_with("sha256:"));
+        assert!(response["state_root_after"]
+            .as_str()
+            .expect("state root after")
+            .starts_with("sha256:"));
+        assert!(response["resulting_head"]
+            .as_str()
+            .expect("resulting head")
+            .starts_with("agentgres://runtime-improvement/head/"));
         assert_eq!(
             response["eval_receipt_refs"][0],
             "receipt://eval/bridge-holdout-pass"

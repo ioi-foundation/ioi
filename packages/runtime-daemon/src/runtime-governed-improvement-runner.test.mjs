@@ -22,11 +22,6 @@ function governedProposal() {
     verifier_receipt_refs: ["receipt://verifier/daemon-runner-regression-pass"],
     approval_ref: "approval://wallet/runtime-improvement/daemon-runner",
     rollback_ref: "rollback://skill/runtime-auditor/current",
-    agentgres_operation_ref: "agentgres://runtime-improvement/operations/daemon-runner",
-    expected_heads: ["agentgres://runtime-improvement/head/before"],
-    state_root_before: "sha256:runtime-improvement-before",
-    state_root_after: "sha256:runtime-improvement-after",
-    resulting_head: "agentgres://runtime-improvement/head/after",
   };
 }
 
@@ -48,10 +43,15 @@ test("governed improvement runner sends proposal admission bridge request", () =
             record: {
               ...request.proposal,
               admission_hash: "sha256:governed-improvement-admission",
+              agentgres_operation_ref: "agentgres://runtime-improvement/operations/rust-derived",
+              expected_heads: ["agentgres://runtime-improvement/head/current"],
+              state_root_before: "sha256:rust-derived-before",
+              state_root_after: "sha256:rust-derived-after",
+              resulting_head: "agentgres://runtime-improvement/head/rust-derived",
             },
             admission_hash: "sha256:governed-improvement-admission",
-            agentgres_operation_ref: request.proposal.agentgres_operation_ref,
-            expected_heads: request.proposal.expected_heads,
+            agentgres_operation_ref: "agentgres://runtime-improvement/operations/rust-derived",
+            expected_heads: ["agentgres://runtime-improvement/head/current"],
             eval_receipt_refs: request.proposal.eval_receipt_refs,
             verifier_receipt_refs: request.proposal.verifier_receipt_refs,
             approval_ref: request.proposal.approval_ref,
@@ -75,8 +75,8 @@ test("governed improvement runner sends proposal admission bridge request", () =
   assert.equal(result.source, "rust_governed_meta_improvement_command");
   assert.equal(result.backend, RUST_GOVERNED_IMPROVEMENT_BACKEND);
   assert.equal(result.admission_hash, "sha256:governed-improvement-admission");
-  assert.equal(result.agentgres_operation_ref, "agentgres://runtime-improvement/operations/daemon-runner");
-  assert.deepEqual(result.expected_heads, ["agentgres://runtime-improvement/head/before"]);
+  assert.equal(result.agentgres_operation_ref, "agentgres://runtime-improvement/operations/rust-derived");
+  assert.deepEqual(result.expected_heads, ["agentgres://runtime-improvement/head/current"]);
   assert.deepEqual(result.eval_receipt_refs, ["receipt://eval/daemon-runner-holdout-pass"]);
   assert.deepEqual(result.verifier_receipt_refs, ["receipt://verifier/daemon-runner-regression-pass"]);
   assert.equal(result.approval_ref, "approval://wallet/runtime-improvement/daemon-runner");

@@ -18,11 +18,6 @@ function proposal() {
     verifier_receipt_refs: ["receipt://verifier/surface-regression-pass"],
     approval_ref: "approval://wallet/runtime-improvement/surface",
     rollback_ref: "rollback://skill/runtime-auditor/current",
-    agentgres_operation_ref: "agentgres://runtime-improvement/operations/surface",
-    expected_heads: ["agentgres://runtime-improvement/head/before"],
-    state_root_before: "sha256:runtime-improvement-before",
-    state_root_after: "sha256:runtime-improvement-after",
-    resulting_head: "agentgres://runtime-improvement/head/after",
   };
 }
 
@@ -41,18 +36,23 @@ function store() {
           source: "rust_governed_meta_improvement_command",
           backend: "rust_governed_evolution",
           record: {
-            ...input,
-            admission_hash: "sha256:surface-admission",
-          },
-          proposal_id: input.proposal_id,
+          ...input,
           admission_hash: "sha256:surface-admission",
-          agentgres_operation_ref: input.agentgres_operation_ref,
-          state_root_before: input.state_root_before,
-          state_root_after: input.state_root_after,
-          resulting_head: input.resulting_head,
-          approval_ref: input.approval_ref,
-          rollback_ref: input.rollback_ref,
-        };
+          agentgres_operation_ref: "agentgres://runtime-improvement/operations/rust-derived",
+          expected_heads: ["agentgres://runtime-improvement/head/current"],
+          state_root_before: "sha256:rust-derived-before",
+          state_root_after: "sha256:rust-derived-after",
+          resulting_head: "agentgres://runtime-improvement/head/rust-derived",
+        },
+        proposal_id: input.proposal_id,
+        admission_hash: "sha256:surface-admission",
+        agentgres_operation_ref: "agentgres://runtime-improvement/operations/rust-derived",
+        state_root_before: "sha256:rust-derived-before",
+        state_root_after: "sha256:rust-derived-after",
+        resulting_head: "agentgres://runtime-improvement/head/rust-derived",
+        approval_ref: input.approval_ref,
+        rollback_ref: input.rollback_ref,
+      };
       },
     },
   };
@@ -95,6 +95,39 @@ test("governed improvement surface rejects retired request aliases before agent 
   assert.deepEqual(runtimeStore.calls, []);
 });
 
+test("governed improvement surface rejects client supplied Agentgres truth before Rust runner", () => {
+  const runtimeStore = store();
+  const surface = createRuntimeGovernedImprovementSurface();
+
+  assert.throws(
+    () =>
+      surface.admitGovernedImprovementProposal(runtimeStore, "thread_surface", {
+        proposal: {
+          ...proposal(),
+          agentgres_operation_ref: "agentgres://runtime-improvement/operations/client",
+          expected_heads: ["agentgres://runtime-improvement/head/client"],
+          state_root_before: "sha256:client-before",
+          state_root_after: "sha256:client-after",
+          resulting_head: "agentgres://runtime-improvement/head/client-after",
+        },
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "governed_improvement_agentgres_truth_fields_retired");
+      assert.deepEqual(error.details.retired_fields, [
+        "agentgres_operation_ref",
+        "expected_heads",
+        "state_root_before",
+        "state_root_after",
+        "resulting_head",
+      ]);
+      assert.equal(error.details.derived_by, "rust_governed_evolution");
+      return true;
+    },
+  );
+  assert.deepEqual(runtimeStore.calls, []);
+});
+
 test("governed improvement surface admits nested proposal through Rust runner", () => {
   const runtimeStore = store();
   const surface = createRuntimeGovernedImprovementSurface();
@@ -111,10 +144,10 @@ test("governed improvement surface admits nested proposal through Rust runner", 
   assert.equal(result.agent_id, "agent_surface");
   assert.equal(result.proposal_id, "proposal://runtime-improvement/surface");
   assert.equal(result.admission_hash, "sha256:surface-admission");
-  assert.equal(result.agentgres_operation_ref, "agentgres://runtime-improvement/operations/surface");
-  assert.equal(result.state_root_before, "sha256:runtime-improvement-before");
-  assert.equal(result.state_root_after, "sha256:runtime-improvement-after");
-  assert.equal(result.resulting_head, "agentgres://runtime-improvement/head/after");
+  assert.equal(result.agentgres_operation_ref, "agentgres://runtime-improvement/operations/rust-derived");
+  assert.equal(result.state_root_before, "sha256:rust-derived-before");
+  assert.equal(result.state_root_after, "sha256:rust-derived-after");
+  assert.equal(result.resulting_head, "agentgres://runtime-improvement/head/rust-derived");
   assert.equal(result.approval_ref, "approval://wallet/runtime-improvement/surface");
   assert.equal(result.rollback_ref, "rollback://skill/runtime-auditor/current");
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "admitProposal"]);

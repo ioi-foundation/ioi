@@ -56,11 +56,15 @@ pub struct GovernedRuntimeImprovementProposal {
     pub verifier_receipt_refs: Vec<String>,
     pub approval_ref: String,
     pub rollback_ref: String,
+    #[serde(default)]
     pub agentgres_operation_ref: String,
     #[serde(default)]
     pub expected_heads: Vec<String>,
+    #[serde(default)]
     pub state_root_before: String,
+    #[serde(default)]
     pub state_root_after: String,
+    #[serde(default)]
     pub resulting_head: String,
 }
 
@@ -97,11 +101,7 @@ pub enum GovernedRuntimeImprovementError {
     MissingVerifierReceipt,
     MissingApprovalRef,
     MissingRollbackRef,
-    MissingAgentgresOperationRef,
-    MissingExpectedHeads,
-    MissingStateRootBefore,
-    MissingStateRootAfter,
-    MissingResultingHead,
+    CallerSuppliedAgentgresTruth,
     HashFailed(String),
 }
 
@@ -159,6 +159,8 @@ impl GovernedEvolutionCore {
     ) -> Result<GovernedRuntimeImprovementAdmissionRecord, Vec<GovernedRuntimeImprovementError>>
     {
         proposal.validate()?;
+        let agentgres_truth =
+            governed_improvement_agentgres_truth(proposal).map_err(|error| vec![error])?;
         let mut record = GovernedRuntimeImprovementAdmissionRecord {
             schema_version: GOVERNED_RUNTIME_IMPROVEMENT_SCHEMA_VERSION.to_string(),
             proposal_id: proposal.proposal_id.clone(),
@@ -167,11 +169,11 @@ impl GovernedEvolutionCore {
             surface: proposal.surface.clone(),
             approval_ref: proposal.approval_ref.clone(),
             rollback_ref: proposal.rollback_ref.clone(),
-            agentgres_operation_ref: proposal.agentgres_operation_ref.clone(),
-            expected_heads: proposal.expected_heads.clone(),
-            state_root_before: proposal.state_root_before.clone(),
-            state_root_after: proposal.state_root_after.clone(),
-            resulting_head: proposal.resulting_head.clone(),
+            agentgres_operation_ref: agentgres_truth.agentgres_operation_ref,
+            expected_heads: agentgres_truth.expected_heads,
+            state_root_before: agentgres_truth.state_root_before,
+            state_root_after: agentgres_truth.state_root_after,
+            resulting_head: agentgres_truth.resulting_head,
             eval_receipt_refs: proposal.eval_receipt_refs.clone(),
             verifier_receipt_refs: proposal.verifier_receipt_refs.clone(),
             admission_hash: String::new(),
@@ -227,38 +229,19 @@ impl GovernedRuntimeImprovementProposal {
             &self.rollback_ref,
             GovernedRuntimeImprovementError::MissingRollbackRef,
         );
-        require_non_empty(
-            &mut errors,
-            "agentgres_operation_ref",
-            &self.agentgres_operation_ref,
-            GovernedRuntimeImprovementError::MissingAgentgresOperationRef,
-        );
-        require_non_empty(
-            &mut errors,
-            "state_root_before",
-            &self.state_root_before,
-            GovernedRuntimeImprovementError::MissingStateRootBefore,
-        );
-        require_non_empty(
-            &mut errors,
-            "state_root_after",
-            &self.state_root_after,
-            GovernedRuntimeImprovementError::MissingStateRootAfter,
-        );
-        require_non_empty(
-            &mut errors,
-            "resulting_head",
-            &self.resulting_head,
-            GovernedRuntimeImprovementError::MissingResultingHead,
-        );
+        if !self.agentgres_operation_ref.trim().is_empty()
+            || !self.expected_heads.is_empty()
+            || !self.state_root_before.trim().is_empty()
+            || !self.state_root_after.trim().is_empty()
+            || !self.resulting_head.trim().is_empty()
+        {
+            errors.push(GovernedRuntimeImprovementError::CallerSuppliedAgentgresTruth);
+        }
         if self.eval_receipt_refs.is_empty() {
             errors.push(GovernedRuntimeImprovementError::MissingEvalReceipt);
         }
         if self.verifier_receipt_refs.is_empty() {
             errors.push(GovernedRuntimeImprovementError::MissingVerifierReceipt);
-        }
-        if self.expected_heads.is_empty() {
-            errors.push(GovernedRuntimeImprovementError::MissingExpectedHeads);
         }
 
         if errors.is_empty() {
@@ -286,6 +269,78 @@ fn governed_improvement_admission_hash(
     let mut canonical = record.clone();
     canonical.admission_hash.clear();
     let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| GovernedRuntimeImprovementError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+struct GovernedImprovementAgentgresTruth {
+    agentgres_operation_ref: String,
+    expected_heads: Vec<String>,
+    state_root_before: String,
+    state_root_after: String,
+    resulting_head: String,
+}
+
+fn governed_improvement_agentgres_truth(
+    proposal: &GovernedRuntimeImprovementProposal,
+) -> Result<GovernedImprovementAgentgresTruth, GovernedRuntimeImprovementError> {
+    let proposal_hash = governed_improvement_proposal_hash(proposal)?;
+    let suffix = proposal_hash
+        .trim_start_matches("sha256:")
+        .chars()
+        .take(24)
+        .collect::<String>();
+    Ok(GovernedImprovementAgentgresTruth {
+        agentgres_operation_ref: format!("agentgres://runtime-improvement/operations/{suffix}"),
+        expected_heads: vec!["agentgres://runtime-improvement/head/current".to_string()],
+        state_root_before: governed_improvement_state_root(proposal, "before", None)?,
+        state_root_after: governed_improvement_state_root(proposal, "after", Some(&proposal_hash))?,
+        resulting_head: format!("agentgres://runtime-improvement/head/{suffix}"),
+    })
+}
+
+fn governed_improvement_proposal_hash(
+    proposal: &GovernedRuntimeImprovementProposal,
+) -> Result<String, GovernedRuntimeImprovementError> {
+    let mut canonical = proposal.clone();
+    canonical.agentgres_operation_ref.clear();
+    canonical.expected_heads.clear();
+    canonical.state_root_before.clear();
+    canonical.state_root_after.clear();
+    canonical.resulting_head.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| GovernedRuntimeImprovementError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+#[derive(Serialize)]
+struct GovernedImprovementStateRootPayload<'a> {
+    schema: &'static str,
+    phase: &'a str,
+    proposal_id: &'a str,
+    target_ref: &'a str,
+    candidate_ref: &'a str,
+    approval_ref: &'a str,
+    rollback_ref: &'a str,
+    proposal_hash: Option<&'a str>,
+}
+
+fn governed_improvement_state_root(
+    proposal: &GovernedRuntimeImprovementProposal,
+    phase: &str,
+    proposal_hash: Option<&str>,
+) -> Result<String, GovernedRuntimeImprovementError> {
+    let payload = GovernedImprovementStateRootPayload {
+        schema: "ioi.agentgres.runtime_improvement_state_root.v1",
+        phase,
+        proposal_id: &proposal.proposal_id,
+        target_ref: &proposal.target_ref,
+        candidate_ref: &proposal.candidate_ref,
+        approval_ref: &proposal.approval_ref,
+        rollback_ref: &proposal.rollback_ref,
+        proposal_hash,
+    };
+    let bytes = serde_json::to_vec(&payload)
         .map_err(|error| GovernedRuntimeImprovementError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
@@ -359,12 +414,11 @@ mod governed_improvement_tests {
             verifier_receipt_refs: vec!["receipt://verifier/regression-pass".to_string()],
             approval_ref: "approval://wallet/runtime-improvement".to_string(),
             rollback_ref: "rollback://skill/runtime-auditor/current".to_string(),
-            agentgres_operation_ref: "agentgres://runtime-improvement/operations/skill-1"
-                .to_string(),
-            expected_heads: vec!["agentgres://runtime-improvement/head/before".to_string()],
-            state_root_before: "sha256:before".to_string(),
-            state_root_after: "sha256:after".to_string(),
-            resulting_head: "agentgres://runtime-improvement/head/after".to_string(),
+            agentgres_operation_ref: String::new(),
+            expected_heads: vec![],
+            state_root_before: String::new(),
+            state_root_after: String::new(),
+            resulting_head: String::new(),
         }
     }
 
@@ -392,11 +446,36 @@ mod governed_improvement_tests {
             record.rollback_ref,
             "rollback://skill/runtime-auditor/current"
         );
+        assert!(record
+            .agentgres_operation_ref
+            .starts_with("agentgres://runtime-improvement/operations/"));
         assert_eq!(
             record.expected_heads,
-            vec!["agentgres://runtime-improvement/head/before"]
+            vec!["agentgres://runtime-improvement/head/current"]
         );
+        assert!(record.state_root_before.starts_with("sha256:"));
+        assert!(record.state_root_after.starts_with("sha256:"));
+        assert!(record
+            .resulting_head
+            .starts_with("agentgres://runtime-improvement/head/"));
         assert!(record.admission_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn governed_improvement_rejects_caller_supplied_agentgres_truth() {
+        let mut proposal = proposal();
+        proposal.agentgres_operation_ref =
+            "agentgres://runtime-improvement/operations/client-supplied".to_string();
+        proposal.expected_heads = vec!["agentgres://runtime-improvement/head/client".to_string()];
+        proposal.state_root_before = "sha256:client-before".to_string();
+        proposal.state_root_after = "sha256:client-after".to_string();
+        proposal.resulting_head = "agentgres://runtime-improvement/head/client-after".to_string();
+
+        let errors = GovernedEvolutionCore
+            .admit_proposal(&proposal)
+            .expect_err("client-supplied Agentgres truth must fail closed");
+
+        assert!(errors.contains(&GovernedRuntimeImprovementError::CallerSuppliedAgentgresTruth));
     }
 
     #[test]
@@ -406,7 +485,6 @@ mod governed_improvement_tests {
         proposal.verifier_receipt_refs.clear();
         proposal.approval_ref.clear();
         proposal.rollback_ref.clear();
-        proposal.expected_heads.clear();
 
         let errors = GovernedEvolutionCore
             .admit_proposal(&proposal)
@@ -416,7 +494,6 @@ mod governed_improvement_tests {
         assert!(errors.contains(&GovernedRuntimeImprovementError::MissingVerifierReceipt));
         assert!(errors.contains(&GovernedRuntimeImprovementError::MissingApprovalRef));
         assert!(errors.contains(&GovernedRuntimeImprovementError::MissingRollbackRef));
-        assert!(errors.contains(&GovernedRuntimeImprovementError::MissingExpectedHeads));
     }
 
     #[test]

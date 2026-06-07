@@ -20,11 +20,6 @@ function proposal(): RuntimeGovernedImprovementProposal {
     verifier_receipt_refs: ["receipt://verifier/ide-regression-pass"],
     approval_ref: "approval://wallet/runtime-improvement/ide",
     rollback_ref: "rollback://skill/runtime-auditor/current",
-    agentgres_operation_ref: "agentgres://runtime-improvement/operations/ide",
-    expected_heads: ["agentgres://runtime-improvement/head/before"],
-    state_root_before: "sha256:runtime-improvement-before",
-    state_root_after: "sha256:runtime-improvement-after",
-    resulting_head: "agentgres://runtime-improvement/head/after",
   };
 }
 
@@ -77,6 +72,14 @@ const retiredGovernedImprovementProposalPayloadAliases = [
   "resultingHead",
 ];
 
+const retiredGovernedImprovementProposalTruthFields = [
+  "agentgres_operation_ref",
+  "expected_heads",
+  "state_root_before",
+  "state_root_after",
+  "resulting_head",
+];
+
 const retiredGovernedImprovementWorkflowLogicAliases = [
   "governedImprovement",
   "runtimeImprovementProposal",
@@ -113,6 +116,10 @@ test("builds governed improvement proposal controls for daemon admission", () =>
   assert.deepEqual(request.body.verifier_receipt_refs, ["receipt://verifier/ide-regression-pass"]);
   assert.equal(request.body.proposal.proposal_id, "proposal://runtime-improvement/ide");
   assert.equal(request.body.proposal.approval_ref, "approval://wallet/runtime-improvement/ide");
+  for (const key of retiredGovernedImprovementProposalTruthFields) {
+    assert.equal(Object.prototype.hasOwnProperty.call(request.body, key), false, `${key} must not be emitted`);
+    assert.equal(Object.prototype.hasOwnProperty.call(request.body.proposal, key), false, `${key} must not be emitted`);
+  }
   for (const key of retiredGovernedImprovementRequestAliases) {
     assert.equal(Object.prototype.hasOwnProperty.call(request.body, key), false, `${key} must not be emitted`);
   }
@@ -158,6 +165,22 @@ test("governed improvement controls reject retired proposal payload aliases", ()
           proposal: {
             ...proposal(),
             [key]: "retired",
+          },
+        }),
+      /retired proposal payload aliases/,
+    );
+  }
+});
+
+test("governed improvement controls reject retired proposal truth fields", () => {
+  for (const key of retiredGovernedImprovementProposalTruthFields) {
+    assert.throws(
+      () =>
+        createRuntimeGovernedImprovementControlRequest({
+          threadId: "thread-ide",
+          proposal: {
+            ...proposal(),
+            [key]: key === "expected_heads" ? ["agentgres://head/client"] : "client-supplied-truth",
           },
         }),
       /retired proposal payload aliases/,
@@ -228,16 +251,16 @@ test("governed improvement controls reject retired workflow logic aliases", () =
   }
 });
 
-test("governed improvement controls fail closed without admission refs", () => {
+test("governed improvement controls fail closed without evaluation receipts", () => {
   assert.throws(
     () =>
       createRuntimeGovernedImprovementControlRequest({
         threadId: "thread-ide",
         proposal: {
           ...proposal(),
-          expected_heads: [],
+          eval_receipt_refs: [],
         },
       }),
-    /expected_heads/,
+    /eval_receipt_refs/,
   );
 });

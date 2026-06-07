@@ -6729,7 +6729,8 @@ function runBridge() {
       /GovernedRuntimeImprovementProposal/.test(bridgeModule) &&
       /GovernedEvolutionCore/.test(bridgeModule) &&
       /rust_governed_meta_improvement_command/.test(bridgeModule) &&
-      /bridge_admits_governed_runtime_improvement_proposal_through_rust_core/.test(bridgeModule),
+      /bridge_admits_governed_runtime_improvement_proposal_through_rust_core/.test(bridgeModule) &&
+      /agentgres:\/\/runtime-improvement\/head\/current/.test(bridgeModule),
     ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
     "Phase 9 is pending: governed meta-improvement proposal admission must be exposed through the daemon command bridge",
   );
@@ -6766,12 +6767,17 @@ function runBridge() {
       /admitGovernedImprovementProposal/.test(runtimeDaemonIndex) &&
       /GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(governedImprovementSurface) &&
       /mutation_executed:\s*false/.test(governedImprovementSurface) &&
+      /RETIRED_GOVERNED_IMPROVEMENT_TRUTH_FIELDS/.test(governedImprovementSurface) &&
+      /governed_improvement_agentgres_truth_fields_retired/.test(governedImprovementSurface) &&
       /store\.governedImprovementRunner\.admitProposal/.test(governedImprovementSurface) &&
       /governed-improvement-proposals/.test(runtimeRouteHandlers) &&
       /store\.admitGovernedImprovementProposal/.test(runtimeRouteHandlers) &&
       /thread route admits governed improvement proposals through store facade/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose governed improvement apply shortcut/.test(runtimeRouteHandlersTest) &&
-      /governed improvement surface admits nested proposal through Rust runner/.test(governedImprovementSurfaceTest),
+      /governed improvement surface admits nested proposal through Rust runner/.test(governedImprovementSurfaceTest) &&
+      /governed improvement surface rejects client supplied Agentgres truth before Rust runner/.test(
+        governedImprovementSurfaceTest,
+      ),
     [
       "packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs",
       "packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs",
@@ -6891,19 +6897,37 @@ function runBridge() {
       !/stringArrayField\(proposalSeed,\s*"(?:evalReceiptRefs|verifierReceiptRefs|expectedHeads)"\)/.test(
         governedImprovementControlNodes,
       ) &&
+      !/stringField\(proposalSeed,\s*"(?:agentgres_operation_ref|state_root_before|state_root_after|resulting_head)"\)/.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/stringArrayField\(proposalSeed,\s*"expected_heads"\)/.test(
+        governedImprovementControlNodes,
+      ) &&
       !/stringAtPath\(params\.input,\s*"(?:proposalId|targetRef|candidateRef|sourceTraceRef|approvalRef|rollbackRef|agentgresOperationRef|stateRootBefore|stateRootAfter|resultingHead)"\)/.test(
         governedImprovementControlNodes,
       ) &&
       !/stringArrayAtPath\(params\.input,\s*"(?:evalReceiptRefs|verifierReceiptRefs|expectedHeads)"\)/.test(
         governedImprovementControlNodes,
       ) &&
+      !/stringAtPath\(params\.input,\s*"(?:agentgres_operation_ref|state_root_before|state_root_after|resulting_head)"\)/.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/stringArrayAtPath\(params\.input,\s*"expected_heads"\)/.test(
+        governedImprovementControlNodes,
+      ) &&
       /retiredGovernedImprovementProposalPayloadAliases/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /retiredGovernedImprovementProposalTruthFields/.test(
         governedImprovementControlNodesTest,
       ) &&
       /Object\.prototype\.hasOwnProperty\.call\(request\.body\.proposal,\s*key\)/.test(
         governedImprovementControlNodesTest,
       ) &&
       /governed improvement controls reject retired proposal payload aliases/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /governed improvement controls reject retired proposal truth fields/.test(
         governedImprovementControlNodesTest,
       ) &&
       /governed improvement controls reject raw input proposal payload aliases/.test(
@@ -6966,7 +6990,7 @@ function runBridge() {
       /builds governed improvement proposal controls for daemon admission/.test(
         governedImprovementControlNodesTest,
       ) &&
-      /governed improvement controls fail closed without admission refs/.test(
+      /governed improvement controls fail closed without evaluation receipts/.test(
         governedImprovementControlNodesTest,
       ) &&
       /createRuntimeGovernedImprovementControlRequest/.test(agentIdeIndex) &&
@@ -6993,6 +7017,11 @@ function runBridge() {
       /"proposal":\s*proposal/.test(cliRuntime) &&
       /governed_improvement_route_encodes_thread_id/.test(cliRuntime) &&
       /governed_improvement_body_is_cli_admission_only/.test(cliRuntime) &&
+      !/"agentgres_operation_ref":\s*"agentgres:\/\/operations\/cli"/.test(cliRuntime) &&
+      !/"expected_heads":\s*\["agentgres:\/\/head\/before"\]/.test(cliRuntime) &&
+      !/"state_root_before":\s*"sha256:before"/.test(cliRuntime) &&
+      !/"state_root_after":\s*"sha256:after"/.test(cliRuntime) &&
+      !/"resulting_head":\s*"agentgres:\/\/head\/after"/.test(cliRuntime) &&
       !/proposal_admitted:\s*true/.test(cliRuntime) &&
       !/mutation_executed:\s*true/.test(cliRuntime),
     [
@@ -10754,7 +10783,10 @@ function runReceipts() {
       /rollback_ref/.test(evolutionCore) &&
       /agentgres_operation_ref/.test(evolutionCore) &&
       /expected_heads/.test(evolutionCore) &&
+      /governed_improvement_agentgres_truth/.test(evolutionCore) &&
+      /CallerSuppliedAgentgresTruth/.test(evolutionCore) &&
       /governed_improvement_proposal_admits_eval_approval_rollback_and_agentgres/.test(evolutionCore) &&
+      /governed_improvement_rejects_caller_supplied_agentgres_truth/.test(evolutionCore) &&
       /direct_self_mutation_without_governed_proposal_fails_closed/.test(evolutionCore),
     ["crates/services/src/agentic/evolution.rs"],
     "Phase 9 is pending: meta-improvement must be proposal-mediated with eval receipts, approval, rollback, and Agentgres binding",

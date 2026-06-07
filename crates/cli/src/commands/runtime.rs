@@ -639,12 +639,7 @@ mod tests {
             "eval_receipt_refs": ["receipt://eval/cli"],
             "verifier_receipt_refs": ["receipt://verifier/cli"],
             "approval_ref": "wallet://approval/cli",
-            "rollback_ref": "artifact://rollback/cli",
-            "agentgres_operation_ref": "agentgres://operations/cli",
-            "expected_heads": ["agentgres://head/before"],
-            "state_root_before": "sha256:before",
-            "state_root_after": "sha256:after",
-            "resulting_head": "agentgres://head/after"
+            "rollback_ref": "artifact://rollback/cli"
         });
         let body = governed_improvement_proposal_admission_body(proposal);
 

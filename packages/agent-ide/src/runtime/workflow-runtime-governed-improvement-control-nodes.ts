@@ -43,6 +43,14 @@ const RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_PAYLOAD_FIELDS = [
   "resultingHead",
 ] as const;
 
+const RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_TRUTH_FIELDS = [
+  "agentgres_operation_ref",
+  "expected_heads",
+  "state_root_before",
+  "state_root_after",
+  "resulting_head",
+] as const;
+
 const RETIRED_GOVERNED_IMPROVEMENT_WORKFLOW_LOGIC_FIELDS = [
   "governedImprovement",
   "runtimeImprovementProposal",
@@ -63,11 +71,6 @@ export interface RuntimeGovernedImprovementProposal extends Record<string, unkno
   verifier_receipt_refs: string[];
   approval_ref: string;
   rollback_ref: string;
-  agentgres_operation_ref: string;
-  expected_heads: string[];
-  state_root_before: string;
-  state_root_after: string;
-  resulting_head: string;
 }
 
 export interface RuntimeGovernedImprovementControlRequestBody {
@@ -87,11 +90,6 @@ export interface RuntimeGovernedImprovementControlRequestBody {
   verifier_receipt_refs: string[];
   approval_ref: string;
   rollback_ref: string;
-  agentgres_operation_ref: string;
-  expected_heads: string[];
-  state_root_before: string;
-  state_root_after: string;
-  resulting_head: string;
   approval_mode: "human_required";
   proposal_only: true;
   mutation_allowed: false;
@@ -126,11 +124,6 @@ export interface RuntimeGovernedImprovementControlRequestInput {
   verifierReceiptRefs?: string[] | null;
   approvalRef?: string | null;
   rollbackRef?: string | null;
-  agentgresOperationRef?: string | null;
-  expectedHeads?: string[] | null;
-  stateRootBefore?: string | null;
-  stateRootAfter?: string | null;
-  resultingHead?: string | null;
   workflowGraphId?: string | null;
   workflowNodeId?: string | null;
   actor?: string | null;
@@ -216,36 +209,6 @@ export function createRuntimeGovernedImprovementControlRequest(
       stringAtPath(params.input, "rollback_ref"),
     "rollback_ref",
   );
-  const agentgresOperationRef = requiredString(
-    cleanString(params.agentgresOperationRef) ??
-      stringField(proposalSeed, "agentgres_operation_ref") ??
-      stringAtPath(params.input, "agentgres_operation_ref"),
-    "agentgres_operation_ref",
-  );
-  const expectedHeads = requiredStringArray(
-    params.expectedHeads ??
-      stringArrayField(proposalSeed, "expected_heads") ??
-      stringArrayAtPath(params.input, "expected_heads"),
-    "expected_heads",
-  );
-  const stateRootBefore = requiredString(
-    cleanString(params.stateRootBefore) ??
-      stringField(proposalSeed, "state_root_before") ??
-      stringAtPath(params.input, "state_root_before"),
-    "state_root_before",
-  );
-  const stateRootAfter = requiredString(
-    cleanString(params.stateRootAfter) ??
-      stringField(proposalSeed, "state_root_after") ??
-      stringAtPath(params.input, "state_root_after"),
-    "state_root_after",
-  );
-  const resultingHead = requiredString(
-    cleanString(params.resultingHead) ??
-      stringField(proposalSeed, "resulting_head") ??
-      stringAtPath(params.input, "resulting_head"),
-    "resulting_head",
-  );
   const workflowGraphId = cleanString(params.workflowGraphId) ?? null;
   const workflowNodeId =
     cleanString(params.workflowNodeId) ??
@@ -262,11 +225,6 @@ export function createRuntimeGovernedImprovementControlRequest(
     verifier_receipt_refs: verifierReceiptRefs,
     approval_ref: approvalRef,
     rollback_ref: rollbackRef,
-    agentgres_operation_ref: agentgresOperationRef,
-    expected_heads: expectedHeads,
-    state_root_before: stateRootBefore,
-    state_root_after: stateRootAfter,
-    resulting_head: resultingHead,
   };
 
   return {
@@ -294,11 +252,6 @@ export function createRuntimeGovernedImprovementControlRequest(
       verifier_receipt_refs: verifierReceiptRefs,
       approval_ref: approvalRef,
       rollback_ref: rollbackRef,
-      agentgres_operation_ref: agentgresOperationRef,
-      expected_heads: expectedHeads,
-      state_root_before: stateRootBefore,
-      state_root_after: stateRootAfter,
-      resulting_head: resultingHead,
       approval_mode: "human_required",
       proposal_only: true,
       mutation_allowed: false,
@@ -370,9 +323,13 @@ function assertCanonicalGovernedImprovementProposalPayload(source: unknown): voi
   const retiredAliases = RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_PAYLOAD_FIELDS.filter(
     (field) => Object.prototype.hasOwnProperty.call(record, field),
   );
-  if (retiredAliases.length === 0) return;
+  const retiredTruthFields = RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_TRUTH_FIELDS.filter(
+    (field) => Object.prototype.hasOwnProperty.call(record, field),
+  );
+  const retiredFields = [...retiredAliases, ...retiredTruthFields];
+  if (retiredFields.length === 0) return;
   throw new Error(
-    `governed improvement proposal controls no longer accept retired proposal payload aliases: ${retiredAliases.join(", ")}`,
+    `governed improvement proposal controls no longer accept retired proposal payload aliases: ${retiredFields.join(", ")}`,
   );
 }
 

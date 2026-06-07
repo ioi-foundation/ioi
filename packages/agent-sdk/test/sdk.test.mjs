@@ -41,11 +41,12 @@ test("SDK admits governed improvement proposals through the thread route", async
     verifier_receipt_refs: ["receipt://verifier/sdk-regression-pass"],
     approval_ref: "approval://wallet/runtime-improvement/sdk",
     rollback_ref: "rollback://skill/runtime-auditor/current",
-    agentgres_operation_ref: "agentgres://runtime-improvement/operations/sdk",
-    expected_heads: ["agentgres://runtime-improvement/head/before"],
-    state_root_before: "sha256:runtime-improvement-before",
-    state_root_after: "sha256:runtime-improvement-after",
-    resulting_head: "agentgres://runtime-improvement/head/after",
+  };
+  const derivedTruth = {
+    agentgres_operation_ref: "agentgres://runtime-improvement/operations/sdk-derived",
+    state_root_before: "sha256:runtime-improvement-before-derived",
+    state_root_after: "sha256:runtime-improvement-after-derived",
+    resulting_head: "agentgres://runtime-improvement/head/sdk-derived",
   };
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -59,6 +60,15 @@ test("SDK admits governed improvement proposals through the thread route", async
       assert.equal(body.source, "sdk_client");
       assert.equal(body.proposal.proposal_id, "proposal://runtime-improvement/sdk");
       assert.equal(body.proposal.approval_ref, "approval://wallet/runtime-improvement/sdk");
+      for (const key of [
+        "agentgres_operation_ref",
+        "expected_heads",
+        "state_root_before",
+        "state_root_after",
+        "resulting_head",
+      ]) {
+        assert.equal(Object.prototype.hasOwnProperty.call(body.proposal, key), false);
+      }
       response.statusCode = 201;
       response.end(JSON.stringify({
         schema_version: "ioi.runtime.governed_improvement_admission.v1",
@@ -70,10 +80,7 @@ test("SDK admits governed improvement proposals through the thread route", async
         agent_id: "agent_sdk",
         proposal_id: proposal.proposal_id,
         admission_hash: "sha256:sdk-admission",
-        agentgres_operation_ref: proposal.agentgres_operation_ref,
-        state_root_before: proposal.state_root_before,
-        state_root_after: proposal.state_root_after,
-        resulting_head: proposal.resulting_head,
+        ...derivedTruth,
         approval_ref: proposal.approval_ref,
         rollback_ref: proposal.rollback_ref,
         record: {
@@ -98,7 +105,7 @@ test("SDK admits governed improvement proposals through the thread route", async
     assert.equal(result.mutation_executed, false);
     assert.equal(result.proposal_id, "proposal://runtime-improvement/sdk");
     assert.equal(result.admission_hash, "sha256:sdk-admission");
-    assert.equal(result.agentgres_operation_ref, "agentgres://runtime-improvement/operations/sdk");
+    assert.equal(result.agentgres_operation_ref, derivedTruth.agentgres_operation_ref);
     assert.ok(requests.includes("POST /v1/threads/thread_sdk/governed-improvement-proposals"));
   } finally {
     await close(server);

@@ -1072,11 +1072,6 @@ export interface RuntimeGovernedImprovementProposal extends Record<string, unkno
   verifier_receipt_refs: string[];
   approval_ref: string;
   rollback_ref: string;
-  agentgres_operation_ref: string;
-  expected_heads: string[];
-  state_root_before: string;
-  state_root_after: string;
-  resulting_head: string;
 }
 
 export interface RuntimeGovernedImprovementProposalAdmissionInput extends Record<string, unknown> {
