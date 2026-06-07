@@ -32,6 +32,7 @@ function fakeStore() {
     registeredEvents: [],
     runs: new Map(),
     schemaVersion: "ioi.agentgres.runtime.v0",
+    agentCommitRequests: [],
     storageWriteAdmissions: [],
     storageWriteSetRequests: [],
     subagents: new Map(),
@@ -181,6 +182,60 @@ function fakeStore() {
         evidence_refs: ["rust_agentgres_runtime_run_state_commit"],
       };
     },
+    commitRuntimeAgentState(request) {
+      this.agentCommitRequests.push(request);
+      const filePath = `agents/${request.agent_id}.json`;
+      const objectRef = `agentgres://runtime-state/agents/${request.agent_id}/records/${filePath}`;
+      const payloadRefs = [`payload://runtime/agents/${request.agent_id}/records/${filePath}`];
+      const receiptRefs = request.agent.receipt_refs ?? request.agent.receiptRefs ?? [];
+      const admission = {
+        schema_version: "ioi.storage_backend_write_admission.v1",
+        storage_backend_ref: request.storage_backend_ref,
+        object_ref: objectRef,
+        content_hash: "sha256:agent-content",
+        artifact_refs: [],
+        payload_refs: payloadRefs,
+        receipt_refs: receiptRefs,
+        admission_hash: "sha256:agent-admission",
+      };
+      this.storageWriteAdmissions.push(admission);
+      this.persistenceEvents.push({ type: "storage_admission", objectRef });
+      this.persistenceEvents.push({ type: "rust_write_json", filePath });
+      this.rustWrites.push({ filePath, objectRef });
+      return {
+        source: "rust_agentgres_runtime_agent_state_commit_command",
+        record: {
+          schema_version: "ioi.runtime_agent_state_commit.v1",
+          agent_id: request.agent_id,
+          operation_kind: request.operation_kind,
+          storage_backend_ref: request.storage_backend_ref,
+          record: {
+            record_path: filePath,
+            object_ref: objectRef,
+            content_hash: admission.content_hash,
+            artifact_refs: [],
+            payload_refs: payloadRefs,
+            receipt_refs: receiptRefs,
+            admission,
+          },
+          commit_hash: "sha256:agent-commit",
+        },
+        agent_id: request.agent_id,
+        object_ref: objectRef,
+        content_hash: admission.content_hash,
+        admission_hash: admission.admission_hash,
+        commit_hash: "sha256:agent-commit",
+        written_record: {
+          record_path: filePath,
+          object_ref: objectRef,
+          content_hash: admission.content_hash,
+          payload_refs: payloadRefs,
+          receipt_refs: receiptRefs,
+          admission_hash: admission.admission_hash,
+        },
+        evidence_refs: ["rust_agentgres_runtime_agent_state_commit"],
+      };
+    },
     commitRuntimeSubagentState(request) {
       this.subagentCommitRequests.push(request);
       const filePath = `subagents/${request.subagent_id}.json`;
@@ -260,14 +315,40 @@ test("thread persistence counts terminal events", () => {
   );
 });
 
-test("thread persistence writes agent records without operation entries", () => {
+test("thread persistence commits agent records through Rust Agentgres", () => {
   const store = fakeStore();
-  const agent = { id: "agent_1", status: "active" };
+  const agent = {
+    id: "agent_1",
+    status: "active",
+    runtime: "local",
+    updated_at: "2026-06-06T00:00:00.000Z",
+    receipt_refs: ["receipt_agent"],
+  };
 
   writeAgentRecord(store, agent, "agent.create", deps(store));
 
-  assert.deepEqual(store.writes, [{ filePath: "agents/agent_1.json", value: agent }]);
+  assert.equal(store.agents.get("agent_1"), agent);
+  assert.equal(store.agentCommitRequests.length, 1);
+  assert.equal(store.agentCommitRequests[0].schema_version, "ioi.runtime_agent_state_commit.v1");
+  assert.equal(store.agentCommitRequests[0].agent_id, "agent_1");
+  assert.equal(store.agentCommitRequests[0].operation_kind, "agent.create");
+  assert.deepEqual(store.agentCommitRequests[0].agent, agent);
+  assert.deepEqual(store.writes, []);
+  assert.deepEqual(store.rustWrites.map((write) => write.filePath), ["agents/agent_1.json"]);
+  assert.deepEqual(store.storageWriteAdmissions.at(-1).receipt_refs, ["receipt_agent"]);
   assert.deepEqual(store.operations, []);
+});
+
+test("thread persistence rejects agent records without stable ids", () => {
+  const store = fakeStore();
+
+  assert.throws(
+    () => writeAgentRecord(store, {}, "agent.create", {
+      ...deps(store),
+      runtimeError: ({ status, code, message, details }) => Object.assign(new Error(message), { status, code, details }),
+    }),
+    (error) => error.status === 500 && error.code === "agent_id_required",
+  );
 });
 
 test("thread persistence commits subagent records through Rust Agentgres", () => {

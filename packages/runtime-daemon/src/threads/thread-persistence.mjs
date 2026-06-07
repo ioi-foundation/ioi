@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION = "ioi.runtime_run_state_commit.v1";
+const RUNTIME_AGENT_STATE_COMMIT_SCHEMA_VERSION = "ioi.runtime_agent_state_commit.v1";
 const RUNTIME_SUBAGENT_STATE_COMMIT_SCHEMA_VERSION = "ioi.runtime_subagent_state_commit.v1";
 const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
 
@@ -205,6 +206,62 @@ function normalizeRunStateCommit(commit) {
   return normalized;
 }
 
+function commitAgentState(store, agent, operationKind, agentId) {
+  if (typeof store.commitRuntimeAgentState !== "function") {
+    throw new Error("Agent persistence requires Rust Agentgres agent-state commit.");
+  }
+  const request = {
+    schema_version: RUNTIME_AGENT_STATE_COMMIT_SCHEMA_VERSION,
+    agent_id: agentId,
+    operation_kind: operationKind,
+    storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
+    agent,
+  };
+  return normalizeAgentStateCommit(store.commitRuntimeAgentState(request));
+}
+
+function normalizeAgentStateCommit(commit) {
+  const record = commit?.record && typeof commit.record === "object" ? commit.record : commit;
+  const storageRecord = commit?.storage_record && typeof commit.storage_record === "object"
+    ? commit.storage_record
+    : record?.record;
+  const normalized = {
+    source: normalizeTransitionRef(commit?.source) ?? "rust_agentgres_runtime_agent_state_commit_command",
+    agent_id:
+      normalizeTransitionRef(commit?.agent_id) ??
+      normalizeTransitionRef(record?.agent_id),
+    object_ref:
+      normalizeTransitionRef(commit?.object_ref) ??
+      normalizeTransitionRef(storageRecord?.object_ref),
+    content_hash:
+      normalizeTransitionRef(commit?.content_hash) ??
+      normalizeTransitionRef(storageRecord?.content_hash),
+    admission_hash:
+      normalizeTransitionRef(commit?.admission_hash) ??
+      normalizeTransitionRef(storageRecord?.admission?.admission_hash),
+    commit_hash:
+      normalizeTransitionRef(commit?.commit_hash) ??
+      normalizeTransitionRef(record?.commit_hash),
+    written_record: commit?.written_record ?? null,
+    evidence_refs: Array.isArray(commit?.evidence_refs) ? commit.evidence_refs : [],
+    record: record ?? null,
+  };
+  const missing = [
+    ["agent_id", normalized.agent_id],
+    ["object_ref", normalized.object_ref],
+    ["content_hash", normalized.content_hash],
+    ["admission_hash", normalized.admission_hash],
+    ["commit_hash", normalized.commit_hash],
+    ["written_record", normalized.written_record],
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+  if (missing.length > 0) {
+    throw new Error(`Rust Agentgres agent-state commit is missing ${missing.join(", ")}.`);
+  }
+  return normalized;
+}
+
 function commitSubagentState(store, subagent, operationKind, subagentId) {
   if (typeof store.commitRuntimeSubagentState !== "function") {
     throw new Error("Subagent persistence requires Rust Agentgres subagent-state commit.");
@@ -262,8 +319,21 @@ function normalizeSubagentStateCommit(commit) {
 }
 
 export function writeAgentRecord(store, agent, operationKind, deps = {}) {
-  const { writeJson } = deps;
-  writeJson(store.pathFor("agents", `${agent.id}.json`), agent);
+  const { runtimeError } = deps;
+  const agentId = agent.id ?? agent.agent_id;
+  if (!agentId) {
+    const errorFactory = typeof runtimeError === "function"
+      ? runtimeError
+      : ({ status, code, message, details }) => Object.assign(new Error(message), { status, code, details });
+    throw errorFactory({
+      status: 500,
+      code: "agent_id_required",
+      message: "Agent records require a stable id before persistence.",
+      details: { operationKind },
+    });
+  }
+  store.agents?.set?.(String(agentId), agent);
+  return commitAgentState(store, agent, operationKind, String(agentId));
 }
 
 export function writeSubagentRecord(store, subagent, operationKind, deps = {}) {

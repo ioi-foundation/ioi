@@ -3801,6 +3801,10 @@ export class AgentgresRuntimeStateStore {
     return this.runtimeAgentgresAdmissionRunner.commitRuntimeRunState(this.stateDir, request);
   }
 
+  commitRuntimeAgentState(request) {
+    return this.runtimeAgentgresAdmissionRunner.commitRuntimeAgentState(this.stateDir, request);
+  }
+
   commitRuntimeSubagentState(request) {
     return this.runtimeAgentgresAdmissionRunner.commitRuntimeSubagentState(this.stateDir, request);
   }

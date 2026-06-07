@@ -30,11 +30,12 @@ pub mod workspace_restore;
 
 use agentgres_admission::{
     AgentgresAdmissionCore, AgentgresAdmissionError, AgentgresAdmissionRecord,
-    AgentgresOperationProposal, RuntimeRunStateCommitRecord, RuntimeRunStateCommitRequest,
-    RuntimeStatePersistenceRecord, RuntimeStatePersistenceRequest,
-    RuntimeStateRecordMaterializationRecord, RuntimeStateRecordMaterializationRequest,
-    RuntimeStateStorageWriteSetRecord, RuntimeStateStorageWriteSetRequest,
-    RuntimeStateTransitionRecord, RuntimeStateTransitionRequest, RuntimeSubagentStateCommitRecord,
+    AgentgresOperationProposal, RuntimeAgentStateCommitRecord, RuntimeAgentStateCommitRequest,
+    RuntimeRunStateCommitRecord, RuntimeRunStateCommitRequest, RuntimeStatePersistenceRecord,
+    RuntimeStatePersistenceRequest, RuntimeStateRecordMaterializationRecord,
+    RuntimeStateRecordMaterializationRequest, RuntimeStateStorageWriteSetRecord,
+    RuntimeStateStorageWriteSetRequest, RuntimeStateTransitionRecord,
+    RuntimeStateTransitionRequest, RuntimeSubagentStateCommitRecord,
     RuntimeSubagentStateCommitRequest, StorageBackendWriteAdmissionRecord,
     StorageBackendWriteProposal,
 };
@@ -512,6 +513,13 @@ impl RuntimeKernelService {
         request: &RuntimeRunStateCommitRequest,
     ) -> Result<RuntimeRunStateCommitRecord, AgentgresAdmissionError> {
         AgentgresAdmissionCore.commit_runtime_run_state(request)
+    }
+
+    pub fn commit_runtime_agent_state(
+        &self,
+        request: &RuntimeAgentStateCommitRequest,
+    ) -> Result<RuntimeAgentStateCommitRecord, AgentgresAdmissionError> {
+        AgentgresAdmissionCore.commit_runtime_agent_state(request)
     }
 
     pub fn commit_runtime_subagent_state(

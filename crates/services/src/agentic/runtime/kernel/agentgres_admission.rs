@@ -14,6 +14,7 @@ pub const RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION: &str =
     "ioi.runtime_state_record_materialization.v1";
 pub const RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION: &str = "ioi.runtime_state_persistence.v1";
 pub const RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION: &str = "ioi.runtime_run_state_commit.v1";
+pub const RUNTIME_AGENT_STATE_COMMIT_SCHEMA_VERSION: &str = "ioi.runtime_agent_state_commit.v1";
 pub const RUNTIME_SUBAGENT_STATE_COMMIT_SCHEMA_VERSION: &str =
     "ioi.runtime_subagent_state_commit.v1";
 pub const AGENTGRES_OPERATION_EXPECTED_HEADS_NEGATIVE_CONFORMANCE: &str =
@@ -266,6 +267,27 @@ pub struct RuntimeRunStateCommitRecord {
     pub run_id: String,
     pub transition: RuntimeStateTransitionRecord,
     pub persistence: RuntimeStatePersistenceRecord,
+    pub commit_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeAgentStateCommitRequest {
+    pub schema_version: String,
+    pub agent_id: String,
+    pub operation_kind: String,
+    pub storage_backend_ref: String,
+    pub agent: Value,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeAgentStateCommitRecord {
+    pub schema_version: String,
+    pub agent_id: String,
+    pub operation_kind: String,
+    pub storage_backend_ref: String,
+    pub record: RuntimeStateStorageWriteRecord,
     pub commit_hash: String,
 }
 
@@ -727,6 +749,60 @@ impl AgentgresAdmissionCore {
         Ok(record)
     }
 
+    pub fn commit_runtime_agent_state(
+        &self,
+        request: &RuntimeAgentStateCommitRequest,
+    ) -> Result<RuntimeAgentStateCommitRecord, AgentgresAdmissionError> {
+        request.validate()?;
+        let safe_agent_id = safe_agentgres_component(&request.agent_id);
+        let receipt_refs = if request.receipt_refs.is_empty() {
+            json_string_array(&request.agent, "receipt_refs")
+                .into_iter()
+                .chain(json_string_array(&request.agent, "receiptRefs"))
+                .collect::<Vec<_>>()
+        } else {
+            request.receipt_refs.clone()
+        };
+        if receipt_refs.is_empty() {
+            return Err(AgentgresAdmissionError::MissingReceiptRefs);
+        }
+        let record_path = format!("agents/{safe_agent_id}.json");
+        let payload_refs = vec![format!(
+            "payload://runtime/agents/{safe_agent_id}/records/{record_path}"
+        )];
+        let proposal = StorageBackendWriteProposal {
+            schema_version: STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION.to_string(),
+            storage_backend_ref: request.storage_backend_ref.clone(),
+            object_ref: format!(
+                "agentgres://runtime-state/agents/{safe_agent_id}/records/{record_path}"
+            ),
+            content_hash: runtime_state_payload_hash(&request.agent)?,
+            artifact_refs: vec![],
+            payload_refs,
+            receipt_refs,
+        };
+        let admission = self.admit_storage_backend_write(&proposal)?;
+        let storage_record = RuntimeStateStorageWriteRecord {
+            record_path,
+            object_ref: proposal.object_ref,
+            content_hash: proposal.content_hash,
+            artifact_refs: proposal.artifact_refs,
+            payload_refs: proposal.payload_refs,
+            receipt_refs: proposal.receipt_refs,
+            admission,
+        };
+        let mut record = RuntimeAgentStateCommitRecord {
+            schema_version: RUNTIME_AGENT_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            agent_id: request.agent_id.clone(),
+            operation_kind: request.operation_kind.clone(),
+            storage_backend_ref: request.storage_backend_ref.clone(),
+            record: storage_record,
+            commit_hash: String::new(),
+        };
+        record.commit_hash = runtime_agent_state_commit_hash(&record)?;
+        Ok(record)
+    }
+
     pub fn commit_runtime_subagent_state(
         &self,
         request: &RuntimeSubagentStateCommitRequest,
@@ -939,6 +1015,22 @@ impl RuntimeRunStateCommitRequest {
     }
 }
 
+impl RuntimeAgentStateCommitRequest {
+    pub fn validate(&self) -> Result<(), AgentgresAdmissionError> {
+        if self.schema_version != RUNTIME_AGENT_STATE_COMMIT_SCHEMA_VERSION {
+            return Err(AgentgresAdmissionError::InvalidSchemaVersion {
+                expected: RUNTIME_AGENT_STATE_COMMIT_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("agent_id", &self.agent_id)?;
+        require_non_empty("operation_kind", &self.operation_kind)?;
+        require_non_empty("storage_backend_ref", &self.storage_backend_ref)?;
+        validate_runtime_agent_id(&self.agent, &self.agent_id)?;
+        Ok(())
+    }
+}
+
 impl RuntimeSubagentStateCommitRequest {
     pub fn validate(&self) -> Result<(), AgentgresAdmissionError> {
         if self.schema_version != RUNTIME_SUBAGENT_STATE_COMMIT_SCHEMA_VERSION {
@@ -1093,6 +1185,16 @@ fn runtime_state_persistence_hash(
 
 fn runtime_run_state_commit_hash(
     record: &RuntimeRunStateCommitRecord,
+) -> Result<String, AgentgresAdmissionError> {
+    let mut canonical = record.clone();
+    canonical.commit_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn runtime_agent_state_commit_hash(
+    record: &RuntimeAgentStateCommitRecord,
 ) -> Result<String, AgentgresAdmissionError> {
     let mut canonical = record.clone();
     canonical.commit_hash.clear();
@@ -1553,6 +1655,17 @@ fn validate_optional_runtime_agent_id(
     }
 }
 
+fn validate_runtime_agent_id(
+    agent: &Value,
+    expected_agent_id: &str,
+) -> Result<(), AgentgresAdmissionError> {
+    match json_string(agent, "id").or_else(|| json_string(agent, "agent_id")) {
+        Some(agent_id) if agent_id == expected_agent_id => Ok(()),
+        Some(_) => Err(AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch),
+        None => Err(AgentgresAdmissionError::MissingField("agent.id")),
+    }
+}
+
 fn validate_runtime_subagent_id(
     subagent: &Value,
     expected_subagent_id: &str,
@@ -1926,6 +2039,27 @@ mod tests {
             "updated_at": "2026-06-04T00:00:02.000Z",
             "receipt_refs": ["receipt_subagent"]
         })
+    }
+
+    fn runtime_committed_agent() -> Value {
+        json!({
+            "id": "agent_1",
+            "status": "active",
+            "runtime": "local",
+            "updated_at": "2026-06-06T00:00:00.000Z",
+            "receipt_refs": ["receipt_agent"]
+        })
+    }
+
+    fn runtime_agent_state_commit() -> RuntimeAgentStateCommitRequest {
+        RuntimeAgentStateCommitRequest {
+            schema_version: RUNTIME_AGENT_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            agent_id: "agent_1".to_string(),
+            operation_kind: "agent.create".to_string(),
+            storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
+            agent: runtime_committed_agent(),
+            receipt_refs: vec![],
+        }
     }
 
     fn runtime_subagent_state_commit() -> RuntimeSubagentStateCommitRequest {
@@ -2371,6 +2505,63 @@ mod tests {
         let error = AgentgresAdmissionCore
             .materialize_runtime_state_records(&request)
             .expect_err("agent payload id must match run agent id");
+
+        assert_eq!(
+            error,
+            AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch
+        );
+    }
+
+    #[test]
+    fn commits_runtime_agent_state_with_storage_admission() {
+        let record = AgentgresAdmissionCore
+            .commit_runtime_agent_state(&runtime_agent_state_commit())
+            .expect("runtime agent state committed");
+
+        assert_eq!(
+            record.schema_version,
+            RUNTIME_AGENT_STATE_COMMIT_SCHEMA_VERSION
+        );
+        assert_eq!(record.agent_id, "agent_1");
+        assert_eq!(record.operation_kind, "agent.create");
+        assert!(record.commit_hash.starts_with("sha256:"));
+        assert_eq!(record.record.record_path, "agents/agent_1.json");
+        assert_eq!(
+            record.record.object_ref,
+            "agentgres://runtime-state/agents/agent_1/records/agents/agent_1.json"
+        );
+        assert_eq!(
+            record.record.payload_refs,
+            vec!["payload://runtime/agents/agent_1/records/agents/agent_1.json"]
+        );
+        assert_eq!(record.record.receipt_refs, vec!["receipt_agent"]);
+        assert!(record
+            .record
+            .admission
+            .admission_hash
+            .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn runtime_agent_state_commit_requires_receipts() {
+        let mut request = runtime_agent_state_commit();
+        request.agent["receipt_refs"] = json!([]);
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_agent_state(&request)
+            .expect_err("receipt refs are required");
+
+        assert_eq!(error, AgentgresAdmissionError::MissingReceiptRefs);
+    }
+
+    #[test]
+    fn runtime_agent_state_commit_rejects_mismatched_agent_id() {
+        let mut request = runtime_agent_state_commit();
+        request.agent["id"] = json!("agent_other");
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_agent_state(&request)
+            .expect_err("agent payload id must match request id");
 
         assert_eq!(
             error,
