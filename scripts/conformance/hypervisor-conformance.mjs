@@ -13791,6 +13791,12 @@ function runCompositor() {
   const runtimeUsageEventsTest = exists("packages/runtime-daemon/src/runtime-usage-events.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-usage-events.test.mjs")
     : "";
+  const runtimeRequestMetadata = exists("packages/runtime-daemon/src/runtime-request-metadata.mjs")
+    ? read("packages/runtime-daemon/src/runtime-request-metadata.mjs")
+    : "";
+  const runtimeRequestMetadataTest = exists("packages/runtime-daemon/src/runtime-request-metadata.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-request-metadata.test.mjs")
+    : "";
   const usageTelemetry = exists("packages/runtime-daemon/src/usage-telemetry.mjs")
     ? read("packages/runtime-daemon/src/usage-telemetry.mjs")
     : "";
@@ -16341,6 +16347,33 @@ function runCompositor() {
       "packages/runtime-daemon/src/usage-telemetry.test.mjs",
     ],
     "Phase 10/11 is pending: runtime usage telemetry producers must emit canonical snake_case output fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-usage-request-metadata-aliases-retired",
+    /event_kind:\s*eventKind/.test(runtimeRequestMetadata) &&
+      /component_kind:\s*componentKind/.test(runtimeRequestMetadata) &&
+      /payload_schema_version:\s*schemaVersion/.test(runtimeRequestMetadata) &&
+      /workflow_graph_id:\s*workflowGraphId/.test(runtimeRequestMetadata) &&
+      /workflow_node_id:\s*workflowNodeId \?\? "runtime\.usage-meter"/.test(
+        runtimeRequestMetadata,
+      ) &&
+      /usage_meter_scope:\s*usageMeterScope/.test(runtimeRequestMetadata) &&
+      /simulation_mode:\s*simulationMode/.test(runtimeRequestMetadata) &&
+      !/^\s*(?:eventKind|componentKind|payloadSchemaVersion|workflowGraphId|workflowNodeId|usageMeterScope|simulationMode),?$/m.test(
+        runtimeRequestMetadata,
+      ) &&
+      !/stringFromSearchParams\(params,\s*"(?:eventKind|componentKind|payloadSchemaVersion|workflowGraphId|workflowNodeId|usageMeterScope|simulationMode)"\)/.test(
+        runtimeRequestMetadata,
+      ) &&
+      /retiredUsageRequestMetadataAliasKeys/.test(runtimeRequestMetadataTest) &&
+      /usage request metadata emits canonical fields only/.test(runtimeRequestMetadataTest) &&
+      /usage request metadata ignores retired URL aliases/.test(runtimeRequestMetadataTest),
+    [
+      "packages/runtime-daemon/src/runtime-request-metadata.mjs",
+      "packages/runtime-daemon/src/runtime-request-metadata.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime usage request metadata must emit canonical snake_case fields without duplicate camelCase request aliases",
   );
   assertCheck(
     result,

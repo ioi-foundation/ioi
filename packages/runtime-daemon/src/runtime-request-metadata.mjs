@@ -59,19 +59,12 @@ export function usageRequestMetadataFromUrl(
     source: source ?? "react_flow",
     actor: stringFromSearchParams(params, "actor") ?? "operator",
     event_kind: eventKind,
-    eventKind,
     component_kind: componentKind,
-    componentKind,
     payload_schema_version: schemaVersion,
-    payloadSchemaVersion: schemaVersion,
     workflow_graph_id: workflowGraphId,
-    workflowGraphId,
     workflow_node_id: workflowNodeId ?? "runtime.usage-meter",
-    workflowNodeId: workflowNodeId ?? "runtime.usage-meter",
     usage_meter_scope: usageMeterScope,
-    usageMeterScope,
     simulation_mode: simulationMode,
-    simulationMode,
   };
 }
 
