@@ -12,6 +12,11 @@ export const RUNTIME_L1_SETTLEMENT_ATTEMPT_SCHEMA_VERSION =
 export const RUNTIME_L1_SETTLEMENT_WORKFLOW_NODE_ID =
   "runtime.l1-settlement-attempt" as const;
 
+const RETIRED_L1_SETTLEMENT_CONTROL_INPUT_FIELDS = [
+  "workflowGraphId",
+  "workflowNodeId",
+] as const;
+
 export interface RuntimeL1SettlementAttempt extends Record<string, unknown> {
   schema_version: typeof RUNTIME_L1_SETTLEMENT_ATTEMPT_SCHEMA_VERSION | string;
   settlement_ref: string;
@@ -65,19 +70,20 @@ export interface RuntimeL1SettlementControlRequestInput {
   stateRootRef?: string | null;
   triggerRefs?: string[] | null;
   receiptRefs?: string[] | null;
-  workflowGraphId?: string | null;
-  workflowNodeId?: string | null;
+  workflow_graph_id?: string | null;
+  workflow_node_id?: string | null;
   actor?: string | null;
 }
 
 export interface RuntimeL1SettlementWorkflowNodeOptions {
-  workflowGraphId?: string | null;
+  workflow_graph_id?: string | null;
   actor?: string | null;
 }
 
 export function createRuntimeL1SettlementControlRequest(
   params: RuntimeL1SettlementControlRequestInput,
 ): RuntimeL1SettlementControlRequest {
+  assertNoRetiredL1SettlementControlInputAliases(params);
   const threadId =
     cleanString(params.threadId) ??
     stringAtPath(params.input, params.threadIdField ?? "threadId") ??
@@ -131,9 +137,9 @@ export function createRuntimeL1SettlementControlRequest(
       stringArrayAtPath(params.input, "receiptRefs"),
     "receipt_refs",
   );
-  const workflowGraphId = cleanString(params.workflowGraphId) ?? null;
+  const workflowGraphId = cleanString(params.workflow_graph_id) ?? null;
   const workflowNodeId =
-    cleanString(params.workflowNodeId) ??
+    cleanString(params.workflow_node_id) ??
     `${RUNTIME_L1_SETTLEMENT_WORKFLOW_NODE_ID}.${safeId(settlementRef)}`;
   const attempt: RuntimeL1SettlementAttempt = {
     ...attemptSeed,
@@ -181,6 +187,7 @@ export function createRuntimeL1SettlementControlRequestFromWorkflowNode(
   input: unknown = {},
   options: RuntimeL1SettlementWorkflowNodeOptions = {},
 ): RuntimeL1SettlementControlRequest {
+  assertNoRetiredL1SettlementWorkflowNodeOptionAliases(options);
   const logic = workflowNodeLogic(node);
   const attempt =
     objectField(logic, "l1Settlement") ??
@@ -192,9 +199,9 @@ export function createRuntimeL1SettlementControlRequestFromWorkflowNode(
     input,
     threadIdField: "threadId",
     attempt,
-    workflowGraphId: options.workflowGraphId,
-    workflowNodeId:
-      stringField(logic, "workflowNodeId", "workflow_node_id") ??
+    workflow_graph_id: options.workflow_graph_id,
+    workflow_node_id:
+      stringField(logic, "workflow_node_id") ??
       `${RUNTIME_L1_SETTLEMENT_WORKFLOW_NODE_ID}.${safeId(node.id)}`,
     actor: options.actor,
   });
@@ -214,6 +221,32 @@ function requiredStringArray(values: string[] | null | undefined, field: string)
   const normalized = uniqueStrings(values ?? []);
   if (normalized.length > 0) return normalized;
   throw new Error(`L1 settlement controls need ${field} before dispatch.`);
+}
+
+function assertNoRetiredL1SettlementControlInputAliases(
+  input: RuntimeL1SettlementControlRequestInput,
+): void {
+  const record = input as unknown as Record<string, unknown>;
+  const retiredAliases = RETIRED_L1_SETTLEMENT_CONTROL_INPUT_FIELDS.filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new Error(
+    `L1 settlement controls no longer accept retired control input aliases: ${retiredAliases.join(", ")}`,
+  );
+}
+
+function assertNoRetiredL1SettlementWorkflowNodeOptionAliases(
+  options: RuntimeL1SettlementWorkflowNodeOptions,
+): void {
+  const record = options as unknown as Record<string, unknown>;
+  const retiredAliases = RETIRED_L1_SETTLEMENT_CONTROL_INPUT_FIELDS.filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new Error(
+    `L1 settlement workflow node options no longer accept retired control input aliases: ${retiredAliases.join(", ")}`,
+  );
 }
 
 function cleanString(value: unknown): string | null {

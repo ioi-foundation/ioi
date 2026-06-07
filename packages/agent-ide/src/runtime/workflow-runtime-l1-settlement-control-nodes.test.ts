@@ -38,12 +38,17 @@ const retiredL1SettlementRequestAliases = [
   "settlementAttempt",
 ];
 
+const retiredL1SettlementControlInputAliases = [
+  "workflowGraphId",
+  "workflowNodeId",
+];
+
 test("builds L1 settlement controls for daemon admission", () => {
   const request = createRuntimeL1SettlementControlRequest({
     nodeId: "node-l1-settlement",
     threadId: "thread-ide",
     attempt: settlementAttempt(),
-    workflowGraphId: "workflow.l1-settlement",
+    workflow_graph_id: "workflow.l1-settlement",
     actor: "workflow-author",
   });
 
@@ -80,7 +85,7 @@ test("builds L1 settlement controls from workflow nodes", () => {
       } as any,
     },
     { threadId: "thread-node" },
-    { workflowGraphId: "workflow.l1-node", actor: "runtime-composer" },
+    { workflow_graph_id: "workflow.l1-node", actor: "runtime-composer" },
   );
 
   assert.equal(request.nodeId, "l1-settlement-node");
@@ -89,6 +94,40 @@ test("builds L1 settlement controls from workflow nodes", () => {
   assert.equal(request.body.workflow_graph_id, "workflow.l1-node");
   assert.equal(request.body.workflow_node_id, "runtime.l1-settlement-attempt.l1-settlement-node");
   assert.equal(request.body.attempt.settlement_ref, "l1://settlement/marketplace-payment");
+});
+
+test("L1 settlement controls reject retired control input aliases", () => {
+  for (const key of retiredL1SettlementControlInputAliases) {
+    assert.throws(
+      () =>
+        createRuntimeL1SettlementControlRequest({
+          threadId: "thread-ide",
+          attempt: settlementAttempt(),
+          [key]: "retired",
+        } as any),
+      /retired control input aliases/,
+    );
+  }
+});
+
+test("L1 settlement workflow node options reject retired workflow graph input alias", () => {
+  assert.throws(
+    () =>
+      createRuntimeL1SettlementControlRequestFromWorkflowNode(
+        {
+          id: "l1-settlement-node",
+          type: "runtime.control.l1_settlement",
+          config: {
+            logic: {
+              attempt: settlementAttempt(),
+            },
+          } as any,
+        },
+        { threadId: "thread-node" },
+        { workflowGraphId: "workflow.l1-node" } as any,
+      ),
+    /retired control input aliases/,
+  );
 });
 
 test("L1 settlement controls fail closed without trigger refs", () => {

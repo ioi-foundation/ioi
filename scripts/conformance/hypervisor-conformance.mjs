@@ -1212,6 +1212,14 @@ function runBridge() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts")
     : "";
+  const l1SettlementControlRequestInputType =
+    l1SettlementControlNodes.match(
+      /export interface RuntimeL1SettlementControlRequestInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const l1SettlementWorkflowNodeOptionsType =
+    l1SettlementControlNodes.match(
+      /export interface RuntimeL1SettlementWorkflowNodeOptions[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const cliMain = exists("crates/cli/src/main.rs") ? read("crates/cli/src/main.rs") : "";
   const cliRuntime = exists("crates/cli/src/commands/runtime.rs")
     ? read("crates/cli/src/commands/runtime.rs")
@@ -6766,6 +6774,19 @@ function runBridge() {
       /l1-settlement-attempts/.test(agentSdkSubstrateClient) &&
       /SDK admits L1 settlement attempts through the thread route/.test(agentSdkTest) &&
       /WORKFLOW_RUNTIME_L1_SETTLEMENT_CONTROL_SCHEMA_VERSION/.test(l1SettlementControlNodes) &&
+      /RETIRED_L1_SETTLEMENT_CONTROL_INPUT_FIELDS/.test(l1SettlementControlNodes) &&
+      /assertNoRetiredL1SettlementControlInputAliases\(params\);/.test(
+        l1SettlementControlNodes,
+      ) &&
+      /assertNoRetiredL1SettlementWorkflowNodeOptionAliases\(options\);/.test(
+        l1SettlementControlNodes,
+      ) &&
+      !/^\s*(?:workflowGraphId|workflowNodeId)\?:/m.test(
+        l1SettlementControlRequestInputType,
+      ) &&
+      !/^\s*workflowGraphId\?:/m.test(l1SettlementWorkflowNodeOptionsType) &&
+      /^\s*workflow_graph_id\?:/m.test(l1SettlementControlRequestInputType) &&
+      /^\s*workflow_node_id\?:/m.test(l1SettlementControlRequestInputType) &&
       /createRuntimeL1SettlementControlRequest/.test(l1SettlementControlNodes) &&
       /RUNTIME_L1_SETTLEMENT_ATTEMPT_SCHEMA_VERSION/.test(l1SettlementControlNodes) &&
       /l1-settlement-attempts/.test(l1SettlementControlNodes) &&
@@ -6775,6 +6796,12 @@ function runBridge() {
       /settlement_trigger_checked_by_rust:\s*true/.test(l1SettlementControlNodes) &&
       !/\/apply/.test(l1SettlementControlNodes) &&
       /builds L1 settlement controls for daemon admission/.test(l1SettlementControlNodesTest) &&
+      /L1 settlement controls reject retired control input aliases/.test(
+        l1SettlementControlNodesTest,
+      ) &&
+      /L1 settlement workflow node options reject retired workflow graph input alias/.test(
+        l1SettlementControlNodesTest,
+      ) &&
       /L1 settlement controls fail closed without trigger refs/.test(l1SettlementControlNodesTest) &&
       /createRuntimeL1SettlementControlRequest/.test(agentIdeIndex) &&
       /RuntimeL1SettlementControlRequest/.test(graphRuntimeTypes),
