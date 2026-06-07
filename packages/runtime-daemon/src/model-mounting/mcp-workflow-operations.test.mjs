@@ -15,6 +15,7 @@ function fakeState() {
     authorizations: [],
     mcpServers: new Map(),
     modelInvocations: [],
+    recordStateCommits: [],
     receipts: [],
     routeTests: [],
     writes: [],
@@ -61,6 +62,21 @@ function fakeState() {
     },
     writeMap(name, map) {
       this.writes.push([name, [...map.values()].map((record) => ({ ...record }))]);
+    },
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(JSON.parse(JSON.stringify(request)));
+      return {
+        record_id: request.record_id,
+        commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+          admission: {
+            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+          },
+        },
+      };
     },
   };
 }
@@ -188,8 +204,45 @@ test("importMcpJson stores servers, emits receipts, and listMcpServers projects 
   assert.equal(Object.hasOwn(state.receipts[0].payload.details, "allowedTools"), false);
   assert.equal(Object.hasOwn(state.receipts[1].payload.details, "serverUrl"), false);
   assert.equal(Object.hasOwn(state.receipts[0].payload.details, "importedAt"), false);
-  assert.equal(state.writes.at(-1)[0], "mcp-servers");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.length, 2);
+  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
+  assert.equal(state.recordStateCommits[0].record_dir, "mcp-servers");
+  assert.equal(state.recordStateCommits[0].record_id, "mcp.Local");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.mcp_server.import");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.mcp_server_import.1"]);
+  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt.mcp_server_import.1");
+  assert.equal(state.recordStateCommits[1].record_dir, "mcp-servers");
+  assert.equal(state.recordStateCommits[1].record_id, "mcp.Remote");
+  assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.mcp_server.import");
+  assert.deepEqual(state.recordStateCommits[1].receipt_refs, ["receipt.mcp_server_import.2"]);
   assert.deepEqual(listMcpServers(state, deps).map((server) => server.id), ["mcp.Local", "mcp.Remote"]);
+});
+
+test("importMcpJson fails closed without Rust Agentgres MCP server record-state commit", () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+
+  assert.throws(
+    () =>
+      importMcpJson(state, {
+        mcp_servers: {
+          Local: { command: "node", args: ["server.mjs"], allowed_tools: ["run"] },
+        },
+      }),
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "model_mount_mcp_server_state_commit_unconfigured");
+      assert.equal(error.details.record_dir, "mcp-servers");
+      assert.equal(error.details.record_id, "mcp.Local");
+      assert.equal(error.details.server_id, "mcp.Local");
+      assert.equal(error.details.source, "mcp.json");
+      return true;
+    },
+  );
+
+  assert.equal(state.mcpServers.size, 0);
+  assert.deepEqual(state.writes, []);
 });
 
 test("importMcpJson rejects retired request aliases before state mutation", () => {
@@ -339,7 +392,53 @@ test("compileEphemeralMcpIntegrations registers ephemeral servers and invokes al
   assert.deepEqual(state.receipts[0].payload.details.allowed_tools, ["search", "read"]);
   assert.equal(Object.hasOwn(state.receipts[0].payload.details, "serverUrl"), false);
   assert.equal(Object.hasOwn(state.receipts[0].payload.details, "allowedTools"), false);
-  assert.equal(state.writes.at(-1)[0], "mcp-servers");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].record_dir, "mcp-servers");
+  assert.equal(state.recordStateCommits[0].record_id, result.serverIds[0]);
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.mcp_server.ephemeral_register");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.mcp_ephemeral_registration.1"]);
+  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt.mcp_ephemeral_registration.1");
+});
+
+test("compileEphemeralMcpIntegrations fails closed without Rust Agentgres MCP server record-state commit", () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+
+  assert.throws(
+    () =>
+      compileEphemeralMcpIntegrations(
+        state,
+        {
+          authorization: "auth",
+          input: "question",
+          body: {
+            integrations: [
+              {
+                type: "ephemeral_mcp",
+                server_label: "Search",
+                server_url: "https://example.test/mcp",
+                allowed_tools: ["search"],
+              },
+            ],
+          },
+        },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "model_mount_mcp_server_state_commit_unconfigured");
+      assert.equal(error.details.record_dir, "mcp-servers");
+      assert.match(error.details.record_id, /^mcp\.ephemeral\.Search\./);
+      assert.match(error.details.server_id, /^mcp\.ephemeral\.Search\./);
+      assert.equal(error.details.source, "ephemeral_mcp");
+      return true;
+    },
+  );
+
+  assert.equal(state.mcpServers.size, 0);
+  assert.deepEqual(state.authorizations, []);
+  assert.deepEqual(state.writes, []);
 });
 
 test("compileEphemeralMcpIntegrations rejects retired integration aliases before mutation", () => {

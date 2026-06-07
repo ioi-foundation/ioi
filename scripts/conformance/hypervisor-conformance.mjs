@@ -7160,6 +7160,9 @@ function runReceipts() {
   const mcpWorkflowOperations = exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs")
     : "";
+  const mcpServerRecordState = exists("packages/runtime-daemon/src/model-mounting/mcp-server-record-state.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/mcp-server-record-state.mjs")
+    : "";
   const mcpWorkflowOperationsTest = exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
     : "";
@@ -8148,6 +8151,20 @@ function runReceipts() {
       /notFound\(`MCP server not found: \$\{serverId\}`,\s*\{ server_id: serverId \}\)/.test(mcpWorkflowOperations) &&
       /details:\s*\{ server_id: serverId, tool \}/.test(mcpWorkflowOperations) &&
       /workflow_node_id:\s*base\.workflow_node_id/.test(mcpWorkflowOperations) &&
+      /commitMcpServerRecordState/.test(mcpServerRecordState) &&
+      /recordDir:\s*"mcp-servers"/.test(mcpServerRecordState) &&
+      /model_mount_mcp_server_state_commit_unconfigured/.test(mcpServerRecordState) &&
+      /model_mount\.mcp_server\.import/.test(mcpImportJsonBlock) &&
+      /model_mount\.mcp_server\.ephemeral_register/.test(mcpCompileEphemeralBlock) &&
+      !/state\.writeMap\("mcp-servers"/.test(mcpImportJsonBlock) &&
+      !/state\.writeMap\("mcp-servers"/.test(mcpCompileEphemeralBlock) &&
+      /recordStateCommits/.test(mcpWorkflowOperationsTest) &&
+      /importMcpJson fails closed without Rust Agentgres MCP server record-state commit/.test(
+        mcpWorkflowOperationsTest,
+      ) &&
+      /compileEphemeralMcpIntegrations fails closed without Rust Agentgres MCP server record-state commit/.test(
+        mcpWorkflowOperationsTest,
+      ) &&
       !/\b(?:serverUrl|allowedTools|secretRefs|redactedHeaders|importedAt)\s*:/.test(mcpServerReceiptDetailsHelper) &&
       !/\b(?:serverId|inputHash|outputHash)\s*:/.test(mcpToolReceiptDetailsObject) &&
       !/details:\s*\{ serverId/.test(mcpWorkflowOperations) &&
@@ -8164,6 +8181,7 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"serverId"\)\s*===\s*false/.test(mcpWorkflowOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"workflowNodeId"\)\s*===\s*false/.test(mcpWorkflowOperationsTest),
     [
+      "packages/runtime-daemon/src/model-mounting/mcp-server-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
     ],

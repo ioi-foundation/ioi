@@ -1,3 +1,5 @@
+import { commitMcpServerRecordState } from "./mcp-server-record-state.mjs";
+
 const RETIRED_WORKFLOW_NODE_EXECUTION_REQUEST_ALIASES = [
   "nodeType",
   "modelId",
@@ -83,21 +85,28 @@ export function compileEphemeralMcpIntegrations(state, { authorization, body = {
       id: `mcp.ephemeral.${safeId(label)}.${stableHash(integration.server_url ?? label).slice(0, 10)}`,
       status: "ephemeral_registered",
     };
-    state.mcpServers.set(stored.id, stored);
-    serverIds.push(stored.id);
     const serverReceipt = state.receipt("mcp_ephemeral_registration", {
       summary: `Ephemeral MCP server ${label} registered for one model request.`,
       redaction: "redacted",
       evidenceRefs: ["ephemeral_mcp", "RuntimeToolContract", stored.id],
       details: mcpServerReceiptDetails(stored),
     });
+    const storedWithReceipt = { ...stored, receiptId: serverReceipt.id };
+    commitMcpServerRecordState(
+      state,
+      storedWithReceipt,
+      "model_mount.mcp_server.ephemeral_register",
+      [serverReceipt.id],
+    );
+    state.mcpServers.set(storedWithReceipt.id, storedWithReceipt);
+    serverIds.push(storedWithReceipt.id);
     evidenceRefs.push(serverReceipt.id, stored.id);
-    const allowedTools = stored.allowedTools.length > 0 ? stored.allowedTools : [];
+    const allowedTools = storedWithReceipt.allowedTools.length > 0 ? storedWithReceipt.allowedTools : [];
     for (const tool of allowedTools) {
       const result = state.invokeMcpTool({
         authorization,
         body: {
-          server_id: stored.id,
+          server_id: storedWithReceipt.id,
           tool,
           input: {
             source: "ephemeral_mcp",
@@ -108,9 +117,6 @@ export function compileEphemeralMcpIntegrations(state, { authorization, body = {
       toolReceiptIds.push(result.receipt.id);
       evidenceRefs.push(result.receipt.id);
     }
-  }
-  if (ephemeral.length > 0) {
-    state.writeMap("mcp-servers", state.mcpServers);
   }
   return { toolReceiptIds, serverIds, evidenceRefs };
 }
@@ -137,16 +143,17 @@ export function importMcpJson(state, body = {}) {
   const imported = [];
   for (const [label, config] of Object.entries(servers)) {
     const server = state.normalizeMcpServer(label, config);
-    state.mcpServers.set(server.id, server);
-    imported.push(server);
-    state.receipt("mcp_server_import", {
+    const receipt = state.receipt("mcp_server_import", {
       summary: `MCP server ${label} imported with governed tool narrowing.`,
       redaction: "redacted",
       evidenceRefs: ["mcp.json", "RuntimeToolContract", server.id],
       details: mcpServerReceiptDetails(server),
     });
+    const stored = { ...server, receiptId: receipt.id };
+    commitMcpServerRecordState(state, stored, "model_mount.mcp_server.import", [receipt.id]);
+    state.mcpServers.set(stored.id, stored);
+    imported.push(stored);
   }
-  state.writeMap("mcp-servers", state.mcpServers);
   return {
     imported,
     count: imported.length,
