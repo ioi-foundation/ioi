@@ -2636,6 +2636,28 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-control-request-aliases-retired",
+    /optionalString\(input\.lease_id \?\? input\.computer_use_lease_id\)/.test(
+      computerUseToolIdentityBodies[1],
+    ) &&
+      /optionalString\(input\.handoff_ref \?\? input\.human_handoff_ref\)/.test(
+        computerUseToolIdentityBodies[1],
+      ) &&
+      /optionalString\(input\.cleanup_ref\)/.test(computerUseToolIdentityBodies[1]) &&
+      /optionalString\(input\.resume_observation_ref\)/.test(computerUseToolIdentityBodies[1]) &&
+      /optionalString\(input\.observation_retention_mode\)/.test(
+        computerUseToolIdentityBodies[1],
+      ) &&
+      !/input\.(?:leaseId|computerUseLeaseId|handoffRef|humanHandoffRef|cleanupRef|resumeObservationRef|observationRetentionMode)\b/.test(
+        computerUseToolIdentityBodies[1],
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use control requests must use canonical snake_case lease, handoff, cleanup, resume, and retention fields without retired camelCase aliases",
+  );
+  assertCheck(
+    result,
     "computer-use-tool-identity-request-aliases-retired",
     computerUseToolIdentityBodies.every((body) => body.length > 0) &&
       computerUseToolIdentityBodies.slice(0, 5).every((body) =>

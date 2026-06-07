@@ -13276,6 +13276,13 @@ camelCase request aliases can no longer select action kind, approval refs,
 session mode, target refs, CDP endpoint/timeout, or control-lane session values
 before computer-use runtime events enter projection.
 
+Slice 513 retires computer-use control request aliases:
+control-lane runtime event construction now consumes canonical `lease_id`,
+`computer_use_lease_id`, `handoff_ref`, `human_handoff_ref`, `cleanup_ref`,
+`resume_observation_ref`, and `observation_retention_mode` fields only; retired
+camelCase request aliases can no longer steer control receipts, handoff state,
+cleanup receipts, resume observation refs, or evidence-retention metadata.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

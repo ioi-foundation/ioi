@@ -2354,20 +2354,20 @@ export class AgentgresRuntimeStateStore {
         : objectRecord(request);
     const action = computerUseControlActionForInput(input);
     const leaseId =
-      optionalString(input.leaseId ?? input.lease_id ?? input.computerUseLeaseId ?? input.computer_use_lease_id) ??
+      optionalString(input.lease_id ?? input.computer_use_lease_id) ??
       `lease_${safeId(threadId)}_computer_use`;
     const handoffRef =
-      optionalString(input.handoffRef ?? input.handoff_ref ?? input.humanHandoffRef ?? input.human_handoff_ref) ??
+      optionalString(input.handoff_ref ?? input.human_handoff_ref) ??
       null;
     const reason =
       optionalString(input.reason) ??
       `operator requested computer-use ${action}`;
     const receiptRef = `receipt_${safeId(toolCallId)}_computer_use_control_${action}`;
     const cleanupRef =
-      optionalString(input.cleanupRef ?? input.cleanup_ref) ??
+      optionalString(input.cleanup_ref) ??
       `cleanup_${safeId(toolCallId)}_computer_use_control`;
     const resumeObservationRef =
-      optionalString(input.resumeObservationRef ?? input.resume_observation_ref) ?? null;
+      optionalString(input.resume_observation_ref) ?? null;
     const cdpEndpointRef =
       optionalString(
         input.cdp_endpoint_url ??
@@ -2399,7 +2399,7 @@ export class AgentgresRuntimeStateStore {
           resume_condition: "Resume request supplies a post-handoff observation ref or attachable endpoint ref.",
           observation_after_resume_ref: resumeObservationRef,
           timeout_policy: "resume_requested_by_operator",
-          evidence_retention: optionalString(input.observationRetentionMode ?? input.observation_retention_mode) ??
+          evidence_retention: optionalString(input.observation_retention_mode) ??
             "prompt_visible_summary_only",
           status: "resumed",
         }
@@ -2412,7 +2412,7 @@ export class AgentgresRuntimeStateStore {
             resume_condition: "Operator issues computer-use resume with fresh evidence.",
             observation_after_resume_ref: null,
             timeout_policy: "pause_until_user_resumes_or_aborts",
-            evidence_retention: optionalString(input.observationRetentionMode ?? input.observation_retention_mode) ??
+            evidence_retention: optionalString(input.observation_retention_mode) ??
               "prompt_visible_summary_only",
             status: "pending",
           }
