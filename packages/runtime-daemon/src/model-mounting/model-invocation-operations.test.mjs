@@ -29,6 +29,7 @@ function fakeState(overrides = {}) {
     providerInvocationRequests: [],
     providerStreamInvocationRequests: [],
     providerResultRequests: [],
+    recordStateCommits: [],
     recordedConversations: [],
     routes: new Map([["route.local-first", { id: "route.local-first" }]]),
     writes: [],
@@ -220,6 +221,22 @@ function fakeState(overrides = {}) {
     },
     writeMap(name, map) {
       this.writes.push([name, [...map.values()].map((record) => ({ ...record }))]);
+    },
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(request);
+      return {
+        record_id: request.record_id,
+        object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}`,
+        content_hash: `sha256:${request.record_id}`,
+        admission_hash: `admit:${request.record_id}`,
+        commit_hash: `commit:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.record_id}`,
+          admission: { admission_hash: `admit:${request.record_id}` },
+        },
+      };
     },
     appendOperation(kind, payload) {
       this.appendOperations.push({ kind, payload });
@@ -571,7 +588,14 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(result.receipt.details.coalesced, false);
   assert.equal(state.recordedConversations[0].responseId, "resp.custom");
   assert.equal(state.routes.get("route.local-first").lastReceiptId, result.receipt.id);
-  assert.equal(state.writes.at(-1)[0], "model-routes");
+  assert.equal(state.writes.some(([name]) => name === "model-routes"), false);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
+  assert.equal(state.recordStateCommits[0].record_dir, "model-routes");
+  assert.equal(state.recordStateCommits[0].record_id, "route.local-first");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.route.invocation_selection");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, [result.receipt.id]);
+  assert.equal(state.recordStateCommits[0].record.lastReceiptId, result.receipt.id);
 });
 
 test("invokeModel routes native-local non-stream provider invocation through Rust model_mount", async () => {

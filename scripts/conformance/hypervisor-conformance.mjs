@@ -484,6 +484,12 @@ function runBridge() {
   const modelInvocationOpsTest = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
     : "";
+  const modelTokenizerOperations = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs")
+    : "";
+  const modelTokenizerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
+    : "";
   const providerDriverHelpers = exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs")
     : "";
@@ -4819,8 +4825,14 @@ function runBridge() {
       /RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(modelRoutes) &&
       /model_mount\.route\.write/.test(modelRoutes) &&
       /model_mount\.route\.test/.test(modelRoutes) &&
+      /persistModelRouteSelectionState/.test(modelRoutes) &&
+      /model_mount\.route\.selection_update/.test(modelRoutes) &&
+      /model_mount\.route\.tokenizer_selection/.test(modelTokenizerOperations) &&
+      /model_mount\.route\.invocation_selection/.test(modelInvocationOps) &&
       /model_mount_route_state_commit_unconfigured/.test(modelRoutes) &&
       !/state\.writeMap\("model-routes"/.test(modelRoutes) &&
+      !/state\.writeMap\("model-routes"/.test(modelTokenizerOperations) &&
+      !/state\.writeMap\("model-routes"/.test(modelInvocationOps) &&
       !/body\.(?:maxCostUsd|maxLatencyMs|providerEligibility|deniedProviders|lastSelectedModel|lastReceiptId)\b/.test(
         modelRoutes,
       ) &&
@@ -4828,6 +4840,11 @@ function runBridge() {
       /route upsert fails closed without Rust Agentgres record-state commit/.test(modelRoutesTest) &&
       /route test fails closed without Rust Agentgres record-state commit/.test(modelRoutesTest) &&
       /recordStateCommits/.test(modelRoutesTest) &&
+      /recordStateCommits/.test(modelTokenizerOperationsTest) &&
+      /recordStateCommits/.test(modelInvocationOpsTest) &&
+      /modelTokenizerUtility fails closed without Rust Agentgres route record-state commit/.test(
+        modelTokenizerOperationsTest,
+      ) &&
       /retired_aliases,\s*\[\s*"maxCostUsd",\s*"maxLatencyMs",\s*"providerEligibility",\s*"deniedProviders",\s*"lastSelectedModel",\s*"lastReceiptId",\s*\]/.test(
         modelRoutesTest,
       ) &&
@@ -4840,6 +4857,10 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
       "scripts/lib/live-runtime-daemon-contract.test.mjs",
     ],
     "Phase 3/10 is pending: model route upsert request bodies must fail closed on retired camelCase policy/status aliases before route state writes",

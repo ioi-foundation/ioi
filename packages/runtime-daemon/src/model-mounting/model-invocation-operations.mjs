@@ -13,6 +13,7 @@ import { stableHash } from "./io.mjs";
 import {
   createModelMountStepModuleProjection,
 } from "../step-module-abi.mjs";
+import { persistModelRouteSelectionState } from "./routes.mjs";
 
 const RETIRED_MODEL_INVOCATION_REQUEST_ALIASES = [
   "routeId",
@@ -1307,12 +1308,11 @@ function invocationReceiptDetails({
 }
 
 function persistRouteSelection(state, routeRecord, selectedModel, receiptId) {
-  const route = {
-    ...routeRecord,
-    lastSelectedModel: selectedModel,
-    lastReceiptId: receiptId,
-  };
-  state.routes.set(route.id, route);
-  state.writeMap("model-routes", state.routes);
-  return route;
+  return persistModelRouteSelectionState(
+    state,
+    routeRecord,
+    selectedModel,
+    receiptId,
+    "model_mount.route.invocation_selection",
+  );
 }

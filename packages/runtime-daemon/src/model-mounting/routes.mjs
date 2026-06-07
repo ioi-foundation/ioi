@@ -362,6 +362,23 @@ export function testRoute(state, routeId, body = {}) {
   return { route: updatedRoute, selection, receipt };
 }
 
+export function persistModelRouteSelectionState(
+  state,
+  routeRecord,
+  selectedModel,
+  receiptId,
+  operationKind = "model_mount.route.selection_update",
+) {
+  const route = {
+    ...routeRecord,
+    lastSelectedModel: selectedModel,
+    lastReceiptId: receiptId,
+  };
+  commitModelRouteRecordState(state, route, operationKind, [receiptId]);
+  state.routes.set(route.id, route);
+  return route;
+}
+
 export function modelMountRouteDecisionRequestForSelection({
   body = {},
   capability = "chat",
