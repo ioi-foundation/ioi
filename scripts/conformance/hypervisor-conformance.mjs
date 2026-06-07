@@ -1139,6 +1139,19 @@ function runBridge() {
     agentSdkSubstrateClient.match(
       /export interface RuntimeThreadMemoryInput[\s\S]*?\n}\n/,
     )?.[0] ?? "";
+  const runtimeThreadControlSdkInputBlocks = [
+    "RuntimeThreadForkInput",
+    "RuntimeThreadCompactInput",
+    "RuntimeTurnInterruptInput",
+    "RuntimeTurnSteerInput",
+  ]
+    .map(
+      (name) =>
+        agentSdkSubstrateClient.match(
+          new RegExp(`export interface ${name}[\\s\\S]*?\\n}\\n`),
+        )?.[0] ?? "",
+    )
+    .join("\n");
   const workspaceRestoreSdkSurfaceBlocks = [
     workspaceSnapshotListResultType,
     workspaceRestorePreviewInputType,
@@ -3758,12 +3771,37 @@ function runBridge() {
       !/request\.(?:workflowNodeId|threadMode|approvalMode|interactionMode|reasoningEffort|modelId|routeId)\b/.test(threadRuntimeControls) &&
       !/request\.(?:workflow_node_id|workflow_graph_id|idempotency_key)\s*\?\?\s*request\./.test(
         runtimeThreadControlSurface,
+      ) &&
+      /workflow_graph_id\?: string;/.test(runtimeThreadControlSdkInputBlocks) &&
+      /workflow_node_id\?: string;/.test(runtimeThreadControlSdkInputBlocks) &&
+      /idempotency_key\?: string;/.test(runtimeThreadControlSdkInputBlocks) &&
+      !/^\s*(?:workflowGraphId|workflowNodeId|idempotencyKey)\?:/m.test(
+        runtimeThreadControlSdkInputBlocks,
+      ) &&
+      !/\[key:\s*string\]:\s*unknown;/.test(runtimeThreadControlSdkInputBlocks) &&
+      /assertNoRetiredRuntimeThreadControlAliases\(input,\s*"forkThread"\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /assertNoRetiredRuntimeThreadControlAliases\(input,\s*"compactThread"\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /assertNoRetiredRuntimeThreadControlAliases\(input,\s*"interruptTurn"\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /assertNoRetiredRuntimeThreadControlAliases\(input,\s*"steerTurn"\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /runtime_thread_control_sdk_request_aliases_retired/.test(agentSdkSubstrateClient) &&
+      /SDK thread control requests reject retired aliases before transport/.test(
+        agentSdkTest,
       ),
     [
       "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
       "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
       "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
       "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
     ],
     "Phase 10/11 is pending: thread-control request identity must use canonical workflow_graph_id/workflow_node_id before model routing and Rust state planning",
   );

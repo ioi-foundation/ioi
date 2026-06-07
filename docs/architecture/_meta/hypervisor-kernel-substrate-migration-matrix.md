@@ -13004,6 +13004,13 @@ caller supplies retired `workflowGraphId` or `workflowNodeId`, the SDK action
 input type advertises canonical `workflow_graph_id` / `workflow_node_id` only,
 and cTEE conformance guards the SDK type, runtime guard, and focused test.
 
+Slice 475 retires SDK thread-control request aliases:
+`forkThread`, `compactThread`, `steerTurn`, and `interruptTurn` now fail closed
+before transport when callers supply retired `workflowGraphId`,
+`workflowNodeId`, or `idempotencyKey`, the SDK control input types advertise
+canonical `workflow_graph_id` / `workflow_node_id` / `idempotency_key` only, and
+bridge conformance guards the SDK types, runtime guard, and focused test.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

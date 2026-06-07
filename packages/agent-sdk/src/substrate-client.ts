@@ -962,9 +962,9 @@ export interface RuntimeThreadForkInput {
   reason?: string;
   actor?: string;
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
-  workflowGraphId?: string;
-  workflowNodeId?: string;
-  [key: string]: unknown;
+  workflow_graph_id?: string;
+  workflow_node_id?: string;
+  idempotency_key?: string;
 }
 
 export interface RuntimeTurnCreateInput {
@@ -982,9 +982,9 @@ export interface RuntimeTurnInterruptInput {
   reason?: string;
   actor?: string;
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
-  workflowGraphId?: string;
-  workflowNodeId?: string;
-  [key: string]: unknown;
+  workflow_graph_id?: string;
+  workflow_node_id?: string;
+  idempotency_key?: string;
 }
 
 export interface RuntimeTurnSteerInput {
@@ -993,9 +993,9 @@ export interface RuntimeTurnSteerInput {
   input?: string;
   actor?: string;
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
-  workflowGraphId?: string;
-  workflowNodeId?: string;
-  [key: string]: unknown;
+  workflow_graph_id?: string;
+  workflow_node_id?: string;
+  idempotency_key?: string;
 }
 
 export interface RuntimeThreadCompactInput {
@@ -1003,9 +1003,9 @@ export interface RuntimeThreadCompactInput {
   scope?: "thread" | "turn" | string;
   actor?: string;
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
-  workflowGraphId?: string;
-  workflowNodeId?: string;
-  [key: string]: unknown;
+  workflow_graph_id?: string;
+  workflow_node_id?: string;
+  idempotency_key?: string;
 }
 
 export interface RuntimeThreadModeInput {
@@ -1642,6 +1642,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   }
 
   async forkThread(threadId: string, input: RuntimeThreadForkInput = {}): Promise<RuntimeThreadRecord> {
+    assertNoRetiredRuntimeThreadControlAliases(input, "forkThread");
     return this.request("forkThread", "POST", `/v1/threads/${encodePath(threadId)}/fork`, {
       source: "sdk_client",
       ...input,
@@ -1652,6 +1653,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeThreadCompactInput = {},
   ): Promise<RuntimeThreadRecord> {
+    assertNoRetiredRuntimeThreadControlAliases(input, "compactThread");
     return this.request(
       "compactThread",
       "POST",
@@ -1809,6 +1811,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     turnId: string,
     input: RuntimeTurnInterruptInput = {},
   ): Promise<RuntimeTurnRecord> {
+    assertNoRetiredRuntimeThreadControlAliases(input, "interruptTurn");
     return this.request(
       "interruptTurn",
       "POST",
@@ -1825,6 +1828,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     turnId: string,
     input: RuntimeTurnSteerInput = {},
   ): Promise<RuntimeTurnRecord> {
+    assertNoRetiredRuntimeThreadControlAliases(input, "steerTurn");
     return this.request(
       "steerTurn",
       "POST",
@@ -3016,6 +3020,31 @@ function assertNoRetiredCteePrivateWorkspaceActionAliases(
       "cTEE Private Workspace action request aliases are retired; use workflow_graph_id and workflow_node_id.",
     details: {
       code: "ctee_private_workspace_sdk_request_aliases_retired",
+      retired_aliases: retiredAliases,
+    },
+  });
+}
+
+function assertNoRetiredRuntimeThreadControlAliases(
+  input:
+    | RuntimeThreadForkInput
+    | RuntimeThreadCompactInput
+    | RuntimeTurnInterruptInput
+    | RuntimeTurnSteerInput,
+  operation: string,
+): void {
+  const record = input as unknown as Record<string, unknown>;
+  const retiredAliases = ["workflowGraphId", "workflowNodeId", "idempotencyKey"].filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new IoiAgentError({
+    code: "config",
+    message:
+      "Runtime thread control request aliases are retired; use workflow_graph_id, workflow_node_id, and idempotency_key.",
+    details: {
+      code: "runtime_thread_control_sdk_request_aliases_retired",
+      operation,
       retired_aliases: retiredAliases,
     },
   });

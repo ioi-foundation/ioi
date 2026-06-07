@@ -1378,6 +1378,12 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
       const body = await readBody(request);
       assert.equal(body.reason, "branch context");
       assert.equal(body.source, "sdk_client");
+      assert.equal(body.workflow_graph_id, "workflow_thread_controls_sdk");
+      assert.equal(body.workflow_node_id, "thread_fork_sdk");
+      assert.equal(body.idempotency_key, "thread_fork_sdk_idempotency");
+      for (const field of ["workflowGraphId", "workflowNodeId", "idempotencyKey"]) {
+        assert.equal(Object.hasOwn(body, field), false);
+      }
       runtimeEvents.push(runtimeEnvelope({
         seq: 5,
         eventKind: "thread.forked",
@@ -1402,6 +1408,13 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     if (request.method === "POST" && url.pathname === "/v1/threads/thread_sdk/compact") {
       const body = await readBody(request);
       assert.equal(body.reason, "reduce stale context");
+      assert.equal(body.source, "sdk_client");
+      assert.equal(body.workflow_graph_id, "workflow_thread_controls_sdk");
+      assert.equal(body.workflow_node_id, "thread_compact_sdk");
+      assert.equal(body.idempotency_key, "thread_compact_sdk_idempotency");
+      for (const field of ["workflowGraphId", "workflowNodeId", "idempotencyKey"]) {
+        assert.equal(Object.hasOwn(body, field), false);
+      }
       runtimeEvents.push(runtimeEnvelope({
         seq: 6,
         eventKind: "context.compacted",
@@ -1423,6 +1436,13 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     if (request.method === "POST" && url.pathname === "/v1/threads/thread_sdk/turns/turn_sdk/interrupt") {
       const body = await readBody(request);
       assert.equal(body.reason, "operator validation");
+      assert.equal(body.source, "sdk_client");
+      assert.equal(body.workflow_graph_id, "workflow_thread_controls_sdk");
+      assert.equal(body.workflow_node_id, "turn_interrupt_sdk");
+      assert.equal(body.idempotency_key, "turn_interrupt_sdk_idempotency");
+      for (const field of ["workflowGraphId", "workflowNodeId", "idempotencyKey"]) {
+        assert.equal(Object.hasOwn(body, field), false);
+      }
       runtimeEvents.push(runtimeEnvelope({
         seq: 8,
         eventKind: "turn.interrupted",
@@ -1444,6 +1464,13 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     if (request.method === "POST" && url.pathname === "/v1/threads/thread_sdk/turns/turn_sdk/steer") {
       const body = await readBody(request);
       assert.equal(body.guidance, "focus on the failing assertion");
+      assert.equal(body.source, "sdk_client");
+      assert.equal(body.workflow_graph_id, "workflow_thread_controls_sdk");
+      assert.equal(body.workflow_node_id, "turn_steer_sdk");
+      assert.equal(body.idempotency_key, "turn_steer_sdk_idempotency");
+      for (const field of ["workflowGraphId", "workflowNodeId", "idempotencyKey"]) {
+        assert.equal(Object.hasOwn(body, field), false);
+      }
       runtimeEvents.push(runtimeEnvelope({
         seq: 7,
         eventKind: "turn.steered",
@@ -1505,7 +1532,12 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
       "tool_completed",
       "turn_completed",
     ]);
-    const forked = await thread.fork({ reason: "branch context" });
+    const forked = await thread.fork({
+      reason: "branch context",
+      workflow_graph_id: "workflow_thread_controls_sdk",
+      workflow_node_id: "thread_fork_sdk",
+      idempotency_key: "thread_fork_sdk_idempotency",
+    });
     assert.equal(forked.id, "thread_sdk_fork");
     const forkedEvents = [];
     for await (const item of thread.events({ sinceSeq: 4 })) forkedEvents.push(item);
@@ -1516,7 +1548,12 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     assert.equal(forkedEvents[0].workflowNodeId, "runtime.thread-fork");
     assert.equal(forkedEvents[0].payloadSchemaVersion, "ioi.runtime.thread-fork.v1");
 
-    const compacted = await thread.compact({ reason: "reduce stale context" });
+    const compacted = await thread.compact({
+      reason: "reduce stale context",
+      workflow_graph_id: "workflow_thread_controls_sdk",
+      workflow_node_id: "thread_compact_sdk",
+      idempotency_key: "thread_compact_sdk_idempotency",
+    });
     assert.equal(compacted.record.latest_seq, 6);
     const compactedEvents = [];
     for await (const item of thread.events({ sinceSeq: 5 })) compactedEvents.push(item);
@@ -1527,7 +1564,12 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     assert.equal(compactedEvents[0].workflowNodeId, "runtime.context-compact");
     assert.equal(compactedEvents[0].payloadSchemaVersion, "ioi.runtime.context-compaction.v1");
 
-    const steered = await turn.steer({ guidance: "focus on the failing assertion" });
+    const steered = await turn.steer({
+      guidance: "focus on the failing assertion",
+      workflow_graph_id: "workflow_thread_controls_sdk",
+      workflow_node_id: "turn_steer_sdk",
+      idempotency_key: "turn_steer_sdk_idempotency",
+    });
     assert.equal(steered.status, "completed");
     const steeredEvents = [];
     for await (const item of thread.events({ sinceSeq: 6 })) steeredEvents.push(item);
@@ -1538,7 +1580,12 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     assert.equal(steeredEvents[0].workflowNodeId, "runtime.operator-steer");
     assert.equal(steeredEvents[0].payloadSchemaVersion, "ioi.runtime.operator-control.v1");
 
-    const interrupted = await turn.interrupt({ reason: "operator validation" });
+    const interrupted = await turn.interrupt({
+      reason: "operator validation",
+      workflow_graph_id: "workflow_thread_controls_sdk",
+      workflow_node_id: "turn_interrupt_sdk",
+      idempotency_key: "turn_interrupt_sdk_idempotency",
+    });
     assert.equal(interrupted.status, "interrupted");
     const interruptedEvents = [];
     for await (const item of thread.events({ sinceSeq: 7 })) interruptedEvents.push(item);
@@ -1558,6 +1605,46 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
   } finally {
     await close(server);
   }
+});
+
+test("SDK thread control requests reject retired aliases before transport", async () => {
+  const client = createRuntimeSubstrateClient({ endpoint: "http://127.0.0.1:9" });
+  const retiredInput = {
+    workflowGraphId: "graph_retired",
+    workflowNodeId: "node_retired",
+    idempotencyKey: "idempotency_retired",
+  };
+  const rejectsRetiredThreadControlAliases = (operation) => (error) =>
+    error instanceof IoiAgentError &&
+    error.code === "config" &&
+    error.details?.code === "runtime_thread_control_sdk_request_aliases_retired" &&
+    error.details?.operation === operation &&
+    error.details?.retired_aliases?.includes("workflowGraphId") &&
+    error.details?.retired_aliases?.includes("workflowNodeId") &&
+    error.details?.retired_aliases?.includes("idempotencyKey");
+
+  await assert.rejects(
+    client.forkThread("thread_sdk", { ...retiredInput, reason: "fork retired" }),
+    rejectsRetiredThreadControlAliases("forkThread"),
+  );
+  await assert.rejects(
+    client.compactThread("thread_sdk", { ...retiredInput, reason: "compact retired" }),
+    rejectsRetiredThreadControlAliases("compactThread"),
+  );
+  await assert.rejects(
+    client.steerTurn("thread_sdk", "turn_sdk", {
+      ...retiredInput,
+      guidance: "steer retired",
+    }),
+    rejectsRetiredThreadControlAliases("steerTurn"),
+  );
+  await assert.rejects(
+    client.interruptTurn("thread_sdk", "turn_sdk", {
+      ...retiredInput,
+      reason: "interrupt retired",
+    }),
+    rejectsRetiredThreadControlAliases("interruptTurn"),
+  );
 });
 
 test("AgentSubagent mapping behaviorally routes handoffs", async () => {
