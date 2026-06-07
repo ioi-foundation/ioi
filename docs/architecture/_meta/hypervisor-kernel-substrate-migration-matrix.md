@@ -13268,6 +13268,14 @@ ArtifactRef/PayloadRef, Agentgres, and state-root context fields only; retired
 camelCase context aliases can no longer steer the Rust workload projection
 envelope before StepModuleRouter dispatch.
 
+Slice 512 retires computer-use request selector aliases:
+native-browser, visual-GUI, sandboxed-hosted, and control-lane request shaping
+now consumes canonical snake_case action, approval, session, target, CDP, and
+controlled-relaunch selector fields for projection/admission metadata; retired
+camelCase request aliases can no longer select action kind, approval refs,
+session mode, target refs, CDP endpoint/timeout, or control-lane session values
+before computer-use runtime events enter projection.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

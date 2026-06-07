@@ -2662,6 +2662,35 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-request-selector-aliases-retired",
+    /input\.action_kind \?\?\s*[\r\n\s]*input\.computer_use_action_kind/.test(computerUseInputs) &&
+      /input\.approval_ref \?\?\s*[\r\n\s]*input\.computer_use_approval_ref/.test(computerUseInputs) &&
+      /input\.controlled_relaunch_approval_ref \?\?\s*[\r\n\s]*input\.host_browser_launch_approval_ref \?\?\s*[\r\n\s]*input\.browser_launch_approval_ref/.test(computerUseInputs) &&
+      /input\.cdp_timeout_ms \?\?\s*[\r\n\s]*input\.timeout_ms/.test(computerUseInputs) &&
+      /input\.session_mode \?\?\s*[\r\n\s]*input\.computer_use_session_mode/.test(computerUseInputs) &&
+      /input\.controlled_relaunch === true/.test(computerUseInputs) &&
+      /input\.cdp_endpoint_url \?\?\s*[\r\n\s]*input\.cdp_endpoint \?\?\s*[\r\n\s]*input\.cdp_websocket_url \?\?\s*[\r\n\s]*input\.cdp_ws_url \?\?\s*[\r\n\s]*input\.web_socket_debugger_url/.test(computerUseInputs) &&
+      /actionKind: "click"/.test(computerUseInputsTest) &&
+      /computerUseActionKind: "click"/.test(computerUseInputsTest) &&
+      /assert\.equal\(nativeBrowserActionKindForInput\(\{ actionKind: "click", computerUseActionKind: "click" \}\), "inspect"\)/.test(
+        computerUseInputsTest,
+      ) &&
+      /controlledRelaunchApprovalRef: "approval-retired"/.test(computerUseInputsTest) &&
+      /assert\.equal\(nativeBrowserHasExplicitCdpEndpoint\(\{ cdpWsUrl: "ws:\/\/localhost\/devtools" \}\), false\)/.test(
+        computerUseInputsTest,
+      ) &&
+      !/(?:input|request)\.(?:actionKind|computerUseActionKind|approvalRef|computerUseApprovalRef|controlledRelaunchApprovalRef|hostBrowserLaunchApprovalRef|browserLaunchApprovalRef|cdpTimeoutMs|timeoutMs|sessionMode|computerUseSessionMode|controlledRelaunch|cdpEndpointUrl|cdpEndpoint|cdpWebSocketUrl|cdpWsUrl|webSocketDebuggerUrl|websocketDebuggerUrl|targetRef|computerUseTargetRef)\b/.test(
+        `${computerUseInputs}\n${computerUseToolIdentityBodies.slice(1, 5).join("\n")}`,
+      ),
+    [
+      "packages/runtime-daemon/src/computer-use-inputs.mjs",
+      "packages/runtime-daemon/src/computer-use-inputs.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use request selectors must use canonical snake_case action, approval, session, target, CDP, and relaunch fields without retired camelCase aliases",
+  );
+  assertCheck(
+    result,
     "coding-tool-budget-usage-response-alias-retired",
     !/budgetUsageTelemetry:\s*budgetPolicy\.usageTelemetry/.test(
       runtimeCodingToolInvocationSurface,

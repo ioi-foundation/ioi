@@ -2370,9 +2370,7 @@ export class AgentgresRuntimeStateStore {
       optionalString(input.resumeObservationRef ?? input.resume_observation_ref) ?? null;
     const cdpEndpointRef =
       optionalString(
-        input.cdpEndpointUrl ??
-          input.cdp_endpoint_url ??
-          input.cdpWebSocketUrl ??
+        input.cdp_endpoint_url ??
           input.cdp_websocket_url,
       ) ?? null;
     const statusByAction = {
@@ -2443,10 +2441,10 @@ export class AgentgresRuntimeStateStore {
       source: "runtime_thread_tool",
       computer_use: true,
       computer_use_step: action === "cleanup" ? "cleanup" : "commit_or_handoff",
-      computer_use_lane: optionalString(input.lane ?? input.computerUseLane ?? input.computer_use_lane) ??
+      computer_use_lane: optionalString(input.lane ?? input.computer_use_lane) ??
         "native_browser",
       computer_use_session_mode:
-        optionalString(input.sessionMode ?? input.session_mode ?? input.computerUseSessionMode ?? input.computer_use_session_mode) ??
+        optionalString(input.session_mode ?? input.computer_use_session_mode) ??
         null,
       computer_use_lease_id: leaseId,
       computer_use_control_action: action,
@@ -2551,7 +2549,7 @@ export class AgentgresRuntimeStateStore {
       : "computer_use.native_browser.act";
     const requestedApprovalRef = nativeBrowserApprovalRefForInput(input);
     const requestedTargetRef =
-      optionalString(input.targetRef ?? input.target_ref ?? input.computerUseTargetRef ?? input.computer_use_target_ref);
+      optionalString(input.target_ref ?? input.computer_use_target_ref);
     const requestedSessionMode = nativeBrowserSessionModeForInput(input);
     const requestedLaunchApprovalRef = nativeBrowserControlledRelaunchApprovalRefForInput(input);
     const shouldLaunchControlledRelaunch =
@@ -2568,7 +2566,7 @@ export class AgentgresRuntimeStateStore {
         })
       : null;
     const executionInput = controlledRelaunchLaunch?.status === "launched"
-      ? { ...input, cdpEndpointUrl: controlledRelaunchLaunch.endpointUrl }
+      ? { ...input, cdp_endpoint_url: controlledRelaunchLaunch.endpointUrl }
       : input;
     let nativeBrowserExecution = null;
     let controlledRelaunchCleanup = null;
@@ -2803,7 +2801,7 @@ export class AgentgresRuntimeStateStore {
       : "computer_use.visual_gui.act";
     const requestedApprovalRef = nativeBrowserApprovalRefForInput(input);
     const requestedTargetRef =
-      optionalString(input.targetRef ?? input.target_ref ?? input.computerUseTargetRef ?? input.computer_use_target_ref);
+      optionalString(input.target_ref ?? input.computer_use_target_ref);
     const requestedSessionMode = visualGuiSessionModeForInput(input);
     const materializedVisualArtifacts = this.materializeVisualGuiObservationArtifacts({
       threadId,
@@ -3040,7 +3038,7 @@ export class AgentgresRuntimeStateStore {
       : "computer_use.sandboxed_hosted.act";
     const requestedApprovalRef = nativeBrowserApprovalRefForInput(input);
     const requestedTargetRef =
-      optionalString(input.targetRef ?? input.target_ref ?? input.computerUseTargetRef ?? input.computer_use_target_ref);
+      optionalString(input.target_ref ?? input.computer_use_target_ref);
     const requestedSessionMode = sandboxedHostedSessionModeForInput(input);
     const sandboxProvider =
       optionalString(

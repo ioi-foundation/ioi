@@ -2,9 +2,7 @@ import path from "node:path";
 
 export function nativeBrowserActionKindForInput(input = {}, prompt = "") {
   const explicit = nativeBrowserActionKindValue(
-    input.actionKind ??
-      input.action_kind ??
-      input.computerUseActionKind ??
+    input.action_kind ??
       input.computer_use_action_kind,
   );
   if (explicit) return explicit;
@@ -13,20 +11,15 @@ export function nativeBrowserActionKindForInput(input = {}, prompt = "") {
 
 export function nativeBrowserApprovalRefForInput(input = {}) {
   return optionalString(
-    input.approvalRef ??
-      input.approval_ref ??
-      input.computerUseApprovalRef ??
+    input.approval_ref ??
       input.computer_use_approval_ref,
   );
 }
 
 export function nativeBrowserControlledRelaunchApprovalRefForInput(input = {}) {
   return optionalString(
-    input.controlledRelaunchApprovalRef ??
-      input.controlled_relaunch_approval_ref ??
-      input.hostBrowserLaunchApprovalRef ??
+    input.controlled_relaunch_approval_ref ??
       input.host_browser_launch_approval_ref ??
-      input.browserLaunchApprovalRef ??
       input.browser_launch_approval_ref,
   );
 }
@@ -63,9 +56,7 @@ export function nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch({
 
 export function nativeBrowserCdpTimeoutMs(input = {}) {
   const value = Number(
-    input.cdpTimeoutMs ??
-      input.cdp_timeout_ms ??
-      input.timeoutMs ??
+    input.cdp_timeout_ms ??
       input.timeout_ms,
   );
   if (Number.isFinite(value) && value >= 100 && value <= 120_000) {
@@ -76,14 +67,12 @@ export function nativeBrowserCdpTimeoutMs(input = {}) {
 
 export function nativeBrowserSessionModeForInput(input = {}) {
   const explicit = optionalString(
-    input.sessionMode ??
-      input.session_mode ??
-      input.computerUseSessionMode ??
+    input.session_mode ??
       input.computer_use_session_mode,
   );
   if (explicit) return explicit;
   if (nativeBrowserHasExplicitCdpEndpoint(input)) return "attached_cdp";
-  if (input.controlledRelaunch === true || input.controlled_relaunch === true) {
+  if (input.controlled_relaunch === true) {
     return "controlled_relaunch";
   }
   return "owned_hermetic_browser";
@@ -91,9 +80,7 @@ export function nativeBrowserSessionModeForInput(input = {}) {
 
 export function visualGuiSessionModeForInput(input = {}) {
   const explicit = optionalString(
-    input.sessionMode ??
-      input.session_mode ??
-      input.computerUseSessionMode ??
+    input.session_mode ??
       input.computer_use_session_mode,
   );
   if (
@@ -106,9 +93,7 @@ export function visualGuiSessionModeForInput(input = {}) {
 
 export function sandboxedHostedSessionModeForInput(input = {}) {
   const explicit = optionalString(
-    input.sessionMode ??
-      input.session_mode ??
-      input.computerUseSessionMode ??
+    input.session_mode ??
       input.computer_use_session_mode,
   );
   if (["local_sandbox", "hosted_sandbox", "mobile_device"].includes(explicit)) {
@@ -239,16 +224,11 @@ export function computerUseControlActionForInput(input = {}) {
 
 export function nativeBrowserHasExplicitCdpEndpoint(input = {}) {
   return Boolean(optionalString(
-    input.cdpEndpointUrl ??
-      input.cdp_endpoint_url ??
-      input.cdpEndpoint ??
+    input.cdp_endpoint_url ??
       input.cdp_endpoint ??
-      input.cdpWebSocketUrl ??
       input.cdp_websocket_url ??
-      input.cdpWsUrl ??
       input.cdp_ws_url ??
-      input.webSocketDebuggerUrl ??
-      input.websocketDebuggerUrl,
+      input.web_socket_debugger_url,
   ));
 }
 

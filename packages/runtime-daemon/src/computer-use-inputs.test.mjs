@@ -24,6 +24,15 @@ test("computer-use inputs normalize action kinds and read-only classes", () => {
   assert.equal(nativeBrowserActionKindValue("mouse move"), "hover");
   assert.equal(nativeBrowserActionKindForInput({}, "click the button"), "click");
   assert.equal(nativeBrowserActionKindForInput({ action_kind: "upload" }), "upload");
+  assert.equal(
+    nativeBrowserActionKindForInput({
+      action_kind: "upload",
+      actionKind: "click",
+      computerUseActionKind: "click",
+    }),
+    "upload",
+  );
+  assert.equal(nativeBrowserActionKindForInput({ actionKind: "click", computerUseActionKind: "click" }), "inspect");
   assert.equal(nativeBrowserActionKindForInput({}, "unknown"), "inspect");
   assert.equal(nativeBrowserActionKindIsReadOnly("scroll"), true);
   assert.equal(nativeBrowserActionKindIsReadOnly("click"), false);
@@ -38,11 +47,33 @@ test("computer-use inputs normalize browser session and approval controls", () =
   assert.equal(sandboxedHostedSessionModeForInput({ session_mode: "hosted_sandbox" }), "hosted_sandbox");
   assert.equal(sandboxedHostedSessionModeForInput({ session_mode: "native_browser" }), "local_sandbox");
   assert.equal(nativeBrowserControlledRelaunchApprovalRefForInput({ browser_launch_approval_ref: "approval-1" }), "approval-1");
+  assert.equal(
+    nativeBrowserSessionModeForInput({
+      session_mode: "controlled_relaunch",
+      sessionMode: "attached_cdp",
+      computerUseSessionMode: "attached_cdp",
+    }),
+    "controlled_relaunch",
+  );
+  assert.equal(nativeBrowserSessionModeForInput({ controlledRelaunch: true }), "owned_hermetic_browser");
+  assert.equal(visualGuiSessionModeForInput({ sessionMode: "foreground_desktop" }), "visual_fallback");
+  assert.equal(sandboxedHostedSessionModeForInput({ computerUseSessionMode: "hosted_sandbox" }), "local_sandbox");
+  assert.equal(
+    nativeBrowserControlledRelaunchApprovalRefForInput({
+      controlled_relaunch_approval_ref: "approval-canonical",
+      controlledRelaunchApprovalRef: "approval-retired",
+      hostBrowserLaunchApprovalRef: "approval-retired-host",
+    }),
+    "approval-canonical",
+  );
+  assert.equal(nativeBrowserControlledRelaunchApprovalRefForInput({ browserLaunchApprovalRef: "approval-retired" }), null);
 });
 
 test("computer-use inputs classify CDP execution and control actions", () => {
-  assert.equal(nativeBrowserHasExplicitCdpEndpoint({ cdpWsUrl: "ws://localhost/devtools" }), true);
+  assert.equal(nativeBrowserHasExplicitCdpEndpoint({ cdp_ws_url: "ws://localhost/devtools" }), true);
+  assert.equal(nativeBrowserHasExplicitCdpEndpoint({ cdpWsUrl: "ws://localhost/devtools" }), false);
   assert.equal(nativeBrowserCdpTimeoutMs({ timeout_ms: 2500.4 }), 2500);
+  assert.equal(nativeBrowserCdpTimeoutMs({ cdpTimeoutMs: 2500.4, timeoutMs: 2500.4 }), 3000);
   assert.equal(nativeBrowserCdpTimeoutMs({ timeout_ms: 10 }), 3000);
   assert.equal(nativeBrowserActionShouldUseCdpExecutor("click", "approval-1", {}), true);
   assert.equal(nativeBrowserActionShouldUseCdpExecutor("scroll", null, { cdp_endpoint: "ws://x" }), true);
