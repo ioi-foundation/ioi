@@ -554,6 +554,9 @@ function runBridge() {
   const approvalCore = exists("crates/services/src/agentic/runtime/kernel/approval.rs")
     ? read("crates/services/src/agentic/runtime/kernel/approval.rs")
     : "";
+  const authorityCore = exists("crates/services/src/agentic/runtime/kernel/authority.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/authority.rs")
+    : "";
   const policyCore = exists("crates/services/src/agentic/runtime/kernel/policy.rs")
     ? read("crates/services/src/agentic/runtime/kernel/policy.rs")
     : "";
@@ -2321,6 +2324,28 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-approval.test.mjs",
     ],
     "Phase 9/10 is pending: coding-tool approval manifests must be planned by Rust authority core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "external-capability-exit-authority-live-bridge",
+    /WalletAuthorityCore/.test(authorityCore) &&
+      /ExternalCapabilityExitRequest/.test(authorityCore) &&
+      /EXTERNAL_CAPABILITY_EXIT_AUTHORITY_SCHEMA_VERSION/.test(authorityCore) &&
+      /MissingWalletNetworkAuthority/.test(authorityCore) &&
+      /ExternalCapabilityExitAuthorityBridgeRequest/.test(bridgeModule) &&
+      /authorize_external_capability_exit/.test(bridgeModule) &&
+      /rust_external_capability_exit_authority_command/.test(bridgeModule) &&
+      /bridge_authorizes_external_capability_exit_through_rust_authority_core/.test(
+        bridgeModule,
+      ) &&
+      /bridge_rejects_external_capability_exit_without_wallet_network_authority/.test(
+        bridgeModule,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/authority.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 9/10 is pending: external capability exits must authorize through Rust authority core and fail closed without wallet.network grants",
   );
   assertCheck(
     result,

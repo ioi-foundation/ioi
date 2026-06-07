@@ -12,6 +12,9 @@ use ioi_services::agentic::runtime::kernel::approval::{
     ApprovalRevokeStateUpdateCore, ApprovalRevokeStateUpdateRequest, CodingToolApprovalCore,
     CodingToolApprovalRequest,
 };
+use ioi_services::agentic::runtime::kernel::authority::{
+    ExternalCapabilityExitRequest, WalletAuthorityCore,
+};
 use ioi_services::agentic::runtime::kernel::ctee::{CteeNodeTrust, PrivateWorkspaceCteeModule};
 use ioi_services::agentic::runtime::kernel::marketplace::{
     WorkerServicePackageInvocationCore, WorkerServicePackageInvocationRequest,
@@ -532,6 +535,16 @@ struct RuntimeRunStateCommitBridgeRequest {
     request: RuntimeRunStateCommitRequest,
 }
 
+#[derive(Debug, Deserialize)]
+struct ExternalCapabilityExitAuthorityBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ExternalCapabilityExitRequest,
+}
+
 pub fn run_bridge_response_from_stdin() -> Value {
     match run_bridge() {
         Ok(response) => json!({ "ok": true, "result": response }),
@@ -704,6 +717,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_approval_revoke_state_update(request)
+        }
+        "authorize_external_capability_exit" => {
+            let request: ExternalCapabilityExitAuthorityBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            authorize_external_capability_exit(request)
         }
         "evaluate_context_budget_policy" => {
             let request: ContextBudgetPolicyBridgeRequest = serde_json::from_value(raw_request)
@@ -1949,6 +1968,42 @@ fn plan_approval_revoke_state_update(
         "operator_control": record.operator_control.clone(),
         "run": record.run.clone(),
         "agent": record.agent.clone(),
+    }))
+}
+
+fn authorize_external_capability_exit(
+    request: ExternalCapabilityExitAuthorityBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "authorize_external_capability_exit" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = WalletAuthorityCore
+        .authorize_external_capability_exit(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "external_capability_exit_authority_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_external_capability_exit_authority_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "authority": record.clone(),
+        "wallet_network_grant_refs": record.wallet_network_grant_refs.clone(),
+        "authority_receipt_refs": record.authority_receipt_refs.clone(),
+        "authority_hash": record.authority_hash.clone(),
     }))
 }
 
@@ -6524,6 +6579,78 @@ mod tests {
             "receipt://local-settlement/payment"
         );
         assert_ne!(response["admission_hash"][0], 0);
+    }
+
+    #[test]
+    fn bridge_authorizes_external_capability_exit_through_rust_authority_core() {
+        let request: ExternalCapabilityExitAuthorityBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "authorize_external_capability_exit",
+            "backend": "rust_authority",
+            "request": {
+                "schema_version": "ioi.external_capability_exit_authority.v1",
+                "exit_ref": "exit://aiip/slack-post-message",
+                "capability_ref": "capability://connector/slack.postMessage",
+                "target_ref": "aiip://workspace/channel/runtime",
+                "policy_hash": "sha256:external-capability-policy",
+                "idempotency_key": "idem:external-capability-exit",
+                "authority_grant_refs": [
+                    "wallet.network://grant/external-capability/slack-post-message"
+                ],
+                "authority_receipt_refs": [
+                    "receipt://wallet.network/authority/slack-post-message"
+                ]
+            }
+        }))
+        .expect("external capability exit bridge request");
+
+        let response = authorize_external_capability_exit(request)
+            .expect("external capability exit authorized");
+
+        assert_eq!(
+            response["source"],
+            "rust_external_capability_exit_authority_command"
+        );
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(
+            response["wallet_network_grant_refs"][0],
+            "wallet.network://grant/external-capability/slack-post-message"
+        );
+        assert_eq!(
+            response["authority_receipt_refs"][0],
+            "receipt://wallet.network/authority/slack-post-message"
+        );
+        assert!(response["authority_hash"]
+            .as_str()
+            .expect("authority hash")
+            .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn bridge_rejects_external_capability_exit_without_wallet_network_authority() {
+        let request: ExternalCapabilityExitAuthorityBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "authorize_external_capability_exit",
+            "request": {
+                "schema_version": "ioi.external_capability_exit_authority.v1",
+                "exit_ref": "exit://aiip/slack-post-message",
+                "capability_ref": "capability://connector/slack.postMessage",
+                "target_ref": "aiip://workspace/channel/runtime",
+                "policy_hash": "sha256:external-capability-policy",
+                "idempotency_key": "idem:external-capability-exit",
+                "authority_grant_refs": ["grant://local-debug-only"],
+                "authority_receipt_refs": [
+                    "receipt://wallet.network/authority/slack-post-message"
+                ]
+            }
+        }))
+        .expect("external capability exit bridge request");
+
+        let error = authorize_external_capability_exit(request)
+            .expect_err("wallet.network authority is required");
+
+        assert_eq!(error.code, "external_capability_exit_authority_invalid");
+        assert!(error.message.contains("MissingWalletNetworkAuthority"));
     }
 
     #[test]
