@@ -131,7 +131,7 @@ function createSurface() {
   });
 }
 
-test("workflow-edit surface proposes workflow edits with approval manifest aliases", () => {
+test("workflow-edit surface proposes workflow edits with canonical approval manifest", () => {
   const store = createStore();
   const surface = createSurface();
 
@@ -167,12 +167,73 @@ test("workflow-edit surface proposes workflow edits with approval manifest alias
   assert.equal(proposalEvent.source_event_kind, "WorkflowEdit.Proposed");
   assert.equal(proposalEvent.fixture_profile, "fixture.local");
   assert.equal(proposalEvent.payload_summary.session_id, "session_alpha");
-  assert.deepEqual(proposalEvent.payload_summary.targetWorkflowNodeIds, ["node_1", "node_2"]);
+  assert.deepEqual(proposalEvent.payload_summary.target_workflow_node_ids, ["node_1", "node_2"]);
   assert.equal(approvalRequest.action, "workflow.edit.apply");
-  assert.equal(approvalRequest.approval_manifest.proposalId, "proposal_one");
-  assert.equal(approvalRequest.approval_manifest.mutationAllowed, false);
+  assert.equal(approvalRequest.approval_manifest.proposal_id, "proposal_one");
+  assert.equal(approvalRequest.approval_manifest.mutation_allowed, false);
   assert.deepEqual(approvalRequest.authority_scope_requirements, ["workflow.edit.apply"]);
   assert.equal(surface.latestWorkflowEditProposalEvent(store, "thread_alpha", "proposal_one"), proposalEvent);
+  for (const field of [
+    "schemaVersion",
+    "proposalId",
+    "editIntentId",
+    "approvalId",
+    "approvalRequired",
+    "workflowGraphId",
+    "workflowNodeId",
+    "targetWorkflowNodeIds",
+    "boundedTargets",
+    "workflowPath",
+    "workflowRelativePath",
+    "workflowPatch",
+    "workflowPatchPresent",
+    "codeDiff",
+    "patchHash",
+    "proposalOnly",
+    "mutationAllowed",
+    "mutationExecuted",
+    "approvalManifest",
+  ]) {
+    assert.equal(Object.hasOwn(proposalEvent.payload_summary, field), false, `${field} payload alias must be absent`);
+  }
+  for (const field of [
+    "schemaVersion",
+    "proposalId",
+    "editIntentId",
+    "workflowGraphId",
+    "workflowNodeId",
+    "targetWorkflowNodeIds",
+    "workflowPath",
+    "workflowRelativePath",
+    "patchHash",
+    "proposalOnly",
+    "mutationAllowed",
+    "mutationExecuted",
+    "effectClass",
+    "riskDomain",
+  ]) {
+    assert.equal(Object.hasOwn(approvalRequest.approval_manifest, field), false, `${field} manifest alias must be absent`);
+  }
+  for (const field of [
+    "schemaVersion",
+    "proposalId",
+    "editIntentId",
+    "approvalId",
+    "approvalRequired",
+    "mutationAllowed",
+    "mutationExecuted",
+    "workflowPath",
+    "workflowRelativePath",
+    "patchHash",
+    "eventId",
+    "approvalEventId",
+    "receiptRefs",
+    "policyDecisionRefs",
+    "proposalEvent",
+    "approvalEvent",
+  ]) {
+    assert.equal(Object.hasOwn(result, field), false, `${field} result alias must be absent`);
+  }
 });
 
 test("workflow-edit surface ignores retired request identity aliases", () => {
@@ -315,8 +376,35 @@ test("workflow-edit surface applies approved proposals and replays idempotently"
   assert.equal(result.mutation_executed, true);
   assert.equal(result.idempotent_replay, false);
   assert.equal(result.event.event_kind, "workflow.edit_applied");
-  assert.equal(result.event.payload_summary.approvalDecisionEventId, "event_3");
-  assert.equal(result.event.payload_summary.workflowRelativePath, "workflows/apply.json");
+  assert.equal(result.event.payload_summary.approval_decision_event_id, "event_3");
+  assert.equal(result.event.payload_summary.workflow_relative_path, "workflows/apply.json");
+  for (const field of [
+    "schemaVersion",
+    "proposalId",
+    "approvalId",
+    "approvalSatisfied",
+    "mutationAllowed",
+    "mutationExecuted",
+    "idempotentReplay",
+  ]) {
+    assert.equal(Object.hasOwn(result, field), false, `${field} apply result alias must be absent`);
+    assert.equal(Object.hasOwn(replay, field), false, `${field} replay result alias must be absent`);
+  }
+  for (const field of [
+    "proposalId",
+    "proposalEventId",
+    "approvalId",
+    "approvalSatisfied",
+    "approvalDecisionEventId",
+    "workflowPath",
+    "workflowRelativePath",
+    "patchHash",
+    "mutationAllowed",
+    "mutationExecuted",
+    "proposalOnly",
+  ]) {
+    assert.equal(Object.hasOwn(result.event.payload_summary, field), false, `${field} apply payload alias must be absent`);
+  }
   assert.deepEqual(written, { name: "applied", nodes: [{ id: "node_apply" }] });
   assert.equal(replay.status, "completed");
   assert.equal(replay.idempotent_replay, true);
@@ -347,6 +435,6 @@ test("workflow-edit surface enforces workspace boundaries and required proposal 
     (error) =>
       error.status === 404 &&
       error.code === "not_found" &&
-      error.details.proposalId === "missing",
+      error.details.proposal_id === "missing",
   );
 });

@@ -4560,6 +4560,63 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: workflow edit proposal/apply paths must use canonical request identity, target, patch, approval, and receipt fields before approval and projection handling",
   );
+  const workflowEditAliasFields =
+    "schemaVersion|proposalId|editIntentId|approvalId|approvalRequired|approvalSatisfied|mutationAllowed|mutationExecuted|workflowGraphId|workflowNodeId|targetWorkflowNodeIds|boundedTargets|workflowPath|workflowRelativePath|workflowPatch|workflowPatchPresent|codeDiff|patchHash|eventId|approvalEventId|receiptRefs|policyDecisionRefs|proposalEvent|approvalEvent|approvalManifest|proposalOnly|effectClass|riskDomain|idempotentReplay|proposalEventId|approvalDecisionEventId";
+  assertCheck(
+    result,
+    "workflow-edit-envelope-aliases-retired",
+    /workflow-edit surface proposes workflow edits with canonical approval manifest/.test(
+      runtimeWorkflowEditSurfaceTest,
+    ) &&
+      /approvalRequest\.approval_manifest\.proposal_id,\s*"proposal_one"/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /approvalRequest\.approval_manifest\.mutation_allowed,\s*false/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /payload alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
+      /manifest alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
+      /result alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
+      /apply payload alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
+      /apply result alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
+      /latestWorkflowEditProposalEvent\(store, threadId, proposalId\)[\s\S]*?payload\.proposal_id === normalizedProposalId[\s\S]*?latestWorkflowEditApplyEvent/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      /latestWorkflowEditApplyEvent\(store, threadId, proposalId\)[\s\S]*?payload\.proposal_id === normalizedProposalId[\s\S]*?workflowEditApprovalSatisfaction/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      /const requestedManifest = approvalPayload\.approval_manifest \?\? \{\};/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      /const proposalId = proposalPayload\.proposal_id \?\? null;/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      /const manifestProposalId = requestedManifest\.proposal_id \?\? null;/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      /optionalString\(proposalPayload\.approval_id\)/.test(runtimeWorkflowEditSurface) &&
+      /const workflowPath = optionalString\(proposalPayload\.workflow_path\);/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      /const workflowPatch = proposalPayload\.workflow_patch \?\? null;/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      /let workflowRelativePath = optionalString\(proposalPayload\.workflow_relative_path\);/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      /patch_hash: proposalPayload\.patch_hash \?\? null/.test(runtimeWorkflowEditSurface) &&
+      !new RegExp(`^\\s+(?:${workflowEditAliasFields})\\s*[:,]`, "m").test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      !/\b(?:payload|proposalPayload|approvalPayload|requestedManifest|duplicateApply\.payload_summary)\.(?:proposalId|approvalId|approvalManifest|mutationExecuted|workflowPath|workflowRelativePath|workflowPatch|patchHash)\b/.test(
+        runtimeWorkflowEditSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: workflow edit proposal/apply event, approval, and result envelopes must expose canonical snake_case fields without duplicate camelCase aliases or reader fallbacks",
+  );
   assertCheck(
     result,
     "context-compaction-plan-live-bridge",

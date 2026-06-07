@@ -52,16 +52,16 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
 
   function resolveWorkflowEditTarget(agent, request = {}) {
     const rawPath = optionalString(request.workflow_path);
-    if (!rawPath) return { workflowPath: null, workflowRelativePath: null };
+    if (!rawPath) return { workflow_path: null, workflow_relative_path: null };
     const workflowPath = path.resolve(agent.cwd, rawPath);
     const workflowRelativePath = relativePathForWorkspace(workflowPath, agent.cwd);
     if (!workflowRelativePath) {
       throw policyErrorDep("Workflow edit proposals can only target files inside the runtime workspace.", {
         workspaceRoot: agent.cwd,
-        workflowPath,
+        workflow_path: workflowPath,
       });
     }
-    return { workflowPath, workflowRelativePath };
+    return { workflow_path: workflowPath, workflow_relative_path: workflowRelativePath };
   }
 
   function proposeWorkflowEdit(store, threadId, request = {}) {
@@ -83,7 +83,10 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     const summary =
       optionalString(request.summary) ??
       "Proposal-only workflow edit staged for daemon-owned approval.";
-    const { workflowPath, workflowRelativePath } = resolveWorkflowEditTarget(agent, request);
+    const {
+      workflow_path: workflowPath,
+      workflow_relative_path: workflowRelativePath,
+    } = resolveWorkflowEditTarget(agent, request);
     const workflowPatch =
       request.workflow_patch && typeof request.workflow_patch === "object"
         ? request.workflow_patch
@@ -93,11 +96,11 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       JSON.stringify({
         title,
         summary,
-        workflowGraphId,
-        targetWorkflowNodeIds,
-        workflowRelativePath,
-        workflowPatch,
-        codeDiff,
+        workflow_graph_id: workflowGraphId,
+        target_workflow_node_ids: targetWorkflowNodeIds,
+        workflow_relative_path: workflowRelativePath,
+        workflow_patch: workflowPatch,
+        code_diff: codeDiff,
       }),
     ).slice(0, 16);
     const editIntentId =
@@ -114,42 +117,28 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       `runtime.workflow-edit-proposal.${safeId(proposalId)}`;
     const patchHash = doctorHash(
       JSON.stringify({
-        workflowRelativePath,
-        workflowPatch,
-        targetWorkflowNodeIds,
-        codeDiff,
+        workflow_relative_path: workflowRelativePath,
+        workflow_patch: workflowPatch,
+        target_workflow_node_ids: targetWorkflowNodeIds,
+        code_diff: codeDiff,
       }),
     );
     const runOrAgentId = run?.id ?? agent.id;
     const approvalManifest = {
       schema_version: "ioi.runtime.workflow-edit-proposal-approval.v1",
-      schemaVersion: "ioi.runtime.workflow-edit-proposal-approval.v1",
       proposal_id: proposalId,
-      proposalId,
       edit_intent_id: editIntentId,
-      editIntentId,
       workflow_graph_id: workflowGraphId,
-      workflowGraphId,
       workflow_node_id: workflowNodeId,
-      workflowNodeId,
       target_workflow_node_ids: targetWorkflowNodeIds,
-      targetWorkflowNodeIds,
       workflow_path: workflowPath,
-      workflowPath,
       workflow_relative_path: workflowRelativePath,
-      workflowRelativePath,
       patch_hash: patchHash,
-      patchHash,
       proposal_only: true,
-      proposalOnly: true,
       mutation_allowed: false,
-      mutationAllowed: false,
       mutation_executed: false,
-      mutationExecuted: false,
       effect_class: "workflow_mutation",
-      effectClass: "workflow_mutation",
       risk_domain: "workflow_graph",
-      riskDomain: "workflow_graph",
       policy_reason: "workflow_edit_proposal_only_requires_operator_approval",
       thread_mode: agent.runtimeControls?.mode ?? "agent",
       approval_mode: "human_required",
@@ -187,45 +176,27 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       payload: {
         event_kind: "WorkflowEdit.Proposed",
         proposal_id: proposalId,
-        proposalId,
         edit_intent_id: editIntentId,
-        editIntentId,
         approval_id: approvalId,
-        approvalId,
         approval_required: true,
-        approvalRequired: true,
         title,
         summary,
         requested_by: requestedBy,
         control_surface: source,
         workflow_graph_id: workflowGraphId,
-        workflowGraphId,
         workflow_node_id: workflowNodeId,
-        workflowNodeId,
         target_workflow_node_ids: targetWorkflowNodeIds,
-        targetWorkflowNodeIds,
         bounded_targets: targetWorkflowNodeIds,
-        boundedTargets: targetWorkflowNodeIds,
         workflow_path: workflowPath,
-        workflowPath,
         workflow_relative_path: workflowRelativePath,
-        workflowRelativePath,
         workflow_patch: workflowPatch,
-        workflowPatch,
         workflow_patch_present: Boolean(workflowPatch),
-        workflowPatchPresent: Boolean(workflowPatch),
         code_diff: codeDiff,
-        codeDiff,
         patch_hash: patchHash,
-        patchHash,
         proposal_only: true,
-        proposalOnly: true,
         mutation_allowed: false,
-        mutationAllowed: false,
         mutation_executed: false,
-        mutationExecuted: false,
         approval_manifest: approvalManifest,
-        approvalManifest,
         agent_id: agent.id,
         thread_id: threadId,
         turn_id: turnId || null,
@@ -260,44 +231,25 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     const approvalEvent = store.latestApprovalRequestEvent(threadId, approval.approval_id);
     return {
       schema_version: "ioi.runtime.workflow-edit-proposal-result.v1",
-      schemaVersion: "ioi.runtime.workflow-edit-proposal-result.v1",
       status: "waiting_for_approval",
       proposal_id: proposalId,
-      proposalId,
       edit_intent_id: editIntentId,
-      editIntentId,
       approval_id: approval.approval_id,
-      approvalId: approval.approval_id,
       approval_required: true,
-      approvalRequired: true,
       mutation_allowed: false,
-      mutationAllowed: false,
       mutation_executed: false,
-      mutationExecuted: false,
       workflow_path: workflowPath,
-      workflowPath,
       workflow_relative_path: workflowRelativePath,
-      workflowRelativePath,
       patch_hash: patchHash,
-      patchHash,
       event_id: event.event_id,
-      eventId: event.event_id,
       approval_event_id: approval.event_id,
-      approvalEventId: approval.event_id,
       receipt_refs: uniqueStrings([...event.receipt_refs, ...normalizeArray(approval.receipt_refs)]),
-      receiptRefs: uniqueStrings([...event.receipt_refs, ...normalizeArray(approval.receipt_refs)]),
       policy_decision_refs: uniqueStrings([
         ...event.policy_decision_refs,
         ...normalizeArray(approval.policy_decision_refs),
       ]),
-      policyDecisionRefs: uniqueStrings([
-        ...event.policy_decision_refs,
-        ...normalizeArray(approval.policy_decision_refs),
-      ]),
       proposal_event: event,
-      proposalEvent: event,
       approval_event: approvalEvent,
-      approvalEvent,
     };
   }
 
@@ -311,8 +263,7 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
           const payload = event.payload_summary ?? event.payload ?? {};
           return (
             event.event_kind === "workflow.edit_proposed" &&
-            (payload.proposal_id === normalizedProposalId ||
-              payload.proposalId === normalizedProposalId)
+            payload.proposal_id === normalizedProposalId
           );
         })
         .at(-1) ?? null
@@ -329,26 +280,25 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
           const payload = event.payload_summary ?? event.payload ?? {};
           return (
             event.event_kind === "workflow.edit_applied" &&
-            (payload.proposal_id === normalizedProposalId ||
-              payload.proposalId === normalizedProposalId)
+            payload.proposal_id === normalizedProposalId
           );
         })
         .at(-1) ?? null
     );
   }
 
-  function workflowEditApprovalSatisfaction(store, { threadId, approvalId, proposalEvent }) {
+  function workflowEditApprovalSatisfaction(store, { threadId, approval_id: approvalId, proposal_event: proposalEvent }) {
     const normalizedApprovalId = optionalString(approvalId);
     if (!normalizedApprovalId) return { satisfied: false, reason: "approval_id_missing" };
     const approvalRequestEvent = store.latestApprovalRequestEvent(threadId, normalizedApprovalId);
-    if (!approvalRequestEvent) return { satisfied: false, approvalId: normalizedApprovalId, reason: "approval_request_missing" };
+    if (!approvalRequestEvent) return { satisfied: false, approval_id: normalizedApprovalId, reason: "approval_request_missing" };
     const proposalPayload = proposalEvent?.payload_summary ?? proposalEvent?.payload ?? {};
     const approvalPayload = approvalRequestEvent.payload_summary ?? approvalRequestEvent.payload ?? {};
-    const requestedManifest = approvalPayload.approval_manifest ?? approvalPayload.approvalManifest ?? {};
-    const proposalId = proposalPayload.proposal_id ?? proposalPayload.proposalId ?? null;
-    const manifestProposalId = requestedManifest.proposal_id ?? requestedManifest.proposalId ?? null;
+    const requestedManifest = approvalPayload.approval_manifest ?? {};
+    const proposalId = proposalPayload.proposal_id ?? null;
+    const manifestProposalId = requestedManifest.proposal_id ?? null;
     if (proposalId && manifestProposalId && proposalId !== manifestProposalId) {
-      return { satisfied: false, approvalId: normalizedApprovalId, reason: "approval_manifest_mismatch" };
+      return { satisfied: false, approval_id: normalizedApprovalId, reason: "approval_manifest_mismatch" };
     }
     const stream = store.runtimeEventStream(eventStreamIdForThread(threadId));
     const latestDecision = stream.events
@@ -361,12 +311,12 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
             event.event_kind === "approval.revoked"),
       )
       .at(-1);
-    if (!latestDecision) return { satisfied: false, approvalId: normalizedApprovalId, reason: "approval_decision_missing" };
+    if (!latestDecision) return { satisfied: false, approval_id: normalizedApprovalId, reason: "approval_decision_missing" };
     return {
       satisfied: latestDecision.event_kind === "approval.approved",
-      approvalId: normalizedApprovalId,
-      decisionEventId: latestDecision.event_id,
-      decisionSeq: latestDecision.seq,
+      approval_id: normalizedApprovalId,
+      decision_event_id: latestDecision.event_id,
+      decision_seq: latestDecision.seq,
       reason: approvalReasonForDecisionEvent(latestDecision),
     };
   }
@@ -387,42 +337,35 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     if (!proposalEvent) {
       throw notFoundDep(`Workflow edit proposal not found: ${normalizedProposalId}`, {
         threadId,
-        proposalId: normalizedProposalId,
+        proposal_id: normalizedProposalId,
       });
     }
     const proposalPayload = proposalEvent.payload_summary ?? proposalEvent.payload ?? {};
     const approvalId =
       optionalString(request.approval_id) ??
-      optionalString(proposalPayload.approval_id ?? proposalPayload.approvalId);
+      optionalString(proposalPayload.approval_id);
     const approvalSatisfaction = workflowEditApprovalSatisfaction(store, {
       threadId,
-      approvalId,
-      proposalEvent,
+      approval_id: approvalId,
+      proposal_event: proposalEvent,
     });
     if (!approvalSatisfaction.satisfied) {
       return {
         schema_version: "ioi.runtime.workflow-edit-apply-result.v1",
-        schemaVersion: "ioi.runtime.workflow-edit-apply-result.v1",
         status: "blocked",
         proposal_id: normalizedProposalId,
-        proposalId: normalizedProposalId,
-        approval_id: approvalSatisfaction.approvalId ?? approvalId ?? null,
-        approvalId: approvalSatisfaction.approvalId ?? approvalId ?? null,
+        approval_id: approvalSatisfaction.approval_id ?? approvalId ?? null,
         approval_required: true,
-        approvalRequired: true,
         approval_satisfied: false,
-        approvalSatisfied: false,
         mutation_allowed: false,
-        mutationAllowed: false,
         mutation_executed: false,
-        mutationExecuted: false,
         reason: approvalSatisfaction.reason,
         error: {
           code: "workflow_edit_approval_required",
           message: `Workflow edit proposal ${normalizedProposalId} requires approval before apply.`,
           details: {
-            proposalId: normalizedProposalId,
-            approvalId: approvalSatisfaction.approvalId ?? approvalId ?? null,
+            proposal_id: normalizedProposalId,
+            approval_id: approvalSatisfaction.approval_id ?? approvalId ?? null,
             reason: approvalSatisfaction.reason,
           },
         },
@@ -432,20 +375,13 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     if (duplicateApply) {
       return {
         schema_version: "ioi.runtime.workflow-edit-apply-result.v1",
-        schemaVersion: "ioi.runtime.workflow-edit-apply-result.v1",
         status: "completed",
         proposal_id: normalizedProposalId,
-        proposalId: normalizedProposalId,
-        approval_id: approvalSatisfaction.approvalId,
-        approvalId: approvalSatisfaction.approvalId,
+        approval_id: approvalSatisfaction.approval_id,
         approval_satisfied: true,
-        approvalSatisfied: true,
         mutation_allowed: true,
-        mutationAllowed: true,
-        mutation_executed: Boolean(duplicateApply.payload_summary?.mutation_executed ?? duplicateApply.payload_summary?.mutationExecuted),
-        mutationExecuted: Boolean(duplicateApply.payload_summary?.mutationExecuted ?? duplicateApply.payload_summary?.mutation_executed),
+        mutation_executed: Boolean(duplicateApply.payload_summary?.mutation_executed),
         idempotent_replay: true,
-        idempotentReplay: true,
         event: duplicateApply,
       };
     }
@@ -459,9 +395,9 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       optionalString(request.workflow_node_id) ??
       optionalString(proposalEvent.workflow_node_id) ??
       `runtime.workflow-edit-proposal.${safeId(normalizedProposalId)}`;
-    const workflowPath = optionalString(proposalPayload.workflow_path ?? proposalPayload.workflowPath);
-    const workflowPatch = proposalPayload.workflow_patch ?? proposalPayload.workflowPatch ?? null;
-    let workflowRelativePath = optionalString(proposalPayload.workflow_relative_path ?? proposalPayload.workflowRelativePath);
+    const workflowPath = optionalString(proposalPayload.workflow_path);
+    const workflowPatch = proposalPayload.workflow_patch ?? null;
+    let workflowRelativePath = optionalString(proposalPayload.workflow_relative_path);
     let mutationExecuted = false;
     if (workflowPath && workflowPatch && typeof workflowPatch === "object") {
       const resolvedWorkflowPath = path.resolve(agent.cwd, workflowPath);
@@ -469,8 +405,8 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       if (!workflowRelativePath) {
         throw policyErrorDep("Workflow edit apply blocked outside the runtime workspace.", {
           workspaceRoot: agent.cwd,
-          workflowPath: resolvedWorkflowPath,
-          proposalId: normalizedProposalId,
+          workflow_path: resolvedWorkflowPath,
+          proposal_id: normalizedProposalId,
         });
       }
       writeJsonDep(resolvedWorkflowPath, workflowPatch);
@@ -485,7 +421,7 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       item_id: `${turnId || threadId}:item:workflow-edit-applied:${safeId(normalizedProposalId)}`,
       idempotency_key:
         request.idempotency_key ??
-        `thread:${threadId}:workflow.edit.applied:${normalizedProposalId}:${approvalSatisfaction.approvalId}`,
+        `thread:${threadId}:workflow.edit.applied:${normalizedProposalId}:${approvalSatisfaction.approval_id}`,
       source,
       source_event_kind: "WorkflowEdit.Applied",
       event_kind: "workflow.edit_applied",
@@ -496,34 +432,23 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       workflow_graph_id: workflowGraphId,
       workflow_node_id: workflowNodeId,
       component_kind: "workflow_edit_proposal",
-      approval_id: approvalSatisfaction.approvalId,
+      approval_id: approvalSatisfaction.approval_id,
       payload_schema_version: "ioi.runtime.workflow-edit-apply.v1",
       payload: {
         event_kind: "WorkflowEdit.Applied",
         proposal_id: normalizedProposalId,
-        proposalId: normalizedProposalId,
         proposal_event_id: proposalEvent.event_id,
-        proposalEventId: proposalEvent.event_id,
-        approval_id: approvalSatisfaction.approvalId,
-        approvalId: approvalSatisfaction.approvalId,
+        approval_id: approvalSatisfaction.approval_id,
         approval_satisfied: true,
-        approvalSatisfied: true,
-        approval_decision_event_id: approvalSatisfaction.decisionEventId,
-        approvalDecisionEventId: approvalSatisfaction.decisionEventId,
+        approval_decision_event_id: approvalSatisfaction.decision_event_id,
         requested_by: requestedBy,
         control_surface: source,
         workflow_path: workflowPath,
-        workflowPath,
         workflow_relative_path: workflowRelativePath,
-        workflowRelativePath,
-        patch_hash: proposalPayload.patch_hash ?? proposalPayload.patchHash ?? null,
-        patchHash: proposalPayload.patchHash ?? proposalPayload.patch_hash ?? null,
+        patch_hash: proposalPayload.patch_hash ?? null,
         mutation_allowed: true,
-        mutationAllowed: true,
         mutation_executed: mutationExecuted,
-        mutationExecuted,
         proposal_only: true,
-        proposalOnly: true,
         agent_id: agent.id,
         thread_id: threadId,
         turn_id: turnId || null,
@@ -544,20 +469,13 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     });
     return {
       schema_version: "ioi.runtime.workflow-edit-apply-result.v1",
-      schemaVersion: "ioi.runtime.workflow-edit-apply-result.v1",
       status: "completed",
       proposal_id: normalizedProposalId,
-      proposalId: normalizedProposalId,
-      approval_id: approvalSatisfaction.approvalId,
-      approvalId: approvalSatisfaction.approvalId,
+      approval_id: approvalSatisfaction.approval_id,
       approval_satisfied: true,
-      approvalSatisfied: true,
       mutation_allowed: true,
-      mutationAllowed: true,
       mutation_executed: mutationExecuted,
-      mutationExecuted,
       idempotent_replay: false,
-      idempotentReplay: false,
       event,
     };
   }

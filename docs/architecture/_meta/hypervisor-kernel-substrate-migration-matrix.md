@@ -13095,6 +13095,13 @@ finding records emit canonical `diagnostic_event_id`; retired camelCase
 `diagnosticStatus` and `diagnosticEventId` values can no longer steer or leak
 through the diagnostics feedback envelope before projection.
 
+Slice 490 retires workflow-edit envelope aliases:
+workflow edit proposal/apply events, approval manifests, lookup readers, and
+result envelopes now expose and consume canonical snake_case fields only;
+retired camelCase proposal, approval, workflow target, mutation, patch, receipt,
+and idempotent replay fields can no longer duplicate or steer approved workflow
+mutation truth before projection.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
