@@ -330,8 +330,62 @@ test("deleteModelArtifact supports dry-run, loaded conflict, and deletion cleanu
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "cleanupState"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "endpointIds"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "projectedFreedBytes"), false);
-  assert.equal(state.writes.at(-2)[0], "model-artifacts");
-  assert.equal(state.writes.at(-1)[0], "model-endpoints");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.length, 2);
+  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
+  assert.equal(state.recordStateCommits[0].record_dir, "model-artifacts");
+  assert.equal(state.recordStateCommits[0].record_id, "artifact.llama");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.artifact.delete");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.model_artifact_delete.2"]);
+  assert.equal(state.recordStateCommits[0].record.state, "deleted");
+  assert.equal(state.recordStateCommits[0].record.cleanupState, "removed");
+  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt.model_artifact_delete.2");
+  assert.equal(state.recordStateCommits[1].record_dir, "model-endpoints");
+  assert.equal(state.recordStateCommits[1].record_id, "endpoint.llama");
+  assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.endpoint.delete_with_artifact");
+  assert.deepEqual(state.recordStateCommits[1].receipt_refs, ["receipt.model_artifact_delete.2"]);
+  assert.equal(state.recordStateCommits[1].record.status, "deleted_with_artifact");
+  assert.equal(state.recordStateCommits[1].record.receiptId, "receipt.model_artifact_delete.2");
+  assert.equal(state.projections, 1);
+});
+
+test("deleteModelArtifact fails closed without Rust Agentgres artifact record-state commit", () => {
+  const root = tempRoot();
+  const state = fakeState(root);
+  fs.mkdirSync(state.modelRoot, { recursive: true });
+  const artifactPath = path.join(state.modelRoot, "model.gguf");
+  fs.writeFileSync(artifactPath, "model-bytes");
+  state.artifacts.set("artifact.llama", {
+    id: "artifact.llama",
+    modelId: "llama-test",
+    providerId: "provider.local",
+    artifactPath,
+  });
+  state.endpoints.set("endpoint.llama", {
+    id: "endpoint.llama",
+    artifactId: "artifact.llama",
+    modelId: "llama-test",
+    status: "mounted",
+  });
+  delete state.commitRuntimeModelMountRecordState;
+
+  assert.throws(
+    () => deleteModelArtifact(state, "artifact.llama", {}, deps),
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "model_mount_artifact_state_commit_unconfigured");
+      assert.equal(error.details.record_dir, "model-artifacts");
+      assert.equal(error.details.record_id, "artifact.llama");
+      assert.equal(error.details.artifact_id, "artifact.llama");
+      assert.equal(error.details.model_id, "llama-test");
+      return true;
+    },
+  );
+
+  assert.equal(state.artifacts.has("artifact.llama"), true);
+  assert.equal(state.endpoints.get("endpoint.llama").status, "mounted");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.projections, 0);
 });
 
 test("cleanupModelStorage rejects retired cleanup alias before scanning", () => {

@@ -8098,6 +8098,15 @@ function runReceipts() {
       /cancelDownload fails closed without Rust Agentgres download record-state commit/.test(
         storageOperationsTest,
       ) &&
+      /commitModelArtifactRecordState/.test(deleteModelArtifactBlock) &&
+      /commitModelEndpointRecordState/.test(deleteModelArtifactBlock) &&
+      /model_mount\.artifact\.delete/.test(deleteModelArtifactBlock) &&
+      /model_mount\.endpoint\.delete_with_artifact/.test(deleteModelArtifactBlock) &&
+      !/state\.writeMap\("model-artifacts"/.test(deleteModelArtifactBlock) &&
+      !/state\.writeMap\("model-endpoints"/.test(deleteModelArtifactBlock) &&
+      /deleteModelArtifact fails closed without Rust Agentgres artifact record-state commit/.test(
+        storageOperationsTest,
+      ) &&
       /notFound\(`Download job not found: \$\{jobId\}`,\s*\{ job_id: jobId \}\)/.test(storageOperations) &&
       !/\b(?:jobId|modelId|providerId|bytesCompleted|bytesTotal|cleanupPartial|cleanupState|projectedFreedBytes|downloadPolicy|artifactId|artifactPathHash|affectedEndpointIds|affectedInstanceIds|endpointIds|scannedFileCount|orphanCount|orphanPathHashes|orphanBytes|removeOrphans|cleanedBytes|removedOrphanCount|destructiveConfirmation)\s*:/.test(
         storageLifecycleReceiptBlocks,
@@ -8116,6 +8125,8 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"orphanCount"\)\s*===\s*false/.test(storageOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/storage-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs",
     ],

@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { commitModelArtifactRecordState } from "./model-artifact-record-state.mjs";
 import { commitModelDownloadRecordState } from "./model-download-record-state.mjs";
+import { commitModelEndpointRecordState } from "./model-endpoint-record-state.mjs";
 
 const RETIRED_MODEL_STORAGE_REQUEST_ALIASES = [
   "cleanupPartial",
@@ -78,7 +80,6 @@ export function deleteModelArtifact(state, id, body = {}, deps = {}) {
     destructiveConfirmationState,
     fileSizeIfExists,
     runtimeError,
-    safeFileName,
     schemaVersion,
     stableHash,
     truthy,
@@ -122,12 +123,11 @@ export function deleteModelArtifact(state, id, body = {}, deps = {}) {
       details: { artifact_id: artifact.id, instance_ids: instanceIds },
     });
   }
-  for (const endpointId of endpointIds) {
+  const deletedAt = state.nowIso();
+  const updatedEndpoints = endpointIds.map((endpointId) => {
     const endpoint = state.endpoints.get(endpointId);
-    state.endpoints.set(endpointId, { ...endpoint, status: "deleted_with_artifact", deletedAt: state.nowIso() });
-  }
-  state.artifacts.delete(artifact.id);
-  fs.rmSync(path.join(state.stateDir, "model-artifacts", `${safeFileName(artifact.id)}.json`), { force: true });
+    return { ...endpoint, status: "deleted_with_artifact", deletedAt };
+  });
   let cleanupState = "not_applicable";
   if (artifact.artifactPath && artifact.artifactPath.startsWith(state.modelRoot)) {
     try {
@@ -149,8 +149,28 @@ export function deleteModelArtifact(state, id, body = {}, deps = {}) {
     cleanup_state: cleanupState,
     destructive_confirmation: destructiveConfirmation,
   });
-  state.writeMap("model-artifacts", state.artifacts);
-  state.writeMap("model-endpoints", state.endpoints);
+  const deletedArtifact = {
+    ...artifact,
+    state: "deleted",
+    deletedAt,
+    cleanupState,
+    projectedFreedBytes,
+    destructiveConfirmation,
+    receiptId: receipt.id,
+  };
+  commitModelArtifactRecordState(state, deletedArtifact, "model_mount.artifact.delete", [receipt.id]);
+  for (const endpoint of updatedEndpoints) {
+    commitModelEndpointRecordState(
+      state,
+      { ...endpoint, receiptId: receipt.id },
+      "model_mount.endpoint.delete_with_artifact",
+      [receipt.id],
+    );
+  }
+  state.artifacts.delete(artifact.id);
+  for (const endpoint of updatedEndpoints) {
+    state.endpoints.set(endpoint.id, { ...endpoint, receiptId: receipt.id });
+  }
   state.writeProjection();
   return {
     schemaVersion,
