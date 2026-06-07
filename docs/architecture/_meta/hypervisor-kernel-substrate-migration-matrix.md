@@ -13102,6 +13102,12 @@ retired camelCase proposal, approval, workflow target, mutation, patch, receipt,
 and idempotent replay fields can no longer duplicate or steer approved workflow
 mutation truth before projection.
 
+Slice 491 retires coding-tool budget blocked-event detector aliases:
+coding-tool budget recovery now detects blocked runtime events from canonical
+`event_kind`, `block_reason`, `budget_status`, `context_budget_status`, and
+`result_summary.reason` only; retired camelCase detector fields can no longer
+classify a prior event as budget-blocked before Rust-planned recovery state.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -132,6 +132,20 @@ test("budget recovery detects coding-tool budget blocked runtime events", () => 
   }), false);
 });
 
+test("budget recovery ignores retired blocked-event detector aliases", () => {
+  const recovery = createRecovery();
+
+  assert.equal(recovery.isCodingToolBudgetBlockedRuntimeEvent({
+    payload_summary: {
+      eventKind: "WorkflowRunCodingToolBudgetPreflightBlocked",
+      blockReason: "coding_tool_budget_exceeded",
+      budgetStatus: "exceeded",
+      contextBudgetStatus: "blocked",
+      resultSummary: { reason: "coding_tool_budget_exceeded" },
+    },
+  }), false);
+});
+
 test("budget recovery retry limit and result envelope emit canonical fields only", () => {
   const recovery = createRecovery();
 

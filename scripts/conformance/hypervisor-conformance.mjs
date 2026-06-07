@@ -3479,6 +3479,15 @@ function runBridge() {
     /budget recovery ignores retired blocked payload aliases/.test(
       runtimeCodingToolBudgetRecoveryTest,
     ) &&
+      /budget recovery ignores retired blocked-event detector aliases/.test(
+        runtimeCodingToolBudgetRecoveryTest,
+      ) &&
+      /eventKind:\s*"WorkflowRunCodingToolBudgetPreflightBlocked"/.test(
+        runtimeCodingToolBudgetRecoveryTest,
+      ) &&
+      /blockReason:\s*"coding_tool_budget_exceeded"/.test(
+        runtimeCodingToolBudgetRecoveryTest,
+      ) &&
       /budget recovery surface ignores retired blocked payload aliases/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
@@ -3498,6 +3507,9 @@ function runBridge() {
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       !/blockedPayload\.(?:approvalManifest|recoveryPolicy|targetNodeIds|workflowGraphId|workflowNodeId|approvalId)\b/.test(
+        runtimeCodingToolBudgetRecovery,
+      ) &&
+      !/\bpayload\.(?:eventKind|blockReason|budgetStatus|contextBudgetStatus|resultSummary)\b/.test(
         runtimeCodingToolBudgetRecovery,
       ) &&
       !/manifest\.recoveryPolicy\b/.test(runtimeCodingToolBudgetRecovery) &&
