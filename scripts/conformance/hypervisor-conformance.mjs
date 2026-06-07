@@ -666,6 +666,10 @@ function runBridge() {
     policyCore.match(
       /impl CodingToolBudgetRecoveryStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct DiagnosticsOperatorOverrideStateUpdateCore;)/,
     )?.[0] ?? "";
+  const diagnosticsOperatorOverrideStateUpdateCoreBlock =
+    policyCore.match(
+      /impl DiagnosticsOperatorOverrideStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct OperatorInterruptStateUpdateCore;)/,
+    )?.[0] ?? "";
   const stepModuleRunner = exists("packages/runtime-daemon/src/step-module-runner.mjs")
     ? read("packages/runtime-daemon/src/step-module-runner.mjs")
     : "";
@@ -3698,10 +3702,25 @@ function runBridge() {
       /DiagnosticsOperatorOverrideStateUpdateRequest/.test(policyCore) &&
       /DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_diagnostics_operator_override_state_update/.test(policyCore) &&
+      /"decision_id": decision_id/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
+      /"gate_event_id": gate_event_id/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
+      /"approval_required": request\.approval_required/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
+      /"approval_satisfied": request\.approval_satisfied/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
+      /"approval_source": approval_source/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
+      /"snapshot_id": snapshot_id/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
+      /"event_id": request\.event_id/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
+      /"created_at": request\.created_at/.test(diagnosticsOperatorOverrideStateUpdateCoreBlock) &&
+      !/"decisionId": decision_id|"gateEventId": gate_event_id|"approvalRequired": request\.approval_required|"approvalSatisfied": request\.approval_satisfied|"approvalSource": approval_source|"snapshotId": snapshot_id|"eventId": request\.event_id|"createdAt": request\.created_at/.test(
+        diagnosticsOperatorOverrideStateUpdateCoreBlock,
+      ) &&
       /plan_diagnostics_operator_override_state_update/.test(bridgeModule) &&
       /DiagnosticsOperatorOverrideStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_diagnostics_operator_override_state_update_command/.test(bridgeModule) &&
       /bridge_plans_diagnostics_operator_override_state_update_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /response\["operator_control"\]\["decision_id"\]/.test(bridgeModule) &&
+      /"decisionId"[\s\S]*"createdAt"[\s\S]*response\["operator_control"\]\.get\(field\)\.is_none\(\)/.test(
         bridgeModule,
       ) &&
       /planDiagnosticsOperatorOverrideStateUpdate/.test(runtimeContextPolicyRunner) &&
@@ -3709,6 +3728,10 @@ function runBridge() {
         runtimeContextPolicyRunner,
       ) &&
       /diagnostics operator override state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.operator_control\.decision_id/.test(runtimeContextPolicyRunnerTest) &&
+      /Object\.hasOwn\(result\.operator_control,\s*field\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /contextPolicyRunnerDep\.planDiagnosticsOperatorOverrideStateUpdate/.test(

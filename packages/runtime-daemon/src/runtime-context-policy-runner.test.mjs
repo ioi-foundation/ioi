@@ -436,8 +436,8 @@ test("diagnostics operator override state update runner sends Rust state update 
             updated_at: "2026-06-06T04:15:00.000Z",
             operator_control: {
               control: "diagnostics_operator_override",
-              decisionId: "decision_override",
-              eventId: "event_override",
+              decision_id: "decision_override",
+              event_id: "event_override",
             },
             run: {
               id: "run_blocked",
@@ -447,7 +447,7 @@ test("diagnostics operator override state update runner sends Rust state update 
                 operatorControls: [
                   {
                     control: "diagnostics_operator_override",
-                    eventId: "event_override",
+                    event_id: "event_override",
                   },
                 ],
               },
@@ -485,8 +485,20 @@ test("diagnostics operator override state update runner sends Rust state update 
   assert.equal(captured.request.decision_id, "decision_override");
   assert.equal(result.source, "rust_diagnostics_operator_override_state_update_command");
   assert.equal(result.operation_kind, "diagnostics.operator_override.event");
-  assert.equal(result.operator_control.decisionId, "decision_override");
-  assert.equal(result.run.trace.operatorControls[0].eventId, "event_override");
+  assert.equal(result.operator_control.decision_id, "decision_override");
+  for (const field of [
+    "decisionId",
+    "gateEventId",
+    "approvalRequired",
+    "approvalSatisfied",
+    "approvalSource",
+    "snapshotId",
+    "eventId",
+    "createdAt",
+  ]) {
+    assert.equal(Object.hasOwn(result.operator_control, field), false);
+  }
+  assert.equal(result.run.trace.operatorControls[0].event_id, "event_override");
 });
 
 test("operator interrupt state update runner sends Rust state update bridge request", () => {

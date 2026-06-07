@@ -1625,15 +1625,15 @@ impl DiagnosticsOperatorOverrideStateUpdateCore {
         let operator_control = json!({
             "control": "diagnostics_operator_override",
             "source": source,
-            "decisionId": decision_id,
-            "gateEventId": gate_event_id,
-            "approvalRequired": request.approval_required,
-            "approvalSatisfied": request.approval_satisfied,
-            "approvalSource": approval_source,
-            "snapshotId": snapshot_id,
-            "eventId": request.event_id,
+            "decision_id": decision_id,
+            "gate_event_id": gate_event_id,
+            "approval_required": request.approval_required,
+            "approval_satisfied": request.approval_satisfied,
+            "approval_source": approval_source,
+            "snapshot_id": snapshot_id,
+            "event_id": request.event_id,
             "seq": request.seq,
-            "createdAt": request.created_at,
+            "created_at": request.created_at,
         });
         let mut run = object_value(&request.run).ok_or(
             DiagnosticsOperatorOverrideStateUpdateError::MissingField("run"),
@@ -4921,7 +4921,19 @@ mod tests {
             record.operator_control["control"],
             "diagnostics_operator_override"
         );
-        assert_eq!(record.operator_control["decisionId"], "decision_override");
+        assert_eq!(record.operator_control["decision_id"], "decision_override");
+        for field in [
+            "decisionId",
+            "gateEventId",
+            "approvalRequired",
+            "approvalSatisfied",
+            "approvalSource",
+            "snapshotId",
+            "eventId",
+            "createdAt",
+        ] {
+            assert!(record.operator_control.get(field).is_none());
+        }
         assert_eq!(record.run["status"], "completed");
         assert!(record.run.get("turnStatus").is_none());
         assert_eq!(
@@ -4937,7 +4949,7 @@ mod tests {
             "operator_override_granted"
         );
         assert_eq!(
-            record.run["trace"]["operatorControls"][0]["eventId"],
+            record.run["trace"]["operatorControls"][0]["event_id"],
             "event_override"
         );
     }

@@ -13158,6 +13158,14 @@ and trace metadata; retired camelCase compaction metadata can no longer leave
 the Rust policy bridge as a parallel result ABI before daemon run/agent
 persistence.
 
+Slice 499 retires Rust diagnostics-override control aliases:
+Rust diagnostics operator override state planning now emits canonical
+`decision_id`, `gate_event_id`, `approval_required`, `approval_satisfied`,
+`approval_source`, `snapshot_id`, `event_id`, and `created_at` inside
+Rust-planned override `operator_control` records; retired camelCase override
+metadata can no longer leave the Rust policy bridge as a parallel result ABI
+before daemon diagnostics repair persistence.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

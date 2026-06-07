@@ -8280,13 +8280,29 @@ mod tests {
             response["operator_control"]["control"],
             "diagnostics_operator_override"
         );
+        assert_eq!(
+            response["operator_control"]["decision_id"],
+            "decision_override"
+        );
+        for field in [
+            "decisionId",
+            "gateEventId",
+            "approvalRequired",
+            "approvalSatisfied",
+            "approvalSource",
+            "snapshotId",
+            "eventId",
+            "createdAt",
+        ] {
+            assert!(response["operator_control"].get(field).is_none());
+        }
         assert_eq!(response["run"]["status"], "completed");
         assert_eq!(
             response["run"]["diagnosticsBlockingGate"]["status"],
             "overridden"
         );
         assert_eq!(
-            response["run"]["trace"]["operatorControls"][0]["eventId"],
+            response["run"]["trace"]["operatorControls"][0]["event_id"],
             "event_override"
         );
     }
