@@ -543,6 +543,115 @@ test("SDK restores workspace snapshots through canonical daemon routes", async (
   }
 });
 
+test("SDK executes diagnostics restore decisions with canonical request fields", async () => {
+  const requests = [];
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    requests.push(`${request.method} ${url.pathname}`);
+    response.setHeader("content-type", "application/json");
+    if (
+      request.method === "POST" &&
+      url.pathname === "/v1/threads/thread_sdk/diagnostics/repair-decisions/decision_restore_apply/execute"
+    ) {
+      const body = await readBody(request);
+      assert.equal(body.source, "sdk_client");
+      assert.equal(body.action, "restore_apply");
+      assert.equal(body.snapshot_id, "workspace_snapshot_sdk");
+      assert.equal(body.workflow_graph_id, "workflow_sdk");
+      assert.equal(body.workflow_node_id, "diagnostics_restore_apply_sdk");
+      assert.equal(body.approval_granted, true);
+      assert.equal(body.allow_conflicts, false);
+      assert.equal(body.restore_conflict_policy, "clean_preview_only");
+      assert.equal(body.restore_apply_idempotency_key, "idem:diagnostics-restore-apply-sdk");
+      assert.equal(Object.hasOwn(body, "snapshotId"), false);
+      assert.equal(Object.hasOwn(body, "restoreApplyIdempotencyKey"), false);
+      for (const field of [
+        "snapshotId",
+        "workflowGraphId",
+        "workflowNodeId",
+        "approvalGranted",
+        "allowConflicts",
+        "restoreConflictPolicy",
+        "restoreApplyIdempotencyKey",
+        "idempotencyKey",
+      ]) {
+        assert.equal(Object.hasOwn(body, field), false);
+      }
+      response.end(JSON.stringify({
+        schema_version: "ioi.runtime.diagnostics-repair-decision-execution.v1",
+        object: "ioi.runtime_diagnostics_repair_decision_execution",
+        thread_id: "thread_sdk",
+        decision_id: "decision_restore_apply",
+        action: "restore_apply",
+        status: "completed",
+        gate_event_id: "event_diagnostics_gate_sdk",
+        snapshot_id: "workspace_snapshot_sdk",
+        workflow_graph_id: "workflow_sdk",
+        workflow_node_id: "diagnostics_restore_apply_sdk",
+        restore_apply: {
+          schema_version: "ioi.runtime.workspace_restore_apply.v1",
+          object: "ioi.runtime_workspace_restore_apply",
+          thread_id: "thread_sdk",
+          snapshot_id: "workspace_snapshot_sdk",
+          preview_status: "ready",
+          apply_status: "applied",
+          apply_supported: true,
+          approval_required: true,
+          approval_satisfied: true,
+          file_count: 1,
+          applied_count: 1,
+          apply_noop_count: 0,
+          apply_blocked_count: 0,
+          failed_count: 0,
+          operations: [{ path: "README.md", apply_status: "applied" }],
+          policy_decision_refs: ["policy://diagnostics-restore/apply-sdk"],
+          receipt_refs: ["receipt://diagnostics-restore/apply-sdk"],
+          artifact_refs: ["artifact://diagnostics-restore/apply-sdk"],
+          rollback_refs: ["workspace_snapshot_sdk"],
+        },
+        receipt_refs: ["receipt://diagnostics-restore/execute-sdk"],
+        artifact_refs: ["artifact://diagnostics-restore/execute-sdk"],
+        policy_decision_refs: ["policy://diagnostics-restore/apply-sdk"],
+        rollback_refs: ["workspace_snapshot_sdk"],
+      }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: { code: "not_found", message: "missing route" } }));
+  });
+  await listen(server);
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
+    const result = await client.executeThreadDiagnosticsRepairDecision(
+      "thread_sdk",
+      "decision_restore_apply",
+      {
+        action: "restore_apply",
+        snapshot_id: "workspace_snapshot_sdk",
+        workflow_graph_id: "workflow_sdk",
+        workflow_node_id: "diagnostics_restore_apply_sdk",
+        approval_granted: true,
+        allow_conflicts: false,
+        restore_conflict_policy: "clean_preview_only",
+        restore_apply_idempotency_key: "idem:diagnostics-restore-apply-sdk",
+      },
+    );
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.restore_apply?.apply_status, "applied");
+    assert.deepEqual(result.rollback_refs, ["workspace_snapshot_sdk"]);
+    assert.ok(
+      requests.includes(
+        "POST /v1/threads/thread_sdk/diagnostics/repair-decisions/decision_restore_apply/execute",
+      ),
+    );
+  } finally {
+    await close(server);
+  }
+});
+
 test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
   const now = new Date().toISOString();
   const events = [

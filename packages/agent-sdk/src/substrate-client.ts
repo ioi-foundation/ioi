@@ -896,38 +896,26 @@ export interface RuntimeDiagnosticsOperatorOverrideResult {
 export interface RuntimeDiagnosticsRepairDecisionExecuteInput {
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
   action?: "repair_retry" | "restore_preview" | "restore_apply" | "operator_override" | string;
-  gateId?: string;
   gate_id?: string;
-  snapshotId?: string;
   snapshot_id?: string;
   actor?: string;
-  workflowGraphId?: string;
   workflow_graph_id?: string;
-  workflowNodeId?: string;
   workflow_node_id?: string;
-  approvalGranted?: boolean;
+  approval_decision?: string;
+  policy_decision?: string;
+  confirm_restore_apply?: boolean;
+  apply_confirmed?: boolean;
   approval_granted?: boolean;
-  confirm?: boolean;
-  confirmed?: boolean;
-  allowConflicts?: boolean;
   allow_conflicts?: boolean;
-  overrideConflicts?: boolean;
   override_conflicts?: boolean;
-  restoreConflictPolicy?: string;
+  conflict_policy?: string;
   restore_conflict_policy?: string;
-  idempotencyKey?: string;
   idempotency_key?: string;
-  restorePreviewIdempotencyKey?: string;
   restore_preview_idempotency_key?: string;
-  restoreApplyIdempotencyKey?: string;
   restore_apply_idempotency_key?: string;
-  repairRetryIdempotencyKey?: string;
   repair_retry_idempotency_key?: string;
-  operatorOverrideIdempotencyKey?: string;
   operator_override_idempotency_key?: string;
-  repairPromptText?: string;
   repair_prompt_text?: string;
-  [key: string]: unknown;
 }
 
 export interface RuntimeDiagnosticsRepairDecisionExecutionResult {

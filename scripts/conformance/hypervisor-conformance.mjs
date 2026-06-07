@@ -1006,6 +1006,10 @@ function runBridge() {
     agentSdkSubstrateClient.match(
       /export interface RuntimeWorkspaceRestoreApplyInput[\s\S]*?\n}\n/,
     )?.[0] ?? "";
+  const diagnosticsRepairDecisionExecuteInputType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeDiagnosticsRepairDecisionExecuteInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const workspaceRestoreSdkSurfaceBlocks = [
     workspaceSnapshotListResultType,
     workspaceRestorePreviewInputType,
@@ -6099,6 +6103,37 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
     ],
     "Phase 10/11 is pending: SDK workspace restore clients must use canonical daemon routes and stop advertising retired restore aliases",
+  );
+  assertCheck(
+    result,
+    "diagnostics-restore-sdk-surface",
+    /executeThreadDiagnosticsRepairDecision/.test(agentSdkSubstrateClient) &&
+      /diagnostics\/repair-decisions\/\$\{encodePath\(decisionId\)\}\/execute/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /SDK executes diagnostics restore decisions with canonical request fields/.test(agentSdkTest) &&
+      /snapshot_id\?:\s*string;/.test(diagnosticsRepairDecisionExecuteInputType) &&
+      /workflow_graph_id\?:\s*string;/.test(diagnosticsRepairDecisionExecuteInputType) &&
+      /workflow_node_id\?:\s*string;/.test(diagnosticsRepairDecisionExecuteInputType) &&
+      /approval_granted\?:\s*boolean;/.test(diagnosticsRepairDecisionExecuteInputType) &&
+      /allow_conflicts\?:\s*boolean;/.test(diagnosticsRepairDecisionExecuteInputType) &&
+      /restore_conflict_policy\?:\s*string;/.test(diagnosticsRepairDecisionExecuteInputType) &&
+      /restore_apply_idempotency_key\?:\s*string;/.test(diagnosticsRepairDecisionExecuteInputType) &&
+      !/^\s*(?:gateId|snapshotId|workflowGraphId|workflowNodeId|approvalGranted|allowConflicts|overrideConflicts|restoreConflictPolicy|restorePreviewIdempotencyKey|restoreApplyIdempotencyKey|idempotencyKey|repairPromptText)\??:/.test(
+        diagnosticsRepairDecisionExecuteInputType,
+      ) &&
+      !/\[key:\s*string\]:\s*unknown;/.test(diagnosticsRepairDecisionExecuteInputType) &&
+      /Object\.hasOwn\(body,\s*"snapshotId"\),\s*false/.test(agentSdkTest) &&
+      /Object\.hasOwn\(body,\s*"restoreApplyIdempotencyKey"\),\s*false/.test(
+        agentSdkTest,
+      ),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+    ],
+    "Phase 10/11 is pending: SDK diagnostics restore execution must call the daemon repair route with canonical request bodies only",
   );
   assertCheck(
     result,
