@@ -13197,6 +13197,13 @@ emit canonical `control_kind`, `event_id`, `created_at`, and
 retired camelCase control metadata can no longer leave the Rust policy bridge
 as a parallel result ABI before daemon agent-control persistence.
 
+Slice 502 retires Rust runtime-bridge start metadata aliases:
+Rust runtime-bridge thread-start agent state planning now emits canonical
+`runtime_profile`, `session_id`, `bridge_id`, and `updated_at` inside
+Rust-planned `bridge_start` records; retired camelCase bridge-start metadata can
+no longer leave the Rust policy bridge as a parallel result ABI before daemon
+runtime-bridge agent persistence.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

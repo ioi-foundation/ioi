@@ -2533,12 +2533,12 @@ impl RuntimeBridgeThreadStartAgentStateUpdateCore {
             Value::String(request.updated_at.clone()),
         );
         let bridge_start = json!({
-            "runtimeProfile": request.runtime_profile,
-            "sessionId": request.session_id,
-            "bridgeId": request.bridge_id,
+            "runtime_profile": request.runtime_profile,
+            "session_id": request.session_id,
+            "bridge_id": request.bridge_id,
             "status": request.status,
             "source": request.source,
-            "updatedAt": request.updated_at,
+            "updated_at": request.updated_at,
         });
 
         Ok(RuntimeBridgeThreadStartAgentStateUpdateRecord {
@@ -5282,7 +5282,11 @@ mod tests {
         assert_eq!(record.thread_id, "thread_1");
         assert_eq!(record.agent_id, "agent_1");
         assert_eq!(record.updated_at, "2026-06-06T06:15:00.000Z");
-        assert_eq!(record.bridge_start["sessionId"], "session_runtime");
+        assert_eq!(record.bridge_start["session_id"], "session_runtime");
+        assert_eq!(record.bridge_start["bridge_id"], "bridge_runtime");
+        for field in ["runtimeProfile", "sessionId", "bridgeId", "updatedAt"] {
+            assert!(record.bridge_start.get(field).is_none());
+        }
         assert_eq!(record.agent["runtimeProfile"], "runtime_service");
         assert_eq!(record.agent["runtimeSessionId"], "session_runtime");
         assert_eq!(record.agent["runtimeBridgeId"], "bridge_runtime");

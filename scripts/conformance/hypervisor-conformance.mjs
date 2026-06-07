@@ -716,6 +716,10 @@ function runBridge() {
     policyCore.match(
       /impl ThreadMemoryAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct RuntimeBridgeThreadStartAgentStateUpdateCore;)/,
     )?.[0] ?? "";
+  const runtimeBridgeThreadStartAgentStateUpdateCoreBlock =
+    policyCore.match(
+      /impl RuntimeBridgeThreadStartAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct RuntimeBridgeTurnRunStateUpdateCore;)/,
+    )?.[0] ?? "";
   const stepModuleRunner = exists("packages/runtime-daemon/src/step-module-runner.mjs")
     ? read("packages/runtime-daemon/src/step-module-runner.mjs")
     : "";
@@ -4476,6 +4480,21 @@ function runBridge() {
       /rust_policy_rejects_invalid_runtime_bridge_turn_run_state_update_schema/.test(
         policyCore,
       ) &&
+      /"runtime_profile": request\.runtime_profile/.test(
+        runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
+      ) &&
+      /"session_id": request\.session_id/.test(
+        runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
+      ) &&
+      /"bridge_id": request\.bridge_id/.test(
+        runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
+      ) &&
+      /"updated_at": request\.updated_at/.test(
+        runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
+      ) &&
+      !/"runtimeProfile": request\.runtime_profile|"sessionId": request\.session_id|"bridgeId": request\.bridge_id|"updatedAt": request\.updated_at/.test(
+        runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
+      ) &&
       /plan_runtime_bridge_thread_start_agent_state_update/.test(bridgeModule) &&
       /plan_runtime_bridge_turn_run_state_update/.test(bridgeModule) &&
       /RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
@@ -4486,6 +4505,11 @@ function runBridge() {
         bridgeModule,
       ) &&
       /bridge_plans_runtime_bridge_turn_run_state_update_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /response\["bridge_start"\]\["session_id"\]/.test(bridgeModule) &&
+      /response\["bridge_start"\]\["bridge_id"\]/.test(bridgeModule) &&
+      /"runtimeProfile"[\s\S]*"updatedAt"[\s\S]*response\["bridge_start"\]\.get\(field\)\.is_none\(\)/.test(
         bridgeModule,
       ) &&
       /planRuntimeBridgeThreadStartAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
@@ -4500,6 +4524,10 @@ function runBridge() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /runtime bridge turn run state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.bridge_start\.bridge_id/.test(runtimeContextPolicyRunnerTest) &&
+      /Object\.hasOwn\(result\.bridge_start,\s*field\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /contextPolicyRunner\.planRuntimeBridgeThreadStartAgentStateUpdate/.test(

@@ -8683,7 +8683,11 @@ mod tests {
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "thread.runtime_bridge.start");
-        assert_eq!(response["bridge_start"]["sessionId"], "session_runtime");
+        assert_eq!(response["bridge_start"]["session_id"], "session_runtime");
+        assert_eq!(response["bridge_start"]["bridge_id"], "bridge_runtime");
+        for field in ["runtimeProfile", "sessionId", "bridgeId", "updatedAt"] {
+            assert!(response["bridge_start"].get(field).is_none());
+        }
         assert_eq!(response["agent"]["runtimeSessionId"], "session_runtime");
         assert_eq!(response["agent"]["runtimeBridgeId"], "bridge_runtime");
         assert_eq!(response["agent"]["fixtureProfile"], Value::Null);

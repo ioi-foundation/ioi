@@ -926,8 +926,10 @@ test("runtime bridge thread start agent state update runner sends Rust state upd
             operation_kind: "thread.runtime_bridge.start",
             updated_at: "2026-06-06T06:15:00.000Z",
             bridge_start: {
-              sessionId: "session_runtime",
-              bridgeId: "bridge_runtime",
+              session_id: "session_runtime",
+              bridge_id: "bridge_runtime",
+              runtime_profile: "runtime_service",
+              updated_at: "2026-06-06T06:15:00.000Z",
             },
             agent: {
               id: "agent_1",
@@ -963,7 +965,10 @@ test("runtime bridge thread start agent state update runner sends Rust state upd
   assert.equal(captured.request.session_id, "session_runtime");
   assert.equal(result.source, "rust_runtime_bridge_thread_start_agent_state_update_command");
   assert.equal(result.operation_kind, "thread.runtime_bridge.start");
-  assert.equal(result.bridge_start.bridgeId, "bridge_runtime");
+  assert.equal(result.bridge_start.bridge_id, "bridge_runtime");
+  for (const field of ["runtimeProfile", "sessionId", "bridgeId", "updatedAt"]) {
+    assert.equal(Object.hasOwn(result.bridge_start, field), false);
+  }
   assert.equal(result.agent.runtimeSessionId, "session_runtime");
 });
 
