@@ -490,6 +490,19 @@ function runBridge() {
   const modelTokenizerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
     : "";
+  const modelMountRecordStateCommits = exists("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs")
+    : "";
+  const catalogProviderConfigurationOperations = exists(
+    "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs",
+  )
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs")
+    : "";
+  const catalogProviderConfigurationOperationsTest = exists(
+    "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs")
+    : "";
   const providerDriverHelpers = exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs")
     : "";
@@ -4864,6 +4877,38 @@ function runBridge() {
       "scripts/lib/live-runtime-daemon-contract.test.mjs",
     ],
     "Phase 3/10 is pending: model route upsert request bodies must fail closed on retired camelCase policy/status aliases before route state writes",
+  );
+  assertCheck(
+    result,
+    "model-mount-catalog-provider-configuration-rust-record-state",
+    /export function commitModelMountRecordState/.test(modelMountRecordStateCommits) &&
+      /ioi\.runtime_model_mount_record_state_commit\.v1/.test(modelMountRecordStateCommits) &&
+      /storage:\/\/runtime-agentgres\/local-json/.test(modelMountRecordStateCommits) &&
+      /commitModelMountRecordState\(state,\s*\{[\s\S]*recordDir:\s*"model-catalog-providers"/.test(
+        catalogProviderConfigurationOperations,
+      ) &&
+      /model_mount\.catalog_provider_configuration\.write/.test(
+        catalogProviderConfigurationOperations,
+      ) &&
+      /model_mount_catalog_provider_configuration_state_commit_unconfigured/.test(
+        catalogProviderConfigurationOperations,
+      ) &&
+      !/state\.writeMap\("model-catalog-providers"/.test(
+        catalogProviderConfigurationOperations,
+      ) &&
+      /catalog provider configuration fails closed without Rust Agentgres record-state commit/.test(
+        catalogProviderConfigurationOperationsTest,
+      ) &&
+      /recordStateCommits/.test(catalogProviderConfigurationOperationsTest) &&
+      /assert\.equal\(state\.calls\.some\(\(call\) => call\.name === "writeMap"\), false\)/.test(
+        catalogProviderConfigurationOperationsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs",
+    ],
+    "Phase 9/10 is pending: catalog provider configuration state must commit through Rust Agentgres record-state admission instead of direct JS map persistence",
   );
   assertCheck(
     result,

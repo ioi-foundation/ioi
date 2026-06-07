@@ -13,9 +13,11 @@ import { catalogProviderMaterialVaultRef } from "./catalog-provider-config.mjs";
 function createState() {
   const calls = [];
   const receipts = [];
+  const recordStateCommits = [];
   const state = {
     calls,
     receipts,
+    recordStateCommits,
     catalogProviderConfigs: new Map(),
     catalogProviderRuntimeMaterials: new Map(),
     catalogProviderPorts() {
@@ -65,6 +67,24 @@ function createState() {
     writeMap(name, map) {
       calls.push({ name: "writeMap", mapName: name, size: map.size });
     },
+    commitRuntimeModelMountRecordState(request) {
+      recordStateCommits.push(request);
+      return {
+        record_id: request.record_id,
+        object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+        content_hash: `sha256:${request.record_id}`,
+        admission_hash: `sha256:admission:${request.record_id}`,
+        commit_hash: `sha256:commit:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.record_id}`,
+          admission: {
+            admission_hash: `sha256:admission:${request.record_id}`,
+          },
+        },
+      };
+    },
     writeProjection() {
       calls.push({ name: "writeProjection" });
     },
@@ -90,11 +110,22 @@ test("catalog provider configuration operations list, get, and configure public 
   assert.equal(configured.receiptId, "receipt-1");
   assert.equal(configured.provider.id, "catalog.custom_http");
   assert.equal(catalogProviderConfig(state, "catalog.custom_http").id, "catalog.custom_http");
+  assert.equal(catalogProviderConfig(state, "catalog.custom_http").receiptId, "receipt-1");
   assert.equal(state.catalogProviderRuntimeMaterials.get("catalog.custom_http").baseUrl, "https://catalog.example.test");
+  assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
+  assert.equal(state.recordStateCommits.length, 1);
   assert.equal(
-    state.calls.some((call) => call.name === "writeMap" && call.mapName === "model-catalog-providers"),
-    true,
+    state.recordStateCommits[0].schema_version,
+    "ioi.runtime_model_mount_record_state_commit.v1",
   );
+  assert.equal(state.recordStateCommits[0].record_dir, "model-catalog-providers");
+  assert.equal(state.recordStateCommits[0].record_id, "catalog.custom_http");
+  assert.equal(
+    state.recordStateCommits[0].operation_kind,
+    "model_mount.catalog_provider_configuration.write",
+  );
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt-1"]);
+  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt-1");
   assert.equal(state.calls.some((call) => call.name === "writeProjection"), true);
 
   const listed = listCatalogProviderConfigs(state).find((record) => record.id === "catalog.custom_http");
@@ -103,6 +134,29 @@ test("catalog provider configuration operations list, get, and configure public 
   const fetched = getCatalogProviderConfig(state, "catalog.custom_http");
   assert.equal(fetched.provider.adapterPort, "ModelCatalogProviderPort");
   assert.throws(() => getCatalogProviderConfig(state, "catalog.fixture"), /not configurable/);
+});
+
+test("catalog provider configuration fails closed without Rust Agentgres record-state commit", () => {
+  const state = createState();
+  delete state.commitRuntimeModelMountRecordState;
+
+  assert.throws(
+    () =>
+      configureCatalogProvider(state, "catalog.custom_http", {
+        base_url: "https://catalog.example.test/",
+      }),
+    (error) => {
+      assert.equal(error.code, "model_mount_catalog_provider_configuration_state_commit_unconfigured");
+      assert.equal(error.details.provider_id, "catalog.custom_http");
+      assert.equal(error.details.record_dir, "model-catalog-providers");
+      return true;
+    },
+  );
+
+  assert.equal(state.catalogProviderConfigs.has("catalog.custom_http"), false);
+  assert.equal(state.catalogProviderRuntimeMaterials.has("catalog.custom_http"), false);
+  assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
+  assert.equal(state.calls.some((call) => call.name === "writeProjection"), false);
 });
 
 test("catalog provider runtime material resolves vault material and preserves fail-closed states", () => {

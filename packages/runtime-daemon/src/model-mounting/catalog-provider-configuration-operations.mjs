@@ -13,6 +13,7 @@ import {
   normalizeScopes,
   stableHash,
 } from "./io.mjs";
+import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
 export function listCatalogProviderConfigs(state, deps = {}) {
   const {
@@ -57,14 +58,10 @@ export function configureCatalogProvider(state, providerId, body = {}, deps = {}
   const existing = state.catalogProviderConfigs.get(providerId);
   const update = catalogProviderConfigUpdateDep(providerId, body, existing, state.nowIso(), state);
   const { record, runtimeMaterial, evidenceRefs } = update;
-  state.catalogProviderConfigs.set(providerId, record);
-  if (runtimeMaterial) state.catalogProviderRuntimeMaterials.set(providerId, runtimeMaterial);
-  else state.catalogProviderRuntimeMaterials.delete(providerId);
-  state.writeMap("model-catalog-providers", state.catalogProviderConfigs);
   const publicRecord = publicCatalogProviderConfigDep(
     providerId,
     record,
-    state.catalogProviderRuntimeMaterial(providerId),
+    runtimeMaterial,
   );
   const receipt = state.receipt("model_catalog_provider_configuration", {
     summary: `${providerId} catalog configuration updated through the governed catalog provider path.`,
@@ -72,6 +69,19 @@ export function configureCatalogProvider(state, providerId, body = {}, deps = {}
     evidenceRefs: ["ModelCatalogProviderPort.configure", providerId, ...evidenceRefs],
     details: publicRecord,
   });
+  commitModelMountRecordState(state, {
+    recordDir: "model-catalog-providers",
+    record: { ...record, receiptId: receipt.id },
+    operationKind: "model_mount.catalog_provider_configuration.write",
+    receiptRefs: [receipt.id],
+    unconfiguredCode: "model_mount_catalog_provider_configuration_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Catalog provider configuration persistence requires Rust Agentgres record-state commit.",
+    unconfiguredDetails: { provider_id: providerId },
+  });
+  state.catalogProviderConfigs.set(providerId, { ...record, receiptId: receipt.id });
+  if (runtimeMaterial) state.catalogProviderRuntimeMaterials.set(providerId, runtimeMaterial);
+  else state.catalogProviderRuntimeMaterials.delete(providerId);
   state.writeProjection();
   return {
     ...publicRecord,
