@@ -201,7 +201,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/runs") {
-        writeJsonResponse(response, store.listRuns(url.searchParams.get("agentId") ?? undefined));
+        writeJsonResponse(response, store.listRuns(url.searchParams.get("agent_id") ?? undefined));
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/tasks") {

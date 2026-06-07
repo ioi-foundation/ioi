@@ -112,6 +112,38 @@ test("public runtime routes delegate thread subroutes unchanged", async () => {
   assert.equal(response.ended, false);
 });
 
+test("public runtime run list route ignores retired agentId query alias", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const store = {
+    listRuns(agentId) {
+      calls.push({ agentId });
+      return [{ id: agentId ?? "all-runs" }];
+    },
+  };
+
+  await handleRequest({
+    request: request({ url: "/v1/runs?agentId=agent-retired&agent_id=agent-canonical" }),
+    response,
+    store,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [{ agentId: "agent-canonical" }]);
+  assert.deepEqual(JSON.parse(response.body), [{ id: "agent-canonical" }]);
+
+  const retiredOnlyResponse = responseRecorder();
+  await handleRequest({
+    request: request({ url: "/v1/runs?agentId=agent-retired" }),
+    response: retiredOnlyResponse,
+    store,
+  });
+
+  assert.deepEqual(calls.at(-1), { agentId: undefined });
+  assert.deepEqual(JSON.parse(retiredOnlyResponse.body), [{ id: "all-runs" }]);
+});
+
 test("public runtime routes preserve MCP serve thread requirement", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();

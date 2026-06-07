@@ -16891,19 +16891,31 @@ function runCompositor() {
       /params\.set\("agent_id",/.test(runtimeJobSdkListMethodBlock) &&
       /options\.agent_id/.test(runtimeTaskJobListJobsBlock) &&
       /options\.agent_id/.test(runtimeTaskJobListTasksBlock) &&
+      /store\.listRuns\(url\.searchParams\.get\("agent_id"\) \?\? undefined\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /public runtime run list route ignores retired agentId query alias/.test(
+        publicRuntimeRoutesTest,
+      ) &&
+      /url: "\/v1\/runs\?agentId=agent-retired&agent_id=agent-canonical"/.test(
+        publicRuntimeRoutesTest,
+      ) &&
       /legacy-agent/.test(runtimeTaskJobSurfaceTest) &&
       !/^\s*agentId\?: string;/m.test(runtimeTaskSdkListOptionsBlock) &&
       !/^\s*agentId\?: string;/m.test(runtimeJobSdkListOptionsBlock) &&
       !/options\.agentId|params\.set\("agentId"/.test(runtimeTaskSdkListMethodBlock) &&
       !/options\.agentId|params\.set\("agentId"/.test(runtimeJobSdkListMethodBlock) &&
       !/options\.agentId/.test(runtimeTaskJobListJobsBlock) &&
-      !/options\.agentId/.test(runtimeTaskJobListTasksBlock),
+      !/options\.agentId/.test(runtimeTaskJobListTasksBlock) &&
+      !/searchParams\.get\("agentId"\)/.test(publicRuntimeRoutes),
     [
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
       "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime task/job list request types, query helpers, and daemon list surfaces must not advertise or read retired agentId aliases",
+    "Phase 10/11 is pending: runtime run/task/job list request types, query helpers, public routes, and daemon list surfaces must not advertise or read retired agentId aliases",
   );
   assertCheck(
     result,
