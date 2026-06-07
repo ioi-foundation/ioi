@@ -12943,6 +12943,12 @@ approval handoff and projection; retired `workflowPath`, `workflowPatch`,
 `policyDecisionRefs` no longer steer proposal identity, patch content, approval
 identity, actor attribution, or policy refs.
 
+Slice 465 retires daemon replay operation-log terminology:
+daemon run probe hypotheses now describe Agentgres canonical state projection
+replay instead of a canonical operation log, and compositor conformance rejects
+the stale live daemon replay wording while preserving explicit negative-test
+references to retired operation-log refs.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

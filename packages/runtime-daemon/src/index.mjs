@@ -4173,8 +4173,8 @@ function buildRun({
     {
       probeId: `${runId}:probe:canonical-replay`,
       hypothesis: diagnosticsBlockingGate
-        ? "Agentgres canonical operation log can replay the blocked diagnostics gate event stream."
-        : "Agentgres canonical operation log can replay the terminal run event stream.",
+        ? "Agentgres canonical state projection can replay the blocked diagnostics gate event stream."
+        : "Agentgres canonical state projection can replay the terminal run event stream.",
       cheapestValidationAction: "Read canonical run projection and replay events by cursor.",
       expectedObservation: diagnosticsBlockingGate
         ? "Monotonic event stream with a blocked diagnostics policy event and no model output delta."

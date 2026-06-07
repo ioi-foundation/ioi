@@ -15750,9 +15750,12 @@ function runCompositor() {
       !/daemon_backed_canonical_operation_log|agentgres_canonical_operation_log|operationLogText|operationKinds/.test(
         runtimeCompletePlus,
       ) &&
+      /Agentgres canonical state projection can replay/.test(runtimeDaemonIndex) &&
+      !/Agentgres canonical operation log can replay/.test(runtimeDaemonIndex) &&
       /receiptProjection/.test(liveModelMountingGate) &&
       !/operationLogProjection/.test(liveModelMountingGate),
     [
+      "packages/runtime-daemon/src/index.mjs",
       "scripts/check-execution-surface-leg.mjs",
       "scripts/evidence/runtime-complete-plus.mjs",
       "scripts/live-model-mounting-gate.mjs",
