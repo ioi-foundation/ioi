@@ -325,6 +325,10 @@ test("SDK executes cTEE private workspace actions through the thread route", asy
     ) {
       const body = await readBody(request);
       assert.equal(body.source, "sdk_client");
+      assert.equal(body.workflow_graph_id, "workflow_ctee_private_workspace_sdk");
+      assert.equal(body.workflow_node_id, "ctee_private_workspace_sdk");
+      assert.equal(Object.hasOwn(body, "workflowGraphId"), false);
+      assert.equal(Object.hasOwn(body, "workflowNodeId"), false);
       assert.equal(body.action.invocation.invocation_id, "invocation://ctee/sdk");
       assert.equal(body.action.node_trust.trusted_for_plaintext, false);
       response.statusCode = 201;
@@ -351,7 +355,11 @@ test("SDK executes cTEE private workspace actions through the thread route", asy
     const address = server.address();
     assert.ok(address && typeof address === "object");
     const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
-    const result = await client.executeCteePrivateWorkspaceAction("thread_sdk", { action });
+    const result = await client.executeCteePrivateWorkspaceAction("thread_sdk", {
+      workflow_graph_id: "workflow_ctee_private_workspace_sdk",
+      workflow_node_id: "ctee_private_workspace_sdk",
+      action,
+    });
 
     assert.equal(result.status, "admitted");
     assert.equal(result.action_executed, true);
@@ -361,6 +369,50 @@ test("SDK executes cTEE private workspace actions through the thread route", asy
   } finally {
     await close(server);
   }
+});
+
+test("SDK cTEE private workspace action rejects retired request aliases before transport", async () => {
+  const client = createRuntimeSubstrateClient({ endpoint: "http://127.0.0.1:9" });
+  await assert.rejects(
+    client.executeCteePrivateWorkspaceAction("thread_sdk", {
+      workflowGraphId: "graph_retired",
+      workflowNodeId: "node_retired",
+      action: {
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://ctee/retired-alias",
+          module_ref: {
+            kind: "private_workspace_ctee_action",
+            id: "private_workspace.mount",
+            manifest_ref: "module://ctee/private-workspace@1",
+          },
+          custody: {
+            privacy_profile: "private_workspace_ctee",
+            plaintext_policy: {
+              node_plaintext_allowed: false,
+              declassification_required: true,
+            },
+            custody_proof_ref: "artifact://custody-proof",
+            leakage_profile_ref: "artifact://leakage-profile",
+          },
+          execution: {
+            backend: "ctee_operator",
+          },
+        },
+        node_trust: {
+          runtime_node_ref: "node://rented-untrusted",
+          trusted_for_plaintext: false,
+          attestation_ref: null,
+        },
+      },
+    }),
+    (error) =>
+      error instanceof IoiAgentError &&
+      error.code === "config" &&
+      error.details?.code === "ctee_private_workspace_sdk_request_aliases_retired" &&
+      error.details?.retired_aliases?.includes("workflowGraphId") &&
+      error.details?.retired_aliases?.includes("workflowNodeId"),
+  );
 });
 
 test("SDK admits L1 settlement attempts through the thread route", async () => {

@@ -11147,6 +11147,10 @@ function runCtee() {
     agentSdkSubstrateClient.match(
       /export interface RuntimeCteePrivateWorkspaceActionResult[\s\S]*?\n}\n/,
     )?.[0] ?? "";
+  const cteePrivateWorkspaceActionInputType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeCteePrivateWorkspaceActionInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const cteePrivateWorkspaceActionType =
     agentSdkSubstrateClient.match(
       /export interface RuntimeCteePrivateWorkspaceAction[\s\S]*?\n}\n/,
@@ -11399,7 +11403,22 @@ function runCtee() {
     /executeCteePrivateWorkspaceAction/.test(agentSdkSubstrateClient) &&
       /RuntimeCteePrivateWorkspaceActionInput/.test(agentSdkSubstrateClient) &&
       /ctee-private-workspace-actions/.test(agentSdkSubstrateClient) &&
+      !/extends Record<string, unknown>/.test(cteePrivateWorkspaceActionInputType) &&
+      !/^\s*(?:workflowGraphId|workflowNodeId)\?:/m.test(
+        cteePrivateWorkspaceActionInputType,
+      ) &&
+      /assertNoRetiredCteePrivateWorkspaceActionAliases\(input\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /ctee_private_workspace_sdk_request_aliases_retired/.test(
+        agentSdkSubstrateClient,
+      ) &&
       /SDK executes cTEE private workspace actions through the thread route/.test(agentSdkTest) &&
+      /SDK cTEE private workspace action rejects retired request aliases before transport/.test(
+        agentSdkTest,
+      ) &&
+      /Object\.hasOwn\(body,\s*"workflowGraphId"\),\s*false/.test(agentSdkTest) &&
+      /Object\.hasOwn\(body,\s*"workflowNodeId"\),\s*false/.test(agentSdkTest) &&
       /WORKFLOW_RUNTIME_CTEE_PRIVATE_WORKSPACE_CONTROL_SCHEMA_VERSION/.test(
         cteePrivateWorkspaceControlNodes,
       ) &&

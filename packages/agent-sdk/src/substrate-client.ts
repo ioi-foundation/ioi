@@ -1232,12 +1232,10 @@ export interface RuntimeCteePrivateWorkspaceAction extends Record<string, unknow
   node_trust: RuntimeCteePrivateWorkspaceNodeTrust | Record<string, unknown>;
 }
 
-export interface RuntimeCteePrivateWorkspaceActionInput extends Record<string, unknown> {
+export interface RuntimeCteePrivateWorkspaceActionInput {
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
   actor?: string;
-  workflowGraphId?: string;
   workflow_graph_id?: string;
-  workflowNodeId?: string;
   workflow_node_id?: string;
   action: RuntimeCteePrivateWorkspaceAction | Record<string, unknown>;
 }
@@ -1778,6 +1776,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeCteePrivateWorkspaceActionInput,
   ): Promise<RuntimeCteePrivateWorkspaceActionResult> {
+    assertNoRetiredCteePrivateWorkspaceActionAliases(input);
     return this.request(
       "executeCteePrivateWorkspaceAction",
       "POST",
@@ -2998,6 +2997,25 @@ function assertNoRetiredExternalCapabilityExitAuthorityAliases(
       "External capability exit authority request aliases are retired; use workflow_graph_id and workflow_node_id.",
     details: {
       code: "external_capability_exit_sdk_request_aliases_retired",
+      retired_aliases: retiredAliases,
+    },
+  });
+}
+
+function assertNoRetiredCteePrivateWorkspaceActionAliases(
+  input: RuntimeCteePrivateWorkspaceActionInput,
+): void {
+  const record = input as unknown as Record<string, unknown>;
+  const retiredAliases = ["workflowGraphId", "workflowNodeId"].filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new IoiAgentError({
+    code: "config",
+    message:
+      "cTEE Private Workspace action request aliases are retired; use workflow_graph_id and workflow_node_id.",
+    details: {
+      code: "ctee_private_workspace_sdk_request_aliases_retired",
       retired_aliases: retiredAliases,
     },
   });
