@@ -1935,6 +1935,13 @@ function runBridge() {
       /const toolCallId = optionalString\(query\.tool_call_id\)/.test(
         runtimeCodingToolArtifactSurface,
       ) &&
+      /notFound\(`Artifact not found: \$\{artifactId\}`,\s*\{ thread_id: threadId, artifact_id: artifactId \}\)/.test(
+        runtimeCodingToolArtifactSurface,
+      ) &&
+      /details:\s*\{ thread_id: threadId \}/.test(runtimeCodingToolArtifactSurface) &&
+      /notFound\(`Tool result artifact not found: \$\{toolCallId\}`,\s*\{\s*thread_id: threadId,\s*tool_call_id: toolCallId,\s*\}\)/.test(
+        runtimeCodingToolArtifactSurface,
+      ) &&
       /input: \{ artifact_id: "artifact_alpha"/.test(runtimeCodingToolInvocationSurfaceTest) &&
       /input: \{ tool_call_id: "tool_patch"/.test(runtimeCodingToolInvocationSurfaceTest) &&
       /input: \{ artifactId: "artifact_alpha" \}/.test(runtimeCodingToolInvocationSurfaceTest) &&
@@ -1945,8 +1952,19 @@ function runBridge() {
       /surface\.retrieveCodingToolResult\(store, "thread_alpha", \{ artifactId: "artifact_a" \}\)/.test(
         runtimeCodingToolArtifactSurfaceTest,
       ) &&
+      /assertNoRetiredArtifactErrorDetailAliases\(error\.details\)/.test(
+        runtimeCodingToolArtifactSurfaceTest,
+      ) &&
       !/input\.(?:artifactId|artifactRef|toolCallId)\b/.test(runtimeCodingToolInvocationSurface) &&
-      !/query\.(?:artifactId|toolCallId)\b/.test(runtimeCodingToolArtifactSurface),
+      !/query\.(?:artifactId|toolCallId)\b/.test(runtimeCodingToolArtifactSurface) &&
+      !/notFound\(`Artifact not found: \$\{artifactId\}`,\s*\{ threadId, artifactId \}\)/.test(
+        runtimeCodingToolArtifactSurface,
+      ) &&
+      !/details:\s*\{ threadId \}/.test(runtimeCodingToolArtifactSurface) &&
+      !/notFound\(`Tool result artifact not found: \$\{toolCallId\}`,\s*\{ threadId, toolCallId \}\)/.test(
+        runtimeCodingToolArtifactSurface,
+      ) &&
+      !/\bownerThreadId\s*:/.test(runtimeCodingToolArtifactSurface),
     [
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",

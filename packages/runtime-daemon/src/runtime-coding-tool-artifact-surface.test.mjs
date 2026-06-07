@@ -145,6 +145,13 @@ const retiredVisualArtifactMetadataAliasKeys = [
   "axRef",
 ];
 
+const retiredArtifactErrorDetailAliasKeys = [
+  "threadId",
+  "artifactId",
+  "ownerThreadId",
+  "toolCallId",
+];
+
 function assertNoRetiredVisualArtifactOutputAliases(result) {
   for (const key of retiredVisualArtifactOutputAliasKeys) {
     assert.equal(Object.hasOwn(result, key), false, `retired visual artifact output alias ${key} must be absent`);
@@ -155,6 +162,12 @@ function assertNoRetiredVisualArtifactOutputAliases(result) {
       false,
       `retired visual artifact metadata alias ${key} must be absent`,
     );
+  }
+}
+
+function assertNoRetiredArtifactErrorDetailAliases(details) {
+  for (const key of retiredArtifactErrorDetailAliasKeys) {
+    assert.equal(Object.hasOwn(details, key), false, `retired artifact error detail alias ${key} must be absent`);
   }
 }
 
@@ -235,6 +248,16 @@ test("coding-tool artifact surface reads artifacts inside the owning thread", ()
       error.details.retired_aliases.includes("offsetBytes") &&
       Object.hasOwn(error.details, "offsetBytes") === false,
   );
+  assert.throws(
+    () => surface.readCodingToolArtifact(store, "thread_alpha", "missing_artifact"),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.artifact_id, "missing_artifact");
+      assertNoRetiredArtifactErrorDetailAliases(error.details);
+      return true;
+    },
+  );
 });
 
 test("coding-tool artifact surface blocks cross-thread reads", () => {
@@ -248,7 +271,14 @@ test("coding-tool artifact surface blocks cross-thread reads", () => {
 
   assert.throws(
     () => surface.readCodingToolArtifact(store, "thread_beta", "artifact_alpha"),
-    (error) => error.status === 403 && error.details.ownerThreadId === "thread_alpha",
+    (error) => {
+      assert.equal(error.status, 403);
+      assert.equal(error.details.thread_id, "thread_beta");
+      assert.equal(error.details.artifact_id, "artifact_alpha");
+      assert.equal(error.details.owner_thread_id, "thread_alpha");
+      assertNoRetiredArtifactErrorDetailAliases(error.details);
+      return true;
+    },
   );
 });
 
@@ -291,11 +321,23 @@ test("coding-tool artifact surface retrieves tool results by channel or artifact
 
   assert.throws(
     () => surface.retrieveCodingToolResult(store, "thread_alpha", { toolCallId: "tool_call_alpha" }),
-    (error) => error.status === 400 && error.code === "tool_retrieve_result_target_required",
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "tool_retrieve_result_target_required");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assertNoRetiredArtifactErrorDetailAliases(error.details);
+      return true;
+    },
   );
   assert.throws(
     () => surface.retrieveCodingToolResult(store, "thread_alpha", { artifactId: "artifact_a" }),
-    (error) => error.status === 400 && error.code === "tool_retrieve_result_target_required",
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "tool_retrieve_result_target_required");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assertNoRetiredArtifactErrorDetailAliases(error.details);
+      return true;
+    },
   );
   assert.throws(
     () => surface.retrieveCodingToolResult(store, "thread_alpha", {
@@ -316,7 +358,23 @@ test("coding-tool artifact surface requires retrieve targets", () => {
 
   assert.throws(
     () => surface.retrieveCodingToolResult(store, "thread_alpha", {}),
-    (error) => error.status === 400 && error.code === "tool_retrieve_result_target_required",
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "tool_retrieve_result_target_required");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assertNoRetiredArtifactErrorDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.throws(
+    () => surface.retrieveCodingToolResult(store, "thread_alpha", { tool_call_id: "missing_tool_call" }),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.tool_call_id, "missing_tool_call");
+      assertNoRetiredArtifactErrorDetailAliases(error.details);
+      return true;
+    },
   );
 });
 

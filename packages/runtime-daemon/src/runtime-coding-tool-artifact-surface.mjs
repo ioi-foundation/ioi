@@ -91,12 +91,12 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
   function readCodingToolArtifact(store, threadId, artifactId, range = {}) {
     assertNoRetiredArtifactReadRangeAliases(range, { threadId, artifactId, operation: "artifact.read" });
     const artifactRecord = store.codingArtifacts.get(artifactId);
-    if (!artifactRecord) throw notFound(`Artifact not found: ${artifactId}`, { threadId, artifactId });
+    if (!artifactRecord) throw notFound(`Artifact not found: ${artifactId}`, { thread_id: threadId, artifact_id: artifactId });
     if (artifactRecord.thread_id && artifactRecord.thread_id !== threadId) {
       throw policyError("Artifact read blocked outside the owning runtime thread.", {
-        threadId,
-        artifactId,
-        ownerThreadId: artifactRecord.thread_id,
+        thread_id: threadId,
+        artifact_id: artifactId,
+        owner_thread_id: artifactRecord.thread_id,
       });
     }
     return codingToolArtifactReadResult(artifactRecord, range);
@@ -116,14 +116,17 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
         status: 400,
         code: "tool_retrieve_result_target_required",
         message: "tool.retrieve_result requires a tool_call_id or artifact_id.",
-        details: { threadId },
+        details: { thread_id: threadId },
       });
     }
     const artifacts = [...store.codingArtifacts.values()]
       .filter((artifactRecord) => artifactRecord.thread_id === threadId && artifactRecord.tool_call_id === toolCallId)
       .sort((left, right) => String(left.channel ?? "").localeCompare(String(right.channel ?? "")));
     if (!artifacts.length) {
-      throw notFound(`Tool result artifact not found: ${toolCallId}`, { threadId, toolCallId });
+      throw notFound(`Tool result artifact not found: ${toolCallId}`, {
+        thread_id: threadId,
+        tool_call_id: toolCallId,
+      });
     }
     const channel = optionalString(query.channel);
     const artifactRecord = artifacts.find((item) => item.channel === channel) ?? artifacts[0];
