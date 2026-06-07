@@ -779,22 +779,18 @@ export interface RuntimeThreadMemoryEditInput extends UpdateMemoryRecordInput, R
 export interface RuntimeThreadMemoryDeleteInput extends DeleteMemoryRecordInput, RuntimeThreadMemoryInput {}
 
 export interface RuntimeWorkspaceSnapshotListResult {
-  schemaVersion: string;
+  schema_version: string;
   object: "ioi.runtime_workspace_snapshot_list" | string;
-  threadId: string;
-  thread_id?: string;
-  snapshotCount: number;
-  snapshot_count?: number;
+  thread_id: string;
+  snapshot_count: number;
   snapshots: Array<Record<string, unknown>>;
 }
 
 export interface RuntimeWorkspaceRestorePreviewInput {
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
-  workflowGraphId?: string;
   workflow_graph_id?: string;
-  workflowNodeId?: string;
   workflow_node_id?: string;
-  [key: string]: unknown;
+  idempotency_key?: string;
 }
 
 export interface RuntimeWorkspaceRestorePreviewResult {
@@ -820,16 +816,16 @@ export interface RuntimeWorkspaceRestorePreviewResult {
 }
 
 export interface RuntimeWorkspaceRestoreApplyInput extends RuntimeWorkspaceRestorePreviewInput {
-  approvalGranted?: boolean;
+  approval_decision?: string;
+  policy_decision?: string;
+  confirm_restore_apply?: boolean;
+  apply_confirmed?: boolean;
   approval_granted?: boolean;
-  confirm?: boolean;
-  confirmed?: boolean;
-  allowConflicts?: boolean;
   allow_conflicts?: boolean;
-  overrideConflicts?: boolean;
   override_conflicts?: boolean;
-  conflictPolicy?: string;
+  restore_conflict_policy?: string;
   conflict_policy?: string;
+  restore_policy?: string;
 }
 
 export interface RuntimeWorkspaceRestoreApplyResult {

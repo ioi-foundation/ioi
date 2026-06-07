@@ -994,6 +994,23 @@ function runBridge() {
     /\b(?:schemaVersion|exitAuthorized|directTruthWriteAllowed|threadId|agentId|exitRef|capabilityRef|targetRef|policyHash|idempotencyKey|walletNetworkGrantRefs|authorityReceiptRefs|authorityHash)\s*:/;
   const externalCapabilityAuthorityCamelAliasTypePattern =
     /\b(?:schemaVersion|exitAuthorized|directTruthWriteAllowed|threadId|agentId|exitRef|capabilityRef|targetRef|policyHash|idempotencyKey|walletNetworkGrantRefs|authorityReceiptRefs|authorityHash)\?:/;
+  const workspaceSnapshotListResultType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeWorkspaceSnapshotListResult[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const workspaceRestorePreviewInputType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeWorkspaceRestorePreviewInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const workspaceRestoreApplyInputType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeWorkspaceRestoreApplyInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const workspaceRestoreSdkSurfaceBlocks = [
+    workspaceSnapshotListResultType,
+    workspaceRestorePreviewInputType,
+    workspaceRestoreApplyInputType,
+  ].join("\n");
   const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
     ? read("packages/agent-sdk/test/sdk.test.mjs")
     : "";
@@ -6032,6 +6049,38 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
     ],
     "Phase 10/11 is pending: CLI workspace restore clients must call daemon snapshot restore routes without minting preview/apply truth locally",
+  );
+  assertCheck(
+    result,
+    "workspace-restore-sdk-surface",
+    /listThreadWorkspaceSnapshots/.test(agentSdkSubstrateClient) &&
+      /previewThreadWorkspaceRestore/.test(agentSdkSubstrateClient) &&
+      /applyThreadWorkspaceRestore/.test(agentSdkSubstrateClient) &&
+      /restore-preview/.test(agentSdkSubstrateClient) &&
+      /restore-apply/.test(agentSdkSubstrateClient) &&
+      /SDK restores workspace snapshots through canonical daemon routes/.test(agentSdkTest) &&
+      /schema_version:\s*string;/.test(workspaceSnapshotListResultType) &&
+      /thread_id:\s*string;/.test(workspaceSnapshotListResultType) &&
+      /snapshot_count:\s*number;/.test(workspaceSnapshotListResultType) &&
+      /workflow_graph_id\?:\s*string;/.test(workspaceRestorePreviewInputType) &&
+      /workflow_node_id\?:\s*string;/.test(workspaceRestorePreviewInputType) &&
+      /idempotency_key\?:\s*string;/.test(workspaceRestorePreviewInputType) &&
+      /approval_granted\?:\s*boolean;/.test(workspaceRestoreApplyInputType) &&
+      /allow_conflicts\?:\s*boolean;/.test(workspaceRestoreApplyInputType) &&
+      /restore_conflict_policy\?:\s*string;/.test(workspaceRestoreApplyInputType) &&
+      !/^\s*(?:schemaVersion|threadId|snapshotCount|workflowGraphId|workflowNodeId|idempotencyKey|approvalGranted|confirm|confirmed|allowConflicts|overrideConflicts|conflictPolicy|restoreConflictPolicy)\??:/.test(
+        workspaceRestoreSdkSurfaceBlocks,
+      ) &&
+      !/\[key:\s*string\]:\s*unknown;/.test(workspaceRestoreSdkSurfaceBlocks) &&
+      /Object\.hasOwn\(body,\s*"workflowGraphId"\),\s*false/.test(agentSdkTest) &&
+      /Object\.hasOwn\(body,\s*"approvalGranted"\),\s*false/.test(agentSdkTest) &&
+      /Object\.hasOwn\(list,\s*"threadId"\),\s*false/.test(agentSdkTest),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+    ],
+    "Phase 10/11 is pending: SDK workspace restore clients must use canonical daemon routes and stop advertising retired restore aliases",
   );
   assertCheck(
     result,
