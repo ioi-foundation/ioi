@@ -300,6 +300,63 @@ test("workflow runtime telemetry summary marks blocked context pressure", () => 
   assert.deepEqual(summary.policyDecisionRefs, ["policy_context_pressure_compact"]);
 });
 
+test("workflow runtime telemetry summary ignores retired runtime payload aliases", () => {
+  const summary = workflowRuntimeTelemetrySummaryFromProjection({
+    runtimeThreadEvents: [
+      runtimeThreadEvent("usage-retired", 1, {
+        type: "usage_delta",
+        eventKind: "usage.delta",
+        sourceEventKind: "RuntimeUsageTelemetry.Delta",
+        componentKind: "usage_telemetry",
+        payload: {
+          totalTokens: 500,
+          inputTokens: 300,
+          outputTokens: 200,
+          estimatedCostUsd: 0.0042,
+          contextPressure: 0.66,
+          contextPressureStatus: "elevated",
+          usageRunCount: 1,
+          usageSubagentCount: 1,
+        },
+      }),
+      runtimeThreadEvent("context-retired", 2, {
+        type: "context_pressure_delta",
+        eventKind: "context.pressure_delta",
+        sourceEventKind: "RuntimeContextPressure.Delta",
+        componentKind: "context_pressure",
+        payload: {
+          usageTotalTokens: 720,
+          usageCostEstimateUsd: 0.0064,
+          usageContextPressure: 0.81,
+          usageContextPressureStatus: "high",
+        },
+      }),
+      runtimeThreadEvent("alert-retired", 3, {
+        type: "context_pressure_alert",
+        eventKind: "context.pressure_alert",
+        sourceEventKind: "RuntimeContextPressure.Alert",
+        componentKind: "context_pressure_alert",
+        payload: {
+          usageTotalTokens: 900,
+          usageCostEstimateUsd: 0.009,
+          contextPressure: 0.93,
+          pressureStatus: "blocked",
+        },
+      }),
+    ],
+  });
+
+  assert.equal(summary.status, "not_available");
+  assert.equal(summary.totalTokens, null);
+  assert.equal(summary.inputTokens, null);
+  assert.equal(summary.outputTokens, null);
+  assert.equal(summary.costEstimateUsd, null);
+  assert.equal(summary.contextPressure, null);
+  assert.equal(summary.contextPressureStatus, null);
+  assert.equal(summary.runCount, null);
+  assert.equal(summary.subagentCount, null);
+});
+
 test("workflow runtime telemetry summary converts to daemon budget usage telemetry", () => {
   const summary = workflowRuntimeTelemetrySummaryFromProjection({
     runtimeThreadEvents: [
@@ -331,17 +388,34 @@ test("workflow runtime telemetry summary converts to daemon budget usage telemet
   assert.equal(usageTelemetry.scope, "thread");
   assert.equal(usageTelemetry.thread_id, "thread");
   assert.equal(usageTelemetry.total_tokens, 500);
-  assert.equal(usageTelemetry.totalTokens, 500);
   assert.equal(usageTelemetry.input_tokens, 300);
   assert.equal(usageTelemetry.output_tokens, 200);
   assert.equal(usageTelemetry.estimated_cost_usd, 0.0042);
-  assert.equal(usageTelemetry.estimatedCostUsd, 0.0042);
-  assert.equal(usageTelemetry.costEstimateUsd, 0.0042);
   assert.equal(usageTelemetry.context_pressure, 0.66);
-  assert.equal(usageTelemetry.contextPressureStatus, "elevated");
+  assert.equal(usageTelemetry.context_pressure_status, "elevated");
   assert.deepEqual(usageTelemetry.source_counts, { runs: 1, subagents: 1 });
   assert.deepEqual(usageTelemetry.source_refs, ["usage-1"]);
   assert.deepEqual(usageTelemetry.receipt_refs, ["receipt_usage"]);
   assert.deepEqual(usageTelemetry.policy_decision_refs, ["policy_usage"]);
+  for (const field of [
+    "schemaVersion",
+    "threadId",
+    "turnId",
+    "workflowGraphId",
+    "totalTokens",
+    "inputTokens",
+    "outputTokens",
+    "estimatedCostUsd",
+    "costEstimateUsd",
+    "contextPressure",
+    "contextPressureStatus",
+    "sourceCounts",
+    "sourceRefs",
+    "receiptRefs",
+    "policyDecisionRefs",
+    "runtimeTelemetrySummarySchemaVersion",
+  ]) {
+    assert.equal(Object.prototype.hasOwnProperty.call(usageTelemetry, field), false);
+  }
   assert.equal(workflowRuntimeTelemetrySummaryToUsageTelemetry({}), null);
 });

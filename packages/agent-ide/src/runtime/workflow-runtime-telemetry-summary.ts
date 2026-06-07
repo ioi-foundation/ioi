@@ -57,39 +57,23 @@ export interface WorkflowRuntimeTelemetrySummary {
 
 export interface WorkflowRuntimeTelemetrySummaryUsageTelemetry {
   schema_version: typeof WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION;
-  schemaVersion: typeof WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION;
   object: "ioi.workflow_runtime_telemetry_summary_usage";
   scope: "thread" | "workflow";
   thread_id: string | null;
-  threadId: string | null;
   turn_id: string | null;
-  turnId: string | null;
   workflow_graph_id: string | null;
-  workflowGraphId: string | null;
   total_tokens: number;
-  totalTokens: number;
   input_tokens: number;
-  inputTokens: number;
   output_tokens: number;
-  outputTokens: number;
   estimated_cost_usd: number;
-  estimatedCostUsd: number;
   cost_estimate_usd: number;
-  costEstimateUsd: number;
   context_pressure: number;
-  contextPressure: number;
   context_pressure_status: string;
-  contextPressureStatus: string;
   source_counts: { runs: number; subagents: number };
-  sourceCounts: { runs: number; subagents: number };
   source_refs: string[];
-  sourceRefs: string[];
   receipt_refs: string[];
-  receiptRefs: string[];
   policy_decision_refs: string[];
-  policyDecisionRefs: string[];
   runtime_telemetry_summary_schema_version: typeof WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION;
-  runtimeTelemetrySummarySchemaVersion: typeof WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION;
 }
 
 interface UsageSnapshot {
@@ -255,40 +239,23 @@ export function workflowRuntimeTelemetrySummaryToUsageTelemetry(
 
   return {
     schema_version: WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION,
-    schemaVersion: WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION,
     object: "ioi.workflow_runtime_telemetry_summary_usage",
     scope: threadId ? "thread" : "workflow",
     thread_id: threadId,
-    threadId,
     turn_id: turnId,
-    turnId,
     workflow_graph_id: workflowGraphId,
-    workflowGraphId,
     total_tokens: totalTokens,
-    totalTokens,
     input_tokens: inputTokens,
-    inputTokens,
     output_tokens: outputTokens,
-    outputTokens,
     estimated_cost_usd: costEstimateUsd,
-    estimatedCostUsd: costEstimateUsd,
     cost_estimate_usd: costEstimateUsd,
-    costEstimateUsd,
     context_pressure: contextPressure,
-    contextPressure,
     context_pressure_status: contextPressureStatus,
-    contextPressureStatus,
     source_counts: sourceCounts,
-    sourceCounts,
     source_refs: summary.eventIds,
-    sourceRefs: summary.eventIds,
     receipt_refs: summary.receiptRefs,
-    receiptRefs: summary.receiptRefs,
     policy_decision_refs: summary.policyDecisionRefs,
-    policyDecisionRefs: summary.policyDecisionRefs,
     runtime_telemetry_summary_schema_version:
-      WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION,
-    runtimeTelemetrySummarySchemaVersion:
       WORKFLOW_RUNTIME_TELEMETRY_SUMMARY_SCHEMA_VERSION,
   };
 }
@@ -333,36 +300,26 @@ function usageSnapshotFromEvent(
 ): UsageSnapshot {
   const payload = event.payload ?? {};
   return {
-    totalTokens: numberField(payload, "total_tokens", "totalTokens"),
-    inputTokens: numberField(payload, "input_tokens", "inputTokens"),
-    outputTokens: numberField(payload, "output_tokens", "outputTokens"),
+    totalTokens: numberField(payload, "total_tokens"),
+    inputTokens: numberField(payload, "input_tokens"),
+    outputTokens: numberField(payload, "output_tokens"),
     costEstimateUsd: numberField(
       payload,
       "estimated_cost_usd",
-      "estimatedCostUsd",
       "usage_cost_estimate_usd",
-      "usageCostEstimateUsd",
     ),
     contextPressure: numberField(
       payload,
       "context_pressure",
-      "contextPressure",
       "usage_context_pressure",
-      "usageContextPressure",
     ),
     contextPressureStatus: stringField(
       payload,
       "context_pressure_status",
-      "contextPressureStatus",
       "usage_context_pressure_status",
-      "usageContextPressureStatus",
     ),
-    runCount: numberField(payload, "usage_run_count", "usageRunCount"),
-    subagentCount: numberField(
-      payload,
-      "usage_subagent_count",
-      "usageSubagentCount",
-    ),
+    runCount: numberField(payload, "usage_run_count"),
+    subagentCount: numberField(payload, "usage_subagent_count"),
   };
 }
 
@@ -374,32 +331,24 @@ function usageSnapshotFromContextPressureEvent(
     totalTokens: numberField(
       payload,
       "usage_total_tokens",
-      "usageTotalTokens",
       "total_tokens",
-      "totalTokens",
     ),
     inputTokens: null,
     outputTokens: null,
     costEstimateUsd: numberField(
       payload,
       "usage_cost_estimate_usd",
-      "usageCostEstimateUsd",
       "estimated_cost_usd",
-      "estimatedCostUsd",
     ),
     contextPressure: numberField(
       payload,
       "usage_context_pressure",
-      "usageContextPressure",
       "context_pressure",
-      "contextPressure",
     ),
     contextPressureStatus: stringField(
       payload,
       "usage_context_pressure_status",
-      "usageContextPressureStatus",
       "context_pressure_status",
-      "contextPressureStatus",
     ),
     runCount: null,
     subagentCount: null,
@@ -411,25 +360,12 @@ function usageSnapshotFromContextPressureAlertEvent(
 ): UsageSnapshot {
   const payload = event.payload ?? {};
   return {
-    totalTokens: numberField(
-      payload,
-      "usage_total_tokens",
-      "usageTotalTokens",
-    ),
+    totalTokens: numberField(payload, "usage_total_tokens"),
     inputTokens: null,
     outputTokens: null,
-    costEstimateUsd: numberField(
-      payload,
-      "usage_cost_estimate_usd",
-      "usageCostEstimateUsd",
-    ),
-    contextPressure: numberField(payload, "pressure", "contextPressure"),
-    contextPressureStatus: stringField(
-      payload,
-      "pressure_status",
-      "pressureStatus",
-      "contextPressureStatus",
-    ),
+    costEstimateUsd: numberField(payload, "usage_cost_estimate_usd"),
+    contextPressure: numberField(payload, "pressure"),
+    contextPressureStatus: stringField(payload, "pressure_status"),
     runCount: null,
     subagentCount: null,
   };

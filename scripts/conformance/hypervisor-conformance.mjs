@@ -13967,6 +13967,32 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts")
     : "";
+  const agentIdeRuntimeTelemetrySummary = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts")
+    : "";
+  const agentIdeRuntimeTelemetrySummaryTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts")
+    : "";
+  const agentIdeRuntimeTelemetrySummaryUsageTelemetryInterfaceBlock =
+    agentIdeRuntimeTelemetrySummary.match(
+      /export interface WorkflowRuntimeTelemetrySummaryUsageTelemetry[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const agentIdeRuntimeTelemetrySummaryToUsageTelemetryBlock =
+    agentIdeRuntimeTelemetrySummary.match(
+      /export function workflowRuntimeTelemetrySummaryToUsageTelemetry[\s\S]*?\n}\n\nfunction sourceKindsForTelemetry/,
+    )?.[0] ?? "";
+  const agentIdeRuntimeTelemetrySummaryUsageSnapshotBlocks =
+    [
+      /function usageSnapshotFromEvent[\s\S]*?\n}\n\nfunction usageSnapshotFromContextPressureEvent/,
+      /function usageSnapshotFromContextPressureEvent[\s\S]*?\n}\n\nfunction usageSnapshotFromContextPressureAlertEvent/,
+      /function usageSnapshotFromContextPressureAlertEvent[\s\S]*?\n}\n\nfunction usageSnapshotFromTuiRow/,
+    ]
+      .map((pattern) => agentIdeRuntimeTelemetrySummary.match(pattern)?.[0] ?? "")
+      .join("\n");
   const agentIdeMixedRuntimePanels = [
     "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
@@ -21479,6 +21505,40 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE context lifecycle usage snapshots must ignore retired camelCase identity and evidence aliases",
+  );
+  assertCheck(
+    result,
+    "ide-runtime-telemetry-summary-aliases-retired",
+    agentIdeRuntimeTelemetrySummaryUsageTelemetryInterfaceBlock.length > 0 &&
+      agentIdeRuntimeTelemetrySummaryToUsageTelemetryBlock.length > 0 &&
+      agentIdeRuntimeTelemetrySummaryUsageSnapshotBlocks.length > 0 &&
+      !/\b(?:schemaVersion|threadId|turnId|workflowGraphId|totalTokens|inputTokens|outputTokens|estimatedCostUsd|costEstimateUsd|contextPressure|contextPressureStatus|sourceCounts|sourceRefs|receiptRefs|policyDecisionRefs|runtimeTelemetrySummarySchemaVersion)\b/.test(
+        agentIdeRuntimeTelemetrySummaryUsageTelemetryInterfaceBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|threadId|turnId|workflowGraphId|totalTokens|inputTokens|outputTokens|estimatedCostUsd|costEstimateUsd|contextPressure|contextPressureStatus|sourceCounts|sourceRefs|receiptRefs|policyDecisionRefs|runtimeTelemetrySummarySchemaVersion)\s*[:,]/m.test(
+        agentIdeRuntimeTelemetrySummaryToUsageTelemetryBlock,
+      ) &&
+      !/numberField\(payload,[^)]*"(?:totalTokens|inputTokens|outputTokens|estimatedCostUsd|usageCostEstimateUsd|contextPressure|usageContextPressure|usageTotalTokens|usageRunCount|usageSubagentCount)"/.test(
+        agentIdeRuntimeTelemetrySummaryUsageSnapshotBlocks,
+      ) &&
+      !/stringField\(payload,[^)]*"(?:contextPressureStatus|usageContextPressureStatus|pressureStatus)"/.test(
+        agentIdeRuntimeTelemetrySummaryUsageSnapshotBlocks,
+      ) &&
+      /workflow runtime telemetry summary ignores retired runtime payload aliases/.test(
+        agentIdeRuntimeTelemetrySummaryTest,
+      ) &&
+      /usageTotalTokens: 720/.test(agentIdeRuntimeTelemetrySummaryTest) &&
+      /assert\.equal\(summary\.status,\s*"not_available"\)/.test(
+        agentIdeRuntimeTelemetrySummaryTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(usageTelemetry,\s*field\),\s*false/.test(
+        agentIdeRuntimeTelemetrySummaryTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE runtime telemetry summaries must ignore retired camelCase runtime payload aliases and emit canonical daemon-bound usage telemetry fields only",
   );
   assertCheck(
     result,
