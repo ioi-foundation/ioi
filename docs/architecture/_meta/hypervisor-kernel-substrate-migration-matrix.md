@@ -13353,6 +13353,12 @@ timeline frames now read canonical `receipt_refs`, `policy_decision_refs`,
 retired camelCase evidence aliases cannot make replay frames look receipt-backed,
 policy-backed, or artifact-backed.
 
+Slice 524 retires IDE computer-use replay runtime identity aliases:
+computer-use replay filtering and frame identity now read canonical
+`event_kind`, `thread_id`, `workflow_graph_id`, and `workflow_node_id` fields
+only, so retired camelCase identity aliases cannot create replay frames or bind
+them to graph/thread/node identity.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

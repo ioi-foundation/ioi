@@ -19576,6 +19576,65 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-computer-use-replay-identity-aliases-retired",
+    /const graphId = eventWorkflowGraphId\(event\) \?\? stringField\(payload,\s*"workflow_graph_id"\)/.test(
+      agentIdeComputerUseReplayTimeline,
+    ) &&
+      /const payloadKind = stringField\(payload,\s*"event_kind"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /function eventKindForEvent\(event: RuntimeEventInput\): string \{\s*return stringField\(event,\s*"event_kind"\) \?\? "";\s*\}/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /function eventThreadId\(event: RuntimeEventInput\): string \| null \{\s*return stringField\(event,\s*"thread_id"\);\s*\}/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /function eventWorkflowGraphId\(event: RuntimeEventInput\): string \| null \{\s*return stringField\(event,\s*"workflow_graph_id"\);\s*\}/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /function eventWorkflowNodeId\(event: RuntimeEventInput\): string \| null \{\s*return stringField\(event,\s*"workflow_node_id"\);\s*\}/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/stringField\(payload,\s*"workflow_graph_id",\s*"workflowGraphId"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/stringField\(payload,\s*"event_kind",\s*"eventKind"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/stringField\(event,\s*"event_kind",\s*"eventKind"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/stringField\(event,\s*"thread_id",\s*"threadId"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/stringField\(event,\s*"workflow_graph_id",\s*"workflowGraphId"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/stringField\(event,\s*"workflow_node_id",\s*"workflowNodeId"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /retiredIdentityKindAliasTimeline/.test(computerUseReplayTimelineProof) &&
+      /eventKind:\s*"computer_use\.cleanup"/.test(computerUseReplayTimelineProof) &&
+      /retiredIdentityKindAliasTimeline\.frameCount,\s*0/.test(computerUseReplayTimelineProof) &&
+      /retiredIdentityFieldAliasTimeline/.test(computerUseReplayTimelineProof) &&
+      /threadId:\s*"thread-retired-identity"/.test(computerUseReplayTimelineProof) &&
+      /retiredIdentityFieldAliasTimeline\.frames\[0\]\?\.threadId,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredIdentityFieldAliasTimeline\.frames\[0\]\?\.workflowGraphId,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredIdentityFieldAliasTimeline\.frames\[0\]\?\.workflowNodeId,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts",
+      "scripts/lib/workflow-computer-use-replay-timeline-proof.mjs",
+    ],
+    "Phase 10/11 is pending: IDE computer-use replay timeline must ignore retired runtime identity aliases",
+  );
+  assertCheck(
+    result,
     "ide-runtime-event-identity-helper-alias-retired",
     /workflowRuntimeEventId/.test(agentIdeEventIdentity) &&
       /isProjectedRuntimeThreadEvent/.test(agentIdeEventIdentity) &&

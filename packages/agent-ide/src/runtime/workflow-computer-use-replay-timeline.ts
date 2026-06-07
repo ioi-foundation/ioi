@@ -75,7 +75,7 @@ export function buildWorkflowComputerUseReplayTimeline(
     .filter(isComputerUseEvent)
     .filter((event) => {
       const payload = eventPayload(event);
-      const graphId = eventWorkflowGraphId(event) ?? stringField(payload, "workflow_graph_id", "workflowGraphId");
+      const graphId = eventWorkflowGraphId(event) ?? stringField(payload, "workflow_graph_id");
       const lane = computerUseLane(payload);
       return (!graphFilter || !graphId || graphId === graphFilter) && (!laneFilter || !lane || lane === laneFilter);
     })
@@ -190,7 +190,7 @@ function replayFrameForEvent(event: RuntimeEventInput, index: number): WorkflowC
 function isComputerUseEvent(event: RuntimeEventInput): boolean {
   const kind = eventKindForEvent(event);
   const payload = eventPayload(event);
-  const payloadKind = stringField(payload, "event_kind", "eventKind");
+  const payloadKind = stringField(payload, "event_kind");
   return kind.startsWith("computer_use.") || (payloadKind?.startsWith("computer_use.") ?? false);
 }
 
@@ -266,7 +266,7 @@ function eventIdForEvent(event: RuntimeEventInput): string | null {
 }
 
 function eventKindForEvent(event: RuntimeEventInput): string {
-  return stringField(event, "event_kind", "eventKind") ?? "";
+  return stringField(event, "event_kind") ?? "";
 }
 
 function eventSeq(event: RuntimeEventInput): number | null {
@@ -274,15 +274,15 @@ function eventSeq(event: RuntimeEventInput): number | null {
 }
 
 function eventThreadId(event: RuntimeEventInput): string | null {
-  return stringField(event, "thread_id", "threadId");
+  return stringField(event, "thread_id");
 }
 
 function eventWorkflowGraphId(event: RuntimeEventInput): string | null {
-  return stringField(event, "workflow_graph_id", "workflowGraphId");
+  return stringField(event, "workflow_graph_id");
 }
 
 function eventWorkflowNodeId(event: RuntimeEventInput): string | null {
-  return stringField(event, "workflow_node_id", "workflowNodeId");
+  return stringField(event, "workflow_node_id");
 }
 
 function objectField(record: unknown, ...keys: string[]): Record<string, unknown> | null {

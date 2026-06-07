@@ -217,6 +217,44 @@ const retiredEvidenceAliasTimeline = buildWorkflowComputerUseReplayTimeline(
   ],
   { workflowGraphId },
 );
+const retiredIdentityKindAliasTimeline = buildWorkflowComputerUseReplayTimeline(
+  [
+    {
+      event_id: "event-retired-kind-alias",
+      seq: 13,
+      threadId: "thread-retired-kind-alias",
+      workflowGraphId: workflowGraphId,
+      workflowNodeId: "runtime.native_browser.retired-kind",
+      eventKind: "computer_use.cleanup",
+      payload_summary: {
+        eventKind: "computer_use.cleanup",
+        computer_use_lane: "native_browser",
+        computer_use_step: "cleanup",
+        workflowGraphId: workflowGraphId,
+      },
+    },
+  ],
+  { workflowGraphId },
+);
+const retiredIdentityFieldAliasTimeline = buildWorkflowComputerUseReplayTimeline(
+  [
+    {
+      event_id: "event-retired-identity-field-aliases",
+      seq: 14,
+      threadId: "thread-retired-identity",
+      workflowGraphId: workflowGraphId,
+      workflowNodeId: "runtime.native_browser.retired-identity",
+      event_kind: "computer_use.cleanup",
+      payload_summary: {
+        event_kind: "computer_use.cleanup",
+        computer_use_lane: "native_browser",
+        computer_use_step: "cleanup",
+        workflowGraphId: workflowGraphId,
+      },
+    },
+  ],
+  { workflowGraphId },
+);
 
 assert.equal(timeline.status, "ready");
 assert.equal(timeline.frameCount, 10);
@@ -242,6 +280,10 @@ assert.equal(retiredEvidenceAliasTimeline.frames[0]?.policyDecisionRef, null);
 assert.deepEqual(retiredEvidenceAliasTimeline.frames[0]?.receiptRefs, []);
 assert.deepEqual(retiredEvidenceAliasTimeline.frames[0]?.policyDecisionRefs, []);
 assert.deepEqual(retiredEvidenceAliasTimeline.frames[0]?.artifactRefs, []);
+assert.equal(retiredIdentityKindAliasTimeline.frameCount, 0);
+assert.equal(retiredIdentityFieldAliasTimeline.frames[0]?.threadId, null);
+assert.equal(retiredIdentityFieldAliasTimeline.frames[0]?.workflowGraphId, null);
+assert.equal(retiredIdentityFieldAliasTimeline.frames[0]?.workflowNodeId, null);
 
 const proof = {
   schemaVersion: "ioi.autopilot.stage18.computer-use-replay-timeline-proof.v1",
@@ -266,6 +308,11 @@ const proof = {
       retiredEvidenceAliasTimeline.frames[0]?.receiptRefs.length === 0 &&
       retiredEvidenceAliasTimeline.frames[0]?.policyDecisionRefs.length === 0 &&
       retiredEvidenceAliasTimeline.frames[0]?.artifactRefs.length === 0,
+    retiredIdentityAliasesIgnored:
+      retiredIdentityKindAliasTimeline.frameCount === 0 &&
+      retiredIdentityFieldAliasTimeline.frames[0]?.threadId === null &&
+      retiredIdentityFieldAliasTimeline.frames[0]?.workflowGraphId === null &&
+      retiredIdentityFieldAliasTimeline.frames[0]?.workflowNodeId === null,
   },
   summary: {
     frameCount: timeline.frameCount,
