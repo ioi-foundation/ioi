@@ -835,6 +835,9 @@ function runBridge() {
   const computerUseControlPayloadSummaryBlock = [
     ...runtimeDaemonIndex.matchAll(/const payloadSummary = \{[\s\S]*?\n\s*\};/g),
   ].map((match) => match[0]).find((block) => block.includes("computer_use_control_receipt_ref")) ?? "";
+  const computerUseBrowserDiscoveryPayloadSummaryBlock = [
+    ...runtimeDaemonIndex.matchAll(/const payloadSummary = \{[\s\S]*?\n\s*\};/g),
+  ].map((match) => match[0]).find((block) => block.includes("computer_use_browser_discovery_ref")) ?? "";
   const runtimeCodingToolResults = exists("packages/runtime-daemon/src/runtime-coding-tool-results.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-results.mjs")
     : "";
@@ -1783,6 +1786,51 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-invocation-results.test.mjs",
     ],
     "Phase 10/11 is pending: runtime invocation replay projections must expose canonical snake_case fields without duplicate camelCase replay aliases",
+  );
+  assertCheck(
+    result,
+    "computer-use-browser-discovery-payload-aliases-retired",
+    /schema_version:\s*COMPUTER_USE_CONTRACT_SCHEMA_VERSION/.test(
+      computerUseBrowserDiscoveryPayloadSummaryBlock,
+    ) &&
+      /computer_use:\s*true/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
+      /computer_use_step:\s*"discover_browser"/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
+      /computer_use_lane:\s*"native_browser"/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
+      /computer_use_session_mode:\s*"discovery_only"/.test(
+        computerUseBrowserDiscoveryPayloadSummaryBlock,
+      ) &&
+      /computer_use_lease_id:\s*leaseId/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
+      /computer_use_browser_discovery_ref:\s*report\.discovery_ref \?\? report\.receipt_ref/.test(
+        computerUseBrowserDiscoveryPayloadSummaryBlock,
+      ) &&
+      /tool_ref:\s*toolId/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
+      /workflow_graph_id:\s*workflowGraphId/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
+      /workflow_node_id:\s*workflowNodeId/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
+      /authority_scopes:\s*\["computer_use\.browser_discovery\.read"\]/.test(
+        computerUseBrowserDiscoveryPayloadSummaryBlock,
+      ) &&
+      /fail_closed_when_unavailable:\s*true/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
+      /browser_discovery_report:\s*report/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
+      /const result = objectRecord\(payload\.browser_discovery_report\);/.test(
+        runtimeInvocationResults,
+      ) &&
+      /computer-use browser discovery result ignores retired report alias/.test(
+        runtimeInvocationResultsTest,
+      ) &&
+      /browserDiscoveryReport: \{ browsers: \["retired"\] \}/.test(
+        runtimeInvocationResultsTest,
+      ) &&
+      /assert\.equal\(result\.result,\s*null\)/.test(runtimeInvocationResultsTest) &&
+      !/^\s*(?:schemaVersion|computerUse|computerUseStep|computerUseLane|computerUseSessionMode|computerUseLeaseId|computerUseBrowserDiscoveryRef|toolRef|workflowGraphId|workflowNodeId|authorityScopes|failClosedWhenUnavailable|browserDiscoveryReport|receiptId)\s*[:,]/m.test(
+        computerUseBrowserDiscoveryPayloadSummaryBlock,
+      ) &&
+      !/payload\.browserDiscoveryReport\b/.test(runtimeInvocationResults),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-invocation-results.mjs",
+      "packages/runtime-daemon/src/runtime-invocation-results.test.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use browser discovery payloads and replay projections must use canonical snake_case fields without retired camelCase aliases",
   );
   assertCheck(
     result,

@@ -13313,6 +13313,14 @@ workflow, lane/session, tool, authority, and fail-closed aliases so they can no
 longer steer selected execution lane, session mode, workflow binding, tool ref,
 authority scopes, retention, or fail-closed behavior.
 
+Slice 518 retires computer-use browser-discovery payload aliases:
+browser-discovery runtime payloads now emit canonical `schema_version`,
+`computer_use_*`, `tool_ref`, `workflow_*`, `authority_scopes`,
+`fail_closed_when_unavailable`, `browser_discovery_report`, and `receipt_id`
+fields only; invocation-result replay reads only `browser_discovery_report`, so
+retired camelCase discovery payload and report aliases can no longer create a
+duplicate replay truth path.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

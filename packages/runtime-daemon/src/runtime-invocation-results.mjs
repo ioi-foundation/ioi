@@ -59,9 +59,7 @@ export function createRuntimeInvocationResultProjections(deps = {}) {
 
   function computerUseBrowserDiscoveryInvocationResultFromEvent(event, context = {}) {
     const payload = event.payload_summary ?? event.payload ?? {};
-    const result = objectRecord(
-      payload.browser_discovery_report ?? payload.browserDiscoveryReport,
-    );
+    const result = objectRecord(payload.browser_discovery_report);
     return {
       schema_version: "ioi.runtime.computer-use-browser-discovery-result.v1",
       object: "ioi.runtime_computer_use_browser_discovery_result",

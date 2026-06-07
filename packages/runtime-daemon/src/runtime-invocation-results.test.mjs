@@ -133,6 +133,22 @@ test("computer-use browser discovery result normalizes object records", () => {
   assert.equal(result.shell_fallback_used, false);
 });
 
+test("computer-use browser discovery result ignores retired report alias", () => {
+  const projections = createProjections();
+  const event = {
+    status: "completed",
+    tool_call_id: "call_1",
+    thread_id: "thread_1",
+    payload_summary: {
+      tool_ref: "computer_use__browser_discovery",
+      browserDiscoveryReport: { browsers: ["retired"] },
+    },
+  };
+  const result = projections.computerUseBrowserDiscoveryInvocationResultFromEvent(event);
+
+  assert.equal(result.result, null);
+});
+
 test("computer-use control result uses canonical control, handoff, and cleanup fields", () => {
   const projections = createProjections();
   const event = {
