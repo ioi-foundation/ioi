@@ -13,6 +13,7 @@ import {
 import {
   oauthBoundaryForSession,
 } from "./oauth-boundary.mjs";
+import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1";
 
@@ -317,12 +318,22 @@ export async function catalogProviderAuthHeaders(providerId, state) {
       state.oauthSessions.set(resolved.session.id, resolved.session);
       state.writeMap?.("oauth-sessions", state.oauthSessions);
       if (config?.id && state.catalogProviderConfigs?.has(config.id)) {
-        state.catalogProviderConfigs.set(config.id, {
+        const refreshedConfig = {
           ...config,
           oauthBoundary: oauthBoundaryForSession(resolved.session, { refreshed: true }),
           updatedAt: state.nowIso?.() ?? config.updatedAt,
+        };
+        commitModelMountRecordState(state, {
+          recordDir: "model-catalog-providers",
+          record: refreshedConfig,
+          operationKind: "model_mount.catalog_provider_auth_header.refresh",
+          receiptRefs: [],
+          unconfiguredCode: "model_mount_catalog_provider_auth_header_state_commit_unconfigured",
+          unconfiguredMessage:
+            "Catalog provider auth-header refresh persistence requires Rust Agentgres record-state commit.",
+          unconfiguredDetails: { provider_id: providerId },
         });
-        state.writeMap?.("model-catalog-providers", state.catalogProviderConfigs);
+        state.catalogProviderConfigs.set(config.id, refreshedConfig);
       }
     }
     state?.writeVaultRefs?.();

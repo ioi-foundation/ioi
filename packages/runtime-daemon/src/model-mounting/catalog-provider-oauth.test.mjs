@@ -17,6 +17,7 @@ function fakeState() {
     oauthStates: new Map(),
     projections: 0,
     receipts: [],
+    recordStateCommits: [],
     writes: [],
     vaultWrites: 0,
     now: "2026-06-03T21:00:00.000Z",
@@ -98,6 +99,24 @@ function fakeState() {
     },
     writeMap(name, map) {
       this.writes.push([name, [...map.values()].map((record) => ({ ...record }))]);
+    },
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(request);
+      return {
+        record_id: request.record_id,
+        object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+        content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+        admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+        commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+          admission: {
+            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+          },
+        },
+      };
     },
     writeProjection() {
       this.projections += 1;
@@ -193,7 +212,14 @@ test("catalog OAuth start persists pending state, config boundary, and public re
   assert.equal(Object.hasOwn(state.receipts[0].payload.details, "authorizationUrlRedacted"), false);
   assert.equal(Object.hasOwn(state.receipts[0].payload.details, "catalogProvider"), false);
   assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthBoundary.status, "pending_authorization");
-  assert.deepEqual(state.writes.map(([name]) => name), ["oauth-states", "model-catalog-providers"]);
+  assert.deepEqual(state.writes.map(([name]) => name), ["oauth-states"]);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
+  assert.equal(state.recordStateCommits[0].record_dir, "model-catalog-providers");
+  assert.equal(state.recordStateCommits[0].record_id, "catalog.huggingface");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.catalog_provider_oauth.start");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.catalog_oauth_start.1"]);
+  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt.catalog_oauth_start.1");
   assert.equal(state.vaultWrites, 1);
   assert.equal(state.projections, 1);
 });
@@ -218,7 +244,9 @@ test("catalog OAuth callback finds pending state by hash and binds completed ses
   assert.equal(state.oauthStates.get("oauth-state-1").status, "completed");
   assert.equal(state.oauthSessions.get("oauth-session-1").accessVaultRef, "vault://oauth/access");
   assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthSessionId, "oauth-session-1");
-  assert.deepEqual(state.writes.slice(-3).map(([name]) => name), ["oauth-states", "oauth-sessions", "model-catalog-providers"]);
+  assert.deepEqual(state.writes.slice(-2).map(([name]) => name), ["oauth-states", "oauth-sessions"]);
+  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.catalog_provider_oauth.callback");
+  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, ["receipt.catalog_oauth_callback.2"]);
 });
 
 test("catalog OAuth exchange persists session and provider config", async () => {
@@ -236,7 +264,9 @@ test("catalog OAuth exchange persists session and provider config", async () => 
   assert.equal(Object.hasOwn(state.receipts[0].payload.details, "catalogProvider"), false);
   assert.equal(state.oauthSessions.has("oauth-session-exchange"), true);
   assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthSessionId, "oauth-session-exchange");
-  assert.deepEqual(state.writes.map(([name]) => name), ["oauth-sessions", "model-catalog-providers"]);
+  assert.deepEqual(state.writes.map(([name]) => name), ["oauth-sessions"]);
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.catalog_provider_oauth.exchange");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.catalog_oauth_exchange.1"]);
 });
 
 test("catalog OAuth refresh and revoke update session boundary records", async () => {
@@ -252,6 +282,8 @@ test("catalog OAuth refresh and revoke update session boundary records", async (
   assert.equal(Object.hasOwn(state.receipts[0].payload.details, "providerId"), false);
   assert.equal(Object.hasOwn(state.receipts[0].payload.details, "oauthSession"), false);
   assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthBoundary.status, "refreshed");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.catalog_provider_oauth.refresh");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.catalog_oauth_refresh.1"]);
 
   const revoked = revokeCatalogProviderOAuth(state, "catalog.huggingface", deps);
   assert.equal(revoked.oauthSession.status, "revoked");
@@ -261,7 +293,29 @@ test("catalog OAuth refresh and revoke update session boundary records", async (
   assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerId"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "oauthSession"), false);
   assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthBoundary.status, "revoked");
+  assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.catalog_provider_oauth.revoke");
+  assert.deepEqual(state.recordStateCommits[1].receipt_refs, ["receipt.catalog_oauth_revoke.2"]);
   assert.equal(state.vaultWrites, 2);
+});
+
+test("catalog OAuth provider config updates fail closed without Rust Agentgres record-state commit", () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+
+  assert.throws(
+    () => startCatalogProviderOAuth(state, "catalog.huggingface", {}, deps),
+    (error) => {
+      assert.equal(error.code, "model_mount_catalog_provider_oauth_state_commit_unconfigured");
+      assert.equal(error.details.provider_id, "catalog.huggingface");
+      assert.equal(error.details.record_dir, "model-catalog-providers");
+      return true;
+    },
+  );
+
+  assert.equal(state.catalogProviderConfigs.has("catalog.huggingface"), false);
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.projections, 0);
+  assert.equal(state.vaultWrites, 0);
 });
 
 test("catalog OAuth refresh fails closed when configured session is missing", async () => {
