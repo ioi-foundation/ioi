@@ -50,6 +50,7 @@ pub enum ModelMountError {
     UnsupportedBackendProcessKind,
     InstanceLifecycleStatusMismatch,
     InvalidAcceptedReceiptSequence,
+    InvalidAcceptedReceiptTransitionHash,
     StreamProviderInvocationUnsupported,
     UnresolvedAutoModel,
     PrivateWorkspaceMissingCustodyRef,
@@ -1098,6 +1099,37 @@ impl ModelMountCore {
         };
         transition.transition_hash = accepted_receipt_transition_hash(&transition)?;
         Ok(transition)
+    }
+
+    pub fn validate_accepted_receipt_transition(
+        &self,
+        transition: &ModelMountAcceptedReceiptTransition,
+    ) -> Result<(), ModelMountError> {
+        if transition.schema_version != MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION {
+            return Err(ModelMountError::InvalidSchemaVersion {
+                expected: MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION,
+                actual: transition.schema_version.clone(),
+            });
+        }
+        if transition.operation_ref.trim().is_empty() {
+            return Err(ModelMountError::MissingField("operation_ref"));
+        }
+        if transition.expected_heads.is_empty() {
+            return Err(ModelMountError::MissingField("expected_heads"));
+        }
+        if transition.state_root_before.trim().is_empty() {
+            return Err(ModelMountError::MissingField("state_root_before"));
+        }
+        if transition.state_root_after.trim().is_empty() {
+            return Err(ModelMountError::MissingField("state_root_after"));
+        }
+        if transition.resulting_head.trim().is_empty() {
+            return Err(ModelMountError::MissingField("resulting_head"));
+        }
+        if accepted_receipt_transition_hash(transition)? != transition.transition_hash {
+            return Err(ModelMountError::InvalidAcceptedReceiptTransitionHash);
+        }
+        Ok(())
     }
 }
 
@@ -2928,6 +2960,24 @@ mod tests {
         assert!(transition
             .evidence_refs
             .contains(&"rust_model_mount_accepted_receipt_transition".to_string()));
+        ModelMountCore
+            .validate_accepted_receipt_transition(&transition)
+            .expect("accepted receipt transition hash validates");
+    }
+
+    #[test]
+    fn accepted_receipt_transition_rejects_tampered_hash() {
+        let mut transition = ModelMountCore
+            .plan_accepted_receipt_transition(&accepted_receipt_transition_request())
+            .expect("accepted receipt transition planned in Rust");
+        transition.resulting_head =
+            "agentgres://model-mounting/accepted-receipts/head/tampered".to_string();
+
+        let error = ModelMountCore
+            .validate_accepted_receipt_transition(&transition)
+            .expect_err("tampered accepted receipt transition fails");
+
+        assert_eq!(error, ModelMountError::InvalidAcceptedReceiptTransitionHash);
     }
 
     #[test]

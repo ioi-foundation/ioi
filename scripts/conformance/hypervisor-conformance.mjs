@@ -490,6 +490,9 @@ function runBridge() {
   const modelMountAdmissionRunner = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
     : "";
+  const modelMountAdmissionRunnerTest = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
+    : "";
   const modelMountReceiptOperationsBridge = exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
     : "";
@@ -533,6 +536,12 @@ function runBridge() {
   const modelInvocationOpsTest = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
     : "";
+  const modelMountInvocationReceiptBridgeBlock =
+    bridgeModule.match(/fn bind_model_mount_invocation_receipt[\s\S]*?(?=\nfn commit_runtime_model_mount_record_state)/)?.[0] ??
+    "";
+  const modelMountInvocationReceiptRunnerBlock =
+    modelMountAdmissionRunner.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n\n  invokeBridge)/)?.[0] ??
+    "";
   const modelTokenizerOperations = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs")
     : "";
@@ -6080,13 +6089,25 @@ function runBridge() {
     "model-mount-invocation-receipt-binding-live-bridge",
     /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       /ModelMountInvocationReceiptBindingBridgeRequest/.test(bridgeModule) &&
+      /accepted_receipt_transition:\s*Option<ModelMountAcceptedReceiptTransition>/.test(bridgeModule) &&
+      /model_mount_caller_supplied_expected_heads/.test(modelMountInvocationReceiptBridgeBlock) &&
+      /model_mount_accepted_receipt_transition_required/.test(modelMountInvocationReceiptBridgeBlock) &&
+      /validate_accepted_receipt_transition\(transition\)/.test(modelMountInvocationReceiptBridgeBlock) &&
+      /model_mount_accepted_receipt_transition_mismatch/.test(modelMountInvocationReceiptBridgeBlock) &&
       /bridge_binds_model_mount_invocation_receipt_through_rust_core/.test(bridgeModule) &&
+      /accepted_receipt_transition/.test(bridgeModule) &&
       /ReceiptBinder/.test(bridgeModule) &&
       /AgentgresAdmissionCore/.test(bridgeModule) &&
       /AcceptedReceiptAppendIssuer::RustReceiptCore/.test(bridgeModule) &&
       /bindInvocationReceipt/.test(modelMountAdmissionRunner) &&
+      /model_mount_invocation_expected_heads_retired/.test(modelMountAdmissionRunner) &&
+      !/expected_heads:/.test(modelMountInvocationReceiptRunnerBlock) &&
+      /accepted_receipt_transition:\s*acceptedReceiptTransition/.test(modelMountInvocationReceiptRunnerBlock) &&
+      /Rust model_mount admission runner rejects direct expected head binding input/.test(modelMountAdmissionRunnerTest) &&
       /bindModelMountInvocationReceipt/.test(modelMountingState) &&
       /modelMountInvocationReceiptBindingRequestForReceipt/.test(modelInvocationOps) &&
+      /acceptedReceiptTransition:\s*objectRecord\(agentgresTransition\?\.acceptedReceiptTransition\)/.test(modelInvocationOps) &&
+      /acceptedReceiptTransition\.expected_heads/.test(modelInvocationOpsTest) &&
       /model_mount_invocation_receipt_binding_required/.test(modelInvocationOps) &&
       /model_mount_agentgres_head_required/.test(modelInvocationOps) &&
       /model_mount_receipt_binding_ref/.test(modelInvocationOps) &&
@@ -7117,6 +7138,9 @@ function runReceipts() {
   const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     : "";
+  const modelInvocationOpsTest = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
+    : "";
   const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
     ? read("packages/runtime-daemon/src/model-mounting.mjs")
     : "";
@@ -7126,6 +7150,12 @@ function runReceipts() {
   const modelMountAdmissionRunnerTest = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
     : "";
+  const modelMountInvocationReceiptBridgeBlock =
+    bridgeModule.match(/fn bind_model_mount_invocation_receipt[\s\S]*?(?=\nfn commit_runtime_model_mount_record_state)/)?.[0] ??
+    "";
+  const modelMountInvocationReceiptRunnerBlock =
+    modelMountAdmissionRunner.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n\n  invokeBridge)/)?.[0] ??
+    "";
   const conversationOps = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
     : "";
@@ -10742,6 +10772,8 @@ function runReceipts() {
       /model_mount_agentgres_head_required/.test(modelInvocationOps) &&
       /planModelMountAcceptedReceiptTransition/.test(modelInvocationOps) &&
       /model_mount_accepted_receipt_transition_planner_required/.test(modelInvocationOps) &&
+      /acceptedReceiptTransition:\s*objectRecord\(agentgresTransition\?\.acceptedReceiptTransition\)/.test(modelInvocationOps) &&
+      /acceptedReceiptTransition\.expected_heads/.test(modelInvocationOpsTest) &&
       /planAcceptedReceiptHead/.test(modelMountingState) &&
       /plan_model_mount_accepted_receipt_head/.test(modelMountAdmissionRunner) &&
       /plan_model_mount_accepted_receipt_head/.test(bridgeModule) &&
@@ -10749,8 +10781,20 @@ function runReceipts() {
       /plan_accepted_receipt_head/.test(modelMountCore) &&
       /MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION/.test(modelMountCore) &&
       /plan_model_mount_accepted_receipt_transition/.test(bridgeModule) &&
+      /accepted_receipt_transition:\s*Option<ModelMountAcceptedReceiptTransition>/.test(bridgeModule) &&
+      /model_mount_caller_supplied_expected_heads/.test(modelMountInvocationReceiptBridgeBlock) &&
+      /model_mount_accepted_receipt_transition_required/.test(modelMountInvocationReceiptBridgeBlock) &&
+      /validate_accepted_receipt_transition\(transition\)/.test(modelMountInvocationReceiptBridgeBlock) &&
+      /model_mount_accepted_receipt_transition_mismatch/.test(modelMountInvocationReceiptBridgeBlock) &&
+      /model_mount_invocation_expected_heads_retired/.test(modelMountAdmissionRunner) &&
+      !/expected_heads:/.test(modelMountInvocationReceiptRunnerBlock) &&
+      /accepted_receipt_transition:\s*acceptedReceiptTransition/.test(modelMountInvocationReceiptRunnerBlock) &&
+      /Rust model_mount admission runner rejects direct expected head binding input/.test(modelMountAdmissionRunnerTest) &&
       /ModelMountAcceptedReceiptTransitionRequest/.test(bridgeModule) &&
       /plan_accepted_receipt_transition/.test(modelMountCore) &&
+      /validate_accepted_receipt_transition/.test(modelMountCore) &&
+      /InvalidAcceptedReceiptTransitionHash/.test(modelMountCore) &&
+      /accepted_receipt_transition_rejects_tampered_hash/.test(modelMountCore) &&
       /MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION/.test(modelMountCore) &&
       /agentgres:\/\/model-mounting\/accepted-receipts/.test(modelMountCore) &&
       /model-mounting-accepted-receipts/.test(modelMountCore) &&

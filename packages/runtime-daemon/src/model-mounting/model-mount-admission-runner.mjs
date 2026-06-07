@@ -152,14 +152,27 @@ export class RustModelMountAdmissionRunner {
     return normalizeAcceptedReceiptTransitionBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
-  bindInvocationReceipt({ invocation, result, expectedHeads = [], receiptRef = null } = {}) {
+  bindInvocationReceipt(request = {}) {
+    if (Object.hasOwn(request, "expectedHeads")) {
+      throw new ModelMountAdmissionRunnerError(
+        "Model mount invocation expected heads must come from the Rust accepted-receipt transition planner.",
+        "model_mount_invocation_expected_heads_retired",
+        { status: 400 },
+      );
+    }
+    const {
+      invocation,
+      result,
+      acceptedReceiptTransition = null,
+      receiptRef = null,
+    } = request;
     const bridgeRequest = {
       schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
       operation: "bind_model_mount_invocation_receipt",
       backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
       invocation,
       result,
-      expected_heads: Array.isArray(expectedHeads) ? expectedHeads : [],
+      accepted_receipt_transition: acceptedReceiptTransition,
       receipt_ref: receiptRef,
     };
     return normalizeInvocationReceiptBindingBridgeResult(this.invokeBridge(bridgeRequest));

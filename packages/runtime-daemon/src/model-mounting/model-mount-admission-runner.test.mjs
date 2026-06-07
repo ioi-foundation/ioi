@@ -777,11 +777,11 @@ test("Rust model_mount admission runner sends invocation receipt binding request
             },
             agentgres_admission: {
               schema_version: "ioi.agentgres_admission.v1",
-              operation_ref: "agentgres://model-mounting/operation-log/op_00000001_model_invocation",
-              expected_heads: ["agentgres://model-mounting/operation-log/head/0"],
+              operation_ref: "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation",
+              expected_heads: ["agentgres://model-mounting/accepted-receipts/head/0"],
               state_root_before: "sha256:state-before",
               state_root_after: "sha256:state-after",
-              resulting_head: "agentgres://model-mounting/operation-log/head/1",
+              resulting_head: "agentgres://model-mounting/accepted-receipts/head/1",
               admission_hash: "sha256:agentgres",
             },
             projection_record: {
@@ -803,26 +803,59 @@ test("Rust model_mount admission runner sends invocation receipt binding request
     },
     result: {
       receipt_refs: ["receipt://invocation"],
-      agentgres_operation_refs: ["agentgres://model-mounting/operation-log/op_00000001_model_invocation"],
+      agentgres_operation_refs: ["agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation"],
       state_root_after: "sha256:state-after",
-      resulting_head: "agentgres://model-mounting/operation-log/head/1",
+      resulting_head: "agentgres://model-mounting/accepted-receipts/head/1",
     },
-    expectedHeads: ["agentgres://model-mounting/operation-log/head/0"],
+    acceptedReceiptTransition: {
+      schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
+      operation_id: "op_00000001_model_invocation",
+      operation_ref: "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation",
+      expected_heads: ["agentgres://model-mounting/accepted-receipts/head/0"],
+      state_root_before: "sha256:state-before",
+      state_root_after: "sha256:state-after",
+      resulting_head: "agentgres://model-mounting/accepted-receipts/head/1",
+      projection_watermark: "model-mounting-accepted-receipts:1",
+      transition_hash: "sha256:transition",
+      evidence_refs: ["rust_model_mount_accepted_receipt_transition"],
+    },
     receiptRef: "receipt://invocation",
   });
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "bind_model_mount_invocation_receipt");
-  assert.deepEqual(calls[0].request.expected_heads, ["agentgres://model-mounting/operation-log/head/0"]);
+  assert.equal(Object.hasOwn(calls[0].request, "expected_heads"), false);
+  assert.deepEqual(calls[0].request.accepted_receipt_transition.expected_heads, [
+    "agentgres://model-mounting/accepted-receipts/head/0",
+  ]);
   assert.equal(calls[0].request.receipt_ref, "receipt://invocation");
   assert.equal(result.receipt_binding.binding_hash, "sha256:binding");
   assert.equal(
     result.agentgres_admission.operation_ref,
-    "agentgres://model-mounting/operation-log/op_00000001_model_invocation",
+    "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation",
   );
   assert.equal(result.accepted_receipt_append.append_hash, "sha256:append");
   assert.deepEqual(result.evidence_refs, ["rust_receipt_binder_core", "sha256:binding", "sha256:append"]);
+});
+
+test("Rust model_mount admission runner rejects direct expected head binding input", () => {
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl() {
+      throw new Error("bridge should not be invoked");
+    },
+  });
+
+  assert.throws(
+    () =>
+      runner.bindInvocationReceipt({
+        invocation: {},
+        result: {},
+        expectedHeads: ["agentgres://model-mounting/accepted-receipts/head/client"],
+      }),
+    (error) => error.code === "model_mount_invocation_expected_heads_retired" && error.status === 400,
+  );
 });
 
 test("Rust model_mount admission runner sends accepted receipt transition plan request", () => {

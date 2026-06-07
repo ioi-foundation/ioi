@@ -825,7 +825,7 @@ export function modelMountInvocationReceiptBindingRequestForReceipt({
   return {
     invocation,
     result,
-    expectedHeads: uniqueRefs(agentgresTransition?.expectedHeads ?? []),
+    acceptedReceiptTransition: objectRecord(agentgresTransition?.acceptedReceiptTransition),
     receiptRef: receiptRefValue,
   };
 }
@@ -876,6 +876,7 @@ export function modelMountInvocationAgentgresTransitionForReceipt(
     projectionWatermark: requiredStringRef("transition.projectionWatermark", transition?.projectionWatermark),
     transitionHash: requiredStringRef("transition.transitionHash", transition?.transitionHash),
     evidenceRefs: uniqueRefs(transition?.evidenceRefs ?? []),
+    acceptedReceiptTransition: objectRecord(transition?.transition),
   };
 }
 
@@ -1232,6 +1233,10 @@ function uniqueRefs(values = []) {
     if (ref && !refs.includes(ref)) refs.push(ref);
   }
   return refs;
+}
+
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
 export function capabilityForInvocationKind(kind) {

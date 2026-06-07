@@ -24,12 +24,12 @@ use ioi_services::agentic::runtime::kernel::marketplace::{
     WorkerServicePackageInvocationCore, WorkerServicePackageInvocationRequest,
 };
 use ioi_services::agentic::runtime::kernel::model_mount::{
-    ModelMountAcceptedReceiptHeadRequest, ModelMountAcceptedReceiptTransitionRequest,
-    ModelMountBackendProcessPlanRequest, ModelMountCore, ModelMountInstanceLifecycleRequest,
-    ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRequest,
-    ModelMountProviderInventoryRequest, ModelMountProviderInvocationRequest,
-    ModelMountProviderLifecycleRequest, ModelMountProviderResultAdmissionRequest,
-    ModelMountRouteDecisionRequest,
+    ModelMountAcceptedReceiptHeadRequest, ModelMountAcceptedReceiptTransition,
+    ModelMountAcceptedReceiptTransitionRequest, ModelMountBackendProcessPlanRequest,
+    ModelMountCore, ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
+    ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
+    ModelMountProviderInvocationRequest, ModelMountProviderLifecycleRequest,
+    ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
     AgentCreateStateUpdateCore, AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore,
@@ -242,6 +242,8 @@ struct ModelMountInvocationReceiptBindingBridgeRequest {
     result: StepModuleResult,
     #[serde(default)]
     expected_heads: Vec<String>,
+    #[serde(default)]
+    accepted_receipt_transition: Option<ModelMountAcceptedReceiptTransition>,
     #[serde(default)]
     receipt_ref: Option<String>,
 }
@@ -1595,11 +1597,54 @@ fn bind_model_mount_invocation_receipt(
                 .to_string(),
         ));
     }
+    if !request.expected_heads.is_empty() {
+        return Err(BridgeError::new(
+            "model_mount_caller_supplied_expected_heads",
+            "model mount invocation expected heads must come from the Rust accepted-receipt transition planner".to_string(),
+        ));
+    }
+    let expected_heads = if request.result.agentgres_operation_refs.is_empty() {
+        vec![]
+    } else {
+        let transition = request.accepted_receipt_transition.as_ref().ok_or_else(|| {
+            BridgeError::new(
+                "model_mount_accepted_receipt_transition_required",
+                "model invocation Agentgres admission requires a Rust-planned accepted receipt transition".to_string(),
+            )
+        })?;
+        ModelMountCore
+            .validate_accepted_receipt_transition(transition)
+            .map_err(|error| {
+                BridgeError::new(
+                    "model_mount_accepted_receipt_transition_invalid",
+                    format!("{error:?}"),
+                )
+            })?;
+        let operation_ref = request
+            .result
+            .agentgres_operation_refs
+            .first()
+            .cloned()
+            .unwrap_or_default();
+        if operation_ref != transition.operation_ref
+            || request.result.state_root_after.as_deref()
+                != Some(transition.state_root_after.as_str())
+            || request.result.resulting_head.as_deref() != Some(transition.resulting_head.as_str())
+            || request.invocation.input.state_root_before.as_deref()
+                != Some(transition.state_root_before.as_str())
+        {
+            return Err(BridgeError::new(
+                "model_mount_accepted_receipt_transition_mismatch",
+                "model invocation StepModule result must match the Rust-planned accepted receipt transition".to_string(),
+            ));
+        }
+        transition.expected_heads.clone()
+    };
     let router_admission = StepModuleRouterCore
         .admit_execution(&request.invocation, &request.result)
         .map_err(|error| BridgeError::new("router_admission_invalid", format!("{error:?}")))?;
     let receipt_binding = ReceiptBinder
-        .bind_step_module_result(&request.invocation, &request.result, request.expected_heads)
+        .bind_step_module_result(&request.invocation, &request.result, expected_heads)
         .map_err(|error| BridgeError::new("receipt_binding_invalid", format!("{error:?}")))?;
     let receipt_ref = request
         .receipt_ref
@@ -6870,6 +6915,23 @@ mod tests {
 
     #[test]
     fn bridge_binds_model_mount_invocation_receipt_through_rust_core() {
+        let accepted_receipt_transition = ModelMountCore
+            .plan_accepted_receipt_transition(&ModelMountAcceptedReceiptTransitionRequest {
+                schema_version: "ioi.model_mount.accepted_receipt_transition.v1".to_string(),
+                current_sequence: 0,
+                current_head_ref: "agentgres://model-mounting/accepted-receipts/head/0".to_string(),
+                current_state_root: "sha256:state-0".to_string(),
+                receipt_id: "receipt.test".to_string(),
+                receipt_kind: "model_invocation".to_string(),
+                route_decision_ref: Some("model_mount://route_decision/test".to_string()),
+                invocation_admission_ref: Some(
+                    "model_mount://invocation_admission/test".to_string(),
+                ),
+                invocation_admission_hash: Some("sha256:admission".to_string()),
+                input_hash: Some("sha256:input".to_string()),
+                output_hash: None,
+            })
+            .expect("accepted receipt transition planned");
         let request: ModelMountInvocationReceiptBindingBridgeRequest =
             serde_json::from_value(json!({
                 "schema_version": COMMAND_SCHEMA_VERSION,
@@ -6912,8 +6974,8 @@ mod tests {
                         ],
                         "artifact_refs": [],
                         "payload_refs": [],
-                        "state_root_before": null,
-                        "projection_watermark": null,
+                        "state_root_before": accepted_receipt_transition.state_root_before.clone(),
+                        "projection_watermark": "model-mounting-accepted-receipts:0",
                         "data_plane_handle": null
                     },
                     "custody": {
@@ -6942,9 +7004,9 @@ mod tests {
                     "receipt_refs": ["receipt://receipt.test"],
                     "artifact_refs": [],
                     "payload_refs": [],
-                    "agentgres_operation_refs": [],
-                    "state_root_after": null,
-                    "resulting_head": null,
+                    "agentgres_operation_refs": [accepted_receipt_transition.operation_ref.clone()],
+                    "state_root_after": accepted_receipt_transition.state_root_after.clone(),
+                    "resulting_head": accepted_receipt_transition.resulting_head.clone(),
                     "workflow_projection": {
                         "workflow_graph_id": "workflow.graph",
                         "workflow_node_id": "workflow.node",
@@ -6959,7 +7021,7 @@ mod tests {
                         "verifier_required": false
                     }
                 },
-                "expected_heads": [],
+                "accepted_receipt_transition": accepted_receipt_transition.clone(),
                 "receipt_ref": "receipt://receipt.test"
             }))
             .expect("bridge request");
@@ -6983,6 +7045,14 @@ mod tests {
         assert_eq!(
             response["receipt_binding"]["receipt_refs"][0],
             "receipt://receipt.test"
+        );
+        assert_eq!(
+            response["receipt_binding"]["expected_heads"][0],
+            "agentgres://model-mounting/accepted-receipts/head/0"
+        );
+        assert_eq!(
+            response["agentgres_admission"]["operation_ref"],
+            "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation"
         );
     }
 

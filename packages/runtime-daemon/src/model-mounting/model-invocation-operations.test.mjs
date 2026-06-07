@@ -155,6 +155,18 @@ function fakeState(overrides = {}) {
       return {
         source: "rust_model_mount_accepted_receipt_transition_command",
         backend: "rust_model_mount_accepted_receipt_transition",
+        transition: {
+          schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
+          operation_id: operationId,
+          operation_ref: `agentgres://model-mounting/accepted-receipts/${operationId}`,
+          expected_heads: [request.current_head_ref],
+          state_root_before: request.current_state_root,
+          state_root_after: `sha256:state-${nextSequence}`,
+          resulting_head: `agentgres://model-mounting/accepted-receipts/head/${nextSequence}`,
+          projection_watermark: `model-mounting-accepted-receipts:${nextSequence}`,
+          transition_hash: `sha256:transition-${nextSequence}`,
+          evidence_refs: ["rust_model_mount_accepted_receipt_transition"],
+        },
         operationId,
         operationRef: `agentgres://model-mounting/accepted-receipts/${operationId}`,
         expectedHeads: [request.current_head_ref],
@@ -195,7 +207,7 @@ function fakeState(overrides = {}) {
         agentgres_admission: {
           schema_version: "ioi.agentgres_admission.v1",
           operation_ref: request.result.agentgres_operation_refs[0],
-          expected_heads: request.expectedHeads,
+          expected_heads: request.acceptedReceiptTransition?.expected_heads ?? [],
           state_root_before: request.invocation.input.state_root_before,
           state_root_after: request.result.state_root_after,
           resulting_head: request.result.resulting_head,
@@ -595,7 +607,7 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(state.providerInvocationRequests[0].provider_execution_ref, "model_mount://provider_execution/1");
   assert.equal(state.providerInvocationRequests[0].execution_backend, "rust_model_mount_fixture");
   assert.equal(state.providerInvocationRequests[0].admitted_provider_execution.provider_execution_hash, "sha256:provider-execution-1");
-  assert.deepEqual(state.receiptBindingRequests[0].expectedHeads, [
+  assert.deepEqual(state.receiptBindingRequests[0].acceptedReceiptTransition.expected_heads, [
     "agentgres://model-mounting/accepted-receipts/head/0",
   ]);
   assert.deepEqual(result.receipt.details.model_mount_invocation_admission_receipt_refs, [
@@ -1605,7 +1617,9 @@ test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount Ste
   });
 
   assert.equal(request.receiptRef, "receipt://receipt.invoke");
-  assert.deepEqual(request.expectedHeads, ["agentgres://model-mounting/accepted-receipts/head/0"]);
+  assert.deepEqual(request.acceptedReceiptTransition.expected_heads, [
+    "agentgres://model-mounting/accepted-receipts/head/0",
+  ]);
   assert.equal(request.invocation.module_ref.kind, "model_mount");
   assert.equal(request.invocation.execution.backend, "model_mount");
   assert.equal(request.invocation.input.state_root_before, "sha256:state-0");

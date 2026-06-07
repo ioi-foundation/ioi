@@ -57,6 +57,18 @@ function fakeState() {
       return {
         source: "rust_model_mount_accepted_receipt_transition_command",
         backend: "rust_model_mount_accepted_receipt_transition",
+        transition: {
+          schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
+          operation_id: operationId,
+          operation_ref: `agentgres://model-mounting/accepted-receipts/${operationId}`,
+          expected_heads: [request.current_head_ref],
+          state_root_before: request.current_state_root,
+          state_root_after: `sha256:state-${nextSequence}`,
+          resulting_head: `agentgres://model-mounting/accepted-receipts/head/${nextSequence}`,
+          projection_watermark: `model-mounting-accepted-receipts:${nextSequence}`,
+          transition_hash: `sha256:transition-${nextSequence}`,
+          evidence_refs: ["rust_model_mount_accepted_receipt_transition"],
+        },
         operationId,
         operationRef: `agentgres://model-mounting/accepted-receipts/${operationId}`,
         expectedHeads: [request.current_head_ref],
@@ -97,7 +109,7 @@ function fakeState() {
         agentgres_admission: {
           schema_version: "ioi.agentgres_admission.v1",
           operation_ref: request.result.agentgres_operation_refs[0],
-          expected_heads: request.expectedHeads,
+          expected_heads: request.acceptedReceiptTransition?.expected_heads ?? [],
           state_root_before: request.invocation.input.state_root_before,
           state_root_after: request.result.state_root_after,
           resulting_head: request.result.resulting_head,
@@ -385,7 +397,7 @@ test("recordModelStreamCompleted emits stream receipt and finalizes conversation
   assert.equal(receipt.details.model_mount_agentgres_operation_ref, "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation_stream_completed");
   assert.equal(receipt.details.model_mount_step_module_invocation.input.state_root_before, "sha256:state-0");
   assert.equal(receipt.details.model_mount_step_module_result.resulting_head, "agentgres://model-mounting/accepted-receipts/head/1");
-  assert.deepEqual(state.receiptBindingRequests[0].expectedHeads, [
+  assert.deepEqual(state.receiptBindingRequests[0].acceptedReceiptTransition.expected_heads, [
     "agentgres://model-mounting/accepted-receipts/head/0",
   ]);
   assert.equal(invocation.conversationState.id, "resp_stream");
