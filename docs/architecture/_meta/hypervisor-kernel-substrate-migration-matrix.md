@@ -11295,6 +11295,9 @@ reconstruct the active seam without carrying every per-slice paragraph.
   missing operation kind, and mismatched operation kind errors expose canonical
   `agent_id`, `operation_kind`, and `expected_operation_kind` details without
   retired camelCase aliases.
+- Slice 571 retires agent/subagent persistence fail-closed detail aliases:
+  missing stable id errors now expose canonical `operation_kind` details without
+  the retired `operationKind` alias before Rust Agentgres state commits.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

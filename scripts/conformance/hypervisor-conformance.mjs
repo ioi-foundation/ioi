@@ -11839,10 +11839,21 @@ function runReceipts() {
       /agentCommitRequests\[0\]\.operation_kind/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
+      /details:\s*\{\s*operation_kind:\s*operationKind\s*\}/.test(threadPersistence) &&
+      /error\.details\.operation_kind,\s*"agent\.create"/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      !/details:\s*\{\s*operationKind\s*(?:,|:)/.test(threadPersistence) &&
       /thread persistence commits subagent records through Rust Agentgres/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
       /subagentCommitRequests\[0\]\.operation_kind/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /error\.details\.operation_kind,\s*"subagent\.spawn"/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ),
     [

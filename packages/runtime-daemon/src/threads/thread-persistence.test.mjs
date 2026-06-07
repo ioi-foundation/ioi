@@ -347,7 +347,13 @@ test("thread persistence rejects agent records without stable ids", () => {
       ...deps(store),
       runtimeError: ({ status, code, message, details }) => Object.assign(new Error(message), { status, code, details }),
     }),
-    (error) => error.status === 500 && error.code === "agent_id_required",
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "agent_id_required");
+      assert.equal(error.details.operation_kind, "agent.create");
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      return true;
+    },
   );
 });
 
@@ -385,7 +391,13 @@ test("thread persistence rejects subagent records without stable ids", () => {
       ...deps(store),
       runtimeError: ({ status, code, message, details }) => Object.assign(new Error(message), { status, code, details }),
     }),
-    (error) => error.status === 500 && error.code === "subagent_id_required",
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "subagent_id_required");
+      assert.equal(error.details.operation_kind, "subagent.spawn");
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      return true;
+    },
   );
 });
 

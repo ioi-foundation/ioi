@@ -329,7 +329,7 @@ export function writeAgentRecord(store, agent, operationKind, deps = {}) {
       status: 500,
       code: "agent_id_required",
       message: "Agent records require a stable id before persistence.",
-      details: { operationKind },
+      details: { operation_kind: operationKind },
     });
   }
   store.agents?.set?.(String(agentId), agent);
@@ -347,7 +347,7 @@ export function writeSubagentRecord(store, subagent, operationKind, deps = {}) {
       status: 500,
       code: "subagent_id_required",
       message: "Subagent records require a stable id before persistence.",
-      details: { operationKind },
+      details: { operation_kind: operationKind },
     });
   }
   store.subagents.set(String(subagentId), subagent);
