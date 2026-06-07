@@ -102,11 +102,11 @@ function rowForContribution({
   events: WorkflowRuntimeThreadEventLike[];
   subagents: Record<string, unknown>[];
 }): WorkflowWorkerContributionTraceRow {
-  const subagentId = stringField(contribution, "subagentId", "subagent_id");
-  const toolCallId = stringField(contribution, "toolCallId", "tool_call_id");
-  const requestedEventId = stringField(contribution, "eventId", "event_id");
+  const subagentId = stringField(contribution, "subagent_id");
+  const toolCallId = stringField(contribution, "tool_call_id");
+  const requestedEventId = stringField(contribution, "event_id");
   const worker = subagents.find((candidate) =>
-    stringField(candidate, "subagentId", "subagent_id") === subagentId,
+    stringField(candidate, "subagent_id") === subagentId,
   );
   const event = events.find((candidate) =>
     (requestedEventId && eventId(candidate) === requestedEventId) ||
@@ -124,29 +124,29 @@ function rowForContribution({
   const status =
     !worker ? "needs_worker" : !event ? "needs_event" : receiptRefs.length === 0 ? "needs_receipt" : "ready";
   const filePath =
-    stringField(contribution, "filePath", "file_path", "hunkFile", "hunk_file") ??
+    stringField(contribution, "file_path", "hunk_file") ??
     firstString(arrayField(objectField(result, "result"), "changed_files").map((file) => stringField(file, "path"))) ??
     firstString(arrayField(result, "changed_files").map((file) => stringField(file, "path")));
   return {
-    id: `worker-contribution-${safeId(stringField(contribution, "contributionId", "contribution_id") ?? String(index))}`,
+    id: `worker-contribution-${safeId(stringField(contribution, "contribution_id") ?? String(index))}`,
     status,
-    contributionId: stringField(contribution, "contributionId", "contribution_id") ?? `contribution-${index}`,
+    contributionId: stringField(contribution, "contribution_id") ?? `contribution-${index}`,
     subagentId,
     role: stringField(worker, "role"),
-    childThreadId: stringField(worker, "childThreadId", "child_thread_id"),
-    parentThreadId: stringField(worker, "parentThreadId", "parent_thread_id"),
-    mergePolicy: stringField(worker, "mergePolicy", "merge_policy"),
-    outputContractStatus: stringField(worker, "outputContractStatus", "output_contract_status"),
+    childThreadId: stringField(worker, "child_thread_id"),
+    parentThreadId: stringField(worker, "parent_thread_id"),
+    mergePolicy: stringField(worker, "merge_policy"),
+    outputContractStatus: stringField(worker, "output_contract_status"),
     toolCallId,
     eventId: eventId(event),
     eventSeq: eventSeq(event),
     workflowGraphId: stringField(event, "workflow_graph_id"),
     workflowNodeId: stringField(event, "workflow_node_id"),
     filePath,
-    hunkIndex: numberField(contribution, "hunkIndex", "hunk_index"),
-    hunkHeader: stringField(contribution, "hunkHeader", "hunk_header"),
+    hunkIndex: numberField(contribution, "hunk_index"),
+    hunkHeader: stringField(contribution, "hunk_header"),
     editCount:
-      numberField(contribution, "editCount", "edit_count") ??
+      numberField(contribution, "edit_count") ??
       numberField(objectField(result, "result"), "edit_count") ??
       numberField(result, "edit_count"),
     snapshotId,
@@ -158,7 +158,7 @@ function rowForContribution({
     rollbackRefs: uniqueStrings(arrayField(event, "rollback_refs")),
     evidenceRefs: uniqueStrings([
       subagentId,
-      stringField(worker, "childThreadId", "child_thread_id"),
+      stringField(worker, "child_thread_id"),
       eventId(event),
       snapshotId,
       ...receiptRefs,

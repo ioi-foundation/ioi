@@ -22482,7 +22482,11 @@ function runCompositor() {
   assertCheck(
     result,
     "ide-worker-contribution-evidence-aliases-retired",
-    /stringField\(candidate,\s*"tool_call_id"\)/.test(agentIdeWorkerContributionTrace) &&
+    /stringField\(contribution,\s*"subagent_id"\)/.test(agentIdeWorkerContributionTrace) &&
+      /stringField\(contribution,\s*"tool_call_id"\)/.test(agentIdeWorkerContributionTrace) &&
+      /stringField\(contribution,\s*"event_id"\)/.test(agentIdeWorkerContributionTrace) &&
+      /stringField\(candidate,\s*"subagent_id"\)/.test(agentIdeWorkerContributionTrace) &&
+      /stringField\(candidate,\s*"tool_call_id"\)/.test(agentIdeWorkerContributionTrace) &&
       /stringField\(event,\s*"workflow_graph_id"\)/.test(agentIdeWorkerContributionTrace) &&
       /stringField\(event,\s*"workflow_node_id"\)/.test(agentIdeWorkerContributionTrace) &&
       /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeWorkerContributionTrace) &&
@@ -22493,6 +22497,21 @@ function runCompositor() {
       ) &&
       /arrayField\(event,\s*"rollback_refs"\)/.test(agentIdeWorkerContributionTrace) &&
       /arrayField\(event,\s*"artifact_refs"\)/.test(agentIdeWorkerContributionTrace) &&
+      /stringField\(contribution,\s*"file_path",\s*"hunk_file"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      /stringField\(contribution,\s*"contribution_id"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      /stringField\(worker,\s*"child_thread_id"\)/.test(agentIdeWorkerContributionTrace) &&
+      /stringField\(worker,\s*"parent_thread_id"\)/.test(agentIdeWorkerContributionTrace) &&
+      /stringField\(worker,\s*"merge_policy"\)/.test(agentIdeWorkerContributionTrace) &&
+      /stringField\(worker,\s*"output_contract_status"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      /numberField\(contribution,\s*"hunk_index"\)/.test(agentIdeWorkerContributionTrace) &&
+      /stringField\(contribution,\s*"hunk_header"\)/.test(agentIdeWorkerContributionTrace) &&
+      /numberField\(contribution,\s*"edit_count"\)/.test(agentIdeWorkerContributionTrace) &&
       /stringField\(result,\s*"workspace_snapshot_id"\)/.test(agentIdeWorkerContributionTrace) &&
       /arrayField\(objectField\(result,\s*"result"\),\s*"changed_files"\)/.test(
         agentIdeWorkerContributionTrace,
@@ -22502,6 +22521,18 @@ function runCompositor() {
         agentIdeWorkerContributionTrace,
       ) &&
       /numberField\(result,\s*"edit_count"\)/.test(agentIdeWorkerContributionTrace) &&
+      !/stringField\(contribution,\s*"subagentId",\s*"subagent_id"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/stringField\(contribution,\s*"toolCallId",\s*"tool_call_id"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/stringField\(contribution,\s*"eventId",\s*"event_id"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/stringField\(candidate,\s*"subagentId",\s*"subagent_id"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
       !/stringField\(candidate,\s*"toolCallId",\s*"tool_call_id"\)/.test(
         agentIdeWorkerContributionTrace,
       ) &&
@@ -22529,6 +22560,33 @@ function runCompositor() {
       !/arrayField\(event,\s*"artifactRefs",\s*"artifact_refs"\)/.test(
         agentIdeWorkerContributionTrace,
       ) &&
+      !/stringField\(contribution,\s*"filePath",\s*"file_path",\s*"hunkFile",\s*"hunk_file"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/stringField\(contribution,\s*"contributionId",\s*"contribution_id"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/stringField\(worker,\s*"childThreadId",\s*"child_thread_id"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/stringField\(worker,\s*"parentThreadId",\s*"parent_thread_id"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/stringField\(worker,\s*"mergePolicy",\s*"merge_policy"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/stringField\(worker,\s*"outputContractStatus",\s*"output_contract_status"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/numberField\(contribution,\s*"hunkIndex",\s*"hunk_index"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/stringField\(contribution,\s*"hunkHeader",\s*"hunk_header"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/numberField\(contribution,\s*"editCount",\s*"edit_count"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
       !/stringField\(result,\s*"workspaceSnapshotId",\s*"workspace_snapshot_id"\)/.test(
         agentIdeWorkerContributionTrace,
       ) &&
@@ -22550,7 +22608,24 @@ function runCompositor() {
       /worker contribution trace ignores retired event identity aliases/.test(
         agentIdeWorkerContributionTraceTest,
       ) &&
+      /worker contribution trace reads canonical request and worker fields/.test(
+        agentIdeWorkerContributionTraceTest,
+      ) &&
+      /worker contribution trace ignores retired request aliases/.test(
+        agentIdeWorkerContributionTraceTest,
+      ) &&
+      /worker contribution trace ignores retired worker object aliases/.test(
+        agentIdeWorkerContributionTraceTest,
+      ) &&
       /worker contribution trace ignores retired result payload aliases/.test(
+        agentIdeWorkerContributionTraceTest,
+      ) &&
+      /subagentId: "subagent-canonical"/.test(agentIdeWorkerContributionTraceTest) &&
+      /childThreadId: "thread-child-retired"/.test(agentIdeWorkerContributionTraceTest) &&
+      /assert\.equal\(trace\.rows\[0\]\?\.subagentId,\s*null\)/.test(
+        agentIdeWorkerContributionTraceTest,
+      ) &&
+      /assert\.equal\(trace\.rows\[0\]\?\.childThreadId,\s*null\)/.test(
         agentIdeWorkerContributionTraceTest,
       ) &&
       /workspaceSnapshotId: "snapshot-retired-result"/.test(

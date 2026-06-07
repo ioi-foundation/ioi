@@ -86,6 +86,43 @@ test("worker contribution trace reads canonical evidence refs", () => {
   assert.ok(trace.evidenceRefs.includes("artifact-event-canonical"));
 });
 
+test("worker contribution trace reads canonical request and worker fields", () => {
+  const trace = buildWorkflowWorkerContributionTrace({
+    events: [
+      event("tool-request-canonical", 1, {
+        tool_call_id: "tool-call-request-canonical",
+        receipt_refs: ["receipt-event-request-canonical"],
+      }),
+    ],
+    subagents: [subagent],
+    contributions: [
+      {
+        contribution_id: "contribution-request-canonical",
+        subagent_id: "subagent-canonical",
+        tool_call_id: "tool-call-request-canonical",
+        file_path: "canonical-request.txt",
+        hunk_index: 2,
+        hunk_header: "@@ canonical",
+        edit_count: 3,
+      },
+    ],
+  });
+
+  assert.equal(trace.status, "ready");
+  assert.equal(trace.rows[0]?.contributionId, "contribution-request-canonical");
+  assert.equal(trace.rows[0]?.subagentId, "subagent-canonical");
+  assert.equal(trace.rows[0]?.toolCallId, "tool-call-request-canonical");
+  assert.equal(trace.rows[0]?.childThreadId, "thread-child");
+  assert.equal(trace.rows[0]?.parentThreadId, "thread-parent");
+  assert.equal(trace.rows[0]?.mergePolicy, "manual_review");
+  assert.equal(trace.rows[0]?.outputContractStatus, "satisfied");
+  assert.equal(trace.rows[0]?.filePath, "canonical-request.txt");
+  assert.equal(trace.rows[0]?.hunkIndex, 2);
+  assert.equal(trace.rows[0]?.hunkHeader, "@@ canonical");
+  assert.equal(trace.rows[0]?.editCount, 3);
+  assert.ok(trace.evidenceRefs.includes("thread-child"));
+});
+
 test("worker contribution trace reads canonical event identity fields", () => {
   const trace = buildWorkflowWorkerContributionTrace({
     events: [
@@ -191,6 +228,77 @@ test("worker contribution trace ignores retired evidence aliases", () => {
   assert.deepEqual(trace.rows[0]?.policyDecisionRefs, []);
   assert.deepEqual(trace.rows[0]?.rollbackRefs, []);
   assert.ok(!trace.evidenceRefs.includes("artifact-event-retired"));
+});
+
+test("worker contribution trace ignores retired request aliases", () => {
+  const trace = buildWorkflowWorkerContributionTrace({
+    events: [
+      event("tool-retired-request", 1, {
+        tool_call_id: "tool-call-retired-request",
+        receipt_refs: ["receipt-event-retired-request"],
+      }),
+    ],
+    subagents: [subagent],
+    contributions: [
+      {
+        contributionId: "contribution-retired-request",
+        subagentId: "subagent-canonical",
+        toolCallId: "tool-call-retired-request",
+        eventId: "tool-retired-request",
+        filePath: "retired-file-path.txt",
+        hunkFile: "retired-hunk-file.txt",
+        hunkIndex: 4,
+        hunkHeader: "@@ retired",
+        editCount: 6,
+      },
+    ],
+  });
+
+  assert.equal(trace.status, "blocked");
+  assert.equal(trace.rows[0]?.status, "needs_worker");
+  assert.equal(trace.rows[0]?.contributionId, "contribution-0");
+  assert.equal(trace.rows[0]?.subagentId, null);
+  assert.equal(trace.rows[0]?.toolCallId, null);
+  assert.equal(trace.rows[0]?.eventId, null);
+  assert.equal(trace.rows[0]?.filePath, null);
+  assert.equal(trace.rows[0]?.hunkIndex, null);
+  assert.equal(trace.rows[0]?.hunkHeader, null);
+  assert.equal(trace.rows[0]?.editCount, null);
+});
+
+test("worker contribution trace ignores retired worker object aliases", () => {
+  const trace = buildWorkflowWorkerContributionTrace({
+    events: [
+      event("tool-retired-worker", 1, {
+        tool_call_id: "tool-call-retired-worker",
+        receipt_refs: ["receipt-event-retired-worker"],
+      }),
+    ],
+    subagents: [
+      {
+        subagent_id: "subagent-canonical",
+        childThreadId: "thread-child-retired",
+        parentThreadId: "thread-parent-retired",
+        mergePolicy: "manual_review",
+        outputContractStatus: "satisfied",
+      },
+    ],
+    contributions: [
+      {
+        contribution_id: "contribution-retired-worker",
+        subagent_id: "subagent-canonical",
+        tool_call_id: "tool-call-retired-worker",
+      },
+    ],
+  });
+
+  assert.equal(trace.status, "ready");
+  assert.equal(trace.rows[0]?.status, "ready");
+  assert.equal(trace.rows[0]?.childThreadId, null);
+  assert.equal(trace.rows[0]?.parentThreadId, null);
+  assert.equal(trace.rows[0]?.mergePolicy, null);
+  assert.equal(trace.rows[0]?.outputContractStatus, null);
+  assert.ok(!trace.evidenceRefs.includes("thread-child-retired"));
 });
 
 test("worker contribution trace ignores retired result payload aliases", () => {
