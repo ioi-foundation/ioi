@@ -58,23 +58,23 @@ export function buildWorkflowReceiptGatePanel(
 function gateRow(value: unknown): WorkflowReceiptGatePanelRow | null {
   const gate = objectValue(value);
   if (!gate) return null;
-  const gateReceipt = objectField(gate, "gateReceipt", "gate_receipt");
+  const gateReceipt = objectField(gate, "gate_receipt");
   const blocked = objectField(gate, "blocked");
   const blockedDetails = objectField(blocked, "details");
   const sourceReceipt = objectField(gate, "receipt");
   const receiptDetails = objectField(sourceReceipt, "details");
-  const blockedReceipt = objectField(gate, "blockedReceipt", "blocked_receipt");
+  const blockedReceipt = objectField(gate, "blocked_receipt");
   const blockedReceiptDetails = objectField(blockedReceipt, "details");
   const passed = stringField(gate, "status") === "passed" || Boolean(gateReceipt.id);
   const receiptId =
-    stringField(gate, "receiptId", "receipt_id") ??
-    stringField(receiptDetails, "receiptId", "receipt_id") ??
-    stringField(blockedDetails, "receiptId", "receipt_id") ??
-    stringField(blockedReceiptDetails, "receiptId", "receipt_id") ??
+    stringField(gate, "receipt_id") ??
+    stringField(receiptDetails, "receipt_id") ??
+    stringField(blockedDetails, "receipt_id") ??
+    stringField(blockedReceiptDetails, "receipt_id") ??
     stringField(sourceReceipt, "id");
   const gateReceiptId =
     stringField(gateReceipt, "id") ??
-    stringField(blockedDetails, "gateReceiptId", "gate_receipt_id") ??
+    stringField(blockedDetails, "gate_receipt_id") ??
     stringField(blockedReceipt, "id");
   const failures = uniqueStrings([
     ...arrayField(blockedDetails, "failures"),
@@ -89,28 +89,28 @@ function gateRow(value: unknown): WorkflowReceiptGatePanelRow | null {
     receiptId,
     gateReceiptId,
     routeId:
-      stringField(details, "routeId", "route_id") ??
-      stringField(receiptDetails, "routeId", "route_id") ??
+      stringField(details, "route_id") ??
+      stringField(receiptDetails, "route_id") ??
       routeFailureValue(failures),
     selectedModel:
-      stringField(details, "selectedModel", "selected_model") ??
-      stringField(receiptDetails, "selectedModel", "selected_model"),
+      stringField(details, "selected_model") ??
+      stringField(receiptDetails, "selected_model"),
     endpointId:
-      stringField(details, "endpointId", "endpoint_id") ??
-      stringField(receiptDetails, "endpointId", "endpoint_id"),
+      stringField(details, "endpoint_id") ??
+      stringField(receiptDetails, "endpoint_id"),
     backendId:
-      stringField(details, "backendId", "backend_id", "selectedBackend", "selected_backend") ??
-      stringField(receiptDetails, "backendId", "backend_id", "selectedBackend", "selected_backend"),
+      stringField(details, "backend_id", "selected_backend") ??
+      stringField(receiptDetails, "backend_id", "selected_backend"),
     requiredToolReceiptIds: uniqueStrings([
-      ...arrayField(details, "requiredToolReceiptIds", "required_tool_receipt_ids"),
-      ...arrayField(receiptDetails, "toolReceiptIds", "tool_receipt_ids"),
+      ...arrayField(details, "required_tool_receipt_ids"),
+      ...arrayField(receiptDetails, "tool_receipt_ids"),
     ]),
     failures,
     evidenceRefs: uniqueStrings([
       receiptId,
       gateReceiptId,
-      ...arrayField(gateReceipt, "evidenceRefs", "evidence_refs"),
-      ...arrayField(blockedReceipt, "evidenceRefs", "evidence_refs"),
+      ...arrayField(gateReceipt, "evidence_refs"),
+      ...arrayField(blockedReceipt, "evidence_refs"),
     ]),
   };
 }

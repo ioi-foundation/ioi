@@ -14191,6 +14191,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.test.ts")
     : "";
+  const agentIdeReceiptGatePanel = exists(
+    "packages/agent-ide/src/runtime/workflow-receipt-gate-panel.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-receipt-gate-panel.ts")
+    : "";
+  const agentIdeReceiptGatePanelTest = exists(
+    "packages/agent-ide/src/runtime/workflow-receipt-gate-panel.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-receipt-gate-panel.test.ts")
+    : "";
   const agentIdeRuntimeEventProjection = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
   )
@@ -22711,6 +22721,79 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.test.ts",
     ],
     "Phase 10/11 is pending: IDE worker contribution trace must ignore retired camelCase event identity and evidence aliases",
+  );
+  assertCheck(
+    result,
+    "ide-receipt-gate-panel-aliases-retired",
+    /objectField\(gate,\s*"gate_receipt"\)/.test(agentIdeReceiptGatePanel) &&
+      /objectField\(gate,\s*"blocked_receipt"\)/.test(agentIdeReceiptGatePanel) &&
+      /stringField\(gate,\s*"receipt_id"\)/.test(agentIdeReceiptGatePanel) &&
+      /stringField\(receiptDetails,\s*"receipt_id"\)/.test(agentIdeReceiptGatePanel) &&
+      /stringField\(blockedDetails,\s*"gate_receipt_id"\)/.test(
+        agentIdeReceiptGatePanel,
+      ) &&
+      /stringField\(details,\s*"route_id"\)/.test(agentIdeReceiptGatePanel) &&
+      /stringField\(details,\s*"selected_model"\)/.test(agentIdeReceiptGatePanel) &&
+      /stringField\(details,\s*"endpoint_id"\)/.test(agentIdeReceiptGatePanel) &&
+      /stringField\(details,\s*"backend_id",\s*"selected_backend"\)/.test(
+        agentIdeReceiptGatePanel,
+      ) &&
+      /arrayField\(details,\s*"required_tool_receipt_ids"\)/.test(
+        agentIdeReceiptGatePanel,
+      ) &&
+      /arrayField\(receiptDetails,\s*"tool_receipt_ids"\)/.test(
+        agentIdeReceiptGatePanel,
+      ) &&
+      /arrayField\(gateReceipt,\s*"evidence_refs"\)/.test(agentIdeReceiptGatePanel) &&
+      /arrayField\(blockedReceipt,\s*"evidence_refs"\)/.test(
+        agentIdeReceiptGatePanel,
+      ) &&
+      !/objectField\(gate,\s*"gateReceipt",\s*"gate_receipt"\)/.test(
+        agentIdeReceiptGatePanel,
+      ) &&
+      !/objectField\(gate,\s*"blockedReceipt",\s*"blocked_receipt"\)/.test(
+        agentIdeReceiptGatePanel,
+      ) &&
+      !/stringField\((?:gate|receiptDetails|blockedDetails|blockedReceiptDetails),[^)]*"receiptId"[^)]*\)/.test(
+        agentIdeReceiptGatePanel,
+      ) &&
+      !/stringField\(blockedDetails,[^)]*"gateReceiptId"[^)]*\)/.test(
+        agentIdeReceiptGatePanel,
+      ) &&
+      !/stringField\((?:details|receiptDetails),[^)]*"(?:routeId|selectedModel|endpointId|backendId|selectedBackend)"[^)]*\)/.test(
+        agentIdeReceiptGatePanel,
+      ) &&
+      !/arrayField\(details,[^)]*"requiredToolReceiptIds"[^)]*\)/.test(
+        agentIdeReceiptGatePanel,
+      ) &&
+      !/arrayField\(receiptDetails,[^)]*"toolReceiptIds"[^)]*\)/.test(
+        agentIdeReceiptGatePanel,
+      ) &&
+      !/arrayField\((?:gateReceipt|blockedReceipt),[^)]*"evidenceRefs"[^)]*\)/.test(
+        agentIdeReceiptGatePanel,
+      ) &&
+      /receipt gate panel reads canonical receipt and route details/.test(
+        agentIdeReceiptGatePanelTest,
+      ) &&
+      /receipt gate panel ignores retired receipt and route detail aliases/.test(
+        agentIdeReceiptGatePanelTest,
+      ) &&
+      /receiptId: "receipt-retired"/.test(agentIdeReceiptGatePanelTest) &&
+      /gateReceipt: \{/.test(agentIdeReceiptGatePanelTest) &&
+      /requiredToolReceiptIds: \["tool-receipt-gate-retired"\]/.test(
+        agentIdeReceiptGatePanelTest,
+      ) &&
+      /assert\.equal\(panel\.rows\[0\]\?\.receiptId,\s*null\)/.test(
+        agentIdeReceiptGatePanelTest,
+      ) &&
+      /assert\.deepEqual\(panel\.rows\[0\]\?\.requiredToolReceiptIds,\s*\[\]\)/.test(
+        agentIdeReceiptGatePanelTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-receipt-gate-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-receipt-gate-panel.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE receipt gate panel must ignore retired camelCase receipt, route, backend, tool-receipt, and evidence aliases",
   );
   assertCheck(
     result,
