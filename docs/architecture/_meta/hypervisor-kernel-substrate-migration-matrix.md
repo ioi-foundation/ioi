@@ -13215,6 +13215,12 @@ request shape before daemon run persistence; the product/API turn projection can
 remain stable while the Rust-planned state-update boundary stops carrying a
 parallel JS-era request ABI.
 
+Slice 504 retires runtime-bridge turn result aliases:
+runtime-bridge turn normalization now consumes canonical bridge result
+`turn_id`, `run_id`, `created_at`, `updated_at`, and `stop_reason` fields only;
+retired `turnId`, `runId`, `createdAt`, `updatedAt`, and `stopReason` inputs can
+no longer steer the daemon projection before Rust-planned run persistence.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

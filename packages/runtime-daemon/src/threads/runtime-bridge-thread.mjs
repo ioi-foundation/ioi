@@ -340,7 +340,7 @@ export function normalizeRuntimeBridgeTurnSubmit({ bridgeResult, agent, threadId
     runtimeError,
     runtimeSessionIdForAgent,
   } = deps;
-  const turnId = String(bridgeResult?.turn_id ?? bridgeResult?.turnId ?? "").trim();
+  const turnId = String(bridgeResult?.turn_id ?? "").trim();
   if (!turnId || !turnId.startsWith("turn_")) {
     throw runtimeError({
       status: 502,
@@ -349,7 +349,7 @@ export function normalizeRuntimeBridgeTurnSubmit({ bridgeResult, agent, threadId
       details: { runtimeProfile: agent.runtimeProfile, operation: "submit_turn" },
     });
   }
-  const runId = String(bridgeResult?.run_id ?? bridgeResult?.runId ?? runIdForTurn(turnId)).trim();
+  const runId = String(bridgeResult?.run_id ?? runIdForTurn(turnId)).trim();
   const events = normalizeArray(bridgeResult?.events);
   const hasTurnStarted = events.some((event) => event?.event_kind === "turn.started");
   if (!hasTurnStarted) {
@@ -366,11 +366,11 @@ export function normalizeRuntimeBridgeTurnSubmit({ bridgeResult, agent, threadId
     turnId,
     status: bridgeResult?.status ?? "completed",
     result: bridgeResult?.result ?? "",
-    createdAt: bridgeResult?.created_at ?? bridgeResult?.createdAt ?? now,
-    updatedAt: bridgeResult?.updated_at ?? bridgeResult?.updatedAt ?? now,
+    createdAt: bridgeResult?.created_at ?? now,
+    updatedAt: bridgeResult?.updated_at ?? now,
     mode: request.mode ?? "send",
     prompt: request.prompt ?? request.message ?? request.input ?? "",
-    stopReason: bridgeResult?.stop_reason ?? bridgeResult?.stopReason ?? "runtime_bridge_completed",
+    stopReason: bridgeResult?.stop_reason ?? "runtime_bridge_completed",
     usage:
       bridgeResult?.usage_telemetry ??
       bridgeResult?.usage ??

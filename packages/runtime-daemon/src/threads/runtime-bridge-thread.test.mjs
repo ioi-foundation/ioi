@@ -627,10 +627,42 @@ test("runtime bridge turn submit normalization ignores retired usage aliases", (
   assert.equal(projection.usage, null);
 });
 
+test("runtime bridge turn submit normalization ignores retired result aliases", () => {
+  const projection = normalizeRuntimeBridgeTurnSubmit({
+    bridgeResult: {
+      turn_id: "turn_runtime",
+      run_id: "run_runtime",
+      created_at: "2026-06-06T06:34:00.000Z",
+      updated_at: "2026-06-06T06:35:00.000Z",
+      stop_reason: "canonical_stop",
+      turnId: "turn_retired",
+      runId: "run_retired",
+      createdAt: "1999-01-01T00:00:00.000Z",
+      updatedAt: "1999-01-01T00:00:01.000Z",
+      stopReason: "retired_stop",
+      events: [{ event_kind: "turn.started" }],
+    },
+    agent: {
+      id: "agent_runtime",
+      cwd: "/workspace",
+      runtimeProfile: "runtime_service",
+      runtimeSessionId: "session_runtime",
+    },
+    threadId: "thread_agent_runtime",
+    request: { mode: "send", prompt: "hello" },
+  }, deps());
+
+  assert.equal(projection.turnId, "turn_runtime");
+  assert.equal(projection.runId, "run_runtime");
+  assert.equal(projection.createdAt, "2026-06-06T06:34:00.000Z");
+  assert.equal(projection.updatedAt, "2026-06-06T06:35:00.000Z");
+  assert.equal(projection.stopReason, "canonical_stop");
+});
+
 test("runtime bridge turn submit normalization rejects missing turn id", () => {
   assert.throws(
     () => normalizeRuntimeBridgeTurnSubmit({
-      bridgeResult: { events: [{ event_kind: "turn.started" }] },
+      bridgeResult: { turnId: "turn_retired", events: [{ event_kind: "turn.started" }] },
       agent: { id: "agent_runtime", cwd: "/workspace", runtimeProfile: "runtime_service" },
       threadId: "thread_agent_runtime",
       request: {},
