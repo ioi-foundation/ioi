@@ -11473,6 +11473,12 @@ receipt-first tool timeline rows now read canonical event `thread_id`,
 aliases cannot create receipt-first rows or bind tool receipts to old workflow
 identity.
 
+Slice 548 retires IDE delegation-matrix event identity aliases: delegation
+matrix rows now read canonical event `thread_id`, `workflow_graph_id`, and
+`workflow_node_id` fields only, so retired camelCase event identity aliases
+cannot bind delegation or subagent memory rows to old thread or workflow
+identity.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

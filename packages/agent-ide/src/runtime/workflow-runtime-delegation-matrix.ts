@@ -277,15 +277,15 @@ function eventSeq(event: RuntimeEventInput): number {
 }
 
 function eventThreadId(event: RuntimeEventInput): string | null {
-  return stringField(event, "threadId", "thread_id");
+  return stringField(event, "thread_id");
 }
 
 function eventWorkflowGraphId(event: RuntimeEventInput): string | null {
-  return stringField(event, "workflowGraphId", "workflow_graph_id");
+  return stringField(event, "workflow_graph_id");
 }
 
 function eventWorkflowNodeId(event: RuntimeEventInput): string | null {
-  return stringField(event, "workflowNodeId", "workflow_node_id");
+  return stringField(event, "workflow_node_id");
 }
 
 function cleanString(value: unknown): string | null {

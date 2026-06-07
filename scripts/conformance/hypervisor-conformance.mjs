@@ -19877,15 +19877,33 @@ function runCompositor() {
   assertCheck(
     result,
     "ide-delegation-matrix-evidence-aliases-retired",
-    /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeDelegationMatrix) &&
+    /stringField\(event,\s*"thread_id"\)/.test(agentIdeDelegationMatrix) &&
+      /stringField\(event,\s*"workflow_graph_id"\)/.test(agentIdeDelegationMatrix) &&
+      /stringField\(event,\s*"workflow_node_id"\)/.test(agentIdeDelegationMatrix) &&
+      /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeDelegationMatrix) &&
       /arrayField\(payload,\s*"receipt_refs"\)/.test(agentIdeDelegationMatrix) &&
       /arrayField\(payload,\s*"source_receipt_refs"\)/.test(agentIdeDelegationMatrix) &&
       /arrayField\(event,\s*"policy_decision_refs"\)/.test(agentIdeDelegationMatrix) &&
       /arrayField\(payload,\s*"policy_decision_refs"\)/.test(agentIdeDelegationMatrix) &&
       /arrayField\(payload,\s*"source_policy_decision_refs"\)/.test(agentIdeDelegationMatrix) &&
+      !/stringField\(event,\s*"threadId",\s*"thread_id"\)/.test(agentIdeDelegationMatrix) &&
+      !/stringField\(event,\s*"workflowGraphId",\s*"workflow_graph_id"\)/.test(
+        agentIdeDelegationMatrix,
+      ) &&
+      !/stringField\(event,\s*"workflowNodeId",\s*"workflow_node_id"\)/.test(
+        agentIdeDelegationMatrix,
+      ) &&
       !/arrayField\(event,\s*"receiptRefs",\s*"receipt_refs"\)/.test(agentIdeDelegationMatrix) &&
       !/arrayField\(event,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
         agentIdeDelegationMatrix,
+      ) &&
+      /delegation matrix ignores retired event identity aliases/.test(
+        agentIdeDelegationMatrixTest,
+      ) &&
+      /threadId: "thread-retired-event"/.test(agentIdeDelegationMatrixTest) &&
+      /workflowGraphId: "workflow-retired-event"/.test(agentIdeDelegationMatrixTest) &&
+      /assert\.equal\(matrix\.rows\[0\]\?\.workflowNodeId,\s*null\)/.test(
+        agentIdeDelegationMatrixTest,
       ) &&
       /delegation matrix ignores retired event evidence aliases/.test(
         agentIdeDelegationMatrixTest,
@@ -19900,7 +19918,7 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
       "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.test.ts",
     ],
-    "Phase 10/11 is pending: IDE delegation matrix must ignore retired camelCase event evidence aliases",
+    "Phase 10/11 is pending: IDE delegation matrix must ignore retired camelCase event identity and evidence aliases",
   );
   assertCheck(
     result,
