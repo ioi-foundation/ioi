@@ -41,6 +41,7 @@ test("runtime MCP helpers resolve servers and tools by stable identities", () =>
 
   assert.equal(resolveMcpServerRecord(servers, "docs").id, "mcp.workspace.docs");
   assert.equal(resolveMcpServerRecord(servers, "mcp.workspace.docs").label, "Docs");
+  assert.equal(resolveMcpServerRecord([{ serverId: "mcp.retired.docs" }], "mcp.retired.docs"), null);
 
   const byStableId = resolveMcpToolRecord(servers, "mcp.workspace.docs.search");
   assert.equal(byStableId.server.id, "mcp.workspace.docs");

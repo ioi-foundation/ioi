@@ -13042,6 +13042,12 @@ daemon agent creation now derives initial thread runtime controls from canonical
 `mode`/`approvalMode` and model-routing camelCase aliases no longer steer the
 Rust-planned `agent.create` record before Agentgres admission.
 
+Slice 480 retires MCP server identity record aliases:
+MCP server lookup no longer treats persisted or adapter `serverId` camelCase
+records as canonical server identities; only canonical `id`, `label`, `name`,
+and `server_id` participate in server resolution before MCP catalog/control
+facade routing.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

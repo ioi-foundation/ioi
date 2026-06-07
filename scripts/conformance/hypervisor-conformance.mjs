@@ -17487,9 +17487,13 @@ function runCompositor() {
       /configSource: "retired-camel-source"/.test(runtimeMcpHelpersTest) &&
       /configSourceMode: "workspace"/.test(runtimeMcpHelpersTest) &&
       /mcpConfigSourceMode: "global"/.test(runtimeMcpHelpersTest) &&
+      /resolveMcpServerRecord\(\[\{ serverId: "mcp\.retired\.docs" \}\],\s*"mcp\.retired\.docs"\),\s*null/.test(
+        runtimeMcpHelpersTest,
+      ) &&
       !/request\.(?:configSource|mcpConfigSourceMode|configSourceMode)\b/.test(
         runtimeMcpHelpers,
       ) &&
+      !/server\.serverId\b/.test(runtimeMcpHelpers) &&
       !/options\.(?:mcpConfigSourceMode|configSourceMode)\b/.test(runtimeMcpManager) &&
       !/^\s*(?:threadId|agentId|serverId)\?:/m.test(runtimeMcpSdkListOptionsBlock) &&
       !/^\s*\[key: string\]: unknown;/m.test(runtimeMcpSdkListOptionsBlock),

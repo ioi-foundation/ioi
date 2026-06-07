@@ -59,7 +59,6 @@ export function resolveMcpServerRecord(servers = [], requestedId) {
       server.label,
       server.name,
       server.server_id,
-      server.serverId,
     ]
       .map((value) => optionalString(value)?.toLowerCase())
       .filter(Boolean);
