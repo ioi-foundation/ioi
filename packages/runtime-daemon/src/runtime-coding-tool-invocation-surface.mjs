@@ -214,23 +214,23 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     let workspaceSnapshotEvent = null;
     let stepModuleProjection = null;
     let stepModuleError = null;
-    const stepModuleContext = ({ status, receiptRefs, artifactRefs, workflowProjectionStatus }) => ({
-      runId: `run:${threadId}`,
-      taskId: `task:${turnId || threadId}`,
-      threadId,
-      workflowGraphId,
-      workflowNodeId,
-      actionProposalRef: `action:coding-tool:${toolCallId}`,
-      gateResultRef: approvalSatisfaction?.approval_id
+    const stepModuleContext = ({ status, receipt_refs, artifact_refs, workflow_projection_status }) => ({
+      run_id: `run:${threadId}`,
+      task_id: `task:${turnId || threadId}`,
+      thread_id: threadId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      action_proposal_ref: `action:coding-tool:${toolCallId}`,
+      gate_result_ref: approvalSatisfaction?.approval_id
         ? `gate:${approvalSatisfaction.approval_id}`
         : `gate:coding-tool:${toolCallId}`,
-      approvalRef: approvalSatisfaction?.approval_id ?? null,
-      idempotencyKey: codingToolIdempotencyKey,
+      approval_ref: approvalSatisfaction?.approval_id ?? null,
+      idempotency_key: codingToolIdempotencyKey,
       status: status === "failed" ? "failure" : "success",
-      workflowProjectionStatus,
-      receiptRefs,
-      artifactRefs,
-      workspaceRoot: agent.cwd,
+      workflow_projection_status,
+      receipt_refs,
+      artifact_refs,
+      workspace_root: agent.cwd,
     });
     try {
       const rustLiveInput = rustLiveInputForCodingTool(store, threadId, normalizedToolId, input);
@@ -241,9 +241,9 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
         result: {},
         context: stepModuleContext({
           status,
-          receiptRefs,
-          artifactRefs,
-          workflowProjectionStatus: "live",
+          receipt_refs: receiptRefs,
+          artifact_refs: artifactRefs,
+          workflow_projection_status: "live",
         }),
       });
       receiptRefs.push(

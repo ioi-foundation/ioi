@@ -765,6 +765,8 @@ function runBridge() {
   const runtimeCodingToolInvocationSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     : "";
+  const codingToolStepModuleContextBlock =
+    runtimeCodingToolInvocationSurface.match(/const stepModuleContext = \([\s\S]*?\n\s*\}\);/)?.[0] ?? "";
   const runtimeCodingToolArtifactSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
     : "";
@@ -1822,10 +1824,21 @@ function runBridge() {
       /idempotency_key: "coding_tool_idempotency_canonical"/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
-      /runnerCalls\[0\]\.context\.workflowGraphId, null/.test(
+      /runnerCalls\[0\]\.context\.workflow_graph_id, null/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
-      /runnerCalls\[0\]\.context\.workflowNodeId, "runtime\.coding-tool\.workspace\.status"/.test(
+      /runnerCalls\[0\]\.context\.workflow_node_id, "runtime\.coding-tool\.workspace\.status"/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /run_id:\s*`run:\$\{threadId\}`/.test(codingToolStepModuleContextBlock) &&
+      /workflow_node_id:\s*workflowNodeId/.test(codingToolStepModuleContextBlock) &&
+      /^\s*receipt_refs,?$/m.test(codingToolStepModuleContextBlock) &&
+      /^\s*artifact_refs,?$/m.test(codingToolStepModuleContextBlock) &&
+      /workspace_root:\s*agent\.cwd/.test(codingToolStepModuleContextBlock) &&
+      !/^\s*(?:runId|taskId|threadId|workflowGraphId|workflowNodeId|actionProposalRef|gateResultRef|approvalRef|idempotencyKey|workflowProjectionStatus|receiptRefs|artifactRefs|workspaceRoot):/m.test(
+        codingToolStepModuleContextBlock,
+      ) &&
+      !/\bcontext\.(?:workflowGraphId|workflowNodeId|workflowProjectionStatus|receiptRefs|artifactRefs)\b/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
       /result\.event\.idempotency_key, "thread:thread_alpha:coding-tool:tool_status_alias_retired"/.test(

@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after StepModule ABI helper facade alias retirement slice 623 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after runtime coding-tool StepModule context facade alias retirement slice 624 clarified the active seam.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -42,7 +42,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, and StepModule ABI helper facade-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, and runtime coding-tool StepModule context facade-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -406,6 +406,12 @@ Matrix compaction timing:
   bridge-scaffolding guardrail, current sprint lane, and the distinction between
   canonical JS projection helper input fields and remaining terminal Rust
   daemon-core extraction work.
+- Fifty-ninth scheduled pass completed on 2026-06-07: the runtime coding-tool
+  StepModule context facade alias retirement evidence after slice 624 was
+  compacted into the route-family range while preserving the live owner map,
+  terminal blockers, bridge-scaffolding guardrail, current sprint lane, and the
+  distinction between canonical runtime-to-runner StepModule context fields and
+  remaining terminal Rust daemon-core extraction work.
 
 ## Implementation Slice 0
 
@@ -12286,6 +12292,60 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 624
+
+```yaml
+slice: 624
+phase: 10-authoritative-js-facade-retirement
+objective: retire runtime coding-tool StepModule context aliases before the
+  Rust workload live runner receives invocation identity and receipt refs
+owner_boundary:
+  route_or_surface: runtime coding-tool invocation facade to StepModule runner
+  authority_gate: unchanged; budget, approval, and wallet.network gates still
+    precede Rust workload live execution
+  execution_backend: Rust workload live remains required for coding-tool
+    execution; JS now passes canonical snake_case StepModule context fields to
+    the runner
+  truth_path: receipt refs, artifact refs, workflow ids, approval refs, and
+    idempotency keys bind through canonical runtime-to-runner context fields
+  projection_path: focused live-runner tests assert canonical
+    `workflow_graph_id`, `workflow_node_id`, and `workflow_projection_status`
+    reach the StepModule runner and retired camelCase context reads are absent
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  js_facade:
+    - packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance pins the runtime coding-tool StepModule context block to
+    canonical snake_case identity, receipt/artifact, and workspace root fields
+  - bridge conformance rejects retired camelCase StepModule context keys and
+    test-runner context readers
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: live-runner fixtures for each current coding-tool
+    ID now observe canonical StepModule context fields before Rust workload
+    result projection
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this JS
+      runtime facade cleanup
+    - store-adapter call shapes that are not StepModule runner context remain
+      separate facade-retirement candidates
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -12301,7 +12361,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 623 and the fifty-eighth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 624 and the fifty-ninth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -12410,7 +12470,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-623 retired SDK runtime usage record aliases and Rust/daemon
+- Slices 572-624 retired SDK runtime usage record aliases and Rust/daemon
   Agentgres state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -12575,6 +12635,9 @@ reconstruct the active seam without carrying every per-slice paragraph.
   shared JS StepModule ABI helpers and their coding-tool/model-mount callers now
   consume canonical snake_case option fields directly, with ABI conformance
   guarding against retired camelCase helper assignment defaults;
+  runtime coding-tool invocation now passes canonical snake_case StepModule
+  context fields into the Rust workload live runner, with bridge conformance
+  guarding against retired camelCase runner-context keys and test readers;
   IDE runtime telemetry summary
   readers now ignore retired camelCase
   runtime usage/context-pressure payload aliases, and the daemon-bound usage

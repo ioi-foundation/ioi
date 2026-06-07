@@ -54,14 +54,14 @@ function createShadowStepModuleRunner() {
           schema_version: "ioi.step_module_result.v1",
           invocation_id: invocationId,
           status: "success",
-          receipt_refs: context.receiptRefs ?? [],
-          artifact_refs: context.artifactRefs ?? [],
+          receipt_refs: context.receipt_refs ?? [],
+          artifact_refs: context.artifact_refs ?? [],
           payload_refs: [],
           agentgres_operation_refs: [],
           state_root_after: null,
           resulting_head: null,
           workflow_projection: {
-            status: context.workflowProjectionStatus ?? "shadow",
+            status: context.workflow_projection_status ?? "shadow",
           },
         },
       };
@@ -256,8 +256,8 @@ test("coding tool invocation surface ignores retired request identity aliases", 
           state_root_after: null,
           resulting_head: null,
           workflow_projection: {
-            workflow_graph_id: input.context.workflowGraphId,
-            workflow_node_id: input.context.workflowNodeId,
+            workflow_graph_id: input.context.workflow_graph_id,
+            workflow_node_id: input.context.workflow_node_id,
             component_kind: "CodingToolNode",
             status: "live",
             attempt_id: "attempt://rust-live/workspace.status",
@@ -299,9 +299,9 @@ test("coding tool invocation surface ignores retired request identity aliases", 
   });
 
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.taskId, "task:turn_latest");
-  assert.equal(runnerCalls[0].context.workflowGraphId, null);
-  assert.equal(runnerCalls[0].context.workflowNodeId, "runtime.coding-tool.workspace.status");
+  assert.equal(runnerCalls[0].context.task_id, "task:turn_latest");
+  assert.equal(runnerCalls[0].context.workflow_graph_id, null);
+  assert.equal(runnerCalls[0].context.workflow_node_id, "runtime.coding-tool.workspace.status");
   assert.equal(result.turn_id, "turn_latest");
   assert.equal(result.workflow_graph_id, null);
   assert.equal(result.workflow_node_id, "runtime.coding-tool.workspace.status");
@@ -437,7 +437,7 @@ test("coding tool invocation surface runs workspace.status through rust workload
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.git.available, true);
   assert.equal(result.result.git.branch, "main");
@@ -555,7 +555,7 @@ test("coding tool invocation surface runs file.inspect through rust workload liv
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.path, "README.md");
   assert.equal(result.result.kind, "file");
@@ -644,7 +644,7 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
   assert.equal(result.result.rust_workload, true);
   assert.deepEqual(result.result.paths, ["README.md"]);
   assert.equal(result.result.diffHash, "abc123");
@@ -758,7 +758,7 @@ test("coding tool invocation surface runs lsp.diagnostics through rust workload 
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.backend, "node.check");
   assert.equal(result.result.diagnosticStatus, "clean");
@@ -863,7 +863,7 @@ test("coding tool invocation surface runs test.run through rust workload live pa
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.commandId, "node.test");
   assert.equal(result.result.testStatus, "passed");
@@ -995,7 +995,7 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.applied, true);
   assert.equal(result.result.workspace_snapshot_id, "snapshot_alpha");
@@ -1097,7 +1097,7 @@ test("coding tool invocation surface runs artifact.read through rust workload li
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
   assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.source, "daemon_artifact_store");
   assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.result.content, "stored artifact\n");
   assert.ok(store.calls.some((call) => call.name === "readArtifact"));
@@ -1213,7 +1213,7 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
   assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.query.tool_call_id, "tool_patch");
   assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.result.content, "stored result\n");
   assert.ok(store.calls.some((call) => call.name === "retrieveResult"));
@@ -1377,7 +1377,7 @@ test("coding tool invocation surface runs computer_use.request_lease through rus
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
+  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
   assert.equal(runnerCalls[0].input.action_kind, "click");
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.request_ref, "computer_use_lease_request_alpha");
