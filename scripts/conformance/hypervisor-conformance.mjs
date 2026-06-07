@@ -1011,6 +1011,24 @@ function runBridge() {
     workspaceRestorePreviewInputType,
     workspaceRestoreApplyInputType,
   ].join("\n");
+  const workflowRuntimeControlNodes = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts")
+    : "";
+  const workflowRuntimeControlNodesTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts")
+    : "";
+  const runtimeRestoreGateControlRequestBody =
+    workflowRuntimeControlNodes.match(
+      /export interface RuntimeRestoreGateControlRequestBody \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  const runtimeRestoreGateControlRequestBlock =
+    workflowRuntimeControlNodes.match(
+      /export function createRuntimeRestoreGateControlRequest\([\s\S]*?\n}\n\nexport function createRuntimeDiagnosticsRepairControlRequest/,
+    )?.[0] ?? "";
   const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
     ? read("packages/agent-sdk/test/sdk.test.mjs")
     : "";
@@ -6081,6 +6099,40 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
     ],
     "Phase 10/11 is pending: SDK workspace restore clients must use canonical daemon routes and stop advertising retired restore aliases",
+  );
+  assertCheck(
+    result,
+    "workspace-restore-ide-control-surface",
+    /createRuntimeRestoreGateControlRequest/.test(workflowRuntimeControlNodes) &&
+      /restore-\{mode\}/.test(runtimeRestoreGateControlRequestBlock) &&
+      /snapshot_id:\s*snapshotId/.test(runtimeRestoreGateControlRequestBlock) &&
+      /conflict_policy:\s*conflictPolicy/.test(runtimeRestoreGateControlRequestBlock) &&
+      /approval_granted:\s*approvalGranted/.test(runtimeRestoreGateControlRequestBlock) &&
+      /allow_conflicts:\s*allowConflicts/.test(runtimeRestoreGateControlRequestBlock) &&
+      /workflow_graph_id:\s*envelope\.metadata\.workflowGraphId/.test(
+        runtimeRestoreGateControlRequestBlock,
+      ) &&
+      /workflow_node_id:\s*envelope\.metadata\.workflowNodeId/.test(
+        runtimeRestoreGateControlRequestBlock,
+      ) &&
+      !/^\s*(?:snapshotId|conflictPolicy|approvalGranted|allowConflicts|workflowGraphId|workflowNodeId|eventKind|componentKind|payloadSchemaVersion):/m.test(
+        runtimeRestoreGateControlRequestBody,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"snapshotId"\),\s*false/.test(
+        workflowRuntimeControlNodesTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"approvalGranted"\),\s*false/.test(
+        workflowRuntimeControlNodesTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"workflowGraphId"\),\s*false/.test(
+        workflowRuntimeControlNodesTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+    ],
+    "Phase 10/11 is pending: IDE restore-gate control nodes must call daemon workspace restore routes with canonical request bodies only",
   );
   assertCheck(
     result,

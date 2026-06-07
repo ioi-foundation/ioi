@@ -202,13 +202,16 @@ test("runtime control workflow helpers share graph identity envelope metadata", 
   ];
 
   assert.deepEqual(
-    requests.map((request) => ({
-      source: request.body.source,
-      actor: request.body.actor,
-      graphId: request.body.workflowGraphId,
-      nodeId: request.body.workflowNodeId,
-      threadId: request.threadId,
-    })),
+    requests.map((request) => {
+      const body = request.body as unknown as Record<string, unknown>;
+      return {
+        source: request.body.source,
+        actor: request.body.actor,
+        graphId: body.workflowGraphId ?? body.workflow_graph_id,
+        nodeId: body.workflowNodeId ?? body.workflow_node_id,
+        threadId: request.threadId,
+      };
+    }),
     [
       {
         source: "react_flow",
@@ -684,18 +687,32 @@ test("runtime_restore_gate workflow node builds a React Flow preview daemon requ
     "/v1/threads/thread-react-flow-1/snapshots/snapshot-react-flow-1/restore-preview",
   );
   assert.equal(request.body.snapshot_id, "snapshot-react-flow-1");
-  assert.equal(request.body.conflictPolicy, "block");
-  assert.equal(request.body.approvalGranted, false);
-  assert.equal(request.body.allowConflicts, false);
+  assert.equal(request.body.conflict_policy, "block");
+  assert.equal(request.body.approval_granted, false);
+  assert.equal(request.body.allow_conflicts, false);
   assert.equal(request.body.source, "react_flow");
   assert.equal(request.body.actor, "operator");
   assert.equal(
-    request.body.workflowGraphId,
+    request.body.workflow_graph_id,
     "workflow.react-flow.restore-gate-proof",
   );
-  assert.equal(request.body.workflowNodeId, RUNTIME_RESTORE_GATE_WORKFLOW_NODE_ID);
-  assert.equal(request.body.eventKind, RUNTIME_RESTORE_GATE_SOURCE_EVENT_KIND);
-  assert.equal(request.body.componentKind, RUNTIME_RESTORE_GATE_COMPONENT_KIND);
+  assert.equal(request.body.workflow_node_id, RUNTIME_RESTORE_GATE_WORKFLOW_NODE_ID);
+  assert.equal(request.body.event_kind, RUNTIME_RESTORE_GATE_SOURCE_EVENT_KIND);
+  assert.equal(request.body.component_kind, RUNTIME_RESTORE_GATE_COMPONENT_KIND);
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "snapshotId"), false);
+  for (const field of [
+    "snapshotId",
+    "conflictPolicy",
+    "approvalGranted",
+    "allowConflicts",
+    "workflowGraphId",
+    "workflowNodeId",
+    "eventKind",
+    "componentKind",
+    "payloadSchemaVersion",
+  ]) {
+    assert.equal(Object.prototype.hasOwnProperty.call(request.body, field), false);
+  }
 });
 
 test("runtime_restore_gate helper supports apply mode, approval, and configurable fields", () => {
@@ -744,6 +761,9 @@ test("runtime_restore_gate helper supports apply mode, approval, and configurabl
   assert.equal(request.body.allow_conflicts, true);
   assert.equal(request.body.actor, "workflow-author");
   assert.equal(request.body.source, "react_flow");
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "conflictPolicy"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "approvalGranted"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "allowConflicts"), false);
 });
 
 test("runtime_diagnostics_repair workflow node builds a React Flow daemon request", () => {

@@ -485,22 +485,18 @@ export type RuntimeRestoreGateMode = "preview" | "apply";
 export type RuntimeRestoreGateConflictPolicy = "block" | "allow_override";
 
 export interface RuntimeRestoreGateControlRequestBody {
-  snapshotId: string;
   snapshot_id: string;
   mode: RuntimeRestoreGateMode;
-  conflictPolicy: RuntimeRestoreGateConflictPolicy;
   conflict_policy: RuntimeRestoreGateConflictPolicy;
-  approvalGranted: boolean;
   approval_granted: boolean;
-  allowConflicts: boolean;
   allow_conflicts: boolean;
   source: typeof RUNTIME_RESTORE_GATE_SOURCE;
   actor: string;
-  workflowGraphId: string | null;
-  workflowNodeId: string;
-  eventKind: typeof RUNTIME_RESTORE_GATE_SOURCE_EVENT_KIND;
-  componentKind: typeof RUNTIME_RESTORE_GATE_COMPONENT_KIND;
-  payloadSchemaVersion: typeof RUNTIME_RESTORE_GATE_PAYLOAD_SCHEMA_VERSION;
+  workflow_graph_id: string | null;
+  workflow_node_id: string;
+  event_kind: typeof RUNTIME_RESTORE_GATE_SOURCE_EVENT_KIND;
+  component_kind: typeof RUNTIME_RESTORE_GATE_COMPONENT_KIND;
+  payload_schema_version: typeof RUNTIME_RESTORE_GATE_PAYLOAD_SCHEMA_VERSION;
 }
 
 export interface RuntimeRestoreGateControlRequest {
@@ -1127,16 +1123,18 @@ export function createRuntimeRestoreGateControlRequest(
       mode,
     }),
     body: {
-      snapshotId,
       snapshot_id: snapshotId,
       mode,
-      conflictPolicy,
       conflict_policy: conflictPolicy,
-      approvalGranted,
       approval_granted: approvalGranted,
-      allowConflicts,
       allow_conflicts: allowConflicts,
-      ...envelope.metadata,
+      source: RUNTIME_RESTORE_GATE_SOURCE,
+      actor: envelope.metadata.actor,
+      workflow_graph_id: envelope.metadata.workflowGraphId,
+      workflow_node_id: envelope.metadata.workflowNodeId,
+      event_kind: RUNTIME_RESTORE_GATE_SOURCE_EVENT_KIND,
+      component_kind: RUNTIME_RESTORE_GATE_COMPONENT_KIND,
+      payload_schema_version: RUNTIME_RESTORE_GATE_PAYLOAD_SCHEMA_VERSION,
     },
   };
 }
