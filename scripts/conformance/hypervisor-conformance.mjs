@@ -11792,6 +11792,24 @@ function runCompositor() {
       /\?thread_id=\$\{encodeURIComponent\(threadId\)\}/.test(conversationArtifactSdkListMethodBlock) &&
       /client\.listConversationArtifacts\(\{ thread_id: threadId \}\)/.test(conversationArtifactProofScript) &&
       /artifact_class: artifactClass/.test(conversationArtifactProofScript) &&
+      /commitRuntimeArtifactRecord/.test(conversationArtifacts) &&
+      /this\.commitRuntimeArtifactState = options\.commitRuntimeArtifactState/.test(conversationArtifacts) &&
+      /commitRuntimeArtifactRecord\(\s*this,\s*\{ \.\.\.receipt, receipt_refs: \[receipt\.id\] \},\s*"artifact\.conversation_receipt"/.test(
+        conversationArtifacts,
+      ) &&
+      /commitRuntimeArtifactRecord\(this,\s*persisted,\s*"artifact\.conversation_record"\)/.test(
+        conversationArtifacts,
+      ) &&
+      !/writeJson\(path\.join\(this\.receiptsDir/.test(conversationArtifacts) &&
+      !/writeJson\(path\.join\(this\.recordsDir/.test(conversationArtifacts) &&
+      /new ConversationArtifactStore\(this\.stateDir,\s*\{[\s\S]*commitRuntimeArtifactState: \(request\) => this\.commitRuntimeArtifactState\(request\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /conversation artifact persistence fails closed without Rust Agentgres artifact-state commit/.test(
+        conversationArtifactsTest,
+      ) &&
+      /operation_kind,\s*"artifact\.conversation_receipt"/.test(conversationArtifactsTest) &&
+      /operation_kind,\s*"artifact\.conversation_record"/.test(conversationArtifactsTest) &&
       !/^\s*(?:schemaVersion|artifactId|threadId|turnId|artifactClass|outputModality|stateLabel|generatedFiles|sourceRefs|originalRefs|projectionRefs|previewRefs|traceRefs|policyRefs|receiptRefs|actionSchemaVersion|latestRevisionId|exportRefs|promotionRefs|createdAt|updatedAt|previewInline)\s*:/m.test(
         conversationArtifactCreateRecordBlock,
       ) &&
@@ -11817,6 +11835,8 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/conversation-artifacts.mjs",
       "packages/runtime-daemon/src/conversation-artifacts.test.mjs",
+      "packages/runtime-daemon/src/runtime-artifact-state-commit.mjs",
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",

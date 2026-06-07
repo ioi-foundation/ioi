@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -6,10 +7,47 @@ import test from "node:test";
 
 import { ConversationArtifactStore } from "./conversation-artifacts.mjs";
 
+function testStore(stateDir, commits = []) {
+  return new ConversationArtifactStore(stateDir, {
+    commitRuntimeArtifactState: fakeArtifactCommitter(stateDir, commits),
+  });
+}
+
+function fakeArtifactCommitter(stateDir, commits) {
+  return (request) => {
+    commits.push(JSON.parse(JSON.stringify(request)));
+    const safeId = String(request.artifact_id).replace(/[^A-Za-z0-9._-]/g, "_");
+    const recordPath = `artifacts/${safeId}.json`;
+    const absolutePath = path.join(stateDir, recordPath);
+    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+    fs.writeFileSync(absolutePath, `${JSON.stringify(request.artifact, null, 2)}\n`);
+    return {
+      artifact_id: request.artifact_id,
+      object_ref: `agentgres://runtime-state/artifacts/${safeId}/records/${recordPath}`,
+      content_hash: `sha256:${safeId}`,
+      admission_hash: `sha256:admission:${safeId}`,
+      commit_hash: `sha256:commit:${safeId}`,
+      written_record: {
+        record_path: recordPath,
+        absolute_path: absolutePath,
+      },
+      storage_record: {
+        record_path: recordPath,
+        object_ref: `agentgres://runtime-state/artifacts/${safeId}/records/${recordPath}`,
+        content_hash: `sha256:${safeId}`,
+        receipt_refs: request.receipt_refs,
+        admission: {
+          admission_hash: `sha256:admission:${safeId}`,
+        },
+      },
+    };
+  };
+}
+
 test("static website artifacts require model-authored source", async () => {
   const stateDir = await mkdtemp(path.join(tmpdir(), "ioi-conversation-artifact-"));
   try {
-    const store = new ConversationArtifactStore(stateDir);
+    const store = testStore(stateDir);
     assert.throws(
       () => store.create({
         artifact_class: "static_html_js",
@@ -46,7 +84,8 @@ test("static website artifacts require model-authored source", async () => {
 test("static website artifacts can use model-authored HTML/CSS/JS", async () => {
   const stateDir = await mkdtemp(path.join(tmpdir(), "ioi-conversation-artifact-"));
   try {
-    const store = new ConversationArtifactStore(stateDir);
+    const commits = [];
+    const store = testStore(stateDir, commits);
     const { artifact } = store.create({
       artifact_class: "static_html_js",
       title: "Neighborhood bakery website",
@@ -66,6 +105,10 @@ test("static website artifacts can use model-authored HTML/CSS/JS", async () => 
     assert.match(artifact.preview_inline.text, /<style>\.hero/);
     assert.match(artifact.preview_inline.text, /document\.body\.dataset\.ready/);
     assert.doesNotMatch(artifact.preview_inline.text, /What it means/);
+    assert.equal(commits[0].operation_kind, "artifact.conversation_receipt");
+    assert.equal(commits[1].operation_kind, "artifact.conversation_record");
+    assert.deepEqual(commits[1].receipt_refs, artifact.receipt_refs);
+    assert.equal(fs.existsSync(path.join(stateDir, "conversation-artifacts", "records", `${artifact.id}.json`)), false);
 
     assert.throws(
       () => store.action(artifact.id, {
@@ -85,7 +128,7 @@ test("static website artifacts can use model-authored HTML/CSS/JS", async () => 
 test("conversation artifact store emits canonical snake_case without retired aliases", async () => {
   const stateDir = await mkdtemp(path.join(tmpdir(), "ioi-conversation-artifact-"));
   try {
-    const store = new ConversationArtifactStore(stateDir);
+    const store = testStore(stateDir);
     const { artifact, receipt } = store.create({
       artifact_class: "static_html_js",
       thread_id: "thread-one",
@@ -170,6 +213,29 @@ test("conversation artifact store emits canonical snake_case without retired ali
 
     assert.equal(store.list({ thread_id: "thread-one" }).length, 1);
     assert.equal(store.list({ threadId: "thread-one" }).length, 2);
+    assert.equal(testStore(stateDir).get(artifact.id)?.artifact_id, artifact.id);
+  } finally {
+    await rm(stateDir, { recursive: true, force: true });
+  }
+});
+
+test("conversation artifact persistence fails closed without Rust Agentgres artifact-state commit", async () => {
+  const stateDir = await mkdtemp(path.join(tmpdir(), "ioi-conversation-artifact-"));
+  try {
+    const store = new ConversationArtifactStore(stateDir);
+    assert.throws(
+      () => store.create({
+        artifact_class: "markdown_html_report",
+        title: "Unadmitted artifact",
+        prompt: "This must not persist without Rust admission.",
+      }),
+      /Runtime artifact state commits require Rust Agentgres admission/,
+    );
+    assert.equal(fs.existsSync(path.join(stateDir, "conversation-artifacts", "receipts")), true);
+    assert.equal(fs.readdirSync(path.join(stateDir, "conversation-artifacts", "receipts")).length, 0);
+    assert.equal(fs.existsSync(path.join(stateDir, "conversation-artifacts", "records")), true);
+    assert.equal(fs.readdirSync(path.join(stateDir, "conversation-artifacts", "records")).length, 0);
+    assert.equal(fs.existsSync(path.join(stateDir, "artifacts")), false);
   } finally {
     await rm(stateDir, { recursive: true, force: true });
   }

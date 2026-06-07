@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { commitRuntimeArtifactRecord } from "./runtime-artifact-state-commit.mjs";
+
 export const CONVERSATION_ARTIFACT_SCHEMA_VERSION = "ioi.conversation_artifact.v1";
 export const CONVERSATION_ARTIFACT_REVISION_SCHEMA_VERSION = "ioi.conversation_artifact_revision.v1";
 export const CONVERSATION_ARTIFACT_ACTION_SCHEMA_VERSION = "ioi.conversation_artifact_action.v1";
@@ -354,12 +356,13 @@ function filesForClass({ classId, dir, title, prompt, revisionIndex, generatedFi
 }
 
 export class ConversationArtifactStore {
-  constructor(stateDir) {
+  constructor(stateDir, options = {}) {
     this.stateDir = path.resolve(stateDir);
     this.rootDir = path.join(this.stateDir, "conversation-artifacts");
     this.recordsDir = path.join(this.rootDir, "records");
     this.assetsDir = path.join(this.rootDir, "assets");
     this.receiptsDir = path.join(this.rootDir, "receipts");
+    this.commitRuntimeArtifactState = options.commitRuntimeArtifactState;
     this.records = new Map();
     this.ensureDirs();
     this.load();
@@ -372,9 +375,9 @@ export class ConversationArtifactStore {
   }
 
   load() {
-    for (const file of listJson(this.recordsDir)) {
+    for (const file of listJson(path.join(this.stateDir, "artifacts"))) {
       const record = readJson(file);
-      if (record?.id) this.records.set(record.id, record);
+      if (record?.object === "ioi.conversation_artifact" && record?.id) this.records.set(record.id, record);
     }
   }
 
@@ -450,7 +453,6 @@ export class ConversationArtifactStore {
         rawRefsHiddenFromChat: true,
       },
     };
-    this.records.set(artifactId, record);
     this.#write(record);
     return { artifact: this.#withInlinePreview(record), receipt };
   }
@@ -658,13 +660,17 @@ export class ConversationArtifactStore {
       redaction: "trace_only",
       created_at: nowIso(),
     };
-    writeJson(path.join(this.receiptsDir, `${receipt.id}.json`), receipt);
+    commitRuntimeArtifactRecord(
+      this,
+      { ...receipt, receipt_refs: [receipt.id] },
+      "artifact.conversation_receipt",
+    );
     return receipt;
   }
 
   #write(record) {
     const { preview_inline, ...persisted } = record;
+    commitRuntimeArtifactRecord(this, persisted, "artifact.conversation_record");
     this.records.set(persisted.id, persisted);
-    writeJson(path.join(this.recordsDir, `${persisted.id}.json`), persisted);
   }
 }
