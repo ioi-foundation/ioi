@@ -17282,6 +17282,10 @@ function runCompositor() {
     diagnosticsFeedback.match(
       /  function compactDiagnosticsFeedback\(\{[\s\S]*?(?=\n  function compactDiagnosticFinding)/,
     )?.[0] ?? "";
+  const compactDiagnosticFindingBody =
+    diagnosticsFeedback.match(
+      /  function compactDiagnosticFinding\(diagnostic = \{\}, event = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsPromptText)/,
+    )?.[0] ?? "";
   const diagnosticsBlockingGateForFeedbackBody =
     diagnosticsFeedback.match(
       /  function diagnosticsBlockingGateForFeedback\(diagnosticsFeedback\) \{[\s\S]*?(?=\n  function requestWithDiagnosticsFeedback)/,
@@ -17314,9 +17318,17 @@ function runCompositor() {
       /thread_id:\s*threadId/.test(compactDiagnosticsFeedbackBody) &&
       /diagnostic_status:\s*diagnosticStatus/.test(compactDiagnosticsFeedbackBody) &&
       /diagnostic_count:\s*findings\.length/.test(compactDiagnosticsFeedbackBody) &&
+      /statuses\.push\(result\.diagnostic_status \?\? payload\.result_summary\?\.diagnostic_status \?\? "clean"\)/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
+      !/\b(?:result|result_summary)\.(?:diagnosticStatus|diagnosticCount)\b/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
       /injected_finding_count:\s*visibleFindings\.length/.test(compactDiagnosticsFeedbackBody) &&
       /omitted_finding_count:\s*omittedCount/.test(compactDiagnosticsFeedbackBody) &&
       /diagnostic_event_ids:\s*diagnosticEventIds/.test(compactDiagnosticsFeedbackBody) &&
+      /diagnostic_event_id:\s*event\.event_id \?\? null/.test(compactDiagnosticFindingBody) &&
+      !/\bdiagnosticEventId\s*:/.test(compactDiagnosticFindingBody) &&
       /receipt_refs:\s*uniqueStrings\(receiptRefs\)/.test(compactDiagnosticsFeedbackBody) &&
       /receipt_id:\s*receiptId/.test(compactDiagnosticsFeedbackBody) &&
       /prompt_text:\s*diagnosticsPromptText/.test(compactDiagnosticsFeedbackBody) &&
@@ -17353,6 +17365,14 @@ function runCompositor() {
         runtimeAgentRunLifecycleTest,
       ) &&
       /compact diagnostics feedback emits canonical envelope/.test(diagnosticsFeedbackTest) &&
+      /compact diagnostics feedback ignores retired diagnostic result aliases/.test(
+        diagnosticsFeedbackTest,
+      ) &&
+      /diagnosticStatus:\s*"findings"/.test(diagnosticsFeedbackTest) &&
+      /assert\.equal\(feedback\.diagnostic_status,\s*"clean"\)/.test(diagnosticsFeedbackTest) &&
+      /Object\.hasOwn\(feedback\.findings\[0\],\s*"diagnosticEventId"\),\s*false/.test(
+        diagnosticsFeedbackTest,
+      ) &&
       /alias must be absent/.test(diagnosticsFeedbackTest) &&
       /runtime event payloads consume canonical diagnostics injection and blocking gate fields/.test(
         runtimeEventPayloadsTest,

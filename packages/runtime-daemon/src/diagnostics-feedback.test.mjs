@@ -130,7 +130,7 @@ test("compact diagnostics feedback emits canonical envelope and bounded prompt c
         rollback_refs: ["rollback-one"],
         payload_summary: {
           result: {
-            diagnosticStatus: "findings",
+            diagnostic_status: "findings",
             diagnostics: [
               { path: "src/a.js", line: 4, column: 2, severity: "error", code: "E1", message: "first diagnostic message is long" },
               { path: "src/b.js", line: 8, severity: "warning", message: "second diagnostic" },
@@ -161,6 +161,8 @@ test("compact diagnostics feedback emits canonical envelope and bounded prompt c
   assert.deepEqual(feedback.workspace_snapshot_refs, ["rollback-one", "snapshot-one"]);
   assert.deepEqual(feedback.source_tool_call_ids, ["tool-call-one"]);
   assert.equal(feedback.findings[0].message, "first diagnostic message");
+  assert.equal(feedback.findings[0].diagnostic_event_id, "event-one");
+  assert.equal(Object.hasOwn(feedback.findings[0], "diagnosticEventId"), false);
   assert.match(feedback.prompt_text, /Post-edit diagnostics \(blocking, findings\)/);
   assert.match(feedback.prompt_text, /1 additional finding/);
   assert.equal(feedback.repair_policy.restorePolicy, "preview_only");
@@ -188,6 +190,33 @@ test("compact diagnostics feedback emits canonical envelope and bounded prompt c
   }
 });
 
+test("compact diagnostics feedback ignores retired diagnostic result aliases", () => {
+  const runtime = helpers();
+  const feedback = runtime.compactDiagnosticsFeedback({
+    threadId: "thread-one",
+    mode: "blocking",
+    diagnosticEvents: [
+      {
+        event_id: "event-one",
+        payload_summary: {
+          result: {
+            diagnosticStatus: "findings",
+            diagnostics: [{ path: "src/a.js", line: 4, severity: "error", message: "alias ignored" }],
+          },
+          result_summary: {
+            diagnosticStatus: "findings",
+          },
+        },
+      },
+    ],
+  });
+
+  assert.equal(feedback.diagnostic_status, "clean");
+  assert.equal(feedback.diagnostic_count, 1);
+  assert.equal(feedback.blocking, true);
+  assert.doesNotMatch(feedback.prompt_text, /findings/);
+});
+
 test("blocking gate and request feedback preserve repair policy refs", () => {
   const runtime = helpers();
   const diagnosticsFeedback = runtime.compactDiagnosticsFeedback({
@@ -198,7 +227,7 @@ test("blocking gate and request feedback preserve repair policy refs", () => {
         event_id: "event-one",
         payload_summary: {
           result: {
-            diagnosticStatus: "findings",
+            diagnostic_status: "findings",
             diagnostics: [{ path: "src/a.js", line: 1, severity: "error", message: "broken" }],
           },
           diagnostics_repair_context: {

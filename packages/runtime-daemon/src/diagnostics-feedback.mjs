@@ -135,7 +135,7 @@ export function createDiagnosticsFeedbackHelpers({
         const contextSnapshotId = optionalString(repairContext.workspaceSnapshotId ?? repairContext.workspace_snapshot_id);
         if (contextSnapshotId) rollbackRefs.push(contextSnapshotId);
       }
-      statuses.push(result.diagnosticStatus ?? payload.result_summary?.diagnosticStatus ?? "clean");
+      statuses.push(result.diagnostic_status ?? payload.result_summary?.diagnostic_status ?? "clean");
       for (const diagnostic of normalizeArray(result.diagnostics)) {
         findings.push(compactDiagnosticFinding(diagnostic, event));
       }
@@ -227,7 +227,7 @@ export function createDiagnosticsFeedbackHelpers({
       code: optionalString(diagnostic.code) ?? null,
       message,
       location,
-      diagnosticEventId: event.event_id ?? null,
+      diagnostic_event_id: event.event_id ?? null,
     };
   }
 
