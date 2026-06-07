@@ -4976,6 +4976,66 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-backend-process-plan-live-bridge",
+    (() => {
+      const backendProcessBridgeBlock =
+        bridgeModule.match(/fn plan_model_mount_backend_process[\s\S]*?(?=\nfn bind_model_mount_invocation_receipt)/)?.[0] ?? "";
+      const backendProcessRunnerBlock =
+        modelMountAdmissionRunner.match(/function normalizeBackendProcessPlanBridgeResult[\s\S]*?(?=\n\nfunction normalizeInvocationReceiptBindingBridgeResult)/)?.[0] ?? "";
+      return /plan_model_mount_backend_process/.test(bridgeModule) &&
+        /ModelMountBackendProcessPlanRequest/.test(bridgeModule) &&
+        /bridge_plans_model_mount_backend_process_through_rust_core/.test(bridgeModule) &&
+        /"supports_supervision":\s*plan\.supports_supervision/.test(backendProcessBridgeBlock) &&
+        /"public_args":\s*plan\.public_args/.test(backendProcessBridgeBlock) &&
+        /"spawn_args":\s*plan\.spawn_args/.test(backendProcessBridgeBlock) &&
+        /"spawn_status":\s*plan\.spawn_status/.test(backendProcessBridgeBlock) &&
+        !/"(?:supportsSupervision|publicArgs|spawnArgs|spawnStatus)":/.test(backendProcessBridgeBlock) &&
+        /planBackendProcess\(request\)/.test(modelMountAdmissionRunner) &&
+        /operation:\s*"plan_model_mount_backend_process"/.test(modelMountAdmissionRunner) &&
+        /RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND/.test(modelMountAdmissionRunner) &&
+        /function normalizeBackendProcessPlanBridgeResult/.test(modelMountAdmissionRunner) &&
+        /supports_supervision:\s*Boolean\(result\.supports_supervision \?\? record\.supports_supervision\)/.test(
+          backendProcessRunnerBlock,
+        ) &&
+        /public_args:\s*Array\.isArray\(result\.public_args\)/.test(backendProcessRunnerBlock) &&
+        /spawn_args:\s*Array\.isArray\(result\.spawn_args\)/.test(backendProcessRunnerBlock) &&
+        /spawn_status:\s*result\.spawn_status \?\? record\.spawn_status \?\? null/.test(
+          backendProcessRunnerBlock,
+        ) &&
+        !/result\.(?:supportsSupervision|publicArgs|spawnArgs|spawnStatus)\b/.test(
+          backendProcessRunnerBlock,
+        ) &&
+        /backendProcessPlan\(backend,\s*\{ endpoint = null, loadOptions = \{\} \} = \{\}\)/.test(
+          modelMountingState,
+        ) &&
+        /this\.modelMountAdmissionRunner\.planBackendProcess\(request\)/.test(modelMountingState) &&
+        /return this\.backendProcessPlan\(backend, options\)\.public_args/.test(modelMountingState) &&
+        /return this\.backendProcessPlan\(backend, options\)\.spawn_args/.test(modelMountingState) &&
+        /return this\.backendProcessPlan\(backend\)\.supports_supervision/.test(modelMountingState) &&
+        /Rust model_mount admission runner sends backend process plan request/.test(
+          read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs"),
+        ) &&
+        /backend process planning is delegated to Rust model_mount/.test(
+          read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs"),
+        ) &&
+        /Object\.hasOwn\(calls\[0\],\s*"backendRef"\),\s*false/.test(
+          read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs"),
+        ) &&
+        /Object\.hasOwn\(calls\[0\]\.load_options,\s*"contextLength"\),\s*false/.test(
+          read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs"),
+        );
+    })(),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+    ],
+    "Phase 9/10 is pending: model backend process supervision args and spawn readiness must be planned by Rust model_mount while JS only acts on the plan",
+  );
+  assertCheck(
+    result,
     "model-mount-local-provider-inventory-live-bridge",
     (() => {
       const providerInventoryBridgeBlock =
@@ -6691,6 +6751,47 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
     "Phase 9/10 is pending: Rust model_mount core must own native-local health/load/unload lifecycle backend, evidence, and hash planning",
+  );
+  assertCheck(
+    result,
+    "model-mount-backend-process-plan-core",
+    exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      /MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountBackendProcessPlanRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountBackendProcessPlan/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /plan_backend_process/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /backend_process_public_args/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /backend_process_spawn_args/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /backend_spawn_status/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /backend_process_plan_hash/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /rust_model_mount_backend_process_plan/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /backend_process_plan_owns_supervision_args_and_readiness/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /backend_process_plan_blocks_llama_spawn_without_model_artifact/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /backend_process_plan_supports_vllm_bind_spawn_args/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+    ],
+    "Phase 9/10 is pending: Rust model_mount core must own backend process supervision args, spawn readiness, evidence, and hash planning",
   );
   assertCheck(
     result,

@@ -7,6 +7,7 @@ export const RUST_MODEL_MOUNT_ADMISSION_BACKEND = "rust_model_mount_live";
 export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
 export const RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND = "rust_model_mount_fixture_inventory";
 export const RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND = "rust_model_mount_fixture_lifecycle";
+export const RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND = "rust_model_mount_backend_process";
 export const RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND = "rust_model_mount_instance_lifecycle";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_local";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND = "rust_model_mount_native_local_inventory";
@@ -117,6 +118,16 @@ export class RustModelMountAdmissionRunner {
       request,
     };
     return normalizeProviderResultBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
+  planBackendProcess(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_backend_process",
+      backend: RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND,
+      request,
+    };
+    return normalizeBackendProcessPlanBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
   bindInvocationReceipt({ invocation, result, expectedHeads = [], receiptRef = null } = {}) {
@@ -374,6 +385,24 @@ function normalizeProviderResultBridgeResult(value = {}) {
     provider_result_hash:
       result.provider_result_hash ?? record.provider_result_hash ?? null,
     receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+  };
+}
+
+function normalizeBackendProcessPlanBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.result && typeof result.result === "object" ? result.result : {};
+  return {
+    source: result.source ?? "rust_model_mount_backend_process_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND,
+    result: record,
+    supports_supervision: Boolean(result.supports_supervision ?? record.supports_supervision),
+    supervisor_kind: result.supervisor_kind ?? record.supervisor_kind ?? null,
+    public_args: Array.isArray(result.public_args) ? result.public_args : record.public_args ?? [],
+    spawn_args: Array.isArray(result.spawn_args) ? result.spawn_args : record.spawn_args ?? [],
+    spawn_required: Boolean(result.spawn_required ?? record.spawn_required),
+    spawn_status: result.spawn_status ?? record.spawn_status ?? null,
+    plan_hash: result.plan_hash ?? record.plan_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
   };
 }

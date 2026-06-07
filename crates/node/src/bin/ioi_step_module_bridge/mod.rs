@@ -14,10 +14,11 @@ use ioi_services::agentic::runtime::kernel::marketplace::{
     WorkerServicePackageInvocationCore, WorkerServicePackageInvocationRequest,
 };
 use ioi_services::agentic::runtime::kernel::model_mount::{
-    ModelMountCore, ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
-    ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
-    ModelMountProviderInvocationRequest, ModelMountProviderLifecycleRequest,
-    ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRequest,
+    ModelMountBackendProcessPlanRequest, ModelMountCore, ModelMountInstanceLifecycleRequest,
+    ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRequest,
+    ModelMountProviderInventoryRequest, ModelMountProviderInvocationRequest,
+    ModelMountProviderLifecycleRequest, ModelMountProviderResultAdmissionRequest,
+    ModelMountRouteDecisionRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
     AgentCreateStateUpdateCore, AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore,
@@ -187,6 +188,16 @@ struct ModelMountProviderResultAdmissionBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountProviderResultAdmissionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelMountBackendProcessPlanBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountBackendProcessPlanRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -608,6 +619,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             admit_model_mount_provider_result(request)
+        }
+        "plan_model_mount_backend_process" => {
+            let request: ModelMountBackendProcessPlanBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_model_mount_backend_process(request)
         }
         "bind_model_mount_invocation_receipt" => {
             let request: ModelMountInvocationReceiptBindingBridgeRequest =
@@ -1266,6 +1283,47 @@ fn admit_model_mount_provider_result(
         "provider_result_hash": provider_result_hash,
         "receipt_refs": receipt_refs,
         "evidence_refs": evidence_refs,
+    }))
+}
+
+fn plan_model_mount_backend_process(
+    request: ModelMountBackendProcessPlanBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_model_mount_backend_process" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let plan = ModelMountCore
+        .plan_backend_process(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "model_mount_backend_process_plan_rejected",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_model_mount_backend_process_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_backend_process".to_string()),
+        "result": plan.clone(),
+        "supports_supervision": plan.supports_supervision,
+        "supervisor_kind": plan.supervisor_kind,
+        "public_args": plan.public_args,
+        "spawn_args": plan.spawn_args,
+        "spawn_required": plan.spawn_required,
+        "spawn_status": plan.spawn_status,
+        "plan_hash": plan.plan_hash,
+        "evidence_refs": plan.evidence_refs,
     }))
 }
 
@@ -5765,6 +5823,61 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_model_mount_native_local_lifecycle_backend"));
+    }
+
+    #[test]
+    fn bridge_plans_model_mount_backend_process_through_rust_core() {
+        let request: ModelMountBackendProcessPlanBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_model_mount_backend_process",
+            "backend": "rust_model_mount_backend_process",
+            "request": {
+                "schema_version": "ioi.model_mount.backend_process_plan.v1",
+                "backend_ref": "backend.llama",
+                "backend_kind": "llama_cpp",
+                "base_url": "http://127.0.0.1:8091/v1",
+                "model_ref": "model://qwen/qwen3.5-9b",
+                "artifact_path": "/models/private/model.gguf",
+                "binary_configured": true,
+                "load_options": {
+                    "context_length": 4096,
+                    "parallel": 2,
+                    "gpu": "auto",
+                    "identifier": "llama profile",
+                    "embeddings": true
+                }
+            }
+        }))
+        .expect("backend process bridge request");
+
+        let response =
+            plan_model_mount_backend_process(request).expect("backend process planned in Rust");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_backend_process_command"
+        );
+        assert_eq!(response["backend"], "rust_model_mount_backend_process");
+        assert_eq!(response["supports_supervision"], true);
+        assert_eq!(response["spawn_status"], "spawn_ready");
+        assert_eq!(response["spawn_required"], true);
+        assert!(response.get("spawnStatus").is_none());
+        assert!(response["public_args"]
+            .as_array()
+            .expect("public args")
+            .iter()
+            .any(|value| value.as_str().unwrap_or("").starts_with("artifact:")));
+        assert_eq!(response["spawn_args"][0], "--model");
+        assert_eq!(response["spawn_args"][1], "/models/private/model.gguf");
+        assert!(response["plan_hash"]
+            .as_str()
+            .expect("plan hash")
+            .starts_with("sha256:"));
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_model_mount_backend_process_plan"));
     }
 
     #[test]

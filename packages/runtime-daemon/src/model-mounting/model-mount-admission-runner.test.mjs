@@ -218,6 +218,25 @@ function providerResultRequest() {
   };
 }
 
+function backendProcessPlanRequest() {
+  return {
+    schema_version: "ioi.model_mount.backend_process_plan.v1",
+    backend_ref: "backend.llama",
+    backend_kind: "llama_cpp",
+    base_url: "http://127.0.0.1:8091/v1",
+    model_ref: "model.local",
+    artifact_path: "/models/private/model.gguf",
+    binary_configured: true,
+    load_options: {
+      context_length: 4096,
+      parallel: 2,
+      gpu: "auto",
+      identifier: "llama profile",
+      embeddings: true,
+    },
+  };
+}
+
 test("Rust model_mount admission runner sends route-decision bridge request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({
@@ -671,6 +690,65 @@ test("Rust model_mount admission runner sends provider result admission bridge r
   assert.equal(Object.hasOwn(result, "providerResultRef"), false);
   assert.equal(Object.hasOwn(result, "providerResultHash"), false);
   assert.deepEqual(result.evidence_refs, ["rust_model_mount_provider_result_admission"]);
+});
+
+test("Rust model_mount admission runner sends backend process plan request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_backend_process_command",
+            backend: "rust_model_mount_backend_process",
+            result: {
+              schema_version: "ioi.model_mount.backend_process_plan.v1",
+              backend_ref: request.request.backend_ref,
+              backend_kind: request.request.backend_kind,
+              supports_supervision: true,
+              supervisor_kind: "external_process",
+              public_args: ["llama-server", "--model", "artifact:abc123"],
+              spawn_args: ["--model", "/models/private/model.gguf"],
+              spawn_required: true,
+              spawn_status: "spawn_ready",
+              evidence_refs: ["rust_model_mount_backend_process_plan"],
+              plan_hash: "sha256:backend-process-plan",
+            },
+            supports_supervision: true,
+            supervisor_kind: "external_process",
+            public_args: ["llama-server", "--model", "artifact:abc123"],
+            spawn_args: ["--model", "/models/private/model.gguf"],
+            spawn_required: true,
+            spawn_status: "spawn_ready",
+            plan_hash: "sha256:backend-process-plan",
+            evidence_refs: ["rust_model_mount_backend_process_plan"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planBackendProcess(backendProcessPlanRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_backend_process");
+  assert.equal(calls[0].request.backend, "rust_model_mount_backend_process");
+  assert.equal(calls[0].request.request.backend_kind, "llama_cpp");
+  assert.equal(calls[0].request.request.load_options.context_length, 4096);
+  assert.equal(result.supports_supervision, true);
+  assert.equal(result.spawn_status, "spawn_ready");
+  assert.deepEqual(result.public_args, ["llama-server", "--model", "artifact:abc123"]);
+  assert.deepEqual(result.spawn_args, ["--model", "/models/private/model.gguf"]);
+  assert.equal(result.plan_hash, "sha256:backend-process-plan");
+  assert.equal(Object.hasOwn(result, "spawnStatus"), false);
+  assert.equal(Object.hasOwn(result, "publicArgs"), false);
 });
 
 test("Rust model_mount admission runner sends invocation receipt binding request", () => {

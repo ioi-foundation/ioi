@@ -123,7 +123,7 @@ import {
   catalogImportUrl as catalogImportUrlState,
   downloadModel as downloadModelState,
 } from "./model-mounting/catalog-download-operations.mjs";
-import { backendBindAddress, discoverAutopilotLlamaServer, llamaCppGpuLayersArg, llamaCppLibraryPathEnv } from "./model-mounting/local-runtime-engines.mjs";
+import { discoverAutopilotLlamaServer, llamaCppLibraryPathEnv } from "./model-mounting/local-runtime-engines.mjs";
 import {
   providerHealthFailureStatus,
 } from "./model-mounting/provider-transport-policy.mjs";
@@ -246,10 +246,7 @@ import {
 } from "./model-mounting/runtime-survey.mjs";
 import {
   backend as backendState,
-  backendProcessArgs as backendProcessArgsState,
   backendProcessSnapshot as backendProcessSnapshotState,
-  backendProcessSpawnArgs as backendProcessSpawnArgsState,
-  backendSupportsSupervision as backendSupportsSupervisionState,
 } from "./model-mounting/backend-processes.mjs";
 import {
   backendHealth as backendHealthState,
@@ -1464,19 +1461,39 @@ export class ModelMountingState {
     return backendProcessSnapshotState(processRecord);
   }
 
+  backendProcessPlan(backend, { endpoint = null, loadOptions = {} } = {}) {
+    const defaults = this.runtimeDefaultLoadOptions(backend.id);
+    const request = {
+      schema_version: "ioi.model_mount.backend_process_plan.v1",
+      backend_ref: backend.id,
+      backend_kind: backend.kind,
+      base_url: backend.baseUrl ?? null,
+      model_ref: endpoint?.modelId ?? loadOptions.model ?? null,
+      artifact_path: endpoint?.artifactPath ?? null,
+      binary_configured: Boolean(backend.binaryPath),
+      load_options: {
+        context_length: loadOptions.context_length ?? loadOptions.contextLength ?? defaults.context_length ?? defaults.contextLength ?? null,
+        max_model_len: loadOptions.max_model_len ?? loadOptions.maxModelLen ?? null,
+        parallel: loadOptions.parallel ?? defaults.parallel ?? null,
+        tensor_parallel_size: loadOptions.tensor_parallel_size ?? loadOptions.tensorParallelSize ?? null,
+        gpu: loadOptions.gpu ?? defaults.gpu ?? null,
+        dtype: loadOptions.dtype ?? null,
+        gpu_memory_utilization: loadOptions.gpu_memory_utilization ?? loadOptions.gpuMemoryUtilization ?? null,
+        identifier: loadOptions.identifier ?? defaults.identifier ?? null,
+        embeddings: Boolean(loadOptions.embeddings ?? loadOptions.embedding ?? false),
+        model_path: loadOptions.model_path ?? loadOptions.modelPath ?? null,
+        model: loadOptions.model ?? null,
+      },
+    };
+    return this.modelMountAdmissionRunner.planBackendProcess(request);
+  }
+
   backendProcessArgs(backend, options = {}) {
-    return backendProcessArgsState(this, backend, options, {
-      llamaCppGpuLayersArg,
-      stableHash,
-    });
+    return this.backendProcessPlan(backend, options).public_args;
   }
 
   backendProcessSpawnArgs(backend, options = {}) {
-    return backendProcessSpawnArgsState(this, backend, options, {
-      backendBindAddress,
-      llamaCppGpuLayersArg,
-      stableHash,
-    });
+    return this.backendProcessPlan(backend, options).spawn_args;
   }
 
   ensureBackendProcess(backendId, { endpoint = null, loadOptions = {}, reason = "runtime_control" } = {}) {
@@ -1484,7 +1501,7 @@ export class ModelMountingState {
   }
 
   backendSupportsSupervision(backend) {
-    return backendSupportsSupervisionState(backend);
+    return this.backendProcessPlan(backend).supports_supervision;
   }
 
   touchBackendProcess(processRecord, { endpoint = null, loadOptions = {}, reason = "health_probe" } = {}) {
