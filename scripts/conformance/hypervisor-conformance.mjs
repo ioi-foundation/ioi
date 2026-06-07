@@ -1942,16 +1942,26 @@ function runBridge() {
       /const width = finiteNumber\(bounds\.width\);/.test(visualGuiLocalExecutor) &&
       /const height = finiteNumber\(bounds\.height\);/.test(visualGuiLocalExecutor) &&
       /cleanString\(bounds\.coordinate_space_id\)/.test(visualGuiLocalExecutor) &&
+      /observation_ref: cleanString\(input\.observation_ref\) \?\? null/.test(
+        visualGuiLocalExecutor,
+      ) &&
       /visual GUI local executor grounds only canonical visual target fields/.test(
         visualGuiLocalExecutorTest,
       ) &&
       /visual GUI local executor screenshot resolution ignores retired aliases/.test(
         visualGuiLocalExecutorTest,
       ) &&
+      /visual GUI local executor completion uses canonical observation_ref only/.test(
+        visualGuiLocalExecutorTest,
+      ) &&
+      /observationRef:\s*"observation_retired"/.test(visualGuiLocalExecutorTest) &&
+      /assert\.equal\(retiredAlias\.observation_ref,\s*null\)/.test(
+        visualGuiLocalExecutorTest,
+      ) &&
       /computerUseObservationBundle: \{ screenshot_ref: "artifact_legacy" \}/.test(
         visualGuiLocalExecutorTest,
       ) &&
-      !/\binput\.(?:screenshotRef|computerUseObservationBundle|targetRef|visualTargets|computerUseTargetIndex|targetIndex)\b/.test(
+      !/\binput\.(?:screenshotRef|computerUseObservationBundle|targetRef|visualTargets|computerUseTargetIndex|targetIndex|observationRef)\b/.test(
         visualGuiLocalExecutor,
       ) &&
       !/\btarget\.(?:targetRef|availableActions|id)\b/.test(visualGuiLocalExecutor) &&

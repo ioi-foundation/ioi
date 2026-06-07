@@ -194,7 +194,7 @@ export async function executeLocalVisualGuiAction({
       action_kind: normalizedActionKind,
       approval_ref: approvalRef,
       target_ref: groundedTarget.target_ref,
-      observation_ref: cleanString(input.observationRef ?? input.observation_ref) ?? null,
+      observation_ref: cleanString(input.observation_ref) ?? null,
       coordinate_space_id: groundedTarget.bounds.coordinate_space_id,
       payload_summary: localActionSummary(normalizedActionKind, groundedTarget, actionPayload.value),
       provider_id: provider.id,

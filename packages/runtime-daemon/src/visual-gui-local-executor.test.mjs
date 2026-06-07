@@ -203,6 +203,34 @@ test("visual GUI local executor action payloads use canonical fields only", asyn
   });
 });
 
+test("visual GUI local executor completion uses canonical observation_ref only", async () => {
+  await withFixtureExecution(async (captureDir) => {
+    const canonical = await executeLocalVisualGuiAction({
+      actionKind: "click",
+      approvalRef: "approval_visual_gui",
+      input: fixtureExecutionInput("click", {
+        observation_ref: "observation_canonical",
+      }),
+      captureDir,
+      artifactResolver: screenshotArtifactResolver,
+    });
+    assert.equal(canonical.status, "completed");
+    assert.equal(canonical.observation_ref, "observation_canonical");
+
+    const retiredAlias = await executeLocalVisualGuiAction({
+      actionKind: "click",
+      approvalRef: "approval_visual_gui",
+      input: fixtureExecutionInput("click", {
+        observationRef: "observation_retired",
+      }),
+      captureDir,
+      artifactResolver: screenshotArtifactResolver,
+    });
+    assert.equal(retiredAlias.status, "completed");
+    assert.equal(retiredAlias.observation_ref, null);
+  });
+});
+
 test("visual GUI local executor action payloads ignore retired aliases", async () => {
   await withFixtureExecution(async (captureDir) => {
     for (const { actionKind, inputPatch } of [
