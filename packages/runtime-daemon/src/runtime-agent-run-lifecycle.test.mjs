@@ -97,6 +97,7 @@ function deps(overrides = {}) {
     initialThreadRuntimeControls: (options, modelRoute, now) => ({
       mode: options.interaction_mode ?? "agent",
       approvalMode: options.approval_mode ?? null,
+      approval_mode: options.approval_mode ?? null,
       modelRouteId: modelRoute.routeId,
       updatedAt: now,
     }),
@@ -304,6 +305,34 @@ test("createRun ignores retired thread and approval mode request aliases before 
   assert.equal(statePlannerCalls.at(-1).operation, "plan_run_create_state_update");
   assert.equal(statePlannerCalls.at(-1).request.run.threadMode, "agent");
   assert.equal(statePlannerCalls.at(-1).request.run.approvalMode, "on-request");
+});
+
+test("createRun ignores retired persisted approval mode alias before Rust planning", () => {
+  const store = fakeStore();
+  const statePlannerCalls = [];
+  const testDeps = deps({ statePlannerCalls });
+  const agent = createAgent(store, { local: { cwd: "/workspace/project" } }, testDeps);
+  agent.runtimeControls = {
+    ...agent.runtimeControls,
+    mode: "review",
+    approvalMode: "never_prompt",
+  };
+  delete agent.runtimeControls.approval_mode;
+
+  const run = createRun(
+    store,
+    agent.id,
+    {
+      mode: "plan",
+      prompt: "hello",
+    },
+    testDeps,
+  );
+
+  assert.equal(run.threadMode, "review");
+  assert.equal(run.approvalMode, "read-only");
+  assert.equal(statePlannerCalls.at(-1).operation, "plan_run_create_state_update");
+  assert.equal(statePlannerCalls.at(-1).request.run.approvalMode, "read-only");
 });
 
 test("createRun fails closed without Rust-planned operation kind", () => {

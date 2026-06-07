@@ -4256,6 +4256,11 @@ function runBridge() {
       /createRun ignores retired thread and approval mode request aliases before Rust planning/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
+      /createRun ignores retired persisted approval mode alias before Rust planning/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /agent\.runtimeControls\?\.approval_mode/.test(runtimeAgentRunLifecycle) &&
+      !/agent\.runtimeControls\?\.approvalMode/.test(runtimeAgentRunLifecycle) &&
       /options\.interaction_mode \?\? "agent"/.test(threadRuntimeControls) &&
       !/options\.mode \?\? options\.interaction_mode/.test(threadRuntimeControls) &&
       !/options\.(?:approvalMode|routeId)\b/.test(threadRuntimeControls) &&

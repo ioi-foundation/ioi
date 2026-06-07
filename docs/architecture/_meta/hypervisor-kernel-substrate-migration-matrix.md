@@ -13048,6 +13048,11 @@ records as canonical server identities; only canonical `id`, `label`, `name`,
 and `server_id` participate in server resolution before MCP catalog/control
 facade routing.
 
+Slice 481 retires run-create persisted approval-mode aliases:
+daemon run creation now reads canonical `runtimeControls.approval_mode` only
+before Rust-planned `run.create`; persisted camelCase `approvalMode` controls
+can no longer steer run approval semantics before Agentgres admission.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

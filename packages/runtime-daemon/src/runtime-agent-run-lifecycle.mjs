@@ -104,7 +104,7 @@ export function createRun(store, agentId, request = {}, deps = {}) {
   const threadMode = request.thread_mode ?? threadModeForRunMode(mode, agent.runtimeControls?.mode);
   const approvalMode =
     request.approval_mode ??
-    agent.runtimeControls?.approvalMode ??
+    agent.runtimeControls?.approval_mode ??
     approvalModeForThreadMode(threadMode);
   const prompt =
     request.prompt ??
