@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after IDE computer-use projection facade-retirement slices 530-532 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after MCP facade-retirement slices 550-552 clarified the active seam.
 
 ## Purpose
 
@@ -38,7 +38,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; the first scheduled compaction pass ran on 2026-06-07 after IDE computer-use projection facade-retirement slices clarified the seam, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; the first scheduled compaction pass ran on 2026-06-07 after IDE computer-use projection facade-retirement slices clarified the seam, and the second ran on 2026-06-07 after MCP facade-retirement slices clarified the seam, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -81,6 +81,12 @@ Matrix compaction timing:
   ranges while preserving the live owner map, terminal blockers,
   bridge-scaffolding guardrail, current sprint lane, docs-conformance-pinned
   coding-tool slices, and recent active computer-use facade-retirement evidence.
+- Second scheduled pass completed on 2026-06-07: the expanded IDE and MCP
+  facade-retirement evidence after slices 533-552 was compacted into route-family
+  ranges while preserving the live owner map, terminal blockers,
+  bridge-scaffolding guardrail, current sprint lane, and the MCP distinction
+  between IOI-owned snake_case governance fields and MCP protocol-required
+  camelCase fields such as `inputSchema` and `serverInfo`.
 
 ## Implementation Slice 0
 
@@ -11158,13 +11164,13 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 532 and the 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 552 and the second 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
 command bridge as terminal shape. The full proof boundary remains the tiered
-conformance command contract, the route-family owner map above, and recent
-expanded slices where active facade-retirement work is still being continued.
+conformance command contract, the route-family owner map above, and the compacted
+route-family slice ranges below.
 
 Compacted slice evidence ranges:
 
@@ -11210,301 +11216,36 @@ Compacted slice evidence ranges:
   Rust control metadata aliases, runtime-bridge aliases, model-route request
   aliases, and native computer-use replay context aliases.
 
-Recent expanded slice evidence follows because this is the active facade
-retirement seam and should stay easy to reconstruct after context compaction.
+Recent facade-retirement evidence after the 2026-06-07 scheduled
+compaction passes is compacted by route-family range below so context resumes can
+reconstruct the active seam without carrying every per-slice paragraph.
 
-Slice 511 retires coding-tool StepModule context aliases:
-the JS projection wrapper for migrated coding-tool StepModule work now consumes
-canonical `run_id`, `task_id`, `thread_id`, workflow, authority, receipt,
-ArtifactRef/PayloadRef, Agentgres, and state-root context fields only; retired
-camelCase context aliases can no longer steer the Rust workload projection
-envelope before StepModuleRouter dispatch.
-
-Slice 512 retires computer-use request selector aliases:
-native-browser, visual-GUI, sandboxed-hosted, and control-lane request shaping
-now consumes canonical snake_case action, approval, session, target, CDP, and
-controlled-relaunch selector fields for projection/admission metadata; retired
-camelCase request aliases can no longer select action kind, approval refs,
-session mode, target refs, CDP endpoint/timeout, or control-lane session values
-before computer-use runtime events enter projection.
-
-Slice 513 retires computer-use control request aliases:
-control-lane runtime event construction now consumes canonical `lease_id`,
-`computer_use_lease_id`, `handoff_ref`, `human_handoff_ref`, `cleanup_ref`,
-`resume_observation_ref`, and `observation_retention_mode` fields only; retired
-camelCase request aliases can no longer steer control receipts, handoff state,
-cleanup receipts, resume observation refs, or evidence-retention metadata.
-
-Slice 514 retires computer-use controlled-relaunch metadata aliases:
-native-browser projection now consumes canonical controlled-relaunch broker,
-launch receipt, launch-plan, profile, executable, and retention metadata fields
-only; retired camelCase broker and receipt aliases can no longer trigger the
-controlled-relaunch projection path or override the fail-closed broker-missing
-state before runtime events enter projection.
-
-Slice 515 retires computer-use native-browser execution metadata aliases:
-projection now consumes canonical `computer_use_native_browser_execution` and
-`computer_use_execution_result` metadata only; retired camelCase execution
-result aliases can no longer turn an approved native-browser action into an
-executed action, adapter receipt, observation override, or lease evidence ref.
-
-Slice 516 retires computer-use contract override metadata aliases:
-native-browser, visual-GUI, and sandboxed-hosted runtime event producers now
-emit canonical `computer_use_*` observation, target-index, affordance-graph,
-adapter-contract, cleanup-receipt, and browser-observation-artifact override
-metadata; projection consumes those canonical fields only, so retired camelCase
-override aliases can no longer steer observation, grounding, adapter, cleanup,
-or browser-artifact contract projection.
-
-Slice 517 retires computer-use workflow-binding metadata aliases:
-native-browser, visual-GUI, and sandboxed-hosted projection-producing runtime
-metadata now uses canonical `computer_use`, `computer_use_lane`,
-`computer_use_session_mode`, `workflow_*`, `tool_ref`, `authority_scopes`, and
-`fail_closed_when_unavailable` fields; projection ignores retired camelCase
-workflow, lane/session, tool, authority, and fail-closed aliases so they can no
-longer steer selected execution lane, session mode, workflow binding, tool ref,
-authority scopes, retention, or fail-closed behavior.
-
-Slice 518 retires computer-use browser-discovery payload aliases:
-browser-discovery runtime payloads now emit canonical `schema_version`,
-`computer_use_*`, `tool_ref`, `workflow_*`, `authority_scopes`,
-`fail_closed_when_unavailable`, `browser_discovery_report`, and `receipt_id`
-fields only; invocation-result replay reads only `browser_discovery_report`, so
-retired camelCase discovery payload and report aliases can no longer create a
-duplicate replay truth path.
-
-Slice 519 retires IDE computer-use browser-discovery projection aliases: the
-workflow runtime event projector now reads canonical
-`browser_discovery_report`, `computer_use_browser_discovery_ref`,
-`discovery_ref`, `receipt_ref`, `browser_process_count`, `cdp_endpoint_count`,
-and `default_profile_remote_debugging_blockers` fields only, so retired
-camelCase discovery payload aliases cannot re-enter the Hypervisor IDE
-projection lane after daemon payload canonicalization.
-
-Slice 520 retires browser-discovery request option aliases: daemon tool input,
-SDK query construction, SDK live-tool fixtures, and IDE default tool arguments
-now use canonical `include_tabs` and `reveal_tab_titles` fields only, so
-retired `includeTabs` / `revealTabTitles` request aliases no longer steer
-browser tab metadata discovery.
-
-Slice 521 retires IDE hunk-decision receipt evidence aliases: the hunk-decision
-receipt panel now accepts only canonical `receipt_refs` and
-`policy_decision_refs` evidence fields on runtime events, bridge decisions, and
-blocked apply results, so retired `receiptRefs` / `policyDecisionRefs` aliases
-cannot make unadmitted IDE/bridge shapes look receipt-backed.
-
-Slice 522 retires IDE terminal stream card aliases: terminal stream cards now
-read canonical command-stream event and payload fields such as `event_kind`,
-`event_stream_id`, `tool_call_id`, `stream_id`, `stream_seq`, `output_text`,
-`is_final`, `receipt_refs`, and `artifact_refs` only, so retired camelCase
-command-stream aliases cannot create terminal output or evidence rows.
-
-Slice 523 retires IDE computer-use replay evidence aliases: computer-use replay
-timeline frames now read canonical `receipt_refs`, `policy_decision_refs`,
-`artifact_refs`, and `computer_use_policy_decision_ref` evidence inputs only, so
-retired camelCase evidence aliases cannot make replay frames look receipt-backed,
-policy-backed, or artifact-backed.
-
-Slice 524 retires IDE computer-use replay runtime identity aliases:
-computer-use replay filtering and frame identity now read canonical
-`event_kind`, `thread_id`, `workflow_graph_id`, and `workflow_node_id` fields
-only, so retired camelCase identity aliases cannot create replay frames or bind
-them to graph/thread/node identity.
-
-Slice 525 retires IDE computer-use replay artifact/ref aliases: replay timeline
-frames now read canonical `observation_bundle`, `target_index`,
-`affordance_graph`, `computer_use_*_ref`, `screenshot_ref`, `som_ref`,
-`ax_ref`, `target_index_ref`, `observation_ref`, and `graph_ref` fields only,
-so retired camelCase bundles and artifact refs cannot make old computer-use
-payloads look observation-backed, target-backed, or artifact-backed.
-
-Slice 526 retires IDE hunk-decision proposal and bridge aliases: the
-hunk-decision receipt panel now reads canonical proposal, approval, workflow,
-diff, target, bridge-decision, hunk-match, and blocked-apply metadata only, so
-retired camelCase request and payload aliases cannot create hunk rows, match
-bridge receipts, or construct approval/apply endpoints.
-
-Slice 527 retires IDE computer-use replay control aliases: replay timeline
-frames now read canonical `computer_use_step`, `computer_use_lane`, and
-`computer_use_*_ref` lifecycle control fields only, so retired camelCase
-step/lane/proposal/action/verification/commit-gate/trajectory/cleanup aliases
-cannot shape replay frames or lifecycle refs.
-
-Slice 528 retires IDE computer-use projection top-level control aliases:
-workflow runtime event projection now reads canonical `computer_use_step`,
-`computer_use_lane`, `computer_use_session_mode`, `computer_use_lease_id`, and
-`computer_use_blocker` fields only, so retired `computerUseStep`,
-`computerUseLane`, `computerUseSessionMode`, `computerUseLeaseId`, and
-`computerUseBlocker` payload aliases cannot create computer-use projection steps,
-select replay/projection lanes, or set session/lease/blocker state.
-
-Slice 529 retires IDE computer-use projection top-level artifact/ref aliases:
-workflow runtime event projection now reads canonical
-`computer_use_observation_ref`, `computer_use_screen_ref`,
-`computer_use_som_ref`, `computer_use_coordinate_space_id`,
-`computer_use_target_index_ref`, and `computer_use_affordance_graph_ref` fields
-only, so retired camelCase artifact/ref aliases cannot make old payload shapes
-look observation-backed, screen-backed, SOM-backed, coordinate-backed,
-target-backed, or affordance-backed.
-
-Slice 530 retires IDE computer-use projection top-level lifecycle ref aliases:
-workflow runtime event projection now reads canonical `computer_use_proposal_ref`,
-`computer_use_action_ref`, `computer_use_target_ref`,
-`computer_use_policy_decision_ref`, `computer_use_verification_ref`,
-`computer_use_commit_gate_ref`, `computer_use_trajectory_ref`, and
-`computer_use_cleanup_ref` fields only, so retired camelCase lifecycle aliases
-cannot make old payload shapes look proposal-backed, action-backed,
-target-backed, policy-backed, verification-backed, commit-gated,
-trajectory-backed, or cleanup-backed.
-
-Slice 531 retires the IDE computer-use projection top-level controlled-relaunch
-launch ref alias: workflow runtime event projection now reads canonical
-`computer_use_controlled_relaunch_launch_ref` from the payload, or the nested
-launch receipt, without accepting the retired `computerUseControlledRelaunchLaunchRef`
-payload field as browser-use evidence.
-
-Slice 532 retires the IDE computer-use projection top-level contract-ingest
-alias: workflow runtime event projection now reads canonical
-`computer_use_contract_ingest` only, so retired `computerUseContractIngest`
-payloads cannot make old computer-use contract-ingest shapes render as canonical
-projection state.
-
-Slice 533 retires IDE policy-lease panel payload and evidence aliases: the
-policy lease panel now reads canonical `approval_id`, `approval_lease`,
-`receipt_refs`, `policy_decision_refs`, `lease_id`, `policy_hash`, `ttl_ms`,
-`expires_at`, `expected_receipt_refs`, `authority_scope_requirements`,
-`approval_request_event_id`, `approval_decision_event_id`, `revoke_endpoint`,
-and `lease_status` fields only, so retired camelCase lease payload and evidence
-aliases cannot create lease rows or make old approval payloads look
-receipt-backed, policy-backed, revokable, or executable.
-
-Slice 534 retires IDE goal-verification panel diagnostic, completion, and
-evidence aliases: the goal-verification panel now reads canonical `tool_name`,
-`diagnostic_status`, `diagnostic_count`, `stop_reason`, `receipt_refs`,
-`policy_decision_refs`, and `rollback_refs` fields only, so retired camelCase
-diagnostic, completion, receipt, policy, and rollback aliases cannot make old
-tool/completion payloads look goal-verified, receipt-backed, policy-backed, or
-rollback-backed.
-
-Slice 535 retires IDE receipt-first tool timeline payload, result, and evidence
-aliases: the receipt-first tool timeline now reads canonical `tool_name`,
-`tool_call_id`, `receipt_refs`, `artifact_refs`, `output_hash`, and
-`output_bytes` fields only, so retired camelCase tool, receipt, artifact, and
-output aliases cannot make old tool payloads look receipt-backed,
-artifact-backed, or output-hash-bound.
-
-Slice 536 retires IDE signed-replay evidence aliases: the signed replay notebook
-now reads canonical `receipt_refs`, `artifact_refs`, `rollback_refs`, and
-`policy_decision_refs` from runtime events and restore results, and canonical
-snapshot-list `receipt_refs`, `artifact_refs`, and `policy_decision_refs` only,
-so retired camelCase evidence aliases cannot make old replay, restore, or
-snapshot payloads look receipt-backed, artifact-backed, rollback-backed, or
-policy-backed.
-
-Slice 537 retires IDE worker-contribution trace evidence aliases: worker
-contribution rows now read canonical event/contribution `receipt_refs`,
-`policy_decision_refs`, event `rollback_refs`, and event `artifact_refs` only,
-so retired camelCase worker contribution evidence aliases cannot satisfy receipt
-readiness or make old worker payloads look receipt-backed, policy-backed,
-rollback-backed, or artifact-backed.
-
-Slice 538 retires IDE delegation-matrix event evidence aliases: delegation rows
-now read canonical event `receipt_refs` and `policy_decision_refs`, plus
-canonical payload `receipt_refs`, `source_receipt_refs`,
-`policy_decision_refs`, and `source_policy_decision_refs` only, so retired
-camelCase event evidence aliases cannot make old delegation payloads look
-receipt-backed or policy-backed.
-
-Slice 539 retires IDE context-lifecycle usage snapshot aliases: usage snapshot
-rows now read canonical `thread_id`, `turn_id`, `workflow_graph_id`,
-`workflow_node_id`, `usage_meter_scope`, `receipt_refs`, and
-`policy_decision_refs` fields only, so retired camelCase usage identity,
-scope, receipt, and policy aliases cannot make old usage telemetry snapshots
-look canonical, receipt-backed, or policy-backed.
-
-Slice 540 retires IDE context-lifecycle compaction-policy payload aliases:
-compaction-policy rows now read canonical `context_budget`, `usage_summary`,
-`usage_telemetry`, `compact_scope`, `budget_status`, `approval_required`,
-`approval_satisfied`, `execute_compaction`, `compaction_executed`,
-`compaction_event_id`, and `compact_reason` fields only, so retired camelCase
-policy payload aliases cannot make old compaction policy records look
-canonical, approval-satisfied, execution-ready, or usage-bound.
-
-Slice 541 retires IDE context-lifecycle budget usage and threshold aliases:
-context-budget rows and shared usage summaries now read canonical
-`usage_summary`, `usage_telemetry`, `total_tokens`, `estimated_cost_usd`,
-`context_pressure`, `max_total_tokens`, `max_cost_usd`, and
-`max_context_pressure` fields only, so retired camelCase budget telemetry and
-threshold aliases cannot make old context budget records look usage-bound or
-threshold-backed.
-
-Slice 542 retires IDE context-lifecycle compaction payload aliases:
-context-compaction rows now read canonical `compacted_tokens` only, so retired
-camelCase `compactedTokens` payloads cannot make old compaction events look
-token-accounted.
-
-Slice 543 retires IDE context-lifecycle event evidence aliases: context
-lifecycle rows now read canonical event `receipt_refs` and
-`policy_decision_refs` only, so retired camelCase event evidence refs cannot
-make old context lifecycle rows look receipt-backed or policy-backed.
-
-Slice 544 retires IDE context-lifecycle event identity aliases: context
-lifecycle rows now read canonical event/payload `component_kind`, `thread_id`,
-`turn_id`, `workflow_graph_id`, and `workflow_node_id` fields only, so retired
-camelCase event identity aliases cannot create lifecycle rows or bind old
-payloads to thread, turn, workflow graph, or workflow node identity.
-
-Slice 545 retires IDE policy-lease event identity aliases: policy lease rows
-now read canonical event `approval_id`, `thread_id`, `turn_id`,
-`workflow_graph_id`, and `workflow_node_id` fields only, so retired camelCase
-event identity aliases cannot create approval lease rows or bind lease state to
-old thread, turn, workflow graph, or workflow node identity.
-
-Slice 546 retires IDE goal-verification event identity aliases: goal
-verification rows now read canonical event `thread_id`, `turn_id`,
-`workflow_graph_id`, `workflow_node_id`, `component_kind`, and `tool_name`
-fields only, so retired camelCase event identity and tool/component aliases
-cannot create verification rows or bind diagnostic proof to old workflow
-identity.
-
-Slice 547 retires IDE receipt-first timeline event identity aliases:
-receipt-first tool timeline rows now read canonical event `thread_id`,
-`turn_id`, `workflow_graph_id`, `workflow_node_id`, `tool_name`, and
-`tool_call_id` fields only, so retired camelCase event identity and tool-call
-aliases cannot create receipt-first rows or bind tool receipts to old workflow
-identity.
-
-Slice 548 retires IDE delegation-matrix event identity aliases: delegation
-matrix rows now read canonical event `thread_id`, `workflow_graph_id`, and
-`workflow_node_id` fields only, so retired camelCase event identity aliases
-cannot bind delegation or subagent memory rows to old thread or workflow
-identity.
-
-Slice 549 retires IDE worker-contribution event identity aliases: worker
-contribution traces now match tool events by canonical event `tool_call_id` and
-read canonical event `workflow_graph_id` / `workflow_node_id` only, so retired
-camelCase event tool-call and workflow aliases cannot match contributions or
-bind worker evidence to old workflow identity.
-
-Slice 550 retires MCP serve descriptor metadata aliases: IOI-owned MCP serve
-tool descriptor `_meta` governance fields now expose canonical `stable_tool_id`,
-`effect_class`, `authority_scope_requirements`, `credential_readiness`,
-`approval_required`, `rate_limit_profile`, `idempotency_behavior`, and workflow
-availability/config snake_case fields only, while leaving MCP JSON-RPC protocol
-fields such as `inputSchema` and `serverInfo` untouched.
-
-Slice 551 canonicalizes MCP catalog summary hashes: catalog summaries now hash
-`server_id`, `stable_tool_id`, `tool_name`, `input_schema`,
-`stable_resource_id`, and `stable_prompt_id` payload keys, so the summary hash
-no longer depends on retired camelCase/internal `serverId` or `inputSchema`
-compatibility names while the public summary output remains canonical.
-
-Slice 552 retires MCP control fail-closed detail aliases: MCP control missing
-thread/server/tool and Rust state-update planner errors now expose canonical
-`thread_id`, `server_id`, `tool_id`, `tool_name`, `control_kind`,
-`operation_kind`, and `expected_operation_kind` detail fields only, so
-fail-closed daemon responses no longer leak retired camelCase route identity
-or planner-detail aliases.
+- Slices 511-518 retired coding-tool StepModule context aliases and
+  computer-use request/control/runtime metadata aliases before StepModuleRouter
+  dispatch, native-browser execution, controlled relaunch, contract override,
+  workflow binding, and browser-discovery replay projection.
+- Slices 519-532 retired IDE computer-use browser-discovery, replay,
+  hunk-decision, terminal-stream, projection-control, artifact/ref, lifecycle,
+  controlled-relaunch, and contract-ingest aliases so old camelCase payloads can
+  no longer render as canonical computer-use projection evidence.
+- Slices 533-538 retired IDE policy-lease, goal-verification, receipt-first
+  timeline, signed-replay, worker-contribution, and delegation-matrix payload and
+  evidence aliases so those panels consume canonical receipt, policy, artifact,
+  rollback, diagnostic, lease, output, and contribution fields only.
+- Slices 539-544 retired IDE context-lifecycle usage, compaction-policy, budget,
+  compaction, evidence, and identity aliases so context lifecycle rows no longer
+  accept old telemetry, threshold, token-accounting, receipt/policy, thread, turn,
+  graph, node, or component identity fields.
+- Slices 545-549 retired IDE policy-lease, goal-verification, receipt-first
+  timeline, delegation-matrix, and worker-contribution event identity aliases so
+  proof panels bind only canonical approval, thread, turn, workflow, tool-call,
+  component, and contribution identities.
+- Slices 550-552 retired MCP facade aliases at the IOI-owned boundary: serve
+  descriptor governance metadata is canonical snake_case, catalog summary hashes
+  bind canonical server/tool/resource/prompt schema keys, and MCP control
+  fail-closed details expose canonical route/planner fields only. MCP
+  protocol-required fields such as `inputSchema` and `serverInfo` remain
+  protocol transport fields, not IOI compatibility shims or authority paths.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
