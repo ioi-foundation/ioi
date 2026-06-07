@@ -94,39 +94,30 @@ export function normalizeSubagentBudgetUsageTelemetry(usage = null) {
 export function normalizeSubagentBudget(budget = null) {
   if (!budget || typeof budget !== "object" || Array.isArray(budget)) return null;
   const maxTokens = optionalPositiveInteger(
-    budget.maxTokens ??
-      budget.max_tokens ??
-      budget.maxTotalTokens ??
+    budget.max_tokens ??
       budget.max_total_tokens ??
-      budget.tokenLimit ??
       budget.token_limit,
   );
   const maxInputTokens = optionalPositiveInteger(
-    budget.maxInputTokens ?? budget.max_input_tokens,
+    budget.max_input_tokens,
   );
   const maxOutputTokens = optionalPositiveInteger(
-    budget.maxOutputTokens ?? budget.max_output_tokens,
+    budget.max_output_tokens,
   );
   const maxCostUsd = optionalPositiveNumber(
-    budget.maxCostUsd ?? budget.max_cost_usd ?? budget.costLimitUsd ?? budget.cost_limit_usd,
+    budget.max_cost_usd ?? budget.cost_limit_usd,
   );
   const hasCap = Boolean(maxTokens || maxInputTokens || maxOutputTokens || maxCostUsd);
   return {
     schema_version: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
     object: "ioi.runtime_subagent_budget",
     configured: hasCap,
     max_tokens: maxTokens,
-    maxTokens,
     max_input_tokens: maxInputTokens,
-    maxInputTokens,
     max_output_tokens: maxOutputTokens,
-    maxOutputTokens,
     max_cost_usd: maxCostUsd,
-    maxCostUsd,
     currency: optionalString(budget.currency) ?? "USD",
     raw_keys: Object.keys(budget).sort(),
-    rawKeys: Object.keys(budget).sort(),
   };
 }
 
@@ -213,25 +204,20 @@ export function subagentBudgetStatusForRun({
   const checkedAt = new Date().toISOString();
   const policyDecision = {
     schema_version: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
     id: `policy_subagent_budget_${safePolicyId(run.id ?? "runless")}_${status}`,
     status: status === "exceeded" ? "blocked" : "allow",
     reason: status === "exceeded" ? "subagent_budget_exceeded" : "subagent_budget_within_limit",
     violated_caps: violations.map((violation) => violation.cap),
-    violatedCaps: violations.map((violation) => violation.cap),
   };
   return {
     schema_version: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_SUBAGENT_BUDGET_STATUS_SCHEMA_VERSION,
     object: "ioi.runtime_subagent_budget_status",
     status,
     budget: normalizedBudget,
     usage,
     violations,
     policy_decision: policyDecision,
-    policyDecision,
     checked_at: checkedAt,
-    checkedAt,
   };
 }
 
@@ -247,7 +233,7 @@ export function normalizeSubagentCancellationInheritance(value) {
 }
 
 export function normalizeSubagentOutputContract(value) {
-  const raw = value?.sections ?? value?.requiredSections ?? value ?? RUNTIME_SUBAGENT_DEFAULT_OUTPUT_CONTRACT;
+  const raw = value?.sections ?? value ?? RUNTIME_SUBAGENT_DEFAULT_OUTPUT_CONTRACT;
   const sections = normalizeArray(raw)
     .map((section) => optionalString(section))
     .filter(Boolean);
@@ -274,10 +260,8 @@ export function subagentContractOutputForRun(
   const requiredSections = normalizeSubagentOutputContract(outputContract);
   return {
     schema_version: RUNTIME_SUBAGENT_RESULT_SCHEMA_VERSION,
-    schemaVersion: RUNTIME_SUBAGENT_RESULT_SCHEMA_VERSION,
     object: "ioi.runtime_subagent_output_contract",
     required_sections: requiredSections,
-    requiredSections,
     sections,
     text: run.result ?? "",
   };
@@ -293,16 +277,11 @@ export function validateSubagentOutputContract(
   const missingSections = requiredSections.filter((section) => !Object.hasOwn(sectionMap, section));
   return {
     schema_version: "ioi.runtime.subagent-output-contract-status.v1",
-    schemaVersion: "ioi.runtime.subagent-output-contract-status.v1",
     status: missingSections.length ? "failed" : "passed",
     required_sections: requiredSections,
-    requiredSections,
     present_sections: presentSections,
-    presentSections,
     missing_sections: missingSections,
-    missingSections,
     validated_at: new Date().toISOString(),
-    validatedAt: new Date().toISOString(),
   };
 }
 

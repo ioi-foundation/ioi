@@ -2,16 +2,28 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  normalizeSubagentBudget,
   normalizeSubagentBudgetUsageTelemetry,
+  subagentBudgetStatusForRun,
+  subagentContractOutputForRun,
   subagentManagerEventPayload,
   subagentBudgetForRequest,
   subagentBudgetUsageTelemetryForRequest,
   subagentResultForRun,
   subagentUsageTelemetryForRun,
+  validateSubagentOutputContract,
 } from "./subagent-manager.mjs";
 
 const retiredSubagentBudgetRequestAliasKeys = [
   "subagentBudget",
+];
+const retiredSubagentBudgetDataAliasKeys = [
+  "schemaVersion",
+  "maxTokens",
+  "maxInputTokens",
+  "maxOutputTokens",
+  "maxCostUsd",
+  "rawKeys",
 ];
 const retiredSubagentBudgetUsageRequestAliasKeys = [
   "budgetUsageTelemetry",
@@ -52,6 +64,26 @@ const retiredSubagentResultOutputAliasKeys = [
   "outputContractStatus",
   "budgetStatus",
   "receiptRefs",
+];
+const retiredSubagentOutputContractAliasKeys = [
+  "schemaVersion",
+  "requiredSections",
+];
+const retiredSubagentOutputContractStatusAliasKeys = [
+  "schemaVersion",
+  "requiredSections",
+  "presentSections",
+  "missingSections",
+  "validatedAt",
+];
+const retiredSubagentBudgetStatusAliasKeys = [
+  "schemaVersion",
+  "policyDecision",
+  "checkedAt",
+];
+const retiredSubagentBudgetPolicyDecisionAliasKeys = [
+  "schemaVersion",
+  "violatedCaps",
 ];
 const retiredSubagentManagerEventOutputAliasKeys = [
   "schemaVersion",
@@ -169,6 +201,12 @@ function assertCanonicalSubagentBudgetUsageOutput(telemetry) {
   }
 }
 
+function assertCanonicalSubagentBudgetOutput(budget) {
+  for (const key of retiredSubagentBudgetDataAliasKeys) {
+    assert.equal(Object.prototype.hasOwnProperty.call(budget, key), false);
+  }
+}
+
 function assertCanonicalSubagentUsageTelemetryOutput(telemetry) {
   for (const key of retiredSubagentUsageTelemetryOutputAliasKeys) {
     assert.equal(Object.prototype.hasOwnProperty.call(telemetry, key), false);
@@ -178,6 +216,30 @@ function assertCanonicalSubagentUsageTelemetryOutput(telemetry) {
 function assertCanonicalSubagentResultOutput(result) {
   for (const key of retiredSubagentResultOutputAliasKeys) {
     assert.equal(Object.prototype.hasOwnProperty.call(result, key), false);
+  }
+}
+
+function assertCanonicalSubagentOutputContract(output) {
+  for (const key of retiredSubagentOutputContractAliasKeys) {
+    assert.equal(Object.prototype.hasOwnProperty.call(output, key), false);
+  }
+}
+
+function assertCanonicalSubagentOutputContractStatus(status) {
+  for (const key of retiredSubagentOutputContractStatusAliasKeys) {
+    assert.equal(Object.prototype.hasOwnProperty.call(status, key), false);
+  }
+}
+
+function assertCanonicalSubagentBudgetStatus(status) {
+  for (const key of retiredSubagentBudgetStatusAliasKeys) {
+    assert.equal(Object.prototype.hasOwnProperty.call(status, key), false);
+  }
+  for (const key of retiredSubagentBudgetPolicyDecisionAliasKeys) {
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(status.policy_decision, key),
+      false,
+    );
   }
 }
 
@@ -210,6 +272,55 @@ test("subagent budget ignores retired request aliases", () => {
       10,
     );
   }
+});
+
+test("subagent budget normalization ignores retired data aliases", () => {
+  const budget = normalizeSubagentBudget({
+    max_tokens: 100,
+    max_input_tokens: 60,
+    max_output_tokens: 40,
+    max_cost_usd: 1.25,
+    currency: "USD",
+    maxTokens: 1,
+    maxInputTokens: 2,
+    maxOutputTokens: 3,
+    maxCostUsd: 4,
+  });
+  const retiredOnly = normalizeSubagentBudget({
+    maxTokens: 1,
+    maxInputTokens: 2,
+    maxOutputTokens: 3,
+    maxCostUsd: 4,
+  });
+
+  assert.equal(budget.max_tokens, 100);
+  assert.equal(budget.max_input_tokens, 60);
+  assert.equal(budget.max_output_tokens, 40);
+  assert.equal(budget.max_cost_usd, 1.25);
+  assert.equal(budget.configured, true);
+  assertCanonicalSubagentBudgetOutput(budget);
+  assert.equal(retiredOnly.configured, false);
+  assert.equal(retiredOnly.max_tokens, null);
+  assert.equal(retiredOnly.max_input_tokens, null);
+  assert.equal(retiredOnly.max_output_tokens, null);
+  assert.equal(retiredOnly.max_cost_usd, null);
+  assertCanonicalSubagentBudgetOutput(retiredOnly);
+});
+
+test("subagent budget status emits canonical fields only", () => {
+  const status = subagentBudgetStatusForRun({
+    budget: { max_tokens: 1 },
+    run: { id: "run-budget", result: "one two three" },
+    prompt: "four five",
+  });
+
+  assert.equal(status.schema_version, "ioi.runtime.subagent-budget-status.v1");
+  assert.equal(status.policy_decision.schema_version, "ioi.runtime.subagent-budget-status.v1");
+  assert.equal(status.status, "exceeded");
+  assert.equal(status.policy_decision.status, "blocked");
+  assert.deepEqual(status.policy_decision.violated_caps, ["max_tokens"]);
+  assertCanonicalSubagentBudgetStatus(status);
+  assertCanonicalSubagentBudgetOutput(status.budget);
 });
 
 test("subagent budget usage telemetry accepts canonical request fields", () => {
@@ -321,6 +432,58 @@ test("subagent usage telemetry ignores retired previous usage aliases", () => {
   assert.equal(retiredOnly.cumulative_total_tokens, retiredOnly.total_tokens);
   assert.equal(retiredOnly.model_route_id, "route.canonical");
   assert.equal(retiredOnly.cost_estimate_usd, 0.42);
+});
+
+test("subagent output contract helpers emit canonical fields only", () => {
+  const run = {
+    result: "SUMMARY\nDone.",
+    trace: {
+      taskState: {
+        evidenceRefs: ["evidence-one"],
+      },
+    },
+    receipts: [{ id: "receipt-one" }],
+  };
+  const output = subagentContractOutputForRun(run, {
+    sections: ["SUMMARY", "EVIDENCE"],
+    requiredSections: ["BLOCKERS"],
+  });
+  const status = validateSubagentOutputContract(output, {
+    sections: ["SUMMARY", "EVIDENCE"],
+    requiredSections: ["BLOCKERS"],
+  });
+  const retiredOnlyOutput = subagentContractOutputForRun(run, {
+    requiredSections: ["BLOCKERS"],
+  });
+  const retiredOnlyStatus = validateSubagentOutputContract(output, {
+    requiredSections: ["BLOCKERS"],
+  });
+
+  assert.deepEqual(output.required_sections, ["SUMMARY", "EVIDENCE"]);
+  assert.equal(status.status, "passed");
+  assert.deepEqual(status.required_sections, ["SUMMARY", "EVIDENCE"]);
+  assert.deepEqual(retiredOnlyOutput.required_sections, [
+    "SUMMARY",
+    "CHANGES",
+    "EVIDENCE",
+    "RISKS",
+    "BLOCKERS",
+    "RECEIPTS",
+  ]);
+  assert.equal(retiredOnlyStatus.status, "passed");
+  assert.deepEqual(retiredOnlyStatus.required_sections, [
+    "SUMMARY",
+    "CHANGES",
+    "EVIDENCE",
+    "RISKS",
+    "BLOCKERS",
+    "RECEIPTS",
+  ]);
+  assert.deepEqual(retiredOnlyStatus.missing_sections, []);
+  assertCanonicalSubagentOutputContract(output);
+  assertCanonicalSubagentOutputContract(retiredOnlyOutput);
+  assertCanonicalSubagentOutputContractStatus(status);
+  assertCanonicalSubagentOutputContractStatus(retiredOnlyStatus);
 });
 
 test("subagent result and manager events emit canonical usage telemetry only", () => {

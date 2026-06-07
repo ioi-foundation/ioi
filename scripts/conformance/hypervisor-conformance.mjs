@@ -12909,9 +12909,21 @@ function runCompositor() {
     subagentManager.match(
       /export function normalizeSubagentBudgetUsageTelemetry[\s\S]*?\n}\n\nexport function normalizeSubagentBudget/,
     )?.[0] ?? "";
+  const subagentBudgetNormalizerBlock =
+    subagentManager.match(
+      /export function normalizeSubagentBudget[\s\S]*?\n}\n\nexport function subagentUsageTelemetryForRun/,
+    )?.[0] ?? "";
   const subagentUsageTelemetryForRunBlock =
     subagentManager.match(
       /export function subagentUsageTelemetryForRun[\s\S]*?\n}\n\nexport function subagentBudgetStatusForRun/,
+    )?.[0] ?? "";
+  const subagentBudgetStatusForRunBlock =
+    subagentManager.match(
+      /export function subagentBudgetStatusForRun[\s\S]*?\n}\n\nexport function subagentCancellationPropagates/,
+    )?.[0] ?? "";
+  const subagentOutputContractHelperBlock =
+    subagentManager.match(
+      /export function normalizeSubagentOutputContract[\s\S]*?\n}\n\nexport function subagentResultForRun/,
     )?.[0] ?? "";
   const subagentResultForRunBlock =
     subagentManager.match(
@@ -15503,6 +15515,45 @@ function runCompositor() {
       "packages/runtime-daemon/src/subagent-manager.test.mjs",
     ],
     "Phase 10/11 is pending: subagent budget usage telemetry output must expose canonical snake_case fields only",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-budget-status-output-aliases-retired",
+    subagentBudgetNormalizerBlock.length > 0 &&
+      subagentBudgetStatusForRunBlock.length > 0 &&
+      subagentOutputContractHelperBlock.length > 0 &&
+      !/\bbudget\.(?:maxTokens|maxInputTokens|maxOutputTokens|maxCostUsd)\b/.test(
+        subagentBudgetNormalizerBlock,
+      ) &&
+      !/\bvalue\?\.requiredSections\b/.test(
+        subagentOutputContractHelperBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|maxTokens|maxInputTokens|maxOutputTokens|maxCostUsd|rawKeys)\s*[:,]/m.test(
+        subagentBudgetNormalizerBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|policyDecision|checkedAt|violatedCaps)\s*[:,]/m.test(
+        subagentBudgetStatusForRunBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|requiredSections|presentSections|missingSections|validatedAt)\s*[:,]/m.test(
+        subagentOutputContractHelperBlock,
+      ) &&
+      /retiredSubagentBudgetDataAliasKeys/.test(subagentManagerTest) &&
+      /retiredSubagentBudgetStatusAliasKeys/.test(subagentManagerTest) &&
+      /retiredSubagentOutputContractAliasKeys/.test(subagentManagerTest) &&
+      /subagent budget normalization ignores retired data aliases/.test(
+        subagentManagerTest,
+      ) &&
+      /subagent budget status emits canonical fields only/.test(
+        subagentManagerTest,
+      ) &&
+      /subagent output contract helpers emit canonical fields only/.test(
+        subagentManagerTest,
+      ),
+    [
+      "packages/runtime-daemon/src/subagent-manager.mjs",
+      "packages/runtime-daemon/src/subagent-manager.test.mjs",
+    ],
+    "Phase 10/11 is pending: subagent budget/status/output-contract helpers must ignore retired camelCase aliases and emit canonical snake_case fields only",
   );
   assertCheck(
     result,
