@@ -19,18 +19,26 @@ export async function inspectWorkspaceChangeReviewsForThread(store, threadId, re
       status: "not_runtime_backed",
     };
   }
+  const retiredAliases = retiredWorkspaceChangeInspectionAliases(request);
+  if (retiredAliases.length > 0) {
+    throw runtimeError({
+      status: 400,
+      code: "workspace_change_inspection_request_aliases_retired",
+      message: "Workspace change inspection request uses retired aliases.",
+      details: { thread_id: threadId, retired_aliases: retiredAliases },
+    });
+  }
   store.assertRuntimeBridgeAvailable({
     runtimeProfile: agent.runtimeProfile,
     operation: "inspect_thread",
   });
   try {
     const bridgeResult = await store.runtimeBridge.inspectThread({
-      sessionId,
-      threadId,
-      workspaceRoot: agent.cwd,
+      session_id: sessionId,
+      thread_id: threadId,
+      workspace_root: agent.cwd,
       projection: "workspace_change_reviews",
-      requestedAt: new Date().toISOString(),
-      ...request,
+      requested_at: new Date().toISOString(),
     });
     return normalizeWorkspaceChangeReviewInspection({
       bridge_result: bridgeResult,
@@ -155,6 +163,17 @@ export async function controlWorkspaceChangeForThread(store, threadId, request =
     }
     throw error;
   }
+}
+
+function retiredWorkspaceChangeInspectionAliases(request = {}) {
+  return [
+    ["sessionId", request],
+    ["threadId", request],
+    ["workspaceRoot", request],
+    ["requestedAt", request],
+  ]
+    .filter(([key, container]) => Object.hasOwn(container, key))
+    .map(([key]) => key);
 }
 
 function retiredWorkspaceChangeControlAliases(request = {}) {

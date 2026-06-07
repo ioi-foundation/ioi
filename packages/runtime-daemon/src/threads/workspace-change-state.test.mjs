@@ -104,9 +104,45 @@ test("workspace change inspection calls runtime bridge and normalizes hunk previ
   const inspected = await inspectWorkspaceChangeReviewsForThread(store, "thread_runtime", {}, deps());
 
   assert.equal(bridgeCalls[0].projection, "workspace_change_reviews");
+  assert.equal(bridgeCalls[0].session_id, "session_runtime");
+  assert.equal(bridgeCalls[0].thread_id, "thread_runtime");
+  assert.equal(bridgeCalls[0].workspace_root, "/workspace");
+  assert.equal(typeof bridgeCalls[0].requested_at, "string");
+  assert.equal(Object.hasOwn(bridgeCalls[0], "sessionId"), false);
+  assert.equal(Object.hasOwn(bridgeCalls[0], "threadId"), false);
+  assert.equal(Object.hasOwn(bridgeCalls[0], "workspaceRoot"), false);
+  assert.equal(Object.hasOwn(bridgeCalls[0], "requestedAt"), false);
   assert.equal(inspected.status, "ready");
   assert.equal(inspected.hunk_previews[0].change_id, "workspace_change:file:1");
   assert.equal(Object.hasOwn(inspected.hunk_previews[0], "changeId"), false);
+});
+
+test("workspace change inspection rejects retired bridge request aliases", async () => {
+  const store = fakeStore({
+    agent: {
+      id: "agent_runtime",
+      cwd: "/workspace",
+      runtimeProfile: "runtime_service",
+      runtimeSessionId: "session_runtime",
+    },
+  });
+
+  await assert.rejects(
+    inspectWorkspaceChangeReviewsForThread(store, "thread_runtime", {
+      sessionId: "session_retired",
+      threadId: "thread_retired",
+      workspaceRoot: "/retired",
+      requestedAt: "2026-06-03T00:00:00.000Z",
+    }, deps()),
+    (error) =>
+      error.code === "workspace_change_inspection_request_aliases_retired" &&
+      error.details.thread_id === "thread_runtime" &&
+      error.details.retired_aliases.includes("sessionId") &&
+      error.details.retired_aliases.includes("threadId") &&
+      error.details.retired_aliases.includes("workspaceRoot") &&
+      error.details.retired_aliases.includes("requestedAt") &&
+      Object.hasOwn(error.details, "threadId") === false,
+  );
 });
 
 test("workspace change control maps tool ids to bridge actions and result envelope", async () => {

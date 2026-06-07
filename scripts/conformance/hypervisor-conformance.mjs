@@ -19461,6 +19461,13 @@ function runCompositor() {
       /runtime_profile:\s*agent\?\.runtime_profile \?\? "unknown"/.test(
         workspaceChangeInspection,
       ) &&
+      /retiredWorkspaceChangeInspectionAliases/.test(workspaceChangeState) &&
+      /workspace_change_inspection_request_aliases_retired/.test(workspaceChangeState) &&
+      /session_id:\s*sessionId/.test(workspaceChangeState) &&
+      /thread_id:\s*threadId/.test(workspaceChangeState) &&
+      /workspace_root:\s*agent\.cwd/.test(workspaceChangeState) &&
+      /requested_at:\s*new Date\(\)\.toISOString\(\)/.test(workspaceChangeState) &&
+      /projection:\s*"workspace_change_reviews"/.test(workspaceChangeState) &&
       /retiredWorkspaceChangeControlAliases/.test(workspaceChangeState) &&
       /workspace_change_control_request_aliases_retired/.test(workspaceChangeState) &&
       /const toolId = optionalString\(request\.tool_id\)/.test(workspaceChangeState) &&
@@ -19485,6 +19492,18 @@ function runCompositor() {
       ) &&
       /workspace change inspection ignores retired runtime profile alias/.test(
         workspaceChangeInspectionTest,
+      ) &&
+      /workspace change inspection rejects retired bridge request aliases/.test(
+        workspaceChangeStateTest,
+      ) &&
+      /Object\.hasOwn\(bridgeCalls\[0\],\s*"sessionId"\),\s*false/.test(
+        workspaceChangeStateTest,
+      ) &&
+      /Object\.hasOwn\(bridgeCalls\[0\],\s*"workspaceRoot"\),\s*false/.test(
+        workspaceChangeStateTest,
+      ) &&
+      /Object\.hasOwn\(bridgeCalls\[0\],\s*"requestedAt"\),\s*false/.test(
+        workspaceChangeStateTest,
       ) &&
       /agent:\s*\{\s*runtimeProfile:\s*"runtime_alias"\s*\}/.test(
         workspaceChangeInspectionTest,
@@ -19523,6 +19542,12 @@ function runCompositor() {
         workspaceChangeState,
       ) &&
       !/\b(?:request|input)\.(?:toolId|createdAt|requestHash|workspaceChangeId)\b/.test(
+        workspaceChangeState,
+      ) &&
+      !/^\s*(?:sessionId|threadId|workspaceRoot|requestedAt)\s*:/m.test(
+        workspaceChangeState,
+      ) &&
+      !/request\.(?:sessionId|threadId|workspaceRoot|requestedAt)/.test(
         workspaceChangeState,
       ) &&
       !/input\.workspace_change_id/.test(
