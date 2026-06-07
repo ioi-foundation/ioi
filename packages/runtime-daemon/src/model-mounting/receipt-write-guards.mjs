@@ -8,6 +8,10 @@ const ACCEPTED_MODEL_INVOCATION_RECEIPT_KINDS = new Set([
   "model_invocation_coalesced",
   "model_invocation_stream_completed",
 ]);
+const MODEL_MOUNT_ACCEPTED_RECEIPT_OPERATION_REF_PREFIX =
+  "agentgres://model-mounting/accepted-receipts/";
+const MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_REF_PREFIX =
+  "agentgres://model-mounting/accepted-receipts/head/";
 
 const MODEL_INSTANCE_LIFECYCLE_RECEIPT_STATUSES = new Map([
   ["model_load", "loaded"],
@@ -51,6 +55,16 @@ function assertAcceptedModelInvocationReceiptBound(receipt) {
   if (!optionalNonEmptyString(details.model_mount_agentgres_admission_hash)) {
     missing.push("model_mount_agentgres_admission_hash");
   }
+  if (!optionalNonEmptyString(details.model_mount_agentgres_state_root_before)) {
+    missing.push("model_mount_agentgres_state_root_before");
+  }
+  if (!optionalNonEmptyString(details.model_mount_agentgres_state_root_after)) {
+    missing.push("model_mount_agentgres_state_root_after");
+  }
+  const resultingHead = optionalNonEmptyString(details.model_mount_agentgres_resulting_head);
+  if (!resultingHead) {
+    missing.push("model_mount_agentgres_resulting_head");
+  }
   if (!optionalNonEmptyString(details.model_mount_step_module_invocation?.input?.state_root_before)) {
     missing.push("model_mount_step_module_invocation.input.state_root_before");
   }
@@ -65,6 +79,12 @@ function assertAcceptedModelInvocationReceiptBound(receipt) {
   }
 
   const mismatches = [];
+  if (operationRef && !operationRef.startsWith(MODEL_MOUNT_ACCEPTED_RECEIPT_OPERATION_REF_PREFIX)) {
+    mismatches.push("model_mount_agentgres_operation_ref_namespace");
+  }
+  if (resultingHead && !resultingHead.startsWith(MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_REF_PREFIX)) {
+    mismatches.push("model_mount_agentgres_resulting_head_namespace");
+  }
   if (
     operationRef &&
     !details.model_mount_step_module_result?.agentgres_operation_refs?.includes(operationRef)

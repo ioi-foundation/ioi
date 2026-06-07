@@ -10849,6 +10849,11 @@ function runReceipts() {
       /model_mount_accepted_receipt_append_hash/.test(modelMountReceiptWriteGuards) &&
       /model_mount_agentgres_operation_ref/.test(modelMountReceiptWriteGuards) &&
       /model_mount_agentgres_admission_hash/.test(modelMountReceiptWriteGuards) &&
+      /MODEL_MOUNT_ACCEPTED_RECEIPT_OPERATION_REF_PREFIX/.test(modelMountReceiptWriteGuards) &&
+      /MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_REF_PREFIX/.test(modelMountReceiptWriteGuards) &&
+      /model_mount_agentgres_operation_ref_namespace/.test(modelMountReceiptWriteGuards) &&
+      /model_mount_agentgres_resulting_head_namespace/.test(modelMountReceiptWriteGuards) &&
+      /model invocation receipt writes reject retired model-mounting operation-log refs/.test(modelMountStoreTest) &&
       !/(?:modelMountReceiptBinding|modelMountAcceptedReceiptAppend|modelMountStepModuleInvocation|modelMountStepModuleResult|modelMountAgentgres)/.test(modelMountReceiptWriteGuards),
     [
       "packages/runtime-daemon/src/model-mounting/store.mjs",

@@ -64,8 +64,8 @@ function fakeReceiptCommitter(stateDir, commits) {
 }
 
 function boundModelInvocationReceipt(overrides = {}) {
-  const operationRef = "agentgres://model-mounting/operation-log/op_00000001_model_invocation";
-  const resultingHead = "agentgres://model-mounting/operation-log/head/1";
+  const operationRef = "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation";
+  const resultingHead = "agentgres://model-mounting/accepted-receipts/head/1";
   return {
     id: "receipt.model-invocation",
     kind: "model_invocation",
@@ -98,8 +98,8 @@ function boundModelInvocationReceipt(overrides = {}) {
 }
 
 function legacyCamelBoundModelInvocationReceipt() {
-  const operationRef = "agentgres://model-mounting/operation-log/op_00000001_model_invocation";
-  const resultingHead = "agentgres://model-mounting/operation-log/head/1";
+  const operationRef = "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation";
+  const resultingHead = "agentgres://model-mounting/accepted-receipts/head/1";
   return {
     id: "receipt.legacy-camel",
     kind: "model_invocation",
@@ -244,7 +244,7 @@ test("model invocation receipt writes reject mismatched Agentgres operation refs
     details: {
       ...boundModelInvocationReceipt().details,
       model_mount_agentgres_admission: {
-        operation_ref: "agentgres://model-mounting/operation-log/op_00000002_model_invocation",
+        operation_ref: "agentgres://model-mounting/accepted-receipts/op_00000002_model_invocation",
       },
     },
   });
@@ -256,6 +256,38 @@ test("model invocation receipt writes reject mismatched Agentgres operation refs
       error.details.mismatches.includes("model_mount_agentgres_admission.operation_ref"),
   );
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.mismatch.json")), false);
+  assert.deepEqual(appended, []);
+});
+
+test("model invocation receipt writes reject retired model-mounting operation-log refs", () => {
+  const { appended, stateDir, store } = testStore();
+  const operationRef = "agentgres://model-mounting/operation-log/op_00000001_model_invocation";
+  const resultingHead = "agentgres://model-mounting/operation-log/head/1";
+  const receipt = boundModelInvocationReceipt({
+    id: "receipt.retired-operation-log",
+    details: {
+      ...boundModelInvocationReceipt().details,
+      model_mount_agentgres_operation_ref: operationRef,
+      model_mount_agentgres_resulting_head: resultingHead,
+      model_mount_agentgres_admission: {
+        operation_ref: operationRef,
+      },
+      model_mount_step_module_result: {
+        agentgres_operation_refs: [operationRef],
+        state_root_after: "sha256:after",
+        resulting_head: resultingHead,
+      },
+    },
+  });
+
+  assert.throws(
+    () => store.writeReceipt(receipt),
+    (error) =>
+      error.code === "model_mount_invocation_receipt_direct_append_forbidden" &&
+      error.details.mismatches.includes("model_mount_agentgres_operation_ref_namespace") &&
+      error.details.mismatches.includes("model_mount_agentgres_resulting_head_namespace"),
+  );
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.retired-operation-log.json")), false);
   assert.deepEqual(appended, []);
 });
 
