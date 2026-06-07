@@ -298,7 +298,9 @@ test("coding-tool governance blocks tools for budget with event envelope", () =>
   const budgetPolicy = {
     status: "blocked",
     receipt_refs: ["receipt-budget"],
+    receiptRefs: ["receipt-retired-budget"],
     policy_decision_refs: ["policy-budget"],
+    policyDecisionRefs: ["policy-retired-budget"],
     usage_telemetry: { totalTokens: 100 },
     usageTelemetry: { totalTokens: 100 },
   };
@@ -328,6 +330,8 @@ test("coding-tool governance blocks tools for budget with event envelope", () =>
   assert.equal(result.event.component_kind, "coding_tool");
   assert.deepEqual(result.receipt_refs, ["receipt-tool", "receipt-budget"]);
   assert.deepEqual(result.policy_decision_refs, ["policy-budget"]);
+  assert.equal(result.receipt_refs.includes("receipt-retired-budget"), false);
+  assert.equal(result.policy_decision_refs.includes("policy-retired-budget"), false);
   assert.deepEqual(result.rollback_refs, ["rollback-one"]);
   assert.equal(result.result.error.code, "coding_tool_budget_exceeded");
   assert.equal(result.result.schema_version, "ioi.runtime.coding-tool-result.v1");

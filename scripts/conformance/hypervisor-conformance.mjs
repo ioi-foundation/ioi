@@ -3158,6 +3158,22 @@ function runBridge() {
       ) &&
       /policy_decision_refs:\s*policyDecisionRefs/.test(codingToolBudgetBlockBody) &&
       /receipt_refs:\s*event\.receipt_refs/.test(codingToolBudgetBlockBody) &&
+      /normalizeArray\(budgetPolicy\.receipt_refs\)/.test(codingToolBudgetBlockBody) &&
+      /budgetPolicy\.policy_decision_refs/.test(codingToolBudgetBlockBody) &&
+      !/budgetPolicy\.receiptRefs/.test(codingToolBudgetBlockBody) &&
+      !/budgetPolicy\.policyDecisionRefs/.test(codingToolBudgetBlockBody) &&
+      /receiptRefs: \["receipt-retired-budget"\]/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
+      /policyDecisionRefs: \["policy-retired-budget"\]/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
+      /result\.receipt_refs\.includes\("receipt-retired-budget"\),\s*false/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
+      /result\.policy_decision_refs\.includes\("policy-retired-budget"\),\s*false/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
       !/schemaVersion:\s*CODING_TOOL_RESULT_SCHEMA_VERSION/.test(codingToolBudgetBlockBody) &&
       !/toolName:\s*toolId/.test(codingToolBudgetBlockBody) &&
       !/budgetStatus:\s*"exceeded"/.test(codingToolBudgetBlockBody) &&

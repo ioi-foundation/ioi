@@ -205,10 +205,10 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
   }) {
     const receiptRefs = uniqueStrings([
       receiptId,
-      ...normalizeArray(budgetPolicy.receipt_refs ?? budgetPolicy.receiptRefs),
+      ...normalizeArray(budgetPolicy.receipt_refs),
     ]);
     const policyDecisionRefs = uniqueStrings(
-      budgetPolicy.policy_decision_refs ?? budgetPolicy.policyDecisionRefs,
+      budgetPolicy.policy_decision_refs,
     );
     const error = {
       code: "coding_tool_budget_exceeded",
