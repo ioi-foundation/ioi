@@ -9902,7 +9902,7 @@ mod tests {
                 "prompt": "Open the browser and click the sign in button.",
                 "lane": "native_browser",
                 "sessionMode": "controlled_relaunch",
-                "actionKind": "click",
+                "action_kind": "click",
                 "url": "https://example.test"
             }),
         );
@@ -9956,7 +9956,7 @@ mod tests {
             json!({
                 "prompt": "Try to steer the lane through a retired alias.",
                 "computerUseLane": "sandboxed_hosted",
-                "actionKind": "inspect"
+                "action_kind": "inspect"
             }),
         );
 
@@ -9974,6 +9974,40 @@ mod tests {
         assert_eq!(
             response["workload_observation"]["result"]["leaseRequest"]["authorityScope"],
             "computer_use.native_browser.read"
+        );
+    }
+
+    #[test]
+    fn computer_use_request_lease_ignores_retired_action_kind_alias() {
+        let request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Try to escalate authority through a retired action alias.",
+                "lane": "native_browser",
+                "actionKind": "click"
+            }),
+        );
+
+        let response =
+            computer_use_request_lease_response(request).expect("lease request response");
+
+        assert_eq!(
+            response["workload_observation"]["result"]["leaseRequest"]["actionKind"],
+            "inspect"
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["leaseRequest"]["authorityScope"],
+            "computer_use.native_browser.read"
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["approvalRequiredBeforeExecution"],
+            false
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["walletNetworkAuthorityBoundary"]
+                ["requiredBeforeExecution"],
+            false
         );
     }
 
@@ -10022,7 +10056,7 @@ mod tests {
                 "lane": "sandboxed_hosted",
                 "sessionMode": "hosted_sandbox",
                 "sandboxProvider": "local_container",
-                "actionKind": "inspect"
+                "action_kind": "inspect"
             }),
         );
 

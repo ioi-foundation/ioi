@@ -1612,6 +1612,23 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-request-lease-action-kind-alias-retired",
+    /optional_json_string\(input,\s*&\["action_kind"\]\)/.test(computerUseBridge) &&
+      !/optional_json_string\(input,\s*&\["actionKind",\s*"action_kind"\]\)/.test(
+        computerUseBridge,
+      ) &&
+      /computer_use_request_lease_ignores_retired_action_kind_alias/.test(bridgeModule) &&
+      /"actionKind": "click"/.test(bridgeModule) &&
+      /"computer_use\.native_browser\.read"/.test(bridgeModule) &&
+      /approvalRequiredBeforeExecution/.test(bridgeModule),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10/11 is pending: Rust computer-use request-lease action selection must ignore retired actionKind input so wallet.network authority scope cannot be escalated through a compatibility alias",
+  );
+  assertCheck(
+    result,
     "coding-tool-result-router-admission-alias-retired",
     !/\brouterAdmission\s*:/.test(runtimeCodingToolInvocationSurface) &&
       /result\.result\.router_admission\.schema_version/.test(

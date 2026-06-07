@@ -421,7 +421,7 @@ fn computer_use_session_mode_for_input(input: &Value, lane: &str) -> String {
 }
 
 fn computer_use_action_kind_for_input(input: &Value) -> String {
-    let value = optional_json_string(input, &["actionKind", "action_kind"])
+    let value = optional_json_string(input, &["action_kind"])
         .unwrap_or_default()
         .to_ascii_lowercase()
         .replace([' ', '-'], "_");
