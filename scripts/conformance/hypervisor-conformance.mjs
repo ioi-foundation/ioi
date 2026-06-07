@@ -14305,6 +14305,26 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.test.ts")
     : "";
+  const agentIdeRuntimePolicyStack = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts")
+    : "";
+  const agentIdeRuntimePolicyStackTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-policy-stack.test.ts")
+    : "";
+  const agentIdeRuntimeEditProposalPolicy = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.ts")
+    : "";
+  const agentIdeRuntimeEditProposalPolicyTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.test.ts")
+    : "";
   const agentIdeGoalVerificationPanel = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
   )
@@ -22794,6 +22814,126 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-receipt-gate-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE receipt gate panel must ignore retired camelCase receipt, route, backend, tool-receipt, and evidence aliases",
+  );
+  assertCheck(
+    result,
+    "ide-runtime-policy-stack-aliases-retired",
+    /stringField\(approvalRequirementEvent,\s*"approval_id"\)/.test(
+      agentIdeRuntimePolicyStack,
+    ) &&
+      /stringField\(approvalRequirementEvent\?\.payload,\s*"approval_id"\)/.test(
+        agentIdeRuntimePolicyStack,
+      ) &&
+      /stringField\(event\.payload,\s*"warning_id"\) === warningId/.test(
+        agentIdeRuntimePolicyStack,
+      ) &&
+      /stringField\(event\.payload,\s*"source_event_id"\) === warningEvent\.id/.test(
+        agentIdeRuntimePolicyStack,
+      ) &&
+      /const payloadApprovalId = stringField\(event\.payload,\s*"approval_id"\);/.test(
+        agentIdeRuntimePolicyStack,
+      ) &&
+      /const decisionEventId = stringField\(event\.payload,\s*"approval_decision_event_id"\);/.test(
+        agentIdeRuntimePolicyStack,
+      ) &&
+      /booleanField\(event\.payload,\s*"approval_satisfied"\) \?\? retryKind/.test(
+        agentIdeRuntimePolicyStack,
+      ) &&
+      /runtime policy stack ignores retired payload identity aliases/.test(
+        agentIdeRuntimePolicyStackTest,
+      ) &&
+      /warningId: "warning-retired"/.test(agentIdeRuntimePolicyStackTest) &&
+      /sourceEventId: "trust-warning"/.test(agentIdeRuntimePolicyStackTest) &&
+      /approvalId: "approval-retired"/.test(agentIdeRuntimePolicyStackTest) &&
+      /approvalSatisfied: true/.test(agentIdeRuntimePolicyStackTest) &&
+      /approvalDecisionEventId: "approval-approved"/.test(
+        agentIdeRuntimePolicyStackTest,
+      ) &&
+      /assert\.equal\(warningOnly\.stages\[1\]\?\.eventId,\s*null\)/.test(
+        agentIdeRuntimePolicyStackTest,
+      ) &&
+      /assert\.equal\(approvalOnly\.approvalId,\s*"approval-canonical"\)/.test(
+        agentIdeRuntimePolicyStackTest,
+      ) &&
+      /assert\.equal\(approvalOnly\.stages\[4\]\?\.eventId,\s*null\)/.test(
+        agentIdeRuntimePolicyStackTest,
+      ) &&
+      !/stringField\((?:approvalRequirementEvent|event|event\.payload|approvalRequirementEvent\?\.payload|event\?\.payload),[^)]*"(?:approvalId|warningId|sourceEventId|approvalDecisionEventId)"[^)]*\)/.test(
+        agentIdeRuntimePolicyStack,
+      ) &&
+      !/booleanField\(event\.payload,[^)]*"approvalSatisfied"[^)]*\)/.test(
+        agentIdeRuntimePolicyStack,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE runtime policy stack must ignore retired camelCase approval, warning, source-event, and retry aliases",
+  );
+  assertCheck(
+    result,
+    "ide-runtime-edit-proposal-policy-aliases-retired",
+    /stringField\(proposalEvent,\s*"approval_id"\)/.test(
+      agentIdeRuntimeEditProposalPolicy,
+    ) &&
+      /stringField\(proposalEvent\?\.payload,\s*"approval_id"\)/.test(
+        agentIdeRuntimeEditProposalPolicy,
+      ) &&
+      /booleanField\(applyEvent\?\.payload,\s*"mutation_executed"\)/.test(
+        agentIdeRuntimeEditProposalPolicy,
+      ) &&
+      /stringArrayField\(proposalEvent\?\.payload,\s*"target_workflow_node_ids"\)/.test(
+        agentIdeRuntimeEditProposalPolicy,
+      ) &&
+      /stringArrayField\(proposalEvent\?\.payload,\s*"bounded_targets"\)/.test(
+        agentIdeRuntimeEditProposalPolicy,
+      ) &&
+      /const sourceEventId = stringField\(event\.payload,\s*"proposal_event_id"\);/.test(
+        agentIdeRuntimeEditProposalPolicy,
+      ) &&
+      /stringField\(event\?\.payload,\s*"proposal_id"\)/.test(
+        agentIdeRuntimeEditProposalPolicy,
+      ) &&
+      /workflow edit proposal policy ignores retired payload aliases/.test(
+        agentIdeRuntimeEditProposalPolicyTest,
+      ) &&
+      /proposalId: "proposal-retired"/.test(
+        agentIdeRuntimeEditProposalPolicyTest,
+      ) &&
+      /proposalEventId: "proposal"/.test(agentIdeRuntimeEditProposalPolicyTest) &&
+      /targetWorkflowNodeIds: \["node-retired"\]/.test(
+        agentIdeRuntimeEditProposalPolicyTest,
+      ) &&
+      /boundedTargets: \["node-bound-retired"\]/.test(
+        agentIdeRuntimeEditProposalPolicyTest,
+      ) &&
+      /mutationExecuted: true/.test(agentIdeRuntimeEditProposalPolicyTest) &&
+      /assert\.equal\(stack\.proposalId,\s*null\)/.test(
+        agentIdeRuntimeEditProposalPolicyTest,
+      ) &&
+      /assert\.equal\(stack\.approvalId,\s*null\)/.test(
+        agentIdeRuntimeEditProposalPolicyTest,
+      ) &&
+      /assert\.deepEqual\(stack\.targetWorkflowNodeIds,\s*\[\]\)/.test(
+        agentIdeRuntimeEditProposalPolicyTest,
+      ) &&
+      /assert\.equal\(stack\.mutationExecuted,\s*false\)/.test(
+        agentIdeRuntimeEditProposalPolicyTest,
+      ) &&
+      !/stringField\((?:proposalEvent|proposalEvent\?\.payload|approvalRequirementEvent|approvalRequirementEvent\?\.payload|event|event\.payload|event\?\.payload),[^)]*"(?:approvalId|proposalId|proposalEventId)"[^)]*\)/.test(
+        agentIdeRuntimeEditProposalPolicy,
+      ) &&
+      !/booleanField\(applyEvent\?\.payload,[^)]*"mutationExecuted"[^)]*\)/.test(
+        agentIdeRuntimeEditProposalPolicy,
+      ) &&
+      !/stringArrayField\(proposalEvent\?\.payload,[^)]*"(?:targetWorkflowNodeIds|boundedTargets)"[^)]*\)/.test(
+        agentIdeRuntimeEditProposalPolicy,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE runtime edit-proposal policy must ignore retired camelCase proposal, approval, target, source-event, and mutation aliases",
   );
   assertCheck(
     result,

@@ -185,3 +185,56 @@ test("marks rejected or unapplied workflow edit proposals as blocked or waiting"
   assert.equal(waitingForApply.status, "waiting");
   assert.equal(waitingForApply.stages[3]?.status, "waiting");
 });
+
+test("workflow edit proposal policy ignores retired payload aliases", () => {
+  const stack = workflowRuntimeEditProposalPolicyStackFromEvents([
+    event("proposal", 1, {
+      type: "workflow_edit_proposed",
+      eventKind: "workflow.edit_proposed",
+      sourceEventKind: "WorkflowEdit.Proposed",
+      componentKind: "workflow_edit_proposal",
+      payload: {
+        proposalId: "proposal-retired",
+        approvalId: "approval-retired",
+        targetWorkflowNodeIds: ["node-retired"],
+        boundedTargets: ["node-bound-retired"],
+      },
+    }),
+    event("approval-required", 2, {
+      type: "approval_required",
+      eventKind: "approval.required",
+      sourceEventKind: "OperatorApproval.Request",
+      componentKind: "approval_gate",
+      payload: { approvalId: "approval-retired" },
+    }),
+    event("approval-approved", 3, {
+      type: "approval_decision",
+      eventKind: "approval.approved",
+      sourceEventKind: "OperatorApproval.Approve",
+      componentKind: "approval_gate",
+      status: "approved",
+      payload: { approvalId: "approval-retired", decision: "approve" },
+    }),
+    event("apply", 4, {
+      type: "workflow_edit_applied",
+      eventKind: "workflow.edit_applied",
+      sourceEventKind: "WorkflowEdit.Applied",
+      componentKind: "workflow_edit_proposal",
+      payload: {
+        proposalId: "proposal-retired",
+        proposalEventId: "proposal",
+        approvalId: "approval-retired",
+        mutationExecuted: true,
+      },
+    }),
+  ]);
+
+  assert.equal(stack.proposalId, null);
+  assert.equal(stack.approvalId, null);
+  assert.equal(stack.status, "completed");
+  assert.deepEqual(stack.targetWorkflowNodeIds, []);
+  assert.equal(stack.mutationExecuted, false);
+  assert.equal(stack.stages[1]?.eventId, "approval-required");
+  assert.equal(stack.stages[2]?.eventId, "approval-approved");
+  assert.equal(stack.stages[3]?.eventId, "apply");
+});

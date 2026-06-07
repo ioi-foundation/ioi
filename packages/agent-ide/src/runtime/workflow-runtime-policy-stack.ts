@@ -74,8 +74,8 @@ export function workflowRuntimePolicyStackFromEvents(
     isApprovalRequirement(event, acknowledgementEvent?.seq ?? warningEvent?.seq ?? 0),
   );
   const approvalId =
-    stringField(approvalRequirementEvent, "approvalId", "approval_id") ??
-    stringField(approvalRequirementEvent?.payload, "approvalId", "approval_id");
+    stringField(approvalRequirementEvent, "approval_id") ??
+    stringField(approvalRequirementEvent?.payload, "approval_id");
   const approvalDecisionEvent = approvalRequirementEvent
     ? latestEvent(sortedEvents, (event) =>
         isApprovalDecision(event, approvalRequirementEvent, approvalId),
@@ -192,8 +192,8 @@ function stageForEvent({
     threadId: event?.threadId ?? null,
     approvalId:
       approvalId ??
-      stringField(event, "approvalId", "approval_id") ??
-      stringField(event?.payload, "approvalId", "approval_id"),
+      stringField(event, "approval_id") ??
+      stringField(event?.payload, "approval_id"),
     warningId,
     toolCallId: event?.toolCallId ?? null,
     receiptRefs: event?.receiptRefs ?? [],
@@ -222,8 +222,8 @@ function isWorkspaceTrustAcknowledgement(
     return false;
   }
   return (
-    stringField(event.payload, "warningId", "warning_id") === warningId ||
-    stringField(event.payload, "sourceEventId", "source_event_id") === warningEvent.id
+    stringField(event.payload, "warning_id") === warningId ||
+    stringField(event.payload, "source_event_id") === warningEvent.id
   );
 }
 
@@ -251,8 +251,8 @@ function isApprovalDecision(
     return false;
   }
   const eventApprovalId =
-    stringField(event, "approvalId", "approval_id") ??
-    stringField(event.payload, "approvalId", "approval_id");
+    stringField(event, "approval_id") ??
+    stringField(event.payload, "approval_id");
   return !approvalId || eventApprovalId === approvalId;
 }
 
@@ -273,15 +273,10 @@ function isApprovedRetry(
   const retryKind =
     event.eventKind === "workflow.run.retry_completed" ||
     event.sourceEventKind === "WorkflowRunCodingToolBudgetApprovedRetry";
-  const payloadApprovalId = stringField(event.payload, "approvalId", "approval_id");
-  const decisionEventId = stringField(
-    event.payload,
-    "approvalDecisionEventId",
-    "approval_decision_event_id",
-  );
+  const payloadApprovalId = stringField(event.payload, "approval_id");
+  const decisionEventId = stringField(event.payload, "approval_decision_event_id");
   const approvalSatisfied =
-    booleanField(event.payload, "approvalSatisfied", "approval_satisfied") ??
-    retryKind;
+    booleanField(event.payload, "approval_satisfied") ?? retryKind;
   return (
     approvalSatisfied &&
     (!approvalId || payloadApprovalId === approvalId) &&
@@ -306,7 +301,7 @@ function stackStatus(
 }
 
 function warningIdForEvent(event: WorkflowRuntimeThreadEventLike): string {
-  return stringField(event.payload, "warningId", "warning_id") ?? event.id;
+  return stringField(event.payload, "warning_id") ?? event.id;
 }
 
 function stringField(value: unknown, ...keys: string[]): string | null {

@@ -69,8 +69,8 @@ export function workflowRuntimeEditProposalPolicyStackFromEvents(
   });
   const proposalId = proposalEvent ? proposalIdForEvent(proposalEvent) : requestedProposalId;
   const approvalId =
-    stringField(proposalEvent, "approvalId", "approval_id") ??
-    stringField(proposalEvent?.payload, "approvalId", "approval_id");
+    stringField(proposalEvent, "approval_id") ??
+    stringField(proposalEvent?.payload, "approval_id");
   const approvalRequirementEvent = proposalEvent
     ? latestEvent(sortedEvents, (event) =>
         isApprovalRequirement(event, proposalEvent, approvalId),
@@ -78,8 +78,8 @@ export function workflowRuntimeEditProposalPolicyStackFromEvents(
     : null;
   const effectiveApprovalId =
     approvalId ??
-    stringField(approvalRequirementEvent, "approvalId", "approval_id") ??
-    stringField(approvalRequirementEvent?.payload, "approvalId", "approval_id");
+    stringField(approvalRequirementEvent, "approval_id") ??
+    stringField(approvalRequirementEvent?.payload, "approval_id");
   const approvalDecisionEvent = approvalRequirementEvent
     ? latestEvent(sortedEvents, (event) =>
         isApprovalDecision(event, approvalRequirementEvent, effectiveApprovalId),
@@ -97,11 +97,11 @@ export function workflowRuntimeEditProposalPolicyStackFromEvents(
         )
       : null;
   const mutationExecuted =
-    booleanField(applyEvent?.payload, "mutationExecuted", "mutation_executed") ?? false;
+    booleanField(applyEvent?.payload, "mutation_executed") ?? false;
   const targetWorkflowNodeIds = uniqueStrings(
     [
-      ...stringArrayField(proposalEvent?.payload, "targetWorkflowNodeIds", "target_workflow_node_ids"),
-      ...stringArrayField(proposalEvent?.payload, "boundedTargets", "bounded_targets"),
+      ...stringArrayField(proposalEvent?.payload, "target_workflow_node_ids"),
+      ...stringArrayField(proposalEvent?.payload, "bounded_targets"),
     ],
   );
 
@@ -197,8 +197,8 @@ function stageForEvent({
     proposalId: proposalId ?? proposalIdForEvent(event),
     approvalId:
       approvalId ??
-      stringField(event, "approvalId", "approval_id") ??
-      stringField(event?.payload, "approvalId", "approval_id"),
+      stringField(event, "approval_id") ??
+      stringField(event?.payload, "approval_id"),
     receiptRefs: event?.receiptRefs ?? [],
     policyDecisionRefs: event?.policyDecisionRefs ?? [],
   };
@@ -227,7 +227,7 @@ function isWorkflowEditApplyEvent(
     return false;
   }
   const eventProposalId = proposalIdForEvent(event);
-  const sourceEventId = stringField(event.payload, "proposalEventId", "proposal_event_id");
+  const sourceEventId = stringField(event.payload, "proposal_event_id");
   return (
     (!proposalId || eventProposalId === proposalId) &&
     (!sourceEventId || sourceEventId === proposalEvent.id)
@@ -246,8 +246,8 @@ function isApprovalRequirement(
     return false;
   }
   const eventApprovalId =
-    stringField(event, "approvalId", "approval_id") ??
-    stringField(event.payload, "approvalId", "approval_id");
+    stringField(event, "approval_id") ??
+    stringField(event.payload, "approval_id");
   return !approvalId || eventApprovalId === approvalId;
 }
 
@@ -265,8 +265,8 @@ function isApprovalDecision(
     return false;
   }
   const eventApprovalId =
-    stringField(event, "approvalId", "approval_id") ??
-    stringField(event.payload, "approvalId", "approval_id");
+    stringField(event, "approval_id") ??
+    stringField(event.payload, "approval_id");
   return !approvalId || eventApprovalId === approvalId;
 }
 
@@ -288,8 +288,8 @@ function stackStatus(
 
 function proposalIdForEvent(event: WorkflowRuntimeThreadEventLike | null | undefined): string | null {
   return (
-    stringField(event, "proposalId", "proposal_id") ??
-    stringField(event?.payload, "proposalId", "proposal_id")
+    stringField(event, "proposal_id") ??
+    stringField(event?.payload, "proposal_id")
   );
 }
 

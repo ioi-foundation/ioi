@@ -207,7 +207,7 @@ test("recognizes daemon coding-budget approved retry events", () => {
       componentKind: "approval_gate",
       approvalId: "approval-budget",
       payload: {
-        approvalId: "approval-budget",
+        approval_id: "approval-budget",
         reason: "coding_tool_budget_preflight_blocked",
       },
     }),
@@ -218,7 +218,7 @@ test("recognizes daemon coding-budget approved retry events", () => {
       componentKind: "approval_gate",
       approvalId: "approval-budget",
       payload: {
-        approvalId: "approval-budget",
+        approval_id: "approval-budget",
         decision: "approve",
       },
     }),
@@ -233,9 +233,9 @@ test("recognizes daemon coding-budget approved retry events", () => {
       receiptRefs: ["receipt-retry"],
       policyDecisionRefs: ["policy-retry"],
       payload: {
-        approvalId: "approval-budget",
-        approvalSatisfied: true,
-        approvalDecisionEventId: "approval-approved",
+        approval_id: "approval-budget",
+        approval_satisfied: true,
+        approval_decision_event_id: "approval-approved",
       },
     }),
   ]);
@@ -256,4 +256,72 @@ test("recognizes daemon coding-budget approved retry events", () => {
     receiptRefs: ["receipt-retry"],
     policyDecisionRefs: ["policy-retry"],
   });
+});
+
+test("runtime policy stack ignores retired payload identity aliases", () => {
+  const warningOnly = workflowRuntimePolicyStackFromEvents([
+    event("trust-warning", 1, {
+      type: "workspace_trust_warning",
+      eventKind: "workspace.trust_warning",
+      sourceEventKind: "WorkspaceTrust.Warning",
+      componentKind: "workspace_trust",
+      payload: { warningId: "warning-retired" },
+    }),
+    event("trust-ack", 2, {
+      type: "workspace_trust_acknowledged",
+      eventKind: "workspace.trust_acknowledged",
+      sourceEventKind: "WorkspaceTrust.Acknowledged",
+      componentKind: "workspace_trust",
+      payload: {
+        warningId: "warning-retired",
+        sourceEventId: "trust-warning",
+      },
+    }),
+  ]);
+
+  assert.equal(warningOnly.warningId, "trust-warning");
+  assert.equal(warningOnly.status, "waiting");
+  assert.equal(warningOnly.stages[1]?.eventId, null);
+
+  const approvalOnly = workflowRuntimePolicyStackFromEvents([
+    event("approval-required", 1, {
+      type: "approval_required",
+      eventKind: "approval.required",
+      sourceEventKind: "OperatorApproval.Request",
+      componentKind: "approval_gate",
+      payload: {
+        approval_id: "approval-canonical",
+        approvalId: "approval-retired",
+      },
+    }),
+    event("approval-approved", 2, {
+      type: "approval_decision",
+      eventKind: "approval.approved",
+      sourceEventKind: "OperatorApproval.Approve",
+      componentKind: "approval_gate",
+      status: "approved",
+      payload: {
+        approval_id: "approval-canonical",
+        approvalId: "approval-retired",
+        decision: "approve",
+      },
+    }),
+    event("approved-retry", 3, {
+      type: "tool_completed",
+      eventKind: "workflow.run.retry_completed",
+      sourceEventKind: "WorkflowRunCodingToolBudgetApprovedRetry",
+      componentKind: "coding_tool",
+      workflowNodeId: "runtime.coding-tool-budget-recovery",
+      toolCallId: "retry-budget",
+      payload: {
+        approvalId: "approval-retired",
+        approvalSatisfied: true,
+        approvalDecisionEventId: "approval-approved",
+      },
+    }),
+  ]);
+
+  assert.equal(approvalOnly.approvalId, "approval-canonical");
+  assert.equal(approvalOnly.status, "waiting");
+  assert.equal(approvalOnly.stages[4]?.eventId, null);
 });
