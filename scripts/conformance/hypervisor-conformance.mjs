@@ -303,6 +303,26 @@ function runDocs() {
   );
   assertCheck(
     result,
+    "guide-bridge-scaffolding-not-terminal",
+    /stable daemon-to-kernel protocol surface, not a\s+permanent bridge binary/.test(
+      guide,
+    ) &&
+      /`ioi-step-module-bridge` command path is migration scaffolding/.test(guide) &&
+      /must\s+not be treated as the terminal substrate/.test(guide) &&
+      /collapse into the Rust daemon core API/.test(guide) &&
+      /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
+        guide,
+      ) &&
+      /`ioi-step-module-bridge` command path is acceptable only as\s+migration transport/.test(
+        matrix,
+      ) &&
+      /not the terminal architecture/.test(matrix) &&
+      /Bridge scaffolding retirement/.test(matrix),
+    [GUIDE, MATRIX],
+    "master guide and migration matrix must keep command bridge usage scoped to migration transport, not terminal architecture",
+  );
+  assertCheck(
+    result,
     "matrix-coding-tools-rust-live-status-reconciled",
     /Implementation Slice 21[\s\S]*execution_backend: rust_workload_live for all allowlisted test\.run command[\s\S]*legacy_paths_removed: true[\s\S]*compatibility_shims_remaining: \[\]/.test(
       matrix,

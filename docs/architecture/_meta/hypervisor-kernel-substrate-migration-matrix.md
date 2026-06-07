@@ -24,6 +24,11 @@ retirement. Current tier conformance is green, but the terminal migration is not
 claimed. The sprint target is to convert the remaining live route families from
 JS-owned behavior into Rust-core-owned authority, routing, receipt/state-root
 binding, Agentgres admission, projection, cTEE custody, and replay semantics.
+The current `ioi-step-module-bridge` command path is acceptable only as
+migration transport for this lane. It is not the terminal architecture: each
+migrated route family should converge on a Rust daemon-core API/protocol surface,
+with any remaining process boundary treated as narrow transport rather than a
+second runtime, bridge-owned authority layer, or compatibility-shim home.
 
 Sprint priorities:
 
@@ -31,8 +36,9 @@ Sprint priorities:
 | --- | --- | --- |
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
-| 3 | Matrix cleanup | Rows distinguish current wired proof from terminal target; planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
-| 4 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
+| 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
+| 4 | Matrix cleanup | Rows distinguish current wired proof from terminal target; planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
 
@@ -42,6 +48,10 @@ Remaining terminal blockers:
 - Some route families still have JS live surfaces, supervision, persistence, or
   projection code that must be demoted to non-authoritative adapter behavior or
   deleted after Rust parity is verified.
+- The `ioi-step-module-bridge` command path still carries broad migration
+  surface area. It must shrink, collapse into Rust daemon-core protocol APIs, or
+  remain only as narrow transport while route families are retired from JS
+  authority.
 - Broad IDE/SDK/API facade cleanup remains, especially where compatibility
   aliases, legacy request shapes, or adapter fallbacks could imply duplicate
   truth or duplicate authority.

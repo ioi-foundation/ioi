@@ -249,7 +249,8 @@ Lower protocol step:
   Rust workload/control plane -> WASM service or workload job -> state root / receipt / block event
 ```
 
-The long-term fix is a stable bridge:
+The long-term fix is a stable daemon-to-kernel protocol surface, not a
+permanent bridge binary:
 
 ```text
 Daemon ActionProposal
@@ -261,6 +262,14 @@ Daemon ActionProposal
   -> Receipt + ArtifactRef + Agentgres operation
   -> workflow compositor projection
 ```
+
+The current `ioi-step-module-bridge` command path is migration scaffolding for
+the Node/JS facade while Rust ownership is being proven route by route. It must
+not be treated as the terminal substrate. After parity is proven, the bridge
+surface should either collapse into the Rust daemon core API or be renamed and
+shrunk into a narrow daemon/kernel protocol transport with no independent
+execution authority, no compatibility-shim semantics, and no duplicate truth
+path.
 
 ## Part II: Target Execution Model
 
@@ -1312,6 +1321,10 @@ Implementation work:
 - Add `StepModuleRunner` interface in `packages/runtime-daemon`.
 - Add `RustWorkloadStepModuleRunner` using a command bridge first, then direct
   gRPC/IPC when bindings are ready.
+- Treat the command bridge as a migration transport only. It may prove the Rust
+  workload/client path, but it is not the final daemon-core shape and must not
+  accumulate independent authority, accepted-truth mutation, or compatibility
+  wrappers.
 - Bind runner outputs into existing runtime event envelope and thread/run replay.
 - Add configuration:
 
@@ -1637,6 +1650,10 @@ Implementation work:
 - Keep current JS daemon routes only as short-lived transition adapters that
   call the Rust core through native bindings, IPC, or command bridge during
   transition.
+- Retire or collapse the migration command bridge once a route family has a
+  stable Rust daemon-core API/protocol. A remaining process boundary is allowed
+  only as a narrow transport owned by the Rust daemon core, not as a second
+  runtime surface.
 - Migrate one route family at a time:
 
 ```text
@@ -1693,7 +1710,10 @@ Acceptance criteria:
 - at least one complete run path executes through the Rust daemon core while
   the IDE/API facade remains stable;
 - hot-path execution and canonical admission logic live in Rust for that path;
-- JS is demonstrably acting as facade/adaptor, not as execution substrate.
+- JS is demonstrably acting as facade/adaptor, not as execution substrate;
+- the `ioi-step-module-bridge` command path is either retired for that route
+  family or documented as a temporary transport to the Rust daemon core with no
+  independent authority or compatibility-shim behavior.
 
 ### Phase 10: Authoritative JS facade retirement
 
