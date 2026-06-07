@@ -482,6 +482,10 @@ test("SDK authorizes external capability exits through the thread route", async 
     ) {
       const body = await readBody(request);
       assert.equal(body.source, "sdk_client");
+      assert.equal(body.workflow_graph_id, "workflow_external_capability_sdk");
+      assert.equal(body.workflow_node_id, "external_capability_exit_sdk");
+      assert.equal(Object.hasOwn(body, "workflowGraphId"), false);
+      assert.equal(Object.hasOwn(body, "workflowNodeId"), false);
       assert.equal(body.request.exit_ref, "exit://aiip/slack-post-message");
       assert.equal(body.request.capability_ref, "capability://connector/slack.postMessage");
       response.statusCode = 201;
@@ -518,6 +522,8 @@ test("SDK authorizes external capability exits through the thread route", async 
     assert.ok(address && typeof address === "object");
     const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
     const result = await client.authorizeExternalCapabilityExit("thread_sdk", {
+      workflow_graph_id: "workflow_external_capability_sdk",
+      workflow_node_id: "external_capability_exit_sdk",
       request: authorityRequest,
     });
 
@@ -533,6 +539,36 @@ test("SDK authorizes external capability exits through the thread route", async 
   } finally {
     await close(server);
   }
+});
+
+test("SDK external capability exit authorization rejects retired request aliases before transport", async () => {
+  const client = createRuntimeSubstrateClient({ endpoint: "http://127.0.0.1:9" });
+  await assert.rejects(
+    client.authorizeExternalCapabilityExit("thread_sdk", {
+      workflowGraphId: "graph_retired",
+      workflowNodeId: "node_retired",
+      request: {
+        schema_version: "ioi.external_capability_exit_authority.v1",
+        exit_ref: "exit://aiip/retired-alias",
+        capability_ref: "capability://connector/slack.postMessage",
+        target_ref: "aiip://workspace/channel/runtime",
+        policy_hash: "sha256:external-capability-policy",
+        idempotency_key: "idem:external-capability-exit-retired-alias",
+        authority_grant_refs: [
+          "wallet.network://grant/external-capability/slack-post-message",
+        ],
+        authority_receipt_refs: [
+          "receipt://wallet.network/authority/slack-post-message",
+        ],
+      },
+    }),
+    (error) =>
+      error instanceof IoiAgentError &&
+      error.code === "config" &&
+      error.details?.code === "external_capability_exit_sdk_request_aliases_retired" &&
+      error.details?.retired_aliases?.includes("workflowGraphId") &&
+      error.details?.retired_aliases?.includes("workflowNodeId"),
+  );
 });
 
 test("SDK restores workspace snapshots through canonical daemon routes", async () => {

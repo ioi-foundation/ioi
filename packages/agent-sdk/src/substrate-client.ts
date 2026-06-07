@@ -1193,12 +1193,10 @@ export interface RuntimeExternalCapabilityExitAuthorityRequest extends Record<st
   authority_receipt_refs: string[];
 }
 
-export interface RuntimeExternalCapabilityExitAuthorityInput extends Record<string, unknown> {
+export interface RuntimeExternalCapabilityExitAuthorityInput {
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
   actor?: string;
-  workflowGraphId?: string;
   workflow_graph_id?: string;
-  workflowNodeId?: string;
   workflow_node_id?: string;
   request: RuntimeExternalCapabilityExitAuthorityRequest | Record<string, unknown>;
 }
@@ -1764,6 +1762,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeExternalCapabilityExitAuthorityInput,
   ): Promise<RuntimeExternalCapabilityExitAuthorityResult> {
+    assertNoRetiredExternalCapabilityExitAuthorityAliases(input);
     return this.request(
       "authorizeExternalCapabilityExit",
       "POST",
@@ -2980,6 +2979,25 @@ function assertNoRetiredL1SettlementAdmissionAliases(input: RuntimeL1SettlementA
       "L1 settlement admission request aliases are retired; use workflow_graph_id and workflow_node_id.",
     details: {
       code: "l1_settlement_sdk_request_aliases_retired",
+      retired_aliases: retiredAliases,
+    },
+  });
+}
+
+function assertNoRetiredExternalCapabilityExitAuthorityAliases(
+  input: RuntimeExternalCapabilityExitAuthorityInput,
+): void {
+  const record = input as unknown as Record<string, unknown>;
+  const retiredAliases = ["workflowGraphId", "workflowNodeId"].filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new IoiAgentError({
+    code: "config",
+    message:
+      "External capability exit authority request aliases are retired; use workflow_graph_id and workflow_node_id.",
+    details: {
+      code: "external_capability_exit_sdk_request_aliases_retired",
       retired_aliases: retiredAliases,
     },
   });

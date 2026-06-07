@@ -1103,6 +1103,10 @@ function runBridge() {
     agentSdkSubstrateClient.match(
       /export interface RuntimeExternalCapabilityExitAuthorityResult[\s\S]*?\n}\n/,
     )?.[0] ?? "";
+  const externalCapabilityAuthorityInputType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeExternalCapabilityExitAuthorityInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const externalCapabilityAuthorityCamelAliasPropertyPattern =
     /\b(?:schemaVersion|exitAuthorized|directTruthWriteAllowed|threadId|agentId|exitRef|capabilityRef|targetRef|policyHash|idempotencyKey|walletNetworkGrantRefs|authorityReceiptRefs|authorityHash)\s*:/;
   const externalCapabilityAuthorityCamelAliasTypePattern =
@@ -2698,7 +2702,22 @@ function runBridge() {
       /RuntimeExternalCapabilityExitAuthorityInput/.test(agentSdkSubstrateClient) &&
       /RuntimeExternalCapabilityExitAuthorityResult/.test(agentSdkSubstrateClient) &&
       /external-capability-exits/.test(agentSdkSubstrateClient) &&
+      !/extends Record<string, unknown>/.test(externalCapabilityAuthorityInputType) &&
+      !/^\s*(?:workflowGraphId|workflowNodeId)\?:/m.test(
+        externalCapabilityAuthorityInputType,
+      ) &&
+      /assertNoRetiredExternalCapabilityExitAuthorityAliases\(input\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /external_capability_exit_sdk_request_aliases_retired/.test(
+        agentSdkSubstrateClient,
+      ) &&
       /SDK authorizes external capability exits through the thread route/.test(agentSdkTest) &&
+      /SDK external capability exit authorization rejects retired request aliases before transport/.test(
+        agentSdkTest,
+      ) &&
+      /Object\.hasOwn\(body,\s*"workflowGraphId"\),\s*false/.test(agentSdkTest) &&
+      /Object\.hasOwn\(body,\s*"workflowNodeId"\),\s*false/.test(agentSdkTest) &&
       !externalCapabilityAuthorityCamelAliasPropertyPattern.test(
         externalCapabilityAuthoritySurface,
       ) &&
