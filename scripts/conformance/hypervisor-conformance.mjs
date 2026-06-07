@@ -18226,6 +18226,10 @@ function runCompositor() {
       /side_effect_class:\s*sideEffectClass/.test(runtimeMcpInvocationEnvelopeBlock) &&
       /requires_approval:\s*requiresApproval/.test(runtimeMcpInvocationEnvelopeBlock) &&
       /approval_mode:\s*approvalMode/.test(runtimeMcpInvocationEnvelopeBlock) &&
+      /optionalStringDep\(agent\.runtimeControls\?\.approval_mode\)/.test(
+        runtimeMcpInvokeThreadToolBlock,
+      ) &&
+      !/agent\.runtimeControls\?\.approvalMode/.test(runtimeMcpInvokeThreadToolBlock) &&
       /transport_execution:\s*transportExecution/.test(runtimeMcpInvocationEnvelopeBlock) &&
       /receipt_required:\s*true/.test(runtimeMcpInvocationEnvelopeBlock) &&
       /evidence_refs:\s*\[/.test(runtimeMcpInvocationEnvelopeBlock) &&
@@ -18247,6 +18251,8 @@ function runCompositor() {
       /for \(const field of \[[\s\S]*"schemaVersion"[\s\S]*"toolCallId"[\s\S]*"transportExecution"[\s\S]*"evidenceRefs"[\s\S]*\]\) \{\n    assert\.equal\(Object\.hasOwn\(completed\.invocation,\s*field\),\s*false\);/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
+      /runtimeControls\.approvalMode = "yolo"/.test(runtimeMcpControlSurfaceTest) &&
+      /blocked\.invocation\.approval_mode,\s*"agent"/.test(runtimeMcpControlSurfaceTest) &&
       /Object\.hasOwn\(completed\.invocation\.result,\s*"serverId"\),\s*false/.test(
         runtimeMcpControlSurfaceTest,
       ) &&

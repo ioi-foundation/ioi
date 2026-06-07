@@ -553,7 +553,7 @@ export function createRuntimeMcpControlSurface({
         request.requires_approval === true ||
         (sideEffectClass !== "none" && sideEffectClass !== "read");
       const approvalMode =
-        optionalStringDep(agent.runtimeControls?.approval_mode ?? agent.runtimeControls?.approvalMode) ??
+        optionalStringDep(agent.runtimeControls?.approval_mode) ??
         "agent";
       const approved =
         request.approved === true ||

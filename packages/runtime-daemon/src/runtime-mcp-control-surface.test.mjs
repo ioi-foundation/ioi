@@ -374,6 +374,7 @@ test("runtime MCP control surface fails closed without Rust-planned operation ki
 
 test("runtime MCP control surface invokes tools with receipt-backed policy outcomes", async () => {
   const { events, statePlannerCalls, store, surface } = harness();
+  store.agents.get("agent-one").runtimeControls.approvalMode = "yolo";
 
   const completed = await surface.invokeThreadMcpTool(store, "thread-agent-one", "mcp.docs.search", {
     input: { q: "runtime" },
@@ -420,6 +421,7 @@ test("runtime MCP control surface invokes tools with receipt-backed policy outco
   });
   assert.equal(blocked.status, "blocked");
   assert.equal(blocked.policy_decision, "invoke_blocked");
+  assert.equal(blocked.invocation.approval_mode, "agent");
   assert.deepEqual(blocked.invocation.blockers, ["approval_required"]);
   assert.equal(events.at(-1).status, "blocked");
   assert.deepEqual(statePlannerCalls.map((call) => call.control_kind), [

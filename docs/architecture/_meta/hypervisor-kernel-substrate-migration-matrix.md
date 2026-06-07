@@ -13058,6 +13058,11 @@ runless operator-interrupt and shared turn projections now read canonical
 `runtimeControls.approval_mode` only; persisted camelCase `approvalMode` values
 can no longer steer projected turn approval state.
 
+Slice 483 retires MCP invocation approval-mode aliases:
+MCP tool invocation policy now derives approval from canonical
+`runtimeControls.approval_mode` only; poisoned persisted camelCase
+`approvalMode` values can no longer approve side-effecting MCP tools.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
