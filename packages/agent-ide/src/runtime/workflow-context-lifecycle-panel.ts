@@ -230,7 +230,7 @@ function contextCompactionRow(
     rowKind: "context_compaction",
     summary: stringField(payload, "reason") ?? "Context compacted",
     scope: stringField(payload, "scope"),
-    totalTokens: numberField(payload, "compactedTokens", "compacted_tokens"),
+    totalTokens: numberField(payload, "compacted_tokens"),
     estimatedCostUsd: null,
     contextPressure: null,
     maxTotalTokens: null,

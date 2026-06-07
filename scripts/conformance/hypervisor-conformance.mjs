@@ -20512,6 +20512,26 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-context-lifecycle-compaction-aliases-retired",
+    /numberField\(payload,\s*"compacted_tokens"\)/.test(agentIdeContextLifecyclePanel) &&
+      !/numberField\(payload,\s*"compactedTokens",\s*"compacted_tokens"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      /context lifecycle panel ignores retired context compaction payload aliases/.test(
+        agentIdeContextLifecyclePanelTest,
+      ) &&
+      /compactedTokens: 4096/.test(agentIdeContextLifecyclePanelTest) &&
+      /assert\.equal\(panel\.rows\[0\]\?\.totalTokens,\s*null\)/.test(
+        agentIdeContextLifecyclePanelTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE context lifecycle compaction rows must ignore retired camelCase compaction payload aliases",
+  );
+  assertCheck(
+    result,
     "ide-signed-replay-evidence-aliases-retired",
     /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeSignedReplayNotebook) &&
       /arrayField\(event,\s*"artifact_refs"\)/.test(agentIdeSignedReplayNotebook) &&

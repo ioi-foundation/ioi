@@ -11437,6 +11437,11 @@ context-budget rows and shared usage summaries now read canonical
 threshold aliases cannot make old context budget records look usage-bound or
 threshold-backed.
 
+Slice 542 retires IDE context-lifecycle compaction payload aliases:
+context-compaction rows now read canonical `compacted_tokens` only, so retired
+camelCase `compactedTokens` payloads cannot make old compaction events look
+token-accounted.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

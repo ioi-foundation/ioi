@@ -252,3 +252,45 @@ test("context lifecycle panel ignores retired compaction policy payload aliases"
   assert.equal(panel.rows[0]?.compactReason, null);
   assert.equal(panel.rows[0]?.totalTokens, null);
 });
+
+test("context lifecycle panel reads canonical context compaction payload fields", () => {
+  const panel = buildWorkflowContextLifecyclePanel({
+    events: [
+      event("compaction-canonical", 1, {
+        componentKind: "context_compaction",
+        payload: {
+          reason: "pressure",
+          scope: "thread",
+          compacted_tokens: 4096,
+        },
+      }),
+    ],
+  });
+
+  assert.equal(panel.rows.length, 1);
+  assert.equal(panel.rows[0]?.rowKind, "context_compaction");
+  assert.equal(panel.rows[0]?.summary, "pressure");
+  assert.equal(panel.rows[0]?.scope, "thread");
+  assert.equal(panel.rows[0]?.totalTokens, 4096);
+  assert.equal(panel.rows[0]?.executeCompaction, true);
+  assert.equal(panel.rows[0]?.compactionExecuted, true);
+});
+
+test("context lifecycle panel ignores retired context compaction payload aliases", () => {
+  const panel = buildWorkflowContextLifecyclePanel({
+    events: [
+      event("compaction-retired", 1, {
+        componentKind: "context_compaction",
+        payload: {
+          reason: "pressure",
+          scope: "thread",
+          compactedTokens: 4096,
+        },
+      }),
+    ],
+  });
+
+  assert.equal(panel.rows.length, 1);
+  assert.equal(panel.rows[0]?.rowKind, "context_compaction");
+  assert.equal(panel.rows[0]?.totalTokens, null);
+});
