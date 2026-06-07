@@ -519,6 +519,43 @@ test("computer-use model adapters ignore retired camelCase bounds coordinate ali
   assert.equal(result.grounding.grounding_status, "target_ref");
 });
 
+test("computer-use model adapters ignore retired camelCase target_ref aliases", () => {
+  const result = compileComputerUseModelActionAdapter({
+    adapter_kind: "openai_computer_use",
+    run_id: "run-retired-target-ref-alias",
+    observation_ref: "observation-browser",
+    target_index: {
+      target_index_ref: "target-index-browser",
+      observation_ref: "observation-browser",
+      coordinate_space_id: "viewport-browser",
+      drift_state: "fresh",
+      targets: [
+        {
+          target_ref: "target-submit",
+          label: "Submit",
+          role: "button",
+          bounds: { x: 20, y: 10, width: 90, height: 40, coordinate_space_id: "viewport-browser" },
+          confidence: 96,
+          available_actions: ["click"],
+        },
+      ],
+    },
+    raw_model_output: {
+      type: "click",
+      targetRef: "target-submit",
+      action: {
+        targetRef: "target-submit",
+      },
+    },
+    proposed_by: "mounted-openai-cua",
+  });
+
+  assert.equal(result.action_proposal.target_ref, null);
+  assert.equal(result.computer_action.target_ref, null);
+  assert.equal(result.grounding.target_ref, null);
+  assert.equal(result.grounding.grounding_status, "coordinate");
+});
+
 test("runtime daemon emits canonical computer-use events for browser prompts", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-state-"));

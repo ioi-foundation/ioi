@@ -1331,10 +1331,8 @@ function modelActionTargetRef(raw: unknown): string | null {
   const actionRecord = recordValue(record["action"]);
   return (
     stringValue(actionRecord["target_ref"]) ??
-    stringValue(actionRecord["targetRef"]) ??
     stringValue(actionRecord["target"]) ??
     stringValue(record["target_ref"]) ??
-    stringValue(record["targetRef"]) ??
     stringValue(record["target"])
   );
 }

@@ -1796,6 +1796,30 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "agent-sdk-computer-use-target-ref-alias-retired",
+    /stringValue\(actionRecord\["target_ref"\]\) \?\?[\s\S]*stringValue\(record\["target_ref"\]\)/.test(
+      agentSdkComputerUse,
+    ) &&
+      /computer-use model adapters ignore retired camelCase target_ref aliases/.test(
+        agentSdkComputerUseTest,
+      ) &&
+      /targetRef:\s*"target-submit"/.test(agentSdkComputerUseTest) &&
+      /assert\.equal\(result\.action_proposal\.target_ref,\s*null\)/.test(
+        agentSdkComputerUseTest,
+      ) &&
+      /assert\.equal\(result\.computer_action\.target_ref,\s*null\)/.test(
+        agentSdkComputerUseTest,
+      ) &&
+      !/actionRecord\["targetRef"\]/.test(agentSdkComputerUse) &&
+      !/record\["targetRef"\]/.test(agentSdkComputerUse),
+    [
+      "packages/agent-sdk/src/computer-use.ts",
+      "packages/agent-sdk/test/computer-use.test.mjs",
+    ],
+    "Phase 10/11 is pending: SDK computer-use model adapters must ignore retired camelCase target_ref aliases",
+  );
+  assertCheck(
+    result,
     "computer-use-projection-selector-aliases-retired",
     /computerUseActionKindValue\(metadata\.computer_use_action_kind\)/.test(
       computerUseProjection,
