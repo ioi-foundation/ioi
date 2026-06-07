@@ -19811,6 +19811,36 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-computer-use-projection-step-lane-aliases-retired",
+    /const payloadStep = stringField\(event\.payload,\s*"computer_use_step"\);/.test(
+      agentIdeRuntimeEventProjection,
+    ) &&
+      /stringField\(payload,\s*"computer_use_lane"\)/.test(agentIdeRuntimeEventProjection) &&
+      !/stringField\(\s*event\.payload,\s*"computer_use_step",\s*"computerUseStep"\s*\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_lane",\s*"computerUseLane"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /computer-use projection ignores retired step and lane aliases/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /computerUseStep:\s*"retired_step"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseLane:\s*"retired_lane"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.step,\s*"action_proposed"/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.lane,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE computer-use projections must ignore retired step and lane aliases",
+  );
+  assertCheck(
+    result,
     "ide-computer-use-browser-discovery-projection-aliases-retired",
     /recordField\(\s*payload,\s*"browser_discovery_report",\s*\)/.test(
       agentIdeRuntimeEventProjection,

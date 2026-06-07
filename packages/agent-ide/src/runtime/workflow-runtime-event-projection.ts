@@ -3199,11 +3199,7 @@ function isComputerUseRuntimeThreadEvent(
 function computerUseStepForRuntimeThreadEvent(
   event: WorkflowRuntimeThreadEventLike,
 ): string | null {
-  const payloadStep = stringField(
-    event.payload,
-    "computer_use_step",
-    "computerUseStep",
-  );
+  const payloadStep = stringField(event.payload, "computer_use_step");
   if (payloadStep) return payloadStep;
   if (event.eventKind.startsWith("computer_use.")) {
     return event.eventKind.slice("computer_use.".length);
@@ -3321,7 +3317,7 @@ function computerUseProjectionForRuntimeThreadEvent(
     schemaVersion: WORKFLOW_RUNTIME_COMPUTER_USE_PROJECTION_SCHEMA_VERSION,
     step: computerUseStepForRuntimeThreadEvent(event),
     lane:
-      stringField(payload, "computer_use_lane", "computerUseLane") ??
+      stringField(payload, "computer_use_lane") ??
       stringField(lease, "lane") ??
       stringField(observationBundle, "lane"),
     sessionMode:

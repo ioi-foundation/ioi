@@ -13380,6 +13380,12 @@ frames now read canonical `computer_use_step`, `computer_use_lane`, and
 step/lane/proposal/action/verification/commit-gate/trajectory/cleanup aliases
 cannot shape replay frames or lifecycle refs.
 
+Slice 528 retires IDE computer-use projection step/lane aliases: workflow
+runtime event projection now reads canonical `computer_use_step` and
+`computer_use_lane` fields only, so retired `computerUseStep` and
+`computerUseLane` payload aliases cannot create computer-use projection steps or
+select replay/projection lanes.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

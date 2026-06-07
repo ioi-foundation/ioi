@@ -854,6 +854,29 @@ test("projects unavailable computer-use lanes as blocked recovery evidence", () 
   });
 });
 
+test("computer-use projection ignores retired step and lane aliases", () => {
+  const retiredAliasEvent = event("computer-use-retired-step-lane", 1, {
+    eventKind: "computer_use.action_proposed",
+    sourceEventKind: "ComputerUse.ActionProposed",
+    status: "completed",
+    componentKind: null,
+    workflowNodeId: null,
+    payloadSchemaVersion: "ioi.computer-use.harness.v1",
+    payload: {
+      computerUseStep: "retired_step",
+      computerUseLane: "retired_lane",
+    },
+  });
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([retiredAliasEvent]);
+
+  assert.equal(
+    workflowNodeIdForRuntimeThreadEvent(retiredAliasEvent),
+    "computer-use.action-proposed",
+  );
+  assert.equal(projection.nodes[0]?.computerUse?.step, "action_proposed");
+  assert.equal(projection.nodes[0]?.computerUse?.lane, null);
+});
+
 test("projects workspace trust warnings as workspace trust gate React Flow rows", () => {
   const projection = projectRuntimeThreadEventsToWorkflowProjection([
     event("event-workspace-trust", 1, {
