@@ -278,6 +278,8 @@ clear enough that the compacted matrix can preserve terminal-target evidence
 without hiding which bridge-scaffolding proofs are still interim. When that
 seam becomes clear during goal resumption, carry out the scheduled
 matrix-compaction pass before continuing into unrelated route-family work.
+Next scheduled matrix-compaction pass: pending the next clear Rust-core
+extraction/facade-retirement seam.
 
 ## Part II: Target Execution Model
 

@@ -71,6 +71,8 @@ Matrix compaction timing:
   extraction/facade-retirement seam is clear enough to preserve the live
   route-family owner map, terminal blockers, bridge-scaffolding guardrail,
   current sprint lane, and recent slice evidence without hiding remaining work.
+- Next scheduled matrix-compaction pass: pending the next clear Rust-core
+  extraction/facade-retirement seam.
 - When that seam becomes clear during goal resumption, perform the scheduled
   matrix-compaction pass before moving into unrelated route-family work.
 - First scheduled pass completed on 2026-06-07: the historical append-only
