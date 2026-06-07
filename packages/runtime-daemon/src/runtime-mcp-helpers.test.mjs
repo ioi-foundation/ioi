@@ -91,7 +91,23 @@ test("runtime MCP helpers shape serve descriptors and tool results", () => {
     authority_scope_requirements: ["workspace.fs.read"],
   });
   assert.equal(descriptor.name, "file.inspect");
-  assert.equal(descriptor._meta.approvalRequired, true);
+  assert.equal(descriptor._meta.stable_tool_id, "file.inspect");
+  assert.equal(descriptor._meta.effect_class, "local_read");
+  assert.deepEqual(descriptor._meta.authority_scope_requirements, ["workspace.fs.read"]);
+  assert.equal(descriptor._meta.approval_required, true);
+  assert.equal(Object.hasOwn(descriptor._meta, "stableToolId"), false);
+  assert.equal(Object.hasOwn(descriptor._meta, "effectClass"), false);
+  assert.equal(Object.hasOwn(descriptor._meta, "authorityScopeRequirements"), false);
+  assert.equal(Object.hasOwn(descriptor._meta, "credentialReadiness"), false);
+  assert.equal(Object.hasOwn(descriptor._meta, "approvalRequired"), false);
+  assert.equal(Object.hasOwn(descriptor._meta, "rateLimitProfile"), false);
+  assert.equal(Object.hasOwn(descriptor._meta, "idempotencyBehavior"), false);
+  assert.equal(Object.hasOwn(descriptor._meta, "receiptBehavior"), false);
+  assert.equal(Object.hasOwn(descriptor._meta, "workflowAvailability"), false);
+  assert.equal(Object.hasOwn(descriptor._meta, "agentAvailability"), false);
+  assert.equal(Object.hasOwn(descriptor._meta, "marketplaceExposure"), false);
+  assert.equal(Object.hasOwn(descriptor._meta, "workflowNodeType"), false);
+  assert.equal(Object.hasOwn(descriptor._meta, "workflowConfigFields"), false);
   assert.equal(descriptor.annotations.readOnlyHint, true);
 
   const result = mcpServeToolCallResult({

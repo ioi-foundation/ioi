@@ -11485,6 +11485,13 @@ read canonical event `workflow_graph_id` / `workflow_node_id` only, so retired
 camelCase event tool-call and workflow aliases cannot match contributions or
 bind worker evidence to old workflow identity.
 
+Slice 550 retires MCP serve descriptor metadata aliases: IOI-owned MCP serve
+tool descriptor `_meta` governance fields now expose canonical `stable_tool_id`,
+`effect_class`, `authority_scope_requirements`, `credential_readiness`,
+`approval_required`, `rate_limit_profile`, `idempotency_behavior`, and workflow
+availability/config snake_case fields only, while leaving MCP JSON-RPC protocol
+fields such as `inputSchema` and `serverInfo` untouched.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -19092,6 +19092,39 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-mcp-serve-descriptor-meta-aliases-retired",
+    /stable_tool_id:\s*toolId/.test(runtimeMcpHelpers) &&
+      /effect_class:\s*tool\.effect_class/.test(runtimeMcpHelpers) &&
+      /authority_scope_requirements:\s*normalizeArray\(tool\.authority_scope_requirements\)/.test(
+        runtimeMcpHelpers,
+      ) &&
+      /credential_readiness:\s*credentialReadiness/.test(runtimeMcpHelpers) &&
+      /approval_required:\s*approvalRequired/.test(runtimeMcpHelpers) &&
+      /rate_limit_profile:\s*tool\.rate_limit_profile/.test(runtimeMcpHelpers) &&
+      /idempotency_behavior:\s*idempotencyBehavior/.test(runtimeMcpHelpers) &&
+      /workflow_config_fields:\s*normalizeArray\(tool\.workflow_config_fields\)/.test(
+        runtimeMcpHelpers,
+      ) &&
+      /Object\.hasOwn\(descriptor\._meta,\s*"stableToolId"\),\s*false/.test(
+        runtimeMcpHelpersTest,
+      ) &&
+      /Object\.hasOwn\(descriptor\._meta,\s*"approvalRequired"\),\s*false/.test(
+        runtimeMcpHelpersTest,
+      ) &&
+      /Object\.hasOwn\(descriptor\._meta,\s*"workflowConfigFields"\),\s*false/.test(
+        runtimeMcpHelpersTest,
+      ) &&
+      !/^\s*(?:stableToolId|effectClass|riskDomain|primitiveCapabilities|authorityScopeRequirements|evidenceRequirements|credentialReady|credentialReadiness|approvalRequired|rateLimitProfile|idempotencyBehavior|receiptBehavior|workflowAvailability|agentAvailability|marketplaceExposure|workflowNodeType|workflowConfigFields)\s*:/m.test(
+        runtimeMcpHelpers,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP serve descriptor metadata must expose canonical snake_case governance fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "runtime-mcp-manager-validation-output-aliases-retired",
     /schema_version:\s*RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION/.test(
       runtimeMcpManagerValidationBlock,
