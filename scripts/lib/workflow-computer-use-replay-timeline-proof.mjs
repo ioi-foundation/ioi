@@ -295,6 +295,30 @@ const retiredArtifactRefAliasTimeline = buildWorkflowComputerUseReplayTimeline(
   ],
   { workflowGraphId },
 );
+const retiredControlAliasTimeline = buildWorkflowComputerUseReplayTimeline(
+  [
+    {
+      event_id: "event-retired-control-aliases",
+      seq: 16,
+      thread_id: threadId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: "runtime.native_browser.retired-control",
+      event_kind: "computer_use.action_proposed",
+      payload_summary: {
+        event_kind: "computer_use.action_proposed",
+        computerUseLane: "retired_lane",
+        computerUseStep: "retired_step",
+        computerUseProposalRef: "proposal-retired",
+        computerUseActionRef: "action-retired",
+        computerUseVerificationRef: "verification-retired",
+        computerUseCommitGateRef: "commit-gate-retired",
+        computerUseTrajectoryRef: "trajectory-retired",
+        computerUseCleanupRef: "cleanup-retired",
+      },
+    },
+  ],
+  { workflowGraphId },
+);
 
 assert.equal(timeline.status, "ready");
 assert.equal(timeline.frameCount, 10);
@@ -333,6 +357,15 @@ assert.equal(retiredArtifactRefAliasTimeline.frames[0]?.affordanceGraphRef, null
 assert.equal(retiredArtifactRefAliasTimeline.frames[0]?.targetCount, 0);
 assert.equal(retiredArtifactRefAliasTimeline.frames[0]?.affordanceCount, 0);
 assert.deepEqual(retiredArtifactRefAliasTimeline.frames[0]?.artifactRefs, []);
+assert.equal(retiredControlAliasTimeline.frameCount, 1);
+assert.equal(retiredControlAliasTimeline.frames[0]?.lane, null);
+assert.equal(retiredControlAliasTimeline.frames[0]?.step, "action_proposed");
+assert.equal(retiredControlAliasTimeline.frames[0]?.proposalRef, null);
+assert.equal(retiredControlAliasTimeline.frames[0]?.actionRef, null);
+assert.equal(retiredControlAliasTimeline.frames[0]?.verificationRef, null);
+assert.equal(retiredControlAliasTimeline.frames[0]?.commitGateRef, null);
+assert.equal(retiredControlAliasTimeline.frames[0]?.trajectoryRef, null);
+assert.equal(retiredControlAliasTimeline.frames[0]?.cleanupRef, null);
 
 const proof = {
   schemaVersion: "ioi.autopilot.stage18.computer-use-replay-timeline-proof.v1",
@@ -372,6 +405,16 @@ const proof = {
       retiredArtifactRefAliasTimeline.frames[0]?.targetCount === 0 &&
       retiredArtifactRefAliasTimeline.frames[0]?.affordanceCount === 0 &&
       retiredArtifactRefAliasTimeline.frames[0]?.artifactRefs.length === 0,
+    retiredControlAliasesIgnored:
+      retiredControlAliasTimeline.frameCount === 1 &&
+      retiredControlAliasTimeline.frames[0]?.lane === null &&
+      retiredControlAliasTimeline.frames[0]?.step === "action_proposed" &&
+      retiredControlAliasTimeline.frames[0]?.proposalRef === null &&
+      retiredControlAliasTimeline.frames[0]?.actionRef === null &&
+      retiredControlAliasTimeline.frames[0]?.verificationRef === null &&
+      retiredControlAliasTimeline.frames[0]?.commitGateRef === null &&
+      retiredControlAliasTimeline.frames[0]?.trajectoryRef === null &&
+      retiredControlAliasTimeline.frames[0]?.cleanupRef === null,
   },
   summary: {
     frameCount: timeline.frameCount,

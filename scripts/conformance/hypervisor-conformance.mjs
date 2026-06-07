@@ -19716,6 +19716,75 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-computer-use-replay-control-aliases-retired",
+    /const step = stringField\(payload,\s*"computer_use_step"\) \?\? stepForEventKind\(eventKind\);/.test(
+      agentIdeComputerUseReplayTimeline,
+    ) &&
+      /stringField\(payload,\s*"computer_use_lane"\)/.test(agentIdeComputerUseReplayTimeline) &&
+      /proposalRef:\s*stringField\(payload,\s*"computer_use_proposal_ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /actionRef:\s*stringField\(payload,\s*"computer_use_action_ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /verificationRef:\s*stringField\(payload,\s*"computer_use_verification_ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /commitGateRef:\s*stringField\(payload,\s*"computer_use_commit_gate_ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /trajectoryRef:\s*stringField\(payload,\s*"computer_use_trajectory_ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /cleanupRef:\s*stringField\(payload,\s*"computer_use_cleanup_ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_step",\s*"computerUseStep"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_lane",\s*"computerUseLane"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_(?:proposal|action|verification|commit_gate|trajectory|cleanup)_ref",\s*"computerUse(?:Proposal|Action|Verification|CommitGate|Trajectory|Cleanup)Ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /retiredControlAliasTimeline/.test(computerUseReplayTimelineProof) &&
+      /computerUseStep:\s*"retired_step"/.test(computerUseReplayTimelineProof) &&
+      /computerUseLane:\s*"retired_lane"/.test(computerUseReplayTimelineProof) &&
+      /computerUseProposalRef:\s*"proposal-retired"/.test(computerUseReplayTimelineProof) &&
+      /computerUseCommitGateRef:\s*"commit-gate-retired"/.test(computerUseReplayTimelineProof) &&
+      /retiredControlAliasTimeline\.frames\[0\]\?\.lane,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredControlAliasTimeline\.frames\[0\]\?\.step,\s*"action_proposed"/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredControlAliasTimeline\.frames\[0\]\?\.proposalRef,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredControlAliasTimeline\.frames\[0\]\?\.actionRef,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredControlAliasTimeline\.frames\[0\]\?\.verificationRef,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredControlAliasTimeline\.frames\[0\]\?\.commitGateRef,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredControlAliasTimeline\.frames\[0\]\?\.trajectoryRef,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredControlAliasTimeline\.frames\[0\]\?\.cleanupRef,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts",
+      "scripts/lib/workflow-computer-use-replay-timeline-proof.mjs",
+    ],
+    "Phase 10/11 is pending: IDE computer-use replay timeline must ignore retired computer-use control and lifecycle aliases",
+  );
+  assertCheck(
+    result,
     "ide-runtime-event-identity-helper-alias-retired",
     /workflowRuntimeEventId/.test(agentIdeEventIdentity) &&
       /isProjectedRuntimeThreadEvent/.test(agentIdeEventIdentity) &&

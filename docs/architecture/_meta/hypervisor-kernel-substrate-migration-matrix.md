@@ -13374,6 +13374,12 @@ diff, target, bridge-decision, hunk-match, and blocked-apply metadata only, so
 retired camelCase request and payload aliases cannot create hunk rows, match
 bridge receipts, or construct approval/apply endpoints.
 
+Slice 527 retires IDE computer-use replay control aliases: replay timeline
+frames now read canonical `computer_use_step`, `computer_use_lane`, and
+`computer_use_*_ref` lifecycle control fields only, so retired camelCase
+step/lane/proposal/action/verification/commit-gate/trajectory/cleanup aliases
+cannot shape replay frames or lifecycle refs.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

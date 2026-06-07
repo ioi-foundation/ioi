@@ -110,7 +110,7 @@ function replayFrameForEvent(event: RuntimeEventInput, index: number): WorkflowC
   const targetIndex = objectField(payload, "target_index");
   const affordanceGraph = objectField(payload, "affordance_graph");
   const eventKind = eventKindForEvent(event);
-  const step = stringField(payload, "computer_use_step", "computerUseStep") ?? stepForEventKind(eventKind);
+  const step = stringField(payload, "computer_use_step") ?? stepForEventKind(eventKind);
   const lane = computerUseLane(payload);
   const screenshotRef =
     stringField(observation, "screenshot_ref") ??
@@ -157,12 +157,12 @@ function replayFrameForEvent(event: RuntimeEventInput, index: number): WorkflowC
     axRef,
     targetIndexRef,
     affordanceGraphRef,
-    proposalRef: stringField(payload, "computer_use_proposal_ref", "computerUseProposalRef"),
-    actionRef: stringField(payload, "computer_use_action_ref", "computerUseActionRef"),
-    verificationRef: stringField(payload, "computer_use_verification_ref", "computerUseVerificationRef"),
-    commitGateRef: stringField(payload, "computer_use_commit_gate_ref", "computerUseCommitGateRef"),
-    trajectoryRef: stringField(payload, "computer_use_trajectory_ref", "computerUseTrajectoryRef"),
-    cleanupRef: stringField(payload, "computer_use_cleanup_ref", "computerUseCleanupRef"),
+    proposalRef: stringField(payload, "computer_use_proposal_ref"),
+    actionRef: stringField(payload, "computer_use_action_ref"),
+    verificationRef: stringField(payload, "computer_use_verification_ref"),
+    commitGateRef: stringField(payload, "computer_use_commit_gate_ref"),
+    trajectoryRef: stringField(payload, "computer_use_trajectory_ref"),
+    cleanupRef: stringField(payload, "computer_use_cleanup_ref"),
     targetCount,
     affordanceCount,
     policyDecisionRef: stringField(payload, "computer_use_policy_decision_ref"),
@@ -201,7 +201,7 @@ function eventPayload(event: RuntimeEventInput): Record<string, unknown> {
 function computerUseLane(payload: Record<string, unknown>): string | null {
   const observation = objectField(payload, "observation_bundle");
   return (
-    stringField(payload, "computer_use_lane", "computerUseLane") ??
+    stringField(payload, "computer_use_lane") ??
     stringField(observation, "lane") ??
     stringField(payload, "lane")
   );
