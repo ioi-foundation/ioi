@@ -340,6 +340,61 @@ test("model policy, workflow context, reasoning effort, and route receipt bindin
     workflow_node_id: "node-1",
     workflow_node_type: "Model Router",
   });
+  assert.deepEqual(modelWorkflowContext({
+    model: {
+      workflow_graph_id: "graph-canonical",
+      workflowGraphId: "graph-retired-model",
+      workflow_node_id: "node-canonical",
+      workflowNodeId: "node-retired-model",
+      workflow_node_type: "Model Router",
+      workflowNodeType: "Retired Model Router",
+    },
+    options: {
+      workflowGraphId: "graph-retired-options",
+      workflowNodeId: "node-retired-options",
+      workflowNodeType: "Retired Options Router",
+      workflow: {
+        graphId: "graph-retired-workflow",
+        nodeId: "node-retired-workflow",
+        nodeType: "Retired Workflow Router",
+      },
+    },
+    context: {
+      workflowGraphId: "graph-retired-context",
+      workflowNodeId: "node-retired-context",
+      workflowNodeType: "Retired Context Router",
+    },
+  }), {
+    workflow_graph_id: "graph-canonical",
+    workflow_node_id: "node-canonical",
+    workflow_node_type: "Model Router",
+  });
+  assert.deepEqual(modelWorkflowContext({
+    model: {
+      workflowGraphId: "graph-retired-model",
+      workflowNodeId: "node-retired-model",
+      workflowNodeType: "Retired Model Router",
+    },
+    options: {
+      workflowGraphId: "graph-retired-options",
+      workflowNodeId: "node-retired-options",
+      workflowNodeType: "Retired Options Router",
+      workflow: {
+        graphId: "graph-retired-workflow",
+        nodeId: "node-retired-workflow",
+        nodeType: "Retired Workflow Router",
+      },
+    },
+    context: {
+      workflowGraphId: "graph-retired-context",
+      workflowNodeId: "node-retired-context",
+      workflowNodeType: "Retired Context Router",
+    },
+  }), {
+    workflow_graph_id: null,
+    workflow_node_id: "runtime.model-router",
+    workflow_node_type: "Model Router",
+  });
 
   assert.equal(normalizeReasoningEffort("default", true), null);
   assert.equal(normalizeReasoningEffort("disabled"), "none");

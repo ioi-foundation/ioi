@@ -225,31 +225,22 @@ export function modelWorkflowContext({ model = {}, options = {}, context = {} } 
   const workflow = options.workflow ?? model.workflow ?? {};
   return {
     workflow_graph_id:
-      model.workflowGraphId ??
       model.workflow_graph_id ??
-      options.workflowGraphId ??
       options.workflow_graph_id ??
-      workflow.graphId ??
       workflow.graph_id ??
-      context.workflowGraphId ??
+      context.workflow_graph_id ??
       null,
     workflow_node_id:
-      model.workflowNodeId ??
       model.workflow_node_id ??
-      options.workflowNodeId ??
       options.workflow_node_id ??
-      workflow.nodeId ??
       workflow.node_id ??
-      context.workflowNodeId ??
+      context.workflow_node_id ??
       "runtime.model-router",
     workflow_node_type:
-      model.workflowNodeType ??
       model.workflow_node_type ??
-      options.workflowNodeType ??
       options.workflow_node_type ??
-      workflow.nodeType ??
       workflow.node_type ??
-      context.workflowNodeType ??
+      context.workflow_node_type ??
       "Model Router",
   };
 }

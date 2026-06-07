@@ -1078,6 +1078,8 @@ function runBridge() {
   const threadRuntimeControls = exists("packages/runtime-daemon/src/threads/thread-runtime-controls.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-runtime-controls.mjs")
     : "";
+  const modelWorkflowContextBody =
+    threadRuntimeControls.match(/export function modelWorkflowContext\([\s\S]*?\n}\n\nexport function modelRouteBindingFromReceipt/)?.[0] ?? "";
   const threadRuntimeControlsTest = exists("packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs")
     : "";
@@ -4712,6 +4714,16 @@ function runBridge() {
       /store\.routeRequests\[0\]\.context\.workflowNodeId, "runtime\.model-router"/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
+      /workflowGraphId: "graph-retired-context"/.test(threadRuntimeControlsTest) &&
+      /workflow_node_id: "runtime\.model-router"/.test(threadRuntimeControlsTest) &&
+      /workflow_node_type: "Model Router"/.test(threadRuntimeControlsTest) &&
+      /context\.workflow_graph_id/.test(modelWorkflowContextBody) &&
+      /context\.workflow_node_id/.test(modelWorkflowContextBody) &&
+      /context\.workflow_node_type/.test(modelWorkflowContextBody) &&
+      !/\b(?:model|options|context)\.(?:workflowGraphId|workflowNodeId|workflowNodeType)\b/.test(
+        modelWorkflowContextBody,
+      ) &&
+      !/\bworkflow\.(?:graphId|nodeId|nodeType)\b/.test(modelWorkflowContextBody) &&
       !/request\.(?:workflowNodeId|workflowGraphId|requestedBy|interactionMode|approvalMode|idempotencyKey)\b/.test(runtimeThreadControlSurface) &&
       !/request\.(?:workflowNodeId|threadMode|approvalMode|interactionMode|reasoningEffort|modelId|routeId)\b/.test(threadRuntimeControls) &&
       !/request\.(?:workflow_node_id|workflow_graph_id|idempotency_key)\s*\?\?\s*request\./.test(
