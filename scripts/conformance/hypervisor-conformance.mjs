@@ -9342,12 +9342,40 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-backend-lifecycle-detail-aliases-retired",
-    /backend_id:\s*backendId/.test(backendLifecycle) &&
+      /backend_id:\s*backendId/.test(backendLifecycle) &&
       /model_id:\s*backend\.label/.test(backendLifecycle) &&
       /evidence_refs:\s*backend\.evidenceRefs/.test(backendLifecycle) &&
       /details:\s*\{\s*backend_id:\s*backendId,\s*backend_kind:\s*backend\.kind,\s*evidence_refs:\s*backend\.evidenceRefs/.test(backendLifecycle) &&
       /log_count:\s*resolved\.length/.test(backendLifecycle) &&
+      /commitBackendProcessRecordState/.test(backendLifecycle) &&
+      /commitBackendRecordState/.test(backendLifecycle) &&
+      /recordDir:\s*"backend-processes"/.test(backendLifecycle) &&
+      /recordDir:\s*"model-backends"/.test(backendLifecycle) &&
+      /model_mount\.backend_process\.touch/.test(backendLifecycle) &&
+      /model_mount\.backend_process\.start/.test(backendLifecycle) &&
+      /model_mount\.backend_process\.exit/.test(backendLifecycle) &&
+      /model_mount\.backend_process\.stop/.test(backendLifecycle) &&
+      /model_mount\.backend_process\.receipt_bind/.test(backendLifecycle) &&
+      /model_mount\.backend\.health/.test(backendLifecycle) &&
+      /model_mount\.backend\.start/.test(backendLifecycle) &&
+      /model_mount\.backend\.stop/.test(backendLifecycle) &&
+      /model_mount_backend_process_state_commit_unconfigured/.test(backendLifecycle) &&
+      /model_mount_backend_state_commit_unconfigured/.test(backendLifecycle) &&
+      !/state\.writeMap\("backend-processes"/.test(backendLifecycle) &&
+      !/state\.writeMap\("model-backends"/.test(backendLifecycle) &&
       !/details:\s*\{\s*backendId\b/.test(backendLifecycle) &&
+      /recordStateCommits/.test(backendLifecycleTest) &&
+      /backend process persistence fails closed without Rust Agentgres record-state commit/.test(
+        backendLifecycleTest,
+      ) &&
+      /model_mount\.backend_process\.touch/.test(backendLifecycleTest) &&
+      /model_mount\.backend_process\.start/.test(backendLifecycleTest) &&
+      /model_mount\.backend_process\.exit/.test(backendLifecycleTest) &&
+      /model_mount\.backend_process\.stop/.test(backendLifecycleTest) &&
+      /model_mount\.backend_process\.receipt_bind/.test(backendLifecycleTest) &&
+      /model_mount\.backend\.health/.test(backendLifecycleTest) &&
+      /model_mount\.backend\.start/.test(backendLifecycleTest) &&
+      /model_mount\.backend\.stop/.test(backendLifecycleTest) &&
       /assertNoRetiredLifecycleSubjectAliases\(details\)/.test(modelMountReceiptOperations) &&
       /model_lifecycle_receipt_detail_aliases_retired/.test(modelMountReceiptOperations) &&
       !/details\.model_id\s*\?\?\s*details\.modelId/.test(modelMountReceiptOperations) &&

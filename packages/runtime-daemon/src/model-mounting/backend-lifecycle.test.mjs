@@ -30,6 +30,7 @@ function fakeState() {
     backends,
     logs: [],
     receipts: [],
+    recordStateCommits: [],
     writes: [],
     now: "2026-06-03T20:00:00.000Z",
     backend(backendId) {
@@ -85,6 +86,24 @@ function fakeState() {
     writeMap(dir, map) {
       this.writes.push([dir, [...map.values()].map((record) => ({ ...record }))]);
     },
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(JSON.parse(JSON.stringify(request)));
+      return {
+        record_id: request.record_id,
+        object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+        content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+        admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+        commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+          admission: {
+            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+          },
+        },
+      };
+    },
   };
   return state;
 }
@@ -125,7 +144,11 @@ test("ensure backend process touches an existing started record", () => {
 
   assert.equal(result.status, "stale_recovered");
   assert.equal(result.reason, "health_probe");
-  assert.equal(state.writes.at(-1)[0], "backend-processes");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits[0].record_dir, "backend-processes");
+  assert.equal(state.recordStateCommits[0].record_id, "process-a");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.backend_process.touch");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, []);
 });
 
 test("start backend process records deterministic fixture process metadata", () => {
@@ -139,7 +162,28 @@ test("start backend process records deterministic fixture process metadata", () 
   assert.equal(result.spawnStatus, "not_required");
   assert.equal(result.startupTimeoutMs, 10);
   assert.equal(result.loadOptions.redacted, true);
+  assert.equal(state.recordStateCommits[0].record_dir, "backend-processes");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.backend_process.start");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, []);
   assert.equal(state.logs.at(-1).event, "backend_process_start");
+});
+
+test("backend process persistence fails closed without Rust Agentgres record-state commit", () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+
+  assert.throws(
+    () => startBackendProcess(state, state.backend("backend.native"), { loadOptions: { startupTimeoutMs: 10 } }, deps),
+    (error) => {
+      assert.equal(error.code, "model_mount_backend_process_state_commit_unconfigured");
+      assert.equal(error.details.backend_id, "backend.native");
+      assert.equal(error.details.record_dir, "backend-processes");
+      return true;
+    },
+  );
+
+  assert.equal(state.backendProcesses.size, 0);
+  assert.deepEqual(state.writes, []);
 });
 
 test("spawn backend child process records output and exit without leaking raw output", () => {
@@ -184,6 +228,9 @@ test("spawn backend child process records output and exit without leaking raw ou
   assert.equal(state.logs.some((record) => record.event === "backend_process_stdout" && record.outputHash), true);
   assert.equal(state.logs.some((record) => record.event === "backend_process_exit" && record.exitCode === 1), true);
   assert.equal(state.backendProcesses.get("process-llama").status, "degraded");
+  assert.equal(state.recordStateCommits[0].record_dir, "backend-processes");
+  assert.equal(state.recordStateCommits[0].record_id, "process-llama");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.backend_process.exit");
 });
 
 test("stop backend process kills tracked children and appends clean stop evidence", () => {
@@ -209,6 +256,9 @@ test("stop backend process kills tracked children and appends clean stop evidenc
   assert.equal(killedWith, "SIGTERM");
   assert.equal(result.status, "stopped");
   assert.deepEqual(result.evidenceRefs, ["started", "clean_backend_stop"]);
+  assert.equal(state.recordStateCommits[0].record_dir, "backend-processes");
+  assert.equal(state.recordStateCommits[0].record_id, "process-a");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.backend_process.stop");
   assert.equal(state.logs.at(-1).event, "backend_process_stop");
 });
 
@@ -225,6 +275,10 @@ test("backend health, start, and stop update backend records and lifecycle recei
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "backendId"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "evidenceRefs"), false);
+  assert.equal(state.recordStateCommits[0].record_dir, "model-backends");
+  assert.equal(state.recordStateCommits[0].record_id, "backend.native");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.backend.health");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.backend_health.1"]);
 
   const started = startBackend(state, "backend.native", { loadOptions: { contextLength: 1024 } }, deps);
   assert.equal(started.status, "available");
@@ -236,6 +290,14 @@ test("backend health, start, and stop update backend records and lifecycle recei
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "evidenceRefs"), false);
   assert.equal(state.logs.at(-1).event, "backend_start");
+  assert.equal(
+    state.recordStateCommits.some((commit) => commit.operation_kind === "model_mount.backend_process.receipt_bind"),
+    true,
+  );
+  assert.equal(
+    state.recordStateCommits.some((commit) => commit.operation_kind === "model_mount.backend.start"),
+    true,
+  );
 
   const stopped = stopBackend(state, "backend.native");
   assert.equal(stopped.status, "stopped");
@@ -247,6 +309,11 @@ test("backend health, start, and stop update backend records and lifecycle recei
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "evidenceRefs"), false);
   assert.equal(state.logs.at(-1).event, "backend_stop");
+  assert.equal(
+    state.recordStateCommits.some((commit) => commit.operation_kind === "model_mount.backend.stop"),
+    true,
+  );
+  assert.deepEqual(state.writes, []);
 });
 
 test("blocked backend start preserves external-blocker envelope", () => {

@@ -2,6 +2,8 @@ import childProcess from "node:child_process";
 import crypto from "node:crypto";
 import path from "node:path";
 
+import { commitModelMountRecordState } from "./record-state-commits.mjs";
+
 export function ensureBackendProcess(state, backendId, { endpoint = null, loadOptions = {}, reason = "runtime_control" } = {}) {
   const backend = state.backend(backendId);
   if (!state.backendSupportsSupervision(backend)) {
@@ -28,8 +30,8 @@ export function touchBackendProcess(state, processRecord, { endpoint = null, loa
     argsRedacted,
     reason,
   };
+  commitBackendProcessRecordState(state, updated, "model_mount.backend_process.touch", []);
   state.backendProcesses.set(updated.id, updated);
-  state.writeMap("backend-processes", state.backendProcesses);
   return state.reconciledBackendProcess(updated, { normalizeScopes });
 }
 
@@ -84,8 +86,8 @@ export function startBackendProcess(state, backend, { endpoint = null, loadOptio
       ...childProcessInfo.evidenceRefs,
     ],
   };
+  commitBackendProcessRecordState(state, processRecord, "model_mount.backend_process.start", []);
   state.backendProcesses.set(processRecord.id, processRecord);
-  state.writeMap("backend-processes", state.backendProcesses);
   state.writeBackendLog(backend.id, {
     backendId: backend.id,
     event: "backend_process_start",
@@ -162,8 +164,8 @@ export function spawnBackendChildProcess(state, backend, { endpoint = null, load
         updatedAt: state.nowIso(),
         evidenceRefs: [...normalizeScopes(existing.evidenceRefs, []), `${backend.kind}_process_exit_observed`],
       };
+      commitBackendProcessRecordState(state, updated, "model_mount.backend_process.exit", []);
       state.backendProcesses.set(updated.id, updated);
-      state.writeMap("backend-processes", state.backendProcesses);
       state.writeBackendLog(backend.id, {
         backendId: backend.id,
         event: "backend_process_exit",
@@ -220,8 +222,8 @@ export function stopBackendProcess(state, backend, { reason = "runtime_control" 
     reason,
     evidenceRefs: [...normalizeScopes(existing.evidenceRefs, []), "clean_backend_stop"],
   };
+  commitBackendProcessRecordState(state, updated, "model_mount.backend_process.stop", []);
   state.backendProcesses.set(updated.id, updated);
-  state.writeMap("backend-processes", state.backendProcesses);
   state.writeBackendLog(backend.id, {
     backendId: backend.id,
     event: "backend_process_stop",
@@ -263,8 +265,8 @@ export function backendHealth(state, backendId, deps = {}) {
     processStatus: processSnapshot.processStatus,
     process: { ...backend.process, ...processSnapshot, receiptId: receipt.id },
   };
+  commitBackendRecordState(state, updated, "model_mount.backend.health", [receipt.id]);
   state.backends.set(backendId, updated);
-  state.writeMap("model-backends", state.backends);
   return updated;
 }
 
@@ -298,11 +300,12 @@ export function startBackend(state, backendId, body = {}, deps = {}) {
     lastReceiptId: receipt.id,
   };
   if (processRecord?.id) {
-    state.backendProcesses.set(processRecord.id, { ...processRecord, lastReceiptId: receipt.id });
-    state.writeMap("backend-processes", state.backendProcesses);
+    const updatedProcess = { ...processRecord, lastReceiptId: receipt.id };
+    commitBackendProcessRecordState(state, updatedProcess, "model_mount.backend_process.receipt_bind", [receipt.id]);
+    state.backendProcesses.set(processRecord.id, updatedProcess);
   }
+  commitBackendRecordState(state, updated, "model_mount.backend.start", [receipt.id]);
   state.backends.set(backendId, updated);
-  state.writeMap("model-backends", state.backends);
   state.writeBackendLog(backendId, {
     backendId,
     event: "backend_start",
@@ -334,11 +337,12 @@ export function stopBackend(state, backendId) {
     lastReceiptId: receipt.id,
   };
   if (processRecord?.id) {
-    state.backendProcesses.set(processRecord.id, { ...processRecord, lastReceiptId: receipt.id });
-    state.writeMap("backend-processes", state.backendProcesses);
+    const updatedProcess = { ...processRecord, lastReceiptId: receipt.id };
+    commitBackendProcessRecordState(state, updatedProcess, "model_mount.backend_process.receipt_bind", [receipt.id]);
+    state.backendProcesses.set(processRecord.id, updatedProcess);
   }
+  commitBackendRecordState(state, updated, "model_mount.backend.stop", [receipt.id]);
   state.backends.set(backendId, updated);
-  state.writeMap("model-backends", state.backends);
   state.writeBackendLog(backendId, {
     backendId,
     event: "backend_stop",
@@ -370,4 +374,36 @@ export function backendLogs(state, backendId, deps = {}) {
     evidence_refs: ["backend_log_projection"],
   });
   return resolved;
+}
+
+function commitBackendProcessRecordState(state, record, operationKind, receiptRefs) {
+  return commitModelMountRecordState(state, {
+    recordDir: "backend-processes",
+    record,
+    operationKind,
+    receiptRefs,
+    unconfiguredCode: "model_mount_backend_process_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Model backend process persistence requires Rust Agentgres record-state commit.",
+    unconfiguredDetails: {
+      backend_id: record?.backendId ?? null,
+      process_id: record?.id ?? null,
+    },
+  });
+}
+
+function commitBackendRecordState(state, record, operationKind, receiptRefs) {
+  return commitModelMountRecordState(state, {
+    recordDir: "model-backends",
+    record,
+    operationKind,
+    receiptRefs,
+    unconfiguredCode: "model_mount_backend_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Model backend persistence requires Rust Agentgres record-state commit.",
+    unconfiguredDetails: {
+      backend_id: record?.id ?? null,
+      backend_kind: record?.kind ?? null,
+    },
+  });
 }
