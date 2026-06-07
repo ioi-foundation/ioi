@@ -566,7 +566,14 @@ test("diagnostics repair surface fails closed without Rust-planned override run"
         snapshotId: "snapshot_alpha",
         workflowGraphId: "graph_alpha",
       }),
-    (error) => error.code === "diagnostics_operator_override_state_update_planner_invalid",
+    (error) => {
+      assert.equal(error.code, "diagnostics_operator_override_state_update_planner_invalid");
+      assert.deepEqual(error.details, { thread_id: "thread_alpha", run_id: "run_blocked" });
+      for (const key of ["threadId", "runId"]) {
+        assert.equal(Object.hasOwn(error.details, key), false);
+      }
+      return true;
+    },
   );
   assert.equal(writes.length, 0);
   assert.equal(
@@ -647,7 +654,12 @@ test("diagnostics repair surface fails closed without Rust-planned override oper
       }),
     (error) => {
       assert.equal(error.code, "diagnostics_operator_override_state_update_operation_kind_missing");
-      assert.equal(error.details.operationKind, "diagnostics.operator_override.event");
+      assert.equal(error.details.operation_kind, "diagnostics.operator_override.event");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.run_id, "run_blocked");
+      for (const key of ["threadId", "runId", "operationKind"]) {
+        assert.equal(Object.hasOwn(error.details, key), false);
+      }
       return true;
     },
   );

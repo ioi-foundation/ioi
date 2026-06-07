@@ -4255,11 +4255,26 @@ function runBridge() {
       ) &&
       /plannedDiagnosticsOperatorOverrideRunRecord/.test(runtimeDiagnosticsRepairSurface) &&
       /plannedDiagnosticsOperatorOverrideOperationKind/.test(runtimeDiagnosticsRepairSurface) &&
+      /details:\s*\{\s*thread_id:\s*threadId,\s*run_id:\s*runId\s*\}/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /operation_kind:\s*"diagnostics\.operator_override\.event"/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /expected_operation_kind:\s*"diagnostics\.operator_override\.event"/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/details:\s*\{[^}\n]*\b(?:threadId|runId|operationKind|expectedOperationKind)\s*:/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
       /planDiagnosticsOperatorOverrideStateUpdate/.test(runtimeDiagnosticsRepairSurfaceTest) &&
       /diagnostics repair surface fails closed without Rust-planned override run/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       /diagnostics repair surface fails closed without Rust-planned override operation kind/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*key\),\s*false/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       !/control:\s*"diagnostics_operator_override"|appendOperatorControl/.test(

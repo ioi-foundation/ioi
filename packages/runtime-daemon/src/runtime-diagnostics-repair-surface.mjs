@@ -75,7 +75,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         status: 502,
         code: "diagnostics_operator_override_state_update_planner_invalid",
         message: "Rust diagnostics operator override state planning did not return a run record.",
-        details: { threadId, runId },
+        details: { thread_id: threadId, run_id: runId },
       });
     }
     return updatedRun;
@@ -88,7 +88,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         status: 502,
         code: "diagnostics_operator_override_state_update_operation_kind_missing",
         message: "Rust diagnostics operator override planning did not return an operation kind.",
-        details: { threadId, runId, operationKind: "diagnostics.operator_override.event" },
+        details: { thread_id: threadId, run_id: runId, operation_kind: "diagnostics.operator_override.event" },
       });
     }
     if (operationKind !== "diagnostics.operator_override.event") {
@@ -97,10 +97,10 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         code: "diagnostics_operator_override_state_update_operation_kind_mismatch",
         message: "Rust diagnostics operator override planning returned an unexpected operation kind.",
         details: {
-          threadId,
-          runId,
-          expectedOperationKind: "diagnostics.operator_override.event",
-          operationKind,
+          thread_id: threadId,
+          run_id: runId,
+          expected_operation_kind: "diagnostics.operator_override.event",
+          operation_kind: operationKind,
         },
       });
     }
