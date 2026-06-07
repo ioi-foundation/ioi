@@ -13422,6 +13422,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts")
     : "";
+  const agentIdePolicyLeasePanel = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts")
+    : "";
+  const agentIdePolicyLeasePanelTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.test.ts")
+    : "";
   const agentIdeMixedRuntimePanels = [
     "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
@@ -19808,6 +19818,53 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
     ],
     "Phase 10/11 is pending: mixed IDE runtime panels must share canonical event identity handling and ignore raw retired id/event aliases",
+  );
+  assertCheck(
+    result,
+    "ide-policy-lease-panel-aliases-retired",
+    /stringField\(payload,\s*"approval_id"\)/.test(agentIdePolicyLeasePanel) &&
+      /objectField\(payload,\s*"approval_lease"\)/.test(agentIdePolicyLeasePanel) &&
+      /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdePolicyLeasePanel) &&
+      /arrayField\(event,\s*"policy_decision_refs"\)/.test(agentIdePolicyLeasePanel) &&
+      /stringField\(lease,\s*"lease_id"\)/.test(agentIdePolicyLeasePanel) &&
+      /stringField\(lease,\s*"policy_hash"\)/.test(agentIdePolicyLeasePanel) &&
+      /numberField\(lease,\s*"ttl_ms"\)/.test(agentIdePolicyLeasePanel) &&
+      /stringField\(lease,\s*"expires_at"\)/.test(agentIdePolicyLeasePanel) &&
+      /arrayField\(lease,\s*"expected_receipt_refs"\)/.test(agentIdePolicyLeasePanel) &&
+      /arrayField\(lease,\s*"authority_scope_requirements"\)/.test(agentIdePolicyLeasePanel) &&
+      /stringField\(lease,\s*"revoke_endpoint"\)/.test(agentIdePolicyLeasePanel) &&
+      !/stringField\(payload,\s*"approvalId",\s*"approval_id"\)/.test(agentIdePolicyLeasePanel) &&
+      !/objectField\(payload,\s*"approvalLease",\s*"approval_lease"\)/.test(agentIdePolicyLeasePanel) &&
+      !/arrayField\(event,\s*"receiptRefs",\s*"receipt_refs"\)/.test(agentIdePolicyLeasePanel) &&
+      !/arrayField\(event,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
+        agentIdePolicyLeasePanel,
+      ) &&
+      !/stringField\(lease,\s*"leaseId",\s*"lease_id"\)/.test(agentIdePolicyLeasePanel) &&
+      !/stringField\(lease,\s*"policyHash",\s*"policy_hash"\)/.test(agentIdePolicyLeasePanel) &&
+      !/numberField\(lease,\s*"ttlMs",\s*"ttl_ms"\)/.test(agentIdePolicyLeasePanel) &&
+      !/stringField\(lease,\s*"expiresAt",\s*"expires_at"\)/.test(agentIdePolicyLeasePanel) &&
+      !/arrayField\(lease,\s*"expectedReceiptRefs",\s*"expected_receipt_refs"\)/.test(
+        agentIdePolicyLeasePanel,
+      ) &&
+      !/arrayField\(lease,\s*"authorityScopeRequirements",\s*"authority_scope_requirements"\)/.test(
+        agentIdePolicyLeasePanel,
+      ) &&
+      !/stringField\(lease,\s*"revokeEndpoint",\s*"revoke_endpoint"\)/.test(
+        agentIdePolicyLeasePanel,
+      ) &&
+      /policy lease panel ignores retired payload and evidence aliases/.test(
+        agentIdePolicyLeasePanelTest,
+      ) &&
+      /approvalId:\s*"approval-retired"/.test(agentIdePolicyLeasePanelTest) &&
+      /approvalLease:\s*\{/.test(agentIdePolicyLeasePanelTest) &&
+      /receiptRefs:\s*\["receipt-retired"\]/.test(agentIdePolicyLeasePanelTest) &&
+      /policyDecisionRefs:\s*\["policy-retired"\]/.test(agentIdePolicyLeasePanelTest) &&
+      /assert\.equal\(panel\.rows\.length,\s*0\)/.test(agentIdePolicyLeasePanelTest),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE policy lease panel must ignore retired camelCase lease payload and evidence aliases",
   );
   assertCheck(
     result,

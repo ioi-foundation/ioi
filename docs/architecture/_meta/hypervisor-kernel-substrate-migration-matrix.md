@@ -11366,6 +11366,15 @@ alias: workflow runtime event projection now reads canonical
 payloads cannot make old computer-use contract-ingest shapes render as canonical
 projection state.
 
+Slice 533 retires IDE policy-lease panel payload and evidence aliases: the
+policy lease panel now reads canonical `approval_id`, `approval_lease`,
+`receipt_refs`, `policy_decision_refs`, `lease_id`, `policy_hash`, `ttl_ms`,
+`expires_at`, `expected_receipt_refs`, `authority_scope_requirements`,
+`approval_request_event_id`, `approval_decision_event_id`, `revoke_endpoint`,
+and `lease_status` fields only, so retired camelCase lease payload and evidence
+aliases cannot create lease rows or make old approval payloads look
+receipt-backed, policy-backed, revokable, or executable.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

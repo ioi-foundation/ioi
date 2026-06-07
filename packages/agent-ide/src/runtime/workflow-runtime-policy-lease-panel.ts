@@ -100,9 +100,9 @@ export function buildWorkflowRuntimePolicyLeasePanel(
     const payload = eventPayload(event);
     const approvalId =
       stringField(event, "approvalId", "approval_id") ??
-      stringField(payload, "approvalId", "approval_id");
+      stringField(payload, "approval_id");
     if (!approvalId) continue;
-    const lease = objectField(payload, "approvalLease", "approval_lease");
+    const lease = objectField(payload, "approval_lease");
     const current = rowsByApprovalId.get(approvalId);
     const next = rowForPolicyLeaseEvent({
       current,
@@ -174,58 +174,58 @@ function rowForPolicyLeaseEvent({
   const eventId = eventIdForRuntimeEvent(event);
   const receiptRefs = uniqueStrings([
     ...(current?.receiptRefs ?? []),
-    ...arrayField(event, "receiptRefs", "receipt_refs"),
+    ...arrayField(event, "receipt_refs"),
   ]);
   const policyDecisionRefs = uniqueStrings([
     ...(current?.policyDecisionRefs ?? []),
-    ...arrayField(event, "policyDecisionRefs", "policy_decision_refs"),
+    ...arrayField(event, "policy_decision_refs"),
   ]);
 
   return {
     approvalId,
     leaseId:
-      stringField(lease, "leaseId", "lease_id") ??
-      stringField(payload, "leaseId", "lease_id") ??
+      stringField(lease, "lease_id") ??
+      stringField(payload, "lease_id") ??
       current?.leaseId ??
       null,
     status,
     scope: stringField(lease, "scope") ?? stringField(payload, "scope") ?? current?.scope ?? null,
     action: stringField(lease, "action") ?? stringField(payload, "action") ?? current?.action ?? null,
     policyHash:
-      stringField(lease, "policyHash", "policy_hash") ??
-      stringField(payload, "policyHash", "policy_hash") ??
+      stringField(lease, "policy_hash") ??
+      stringField(payload, "policy_hash") ??
       current?.policyHash ??
       null,
     ttlMs:
-      numberField(lease, "ttlMs", "ttl_ms") ??
-      numberField(payload, "ttlMs", "ttl_ms") ??
+      numberField(lease, "ttl_ms") ??
+      numberField(payload, "ttl_ms") ??
       current?.ttlMs ??
       null,
     expiresAt:
-      stringField(lease, "expiresAt", "expires_at") ??
-      stringField(payload, "expiresAt", "expires_at") ??
+      stringField(lease, "expires_at") ??
+      stringField(payload, "expires_at") ??
       current?.expiresAt ??
       null,
     expectedReceiptRefs: uniqueStrings([
       ...(current?.expectedReceiptRefs ?? []),
-      ...arrayField(lease, "expectedReceiptRefs", "expected_receipt_refs"),
-      ...arrayField(payload, "expectedReceiptRefs", "expected_receipt_refs"),
+      ...arrayField(lease, "expected_receipt_refs"),
+      ...arrayField(payload, "expected_receipt_refs"),
     ]),
     authorityScopeRequirements: uniqueStrings([
       ...(current?.authorityScopeRequirements ?? []),
-      ...arrayField(lease, "authorityScopeRequirements", "authority_scope_requirements"),
-      ...arrayField(payload, "authorityScopeRequirements", "authority_scope_requirements"),
+      ...arrayField(lease, "authority_scope_requirements"),
+      ...arrayField(payload, "authority_scope_requirements"),
     ]),
     requestEventId:
       kind === "approval.required"
         ? eventId
-        : stringField(payload, "approvalRequestEventId", "approval_request_event_id") ??
+        : stringField(payload, "approval_request_event_id") ??
           current?.requestEventId ??
           null,
     decisionEventId:
       kind === "approval.approved" || kind === "approval.rejected"
         ? eventId
-        : stringField(payload, "approvalDecisionEventId", "approval_decision_event_id") ??
+        : stringField(payload, "approval_decision_event_id") ??
           current?.decisionEventId ??
           null,
     revokeEventId: kind === "approval.revoked" ? eventId : current?.revokeEventId ?? null,
@@ -236,8 +236,8 @@ function rowForPolicyLeaseEvent({
     threadId: eventThreadId(event) ?? current?.threadId ?? null,
     turnId: eventTurnId(event) ?? current?.turnId ?? null,
     revokeEndpoint:
-      stringField(lease, "revokeEndpoint", "revoke_endpoint") ??
-      stringField(payload, "revokeEndpoint", "revoke_endpoint") ??
+      stringField(lease, "revoke_endpoint") ??
+      stringField(payload, "revoke_endpoint") ??
       current?.revokeEndpoint ??
       null,
     revokable: status === "pending" || status === "active",
@@ -258,11 +258,11 @@ function policyLeaseStatusForEvent(
   if (kind === "approval.required") return "pending";
   const explicit = cleanString(
     stringField(lease, "status") ??
-      stringField(payload, "leaseStatus", "lease_status") ??
+      stringField(payload, "lease_status") ??
       stringField(payload, "status"),
   );
-  const expiresAt = stringField(lease, "expiresAt", "expires_at") ??
-    stringField(payload, "expiresAt", "expires_at");
+  const expiresAt = stringField(lease, "expires_at") ??
+    stringField(payload, "expires_at");
   const expiresMs = expiresAt ? Date.parse(expiresAt) : Number.NaN;
   if (Number.isFinite(expiresMs) && expiresMs <= nowMs) return "expired";
   if (explicit === "active" || explicit === "approved") return "active";
