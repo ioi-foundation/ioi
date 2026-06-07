@@ -383,6 +383,10 @@ test("SDK admits L1 settlement attempts through the thread route", async () => {
     ) {
       const body = await readBody(request);
       assert.equal(body.source, "sdk_client");
+      assert.equal(body.workflow_graph_id, "workflow_l1_settlement_sdk");
+      assert.equal(body.workflow_node_id, "l1_settlement_sdk");
+      assert.equal(Object.hasOwn(body, "workflowGraphId"), false);
+      assert.equal(Object.hasOwn(body, "workflowNodeId"), false);
       assert.equal(body.attempt.settlement_ref, "l1://settlement/sdk-marketplace-payment");
       assert.deepEqual(body.attempt.trigger_refs, ["l1-trigger://service-contract/payment"]);
       response.statusCode = 201;
@@ -411,7 +415,11 @@ test("SDK admits L1 settlement attempts through the thread route", async () => {
     const address = server.address();
     assert.ok(address && typeof address === "object");
     const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
-    const result = await client.admitL1SettlementAttempt("thread_sdk", { attempt });
+    const result = await client.admitL1SettlementAttempt("thread_sdk", {
+      workflow_graph_id: "workflow_l1_settlement_sdk",
+      workflow_node_id: "l1_settlement_sdk",
+      attempt,
+    });
 
     assert.equal(result.status, "admitted");
     assert.equal(result.settlement_admitted, true);
@@ -422,6 +430,30 @@ test("SDK admits L1 settlement attempts through the thread route", async () => {
   } finally {
     await close(server);
   }
+});
+
+test("SDK L1 settlement admission rejects retired request aliases before transport", async () => {
+  const client = createRuntimeSubstrateClient({ endpoint: "http://127.0.0.1:9" });
+  await assert.rejects(
+    client.admitL1SettlementAttempt("thread_sdk", {
+      workflowGraphId: "graph_retired",
+      workflowNodeId: "node_retired",
+      attempt: {
+        schema_version: "ioi.l1_settlement_admission.v1",
+        settlement_ref: "l1://settlement/retired-alias",
+        domain_ref: "domain://marketplace/services",
+        state_root_ref: "state-root://agentgres/marketplace/after",
+        trigger_refs: ["l1-trigger://service-contract/payment"],
+        receipt_refs: ["receipt://local-settlement/payment"],
+      },
+    }),
+    (error) =>
+      error instanceof IoiAgentError &&
+      error.code === "config" &&
+      error.details?.code === "l1_settlement_sdk_request_aliases_retired" &&
+      error.details?.retired_aliases?.includes("workflowGraphId") &&
+      error.details?.retired_aliases?.includes("workflowNodeId"),
+  );
 });
 
 test("SDK authorizes external capability exits through the thread route", async () => {

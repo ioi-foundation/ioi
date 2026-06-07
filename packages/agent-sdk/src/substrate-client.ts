@@ -1157,12 +1157,10 @@ export interface RuntimeL1SettlementAttempt extends Record<string, unknown> {
   receipt_refs: string[];
 }
 
-export interface RuntimeL1SettlementAttemptAdmissionInput extends Record<string, unknown> {
+export interface RuntimeL1SettlementAttemptAdmissionInput {
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
   actor?: string;
-  workflowGraphId?: string;
   workflow_graph_id?: string;
-  workflowNodeId?: string;
   workflow_node_id?: string;
   attempt: RuntimeL1SettlementAttempt | Record<string, unknown>;
 }
@@ -1750,6 +1748,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeL1SettlementAttemptAdmissionInput,
   ): Promise<RuntimeL1SettlementAttemptAdmissionResult> {
+    assertNoRetiredL1SettlementAdmissionAliases(input);
     return this.request(
       "admitL1SettlementAttempt",
       "POST",
@@ -2964,6 +2963,23 @@ function assertNoRetiredWorkerServicePackageAdmissionAliases(
       "Worker/service package admission request aliases are retired; use workflow_graph_id and workflow_node_id.",
     details: {
       code: "worker_service_package_sdk_request_aliases_retired",
+      retired_aliases: retiredAliases,
+    },
+  });
+}
+
+function assertNoRetiredL1SettlementAdmissionAliases(input: RuntimeL1SettlementAttemptAdmissionInput): void {
+  const record = input as unknown as Record<string, unknown>;
+  const retiredAliases = ["workflowGraphId", "workflowNodeId"].filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new IoiAgentError({
+    code: "config",
+    message:
+      "L1 settlement admission request aliases are retired; use workflow_graph_id and workflow_node_id.",
+    details: {
+      code: "l1_settlement_sdk_request_aliases_retired",
       retired_aliases: retiredAliases,
     },
   });

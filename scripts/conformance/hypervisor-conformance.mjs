@@ -1091,6 +1091,10 @@ function runBridge() {
     agentSdkSubstrateClient.match(
       /export interface RuntimeL1SettlementAttemptAdmissionResult[\s\S]*?\n}\n/,
     )?.[0] ?? "";
+  const l1SettlementAdmissionInputType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeL1SettlementAttemptAdmissionInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const l1SettlementAdmissionCamelAliasPropertyPattern =
     /\b(?:schemaVersion|settlementAdmitted|threadId|agentId|settlementRef|domainRef|stateRootRef|triggerRefs|receiptRefs|admissionHash)\s*:/;
   const l1SettlementAdmissionCamelAliasTypePattern =
@@ -6820,7 +6824,20 @@ function runBridge() {
     /admitL1SettlementAttempt/.test(agentSdkSubstrateClient) &&
       /RuntimeL1SettlementAttemptAdmissionInput/.test(agentSdkSubstrateClient) &&
       /l1-settlement-attempts/.test(agentSdkSubstrateClient) &&
+      !/extends Record<string, unknown>/.test(l1SettlementAdmissionInputType) &&
+      !/^\s*(?:workflowGraphId|workflowNodeId)\?:/m.test(
+        l1SettlementAdmissionInputType,
+      ) &&
+      /assertNoRetiredL1SettlementAdmissionAliases\(input\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /l1_settlement_sdk_request_aliases_retired/.test(agentSdkSubstrateClient) &&
       /SDK admits L1 settlement attempts through the thread route/.test(agentSdkTest) &&
+      /SDK L1 settlement admission rejects retired request aliases before transport/.test(
+        agentSdkTest,
+      ) &&
+      /Object\.hasOwn\(body,\s*"workflowGraphId"\),\s*false/.test(agentSdkTest) &&
+      /Object\.hasOwn\(body,\s*"workflowNodeId"\),\s*false/.test(agentSdkTest) &&
       /WORKFLOW_RUNTIME_L1_SETTLEMENT_CONTROL_SCHEMA_VERSION/.test(l1SettlementControlNodes) &&
       /RETIRED_L1_SETTLEMENT_CONTROL_INPUT_FIELDS/.test(l1SettlementControlNodes) &&
       /assertNoRetiredL1SettlementControlInputAliases\(params\);/.test(
