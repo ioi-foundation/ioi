@@ -67,18 +67,18 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Schedule a dedicated matrix-compaction pass after the next Rust-core
-  extraction/facade-retirement seam is clear enough to preserve the live
-  route-family owner map, terminal blockers, bridge-scaffolding guardrail,
-  current sprint lane, and recent slice evidence without hiding remaining work.
-- Next scheduled matrix-compaction pass: pending the next clear Rust-core
-  extraction/facade-retirement seam.
-- When that seam becomes clear during goal resumption, perform the scheduled
-  matrix-compaction pass before moving into unrelated route-family work; do not
-  let context compaction demote this to optional evidence pruning.
-- Future-resumption trigger: after the next slice names the concrete Rust-core
-  owner or facade-retirement boundary it is migrating, perform the scheduled
-  matrix-compaction pass before starting a new unrelated route-family slice.
+- Next scheduled matrix-compaction pass: pending until the next implementation
+  slice names and verifies a concrete Rust-core extraction or JS-facade
+  retirement owner boundary.
+- Future-resumption trigger: resume the migration goal by carrying out that next
+  Rust-core extraction or facade-retirement slice first. Once the seam is clear,
+  perform the scheduled matrix-compaction pass before starting unrelated
+  route-family work; do not let context compaction demote this to optional
+  evidence pruning.
+- The scheduled pass must preserve the live route-family owner map, terminal
+  blockers, bridge-scaffolding guardrail, current sprint lane, and recent slice
+  evidence without hiding remaining work or encoding the command bridge as
+  terminal shape.
 - First scheduled pass completed on 2026-06-07: the historical append-only
   evidence after the route-family owner map was compacted into route-family
   ranges while preserving the live owner map, terminal blockers,

@@ -269,24 +269,27 @@ not be treated as the terminal substrate. After parity is proven, the bridge
 surface should either collapse into the Rust daemon core API or be renamed and
 shrunk into a narrow daemon/kernel protocol transport with no independent
 execution authority, no compatibility-shim semantics, and no duplicate truth
-path.
+path. The target transport shape is a temporary transport to the Rust daemon core
+with no independent authority or compatibility-shim behavior.
 
 Resume-goal instruction: do not stop ordinary Rust-core extraction or facade
 retirement work to prune the migration matrix now, and do not treat matrix
 cleanup as an immediate prerequisite to resuming the migration goal. The next
-matrix-compaction pass is intentionally scheduled for the moment when a future
-slice has made the next Rust-core extraction or facade-retirement seam concrete.
+matrix-compaction pass is deliberately scheduled for after the next implementation
+slice makes a Rust-core extraction or JS-facade retirement seam concrete enough
+to identify which matrix rows can be collapsed without encoding migration
+scaffolding as terminal shape.
 Schedule the matrix compaction pass once the next Rust-core extraction/facade-retirement seam is
 clear enough to preserve evidence without encoding migration scaffolding as
 terminal shape.
-At that point, compaction is a resume-goal obligation: carry out the scheduled
-matrix-compaction pass before moving into unrelated route-family work, preserving
-the terminal-target evidence while clearly marking bridge-scaffolding proofs as
-interim. Next scheduled matrix-compaction pass: pending the next clear Rust-core
-extraction or facade-retirement seam. Trigger condition for future resumptions:
-once the next slice names the concrete Rust-core owner or facade-retirement
-boundary it is migrating, perform the matrix-compaction pass before starting a
-new unrelated route-family slice.
+
+Future-resumption trigger: resume the migration goal by carrying out the next
+Rust-core extraction or facade-retirement slice first. Once that slice names and
+verifies the concrete owner boundary it is migrating, perform the scheduled
+matrix-compaction pass before starting unrelated route-family work, preserving
+terminal-target evidence while clearly marking bridge-scaffolding proofs as
+interim. Until that seam is clear, the scheduled matrix-compaction pass remains
+pending rather than optional.
 
 ## Part II: Target Execution Model
 
