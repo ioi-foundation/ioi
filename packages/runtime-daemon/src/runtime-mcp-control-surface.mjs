@@ -792,10 +792,11 @@ export function createRuntimeMcpControlSurface({
       const nodeId =
         optionalStringDep(request.workflow_node_id) ??
         workflowNodeId;
-      const eventHash = doctorHashDep(`${threadId}:${controlKind}:${JSON.stringify(payload)}:${Date.now()}`).slice(0, 12);
+      const { policyDecision: _retiredPolicyDecision, ...canonicalPayload } = payload;
+      const eventHash = doctorHashDep(`${threadId}:${controlKind}:${JSON.stringify(canonicalPayload)}:${Date.now()}`).slice(0, 12);
       const receiptId = `receipt_mcp_${safeIdDep(controlKind)}_${eventHash}`;
       const policyKind =
-        optionalStringDep(payload.policy_decision ?? payload.policyDecision) ??
+        optionalStringDep(canonicalPayload.policy_decision) ??
         (status === "blocked"
           ? "blocked"
           : controlKind === "mcp_invoke"
@@ -820,7 +821,7 @@ export function createRuntimeMcpControlSurface({
         workflow_node_id: nodeId,
         component_kind: componentKind,
         payload_schema_version: payloadSchemaVersion,
-        payload_summary: payload,
+        payload_summary: canonicalPayload,
         receipt_refs: [receiptId],
         policy_decision_refs: [policyId],
         artifact_refs: [],
@@ -829,7 +830,7 @@ export function createRuntimeMcpControlSurface({
         fixture_profile: fixtureProfileForAgentDep(agent),
       });
       const result = {
-        ...payload,
+        ...canonicalPayload,
         event,
         receipt_refs: event.receipt_refs,
         policy_decision_refs: event.policy_decision_refs,

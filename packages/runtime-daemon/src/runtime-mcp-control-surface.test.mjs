@@ -347,6 +347,36 @@ test("runtime MCP control surface records enable, status, and validation control
   ]);
 });
 
+test("runtime MCP control events ignore retired policy decision aliases", () => {
+  const { events, surface, store } = harness();
+  const agent = store.agents.get("agent-one");
+
+  const event = surface.appendThreadMcpControlEvent(store, {
+    threadId: "thread-agent-one",
+    agent,
+    request: {},
+    controlKind: "mcp_invoke",
+    sourceEventKind: "McpToolInvocation",
+    eventKind: "mcp.tool_invoked",
+    componentKind: "mcp_control",
+    workflowNodeId: "runtime.mcp-tool.invoke",
+    payloadSchemaVersion: "invoke.schema",
+    status: "completed",
+    payload: {
+      policyDecision: "retired_alias_allow",
+      event_kind: "McpToolInvocation",
+      control_kind: "mcp_invoke",
+      status: "completed",
+    },
+  });
+
+  assert.equal(event.policy_decision_refs.some((ref) => ref.includes("invoke_allowed")), true);
+  assert.equal(event.policy_decision_refs.some((ref) => ref.includes("retired_alias_allow")), false);
+  assert.equal(Object.hasOwn(event, "policyDecision"), false);
+  assert.equal(Object.hasOwn(event.event.payload_summary, "policyDecision"), false);
+  assert.equal(events.at(-1), event.event);
+});
+
 test("runtime MCP control surface fails closed without Rust-planned operation kind", () => {
   const { statePlannerCalls, store, surface, writes } = harness({
     stateUpdateOverride: {

@@ -13063,6 +13063,11 @@ MCP tool invocation policy now derives approval from canonical
 `runtimeControls.approval_mode` only; poisoned persisted camelCase
 `approvalMode` values can no longer approve side-effecting MCP tools.
 
+Slice 484 retires MCP control policy-decision payload aliases:
+MCP control event construction now derives policy IDs from canonical
+`policy_decision` only; retired camelCase `policyDecision` payload values can no
+longer steer policy-decision refs for MCP control events.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

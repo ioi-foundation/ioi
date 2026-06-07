@@ -12238,6 +12238,10 @@ function runCompositor() {
     )?.[0] ?? "";
   const runtimeMcpInvocationEnvelopeBlock =
     runtimeMcpInvokeThreadToolBlock.match(/const invocation = \{[\s\S]*?\n      \};/)?.[0] ?? "";
+  const runtimeMcpAppendThreadControlEventBlock =
+    runtimeMcpControlSurface.match(
+      /appendThreadMcpControlEvent\(store, \{[\s\S]*?\n      return result;\n    \}/,
+    )?.[0] ?? "";
   const runtimeMcpRemoveThreadServerBlock =
     runtimeMcpControlSurface.match(
       /removeThreadMcpServer\(store, threadId, serverId, request = \{\}\) \{[\s\S]*?\n    \},\n    applyThreadMcpServerMutation/,
@@ -18195,6 +18199,24 @@ function runCompositor() {
         runtimeMcpControlSurfaceTest,
       ) &&
       /disabled\.server\.evidence_refs\.includes\("mcp\.manager\.server\.disable"\), true/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /optionalStringDep\(canonicalPayload\.policy_decision\)/.test(
+        runtimeMcpAppendThreadControlEventBlock,
+      ) &&
+      !/payload\.policyDecision/.test(runtimeMcpAppendThreadControlEventBlock) &&
+      /canonicalPayload/.test(runtimeMcpAppendThreadControlEventBlock) &&
+      /runtime MCP control events ignore retired policy decision aliases/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /policyDecision: "retired_alias_allow"/.test(runtimeMcpControlSurfaceTest) &&
+      /event\.policy_decision_refs\.some\(\(ref\) => ref\.includes\("invoke_allowed"\)\),\s*true/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(event,\s*"policyDecision"\),\s*false/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(event\.event\.payload_summary,\s*"policyDecision"\),\s*false/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
       !/serverId:\s*server\.id/.test(runtimeMcpRemoveThreadServerBlock) &&
