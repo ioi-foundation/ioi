@@ -272,18 +272,21 @@ execution authority, no compatibility-shim semantics, and no duplicate truth
 path.
 
 Resume-goal instruction: do not stop ordinary Rust-core extraction or facade
-retirement work to prune the migration matrix now. Schedule the matrix
-compaction pass once the next Rust-core extraction/facade-retirement seam is
-clear enough that the compacted matrix can preserve terminal-target evidence
-without hiding which bridge-scaffolding proofs are still interim. This is a
-resume-goal obligation, not an optional docs cleanup: when that seam becomes
-clear during goal resumption, carry out the scheduled matrix-compaction pass
-before continuing into unrelated route-family work. Next scheduled
-matrix-compaction pass: pending the next clear Rust-core extraction or
-facade-retirement seam. Trigger condition for future resumptions: once the next
-slice has named the concrete Rust-core owner or facade-retirement boundary it is
-migrating, schedule and perform the matrix-compaction pass before starting a new
-unrelated route-family slice.
+retirement work to prune the migration matrix now, and do not treat matrix
+cleanup as an immediate prerequisite to resuming the migration goal. The next
+matrix-compaction pass is intentionally scheduled for the moment when a future
+slice has made the next Rust-core extraction or facade-retirement seam concrete.
+Schedule the matrix compaction pass once the next Rust-core extraction/facade-retirement seam is
+clear enough to preserve evidence without encoding migration scaffolding as
+terminal shape.
+At that point, compaction is a resume-goal obligation: carry out the scheduled
+matrix-compaction pass before moving into unrelated route-family work, preserving
+the terminal-target evidence while clearly marking bridge-scaffolding proofs as
+interim. Next scheduled matrix-compaction pass: pending the next clear Rust-core
+extraction or facade-retirement seam. Trigger condition for future resumptions:
+once the next slice names the concrete Rust-core owner or facade-retirement
+boundary it is migrating, perform the matrix-compaction pass before starting a
+new unrelated route-family slice.
 
 ## Part II: Target Execution Model
 
