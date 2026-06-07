@@ -3318,10 +3318,10 @@ export class AgentgresRuntimeStateStore {
     return this.approvalSurface.latestApprovalRequestEvent(this, threadId, approvalId);
   }
 
-  codingToolApprovalSatisfaction({ threadId, approvalManifest, request }) {
+  codingToolApprovalSatisfaction({ threadId, approval_manifest: approvalManifest, request }) {
     return this.codingToolGovernanceSurface.codingToolApprovalSatisfaction(this, {
       threadId,
-      approvalManifest,
+      approval_manifest: approvalManifest,
       request,
     });
   }
@@ -3339,7 +3339,7 @@ export class AgentgresRuntimeStateStore {
     workflowNodeId,
     requestRollbackRefs,
     diagnosticsRepairContext,
-    approvalManifest,
+    approval_manifest: approvalManifest,
     toolContract,
   }) {
     return this.codingToolGovernanceSurface.blockCodingToolForApproval(this, {
@@ -3355,7 +3355,7 @@ export class AgentgresRuntimeStateStore {
       workflowNodeId,
       requestRollbackRefs,
       diagnosticsRepairContext,
-      approvalManifest,
+      approval_manifest: approvalManifest,
       toolContract,
     });
   }

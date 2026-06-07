@@ -34,17 +34,16 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
     codingToolApprovalManifestsMatch = defaultCodingToolApprovalManifestsMatch,
   } = deps;
 
-  function codingToolApprovalSatisfaction(store, { threadId, approvalManifest, request }) {
+  function codingToolApprovalSatisfaction(store, { threadId, approval_manifest: approvalManifest, request }) {
     const approvalId = optionalString(request.approval_id);
     if (!approvalId) return { satisfied: false, reason: "approval_id_missing" };
     const approvalRequestEvent = store.latestApprovalRequestEvent(threadId, approvalId);
-    if (!approvalRequestEvent) return { satisfied: false, approvalId, reason: "approval_request_missing" };
+    if (!approvalRequestEvent) return { satisfied: false, approval_id: approvalId, reason: "approval_request_missing" };
     const requestedManifest =
       approvalRequestEvent.payload_summary?.approval_manifest ??
-      approvalRequestEvent.payload_summary?.approvalManifest ??
       null;
     if (!codingToolApprovalManifestsMatch(requestedManifest, approvalManifest)) {
-      return { satisfied: false, approvalId, reason: "approval_manifest_mismatch" };
+      return { satisfied: false, approval_id: approvalId, reason: "approval_manifest_mismatch" };
     }
     const stream = store.runtimeEventStream(eventStreamIdForThread(threadId));
     const latestDecision = stream.events
@@ -57,13 +56,13 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
             event.event_kind === "approval.revoked"),
       )
       .at(-1);
-    if (!latestDecision) return { satisfied: false, approvalId, reason: "approval_decision_missing" };
+    if (!latestDecision) return { satisfied: false, approval_id: approvalId, reason: "approval_decision_missing" };
     if (latestDecision.event_kind !== "approval.approved") {
       return {
         satisfied: false,
-        approvalId,
-        decisionEventId: latestDecision.event_id,
-        decisionSeq: latestDecision.seq,
+        approval_id: approvalId,
+        decision_event_id: latestDecision.event_id,
+        decision_seq: latestDecision.seq,
         reason: approvalReasonForDecisionEvent(latestDecision),
       };
     }
@@ -76,22 +75,22 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
     if (leaseState.expired) {
       return {
         satisfied: false,
-        approvalId,
-        decisionEventId: latestDecision.event_id,
-        decisionSeq: latestDecision.seq,
+        approval_id: approvalId,
+        decision_event_id: latestDecision.event_id,
+        decision_seq: latestDecision.seq,
         reason: "approval_lease_expired",
-        leaseId: leaseState.leaseId,
-        expiresAt: leaseState.expiresAt,
+        lease_id: leaseState.leaseId,
+        expires_at: leaseState.expiresAt,
       };
     }
     return {
       satisfied: true,
-      approvalId,
-      decisionEventId: latestDecision.event_id,
-      decisionSeq: latestDecision.seq,
+      approval_id: approvalId,
+      decision_event_id: latestDecision.event_id,
+      decision_seq: latestDecision.seq,
       reason: approvalReasonForDecisionEvent(latestDecision),
-      leaseId: leaseState.leaseId,
-      expiresAt: leaseState.expiresAt,
+      lease_id: leaseState.leaseId,
+      expires_at: leaseState.expiresAt,
     };
   }
 
@@ -108,7 +107,7 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
     workflowNodeId,
     requestRollbackRefs,
     diagnosticsRepairContext,
-    approvalManifest,
+    approval_manifest: approvalManifest,
     toolContract,
   }) {
     const approvalId = `approval_coding_tool_${safeId(toolId)}_${doctorHash(
@@ -128,22 +127,22 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
     const approval = store.requestThreadApproval(threadId, {
       ...request,
       source: operatorControlSource(request.source),
-      turnId,
-      workflowGraphId,
-      workflowNodeId,
+      turn_id: turnId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
       action: "coding_tool.invoke",
       actor: "runtime",
       reason: error.message,
       scope: "coding_tool",
-      idempotencyKey: `thread:${threadId}:approval.required:${approvalId}`,
-      approvalId,
-      toolId,
-      effectClass: approvalManifest.effect_class,
-      riskDomain: approvalManifest.risk_domain,
-      authorityScopeRequirements: approvalManifest.authority_scope_requirements,
-      approvalManifest,
-      receiptRefs: [receiptId],
-      policyDecisionRefs: [`policy_coding_tool_${safeId(toolId)}_approval_required`],
+      idempotency_key: `thread:${threadId}:approval.required:${approvalId}`,
+      approval_id: approvalId,
+      tool_id: toolId,
+      effect_class: approvalManifest.effect_class,
+      risk_domain: approvalManifest.risk_domain,
+      authority_scope_requirements: approvalManifest.authority_scope_requirements,
+      approval_manifest: approvalManifest,
+      receipt_refs: [receiptId],
+      policy_decision_refs: [`policy_coding_tool_${safeId(toolId)}_approval_required`],
     });
     const result = {
       schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,

@@ -172,7 +172,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       workflowNodeId,
     });
     const approvalSatisfaction = approvalManifest
-      ? store.codingToolApprovalSatisfaction({ threadId, approvalManifest, request })
+      ? store.codingToolApprovalSatisfaction({ threadId, approval_manifest: approvalManifest, request })
       : null;
     if (approvalManifest && !approvalSatisfaction?.satisfied) {
       return store.blockCodingToolForApproval({
@@ -188,7 +188,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
         workflowNodeId,
         requestRollbackRefs,
         diagnosticsRepairContext,
-        approvalManifest,
+        approval_manifest: approvalManifest,
         toolContract,
       });
     }
@@ -221,10 +221,10 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       workflowGraphId,
       workflowNodeId,
       actionProposalRef: `action:coding-tool:${toolCallId}`,
-      gateResultRef: approvalSatisfaction?.approvalId
-        ? `gate:${approvalSatisfaction.approvalId}`
+      gateResultRef: approvalSatisfaction?.approval_id
+        ? `gate:${approvalSatisfaction.approval_id}`
         : `gate:coding-tool:${toolCallId}`,
-      approvalRef: approvalSatisfaction?.approvalId ?? null,
+      approvalRef: approvalSatisfaction?.approval_id ?? null,
       idempotencyKey: codingToolIdempotencyKey,
       status: status === "failed" ? "failure" : "success",
       workflowProjectionStatus,
@@ -331,9 +331,9 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       diagnostics_repair_context: diagnosticsRepairContext,
       approval_required: Boolean(approvalManifest),
       approval_satisfied: Boolean(approvalSatisfaction?.satisfied),
-      approval_id: approvalSatisfaction?.approvalId ?? null,
+      approval_id: approvalSatisfaction?.approval_id ?? null,
       approval_manifest: approvalManifest ?? null,
-      approval_decision_event_id: approvalSatisfaction?.decisionEventId ?? null,
+      approval_decision_event_id: approvalSatisfaction?.decision_event_id ?? null,
       receipt_id: receiptId,
       receipt_count: receiptRefs.length,
       artifact_count: artifactRefs.length,

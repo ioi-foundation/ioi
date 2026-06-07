@@ -2915,10 +2915,36 @@ function runBridge() {
     /const approvalId = optionalString\(request\.approval_id\);/.test(
       codingToolApprovalSatisfactionBody,
     ) &&
+      /function codingToolApprovalSatisfaction\(store, \{ threadId, approval_manifest: approvalManifest, request \}\)/.test(
+        codingToolApprovalSatisfactionBody,
+      ) &&
+      /const requestedManifest =\s*\n\s*approvalRequestEvent\.payload_summary\?\.approval_manifest \?\?\s*\n\s*null;/.test(
+        codingToolApprovalSatisfactionBody,
+      ) &&
+      /approval_id:\s*approvalId/.test(codingToolApprovalSatisfactionBody) &&
+      /decision_event_id:\s*latestDecision\.event_id/.test(codingToolApprovalSatisfactionBody) &&
+      /decision_seq:\s*latestDecision\.seq/.test(codingToolApprovalSatisfactionBody) &&
+      /lease_id:\s*leaseState\.leaseId/.test(codingToolApprovalSatisfactionBody) &&
+      /expires_at:\s*leaseState\.expiresAt/.test(codingToolApprovalSatisfactionBody) &&
       !/request\.approvalId\b/.test(codingToolApprovalSatisfactionBody) &&
+      !/approvalRequestEvent\.payload_summary\?\.approvalManifest\b/.test(
+        codingToolApprovalSatisfactionBody,
+      ) &&
+      !/^\s*(?:approvalId|decisionEventId|decisionSeq|leaseId|expiresAt)\s*:/m.test(
+        codingToolApprovalSatisfactionBody,
+      ) &&
       /request: \{ approval_id: "approval-one" \}/.test(runtimeCodingToolGovernanceSurfaceTest) &&
       /request: \{ approvalId: "approval-one" \}/.test(runtimeCodingToolGovernanceSurfaceTest) &&
-      /approval_id_missing/.test(runtimeCodingToolGovernanceSurfaceTest),
+      /approval_id_missing/.test(runtimeCodingToolGovernanceSurfaceTest) &&
+      /approval_manifest: \{ tool_id: "file\.write" \}/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
+      /approvalManifest: \{ tool_id: "file\.write" \}/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(approved,\s*field\),\s*false/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ),
     [
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs",
@@ -2933,6 +2959,14 @@ function runBridge() {
       /approval_required:\s*true/.test(codingToolApprovalBlockBody) &&
       /approval_id:\s*approval\.approval_id/.test(codingToolApprovalBlockBody) &&
       /approval_manifest:\s*approvalManifest/.test(codingToolApprovalBlockBody) &&
+      /idempotency_key:\s*`thread:\$\{threadId\}:approval\.required:\$\{approvalId\}`/.test(
+        codingToolApprovalBlockBody,
+      ) &&
+      /approval_id:\s*approvalId/.test(codingToolApprovalBlockBody) &&
+      /tool_id:\s*toolId/.test(codingToolApprovalBlockBody) &&
+      /authority_scope_requirements:\s*approvalManifest\.authority_scope_requirements/.test(
+        codingToolApprovalBlockBody,
+      ) &&
       /input_summary:\s*codingToolInputSummary\(toolId,\s*input\)/.test(
         codingToolApprovalBlockBody,
       ) &&
@@ -2940,6 +2974,12 @@ function runBridge() {
       !/toolName:\s*toolId/.test(codingToolApprovalBlockBody) &&
       !/approvalRequired:\s*true/.test(codingToolApprovalBlockBody) &&
       !/approvalId:\s*approval\.approval_id/.test(codingToolApprovalBlockBody) &&
+      !/idempotencyKey:\s*`thread:\$\{threadId\}:approval\.required:\$\{approvalId\}`/.test(
+        codingToolApprovalBlockBody,
+      ) &&
+      !/approvalId:\s*approvalId/.test(codingToolApprovalBlockBody) &&
+      !/approvalManifest:\s*approvalManifest/.test(codingToolApprovalBlockBody) &&
+      !/authorityScopeRequirements:\s*approvalManifest/.test(codingToolApprovalBlockBody) &&
       !/inputSummary:\s*codingToolInputSummary/.test(codingToolApprovalBlockBody) &&
       !/workspaceSnapshot:\s*null/.test(codingToolApprovalBlockBody) &&
       !/workspaceSnapshotEvent:\s*null/.test(codingToolApprovalBlockBody) &&
@@ -2954,10 +2994,21 @@ function runBridge() {
       !/approvalId:\s*approvalSatisfaction\?\.approvalId/.test(
         codingToolInvocationPayloadSummaryBlock,
       ) &&
+      /approval_id:\s*approvalSatisfaction\?\.approval_id \?\? null/.test(
+        codingToolInvocationPayloadSummaryBlock,
+      ) &&
       !/approvalManifest:\s*approvalManifest/.test(codingToolInvocationPayloadSummaryBlock) &&
       !/approvalDecisionEventId:\s*approvalSatisfaction\?\.decisionEventId/.test(
         codingToolInvocationPayloadSummaryBlock,
       ) &&
+      /approval_decision_event_id:\s*approvalSatisfaction\?\.decision_event_id \?\? null/.test(
+        codingToolInvocationPayloadSummaryBlock,
+      ) &&
+      /store\.codingToolApprovalSatisfaction\(\{ threadId, approval_manifest: approvalManifest, request \}\)/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /approvalSatisfaction\?\.approval_id/.test(runtimeCodingToolInvocationSurface) &&
+      !/approvalSatisfaction\?\.approvalId/.test(runtimeCodingToolInvocationSurface) &&
       !/^\s*diagnosticsRepairContext,\s*$/m.test(codingToolInvocationPayloadSummaryBlock) &&
       /Object\.hasOwn\(result,\s*field\),\s*false/.test(
         runtimeCodingToolGovernanceSurfaceTest,
@@ -2970,6 +3021,18 @@ function runBridge() {
       ) &&
       /Object\.hasOwn\(result,\s*"approvalManifest"\),\s*false/.test(
         runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /approvalCall\.input\.approval_manifest,\s*approvalManifest/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(approvalCall\.input,\s*"approvalManifest"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /store\.approvalRequests\[0\]\.request\.idempotency_key/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(store\.approvalRequests\[0\]\.request,\s*field\),\s*false/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
       ),
     [
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",

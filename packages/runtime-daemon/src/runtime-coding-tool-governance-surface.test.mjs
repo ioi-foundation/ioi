@@ -42,7 +42,7 @@ function createStore({ approvalEvent = null, decisionEvent = null } = {}) {
     requestThreadApproval(threadId, request = {}) {
       this.approvalRequests.push({ threadId, request });
       return {
-        approval_id: request.approvalId,
+        approval_id: request.approval_id,
         event_id: "event-approval-request",
         receipt_refs: ["receipt-approval"],
         policy_decision_refs: ["policy-approval"],
@@ -68,7 +68,7 @@ function approvalEvent(overrides = {}) {
     approval_id: "approval-one",
     event_kind: "approval.required",
     payload_summary: {
-      approval_manifest: { toolId: "file.write" },
+      approval_manifest: { tool_id: "file.write" },
     },
     ...overrides,
   };
@@ -105,23 +105,26 @@ test("coding-tool governance reports approval satisfaction states", () => {
   });
   const approved = createSurface().codingToolApprovalSatisfaction(approvedStore, {
     threadId: "thread-one",
-    approvalManifest: { toolId: "file.write" },
+    approval_manifest: { tool_id: "file.write" },
     request: { approval_id: "approval-one" },
   });
 
   assert.deepEqual(approved, {
     satisfied: true,
-    approvalId: "approval-one",
-    decisionEventId: "event-decision",
-    decisionSeq: 2,
+    approval_id: "approval-one",
+    decision_event_id: "event-decision",
+    decision_seq: 2,
     reason: "approved",
-    leaseId: "lease-one",
-    expiresAt: "2026-06-04T12:00:00.000Z",
+    lease_id: "lease-one",
+    expires_at: "2026-06-04T12:00:00.000Z",
   });
+  for (const field of ["approvalId", "decisionEventId", "decisionSeq", "leaseId", "expiresAt"]) {
+    assert.equal(Object.hasOwn(approved, field), false);
+  }
   assert.equal(
     createSurface().codingToolApprovalSatisfaction(approvedStore, {
       threadId: "thread-one",
-      approvalManifest: {},
+      approval_manifest: {},
       request: {},
     }).reason,
     "approval_id_missing",
@@ -129,7 +132,7 @@ test("coding-tool governance reports approval satisfaction states", () => {
   assert.equal(
     createSurface().codingToolApprovalSatisfaction(createStore(), {
       threadId: "thread-one",
-      approvalManifest: {},
+      approval_manifest: {},
       request: { approval_id: "missing" },
     }).reason,
     "approval_request_missing",
@@ -137,7 +140,21 @@ test("coding-tool governance reports approval satisfaction states", () => {
   assert.equal(
     createSurface({ manifestsMatch: false }).codingToolApprovalSatisfaction(approvedStore, {
       threadId: "thread-one",
-      approvalManifest: { toolId: "file.write" },
+      approval_manifest: { tool_id: "file.write" },
+      request: { approval_id: "approval-one" },
+    }).reason,
+    "approval_manifest_mismatch",
+  );
+  assert.equal(
+    createSurface({ manifestsMatch: false }).codingToolApprovalSatisfaction(createStore({
+      approvalEvent: approvalEvent({
+        payload_summary: {
+          approvalManifest: { tool_id: "file.write" },
+        },
+      }),
+    }), {
+      threadId: "thread-one",
+      approval_manifest: { tool_id: "file.write" },
       request: { approval_id: "approval-one" },
     }).reason,
     "approval_manifest_mismatch",
@@ -145,7 +162,7 @@ test("coding-tool governance reports approval satisfaction states", () => {
   assert.equal(
     createSurface().codingToolApprovalSatisfaction(createStore({ approvalEvent: approvalEvent() }), {
       threadId: "thread-one",
-      approvalManifest: { toolId: "file.write" },
+      approval_manifest: { tool_id: "file.write" },
       request: { approval_id: "approval-one" },
     }).reason,
     "approval_decision_missing",
@@ -153,7 +170,7 @@ test("coding-tool governance reports approval satisfaction states", () => {
   assert.equal(
     createSurface().codingToolApprovalSatisfaction(approvedStore, {
       threadId: "thread-one",
-      approvalManifest: { toolId: "file.write" },
+      approval_manifest: { tool_id: "file.write" },
       request: { approvalId: "approval-one" },
     }).reason,
     "approval_id_missing",
@@ -168,7 +185,7 @@ test("coding-tool governance rejects non-approved or expired decisions", () => {
     }),
     {
       threadId: "thread-one",
-      approvalManifest: { toolId: "file.write" },
+      approval_manifest: { tool_id: "file.write" },
       request: { approval_id: "approval-one" },
     },
   );
@@ -179,16 +196,20 @@ test("coding-tool governance rejects non-approved or expired decisions", () => {
     }),
     {
       threadId: "thread-one",
-      approvalManifest: { toolId: "file.write" },
+      approval_manifest: { tool_id: "file.write" },
       request: { approval_id: "approval-one" },
     },
   );
 
   assert.equal(rejected.satisfied, false);
   assert.equal(rejected.reason, "rejected_by_operator");
+  assert.equal(rejected.decision_event_id, "event-decision");
+  assert.equal(Object.hasOwn(rejected, "decisionEventId"), false);
   assert.equal(expired.satisfied, false);
   assert.equal(expired.reason, "approval_lease_expired");
-  assert.equal(expired.leaseId, "lease-one");
+  assert.equal(expired.lease_id, "lease-one");
+  assert.equal(expired.expires_at, "2026-06-04T12:00:00.000Z");
+  assert.equal(Object.hasOwn(expired, "leaseId"), false);
 });
 
 test("coding-tool governance blocks tools for approval with stable result envelope", () => {
@@ -206,7 +227,7 @@ test("coding-tool governance blocks tools for approval with stable result envelo
     workflowNodeId: "node-one",
     requestRollbackRefs: ["rollback-one"],
     diagnosticsRepairContext: { mode: "compact" },
-    approvalManifest: {
+    approval_manifest: {
       thread_mode: "agent",
       approval_mode: "human_required",
       policy_reason: "writes_require_approval",
@@ -250,7 +271,26 @@ test("coding-tool governance blocks tools for approval with stable result envelo
   }
   assert.equal(store.approvalRequests[0].threadId, "thread-one");
   assert.equal(store.approvalRequests[0].request.action, "coding_tool.invoke");
-  assert.equal(store.approvalRequests[0].request.idempotencyKey, `thread:thread-one:approval.required:${result.approval_id}`);
+  assert.equal(store.approvalRequests[0].request.idempotency_key, `thread:thread-one:approval.required:${result.approval_id}`);
+  assert.equal(store.approvalRequests[0].request.approval_id, result.approval_id);
+  assert.equal(store.approvalRequests[0].request.tool_id, "file.write");
+  assert.deepEqual(store.approvalRequests[0].request.authority_scope_requirements, ["workspace.write"]);
+  for (const field of [
+    "turnId",
+    "workflowGraphId",
+    "workflowNodeId",
+    "idempotencyKey",
+    "approvalId",
+    "toolId",
+    "effectClass",
+    "riskDomain",
+    "authorityScopeRequirements",
+    "approvalManifest",
+    "receiptRefs",
+    "policyDecisionRefs",
+  ]) {
+    assert.equal(Object.hasOwn(store.approvalRequests[0].request, field), false);
+  }
 });
 
 test("coding-tool governance blocks tools for budget with event envelope", () => {

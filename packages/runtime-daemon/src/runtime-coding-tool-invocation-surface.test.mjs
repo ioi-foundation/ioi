@@ -161,7 +161,7 @@ function createStore() {
     },
     blockCodingToolForApproval(input) {
       calls.push({ name: "blockApproval", input });
-      return { status: "blocked", approval_required: true, approval_manifest: input.approvalManifest };
+      return { status: "blocked", approval_required: true, approval_manifest: input.approval_manifest };
     },
     blockCodingToolForBudget(input) {
       calls.push({ name: "blockBudget", input });
@@ -1435,7 +1435,14 @@ test("coding tool invocation surface returns approval block results before execu
   assert.equal(result.approval_required, true);
   assert.equal(result.approval_manifest, approvalManifest);
   assert.equal(Object.hasOwn(result, "approvalManifest"), false);
-  assert.ok(store.calls.some((call) => call.name === "approvalSatisfaction"));
+  const approvalCall = store.calls.find((call) => call.name === "approvalSatisfaction");
+  const blockCall = store.calls.find((call) => call.name === "blockApproval");
+  assert.ok(approvalCall);
+  assert.equal(approvalCall.input.approval_manifest, approvalManifest);
+  assert.equal(Object.hasOwn(approvalCall.input, "approvalManifest"), false);
+  assert.ok(blockCall);
+  assert.equal(blockCall.input.approval_manifest, approvalManifest);
+  assert.equal(Object.hasOwn(blockCall.input, "approvalManifest"), false);
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 

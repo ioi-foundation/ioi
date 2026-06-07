@@ -13108,6 +13108,13 @@ coding-tool budget recovery now detects blocked runtime events from canonical
 `result_summary.reason` only; retired camelCase detector fields can no longer
 classify a prior event as budget-blocked before Rust-planned recovery state.
 
+Slice 492 retires coding-tool approval governance aliases:
+coding-tool approval satisfaction and approval request handoffs now consume and
+emit canonical `approval_manifest`, `approval_id`, `decision_event_id`, lease,
+idempotency, authority, receipt, and policy fields only; retired camelCase
+approval governance fields can no longer steer approval-gated coding-tool
+execution before Rust workload dispatch.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
