@@ -16925,6 +16925,35 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-subagent-lifecycle-agent-id-fallback-retired",
+    runtimeSubagentSendInputBlock.length > 0 &&
+      runtimeSubagentResumeBlock.length > 0 &&
+      runtimeSubagentAssignBlock.length > 0 &&
+      /requiredSubagentAgentId/.test(runtimeSubagentSurface) &&
+      !/record\.agent_id \?\? subagentId/.test(
+        `${runtimeSubagentSendInputBlock}\n${runtimeSubagentResumeBlock}\n${runtimeSubagentAssignBlock}`,
+      ) &&
+      /subagent send input fails closed without canonical record agent identity/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /subagent resume fails closed without canonical record agent identity/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /subagent assign fails closed without canonical record agent identity/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /subagent_record_agent_id_required/.test(runtimeSubagentSurfaceTest) &&
+      /operation_kind,\s*"subagent\.input"/.test(runtimeSubagentSurfaceTest) &&
+      /operation_kind,\s*"subagent\.resume"/.test(runtimeSubagentSurfaceTest) &&
+      /operation_kind,\s*"subagent\.assign"/.test(runtimeSubagentSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent lifecycle operations must not use the route subagent id as a fallback execution agent identity",
+  );
+  assertCheck(
+    result,
     "runtime-subagent-cancel-record-aliases-retired",
     runtimeSubagentCancelBlock.length > 0 &&
       !runtimeSubagentCancelRecordAliasReadPattern.test(

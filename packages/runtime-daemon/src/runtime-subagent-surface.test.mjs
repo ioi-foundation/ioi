@@ -889,7 +889,7 @@ test("subagent surface persists blocked spawn and throws budget policy error", (
         source: "agent_studio",
         prompt: "This delegated task should exceed a tiny token budget.",
         role: "auditor",
-        budget: { maxTokens: 1 },
+        budget: { max_tokens: 1 },
         receipt_refs: ["receipt_spawn_budget_request"],
       }),
     (error) => {
@@ -1116,6 +1116,38 @@ test("subagent send input fails closed without Rust-planned subagent record", ()
     (error) => error.code === "subagent_record_state_update_planner_invalid",
   );
   assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
+  assert.equal(store.writes.length, 0);
+});
+
+test("subagent send input fails closed without canonical record agent identity", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T12:45:00.000Z",
+    nowMs: () => 1780587300000,
+  });
+  store.surface = surface;
+  store.subagents.set("subagent_1", {
+    ...store.subagents.get("subagent_1"),
+    agent_id: undefined,
+  });
+
+  assert.throws(
+    () => surface.sendSubagentInput(store, "thread_1", "subagent_1", {
+      source: "agent_studio",
+      input: "Follow up",
+    }),
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "subagent_record_agent_id_required");
+      assert.equal(error.details.thread_id, "thread_1");
+      assert.equal(error.details.subagent_id, "subagent_1");
+      assert.equal(error.details.operation_kind, "subagent.input");
+      assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys);
+      return true;
+    },
+  );
+  assert.equal(store.runs.size, 2);
+  assert.equal(store.events.length, 0);
   assert.equal(store.writes.length, 0);
 });
 
@@ -1384,6 +1416,38 @@ test("subagent resume fails closed without Rust-planned subagent record", () => 
   assert.equal(store.writes.length, 0);
 });
 
+test("subagent resume fails closed without canonical record agent identity", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T13:10:00.000Z",
+    nowMs: () => 1780588200000,
+  });
+  store.surface = surface;
+  store.subagents.set("subagent_1", {
+    ...store.subagents.get("subagent_1"),
+    agent_id: undefined,
+  });
+
+  assert.throws(
+    () => surface.resumeSubagent(store, "thread_1", "subagent_1", {
+      source: "agent_studio",
+      prompt: "Try again",
+    }),
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "subagent_record_agent_id_required");
+      assert.equal(error.details.thread_id, "thread_1");
+      assert.equal(error.details.subagent_id, "subagent_1");
+      assert.equal(error.details.operation_kind, "subagent.resume");
+      assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys);
+      return true;
+    },
+  );
+  assert.equal(store.runs.size, 2);
+  assert.equal(store.events.length, 0);
+  assert.equal(store.writes.length, 0);
+});
+
 test("subagent resume ignores retired camelCase request aliases", () => {
   const aliasOnlyStore = createStore();
   const aliasOnlySurface = createRuntimeSubagentSurface({
@@ -1539,7 +1603,7 @@ test("subagent surface persists blocked resume and throws budget policy error", 
       surface.resumeSubagent(store, "thread_1", "subagent_1", {
         source: "agent_studio",
         prompt: "This resume should exceed a tiny token budget.",
-        budget: { maxTokens: 1 },
+        budget: { max_tokens: 1 },
         receipt_refs: ["receipt_resume_budget_request"],
       }),
     (error) => {
@@ -1650,6 +1714,37 @@ test("subagent assign fails closed without Rust-planned subagent record", () => 
     (error) => error.code === "subagent_record_state_update_planner_invalid",
   );
   assert.equal(store.stateUpdates[0].operation, "plan_subagent_record_state_update");
+  assert.equal(store.writes.length, 0);
+});
+
+test("subagent assign fails closed without canonical record agent identity", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface({
+    nowIso: () => "2026-06-04T13:00:00.000Z",
+    nowMs: () => 1780587600000,
+  });
+  store.surface = surface;
+  store.subagents.set("subagent_1", {
+    ...store.subagents.get("subagent_1"),
+    agent_id: undefined,
+  });
+
+  assert.throws(
+    () => surface.assignSubagent(store, "thread_1", "subagent_1", {
+      source: "agent_studio",
+      role: "Auditor",
+    }),
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "subagent_record_agent_id_required");
+      assert.equal(error.details.thread_id, "thread_1");
+      assert.equal(error.details.subagent_id, "subagent_1");
+      assert.equal(error.details.operation_kind, "subagent.assign");
+      assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys);
+      return true;
+    },
+  );
+  assert.equal(store.events.length, 0);
   assert.equal(store.writes.length, 0);
 });
 

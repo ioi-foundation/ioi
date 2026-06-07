@@ -166,6 +166,19 @@ export function createRuntimeSubagentSurface({
     return operationKind;
   }
 
+  function requiredSubagentAgentId(record, threadId, subagentId, operationKind) {
+    const agentId = optionalStringDep(record?.agent_id);
+    if (!agentId) {
+      throw runtimeErrorDep({
+        status: 500,
+        code: "subagent_record_agent_id_required",
+        message: "Subagent lifecycle operations require a canonical agent_id on the persisted subagent record.",
+        details: { thread_id: threadId, subagent_id: subagentId, operation_kind: operationKind },
+      });
+    }
+    return agentId;
+  }
+
   return {
     listSubagents(store, threadId, options = {}) {
       const parentAgent = store.agentForThread(threadId);
@@ -524,7 +537,7 @@ export function createRuntimeSubagentSurface({
       }
 
       const previousRunId = record.run_id;
-      const childAgentId = record.agent_id ?? subagentId;
+      const childAgentId = requiredSubagentAgentId(record, threadId, subagentId, "subagent.input");
       const inputId = `subagent_input_${doctorHash(`${threadId}:${subagentId}:${nowMs()}`).slice(0, 12)}`;
       const run = store.createRun(childAgentId, {
         mode: "send",
@@ -673,7 +686,7 @@ export function createRuntimeSubagentSurface({
       const record = store.getSubagent(threadId, subagentId);
       const previousRunId = record.run_id;
       const previousStatus = record.lifecycle_status ?? record.status ?? null;
-      const childAgentId = record.agent_id ?? subagentId;
+      const childAgentId = requiredSubagentAgentId(record, threadId, subagentId, "subagent.resume");
       const role = normalizeSubagentRoleDep(request.role ?? record.role);
       const modelRouteId =
         optionalStringDep(request.model_route_id) ??
@@ -861,10 +874,10 @@ export function createRuntimeSubagentSurface({
         optionalStringDep(request.cancellation_inheritance) ??
         record.cancellation_inheritance ??
         "propagate";
+      const recordAgentId = requiredSubagentAgentId(record, threadId, subagentId, "subagent.assign");
       const targetAgentId =
         optionalStringDep(request.target_agent_id) ??
-        record.agent_id ??
-        subagentId;
+        recordAgentId;
       const assignmentId = `subagent_assignment_${doctorHash(`${threadId}:${subagentId}:${nowMs()}`).slice(0, 12)}`;
       const now = nowIso();
       const assignmentCount = Number(record.assignment_count ?? 0) + 1;

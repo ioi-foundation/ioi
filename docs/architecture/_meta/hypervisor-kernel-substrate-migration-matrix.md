@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after worker/service and cTEE nested invocation identity alias retirement slice 601 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after runtime subagent lifecycle agent identity fallback retirement slice 602 clarified the active seam.
 
 ## Purpose
 
@@ -302,6 +302,12 @@ Matrix compaction timing:
   terminal blockers, bridge-scaffolding guardrail, current sprint lane, and the
   distinction between canonical runner/admission invocation identity and
   remaining terminal Rust daemon-core extraction work.
+- Thirty-seventh scheduled pass completed on 2026-06-07: the runtime subagent
+  lifecycle agent identity fallback evidence after slice 602 was compacted into
+  the route-family range while preserving the live owner map, terminal blockers,
+  bridge-scaffolding guardrail, current sprint lane, and the distinction between
+  canonical persisted subagent execution identity and remaining terminal Rust
+  daemon-core extraction work.
 
 ## Implementation Slice 0
 
@@ -11379,7 +11385,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 601 and the thirty-sixth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 602 and the thirty-seventh 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -11488,7 +11494,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-601 retired SDK runtime usage record aliases and Rust/daemon
+- Slices 572-602 retired SDK runtime usage record aliases and Rust/daemon
   Agentgres state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -11565,6 +11571,10 @@ reconstruct the active seam without carrying every per-slice paragraph.
   worker/service package and cTEE admission surfaces now derive fallback
   invocation identity only from canonical nested `invocation_id`, ignoring
   retired nested `invocationId` before runner/admission result materialization;
+  runtime subagent send-input, resume, and assign lifecycle operations now fail
+  closed unless the persisted subagent record carries canonical `agent_id`,
+  retiring the route/path `subagentId` fallback as an execution agent identity
+  before creating runs, events, assignment records, or state writes;
   Rust-written policy and authority decision records now emit canonical `run_id`,
   `receipt_id`, `primitive_capabilities`, `authority_scopes`, and `wallet_layer`
   fields instead of JS-shaped decision record aliases before storage-write
