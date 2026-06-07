@@ -1949,6 +1949,7 @@ function runBridge() {
     ) &&
       /"schemaVersion"/.test(runtimeCodingToolInvocationSurface) &&
       /"toolName"/.test(runtimeCodingToolInvocationSurface) &&
+      /"artifactDrafts"/.test(runtimeCodingToolInvocationSurface) &&
       /"artifactRefs"/.test(runtimeCodingToolInvocationSurface) &&
       /"shellFallbackUsed"/.test(runtimeCodingToolInvocationSurface) &&
       /"workspaceRoot"/.test(runtimeCodingToolInvocationSurface) &&
@@ -2015,7 +2016,7 @@ function runBridge() {
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
       /Object\.hasOwn\(result,\s*field\),\s*false/.test(runtimeCodingToolInvocationSurfaceTest) &&
-      !/^\s*(?:schemaVersion|toolName|rustWorkload|stepModuleBackend|executionResultRef|normalizedObservationRef|receiptRefs|artifactRefs|shellFallbackUsed|workspaceRoot)\s*:/m.test(
+      !/^\s*(?:schemaVersion|toolName|rustWorkload|stepModuleBackend|executionResultRef|normalizedObservationRef|receiptRefs|artifactDrafts|artifactRefs|shellFallbackUsed|workspaceRoot)\s*:/m.test(
         codingToolRustLiveResultBody,
       ) &&
       !/^\s*(?:workspaceSnapshot|workspaceSnapshotId|workspaceSnapshotEvent|autoDiagnostics|stepModule|stepModuleError|commandStreamEvents)\s*:/m.test(
@@ -2420,7 +2421,28 @@ function runBridge() {
   assertCheck(
     result,
     "coding-tool-artifact-record-storage-aliases-retired",
-    /schema_version:\s*CODING_TOOL_ARTIFACT_SCHEMA_VERSION/.test(codingToolArtifactDraftMaterializerBlock) &&
+    /const drafts = normalizeArray\(result\?\.artifact_drafts\);/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /const mediaType = optionalString\(draft\.media_type\) \?\? "text\/plain";/.test(
+        codingToolArtifactDraftMaterializerBlock,
+      ) &&
+      /const liveArtifactDrafts = normalizeArray\(result\?\.artifact_drafts\);/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /artifactDrafts: \[\{ channel: "retired", content: "retired draft" \}\]/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(materializeCall\.input\.result,\s*"artifactDrafts"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /mediaType: "application\/retired"/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /media_type: "text\/markdown"/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /assert\.equal\(records\[0\]\.media_type,\s*"text\/markdown"\)/.test(
+        runtimeCodingToolArtifactSurfaceTest,
+      ) &&
+      !/result\?\.artifactDrafts/.test(runtimeCodingToolArtifactSurface) &&
+      !/result\?\.artifactDrafts/.test(runtimeCodingToolInvocationSurface) &&
+      !/draft\.mediaType/.test(runtimeCodingToolArtifactSurface) &&
+      /schema_version:\s*CODING_TOOL_ARTIFACT_SCHEMA_VERSION/.test(codingToolArtifactDraftMaterializerBlock) &&
       /thread_id:\s*threadId/.test(codingToolArtifactDraftMaterializerBlock) &&
       /tool_name:\s*toolId/.test(codingToolArtifactDraftMaterializerBlock) &&
       /tool_call_id:\s*toolCallId/.test(codingToolArtifactDraftMaterializerBlock) &&

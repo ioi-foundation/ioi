@@ -253,10 +253,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       result = codingToolResultForRustLiveStepModule(normalizedToolId, stepModuleProjection);
       receiptRefs.push(...normalizeArray(result.receipt_refs));
       artifactRefs.push(...normalizeArray(result.artifact_refs));
-      const liveArtifactDrafts = [
-        ...normalizeArray(result?.artifactDrafts),
-        ...normalizeArray(result?.artifact_drafts),
-      ];
+      const liveArtifactDrafts = normalizeArray(result?.artifact_drafts);
       if (liveArtifactDrafts.length) {
         const materializedArtifacts = store.materializeCodingToolArtifactDrafts({
           threadId,
@@ -530,6 +527,7 @@ function toolInputError(code, message, details = {}) {
 }
 
 const RETIRED_RUST_LIVE_TOOL_RESULT_FIELDS = [
+  "artifactDrafts",
   "artifactRefs",
   "executionResultRef",
   "normalizedObservationRef",

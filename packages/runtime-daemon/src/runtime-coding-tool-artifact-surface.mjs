@@ -54,14 +54,14 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
     store,
     { threadId, toolId, toolCallId, workspaceRoot, result, receiptId },
   ) {
-    const drafts = normalizeArray(result?.artifactDrafts ?? result?.artifact_drafts);
+    const drafts = normalizeArray(result?.artifact_drafts);
     const createdAt = now();
     return drafts
       .map((draft, index) => {
         if (!draft || typeof draft !== "object" || Array.isArray(draft)) return null;
         const content = String(draft.content ?? "");
         const channel = optionalString(draft.channel) ?? `artifact-${index + 1}`;
-        const mediaType = optionalString(draft.mediaType ?? draft.media_type) ?? "text/plain";
+        const mediaType = optionalString(draft.media_type) ?? "text/plain";
         const contentBytes = Buffer.byteLength(content, "utf8");
         const contentHash = doctorHash(content);
         const artifactRecord = {

@@ -184,9 +184,18 @@ test("coding-tool artifact surface materializes drafts with stable artifact reco
     result: {
       artifactDrafts: [
         {
+          channel: "retired",
+          content: "retired",
+          mediaType: "application/retired",
+          name: "retired.txt",
+        },
+      ],
+      artifact_drafts: [
+        {
           channel: "stdout",
           content: "hello",
-          mediaType: "text/plain",
+          mediaType: "application/retired",
+          media_type: "text/markdown",
           name: "stdout.txt",
           redaction: "none",
         },
@@ -200,6 +209,7 @@ test("coding-tool artifact surface materializes drafts with stable artifact reco
   assert.equal(records[0].schema_version, "ioi.runtime.coding-tool-artifact.v1");
   assert.equal(records[0].thread_id, "thread_alpha");
   assert.equal(records[0].tool_call_id, "tool_call_alpha");
+  assert.equal(records[0].media_type, "text/markdown");
   assert.equal(records[0].content_bytes, 5);
   assert.equal(records[0].created_at, "2026-06-04T14:00:00.000Z");
   assertNoRetiredArtifactRecordAliases(records[0]);

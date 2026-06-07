@@ -674,6 +674,8 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
               diffHash: "abc123",
               truncated: false,
               stat: " README.md | 1 +",
+              artifactDrafts: [{ channel: "retired", content: "retired draft" }],
+              artifact_drafts: [{ channel: "stdout", content: "canonical diff draft" }],
               shellFallbackUsed: false,
             },
           },
@@ -701,7 +703,12 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
   assert.equal(result.result.diffHash, "abc123");
   assert.equal(result.step_module.backend, "rust_workload_live");
   assert.ok(result.receipt_refs.includes("receipt://rust-live/git.diff"));
-  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+  const materializeCall = store.calls.find((call) => call.name === "materializeArtifacts");
+  assert.ok(materializeCall);
+  assert.equal(Object.hasOwn(materializeCall.input.result, "artifactDrafts"), false);
+  assert.equal(materializeCall.input.result.artifact_drafts[0].content, "canonical diff draft");
+  assert.equal(Object.hasOwn(result.result, "artifactDrafts"), false);
+  assert.equal(Object.hasOwn(result.result, "artifact_drafts"), false);
 });
 
 test("coding tool invocation surface runs lsp.diagnostics through rust workload live path", () => {

@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after runtime coding-tool Rust-live data-plane input facade alias retirement slice 627 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after runtime coding-tool artifact-draft facade alias retirement slice 628 clarified the active seam.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -42,7 +42,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, and runtime coding-tool Rust-live data-plane input facade-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, and runtime coding-tool artifact-draft facade-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -12515,6 +12515,66 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 628
+
+```yaml
+slice: 628
+phase: 10-authoritative-js-facade-retirement
+objective: retire coding-tool artifact draft aliases before Rust-live result
+  data can materialize persisted artifact records
+owner_boundary:
+  route_or_surface: runtime coding-tool artifact draft materialization
+  authority_gate: unchanged; Rust workload live remains required before draft
+    materialization can occur
+  execution_backend: Rust workload live result projection carries canonical
+    `artifact_drafts` only; retired `artifactDrafts` is stripped by the
+    Rust-live result wrapper
+  truth_path: persisted coding-tool artifact records are materialized only from
+    canonical draft fields and still commit through the runtime artifact-state
+    path
+  projection_path: artifact materializer and invocation facade tests prove
+    canonical `artifact_drafts`/`media_type` are used while retired
+    `artifactDrafts`/`mediaType` are ignored
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  js_facade:
+    - packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs
+    - packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs
+    - packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance requires draft materialization to read
+    `result?.artifact_drafts` and `draft.media_type`
+  - bridge conformance rejects daemon-side `artifactDrafts` and `mediaType`
+    fallbacks before artifact record persistence
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs
+    - node --test packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: poisoned artifact-draft fixtures carry retired
+    `artifactDrafts`/`mediaType` alongside canonical `artifact_drafts`/
+    `media_type`, and only canonical fields materialize
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this JS
+      runtime facade cleanup
+    - store-adapter method option names remain separate facade-retirement
+      candidates unless they become StepModule result, artifact persistence, or
+      accepted-truth inputs
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -12530,7 +12590,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 627 and the sixty-second 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 628 and the sixty-third 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -12639,7 +12699,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-627 retired SDK runtime usage record aliases and Rust/daemon
+- Slices 572-628 retired SDK runtime usage record aliases and Rust/daemon
   Agentgres state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -12819,6 +12879,9 @@ reconstruct the active seam without carrying every per-slice paragraph.
   `rust_workload_data_plane` and `schema_version` into the Rust workload live
   runner instead of the retired `rustWorkloadDataPlane`/`schemaVersion`
   envelope;
+  runtime coding-tool artifact materialization now consumes canonical
+  `artifact_drafts` and `media_type` only, while the Rust-live result wrapper
+  strips retired `artifactDrafts` before artifact records can be persisted;
   IDE runtime telemetry summary
   readers now ignore retired camelCase
   runtime usage/context-pressure payload aliases, and the daemon-bound usage
