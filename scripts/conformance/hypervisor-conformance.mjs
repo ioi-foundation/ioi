@@ -7136,6 +7136,12 @@ function runReceipts() {
   const modelDownloadRecordState = exists("packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs")
     : "";
+  const modelArtifactRecordState = exists("packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs")
+    : "";
+  const modelEndpointRecordState = exists("packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs")
+    : "";
   const storageOperationsTest = exists("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
     : "";
@@ -7914,15 +7920,15 @@ function runReceipts() {
       /endpoint_id:\s*endpoint\.id/.test(artifactEndpointReceiptBlocks) &&
       /endpoint_id:\s*endpointId/.test(artifactEndpointReceiptBlocks) &&
       /load_policy:\s*endpoint\.loadPolicy/.test(artifactEndpointReceiptBlocks) &&
-      /commitModelArtifactRecordState/.test(artifactEndpointOperations) &&
-      /commitModelEndpointRecordState/.test(artifactEndpointOperations) &&
-      /recordDir:\s*"model-artifacts"/.test(artifactEndpointOperations) &&
-      /recordDir:\s*"model-endpoints"/.test(artifactEndpointOperations) &&
+      /commitModelArtifactRecordState/.test(modelArtifactRecordState) &&
+      /commitModelEndpointRecordState/.test(modelEndpointRecordState) &&
+      /recordDir:\s*"model-artifacts"/.test(modelArtifactRecordState) &&
+      /recordDir:\s*"model-endpoints"/.test(modelEndpointRecordState) &&
       /model_mount\.artifact\.import/.test(artifactEndpointOperations) &&
       /model_mount\.endpoint\.mount/.test(artifactEndpointOperations) &&
       /model_mount\.endpoint\.unmount/.test(artifactEndpointOperations) &&
-      /model_mount_artifact_state_commit_unconfigured/.test(artifactEndpointOperations) &&
-      /model_mount_endpoint_state_commit_unconfigured/.test(artifactEndpointOperations) &&
+      /model_mount_artifact_state_commit_unconfigured/.test(modelArtifactRecordState) &&
+      /model_mount_endpoint_state_commit_unconfigured/.test(modelEndpointRecordState) &&
       !/state\.writeMap\("model-artifacts"/.test(artifactEndpointOperations) &&
       !/state\.writeMap\("model-endpoints"/.test(artifactEndpointOperations) &&
       !/\b(?:artifactId|modelId|providerId|sourcePathHash|targetPathHash|importMode|artifactPathHash|endpointId|loadPolicy)\s*:/.test(
@@ -7951,6 +7957,8 @@ function runReceipts() {
         artifactEndpointOperationsTest,
       ),
     [
+      "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs",
     ],
@@ -8493,6 +8501,21 @@ function runReceipts() {
       /resume_metadata_path_hash:\s*materialized\.resumeMetadataPathHash/.test(catalogDownloadReceiptBlocks) &&
       /transfer:\s*transferReceiptDetails/.test(catalogDownloadReceiptBlocks) &&
       /\.\.\.transferEventReceiptDetails\(details\)/.test(catalogDownloadTransferReceiptObject) &&
+      /commitModelDownloadRecordState/.test(downloadModelBlock) &&
+      /commitModelArtifactRecordState/.test(downloadModelBlock) &&
+      /model_mount\.download\.queued/.test(downloadModelBlock) &&
+      /model_mount\.download\.failed/.test(downloadModelBlock) &&
+      /model_mount\.download\.completed/.test(downloadModelBlock) &&
+      /model_mount\.artifact\.download/.test(downloadModelBlock) &&
+      !/state\.writeMap\("model-downloads"/.test(downloadModelBlock) &&
+      !/state\.writeMap\("model-artifacts"/.test(downloadModelBlock) &&
+      /recordStateCommits/.test(catalogDownloadOperationsTest) &&
+      /downloadModel queued jobs fail closed without Rust Agentgres download record-state commit/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /downloadModel completed jobs fail closed without Rust Agentgres artifact record-state commit/.test(
+        catalogDownloadOperationsTest,
+      ) &&
       !/\b(?:modelId|providerId|sourceUrlHash|sourceLabel|parameterCount|backendCompatibility|downloadRisk|benchmarkReadiness|selectionReceiptFields|catalogProviderId|catalogAuth|approvalDecision|liveDownloadGate)\s*:/.test(
         catalogImportUrlReceiptDetailsObject,
       ) &&
@@ -8531,6 +8554,8 @@ function runReceipts() {
         catalogDownloadOperationsTest,
       ),
     [
+      "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
     ],

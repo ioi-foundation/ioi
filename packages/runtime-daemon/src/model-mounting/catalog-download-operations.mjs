@@ -35,6 +35,8 @@ import {
   truthy,
 } from "./io.mjs";
 import { parseLocalModelMetadata } from "./local-system-probes.mjs";
+import { commitModelArtifactRecordState } from "./model-artifact-record-state.mjs";
+import { commitModelDownloadRecordState } from "./model-download-record-state.mjs";
 import { requiredString } from "./provider-registry.mjs";
 
 const RETIRED_CATALOG_IMPORT_URL_REQUEST_ALIASES = [
@@ -409,8 +411,10 @@ export async function downloadModel(state, body = {}, deps = {}) {
       download_policy: downloadPolicyReceiptDetails(downloadPolicy),
     });
     const storedFailed = { ...failed, receiptIds: [...failed.receiptIds, failedReceipt.id], receiptId: failedReceipt.id };
+    commitModelDownloadRecordState(state, storedFailed, "model_mount.download.failed", [
+      failedReceipt.id,
+    ]);
     state.downloads.set(storedFailed.id, storedFailed);
-    state.writeMap("model-downloads", state.downloads);
     state.writeProjection();
     return storedFailed;
   }
@@ -422,8 +426,8 @@ export async function downloadModel(state, body = {}, deps = {}) {
       receiptIds: [queuedReceipt.id],
       receiptId: queuedReceipt.id,
     };
+    commitModelDownloadRecordState(state, queued, "model_mount.download.queued", [queuedReceipt.id]);
     state.downloads.set(queued.id, queued);
-    state.writeMap("model-downloads", state.downloads);
     state.writeProjection();
     return queued;
   }
@@ -513,8 +517,8 @@ export async function downloadModel(state, body = {}, deps = {}) {
       receiptIds: [queuedReceipt.id, runningReceipt.id, ...transferReceiptIds, failedReceipt.id],
       receiptId: failedReceipt.id,
     };
+    commitModelDownloadRecordState(state, failed, "model_mount.download.failed", [failedReceipt.id]);
     state.downloads.set(failed.id, failed);
-    state.writeMap("model-downloads", state.downloads);
     state.writeProjection();
     return failed;
   }
@@ -561,8 +565,6 @@ export async function downloadModel(state, body = {}, deps = {}) {
     receiptIds: [queuedReceipt.id, runningReceipt.id, ...transferReceiptIds],
     receiptId: runningReceipt.id,
   };
-  state.artifacts.set(artifact.id, artifact);
-  state.downloads.set(job.id, job);
   const receipt = state.lifecycleReceipt("model_download_completed", {
     job_id: job.id,
     artifact_id: artifact.id,
@@ -592,9 +594,13 @@ export async function downloadModel(state, body = {}, deps = {}) {
     catalog_auth: catalogAuthReceiptDetails(catalogAuthReceipt),
   });
   const completed = { ...job, receiptId: receipt.id, receiptIds: [...job.receiptIds, receipt.id] };
+  const storedArtifact = { ...artifact, receiptId: receipt.id };
+  commitModelArtifactRecordState(state, storedArtifact, "model_mount.artifact.download", [
+    receipt.id,
+  ]);
+  commitModelDownloadRecordState(state, completed, "model_mount.download.completed", [receipt.id]);
+  state.artifacts.set(storedArtifact.id, storedArtifact);
   state.downloads.set(completed.id, completed);
-  state.writeMap("model-artifacts", state.artifacts);
-  state.writeMap("model-downloads", state.downloads);
   state.writeProjection();
   return completed;
 }

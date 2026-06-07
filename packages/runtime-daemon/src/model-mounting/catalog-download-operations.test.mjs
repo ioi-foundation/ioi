@@ -21,6 +21,7 @@ function fakeState(root = tempRoot()) {
     modelRoot: path.join(root, "models"),
     now: "2026-06-04T12:00:00.000Z",
     projections: 0,
+    recordStateCommits: [],
     receipts: [],
     writes: [],
     async downloadModel(body) {
@@ -37,6 +38,21 @@ function fakeState(root = tempRoot()) {
     },
     writeMap(name, map) {
       this.writes.push([name, [...map.values()].map((record) => ({ ...record }))]);
+    },
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(JSON.parse(JSON.stringify(request)));
+      return {
+        record_id: request.record_id,
+        commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+          admission: {
+            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+          },
+        },
+      };
     },
     writeProjection() {
       this.projections += 1;
@@ -366,7 +382,14 @@ test("downloadModel can queue and simulate failed fixture jobs without materiali
   assert.equal(Object.hasOwn(state.receipts[0].details, "jobId"), false);
   assert.equal(Object.hasOwn(state.receipts[0].details, "downloadPolicy"), false);
   assert.equal(Object.hasOwn(state.receipts[0].details.download_policy, "maxBytes"), false);
-  assert.equal(state.writes.at(-1)[0], "model-downloads");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
+  assert.equal(state.recordStateCommits[0].record_dir, "model-downloads");
+  assert.equal(state.recordStateCommits[0].record_id, "download_job_uuid-1");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.download.queued");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.1.model_download_queued"]);
+  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt.1.model_download_queued");
   assert.equal(state.projections, 1);
 
   const failed = await downloadModel(state, { model_id: "qwen-fail", simulate_failure: true }, deps());
@@ -375,7 +398,35 @@ test("downloadModel can queue and simulate failed fixture jobs without materiali
   assert.deepEqual(failed.receiptIds, ["receipt.2.model_download_queued", "receipt.3.model_download_failed"]);
   assert.equal(state.receipts[2].details.failure_reason, "deterministic_fixture_failure");
   assert.equal(Object.hasOwn(state.receipts[2].details, "failureReason"), false);
+  assert.equal(state.recordStateCommits.length, 2);
+  assert.equal(state.recordStateCommits[1].record_dir, "model-downloads");
+  assert.equal(state.recordStateCommits[1].record_id, "download_job_uuid-1");
+  assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.download.failed");
+  assert.deepEqual(state.recordStateCommits[1].receipt_refs, ["receipt.3.model_download_failed"]);
   assert.equal(state.projections, 2);
+});
+
+test("downloadModel queued jobs fail closed without Rust Agentgres download record-state commit", async () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+
+  await assert.rejects(
+    () => downloadModel(state, { model_id: "qwen-test", queued_only: true, max_bytes: 100 }, deps()),
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "model_mount_download_state_commit_unconfigured");
+      assert.equal(error.details.record_dir, "model-downloads");
+      assert.equal(error.details.record_id, "download_job_uuid-1");
+      assert.equal(error.details.job_id, "download_job_uuid-1");
+      assert.equal(error.details.model_id, "qwen-test");
+      assert.equal(error.details.provider_id, "provider.autopilot.local");
+      return true;
+    },
+  );
+
+  assert.equal(state.downloads.size, 0);
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.projections, 0);
 });
 
 test("downloadModel materializes completed fixture jobs, artifacts, receipts, and projection writes", async () => {
@@ -412,10 +463,59 @@ test("downloadModel materializes completed fixture jobs, artifacts, receipts, an
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "resumeOffset"), false);
   assert.equal(state.artifacts.get("download.qwen.test").source, "fixture://redacted");
   assert.deepEqual(state.artifacts.get("download.qwen.test").capabilities, ["chat", "tools"]);
-  assert.equal(state.writes.at(-2)[0], "model-artifacts");
-  assert.equal(state.writes.at(-1)[0], "model-downloads");
+  assert.equal(state.artifacts.get("download.qwen.test").receiptId, "receipt.3.model_download_completed");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.length, 2);
+  assert.equal(state.recordStateCommits[0].record_dir, "model-artifacts");
+  assert.equal(state.recordStateCommits[0].record_id, "download.qwen.test");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.artifact.download");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.3.model_download_completed"]);
+  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt.3.model_download_completed");
+  assert.equal(state.recordStateCommits[1].record_dir, "model-downloads");
+  assert.equal(state.recordStateCommits[1].record_id, "download_job_uuid-1");
+  assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.download.completed");
+  assert.deepEqual(state.recordStateCommits[1].receipt_refs, ["receipt.3.model_download_completed"]);
   assert.equal(state.projections, 1);
   assert.equal(materialized[0].targetPath.endsWith(path.join("models", "downloads", "Qwen_Test", "Qwen_Test.gguf")), true);
+});
+
+test("downloadModel completed jobs fail closed without Rust Agentgres artifact record-state commit", async () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+
+  await assert.rejects(
+    () =>
+      downloadModel(
+        state,
+        { model_id: "Qwen Test", source_url: "fixture://qwen/q4" },
+        deps({
+          materializeFixtureDownload({ fixtureContent }) {
+            return {
+              checksum: "sha256-fixture",
+              bytesCompleted: Buffer.byteLength(fixtureContent),
+              bytesTotal: Buffer.byteLength(fixtureContent),
+              resumeOffset: 0,
+              attemptCount: 1,
+              retryCount: 0,
+            };
+          },
+        }),
+      ),
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "model_mount_artifact_state_commit_unconfigured");
+      assert.equal(error.details.record_dir, "model-artifacts");
+      assert.equal(error.details.record_id, "download.qwen.test");
+      assert.equal(error.details.artifact_id, "download.qwen.test");
+      assert.equal(error.details.model_id, "Qwen Test");
+      return true;
+    },
+  );
+
+  assert.equal(state.artifacts.size, 0);
+  assert.equal(state.downloads.size, 0);
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.projections, 0);
 });
 
 test("downloadModel records transfer metadata when live materialization fails", async () => {
@@ -458,4 +558,9 @@ test("downloadModel records transfer metadata when live materialization fails", 
     "receipt.3.model_download_retry",
     "receipt.4.model_download_failed",
   ]);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].record_dir, "model-downloads");
+  assert.equal(state.recordStateCommits[0].record_id, "download_job_uuid-1");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.download.failed");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.4.model_download_failed"]);
 });
