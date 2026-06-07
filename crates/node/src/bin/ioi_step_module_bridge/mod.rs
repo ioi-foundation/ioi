@@ -4,8 +4,8 @@ use ioi_client::workload_client::{
 use ioi_services::agentic::evolution::{GovernedEvolutionCore, GovernedRuntimeImprovementProposal};
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeAgentStateCommitRequest,
-    RuntimeRunStateCommitRequest, RuntimeStatePersistenceRecord, RuntimeStateStorageWriteRecord,
-    RuntimeSubagentStateCommitRequest, StorageBackendWriteProposal,
+    RuntimeMemoryStateCommitRequest, RuntimeRunStateCommitRequest, RuntimeStatePersistenceRecord,
+    RuntimeStateStorageWriteRecord, RuntimeSubagentStateCommitRequest, StorageBackendWriteProposal,
     AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::approval::{
@@ -549,6 +549,17 @@ struct RuntimeAgentStateCommitBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct RuntimeMemoryStateCommitBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    state_dir: String,
+    request: RuntimeMemoryStateCommitRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct RuntimeSubagentStateCommitBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -870,6 +881,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
             let request: RuntimeAgentStateCommitBridgeRequest = serde_json::from_value(raw_request)
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             commit_runtime_agent_state(request)
+        }
+        "commit_runtime_memory_state" => {
+            let request: RuntimeMemoryStateCommitBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            commit_runtime_memory_state(request)
         }
         "commit_runtime_subagent_state" => {
             let request: RuntimeSubagentStateCommitBridgeRequest =
@@ -2917,6 +2934,57 @@ fn commit_runtime_agent_state(
         "written_record": written_record,
         "evidence_refs": [
             "rust_agentgres_runtime_agent_state_commit",
+            record.commit_hash,
+        ],
+    }))
+}
+
+fn commit_runtime_memory_state(
+    request: RuntimeMemoryStateCommitBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "commit_runtime_memory_state" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = AgentgresAdmissionCore
+        .commit_runtime_memory_state(&request.request)
+        .map_err(|error| {
+            BridgeError::new("runtime_memory_state_commit_invalid", format!("{error:?}"))
+        })?;
+    let written_record = write_runtime_state_storage_record(
+        &request.state_dir,
+        &record.record,
+        &request.request.payload,
+    )?;
+    Ok(json!({
+        "source": "rust_agentgres_runtime_memory_state_commit_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "record": record.clone(),
+        "storage_record": record.record.clone(),
+        "memory_state_kind": record.memory_state_kind.clone(),
+        "state_id": record.state_id.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "storage_backend_ref": record.storage_backend_ref.clone(),
+        "object_ref": record.record.object_ref.clone(),
+        "content_hash": record.record.content_hash.clone(),
+        "payload_refs": record.record.payload_refs.clone(),
+        "receipt_refs": record.record.receipt_refs.clone(),
+        "admission_hash": record.record.admission.admission_hash.clone(),
+        "commit_hash": record.commit_hash.clone(),
+        "written_record": written_record,
+        "evidence_refs": [
+            "rust_agentgres_runtime_memory_state_commit",
             record.commit_hash,
         ],
     }))
@@ -8421,6 +8489,62 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_agentgres_runtime_agent_state_commit"));
+    }
+
+    #[test]
+    fn bridge_commits_runtime_memory_state_through_rust_core() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let state_dir = temp.path().join("runtime-state");
+        let request: RuntimeMemoryStateCommitBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "commit_runtime_memory_state",
+            "backend": "rust_agentgres_storage",
+            "state_dir": state_dir,
+            "request": {
+                "schema_version": "ioi.runtime_memory_state_commit.v1",
+                "memory_state_kind": "record",
+                "state_id": "memory_1",
+                "operation_kind": "memory.write",
+                "storage_backend_ref": "storage://runtime-agentgres/local-json",
+                "payload": {
+                    "schemaVersion": "ioi.agent-runtime.memory.v1",
+                    "id": "memory_1",
+                    "object": "ioi.agent_memory_record",
+                    "fact": "Remember the launch checklist.",
+                    "threadId": "thread_1",
+                    "agentId": "agent_1",
+                    "receipt_refs": ["receipt_memory"]
+                }
+            }
+        }))
+        .expect("runtime memory-state commit bridge request");
+
+        let response = commit_runtime_memory_state(request).expect("memory state committed");
+
+        assert_eq!(
+            response["source"],
+            "rust_agentgres_runtime_memory_state_commit_command"
+        );
+        assert_eq!(response["memory_state_kind"], "record");
+        assert_eq!(response["state_id"], "memory_1");
+        assert_eq!(response["operation_kind"], "memory.write");
+        assert!(response["commit_hash"]
+            .as_str()
+            .expect("commit hash")
+            .starts_with("sha256:"));
+        assert!(state_dir.join("memory-records/memory_1.json").exists());
+        let memory_record = fs::read_to_string(state_dir.join("memory-records/memory_1.json"))
+            .expect("memory record");
+        assert!(memory_record.contains("\"id\": \"memory_1\""));
+        assert_eq!(
+            response["written_record"]["object_ref"],
+            "agentgres://runtime-state/memory/record/memory_1/records/memory-records/memory_1.json"
+        );
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_agentgres_runtime_memory_state_commit"));
     }
 
     #[test]

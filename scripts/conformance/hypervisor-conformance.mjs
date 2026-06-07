@@ -9440,8 +9440,8 @@ function runReceipts() {
     result,
     "agent-memory-operation-append-retired",
     !/\bappendOperation\b/.test(memoryStore) &&
-      /this\.memory = new AgentMemoryStore\(this\.stateDir\);/.test(runtimeDaemonIndex) &&
-      /agent memory store writes records, edits, deletes, and policies without local operation append/.test(
+      /this\.memory = new AgentMemoryStore\(this\.stateDir, \{[\s\S]*?commitRuntimeMemoryState/.test(runtimeDaemonIndex) &&
+      /agent memory store commits records, edits, and policies through Rust Agentgres without local operation append/.test(
         read("packages/runtime-daemon/src/memory-store.test.mjs"),
       ),
     [
@@ -9450,6 +9450,51 @@ function runReceipts() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 5/11 is pending: memory record and policy updates must not mirror daemon-local operation-log records outside admitted receipt/Agentgres paths",
+  );
+  assertCheck(
+    result,
+    "runtime-memory-state-storage-write-rust-admitted",
+    /RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION/.test(agentgresAdmissionCore) &&
+      /RuntimeMemoryStateCommitRequest/.test(agentgresAdmissionCore) &&
+      /RuntimeMemoryStateCommitRecord/.test(agentgresAdmissionCore) &&
+      /commit_runtime_memory_state/.test(agentgresAdmissionCore) &&
+      /commits_runtime_memory_record_state_with_storage_admission/.test(agentgresAdmissionCore) &&
+      /commits_runtime_memory_policy_state_with_storage_admission/.test(agentgresAdmissionCore) &&
+      /runtime_memory_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
+      /runtime_memory_state_commit_rejects_mismatched_payload_id/.test(agentgresAdmissionCore) &&
+      /pub fn commit_runtime_memory_state/.test(runtimeKernelModule) &&
+      /commit_runtime_memory_state/.test(bridgeModule) &&
+      /RuntimeMemoryStateCommitBridgeRequest/.test(bridgeModule) &&
+      /rust_agentgres_runtime_memory_state_commit_command/.test(bridgeModule) &&
+      /bridge_commits_runtime_memory_state_through_rust_core/.test(bridgeModule) &&
+      /commitRuntimeMemoryState/.test(runtimeAgentgresRunner) &&
+      /normalizeRuntimeMemoryStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
+      /runtime Agentgres runner sends runtime memory-state commit bridge request/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /commitRuntimeMemoryState\(request\)/.test(runtimeDaemonIndex) &&
+      /commitMemoryState\(\{/.test(memoryStore) &&
+      /RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION/.test(memoryStore) &&
+      /Memory persistence requires Rust Agentgres memory-state commit/.test(memoryStore) &&
+      !/\bfs\.writeFileSync\(path\.join\(this\.memoryDir/.test(memoryStore) &&
+      !/\bfs\.writeFileSync\(path\.join\(this\.policyDir/.test(memoryStore) &&
+      /agent memory store commits records, edits, and policies through Rust Agentgres without local operation append/.test(
+        read("packages/runtime-daemon/src/memory-store.test.mjs"),
+      ) &&
+      /agent memory store fails closed without Rust Agentgres memory-state commit/.test(
+        read("packages/runtime-daemon/src/memory-store.test.mjs"),
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/memory-store.mjs",
+      "packages/runtime-daemon/src/memory-store.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 5/11 is pending: memory record and policy files must be persisted through Rust Agentgres storage admission instead of direct JS file writes",
   );
   assertCheck(
     result,
@@ -11174,7 +11219,7 @@ function runCompositor() {
     runtimeMemoryHelpers.match(/function memoryWriteApproved\(options = \{\}\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
   const runtimeMemoryStoreListBlock =
     runtimeMemoryStore.match(
-      /list\(\{ agent, threadId, workspace, includeGlobal = true,[\s\S]*?\n  \}\n\n  write\(record\)/,
+      /list\(\{ agent, threadId, workspace, includeGlobal = true,[\s\S]*?\n  \}\n\n  projection\(/,
     )?.[0] ?? "";
   const runtimeMemoryStoreListFiltersBlock =
     runtimeMemoryStore.match(

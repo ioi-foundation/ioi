@@ -57,6 +57,17 @@ export class RustRuntimeAgentgresAdmissionRunner {
     return normalizeRuntimeAgentStateCommitBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
+  commitRuntimeMemoryState(stateDir, request) {
+    const bridgeRequest = {
+      schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
+      operation: "commit_runtime_memory_state",
+      backend: RUST_AGENTGRES_STORAGE_BACKEND,
+      state_dir: stateDir,
+      request,
+    };
+    return normalizeRuntimeMemoryStateCommitBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
   commitRuntimeSubagentState(stateDir, request) {
     const bridgeRequest = {
       schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
@@ -208,6 +219,32 @@ export function normalizeRuntimeAgentStateCommitBridgeResult(value = {}) {
     record,
     storage_record: storageRecord,
     agent_id: result.agent_id ?? record.agent_id ?? null,
+    operation_kind: result.operation_kind ?? record.operation_kind ?? null,
+    storage_backend_ref: result.storage_backend_ref ?? record.storage_backend_ref ?? null,
+    object_ref: result.object_ref ?? storageRecord.object_ref ?? null,
+    content_hash: result.content_hash ?? storageRecord.content_hash ?? null,
+    payload_refs: Array.isArray(result.payload_refs) ? result.payload_refs : storageRecord.payload_refs ?? [],
+    receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : storageRecord.receipt_refs ?? [],
+    admission_hash: result.admission_hash ?? storageRecord.admission?.admission_hash ?? null,
+    commit_hash: result.commit_hash ?? record.commit_hash ?? null,
+    written_record: result.written_record ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+  };
+}
+
+export function normalizeRuntimeMemoryStateCommitBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.record && typeof result.record === "object" ? result.record : {};
+  const storageRecord = result.storage_record && typeof result.storage_record === "object"
+    ? result.storage_record
+    : record.record ?? {};
+  return {
+    source: result.source ?? "rust_agentgres_runtime_memory_state_commit_command",
+    backend: result.backend ?? RUST_AGENTGRES_STORAGE_BACKEND,
+    record,
+    storage_record: storageRecord,
+    memory_state_kind: result.memory_state_kind ?? record.memory_state_kind ?? null,
+    state_id: result.state_id ?? record.state_id ?? null,
     operation_kind: result.operation_kind ?? record.operation_kind ?? null,
     storage_backend_ref: result.storage_backend_ref ?? record.storage_backend_ref ?? null,
     object_ref: result.object_ref ?? storageRecord.object_ref ?? null,

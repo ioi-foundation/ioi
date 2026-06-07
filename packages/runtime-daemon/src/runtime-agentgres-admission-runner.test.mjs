@@ -78,6 +78,25 @@ function agentCommitRequest() {
   };
 }
 
+function memoryCommitRequest() {
+  return {
+    schema_version: "ioi.runtime_memory_state_commit.v1",
+    memory_state_kind: "record",
+    state_id: "memory_1",
+    operation_kind: "memory.write",
+    storage_backend_ref: "storage://runtime-agentgres/local-json",
+    payload: {
+      schemaVersion: "ioi.agent-runtime.memory.v1",
+      id: "memory_1",
+      object: "ioi.agent_memory_record",
+      fact: "Remember the launch checklist.",
+      threadId: "thread_1",
+      agentId: "agent_1",
+      receipt_refs: ["receipt_memory"],
+    },
+  };
+}
+
 function subagentCommitRequest() {
   return {
     schema_version: "ioi.runtime_subagent_state_commit.v1",
@@ -264,6 +283,69 @@ test("runtime Agentgres runner sends runtime agent-state commit bridge request",
   assert.equal(result.agent_id, "agent_1");
   assert.equal(result.commit_hash, "sha256:agent-commit");
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_agent_state_commit"]);
+});
+
+test("runtime Agentgres runner sends runtime memory-state commit bridge request", () => {
+  const calls = [];
+  const runner = new RustRuntimeAgentgresAdmissionRunner({
+    command: "mock-runtime-agentgres-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_agentgres_runtime_memory_state_commit_command",
+            backend: RUST_AGENTGRES_STORAGE_BACKEND,
+            record: {
+              schema_version: "ioi.runtime_memory_state_commit.v1",
+              memory_state_kind: "record",
+              state_id: "memory_1",
+              operation_kind: "memory.write",
+              storage_backend_ref: "storage://runtime-agentgres/local-json",
+              record: {
+                record_path: "memory-records/memory_1.json",
+                object_ref: "agentgres://runtime-state/memory/record/memory_1/records/memory-records/memory_1.json",
+                content_hash: "sha256:memory-content",
+                payload_refs: ["payload://runtime/memory/record/memory_1/records/memory-records/memory_1.json"],
+                receipt_refs: ["receipt_memory"],
+                admission: {
+                  admission_hash: "sha256:memory-admission",
+                },
+              },
+              commit_hash: "sha256:memory-commit",
+            },
+            memory_state_kind: "record",
+            state_id: "memory_1",
+            object_ref: "agentgres://runtime-state/memory/record/memory_1/records/memory-records/memory_1.json",
+            content_hash: "sha256:memory-content",
+            admission_hash: "sha256:memory-admission",
+            commit_hash: "sha256:memory-commit",
+            written_record: {
+              record_path: "memory-records/memory_1.json",
+            },
+            evidence_refs: ["rust_agentgres_runtime_memory_state_commit"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.commitRuntimeMemoryState("/runtime-state", memoryCommitRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "commit_runtime_memory_state");
+  assert.equal(calls[0].request.backend, RUST_AGENTGRES_STORAGE_BACKEND);
+  assert.equal(calls[0].request.state_dir, "/runtime-state");
+  assert.equal(calls[0].request.request.memory_state_kind, "record");
+  assert.equal(calls[0].request.request.state_id, "memory_1");
+  assert.equal(result.state_id, "memory_1");
+  assert.equal(result.commit_hash, "sha256:memory-commit");
+  assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_memory_state_commit"]);
 });
 
 test("runtime Agentgres runner sends runtime subagent-state commit bridge request", () => {

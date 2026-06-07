@@ -4,6 +4,8 @@ import path from "node:path";
 
 export const AGENT_MEMORY_SCHEMA_VERSION = "ioi.agent-runtime.memory.v1";
 export const AGENT_MEMORY_POLICY_SCHEMA_VERSION = "ioi.agent-runtime.memory-policy.v1";
+const RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION = "ioi.runtime_memory_state_commit.v1";
+const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
 
 const MEMORY_POLICY_FIELDS = [
   "disabled",
@@ -17,8 +19,9 @@ const MEMORY_POLICY_FIELDS = [
 ];
 
 export class AgentMemoryStore {
-  constructor(stateDir) {
+  constructor(stateDir, options = {}) {
     this.stateDir = path.resolve(stateDir);
+    this.commitRuntimeMemoryState = options.commitRuntimeMemoryState;
     this.records = new Map();
     this.policies = new Map();
     fs.mkdirSync(this.memoryDir, { recursive: true });
@@ -81,7 +84,10 @@ export class AgentMemoryStore {
       memoryRecordId: id,
     };
     this.records.set(id, record);
-    this.write(record);
+    this.write(record, {
+      operationKind: "memory.write",
+      receiptRefs: [receipt.id],
+    });
     return { record, receipt };
   }
 
@@ -107,7 +113,10 @@ export class AgentMemoryStore {
       summary: `Edited memory record ${updated.id}.`,
     });
     this.records.set(updated.id, updated);
-    this.write(updated);
+    this.write(updated, {
+      operationKind: "memory.edit",
+      receiptRefs: [receipt.id],
+    });
     return { record: updated, receipt, operation: "edit" };
   }
 
@@ -154,9 +163,14 @@ export class AgentMemoryStore {
     return filters.redaction === "redacted" ? limited.map(redactMemoryRecord) : limited;
   }
 
-  write(record) {
-    fs.mkdirSync(this.memoryDir, { recursive: true });
-    fs.writeFileSync(path.join(this.memoryDir, `${record.id}.json`), `${JSON.stringify(record, null, 2)}\n`);
+  write(record, { operationKind = "memory.write", receiptRefs = [] } = {}) {
+    return this.commitMemoryState({
+      memoryStateKind: "record",
+      stateId: record.id,
+      operationKind,
+      payload: record,
+      receiptRefs,
+    });
   }
 
   projection({ agent, threadId, workspace, filters = {} } = {}) {
@@ -246,8 +260,6 @@ export class AgentMemoryStore {
       updatedAt: now,
       evidenceRefs: [...new Set([...normalizeArray(previous.evidenceRefs), "memory.policy"])],
     };
-    this.policies.set(id, policy);
-    this.writePolicy(policy);
     const receipt = {
       id: `receipt_${id}_${stableHash(`${policy.updatedAt}:${source}`).slice(0, 12)}`,
       kind: "memory_policy",
@@ -256,12 +268,38 @@ export class AgentMemoryStore {
       evidenceRefs: ["agent_memory_store", "memory.policy", id],
       memoryPolicyId: id,
     };
+    this.policies.set(id, policy);
+    this.writePolicy(policy, {
+      operationKind: "memory.policy",
+      receiptRefs: [receipt.id],
+    });
     return { policy, receipt, operation: "policy_update" };
   }
 
-  writePolicy(policy) {
-    fs.mkdirSync(this.policyDir, { recursive: true });
-    fs.writeFileSync(path.join(this.policyDir, `${safeFileId(policy.id)}.json`), `${JSON.stringify(policy, null, 2)}\n`);
+  writePolicy(policy, { operationKind = "memory.policy", receiptRefs = [] } = {}) {
+    return this.commitMemoryState({
+      memoryStateKind: "policy",
+      stateId: policy.id,
+      operationKind,
+      payload: policy,
+      receiptRefs,
+    });
+  }
+
+  commitMemoryState({ memoryStateKind, stateId, operationKind, payload, receiptRefs = [] } = {}) {
+    if (typeof this.commitRuntimeMemoryState !== "function") {
+      throw new Error("Memory persistence requires Rust Agentgres memory-state commit.");
+    }
+    const commit = this.commitRuntimeMemoryState({
+      schema_version: RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION,
+      memory_state_kind: memoryStateKind,
+      state_id: stateId,
+      operation_kind: operationKind,
+      storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
+      payload,
+      receipt_refs: receiptRefs,
+    });
+    return normalizeMemoryStateCommit(commit);
   }
 
   pathProjection({ agent, threadId, workspace } = {}) {
@@ -281,7 +319,7 @@ export class AgentMemoryStore {
     try {
       fs.rmSync(filePath, { force: true });
     } catch {
-      // Best-effort cleanup; canonical state is the in-memory map plus operation log.
+      // Best-effort cleanup; admitted memory records are persisted through Rust.
     }
   }
 }
@@ -438,6 +476,52 @@ function policyId(targetType, targetId) {
 
 function safeFileId(value) {
   return String(value ?? "runtime").replace(/[^a-zA-Z0-9_.-]+/g, "_");
+}
+
+function normalizeMemoryStateCommit(commit = {}) {
+  const record = commit?.record && typeof commit.record === "object" ? commit.record : commit;
+  const storageRecord = commit?.storage_record && typeof commit.storage_record === "object"
+    ? commit.storage_record
+    : record?.record;
+  const normalized = {
+    source: optionalMemoryString(commit?.source) ?? "rust_agentgres_runtime_memory_state_commit_command",
+    memory_state_kind:
+      optionalMemoryString(commit?.memory_state_kind) ??
+      optionalMemoryString(record?.memory_state_kind),
+    state_id:
+      optionalMemoryString(commit?.state_id) ??
+      optionalMemoryString(record?.state_id),
+    object_ref:
+      optionalMemoryString(commit?.object_ref) ??
+      optionalMemoryString(storageRecord?.object_ref),
+    content_hash:
+      optionalMemoryString(commit?.content_hash) ??
+      optionalMemoryString(storageRecord?.content_hash),
+    admission_hash:
+      optionalMemoryString(commit?.admission_hash) ??
+      optionalMemoryString(storageRecord?.admission?.admission_hash),
+    commit_hash:
+      optionalMemoryString(commit?.commit_hash) ??
+      optionalMemoryString(record?.commit_hash),
+    written_record: commit?.written_record ?? null,
+    evidence_refs: Array.isArray(commit?.evidence_refs) ? commit.evidence_refs : [],
+    record: record ?? null,
+  };
+  const missing = [
+    ["memory_state_kind", normalized.memory_state_kind],
+    ["state_id", normalized.state_id],
+    ["object_ref", normalized.object_ref],
+    ["content_hash", normalized.content_hash],
+    ["admission_hash", normalized.admission_hash],
+    ["commit_hash", normalized.commit_hash],
+    ["written_record", normalized.written_record],
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+  if (missing.length > 0) {
+    throw new Error(`Rust Agentgres memory-state commit is missing ${missing.join(", ")}.`);
+  }
+  return normalized;
 }
 
 function memoryReceipt(record, { kind, operation, summary } = {}) {

@@ -15,6 +15,7 @@ pub const RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION: &str =
 pub const RUNTIME_STATE_PERSISTENCE_SCHEMA_VERSION: &str = "ioi.runtime_state_persistence.v1";
 pub const RUNTIME_RUN_STATE_COMMIT_SCHEMA_VERSION: &str = "ioi.runtime_run_state_commit.v1";
 pub const RUNTIME_AGENT_STATE_COMMIT_SCHEMA_VERSION: &str = "ioi.runtime_agent_state_commit.v1";
+pub const RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION: &str = "ioi.runtime_memory_state_commit.v1";
 pub const RUNTIME_SUBAGENT_STATE_COMMIT_SCHEMA_VERSION: &str =
     "ioi.runtime_subagent_state_commit.v1";
 pub const AGENTGRES_OPERATION_EXPECTED_HEADS_NEGATIVE_CONFORMANCE: &str =
@@ -285,6 +286,29 @@ pub struct RuntimeAgentStateCommitRequest {
 pub struct RuntimeAgentStateCommitRecord {
     pub schema_version: String,
     pub agent_id: String,
+    pub operation_kind: String,
+    pub storage_backend_ref: String,
+    pub record: RuntimeStateStorageWriteRecord,
+    pub commit_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeMemoryStateCommitRequest {
+    pub schema_version: String,
+    pub memory_state_kind: String,
+    pub state_id: String,
+    pub operation_kind: String,
+    pub storage_backend_ref: String,
+    pub payload: Value,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeMemoryStateCommitRecord {
+    pub schema_version: String,
+    pub memory_state_kind: String,
+    pub state_id: String,
     pub operation_kind: String,
     pub storage_backend_ref: String,
     pub record: RuntimeStateStorageWriteRecord,
@@ -803,6 +827,68 @@ impl AgentgresAdmissionCore {
         Ok(record)
     }
 
+    pub fn commit_runtime_memory_state(
+        &self,
+        request: &RuntimeMemoryStateCommitRequest,
+    ) -> Result<RuntimeMemoryStateCommitRecord, AgentgresAdmissionError> {
+        request.validate()?;
+        let safe_state_id = safe_agentgres_component(&request.state_id);
+        let record_dir = match request.memory_state_kind.as_str() {
+            "record" => "memory-records",
+            "policy" => "memory-policies",
+            _ => return Err(AgentgresAdmissionError::MissingField("memory_state_kind")),
+        };
+        let receipt_refs = if request.receipt_refs.is_empty() {
+            json_string_array(&request.payload, "receipt_refs")
+                .into_iter()
+                .chain(json_string_array(&request.payload, "receiptRefs"))
+                .collect::<Vec<_>>()
+        } else {
+            request.receipt_refs.clone()
+        };
+        if receipt_refs.is_empty() {
+            return Err(AgentgresAdmissionError::MissingReceiptRefs);
+        }
+        let record_path = format!("{record_dir}/{safe_state_id}.json");
+        let payload_refs = vec![format!(
+            "payload://runtime/memory/{}/{safe_state_id}/records/{record_path}",
+            request.memory_state_kind
+        )];
+        let proposal = StorageBackendWriteProposal {
+            schema_version: STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION.to_string(),
+            storage_backend_ref: request.storage_backend_ref.clone(),
+            object_ref: format!(
+                "agentgres://runtime-state/memory/{}/{safe_state_id}/records/{record_path}",
+                request.memory_state_kind
+            ),
+            content_hash: runtime_state_payload_hash(&request.payload)?,
+            artifact_refs: vec![],
+            payload_refs,
+            receipt_refs,
+        };
+        let admission = self.admit_storage_backend_write(&proposal)?;
+        let storage_record = RuntimeStateStorageWriteRecord {
+            record_path,
+            object_ref: proposal.object_ref,
+            content_hash: proposal.content_hash,
+            artifact_refs: proposal.artifact_refs,
+            payload_refs: proposal.payload_refs,
+            receipt_refs: proposal.receipt_refs,
+            admission,
+        };
+        let mut record = RuntimeMemoryStateCommitRecord {
+            schema_version: RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            memory_state_kind: request.memory_state_kind.clone(),
+            state_id: request.state_id.clone(),
+            operation_kind: request.operation_kind.clone(),
+            storage_backend_ref: request.storage_backend_ref.clone(),
+            record: storage_record,
+            commit_hash: String::new(),
+        };
+        record.commit_hash = runtime_memory_state_commit_hash(&record)?;
+        Ok(record)
+    }
+
     pub fn commit_runtime_subagent_state(
         &self,
         request: &RuntimeSubagentStateCommitRequest,
@@ -1031,6 +1117,23 @@ impl RuntimeAgentStateCommitRequest {
     }
 }
 
+impl RuntimeMemoryStateCommitRequest {
+    pub fn validate(&self) -> Result<(), AgentgresAdmissionError> {
+        if self.schema_version != RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION {
+            return Err(AgentgresAdmissionError::InvalidSchemaVersion {
+                expected: RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("memory_state_kind", &self.memory_state_kind)?;
+        require_non_empty("state_id", &self.state_id)?;
+        require_non_empty("operation_kind", &self.operation_kind)?;
+        require_non_empty("storage_backend_ref", &self.storage_backend_ref)?;
+        validate_runtime_memory_payload_id(&self.payload, &self.state_id)?;
+        Ok(())
+    }
+}
+
 impl RuntimeSubagentStateCommitRequest {
     pub fn validate(&self) -> Result<(), AgentgresAdmissionError> {
         if self.schema_version != RUNTIME_SUBAGENT_STATE_COMMIT_SCHEMA_VERSION {
@@ -1195,6 +1298,16 @@ fn runtime_run_state_commit_hash(
 
 fn runtime_agent_state_commit_hash(
     record: &RuntimeAgentStateCommitRecord,
+) -> Result<String, AgentgresAdmissionError> {
+    let mut canonical = record.clone();
+    canonical.commit_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn runtime_memory_state_commit_hash(
+    record: &RuntimeMemoryStateCommitRecord,
 ) -> Result<String, AgentgresAdmissionError> {
     let mut canonical = record.clone();
     canonical.commit_hash.clear();
@@ -1666,6 +1779,17 @@ fn validate_runtime_agent_id(
     }
 }
 
+fn validate_runtime_memory_payload_id(
+    payload: &Value,
+    expected_state_id: &str,
+) -> Result<(), AgentgresAdmissionError> {
+    match json_string(payload, "id") {
+        Some(state_id) if state_id == expected_state_id => Ok(()),
+        Some(_) => Err(AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch),
+        None => Err(AgentgresAdmissionError::MissingField("payload.id")),
+    }
+}
+
 fn validate_runtime_subagent_id(
     subagent: &Value,
     expected_subagent_id: &str,
@@ -2058,6 +2182,57 @@ mod tests {
             operation_kind: "agent.create".to_string(),
             storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
             agent: runtime_committed_agent(),
+            receipt_refs: vec![],
+        }
+    }
+
+    fn runtime_memory_record() -> Value {
+        json!({
+            "schemaVersion": "ioi.agent-runtime.memory.v1",
+            "id": "memory_1",
+            "object": "ioi.agent_memory_record",
+            "scope": "thread",
+            "fact": "Remember the launch checklist.",
+            "threadId": "thread_1",
+            "agentId": "agent_1",
+            "updatedAt": "2026-06-06T00:00:00.000Z",
+            "receipt_refs": ["receipt_memory"]
+        })
+    }
+
+    fn runtime_memory_policy() -> Value {
+        json!({
+            "schemaVersion": "ioi.agent-runtime.memory-policy.v1",
+            "id": "thread_thread_1",
+            "object": "ioi.agent_memory_policy",
+            "targetType": "thread",
+            "targetId": "thread_1",
+            "readOnly": true,
+            "updatedAt": "2026-06-06T00:00:00.000Z",
+            "receipt_refs": ["receipt_memory_policy"]
+        })
+    }
+
+    fn runtime_memory_state_commit() -> RuntimeMemoryStateCommitRequest {
+        RuntimeMemoryStateCommitRequest {
+            schema_version: RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            memory_state_kind: "record".to_string(),
+            state_id: "memory_1".to_string(),
+            operation_kind: "memory.write".to_string(),
+            storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
+            payload: runtime_memory_record(),
+            receipt_refs: vec![],
+        }
+    }
+
+    fn runtime_memory_policy_state_commit() -> RuntimeMemoryStateCommitRequest {
+        RuntimeMemoryStateCommitRequest {
+            schema_version: RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            memory_state_kind: "policy".to_string(),
+            state_id: "thread_thread_1".to_string(),
+            operation_kind: "memory.policy".to_string(),
+            storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
+            payload: runtime_memory_policy(),
             receipt_refs: vec![],
         }
     }
@@ -2562,6 +2737,84 @@ mod tests {
         let error = AgentgresAdmissionCore
             .commit_runtime_agent_state(&request)
             .expect_err("agent payload id must match request id");
+
+        assert_eq!(
+            error,
+            AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch
+        );
+    }
+
+    #[test]
+    fn commits_runtime_memory_record_state_with_storage_admission() {
+        let record = AgentgresAdmissionCore
+            .commit_runtime_memory_state(&runtime_memory_state_commit())
+            .expect("runtime memory record state committed");
+
+        assert_eq!(
+            record.schema_version,
+            RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION
+        );
+        assert_eq!(record.memory_state_kind, "record");
+        assert_eq!(record.state_id, "memory_1");
+        assert_eq!(record.operation_kind, "memory.write");
+        assert!(record.commit_hash.starts_with("sha256:"));
+        assert_eq!(record.record.record_path, "memory-records/memory_1.json");
+        assert_eq!(
+            record.record.object_ref,
+            "agentgres://runtime-state/memory/record/memory_1/records/memory-records/memory_1.json"
+        );
+        assert_eq!(
+            record.record.payload_refs,
+            vec!["payload://runtime/memory/record/memory_1/records/memory-records/memory_1.json"]
+        );
+        assert_eq!(record.record.receipt_refs, vec!["receipt_memory"]);
+        assert!(record
+            .record
+            .admission
+            .admission_hash
+            .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn commits_runtime_memory_policy_state_with_storage_admission() {
+        let record = AgentgresAdmissionCore
+            .commit_runtime_memory_state(&runtime_memory_policy_state_commit())
+            .expect("runtime memory policy state committed");
+
+        assert_eq!(record.memory_state_kind, "policy");
+        assert_eq!(record.state_id, "thread_thread_1");
+        assert_eq!(record.operation_kind, "memory.policy");
+        assert_eq!(
+            record.record.record_path,
+            "memory-policies/thread_thread_1.json"
+        );
+        assert_eq!(
+            record.record.object_ref,
+            "agentgres://runtime-state/memory/policy/thread_thread_1/records/memory-policies/thread_thread_1.json"
+        );
+        assert_eq!(record.record.receipt_refs, vec!["receipt_memory_policy"]);
+    }
+
+    #[test]
+    fn runtime_memory_state_commit_requires_receipts() {
+        let mut request = runtime_memory_state_commit();
+        request.payload["receipt_refs"] = json!([]);
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_memory_state(&request)
+            .expect_err("receipt refs are required");
+
+        assert_eq!(error, AgentgresAdmissionError::MissingReceiptRefs);
+    }
+
+    #[test]
+    fn runtime_memory_state_commit_rejects_mismatched_payload_id() {
+        let mut request = runtime_memory_state_commit();
+        request.payload["id"] = json!("memory_other");
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_memory_state(&request)
+            .expect_err("memory payload id must match request id");
 
         assert_eq!(
             error,

@@ -939,7 +939,9 @@ export class AgentgresRuntimeStateStore {
       ttiEnvelopeForRunEvent,
       turnIdForRun,
     });
-    this.memory = new AgentMemoryStore(this.stateDir);
+    this.memory = new AgentMemoryStore(this.stateDir, {
+      commitRuntimeMemoryState: (request) => this.commitRuntimeMemoryState(request),
+    });
     this.writeSchema();
     this.load();
   }
@@ -3803,6 +3805,10 @@ export class AgentgresRuntimeStateStore {
 
   commitRuntimeAgentState(request) {
     return this.runtimeAgentgresAdmissionRunner.commitRuntimeAgentState(this.stateDir, request);
+  }
+
+  commitRuntimeMemoryState(request) {
+    return this.runtimeAgentgresAdmissionRunner.commitRuntimeMemoryState(this.stateDir, request);
   }
 
   commitRuntimeSubagentState(request) {
