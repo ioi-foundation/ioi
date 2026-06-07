@@ -38,6 +38,25 @@ compliance acronyms for hidden audit material.
   compatibility, or attestation posture. It proves what was supposed to run; it
   does not prove protected plaintext was safe unless paired with cTEE, TEE, or
   another approved confidential profile.
+- `HypervisorFleet`: the autonomous infrastructure manager for local, cloud,
+  DePIN, edge, customer, and bare-metal runtime estates. It coordinates node
+  registry, provider integrations, placement, health, cost, storage posture,
+  cTEE posture, receipts, replay projections, and policy visibility. It appears
+  through Hypervisor IDE and console.ioi.ai surfaces, but it does not execute
+  work, authorize power, admit Agentgres truth, or own payload bytes.
+- `FleetNode`: the Fleet projection/object for a local, cloud, GPU, DePIN,
+  customer, HypervisorOS, TEE, or bare-metal runtime node. It binds node
+  identity, daemon refs, provider metadata, Agentgres domain refs, authority
+  refs, status, cTEE posture, storage posture, receipt refs, and projection
+  watermarks.
+- `FleetRuntimeAssignmentView`: the Fleet projection over runtime assignments,
+  placement reasons, workspace/run refs, authority refs, Agentgres operation
+  refs, receipt refs, and status. It is observability/control-plane state, not
+  execution ownership.
+- `FleetStoragePosture`: the Fleet projection over storage-backend availability,
+  retention, replication, privacy class, and Agentgres artifact refs. It does
+  not make storage backends the authority over payload meaning or restore
+  validity.
 - `DefaultHarnessProfile`: the standard daemon-executed, wallet-authorized,
   Agentgres-backed, loop-native orchestration profile for bounded autonomous
   work. It is not a peer runtime beside the daemon; it configures how daemon
@@ -390,6 +409,15 @@ compliance acronyms for hidden audit material.
   configuring, evaluating, packaging, deploying, and improving workers through
   the Worker Training lifecycle. It can project recipes into the standard
   workflow compositor, but it is not a separate canvas environment.
+- `HypervisorIDEFleetSurface`: the Hypervisor IDE lens for hands-on management
+  of attached nodes, persistent workspaces, active agents/workers/services,
+  model mounts, cTEE posture, receipts, approvals, trace summaries, replay
+  availability, and start/stop/resume/archive/restore actions. It requests and
+  displays; it does not own Fleet truth, execution, or authority.
+- `ConsoleIoiAiFleetSurface`: the console.ioi.ai web/org/admin lens for
+  accounts, devices, entitlements, node registry, provider integrations, fleet
+  status, billing, remote access, restore routing, and org policy visibility.
+  It is an ioi.ai control-plane surface over Hypervisor Fleet, not the daemon.
 - `WorkflowCompositor`: the standard graph authoring projection over the
   SharedBuilderSubstrate. It may render outcome workflows, data recipes,
   training recipes, evaluation recipes, benchmark recipes, or deployment
@@ -403,25 +431,15 @@ compliance acronyms for hidden audit material.
   second runtime inside the VS Code extension host. It is also not the full
   Hypervisor Node; the node includes daemon, Agentgres, wallet.network authority
   paths, local registries, receipts, replay, and runtime profiles.
-- `AutopilotWorkbench`: legacy naming bridge term for the IDE-grade operator console during the Autopilot to
-  Hypervisor naming bridge. It composes, inspects, approves, and replays through
-  daemon/runtime contracts; it is not runtime truth and not an authority layer.
 - `HypervisorGuard`: developer-facing packaging for IOI Authority Gateway
   adapters. It can describe "bring IOI alignment security to Cursor, VS Code,
   Codex, Claude Code, JetBrains, OpenHands, hosted agents, and similar tools,"
   but canonical runtime authority still belongs to the Hypervisor Daemon.
-- `AutopilotGuard`: legacy naming bridge term for the Autopilot product-facing name for IOI Authority Gateway
-  and Hypervisor Guard compatibility-adapter behavior. It mediates existing IDE,
-  CLI, browser, hosted-agent, and tool surfaces through daemon policy,
-  wallet.network authority, receipts, and replay.
 - `HypervisorAppShell`: the Electron/VS Code fork that hosts Hypervisor IDE and
   local runtime surfaces. It owns shell affordances such as windows, deep links,
   tray, shortcuts, updater, auth handoff, and daemon supervision.
   Tauri/OpenVSCode embedding is legacy extraction inventory, not the target
   shell.
-- `AutopilotAppShell`: legacy naming bridge term for the Electron/VS Code fork as the canonical Autopilot app
-  shell during the naming bridge. It hosts the workbench UI and daemon-adjacent
-  operator controls, but it does not own execution semantics or durable truth.
 - `HypervisorDesktop`: the local/private device automation mode within the
   Hypervisor product. It may launch, manage, or project a local Hypervisor Daemon runtime
   profile, but it does not define a separate canonical runtime path.
@@ -494,8 +512,8 @@ compliance acronyms for hidden audit material.
   candidate set, routing policy, selected worker, selection reason,
   contribution policy, and receipt obligations.
 - `ioiAiControlPlane`: the lightweight account, device, publishing, restore
-  routing, sync metadata, billing/entitlement, and remote-runtime coordination
-  domain for `ioi.ai`.
+  routing, sync metadata, billing/entitlement, console/org Fleet surface, and
+  remote-runtime coordination domain for `ioi.ai`.
 - `intent`: the semantic operation the user is asking the harness to perform.
 - `lane`: a durable runtime capability family such as weather, sports, places,
   recipes, messaging, user input, visualizer, artifact, or inline answer.

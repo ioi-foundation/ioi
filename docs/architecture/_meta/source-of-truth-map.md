@@ -16,8 +16,9 @@ carry raw comparisons, sensitive sequencing, and transitional language; any
 durable architectural decision they produce must be distilled into the canonical
 owner below or into an accepted ADR before other docs or code treat it as canon.
 
-New readers should start with [`start-here.md`](./start-here.md). Builders
-who already know the stack can use [`implementation-matrix.md`](./implementation-matrix.md)
+New readers should start with [`../START_HERE.md`](../START_HERE.md), which
+points to the canonical [`start-here.md`](./start-here.md). Builders who already
+know the stack can use [`implementation-matrix.md`](./implementation-matrix.md)
 to map each concept to its durable form, owner doc, code anchor, and conformance
 hook.
 
@@ -41,12 +42,16 @@ Conflict rule:
      the node root; it improves control, integrity, containment, measurement,
      reproducibility, and policy enforcement, but it is not a peer runtime and
      does not replace cTEE no-plaintext-custody;
+   - Hypervisor Fleet is the autonomous infrastructure manager for local,
+     cloud, DePIN, edge, customer, and bare-metal runtime estates; Fleet
+     coordinates nodes, provider integrations, placement, health, cost, storage
+     posture, cTEE posture, receipts, replay projections, and policy
+     visibility, but does not execute work, authorize power, admit truth, or
+     own payload bytes;
    - Hypervisor IDE is the IDE-grade operator console, not runtime truth;
-   - legacy naming bridge: Autopilot Workbench is the IDE-grade operator console;
    - Hypervisor is the flagship product surface for building, deploying, and
      governing autonomous systems through daemon/runtime contracts;
    - the Electron/VS Code fork is the canonical Hypervisor app shell;
-   - legacy naming bridge: the Electron/VS Code fork is the canonical Autopilot app shell;
    - IOI Authority Gateway is the daemon sidecar/compatibility profile for
      existing IDE, CLI, browser, hosted-agent, and MCP/tool ecosystems; it is
      not a separate runtime;
@@ -105,6 +110,9 @@ Conflict rule:
    - policy, receipts, replay, approvals, authority scopes, and settlement hooks
      are the shared trust/audit substrate;
    - clients are projections or operators, not private runtime truth;
+   - Fleet surfaces in Hypervisor IDE and console.ioi.ai are projections and
+     control lenses over daemon, Agentgres, wallet.network, cTEE, AIIP, and
+     provider substrate; they are not separate apps with separate runtime truth;
    - CLI/TUI, SDK, and ADK are separate surfaces: CLI/TUI is the operator
      interface, SDK is the low-level protocol/client library, and ADK is the
      autonomous-system builder framework;
@@ -134,7 +142,7 @@ Conflict rule:
 
 | Subject | Canonical Owner | Low-Level Reference | Supporting Context |
 | --- | --- | --- | --- |
-| First-read architecture path | [`start-here.md`](./start-here.md) | [`source-of-truth-map.md`](./source-of-truth-map.md), [`implementation-matrix.md`](./implementation-matrix.md), [`vocabulary.md`](./vocabulary.md) | role-based onboarding paths |
+| First-read architecture path | [`start-here.md`](./start-here.md), [`../START_HERE.md`](../START_HERE.md) | [`source-of-truth-map.md`](./source-of-truth-map.md), [`implementation-matrix.md`](./implementation-matrix.md), [`vocabulary.md`](./vocabulary.md) | role-based onboarding paths; top-level shim avoids broken references |
 | Concept implementation status and durable form | [`implementation-matrix.md`](./implementation-matrix.md) | subject owner docs listed per row | code anchors, conformance hooks, promotion guidance |
 | Hypervisor kernel substrate unification migration, Step/Module ABI, route-family owner map, Rust core extraction target, JS facade retirement, and terminal conformance command contract | [`hypervisor-kernel-substrate-unification-master-guide.md`](./hypervisor-kernel-substrate-unification-master-guide.md) | [`hypervisor-kernel-substrate-migration-matrix.md`](./hypervisor-kernel-substrate-migration-matrix.md), [`implementation-matrix.md`](./implementation-matrix.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md), [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md), [`private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | `hypervisor-conformance`, Rust core module targets, and route-family cleanup conditions |
 | Canon readability and enterability workplan | [`canon-readability-audit.md`](./canon-readability-audit.md) | [`start-here.md`](./start-here.md), [`implementation-matrix.md`](./implementation-matrix.md) | cleanup backlog and terminology watchlist |
@@ -154,6 +162,7 @@ Conflict rule:
 | Agent Wiki, `ioi-memory`, and context-memory admission boundary | [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`canonical-state-and-projection-system-whitepaper.md`](../components/agentgres/projection-system-reference.md) | ADR 0001, roadmap memory notes, Hypervisor product context |
 | Default Harness Profile, loop-native orchestration, context topology, and output ownership | [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | CIRC/CEC, runtime harness code, default-harness projection/shadow/gated/live activation |
 | HypervisorOS, bare-metal Hypervisor nodes, measured boot, daemon-rooted node control, node measurement receipts, and HypervisorOS conformance | [`hypervisoros.md`](../components/daemon-runtime/hypervisoros.md) | [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | bare-metal node image plans, measured boot plans, provider/DePIN node integrity docs |
+| Hypervisor Fleet, autonomous infrastructure manager, node registry, provider integrations, DePIN/cloud/local/bare-metal fleet posture, storage posture, cTEE posture, placement, cost, health, receipts, replay projections, migration cockpit, Hypervisor IDE Fleet surface, and console.ioi.ai Fleet surface | [`fleet.md`](../components/hypervisor/fleet.md) | [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md), [`ioi-ai-control-plane.md`](../domains/ioi-ai/control-plane.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | DePIN/cloud GPU manager, Akash/Filecoin/CAS/S3 posture, HypervisorOS estate, provider connectors, node health/cost/placement, Fleet surfaces inside Hypervisor IDE and console.ioi.ai |
 | Private Workspace backed by cTEE, Plaintext-Free Runtime Mounting, Plaintext-Free Model Mounting, Custody Types, Custody Proof, Private Agency Transform, Candidate Coverage Profile, Counterfactual Lattice Execution, Cryptographic Operator Plane, Candidate-Lattice Private Decoding, External Model API Boundary, Execution Privacy Posture, persistent rented GPU Hypervisor Nodes, private files/folders, private strategy execution, deterrence/detection, and autonomy leases | [`private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md), [`agentgres-artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | private quant strategy profile, DePIN/cloud node privacy, provider-trust boundary, coverage/redundancy profiles, privacy posture labels, custody proofs, runtime/model/lattice/private-operator receipts, canary/watermark receipts, deprecated shielded-compute notes |
 | Hypervisor IDE, Electron/VS Code shell, shared builder substrate, and workflow compositor | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | internal product context, IDE-first Tauri retirement guide, and workflow-compositor specs |
 | IOI Authority Gateway, Hypervisor Guard, and compatibility adapters | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | IDE/CLI/browser adapter specs, MCP gateways, shell wrappers, Git hooks, hosted-agent gateways |

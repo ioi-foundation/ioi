@@ -26,6 +26,13 @@ Hypervisor Daemon
 HypervisorOS
   bare-metal node profile where the daemon is the node root
 
+Hypervisor Fleet
+  coordinates autonomous infrastructure across local, cloud, DePIN, edge,
+  customer, and bare-metal nodes; appears inside Hypervisor IDE and
+  console.ioi.ai; observes health, placement, storage posture, cTEE posture,
+  receipts, replay projections, and policy visibility without owning execution
+  or authority
+
 Default Harness Profile
   orchestrates loop-native autonomous work inside the daemon
 
@@ -93,6 +100,7 @@ The short version:
 Surfaces request.
 Hypervisor Daemon executes.
 HypervisorOS roots serious nodes.
+Hypervisor Fleet coordinates autonomous infrastructure.
 Default Harness Profile orchestrates.
 wallet.network authorizes.
 Agentgres admits truth.
@@ -133,11 +141,12 @@ Start here:
 2. [`components/daemon-runtime/private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md)
 3. [`components/daemon-runtime/runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md)
 4. [`components/daemon-runtime/hypervisoros.md`](../components/daemon-runtime/hypervisoros.md)
-5. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
-6. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
-7. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
-8. [`../conformance/agentic-runtime/CIRC.md`](../../conformance/agentic-runtime/CIRC.md)
-9. [`../conformance/agentic-runtime/CEC.md`](../../conformance/agentic-runtime/CEC.md)
+5. [`components/hypervisor/fleet.md`](../components/hypervisor/fleet.md)
+6. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
+7. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
+8. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
+9. [`../conformance/agentic-runtime/CIRC.md`](../../conformance/agentic-runtime/CIRC.md)
+10. [`../conformance/agentic-runtime/CEC.md`](../../conformance/agentic-runtime/CEC.md)
 
 Build for: intent resolution, action proposals, policy/authority gates,
 execution, normalized observations, receipts, context topology, output
@@ -153,6 +162,12 @@ For bare-metal or serious provider nodes, build for HypervisorOS: measured boot
 profiles, daemon-rooted workload launch, node integrity receipts,
 denied-by-default egress, cTEE compatibility, and no unmanaged model/tool/workspace
 bypass around the Hypervisor Daemon.
+
+For autonomous infrastructure management, build for Hypervisor Fleet: node
+registry, provider integrations, DePIN/cloud GPU endpoints, storage posture,
+runtime placement, fleet health, cost posture, cTEE posture, receipt/replay
+projections, and migration cockpit workflows. Fleet coordinates and governs;
+Hypervisor Daemon executes; wallet.network authorizes; Agentgres records truth.
 
 ### Implementing Agentgres
 
@@ -221,13 +236,14 @@ Start here:
 1. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
 2. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
 3. [`domains/ioi-ai/control-plane.md`](../domains/ioi-ai/control-plane.md)
-4. [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md)
-5. [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
+4. [`components/hypervisor/fleet.md`](../components/hypervisor/fleet.md)
+5. [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md)
+6. [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
 
 Build for: operator controls, approval cards, run graphs, context topology
-views, receipt timelines, artifact viewers, package install/publish flows, and
-clear distinction between Hypervisor IDE, Hypervisor Node, Hypervisor Daemon,
-Agentgres, and L1.
+views, receipt timelines, artifact viewers, Fleet surfaces, package
+install/publish flows, and clear distinction between Hypervisor IDE,
+Hypervisor Fleet, Hypervisor Node, Hypervisor Daemon, Agentgres, and L1.
 
 ### Implementing Interop
 
@@ -262,6 +278,7 @@ Avoid these models:
 ```text
 Default Harness Profile = a peer runtime beside the daemon
 Hypervisor IDE = runtime truth
+Hypervisor Fleet = execution runtime or authority plane
 Persistent rented GPU node = trusted private machine
 Agentgres = all memory or all payload bytes
 Agent Wiki / ioi-memory = canonical admitted truth
@@ -280,6 +297,7 @@ Correct them to:
 
 ```text
 daemon executes
+Hypervisor Fleet coordinates autonomous infrastructure
 Default Harness Profile orchestrates inside the daemon
 Agentgres admits operational truth
 Agent Wiki / ioi-memory remembers and retrieves

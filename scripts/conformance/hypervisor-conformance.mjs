@@ -149,9 +149,11 @@ function runDocs() {
     MATRIX,
     IMPLEMENTATION_MATRIX,
     SOURCE_OF_TRUTH,
+    "docs/architecture/START_HERE.md",
     "docs/architecture/components/daemon-runtime/default-harness-profile.md",
     "docs/architecture/components/daemon-runtime/doctrine.md",
     "docs/architecture/components/daemon-runtime/private-workspace-ctee.md",
+    "docs/architecture/components/hypervisor/fleet.md",
     "docs/architecture/components/agentgres/doctrine.md",
     "docs/architecture/components/agentgres/artifact-ref-plane.md",
     "docs/architecture/components/wallet-network/doctrine.md",
@@ -171,6 +173,8 @@ function runDocs() {
   const matrix = read(MATRIX);
   const implementationMatrix = read(IMPLEMENTATION_MATRIX);
   const sourceMap = read(SOURCE_OF_TRUTH);
+  const startShim = read("docs/architecture/START_HERE.md");
+  const fleetDoc = read("docs/architecture/components/hypervisor/fleet.md");
   const packageJson = JSON.parse(read("package.json"));
 
   requireText(result, "guide-terminal-condition", guide, "### Terminal condition", [GUIDE]);
@@ -219,6 +223,51 @@ function runDocs() {
   requireText(result, "source-map-migration-matrix", sourceMap, "hypervisor-kernel-substrate-migration-matrix.md", [
     SOURCE_OF_TRUTH,
   ]);
+  assertCheck(
+    result,
+    "start-here-top-level-shim",
+    /Canonical owner: \[`_meta\/start-here\.md`\]\(\.\/_meta\/start-here\.md\)/.test(startShim) &&
+      /Start with \[`_meta\/start-here\.md`\]\(\.\/_meta\/start-here\.md\)/.test(startShim),
+    ["docs/architecture/START_HERE.md"],
+    "top-level START_HERE shim must point readers at the canonical meta start-here document",
+  );
+  assertCheck(
+    result,
+    "source-map-hypervisor-fleet",
+    /Hypervisor Fleet, autonomous infrastructure manager/.test(sourceMap) &&
+      /\[`fleet\.md`\]\(\.\.\/components\/hypervisor\/fleet\.md\)/.test(sourceMap),
+    [SOURCE_OF_TRUTH, "docs/architecture/components/hypervisor/fleet.md"],
+    "source-of-truth map must name Hypervisor Fleet and its canonical owner doc",
+  );
+  assertCheck(
+    result,
+    "implementation-matrix-hypervisor-fleet",
+    /`HypervisorFleet`/.test(implementationMatrix) &&
+      /`FleetNode`/.test(implementationMatrix) &&
+      /`FleetRuntimeAssignmentView`/.test(implementationMatrix) &&
+      /`FleetStoragePosture`/.test(implementationMatrix) &&
+      /\|\s*planned\s*\|/.test(
+        implementationMatrix.match(/\| `HypervisorFleet`[\s\S]*?\n/)?.[0] ?? "",
+      ),
+    [IMPLEMENTATION_MATRIX],
+    "implementation matrix must keep Fleet objects planned/projection-scoped until runtime receipts and conformance exist",
+  );
+  assertCheck(
+    result,
+    "hypervisor-fleet-boundary-doctrine",
+    /Fleet coordinates and governs\./.test(fleetDoc) &&
+      /Hypervisor Daemon executes\./.test(fleetDoc) &&
+      /wallet\.network authorizes\./.test(fleetDoc) &&
+      /Agentgres records admitted truth\./.test(fleetDoc) &&
+      /It does not execute work, authorize power, admit operational truth, or own\s+payload bytes\./.test(
+        fleetDoc,
+      ) &&
+      /Fleet cannot execute a workload without routing through a Hypervisor Daemon/.test(
+        fleetDoc,
+      ),
+    ["docs/architecture/components/hypervisor/fleet.md"],
+    "Hypervisor Fleet canon must preserve daemon execution, wallet authority, Agentgres truth, and storage-byte boundaries",
+  );
 
   const expectedScripts = new Map([
     ["hypervisor-conformance", "node scripts/conformance/hypervisor-conformance.mjs all"],

@@ -1,14 +1,14 @@
 # ioi.ai Control Plane Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for ioi.ai account, device, restore, publishing, entitlement, and remote-runtime coordination boundaries.
+Canonical owner: this file for ioi.ai account, device, restore, publishing, entitlement, console/Fleet surface, and remote-runtime coordination boundaries.
 Supersedes: product prose that implies ioi.ai owns raw secrets, full traces, user workspaces, always-on execution, or marketplace operational truth.
 Superseded by: none.
 Last alignment pass: 2026-06-01.
 
 ## Canonical Definition
 
-**ioi.ai is the lightweight user/control-plane application domain for IOI accounts, devices, runtime discovery, restore routing, publishing flows, training metadata pointers, sync metadata, billing/entitlements, and remote-runtime coordination.**
+**ioi.ai is the lightweight user/control-plane application domain for IOI accounts, devices, runtime discovery, restore routing, publishing flows, training metadata pointers, sync metadata, billing/entitlements, console/org administration, Hypervisor Fleet web surfaces, and remote-runtime coordination.**
 
 It is not the heavy agent runtime, credential vault, marketplace database, or canonical state store for all user work.
 
@@ -20,12 +20,17 @@ ioi.ai may own:
 - private profile metadata refs and policy pointers, when the profile payload
   itself is encrypted and governed through Agentgres refs;
 - device registrations;
+- node registry and runtime-node inventory metadata;
 - runtime profile registry for a user or org;
 - latest state-root pointers;
 - sealed archive refs and restore routing metadata;
 - publishing flows into aiagent.xyz and sas.xyz;
 - training run metadata pointers and benchmark/job status pointers;
 - remote compute entitlement and billing metadata;
+- provider integration metadata for DePIN, cloud, GPU, storage, customer VPC,
+  and HypervisorOS targets;
+- Hypervisor Fleet web/org/admin surface state for node inventory, fleet status,
+  policy visibility, cost posture, remote access, billing, and team posture;
 - Private Workspace cTEE node status, entitlement, and restore pointers;
 - managed worker instance entitlement pointers when a user's aiagent.xyz
   instance needs restore, billing, or runtime-discovery coordination;
@@ -33,6 +38,8 @@ ioi.ai may own:
 - private app-state sync pointers for encrypted user/app payloads stored behind
   Agentgres artifact refs;
 - lightweight runtime status such as `idle`, `running`, `archived`, or `needs_restore`;
+- lightweight fleet status such as `healthy`, `degraded`, `draining`,
+  `offline`, `needs_restore`, or `policy_blocked`;
 - account-level notification and recovery flows.
 
 ## What ioi.ai Does Not Own
@@ -44,6 +51,8 @@ ioi.ai must not become:
 - a plaintext store for private user/app profile payloads, service intake
   forms, app preferences, workspace snapshots, or non-public service outputs;
 - an always-on VM host by default;
+- the owner of Hypervisor Fleet substrate semantics;
+- the owner of Hypervisor Fleet execution, authority, or truth;
 - the owner of Private Workspace cTEE execution semantics;
 - a store for large trace bundles or artifact bytes;
 - a store for raw training datasets or full training traces by default;
@@ -53,7 +62,53 @@ ioi.ai must not become:
 - the service-order operational truth source;
 - the final settlement authority.
 
-Those roles belong to wallet.network, Agentgres domains, storage backends, aiagent.xyz, sas.xyz, runtime nodes, and IOI L1.
+Those roles belong to Hypervisor Fleet, Hypervisor Daemon runtime nodes,
+wallet.network, Agentgres domains, storage backends, aiagent.xyz, sas.xyz, and
+IOI L1.
+
+## Hypervisor Fleet Surface
+
+`console.ioi.ai` is the natural cloud/org surface for Hypervisor Fleet. It may
+show and coordinate fleet posture, but it does not become Fleet's execution,
+authority, or truth substrate.
+
+```text
+console.ioi.ai Fleet Surface
+  accounts
+  orgs
+  devices
+  entitlements
+  node registry
+  runtime discovery
+  restore routing
+  provider integrations
+  fleet status
+  billing
+  remote access
+  org/admin policy visibility
+```
+
+The companion local/operator lens lives in Hypervisor IDE:
+
+```text
+Hypervisor IDE Fleet Surface
+  attached nodes
+  persistent workspaces
+  active agents/workers/services
+  model mounts
+  cTEE posture
+  receipts and trace summaries
+  approvals
+  logs/replay projections
+  node attach/detach
+  start/stop/resume/archive/restore
+```
+
+Fleet itself is canonically owned by
+[`components/hypervisor/fleet.md`](../../components/hypervisor/fleet.md).
+ioi.ai owns the web/account/org coordination surface for Fleet; Hypervisor IDE
+owns the hands-on operator lens; Hypervisor Daemon executes; wallet.network
+authorizes; Agentgres records admitted truth.
 
 ## Control-Plane Flow
 
@@ -127,13 +182,16 @@ ioi.ai should keep only lightweight records hot:
 
 - user/runtime IDs;
 - device IDs;
+- node IDs, provider IDs, and runtime profile IDs;
 - latest Agentgres state-root pointers;
 - archive CIDs and blob refs;
 - archive schema and policy hashes;
 - encrypted private profile/app-state refs;
 - preferred compute profile;
+- provider integration status and cost/entitlement pointers;
 - Private Workspace profile, guardian pointer, and latest safe state-root pointer;
 - runtime status;
+- fleet status and policy-visibility metadata;
 - restore permissions;
 - retention policy;
 - billing/subscription entitlement;
@@ -161,6 +219,10 @@ Private Workspace backed by cTEE:
   daemon-owned workspace/execution semantics for rented nodes that must stay
   useful without receiving protected plaintext; Candidate-Lattice Private
   Decoding is the default protected-agency strategy
+
+Hypervisor Fleet:
+  autonomous infrastructure inventory, placement, health, cost, cTEE posture,
+  storage posture, receipt/replay projections, and provider coordination
 ```
 
 ## Remote Runtime Coordination
@@ -177,6 +239,20 @@ ioi.ai control plane
 ```
 
 The SDK may submit, inspect, stream, or control the run as a client. It is not the runtime node.
+
+Fleet-driven placement follows the same boundary:
+
+```text
+console.ioi.ai or Hypervisor IDE Fleet surface
+→ Hypervisor Fleet placement/projection
+→ wallet.network authority check
+→ domain kernel/runtime router
+→ Hypervisor Daemon runtime-node profile
+→ Agentgres receipts, state roots, artifact refs, and projection updates
+```
+
+Fleet can recommend or display placement. It does not grant authority, execute
+the workload, or admit truth.
 
 Worker Training and benchmark jobs follow the same boundary:
 
@@ -224,6 +300,8 @@ selected Hypervisor Daemon runtime-node profile.
 - sas.xyz owns service orders, outcome workspaces, deliveries, approvals, disputes, and settlement mirrors.
 - local Hypervisor owns the Hypervisor IDE experience and local projections.
 - Hypervisor Foundry owns the local Worker Training product experience.
+- Hypervisor Fleet owns autonomous infrastructure manager semantics, with
+  surfaces in Hypervisor IDE and console.ioi.ai.
 - wallet.network owns authority, secrets, key leases, payment approvals, and revocation.
 - Agentgres owns operational truth and archive refs.
 - Private Workspace backed by cTEE owns cTEE semantics for persistent rented GPU
@@ -238,8 +316,10 @@ selected Hypervisor Daemon runtime-node profile.
    not raw sealed-state bytes or private user/app plaintext by default.
 4. ioi.ai does not replace aiagent.xyz, sas.xyz, wallet.network, Agentgres, storage backends, or Hypervisor Daemon runtime nodes.
 5. Remote compute entitlement must resolve to explicit runtime assignments, not ambient execution authority.
-6. Shielded node status in ioi.ai is coordination metadata, not proof that the
-   control plane owns private execution or keys.
+6. Private Workspace/cTEE node status in ioi.ai is coordination metadata, not
+   proof that the control plane owns private execution or keys.
+7. Fleet status in ioi.ai is coordination metadata, not proof that ioi.ai owns
+   execution, authority, cTEE custody, Agentgres truth, or payload bytes.
 
 ## One-Line Doctrine
 
