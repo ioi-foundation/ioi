@@ -7133,6 +7133,9 @@ function runReceipts() {
   const storageOperations = exists("packages/runtime-daemon/src/model-mounting/storage-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/storage-operations.mjs")
     : "";
+  const modelDownloadRecordState = exists("packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs")
+    : "";
   const storageOperationsTest = exists("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
     : "";
@@ -8078,6 +8081,15 @@ function runReceipts() {
       /details:\s*\{\s*orphan_count:\s*orphans\.length,\s*projected_freed_bytes:\s*orphanBytes\s*\}/.test(
         storageOperations,
       ) &&
+      /commitModelDownloadRecordState/.test(modelDownloadRecordState) &&
+      /recordDir:\s*"model-downloads"/.test(modelDownloadRecordState) &&
+      /model_mount_download_state_commit_unconfigured/.test(modelDownloadRecordState) &&
+      /model_mount\.download\.cancel/.test(cancelDownloadBlock) &&
+      !/state\.writeMap\("model-downloads"/.test(cancelDownloadBlock) &&
+      /recordStateCommits/.test(storageOperationsTest) &&
+      /cancelDownload fails closed without Rust Agentgres download record-state commit/.test(
+        storageOperationsTest,
+      ) &&
       /notFound\(`Download job not found: \$\{jobId\}`,\s*\{ job_id: jobId \}\)/.test(storageOperations) &&
       !/\b(?:jobId|modelId|providerId|bytesCompleted|bytesTotal|cleanupPartial|cleanupState|projectedFreedBytes|downloadPolicy|artifactId|artifactPathHash|affectedEndpointIds|affectedInstanceIds|endpointIds|scannedFileCount|orphanCount|orphanPathHashes|orphanBytes|removeOrphans|cleanedBytes|removedOrphanCount|destructiveConfirmation)\s*:/.test(
         storageLifecycleReceiptBlocks,
@@ -8095,6 +8107,7 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"artifactId"\)\s*===\s*false/.test(storageOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"orphanCount"\)\s*===\s*false/.test(storageOperationsTest),
     [
+      "packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/storage-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs",
     ],

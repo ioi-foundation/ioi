@@ -22,6 +22,7 @@ function fakeState(root = tempRoot()) {
     endpoints: new Map(),
     instances: new Map(),
     modelRoot: path.join(root, "models"),
+    recordStateCommits: [],
     receipts: [],
     stateDir: path.join(root, "state"),
     writes: [],
@@ -45,6 +46,21 @@ function fakeState(root = tempRoot()) {
     },
     writeMap(name, map) {
       this.writes.push([name, [...map.values()].map((record) => ({ ...record }))]);
+    },
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(JSON.parse(JSON.stringify(request)));
+      return {
+        record_id: request.record_id,
+        commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+          admission: {
+            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+          },
+        },
+      };
     },
     writeProjection() {
       this.projections += 1;
@@ -183,9 +199,51 @@ test("cancelDownload records cleanup and preserves terminal jobs", () => {
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "jobId"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "projectedFreedBytes"), false);
-  assert.equal(state.writes.at(-1)[0], "model-downloads");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
+  assert.equal(state.recordStateCommits[0].record_dir, "model-downloads");
+  assert.equal(state.recordStateCommits[0].record_id, "job.active");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.download.cancel");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.model_download_canceled.1"]);
+  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt.model_download_canceled.1");
   assert.equal(state.projections, 1);
   assert.equal(cancelDownload(state, "job.done", {}, deps).status, "completed");
+});
+
+test("cancelDownload fails closed without Rust Agentgres download record-state commit", () => {
+  const root = tempRoot();
+  const state = fakeState(root);
+  const targetPath = path.join(root, "model.gguf");
+  fs.writeFileSync(`${targetPath}.part`, "partial");
+  state.downloads.set("job.active", {
+    id: "job.active",
+    status: "running",
+    modelId: "llama-test",
+    providerId: "provider.local",
+    targetPath,
+    bytesCompleted: 7,
+    bytesTotal: 10,
+  });
+  delete state.commitRuntimeModelMountRecordState;
+
+  assert.throws(
+    () => cancelDownload(state, "job.active", {}, deps),
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "model_mount_download_state_commit_unconfigured");
+      assert.equal(error.details.record_dir, "model-downloads");
+      assert.equal(error.details.record_id, "job.active");
+      assert.equal(error.details.job_id, "job.active");
+      assert.equal(error.details.model_id, "llama-test");
+      assert.equal(error.details.provider_id, "provider.local");
+      return true;
+    },
+  );
+
+  assert.equal(state.downloads.get("job.active").status, "running");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.projections, 0);
 });
 
 test("deleteModelArtifact rejects retired dry-run alias before artifact lookup", () => {

@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { commitModelDownloadRecordState } from "./model-download-record-state.mjs";
+
 const RETIRED_MODEL_STORAGE_REQUEST_ALIASES = [
   "cleanupPartial",
   "dryRun",
@@ -58,8 +60,8 @@ export function cancelDownload(state, jobId, body = {}, deps = {}) {
     receiptId: receipt.id,
     receiptIds: [...(job.receiptIds ?? []), receipt.id],
   };
+  commitModelDownloadRecordState(state, canceled, "model_mount.download.cancel", [receipt.id]);
   state.downloads.set(jobId, canceled);
-  state.writeMap("model-downloads", state.downloads);
   state.writeProjection();
   return canceled;
 }
