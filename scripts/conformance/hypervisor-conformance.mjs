@@ -986,6 +986,14 @@ function runBridge() {
     /\b(?:schemaVersion|settlementAdmitted|threadId|agentId|settlementRef|domainRef|stateRootRef|triggerRefs|receiptRefs|admissionHash)\s*:/;
   const l1SettlementAdmissionCamelAliasTypePattern =
     /\b(?:schemaVersion|settlementAdmitted|threadId|agentId|settlementRef|domainRef|stateRootRef|triggerRefs|receiptRefs|admissionHash)\?:/;
+  const externalCapabilityAuthorityResultType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeExternalCapabilityExitAuthorityResult[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const externalCapabilityAuthorityCamelAliasPropertyPattern =
+    /\b(?:schemaVersion|exitAuthorized|directTruthWriteAllowed|threadId|agentId|exitRef|capabilityRef|targetRef|policyHash|idempotencyKey|walletNetworkGrantRefs|authorityReceiptRefs|authorityHash)\s*:/;
+  const externalCapabilityAuthorityCamelAliasTypePattern =
+    /\b(?:schemaVersion|exitAuthorized|directTruthWriteAllowed|threadId|agentId|exitRef|capabilityRef|targetRef|policyHash|idempotencyKey|walletNetworkGrantRefs|authorityReceiptRefs|authorityHash)\?:/;
   const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
     ? read("packages/agent-sdk/test/sdk.test.mjs")
     : "";
@@ -2444,6 +2452,51 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 9/10 is pending: daemon external capability exit product route must authorize through the Rust authority runner without minting JS truth",
+  );
+  assertCheck(
+    result,
+    "external-capability-exit-authority-sdk-surface",
+    /authorizeExternalCapabilityExit/.test(agentSdkSubstrateClient) &&
+      /RuntimeExternalCapabilityExitAuthorityInput/.test(agentSdkSubstrateClient) &&
+      /RuntimeExternalCapabilityExitAuthorityResult/.test(agentSdkSubstrateClient) &&
+      /external-capability-exits/.test(agentSdkSubstrateClient) &&
+      /SDK authorizes external capability exits through the thread route/.test(agentSdkTest) &&
+      !externalCapabilityAuthorityCamelAliasPropertyPattern.test(
+        externalCapabilityAuthoritySurface,
+      ) &&
+      !externalCapabilityAuthorityCamelAliasTypePattern.test(
+        externalCapabilityAuthorityResultType,
+      ) &&
+      /direct_truth_write_allowed\?:\s*boolean/.test(
+        externalCapabilityAuthorityResultType,
+      ),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+      "packages/runtime-daemon/src/runtime-external-capability-authority-surface.mjs",
+    ],
+    "Phase 9/11 is pending: SDK external capability clients must call the daemon authority route and expose canonical snake_case authorization fields only",
+  );
+  assertCheck(
+    result,
+    "external-capability-exit-authority-cli-surface",
+    /Runtime\(runtime::RuntimeArgs\)/.test(cliMain) &&
+      /runtime::run\(args\)\.await/.test(cliMain) &&
+      /ExternalCapabilityCommands::Authorize/.test(cliRuntime) &&
+      /external_capability_exits_route/.test(cliRuntime) &&
+      /external-capability-exits/.test(cliRuntime) &&
+      /"source":\s*"cli_client"/.test(cliRuntime) &&
+      /"request":\s*request/.test(cliRuntime) &&
+      /external_capability_route_encodes_thread_id/.test(cliRuntime) &&
+      /external_capability_body_is_cli_authorization_only/.test(cliRuntime) &&
+      !/exit_authorized:\s*true/.test(cliRuntime) &&
+      !/authority_hash:\s*authority/.test(cliRuntime),
+    [
+      "crates/cli/src/main.rs",
+      "crates/cli/src/commands/mod.rs",
+      "crates/cli/src/commands/runtime.rs",
+    ],
+    "Phase 9/11 is pending: CLI external capability client must post authority requests to the daemon route without minting authorization truth",
   );
   assertCheck(
     result,

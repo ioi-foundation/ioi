@@ -1221,6 +1221,47 @@ export interface RuntimeL1SettlementAttemptAdmissionResult extends Record<string
   record?: Record<string, unknown>;
 }
 
+export interface RuntimeExternalCapabilityExitAuthorityRequest extends Record<string, unknown> {
+  schema_version: "ioi.external_capability_exit_authority.v1" | string;
+  exit_ref: string;
+  capability_ref: string;
+  target_ref: string;
+  policy_hash: string;
+  idempotency_key: string;
+  authority_grant_refs: string[];
+  authority_receipt_refs: string[];
+}
+
+export interface RuntimeExternalCapabilityExitAuthorityInput extends Record<string, unknown> {
+  source?: "sdk_client" | "cli_tui" | "react_flow" | string;
+  actor?: string;
+  workflowGraphId?: string;
+  workflow_graph_id?: string;
+  workflowNodeId?: string;
+  workflow_node_id?: string;
+  request: RuntimeExternalCapabilityExitAuthorityRequest | Record<string, unknown>;
+}
+
+export interface RuntimeExternalCapabilityExitAuthorityResult extends Record<string, unknown> {
+  schema_version?: "ioi.runtime.external_capability_authority.v1" | string;
+  object?: "ioi.runtime_external_capability_authority" | string;
+  status: "authorized" | string;
+  exit_authorized?: boolean;
+  direct_truth_write_allowed?: boolean;
+  thread_id?: string;
+  agent_id?: string;
+  exit_ref?: string | null;
+  capability_ref?: string | null;
+  target_ref?: string | null;
+  policy_hash?: string | null;
+  idempotency_key?: string | null;
+  wallet_network_grant_refs?: string[];
+  authority_receipt_refs?: string[];
+  authority_hash?: string | null;
+  authorization?: Record<string, unknown>;
+  authority?: Record<string, unknown>;
+}
+
 export interface RuntimeCteePrivateWorkspaceNodeTrust extends Record<string, unknown> {
   runtime_node_ref: string;
   trusted_for_plaintext: boolean;
@@ -1389,6 +1430,10 @@ export interface RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeL1SettlementAttemptAdmissionInput,
   ): Promise<RuntimeL1SettlementAttemptAdmissionResult>;
+  authorizeExternalCapabilityExit(
+    threadId: string,
+    input: RuntimeExternalCapabilityExitAuthorityInput,
+  ): Promise<RuntimeExternalCapabilityExitAuthorityResult>;
   executeCteePrivateWorkspaceAction(
     threadId: string,
     input: RuntimeCteePrivateWorkspaceActionInput,
@@ -1745,6 +1790,21 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
       "admitL1SettlementAttempt",
       "POST",
       `/v1/threads/${encodePath(threadId)}/l1-settlement-attempts`,
+      {
+        source: "sdk_client",
+        ...input,
+      },
+    );
+  }
+
+  async authorizeExternalCapabilityExit(
+    threadId: string,
+    input: RuntimeExternalCapabilityExitAuthorityInput,
+  ): Promise<RuntimeExternalCapabilityExitAuthorityResult> {
+    return this.request(
+      "authorizeExternalCapabilityExit",
+      "POST",
+      `/v1/threads/${encodePath(threadId)}/external-capability-exits`,
       {
         source: "sdk_client",
         ...input,

@@ -327,6 +327,85 @@ test("SDK admits L1 settlement attempts through the thread route", async () => {
   }
 });
 
+test("SDK authorizes external capability exits through the thread route", async () => {
+  const requests = [];
+  const authorityRequest = {
+    schema_version: "ioi.external_capability_exit_authority.v1",
+    exit_ref: "exit://aiip/slack-post-message",
+    capability_ref: "capability://connector/slack.postMessage",
+    target_ref: "aiip://workspace/channel/runtime",
+    policy_hash: "sha256:external-capability-policy",
+    idempotency_key: "idem:external-capability-exit",
+    authority_grant_refs: [
+      "wallet.network://grant/external-capability/slack-post-message",
+    ],
+    authority_receipt_refs: [
+      "receipt://wallet.network/authority/slack-post-message",
+    ],
+  };
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    requests.push(`${request.method} ${url.pathname}`);
+    response.setHeader("content-type", "application/json");
+    if (
+      request.method === "POST" &&
+      url.pathname === "/v1/threads/thread_sdk/external-capability-exits"
+    ) {
+      const body = await readBody(request);
+      assert.equal(body.source, "sdk_client");
+      assert.equal(body.request.exit_ref, "exit://aiip/slack-post-message");
+      assert.equal(body.request.capability_ref, "capability://connector/slack.postMessage");
+      response.statusCode = 201;
+      response.end(JSON.stringify({
+        schema_version: "ioi.runtime.external_capability_authority.v1",
+        object: "ioi.runtime_external_capability_authority",
+        status: "authorized",
+        exit_authorized: true,
+        direct_truth_write_allowed: false,
+        thread_id: "thread_sdk",
+        agent_id: "agent_sdk",
+        exit_ref: authorityRequest.exit_ref,
+        capability_ref: authorityRequest.capability_ref,
+        target_ref: authorityRequest.target_ref,
+        policy_hash: authorityRequest.policy_hash,
+        idempotency_key: authorityRequest.idempotency_key,
+        wallet_network_grant_refs: authorityRequest.authority_grant_refs,
+        authority_receipt_refs: authorityRequest.authority_receipt_refs,
+        authority_hash: "sha256:external-capability-sdk-authority",
+        authority: {
+          ...authorityRequest,
+          wallet_network_grant_refs: authorityRequest.authority_grant_refs,
+          authority_hash: "sha256:external-capability-sdk-authority",
+        },
+      }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: { code: "not_found", message: "missing route" } }));
+  });
+  await listen(server);
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
+    const result = await client.authorizeExternalCapabilityExit("thread_sdk", {
+      request: authorityRequest,
+    });
+
+    assert.equal(result.status, "authorized");
+    assert.equal(result.exit_authorized, true);
+    assert.equal(result.direct_truth_write_allowed, false);
+    assert.equal(result.exit_ref, "exit://aiip/slack-post-message");
+    assert.deepEqual(result.wallet_network_grant_refs, [
+      "wallet.network://grant/external-capability/slack-post-message",
+    ]);
+    assert.equal(result.authority_hash, "sha256:external-capability-sdk-authority");
+    assert.ok(requests.includes("POST /v1/threads/thread_sdk/external-capability-exits"));
+  } finally {
+    await close(server);
+  }
+});
+
 test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
   const now = new Date().toISOString();
   const events = [

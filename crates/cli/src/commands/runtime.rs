@@ -48,6 +48,12 @@ pub enum RuntimeCommands {
         #[clap(subcommand)]
         command: L1SettlementCommands,
     },
+
+    /// Submit external capability exit authority requests to the daemon.
+    ExternalCapability {
+        #[clap(subcommand)]
+        command: ExternalCapabilityCommands,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -130,6 +136,26 @@ pub struct L1SettlementAdmitArgs {
     pub attempt_file: Option<PathBuf>,
 }
 
+#[derive(Subcommand, Debug)]
+pub enum ExternalCapabilityCommands {
+    /// Authorize an external capability exit through the daemon-mounted Rust authority guard.
+    Authorize(ExternalCapabilityAuthorizeArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct ExternalCapabilityAuthorizeArgs {
+    /// Runtime thread id that owns the authority request.
+    pub thread_id: String,
+
+    /// External capability exit authority request JSON object.
+    #[clap(long, conflicts_with = "request_file")]
+    pub request_json: Option<String>,
+
+    /// Path to an external capability exit authority request JSON file.
+    #[clap(long, conflicts_with = "request_json")]
+    pub request_file: Option<PathBuf>,
+}
+
 pub async fn run(args: RuntimeArgs) -> Result<()> {
     let endpoint = args.endpoint.as_deref();
     let token = args.token.as_deref();
@@ -210,6 +236,25 @@ pub async fn run(args: RuntimeArgs) -> Result<()> {
                 .await?
             }
         },
+        RuntimeCommands::ExternalCapability { command } => match command {
+            ExternalCapabilityCommands::Authorize(authorize_args) => {
+                let request = parse_json_input(
+                    authorize_args.request_json.as_deref(),
+                    authorize_args.request_file.as_ref(),
+                    "external capability authority request",
+                    "--request-json",
+                    "--request-file",
+                )?;
+                daemon_request(
+                    endpoint,
+                    token,
+                    Method::POST,
+                    &external_capability_exits_route(&authorize_args.thread_id),
+                    Some(external_capability_authority_body(request)),
+                )
+                .await?
+            }
+        },
     };
     print_value(&value, args.json)
 }
@@ -242,6 +287,13 @@ pub(crate) fn l1_settlement_attempts_route(thread_id: &str) -> String {
     )
 }
 
+pub(crate) fn external_capability_exits_route(thread_id: &str) -> String {
+    format!(
+        "/v1/threads/{}/external-capability-exits",
+        encode_path_segment(thread_id)
+    )
+}
+
 fn worker_service_package_admission_body(invocation: Value) -> Value {
     json!({
         "source": "cli_client",
@@ -267,6 +319,13 @@ fn l1_settlement_admission_body(attempt: Value) -> Value {
     json!({
         "source": "cli_client",
         "attempt": attempt,
+    })
+}
+
+fn external_capability_authority_body(request: Value) -> Value {
+    json!({
+        "source": "cli_client",
+        "request": request,
     })
 }
 
@@ -350,6 +409,14 @@ mod tests {
         assert_eq!(
             l1_settlement_attempts_route("thread/with spaces"),
             "/v1/threads/thread%2Fwith%20spaces/l1-settlement-attempts"
+        );
+    }
+
+    #[test]
+    fn external_capability_route_encodes_thread_id() {
+        assert_eq!(
+            external_capability_exits_route("thread/with spaces"),
+            "/v1/threads/thread%2Fwith%20spaces/external-capability-exits"
         );
     }
 
@@ -446,6 +513,31 @@ mod tests {
         assert!(body.get("attempt").is_some());
         assert!(body.get("settlement_admitted").is_none());
         assert!(body.get("accepted_receipt_append").is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn external_capability_body_is_cli_authorization_only() -> Result<()> {
+        let request = serde_json::json!({
+            "schema_version": "ioi.external_capability_exit_authority.v1",
+            "exit_ref": "exit://aiip/cli",
+            "capability_ref": "capability://connector/cli",
+            "target_ref": "aiip://target/cli",
+            "policy_hash": "sha256:policy",
+            "idempotency_key": "idem:external-capability-cli",
+            "authority_grant_refs": ["wallet.network://grant/external-capability/cli"],
+            "authority_receipt_refs": ["receipt://wallet.network/authority/cli"]
+        });
+        let body = external_capability_authority_body(request);
+
+        assert_eq!(
+            body.get("source"),
+            Some(&Value::String("cli_client".to_string()))
+        );
+        assert!(body.get("request").is_some());
+        assert!(body.get("exit_authorized").is_none());
+        assert!(body.get("authority_hash").is_none());
+        assert!(body.get("direct_truth_write_allowed").is_none());
         Ok(())
     }
 }
