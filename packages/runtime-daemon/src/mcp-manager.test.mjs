@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   mcpRegistryForWorkspace,
+  normalizeMcpServerRecord,
   validateMcpServerRecords,
 } from "./mcp-manager.mjs";
 
@@ -52,13 +53,16 @@ test("MCP manager registry and server records emit canonical output fields only"
 
   const server = registry.servers[0];
   assert.equal(server.schema_version, "ioi.runtime.mcp-manager-status.v1");
+  assert.equal(server.workspace_root, "/workspace");
   assert.equal(server.server_url, null);
   assert.deepEqual(server.header_names, ["Authorization"]);
   assert.deepEqual(server.allowed_tools, ["search"]);
   assert.equal(server.tool_count, 1);
+  assert.equal(server.containment.workspace_root, "/workspace");
   assert.equal(server.vault_boundary.header_ref_count, 1);
   assert.equal(server.vault_boundary.secret_values_included, false);
   assert.equal(Object.hasOwn(server, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(server, "workspaceRoot"), false);
   assert.equal(Object.hasOwn(server, "serverUrl"), false);
   assert.equal(Object.hasOwn(server, "headerNames"), false);
   assert.equal(Object.hasOwn(server, "allowedTools"), false);
@@ -66,6 +70,7 @@ test("MCP manager registry and server records emit canonical output fields only"
   assert.equal(Object.hasOwn(server, "secretRefs"), false);
   assert.equal(Object.hasOwn(server, "vaultBoundary"), false);
   assert.equal(Object.hasOwn(server, "evidenceRefs"), false);
+  assert.equal(Object.hasOwn(server.containment, "workspaceRoot"), false);
   assert.equal(Object.hasOwn(server.vault_boundary, "headerRefCount"), false);
   assert.equal(Object.hasOwn(server.vault_boundary, "secretValuesIncluded"), false);
 
@@ -101,4 +106,23 @@ test("MCP manager registry and server records emit canonical output fields only"
   assert.equal(Object.hasOwn(prompt, "serverId"), false);
   assert.equal(Object.hasOwn(prompt, "promptArguments"), false);
   assert.equal(Object.hasOwn(prompt, "workflowNodeId"), false);
+});
+
+test("MCP manager server records ignore retired workspaceRoot context alias", () => {
+  const server = normalizeMcpServerRecord(
+    "docs",
+    { transport: "stdio", command: "npx" },
+    {
+      workspace_root: "/workspace",
+      workspaceRoot: "/retired-workspace",
+      source: "test",
+    },
+  );
+
+  assert.equal(server.workspace_root, "/workspace");
+  assert.equal(server.containment.workspace_root, "/workspace");
+  assert.notEqual(server.workspace_root, "/retired-workspace");
+  assert.notEqual(server.containment.workspace_root, "/retired-workspace");
+  assert.equal(Object.hasOwn(server, "workspaceRoot"), false);
+  assert.equal(Object.hasOwn(server.containment, "workspaceRoot"), false);
 });

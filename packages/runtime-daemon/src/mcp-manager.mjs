@@ -25,7 +25,7 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
       for (const [label, config] of Object.entries(source.servers)) {
         servers.push(
           normalizeMcpServerRecord(label, config, {
-            workspaceRoot,
+            workspace_root: workspaceRoot,
             source: source.source,
             sourcePath: source.path,
             sourceScope: source.scope,
@@ -40,7 +40,7 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
     if (sourceMode !== "global") {
       servers.push(
         normalizeMcpServerRecord(label, config, {
-          workspaceRoot,
+          workspace_root: workspaceRoot,
           source: "inline_options",
           sourceScope: "thread",
           configCompatibility: "inline",
@@ -54,7 +54,7 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
       for (const [label, config] of Object.entries(source.servers)) {
         servers.push(
           normalizeMcpServerRecord(label, config, {
-            workspaceRoot,
+            workspace_root: workspaceRoot,
             source: source.source,
             sourcePath: source.path,
             sourceScope: source.scope,
@@ -96,7 +96,7 @@ export function mcpServerRecordsFromValidationInput(input = {}, workspaceRoot) {
         server.label ?? server.name ?? server.id ?? `server_${index + 1}`,
         server,
         {
-          workspaceRoot,
+          workspace_root: workspaceRoot,
           source: server.source ?? "validation_input",
           sourceScope: server.sourceScope ?? server.source_scope ?? "validation",
           status: server.status ?? "configured",
@@ -106,7 +106,7 @@ export function mcpServerRecordsFromValidationInput(input = {}, workspaceRoot) {
   }
   return Object.entries(servers ?? {}).map(([label, config]) =>
     normalizeMcpServerRecord(label, config, {
-      workspaceRoot,
+      workspace_root: workspaceRoot,
       source: "validation_input",
       sourceScope: "validation",
       status: "configured",
@@ -181,7 +181,7 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
       optionalString(config.configCompatibility ?? config.config_compatibility) ??
       optionalString(context.configCompatibility ?? context.config_compatibility) ??
       null,
-    workspace_root: context.workspaceRoot ?? null,
+    workspace_root: context.workspace_root ?? null,
     allowed_tools: declaredTools,
     tool_count: declaredTools.length,
     resources: declaredResources,
@@ -204,7 +204,7 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
           config.containment?.allowChildProcesses ??
           config.command,
       ),
-      workspace_root: context.workspaceRoot ?? null,
+      workspace_root: context.workspace_root ?? null,
     },
     secret_refs: secretRefs,
     vault_boundary: {

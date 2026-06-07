@@ -20499,6 +20499,9 @@ function runCompositor() {
       /server_count:\s*normalizedServers\.length/.test(runtimeMcpManagerRegistryBlock) &&
       /tool_count:\s*tools\.length/.test(runtimeMcpManagerRegistryBlock) &&
       /source_scope:/.test(runtimeMcpManagerServerRecordBlock) &&
+      ((runtimeMcpManagerServerRecordBlock.match(
+        /workspace_root:\s*context\.workspace_root \?\? null/g,
+      ) ?? []).length >= 2) &&
       /allowed_tools:\s*declaredTools/.test(runtimeMcpManagerServerRecordBlock) &&
       /vault_boundary:\s*\{/.test(runtimeMcpManagerServerRecordBlock) &&
       /header_ref_count:\s*Object\.keys\(headerSecretRefs\)\.length/.test(
@@ -20508,6 +20511,17 @@ function runCompositor() {
       /tool_count:\s*tools\.length/.test(runtimeMcpRegistryWithServersBlock) &&
       /Object\.hasOwn\(registry,\s*"schemaVersion"\),\s*false/.test(runtimeMcpManagerTest) &&
       /Object\.hasOwn\(server,\s*"schemaVersion"\),\s*false/.test(runtimeMcpManagerTest) &&
+      /Object\.hasOwn\(server,\s*"workspaceRoot"\),\s*false/.test(runtimeMcpManagerTest) &&
+      /Object\.hasOwn\(server\.containment,\s*"workspaceRoot"\),\s*false/.test(
+        runtimeMcpManagerTest,
+      ) &&
+      /workspaceRoot:\s*"\/retired-workspace"/.test(runtimeMcpManagerTest) &&
+      /assert\.notEqual\(server\.workspace_root,\s*"\/retired-workspace"\)/.test(
+        runtimeMcpManagerTest,
+      ) &&
+      /assert\.notEqual\(server\.containment\.workspace_root,\s*"\/retired-workspace"\)/.test(
+        runtimeMcpManagerTest,
+      ) &&
       /Object\.hasOwn\(server,\s*"vaultBoundary"\),\s*false/.test(runtimeMcpManagerTest) &&
       /Object\.hasOwn\(record,\s*"sourceScope"\),\s*false/.test(runtimeMcpHelpersTest) &&
       /const sourceScope = optionalString\(server\.source_scope\) \?\? "workspace";/.test(
@@ -20523,6 +20537,7 @@ function runCompositor() {
       !/^\s*(?:schemaVersion|serverUrl|headerNames|headerSecretRefs|envSecretRefs|sourcePath|sourceScope|configCompatibility|workspaceRoot|allowedTools|toolCount|resourceCount|promptCount|secretRefs|vaultBoundary|evidenceRefs)\s*:/m.test(
         runtimeMcpManagerServerRecordBlock,
       ) &&
+      !/context\.workspaceRoot\b/.test(runtimeMcpManagerServerRecordBlock) &&
       !/^\s*(?:headerRefCount|envRefCount|secretValuesIncluded|runtimeResolution)\s*:/m.test(
         runtimeMcpManagerServerRecordBlock,
       ) &&
