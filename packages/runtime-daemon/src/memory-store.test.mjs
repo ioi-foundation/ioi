@@ -142,3 +142,74 @@ test("agent memory store fails closed without Rust Agentgres memory-state commit
     fs.rmSync(stateDir, { recursive: true, force: true });
   }
 });
+
+test("agent memory store ignores retired commit option aliases before Rust memory admission", () => {
+  const stateDir = tempStateDir();
+  const requests = [];
+  try {
+    const store = new AgentMemoryStore(stateDir, {
+      commitRuntimeMemoryState(request) {
+        requests.push(request);
+        if (request.receipt_refs.length === 0) {
+          throw new Error("Rust memory admission requires receipt_refs.");
+        }
+        return fakeMemoryCommitter(stateDir)(request);
+      },
+    });
+
+    assert.throws(
+      () =>
+        store.write(
+          {
+            id: "memory.alias",
+            schemaVersion: "ioi.agent-runtime.memory.v1",
+            object: "ioi.agent_memory_record",
+            fact: "Alias options must not cross the Rust boundary.",
+          },
+          {
+            operationKind: "memory.alias",
+            receiptRefs: ["receipt_alias"],
+          },
+        ),
+      /Rust memory admission requires receipt_refs/,
+    );
+    assert.equal(requests[0].memory_state_kind, "record");
+    assert.equal(requests[0].state_id, "memory.alias");
+    assert.equal(requests[0].operation_kind, "memory.write");
+    assert.deepEqual(requests[0].receipt_refs, []);
+    assert.equal(Object.hasOwn(requests[0], "operationKind"), false);
+    assert.equal(Object.hasOwn(requests[0], "receiptRefs"), false);
+
+    store.write(
+      {
+        id: "memory.canonical",
+        schemaVersion: "ioi.agent-runtime.memory.v1",
+        object: "ioi.agent_memory_record",
+        fact: "Canonical options cross the Rust boundary.",
+      },
+      {
+        operation_kind: "memory.canonical",
+        receipt_refs: ["receipt_canonical"],
+      },
+    );
+    assert.equal(requests.at(-1).operation_kind, "memory.canonical");
+    assert.deepEqual(requests.at(-1).receipt_refs, ["receipt_canonical"]);
+
+    store.writePolicy(
+      {
+        id: "memory_policy_thread_alias",
+        schemaVersion: "ioi.agent-runtime.memory-policy.v1",
+        object: "ioi.agent_memory_policy",
+      },
+      {
+        operation_kind: "memory.policy.canonical",
+        receipt_refs: ["receipt_policy_canonical"],
+      },
+    );
+    assert.equal(requests.at(-1).memory_state_kind, "policy");
+    assert.equal(requests.at(-1).operation_kind, "memory.policy.canonical");
+    assert.deepEqual(requests.at(-1).receipt_refs, ["receipt_policy_canonical"]);
+  } finally {
+    fs.rmSync(stateDir, { recursive: true, force: true });
+  }
+});

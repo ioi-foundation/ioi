@@ -11731,12 +11731,16 @@ function runReceipts() {
       /commitMemoryState\(\{/.test(memoryStore) &&
       /RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION/.test(memoryStore) &&
       /Memory persistence requires Rust Agentgres memory-state commit/.test(memoryStore) &&
+      !/\b(?:operationKind|receiptRefs|memoryStateKind|stateId)\b/.test(memoryStore) &&
       !/\bfs\.writeFileSync\(path\.join\(this\.memoryDir/.test(memoryStore) &&
       !/\bfs\.writeFileSync\(path\.join\(this\.policyDir/.test(memoryStore) &&
       /agent memory store commits records, edits, and policies through Rust Agentgres without local operation append/.test(
         read("packages/runtime-daemon/src/memory-store.test.mjs"),
       ) &&
       /agent memory store fails closed without Rust Agentgres memory-state commit/.test(
+        read("packages/runtime-daemon/src/memory-store.test.mjs"),
+      ) &&
+      /agent memory store ignores retired commit option aliases before Rust memory admission/.test(
         read("packages/runtime-daemon/src/memory-store.test.mjs"),
       ),
     [

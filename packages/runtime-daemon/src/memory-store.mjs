@@ -85,8 +85,8 @@ export class AgentMemoryStore {
     };
     this.records.set(id, record);
     this.write(record, {
-      operationKind: "memory.write",
-      receiptRefs: [receipt.id],
+      operation_kind: "memory.write",
+      receipt_refs: [receipt.id],
     });
     return { record, receipt };
   }
@@ -114,8 +114,8 @@ export class AgentMemoryStore {
     });
     this.records.set(updated.id, updated);
     this.write(updated, {
-      operationKind: "memory.edit",
-      receiptRefs: [receipt.id],
+      operation_kind: "memory.edit",
+      receipt_refs: [receipt.id],
     });
     return { record: updated, receipt, operation: "edit" };
   }
@@ -163,13 +163,13 @@ export class AgentMemoryStore {
     return filters.redaction === "redacted" ? limited.map(redactMemoryRecord) : limited;
   }
 
-  write(record, { operationKind = "memory.write", receiptRefs = [] } = {}) {
+  write(record, { operation_kind = "memory.write", receipt_refs = [] } = {}) {
     return this.commitMemoryState({
-      memoryStateKind: "record",
-      stateId: record.id,
-      operationKind,
+      memory_state_kind: "record",
+      state_id: record.id,
+      operation_kind,
       payload: record,
-      receiptRefs,
+      receipt_refs,
     });
   }
 
@@ -270,34 +270,34 @@ export class AgentMemoryStore {
     };
     this.policies.set(id, policy);
     this.writePolicy(policy, {
-      operationKind: "memory.policy",
-      receiptRefs: [receipt.id],
+      operation_kind: "memory.policy",
+      receipt_refs: [receipt.id],
     });
     return { policy, receipt, operation: "policy_update" };
   }
 
-  writePolicy(policy, { operationKind = "memory.policy", receiptRefs = [] } = {}) {
+  writePolicy(policy, { operation_kind = "memory.policy", receipt_refs = [] } = {}) {
     return this.commitMemoryState({
-      memoryStateKind: "policy",
-      stateId: policy.id,
-      operationKind,
+      memory_state_kind: "policy",
+      state_id: policy.id,
+      operation_kind,
       payload: policy,
-      receiptRefs,
+      receipt_refs,
     });
   }
 
-  commitMemoryState({ memoryStateKind, stateId, operationKind, payload, receiptRefs = [] } = {}) {
+  commitMemoryState({ memory_state_kind, state_id, operation_kind, payload, receipt_refs = [] } = {}) {
     if (typeof this.commitRuntimeMemoryState !== "function") {
       throw new Error("Memory persistence requires Rust Agentgres memory-state commit.");
     }
     const commit = this.commitRuntimeMemoryState({
       schema_version: RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION,
-      memory_state_kind: memoryStateKind,
-      state_id: stateId,
-      operation_kind: operationKind,
+      memory_state_kind,
+      state_id,
+      operation_kind,
       storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
       payload,
-      receipt_refs: receiptRefs,
+      receipt_refs,
     });
     return normalizeMemoryStateCommit(commit);
   }
