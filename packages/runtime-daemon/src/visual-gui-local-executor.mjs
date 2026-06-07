@@ -235,7 +235,7 @@ function localExecutorProvider(input) {
           status: "completed",
           provider_id: "fixture",
           action: payload.action,
-          target_point: payload.targetPoint ?? null,
+          target_point: payload.target_point ?? null,
           source_path_included: false,
         };
       },
@@ -252,7 +252,7 @@ function localExecutorProvider(input) {
           status: "completed",
           provider_id: "xdotool",
           action: payload.action,
-          target_point: payload.targetPoint ?? null,
+          target_point: payload.target_point ?? null,
           source_path_included: false,
         };
       },
@@ -268,7 +268,7 @@ function localExecutorProvider(input) {
           status: "completed",
           provider_id: "cliclick",
           action: payload.action,
-          target_point: payload.targetPoint ?? null,
+          target_point: payload.target_point ?? null,
           source_path_included: false,
         };
       },
@@ -278,8 +278,8 @@ function localExecutorProvider(input) {
 }
 
 function executeWithXdotool(xdotool, payload) {
-  if (payload.targetPoint) {
-    execFileSync(xdotool, ["mousemove", String(payload.targetPoint.x), String(payload.targetPoint.y)], execOptions());
+  if (payload.target_point) {
+    execFileSync(xdotool, ["mousemove", String(payload.target_point.x), String(payload.target_point.y)], execOptions());
   }
   if (payload.action === "click") {
     execFileSync(xdotool, ["click", "1"], execOptions());
@@ -298,10 +298,10 @@ function executeWithXdotool(xdotool, payload) {
 
 function executeWithCliclick(cliclick, payload) {
   if (payload.action === "click") {
-    execFileSync(cliclick, [`c:${payload.targetPoint.x},${payload.targetPoint.y}`], execOptions());
+    execFileSync(cliclick, [`c:${payload.target_point.x},${payload.target_point.y}`], execOptions());
   } else if (payload.action === "type_text") {
-    if (payload.targetPoint) {
-      execFileSync(cliclick, [`c:${payload.targetPoint.x},${payload.targetPoint.y}`], execOptions());
+    if (payload.target_point) {
+      execFileSync(cliclick, [`c:${payload.target_point.x},${payload.target_point.y}`], execOptions());
     }
     execFileSync(cliclick, [`t:${payload.text}`], execOptions());
   } else if (payload.action === "key_press") {
@@ -312,26 +312,26 @@ function executeWithCliclick(cliclick, payload) {
 }
 
 function actionPayloadForKind({ input, actionKind, target, prompt }) {
-  const targetPoint = targetCenter(target);
-  if (!targetPoint) return { ok: false, error: "Target bounds do not include a usable center point." };
+  const target_point = targetCenter(target);
+  if (!target_point) return { ok: false, error: "Target bounds do not include a usable center point." };
   if (actionKind === "click") {
-    return { ok: true, value: { action: "click", targetPoint } };
+    return { ok: true, value: { action: "click", target_point } };
   }
   if (actionKind === "type_text") {
     const text = cleanString(input.input_text) ?? textFromPrompt(prompt);
     if (!text) return { ok: false, error: "Approved type_text action requires input_text or a quoted type prompt." };
-    return { ok: true, value: { action: "type_text", targetPoint, text } };
+    return { ok: true, value: { action: "type_text", target_point, text } };
   }
   if (actionKind === "key_press") {
     const key = cleanString(input.key_text) ?? keyFromPrompt(prompt);
     if (!key) return { ok: false, error: "Approved key_press action requires key_text or a key prompt." };
-    return { ok: true, value: { action: "key_press", targetPoint, key } };
+    return { ok: true, value: { action: "key_press", target_point, key } };
   }
   if (actionKind === "scroll") {
     const dy = finiteNumber(input.scroll_y) ?? 0;
     const dx = finiteNumber(input.scroll_x) ?? 0;
     if (dx === 0 && dy === 0) return { ok: false, error: "Approved scroll action requires scroll_x or scroll_y." };
-    return { ok: true, value: { action: "scroll", targetPoint, dx, dy } };
+    return { ok: true, value: { action: "scroll", target_point, dx, dy } };
   }
   return { ok: false, error: `Unsupported visual GUI action ${actionKind}.` };
 }

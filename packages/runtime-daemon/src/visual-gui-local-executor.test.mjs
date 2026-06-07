@@ -199,6 +199,8 @@ test("visual GUI local executor action payloads use canonical fields only", asyn
       });
       assert.equal(result.status, "completed");
       assert.equal(result.execution_receipt.action, expectedAction);
+      assert.deepEqual(result.execution_receipt.target_point, { x: 60, y: 40 });
+      assert.equal(Object.hasOwn(result.execution_receipt, "targetPoint"), false);
     }
   });
 });

@@ -2781,6 +2781,8 @@ function runBridge() {
       ) &&
       /const dy = finiteNumber\(input\.scroll_y\) \?\? 0;/.test(visualGuiLocalExecutor) &&
       /const dx = finiteNumber\(input\.scroll_x\) \?\? 0;/.test(visualGuiLocalExecutor) &&
+      /target_point: payload\.target_point \?\? null/.test(visualGuiLocalExecutor) &&
+      /value: \{ action: "click", target_point \}/.test(visualGuiLocalExecutor) &&
       /visual GUI local executor action payloads use canonical fields only/.test(
         visualGuiLocalExecutorTest,
       ) &&
@@ -2789,14 +2791,19 @@ function runBridge() {
       ) &&
       /inputPatch: \{ inputText: "legacy input" \}/.test(visualGuiLocalExecutorTest) &&
       /inputPatch: \{ scrollY: 240 \}/.test(visualGuiLocalExecutorTest) &&
+      /Object\.hasOwn\(result\.execution_receipt,\s*"targetPoint"\),\s*false/.test(
+        visualGuiLocalExecutorTest,
+      ) &&
       !/\binput\.(?:value|inputText|key|keyText|scrollX|scrollY|dx|dy)\b/.test(
         visualGuiLocalExecutor,
-      ),
+      ) &&
+      !/\bpayload\.targetPoint\b/.test(visualGuiLocalExecutor) &&
+      !/\btargetPoint\b/.test(visualGuiLocalExecutor),
     [
       "packages/runtime-daemon/src/visual-gui-local-executor.mjs",
       "packages/runtime-daemon/src/visual-gui-local-executor.test.mjs",
     ],
-    "Phase 10/11 is pending: visual GUI local-executor action payloads must use canonical input_text/key_text/scroll_x/scroll_y without retired aliases",
+    "Phase 10/11 is pending: visual GUI local-executor action payloads must use canonical input_text/key_text/scroll_x/scroll_y and target_point without retired aliases",
   );
   assertCheck(
     result,
