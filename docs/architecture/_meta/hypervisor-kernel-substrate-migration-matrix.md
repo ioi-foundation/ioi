@@ -9,8 +9,8 @@ Last matrix compaction pass: 2026-06-07, after compacting IDE replay,
 worker-contribution, workspace-trust, receipt-gate, policy, workflow-edit,
 diagnostics-repair, L1 settlement control/workflow, and governed-improvement
 proposal identity facade evidence, and model-mount accepted-receipt transition
-bridge-field/head evidence through slice 652; runtime usage request-metadata
-alias evidence added in slice 653 and awaits the next scheduled compaction pass.
+bridge-field/head evidence, and runtime usage request-metadata alias evidence
+through slice 653.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -13295,62 +13295,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 653
-
-```yaml
-slice: 653
-phase: 10-authoritative-js-facade-retirement
-objective: retire runtime usage request-metadata output aliases
-owner_boundary:
-  route_or_surface: daemon runtime usage request metadata parsed from usage
-    telemetry URLs before projection/envelope decoration
-  authority_gate: unchanged; this slice removes duplicate compatibility output
-    fields and does not grant authority or mutate accepted truth
-  execution_backend: unchanged; usage request metadata remains JS facade
-    parsing over canonical daemon query parameters pending broader Rust
-    projection-core extraction
-  truth_path: request metadata now emits only canonical `event_kind`,
-    `component_kind`, `payload_schema_version`, `workflow_graph_id`,
-    `workflow_node_id`, `usage_meter_scope`, and `simulation_mode` fields
-  projection_path: compositor conformance rejects duplicate camelCase
-    request-metadata fields and retired camelCase URL alias readers
-touched_files:
-  docs:
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  daemon:
-    - packages/runtime-daemon/src/runtime-request-metadata.mjs
-  tests:
-    - packages/runtime-daemon/src/runtime-request-metadata.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - compositor conformance requires runtime usage request metadata to emit
-    canonical snake_case fields only
-  - compositor conformance rejects retired camelCase URL alias readers for
-    usage request metadata
-  - focused daemon tests prove canonical query parameters still populate
-    metadata and retired alias-only query parameters do not
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/runtime-request-metadata.test.mjs
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - node --test packages/runtime-daemon/src/runtime-usage-events.test.mjs packages/runtime-daemon/src/usage-telemetry.test.mjs
-    - npm run hypervisor-conformance:compositor
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal Rust daemon-core projection extraction remains pending beyond
-      this narrow request-metadata facade cleanup
-    - IDE/SDK/public UI projection types may still expose camelCase product
-      fields after canonical daemon protocol boundaries
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13366,7 +13310,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 653 and the eighty-eighth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 653 and the eighty-ninth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
