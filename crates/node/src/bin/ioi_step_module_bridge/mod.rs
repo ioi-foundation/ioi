@@ -4,7 +4,9 @@ use ioi_client::workload_client::{
 use ioi_services::agentic::evolution::{GovernedEvolutionCore, GovernedRuntimeImprovementProposal};
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeRunStateCommitRequest,
-    RuntimeStatePersistenceRecord, StorageBackendWriteProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
+    RuntimeStatePersistenceRecord, RuntimeStateStorageWriteRecord,
+    RuntimeSubagentStateCommitRequest, StorageBackendWriteProposal,
+    AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
 use ioi_services::agentic::runtime::kernel::approval::{
     ApprovalDecisionStateUpdateCore, ApprovalDecisionStateUpdateRequest,
@@ -536,6 +538,17 @@ struct RuntimeRunStateCommitBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct RuntimeSubagentStateCommitBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    state_dir: String,
+    request: RuntimeSubagentStateCommitRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct ExternalCapabilityExitAuthorityBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -841,6 +854,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             commit_runtime_run_state(request)
+        }
+        "commit_runtime_subagent_state" => {
+            let request: RuntimeSubagentStateCommitBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            commit_runtime_subagent_state(request)
         }
         other => Err(BridgeError::new(
             "operation_unsupported",
@@ -2837,6 +2856,59 @@ fn commit_runtime_run_state(
     }))
 }
 
+fn commit_runtime_subagent_state(
+    request: RuntimeSubagentStateCommitBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "commit_runtime_subagent_state" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = AgentgresAdmissionCore
+        .commit_runtime_subagent_state(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "runtime_subagent_state_commit_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    let written_record = write_runtime_state_storage_record(
+        &request.state_dir,
+        &record.record,
+        &request.request.subagent,
+    )?;
+    Ok(json!({
+        "source": "rust_agentgres_runtime_subagent_state_commit_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "record": record.clone(),
+        "storage_record": record.record.clone(),
+        "subagent_id": record.subagent_id.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "storage_backend_ref": record.storage_backend_ref.clone(),
+        "object_ref": record.record.object_ref.clone(),
+        "content_hash": record.record.content_hash.clone(),
+        "payload_refs": record.record.payload_refs.clone(),
+        "receipt_refs": record.record.receipt_refs.clone(),
+        "admission_hash": record.record.admission.admission_hash.clone(),
+        "commit_hash": record.commit_hash.clone(),
+        "written_record": written_record,
+        "evidence_refs": [
+            "rust_agentgres_runtime_subagent_state_commit",
+            record.commit_hash,
+        ],
+    }))
+}
+
 fn write_runtime_state_persistence_records(
     state_dir: &str,
     record: &RuntimeStatePersistenceRecord,
@@ -2882,6 +2954,35 @@ fn write_runtime_state_persistence_records(
         }));
     }
     Ok(written_records)
+}
+
+fn write_runtime_state_storage_record(
+    state_dir: &str,
+    record: &RuntimeStateStorageWriteRecord,
+    payload: &Value,
+) -> Result<Value, BridgeError> {
+    let state_root = ensure_runtime_state_dir(state_dir)?;
+    let target = runtime_state_record_path(&state_root, &record.record_path)?;
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            BridgeError::new("runtime_state_record_dir_create_failed", error.to_string())
+        })?;
+    }
+    let payload = serde_json::to_string_pretty(payload)
+        .map_err(|error| BridgeError::new("runtime_state_record_json_failed", error.to_string()))?;
+    let file_content = format!("{payload}\n");
+    fs::write(&target, file_content.as_bytes()).map_err(|error| {
+        BridgeError::new("runtime_state_record_write_failed", error.to_string())
+    })?;
+    Ok(json!({
+        "record_path": record.record_path,
+        "absolute_path": target.to_string_lossy(),
+        "object_ref": record.object_ref,
+        "content_hash": record.content_hash,
+        "payload_refs": record.payload_refs,
+        "receipt_refs": record.receipt_refs,
+        "admission_hash": record.admission.admission_hash,
+    }))
 }
 
 fn ensure_runtime_state_dir(state_dir: &str) -> Result<PathBuf, BridgeError> {
@@ -8202,6 +8303,60 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_agentgres_runtime_run_state_commit"));
+    }
+
+    #[test]
+    fn bridge_commits_runtime_subagent_state_through_rust_core() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let state_dir = temp.path().join("runtime-state");
+        let request: RuntimeSubagentStateCommitBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "commit_runtime_subagent_state",
+            "backend": "rust_agentgres_storage",
+            "state_dir": state_dir,
+            "request": {
+                "schema_version": "ioi.runtime_subagent_state_commit.v1",
+                "subagent_id": "subagent_1",
+                "operation_kind": "subagent.wait",
+                "storage_backend_ref": "storage://runtime-agentgres/local-json",
+                "subagent": {
+                    "subagent_id": "subagent_1",
+                    "parent_thread_id": "thread_1",
+                    "agent_id": "agent_1",
+                    "role": "research",
+                    "lifecycle_status": "completed",
+                    "updated_at": "2026-06-06T00:00:00.000Z",
+                    "receipt_refs": ["receipt_subagent"]
+                }
+            }
+        }))
+        .expect("runtime subagent-state commit bridge request");
+
+        let response = commit_runtime_subagent_state(request).expect("subagent state committed");
+
+        assert_eq!(
+            response["source"],
+            "rust_agentgres_runtime_subagent_state_commit_command"
+        );
+        assert_eq!(response["subagent_id"], "subagent_1");
+        assert_eq!(response["operation_kind"], "subagent.wait");
+        assert!(response["commit_hash"]
+            .as_str()
+            .expect("commit hash")
+            .starts_with("sha256:"));
+        assert!(state_dir.join("subagents/subagent_1.json").exists());
+        let subagent_record = fs::read_to_string(state_dir.join("subagents/subagent_1.json"))
+            .expect("subagent record");
+        assert!(subagent_record.contains("\"subagent_id\": \"subagent_1\""));
+        assert_eq!(
+            response["written_record"]["object_ref"],
+            "agentgres://runtime-state/subagents/subagent_1/records/subagents/subagent_1.json"
+        );
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_agentgres_runtime_subagent_state_commit"));
     }
 
     #[test]

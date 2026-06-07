@@ -46,6 +46,17 @@ export class RustRuntimeAgentgresAdmissionRunner {
     return normalizeRuntimeRunStateCommitBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
+  commitRuntimeSubagentState(stateDir, request) {
+    const bridgeRequest = {
+      schema_version: RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
+      operation: "commit_runtime_subagent_state",
+      backend: RUST_AGENTGRES_STORAGE_BACKEND,
+      state_dir: stateDir,
+      request,
+    };
+    return normalizeRuntimeSubagentStateCommitBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
   invokeBridge(request) {
     if (this.mockResult) {
       const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
@@ -170,6 +181,31 @@ export function normalizeRuntimeRunStateCommitBridgeResult(value = {}) {
     write_set_hash: result.write_set_hash ?? storageWriteSet.write_set_hash ?? null,
     persistence_hash: result.persistence_hash ?? persistence.persistence_hash ?? null,
     commit_hash: result.commit_hash ?? record.commit_hash ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+  };
+}
+
+export function normalizeRuntimeSubagentStateCommitBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.record && typeof result.record === "object" ? result.record : {};
+  const storageRecord = result.storage_record && typeof result.storage_record === "object"
+    ? result.storage_record
+    : record.record ?? {};
+  return {
+    source: result.source ?? "rust_agentgres_runtime_subagent_state_commit_command",
+    backend: result.backend ?? RUST_AGENTGRES_STORAGE_BACKEND,
+    record,
+    storage_record: storageRecord,
+    subagent_id: result.subagent_id ?? record.subagent_id ?? null,
+    operation_kind: result.operation_kind ?? record.operation_kind ?? null,
+    storage_backend_ref: result.storage_backend_ref ?? record.storage_backend_ref ?? null,
+    object_ref: result.object_ref ?? storageRecord.object_ref ?? null,
+    content_hash: result.content_hash ?? storageRecord.content_hash ?? null,
+    payload_refs: Array.isArray(result.payload_refs) ? result.payload_refs : storageRecord.payload_refs ?? [],
+    receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : storageRecord.receipt_refs ?? [],
+    admission_hash: result.admission_hash ?? storageRecord.admission?.admission_hash ?? null,
+    commit_hash: result.commit_hash ?? record.commit_hash ?? null,
+    written_record: result.written_record ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
   };
 }

@@ -34,8 +34,9 @@ use agentgres_admission::{
     RuntimeStatePersistenceRecord, RuntimeStatePersistenceRequest,
     RuntimeStateRecordMaterializationRecord, RuntimeStateRecordMaterializationRequest,
     RuntimeStateStorageWriteSetRecord, RuntimeStateStorageWriteSetRequest,
-    RuntimeStateTransitionRecord, RuntimeStateTransitionRequest,
-    StorageBackendWriteAdmissionRecord, StorageBackendWriteProposal,
+    RuntimeStateTransitionRecord, RuntimeStateTransitionRequest, RuntimeSubagentStateCommitRecord,
+    RuntimeSubagentStateCommitRequest, StorageBackendWriteAdmissionRecord,
+    StorageBackendWriteProposal,
 };
 use approval::{
     ApprovalDecisionStateUpdateCore, ApprovalDecisionStateUpdateError,
@@ -511,6 +512,13 @@ impl RuntimeKernelService {
         request: &RuntimeRunStateCommitRequest,
     ) -> Result<RuntimeRunStateCommitRecord, AgentgresAdmissionError> {
         AgentgresAdmissionCore.commit_runtime_run_state(request)
+    }
+
+    pub fn commit_runtime_subagent_state(
+        &self,
+        request: &RuntimeSubagentStateCommitRequest,
+    ) -> Result<RuntimeSubagentStateCommitRecord, AgentgresAdmissionError> {
+        AgentgresAdmissionCore.commit_runtime_subagent_state(request)
     }
 
     pub fn validate_private_workspace_ctee_invocation(

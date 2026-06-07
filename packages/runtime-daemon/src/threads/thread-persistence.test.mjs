@@ -36,6 +36,7 @@ function fakeStore() {
     storageWriteSetRequests: [],
     subagents: new Map(),
     commitRequests: [],
+    subagentCommitRequests: [],
     persistenceEvents: [],
     persistenceRequests: [],
     rustWrites: [],
@@ -180,6 +181,60 @@ function fakeStore() {
         evidence_refs: ["rust_agentgres_runtime_run_state_commit"],
       };
     },
+    commitRuntimeSubagentState(request) {
+      this.subagentCommitRequests.push(request);
+      const filePath = `subagents/${request.subagent_id}.json`;
+      const objectRef = `agentgres://runtime-state/subagents/${request.subagent_id}/records/${filePath}`;
+      const payloadRefs = [`payload://runtime/subagents/${request.subagent_id}/records/${filePath}`];
+      const receiptRefs = request.subagent.receipt_refs ?? [];
+      const admission = {
+        schema_version: "ioi.storage_backend_write_admission.v1",
+        storage_backend_ref: request.storage_backend_ref,
+        object_ref: objectRef,
+        content_hash: "sha256:subagent-content",
+        artifact_refs: [],
+        payload_refs: payloadRefs,
+        receipt_refs: receiptRefs,
+        admission_hash: "sha256:subagent-admission",
+      };
+      this.storageWriteAdmissions.push(admission);
+      this.persistenceEvents.push({ type: "storage_admission", objectRef });
+      this.persistenceEvents.push({ type: "rust_write_json", filePath });
+      this.rustWrites.push({ filePath, objectRef });
+      return {
+        source: "rust_agentgres_runtime_subagent_state_commit_command",
+        record: {
+          schema_version: "ioi.runtime_subagent_state_commit.v1",
+          subagent_id: request.subagent_id,
+          operation_kind: request.operation_kind,
+          storage_backend_ref: request.storage_backend_ref,
+          record: {
+            record_path: filePath,
+            object_ref: objectRef,
+            content_hash: admission.content_hash,
+            artifact_refs: [],
+            payload_refs: payloadRefs,
+            receipt_refs: receiptRefs,
+            admission,
+          },
+          commit_hash: "sha256:subagent-commit",
+        },
+        subagent_id: request.subagent_id,
+        object_ref: objectRef,
+        content_hash: admission.content_hash,
+        admission_hash: admission.admission_hash,
+        commit_hash: "sha256:subagent-commit",
+        written_record: {
+          record_path: filePath,
+          object_ref: objectRef,
+          content_hash: admission.content_hash,
+          payload_refs: payloadRefs,
+          receipt_refs: receiptRefs,
+          admission_hash: admission.admission_hash,
+        },
+        evidence_refs: ["rust_agentgres_runtime_subagent_state_commit"],
+      };
+    },
     registerRuntimeEvent(record) {
       this.registeredEvents.push(record);
     },
@@ -215,20 +270,29 @@ test("thread persistence writes agent records without operation entries", () => 
   assert.deepEqual(store.operations, []);
 });
 
-test("thread persistence writes subagent records without operation entries", () => {
+test("thread persistence commits subagent records through Rust Agentgres", () => {
   const store = fakeStore();
   const subagent = {
-    subagentId: "subagent_1",
-    parentThreadId: "thread_1",
-    agentId: "agent_1",
+    subagent_id: "subagent_1",
+    parent_thread_id: "thread_1",
+    agent_id: "agent_1",
     lifecycle_status: "running",
     role: "research",
+    updated_at: "2026-06-06T00:00:00.000Z",
+    receipt_refs: ["receipt_subagent"],
   };
 
   writeSubagentRecord(store, subagent, "subagent.spawn", deps(store));
 
   assert.equal(store.subagents.get("subagent_1"), subagent);
-  assert.deepEqual(store.writes, [{ filePath: "subagents/subagent_1.json", value: subagent }]);
+  assert.equal(store.subagentCommitRequests.length, 1);
+  assert.equal(store.subagentCommitRequests[0].schema_version, "ioi.runtime_subagent_state_commit.v1");
+  assert.equal(store.subagentCommitRequests[0].subagent_id, "subagent_1");
+  assert.equal(store.subagentCommitRequests[0].operation_kind, "subagent.spawn");
+  assert.deepEqual(store.subagentCommitRequests[0].subagent, subagent);
+  assert.deepEqual(store.writes, []);
+  assert.deepEqual(store.rustWrites.map((write) => write.filePath), ["subagents/subagent_1.json"]);
+  assert.deepEqual(store.storageWriteAdmissions.at(-1).receipt_refs, ["receipt_subagent"]);
   assert.deepEqual(store.operations, []);
 });
 

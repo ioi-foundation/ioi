@@ -62,6 +62,23 @@ function commitRequest() {
   };
 }
 
+function subagentCommitRequest() {
+  return {
+    schema_version: "ioi.runtime_subagent_state_commit.v1",
+    subagent_id: "subagent_1",
+    operation_kind: "subagent.wait",
+    storage_backend_ref: "storage://runtime-agentgres/local-json",
+    subagent: {
+      subagent_id: "subagent_1",
+      parent_thread_id: "thread_1",
+      agent_id: "agent_1",
+      lifecycle_status: "completed",
+      updated_at: "2026-06-06T00:00:00.000Z",
+      receipt_refs: ["receipt_subagent"],
+    },
+  };
+}
+
 test("runtime Agentgres runner sends runtime run-state commit bridge request", () => {
   const calls = [];
   const runner = new RustRuntimeAgentgresAdmissionRunner({
@@ -171,6 +188,66 @@ test("runtime Agentgres runner sends storage write admission bridge request", ()
   assert.equal(result.admission_hash, "sha256:storage-admission");
   assert.equal(result.object_ref, "agentgres://runtime-state/runs/run_1/records/runs/run_1.json");
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_storage_write_admission"]);
+});
+
+test("runtime Agentgres runner sends runtime subagent-state commit bridge request", () => {
+  const calls = [];
+  const runner = new RustRuntimeAgentgresAdmissionRunner({
+    command: "mock-runtime-agentgres-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_agentgres_runtime_subagent_state_commit_command",
+            backend: RUST_AGENTGRES_STORAGE_BACKEND,
+            record: {
+              schema_version: "ioi.runtime_subagent_state_commit.v1",
+              subagent_id: "subagent_1",
+              operation_kind: "subagent.wait",
+              storage_backend_ref: "storage://runtime-agentgres/local-json",
+              record: {
+                record_path: "subagents/subagent_1.json",
+                object_ref: "agentgres://runtime-state/subagents/subagent_1/records/subagents/subagent_1.json",
+                content_hash: "sha256:subagent-content",
+                payload_refs: ["payload://runtime/subagents/subagent_1/records/subagents/subagent_1.json"],
+                receipt_refs: ["receipt_subagent"],
+                admission: {
+                  admission_hash: "sha256:subagent-admission",
+                },
+              },
+              commit_hash: "sha256:subagent-commit",
+            },
+            subagent_id: "subagent_1",
+            object_ref: "agentgres://runtime-state/subagents/subagent_1/records/subagents/subagent_1.json",
+            content_hash: "sha256:subagent-content",
+            admission_hash: "sha256:subagent-admission",
+            commit_hash: "sha256:subagent-commit",
+            written_record: {
+              record_path: "subagents/subagent_1.json",
+            },
+            evidence_refs: ["rust_agentgres_runtime_subagent_state_commit"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.commitRuntimeSubagentState("/runtime-state", subagentCommitRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "commit_runtime_subagent_state");
+  assert.equal(calls[0].request.backend, RUST_AGENTGRES_STORAGE_BACKEND);
+  assert.equal(calls[0].request.state_dir, "/runtime-state");
+  assert.equal(calls[0].request.request.subagent_id, "subagent_1");
+  assert.equal(result.subagent_id, "subagent_1");
+  assert.equal(result.commit_hash, "sha256:subagent-commit");
+  assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_subagent_state_commit"]);
 });
 
 test("runtime Agentgres runner requires explicit runtime admission command env", () => {

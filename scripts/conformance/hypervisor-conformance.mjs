@@ -9487,7 +9487,10 @@ function runReceipts() {
       /thread persistence writes agent records without operation entries/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
-      /thread persistence writes subagent records without operation entries/.test(
+      /thread persistence commits subagent records through Rust Agentgres/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /subagentCommitRequests\[0\]\.operation_kind/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ),
     [
@@ -9825,6 +9828,52 @@ function runReceipts() {
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
     ],
     "Phase 5/11 is pending: run-state sidecar records must be materialized, storage-admitted, and persisted by Rust before durable local JSON mutation",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-state-storage-write-rust-admitted",
+    /RUNTIME_SUBAGENT_STATE_COMMIT_SCHEMA_VERSION/.test(agentgresAdmissionCore) &&
+      /RuntimeSubagentStateCommitRequest/.test(agentgresAdmissionCore) &&
+      /RuntimeSubagentStateCommitRecord/.test(agentgresAdmissionCore) &&
+      /commit_runtime_subagent_state/.test(agentgresAdmissionCore) &&
+      /commits_runtime_subagent_state_with_storage_admission/.test(agentgresAdmissionCore) &&
+      /runtime_subagent_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
+      /runtime_subagent_state_commit_rejects_mismatched_subagent_id/.test(agentgresAdmissionCore) &&
+      /pub fn commit_runtime_subagent_state/.test(runtimeKernelModule) &&
+      /commit_runtime_subagent_state/.test(bridgeModule) &&
+      /RuntimeSubagentStateCommitBridgeRequest/.test(bridgeModule) &&
+      /rust_agentgres_runtime_subagent_state_commit_command/.test(bridgeModule) &&
+      /bridge_commits_runtime_subagent_state_through_rust_core/.test(bridgeModule) &&
+      /commitRuntimeSubagentState/.test(runtimeAgentgresRunner) &&
+      /normalizeRuntimeSubagentStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
+      /runtime Agentgres runner sends runtime subagent-state commit bridge request/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /commitRuntimeSubagentState\(request\)/.test(runtimeDaemonIndex) &&
+      /commitSubagentState\(store, subagent/.test(threadPersistence) &&
+      /RUNTIME_SUBAGENT_STATE_COMMIT_SCHEMA_VERSION/.test(threadPersistence) &&
+      /Subagent persistence requires Rust Agentgres subagent-state commit/.test(threadPersistence) &&
+      !/\bwriteJson\(store\.pathFor\("subagents"/.test(writeSubagentRecordBody) &&
+      /thread persistence commits subagent records through Rust Agentgres/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /subagentCommitRequests\[0\]\.schema_version/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /"subagents\/subagent_1\.json"/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-persistence.mjs",
+      "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 5/11 is pending: subagent lifecycle records must be persisted through Rust Agentgres storage admission instead of direct JS file writes",
   );
   assertCheck(
     result,
