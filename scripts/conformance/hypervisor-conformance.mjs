@@ -9663,6 +9663,26 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-provider-inventory-artifact-record-state",
+    /commitModelArtifactRecordState/.test(providerOperations) &&
+      /model_mount\.artifact\.provider_inventory/.test(providerOperations) &&
+      /recordDir:\s*"model-artifacts"/.test(modelArtifactRecordState) &&
+      /model_mount_artifact_state_commit_unconfigured/.test(modelArtifactRecordState) &&
+      !/state\.writeMap\("model-artifacts"/.test(providerOperations) &&
+      /provider model inventory artifacts fail closed without Rust Agentgres record-state commit/.test(
+        providerOperationsTest,
+      ) &&
+      /model_mount\.artifact\.provider_inventory/.test(providerOperationsTest) &&
+      /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(providerOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
+    ],
+    "Phase 9/10 is pending: provider-discovered model artifacts must commit through Rust Agentgres record-state admission instead of direct JS map persistence",
+  );
+  assertCheck(
+    result,
     "model-mount-provider-operation-detail-aliases-retired",
     /provider_id:\s*providerId/.test(providerOperations) &&
       /provider_kind:\s*provider\.kind/.test(providerOperations) &&
