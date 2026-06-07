@@ -13753,6 +13753,12 @@ function runCompositor() {
   const agentSdkMessagesForRuntime = exists("packages/agent-sdk/src/messages.ts")
     ? read("packages/agent-sdk/src/messages.ts")
     : "";
+  const agentSdkRuntimeRunRecordBlock =
+    agentSdkSubstrateClient.match(/export interface RuntimeRunRecord[\s\S]*?\n}\n/)?.[0] ?? "";
+  const agentSdkMessageRuntimeThreadRecordBlock =
+    agentSdkMessagesForRuntime.match(/export interface RuntimeThreadRecord[\s\S]*?\n}\n/)?.[0] ?? "";
+  const agentSdkMessageRuntimeTraceBundleBlock =
+    agentSdkMessagesForRuntime.match(/export interface RuntimeTraceBundle[\s\S]*?\n}\n/)?.[0] ?? "";
   const runtimeThreadMemoryState = exists("packages/runtime-daemon/src/threads/thread-memory-state.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-memory-state.mjs")
     : "";
@@ -17076,6 +17082,48 @@ function runCompositor() {
       ),
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: SDK runtime usage list request/result types and query helpers must not advertise or emit retired aliases",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-runtime-usage-record-aliases-retired",
+    agentSdkRuntimeRunRecordBlock.length > 0 &&
+      agentSdkMessageRuntimeThreadRecordBlock.length > 0 &&
+      agentSdkMessageRuntimeTraceBundleBlock.length > 0 &&
+      /^\s*usage\?: RuntimeUsageTelemetry \| null;/m.test(
+        agentSdkRuntimeRunRecordBlock,
+      ) &&
+      /^\s*usage_telemetry\?: RuntimeUsageTelemetry \| null;/m.test(
+        agentSdkRuntimeRunRecordBlock,
+      ) &&
+      /^\s*usage\?: RuntimeUsageRecord \| null;/m.test(
+        agentSdkMessageRuntimeThreadRecordBlock,
+      ) &&
+      /^\s*usage_telemetry\?: RuntimeUsageRecord \| null;/m.test(
+        agentSdkMessageRuntimeThreadRecordBlock,
+      ) &&
+      /^\s*runtime_usage\?: RuntimeUsageRecord \| null;/m.test(
+        agentSdkMessageRuntimeThreadRecordBlock,
+      ) &&
+      /^\s*usage\?: RuntimeUsageRecord \| null;/m.test(
+        agentSdkMessageRuntimeTraceBundleBlock,
+      ) &&
+      /^\s*usage_telemetry\?: RuntimeUsageRecord \| null;/m.test(
+        agentSdkMessageRuntimeTraceBundleBlock,
+      ) &&
+      !/^\s*(?:usageTelemetry|runtimeUsage)\?:/m.test(
+        agentSdkRuntimeRunRecordBlock,
+      ) &&
+      !/^\s*(?:usageTelemetry|runtimeUsage)\?:/m.test(
+        agentSdkMessageRuntimeThreadRecordBlock,
+      ) &&
+      !/^\s*(?:usageTelemetry|runtimeUsage)\?:/m.test(
+        agentSdkMessageRuntimeTraceBundleBlock,
+      ),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/src/messages.ts",
+    ],
+    "Phase 10/11 is pending: SDK runtime run/thread/trace records must not advertise retired usageTelemetry/runtimeUsage aliases",
   );
   assertCheck(
     result,

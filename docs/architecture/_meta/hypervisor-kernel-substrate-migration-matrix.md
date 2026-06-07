@@ -11299,6 +11299,11 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
+- Slice 572 retires SDK runtime usage record aliases: run/thread/trace SDK
+  contracts still expose canonical `usage` and `usage_telemetry` records, plus
+  current `runtime_usage` where that snake_case field remains part of the thread
+  record, but no longer advertise retired `usageTelemetry` or `runtimeUsage`
+  aliases after daemon projections stopped emitting them.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

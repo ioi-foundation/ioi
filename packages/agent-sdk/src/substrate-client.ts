@@ -171,8 +171,6 @@ export interface RuntimeRunRecord {
   subagentMemoryInheritance?: SubagentMemoryInheritanceProjection | null;
   usage?: RuntimeUsageTelemetry | null;
   usage_telemetry?: RuntimeUsageTelemetry | null;
-  usageTelemetry?: RuntimeUsageTelemetry | null;
-  runtimeUsage?: RuntimeUsageTelemetry | null;
   result: string;
 }
 

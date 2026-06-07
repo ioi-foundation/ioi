@@ -257,9 +257,7 @@ export interface RuntimeThreadRecord {
   runtime_controls?: RuntimeThreadControls | null;
   usage?: RuntimeUsageRecord | null;
   usage_telemetry?: RuntimeUsageRecord | null;
-  usageTelemetry?: RuntimeUsageRecord | null;
   runtime_usage?: RuntimeUsageRecord | null;
-  runtimeUsage?: RuntimeUsageRecord | null;
 }
 
 export interface RuntimeThreadControls {
@@ -422,8 +420,6 @@ export interface RuntimeTraceBundle {
   subagentMemoryInheritance?: SubagentMemoryInheritanceProjection | null;
   usage?: RuntimeUsageRecord | null;
   usage_telemetry?: RuntimeUsageRecord | null;
-  usageTelemetry?: RuntimeUsageRecord | null;
-  runtimeUsage?: RuntimeUsageRecord | null;
   computerUse?: {
     environmentSelection: unknown;
     lease: unknown;
