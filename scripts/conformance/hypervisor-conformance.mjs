@@ -20532,6 +20532,33 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-context-lifecycle-event-evidence-aliases-retired",
+    /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeContextLifecyclePanel) &&
+      /arrayField\(event,\s*"policy_decision_refs"\)/.test(agentIdeContextLifecyclePanel) &&
+      !/arrayField\(event,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/arrayField\(event,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      /context lifecycle panel ignores retired event evidence aliases/.test(
+        agentIdeContextLifecyclePanelTest,
+      ) &&
+      /receiptRefs: \["receipt-context-retired"\]/.test(agentIdeContextLifecyclePanelTest) &&
+      /policyDecisionRefs: \["policy-context-retired"\]/.test(
+        agentIdeContextLifecyclePanelTest,
+      ) &&
+      /assert\.equal\(panel\.missingReceiptCount,\s*1\)/.test(
+        agentIdeContextLifecyclePanelTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE context lifecycle rows must ignore retired camelCase event evidence aliases",
+  );
+  assertCheck(
+    result,
     "ide-signed-replay-evidence-aliases-retired",
     /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeSignedReplayNotebook) &&
       /arrayField\(event,\s*"artifact_refs"\)/.test(agentIdeSignedReplayNotebook) &&

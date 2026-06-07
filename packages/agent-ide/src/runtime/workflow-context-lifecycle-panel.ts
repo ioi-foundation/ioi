@@ -282,8 +282,8 @@ function baseRow(
     workflowNodeId:
       stringField(event, "workflowNodeId", "workflow_node_id") ??
       stringField(payload, "workflowNodeId", "workflow_node_id"),
-    receiptRefs: uniqueStrings(arrayField(event, "receiptRefs", "receipt_refs")),
-    policyDecisionRefs: uniqueStrings(arrayField(event, "policyDecisionRefs", "policy_decision_refs")),
+    receiptRefs: uniqueStrings(arrayField(event, "receipt_refs")),
+    policyDecisionRefs: uniqueStrings(arrayField(event, "policy_decision_refs")),
     ...fields,
   };
 }

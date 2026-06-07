@@ -11442,6 +11442,11 @@ context-compaction rows now read canonical `compacted_tokens` only, so retired
 camelCase `compactedTokens` payloads cannot make old compaction events look
 token-accounted.
 
+Slice 543 retires IDE context-lifecycle event evidence aliases: context
+lifecycle rows now read canonical event `receipt_refs` and
+`policy_decision_refs` only, so retired camelCase event evidence refs cannot
+make old context lifecycle rows look receipt-backed or policy-backed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

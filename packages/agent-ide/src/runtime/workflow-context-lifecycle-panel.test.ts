@@ -294,3 +294,51 @@ test("context lifecycle panel ignores retired context compaction payload aliases
   assert.equal(panel.rows[0]?.rowKind, "context_compaction");
   assert.equal(panel.rows[0]?.totalTokens, null);
 });
+
+test("context lifecycle panel reads canonical event evidence refs", () => {
+  const panel = buildWorkflowContextLifecyclePanel({
+    events: [
+      event("budget-evidence-canonical", 1, {
+        componentKind: "context_budget",
+        receipt_refs: ["receipt-context-canonical"],
+        policy_decision_refs: ["policy-context-canonical"],
+        payload: {
+          status: "ready",
+          usage_summary: {
+            total_tokens: 2048,
+          },
+        },
+      }),
+    ],
+  });
+
+  assert.equal(panel.rows.length, 1);
+  assert.deepEqual(panel.rows[0]?.receiptRefs, ["receipt-context-canonical"]);
+  assert.deepEqual(panel.rows[0]?.policyDecisionRefs, ["policy-context-canonical"]);
+  assert.deepEqual(panel.evidenceRefs, ["receipt-context-canonical"]);
+  assert.equal(panel.missingReceiptCount, 0);
+});
+
+test("context lifecycle panel ignores retired event evidence aliases", () => {
+  const panel = buildWorkflowContextLifecyclePanel({
+    events: [
+      event("budget-evidence-retired", 1, {
+        componentKind: "context_budget",
+        receiptRefs: ["receipt-context-retired"],
+        policyDecisionRefs: ["policy-context-retired"],
+        payload: {
+          status: "ready",
+          usage_summary: {
+            total_tokens: 2048,
+          },
+        },
+      }),
+    ],
+  });
+
+  assert.equal(panel.rows.length, 1);
+  assert.deepEqual(panel.rows[0]?.receiptRefs, []);
+  assert.deepEqual(panel.rows[0]?.policyDecisionRefs, []);
+  assert.deepEqual(panel.evidenceRefs, []);
+  assert.equal(panel.missingReceiptCount, 1);
+});
