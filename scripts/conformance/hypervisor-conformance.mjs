@@ -768,6 +768,21 @@ function runBridge() {
   const governedImprovementStoreTest = exists("packages/runtime-daemon/src/runtime-governed-improvement-store.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-governed-improvement-store.test.mjs")
     : "";
+  const externalCapabilityAuthorityRunner = exists(
+    "packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs")
+    : "";
+  const externalCapabilityAuthorityRunnerTest = exists(
+    "packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs")
+    : "";
+  const externalCapabilityAuthorityStoreTest = exists(
+    "packages/runtime-daemon/src/runtime-external-capability-authority-store.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-store.test.mjs")
+    : "";
   const governedImprovementSurface = exists("packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs")
     : "";
@@ -2346,6 +2361,39 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
     "Phase 9/10 is pending: external capability exits must authorize through Rust authority core and fail closed without wallet.network grants",
+  );
+  assertCheck(
+    result,
+    "external-capability-exit-authority-daemon-runner",
+    /EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV/.test(externalCapabilityAuthorityRunner) &&
+      /IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND/.test(externalCapabilityAuthorityRunner) &&
+      /RustExternalCapabilityAuthorityRunner/.test(externalCapabilityAuthorityRunner) &&
+      /createExternalCapabilityAuthorityRunnerFromEnv/.test(externalCapabilityAuthorityRunner) &&
+      /createExternalCapabilityAuthorityRunnerFromEnv/.test(runtimeDaemonIndex) &&
+      /this\.externalCapabilityAuthorityRunner/.test(runtimeDaemonIndex) &&
+      /authorizeExit/.test(externalCapabilityAuthorityRunner) &&
+      /authorize_external_capability_exit/.test(externalCapabilityAuthorityRunner) &&
+      /rust_authority/.test(externalCapabilityAuthorityRunner) &&
+      /external_capability_authority_bridge_unconfigured/.test(externalCapabilityAuthorityRunner) &&
+      /external capability authority runner sends Rust authority bridge request/.test(
+        externalCapabilityAuthorityRunnerTest,
+      ) &&
+      /external capability authority runner fails closed without command/.test(
+        externalCapabilityAuthorityRunnerTest,
+      ) &&
+      /external capability authority runner surfaces Rust wallet\.network rejection/.test(
+        externalCapabilityAuthorityRunnerTest,
+      ) &&
+      /runtime store mounts external capability authority runner from options/.test(
+        externalCapabilityAuthorityStoreTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs",
+      "packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-external-capability-authority-store.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 9/10 is pending: daemon external capability exit facade must call the Rust authority bridge and fail closed when unconfigured",
   );
   assertCheck(
     result,

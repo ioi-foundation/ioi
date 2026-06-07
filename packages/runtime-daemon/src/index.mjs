@@ -165,6 +165,7 @@ import {
 import { createRuntimeAgentOptionsHelpers } from "./runtime-agent-options.mjs";
 import { createRuntimeAgentgresAdmissionRunnerFromEnv } from "./runtime-agentgres-admission-runner.mjs";
 import { createGovernedImprovementRunnerFromEnv } from "./runtime-governed-improvement-runner.mjs";
+import { createExternalCapabilityAuthorityRunnerFromEnv } from "./runtime-external-capability-authority-runner.mjs";
 import { createWorkerServicePackageRunnerFromEnv } from "./runtime-worker-service-package-runner.mjs";
 import { createCteePrivateWorkspaceRunnerFromEnv } from "./runtime-ctee-private-workspace-runner.mjs";
 import { createL1SettlementRunnerFromEnv } from "./runtime-l1-settlement-runner.mjs";
@@ -745,6 +746,8 @@ export class AgentgresRuntimeStateStore {
       options.contextPolicyRunner ?? createContextPolicyRunnerFromEnv(process.env);
     this.governedImprovementRunner =
       options.governedImprovementRunner ?? createGovernedImprovementRunnerFromEnv(process.env);
+    this.externalCapabilityAuthorityRunner =
+      options.externalCapabilityAuthorityRunner ?? createExternalCapabilityAuthorityRunnerFromEnv(process.env);
     this.workerServicePackageRunner =
       options.workerServicePackageRunner ?? createWorkerServicePackageRunnerFromEnv(process.env);
     this.cteePrivateWorkspaceRunner =
