@@ -441,6 +441,12 @@ function runBridge() {
   const modelMountReceiptOperationsBridge = exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
     : "";
+  const backendProcesses = exists("packages/runtime-daemon/src/model-mounting/backend-processes.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/backend-processes.mjs")
+    : "";
+  const backendProcessesTest = exists("packages/runtime-daemon/src/model-mounting/backend-processes.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/backend-processes.test.mjs")
+    : "";
   const modelRoutes = exists("packages/runtime-daemon/src/model-mounting/routes.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/routes.mjs")
     : "";
@@ -5012,6 +5018,10 @@ function runBridge() {
         /return this\.backendProcessPlan\(backend, options\)\.public_args/.test(modelMountingState) &&
         /return this\.backendProcessPlan\(backend, options\)\.spawn_args/.test(modelMountingState) &&
         /return this\.backendProcessPlan\(backend\)\.supports_supervision/.test(modelMountingState) &&
+        !/export function backendProcess(?:Args|SpawnArgs)|export function backendSupportsSupervision/.test(
+          backendProcesses,
+        ) &&
+        !/backendProcess(?:Args|SpawnArgs)|backendSupportsSupervision/.test(backendProcessesTest) &&
         /Rust model_mount admission runner sends backend process plan request/.test(
           read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs"),
         ) &&
