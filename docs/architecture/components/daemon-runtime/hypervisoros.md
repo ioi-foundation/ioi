@@ -7,7 +7,7 @@ node integrity receipts, and HypervisorOS deployment profiles.
 Supersedes: wording that treats Hypervisor only as a hosted IDE, local daemon,
 Type-2 runtime, or cloud agent harness.
 Superseded by: none.
-Last alignment pass: 2026-06-03.
+Last alignment pass: 2026-06-07.
 
 ## Canonical Definition
 
@@ -22,7 +22,8 @@ Product language:
 
 ```text
 HypervisorOS
-Bare-metal nodes for governed private agent compute.
+Bare-metal nodes for governed private agent compute and autonomous
+infrastructure management.
 ```
 
 Canonical framing:
@@ -47,10 +48,13 @@ IOI
   routing, receipts, settlement, disputes, app chains
 ```
 
-HypervisorOS is Type-1-compatible for autonomous systems. A traditional Type-1
-hypervisor runs directly on hardware and supervises guest operating systems.
-HypervisorOS generalizes that posture to autonomous work: it gets beneath
-model/tool execution, workspace mounts, authority use, and receipt generation.
+HypervisorOS is Type-1-compatible for autonomous systems and a natural
+foundation for broader VM/container/microVM/WASM estate management. A
+traditional Type-1 hypervisor runs directly on hardware and supervises guest
+operating systems. HypervisorOS generalizes that posture to autonomous work: it
+gets beneath model/tool execution, workspace mounts, authority use, and receipt
+generation while keeping ordinary machine workloads under the same daemon-rooted
+control doctrine.
 
 ## Owns
 
@@ -61,6 +65,7 @@ bare-metal Hypervisor node profile
 measured node boot posture
 minimal node image doctrine
 daemon-rooted workload launch
+VM/container/microVM/WASM workload launch posture
 node integrity receipts
 boot profile manifests
 runtime substrate selection under the daemon
@@ -95,9 +100,21 @@ Firmware Hypervisor:
   optional future profile using UEFI / TPM / pre-OS hooks
 ```
 
-HypervisorOS does not need to be a VMware or ESXi replacement. The first
-implementation may use a minimal Linux/KVM/microVM base. The canonical property
-is that **all autonomous workloads are subordinate to the Hypervisor Daemon**.
+HypervisorOS does not begin by cloning VMware or ESXi feature-for-feature. The
+first implementation may use a minimal Linux/KVM/microVM base. The canonical
+property is that **all autonomous workloads are subordinate to the Hypervisor
+Daemon**, and ordinary VM/container/microVM/WASM workloads can become governed
+Fleet primitives under the same node-root doctrine.
+
+The long-term infrastructure path is therefore natural:
+
+```text
+HypervisorOS
+  daemon-rooted node profile
+  -> VMs / containers / microVMs / WASM workloads / model servers
+  -> Hypervisor Fleet infrastructure management
+  -> private workspaces, authority scopes, receipts, replay, and service outcomes
+```
 
 ## Non-Claims
 
@@ -587,6 +604,7 @@ let nodes self-grant authority
 let providers disable receipt sinks
 settle work with no input/output commitments
 treat HypervisorOS as requiring a custom hardware hypervisor from day one
+treat HypervisorOS as permanently unrelated to VM/container/microVM/WASM estate management
 collapse guardian, wallet authority, and untrusted GPU node into one root-controlled provider box
 ```
 

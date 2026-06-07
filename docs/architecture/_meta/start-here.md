@@ -4,7 +4,7 @@ Status: canonical reader entry point.
 Canonical owner: this file for first-read architecture orientation and role-based reading paths.
 Supersedes: ad hoc onboarding paths across architecture docs.
 Superseded by: none.
-Last alignment pass: 2026-06-03.
+Last alignment pass: 2026-06-07.
 
 ## Five-Minute Mental Model
 
@@ -27,11 +27,10 @@ HypervisorOS
   bare-metal node profile where the daemon is the node root
 
 Hypervisor Fleet
-  coordinates autonomous infrastructure across local, cloud, DePIN, edge,
-  customer, and bare-metal nodes; appears inside Hypervisor IDE and
-  console.ioi.ai; observes health, placement, storage posture, cTEE posture,
-  receipts, replay projections, and policy visibility without owning execution
-  or authority
+  general infrastructure manager whose first-class workload is autonomous
+  systems; coordinates machines, workloads, private workspaces, nodes,
+  providers, placement, storage posture, cTEE posture, receipts, replay
+  projections, and policy visibility without owning execution or authority
 
 Default Harness Profile
   orchestrates loop-native autonomous work inside the daemon
@@ -100,7 +99,7 @@ The short version:
 Surfaces request.
 Hypervisor Daemon executes.
 HypervisorOS roots serious nodes.
-Hypervisor Fleet coordinates autonomous infrastructure.
+Hypervisor Fleet manages infrastructure for autonomous systems.
 Default Harness Profile orchestrates.
 wallet.network authorizes.
 Agentgres admits truth.
@@ -163,10 +162,12 @@ profiles, daemon-rooted workload launch, node integrity receipts,
 denied-by-default egress, cTEE compatibility, and no unmanaged model/tool/workspace
 bypass around the Hypervisor Daemon.
 
-For autonomous infrastructure management, build for Hypervisor Fleet: node
-registry, provider integrations, DePIN/cloud GPU endpoints, storage posture,
-runtime placement, fleet health, cost posture, cTEE posture, receipt/replay
-projections, and migration cockpit workflows. Fleet coordinates and governs;
+For infrastructure and autonomous runtime-fleet management, build for
+Hypervisor Fleet: node registry, provider integrations, VMs, containers,
+microVMs, WASM workloads, image/volume/network posture, GPU pools, DePIN/cloud
+GPU endpoints, storage posture, runtime placement, fleet health, cost posture,
+cTEE posture, receipt/replay projections, and migration cockpit workflows.
+Fleet manages machines and workload posture while coordinating governance;
 Hypervisor Daemon executes; wallet.network authorizes; Agentgres records truth.
 
 ### Implementing Agentgres
@@ -297,7 +298,7 @@ Correct them to:
 
 ```text
 daemon executes
-Hypervisor Fleet coordinates autonomous infrastructure
+Hypervisor Fleet manages infrastructure for autonomous systems
 Default Harness Profile orchestrates inside the daemon
 Agentgres admits operational truth
 Agent Wiki / ioi-memory remembers and retrieves

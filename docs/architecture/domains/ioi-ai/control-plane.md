@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for ioi.ai account, device, restore, publishing, entitlement, console/Fleet surface, and remote-runtime coordination boundaries.
 Supersedes: product prose that implies ioi.ai owns raw secrets, full traces, user workspaces, always-on execution, or marketplace operational truth.
 Superseded by: none.
-Last alignment pass: 2026-06-01.
+Last alignment pass: 2026-06-07.
 
 ## Canonical Definition
 
@@ -29,7 +29,8 @@ ioi.ai may own:
 - remote compute entitlement and billing metadata;
 - provider integration metadata for DePIN, cloud, GPU, storage, customer VPC,
   and HypervisorOS targets;
-- Hypervisor Fleet web/org/admin surface state for node inventory, fleet status,
+- Hypervisor Fleet web/org/admin surface state for node, VM, container,
+  microVM, WASM, image, volume, network, GPU pool, provider, fleet status,
   policy visibility, cost posture, remote access, billing, and team posture;
 - Private Workspace cTEE node status, entitlement, and restore pointers;
 - managed worker instance entitlement pointers when a user's aiagent.xyz
@@ -79,6 +80,8 @@ console.ioi.ai Fleet Surface
   devices
   entitlements
   node registry
+  VM/container/microVM/WASM inventory
+  image, volume, network, and GPU-pool posture
   runtime discovery
   restore routing
   provider integrations
@@ -221,7 +224,8 @@ Private Workspace backed by cTEE:
   Decoding is the default protected-agency strategy
 
 Hypervisor Fleet:
-  autonomous infrastructure inventory, placement, health, cost, cTEE posture,
+  general infrastructure inventory for autonomous systems, including
+  VM/container/microVM/WASM posture, placement, health, cost, cTEE posture,
   storage posture, receipt/replay projections, and provider coordination
 ```
 
@@ -300,8 +304,8 @@ selected Hypervisor Daemon runtime-node profile.
 - sas.xyz owns service orders, outcome workspaces, deliveries, approvals, disputes, and settlement mirrors.
 - local Hypervisor owns the Hypervisor IDE experience and local projections.
 - Hypervisor Foundry owns the local Worker Training product experience.
-- Hypervisor Fleet owns autonomous infrastructure manager semantics, with
-  surfaces in Hypervisor IDE and console.ioi.ai.
+- Hypervisor Fleet owns general infrastructure-manager semantics for autonomous
+  systems, with surfaces in Hypervisor IDE and console.ioi.ai.
 - wallet.network owns authority, secrets, key leases, payment approvals, and revocation.
 - Agentgres owns operational truth and archive refs.
 - Private Workspace backed by cTEE owns cTEE semantics for persistent rented GPU

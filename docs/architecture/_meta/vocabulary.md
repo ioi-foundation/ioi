@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and legacy naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-06-03.
+Last alignment pass: 2026-06-07.
 
 The agent harness uses behavior-first names in runtime code and reserves
 compliance acronyms for hidden audit material.
@@ -38,8 +38,9 @@ compliance acronyms for hidden audit material.
   compatibility, or attestation posture. It proves what was supposed to run; it
   does not prove protected plaintext was safe unless paired with cTEE, TEE, or
   another approved confidential profile.
-- `HypervisorFleet`: the autonomous infrastructure manager for local, cloud,
-  DePIN, edge, customer, and bare-metal runtime estates. It coordinates node
+- `HypervisorFleet`: the general infrastructure manager whose first-class
+  workload is autonomous systems. It coordinates machines, VMs, containers,
+  microVMs, WASM workloads, images, volumes, networks, GPU pools, node
   registry, provider integrations, placement, health, cost, storage posture,
   cTEE posture, receipts, replay projections, and policy visibility. It appears
   through Hypervisor IDE and console.ioi.ai surfaces, but it does not execute
@@ -49,6 +50,11 @@ compliance acronyms for hidden audit material.
   identity, daemon refs, provider metadata, Agentgres domain refs, authority
   refs, status, cTEE posture, storage posture, receipt refs, and projection
   watermarks.
+- `FleetWorkloadPrimitive`: the Fleet projection/object for VM, container,
+  microVM, WASM, image, volume, network, snapshot, backup, restore point,
+  GPU-pool, node-pool, migration-plan, or provider-connector lifecycle state.
+  It is governed infrastructure state and must still link to authority refs,
+  Agentgres operation refs, and receipts when consequential.
 - `FleetRuntimeAssignmentView`: the Fleet projection over runtime assignments,
   placement reasons, workspace/run refs, authority refs, Agentgres operation
   refs, receipt refs, and status. It is observability/control-plane state, not
@@ -57,6 +63,46 @@ compliance acronyms for hidden audit material.
   retention, replication, privacy class, and Agentgres artifact refs. It does
   not make storage backends the authority over payload meaning or restore
   validity.
+- `ClassicalInfraPrimitive`: any traditional infrastructure object Fleet may
+  manage or project, including a VM, container, microVM, WASM workload, image,
+  volume, network, firewall/egress policy, snapshot, backup, restore point,
+  node pool, GPU pool, quota, lease, health check, log stream, metric stream,
+  cost record, provider connector, or migration plan.
+- `VirtualMachineWorkload`: a VM managed as a Fleet workload primitive. It is
+  not automatically a Hypervisor runtime node unless a Hypervisor Daemon profile
+  is installed, enrolled, and receipted.
+- `ContainerWorkload`: a container managed as a Fleet workload primitive under
+  daemon/provider policy. Containers do not bypass wallet.network authority,
+  Agentgres receipt admission, or cTEE mount rules.
+- `MicroVMWorkload`: a microVM managed as a Fleet workload primitive for
+  stronger workload isolation or reproducibility under daemon/provider policy.
+- `WASMWorkload`: a WASM module or workload managed as a Fleet workload
+  primitive, commonly used for portable step/module execution under daemon
+  routing.
+- `ImageRef`: Fleet-visible image identity or image artifact ref for VM,
+  container, microVM, WASM, HypervisorOS, or model-server deployment.
+- `VolumeRef`: Fleet-visible volume identity or volume artifact/storage ref.
+  Volume availability is not payload meaning; Agentgres artifact refs and
+  receipts govern meaning and restore validity.
+- `NetworkPolicy`: Fleet-visible ingress, egress, firewall, routing, and
+  private-network posture. Network policy does not grant authority by itself.
+- `SnapshotRef`: Fleet-visible snapshot identity for infrastructure restore
+  flows. It is not restore validity without Agentgres archive refs, state roots,
+  and receipts where the snapshot affects canonical state.
+- `MigrationPlan`: Fleet-visible plan for moving workloads, nodes, volumes,
+  images, private workspaces, model servers, or provider posture between
+  VMware, Proxmox, KubeVirt, Nutanix, Kubernetes, HypervisorOS, cloud, DePIN,
+  and customer targets.
+- `GpuPool`: Fleet-visible accelerator pool with provider, node, utilization,
+  model-route, placement, cost, lease, authority, and cTEE posture.
+- `ProviderConnector`: a declared connector for cloud, DePIN, storage,
+  Kubernetes, KubeVirt, VMware, Proxmox, Nutanix, HypervisorOS, or customer
+  environments. It may execute provider API actions only through approved daemon
+  or provider-connector boundaries with authority and receipts.
+- `FleetPlacementDecision`: a Fleet projection or canonical object, depending
+  on risk, that records why a workload, private workspace, model mount, worker,
+  service, or runtime assignment should land on a node/provider. It cannot
+  bypass wallet.network, daemon execution, cTEE custody, or Agentgres admission.
 - `DefaultHarnessProfile`: the standard daemon-executed, wallet-authorized,
   Agentgres-backed, loop-native orchestration profile for bounded autonomous
   work. It is not a peer runtime beside the daemon; it configures how daemon

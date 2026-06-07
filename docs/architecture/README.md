@@ -4,7 +4,7 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-06-03.
+Last alignment pass: 2026-06-07.
 
 ## Purpose
 
@@ -33,12 +33,11 @@ Hypervisor Daemon = hypervisor/control plane for autonomous execution
 IOI daemon = hypervisor/control plane for autonomous execution
 HypervisorOS = bare-metal node profile where daemon is node root
 Default Harness Profile = daemon-executed loop-native orchestration profile
-Hypervisor Fleet = autonomous infrastructure manager across local, cloud, DePIN, edge, customer, and bare-metal nodes
+Hypervisor Fleet = general infrastructure manager whose first-class workload is autonomous systems
 Hypervisor Node = local autonomous-system settlement and interop domain
 Hypervisor IDE = IDE-grade operator console
 Electron/VS Code fork = canonical app shell
 IOI Authority Gateway = compatibility adapter profile for existing IDEs/agents
-IOI Authority Gateway = compatibility adapter profile
 Private Workspace backed by cTEE = user-facing private workspace for persistent untrusted GPU nodes; Plaintext-Free Runtime Mounting is the daemon boundary; CLPD is the default protected-agency strategy
 Workers/models/tools/connectors = guest workloads/capabilities
 Policy/receipts/replay = trust and audit substrate
@@ -77,11 +76,13 @@ Read the stack this way:
   node root; it improves control, integrity, containment, measurement,
   reproducibility, and policy enforcement, but cTEE still owns
   no-plaintext-custody privacy claims;
-- Hypervisor Fleet is the autonomous infrastructure manager for runtime
-  inventory, DePIN/cloud/local/bare-metal provider integrations, placement,
-  health, cost, storage posture, cTEE posture, receipts, replay projections, and
-  policy visibility; it appears inside Hypervisor IDE and console.ioi.ai, but
-  it does not execute work, authorize power, admit truth, or own payload bytes;
+- Hypervisor Fleet is the general infrastructure manager whose first-class
+  workload is autonomous systems; it manages machines, VMs, containers,
+  microVMs, WASM workloads, images, volumes, networks, GPU pools, provider
+  integrations, placement, health, cost, storage posture, cTEE posture,
+  receipts, replay projections, and policy visibility; it appears inside
+  Hypervisor IDE and console.ioi.ai, but it does not execute work, authorize
+  power, admit truth, or own payload bytes;
 - Private Workspace backed by cTEE lets remote/persistent rented GPU nodes
   provide Hypervisor compute and persistence while private files, PII, strategy
   logic, credentials, and action authority stay out of provider-readable
@@ -185,7 +186,7 @@ distilled back into this architecture pack or into an accepted decision record.
 - [`agentgres/postgres-bridge-and-readiness-contract.md`](./components/agentgres/postgres-bridge-and-readiness-contract.md) — Postgres bridge posture, consistency levels, durability/readiness contract.
 - [`daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md) — universal execution endpoint for local, hosted, and DePIN nodes.
 - [`daemon-runtime/hypervisoros.md`](./components/daemon-runtime/hypervisoros.md) — bare-metal Hypervisor node profile, measured boot, daemon-rooted workload launch, node integrity receipts, and HypervisorOS conformance.
-- [`hypervisor/fleet.md`](./components/hypervisor/fleet.md) — Hypervisor Fleet as autonomous infrastructure manager across DePIN, cloud, local, edge, customer, and bare-metal nodes, with Fleet surfaces in Hypervisor IDE and console.ioi.ai.
+- [`hypervisor/fleet.md`](./components/hypervisor/fleet.md) — Hypervisor Fleet as the general infrastructure manager whose first-class workload is autonomous systems, spanning machines, VMs, containers, microVMs, WASM workloads, DePIN, cloud, local, edge, customer, and bare-metal nodes, with Fleet surfaces in Hypervisor IDE and console.ioi.ai.
 - [`daemon-runtime/private-workspace-ctee.md`](./components/daemon-runtime/private-workspace-ctee.md) — Private Workspace backed by cTEE for persistent rented GPU Hypervisor Nodes, Candidate-Lattice Private Decoding, private files/folders, private strategy execution, autonomy leases, declassification gates, and no-plaintext protected classes.
 - [`daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md) — local/hosted/DePIN/TEE execution modes.
 - [`wallet-network/doctrine.md`](./components/wallet-network/doctrine.md) — identity, secrets, authority scopes, approvals, payments.
@@ -246,7 +247,7 @@ supporting file.
 | Agentgres | Per-domain canonical operational state, receipts, projections, quality, and contribution accounting. |
 | Hypervisor Daemon / Runtime Node | Hypervisor/control plane for autonomous execution across workflows, workers, tools, models, connectors, computer-use leases, artifacts, policy, receipts, and replay. |
 | HypervisorOS | Bare-metal Hypervisor node profile where the daemon is the node root; owns measured node boot, daemon-rooted workload launch, node integrity receipts, and bare-metal conformance without replacing cTEE privacy or wallet.network authority. |
-| Hypervisor Fleet | Autonomous infrastructure manager for nodes, providers, DePIN/cloud/local/bare-metal runtime inventory, placement, health, cost, storage posture, cTEE posture, receipts, replay projections, and policy visibility; surfaces inside Hypervisor IDE and console.ioi.ai without owning execution, authority, truth, or bytes. |
+| Hypervisor Fleet | General infrastructure manager whose first-class workload is autonomous systems; manages nodes, providers, VMs, containers, microVMs, WASM workloads, images, volumes, networks, GPU pools, DePIN/cloud/local/bare-metal runtime inventory, placement, health, cost, storage posture, cTEE posture, receipts, replay projections, and policy visibility; surfaces inside Hypervisor IDE and console.ioi.ai without owning execution, authority, truth, or bytes. |
 | Private Workspace backed by cTEE | User-facing private workspace and daemon execution profile for persistent rented GPU nodes that run useful compute without receiving protected plaintext by default; Plaintext-Free Runtime Mounting is the daemon boundary, CLPD is the default protected-agency strategy, Candidate Coverage Profile estimates proposal redundancy, Counterfactual Lattice Execution trades extra public token volume for lower online private-choice leakage, the Cryptographic Operator Plane handles protected private operators internally, External Model API Boundary distinguishes private-native/redacted-API/provider-trust/unsafe paths, and deterrence/detection receipts support canaries, watermarks, and disputes. |
 | IOI CLI/TUI | Human terminal and TUI operator client over daemon/public runtime APIs. |
 | IOI SDK | Low-level protocol/client library over daemon, Agentgres, wallet.network, AIIP, and IOI L1 contracts; never the canonical execution owner. |
@@ -321,7 +322,7 @@ Authority Plane
 9. Agentgres state MUST NOT be reduced to opaque Filecoin blobs. Agentgres owns canonical operations, object heads, indexes, constraints, projections, subscriptions, delivery state, receipt metadata, artifact refs, archive refs, replay/import metadata, and restore validity.
 10. Compute nodes initialize Hypervisor Daemon runtime-node profiles, optionally bridging into runtime services; the SDK is a client over that substrate, not the substrate itself.
 11. HypervisorOS is a bare-metal node profile, not a peer runtime. It gives serious nodes daemon-rooted control and measurement, but it does not make consumer GPUs confidential compute or replace cTEE no-plaintext-custody.
-12. Hypervisor Fleet is an autonomous infrastructure manager, not a peer runtime, wallet, Agentgres domain, storage authority, or L1 settlement layer. Fleet coordinates and governs; Hypervisor Daemon executes; wallet.network authorizes; Agentgres records truth; storage backends hold bytes.
+12. Hypervisor Fleet is a general infrastructure manager whose first-class workload is autonomous systems, not a peer runtime, wallet, Agentgres domain, storage authority, or L1 settlement layer. Fleet manages machines and workload posture while coordinating governance; Hypervisor Daemon executes; wallet.network authorizes; Agentgres records truth; storage backends hold bytes.
 13. CLI/TUI, SDK, and ADK are separate surfaces: CLI/TUI is the operator interface, SDK is the low-level client library, and ADK is the autonomous-system builder framework.
 14. CLI/TUI, agent-ide, SDK, ADK, Hypervisor IDE, harnesses, benchmarks, and Fleet surfaces must share daemon/domain contracts rather than creating private runtime truth paths.
 15. Worker is the protocol actor; model is a cognition backend; agent is product-facing or colloquial language.

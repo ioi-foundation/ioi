@@ -4,7 +4,7 @@ Status: entry-point shim.
 Canonical owner: [`_meta/start-here.md`](./_meta/start-here.md).
 Supersedes: references that expected a top-level `docs/architecture/START_HERE.md`.
 Superseded by: none.
-Last alignment pass: 2026-06-06.
+Last alignment pass: 2026-06-07.
 
 Start with [`_meta/start-here.md`](./_meta/start-here.md).
 
@@ -14,7 +14,7 @@ implementation matrix.
 
 Current Fleet addition:
 
-> **Hypervisor Fleet is the autonomous infrastructure manager. It appears
-> inside Hypervisor IDE and console.ioi.ai, but its authority comes from
-> wallet.network, its truth comes from Agentgres, and execution remains
-> daemon-owned.**
+> **Hypervisor Fleet is a general infrastructure manager whose first-class
+> workload is autonomous systems. It appears inside Hypervisor IDE and
+> console.ioi.ai, but its authority comes from wallet.network, its truth comes
+> from Agentgres, and execution remains daemon-owned.**

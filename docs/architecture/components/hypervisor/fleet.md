@@ -1,19 +1,25 @@
 # Hypervisor Fleet
 
 Status: canonical architecture authority.
-Canonical owner: this file for Hypervisor Fleet as the autonomous infrastructure manager and multi-surface fleet substrate.
-Supersedes: product prose that treats Fleet as a standalone app, a daemon runtime, an authority plane, or a vCenter clone before autonomous-infra ownership is defined.
+Canonical owner: this file for Hypervisor Fleet as the general infrastructure
+manager and multi-surface fleet substrate whose first-class workload is
+autonomous systems.
+Supersedes: product prose that treats Fleet as a standalone app, a daemon
+runtime, an authority plane, an agent-only dashboard, or a vCenter clone without
+autonomous-infra ownership.
 Superseded by: none.
-Last alignment pass: 2026-06-06.
+Last alignment pass: 2026-06-07.
 
 ## Canonical Definition
 
-**Hypervisor Fleet is the control substrate for autonomous infrastructure across
-DePIN, cloud, local, edge, customer, and bare-metal nodes.**
+**Hypervisor Fleet is the general infrastructure and runtime-fleet manager for
+machines, workloads, private workspaces, and autonomous systems across DePIN,
+cloud, local, edge, customer, and bare-metal nodes.**
 
-It manages runtime inventory, provider integrations, placement, health, cost,
-storage posture, cTEE posture, receipts, replay projections, policy visibility,
-node lifecycle, and infrastructure-manager workflows for autonomous work.
+It manages runtime inventory, VM/container/microVM/WASM workload posture,
+images, volumes, networks, snapshots, provider integrations, placement, health,
+cost, storage posture, cTEE posture, receipts, replay projections, policy
+visibility, node lifecycle, and infrastructure-manager workflows.
 
 It does not execute work, authorize power, admit operational truth, or own
 payload bytes.
@@ -21,6 +27,7 @@ payload bytes.
 Core doctrine:
 
 ```text
+Fleet manages infrastructure and autonomous runtime posture.
 Fleet coordinates and governs.
 Hypervisor Daemon executes.
 wallet.network authorizes.
@@ -31,10 +38,10 @@ IOI L1 settles only triggered public/economic/cross-domain commitments.
 
 Short form:
 
-> **Hypervisor Fleet is the autonomous infrastructure manager. It appears inside
-> Hypervisor IDE and console.ioi.ai, but its authority comes from
-> wallet.network, its truth comes from Agentgres, and execution remains
-> daemon-owned.**
+> **Hypervisor Fleet is a general infrastructure manager whose first-class
+> workload is autonomous systems. It appears inside Hypervisor IDE and
+> console.ioi.ai, but its authority comes from wallet.network, its truth comes
+> from Agentgres, and execution remains daemon-owned.**
 
 ## Why Fleet Exists
 
@@ -50,9 +57,22 @@ permissions
 monitoring
 ```
 
-Hypervisor Fleet is built around autonomous work running across infrastructure:
+Hypervisor Fleet intentionally enters that infrastructure-manager category, but
+with autonomous systems as the native workload rather than an afterthought.
 
 ```text
+Traditional hypervisors virtualize machines.
+Hypervisor virtualizes machines, workloads, private workspaces,
+and autonomous authority.
+```
+
+Hypervisor Fleet is built around both classical infrastructure and autonomous
+work running across it:
+
+```text
+VMs, containers, microVMs, WASM workloads
+images, volumes, networks, snapshots, backups, restore
+node pools, GPU pools, leases, quotas, migration, health, logs, cost
 Hypervisor runtime nodes
 DePIN compute
 cloud GPU endpoints
@@ -66,10 +86,57 @@ provider cost, health, trust, and placement
 receipts, approvals, and replay projections
 ```
 
-The starting wedge is not "clone vCenter." The starting wedge is replacing the
-missing infrastructure manager for autonomous and DePIN-native workloads, then
-expanding toward traditional VMware, Proxmox, KubeVirt, Nutanix, Kubernetes,
-and bare-metal estate management where useful.
+The starting wedge is persistent private autonomous work across local, cloud,
+and DePIN infrastructure. The target category is broader: VMware, Proxmox,
+KubeVirt, Nutanix, Kubernetes, and bare-metal estate management rebuilt around
+private workspaces, model mounts, authority scopes, receipts, replay, cTEE
+posture, and service outcomes.
+
+Fleet should therefore avoid two opposite mistakes:
+
+```text
+too narrow: "agent dashboard"
+too shallow: "vCenter clone"
+```
+
+The canonical position is:
+
+> **Hypervisor Fleet is infrastructure management rebuilt for autonomous
+> systems, while remaining a serious infrastructure manager.**
+
+## Classical Infrastructure Scope
+
+Fleet may manage or project classical infrastructure primitives when they are
+needed for Hypervisor estates:
+
+```text
+VMs
+containers
+microVMs
+WASM workloads
+images
+volumes
+networks
+firewall / egress policies
+snapshots
+backups
+restore points
+node pools
+GPU pools
+provider connectors
+quotas
+leases
+health checks
+logs and metrics
+cost and utilization
+migration plans
+maintenance windows
+RBAC / authority mappings
+```
+
+These primitives are not separate from autonomous-system management. They are
+the substrate persistent agents, workers, services, model servers, private
+workspaces, and HypervisorOS nodes require.
 
 ## Surfaces
 
@@ -111,6 +178,9 @@ Fleet may own or coordinate:
 
 - node registry and node inventory;
 - site, provider, region, cluster, and runtime profile inventory;
+- VM, container, microVM, WASM, image, volume, network, snapshot, backup,
+  restore, migration, quota, lease, and node-pool visibility;
+- GPU pool, model-server placement, and accelerator utilization visibility;
 - DePIN compute endpoint metadata;
 - cloud GPU and VM endpoint metadata;
 - storage-backend posture for local disk, S3/object stores, Filecoin, CAS/IPFS,
@@ -245,6 +315,30 @@ FleetStoragePosture:
     - grant://...
 ```
 
+```yaml
+FleetWorkloadPrimitive:
+  primitive_id: workload_primitive://...
+  primitive_type:
+    vm | container | microvm | wasm | image | volume |
+    network | snapshot | backup | restore_point |
+    gpu_pool | node_pool | migration_plan | provider_connector
+  provider_ref: provider://... | null
+  node_refs:
+    - node://...
+  authority_refs:
+    - grant://...
+  agentgres_operation_refs:
+    - agentgres://operation/...
+  receipt_refs:
+    - receipt://...
+  status:
+    proposed | active | degraded | migrating | archived | failed
+  autonomous_runtime_refs:
+    - daemon://...
+    - workspace://...
+    - run:...
+```
+
 ## Admission / Settlement Boundary
 
 Fleet proposes, coordinates, displays, and routes operator intent. It does not
@@ -296,6 +390,9 @@ Agentgres operations, receipt refs, artifact refs, and projection watermarks.
 
 - Fleet cannot execute a workload without routing through a Hypervisor Daemon
   or declared provider connector boundary.
+- Fleet cannot treat VM/container/microVM/WASM lifecycle actions as exempt from
+  authority, receipts, and Agentgres admission merely because they are
+  "infrastructure."
 - Fleet cannot issue authority grants; authority must come from wallet.network.
 - Fleet cannot append accepted Agentgres operations directly unless acting
   through the admitted domain API under policy and authority.
@@ -318,13 +415,20 @@ Reject these:
 3. Fleet as a central plaintext workspace database.
 4. Fleet as a UI-only dashboard disconnected from authority, receipts, and
    Agentgres projections.
-5. Fleet as a vCenter clone before autonomous-infra controls are first-class.
-6. Fleet as a replacement for Agentgres truth, cTEE custody, or wallet.network
+5. Fleet as only an agent dashboard with no serious infrastructure primitives.
+6. Fleet as only a vCenter clone with no autonomous-system, cTEE, receipt,
+   authority, or service-outcome semantics.
+7. Splitting VM/fleet management and agent/workspace management into separate
+   substrates that cannot share daemon, wallet.network, Agentgres, and receipt
+   contracts.
+8. Claiming VMware, Proxmox, or Nutanix parity before the core infrastructure
+   primitives exist.
+9. Fleet as a replacement for Agentgres truth, cTEE custody, or wallet.network
    authority.
-7. Fleet logs as canonical proof without receipt and artifact-ref linkage.
-8. Fleet storage status as proof that payload meaning or restore validity is
+10. Fleet logs as canonical proof without receipt and artifact-ref linkage.
+11. Fleet storage status as proof that payload meaning or restore validity is
    accepted.
-9. One GUI app per vertical when a Hypervisor IDE application lens over the
+12. One GUI app per vertical when a Hypervisor IDE application lens over the
    same substrate is sufficient.
 
 ## Related Canon
