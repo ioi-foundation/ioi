@@ -14325,6 +14325,9 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-signed-replay-notebook.test.ts")
     : "";
+  const workspaceSubstrateNotebook = exists("packages/workspace-substrate/src/notebook.ts")
+    ? read("packages/workspace-substrate/src/notebook.ts")
+    : "";
   const agentIdeWorkerContributionTrace = exists(
     "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
   )
@@ -22322,7 +22325,27 @@ function runCompositor() {
       !/arrayField\(snapshot,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
         agentIdeSignedReplayNotebook,
       ) &&
+      /schema_version:\s*WORKFLOW_SIGNED_REPLAY_NOTEBOOK_SCHEMA_VERSION/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      /cell_kind:\s*"restore_preview"/.test(agentIdeSignedReplayNotebook) &&
+      /read_only_replay:\s*true/.test(agentIdeSignedReplayNotebook) &&
+      /receipt_refs:\s*uniqueStrings\(arrayField\(result,\s*"receipt_refs"\)\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/^\s*(?:schemaVersion|readOnlyReplayMode|cellCount|receiptBackedCellCount|snapshotCount|restorePreviewCount|restoreApplyBlockedCount|restoreApplyAppliedCount|rollbackRefCount|evidenceRefs|cellKind|readOnlyReplay|filePaths|operationCount|approvalRequired|approvalSatisfied|restorePreviewEndpoint|restoreApplyEndpoint|receiptRefs|artifactRefs|rollbackRefs|policyDecisionRefs)\??:/m.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
       /signed replay notebook ignores retired evidence aliases/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /assert\.equal\(notebook\.schema_version,\s*"ioi\.workflow\.signed-replay-notebook\.v1"\)/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(notebook,\s*"schemaVersion"\),\s*false/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(cell,\s*"cellKind"\),\s*false/.test(
         agentIdeSignedReplayNotebookTest,
       ) &&
       /receiptRefs: \["receipt-event-retired"\]/.test(agentIdeSignedReplayNotebookTest) &&
@@ -22331,12 +22354,28 @@ function runCompositor() {
       /policyDecisionRefs: \["policy-event-retired"\]/.test(
         agentIdeSignedReplayNotebookTest,
       ) &&
-      /assert\.equal\(notebook\.receiptBackedCellCount,\s*0\)/.test(
+      /assert\.equal\(notebook\.receipt_backed_cell_count,\s*0\)/.test(
         agentIdeSignedReplayNotebookTest,
+      ) &&
+      /const receiptRefs = stringArray\(cell\.receipt_refs\);/.test(
+        workspaceSubstrateNotebook,
+      ) &&
+      /const schema = String\(record\.schema_version \?\? ""\);/.test(
+        workspaceSubstrateNotebook,
+      ) &&
+      !/cell\.(?:receiptRefs|artifactRefs|rollbackRefs|policyDecisionRefs|cellKind|snapshotId|filePaths|operationCount|restorePreviewEndpoint|restoreApplyEndpoint)\b/.test(
+        workspaceSubstrateNotebook,
+      ) &&
+      !/replay\.(?:readOnlyReplayMode|receiptBackedCellCount)\b/.test(
+        workspaceSubstrateNotebook,
+      ) &&
+      !/record\.schemaVersion\b/.test(
+        workspaceSubstrateNotebook,
       ),
     [
       "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts",
       "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.test.ts",
+      "packages/workspace-substrate/src/notebook.ts",
     ],
     "Phase 10/11 is pending: IDE signed replay notebook must ignore retired camelCase evidence aliases",
   );

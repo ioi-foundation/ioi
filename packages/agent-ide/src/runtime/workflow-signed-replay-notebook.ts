@@ -18,44 +18,44 @@ export type WorkflowSignedReplayNotebookCellKind =
 
 export interface WorkflowSignedReplayNotebookCell {
   id: string;
-  cellKind: WorkflowSignedReplayNotebookCellKind;
+  cell_kind: WorkflowSignedReplayNotebookCellKind;
   status: string;
-  readOnlyReplay: boolean;
-  eventId: string | null;
-  eventSeq: number | null;
-  threadId: string | null;
-  workflowGraphId: string | null;
-  workflowNodeId: string | null;
+  read_only_replay: boolean;
+  event_id: string | null;
+  event_seq: number | null;
+  thread_id: string | null;
+  workflow_graph_id: string | null;
+  workflow_node_id: string | null;
   title: string;
   summary: string | null;
-  toolName: string | null;
-  toolCallId: string | null;
-  snapshotId: string | null;
-  filePaths: string[];
-  operationCount: number;
-  approvalRequired: boolean | null;
-  approvalSatisfied: boolean | null;
-  restorePreviewEndpoint: string | null;
-  restoreApplyEndpoint: string | null;
-  receiptRefs: string[];
-  artifactRefs: string[];
-  rollbackRefs: string[];
-  policyDecisionRefs: string[];
+  tool_name: string | null;
+  tool_call_id: string | null;
+  snapshot_id: string | null;
+  file_paths: string[];
+  operation_count: number;
+  approval_required: boolean | null;
+  approval_satisfied: boolean | null;
+  restore_preview_endpoint: string | null;
+  restore_apply_endpoint: string | null;
+  receipt_refs: string[];
+  artifact_refs: string[];
+  rollback_refs: string[];
+  policy_decision_refs: string[];
 }
 
 export interface WorkflowSignedReplayNotebook {
-  schemaVersion: typeof WORKFLOW_SIGNED_REPLAY_NOTEBOOK_SCHEMA_VERSION;
+  schema_version: typeof WORKFLOW_SIGNED_REPLAY_NOTEBOOK_SCHEMA_VERSION;
   status: "ready" | "needs_evidence" | "blocked";
-  readOnlyReplayMode: boolean;
-  cellCount: number;
-  receiptBackedCellCount: number;
-  snapshotCount: number;
-  restorePreviewCount: number;
-  restoreApplyBlockedCount: number;
-  restoreApplyAppliedCount: number;
-  rollbackRefCount: number;
+  read_only_replay_mode: boolean;
+  cell_count: number;
+  receipt_backed_cell_count: number;
+  snapshot_count: number;
+  restore_preview_count: number;
+  restore_apply_blocked_count: number;
+  restore_apply_applied_count: number;
+  rollback_ref_count: number;
   cells: WorkflowSignedReplayNotebookCell[];
-  evidenceRefs: string[];
+  evidence_refs: string[];
 }
 
 export function buildWorkflowSignedReplayNotebook(
@@ -72,35 +72,35 @@ export function buildWorkflowSignedReplayNotebook(
     .map((snapshot) => cellForSnapshotListItem(snapshot))
     .filter((cell): cell is WorkflowSignedReplayNotebookCell => Boolean(cell));
   const cells = mergeCells([...eventCells, ...snapshotCells, ...resultCells]);
-  const receiptBackedCellCount = cells.filter((cell) => cell.receiptRefs.length > 0).length;
-  const snapshotCount = cells.filter((cell) => cell.cellKind === "snapshot").length;
-  const restorePreviewCount = cells.filter((cell) => cell.cellKind === "restore_preview").length;
+  const receiptBackedCellCount = cells.filter((cell) => cell.receipt_refs.length > 0).length;
+  const snapshotCount = cells.filter((cell) => cell.cell_kind === "snapshot").length;
+  const restorePreviewCount = cells.filter((cell) => cell.cell_kind === "restore_preview").length;
   const restoreApplyBlockedCount = cells.filter(
-    (cell) => cell.cellKind === "restore_apply" && cell.status === "blocked",
+    (cell) => cell.cell_kind === "restore_apply" && cell.status === "blocked",
   ).length;
   const restoreApplyAppliedCount = cells.filter(
-    (cell) => cell.cellKind === "restore_apply" && cell.status === "applied",
+    (cell) => cell.cell_kind === "restore_apply" && cell.status === "applied",
   ).length;
-  const rollbackRefs = uniqueStrings(cells.flatMap((cell) => cell.rollbackRefs));
+  const rollbackRefs = uniqueStrings(cells.flatMap((cell) => cell.rollback_refs));
   const readOnlyReplayMode = restorePreviewCount > 0 && restoreApplyBlockedCount > 0;
   return {
-    schemaVersion: WORKFLOW_SIGNED_REPLAY_NOTEBOOK_SCHEMA_VERSION,
+    schema_version: WORKFLOW_SIGNED_REPLAY_NOTEBOOK_SCHEMA_VERSION,
     status:
       snapshotCount === 0 || restorePreviewCount === 0
         ? "needs_evidence"
         : readOnlyReplayMode || restoreApplyAppliedCount > 0
           ? "ready"
           : "blocked",
-    readOnlyReplayMode,
-    cellCount: cells.length,
-    receiptBackedCellCount,
-    snapshotCount,
-    restorePreviewCount,
-    restoreApplyBlockedCount,
-    restoreApplyAppliedCount,
-    rollbackRefCount: rollbackRefs.length,
+    read_only_replay_mode: readOnlyReplayMode,
+    cell_count: cells.length,
+    receipt_backed_cell_count: receiptBackedCellCount,
+    snapshot_count: snapshotCount,
+    restore_preview_count: restorePreviewCount,
+    restore_apply_blocked_count: restoreApplyBlockedCount,
+    restore_apply_applied_count: restoreApplyAppliedCount,
+    rollback_ref_count: rollbackRefs.length,
     cells,
-    evidenceRefs: uniqueStrings(cells.flatMap((cell) => [...cell.receiptRefs, ...cell.artifactRefs, ...cell.rollbackRefs])),
+    evidence_refs: uniqueStrings(cells.flatMap((cell) => [...cell.receipt_refs, ...cell.artifact_refs, ...cell.rollback_refs])),
   };
 }
 
@@ -110,73 +110,73 @@ function cellForEvent(event: WorkflowRuntimeThreadEventLike): WorkflowSignedRepl
   const payload = payloadForEvent(event);
   if (eventKind === "tool.completed" || eventKind === "tool.failed") {
     return baseCell(event, {
-      cellKind: "tool",
+      cell_kind: "tool",
       title: stringField(event, "toolName", "tool_name") ?? "Runtime tool",
       summary: stringField(payload, "summary") ?? stringField(payload, "error", "message"),
-      toolName: stringField(event, "toolName", "tool_name"),
-      toolCallId: stringField(event, "toolCallId", "tool_call_id"),
-      snapshotId: null,
-      filePaths: filePathsFromPayload(payload),
-      operationCount: filePathsFromPayload(payload).length,
-      approvalRequired: null,
-      approvalSatisfied: null,
-      restorePreviewEndpoint: null,
-      restoreApplyEndpoint: null,
-      readOnlyReplay: false,
+      tool_name: stringField(event, "toolName", "tool_name"),
+      tool_call_id: stringField(event, "toolCallId", "tool_call_id"),
+      snapshot_id: null,
+      file_paths: filePathsFromPayload(payload),
+      operation_count: filePathsFromPayload(payload).length,
+      approval_required: null,
+      approval_satisfied: null,
+      restore_preview_endpoint: null,
+      restore_apply_endpoint: null,
+      read_only_replay: false,
     });
   }
   if (eventKind === "workspace.snapshot.created" || componentKind === "workspace_snapshot") {
     const snapshotId = stringField(payload, "snapshotId", "snapshot_id") ?? firstString(arrayField(event, "rollback_refs"));
     return baseCell(event, {
-      cellKind: "snapshot",
+      cell_kind: "snapshot",
       title: "Workspace snapshot",
       summary: stringField(payload, "summary"),
-      toolName: null,
-      toolCallId: stringField(payload, "toolCallId", "tool_call_id"),
-      snapshotId,
-      filePaths: filePathsFromPayload(payload),
-      operationCount: numberField(payload, "fileCount", "file_count") ?? filePathsFromPayload(payload).length,
-      approvalRequired: null,
-      approvalSatisfied: null,
-      restorePreviewEndpoint: endpointForSnapshot(event, snapshotId, "restore-preview"),
-      restoreApplyEndpoint: endpointForSnapshot(event, snapshotId, "restore-apply"),
-      readOnlyReplay: false,
+      tool_name: null,
+      tool_call_id: stringField(payload, "toolCallId", "tool_call_id"),
+      snapshot_id: snapshotId,
+      file_paths: filePathsFromPayload(payload),
+      operation_count: numberField(payload, "fileCount", "file_count") ?? filePathsFromPayload(payload).length,
+      approval_required: null,
+      approval_satisfied: null,
+      restore_preview_endpoint: endpointForSnapshot(event, snapshotId, "restore-preview"),
+      restore_apply_endpoint: endpointForSnapshot(event, snapshotId, "restore-apply"),
+      read_only_replay: false,
     });
   }
   if (eventKind === "workspace.restore.previewed") {
     const snapshotId = stringField(payload, "snapshotId", "snapshot_id") ?? firstString(arrayField(event, "rollback_refs"));
     return baseCell(event, {
-      cellKind: "restore_preview",
+      cell_kind: "restore_preview",
       title: "Read-only restore preview",
       summary: stringField(payload, "summary"),
-      toolName: null,
-      toolCallId: null,
-      snapshotId,
-      filePaths: filePathsFromOperations(payload),
-      operationCount: arrayField(payload, "operations").length,
-      approvalRequired: null,
-      approvalSatisfied: null,
-      restorePreviewEndpoint: endpointForSnapshot(event, snapshotId, "restore-preview"),
-      restoreApplyEndpoint: endpointForSnapshot(event, snapshotId, "restore-apply"),
-      readOnlyReplay: true,
+      tool_name: null,
+      tool_call_id: null,
+      snapshot_id: snapshotId,
+      file_paths: filePathsFromOperations(payload),
+      operation_count: arrayField(payload, "operations").length,
+      approval_required: null,
+      approval_satisfied: null,
+      restore_preview_endpoint: endpointForSnapshot(event, snapshotId, "restore-preview"),
+      restore_apply_endpoint: endpointForSnapshot(event, snapshotId, "restore-apply"),
+      read_only_replay: true,
     });
   }
   if (eventKind === "workspace.restore.applied") {
     const snapshotId = stringField(payload, "snapshotId", "snapshot_id") ?? firstString(arrayField(event, "rollback_refs"));
     return baseCell(event, {
-      cellKind: "restore_apply",
+      cell_kind: "restore_apply",
       title: "Restore apply",
       summary: stringField(payload, "summary"),
-      toolName: null,
-      toolCallId: null,
-      snapshotId,
-      filePaths: filePathsFromOperations(payload),
-      operationCount: arrayField(payload, "operations").length,
-      approvalRequired: booleanField(payload, "approvalRequired", "approval_required"),
-      approvalSatisfied: booleanField(payload, "approvalSatisfied", "approval_satisfied"),
-      restorePreviewEndpoint: endpointForSnapshot(event, snapshotId, "restore-preview"),
-      restoreApplyEndpoint: endpointForSnapshot(event, snapshotId, "restore-apply"),
-      readOnlyReplay: false,
+      tool_name: null,
+      tool_call_id: null,
+      snapshot_id: snapshotId,
+      file_paths: filePathsFromOperations(payload),
+      operation_count: arrayField(payload, "operations").length,
+      approval_required: booleanField(payload, "approvalRequired", "approval_required"),
+      approval_satisfied: booleanField(payload, "approvalSatisfied", "approval_satisfied"),
+      restore_preview_endpoint: endpointForSnapshot(event, snapshotId, "restore-preview"),
+      restore_apply_endpoint: endpointForSnapshot(event, snapshotId, "restore-apply"),
+      read_only_replay: false,
     });
   }
   return null;
@@ -192,31 +192,31 @@ function cellForRestoreResult(value: unknown): WorkflowSignedReplayNotebookCell 
   if (!preview && !apply) return null;
   return {
     id: `signed-replay-${preview ? "preview" : "apply"}-${safeId(snapshotId ?? "snapshot")}-${safeId(stringField(result, "applyStatus", "apply_status", "previewStatus", "preview_status") ?? "status")}`,
-    cellKind: preview ? "restore_preview" : "restore_apply",
+    cell_kind: preview ? "restore_preview" : "restore_apply",
     status: preview
       ? stringField(result, "previewStatus", "preview_status") ?? "ready"
       : stringField(result, "applyStatus", "apply_status") ?? "unknown",
-    readOnlyReplay: preview || stringField(result, "applyStatus", "apply_status") === "blocked",
-    eventId: stringField(objectField(result, "event"), "eventId", "event_id"),
-    eventSeq: numberField(objectField(result, "event"), "seq"),
-    threadId: stringField(result, "threadId", "thread_id") ?? stringField(objectField(result, "event"), "threadId", "thread_id"),
-    workflowGraphId: stringField(objectField(result, "event"), "workflowGraphId", "workflow_graph_id"),
-    workflowNodeId: stringField(objectField(result, "event"), "workflowNodeId", "workflow_node_id"),
+    read_only_replay: preview || stringField(result, "applyStatus", "apply_status") === "blocked",
+    event_id: stringField(objectField(result, "event"), "eventId", "event_id"),
+    event_seq: numberField(objectField(result, "event"), "seq"),
+    thread_id: stringField(result, "threadId", "thread_id") ?? stringField(objectField(result, "event"), "threadId", "thread_id"),
+    workflow_graph_id: stringField(objectField(result, "event"), "workflowGraphId", "workflow_graph_id"),
+    workflow_node_id: stringField(objectField(result, "event"), "workflowNodeId", "workflow_node_id"),
     title: preview ? "Read-only restore preview" : "Restore apply",
     summary: stringField(result, "summary"),
-    toolName: null,
-    toolCallId: null,
-    snapshotId,
-    filePaths: filePathsFromOperations(result),
-    operationCount: arrayField(result, "operations").length,
-    approvalRequired: booleanField(result, "approvalRequired", "approval_required"),
-    approvalSatisfied: booleanField(result, "approvalSatisfied", "approval_satisfied"),
-    restorePreviewEndpoint: endpointForThreadSnapshot(result, snapshotId, "restore-preview"),
-    restoreApplyEndpoint: endpointForThreadSnapshot(result, snapshotId, "restore-apply"),
-    receiptRefs: uniqueStrings(arrayField(result, "receipt_refs")),
-    artifactRefs: uniqueStrings(arrayField(result, "artifact_refs")),
-    rollbackRefs: uniqueStrings(arrayField(result, "rollback_refs")),
-    policyDecisionRefs: uniqueStrings(arrayField(result, "policy_decision_refs")),
+    tool_name: null,
+    tool_call_id: null,
+    snapshot_id: snapshotId,
+    file_paths: filePathsFromOperations(result),
+    operation_count: arrayField(result, "operations").length,
+    approval_required: booleanField(result, "approvalRequired", "approval_required"),
+    approval_satisfied: booleanField(result, "approvalSatisfied", "approval_satisfied"),
+    restore_preview_endpoint: endpointForThreadSnapshot(result, snapshotId, "restore-preview"),
+    restore_apply_endpoint: endpointForThreadSnapshot(result, snapshotId, "restore-apply"),
+    receipt_refs: uniqueStrings(arrayField(result, "receipt_refs")),
+    artifact_refs: uniqueStrings(arrayField(result, "artifact_refs")),
+    rollback_refs: uniqueStrings(arrayField(result, "rollback_refs")),
+    policy_decision_refs: uniqueStrings(arrayField(result, "policy_decision_refs")),
   };
 }
 
@@ -226,29 +226,29 @@ function cellForSnapshotListItem(value: unknown): WorkflowSignedReplayNotebookCe
   if (!snapshot || !snapshotId) return null;
   return {
     id: `signed-replay-snapshot-list-${safeId(snapshotId)}`,
-    cellKind: "snapshot",
+    cell_kind: "snapshot",
     status: stringField(snapshot, "status") ?? "completed",
-    readOnlyReplay: false,
-    eventId: stringField(snapshot, "eventId", "event_id"),
-    eventSeq: null,
-    threadId: stringField(snapshot, "threadId", "thread_id"),
-    workflowGraphId: stringField(snapshot, "workflowGraphId", "workflow_graph_id"),
-    workflowNodeId: "runtime.workspace-snapshot",
+    read_only_replay: false,
+    event_id: stringField(snapshot, "eventId", "event_id"),
+    event_seq: null,
+    thread_id: stringField(snapshot, "threadId", "thread_id"),
+    workflow_graph_id: stringField(snapshot, "workflowGraphId", "workflow_graph_id"),
+    workflow_node_id: "runtime.workspace-snapshot",
     title: "Workspace snapshot",
     summary: stringField(snapshot, "summary"),
-    toolName: null,
-    toolCallId: stringField(snapshot, "toolCallId", "tool_call_id"),
-    snapshotId,
-    filePaths: filePathsFromPayload(snapshot),
-    operationCount: numberField(snapshot, "fileCount", "file_count") ?? filePathsFromPayload(snapshot).length,
-    approvalRequired: null,
-    approvalSatisfied: null,
-    restorePreviewEndpoint: endpointForThreadSnapshot(snapshot, snapshotId, "restore-preview"),
-    restoreApplyEndpoint: endpointForThreadSnapshot(snapshot, snapshotId, "restore-apply"),
-    receiptRefs: uniqueStrings(arrayField(snapshot, "receipt_refs")),
-    artifactRefs: uniqueStrings(arrayField(snapshot, "artifact_refs")),
-    rollbackRefs: uniqueStrings([snapshotId]),
-    policyDecisionRefs: uniqueStrings(arrayField(snapshot, "policy_decision_refs")),
+    tool_name: null,
+    tool_call_id: stringField(snapshot, "toolCallId", "tool_call_id"),
+    snapshot_id: snapshotId,
+    file_paths: filePathsFromPayload(snapshot),
+    operation_count: numberField(snapshot, "fileCount", "file_count") ?? filePathsFromPayload(snapshot).length,
+    approval_required: null,
+    approval_satisfied: null,
+    restore_preview_endpoint: endpointForThreadSnapshot(snapshot, snapshotId, "restore-preview"),
+    restore_apply_endpoint: endpointForThreadSnapshot(snapshot, snapshotId, "restore-apply"),
+    receipt_refs: uniqueStrings(arrayField(snapshot, "receipt_refs")),
+    artifact_refs: uniqueStrings(arrayField(snapshot, "artifact_refs")),
+    rollback_refs: uniqueStrings([snapshotId]),
+    policy_decision_refs: uniqueStrings(arrayField(snapshot, "policy_decision_refs")),
   };
 }
 
@@ -258,30 +258,30 @@ function baseCell(
     WorkflowSignedReplayNotebookCell,
     | "id"
     | "status"
-    | "eventId"
-    | "eventSeq"
-    | "threadId"
-    | "workflowGraphId"
-    | "workflowNodeId"
-    | "receiptRefs"
-    | "artifactRefs"
-    | "rollbackRefs"
-    | "policyDecisionRefs"
+    | "event_id"
+    | "event_seq"
+    | "thread_id"
+    | "workflow_graph_id"
+    | "workflow_node_id"
+    | "receipt_refs"
+    | "artifact_refs"
+    | "rollback_refs"
+    | "policy_decision_refs"
   >,
 ): WorkflowSignedReplayNotebookCell {
   const eventIdValue = eventId(event);
   return {
-    id: `signed-replay-${fields.cellKind}-${safeId(eventIdValue ?? String(eventSeq(event)))}`,
+    id: `signed-replay-${fields.cell_kind}-${safeId(eventIdValue ?? String(eventSeq(event)))}`,
     status: stringField(event, "status") ?? "unknown",
-    eventId: eventIdValue,
-    eventSeq: eventSeq(event),
-    threadId: stringField(event, "threadId", "thread_id"),
-    workflowGraphId: stringField(event, "workflowGraphId", "workflow_graph_id"),
-    workflowNodeId: stringField(event, "workflowNodeId", "workflow_node_id"),
-    receiptRefs: uniqueStrings(arrayField(event, "receipt_refs")),
-    artifactRefs: uniqueStrings(arrayField(event, "artifact_refs")),
-    rollbackRefs: uniqueStrings(arrayField(event, "rollback_refs")),
-    policyDecisionRefs: uniqueStrings(arrayField(event, "policy_decision_refs")),
+    event_id: eventIdValue,
+    event_seq: eventSeq(event),
+    thread_id: stringField(event, "threadId", "thread_id"),
+    workflow_graph_id: stringField(event, "workflowGraphId", "workflow_graph_id"),
+    workflow_node_id: stringField(event, "workflowNodeId", "workflow_node_id"),
+    receipt_refs: uniqueStrings(arrayField(event, "receipt_refs")),
+    artifact_refs: uniqueStrings(arrayField(event, "artifact_refs")),
+    rollback_refs: uniqueStrings(arrayField(event, "rollback_refs")),
+    policy_decision_refs: uniqueStrings(arrayField(event, "policy_decision_refs")),
     ...fields,
   };
 }
@@ -290,9 +290,9 @@ function mergeCells(cells: WorkflowSignedReplayNotebookCell[]): WorkflowSignedRe
   const byId = new Map<string, WorkflowSignedReplayNotebookCell>();
   for (const cell of cells) {
     const key =
-      cell.cellKind === "snapshot" && cell.snapshotId
-        ? `snapshot:${cell.snapshotId}`
-        : cell.eventId ?? `${cell.cellKind}:${cell.snapshotId}:${cell.status}:${cell.workflowNodeId}`;
+      cell.cell_kind === "snapshot" && cell.snapshot_id
+        ? `snapshot:${cell.snapshot_id}`
+        : cell.event_id ?? `${cell.cell_kind}:${cell.snapshot_id}:${cell.status}:${cell.workflow_node_id}`;
     const existing = byId.get(key);
     if (!existing) {
       byId.set(key, cell);
@@ -301,14 +301,14 @@ function mergeCells(cells: WorkflowSignedReplayNotebookCell[]): WorkflowSignedRe
     byId.set(key, {
       ...existing,
       ...cell,
-      receiptRefs: uniqueStrings([...existing.receiptRefs, ...cell.receiptRefs]),
-      artifactRefs: uniqueStrings([...existing.artifactRefs, ...cell.artifactRefs]),
-      rollbackRefs: uniqueStrings([...existing.rollbackRefs, ...cell.rollbackRefs]),
-      policyDecisionRefs: uniqueStrings([...existing.policyDecisionRefs, ...cell.policyDecisionRefs]),
-      filePaths: uniqueStrings([...existing.filePaths, ...cell.filePaths]),
+      receipt_refs: uniqueStrings([...existing.receipt_refs, ...cell.receipt_refs]),
+      artifact_refs: uniqueStrings([...existing.artifact_refs, ...cell.artifact_refs]),
+      rollback_refs: uniqueStrings([...existing.rollback_refs, ...cell.rollback_refs]),
+      policy_decision_refs: uniqueStrings([...existing.policy_decision_refs, ...cell.policy_decision_refs]),
+      file_paths: uniqueStrings([...existing.file_paths, ...cell.file_paths]),
     });
   }
-  return [...byId.values()].sort((a, b) => (a.eventSeq ?? 999999) - (b.eventSeq ?? 999999));
+  return [...byId.values()].sort((a, b) => (a.event_seq ?? 999999) - (b.event_seq ?? 999999));
 }
 
 function endpointForSnapshot(

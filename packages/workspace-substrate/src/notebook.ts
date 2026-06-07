@@ -27,44 +27,28 @@ type NotebookRecord = {
 
 type AutopilotReplayCellRecord = {
   id?: string;
-  cellKind?: string;
   cell_kind?: string;
   status?: string;
-  readOnlyReplay?: boolean;
   read_only_replay?: boolean;
   title?: string;
   summary?: string | null;
-  toolName?: string | null;
   tool_name?: string | null;
-  toolCallId?: string | null;
   tool_call_id?: string | null;
-  snapshotId?: string | null;
   snapshot_id?: string | null;
-  filePaths?: unknown;
   file_paths?: unknown;
-  operationCount?: number;
   operation_count?: number;
-  restorePreviewEndpoint?: string | null;
   restore_preview_endpoint?: string | null;
-  restoreApplyEndpoint?: string | null;
   restore_apply_endpoint?: string | null;
-  receiptRefs?: unknown;
   receipt_refs?: unknown;
-  artifactRefs?: unknown;
   artifact_refs?: unknown;
-  rollbackRefs?: unknown;
   rollback_refs?: unknown;
-  policyDecisionRefs?: unknown;
   policy_decision_refs?: unknown;
 };
 
 type AutopilotReplayRecord = {
-  schemaVersion?: string;
   schema_version?: string;
   status?: string;
-  readOnlyReplayMode?: boolean;
   read_only_replay_mode?: boolean;
-  receiptBackedCellCount?: number;
   receipt_backed_cell_count?: number;
   cells?: AutopilotReplayCellRecord[];
 };
@@ -258,12 +242,10 @@ function parseAutopilotReplayNotebookDocument(
 
   const cells = (Array.isArray(replay.cells) ? replay.cells : []).map(
     (cell, index): WorkspaceNotebookCell => {
-      const receiptRefs = stringArray(cell.receiptRefs ?? cell.receipt_refs);
-      const artifactRefs = stringArray(cell.artifactRefs ?? cell.artifact_refs);
-      const rollbackRefs = stringArray(cell.rollbackRefs ?? cell.rollback_refs);
-      const policyDecisionRefs = stringArray(
-        cell.policyDecisionRefs ?? cell.policy_decision_refs,
-      );
+      const receiptRefs = stringArray(cell.receipt_refs);
+      const artifactRefs = stringArray(cell.artifact_refs);
+      const rollbackRefs = stringArray(cell.rollback_refs);
+      const policyDecisionRefs = stringArray(cell.policy_decision_refs);
       const outputPreview = [
         receiptRefs.length ? `${receiptRefs.length} receipt refs` : null,
         artifactRefs.length ? `${artifactRefs.length} artifact refs` : null,
@@ -280,7 +262,7 @@ function parseAutopilotReplayNotebookDocument(
             : `autopilot-cell-${index + 1}`,
         index,
         cellType:
-          stringField(cell.cellKind ?? cell.cell_kind) || "autopilot_replay",
+          stringField(cell.cell_kind) || "autopilot_replay",
         source: autopilotReplayCellSource(cell, {
           receiptRefs,
           artifactRefs,
@@ -304,13 +286,9 @@ function parseAutopilotReplayNotebookDocument(
     nbformatMinor: 5,
     language: "autopilot-replay",
     kernelDisplayName: "Autopilot Signed Replay",
-    readOnlyReplayMode: Boolean(
-      replay.readOnlyReplayMode ?? replay.read_only_replay_mode,
-    ),
+    readOnlyReplayMode: Boolean(replay.read_only_replay_mode),
     receiptBackedCellCount:
-      typeof replay.receiptBackedCellCount === "number"
-        ? replay.receiptBackedCellCount
-        : typeof replay.receipt_backed_cell_count === "number"
+      typeof replay.receipt_backed_cell_count === "number"
           ? replay.receipt_backed_cell_count
           : cells.filter((cell) =>
               cell.outputPreview.some((preview) => preview.includes("receipt")),
@@ -327,7 +305,7 @@ function isAutopilotReplayNotebookRecord(
     return false;
   }
   const record = value as AutopilotReplayRecord;
-  const schema = String(record.schemaVersion ?? record.schema_version ?? "");
+  const schema = String(record.schema_version ?? "");
   return schema.includes("signed-replay-notebook");
 }
 
@@ -357,25 +335,19 @@ function autopilotReplayCellSource(
   const lines = [`# ${title}`];
   const summary = stringField(cell.summary);
   const status = stringField(cell.status);
-  const toolName = stringField(cell.toolName ?? cell.tool_name);
-  const toolCallId = stringField(cell.toolCallId ?? cell.tool_call_id);
-  const snapshotId = stringField(cell.snapshotId ?? cell.snapshot_id);
-  const filePaths = stringArray(cell.filePaths ?? cell.file_paths);
-  const restorePreviewEndpoint = stringField(
-    cell.restorePreviewEndpoint ?? cell.restore_preview_endpoint,
-  );
-  const restoreApplyEndpoint = stringField(
-    cell.restoreApplyEndpoint ?? cell.restore_apply_endpoint,
-  );
+  const toolName = stringField(cell.tool_name);
+  const toolCallId = stringField(cell.tool_call_id);
+  const snapshotId = stringField(cell.snapshot_id);
+  const filePaths = stringArray(cell.file_paths);
+  const restorePreviewEndpoint = stringField(cell.restore_preview_endpoint);
+  const restoreApplyEndpoint = stringField(cell.restore_apply_endpoint);
 
   if (summary) lines.push("", summary);
   if (status) lines.push("", `Status: ${status}`);
   if (toolName) lines.push(`Tool: ${toolName}`);
   if (toolCallId) lines.push(`Tool call: ${toolCallId}`);
   if (snapshotId) lines.push(`Snapshot: ${snapshotId}`);
-  if (typeof cell.operationCount === "number") {
-    lines.push(`Operations: ${cell.operationCount}`);
-  } else if (typeof cell.operation_count === "number") {
+  if (typeof cell.operation_count === "number") {
     lines.push(`Operations: ${cell.operation_count}`);
   }
   if (filePaths.length) lines.push(`Files: ${filePaths.join(", ")}`);

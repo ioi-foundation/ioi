@@ -41,8 +41,8 @@ const notebook = buildWorkflowSignedReplayNotebook({
         summary: "Applied a workflow harness parity patch.",
         changedFiles: [{ path: changedPath }],
       },
-      receiptRefs: ["receipt:stage36:tool"],
-      artifactRefs: ["artifact:stage36:patch"],
+      receipt_refs: ["receipt:stage36:tool"],
+      artifact_refs: ["artifact:stage36:patch"],
     },
     {
       event_id: "evt-stage36-snapshot",
@@ -59,31 +59,31 @@ const notebook = buildWorkflowSignedReplayNotebook({
         changedFiles: [{ path: changedPath }],
         fileCount: 1,
       },
-      receiptRefs: ["receipt:stage36:snapshot"],
-      artifactRefs: ["artifact:stage36:snapshot"],
-      rollbackRefs: [snapshotId],
+      receipt_refs: ["receipt:stage36:snapshot"],
+      artifact_refs: ["artifact:stage36:snapshot"],
+      rollback_refs: [snapshotId],
     },
   ],
   snapshots: [
     {
-      snapshotId,
-      threadId,
+      snapshot_id: snapshotId,
+      thread_id: threadId,
       eventId: "evt-stage36-snapshot-list",
       status: "completed",
       summary: "Snapshot list item remains shareable in the replay notebook.",
       changedFiles: [{ path: changedPath }],
-      fileCount: 1,
-      receiptRefs: ["receipt:stage36:snapshot-list"],
-      artifactRefs: ["artifact:stage36:snapshot-list"],
-      policyDecisionRefs: ["policy:stage36:snapshot"],
+      file_count: 1,
+      receipt_refs: ["receipt:stage36:snapshot-list"],
+      artifact_refs: ["artifact:stage36:snapshot-list"],
+      policy_decision_refs: ["policy:stage36:snapshot"],
     },
   ],
   restoreResults: [
     {
-      schemaVersion: "ioi.workflow.workspace-restore-preview.v1",
-      snapshotId,
-      threadId,
-      previewStatus: "ready",
+      schema_version: "ioi.workflow.workspace-restore-preview.v1",
+      snapshot_id: snapshotId,
+      thread_id: threadId,
+      preview_status: "ready",
       summary: "Previewed restore operations without mutating the workspace.",
       operations: [
         {
@@ -91,28 +91,28 @@ const notebook = buildWorkflowSignedReplayNotebook({
           diff: "- harness = partial\n+ harness = parity\n",
         },
       ],
-      receiptRefs: ["receipt:stage36:restore-preview"],
-      artifactRefs: ["artifact:stage36:restore-preview"],
-      rollbackRefs: [snapshotId],
-      policyDecisionRefs: ["policy:stage36:restore-preview"],
+      receipt_refs: ["receipt:stage36:restore-preview"],
+      artifact_refs: ["artifact:stage36:restore-preview"],
+      rollback_refs: [snapshotId],
+      policy_decision_refs: ["policy:stage36:restore-preview"],
     },
     {
-      schemaVersion: "ioi.workflow.workspace-restore-apply.v1",
-      snapshotId,
-      threadId,
-      applyStatus: "blocked",
+      schema_version: "ioi.workflow.workspace-restore-apply.v1",
+      snapshot_id: snapshotId,
+      thread_id: threadId,
+      apply_status: "blocked",
       summary: "Blocked restore apply until explicit operator approval.",
-      approvalRequired: true,
-      approvalSatisfied: false,
+      approval_required: true,
+      approval_satisfied: false,
       operations: [
         {
           path: changedPath,
           apply_reason: "workspace_restore_apply_requires_approval",
         },
       ],
-      receiptRefs: ["receipt:stage36:restore-apply-blocked"],
-      rollbackRefs: [snapshotId],
-      policyDecisionRefs: ["policy:stage36:restore-apply-blocked"],
+      receipt_refs: ["receipt:stage36:restore-apply-blocked"],
+      rollback_refs: [snapshotId],
+      policy_decision_refs: ["policy:stage36:restore-apply-blocked"],
     },
   ],
 });
@@ -133,7 +133,7 @@ assert.equal(autopilotDocument.readOnlyReplayMode, true);
 assert.equal(autopilotDocument.cellCount, notebook.cellCount);
 assert.equal(
   autopilotDocument.receiptBackedCellCount,
-  notebook.receiptBackedCellCount,
+  notebook.receipt_backed_cell_count,
 );
 assert.ok(autopilotDocument.receiptBackedCellCount > 0);
 assert.ok(autopilotDocument.cells.length >= 4);
@@ -201,7 +201,7 @@ const proof = {
     autopilotDocumentParsed:
       autopilotDocument.documentKind === "autopilot_replay",
     signedReplayBuilderUsed:
-      notebook.schemaVersion === "ioi.workflow.signed-replay-notebook.v1",
+      notebook.schema_version === "ioi.workflow.signed-replay-notebook.v1",
     readOnlyReplayMode: autopilotDocument.readOnlyReplayMode === true,
     allAutopilotCellsReadOnly: autopilotDocument.cells.every(
       (cell) => cell.readOnly === true,
@@ -209,7 +209,7 @@ const proof = {
     tamperUpdateDenied: autopilotTamperAttempt === null,
     receiptBackedCellsVisible:
       autopilotDocument.receiptBackedCellCount ===
-      notebook.receiptBackedCellCount,
+      notebook.receipt_backed_cell_count,
     restoreEndpointsVisible:
       joinedReplaySource.includes("/restore-preview") &&
       joinedReplaySource.includes("/restore-apply"),

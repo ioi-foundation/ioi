@@ -135,30 +135,30 @@ try {
     snapshots: snapshots.snapshots,
     restoreResults: [restorePreview, restoreApplyBlocked],
   });
-  const snapshotCell = notebook.cells.find((cell) => cell.cellKind === "snapshot");
-  const previewCell = notebook.cells.find((cell) => cell.cellKind === "restore_preview");
+  const snapshotCell = notebook.cells.find((cell) => cell.cell_kind === "snapshot");
+  const previewCell = notebook.cells.find((cell) => cell.cell_kind === "restore_preview");
   const blockedApplyCell = notebook.cells.find(
-    (cell) => cell.cellKind === "restore_apply" && cell.status === "blocked",
+    (cell) => cell.cell_kind === "restore_apply" && cell.status === "blocked",
   );
 
   assert.ok(snapshotCell);
   assert.ok(previewCell);
   assert.ok(blockedApplyCell);
   assert.equal(notebook.status, "ready");
-  assert.equal(notebook.readOnlyReplayMode, true);
-  assert.equal(notebook.snapshotCount >= 1, true);
-  assert.equal(notebook.restorePreviewCount >= 1, true);
-  assert.equal(notebook.restoreApplyBlockedCount, 1);
-  assert.equal(notebook.restoreApplyAppliedCount, 0);
-  assert.ok(notebook.rollbackRefCount >= 1);
-  assert.equal(previewCell.readOnlyReplay, true);
-  assert.equal(blockedApplyCell.readOnlyReplay, true);
-  assert.equal(blockedApplyCell.approvalRequired, true);
-  assert.equal(blockedApplyCell.approvalSatisfied, false);
-  assert.ok(snapshotCell.receiptRefs.length > 0);
-  assert.ok(snapshotCell.artifactRefs.length > 0);
-  assert.ok(snapshotCell.rollbackRefs.includes(patch.workspace_snapshot.snapshot_id));
-  assert.ok(previewCell.restoreApplyEndpoint?.includes("/restore-apply"));
+  assert.equal(notebook.read_only_replay_mode, true);
+  assert.equal(notebook.snapshot_count >= 1, true);
+  assert.equal(notebook.restore_preview_count >= 1, true);
+  assert.equal(notebook.restore_apply_blocked_count, 1);
+  assert.equal(notebook.restore_apply_applied_count, 0);
+  assert.ok(notebook.rollback_ref_count >= 1);
+  assert.equal(previewCell.read_only_replay, true);
+  assert.equal(blockedApplyCell.read_only_replay, true);
+  assert.equal(blockedApplyCell.approval_required, true);
+  assert.equal(blockedApplyCell.approval_satisfied, false);
+  assert.ok(snapshotCell.receipt_refs.length > 0);
+  assert.ok(snapshotCell.artifact_refs.length > 0);
+  assert.ok(snapshotCell.rollback_refs.includes(patch.workspace_snapshot.snapshot_id));
+  assert.ok(previewCell.restore_apply_endpoint?.includes("/restore-apply"));
   assert.equal(fs.readFileSync(targetPath, "utf8"), after);
 
   const proof = {
@@ -178,10 +178,10 @@ try {
       previewReadyAndReadOnly: restorePreview.preview_status === "ready" && fs.readFileSync(targetPath, "utf8") === after,
       applyWithoutApprovalBlocked: restoreApplyBlocked.apply_status === "blocked" &&
         restoreApplyBlocked.approval_satisfied === false,
-      readOnlyReplayModeVisible: notebook.readOnlyReplayMode,
+      readOnlyReplayModeVisible: notebook.read_only_replay_mode,
       notebookReady: notebook.status === "ready",
-      snapshotCellReceipted: snapshotCell.receiptRefs.length > 0 && snapshotCell.artifactRefs.length > 0,
-      rollbackRefsVisible: snapshotCell.rollbackRefs.includes(patch.workspace_snapshot.snapshot_id),
+      snapshotCellReceipted: snapshotCell.receipt_refs.length > 0 && snapshotCell.artifact_refs.length > 0,
+      rollbackRefsVisible: snapshotCell.rollback_refs.includes(patch.workspace_snapshot.snapshot_id),
     },
     receipts: {
       patch: patch.receipt_refs,

@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after workspace restore result output alias retirement slice 636 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after signed replay notebook output alias retirement slice 637 clarified the active seam.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -42,7 +42,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, and workspace restore result output alias retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, workspace restore result output alias retirement, and signed replay notebook output alias retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -13053,6 +13053,78 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 637
+
+```yaml
+slice: 637
+phase: 10-authoritative-js-facade-retirement
+objective: retire signed replay notebook artifact output aliases so
+  IDE/workspace replay exports no longer encode evidence through duplicate
+  camelCase notebook fields
+owner_boundary:
+  route_or_surface: Hypervisor IDE signed replay notebook export and
+    workspace-substrate `.autopilot` replay parser
+  authority_gate: unchanged; this slice changes replay projection artifact
+    shape only and does not grant authority or mutate accepted truth
+  execution_backend: unchanged; signed replay notebook construction remains a
+    product/IDE projection over daemon events, snapshots, and restore results
+  truth_path: replay artifact cells now expose canonical `schema_version`,
+    `cell_kind`, receipt/artifact/rollback/policy refs, read-only flags, counts,
+    and restore endpoints through snake_case fields only before the
+    workspace-substrate parser renders them
+  projection_path: compositor conformance rejects camelCase signed replay
+    artifact output fields and workspace-substrate parser fallback readers
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  ide_projection:
+    - packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts
+    - packages/workspace-substrate/src/notebook.ts
+  tests:
+    - packages/agent-ide/src/runtime/workflow-signed-replay-notebook.test.ts
+    - scripts/conformance/hypervisor-conformance.mjs
+  proof_scripts:
+    - scripts/lib/workflow-signed-replay-notebook-proof.mjs
+    - scripts/lib/workflow-signed-replay-autopilot-notebook-substrate-proof.mjs
+    - scripts/lib/workflow-imported-audit-replay-notebook-proof.mjs
+conformance_checks:
+  - compositor conformance requires signed replay notebook artifacts to emit
+    canonical snake_case output fields and rejects camelCase output-field
+    reintroduction
+  - compositor conformance requires workspace-substrate replay parser reads to
+    consume canonical snake_case fields without camelCase fallbacks
+  - focused signed replay notebook tests assert canonical output fields and
+    prove poisoned camelCase evidence inputs do not create receipted cells
+verification:
+  commands:
+    - npm run build --workspace=@ioi/agent-ide
+    - npm run build --workspace=@ioi/workspace-substrate
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:compositor
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: signed replay notebook fixture output now
+    preserves receipt/artifact/rollback/policy evidence through canonical
+    snake_case fields while poisoned camelCase evidence remains ignored
+  known_direct_script_limit:
+    - direct plain-node execution of the notebook proof scripts still fails
+      before proof logic because the imported TypeScript module has a
+      pre-existing extensionless internal import; package builds and compositor
+      conformance are the verification boundary for this slice
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this
+      IDE/workspace replay artifact facade cleanup
+    - signed replay builder still accepts some camelCase event/request identity
+      input shapes until the broader IDE event-projection facade is retired
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13068,7 +13140,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 636 and the seventy-first 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 637 and the seventy-second 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -13177,7 +13249,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-636 retired SDK runtime usage record aliases and Rust/daemon
+- Slices 572-637 retired SDK runtime usage record aliases and Rust/daemon
   Agentgres state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -13389,6 +13461,10 @@ reconstruct the active seam without carrying every per-slice paragraph.
   snake_case status, count, receipt, artifact, rollback, policy-decision, and
   restore-event fields without duplicate camelCase result aliases before
   restore evidence reaches events, artifacts, SDK, IDE, or diagnostics repair;
+  signed replay notebook replay artifacts now expose canonical snake_case
+  schema, cell kind, read-only, count, endpoint, receipt, artifact, rollback,
+  and policy-decision fields, and the workspace-substrate `.autopilot` parser
+  consumes those fields without camelCase artifact-output fallbacks;
   IDE runtime telemetry summary
   readers now ignore retired camelCase
   runtime usage/context-pressure payload aliases, and the daemon-bound usage

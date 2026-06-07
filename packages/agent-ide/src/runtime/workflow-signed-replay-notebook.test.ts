@@ -73,14 +73,23 @@ test("signed replay notebook reads canonical evidence refs", () => {
   });
 
   assert.equal(notebook.status, "blocked");
-  assert.ok(notebook.evidenceRefs.includes("receipt-event-canonical"));
-  assert.ok(notebook.evidenceRefs.includes("artifact-event-canonical"));
-  assert.ok(notebook.evidenceRefs.includes("snapshot-event-canonical"));
-  assert.ok(notebook.evidenceRefs.includes("receipt-snapshot-canonical"));
-  assert.ok(notebook.evidenceRefs.includes("artifact-snapshot-canonical"));
-  assert.ok(notebook.evidenceRefs.includes("receipt-result-canonical"));
-  assert.ok(notebook.evidenceRefs.includes("artifact-result-canonical"));
-  assert.ok(notebook.evidenceRefs.includes("rollback-result-canonical"));
+  assert.equal(notebook.schema_version, "ioi.workflow.signed-replay-notebook.v1");
+  assert.equal(Object.prototype.hasOwnProperty.call(notebook, "schemaVersion"), false);
+  assert.ok(notebook.evidence_refs.includes("receipt-event-canonical"));
+  assert.ok(notebook.evidence_refs.includes("artifact-event-canonical"));
+  assert.ok(notebook.evidence_refs.includes("snapshot-event-canonical"));
+  assert.ok(notebook.evidence_refs.includes("receipt-snapshot-canonical"));
+  assert.ok(notebook.evidence_refs.includes("artifact-snapshot-canonical"));
+  assert.ok(notebook.evidence_refs.includes("receipt-result-canonical"));
+  assert.ok(notebook.evidence_refs.includes("artifact-result-canonical"));
+  assert.ok(notebook.evidence_refs.includes("rollback-result-canonical"));
+  for (const cell of notebook.cells) {
+    assert.equal(Object.prototype.hasOwnProperty.call(cell, "cellKind"), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(cell, "receiptRefs"), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(cell, "artifactRefs"), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(cell, "rollbackRefs"), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(cell, "policyDecisionRefs"), false);
+  }
 });
 
 test("signed replay notebook ignores retired evidence aliases", () => {
@@ -120,9 +129,9 @@ test("signed replay notebook ignores retired evidence aliases", () => {
   });
 
   assert.equal(notebook.status, "blocked");
-  assert.equal(notebook.receiptBackedCellCount, 0);
-  assert.deepEqual(notebook.evidenceRefs, ["snapshot-list-retired"]);
-  assert.equal(notebook.cells.find((cell) => cell.eventId === "snapshot-retired")?.rollbackRefs.length, 0);
-  assert.equal(notebook.cells.find((cell) => cell.snapshotId === "snapshot-list-retired")?.receiptRefs.length, 0);
-  assert.equal(notebook.cells.find((cell) => cell.cellKind === "restore_preview")?.artifactRefs.length, 0);
+  assert.equal(notebook.receipt_backed_cell_count, 0);
+  assert.deepEqual(notebook.evidence_refs, ["snapshot-list-retired"]);
+  assert.equal(notebook.cells.find((cell) => cell.event_id === "snapshot-retired")?.rollback_refs.length, 0);
+  assert.equal(notebook.cells.find((cell) => cell.snapshot_id === "snapshot-list-retired")?.receipt_refs.length, 0);
+  assert.equal(notebook.cells.find((cell) => cell.cell_kind === "restore_preview")?.artifact_refs.length, 0);
 });
