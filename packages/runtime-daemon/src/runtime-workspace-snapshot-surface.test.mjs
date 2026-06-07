@@ -47,9 +47,9 @@ function hash(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
 
-function createSurface() {
+function createSurface(options = {}) {
   const writes = [];
-  const workspaceRestoreRunner = {
+  const defaultWorkspaceRestoreRunner = {
     planApplyPolicy(request = {}) {
       const approval = {
         required: true,
@@ -132,7 +132,9 @@ function createSurface() {
     notFound,
     runtimeError,
     now: () => "2026-06-04T15:00:00.000Z",
-    workspaceRestoreRunner,
+    workspaceRestoreRunner: Object.hasOwn(options, "workspaceRestoreRunner")
+      ? options.workspaceRestoreRunner
+      : defaultWorkspaceRestoreRunner,
     writeJson(filePath, value) {
       writes.push({ filePath, value });
     },
@@ -708,6 +710,96 @@ test("workspace snapshot restore fail-closed details use canonical fields", () =
         });
         assert.equal(error.details.thread_id, "thread_alpha");
         assert.equal(error.details.snapshot_id, "workspace_snapshot_empty");
+        assertNoRetiredWorkspaceRestoreErrorDetailAliases(error.details);
+        return true;
+      },
+    );
+  }
+});
+
+test("workspace restore policy bridge fail-closed details use canonical fields", () => {
+  const store = createStore();
+  store.codingArtifacts.set("artifact_snapshot_policy", {
+    id: "artifact_snapshot_policy",
+    thread_id: "thread_alpha",
+    channel: "workspace-snapshot",
+    content: JSON.stringify({
+      snapshot: {
+        snapshot_id: "workspace_snapshot_policy",
+        restore: { preview_supported: true },
+      },
+      files: [
+        {
+          path: "src/app.js",
+          before: { exists: true, content: "old", content_hash: hash("old") },
+          after: { exists: true, content_hash: hash("new") },
+        },
+      ],
+    }),
+  });
+  const previewOperations = () => [
+    {
+      path: "src/app.js",
+      operation: "replace",
+      status: "ready",
+      current_exists: true,
+      current_hash: hash("new"),
+      current_bytes: 3,
+      target_exists: true,
+      target_hash: hash("old"),
+      snapshot_after_exists: true,
+      snapshot_after_hash: hash("new"),
+      current_matches_snapshot_post: true,
+      current_matches_restore_target: false,
+      blocked_reason: null,
+      diff: "diff",
+    },
+  ];
+
+  for (const [workspaceRestoreRunner, expectedCode] of [
+    [
+      { previewOperations },
+      "workspace_restore_bridge_unconfigured",
+    ],
+    [
+      { previewOperations, planApplyPolicy: () => ({ approval: null }) },
+      "workspace_restore_bridge_invalid_plan",
+    ],
+    [
+      {
+        previewOperations,
+        planApplyPolicy: (request = {}) =>
+          request.counts
+            ? { approval: { satisfied: false }, summary: "missing status" }
+            : {
+                approval: { satisfied: false },
+                operation_policies: [{ path: "src/app.js", apply_reason: "requires_approval" }],
+              },
+      },
+      "workspace_restore_bridge_invalid_status",
+    ],
+    [
+      {
+        previewOperations,
+        planApplyPolicy: (request = {}) =>
+          request.counts
+            ? { approval: { satisfied: false }, apply_status: "blocked" }
+            : {
+                approval: { satisfied: false },
+                operation_policies: [{ path: "src/app.js", apply_reason: "requires_approval" }],
+              },
+      },
+      "workspace_restore_bridge_invalid_summary",
+    ],
+  ]) {
+    const { surface } = createSurface({ workspaceRestoreRunner });
+    assert.throws(
+      () => surface.applyWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_policy", {}),
+      (error) => {
+        assert.equal(error.status, 502);
+        assert.equal(error.code, expectedCode);
+        assert.deepEqual(error.details, { snapshot_id: "workspace_snapshot_policy" });
+        assert.equal(error.details.snapshot_id, "workspace_snapshot_policy");
         assertNoRetiredWorkspaceRestoreErrorDetailAliases(error.details);
         return true;
       },

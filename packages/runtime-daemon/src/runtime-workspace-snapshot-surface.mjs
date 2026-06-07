@@ -571,7 +571,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         status: 502,
         code: "workspace_restore_bridge_unconfigured",
         message: "Workspace restore requires the Rust workspace restore bridge.",
-        details: { snapshotId },
+        details: { snapshot_id: snapshotId },
       });
     }
     const policyRequest = {
@@ -602,7 +602,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         status: 502,
         code: "workspace_restore_bridge_invalid_plan",
         message: "Rust workspace restore policy bridge returned an invalid approval plan.",
-        details: { snapshotId },
+        details: { snapshot_id: snapshotId },
       });
     }
     if (counts && !optionalString(applyStatus)) {
@@ -610,7 +610,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         status: 502,
         code: "workspace_restore_bridge_invalid_status",
         message: "Rust workspace restore policy bridge returned an invalid apply status.",
-        details: { snapshotId },
+        details: { snapshot_id: snapshotId },
       });
     }
     if (counts && !optionalString(plan?.summary)) {
@@ -618,7 +618,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         status: 502,
         code: "workspace_restore_bridge_invalid_summary",
         message: "Rust workspace restore policy bridge returned an invalid apply summary.",
-        details: { snapshotId },
+        details: { snapshot_id: snapshotId },
       });
     }
     return plan;

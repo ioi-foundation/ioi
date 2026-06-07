@@ -18245,7 +18245,13 @@ function runCompositor() {
       /details:\s*\{\s*thread_id:\s*threadId,\s*snapshot_id:\s*normalizedSnapshotId\s*\}/.test(
         runtimeWorkspaceSnapshotSurface,
       ) &&
+      /details:\s*\{\s*snapshot_id:\s*snapshotId\s*\}/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
       /workspace snapshot restore fail-closed details use canonical fields/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /workspace restore policy bridge fail-closed details use canonical fields/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
       /assertNoRetiredWorkspaceRestoreErrorDetailAliases\(error\.details\)/.test(
