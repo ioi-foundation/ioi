@@ -12,7 +12,7 @@ test("native browser CDP executor completes approved navigate actions", async ()
   try {
     const result = await executeNativeBrowserCdpAction({
       input: {
-        cdpEndpointUrl: fixture.endpointUrl,
+        cdp_endpoint_url: fixture.endpointUrl,
         url: "https://example.test/next",
       },
       actionKind: "navigate",
@@ -36,7 +36,7 @@ test("native browser CDP executor completes approved click actions", async () =>
   try {
     const result = await executeNativeBrowserCdpAction({
       input: {
-        cdpEndpointUrl: fixture.endpointUrl,
+        cdp_endpoint_url: fixture.endpointUrl,
         selector: "#submit",
       },
       actionKind: "click",
@@ -60,7 +60,7 @@ test("native browser CDP executor completes approved type_text actions", async (
   try {
     const result = await executeNativeBrowserCdpAction({
       input: {
-        cdpEndpointUrl: fixture.endpointUrl,
+        cdp_endpoint_url: fixture.endpointUrl,
         selector: "#input",
         text: "hello IOI",
       },
@@ -86,7 +86,7 @@ test("native browser CDP executor completes approved key_press actions", async (
   try {
     const result = await executeNativeBrowserCdpAction({
       input: {
-        cdpEndpointUrl: fixture.endpointUrl,
+        cdp_endpoint_url: fixture.endpointUrl,
         key: "Enter",
       },
       actionKind: "key_press",
@@ -110,8 +110,8 @@ test("native browser CDP executor completes explicit scroll actions", async () =
   try {
     const result = await executeNativeBrowserCdpAction({
       input: {
-        cdpEndpointUrl: fixture.endpointUrl,
-        scrollY: 420,
+        cdp_endpoint_url: fixture.endpointUrl,
+        scroll_y: 420,
       },
       actionKind: "scroll",
       prompt: "Scroll down",
@@ -136,9 +136,9 @@ test("native browser CDP executor completes approved upload actions", async () =
   try {
     const result = await executeNativeBrowserCdpAction({
       input: {
-        cdpEndpointUrl: fixture.endpointUrl,
+        cdp_endpoint_url: fixture.endpointUrl,
         selector: "#file",
-        filePath: uploadPath,
+        file_path: uploadPath,
       },
       actionKind: "upload",
       approvalRef: "approval-upload",
@@ -156,6 +156,45 @@ test("native browser CDP executor completes approved upload actions", async () =
     await fixture.close();
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+});
+
+test("native browser CDP executor ignores retired camelCase input aliases", async () => {
+  const result = await executeNativeBrowserCdpAction({
+    input: {
+      cdpEndpointUrl: "http://127.0.0.1:1",
+      cdpEndpoint: "http://127.0.0.1:2",
+      cdpWebSocketUrl: "ws://127.0.0.1/devtools/retired",
+      cdpWsUrl: "ws://127.0.0.1/devtools/retired-short",
+      webSocketDebuggerUrl: "ws://127.0.0.1/devtools/retired-debugger",
+      websocketDebuggerUrl: "ws://127.0.0.1/devtools/retired-lower",
+      targetUrl: "https://retired.example.test",
+      targetSelector: "#retired",
+      cssSelector: "#retired-css",
+      inputText: "retired input",
+      textValue: "retired text",
+      keyText: "R",
+      keyboardKey: "R",
+      scrollX: 20,
+      scrollY: 30,
+      deltaX: 40,
+      deltaY: 50,
+      filePath: "/tmp/retired-file",
+      uploadPath: "/tmp/retired-upload",
+      filePaths: ["/tmp/retired-list"],
+    },
+    actionKind: "click",
+    approvalRef: "approval-retired-aliases",
+    prompt: "Click #retired",
+  });
+
+  assert.equal(result.status, "unavailable");
+  assert.equal(result.error_class, "NativeBrowserCdpUnavailable");
+  assert.equal(result.endpoint_ref, null);
+  assert.equal(result.session_ref, null);
+  assert.deepEqual(
+    result.evidence_refs.filter((ref) => ref.includes("retired")),
+    [],
+  );
 });
 
 test("native browser CDP executor fails closed without endpoint", async () => {

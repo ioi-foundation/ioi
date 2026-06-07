@@ -129,7 +129,7 @@ async function executeApprovedAction({ client, input, actionKind, targetRef, pro
 
 async function executeNavigate(client, input, prompt, { timeoutMs }) {
   const url = normalizeNavigationUrl(
-    stringValue(input.url ?? input.targetUrl ?? input.target_url) ??
+    stringValue(input.url ?? input.target_url) ??
       String(prompt ?? "").match(/https?:\/\/[^\s)]+/i)?.[0],
   );
   if (!url) {
@@ -151,14 +151,12 @@ async function executeNavigate(client, input, prompt, { timeoutMs }) {
 async function executeClick(client, input, targetRef) {
   const selector = normalizeSelector(
     input.selector ??
-      input.targetSelector ??
       input.target_selector ??
-      input.cssSelector ??
       input.css_selector ??
       targetRef,
   );
   if (!selector) {
-    throw new Error("Approved click action requires selector, targetSelector, or selector-shaped targetRef.");
+    throw new Error("Approved click action requires selector, target_selector, or selector-shaped targetRef.");
   }
   const expression = `(() => {
     const selector = ${JSON.stringify(selector)};
@@ -197,9 +195,7 @@ async function executeClick(client, input, targetRef) {
 async function executeTypeText(client, input, targetRef, prompt) {
   const selector = normalizeSelector(
     input.selector ??
-      input.targetSelector ??
       input.target_selector ??
-      input.cssSelector ??
       input.css_selector ??
       targetRef,
   );
@@ -209,13 +205,11 @@ async function executeTypeText(client, input, targetRef, prompt) {
   const text = stringValue(
     input.text ??
       input.value ??
-      input.inputText ??
       input.input_text ??
-      input.textValue ??
       input.text_value,
   ) ?? String(prompt ?? "").match(/\btype(?:_text)?\s+["']([^"']+)["']/i)?.[1];
   if (text === null || text === undefined) {
-    throw new Error("Approved type_text action requires text, value, inputText, or a quoted type prompt.");
+    throw new Error("Approved type_text action requires text, value, input_text, or a quoted type prompt.");
   }
   const expression = `(() => {
     const selector = ${JSON.stringify(selector)};
@@ -266,14 +260,12 @@ async function executeKeyPress(client, input, prompt) {
   const key = normalizeKey(
     stringValue(
       input.key ??
-        input.keyText ??
         input.key_text ??
-        input.keyboardKey ??
         input.keyboard_key,
     ) ?? String(prompt ?? "").match(/\b(?:press|key(?:_press)?)\s+["']?([A-Za-z0-9 _+-]+)["']?/i)?.[1],
   );
   if (!key) {
-    throw new Error("Approved key_press action requires key, keyText, or a press-key prompt.");
+    throw new Error("Approved key_press action requires key, key_text, or a press-key prompt.");
   }
   const descriptor = keyDescriptor(key);
   await client.command("Input.dispatchKeyEvent", {
@@ -304,9 +296,7 @@ async function executeKeyPress(client, input, prompt) {
 async function executeScroll(client, input, targetRef, prompt) {
   const selector = normalizeSelector(
     input.selector ??
-      input.targetSelector ??
       input.target_selector ??
-      input.cssSelector ??
       input.css_selector ??
       targetRef,
   );
@@ -354,18 +344,16 @@ async function executeScroll(client, input, targetRef, prompt) {
 async function executeUpload(client, input, targetRef) {
   const selector = normalizeSelector(
     input.selector ??
-      input.targetSelector ??
       input.target_selector ??
-      input.cssSelector ??
       input.css_selector ??
       targetRef,
   );
   if (!selector) {
-    throw new Error("Approved upload action requires selector, targetSelector, or selector-shaped targetRef.");
+    throw new Error("Approved upload action requires selector, target_selector, or selector-shaped targetRef.");
   }
   const files = normalizeUploadFiles(input);
   if (files.length === 0) {
-    throw new Error("Approved upload action requires filePath, file_path, uploadPath, or files.");
+    throw new Error("Approved upload action requires file_path, upload_path, or files.");
   }
   const documentResult = await client.command("DOM.getDocument", { depth: 1, pierce: true });
   const rootNodeId = documentResult?.root?.nodeId;
@@ -449,12 +437,9 @@ async function evaluateReturnByValue(client, expression) {
 
 async function resolveCdpEndpoint(input, { timeoutMs }) {
   const explicitWs =
-    stringValue(input.cdpWebSocketUrl) ??
     stringValue(input.cdp_websocket_url) ??
-    stringValue(input.cdpWsUrl) ??
     stringValue(input.cdp_ws_url) ??
-    stringValue(input.webSocketDebuggerUrl) ??
-    stringValue(input.websocketDebuggerUrl) ??
+    stringValue(input.web_socket_debugger_url) ??
     stringValue(process.env.IOI_NATIVE_BROWSER_CDP_WS_URL);
   if (explicitWs?.startsWith("ws://") || explicitWs?.startsWith("wss://")) {
     return {
@@ -466,9 +451,7 @@ async function resolveCdpEndpoint(input, { timeoutMs }) {
   }
 
   const endpointUrl = trimTrailingSlash(
-    stringValue(input.cdpEndpointUrl) ??
-      stringValue(input.cdp_endpoint_url) ??
-      stringValue(input.cdpEndpoint) ??
+    stringValue(input.cdp_endpoint_url) ??
       stringValue(input.cdp_endpoint) ??
       stringValue(process.env.IOI_NATIVE_BROWSER_CDP_ENDPOINT),
   );
@@ -688,16 +671,12 @@ function normalizeSelector(value) {
 
 function scrollDelta(input, prompt) {
   const explicitX = numberValue(
-    input.scrollX ??
-      input.scroll_x ??
-      input.deltaX ??
+    input.scroll_x ??
       input.delta_x ??
       input.x,
   );
   const explicitY = numberValue(
-    input.scrollY ??
-      input.scroll_y ??
-      input.deltaY ??
+    input.scroll_y ??
       input.delta_y ??
       input.y,
   );
@@ -717,13 +696,10 @@ function scrollDelta(input, prompt) {
 
 function normalizeUploadFiles(input) {
   const candidates = [
-    input.filePath,
     input.file_path,
-    input.uploadPath,
     input.upload_path,
     input.path,
     ...(Array.isArray(input.files) ? input.files : []),
-    ...(Array.isArray(input.filePaths) ? input.filePaths : []),
     ...(Array.isArray(input.file_paths) ? input.file_paths : []),
   ];
   return candidates

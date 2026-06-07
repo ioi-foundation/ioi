@@ -1108,6 +1108,12 @@ function runBridge() {
   const nativeBrowserControlledRelaunchBrokerTest = exists("packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.test.mjs")
     ? read("packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.test.mjs")
     : "";
+  const nativeBrowserCdpExecutor = exists("packages/runtime-daemon/src/native-browser-cdp-executor.mjs")
+    ? read("packages/runtime-daemon/src/native-browser-cdp-executor.mjs")
+    : "";
+  const nativeBrowserCdpExecutorTest = exists("packages/runtime-daemon/src/native-browser-cdp-executor.test.mjs")
+    ? read("packages/runtime-daemon/src/native-browser-cdp-executor.test.mjs")
+    : "";
   const workspaceRestoreKernel = exists("crates/services/src/agentic/runtime/kernel/workspace_restore.rs")
     ? read("crates/services/src/agentic/runtime/kernel/workspace_restore.rs")
     : "";
@@ -2579,6 +2585,31 @@ function runBridge() {
       "packages/runtime-daemon/src/computer-use-projection.test.mjs",
     ],
     "Phase 10/11 is pending: computer-use projection must use canonical snake_case native-browser execution metadata without retired camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "native-browser-cdp-executor-input-aliases-retired",
+    /stringValue\(input\.cdp_endpoint_url\) \?\?[\r\n\s]*stringValue\(input\.cdp_endpoint\)/.test(
+      nativeBrowserCdpExecutor,
+    ) &&
+      /stringValue\(input\.cdp_websocket_url\) \?\?[\r\n\s]*stringValue\(input\.cdp_ws_url\) \?\?[\r\n\s]*stringValue\(input\.web_socket_debugger_url\)/.test(
+        nativeBrowserCdpExecutor,
+      ) &&
+      /native browser CDP executor ignores retired camelCase input aliases/.test(
+        nativeBrowserCdpExecutorTest,
+      ) &&
+      /cdpEndpointUrl: "http:\/\/127\.0\.0\.1:1"/.test(nativeBrowserCdpExecutorTest) &&
+      /assert\.equal\(result\.error_class,\s*"NativeBrowserCdpUnavailable"\)/.test(
+        nativeBrowserCdpExecutorTest,
+      ) &&
+      !/\binput\.(?:targetUrl|targetSelector|cssSelector|inputText|textValue|keyText|keyboardKey|scrollX|scrollY|deltaX|deltaY|filePath|uploadPath|filePaths|cdpEndpointUrl|cdpEndpoint|cdpWebSocketUrl|cdpWsUrl|webSocketDebuggerUrl|websocketDebuggerUrl)\b/.test(
+        nativeBrowserCdpExecutor,
+      ),
+    [
+      "packages/runtime-daemon/src/native-browser-cdp-executor.mjs",
+      "packages/runtime-daemon/src/native-browser-cdp-executor.test.mjs",
+    ],
+    "Phase 10/11 is pending: native-browser CDP executor inputs must use canonical snake_case endpoint, selector, text, key, scroll, and upload fields without retired camelCase aliases",
   );
   assertCheck(
     result,
