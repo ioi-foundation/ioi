@@ -10592,7 +10592,11 @@ function runReceipts() {
       /commit_runtime_model_mount_record_state/.test(agentgresAdmissionCore) &&
       /commits_runtime_model_mount_record_state_with_storage_admission/.test(agentgresAdmissionCore) &&
       /runtime_model_mount_record_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
+      /runtime_model_mount_record_state_commit_rejects_retired_receipt_refs_alias/.test(agentgresAdmissionCore) &&
       /runtime_model_mount_record_state_commit_rejects_mismatched_record_id/.test(agentgresAdmissionCore) &&
+      !/fn runtime_model_mount_record_receipt_refs[\s\S]*?json_string_array\(record,\s*"receiptRefs"\)[\s\S]*?fn validate_runtime_model_mount_receipt_id/.test(
+        agentgresAdmissionCore,
+      ) &&
       /pub fn commit_runtime_model_mount_record_state/.test(runtimeKernelModule) &&
       /commit_runtime_model_mount_record_state/.test(bridgeModule) &&
       /RuntimeModelMountRecordStateCommitBridgeRequest/.test(bridgeModule) &&
@@ -11580,7 +11584,11 @@ function runReceipts() {
       /RuntimeModelMountReceiptStateCommitRecord/.test(agentgresAdmissionCore) &&
       /commit_runtime_model_mount_receipt_state/.test(agentgresAdmissionCore) &&
       /commits_runtime_model_mount_receipt_state_with_storage_admission/.test(agentgresAdmissionCore) &&
+      /runtime_model_mount_receipt_state_commit_ignores_retired_receipt_refs_alias/.test(agentgresAdmissionCore) &&
       /runtime_model_mount_receipt_state_commit_rejects_mismatched_receipt_id/.test(agentgresAdmissionCore) &&
+      !/fn runtime_model_mount_receipt_refs[\s\S]*?json_string_array\(receipt,\s*"receiptRefs"\)[\s\S]*?fn runtime_state_payload_hash/.test(
+        agentgresAdmissionCore,
+      ) &&
       /pub fn commit_runtime_model_mount_receipt_state/.test(runtimeKernelModule) &&
       /commit_runtime_model_mount_receipt_state/.test(bridgeModule) &&
       /RuntimeModelMountReceiptStateCommitBridgeRequest/.test(bridgeModule) &&
@@ -11746,7 +11754,11 @@ function runReceipts() {
       /commit_runtime_artifact_state/.test(agentgresAdmissionCore) &&
       /commits_runtime_artifact_state_with_storage_admission/.test(agentgresAdmissionCore) &&
       /runtime_artifact_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
+      /runtime_artifact_state_commit_rejects_retired_receipt_refs_alias/.test(agentgresAdmissionCore) &&
       /runtime_artifact_state_commit_rejects_mismatched_artifact_id/.test(agentgresAdmissionCore) &&
+      !/fn runtime_artifact_receipt_refs[\s\S]*?json_string_array\(artifact,\s*"receiptRefs"\)[\s\S]*?fn validate_runtime_model_mount_record_id/.test(
+        agentgresAdmissionCore,
+      ) &&
       /pub fn commit_runtime_artifact_state/.test(runtimeKernelModule) &&
       /commit_runtime_artifact_state/.test(bridgeModule) &&
       /RuntimeArtifactStateCommitBridgeRequest/.test(bridgeModule) &&

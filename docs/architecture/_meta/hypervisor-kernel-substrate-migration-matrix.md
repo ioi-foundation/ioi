@@ -11323,6 +11323,11 @@ reconstruct the active seam without carrying every per-slice paragraph.
   while runtime agent, memory, and subagent state commits now require canonical
   `receipt_refs` from the request or payload and reject retired `receiptRefs`
   payload aliases before Rust Agentgres storage-write admission.
+- Slice 575 retires the remaining Rust Agentgres state-commit `receiptRefs`
+  array fallbacks for runtime artifact and model-mount state commits: artifact
+  and model-mount record state commits now reject retired `receiptRefs`-only
+  payload aliases, while model-mount receipt commits ignore poisoned
+  `receiptRefs` arrays and bind admission to canonical receipt identity.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

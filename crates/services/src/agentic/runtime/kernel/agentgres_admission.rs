@@ -2114,10 +2114,7 @@ fn validate_runtime_artifact_id(
 }
 
 fn runtime_artifact_receipt_refs(artifact: &Value) -> Vec<String> {
-    let mut refs = json_string_array(artifact, "receipt_refs")
-        .into_iter()
-        .chain(json_string_array(artifact, "receiptRefs"))
-        .collect::<Vec<_>>();
+    let mut refs = json_string_array(artifact, "receipt_refs");
     if let Some(receipt_id) = json_string(artifact, "receipt_id")
         .or_else(|| json_string(artifact, "receiptId"))
         .filter(|entry| !entry.trim().is_empty())
@@ -2141,10 +2138,7 @@ fn validate_runtime_model_mount_record_id(
 }
 
 fn runtime_model_mount_record_receipt_refs(record: &Value) -> Vec<String> {
-    let mut refs = json_string_array(record, "receipt_refs")
-        .into_iter()
-        .chain(json_string_array(record, "receiptRefs"))
-        .collect::<Vec<_>>();
+    let mut refs = json_string_array(record, "receipt_refs");
     if let Some(receipt_id) = json_string(record, "receipt_id")
         .or_else(|| json_string(record, "receiptId"))
         .filter(|entry| !entry.trim().is_empty())
@@ -2168,10 +2162,7 @@ fn validate_runtime_model_mount_receipt_id(
 }
 
 fn runtime_model_mount_receipt_refs(receipt: &Value) -> Vec<String> {
-    let mut refs = json_string_array(receipt, "receipt_refs")
-        .into_iter()
-        .chain(json_string_array(receipt, "receiptRefs"))
-        .collect::<Vec<_>>();
+    let mut refs = json_string_array(receipt, "receipt_refs");
     if let Some(receipt_id) = json_string(receipt, "id")
         .or_else(|| json_string(receipt, "receipt_id"))
         .filter(|entry| !entry.trim().is_empty())
@@ -3417,6 +3408,20 @@ mod tests {
     }
 
     #[test]
+    fn runtime_artifact_state_commit_rejects_retired_receipt_refs_alias() {
+        let mut request = runtime_artifact_state_commit();
+        request.artifact["receipt_refs"] = json!([]);
+        request.artifact["receipt_id"] = json!("");
+        request.artifact["receiptRefs"] = json!(["receipt_artifact_retired"]);
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_artifact_state(&request)
+            .expect_err("retired receiptRefs must not satisfy Rust Agentgres admission");
+
+        assert_eq!(error, AgentgresAdmissionError::MissingReceiptRefs);
+    }
+
+    #[test]
     fn runtime_artifact_state_commit_rejects_mismatched_artifact_id() {
         let mut request = runtime_artifact_state_commit();
         request.artifact["id"] = json!("artifact_other");
@@ -3478,6 +3483,20 @@ mod tests {
     }
 
     #[test]
+    fn runtime_model_mount_record_state_commit_rejects_retired_receipt_refs_alias() {
+        let mut request = runtime_model_mount_record_state_commit();
+        request.record["receipt_refs"] = json!([]);
+        request.record["receipt_id"] = json!("");
+        request.record["receiptRefs"] = json!(["receipt_provider_health_retired"]);
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_model_mount_record_state(&request)
+            .expect_err("retired receiptRefs must not satisfy Rust Agentgres admission");
+
+        assert_eq!(error, AgentgresAdmissionError::MissingReceiptRefs);
+    }
+
+    #[test]
     fn runtime_model_mount_record_state_commit_rejects_mismatched_record_id() {
         let mut request = runtime_model_mount_record_state_commit();
         request.record["id"] = json!("health.other");
@@ -3523,6 +3542,19 @@ mod tests {
             .admission
             .admission_hash
             .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn runtime_model_mount_receipt_state_commit_ignores_retired_receipt_refs_alias() {
+        let mut request = runtime_model_mount_receipt_state_commit();
+        request.receipt["receipt_refs"] = json!([]);
+        request.receipt["receiptRefs"] = json!(["receipt_model_invocation_retired"]);
+
+        let record = AgentgresAdmissionCore
+            .commit_runtime_model_mount_receipt_state(&request)
+            .expect("canonical receipt id satisfies Rust Agentgres admission");
+
+        assert_eq!(record.record.receipt_refs, vec!["receipt_model_invocation"]);
     }
 
     #[test]
