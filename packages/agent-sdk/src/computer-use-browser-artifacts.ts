@@ -10,21 +10,13 @@ import type {
 export interface BrowserObservationArtifacts {
   url?: unknown;
   page_title?: unknown;
-  pageTitle?: unknown;
   browser_use_selector_map_text?: unknown;
-  browserUseSelectorMapText?: unknown;
   browsergym_dom_text?: unknown;
-  browsergymDomText?: unknown;
   browsergym_axtree_text?: unknown;
-  browsergymAxtreeText?: unknown;
   browsergym_focused_bid?: unknown;
-  browsergymFocusedBid?: unknown;
   screenshot_ref?: unknown;
-  screenshotRef?: unknown;
   som_ref?: unknown;
-  somRef?: unknown;
   redaction_report_ref?: unknown;
-  redactionReportRef?: unknown;
 }
 
 export function computerUseContractsFromBrowserObservationArtifacts({
@@ -47,23 +39,11 @@ export function computerUseContractsFromBrowserObservationArtifacts({
   affordanceGraph: Partial<AffordanceGraph>;
 } | null {
   if (!artifacts) return null;
-  const selectorMapText = cleanString(
-    artifacts.browser_use_selector_map_text ??
-      artifacts.browserUseSelectorMapText,
-  );
-  const domText = cleanString(
-    artifacts.browsergym_dom_text ??
-      artifacts.browsergymDomText,
-  );
-  const axText = cleanString(
-    artifacts.browsergym_axtree_text ??
-      artifacts.browsergymAxtreeText,
-  );
-  const focusedBid = cleanString(
-    artifacts.browsergym_focused_bid ??
-      artifacts.browsergymFocusedBid,
-  );
-  const title = cleanString(artifacts.page_title ?? artifacts.pageTitle);
+  const selectorMapText = cleanString(artifacts.browser_use_selector_map_text);
+  const domText = cleanString(artifacts.browsergym_dom_text);
+  const axText = cleanString(artifacts.browsergym_axtree_text);
+  const focusedBid = cleanString(artifacts.browsergym_focused_bid);
+  const title = cleanString(artifacts.page_title);
   const observationBundle: Partial<ComputerUseObservationBundle> = {
     observation_ref: observationRef,
     lease_id: leaseId,
@@ -73,16 +53,13 @@ export function computerUseContractsFromBrowserObservationArtifacts({
     title,
     app_name: "Chromium",
     window_title: title ?? "IOI browser-use harness",
-    screenshot_ref: cleanString(artifacts.screenshot_ref ?? artifacts.screenshotRef),
-    som_ref: cleanString(artifacts.som_ref ?? artifacts.somRef),
+    screenshot_ref: cleanString(artifacts.screenshot_ref),
+    som_ref: cleanString(artifacts.som_ref),
     dom_ref: artifactRef(observationRef, "browsergym_dom", Boolean(domText)),
     ax_ref: artifactRef(observationRef, "browsergym_ax", Boolean(axText)),
     selector_map_ref: artifactRef(observationRef, "selector_map", Boolean(selectorMapText)),
     target_index_ref: targetIndexRef,
-    redaction_report_ref: cleanString(
-      artifacts.redaction_report_ref ??
-        artifacts.redactionReportRef,
-    ),
+    redaction_report_ref: cleanString(artifacts.redaction_report_ref),
     freshness_ms: 0,
     retention_mode: retentionMode,
     detected_patterns: inferInterfacePatternsFromBrowserArtifacts({

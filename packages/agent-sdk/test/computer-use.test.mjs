@@ -27,6 +27,7 @@ import {
   runComputerUseBenchmarkSuite,
   runComputerUseShadowReplay,
 } from "../dist/index.js";
+import { computerUseContractsFromBrowserObservationArtifacts } from "../dist/computer-use-browser-artifacts.js";
 import { startRuntimeDaemonService } from "../../runtime-daemon/src/index.mjs";
 import { startFakeNativeBrowserCdpServer } from "../../runtime-daemon/src/native-browser-cdp-test-fixture.mjs";
 
@@ -2055,6 +2056,36 @@ test("runtime daemon projects browser observation artifacts into canonical compu
   } finally {
     await daemon.close();
   }
+});
+
+test("browser observation artifact contracts ignore retired camelCase aliases", () => {
+  const result = computerUseContractsFromBrowserObservationArtifacts({
+    artifacts: {
+      pageTitle: "Retired Browser Artifact Title",
+      browserUseSelectorMapText: "[99] <button name=Retired target_id=target-retired />",
+      browsergymDomText: '<button id="retired">Retired</button>',
+      browsergymAxtreeText: "button Retired",
+      browsergymFocusedBid: "bid-retired",
+      screenshotRef: "artifact:retired:screenshot",
+      somRef: "artifact:retired:som",
+      redactionReportRef: "artifact:retired:redaction",
+    },
+    leaseId: "lease-retired-browser-artifact",
+    observationRef: "observation-retired-browser-artifact",
+    targetIndexRef: "target-index-retired-browser-artifact",
+    affordanceGraphRef: "affordance-retired-browser-artifact",
+    retentionMode: "local_redacted_artifacts",
+  });
+  assert.ok(result);
+  assert.equal(result.observationBundle.title, null);
+  assert.equal(result.observationBundle.screenshot_ref, null);
+  assert.equal(result.observationBundle.som_ref, null);
+  assert.equal(result.observationBundle.redaction_report_ref, null);
+  assert.equal(result.observationBundle.dom_ref, null);
+  assert.equal(result.observationBundle.ax_ref, null);
+  assert.equal(result.observationBundle.selector_map_ref, null);
+  assert.equal(result.targetIndex.targets.length, 1);
+  assert.equal(result.targetIndex.targets[0].target_ref.endsWith(":document"), true);
 });
 
 test("runtime service bridge computer-use events persist as run trace artifacts", async () => {

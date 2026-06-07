@@ -600,6 +600,12 @@ function runBridge() {
   const computerUseVisualObservationTest = exists("packages/runtime-daemon/src/computer-use-visual-observation.test.mjs")
     ? read("packages/runtime-daemon/src/computer-use-visual-observation.test.mjs")
     : "";
+  const agentSdkComputerUseBrowserArtifacts = exists("packages/agent-sdk/src/computer-use-browser-artifacts.ts")
+    ? read("packages/agent-sdk/src/computer-use-browser-artifacts.ts")
+    : "";
+  const agentSdkComputerUseTest = exists("packages/agent-sdk/test/computer-use.test.mjs")
+    ? read("packages/agent-sdk/test/computer-use.test.mjs")
+    : "";
   const computerUseProjection = exists("packages/runtime-daemon/src/computer-use-projection.mjs")
     ? read("packages/runtime-daemon/src/computer-use-projection.mjs")
     : "";
@@ -1638,6 +1644,44 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10/11 is pending: computer-use visual metadata helpers must emit canonical snake_case fields without duplicate camelCase output aliases",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-browser-observation-artifact-aliases-retired",
+    /page_title\?: unknown;/.test(agentSdkComputerUseBrowserArtifacts) &&
+      /browser_use_selector_map_text\?: unknown;/.test(agentSdkComputerUseBrowserArtifacts) &&
+      /browsergym_dom_text\?: unknown;/.test(agentSdkComputerUseBrowserArtifacts) &&
+      /browsergym_axtree_text\?: unknown;/.test(agentSdkComputerUseBrowserArtifacts) &&
+      /browsergym_focused_bid\?: unknown;/.test(agentSdkComputerUseBrowserArtifacts) &&
+      /screenshot_ref\?: unknown;/.test(agentSdkComputerUseBrowserArtifacts) &&
+      /som_ref\?: unknown;/.test(agentSdkComputerUseBrowserArtifacts) &&
+      /redaction_report_ref\?: unknown;/.test(agentSdkComputerUseBrowserArtifacts) &&
+      /cleanString\(artifacts\.page_title\)/.test(agentSdkComputerUseBrowserArtifacts) &&
+      /cleanString\(artifacts\.browser_use_selector_map_text\)/.test(
+        agentSdkComputerUseBrowserArtifacts,
+      ) &&
+      /cleanString\(artifacts\.screenshot_ref\)/.test(agentSdkComputerUseBrowserArtifacts) &&
+      /Retired Browser Artifact Title/.test(agentSdkComputerUseTest) &&
+      /browserUseSelectorMapText/.test(agentSdkComputerUseTest) &&
+      /browser observation artifact contracts ignore retired camelCase aliases/.test(
+        agentSdkComputerUseTest,
+      ) &&
+      /result\.observationBundle\.title,\s*null/.test(agentSdkComputerUseTest) &&
+      /result\.observationBundle\.selector_map_ref,\s*null/.test(agentSdkComputerUseTest) &&
+      /result\.targetIndex\.targets\[0\]\.target_ref\.endsWith\(":document"\),\s*true/.test(
+        agentSdkComputerUseTest,
+      ) &&
+      !/\b(?:pageTitle|browserUseSelectorMapText|browsergymDomText|browsergymAxtreeText|browsergymFocusedBid|screenshotRef|somRef|redactionReportRef)\?: unknown;/.test(
+        agentSdkComputerUseBrowserArtifacts,
+      ) &&
+      !/\bartifacts\.(?:pageTitle|browserUseSelectorMapText|browsergymDomText|browsergymAxtreeText|browsergymFocusedBid|screenshotRef|somRef|redactionReportRef)\b/.test(
+        agentSdkComputerUseBrowserArtifacts,
+      ),
+    [
+      "packages/agent-sdk/src/computer-use-browser-artifacts.ts",
+      "packages/agent-sdk/test/computer-use.test.mjs",
+    ],
+    "Phase 10/11 is pending: SDK browser observation artifact projection must ignore retired camelCase artifact aliases",
   );
   assertCheck(
     result,
