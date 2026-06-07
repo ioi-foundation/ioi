@@ -13388,6 +13388,15 @@ workflow runtime event projection now reads canonical `computer_use_step`,
 `computerUseBlocker` payload aliases cannot create computer-use projection steps,
 select replay/projection lanes, or set session/lease/blocker state.
 
+Slice 529 retires IDE computer-use projection top-level artifact/ref aliases:
+workflow runtime event projection now reads canonical
+`computer_use_observation_ref`, `computer_use_screen_ref`,
+`computer_use_som_ref`, `computer_use_coordinate_space_id`,
+`computer_use_target_index_ref`, and `computer_use_affordance_graph_ref` fields
+only, so retired camelCase artifact/ref aliases cannot make old payload shapes
+look observation-backed, screen-backed, SOM-backed, coordinate-backed,
+target-backed, or affordance-backed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -868,6 +868,12 @@ test("computer-use projection ignores retired top-level control aliases", () => 
       computerUseSessionMode: "retired_session",
       computerUseLeaseId: "retired_lease",
       computerUseBlocker: "retired_blocker",
+      computerUseObservationRef: "observation-retired",
+      computerUseScreenRef: "artifact:retired-screen",
+      computerUseSomRef: "artifact:retired-som",
+      computerUseCoordinateSpaceId: "coordinate-space-retired",
+      computerUseTargetIndexRef: "target-index-retired",
+      computerUseAffordanceGraphRef: "affordance-graph-retired",
     },
   });
   const projection = projectRuntimeThreadEventsToWorkflowProjection([retiredAliasEvent]);
@@ -881,6 +887,12 @@ test("computer-use projection ignores retired top-level control aliases", () => 
   assert.equal(projection.nodes[0]?.computerUse?.sessionMode, null);
   assert.equal(projection.nodes[0]?.computerUse?.leaseId, null);
   assert.equal(projection.nodes[0]?.computerUse?.blocker, null);
+  assert.equal(projection.nodes[0]?.computerUse?.observationRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.screenRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.somRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.coordinateSpaceId, null);
+  assert.equal(projection.nodes[0]?.computerUse?.targetIndexRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.affordanceGraphRef, null);
 });
 
 test("projects workspace trust warnings as workspace trust gate React Flow rows", () => {

@@ -19865,6 +19865,63 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-computer-use-projection-ref-aliases-retired",
+    /stringField\(payload,\s*"computer_use_observation_ref"\)/.test(agentIdeRuntimeEventProjection) &&
+      /stringField\(payload,\s*"computer_use_screen_ref"\)/.test(agentIdeRuntimeEventProjection) &&
+      /stringField\(payload,\s*"computer_use_som_ref"\)/.test(agentIdeRuntimeEventProjection) &&
+      /"computer_use_coordinate_space_id"/.test(agentIdeRuntimeEventProjection) &&
+      /stringField\(payload,\s*"computer_use_target_index_ref"\)/.test(agentIdeRuntimeEventProjection) &&
+      /"computer_use_affordance_graph_ref"/.test(agentIdeRuntimeEventProjection) &&
+      !/stringField\(payload,\s*"computer_use_observation_ref",\s*"computerUseObservationRef"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_screen_ref",\s*"computerUseScreenRef"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_som_ref",\s*"computerUseSomRef"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/computerUseCoordinateSpaceId/.test(agentIdeRuntimeEventProjection) &&
+      !/stringField\(payload,\s*"computer_use_target_index_ref",\s*"computerUseTargetIndexRef"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/computerUseAffordanceGraphRef/.test(agentIdeRuntimeEventProjection) &&
+      /computerUseObservationRef:\s*"observation-retired"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseScreenRef:\s*"artifact:retired-screen"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseSomRef:\s*"artifact:retired-som"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseCoordinateSpaceId:\s*"coordinate-space-retired"/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /computerUseTargetIndexRef:\s*"target-index-retired"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseAffordanceGraphRef:\s*"affordance-graph-retired"/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.observationRef,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.screenRef,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.somRef,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.coordinateSpaceId,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.targetIndexRef,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.affordanceGraphRef,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE computer-use projections must ignore retired top-level artifact and ref aliases",
+  );
+  assertCheck(
+    result,
     "ide-computer-use-browser-discovery-projection-aliases-retired",
     /recordField\(\s*payload,\s*"browser_discovery_report",\s*\)/.test(
       agentIdeRuntimeEventProjection,

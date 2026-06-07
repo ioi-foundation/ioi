@@ -3360,26 +3360,25 @@ function computerUseProjectionForRuntimeThreadEvent(
       "failClosedWhenUnavailable",
     ),
     observationRef:
-      stringField(payload, "computer_use_observation_ref", "computerUseObservationRef") ??
+      stringField(payload, "computer_use_observation_ref") ??
       stringField(observationBundle, "observation_ref", "observationRef") ??
       stringField(runState, "current_observation_ref", "currentObservationRef"),
     screenRef:
-      stringField(payload, "computer_use_screen_ref", "computerUseScreenRef") ??
+      stringField(payload, "computer_use_screen_ref") ??
       stringField(observationBundle, "screenshot_ref", "screenshotRef"),
     somRef:
-      stringField(payload, "computer_use_som_ref", "computerUseSomRef") ??
+      stringField(payload, "computer_use_som_ref") ??
       stringField(observationBundle, "som_ref", "somRef"),
     coordinateSpaceId:
       stringField(
         payload,
         "computer_use_coordinate_space_id",
-        "computerUseCoordinateSpaceId",
       ) ??
       stringField(targetIndex, "coordinate_space_id", "coordinateSpaceId") ??
       stringField(computerAction, "coordinate_space_id", "coordinateSpaceId") ??
       stringField(actionReceipt, "coordinate_space_id", "coordinateSpaceId"),
     targetIndexRef:
-      stringField(payload, "computer_use_target_index_ref", "computerUseTargetIndexRef") ??
+      stringField(payload, "computer_use_target_index_ref") ??
       stringField(targetIndex, "target_index_ref", "targetIndexRef") ??
       stringField(observationBundle, "target_index_ref", "targetIndexRef") ??
       stringField(runState, "current_target_index_ref", "currentTargetIndexRef"),
@@ -3387,7 +3386,6 @@ function computerUseProjectionForRuntimeThreadEvent(
       stringField(
         payload,
         "computer_use_affordance_graph_ref",
-        "computerUseAffordanceGraphRef",
       ) ?? stringField(affordanceGraph, "graph_ref", "graphRef"),
     browserDiscoveryRef:
       stringField(
