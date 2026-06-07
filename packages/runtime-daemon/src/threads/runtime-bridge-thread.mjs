@@ -127,14 +127,14 @@ export async function createRuntimeBridgeTurn(store, { agent, threadId, request,
     bridgeResult = await store.runtimeBridge.submitTurn(input, {
       onRuntimeEvent: (event) => {
         const normalized = liveEventNormalizer({ event, agent, threadId }, deps);
-        const liveTurnId = optionalString(normalized.turn_id ?? normalized.turnId);
+        const liveTurnId = optionalString(normalized.turn_id);
         if (liveTurnId) {
           inFlightTurnIds.add(liveTurnId);
           store.registerInFlightRuntimeTurn({
             agent,
             threadId,
             turnId: liveTurnId,
-            runId: optionalString(event?.run_id ?? event?.runId ?? normalized.payload?.run_id),
+            runId: optionalString(event?.run_id ?? normalized.payload?.run_id),
             request,
           });
         }
@@ -401,22 +401,27 @@ export function normalizeRuntimeBridgeLiveEvent({ event, agent, threadId }, deps
     runIdForTurn,
     runtimeSessionIdForAgent,
   } = deps;
-  const turnId = optionalString(event?.turn_id ?? event?.turnId) ?? "";
-  const runId = optionalString(event?.run_id ?? event?.runId) ?? (turnId ? runIdForTurn(turnId) : null);
+  const {
+    turnId: _retiredTurnId,
+    runId: _retiredRunId,
+    ...eventRecord
+  } = event ?? {};
+  const turnId = optionalString(eventRecord.turn_id) ?? "";
+  const runId = optionalString(eventRecord.run_id) ?? (turnId ? runIdForTurn(turnId) : null);
   return {
-    ...event,
-    event_stream_id: event?.event_stream_id ?? eventStreamIdForThread(threadId),
-    thread_id: event?.thread_id ?? threadId,
-    turn_id: turnId || (event?.turn_id ?? event?.turnId ?? ""),
-    workspace_root: event?.workspace_root ?? agent.cwd,
-    source: event?.source ?? "runtime_service",
-    source_event_kind: event?.source_event_kind ?? "RuntimeAgentService",
-    fixture_profile: Object.hasOwn(event ?? {}, "fixture_profile") ? event.fixture_profile : null,
+    ...eventRecord,
+    event_stream_id: eventRecord.event_stream_id ?? eventStreamIdForThread(threadId),
+    thread_id: eventRecord.thread_id ?? threadId,
+    turn_id: turnId || (eventRecord.turn_id ?? ""),
+    workspace_root: eventRecord.workspace_root ?? agent.cwd,
+    source: eventRecord.source ?? "runtime_service",
+    source_event_kind: eventRecord.source_event_kind ?? "RuntimeAgentService",
+    fixture_profile: Object.hasOwn(eventRecord, "fixture_profile") ? eventRecord.fixture_profile : null,
     payload: {
       agent_id: agent.id,
       ...(runId ? { run_id: runId } : {}),
       session_id: runtimeSessionIdForAgent(agent),
-      ...(event?.payload ?? event?.payload_summary ?? {}),
+      ...(eventRecord.payload ?? eventRecord.payload_summary ?? {}),
     },
   };
 }

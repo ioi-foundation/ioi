@@ -13221,6 +13221,11 @@ runtime-bridge turn normalization now consumes canonical bridge result
 retired `turnId`, `runId`, `createdAt`, `updatedAt`, and `stopReason` inputs can
 no longer steer the daemon projection before Rust-planned run persistence.
 
+Slice 505 retires runtime-bridge live-event identity aliases:
+runtime-bridge live-event normalization now consumes and emits canonical
+`turn_id` and `run_id` identity only; retired `turnId` and `runId` event inputs
+can no longer enter in-flight turn tracking or normalized runtime event records.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

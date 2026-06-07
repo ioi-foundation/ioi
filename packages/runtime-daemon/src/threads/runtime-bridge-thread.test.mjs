@@ -693,7 +693,7 @@ test("runtime bridge turn submit normalization rejects missing turn started even
 
 test("runtime bridge live event normalization fills defaults from thread and agent", () => {
   const normalized = normalizeRuntimeBridgeLiveEvent({
-    event: { event_kind: "turn.delta", turnId: "turn_runtime", payload_summary: { text: "chunk" } },
+    event: { event_kind: "turn.delta", turn_id: "turn_runtime", payload_summary: { text: "chunk" } },
     agent: {
       id: "agent_runtime",
       cwd: "/workspace",
@@ -715,6 +715,30 @@ test("runtime bridge live event normalization fills defaults from thread and age
     session_id: "session_runtime",
     text: "chunk",
   });
+});
+
+test("runtime bridge live event normalization ignores retired identity aliases", () => {
+  const normalized = normalizeRuntimeBridgeLiveEvent({
+    event: {
+      event_kind: "turn.delta",
+      turn_id: "turn_runtime",
+      run_id: "run_runtime",
+      turnId: "turn_retired",
+      runId: "run_retired",
+      payload_summary: { text: "chunk" },
+    },
+    agent: {
+      id: "agent_runtime",
+      cwd: "/workspace",
+      runtimeSessionId: "session_runtime",
+    },
+    threadId: "thread_agent_runtime",
+  }, deps());
+
+  assert.equal(normalized.turn_id, "turn_runtime");
+  assert.equal(Object.hasOwn(normalized, "turnId"), false);
+  assert.equal(Object.hasOwn(normalized, "runId"), false);
+  assert.equal(normalized.payload.run_id, "run_runtime");
 });
 
 test("runtime bridge live event normalization preserves explicit envelope fields", () => {

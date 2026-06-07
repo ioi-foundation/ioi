@@ -12685,6 +12685,10 @@ function runCompositor() {
     runtimeBridgeThread.match(
       /export function normalizeRuntimeBridgeTurnSubmit\([\s\S]*?(?=\n\nexport function normalizeRuntimeBridgeLiveEvent)/,
     )?.[0] ?? "";
+  const runtimeBridgeLiveEventNormalizerBlock =
+    runtimeBridgeThread.match(
+      /export function normalizeRuntimeBridgeLiveEvent\([\s\S]*?\n\}/,
+    )?.[0] ?? "";
   const runtimeMcpHelpers = exists("packages/runtime-daemon/src/runtime-mcp-helpers.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-helpers.mjs")
     : "";
@@ -14839,6 +14843,24 @@ function runCompositor() {
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
     "Phase 10/11 is pending: runtime bridge turn normalization must not read retired result identity/timestamp aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-bridge-live-event-identity-aliases-retired",
+    !/event\?\.(?:turnId|runId)/.test(runtimeBridgeLiveEventNormalizerBlock) &&
+      !/normalized\.turnId/.test(runtimeBridgeThread) &&
+      /runtime bridge live event normalization ignores retired identity aliases/.test(
+        runtimeBridgeThreadTest,
+      ) &&
+      /turnId: "turn_retired"/.test(runtimeBridgeThreadTest) &&
+      /runId: "run_retired"/.test(runtimeBridgeThreadTest) &&
+      /Object\.hasOwn\(normalized,\s*"turnId"\),\s*false/.test(runtimeBridgeThreadTest) &&
+      /Object\.hasOwn\(normalized,\s*"runId"\),\s*false/.test(runtimeBridgeThreadTest),
+    [
+      "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
+      "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime bridge live-event normalization must not read or emit retired turnId/runId aliases",
   );
   assertCheck(
     result,
