@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after Rust Agentgres remaining state-commit receipt alias retirement slice 575 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after Rust Agentgres previous-transition head/root alias retirement slice 576 clarified the active seam.
 
 ## Purpose
 
@@ -136,6 +136,12 @@ Matrix compaction timing:
   blockers, bridge-scaffolding guardrail, current sprint lane, and the
   distinction between canonical Rust Agentgres admission fields and terminal
   Rust daemon-core ownership across every hot route family.
+- Eleventh scheduled pass completed on 2026-06-07: the Rust Agentgres
+  previous-transition head/root alias retirement evidence after slice 576 was
+  compacted into the route-family range while preserving the live owner map,
+  terminal blockers, bridge-scaffolding guardrail, current sprint lane, and the
+  distinction between canonical Rust Agentgres state-root binding fields and
+  terminal Rust daemon-core ownership across every hot route family.
 
 ## Implementation Slice 0
 
@@ -11213,7 +11219,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 575 and the tenth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 576 and the eleventh 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -11331,7 +11337,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   payload, reject retired `receiptRefs`-only payload aliases, and ignore
   poisoned `receiptRefs` arrays where canonical receipt identity is present
   before Rust Agentgres storage-write admission.
-- Slice 576 retires Rust Agentgres previous-transition head/root aliases:
+- Slice 576 retired Rust Agentgres previous-transition head/root aliases:
   runtime run-state commits now derive expected heads and prior state roots only
   from canonical `resulting_head` and `state_root_after`, ignoring retired
   `resultingHead` and `stateRootAfter` aliases before receipt/state-root
