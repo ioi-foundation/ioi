@@ -164,7 +164,7 @@ export function createDiagnosticsFeedbackHelpers({
     ]);
     const sourceToolCallIds = uniqueStrings(
       diagnosticsRepairContexts.map((context) =>
-        optionalString(context.sourceToolCallId ?? context.source_tool_call_id),
+        optionalString(context.source_tool_call_id),
       ),
     );
     const repairPolicyConfig = diagnosticsRepairPolicyConfigForContexts(diagnosticsRepairContexts);

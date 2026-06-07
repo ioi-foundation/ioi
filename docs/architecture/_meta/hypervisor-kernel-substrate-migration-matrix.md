@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after diagnostics feedback compacted repair-context snapshot/rollback alias retirement slice 634 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after diagnostics feedback compacted repair-context source tool-call alias retirement slice 635 clarified the active seam.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -42,7 +42,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, and diagnostics feedback compacted repair-context snapshot/rollback alias retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, and diagnostics feedback compacted repair-context source tool-call alias retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -12928,6 +12928,68 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 635
+
+```yaml
+slice: 635
+phase: 10-authoritative-js-facade-retirement
+objective: retire compacted diagnostics feedback repair-context source
+  tool-call aliases before source-tool evidence can be revived through retired
+  camelCase nested repair-context fields
+owner_boundary:
+  route_or_surface: diagnostics feedback compaction
+  authority_gate: unchanged; diagnostics repair/restore policy gates still run
+    before restore or operator override execution
+  execution_backend: compacted diagnostics feedback now reads nested
+    repair-context source tool-call identity only from canonical
+    `source_tool_call_id`
+  truth_path: compacted feedback source tool-call refs are derived from
+    canonical repair-context fields before downstream repair/restore policy
+    decisions can cite source-tool evidence
+  projection_path: focused diagnostics feedback tests poison retired
+    `sourceToolCallId` beside canonical nested repair-context identity and prove
+    only canonical refs reach compacted feedback
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  js_facade:
+    - packages/runtime-daemon/src/diagnostics-feedback.mjs
+  tests:
+    - packages/runtime-daemon/src/diagnostics-feedback.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - compositor conformance requires compact diagnostics feedback to read nested
+    repair-context source tool-call refs from canonical `source_tool_call_id`
+  - compositor conformance rejects compact diagnostics feedback readers for
+    retired nested `sourceToolCallId`
+  - focused diagnostics feedback tests poison retired nested source tool-call
+    aliases beside canonical fields and prove the retired ref is absent from
+    compacted `source_tool_call_ids`
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/diagnostics-feedback.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:compositor
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: compacted post-edit diagnostics events carry
+    canonical nested repair-context source tool-call identity beside a retired
+    camelCase alias, and only the canonical ref reaches
+    `source_tool_call_ids`
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this
+      diagnostics feedback facade cleanup
+    - camelCase product projection outputs that remain public adapters must not
+      feed canonical repair/restore evidence
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -12943,7 +13005,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 634 and the sixty-ninth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 635 and the seventieth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -13052,7 +13114,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-634 retired SDK runtime usage record aliases and Rust/daemon
+- Slices 572-635 retired SDK runtime usage record aliases and Rust/daemon
   Agentgres state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -13257,6 +13319,9 @@ reconstruct the active seam without carrying every per-slice paragraph.
   and workspace snapshot refs only from canonical `rollback_refs` and
   `workspace_snapshot_id`, so poisoned compacted-event `rollbackRefs` and
   `workspaceSnapshotId` aliases cannot revive restore/rollback evidence;
+  diagnostics feedback compaction now derives nested repair-context source
+  tool-call refs only from canonical `source_tool_call_id`, so poisoned
+  compacted-event `sourceToolCallId` aliases cannot revive source-tool evidence;
   IDE runtime telemetry summary
   readers now ignore retired camelCase
   runtime usage/context-pressure payload aliases, and the daemon-bound usage

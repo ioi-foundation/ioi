@@ -139,6 +139,7 @@ test("compact diagnostics feedback emits canonical envelope and bounded prompt c
           },
           diagnostics_repair_context: {
             source_tool_call_id: "tool-call-one",
+            sourceToolCallId: "tool-call-retired",
             workspace_snapshot_id: "snapshot-one",
             workspaceSnapshotId: "snapshot-retired",
             rollback_refs: ["rollback-context-one"],
@@ -167,6 +168,7 @@ test("compact diagnostics feedback emits canonical envelope and bounded prompt c
   assert.equal(feedback.workspace_snapshot_refs.includes("rollback-retired"), false);
   assert.equal(feedback.workspace_snapshot_refs.includes("snapshot-retired"), false);
   assert.deepEqual(feedback.source_tool_call_ids, ["tool-call-one"]);
+  assert.equal(feedback.source_tool_call_ids.includes("tool-call-retired"), false);
   assert.equal(feedback.findings[0].message, "first diagnostic message");
   assert.equal(feedback.findings[0].diagnostic_event_id, "event-one");
   assert.equal(Object.hasOwn(feedback.findings[0], "diagnosticEventId"), false);

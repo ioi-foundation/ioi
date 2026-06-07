@@ -19802,7 +19802,10 @@ function runCompositor() {
       /optionalString\(context\.workspace_snapshot_id\)/.test(
         compactDiagnosticsFeedbackBody,
       ) &&
-      !/\b(?:repairContext|context)\.(?:rollbackRefs|workspaceSnapshotId)\b/.test(
+      /optionalString\(context\.source_tool_call_id\)/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
+      !/\b(?:repairContext|context)\.(?:rollbackRefs|workspaceSnapshotId|sourceToolCallId)\b/.test(
         compactDiagnosticsFeedbackBody,
       ) &&
       /receipt_id:\s*receiptId/.test(compactDiagnosticsFeedbackBody) &&
@@ -19846,11 +19849,15 @@ function runCompositor() {
       /diagnosticStatus:\s*"findings"/.test(diagnosticsFeedbackTest) &&
       /assert\.equal\(feedback\.diagnostic_status,\s*"clean"\)/.test(diagnosticsFeedbackTest) &&
       /workspaceSnapshotId:\s*"snapshot-retired"/.test(diagnosticsFeedbackTest) &&
+      /sourceToolCallId:\s*"tool-call-retired"/.test(diagnosticsFeedbackTest) &&
       /rollbackRefs:\s*\["rollback-retired"\]/.test(diagnosticsFeedbackTest) &&
       /feedback\.rollback_refs\.includes\("rollback-retired"\),\s*false/.test(
         diagnosticsFeedbackTest,
       ) &&
       /feedback\.workspace_snapshot_refs\.includes\("snapshot-retired"\),\s*false/.test(
+        diagnosticsFeedbackTest,
+      ) &&
+      /feedback\.source_tool_call_ids\.includes\("tool-call-retired"\),\s*false/.test(
         diagnosticsFeedbackTest,
       ) &&
       /Object\.hasOwn\(feedback\.findings\[0\],\s*"diagnosticEventId"\),\s*false/.test(
