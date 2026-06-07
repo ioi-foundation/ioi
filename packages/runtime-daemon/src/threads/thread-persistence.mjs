@@ -63,7 +63,7 @@ export function writeStateSchema(store, deps = {}) {
       conversationArtifacts: ["id", "threadId", "artifactClass", "status", "latestRevisionId"],
       receipts: ["id", "runId", "kind", "summary", "redaction", "evidenceRefs"],
       memoryRecords: ["id", "scope", "threadId", "agentId", "workspace", "createdAt"],
-      memoryPolicies: ["id", "targetType", "targetId", "disabled", "readOnly", "writeRequiresApproval", "updatedAt"],
+      memoryPolicies: ["id", "target_type", "target_id", "disabled", "read_only", "write_requires_approval", "updated_at"],
       subagents: ["subagentId", "parentThreadId", "agentId", "role", "status", "runId", "updatedAt"],
       runtimeEvents: [
         "event_stream_id",

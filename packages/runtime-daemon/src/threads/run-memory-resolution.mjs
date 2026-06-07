@@ -26,15 +26,15 @@ export function createRunMemoryResolution({
     const mutations = [];
     if (command.kind === "disable" || command.kind === "enable") {
       const update = store.memory.setPolicy({
-        targetType: "thread",
-        targetId: threadId,
+        target_type: "thread",
+        target_id: threadId,
         agent,
-        threadId,
+        thread_id: threadId,
         workspace: agent.cwd,
         source: command.kind === "disable" ? "chat_memory_disable" : "chat_memory_enable",
         updates: {
           disabled: command.kind === "disable",
-          injectionEnabled: command.kind !== "disable",
+          injection_enabled: command.kind !== "disable",
         },
       });
       policyUpdates.push(update);
@@ -65,9 +65,9 @@ export function createRunMemoryResolution({
       subagentMemoryInheritance.write_block_reason = policyBlockReason;
       subagentMemoryInheritance.write_allowed = requestedWrite
         ? policyBlockReason === null
-        : !effectivePolicy.disabled && !effectivePolicy.readOnly && !effectivePolicy.writeRequiresApproval;
+        : !effectivePolicy.disabled && !effectivePolicy.read_only && !effectivePolicy.write_requires_approval;
     }
-    if (effectivePolicy.disabled || effectivePolicy.injectionEnabled === false) {
+    if (effectivePolicy.disabled || effectivePolicy.injection_enabled === false) {
       return {
         command: command.kind,
         records: [],
@@ -116,12 +116,12 @@ export function createRunMemoryResolution({
     const memoryOptions = memoryOptionsForRequest(request);
     const requestedMode =
       optionalString(memoryOptions.subagent_inheritance) ??
-      parentPolicy.subagentInheritance ??
+      parentPolicy.subagent_inheritance ??
       "explicit";
     const mode = normalizeSubagentInheritanceMode(requestedMode);
     const receiver = subagentReceiverForRequest(request);
     const filters = memoryListFilters(memoryOptions);
-    const parentAllowsInjection = !parentPolicy.disabled && parentPolicy.injectionEnabled !== false;
+    const parentAllowsInjection = !parentPolicy.disabled && parentPolicy.injection_enabled !== false;
     const records = parentAllowsInjection && shouldInheritSubagentMemory(mode, memoryOptions)
       ? store.memory.list({
           agent,
@@ -149,7 +149,7 @@ export function createRunMemoryResolution({
       filters,
       records,
       inherited_record_ids: records.map((record) => record.id),
-      write_allowed: !effectivePolicy.disabled && !effectivePolicy.readOnly && !effectivePolicy.writeRequiresApproval,
+      write_allowed: !effectivePolicy.disabled && !effectivePolicy.read_only && !effectivePolicy.write_requires_approval,
       write_block_reason: null,
       evidence_refs: [
         "subagent_memory_inheritance",

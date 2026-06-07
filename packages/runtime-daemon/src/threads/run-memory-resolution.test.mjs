@@ -4,7 +4,7 @@ import test from "node:test";
 import { createRunMemoryResolution } from "./run-memory-resolution.mjs";
 
 function createHarness({
-  policy = { id: "policy-thread", injectionEnabled: true, disabled: false, readOnly: false },
+  policy = { id: "policy-thread", injection_enabled: true, disabled: false, read_only: false },
   records = [{ id: "memory-one", fact: "Known fact" }],
   command = { kind: "none" },
 } = {}) {
@@ -17,8 +17,8 @@ function createHarness({
     memoryWriteBlockReason: (effectivePolicy = {}, options = {}, requestedWrite = false) => {
       if (!requestedWrite) return null;
       if (effectivePolicy.disabled) return "memory_disabled";
-      if (effectivePolicy.readOnly) return "memory_read_only";
-      if (effectivePolicy.writeRequiresApproval && !options.write_approved) return "memory_write_requires_approval";
+      if (effectivePolicy.read_only) return "memory_read_only";
+      if (effectivePolicy.write_requires_approval && !options.write_approved) return "memory_write_requires_approval";
       return null;
     },
     normalizeSubagentInheritanceMode: (value) => ["none", "explicit", "read_only", "full"].includes(value) ? value : "explicit",
@@ -29,16 +29,25 @@ function createHarness({
     },
     parseMemoryCommand: () => command,
     shouldInheritSubagentMemory: (mode, options = {}) => mode !== "none" && (mode !== "explicit" || Boolean(options.query)),
-    subagentMemoryPolicy: ({ agent: policyAgent, threadId, parentPolicy, receiver, mode }) => ({
-      ...parentPolicy,
-      id: `policy-${threadId}-${receiver ?? "subagent"}`,
-      agentId: policyAgent.id,
-      threadId,
-      disabled: mode === "none",
-      readOnly: mode === "read_only",
-      writeRequiresApproval: mode === "explicit",
-      injectionEnabled: mode !== "none",
-    }),
+    subagentMemoryPolicy: ({ agent: policyAgent, threadId, parentPolicy, receiver, mode }) => {
+      const {
+        subagentInheritance,
+        injectionEnabled,
+        readOnly,
+        writeRequiresApproval,
+        ...canonicalParentPolicy
+      } = parentPolicy;
+      return {
+        ...canonicalParentPolicy,
+        id: `policy-${threadId}-${receiver ?? "subagent"}`,
+        agent_id: policyAgent.id,
+        thread_id: threadId,
+        disabled: mode === "none",
+        read_only: mode === "read_only",
+        write_requires_approval: mode === "explicit",
+        injection_enabled: mode !== "none",
+      };
+    },
     subagentReceiverForRequest: (request = {}) => request.receiver ?? request.options?.receiver ?? null,
     threadIdForAgent: (agentId) => `thread-${agentId}`,
   });
@@ -107,7 +116,13 @@ test("run memory resolution records remember commands unless policy blocks write
 
 test("run memory resolution ignores retired memory thread and approval aliases", () => {
   const { agent, helper, store, writes } = createHarness({
-    policy: { id: "policy-approval", injectionEnabled: true, disabled: false, readOnly: false, writeRequiresApproval: true },
+    policy: {
+      id: "policy-approval",
+      injection_enabled: true,
+      disabled: false,
+      read_only: false,
+      write_requires_approval: true,
+    },
     command: { kind: "remember", text: "Remember canonical thread" },
   });
 
@@ -141,7 +156,7 @@ test("run memory resolution ignores retired memory thread and approval aliases",
 
 test("run memory resolution disables injection and reports policy block reason", () => {
   const { agent, helper, store } = createHarness({
-    policy: { id: "policy-disabled", disabled: true, injectionEnabled: false },
+    policy: { id: "policy-disabled", disabled: true, injection_enabled: false },
     command: { kind: "remember", text: "Blocked" },
   });
 
@@ -160,7 +175,13 @@ test("subagent memory inheritance projects inherited records and effective polic
     agent,
     threadId: "thread-one",
     request: { mode: "handoff", receiver: "worker", memory: { subagent_inheritance: "explicit", query: "Known" } },
-    parentPolicy: { id: "policy-parent", subagentInheritance: "explicit", injectionEnabled: true },
+    parentPolicy: {
+      id: "policy-parent",
+      subagent_inheritance: "explicit",
+      injection_enabled: true,
+      subagentInheritance: "full",
+      injectionEnabled: false,
+    },
   });
 
   assert.equal(result.schema_version, "ioi.agent-runtime.subagent-memory-inheritance.v1");
@@ -187,6 +208,9 @@ test("subagent memory inheritance projects inherited records and effective polic
   ]) {
     assert.equal(Object.hasOwn(result, field), false);
   }
+  for (const field of ["subagentInheritance", "injectionEnabled", "readOnly", "writeRequiresApproval"]) {
+    assert.equal(Object.hasOwn(result.effective_policy, field), false);
+  }
 });
 
 test("subagent memory inheritance ignores retired request aliases", () => {
@@ -204,7 +228,7 @@ test("subagent memory inheritance ignores retired request aliases", () => {
         query: "Known",
       },
     },
-    parentPolicy: { id: "policy-parent", subagentInheritance: "explicit", injectionEnabled: true },
+    parentPolicy: { id: "policy-parent", subagent_inheritance: "explicit", injection_enabled: true },
   });
 
   assert.equal(result.mode, "none");

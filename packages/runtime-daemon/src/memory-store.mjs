@@ -9,12 +9,12 @@ const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-jso
 
 const MEMORY_POLICY_FIELDS = [
   "disabled",
-  "injectionEnabled",
-  "readOnly",
-  "writeRequiresApproval",
+  "injection_enabled",
+  "read_only",
+  "write_requires_approval",
   "retention",
   "redaction",
-  "subagentInheritance",
+  "subagent_inheritance",
   "scope",
 ];
 
@@ -196,10 +196,10 @@ export class AgentMemoryStore {
     const now = new Date().toISOString();
     return {
       ...defaultPolicy({
-        targetType: "thread",
-        targetId: threadId ?? agent?.id ?? "runtime",
+        target_type: "thread",
+        target_id: threadId ?? agent?.id ?? "runtime",
         agent,
-        threadId,
+        thread_id: threadId,
         workspace,
         now,
       }),
@@ -207,63 +207,64 @@ export class AgentMemoryStore {
       ...policyFields(threadPolicy),
       ...policyFields(overrides),
       id: policyId("thread", threadId ?? agent?.id ?? "runtime"),
-      targetType: "thread",
-      targetId: threadId ?? agent?.id ?? "runtime",
-      agentId: agent?.id ?? null,
-      threadId: threadId ?? null,
+      target_type: "thread",
+      target_id: threadId ?? agent?.id ?? "runtime",
+      agent_id: agent?.id ?? null,
+      thread_id: threadId ?? null,
       workspace: workspace ?? agent?.cwd ?? null,
       effective: true,
-      policyRefs: [agentPolicy?.id, threadPolicy?.id].filter(Boolean),
+      policy_refs: [agentPolicy?.id, threadPolicy?.id].filter(Boolean),
     };
   }
 
-  getPolicy({ targetType = "thread", targetId, agent, threadId, workspace } = {}) {
-    const id = policyId(targetType, requiredId(targetId ?? threadId ?? agent?.id, "memory policy target id"));
+  getPolicy({ target_type = "thread", target_id, agent, thread_id, workspace } = {}) {
+    const id = policyId(target_type, requiredId(target_id ?? thread_id ?? agent?.id, "memory policy target id"));
     return (
       this.policies.get(id) ??
       defaultPolicy({
-        targetType,
-        targetId: targetId ?? threadId ?? agent?.id,
+        target_type,
+        target_id: target_id ?? thread_id ?? agent?.id,
         agent,
-        threadId,
+        thread_id,
         workspace,
       })
     );
   }
 
-  setPolicy({ targetType = "thread", targetId, agent, threadId, workspace, updates = {}, source = "memory_policy_api" } = {}) {
-    const resolvedTargetId = requiredId(targetId ?? threadId ?? agent?.id, "memory policy target id");
+  setPolicy({ target_type = "thread", target_id, agent, thread_id, workspace, updates = {}, source = "memory_policy_api" } = {}) {
+    const resolvedTargetId = requiredId(target_id ?? thread_id ?? agent?.id, "memory policy target id");
     const now = new Date().toISOString();
-    const id = policyId(targetType, resolvedTargetId);
-    const previous =
+    const id = policyId(target_type, resolvedTargetId);
+    const previousPolicy =
       this.policies.get(id) ??
       defaultPolicy({
-        targetType,
-        targetId: resolvedTargetId,
+        target_type,
+        target_id: resolvedTargetId,
         agent,
-        threadId,
+        thread_id,
         workspace,
         now,
       });
+    const previous = withoutRetiredPolicyAliases(previousPolicy);
     const policy = {
       ...previous,
       ...policyFields(updates),
-      schemaVersion: AGENT_MEMORY_POLICY_SCHEMA_VERSION,
+      schema_version: AGENT_MEMORY_POLICY_SCHEMA_VERSION,
       id,
       object: "ioi.agent_memory_policy",
-      targetType,
-      targetId: resolvedTargetId,
-      agentId: agent?.id ?? previous.agentId ?? null,
-      threadId: threadId ?? previous.threadId ?? null,
+      target_type,
+      target_id: resolvedTargetId,
+      agent_id: agent?.id ?? previous.agent_id ?? null,
+      thread_id: thread_id ?? previous.thread_id ?? null,
       workspace: workspace ?? agent?.cwd ?? previous.workspace ?? null,
       source,
-      updatedAt: now,
-      evidenceRefs: [...new Set([...normalizeArray(previous.evidenceRefs), "memory.policy"])],
+      updated_at: now,
+      evidence_refs: [...new Set([...normalizeArray(previous.evidence_refs), "memory.policy"])],
     };
     const receipt = {
-      id: `receipt_${id}_${stableHash(`${policy.updatedAt}:${source}`).slice(0, 12)}`,
+      id: `receipt_${id}_${stableHash(`${policy.updated_at}:${source}`).slice(0, 12)}`,
       kind: "memory_policy",
-      summary: `Updated ${targetType} memory policy for ${resolvedTargetId}.`,
+      summary: `Updated ${target_type} memory policy for ${resolvedTargetId}.`,
       redaction: "none",
       evidenceRefs: ["agent_memory_store", "memory.policy", id],
       memoryPolicyId: id,
@@ -355,15 +356,15 @@ export function parseMemoryCommand(prompt = "") {
 
 export function defaultMemoryPolicy(overrides = {}) {
   return {
-    schemaVersion: AGENT_MEMORY_POLICY_SCHEMA_VERSION,
+    schema_version: AGENT_MEMORY_POLICY_SCHEMA_VERSION,
     object: "ioi.agent_memory_policy",
     disabled: false,
-    injectionEnabled: true,
-    readOnly: false,
-    writeRequiresApproval: false,
+    injection_enabled: true,
+    read_only: false,
+    write_requires_approval: false,
     retention: "persistent",
     redaction: "none",
-    subagentInheritance: "explicit",
+    subagent_inheritance: "explicit",
     scope: "thread",
     ...policyFields(overrides),
   };
@@ -445,20 +446,20 @@ function stableHash(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
 
-function defaultPolicy({ targetType, targetId, agent, threadId, workspace, now = new Date().toISOString() } = {}) {
-  const resolvedTargetId = targetId ?? threadId ?? agent?.id ?? "runtime";
+function defaultPolicy({ target_type, target_id, agent, thread_id, workspace, now = new Date().toISOString() } = {}) {
+  const resolvedTargetId = target_id ?? thread_id ?? agent?.id ?? "runtime";
   return {
     ...defaultMemoryPolicy(),
-    id: policyId(targetType ?? "thread", resolvedTargetId),
-    targetType: targetType ?? "thread",
-    targetId: resolvedTargetId,
-    agentId: agent?.id ?? null,
-    threadId: threadId ?? null,
+    id: policyId(target_type ?? "thread", resolvedTargetId),
+    target_type: target_type ?? "thread",
+    target_id: resolvedTargetId,
+    agent_id: agent?.id ?? null,
+    thread_id: thread_id ?? null,
     workspace: workspace ?? agent?.cwd ?? null,
     source: "default",
-    createdAt: now,
-    updatedAt: now,
-    evidenceRefs: ["agent_memory_store", "memory.policy.default"],
+    created_at: now,
+    updated_at: now,
+    evidence_refs: ["agent_memory_store", "memory.policy.default"],
   };
 }
 
@@ -468,6 +469,26 @@ function policyFields(value = {}) {
     if (value?.[key] !== undefined) fields[key] = value[key];
   }
   return fields;
+}
+
+function withoutRetiredPolicyAliases(policy = {}) {
+  const {
+    schemaVersion,
+    targetType,
+    targetId,
+    agentId,
+    threadId,
+    injectionEnabled,
+    readOnly,
+    writeRequiresApproval,
+    subagentInheritance,
+    createdAt,
+    updatedAt,
+    evidenceRefs,
+    policyRefs,
+    ...canonicalPolicy
+  } = policy;
+  return canonicalPolicy;
 }
 
 function policyId(targetType, targetId) {

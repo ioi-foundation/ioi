@@ -150,16 +150,69 @@ test("agent memory store commits records, edits, and policies through Rust Agent
     assert.equal(store.records.get(remembered.record.id).fact, "Remember the updated launch checklist.");
 
     const policy = store.setPolicy({
-      targetType: "thread",
-      targetId: "thread.memory",
+      target_type: "thread",
+      target_id: "thread.memory",
       agent,
-      updates: { readOnly: true },
+      updates: {
+        read_only: true,
+        readOnly: false,
+        writeRequiresApproval: true,
+        subagentInheritance: "full",
+      },
     });
     assert.equal(policy.operation, "policy_update");
-    assert.equal(policy.policy.readOnly, true);
+    assert.equal(policy.policy.schema_version, "ioi.agent-runtime.memory-policy.v1");
+    assert.equal(policy.policy.target_type, "thread");
+    assert.equal(policy.policy.target_id, "thread.memory");
+    assert.equal(policy.policy.agent_id, "agent.memory");
+    assert.equal(policy.policy.thread_id, null);
+    assert.equal(policy.policy.read_only, true);
+    assert.equal(policy.policy.write_requires_approval, false);
     assert.equal(commits.at(-1).memory_state_kind, "policy");
     assert.equal(commits.at(-1).operation_kind, "memory.policy");
     assert.deepEqual(commits.at(-1).receipt_refs, [policy.receipt.id]);
+    for (const key of [
+      "schemaVersion",
+      "targetType",
+      "targetId",
+      "agentId",
+      "threadId",
+      "injectionEnabled",
+      "readOnly",
+      "writeRequiresApproval",
+      "subagentInheritance",
+      "createdAt",
+      "updatedAt",
+      "evidenceRefs",
+      "policyRefs",
+    ]) {
+      assert.equal(Object.hasOwn(policy.policy, key), false, `retired memory policy alias ${key} must be absent`);
+    }
+
+    store.policies.set("memory_policy_thread_thread.memory", {
+      id: "memory_policy_thread_thread.memory",
+      schema_version: "ioi.agent-runtime.memory-policy.v1",
+      object: "ioi.agent_memory_policy",
+      target_type: "thread",
+      target_id: "thread.memory",
+      read_only: false,
+      evidence_refs: ["canonical-policy"],
+      readOnly: true,
+      writeRequiresApproval: true,
+      evidenceRefs: ["retired-policy"],
+    });
+    const overwritten = store.setPolicy({
+      target_type: "thread",
+      target_id: "thread.memory",
+      agent,
+      updates: { write_requires_approval: true },
+    });
+    assert.equal(overwritten.policy.read_only, false);
+    assert.equal(overwritten.policy.write_requires_approval, true);
+    assert.deepEqual(overwritten.policy.evidence_refs, ["canonical-policy", "memory.policy"]);
+    assert.equal(Object.hasOwn(overwritten.policy, "readOnly"), false);
+    assert.equal(Object.hasOwn(overwritten.policy, "writeRequiresApproval"), false);
+    assert.equal(Object.hasOwn(overwritten.policy, "evidenceRefs"), false);
 
     const deleted = store.deleteRecord({ id: remembered.record.id });
     assert.equal(deleted.operation, "delete");

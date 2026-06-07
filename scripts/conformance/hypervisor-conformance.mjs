@@ -14582,17 +14582,17 @@ function runCompositor() {
     /const threadId = body\.thread_id \?\? threadIdForAgent\(agent\.id\)/.test(
       runtimeThreadMemoryState,
     ) &&
-      /targetType:\s*body\.target_type \?\? "thread"/.test(runtimeThreadMemoryState) &&
-      /targetId:\s*body\.target_id \?\? threadId/.test(runtimeThreadMemoryState) &&
+      /target_type:\s*body\.target_type \?\? "thread"/.test(runtimeThreadMemoryState) &&
+      /target_id:\s*body\.target_id \?\? threadId/.test(runtimeThreadMemoryState) &&
       /state\.rememberForAgentId\(store, "agent_a", \{\n    text: "Retired thread",\n    threadId: "thread_retired"/.test(
         runtimeThreadMemoryStateTest,
       ) &&
       /state\.setMemoryPolicyForAgent\(store, "agent_a", \{\n    threadId: "thread_retired_policy"/.test(
         runtimeThreadMemoryStateTest,
       ) &&
-      /policyCalls\.at\(-1\)\.threadId,\s*"thread_a"/.test(runtimeThreadMemoryStateTest) &&
-      /policyCalls\.at\(-1\)\.targetType,\s*"thread"/.test(runtimeThreadMemoryStateTest) &&
-      /policyCalls\.at\(-1\)\.targetId,\s*"thread_a"/.test(runtimeThreadMemoryStateTest) &&
+      /policyCalls\.at\(-1\)\.thread_id,\s*"thread_a"/.test(runtimeThreadMemoryStateTest) &&
+      /policyCalls\.at\(-1\)\.target_type,\s*"thread"/.test(runtimeThreadMemoryStateTest) &&
+      /policyCalls\.at\(-1\)\.target_id,\s*"thread_a"/.test(runtimeThreadMemoryStateTest) &&
       /^\s*memory_key\?: string;/m.test(agentMemorySdkListOptionsBlock) &&
       /^\s*thread_id\?: string;/m.test(agentMemorySdkRememberInputBlock) &&
       /^\s*workflow_graph_id\?: string;/m.test(agentMemorySdkRememberInputBlock) &&
@@ -14616,6 +14616,7 @@ function runCompositor() {
         agentSdkAgent,
       ) &&
       !/body\.(?:threadId|targetType|targetId)\b/.test(runtimeThreadMemoryState) &&
+      !/setPolicy\(\{[\s\S]*?(?:targetType|targetId|threadId)\s*:/m.test(runtimeThreadMemoryState) &&
       !/^\s*(?:memoryKey|q|threadId|workflowGraphId|workflowNodeId|workflowNodeType|writeApproved|targetType|targetId|injectionEnabled|readOnly|writeRequiresApproval|subagentInheritance)\?:/m.test(
         `${agentMemorySdkListOptionsBlock}\n${agentMemorySdkRememberInputBlock}\n${agentMemorySdkUpdateInputBlock}\n${agentMemorySdkDeleteInputBlock}\n${agentMemorySdkPolicyInputBlock}\n${agentSdkSendOptionsMemoryBlock}`,
       ),
@@ -14805,16 +14806,22 @@ function runCompositor() {
     result,
     "runtime-memory-write-approval-aliases-retired",
     /return Boolean\(options\.write_approved\)/.test(runtimeMemoryWriteApprovedBlock) &&
-      /runtime\.memoryWriteBlockReason\(\{ writeRequiresApproval: true \}, \{ write_approved: true \}, true\),\s*null/.test(
+      /runtime\.memoryWriteBlockReason\(\{ write_requires_approval: true \}, \{ write_approved: true \}, true\),\s*null/.test(
         runtimeMemoryHelpersTest,
       ) &&
       /writeApproved:\s*true/.test(runtimeMemoryHelpersTest) &&
       /approved:\s*true/.test(runtimeMemoryHelpersTest) &&
       /approvalGranted:\s*true/.test(runtimeMemoryHelpersTest) &&
       /approval_granted:\s*true/.test(runtimeMemoryHelpersTest) &&
+      /runtime\.memoryWriteBlockReason\(\{ writeRequiresApproval: true \}, \{\}, true\),\s*null/.test(
+        runtimeMemoryHelpersTest,
+      ) &&
       /"memory_write_requires_approval"/.test(runtimeMemoryHelpersTest) &&
       !/\boptions\.(?:writeApproved|approved|approvalGranted|approval_granted)\b/.test(
         runtimeMemoryWriteApprovedBlock,
+      ) &&
+      !/\bpolicy\.(?:readOnly|writeRequiresApproval)\b/.test(
+        runtimeMemoryHelpers,
       ),
     [
       "packages/runtime-daemon/src/runtime-memory-helpers.mjs",

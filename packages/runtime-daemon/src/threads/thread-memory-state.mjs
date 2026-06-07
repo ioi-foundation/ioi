@@ -79,10 +79,10 @@ export function createThreadMemoryState({
   function setMemoryPolicyForThread(store, threadId, body = {}) {
     const agent = store.agentForThread(threadId);
     const mutation = store.memory.setPolicy({
-      targetType: "thread",
-      targetId: threadId,
+      target_type: "thread",
+      target_id: threadId,
       agent,
-      threadId,
+      thread_id: threadId,
       workspace: agent.cwd,
       source: body.source ?? "thread_memory_policy_api",
       updates: memoryPolicyOverrides(body.policy ?? body),
@@ -170,10 +170,10 @@ export function createThreadMemoryState({
     const agent = store.getAgent(agentId);
     const threadId = body.thread_id ?? threadIdForAgent(agent.id);
     return store.memory.setPolicy({
-      targetType: body.target_type ?? "thread",
-      targetId: body.target_id ?? threadId,
+      target_type: body.target_type ?? "thread",
+      target_id: body.target_id ?? threadId,
       agent,
-      threadId,
+      thread_id: threadId,
       workspace: agent.cwd,
       source: body.source ?? "agent_memory_policy_api",
       updates: memoryPolicyOverrides(body.policy ?? body),

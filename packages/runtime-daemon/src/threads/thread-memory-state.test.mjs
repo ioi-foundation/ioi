@@ -142,7 +142,7 @@ function createHarness(options = {}) {
       },
       setPolicy(input) {
         calls.push({ type: "setPolicy", input });
-        return { policy: { id: `policy_${input.targetId}` } };
+        return { policy: { id: `policy_${input.target_id}` } };
       },
       deleteRecord(input) {
         calls.push({ type: "deleteRecord", input });
@@ -238,10 +238,10 @@ test("thread memory state handles policies, paths, status, and validation", () =
   });
 });
 
-test("thread memory state applies policy mutations through compatibility store methods", () => {
+test("thread memory state applies policy mutations through canonical store methods", () => {
   const { calls, state, store } = createHarness();
 
-  const threadPolicyResult = state.setMemoryPolicyForThread(store, "thread_a", { policy: { readOnly: true } });
+  const threadPolicyResult = state.setMemoryPolicyForThread(store, "thread_a", { policy: { read_only: true } });
   assert.equal(threadPolicyResult.operation, "policy_update");
   assert.equal(threadPolicyResult.policy.id, "policy_thread_a");
   assert.equal(threadPolicyResult.event.event_kind, "memory.policy_update");
@@ -250,7 +250,7 @@ test("thread memory state applies policy mutations through compatibility store m
   });
   const policyCalls = calls.filter((call) => call.type === "setPolicy").map((call) => call.input);
   assert.equal(policyCalls[0].updates.normalized, true);
-  assert.equal(policyCalls[0].updates.readOnly, true);
+  assert.equal(policyCalls[0].updates.read_only, true);
   assert.equal(policyCalls[1].updates.read_only, true);
 });
 
@@ -303,12 +303,18 @@ test("agent memory mutation bodies ignore retired camelCase identity aliases", (
     "thread_a",
   ]);
   const policyCalls = calls.filter((call) => call.type === "setPolicy").map((call) => call.input);
-  assert.equal(policyCalls.at(-2).threadId, "thread_canonical_policy");
-  assert.equal(policyCalls.at(-2).targetType, "workflow");
-  assert.equal(policyCalls.at(-2).targetId, "workflow-policy");
-  assert.equal(policyCalls.at(-1).threadId, "thread_a");
-  assert.equal(policyCalls.at(-1).targetType, "thread");
-  assert.equal(policyCalls.at(-1).targetId, "thread_a");
+  assert.equal(policyCalls.at(-2).thread_id, "thread_canonical_policy");
+  assert.equal(policyCalls.at(-2).target_type, "workflow");
+  assert.equal(policyCalls.at(-2).target_id, "workflow-policy");
+  assert.equal(Object.hasOwn(policyCalls.at(-2), "threadId"), false);
+  assert.equal(Object.hasOwn(policyCalls.at(-2), "targetType"), false);
+  assert.equal(Object.hasOwn(policyCalls.at(-2), "targetId"), false);
+  assert.equal(policyCalls.at(-1).thread_id, "thread_a");
+  assert.equal(policyCalls.at(-1).target_type, "thread");
+  assert.equal(policyCalls.at(-1).target_id, "thread_a");
+  assert.equal(Object.hasOwn(policyCalls.at(-1), "threadId"), false);
+  assert.equal(Object.hasOwn(policyCalls.at(-1), "targetType"), false);
+  assert.equal(Object.hasOwn(policyCalls.at(-1), "targetId"), false);
 });
 
 test("thread memory state records write, edit, and delete mutations", () => {

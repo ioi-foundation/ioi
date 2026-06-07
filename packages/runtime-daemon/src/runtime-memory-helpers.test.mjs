@@ -29,23 +29,29 @@ test("memory helper policy overrides and write approvals use canonical daemon be
     read_only: true,
     write_requires_approval: true,
     subagent_inheritance: "explicit",
+    injectionEnabled: true,
+    readOnly: false,
+    writeRequiresApproval: false,
+    subagentInheritance: "none",
   }), {
-    injectionEnabled: false,
-    readOnly: true,
-    writeRequiresApproval: true,
-    subagentInheritance: "explicit",
+    injection_enabled: false,
+    read_only: true,
+    write_requires_approval: true,
+    subagent_inheritance: "explicit",
   });
 
   assert.equal(runtime.memoryWriteBlockReason({ disabled: true }, {}, true), "memory_disabled");
-  assert.equal(runtime.memoryWriteBlockReason({ readOnly: true }, {}, true), "memory_read_only");
+  assert.equal(runtime.memoryWriteBlockReason({ read_only: true }, {}, true), "memory_read_only");
   assert.equal(
-    runtime.memoryWriteBlockReason({ writeRequiresApproval: true }, {}, true),
+    runtime.memoryWriteBlockReason({ write_requires_approval: true }, {}, true),
     "memory_write_requires_approval",
   );
   assert.equal(
-    runtime.memoryWriteBlockReason({ writeRequiresApproval: true }, { write_approved: true }, true),
+    runtime.memoryWriteBlockReason({ write_requires_approval: true }, { write_approved: true }, true),
     null,
   );
+  assert.equal(runtime.memoryWriteBlockReason({ readOnly: true }, {}, true), null);
+  assert.equal(runtime.memoryWriteBlockReason({ writeRequiresApproval: true }, {}, true), null);
   for (const retiredApproval of [
     { writeApproved: true },
     { approved: true },
@@ -53,11 +59,11 @@ test("memory helper policy overrides and write approvals use canonical daemon be
     { approval_granted: true },
   ]) {
     assert.equal(
-      runtime.memoryWriteBlockReason({ writeRequiresApproval: true }, retiredApproval, true),
+      runtime.memoryWriteBlockReason({ write_requires_approval: true }, retiredApproval, true),
       "memory_write_requires_approval",
     );
   }
-  assert.equal(runtime.memoryWriteBlockReason({ writeRequiresApproval: true }, {}, false), null);
+  assert.equal(runtime.memoryWriteBlockReason({ write_requires_approval: true }, {}, false), null);
 });
 
 test("memory helper operation names keep public event/control vocabulary stable", () => {
@@ -87,20 +93,40 @@ test("subagent memory policy and receipt preserve inheritance evidence", () => {
     mode: "explicit",
     parentPolicy: {
       id: "memory-policy-parent",
-      evidenceRefs: ["parent-ref"],
+      evidence_refs: ["parent-ref"],
       redaction: "redacted",
+      injectionEnabled: false,
+      readOnly: true,
+      writeRequiresApproval: false,
+      policyRefs: ["retired-policy"],
     },
   });
 
   assert.equal(policy.id, "memory_policy_subagent_thread-one_worker");
-  assert.equal(policy.targetType, "subagent");
-  assert.equal(policy.writeRequiresApproval, true);
-  assert.deepEqual(policy.policyRefs, ["memory-policy-parent"]);
-  assert.deepEqual(policy.evidenceRefs, [
+  assert.equal(policy.target_type, "subagent");
+  assert.equal(policy.write_requires_approval, true);
+  assert.equal(policy.injection_enabled, true);
+  assert.equal(policy.read_only, false);
+  assert.deepEqual(policy.policy_refs, ["memory-policy-parent"]);
+  assert.deepEqual(policy.evidence_refs, [
     "parent-ref",
     "subagent_memory_inheritance",
     "memory.policy.effective.subagent",
   ]);
+  for (const key of [
+    "targetType",
+    "targetId",
+    "agentId",
+    "threadId",
+    "injectionEnabled",
+    "readOnly",
+    "writeRequiresApproval",
+    "updatedAt",
+    "evidenceRefs",
+    "policyRefs",
+  ]) {
+    assert.equal(Object.hasOwn(policy, key), false, `retired memory policy alias ${key} must be absent`);
+  }
 
   const receipt = runtime.subagentMemoryInheritanceReceipt("run-one", {
     mode: "explicit",

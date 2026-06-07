@@ -4,36 +4,37 @@ export function createRuntimeMemoryHelpers({
   safeId,
 } = {}) {
   function subagentMemoryPolicy({ agent, threadId, parentPolicy = {}, receiver, mode }) {
+    const canonicalParentPolicy = withoutRetiredMemoryPolicyAliases(parentPolicy);
     const targetId = `${threadId}:${receiver ?? "subagent"}`;
     const id = `memory_policy_subagent_${safeId(targetId)}`;
-    const disabled = Boolean(parentPolicy.disabled) || mode === "none";
-    const injectionEnabled = parentPolicy.injectionEnabled !== false && mode !== "none";
-    const readOnly = disabled || Boolean(parentPolicy.readOnly) || mode === "read_only";
+    const disabled = Boolean(canonicalParentPolicy.disabled) || mode === "none";
+    const injectionEnabled = canonicalParentPolicy.injection_enabled !== false && mode !== "none";
+    const readOnly = disabled || Boolean(canonicalParentPolicy.read_only) || mode === "read_only";
     const writeRequiresApproval =
-      mode === "explicit" ? true : Boolean(parentPolicy.writeRequiresApproval);
+      mode === "explicit" ? true : Boolean(canonicalParentPolicy.write_requires_approval);
     return {
-      ...parentPolicy,
+      ...canonicalParentPolicy,
       id,
-      targetType: "subagent",
-      targetId,
-      agentId: agent?.id ?? parentPolicy.agentId ?? null,
-      threadId,
+      target_type: "subagent",
+      target_id: targetId,
+      agent_id: agent?.id ?? parentPolicy.agent_id ?? null,
+      thread_id: threadId,
       workspace: agent?.cwd ?? parentPolicy.workspace ?? null,
       disabled,
-      injectionEnabled,
-      readOnly,
-      writeRequiresApproval,
+      injection_enabled: injectionEnabled,
+      read_only: readOnly,
+      write_requires_approval: writeRequiresApproval,
       source: "daemon_subagent_memory_inheritance",
-      updatedAt: new Date().toISOString(),
-      evidenceRefs: [
+      updated_at: new Date().toISOString(),
+      evidence_refs: [
         ...new Set([
-          ...normalizeArray(parentPolicy.evidenceRefs),
+          ...normalizeArray(canonicalParentPolicy.evidence_refs),
           "subagent_memory_inheritance",
           "memory.policy.effective.subagent",
         ]),
       ],
       effective: true,
-      policyRefs: [parentPolicy.id].filter(Boolean),
+      policy_refs: [canonicalParentPolicy.id].filter(Boolean),
     };
   }
 
@@ -41,20 +42,16 @@ export function createRuntimeMemoryHelpers({
     const policy = {};
     for (const key of [
       "disabled",
-      "injectionEnabled",
-      "readOnly",
-      "writeRequiresApproval",
+      "injection_enabled",
+      "read_only",
+      "write_requires_approval",
       "retention",
       "redaction",
-      "subagentInheritance",
+      "subagent_inheritance",
       "scope",
     ]) {
       if (options[key] !== undefined) policy[key] = options[key];
     }
-    if (options.injection_enabled !== undefined) policy.injectionEnabled = options.injection_enabled;
-    if (options.read_only !== undefined) policy.readOnly = options.read_only;
-    if (options.write_requires_approval !== undefined) policy.writeRequiresApproval = options.write_requires_approval;
-    if (options.subagent_inheritance !== undefined) policy.subagentInheritance = options.subagent_inheritance;
     return policy;
   }
 
@@ -89,8 +86,8 @@ export function createRuntimeMemoryHelpers({
   function memoryWriteBlockReason(policy = {}, options = {}, requestedWrite = false) {
     if (!requestedWrite) return null;
     if (policy.disabled) return "memory_disabled";
-    if (policy.readOnly) return "memory_read_only";
-    if (policy.writeRequiresApproval && !memoryWriteApproved(options)) {
+    if (policy.read_only) return "memory_read_only";
+    if (policy.write_requires_approval && !memoryWriteApproved(options)) {
       return "memory_write_requires_approval";
     }
     return null;
@@ -98,6 +95,25 @@ export function createRuntimeMemoryHelpers({
 
   function memoryWriteApproved(options = {}) {
     return Boolean(options.write_approved);
+  }
+
+  function withoutRetiredMemoryPolicyAliases(policy = {}) {
+    const {
+      targetType,
+      targetId,
+      agentId,
+      threadId,
+      injectionEnabled,
+      readOnly,
+      writeRequiresApproval,
+      subagentInheritance,
+      updatedAt,
+      createdAt,
+      evidenceRefs,
+      policyRefs,
+      ...canonicalPolicy
+    } = policy;
+    return canonicalPolicy;
   }
 
   function subagentMemoryInheritanceReceipt(runId, projection = {}) {
