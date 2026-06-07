@@ -216,7 +216,8 @@ test("coding tool invocation surface replays duplicate idempotent tool events", 
 
   assert.equal(result.duplicate, true);
   assert.equal(result.event, duplicateEvent);
-  assert.equal(result.context.toolId, "file.inspect");
+  assert.equal(result.context.tool_id, "file.inspect");
+  assert.equal(Object.hasOwn(result.context, "toolId"), false);
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
 });
 

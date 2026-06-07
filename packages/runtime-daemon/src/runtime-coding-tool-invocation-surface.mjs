@@ -103,12 +103,12 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     if (duplicateToolEvent) {
       return codingToolInvocationResultFromEvent(duplicateToolEvent, {
         agent,
-        threadId,
-        turnId,
-        toolId: normalizedToolId,
-        toolCallId,
-        workflowGraphId,
-        workflowNodeId,
+        thread_id: threadId,
+        turn_id: turnId,
+        tool_id: normalizedToolId,
+        tool_call_id: toolCallId,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
       });
     }
     const receiptId = `receipt_coding_tool_${safeId(normalizedToolId)}_${doctorHash(

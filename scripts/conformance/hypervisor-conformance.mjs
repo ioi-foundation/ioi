@@ -1730,7 +1730,30 @@ function runBridge() {
       !/payload\.(?:controlReceipt|humanHandoffState|cleanupReceipt)\b/.test(
         runtimeInvocationResultReplayBodies,
       ) &&
+      /tool_name:\s*payload\.tool_name \?\? context\.tool_id \?\? null/.test(
+        runtimeInvocationResultReplayBodies,
+      ) &&
+      /tool_call_id:\s*payload\.tool_call_id \?\? context\.tool_call_id/.test(
+        runtimeInvocationResultReplayBodies,
+      ) &&
+      /workflow_graph_id:\s*payload\.workflow_graph_id \?\? context\.workflow_graph_id/.test(
+        runtimeInvocationResultReplayBodies,
+      ) &&
+      /workflow_node_id:\s*payload\.workflow_node_id \?\? context\.workflow_node_id/.test(
+        runtimeInvocationResultReplayBodies,
+      ) &&
+      !/context\.(?:toolId|toolCallId|threadId|turnId|workflowGraphId|workflowNodeId)\b/.test(
+        runtimeInvocationResultReplayBodies,
+      ) &&
       /coding tool invocation result uses canonical replay and workspace snapshot fields/.test(
+        runtimeInvocationResultsTest,
+      ) &&
+      /single-event invocation results ignore retired camelCase context aliases/.test(
+        runtimeInvocationResultsTest,
+      ) &&
+      /toolId: "tool\.retired"/.test(runtimeInvocationResultsTest) &&
+      /workflowGraphId: "graph_retired"/.test(runtimeInvocationResultsTest) &&
+      /assert\.equal\(control\.workflow_node_id,\s*"node_canonical"\)/.test(
         runtimeInvocationResultsTest,
       ) &&
       /computer-use control result uses canonical control, handoff, and cleanup fields/.test(

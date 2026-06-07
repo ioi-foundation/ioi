@@ -13247,6 +13247,13 @@ subagent-created run requests now send canonical `route_id`,
 can no longer survive those facades into Rust-planned model-route receipt
 binding.
 
+Slice 509 retires invocation replay context aliases:
+single-event coding-tool, computer-use browser-discovery, and computer-use
+control result projections now consume canonical `tool_id`, `tool_call_id`,
+`thread_id`, `turn_id`, `workflow_graph_id`, and `workflow_node_id` context
+fields only; retired camelCase context aliases can no longer steer replay
+metadata before workflow projection.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

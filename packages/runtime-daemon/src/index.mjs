@@ -2207,12 +2207,12 @@ export class AgentgresRuntimeStateStore {
     if (duplicateEvent) {
       return computerUseBrowserDiscoveryInvocationResultFromEvent(duplicateEvent, {
         agent,
-        threadId,
-        turnId,
-        toolId,
-        toolCallId,
-        workflowGraphId,
-        workflowNodeId,
+        thread_id: threadId,
+        turn_id: turnId,
+        tool_id: toolId,
+        tool_call_id: toolCallId,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
       });
     }
     const requestInput = objectRecord(request.input);
@@ -2305,12 +2305,12 @@ export class AgentgresRuntimeStateStore {
     });
     return computerUseBrowserDiscoveryInvocationResultFromEvent(event, {
       agent,
-      threadId,
-      turnId,
-      toolId,
-      toolCallId,
-      workflowGraphId,
-      workflowNodeId,
+      thread_id: threadId,
+      turn_id: turnId,
+      tool_id: toolId,
+      tool_call_id: toolCallId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
     });
   }
 
@@ -2337,12 +2337,12 @@ export class AgentgresRuntimeStateStore {
     if (duplicateEvent) {
       return computerUseControlInvocationResultFromEvent(duplicateEvent, {
         agent,
-        threadId,
-        turnId,
-        toolId,
-        toolCallId,
-        workflowGraphId,
-        workflowNodeId,
+        thread_id: threadId,
+        turn_id: turnId,
+        tool_id: toolId,
+        tool_call_id: toolCallId,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
       });
     }
     const requestInput = objectRecord(request.input);
@@ -2487,12 +2487,12 @@ export class AgentgresRuntimeStateStore {
     });
     return computerUseControlInvocationResultFromEvent(event, {
       agent,
-      threadId,
-      turnId,
-      toolId,
-      toolCallId,
-      workflowGraphId,
-      workflowNodeId,
+      thread_id: threadId,
+      turn_id: turnId,
+      tool_id: toolId,
+      tool_call_id: toolCallId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
     });
   }
 

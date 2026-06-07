@@ -31,7 +31,7 @@ test("coding tool invocation result uses canonical replay and workspace snapshot
     },
   };
   const result = projections.codingToolInvocationResultFromEvent(event, {
-    toolId: "fallback_tool",
+    tool_id: "fallback_tool",
     agent: { cwd: "/agent" },
   });
 
@@ -51,6 +51,67 @@ test("coding tool invocation result uses canonical replay and workspace snapshot
     assert.equal(Object.hasOwn(result, field), false);
   }
   assert.equal(result.error, null);
+});
+
+test("single-event invocation results ignore retired camelCase context aliases", () => {
+  const projections = createProjections();
+  const baseEvent = {
+    status: "completed",
+    workspace_root: "/workspace",
+    receipt_refs: [],
+    artifact_refs: [],
+    rollback_refs: [],
+    payload_summary: {},
+  };
+  const context = {
+    tool_id: "tool.canonical",
+    toolId: "tool.retired",
+    tool_call_id: "call_canonical",
+    toolCallId: "call_retired",
+    thread_id: "thread_canonical",
+    threadId: "thread_retired",
+    turn_id: "turn_canonical",
+    turnId: "turn_retired",
+    workflow_graph_id: "graph_canonical",
+    workflowGraphId: "graph_retired",
+    workflow_node_id: "node_canonical",
+    workflowNodeId: "node_retired",
+  };
+
+  const coding = projections.codingToolInvocationResultFromEvent(baseEvent, context);
+  assert.equal(coding.tool_name, "tool.canonical");
+  assert.equal(coding.tool_call_id, "call_canonical");
+  assert.equal(coding.thread_id, "thread_canonical");
+  assert.equal(coding.turn_id, "turn_canonical");
+  assert.equal(coding.workflow_graph_id, "graph_canonical");
+  assert.equal(coding.workflow_node_id, "node_canonical");
+
+  const browserDiscovery = projections.computerUseBrowserDiscoveryInvocationResultFromEvent(
+    baseEvent,
+    context,
+  );
+  assert.equal(browserDiscovery.tool_name, "tool.canonical");
+  assert.equal(browserDiscovery.tool_call_id, "call_canonical");
+  assert.equal(browserDiscovery.thread_id, "thread_canonical");
+  assert.equal(browserDiscovery.turn_id, "turn_canonical");
+  assert.equal(browserDiscovery.workflow_graph_id, "graph_canonical");
+  assert.equal(browserDiscovery.workflow_node_id, "node_canonical");
+
+  const control = projections.computerUseControlInvocationResultFromEvent(
+    {
+      ...baseEvent,
+      payload_summary: {
+        control_receipt: { control_ref: "control_1" },
+      },
+    },
+    context,
+  );
+  assert.equal(control.tool_name, "tool.canonical");
+  assert.equal(control.tool_call_id, "call_canonical");
+  assert.equal(control.thread_id, "thread_canonical");
+  assert.equal(control.turn_id, "turn_canonical");
+  assert.equal(control.workflow_graph_id, "graph_canonical");
+  assert.equal(control.workflow_node_id, "node_canonical");
 });
 
 test("computer-use browser discovery result normalizes object records", () => {
@@ -87,8 +148,8 @@ test("computer-use control result uses canonical control, handoff, and cleanup f
     },
   };
   const result = projections.computerUseControlInvocationResultFromEvent(event, {
-    threadId: "thread_1",
-    turnId: "turn_1",
+    thread_id: "thread_1",
+    turn_id: "turn_1",
   });
 
   assert.equal(result.thread_id, "thread_1");
