@@ -27,6 +27,14 @@ function createSurface(overrides = {}) {
   });
 }
 
+const retiredInvocationErrorDetailAliasKeys = ["threadId", "toolId"];
+
+function assertNoRetiredInvocationErrorDetailAliases(details) {
+  for (const key of retiredInvocationErrorDetailAliasKeys) {
+    assert.equal(Object.hasOwn(details, key), false, `retired invocation error detail alias ${key} must be absent`);
+  }
+}
+
 function createShadowStepModuleRunner() {
   return {
     backend: "rust_workload_shadow",
@@ -1111,6 +1119,9 @@ test("coding tool invocation surface runs artifact.read through rust workload li
   });
   assert.equal(retiredArtifactAlias.status, "failed");
   assert.equal(retiredArtifactAlias.result.error.code, "artifact_read_id_required");
+  assert.equal(retiredArtifactAlias.result.error.details.thread_id, "thread_alpha");
+  assert.equal(retiredArtifactAlias.result.error.details.tool_id, "artifact.read");
+  assertNoRetiredInvocationErrorDetailAliases(retiredArtifactAlias.result.error.details);
   assert.equal(store.calls.filter((call) => call.name === "readArtifact").length, readCallsBeforeRetiredAlias);
 
   const retiredRangeAlias = surface.invokeThreadTool(store, "thread_alpha", "artifact.read", {
@@ -1119,7 +1130,10 @@ test("coding tool invocation surface runs artifact.read through rust workload li
   });
   assert.equal(retiredRangeAlias.status, "failed");
   assert.equal(retiredRangeAlias.result.error.code, "artifact_read_range_aliases_retired");
+  assert.equal(retiredRangeAlias.result.error.details.thread_id, "thread_alpha");
+  assert.equal(retiredRangeAlias.result.error.details.tool_id, "artifact.read");
   assert.deepEqual(retiredRangeAlias.result.error.details.retired_aliases, ["offsetBytes"]);
+  assertNoRetiredInvocationErrorDetailAliases(retiredRangeAlias.result.error.details);
   assert.equal(Object.hasOwn(retiredRangeAlias.result.error.details, "offsetBytes"), false);
   assert.equal(store.calls.filter((call) => call.name === "readArtifact").length, readCallsBeforeRetiredAlias);
 });
@@ -1221,6 +1235,9 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
   });
   assert.equal(retiredRetrieveAlias.status, "failed");
   assert.equal(retiredRetrieveAlias.result.error.code, "tool_retrieve_result_target_required");
+  assert.equal(retiredRetrieveAlias.result.error.details.thread_id, "thread_alpha");
+  assert.equal(retiredRetrieveAlias.result.error.details.tool_id, "tool.retrieve_result");
+  assertNoRetiredInvocationErrorDetailAliases(retiredRetrieveAlias.result.error.details);
   assert.equal(store.calls.filter((call) => call.name === "retrieveResult").length, retrieveCallsBeforeRetiredAlias);
 
   const retiredRetrieveRangeAlias = surface.invokeThreadTool(store, "thread_alpha", "tool.retrieve_result", {
@@ -1229,7 +1246,10 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
   });
   assert.equal(retiredRetrieveRangeAlias.status, "failed");
   assert.equal(retiredRetrieveRangeAlias.result.error.code, "artifact_read_range_aliases_retired");
+  assert.equal(retiredRetrieveRangeAlias.result.error.details.thread_id, "thread_alpha");
+  assert.equal(retiredRetrieveRangeAlias.result.error.details.tool_id, "tool.retrieve_result");
   assert.deepEqual(retiredRetrieveRangeAlias.result.error.details.retired_aliases, ["maxBytes"]);
+  assertNoRetiredInvocationErrorDetailAliases(retiredRetrieveRangeAlias.result.error.details);
   assert.equal(Object.hasOwn(retiredRetrieveRangeAlias.result.error.details, "maxBytes"), false);
   assert.equal(store.calls.filter((call) => call.name === "retrieveResult").length, retrieveCallsBeforeRetiredAlias);
 });

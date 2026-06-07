@@ -439,7 +439,7 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
       throw toolInputError(
         "artifact_read_unavailable",
         "artifact.read requires a daemon artifact store.",
-        { threadId, toolId },
+        { thread_id: threadId, tool_id: toolId },
       );
     }
     const artifactId = optionalString(input.artifact_id ?? input.artifact_ref);
@@ -447,10 +447,10 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
       throw toolInputError(
         "artifact_read_id_required",
         "artifact.read requires artifact_id or artifact_ref.",
-        { threadId, toolId },
+        { thread_id: threadId, tool_id: toolId },
       );
     }
-    assertNoRetiredArtifactReadRangeAliases(input, { threadId, toolId, artifact_id: artifactId });
+    assertNoRetiredArtifactReadRangeAliases(input, { thread_id: threadId, tool_id: toolId, artifact_id: artifactId });
     const range = artifactReadRange(input);
     return {
       ...input,
@@ -470,7 +470,7 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
       throw toolInputError(
         "tool_retrieve_result_unavailable",
         "tool.retrieve_result requires a daemon artifact store.",
-        { threadId, toolId },
+        { thread_id: threadId, tool_id: toolId },
       );
     }
     const toolCallId = optionalString(input.tool_call_id);
@@ -479,12 +479,12 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
       throw toolInputError(
         "tool_retrieve_result_target_required",
         "tool.retrieve_result requires tool_call_id or artifact_id.",
-        { threadId, toolId },
+        { thread_id: threadId, tool_id: toolId },
       );
     }
     assertNoRetiredArtifactReadRangeAliases(input, {
-      threadId,
-      toolId,
+      thread_id: threadId,
+      tool_id: toolId,
       tool_call_id: toolCallId,
       artifact_id: artifactId,
     });

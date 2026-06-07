@@ -1931,6 +1931,12 @@ function runBridge() {
       ) &&
       /artifact_id: artifactId/.test(runtimeCodingToolInvocationSurface) &&
       /tool_call_id: toolCallId/.test(runtimeCodingToolInvocationSurface) &&
+      /toolInputError\(\s*"artifact_read_id_required",\s*"artifact\.read requires artifact_id or artifact_ref\.",\s*\{ thread_id: threadId, tool_id: toolId \},\s*\)/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /toolInputError\(\s*"tool_retrieve_result_target_required",\s*"tool\.retrieve_result requires tool_call_id or artifact_id\.",\s*\{ thread_id: threadId, tool_id: toolId \},\s*\)/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
       /if \(query\.artifact_id\)/.test(runtimeCodingToolArtifactSurface) &&
       /const toolCallId = optionalString\(query\.tool_call_id\)/.test(
         runtimeCodingToolArtifactSurface,
@@ -1955,7 +1961,14 @@ function runBridge() {
       /assertNoRetiredArtifactErrorDetailAliases\(error\.details\)/.test(
         runtimeCodingToolArtifactSurfaceTest,
       ) &&
+      /assertNoRetiredInvocationErrorDetailAliases\(retiredArtifactAlias\.result\.error\.details\)/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /assertNoRetiredInvocationErrorDetailAliases\(retiredRetrieveAlias\.result\.error\.details\)/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
       !/input\.(?:artifactId|artifactRef|toolCallId)\b/.test(runtimeCodingToolInvocationSurface) &&
+      !/\{ threadId, toolId \}/.test(runtimeCodingToolInvocationSurface) &&
       !/query\.(?:artifactId|toolCallId)\b/.test(runtimeCodingToolArtifactSurface) &&
       !/notFound\(`Artifact not found: \$\{artifactId\}`,\s*\{ threadId, artifactId \}\)/.test(
         runtimeCodingToolArtifactSurface,
@@ -1999,11 +2012,17 @@ function runBridge() {
       /return \["offsetBytes", "lengthBytes", "maxBytes"\]\.filter/.test(codingToolContracts) &&
       /offset_bytes:\s*boundedInteger\(input\.offset_bytes/.test(codingToolContracts) &&
       /length_bytes:\s*boundedInteger\(\s*input\.length_bytes \?\? input\.max_bytes/.test(codingToolContracts) &&
-      /assertNoRetiredArtifactReadRangeAliases\(input, \{ threadId, toolId, artifact_id: artifactId \}\)/.test(
+      /assertNoRetiredArtifactReadRangeAliases\(input, \{ thread_id: threadId, tool_id: toolId, artifact_id: artifactId \}\)/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
-      /assertNoRetiredArtifactReadRangeAliases\(input,\s*\{\s*threadId,\s*toolId,\s*tool_call_id: toolCallId,\s*artifact_id: artifactId,\s*\}\)/.test(
+      /assertNoRetiredArtifactReadRangeAliases\(input,\s*\{\s*thread_id: threadId,\s*tool_id: toolId,\s*tool_call_id: toolCallId,\s*artifact_id: artifactId,\s*\}\)/.test(
         runtimeCodingToolInvocationSurface,
+      ) &&
+      /assertNoRetiredInvocationErrorDetailAliases\(retiredRangeAlias\.result\.error\.details\)/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /assertNoRetiredInvocationErrorDetailAliases\(retiredRetrieveRangeAlias\.result\.error\.details\)/.test(
+        runtimeCodingToolInvocationSurfaceTest,
       ) &&
       /assertNoRetiredArtifactReadRangeAliases\(range, \{ threadId, artifactId, operation: "artifact\.read" \}\)/.test(
         runtimeCodingToolArtifactSurface,
