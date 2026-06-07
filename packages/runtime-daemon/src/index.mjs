@@ -2606,23 +2606,23 @@ export class AgentgresRuntimeStateStore {
       }
     }
     const metadata = {
-      computerUse: true,
-      computerUseLane: "native_browser",
-      computerUseSessionMode: requestedSessionMode,
-      workflowGraphId,
-      workflowNodeId,
-      workflowNodeIds: uniqueStrings([
+      computer_use: true,
+      computer_use_lane: "native_browser",
+      computer_use_session_mode: requestedSessionMode,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      workflow_node_ids: uniqueStrings([
         workflowNodeId,
         ...normalizeArray(input.workflowNodeIds ?? input.workflow_node_ids),
       ]),
-      toolRef: toolId,
-      authorityScopes: uniqueStrings([
+      tool_ref: toolId,
+      authority_scopes: uniqueStrings([
         requestedActionAuthority,
         "computer_use.native_browser.read",
         ...normalizeArray(input.authorityScopes ?? input.authority_scopes),
       ]),
       observation_retention_mode: observationRetentionMode,
-      failClosedWhenUnavailable: true,
+      fail_closed_when_unavailable: true,
       computer_use_action_kind: requestedActionKind,
       computer_use_approval_ref: requestedApprovalRef,
       computer_use_target_ref: requestedTargetRef,
@@ -2835,24 +2835,24 @@ export class AgentgresRuntimeStateStore {
         })
       : null;
     const metadata = {
-      computerUse: true,
-      computerUseLane: "visual_gui",
-      computerUseSessionMode: requestedSessionMode,
-      workflowGraphId,
-      workflowNodeId,
-      workflowNodeIds: uniqueStrings([
+      computer_use: true,
+      computer_use_lane: "visual_gui",
+      computer_use_session_mode: requestedSessionMode,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      workflow_node_ids: uniqueStrings([
         workflowNodeId,
         ...normalizeArray(input.workflowNodeIds ?? input.workflow_node_ids),
       ]),
-      toolRef: toolId,
-      authorityScopes: uniqueStrings([
+      tool_ref: toolId,
+      authority_scopes: uniqueStrings([
         requestedActionAuthority,
         "computer_use.visual_gui.observe",
         "computer_use.visual_gui.read",
         ...normalizeArray(input.authorityScopes ?? input.authority_scopes),
       ]),
-      observationRetentionMode,
-      failClosedWhenUnavailable: true,
+      observation_retention_mode: observationRetentionMode,
+      fail_closed_when_unavailable: true,
       computer_use_action_kind: requestedActionKind,
       computer_use_approval_ref: requestedApprovalRef,
       computer_use_target_ref: requestedTargetRef,
@@ -3049,24 +3049,24 @@ export class AgentgresRuntimeStateStore {
           input.sandbox_fixture,
       ) ?? sandboxProvider === "local_fixture";
     const metadata = {
-      computerUse: true,
-      computerUseLane: "sandboxed_hosted",
-      computerUseSessionMode: requestedSessionMode,
-      workflowGraphId,
-      workflowNodeId,
-      workflowNodeIds: uniqueStrings([
+      computer_use: true,
+      computer_use_lane: "sandboxed_hosted",
+      computer_use_session_mode: requestedSessionMode,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      workflow_node_ids: uniqueStrings([
         workflowNodeId,
         ...normalizeArray(input.workflowNodeIds ?? input.workflow_node_ids),
       ]),
-      toolRef: toolId,
-      authorityScopes: uniqueStrings([
+      tool_ref: toolId,
+      authority_scopes: uniqueStrings([
         requestedActionAuthority,
         "computer_use.sandboxed_hosted.observe",
         "computer_use.sandboxed_hosted.read",
         ...normalizeArray(input.authorityScopes ?? input.authority_scopes),
       ]),
-      observationRetentionMode,
-      failClosedWhenUnavailable: true,
+      observation_retention_mode: observationRetentionMode,
+      fail_closed_when_unavailable: true,
       computer_use_action_kind: requestedActionKind,
       computer_use_approval_ref: requestedApprovalRef,
       computer_use_target_ref: requestedTargetRef,

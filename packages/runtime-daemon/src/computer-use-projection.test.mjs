@@ -301,6 +301,65 @@ test("computer-use projection ignores retired contract override aliases", () => 
   assert.notEqual(projection.cleanup.cleanup_ref, "cleanup_retired_override");
 });
 
+test("computer-use projection accepts canonical workflow binding metadata", () => {
+  const projection = projectionFor({
+    runId: "projection_canonical_workflow_binding",
+    metadata: {
+      computer_use: true,
+      computer_use_lane: "visual_gui",
+      computer_use_session_mode: "foreground_desktop",
+      workflow_graph_id: "graph_canonical",
+      workflow_node_id: "node_canonical",
+      workflow_node_ids: ["node_canonical", "node_extra"],
+      tool_ref: "tool_canonical",
+      authority_scopes: ["scope.canonical"],
+      observation_retention_mode: "canonical_retention",
+      fail_closed_when_unavailable: false,
+    },
+  });
+
+  assert.equal(projection.environmentSelection.selected_lane, "visual_gui");
+  assert.equal(projection.environmentSelection.selected_session_mode, "foreground_desktop");
+  assert.equal(projection.environmentSelection.privacy_impact, "canonical_retention");
+  const environmentEvent = projection.events.find((event) => event.type === "computer_use_environment_selected");
+  assert.equal(environmentEvent.data.workflow_graph_id, "graph_canonical");
+  assert.equal(environmentEvent.data.workflow_node_id, "node_canonical");
+  assert.deepEqual(environmentEvent.data.workflow_node_ids, ["node_canonical", "node_extra"]);
+  assert.equal(environmentEvent.data.tool_ref, "tool_canonical");
+  assert.ok(environmentEvent.data.authority_scopes.includes("scope.canonical"));
+  assert.equal(environmentEvent.data.fail_closed_when_unavailable, false);
+});
+
+test("computer-use projection ignores retired workflow binding aliases", () => {
+  const projection = projectionFor({
+    runId: "projection_retired_workflow_binding",
+    prompt: "computer-use request",
+    metadata: {
+      computerUse: true,
+      computerUseLane: "visual_gui",
+      computerUseSessionMode: "foreground_desktop",
+      workflowGraphId: "graph_retired",
+      workflowNodeId: "node_retired",
+      workflowNodeIds: ["node_retired"],
+      toolRef: "tool_retired",
+      authorityScopes: ["scope.retired"],
+      observationRetentionMode: "retired_retention",
+      failClosedWhenUnavailable: false,
+    },
+  });
+
+  assert.equal(projection.environmentSelection.selected_lane, "native_browser");
+  assert.equal(projection.environmentSelection.selected_session_mode, "owned_hermetic_browser");
+  assert.equal(projection.environmentSelection.privacy_impact, "local_redacted_artifacts");
+  const environmentEvent = projection.events.find((event) => event.type === "computer_use_environment_selected");
+  assert.equal(environmentEvent.data.workflow_graph_id, null);
+  assert.notEqual(environmentEvent.data.workflow_node_id, "node_retired");
+  assert.equal(environmentEvent.data.workflow_node_ids.includes("node_retired"), false);
+  assert.equal(environmentEvent.data.tool_ref, null);
+  assert.equal(environmentEvent.data.authority_scopes.includes("scope.retired"), false);
+  assert.equal(environmentEvent.data.fail_closed_when_unavailable, true);
+});
+
 function projectionFor({ runId, metadata, prompt = "click the requested computer-use target" }) {
   return computerUseProjectionForRun({
     agent: { cwd: "/tmp/ioi-projection-test" },

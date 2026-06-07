@@ -2485,6 +2485,46 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-workflow-binding-metadata-aliases-retired",
+    /if \(metadata\.computer_use === true\)/.test(computerUseProjection) &&
+      /workflowGraphId:\s*cleanString\(metadata\.workflow_graph_id\)/.test(computerUseProjection) &&
+      /workflowNodeId:\s*cleanString\(metadata\.workflow_node_id\)/.test(computerUseProjection) &&
+      /workflowNodeIds:\s*cleanStringArray\(metadata\.workflow_node_ids\)/.test(computerUseProjection) &&
+      /toolRef:\s*cleanString\(metadata\.tool_ref\)/.test(computerUseProjection) &&
+      /authorityScopes:\s*cleanStringArray\(metadata\.authority_scopes\)/.test(computerUseProjection) &&
+      /booleanValue\(metadata\.fail_closed_when_unavailable\)/.test(computerUseProjection) &&
+      /const value = metadata\.computer_use_lane;/.test(computerUseProjection) &&
+      /const value = metadata\.computer_use_session_mode;/.test(computerUseProjection) &&
+      /computer-use projection accepts canonical workflow binding metadata/.test(
+        computerUseProjectionTest,
+      ) &&
+      /computer-use projection ignores retired workflow binding aliases/.test(
+        computerUseProjectionTest,
+      ) &&
+      /computerUseLane: "visual_gui"/.test(computerUseProjectionTest) &&
+      /workflowGraphId: "graph_retired"/.test(computerUseProjectionTest) &&
+      /failClosedWhenUnavailable: false/.test(computerUseProjectionTest) &&
+      /computer_use: true,\s*[\r\n\s]*computer_use_lane: "native_browser",\s*[\r\n\s]*computer_use_session_mode: requestedSessionMode,\s*[\r\n\s]*workflow_graph_id: workflowGraphId,\s*[\r\n\s]*workflow_node_id: workflowNodeId,\s*[\r\n\s]*workflow_node_ids: uniqueStrings/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /computer_use: true,\s*[\r\n\s]*computer_use_lane: "visual_gui",\s*[\r\n\s]*computer_use_session_mode: requestedSessionMode,\s*[\r\n\s]*workflow_graph_id: workflowGraphId,\s*[\r\n\s]*workflow_node_id: workflowNodeId,\s*[\r\n\s]*workflow_node_ids: uniqueStrings/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /computer_use: true,\s*[\r\n\s]*computer_use_lane: "sandboxed_hosted",\s*[\r\n\s]*computer_use_session_mode: requestedSessionMode,\s*[\r\n\s]*workflow_graph_id: workflowGraphId,\s*[\r\n\s]*workflow_node_id: workflowNodeId,\s*[\r\n\s]*workflow_node_ids: uniqueStrings/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/metadata\.(?:computerUse|computerUseLane|computerUseSessionMode|workflowGraphId|workflowNodeId|workflowNodeIds|toolRef|authorityScopes|failClosedWhenUnavailable)\b/.test(
+        computerUseProjection,
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/computer-use-projection.mjs",
+      "packages/runtime-daemon/src/computer-use-projection.test.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use projection workflow binding and lane/session metadata must use canonical snake_case fields without retired camelCase aliases",
+  );
+  assertCheck(
+    result,
     "visual-gui-local-executor-request-aliases-retired",
     /booleanValue\(input\.local_gui_executor\)/.test(visualGuiLocalExecutor) &&
       /booleanValue\(input\.execute_local_gui\)/.test(visualGuiLocalExecutor) &&

@@ -13304,6 +13304,15 @@ metadata; projection consumes those canonical fields only, so retired camelCase
 override aliases can no longer steer observation, grounding, adapter, cleanup,
 or browser-artifact contract projection.
 
+Slice 517 retires computer-use workflow-binding metadata aliases:
+native-browser, visual-GUI, and sandboxed-hosted projection-producing runtime
+metadata now uses canonical `computer_use`, `computer_use_lane`,
+`computer_use_session_mode`, `workflow_*`, `tool_ref`, `authority_scopes`, and
+`fail_closed_when_unavailable` fields; projection ignores retired camelCase
+workflow, lane/session, tool, authority, and fail-closed aliases so they can no
+longer steer selected execution lane, session mode, workflow binding, tool ref,
+authority scopes, retention, or fail-closed behavior.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

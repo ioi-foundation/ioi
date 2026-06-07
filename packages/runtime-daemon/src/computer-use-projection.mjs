@@ -1667,7 +1667,7 @@ function computerUseEvent({ type, summary, workflowNodeId, traceReceiptId, data 
 
 function shouldProjectComputerUse(prompt, request = {}) {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
-  if (metadata.computerUse === true || metadata.computer_use === true) {
+  if (metadata.computer_use === true) {
     return true;
   }
   return /\b(browser|chromium|website|web page|url|computer[- ]use|cua|gui|desktop|click|selector|playwright)\b/i
@@ -1677,26 +1677,26 @@ function shouldProjectComputerUse(prompt, request = {}) {
 function computerUseWorkflowBinding(request = {}) {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
   return {
-    workflowGraphId: cleanString(metadata.workflowGraphId ?? metadata.workflow_graph_id),
-    workflowNodeId: cleanString(metadata.workflowNodeId ?? metadata.workflow_node_id),
-    workflowNodeIds: cleanStringArray(metadata.workflowNodeIds ?? metadata.workflow_node_ids),
-    toolRef: cleanString(metadata.toolRef ?? metadata.tool_ref),
-    authorityScopes: cleanStringArray(metadata.authorityScopes ?? metadata.authority_scopes),
+    workflowGraphId: cleanString(metadata.workflow_graph_id),
+    workflowNodeId: cleanString(metadata.workflow_node_id),
+    workflowNodeIds: cleanStringArray(metadata.workflow_node_ids),
+    toolRef: cleanString(metadata.tool_ref),
+    authorityScopes: cleanStringArray(metadata.authority_scopes),
     observationRetentionMode: cleanString(metadata.observation_retention_mode),
     failClosedWhenUnavailable:
-      booleanValue(metadata.failClosedWhenUnavailable ?? metadata.fail_closed_when_unavailable) ?? true,
+      booleanValue(metadata.fail_closed_when_unavailable) ?? true,
   };
 }
 
 function requestedComputerUseLane(request = {}) {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
-  const value = metadata.computerUseLane ?? metadata.computer_use_lane;
+  const value = metadata.computer_use_lane;
   return value === "visual_gui" || value === "sandboxed_hosted" ? value : "native_browser";
 }
 
 function requestedComputerUseSessionMode(request = {}, lane) {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
-  const value = metadata.computerUseSessionMode ?? metadata.computer_use_session_mode;
+  const value = metadata.computer_use_session_mode;
   if (
     lane === "native_browser" &&
     ["owned_hermetic_browser", "attached_cdp", "controlled_relaunch", "discovery_only"].includes(value)
