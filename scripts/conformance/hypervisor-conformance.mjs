@@ -14658,8 +14658,20 @@ function runCompositor() {
       /state\.memoryStatus\(store, \{ thread_id: "thread_a" \}\)/.test(
         runtimeThreadMemoryStateTest,
       ) &&
+      /state\.memoryStatus\(store, \{ threadId: "thread_retired" \}\)/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /state\.memoryStatus\(store, \{ agentId: "agent_a" \}\)/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
       /thread_id: projection\.threadId \?\? null/.test(runtimeThreadMemoryState) &&
       /agent_id: projection\.agentId \?\? null/.test(runtimeThreadMemoryState) &&
+      !/optionalString\(options\.thread_id \?\? options\.threadId\)/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      !/optionalString\(options\.agent_id \?\? options\.agentId\)/.test(
+        runtimeThreadMemoryState,
+      ) &&
       !/^\s*(?:schemaVersion|injectionEnabled|readOnly|writeRequiresApproval|writeBlockedReason|recordCount|scopeCount|memoryKeyCount|memoryKeys|evidenceRefs)\s*:/m.test(
         runtimeMemoryStatusForProjectionBlock,
       ) &&

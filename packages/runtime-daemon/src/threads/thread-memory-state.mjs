@@ -234,9 +234,9 @@ export function createThreadMemoryState({
   }
 
   function memoryProjectionForContext(store, options = {}) {
-    const threadId = optionalString(options.thread_id ?? options.threadId);
+    const threadId = optionalString(options.thread_id);
     const agentId =
-      optionalString(options.agent_id ?? options.agentId) ??
+      optionalString(options.agent_id) ??
       (threadId ? agentIdForThread(threadId) : undefined);
     if (threadId) return store.listMemoryForThread(threadId, options);
     if (agentId) return store.listMemoryForAgent(agentId, options);

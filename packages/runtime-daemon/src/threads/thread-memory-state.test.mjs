@@ -229,6 +229,24 @@ test("thread memory state handles policies, paths, status, and validation", () =
     agent_id: "agent_a",
     workspace: "/workspace",
   });
+  assert.deepEqual(state.memoryStatus(store, { threadId: "thread_retired" }), {
+    status: "ready",
+    record_count: 1,
+    records: [{ id: "memory_1" }],
+    policy: { id: "policy_runtime" },
+    thread_id: null,
+    agent_id: null,
+    workspace: "/default",
+  });
+  assert.deepEqual(state.memoryStatus(store, { agentId: "agent_a" }), {
+    status: "ready",
+    record_count: 1,
+    records: [{ id: "memory_1" }],
+    policy: { id: "policy_runtime" },
+    thread_id: null,
+    agent_id: null,
+    workspace: "/default",
+  });
   assert.deepEqual(state.validateMemory(store, { projection: { records: [], threadId: "thread_x" } }), {
     ok: true,
     record_count: 0,
