@@ -1787,9 +1787,7 @@ function requestedComputerUseApprovalRef(request = {}) {
 function requestedComputerUseExecutionResult(request = {}) {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
   return objectValue(
-    metadata.computerUseNativeBrowserExecution ??
-      metadata.computer_use_native_browser_execution ??
-      metadata.computerUseExecutionResult ??
+    metadata.computer_use_native_browser_execution ??
       metadata.computer_use_execution_result,
   );
 }

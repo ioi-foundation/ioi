@@ -143,6 +143,69 @@ test("computer-use projection ignores retired controlled relaunch aliases", () =
   assert.equal(projection.events.some((event) => event.data.controlled_relaunch_broker), false);
 });
 
+test("computer-use projection accepts canonical native-browser execution metadata", () => {
+  const projection = projectionFor({
+    runId: "projection_canonical_native_execution",
+    metadata: {
+      computer_use: true,
+      computer_use_lane: "native_browser",
+      computer_use_action_kind: "click",
+      computer_use_approval_ref: "approval_native_execution",
+      computer_use_native_browser_execution: {
+        status: "completed",
+        adapter_id: "adapter_native_execution",
+        executor_ref: "executor_native_execution",
+        after: {
+          url: "https://executed.example.test",
+          title: "Executed page",
+          html_ref: "artifact:executed:dom",
+        },
+      },
+    },
+  });
+
+  assert.equal(projection.policyDecision.outcome, "approved_after_confirmation");
+  assert.equal(projection.action.action_kind, "click");
+  assert.equal(projection.actionReceipt.status, "completed");
+  assert.equal(projection.actionReceipt.adapter_id, "adapter_native_execution");
+  assert.equal(projection.observation.url, "https://executed.example.test");
+  assert.equal(projection.observation.title, "Executed page");
+  assert.ok(projection.lease.evidence_refs.includes("executor_native_execution"));
+});
+
+test("computer-use projection ignores retired native-browser execution aliases", () => {
+  const projection = projectionFor({
+    runId: "projection_retired_native_execution",
+    metadata: {
+      computer_use: true,
+      computer_use_lane: "native_browser",
+      computer_use_action_kind: "click",
+      computer_use_approval_ref: "approval_native_execution",
+      computerUseNativeBrowserExecution: {
+        status: "completed",
+        adapter_id: "adapter_retired_execution",
+        executor_ref: "executor_retired_execution",
+        after: {
+          url: "https://retired-executed.example.test",
+          title: "Retired executed page",
+          html_ref: "artifact:retired-executed:dom",
+        },
+      },
+      computerUseExecutionResult: {
+        status: "completed",
+        adapter_id: "adapter_retired_generic_execution",
+      },
+    },
+  });
+
+  assert.equal(projection.policyDecision.outcome, "blocked_executor_unavailable");
+  assert.equal(projection.action, null);
+  assert.equal(projection.actionReceipt, null);
+  assert.equal(projection.runState.blocker_state, "commit_gate_requires_confirmation");
+  assert.notEqual(projection.observation.url, "https://retired-executed.example.test");
+  assert.equal(projection.lease.evidence_refs.includes("executor_retired_execution"), false);
+});
+
 function projectionFor({ runId, metadata, prompt = "click the requested computer-use target" }) {
   return computerUseProjectionForRun({
     agent: { cwd: "/tmp/ioi-projection-test" },

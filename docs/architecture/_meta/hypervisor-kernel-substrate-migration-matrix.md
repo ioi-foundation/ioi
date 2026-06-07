@@ -13290,6 +13290,12 @@ only; retired camelCase broker and receipt aliases can no longer trigger the
 controlled-relaunch projection path or override the fail-closed broker-missing
 state before runtime events enter projection.
 
+Slice 515 retires computer-use native-browser execution metadata aliases:
+projection now consumes canonical `computer_use_native_browser_execution` and
+`computer_use_execution_result` metadata only; retired camelCase execution
+result aliases can no longer turn an approved native-browser action into an
+executed action, adapter receipt, observation override, or lease evidence ref.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

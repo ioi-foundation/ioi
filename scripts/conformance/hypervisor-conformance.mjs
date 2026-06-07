@@ -2405,6 +2405,32 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-native-browser-execution-metadata-aliases-retired",
+    /metadata\.computer_use_native_browser_execution \?\?[\r\n\s]*metadata\.computer_use_execution_result/.test(
+      computerUseProjection,
+    ) &&
+      /computer-use projection accepts canonical native-browser execution metadata/.test(
+        computerUseProjectionTest,
+      ) &&
+      /computer-use projection ignores retired native-browser execution aliases/.test(
+        computerUseProjectionTest,
+      ) &&
+      /computerUseNativeBrowserExecution:/.test(computerUseProjectionTest) &&
+      /computerUseExecutionResult:/.test(computerUseProjectionTest) &&
+      /assert\.equal\(projection\.policyDecision\.outcome,\s*"blocked_executor_unavailable"\)/.test(
+        computerUseProjectionTest,
+      ) &&
+      !/metadata\.(?:computerUseNativeBrowserExecution|computerUseExecutionResult)\b/.test(
+        computerUseProjection,
+      ),
+    [
+      "packages/runtime-daemon/src/computer-use-projection.mjs",
+      "packages/runtime-daemon/src/computer-use-projection.test.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use projection must use canonical snake_case native-browser execution metadata without retired camelCase aliases",
+  );
+  assertCheck(
+    result,
     "visual-gui-local-executor-request-aliases-retired",
     /booleanValue\(input\.local_gui_executor\)/.test(visualGuiLocalExecutor) &&
       /booleanValue\(input\.execute_local_gui\)/.test(visualGuiLocalExecutor) &&
