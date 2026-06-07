@@ -3321,11 +3321,11 @@ function computerUseProjectionForRuntimeThreadEvent(
       stringField(lease, "lane") ??
       stringField(observationBundle, "lane"),
     sessionMode:
-      stringField(payload, "computer_use_session_mode", "computerUseSessionMode") ??
+      stringField(payload, "computer_use_session_mode") ??
       stringField(lease, "session_mode", "sessionMode") ??
       stringField(observationBundle, "session_mode", "sessionMode"),
     leaseId:
-      stringField(payload, "computer_use_lease_id", "computerUseLeaseId") ??
+      stringField(payload, "computer_use_lease_id") ??
       stringField(lease, "lease_id", "leaseId") ??
       stringField(runState, "lease_id", "leaseId"),
     contractIngest: stringField(
@@ -3335,7 +3335,7 @@ function computerUseProjectionForRuntimeThreadEvent(
     ),
     status: projectedStatusForRuntimeThreadEvent(event),
     blocker:
-      stringField(payload, "computer_use_blocker", "computerUseBlocker") ??
+      stringField(payload, "computer_use_blocker") ??
       stringField(runState, "blocker_state", "blockerState"),
     workflowGraphId:
       event.workflowGraphId ??

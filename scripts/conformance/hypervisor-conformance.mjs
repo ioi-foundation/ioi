@@ -19811,33 +19811,57 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "ide-computer-use-projection-step-lane-aliases-retired",
+    "ide-computer-use-projection-control-aliases-retired",
     /const payloadStep = stringField\(event\.payload,\s*"computer_use_step"\);/.test(
       agentIdeRuntimeEventProjection,
     ) &&
       /stringField\(payload,\s*"computer_use_lane"\)/.test(agentIdeRuntimeEventProjection) &&
+      /stringField\(payload,\s*"computer_use_session_mode"\)/.test(agentIdeRuntimeEventProjection) &&
+      /stringField\(payload,\s*"computer_use_lease_id"\)/.test(agentIdeRuntimeEventProjection) &&
+      /stringField\(payload,\s*"computer_use_blocker"\)/.test(agentIdeRuntimeEventProjection) &&
       !/stringField\(\s*event\.payload,\s*"computer_use_step",\s*"computerUseStep"\s*\)/.test(
         agentIdeRuntimeEventProjection,
       ) &&
       !/stringField\(payload,\s*"computer_use_lane",\s*"computerUseLane"\)/.test(
         agentIdeRuntimeEventProjection,
       ) &&
-      /computer-use projection ignores retired step and lane aliases/.test(
+      !/stringField\(payload,\s*"computer_use_session_mode",\s*"computerUseSessionMode"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_lease_id",\s*"computerUseLeaseId"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_blocker",\s*"computerUseBlocker"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /computer-use projection ignores retired top-level control aliases/.test(
         agentIdeRuntimeEventProjectionTest,
       ) &&
       /computerUseStep:\s*"retired_step"/.test(agentIdeRuntimeEventProjectionTest) &&
       /computerUseLane:\s*"retired_lane"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseSessionMode:\s*"retired_session"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseLeaseId:\s*"retired_lease"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseBlocker:\s*"retired_blocker"/.test(agentIdeRuntimeEventProjectionTest) &&
       /projection\.nodes\[0\]\?\.computerUse\?\.step,\s*"action_proposed"/.test(
         agentIdeRuntimeEventProjectionTest,
       ) &&
       /projection\.nodes\[0\]\?\.computerUse\?\.lane,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.sessionMode,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.leaseId,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.blocker,\s*null/.test(
         agentIdeRuntimeEventProjectionTest,
       ),
     [
       "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
       "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
     ],
-    "Phase 10/11 is pending: IDE computer-use projections must ignore retired step and lane aliases",
+    "Phase 10/11 is pending: IDE computer-use projections must ignore retired top-level control aliases",
   );
   assertCheck(
     result,

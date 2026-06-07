@@ -854,7 +854,7 @@ test("projects unavailable computer-use lanes as blocked recovery evidence", () 
   });
 });
 
-test("computer-use projection ignores retired step and lane aliases", () => {
+test("computer-use projection ignores retired top-level control aliases", () => {
   const retiredAliasEvent = event("computer-use-retired-step-lane", 1, {
     eventKind: "computer_use.action_proposed",
     sourceEventKind: "ComputerUse.ActionProposed",
@@ -865,6 +865,9 @@ test("computer-use projection ignores retired step and lane aliases", () => {
     payload: {
       computerUseStep: "retired_step",
       computerUseLane: "retired_lane",
+      computerUseSessionMode: "retired_session",
+      computerUseLeaseId: "retired_lease",
+      computerUseBlocker: "retired_blocker",
     },
   });
   const projection = projectRuntimeThreadEventsToWorkflowProjection([retiredAliasEvent]);
@@ -875,6 +878,9 @@ test("computer-use projection ignores retired step and lane aliases", () => {
   );
   assert.equal(projection.nodes[0]?.computerUse?.step, "action_proposed");
   assert.equal(projection.nodes[0]?.computerUse?.lane, null);
+  assert.equal(projection.nodes[0]?.computerUse?.sessionMode, null);
+  assert.equal(projection.nodes[0]?.computerUse?.leaseId, null);
+  assert.equal(projection.nodes[0]?.computerUse?.blocker, null);
 });
 
 test("projects workspace trust warnings as workspace trust gate React Flow rows", () => {
