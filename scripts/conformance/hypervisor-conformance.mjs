@@ -1504,7 +1504,16 @@ function runBridge() {
       /rustWorkloadDataPlane/.test(runtimeCodingToolInvocationSurface) &&
       /rust_workload_live/.test(runtimeCodingToolInvocationSurface) &&
       /coding_tool_rust_workload_live_required/.test(runtimeCodingToolInvocationSurface) &&
+      /throw notFound\(`Coding tool not found: \$\{toolId\}`,\s*\{\s*thread_id: threadId,\s*tool_id: toolId,\s*pack: CODING_TOOL_PACK_ID,\s*\}\)/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /assertNoRetiredInvocationErrorDetailAliases\(error\.details\)/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
       !/executeCodingTool/.test(runtimeCodingToolInvocationSurface) &&
+      !/throw notFound\(`Coding tool not found: \$\{toolId\}`,\s*\{\s*threadId,\s*toolId,/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
       !/executeCodingTool/.test(codingTools) &&
       !/executeCodingTool/.test(runtimeDaemonIndex) &&
       !retiredCodingToolJsBodyPattern.test(codingTools) &&

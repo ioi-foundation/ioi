@@ -1476,6 +1476,12 @@ test("coding tool invocation surface preserves computer-use dispatch and not-fou
   assert.equal(routed.routed, "browser_discovery");
   assert.throws(
     () => surface.invokeThreadTool(store, "thread_alpha", "not.a.tool", {}),
-    (error) => error.status === 404 && error.details.toolId === "not.a.tool",
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.tool_id, "not.a.tool");
+      assertNoRetiredInvocationErrorDetailAliases(error.details);
+      return true;
+    },
   );
 });

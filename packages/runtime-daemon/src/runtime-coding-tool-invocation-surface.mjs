@@ -77,8 +77,8 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     }
     if (!normalizedToolId || !CODING_TOOL_IDS.has(normalizedToolId)) {
       throw notFound(`Coding tool not found: ${toolId}`, {
-        threadId,
-        toolId,
+        thread_id: threadId,
+        tool_id: toolId,
         pack: CODING_TOOL_PACK_ID,
       });
     }
