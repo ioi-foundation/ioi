@@ -17,6 +17,11 @@ export const RUNTIME_WORKER_SERVICE_PACKAGE_KINDS = [
   "service_package",
 ] as const;
 
+const RETIRED_WORKER_SERVICE_PACKAGE_CONTROL_INPUT_FIELDS = [
+  "workflowGraphId",
+  "workflowNodeId",
+] as const;
+
 export type RuntimeWorkerServicePackageKind =
   (typeof RUNTIME_WORKER_SERVICE_PACKAGE_KINDS)[number];
 
@@ -70,19 +75,20 @@ export interface RuntimeWorkerServicePackageControlRequestInput {
   manifestRef?: string | null;
   stepModuleInvocation?: Record<string, unknown> | null;
   result?: Record<string, unknown> | null;
-  workflowGraphId?: string | null;
-  workflowNodeId?: string | null;
+  workflow_graph_id?: string | null;
+  workflow_node_id?: string | null;
   actor?: string | null;
 }
 
 export interface RuntimeWorkerServicePackageWorkflowNodeOptions {
-  workflowGraphId?: string | null;
+  workflow_graph_id?: string | null;
   actor?: string | null;
 }
 
 export function createRuntimeWorkerServicePackageControlRequest(
   params: RuntimeWorkerServicePackageControlRequestInput,
 ): RuntimeWorkerServicePackageControlRequest {
+  assertNoRetiredWorkerServicePackageControlInputAliases(params);
   const threadId =
     cleanString(params.threadId) ??
     stringAtPath(params.input, params.threadIdField ?? "threadId") ??
@@ -141,9 +147,9 @@ export function createRuntimeWorkerServicePackageControlRequest(
     stringField(stepModuleInvocation, "invocation_id", "invocationId"),
     "invocation.invocation_id",
   );
-  const workflowGraphId = cleanString(params.workflowGraphId) ?? null;
+  const workflowGraphId = cleanString(params.workflow_graph_id) ?? null;
   const workflowNodeId =
-    cleanString(params.workflowNodeId) ??
+    cleanString(params.workflow_node_id) ??
     `${RUNTIME_WORKER_SERVICE_PACKAGE_WORKFLOW_NODE_ID}.${safeId(invocationId)}`;
   const invocation: RuntimeWorkerServicePackageInvocation = {
     ...packageSeed,
@@ -188,6 +194,7 @@ export function createRuntimeWorkerServicePackageControlRequestFromWorkflowNode(
   input: unknown = {},
   options: RuntimeWorkerServicePackageWorkflowNodeOptions = {},
 ): RuntimeWorkerServicePackageControlRequest {
+  assertNoRetiredWorkerServicePackageWorkflowNodeOptionAliases(options);
   const logic = workflowNodeLogic(node);
   const packageInvocation =
     objectField(logic, "workerServicePackage") ??
@@ -199,9 +206,9 @@ export function createRuntimeWorkerServicePackageControlRequestFromWorkflowNode(
     input,
     threadIdField: "threadId",
     packageInvocation,
-    workflowGraphId: options.workflowGraphId,
-    workflowNodeId:
-      stringField(logic, "workflowNodeId", "workflow_node_id") ??
+    workflow_graph_id: options.workflow_graph_id,
+    workflow_node_id:
+      stringField(logic, "workflow_node_id") ??
       `${RUNTIME_WORKER_SERVICE_PACKAGE_WORKFLOW_NODE_ID}.${safeId(node.id)}`,
     actor: options.actor,
   });
@@ -227,6 +234,32 @@ function requiredPackageKind(value: string | null): RuntimeWorkerServicePackageK
 function requiredObject(value: Record<string, unknown> | null | undefined, field: string): Record<string, unknown> {
   if (value && Object.keys(value).length > 0) return value;
   throw new Error(`worker/service package controls need ${field} before dispatch.`);
+}
+
+function assertNoRetiredWorkerServicePackageControlInputAliases(
+  input: RuntimeWorkerServicePackageControlRequestInput,
+): void {
+  const record = input as unknown as Record<string, unknown>;
+  const retiredAliases = RETIRED_WORKER_SERVICE_PACKAGE_CONTROL_INPUT_FIELDS.filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new Error(
+    `worker/service package controls no longer accept retired control input aliases: ${retiredAliases.join(", ")}`,
+  );
+}
+
+function assertNoRetiredWorkerServicePackageWorkflowNodeOptionAliases(
+  options: RuntimeWorkerServicePackageWorkflowNodeOptions,
+): void {
+  const record = options as unknown as Record<string, unknown>;
+  const retiredAliases = RETIRED_WORKER_SERVICE_PACKAGE_CONTROL_INPUT_FIELDS.filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new Error(
+    `worker/service package workflow node options no longer accept retired control input aliases: ${retiredAliases.join(", ")}`,
+  );
 }
 
 function cleanString(value: unknown): string | null {

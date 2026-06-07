@@ -55,12 +55,17 @@ const retiredWorkerServicePackageRequestAliases = [
   "packageInvocation",
 ];
 
+const retiredWorkerServicePackageControlInputAliases = [
+  "workflowGraphId",
+  "workflowNodeId",
+];
+
 test("builds worker/service package controls for daemon admission", () => {
   const request = createRuntimeWorkerServicePackageControlRequest({
     nodeId: "node-worker-service-package",
     threadId: "thread-ide",
     packageInvocation: packageInvocation(),
-    workflowGraphId: "workflow.worker-service-package",
+    workflow_graph_id: "workflow.worker-service-package",
     actor: "workflow-author",
   });
 
@@ -94,7 +99,7 @@ test("builds worker/service package controls from workflow package nodes", () =>
       } as any,
     },
     { threadId: "thread-node" },
-    { workflowGraphId: "workflow.package-node", actor: "runtime-composer" },
+    { workflow_graph_id: "workflow.package-node", actor: "runtime-composer" },
   );
 
   assert.equal(request.nodeId, "worker-service-package-node");
@@ -106,6 +111,40 @@ test("builds worker/service package controls from workflow package nodes", () =>
     "runtime.worker-service-package-invocation.worker-service-package-node",
   );
   assert.equal(request.body.invocation.package_ref, "worker://runtime-auditor");
+});
+
+test("worker/service package controls reject retired control input aliases", () => {
+  for (const key of retiredWorkerServicePackageControlInputAliases) {
+    assert.throws(
+      () =>
+        createRuntimeWorkerServicePackageControlRequest({
+          threadId: "thread-ide",
+          packageInvocation: packageInvocation(),
+          [key]: "retired",
+        } as any),
+      /retired control input aliases/,
+    );
+  }
+});
+
+test("worker/service package workflow node options reject retired workflow graph input alias", () => {
+  assert.throws(
+    () =>
+      createRuntimeWorkerServicePackageControlRequestFromWorkflowNode(
+        {
+          id: "worker-service-package-node",
+          type: "runtime.control.worker_service_package",
+          config: {
+            logic: {
+              invocation: packageInvocation(),
+            },
+          } as any,
+        },
+        { threadId: "thread-node" },
+        { workflowGraphId: "workflow.package-node" } as any,
+      ),
+    /retired control input aliases/,
+  );
 });
 
 test("worker/service package controls fail closed without admission result", () => {

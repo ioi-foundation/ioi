@@ -1187,6 +1187,14 @@ function runBridge() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts")
     : "";
+  const workerServicePackageControlRequestInputType =
+    workerServicePackageControlNodes.match(
+      /export interface RuntimeWorkerServicePackageControlRequestInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const workerServicePackageWorkflowNodeOptionsType =
+    workerServicePackageControlNodes.match(
+      /export interface RuntimeWorkerServicePackageWorkflowNodeOptions[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const l1SettlementRunner = exists("packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs")
     : "";
@@ -6605,6 +6613,21 @@ function runBridge() {
       /WORKFLOW_RUNTIME_WORKER_SERVICE_PACKAGE_CONTROL_SCHEMA_VERSION/.test(
         workerServicePackageControlNodes,
       ) &&
+      /RETIRED_WORKER_SERVICE_PACKAGE_CONTROL_INPUT_FIELDS/.test(
+        workerServicePackageControlNodes,
+      ) &&
+      /assertNoRetiredWorkerServicePackageControlInputAliases\(params\);/.test(
+        workerServicePackageControlNodes,
+      ) &&
+      /assertNoRetiredWorkerServicePackageWorkflowNodeOptionAliases\(options\);/.test(
+        workerServicePackageControlNodes,
+      ) &&
+      !/^\s*(?:workflowGraphId|workflowNodeId)\?:/m.test(
+        workerServicePackageControlRequestInputType,
+      ) &&
+      !/^\s*workflowGraphId\?:/m.test(workerServicePackageWorkflowNodeOptionsType) &&
+      /^\s*workflow_graph_id\?:/m.test(workerServicePackageControlRequestInputType) &&
+      /^\s*workflow_node_id\?:/m.test(workerServicePackageControlRequestInputType) &&
       /createRuntimeWorkerServicePackageControlRequest/.test(workerServicePackageControlNodes) &&
       /RUNTIME_WORKER_SERVICE_PACKAGE_INVOCATION_SCHEMA_VERSION/.test(
         workerServicePackageControlNodes,
@@ -6615,6 +6638,12 @@ function runBridge() {
       !/expected_heads:\s*string\[\]/.test(workerServicePackageInvocationType) &&
       !/\/apply/.test(workerServicePackageControlNodes) &&
       /builds worker\/service package controls for daemon admission/.test(
+        workerServicePackageControlNodesTest,
+      ) &&
+      /worker\/service package controls reject retired control input aliases/.test(
+        workerServicePackageControlNodesTest,
+      ) &&
+      /worker\/service package workflow node options reject retired workflow graph input alias/.test(
         workerServicePackageControlNodesTest,
       ) &&
       /worker\/service package controls fail closed without admission result/.test(
