@@ -405,6 +405,9 @@ function runBridge() {
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
+  const workloadClient = exists("crates/client/src/workload_client/mod.rs")
+    ? read("crates/client/src/workload_client/mod.rs")
+    : "";
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
@@ -1124,6 +1127,25 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
     ],
     "Phase 3/10 is pending: route migrated coding tools through the Rust command bridge, StepModuleRouter, and live workload path without daemon_js",
+  );
+  assertCheck(
+    result,
+    "rust-workload-client-step-module-dispatch-contract",
+    /WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION/.test(workloadClient) &&
+      /WorkloadStepModuleDispatchRequest/.test(workloadClient) &&
+      /WorkloadStepModuleDispatchPlan/.test(workloadClient) &&
+      /plan_step_module_dispatch/.test(workloadClient) &&
+      /DaemonJsBackendRetired/.test(workloadClient) &&
+      /workload_client_rejects_daemon_js_dispatch/.test(workloadClient) &&
+      /WorkloadClient::plan_step_module_dispatch/.test(bridgeModule) &&
+      /workload_step_module_dispatch_request/.test(bridgeModule) &&
+      /"workload_dispatch": workload_dispatch/.test(bridgeModule) &&
+      /rust_workload_client_step_module_dispatch/.test(bridgeModule),
+    [
+      "crates/client/src/workload_client/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10 is pending: Rust workload_client must own the StepModule workload dispatch contract used by the live bridge",
   );
   assertCheck(
     result,

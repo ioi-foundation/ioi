@@ -35,12 +35,58 @@ use ioi_ipc::blockchain::{
     PrefixScanRequest, ProcessBlockRequest, QueryContractRequest, QueryRawStateRequest,
     QueryStateAtRequest, SharedMemoryHandle, UpdateBlockHeaderRequest,
 };
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 // Threshold (64KB) for switching to shared memory transfer
 const BLOCK_SHMEM_THRESHOLD: usize = 64 * 1024;
 const WORKLOAD_GRPC_MAX_MESSAGE_BYTES: usize = 64 * 1024 * 1024;
 const SINGLE_BLOCK_FETCH_MAX_BYTES: u32 = 64 * 1024 * 1024;
 const DEFAULT_WORKLOAD_GRPC_REQUEST_TIMEOUT_MS: u64 = 10_000;
+pub const WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION: &str =
+    "ioi.workload.step_module_dispatch.v1";
+pub const WORKLOAD_STEP_MODULE_DISPATCH_EVIDENCE_REF: &str =
+    "rust_workload_client_step_module_dispatch";
+pub const WORKLOAD_STEP_MODULE_TRANSPORT_GRPC: &str = "workload_grpc";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkloadStepModuleDispatchRequest {
+    pub schema_version: String,
+    pub invocation_id: String,
+    pub module_kind: String,
+    pub module_ref: String,
+    pub execution_backend: String,
+    #[serde(default)]
+    pub artifact_refs: Vec<String>,
+    #[serde(default)]
+    pub payload_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data_plane_handle: Option<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkloadStepModuleDispatchPlan {
+    pub schema_version: String,
+    pub invocation_id: String,
+    pub module_ref: String,
+    pub execution_backend: String,
+    pub transport: String,
+    pub data_plane_required: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data_plane_handle: Option<Value>,
+    pub artifact_refs: Vec<String>,
+    pub payload_refs: Vec<String>,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WorkloadStepModuleDispatchError {
+    InvalidSchemaVersion { actual: String },
+    MissingField(&'static str),
+    DaemonJsBackendRetired,
+    UnsupportedExecutionBackend { backend: String },
+    UnsupportedModuleKind { module_kind: String },
+}
 
 /// Helper to distinguish logic errors (from the remote) vs transport errors (from tonic)
 fn map_grpc_error(status: tonic::Status) -> ChainError {
@@ -112,6 +158,51 @@ impl std::fmt::Debug for WorkloadClient {
 }
 
 impl WorkloadClient {
+    pub fn plan_step_module_dispatch(
+        request: &WorkloadStepModuleDispatchRequest,
+    ) -> std::result::Result<WorkloadStepModuleDispatchPlan, WorkloadStepModuleDispatchError> {
+        if request.schema_version != WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION {
+            return Err(WorkloadStepModuleDispatchError::InvalidSchemaVersion {
+                actual: request.schema_version.clone(),
+            });
+        }
+        require_workload_dispatch_field("invocation_id", &request.invocation_id)?;
+        require_workload_dispatch_field("module_ref", &request.module_ref)?;
+        require_workload_dispatch_field("module_kind", &request.module_kind)?;
+        require_workload_dispatch_field("execution_backend", &request.execution_backend)?;
+        if request.execution_backend == "daemon_js" {
+            return Err(WorkloadStepModuleDispatchError::DaemonJsBackendRetired);
+        }
+        if request.execution_backend != WORKLOAD_STEP_MODULE_TRANSPORT_GRPC {
+            return Err(
+                WorkloadStepModuleDispatchError::UnsupportedExecutionBackend {
+                    backend: request.execution_backend.clone(),
+                },
+            );
+        }
+        if request.module_kind != "workload_job"
+            && request.module_kind != "rust_wasm_service_module"
+        {
+            return Err(WorkloadStepModuleDispatchError::UnsupportedModuleKind {
+                module_kind: request.module_kind.clone(),
+            });
+        }
+        Ok(WorkloadStepModuleDispatchPlan {
+            schema_version: WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION.to_string(),
+            invocation_id: request.invocation_id.clone(),
+            module_ref: request.module_ref.clone(),
+            execution_backend: request.execution_backend.clone(),
+            transport: WORKLOAD_STEP_MODULE_TRANSPORT_GRPC.to_string(),
+            data_plane_required: workload_dispatch_data_plane_required(
+                request.data_plane_handle.as_ref(),
+            ),
+            data_plane_handle: request.data_plane_handle.clone(),
+            artifact_refs: unique_workload_refs(&request.artifact_refs),
+            payload_refs: unique_workload_refs(&request.payload_refs),
+            evidence_refs: vec![WORKLOAD_STEP_MODULE_DISPATCH_EVIDENCE_REF.to_string()],
+        })
+    }
+
     async fn clone_chain_client(&self) -> ChainControlClient<Channel> {
         self.chain.lock().await.clone()
     }
@@ -479,6 +570,96 @@ impl WorkloadClient {
             }
         }
         Ok(None)
+    }
+}
+
+fn require_workload_dispatch_field(
+    field: &'static str,
+    value: &str,
+) -> std::result::Result<(), WorkloadStepModuleDispatchError> {
+    if value.trim().is_empty() {
+        return Err(WorkloadStepModuleDispatchError::MissingField(field));
+    }
+    Ok(())
+}
+
+fn workload_dispatch_data_plane_required(handle: Option<&Value>) -> bool {
+    handle
+        .and_then(|value| value.get("required"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
+fn unique_workload_refs(values: &[String]) -> Vec<String> {
+    values.iter().fold(Vec::new(), |mut refs, value| {
+        let value = value.trim();
+        if !value.is_empty() && !refs.iter().any(|existing| existing == value) {
+            refs.push(value.to_string());
+        }
+        refs
+    })
+}
+
+#[cfg(test)]
+mod workload_step_module_dispatch_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn dispatch_request() -> WorkloadStepModuleDispatchRequest {
+        WorkloadStepModuleDispatchRequest {
+            schema_version: WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION.to_string(),
+            invocation_id: "invocation://workspace-status".to_string(),
+            module_kind: "workload_job".to_string(),
+            module_ref: "workspace.status".to_string(),
+            execution_backend: WORKLOAD_STEP_MODULE_TRANSPORT_GRPC.to_string(),
+            artifact_refs: vec![
+                "artifact://input".to_string(),
+                "artifact://input".to_string(),
+            ],
+            payload_refs: vec!["payload://context".to_string()],
+            data_plane_handle: Some(json!({
+                "region_id": "ioi_workload_shm_default",
+                "offset": 0,
+                "length": 128,
+                "codec": "rkyv",
+                "required": true
+            })),
+        }
+    }
+
+    #[test]
+    fn workload_client_plans_step_module_dispatch_contract() {
+        let plan = WorkloadClient::plan_step_module_dispatch(&dispatch_request())
+            .expect("workload dispatch should be planned");
+
+        assert_eq!(
+            plan.schema_version,
+            WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION
+        );
+        assert_eq!(plan.invocation_id, "invocation://workspace-status");
+        assert_eq!(plan.module_ref, "workspace.status");
+        assert_eq!(plan.execution_backend, WORKLOAD_STEP_MODULE_TRANSPORT_GRPC);
+        assert_eq!(plan.transport, WORKLOAD_STEP_MODULE_TRANSPORT_GRPC);
+        assert!(plan.data_plane_required);
+        assert_eq!(plan.artifact_refs, vec!["artifact://input"]);
+        assert_eq!(plan.payload_refs, vec!["payload://context"]);
+        assert!(plan
+            .evidence_refs
+            .contains(&WORKLOAD_STEP_MODULE_DISPATCH_EVIDENCE_REF.to_string()));
+    }
+
+    #[test]
+    fn workload_client_rejects_daemon_js_dispatch() {
+        let mut request = dispatch_request();
+        request.execution_backend = "daemon_js".to_string();
+
+        let error = WorkloadClient::plan_step_module_dispatch(&request)
+            .expect_err("daemon_js dispatch must fail closed");
+
+        assert_eq!(
+            error,
+            WorkloadStepModuleDispatchError::DaemonJsBackendRetired
+        );
     }
 }
 

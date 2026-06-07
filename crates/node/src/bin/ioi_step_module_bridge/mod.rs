@@ -1,3 +1,6 @@
+use ioi_client::workload_client::{
+    WorkloadClient, WorkloadStepModuleDispatchRequest, WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION,
+};
 use ioi_services::agentic::evolution::{GovernedEvolutionCore, GovernedRuntimeImprovementProposal};
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeRunStateCommitRequest,
@@ -3241,10 +3244,32 @@ fn step_module_response(
 
 fn step_module_response_with_expected_heads(
     request: StepModuleBridgeRequest,
-    result: StepModuleResult,
+    mut result: StepModuleResult,
     shadow_observation: Value,
     expected_heads: Vec<String>,
 ) -> Value {
+    let workload_dispatch = match WorkloadClient::plan_step_module_dispatch(
+        &workload_step_module_dispatch_request(&request),
+    ) {
+        Ok(plan) => plan,
+        Err(error) => {
+            return json!({
+                "source": "rust_workload_command",
+                "error": {
+                    "code": "workload_client_dispatch_invalid",
+                    "message": format!("{error:?}"),
+                }
+            });
+        }
+    };
+    result.workflow_projection.evidence_refs = unique_string_refs(
+        result
+            .workflow_projection
+            .evidence_refs
+            .into_iter()
+            .chain(workload_dispatch.evidence_refs.clone())
+            .collect(),
+    );
     if let Err(errors) = result.validate() {
         return json!({
             "source": "rust_workload_command",
@@ -3333,6 +3358,7 @@ fn step_module_response_with_expected_heads(
         "source": "rust_workload_command",
         "backend": request.backend,
         "invocation": request.invocation,
+        "workload_dispatch": workload_dispatch,
         "result": result,
         "router_admission": router_admission,
         "receipt_binding": receipt_binding,
@@ -3340,6 +3366,32 @@ fn step_module_response_with_expected_heads(
         "projection_record": projection_record,
         "shadow_observation": shadow_observation,
     })
+}
+
+fn workload_step_module_dispatch_request(
+    request: &StepModuleBridgeRequest,
+) -> WorkloadStepModuleDispatchRequest {
+    WorkloadStepModuleDispatchRequest {
+        schema_version: WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION.to_string(),
+        invocation_id: request.invocation.invocation_id.clone(),
+        module_kind: serde_json::to_value(&request.invocation.module_ref.kind)
+            .ok()
+            .and_then(|value| value.as_str().map(ToOwned::to_owned))
+            .unwrap_or_else(|| "unknown".to_string()),
+        module_ref: request.invocation.module_ref.id.clone(),
+        execution_backend: serde_json::to_value(&request.invocation.execution.backend)
+            .ok()
+            .and_then(|value| value.as_str().map(ToOwned::to_owned))
+            .unwrap_or_else(|| "unknown".to_string()),
+        artifact_refs: request.invocation.input.artifact_refs.clone(),
+        payload_refs: request.invocation.input.payload_refs.clone(),
+        data_plane_handle: request
+            .invocation
+            .input
+            .data_plane_handle
+            .as_ref()
+            .and_then(|handle| serde_json::to_value(handle).ok()),
+    }
 }
 
 fn normalize_prefetched_artifact_result(
@@ -8292,6 +8344,25 @@ mod tests {
             response["router_admission"]["authoritative_transition"],
             true
         );
+        assert_eq!(
+            response["workload_dispatch"]["schema_version"],
+            WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION,
+        );
+        assert_eq!(
+            response["workload_dispatch"]["module_ref"],
+            "file.apply_patch"
+        );
+        assert_eq!(response["workload_dispatch"]["transport"], "workload_grpc");
+        assert!(response["workload_dispatch"]["evidence_refs"]
+            .as_array()
+            .expect("workload dispatch evidence")
+            .iter()
+            .any(|value| value == "rust_workload_client_step_module_dispatch"));
+        assert!(response["result"]["workflow_projection"]["evidence_refs"]
+            .as_array()
+            .expect("projection evidence")
+            .iter()
+            .any(|value| value == "rust_workload_client_step_module_dispatch"));
         assert_eq!(
             response["result"]["agentgres_operation_refs"][0],
             response["agentgres_admission"]["operation_ref"],
