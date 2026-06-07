@@ -13442,6 +13442,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.test.ts")
     : "";
+  const agentIdeReceiptFirstToolTimeline = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts")
+    : "";
+  const agentIdeReceiptFirstToolTimelineTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.test.ts")
+    : "";
   const agentIdeMixedRuntimePanels = [
     "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
@@ -19933,6 +19943,65 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE goal verification panel must ignore retired camelCase diagnostic, completion, and evidence aliases",
+  );
+  assertCheck(
+    result,
+    "ide-receipt-first-tool-timeline-aliases-retired",
+    /stringField\(payload,\s*"tool_name"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /stringField\(payload,\s*"tool_call_id"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /arrayField\(payload,\s*"receipt_refs"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /arrayField\(result,\s*"receipt_refs"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /arrayField\(event,\s*"artifact_refs"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /arrayField\(payload,\s*"artifact_refs"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /arrayField\(result,\s*"artifact_refs"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /stringField\(result,\s*"output_hash"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /numberField\(result,\s*"output_bytes"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      !/stringField\(payload,\s*"tool_name",\s*"toolName"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/stringField\(payload,\s*"tool_call_id",\s*"toolCallId"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/arrayField\(event,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/arrayField\(payload,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/arrayField\(result,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/arrayField\(event,\s*"artifactRefs",\s*"artifact_refs"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/arrayField\(payload,\s*"artifactRefs",\s*"artifact_refs"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/arrayField\(result,\s*"artifactRefs",\s*"artifact_refs"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/stringField\(result,\s*"outputHash",\s*"output_hash"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/numberField\(result,\s*"outputBytes",\s*"output_bytes"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      /receipt-first tool timeline ignores retired payload, result, and evidence aliases/.test(
+        agentIdeReceiptFirstToolTimelineTest,
+      ) &&
+      /toolName:\s*"file\.apply_patch"/.test(agentIdeReceiptFirstToolTimelineTest) &&
+      /toolCallId:\s*"call-retired"/.test(agentIdeReceiptFirstToolTimelineTest) &&
+      /receiptRefs:\s*\["receipt-retired"\]/.test(agentIdeReceiptFirstToolTimelineTest) &&
+      /artifactRefs:\s*\["artifact-retired"\]/.test(agentIdeReceiptFirstToolTimelineTest) &&
+      /outputHash:\s*"sha256:retired"/.test(agentIdeReceiptFirstToolTimelineTest) &&
+      /outputBytes:\s*1024/.test(agentIdeReceiptFirstToolTimelineTest) &&
+      /assert\.equal\(timeline\.status,\s*"empty"\)/.test(agentIdeReceiptFirstToolTimelineTest),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE receipt-first tool timeline must ignore retired camelCase tool, receipt, artifact, and output aliases",
   );
   assertCheck(
     result,

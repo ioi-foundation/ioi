@@ -96,22 +96,22 @@ function receiptFirstToolRowForEvent(
   }
   const payload = eventPayload(event);
   const result = objectField(payload, "result");
-  const toolName = stringField(payload, "tool_name", "toolName") ?? eventToolName(event);
+  const toolName = stringField(payload, "tool_name") ?? eventToolName(event);
   if (!toolName) return null;
   const receiptRefs = uniqueStrings([
-    ...arrayField(event, "receiptRefs", "receipt_refs"),
-    ...arrayField(payload, "receiptRefs", "receipt_refs"),
-    ...arrayField(result, "receiptRefs", "receipt_refs"),
+    ...arrayField(event, "receipt_refs"),
+    ...arrayField(payload, "receipt_refs"),
+    ...arrayField(result, "receipt_refs"),
   ]);
   const artifactRefs = uniqueStrings([
-    ...arrayField(event, "artifactRefs", "artifact_refs"),
-    ...arrayField(payload, "artifactRefs", "artifact_refs"),
-    ...arrayField(result, "artifactRefs", "artifact_refs"),
+    ...arrayField(event, "artifact_refs"),
+    ...arrayField(payload, "artifact_refs"),
+    ...arrayField(result, "artifact_refs"),
   ]);
-  const outputHash = stringField(result, "outputHash", "output_hash") ??
-    stringField(payload, "outputHash", "output_hash");
-  const outputBytes = numberField(result, "outputBytes", "output_bytes") ??
-    numberField(payload, "outputBytes", "output_bytes");
+  const outputHash = stringField(result, "output_hash") ??
+    stringField(payload, "output_hash");
+  const outputBytes = numberField(result, "output_bytes") ??
+    numberField(payload, "output_bytes");
   const hasRawOutput = Boolean(
     stringField(result, "stdout") ||
       stringField(result, "stderr") ||
@@ -134,7 +134,7 @@ function receiptFirstToolRowForEvent(
     turnId: eventTurnId(event),
     toolName,
     toolCallId:
-      stringField(payload, "tool_call_id", "toolCallId") ??
+      stringField(payload, "tool_call_id") ??
       eventToolCallId(event),
     summary: stringField(payload, "summary") ?? stringField(result, "summary"),
     outputHash,

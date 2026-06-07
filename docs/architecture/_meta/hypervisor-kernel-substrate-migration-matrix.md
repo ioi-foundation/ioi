@@ -11383,6 +11383,13 @@ diagnostic, completion, receipt, policy, and rollback aliases cannot make old
 tool/completion payloads look goal-verified, receipt-backed, policy-backed, or
 rollback-backed.
 
+Slice 535 retires IDE receipt-first tool timeline payload, result, and evidence
+aliases: the receipt-first tool timeline now reads canonical `tool_name`,
+`tool_call_id`, `receipt_refs`, `artifact_refs`, `output_hash`, and
+`output_bytes` fields only, so retired camelCase tool, receipt, artifact, and
+output aliases cannot make old tool payloads look receipt-backed,
+artifact-backed, or output-hash-bound.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
