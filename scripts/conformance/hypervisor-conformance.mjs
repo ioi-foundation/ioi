@@ -2359,6 +2359,52 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-controlled-relaunch-metadata-aliases-retired",
+    /observationRetentionMode:\s*cleanString\(metadata\.observation_retention_mode\)/.test(
+      computerUseProjection,
+    ) &&
+      /objectValue\(metadata\.computer_use_controlled_relaunch_broker\) \?\?[\r\n\s]*objectValue\(metadata\.controlled_relaunch_broker\)/.test(
+        computerUseProjection,
+      ) &&
+      /cleanString\(metadata\.controlled_relaunch_broker_ref\)/.test(computerUseProjection) &&
+      /cleanString\(metadata\.controlled_relaunch_start_url\)/.test(computerUseProjection) &&
+      /cleanString\(metadata\.controlled_relaunch_profile_dir_ref\)/.test(computerUseProjection) &&
+      /cleanString\(metadata\.controlled_relaunch_launch_plan_ref\)/.test(computerUseProjection) &&
+      /metadata\.computer_use_controlled_relaunch_launch_receipt \?\?[\r\n\s]*metadata\.controlled_relaunch_launch_receipt/.test(
+        computerUseProjection,
+      ) &&
+      /computer_use_controlled_relaunch_broker:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
+      /controlled_relaunch_broker_ref:/.test(runtimeDaemonIndex) &&
+      /controlled_relaunch_launch_plan_ref:/.test(runtimeDaemonIndex) &&
+      /computer-use projection accepts canonical controlled relaunch metadata/.test(
+        computerUseProjectionTest,
+      ) &&
+      /computer-use projection ignores retired controlled relaunch aliases/.test(
+        computerUseProjectionTest,
+      ) &&
+      /controlledRelaunchBroker:/.test(computerUseProjectionTest) &&
+      /controlledRelaunchLaunchReceipt:/.test(computerUseProjectionTest) &&
+      /assert\.equal\(projection\.runState\.blocker_state,\s*"controlled_relaunch_broker_unavailable"\)/.test(
+        computerUseProjectionTest,
+      ) &&
+      !/metadata\.(?:observationRetentionMode|computerUseControlledRelaunchBroker|controlledRelaunchBroker|controlledRelaunchBrokerRef|controlledRelaunchStartUrl|controlledRelaunchProfileDirRef|controlledRelaunchLaunchPlanRef|controlledRelaunchLaunchReceipt)\b/.test(
+        computerUseProjection,
+      ) &&
+      !/input\.(?:computerUseControlledRelaunchBroker|controlledRelaunchBroker|controlledRelaunchBrokerRef|controlledRelaunchStartUrl|controlledRelaunchProfileDirRef|controlledRelaunchLaunchPlanRef|controlledRelaunchExecutablePath)\b/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/(?:computerUseControlledRelaunchBroker|controlledRelaunchBrokerRef|controlledRelaunchStartUrl|controlledRelaunchProfileDirRef|controlledRelaunchLaunchPlanRef|controlledRelaunchExecutablePath):/.test(
+        runtimeDaemonIndex,
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/computer-use-projection.mjs",
+      "packages/runtime-daemon/src/computer-use-projection.test.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use controlled relaunch metadata must use canonical snake_case broker, receipt, launch-plan, and retention fields without retired camelCase aliases",
+  );
+  assertCheck(
+    result,
     "visual-gui-local-executor-request-aliases-retired",
     /booleanValue\(input\.local_gui_executor\)/.test(visualGuiLocalExecutor) &&
       /booleanValue\(input\.execute_local_gui\)/.test(visualGuiLocalExecutor) &&

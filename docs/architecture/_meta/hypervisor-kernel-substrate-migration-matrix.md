@@ -13283,6 +13283,13 @@ control-lane runtime event construction now consumes canonical `lease_id`,
 camelCase request aliases can no longer steer control receipts, handoff state,
 cleanup receipts, resume observation refs, or evidence-retention metadata.
 
+Slice 514 retires computer-use controlled-relaunch metadata aliases:
+native-browser projection now consumes canonical controlled-relaunch broker,
+launch receipt, launch-plan, profile, executable, and retention metadata fields
+only; retired camelCase broker and receipt aliases can no longer trigger the
+controlled-relaunch projection path or override the fail-closed broker-missing
+state before runtime events enter projection.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

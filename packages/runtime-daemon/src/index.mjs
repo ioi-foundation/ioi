@@ -2621,13 +2621,13 @@ export class AgentgresRuntimeStateStore {
         "computer_use.native_browser.read",
         ...normalizeArray(input.authorityScopes ?? input.authority_scopes),
       ]),
-      observationRetentionMode,
+      observation_retention_mode: observationRetentionMode,
       failClosedWhenUnavailable: true,
       computer_use_action_kind: requestedActionKind,
       computer_use_approval_ref: requestedApprovalRef,
       computer_use_target_ref: requestedTargetRef,
-      computerUseNativeBrowserExecution: nativeBrowserExecution,
-      computerUseControlledRelaunchLaunchReceipt: controlledRelaunchLaunch?.launchReceipt ?? null,
+      computer_use_native_browser_execution: nativeBrowserExecution,
+      computer_use_controlled_relaunch_launch_receipt: controlledRelaunchLaunch?.launchReceipt ?? null,
       computerUseObservationBundle:
         objectRecord(input.computerUseObservationBundle ?? input.observation_bundle),
       computerUseTargetIndex:
@@ -2636,43 +2636,41 @@ export class AgentgresRuntimeStateStore {
         objectRecord(input.computerUseAffordanceGraph ?? input.affordance_graph),
       computerUseBrowserObservationArtifacts:
         objectRecord(input.computerUseBrowserObservationArtifacts ?? input.browser_observation_artifacts),
-      computerUseControlledRelaunchBroker:
+      computer_use_controlled_relaunch_broker:
         objectRecord(
-          input.computerUseControlledRelaunchBroker ??
-            input.computer_use_controlled_relaunch_broker ??
-            input.controlledRelaunchBroker ??
+          input.computer_use_controlled_relaunch_broker ??
             input.controlled_relaunch_broker,
         ),
-      controlledRelaunchBrokerRef:
-        optionalString(input.controlledRelaunchBrokerRef ?? input.controlled_relaunch_broker_ref),
-      controlledRelaunchStartUrl:
-        optionalString(input.controlledRelaunchStartUrl ?? input.controlled_relaunch_start_url ?? input.url),
-      controlledRelaunchProfileDirRef:
-        optionalString(input.controlledRelaunchProfileDirRef ?? input.controlled_relaunch_profile_dir_ref),
-      controlledRelaunchLaunchPlanRef:
-        optionalString(input.controlledRelaunchLaunchPlanRef ?? input.controlled_relaunch_launch_plan_ref),
-      controlledRelaunchApprovalRef: requestedLaunchApprovalRef,
-      controlledRelaunchExecutablePath:
-        optionalString(input.controlledRelaunchExecutablePath ?? input.controlled_relaunch_executable_path),
-      computerUseCleanupReceipt: controlledRelaunchCleanup,
+      controlled_relaunch_broker_ref:
+        optionalString(input.controlled_relaunch_broker_ref),
+      controlled_relaunch_start_url:
+        optionalString(input.controlled_relaunch_start_url ?? input.url),
+      controlled_relaunch_profile_dir_ref:
+        optionalString(input.controlled_relaunch_profile_dir_ref),
+      controlled_relaunch_launch_plan_ref:
+        optionalString(input.controlled_relaunch_launch_plan_ref),
+      controlled_relaunch_approval_ref: requestedLaunchApprovalRef,
+      controlled_relaunch_executable_path:
+        optionalString(input.controlled_relaunch_executable_path),
+      computer_use_cleanup_receipt: controlledRelaunchCleanup,
     };
     for (const key of [
       "computer_use_approval_ref",
       "computer_use_target_ref",
-      "computerUseNativeBrowserExecution",
-      "computerUseControlledRelaunchLaunchReceipt",
+      "computer_use_native_browser_execution",
+      "computer_use_controlled_relaunch_launch_receipt",
       "computerUseObservationBundle",
       "computerUseTargetIndex",
       "computerUseAffordanceGraph",
       "computerUseBrowserObservationArtifacts",
-      "computerUseControlledRelaunchBroker",
-      "controlledRelaunchBrokerRef",
-      "controlledRelaunchStartUrl",
-      "controlledRelaunchProfileDirRef",
-      "controlledRelaunchLaunchPlanRef",
-      "controlledRelaunchApprovalRef",
-      "controlledRelaunchExecutablePath",
-      "computerUseCleanupReceipt",
+      "computer_use_controlled_relaunch_broker",
+      "controlled_relaunch_broker_ref",
+      "controlled_relaunch_start_url",
+      "controlled_relaunch_profile_dir_ref",
+      "controlled_relaunch_launch_plan_ref",
+      "controlled_relaunch_approval_ref",
+      "controlled_relaunch_executable_path",
+      "computer_use_cleanup_receipt",
     ]) {
       if (metadata[key] && typeof metadata[key] === "object") {
         if (Object.keys(metadata[key]).length === 0) delete metadata[key];

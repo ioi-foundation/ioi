@@ -80,6 +80,69 @@ test("computer-use projection ignores retired actionKind and approvalRef aliases
   assert.equal(projection.policyDecision.outcome, "approved_for_read_only_probe");
 });
 
+test("computer-use projection accepts canonical controlled relaunch metadata", () => {
+  const projection = projectionFor({
+    runId: "projection_canonical_controlled_relaunch",
+    metadata: {
+      computer_use: true,
+      computer_use_lane: "native_browser",
+      computer_use_session_mode: "controlled_relaunch",
+      observation_retention_mode: "prompt_visible_summary_only",
+      controlled_relaunch_broker: {
+        broker_ref: "broker_canonical",
+        adapter_id: "adapter_canonical",
+        start_url: "https://example.test",
+        profile_dir_ref: "profile_canonical",
+        launch_plan_ref: "launch_plan_canonical",
+        profile_provenance: "temporary_canonical",
+        forbidden_authority: ["custom_forbidden"],
+      },
+    },
+  });
+
+  assert.equal(projection.environmentSelection.selected_session_mode, "controlled_relaunch");
+  assert.equal(projection.environmentSelection.privacy_impact, "prompt_visible_summary_only");
+  assert.equal(projection.lease.environment_ref, "native_browser:controlled_relaunch:broker_canonical");
+  assert.equal(projection.lease.profile_provenance, "temporary_canonical");
+  assert.equal(projection.lease.retention_mode, "prompt_visible_summary_only");
+  assert.equal(projection.adapterContract.adapter_id, "adapter_canonical");
+  const environmentEvent = projection.events.find((event) => event.type === "computer_use_environment_selected");
+  assert.equal(environmentEvent.data.controlled_relaunch_broker.broker_ref, "broker_canonical");
+  assert.equal(environmentEvent.data.controlled_relaunch_broker.launch_plan_ref, "launch_plan_canonical");
+  assert.equal(environmentEvent.data.controlled_relaunch_broker.profile_dir_ref, "profile_canonical");
+  assert.ok(environmentEvent.data.controlled_relaunch_broker.forbidden_authority.includes("custom_forbidden"));
+});
+
+test("computer-use projection ignores retired controlled relaunch aliases", () => {
+  const projection = projectionFor({
+    runId: "projection_retired_controlled_relaunch",
+    metadata: {
+      computer_use: true,
+      computer_use_lane: "native_browser",
+      computer_use_session_mode: "controlled_relaunch",
+      observationRetentionMode: "prompt_visible_summary_only",
+      controlledRelaunchBroker: {
+        brokerRef: "broker_retired",
+        adapterId: "adapter_retired",
+        startUrl: "https://retired.example.test",
+        profileDirRef: "profile_retired",
+        launchPlanRef: "launch_plan_retired",
+        profileProvenance: "retired_profile",
+        forbiddenAuthority: ["retired_forbidden"],
+      },
+      controlledRelaunchBrokerRef: "broker_retired_field",
+      controlledRelaunchLaunchReceipt: { launch_ref: "launch_retired" },
+    },
+  });
+
+  assert.equal(projection.environmentSelection.privacy_impact, "no_persistence");
+  assert.equal(projection.runState.blocker_state, "controlled_relaunch_broker_unavailable");
+  assert.equal(projection.lease.status, "failed_closed");
+  assert.equal(projection.lease.environment_ref, "native_browser:unavailable");
+  assert.equal(projection.adapterContract, undefined);
+  assert.equal(projection.events.some((event) => event.data.controlled_relaunch_broker), false);
+});
+
 function projectionFor({ runId, metadata, prompt = "click the requested computer-use target" }) {
   return computerUseProjectionForRun({
     agent: { cwd: "/tmp/ioi-projection-test" },

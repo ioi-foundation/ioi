@@ -1682,9 +1682,7 @@ function computerUseWorkflowBinding(request = {}) {
     workflowNodeIds: cleanStringArray(metadata.workflowNodeIds ?? metadata.workflow_node_ids),
     toolRef: cleanString(metadata.toolRef ?? metadata.tool_ref),
     authorityScopes: cleanStringArray(metadata.authorityScopes ?? metadata.authority_scopes),
-    observationRetentionMode: cleanString(
-      metadata.observationRetentionMode ?? metadata.observation_retention_mode,
-    ),
+    observationRetentionMode: cleanString(metadata.observation_retention_mode),
     failClosedWhenUnavailable:
       booleanValue(metadata.failClosedWhenUnavailable ?? metadata.fail_closed_when_unavailable) ?? true,
   };
@@ -1725,48 +1723,46 @@ function requestedComputerUseSessionMode(request = {}, lane) {
 function controlledRelaunchBrokerForRequest(request = {}) {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
   const explicit =
-    objectValue(metadata.computerUseControlledRelaunchBroker) ??
     objectValue(metadata.computer_use_controlled_relaunch_broker) ??
-    objectValue(metadata.controlledRelaunchBroker) ??
     objectValue(metadata.controlled_relaunch_broker);
   const brokerRef =
-    cleanString(explicit?.broker_ref ?? explicit?.brokerRef) ??
-    cleanString(metadata.controlledRelaunchBrokerRef ?? metadata.controlled_relaunch_broker_ref);
+    cleanString(explicit?.broker_ref) ??
+    cleanString(metadata.controlled_relaunch_broker_ref);
   if (!explicit && !brokerRef) return null;
   const startUrl =
-    cleanString(explicit?.start_url ?? explicit?.startUrl) ??
-    cleanString(metadata.controlledRelaunchStartUrl ?? metadata.controlled_relaunch_start_url) ??
+    cleanString(explicit?.start_url) ??
+    cleanString(metadata.controlled_relaunch_start_url) ??
     null;
   const profileDirRef =
-    cleanString(explicit?.profile_dir_ref ?? explicit?.profileDirRef) ??
-    cleanString(metadata.controlledRelaunchProfileDirRef ?? metadata.controlled_relaunch_profile_dir_ref) ??
+    cleanString(explicit?.profile_dir_ref) ??
+    cleanString(metadata.controlled_relaunch_profile_dir_ref) ??
     "profile:controlled_relaunch:temporary";
   const launchPlanRef =
-    cleanString(explicit?.launch_plan_ref ?? explicit?.launchPlanRef) ??
-    cleanString(metadata.controlledRelaunchLaunchPlanRef ?? metadata.controlled_relaunch_launch_plan_ref) ??
+    cleanString(explicit?.launch_plan_ref) ??
+    cleanString(metadata.controlled_relaunch_launch_plan_ref) ??
     `${brokerRef ?? "controlled_relaunch_broker"}:launch_plan`;
   return {
     schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
     broker_ref: brokerRef ?? `broker_controlled_relaunch_${stableHash(JSON.stringify(metadata)).slice(0, 12)}`,
     adapter_id:
-      cleanString(explicit?.adapter_id ?? explicit?.adapterId) ??
+      cleanString(explicit?.adapter_id) ??
       "ioi.native_browser.controlled_relaunch_broker",
     launch_plan_ref: launchPlanRef,
     start_url: startUrl,
     profile_dir_ref: profileDirRef,
     profile_provenance:
-      cleanString(explicit?.profile_provenance ?? explicit?.profileProvenance) ??
+      cleanString(explicit?.profile_provenance) ??
       "temporary_ioi_controlled_relaunch_profile",
-    user_visible: booleanValue(explicit?.user_visible ?? explicit?.userVisible) ?? true,
+    user_visible: booleanValue(explicit?.user_visible) ?? true,
     requires_operator_handoff:
-      booleanValue(explicit?.requires_operator_handoff ?? explicit?.requiresOperatorHandoff) ?? true,
-    attach_after_relaunch: booleanValue(explicit?.attach_after_relaunch ?? explicit?.attachAfterRelaunch) ?? true,
-    cleanup_required: booleanValue(explicit?.cleanup_required ?? explicit?.cleanupRequired) ?? true,
+      booleanValue(explicit?.requires_operator_handoff) ?? true,
+    attach_after_relaunch: booleanValue(explicit?.attach_after_relaunch) ?? true,
+    cleanup_required: booleanValue(explicit?.cleanup_required) ?? true,
     forbidden_authority: uniqueStrings([
       "copy_default_profile_without_consent",
       "harvest_credentials",
       "unbrokered_process_launch",
-      ...cleanStringArray(explicit?.forbidden_authority ?? explicit?.forbiddenAuthority),
+      ...cleanStringArray(explicit?.forbidden_authority),
     ]),
   };
 }
@@ -1801,9 +1797,7 @@ function requestedComputerUseExecutionResult(request = {}) {
 function controlledRelaunchLaunchReceiptForRequest(request = {}) {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
   return objectValue(
-    metadata.computerUseControlledRelaunchLaunchReceipt ??
-      metadata.computer_use_controlled_relaunch_launch_receipt ??
-      metadata.controlledRelaunchLaunchReceipt ??
+    metadata.computer_use_controlled_relaunch_launch_receipt ??
       metadata.controlled_relaunch_launch_receipt,
   );
 }
