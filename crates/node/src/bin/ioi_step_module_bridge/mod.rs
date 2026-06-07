@@ -8958,7 +8958,7 @@ mod tests {
                         "details": {
                             "model_mount_receipt_binding_ref": "sha256:binding",
                             "model_mount_accepted_receipt_append_hash": "sha256:append",
-                            "model_mount_agentgres_operation_ref": "agentgres://model-mounting/operation-log/op_1",
+                            "model_mount_agentgres_operation_ref": "agentgres://model-mounting/accepted-receipts/op_1",
                             "model_mount_agentgres_admission_hash": "sha256:agentgres"
                         }
                     }

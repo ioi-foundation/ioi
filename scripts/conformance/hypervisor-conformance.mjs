@@ -10637,7 +10637,11 @@ function runReceipts() {
       /model-mounting-accepted-receipts/.test(modelInvocationOps) &&
       /agentgres:\/\/model-mounting\/accepted-receipts/.test(modelMountingState) &&
       /model-mounting-accepted-receipts/.test(modelMountingState) &&
-      !/agentgres:\/\/model-mounting\/operation-log/.test(`${modelInvocationOps}\n${modelMountingState}`) &&
+      /agentgres:\/\/model-mounting\/accepted-receipts/.test(bridgeModule) &&
+      /agentgres:\/\/model-mounting\/accepted-receipts/.test(agentgresAdmissionCore) &&
+      !/agentgres:\/\/model-mounting\/operation-log/.test(
+        `${modelInvocationOps}\n${modelMountingState}\n${bridgeModule}\n${agentgresAdmissionCore}`,
+      ) &&
       !/model-mounting-operation-log/.test(`${modelInvocationOps}\n${modelMountingState}`) &&
       /agentgresOperationRefs/.test(modelInvocationOps) &&
       /stateRootAfter/.test(modelInvocationOps) &&
@@ -10647,6 +10651,7 @@ function runReceipts() {
       !/(?:modelMountReceiptBinding|modelMountAcceptedReceiptAppend|modelMountStepModuleInvocation|modelMountStepModuleResult|modelMountRouterAdmission|modelMountAgentgres|modelMountProjectionRecord)/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
