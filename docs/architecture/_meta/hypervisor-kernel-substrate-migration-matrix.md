@@ -11414,6 +11414,13 @@ canonical payload `receipt_refs`, `source_receipt_refs`,
 camelCase event evidence aliases cannot make old delegation payloads look
 receipt-backed or policy-backed.
 
+Slice 539 retires IDE context-lifecycle usage snapshot aliases: usage snapshot
+rows now read canonical `thread_id`, `turn_id`, `workflow_graph_id`,
+`workflow_node_id`, `usage_meter_scope`, `receipt_refs`, and
+`policy_decision_refs` fields only, so retired camelCase usage identity,
+scope, receipt, and policy aliases cannot make old usage telemetry snapshots
+look canonical, receipt-backed, or policy-backed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

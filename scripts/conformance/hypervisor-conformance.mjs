@@ -13477,6 +13477,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-worker-contribution-trace.test.ts")
     : "";
+  const agentIdeContextLifecyclePanel = exists(
+    "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts")
+    : "";
+  const agentIdeContextLifecyclePanelTest = exists(
+    "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts")
+    : "";
   const agentIdeMixedRuntimePanels = [
     "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
@@ -20333,6 +20343,53 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
     ],
     "Phase 10/11 is pending: typed IDE runtime panels must use the shared event identity helper instead of local id fallbacks",
+  );
+  assertCheck(
+    result,
+    "ide-context-lifecycle-usage-aliases-retired",
+    /stringField\(usage,\s*"thread_id"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(usage,\s*"turn_id"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(usage,\s*"workflow_graph_id"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(usage,\s*"workflow_node_id"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(usage,\s*"scope",\s*"usage_meter_scope"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      /arrayField\(usage,\s*"receipt_refs"\)/.test(agentIdeContextLifecyclePanel) &&
+      /arrayField\(usage,\s*"policy_decision_refs"\)/.test(agentIdeContextLifecyclePanel) &&
+      !/stringField\(usage,\s*"threadId",\s*"thread_id"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(usage,\s*"turnId",\s*"turn_id"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(usage,\s*"workflowGraphId",\s*"workflow_graph_id"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(usage,\s*"workflowNodeId",\s*"workflow_node_id"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/usageMeterScope/.test(agentIdeContextLifecyclePanel) &&
+      !/arrayField\(usage,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/arrayField\(usage,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      /context lifecycle panel ignores retired usage snapshot aliases/.test(
+        agentIdeContextLifecyclePanelTest,
+      ) &&
+      /threadId: "thread-retired"/.test(agentIdeContextLifecyclePanelTest) &&
+      /usageMeterScope: "thread-retired"/.test(agentIdeContextLifecyclePanelTest) &&
+      /receiptRefs: \["receipt-retired"\]/.test(agentIdeContextLifecyclePanelTest) &&
+      /policyDecisionRefs: \["policy-retired"\]/.test(agentIdeContextLifecyclePanelTest) &&
+      /assert\.deepEqual\(panel\.evidenceRefs,\s*\[\]\)/.test(
+        agentIdeContextLifecyclePanelTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE context lifecycle usage snapshots must ignore retired camelCase identity and evidence aliases",
   );
   assertCheck(
     result,

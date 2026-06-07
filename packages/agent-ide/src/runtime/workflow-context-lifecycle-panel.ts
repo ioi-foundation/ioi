@@ -119,12 +119,12 @@ function usageSnapshotRow(value: unknown): WorkflowContextLifecycleRow | null {
     status: "completed",
     eventId: null,
     eventSeq: null,
-    threadId: stringField(usage, "threadId", "thread_id"),
-    turnId: stringField(usage, "turnId", "turn_id"),
-    workflowGraphId: stringField(usage, "workflowGraphId", "workflow_graph_id"),
-    workflowNodeId: stringField(usage, "workflowNodeId", "workflow_node_id") ?? "runtime.usage-meter",
+    threadId: stringField(usage, "thread_id"),
+    turnId: stringField(usage, "turn_id"),
+    workflowGraphId: stringField(usage, "workflow_graph_id"),
+    workflowNodeId: stringField(usage, "workflow_node_id") ?? "runtime.usage-meter",
     summary: "Usage telemetry snapshot",
-    scope: stringField(usage, "scope", "usageMeterScope", "usage_meter_scope"),
+    scope: stringField(usage, "scope", "usage_meter_scope"),
     totalTokens: summary.totalTokens,
     estimatedCostUsd: summary.estimatedCostUsd,
     contextPressure: summary.contextPressure,
@@ -142,8 +142,8 @@ function usageSnapshotRow(value: unknown): WorkflowContextLifecycleRow | null {
     compactionEventId: null,
     compactReason: null,
     compactScope: null,
-    receiptRefs: uniqueStrings(arrayField(usage, "receiptRefs", "receipt_refs")),
-    policyDecisionRefs: uniqueStrings(arrayField(usage, "policyDecisionRefs", "policy_decision_refs")),
+    receiptRefs: uniqueStrings(arrayField(usage, "receipt_refs")),
+    policyDecisionRefs: uniqueStrings(arrayField(usage, "policy_decision_refs")),
   };
 }
 
