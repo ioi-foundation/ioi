@@ -9059,6 +9059,8 @@ function runReceipts() {
   ].join("\n");
   const modelMountingConstructorArgs =
     runtimeDaemonIndex.match(/this\.modelMounting = new ModelMountingState\(\{[\s\S]*?\n    \}\);/)?.[0] ?? "";
+  const loadStateRecordsBody =
+    threadPersistence.match(/export function loadStateRecords[\s\S]*?(?=\nexport function removeQuietFile)/)?.[0] ?? "";
   const writeAgentRecordBody =
     threadPersistence.match(/export function writeAgentRecord[\s\S]*?\n}\n/)?.[0] ?? "";
   const writeSubagentRecordBody =
@@ -12319,6 +12321,8 @@ function runReceipts() {
       /commitSubagentState\(store, subagent/.test(threadPersistence) &&
       /RUNTIME_SUBAGENT_STATE_COMMIT_SCHEMA_VERSION/.test(threadPersistence) &&
       /Subagent persistence requires Rust Agentgres subagent-state commit/.test(threadPersistence) &&
+      /const subagentId = subagent\.subagent_id;/.test(loadStateRecordsBody) &&
+      !/subagent\.subagentId|subagent\.agent_id|subagent\.agentId/.test(loadStateRecordsBody) &&
       /const subagentId = subagent\.subagent_id;/.test(writeSubagentRecordBody) &&
       !/subagent\.subagentId|subagent\.agent_id|subagent\.agentId/.test(writeSubagentRecordBody) &&
       !/\bwriteJson\(store\.pathFor\("subagents"/.test(writeSubagentRecordBody) &&
@@ -12326,6 +12330,9 @@ function runReceipts() {
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
       /thread persistence rejects retired subagent identity aliases before Rust commit/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /store\.subagents\.has\("subagent_retired"\),\s*false/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
       /subagentCommitRequests\[0\]\.schema_version/.test(

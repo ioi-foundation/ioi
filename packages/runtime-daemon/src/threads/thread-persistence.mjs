@@ -101,7 +101,7 @@ export function loadStateRecords(store, deps = {}) {
   }
   for (const file of listJson(store.pathFor("subagents"))) {
     const subagent = readJson(file);
-    const subagentId = subagent.subagent_id ?? subagent.subagentId ?? subagent.agent_id ?? subagent.agentId;
+    const subagentId = subagent.subagent_id;
     if (subagentId) store.subagents.set(String(subagentId), subagent);
   }
   for (const file of listJson(store.pathFor("artifacts"))) {

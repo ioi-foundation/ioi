@@ -499,13 +499,22 @@ test("thread persistence loads agents, runs, subagents, coding artifacts, and re
     "runs/r.json": { id: "run_1" },
     "subagents/s.json": { subagent_id: "subagent_1" },
     "subagents/ignored.json": { role: "anonymous" },
+    "subagents/retired-subagent-id.json": { subagentId: "subagent_retired" },
+    "subagents/retired-agent-id.json": { agent_id: "subagent_agent_retired" },
+    "subagents/retired-agent-camel.json": { agentId: "subagent_agent_camel_retired" },
     "artifacts/coding.json": { id: "artifact_1", schemaVersion: "ioi.coding-tool.artifact.v1" },
     "artifacts/other.json": { id: "artifact_2", schemaVersion: "other" },
   };
   const jsonFiles = {
     agents: ["agents/a.json"],
     runs: ["runs/r.json"],
-    subagents: ["subagents/s.json", "subagents/ignored.json"],
+    subagents: [
+      "subagents/s.json",
+      "subagents/ignored.json",
+      "subagents/retired-subagent-id.json",
+      "subagents/retired-agent-id.json",
+      "subagents/retired-agent-camel.json",
+    ],
     artifacts: ["artifacts/coding.json", "artifacts/other.json"],
   };
 
@@ -530,6 +539,9 @@ test("thread persistence loads agents, runs, subagents, coding artifacts, and re
   assert.deepEqual(store.runs.get("run_1"), { id: "run_1" });
   assert.deepEqual(store.subagents.get("subagent_1"), { subagent_id: "subagent_1" });
   assert.equal(store.subagents.has("anonymous"), false);
+  assert.equal(store.subagents.has("subagent_retired"), false);
+  assert.equal(store.subagents.has("subagent_agent_retired"), false);
+  assert.equal(store.subagents.has("subagent_agent_camel_retired"), false);
   assert.deepEqual(store.codingArtifacts.get("artifact_1"), { id: "artifact_1", schemaVersion: "ioi.coding-tool.artifact.v1" });
   assert.equal(store.codingArtifacts.has("artifact_2"), false);
   assert.deepEqual(store.registeredEvents, [{ seq: 1 }, { seq: 2 }]);
