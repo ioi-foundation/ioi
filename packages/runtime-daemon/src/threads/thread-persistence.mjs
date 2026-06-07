@@ -320,7 +320,7 @@ function normalizeSubagentStateCommit(commit) {
 
 export function writeAgentRecord(store, agent, operationKind, deps = {}) {
   const { runtimeError } = deps;
-  const agentId = agent.id ?? agent.agent_id;
+  const agentId = agent.id;
   if (!agentId) {
     const errorFactory = typeof runtimeError === "function"
       ? runtimeError

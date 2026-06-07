@@ -12260,8 +12260,13 @@ function runReceipts() {
       /commitAgentState\(store, agent/.test(threadPersistence) &&
       /RUNTIME_AGENT_STATE_COMMIT_SCHEMA_VERSION/.test(threadPersistence) &&
       /Agent persistence requires Rust Agentgres agent-state commit/.test(threadPersistence) &&
+      /const agentId = agent\.id;/.test(writeAgentRecordBody) &&
+      !/agent\.agent_id/.test(writeAgentRecordBody) &&
       !/\bwriteJson\(store\.pathFor\("agents"/.test(writeAgentRecordBody) &&
       /thread persistence commits agent records through Rust Agentgres/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /thread persistence rejects retired agent identity aliases before Rust commit/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
       /agentCommitRequests\[0\]\.schema_version/.test(

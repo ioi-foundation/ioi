@@ -357,6 +357,30 @@ test("thread persistence rejects agent records without stable ids", () => {
   );
 });
 
+test("thread persistence rejects retired agent identity aliases before Rust commit", () => {
+  const store = fakeStore();
+  const agent = {
+    agent_id: "agent_retired",
+    status: "active",
+    receipt_refs: ["receipt_agent"],
+  };
+
+  assert.throws(
+    () => writeAgentRecord(store, agent, "agent.create", {
+      ...deps(store),
+      runtimeError: ({ status, code, message, details }) => Object.assign(new Error(message), { status, code, details }),
+    }),
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "agent_id_required");
+      assert.equal(error.details.operation_kind, "agent.create");
+      return true;
+    },
+  );
+  assert.equal(store.agentCommitRequests.length, 0);
+  assert.equal(store.agents.size, 0);
+});
+
 test("thread persistence commits subagent records through Rust Agentgres", () => {
   const store = fakeStore();
   const subagent = {
