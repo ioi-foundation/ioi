@@ -1649,6 +1649,22 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-request-lease-target-ref-alias-retired",
+    /optional_json_string\(input,\s*&\["target_ref"\]\)/.test(computerUseBridge) &&
+      !/optional_json_string\(input,\s*&\["targetRef",\s*"target_ref"\]\)/.test(
+        computerUseBridge,
+      ) &&
+      /computer_use_request_lease_ignores_retired_target_ref_alias/.test(bridgeModule) &&
+      /"targetRef": "target_retired"/.test(bridgeModule) &&
+      /"computer_use\.native_browser\.read"/.test(bridgeModule),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10/11 is pending: Rust computer-use request-lease target selection must ignore retired targetRef input so target binding cannot be steered through a compatibility field",
+  );
+  assertCheck(
+    result,
     "coding-tool-result-router-admission-alias-retired",
     !/\brouterAdmission\s*:/.test(runtimeCodingToolInvocationSurface) &&
       /result\.result\.router_admission\.schema_version/.test(

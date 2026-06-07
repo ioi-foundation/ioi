@@ -19,7 +19,7 @@ pub(super) fn build_computer_use_lease_request(
     let provider = computer_use_provider_for_lane(&lane, provider_hint.as_deref(), &session_mode);
     let provider_registry = computer_use_provider_registry_report(provider.as_ref());
     let url = optional_json_string(input, &["url"]);
-    let target_ref = optional_json_string(input, &["targetRef", "target_ref"]);
+    let target_ref = optional_json_string(input, &["target_ref"]);
     let selector = optional_json_string(input, &["selector"]);
     let request_seed = computer_use_request_seed(
         workspace_root,

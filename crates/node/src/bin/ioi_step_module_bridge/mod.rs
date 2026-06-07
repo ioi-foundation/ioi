@@ -10121,6 +10121,49 @@ mod tests {
     }
 
     #[test]
+    fn computer_use_request_lease_ignores_retired_target_ref_alias() {
+        let retired_alias_request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Try to steer the target through a retired alias.",
+                "lane": "native_browser",
+                "action_kind": "inspect",
+                "targetRef": "target_retired"
+            }),
+        );
+        let baseline_request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Try to steer the target through a retired alias.",
+                "lane": "native_browser",
+                "action_kind": "inspect"
+            }),
+        );
+
+        let retired_alias_response = computer_use_request_lease_response(retired_alias_request)
+            .expect("retired alias lease request response");
+        let baseline_response =
+            computer_use_request_lease_response(baseline_request).expect("baseline response");
+
+        assert_eq!(
+            retired_alias_response["workload_observation"]["result"]["requestRef"],
+            baseline_response["workload_observation"]["result"]["requestRef"]
+        );
+        assert_eq!(
+            retired_alias_response["workload_observation"]["result"]["threadTool"]["input"]
+                ["targetRef"],
+            Value::Null
+        );
+        assert_eq!(
+            retired_alias_response["workload_observation"]["result"]["leaseRequest"]
+                ["authorityScope"],
+            "computer_use.native_browser.read"
+        );
+    }
+
+    #[test]
     fn lsp_diagnostics_node_check_reports_clean_javascript() {
         let temp = tempfile::tempdir().expect("tempdir");
         let workspace = temp.path().join("workspace");
