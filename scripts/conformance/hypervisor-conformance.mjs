@@ -22333,10 +22333,52 @@ function runCompositor() {
       /receipt_refs:\s*uniqueStrings\(arrayField\(result,\s*"receipt_refs"\)\)/.test(
         agentIdeSignedReplayNotebook,
       ) &&
+      /const schema = stringField\(result,\s*"schema_version"\) \?\? ""/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      /const snapshotId = stringField\(snapshot,\s*"snapshot_id"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      /const threadId = stringField\(value,\s*"thread_id"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/stringField\(result,\s*"schemaVersion",\s*"schema_version"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/stringField\(result,\s*"snapshotId",\s*"snapshot_id"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/stringField\(result,\s*"applyStatus",\s*"apply_status",\s*"previewStatus",\s*"preview_status"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/stringField\(snapshot,\s*"snapshotId",\s*"snapshot_id"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/stringField\(snapshot,\s*"eventId",\s*"event_id"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/stringField\(snapshot,\s*"threadId",\s*"thread_id"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/numberField\(snapshot,\s*"fileCount",\s*"file_count"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/const threadId = stringField\(value,\s*"threadId",\s*"thread_id"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
       !/^\s*(?:schemaVersion|readOnlyReplayMode|cellCount|receiptBackedCellCount|snapshotCount|restorePreviewCount|restoreApplyBlockedCount|restoreApplyAppliedCount|rollbackRefCount|evidenceRefs|cellKind|readOnlyReplay|filePaths|operationCount|approvalRequired|approvalSatisfied|restorePreviewEndpoint|restoreApplyEndpoint|receiptRefs|artifactRefs|rollbackRefs|policyDecisionRefs)\??:/m.test(
         agentIdeSignedReplayNotebook,
       ) &&
       /signed replay notebook ignores retired evidence aliases/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /signed replay notebook ignores retired restore and snapshot scalar aliases/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /schemaVersion: "ioi\.workspace-restore-preview\.v1"/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /assert\.equal\(notebook\.cells\.some\(\(cell\) => cell\.snapshot_id === "snapshot-retired-result"\),\s*false\)/.test(
         agentIdeSignedReplayNotebookTest,
       ) &&
       /assert\.equal\(notebook\.schema_version,\s*"ioi\.workflow\.signed-replay-notebook\.v1"\)/.test(

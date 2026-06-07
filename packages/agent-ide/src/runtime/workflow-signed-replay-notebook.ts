@@ -185,23 +185,23 @@ function cellForEvent(event: WorkflowRuntimeThreadEventLike): WorkflowSignedRepl
 function cellForRestoreResult(value: unknown): WorkflowSignedReplayNotebookCell | null {
   const result = objectValue(value);
   if (!result) return null;
-  const schema = stringField(result, "schemaVersion", "schema_version") ?? "";
-  const snapshotId = stringField(result, "snapshotId", "snapshot_id");
+  const schema = stringField(result, "schema_version") ?? "";
+  const snapshotId = stringField(result, "snapshot_id");
   const preview = schema.includes("workspace-restore-preview");
   const apply = schema.includes("workspace-restore-apply");
   if (!preview && !apply) return null;
   return {
-    id: `signed-replay-${preview ? "preview" : "apply"}-${safeId(snapshotId ?? "snapshot")}-${safeId(stringField(result, "applyStatus", "apply_status", "previewStatus", "preview_status") ?? "status")}`,
+    id: `signed-replay-${preview ? "preview" : "apply"}-${safeId(snapshotId ?? "snapshot")}-${safeId(stringField(result, "apply_status", "preview_status") ?? "status")}`,
     cell_kind: preview ? "restore_preview" : "restore_apply",
     status: preview
-      ? stringField(result, "previewStatus", "preview_status") ?? "ready"
-      : stringField(result, "applyStatus", "apply_status") ?? "unknown",
-    read_only_replay: preview || stringField(result, "applyStatus", "apply_status") === "blocked",
-    event_id: stringField(objectField(result, "event"), "eventId", "event_id"),
+      ? stringField(result, "preview_status") ?? "ready"
+      : stringField(result, "apply_status") ?? "unknown",
+    read_only_replay: preview || stringField(result, "apply_status") === "blocked",
+    event_id: stringField(objectField(result, "event"), "event_id"),
     event_seq: numberField(objectField(result, "event"), "seq"),
-    thread_id: stringField(result, "threadId", "thread_id") ?? stringField(objectField(result, "event"), "threadId", "thread_id"),
-    workflow_graph_id: stringField(objectField(result, "event"), "workflowGraphId", "workflow_graph_id"),
-    workflow_node_id: stringField(objectField(result, "event"), "workflowNodeId", "workflow_node_id"),
+    thread_id: stringField(result, "thread_id") ?? stringField(objectField(result, "event"), "thread_id"),
+    workflow_graph_id: stringField(objectField(result, "event"), "workflow_graph_id"),
+    workflow_node_id: stringField(objectField(result, "event"), "workflow_node_id"),
     title: preview ? "Read-only restore preview" : "Restore apply",
     summary: stringField(result, "summary"),
     tool_name: null,
@@ -209,8 +209,8 @@ function cellForRestoreResult(value: unknown): WorkflowSignedReplayNotebookCell 
     snapshot_id: snapshotId,
     file_paths: filePathsFromOperations(result),
     operation_count: arrayField(result, "operations").length,
-    approval_required: booleanField(result, "approvalRequired", "approval_required"),
-    approval_satisfied: booleanField(result, "approvalSatisfied", "approval_satisfied"),
+    approval_required: booleanField(result, "approval_required"),
+    approval_satisfied: booleanField(result, "approval_satisfied"),
     restore_preview_endpoint: endpointForThreadSnapshot(result, snapshotId, "restore-preview"),
     restore_apply_endpoint: endpointForThreadSnapshot(result, snapshotId, "restore-apply"),
     receipt_refs: uniqueStrings(arrayField(result, "receipt_refs")),
@@ -222,25 +222,25 @@ function cellForRestoreResult(value: unknown): WorkflowSignedReplayNotebookCell 
 
 function cellForSnapshotListItem(value: unknown): WorkflowSignedReplayNotebookCell | null {
   const snapshot = objectValue(value);
-  const snapshotId = stringField(snapshot, "snapshotId", "snapshot_id");
+  const snapshotId = stringField(snapshot, "snapshot_id");
   if (!snapshot || !snapshotId) return null;
   return {
     id: `signed-replay-snapshot-list-${safeId(snapshotId)}`,
     cell_kind: "snapshot",
     status: stringField(snapshot, "status") ?? "completed",
     read_only_replay: false,
-    event_id: stringField(snapshot, "eventId", "event_id"),
+    event_id: stringField(snapshot, "event_id"),
     event_seq: null,
-    thread_id: stringField(snapshot, "threadId", "thread_id"),
-    workflow_graph_id: stringField(snapshot, "workflowGraphId", "workflow_graph_id"),
+    thread_id: stringField(snapshot, "thread_id"),
+    workflow_graph_id: stringField(snapshot, "workflow_graph_id"),
     workflow_node_id: "runtime.workspace-snapshot",
     title: "Workspace snapshot",
     summary: stringField(snapshot, "summary"),
     tool_name: null,
-    tool_call_id: stringField(snapshot, "toolCallId", "tool_call_id"),
+    tool_call_id: stringField(snapshot, "tool_call_id"),
     snapshot_id: snapshotId,
     file_paths: filePathsFromPayload(snapshot),
-    operation_count: numberField(snapshot, "fileCount", "file_count") ?? filePathsFromPayload(snapshot).length,
+    operation_count: numberField(snapshot, "file_count") ?? filePathsFromPayload(snapshot).length,
     approval_required: null,
     approval_satisfied: null,
     restore_preview_endpoint: endpointForThreadSnapshot(snapshot, snapshotId, "restore-preview"),
@@ -328,7 +328,7 @@ function endpointForThreadSnapshot(
   snapshotId: string | null,
   action: "restore-preview" | "restore-apply",
 ): string | null {
-  const threadId = stringField(value, "threadId", "thread_id");
+  const threadId = stringField(value, "thread_id");
   return threadId && snapshotId
     ? `/v1/threads/${encodeURIComponent(threadId)}/snapshots/${encodeURIComponent(snapshotId)}/${action}`
     : null;
