@@ -64,8 +64,8 @@ Matrix compaction timing:
 - Do not prune the slice ledger as a prerequisite to ordinary goal resumption.
 - When resuming the master-guide goal, continue the next Rust-core extraction or
   JS-facade retirement slice first; treat matrix compaction as a scheduled
-  follow-up once that seam identifies which rows can be collapsed without
-  obscuring remaining terminal blockers or encoding the command bridge as
+  resume-goal obligation once that seam identifies which rows can be collapsed
+  without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
 - Schedule a dedicated matrix-compaction pass after the next Rust-core
   extraction/facade-retirement seam is clear enough to preserve the live
@@ -74,7 +74,8 @@ Matrix compaction timing:
 - Next scheduled matrix-compaction pass: pending the next clear Rust-core
   extraction/facade-retirement seam.
 - When that seam becomes clear during goal resumption, perform the scheduled
-  matrix-compaction pass before moving into unrelated route-family work.
+  matrix-compaction pass before moving into unrelated route-family work; do not
+  let context compaction demote this to optional evidence pruning.
 - First scheduled pass completed on 2026-06-07: the historical append-only
   evidence after the route-family owner map was compacted into route-family
   ranges while preserving the live owner map, terminal blockers,
