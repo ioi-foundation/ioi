@@ -65,14 +65,14 @@ export function createRuntimeRunReadSurface({
       });
     },
     listUsage(store, options = {}) {
-      const groupBy = options.group_by ?? options.groupBy ?? "run";
-      const agentId = options.agentId ?? options.agent_id;
+      const groupBy = options.group_by ?? "run";
+      const agentId = options.agent_id;
       const parentThreadId = agentId ? threadIdForAgentDep(agentId) : null;
       return runtimeUsageTelemetryListDep({
         runs: store.listRuns(agentId),
         subagents: [...store.subagents.values()].filter(
           (record) =>
-            !parentThreadId || (record.parent_thread_id ?? record.parentThreadId) === parentThreadId,
+            !parentThreadId || record.parent_thread_id === parentThreadId,
         ),
         groupBy,
       });

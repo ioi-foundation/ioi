@@ -33,7 +33,8 @@ function harness() {
     ]),
     subagents: new Map([
       ["sub-one", { id: "sub-one", parent_thread_id: "thread-agent-one" }],
-      ["sub-two", { id: "sub-two", parentThreadId: "thread-agent-two" }],
+      ["sub-two", { id: "sub-two", parent_thread_id: "thread-agent-two" }],
+      ["sub-retired", { id: "sub-retired", parentThreadId: "thread-agent-two" }],
     ]),
     runtimeEventStreams: new Map([
       ["stream-one", { events: [{ event_id: "event-one" }] }],
@@ -124,10 +125,15 @@ test("runtime run read surface delegates get/list and usage projections", () => 
     runIds: ["run-one"],
     subagentIds: ["sub-one"],
   });
-  assert.deepEqual(surface.listUsage(store, { agentId: "agent-two", groupBy: "thread" }), {
+  assert.deepEqual(surface.listUsage(store, { agent_id: "agent-two", group_by: "thread" }), {
     groupBy: "thread",
     runIds: ["run-two"],
     subagentIds: ["sub-two"],
+  });
+  assert.deepEqual(surface.listUsage(store, { agentId: "agent-two", groupBy: "thread" }), {
+    groupBy: "run",
+    runIds: ["run-one", "run-two"],
+    subagentIds: ["sub-one", "sub-two", "sub-retired"],
   });
   assert.throws(() => surface.getRun(store, "missing"), /Run not found/);
 });

@@ -14576,6 +14576,27 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-run-usage-list-read-aliases-retired",
+    /const groupBy = options\.group_by \?\? "run";/.test(runtimeRunReadSurface) &&
+      /const agentId = options\.agent_id;/.test(runtimeRunReadSurface) &&
+      /record\.parent_thread_id === parentThreadId/.test(runtimeRunReadSurface) &&
+      !/options\.(?:groupBy|agentId)\b/.test(runtimeRunReadSurface) &&
+      !/record\.parentThreadId\b/.test(runtimeRunReadSurface) &&
+      /surface\.listUsage\(store, \{ agent_id: "agent-two", group_by: "thread" \}\)/.test(
+        runtimeRunReadSurfaceTest,
+      ) &&
+      /surface\.listUsage\(store, \{ agentId: "agent-two", groupBy: "thread" \}\)/.test(
+        runtimeRunReadSurfaceTest,
+      ) &&
+      /sub-retired/.test(runtimeRunReadSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
+      "packages/runtime-daemon/src/runtime-run-read-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime run usage list reads must ignore retired groupBy/agentId request and parentThreadId record aliases",
+  );
+  assertCheck(
+    result,
     "runtime-event-legacy-payload-aliases-retired",
     !/legacy_event_(?:id|type)/.test(
       `${runtimeEventPayloads}\n${agentSdkRuntimeEvents}\n${agentSdkSubstrateClient}`,
