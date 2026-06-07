@@ -202,7 +202,6 @@ test("thread route executes cTEE private workspace actions through store facade"
         runtime_node_ref: "node://rented-untrusted",
         trusted_for_plaintext: false,
       },
-      expected_heads: ["agentgres://ctee/private-workspace/head/before"],
     },
   };
   const store = {

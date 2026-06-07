@@ -11005,6 +11005,9 @@ function runCtee() {
       /thread route executes cTEE private workspace actions through store facade/.test(
         runtimeRouteHandlersTest,
       ) &&
+      !/"expected_heads":\s*\["agentgres:\/\/ctee\/private-workspace\/head\/before"\]/.test(
+        runtimeRouteHandlersTest,
+      ) &&
       /thread route does not expose cTEE private workspace apply shortcut/.test(
         runtimeRouteHandlersTest,
       ) &&
