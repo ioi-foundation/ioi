@@ -470,11 +470,11 @@ function eventSeq(event: WorkflowRuntimeThreadEventLike | null): number {
 }
 
 function receiptRefsForEvent(event: WorkflowRuntimeThreadEventLike | null): string[] {
-  return arrayField(event, "receiptRefs", "receipt_refs").map(String);
+  return arrayField(event, "receipt_refs").map(String);
 }
 
 function receiptRefsForValue(value: unknown): string[] {
-  return arrayField(value, "receiptRefs", "receipt_refs").map(String);
+  return arrayField(value, "receipt_refs").map(String);
 }
 
 function receiptRefsForBridgeDecision(values: unknown[], approvalId: string | null): string[] {
@@ -482,11 +482,11 @@ function receiptRefsForBridgeDecision(values: unknown[], approvalId: string | nu
 }
 
 function policyRefsForEvent(event: WorkflowRuntimeThreadEventLike | null): string[] {
-  return arrayField(event, "policyDecisionRefs", "policy_decision_refs").map(String);
+  return arrayField(event, "policy_decision_refs").map(String);
 }
 
 function policyRefsForValue(value: unknown): string[] {
-  return arrayField(value, "policyDecisionRefs", "policy_decision_refs").map(String);
+  return arrayField(value, "policy_decision_refs").map(String);
 }
 
 function objectValue(value: unknown): Record<string, unknown> | null {

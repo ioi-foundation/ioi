@@ -13323,6 +13323,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-event-identity.test.ts")
     : "";
+  const agentIdeHunkDecisionReceiptPanel = exists(
+    "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts")
+    : "";
+  const agentIdeHunkDecisionReceiptPanelTest = exists(
+    "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.test.ts")
+    : "";
   const agentIdeRuntimeEventProjection = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
   )
@@ -19609,6 +19619,54 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
     ],
     "Phase 10/11 is pending: typed IDE runtime panels must use the shared event identity helper instead of local id fallbacks",
+  );
+  assertCheck(
+    result,
+    "ide-hunk-decision-receipt-evidence-aliases-retired",
+    /function receiptRefsForEvent\(event: WorkflowRuntimeThreadEventLike \| null\): string\[\] \{\s*return arrayField\(event,\s*"receipt_refs"\)\.map\(String\);\s*\}/.test(
+      agentIdeHunkDecisionReceiptPanel,
+    ) &&
+      /function receiptRefsForValue\(value: unknown\): string\[\] \{\s*return arrayField\(value,\s*"receipt_refs"\)\.map\(String\);\s*\}/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /function policyRefsForEvent\(event: WorkflowRuntimeThreadEventLike \| null\): string\[\] \{\s*return arrayField\(event,\s*"policy_decision_refs"\)\.map\(String\);\s*\}/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /function policyRefsForValue\(value: unknown\): string\[\] \{\s*return arrayField\(value,\s*"policy_decision_refs"\)\.map\(String\);\s*\}/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /hunk decision receipt panel uses canonical evidence refs/.test(
+        agentIdeHunkDecisionReceiptPanelTest,
+      ) &&
+      /hunk decision receipt panel ignores retired evidence aliases/.test(
+        agentIdeHunkDecisionReceiptPanelTest,
+      ) &&
+      /receiptRefs: \["receipt-retired-proposal"\]/.test(
+        agentIdeHunkDecisionReceiptPanelTest,
+      ) &&
+      /policyDecisionRefs: \["policy-retired-proposal"\]/.test(
+        agentIdeHunkDecisionReceiptPanelTest,
+      ) &&
+      /assert\.deepEqual\(panel\.rows\[0\]\?\.receiptRefs,\s*\[\]\)/.test(
+        agentIdeHunkDecisionReceiptPanelTest,
+      ) &&
+      !/arrayField\(event,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      !/arrayField\(value,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      !/arrayField\(event,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      !/arrayField\(value,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE hunk-decision receipt evidence must ignore retired camelCase receipt/policy aliases",
   );
   return result;
 }

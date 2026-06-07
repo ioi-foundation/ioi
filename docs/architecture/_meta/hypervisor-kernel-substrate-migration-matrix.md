@@ -13335,6 +13335,12 @@ now use canonical `include_tabs` and `reveal_tab_titles` fields only, so
 retired `includeTabs` / `revealTabTitles` request aliases no longer steer
 browser tab metadata discovery.
 
+Slice 521 retires IDE hunk-decision receipt evidence aliases: the hunk-decision
+receipt panel now accepts only canonical `receipt_refs` and
+`policy_decision_refs` evidence fields on runtime events, bridge decisions, and
+blocked apply results, so retired `receiptRefs` / `policyDecisionRefs` aliases
+cannot make unadmitted IDE/bridge shapes look receipt-backed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
