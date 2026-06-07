@@ -34,21 +34,35 @@ test("approval lease metadata for request uses canonical fields", () => {
       expected_receipt_refs: ["receipt_1", "receipt_1"],
       authority_scope_requirements: ["workspace.write"],
     },
-    approvalId: "approval 1",
+    approval_id: "approval 1",
     action: "file.write",
     scope: "thread",
     now: "2026-06-03T12:00:00.000Z",
-    threadId: "thread_1",
+    thread_id: "thread_1",
   });
 
-  assert.equal(metadata.schemaVersion, "ioi.runtime.approval-lease.v1");
-  assert.equal(metadata.leaseId, "approval_lease_approval_1");
-  assert.equal(metadata.expiresAt, "2026-06-03T12:00:01.000Z");
+  assert.equal(metadata.schema_version, "ioi.runtime.approval-lease.v1");
+  assert.equal(metadata.lease_id, "approval_lease_approval_1");
+  assert.equal(metadata.expires_at, "2026-06-03T12:00:01.000Z");
   assert.equal(metadata.ttl_ms, 1000);
-  assert.match(metadata.policyHash, /^hash_/);
-  assert.deepEqual(metadata.expectedReceiptRefs, ["receipt_1"]);
+  assert.match(metadata.policy_hash, /^hash_/);
+  assert.deepEqual(metadata.expected_receipt_refs, ["receipt_1"]);
   assert.deepEqual(metadata.authority_scope_requirements, ["workspace.write"]);
-  assert.equal(metadata.revokeEndpoint, "/v1/threads/thread_1/approvals/approval%201/revoke");
+  assert.equal(metadata.revoke_endpoint, "/v1/threads/thread_1/approvals/approval%201/revoke");
+  for (const alias of [
+    "schemaVersion",
+    "leaseId",
+    "approvalId",
+    "policyHash",
+    "ttlMs",
+    "expiresAt",
+    "expectedReceiptRefs",
+    "authorityScopeRequirements",
+    "revokeEndpoint",
+    "createdAt",
+  ]) {
+    assert.equal(Object.hasOwn(metadata, alias), false);
+  }
 });
 
 test("approval lease metadata for request ignores retired request aliases", () => {
@@ -63,11 +77,11 @@ test("approval lease metadata for request ignores retired request aliases", () =
       leaseId: "lease_retired",
       policyHash: "policy_retired",
     },
-    approvalId: "approval 1",
+    approval_id: "approval 1",
     action: "file.write",
     scope: "thread",
     now: "2026-06-03T12:00:00.000Z",
-    threadId: "thread_1",
+    thread_id: "thread_1",
   });
 
   assert.equal(metadata.ttl_ms, null);
@@ -78,16 +92,16 @@ test("approval lease metadata for request ignores retired request aliases", () =
   assert.notEqual(metadata.policy_hash, "policy_retired");
 });
 
-test("approval lease metadata from payload supports nested and top-level aliases", () => {
+test("approval lease metadata from payload uses canonical nested and top-level fields", () => {
   const lease = createLease();
   const metadata = lease.approvalLeaseMetadataFromPayload({
-    approvalLease: {
-      leaseId: "lease_1",
-      policyHash: "policy_hash_1",
-      ttlMs: 500,
-      expiresAt: "2026-06-03T12:00:05.000Z",
-      expectedReceiptRefs: ["receipt_nested"],
-      authorityScopeRequirements: ["scope_nested"],
+    approval_lease: {
+      lease_id: "lease_1",
+      policy_hash: "policy_hash_1",
+      ttl_ms: 500,
+      expires_at: "2026-06-03T12:00:05.000Z",
+      expected_receipt_refs: ["receipt_nested"],
+      authority_scope_requirements: ["scope_nested"],
       action: "shell.run",
       scope: "run",
     },
@@ -95,38 +109,75 @@ test("approval lease metadata from payload supports nested and top-level aliases
 
   assert.equal(metadata.lease_id, "lease_1");
   assert.equal(metadata.policy_hash, "policy_hash_1");
-  assert.equal(metadata.ttlMs, 500);
+  assert.equal(metadata.ttl_ms, 500);
   assert.equal(metadata.scope, "run");
   assert.equal(metadata.action, "shell.run");
   assert.deepEqual(metadata.expected_receipt_refs, ["receipt_nested"]);
-  assert.deepEqual(metadata.authorityScopeRequirements, ["scope_nested"]);
+  assert.deepEqual(metadata.authority_scope_requirements, ["scope_nested"]);
+  for (const alias of [
+    "schemaVersion",
+    "leaseId",
+    "policyHash",
+    "ttlMs",
+    "expiresAt",
+    "expectedReceiptRefs",
+    "authorityScopeRequirements",
+    "revokeEndpoint",
+  ]) {
+    assert.equal(Object.hasOwn(metadata, alias), false);
+  }
+});
+
+test("approval lease metadata from payload ignores retired payload aliases", () => {
+  const lease = createLease();
+  const metadata = lease.approvalLeaseMetadataFromPayload({
+    approvalLease: {
+      leaseId: "lease_retired",
+      policyHash: "policy_retired",
+      ttlMs: 500,
+      expiresAt: "2026-06-03T12:00:05.000Z",
+      expectedReceiptRefs: ["receipt_retired"],
+      authorityScopeRequirements: ["scope_retired"],
+    },
+    leaseId: "lease_payload_retired",
+    policyHash: "policy_payload_retired",
+  }, "approval_1", "thread_1");
+
+  assert.equal(metadata.lease_id, "approval_lease_approval_1");
+  assert.equal(metadata.policy_hash, null);
+  assert.equal(metadata.ttl_ms, null);
+  assert.equal(metadata.expires_at, null);
+  assert.deepEqual(metadata.expected_receipt_refs, []);
+  assert.deepEqual(metadata.authority_scope_requirements, []);
 });
 
 test("approval lease state for decision detects expiration and decision lease precedence", () => {
   const lease = createLease();
   const state = lease.approvalLeaseStateForDecision({
-    threadId: "thread_1",
-    approvalId: "approval_1",
-    approvalRequestEvent: {
+    thread_id: "thread_1",
+    approval_id: "approval_1",
+    approval_request_event: {
       payload_summary: {
-        approvalLease: {
-          leaseId: "request_lease",
-          expiresAt: "2999-01-01T00:00:00.000Z",
+        approval_lease: {
+          lease_id: "request_lease",
+          expires_at: "2999-01-01T00:00:00.000Z",
         },
       },
     },
-    latestDecision: {
+    latest_decision: {
       payload_summary: {
-        approvalLease: {
-          leaseId: "decision_lease",
-          expiresAt: "2000-01-01T00:00:00.000Z",
+        approval_lease: {
+          lease_id: "decision_lease",
+          expires_at: "2000-01-01T00:00:00.000Z",
         },
       },
     },
   });
 
-  assert.equal(state.leaseId, "decision_lease");
-  assert.equal(state.expiresAt, "2000-01-01T00:00:00.000Z");
+  assert.equal(state.lease_id, "decision_lease");
+  assert.equal(state.expires_at, "2000-01-01T00:00:00.000Z");
+  assert.equal(Object.hasOwn(state, "leaseId"), false);
+  assert.equal(Object.hasOwn(state, "expiresAt"), false);
   assert.equal(state.expired, true);
 });
 

@@ -20,7 +20,7 @@ function defaultApprovalReasonForDecisionEvent(event = {}) {
 }
 
 function defaultApprovalLeaseStateForDecision() {
-  return { expired: false, leaseId: null, expiresAt: null };
+  return { expired: false, lease_id: null, expires_at: null };
 }
 
 function defaultCodingToolApprovalManifestsMatch(left, right) {
@@ -67,10 +67,10 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
       };
     }
     const leaseState = approvalLeaseStateForDecision({
-      threadId,
-      approvalId,
-      approvalRequestEvent,
-      latestDecision,
+      thread_id: threadId,
+      approval_id: approvalId,
+      approval_request_event: approvalRequestEvent,
+      latest_decision: latestDecision,
     });
     if (leaseState.expired) {
       return {
@@ -79,8 +79,8 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
         decision_event_id: latestDecision.event_id,
         decision_seq: latestDecision.seq,
         reason: "approval_lease_expired",
-        lease_id: leaseState.leaseId,
-        expires_at: leaseState.expiresAt,
+        lease_id: leaseState.lease_id,
+        expires_at: leaseState.expires_at,
       };
     }
     return {
@@ -89,8 +89,8 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
       decision_event_id: latestDecision.event_id,
       decision_seq: latestDecision.seq,
       reason: approvalReasonForDecisionEvent(latestDecision),
-      lease_id: leaseState.leaseId,
-      expires_at: leaseState.expiresAt,
+      lease_id: leaseState.lease_id,
+      expires_at: leaseState.expires_at,
     };
   }
 

@@ -2924,8 +2924,8 @@ function runBridge() {
       /approval_id:\s*approvalId/.test(codingToolApprovalSatisfactionBody) &&
       /decision_event_id:\s*latestDecision\.event_id/.test(codingToolApprovalSatisfactionBody) &&
       /decision_seq:\s*latestDecision\.seq/.test(codingToolApprovalSatisfactionBody) &&
-      /lease_id:\s*leaseState\.leaseId/.test(codingToolApprovalSatisfactionBody) &&
-      /expires_at:\s*leaseState\.expiresAt/.test(codingToolApprovalSatisfactionBody) &&
+      /lease_id:\s*leaseState\.lease_id/.test(codingToolApprovalSatisfactionBody) &&
+      /expires_at:\s*leaseState\.expires_at/.test(codingToolApprovalSatisfactionBody) &&
       !/request\.approvalId\b/.test(codingToolApprovalSatisfactionBody) &&
       !/approvalRequestEvent\.payload_summary\?\.approvalManifest\b/.test(
         codingToolApprovalSatisfactionBody,
@@ -3298,11 +3298,35 @@ function runBridge() {
       /approval lease metadata for request ignores retired request aliases/.test(
         runtimeApprovalLeaseTest,
       ) &&
+      /approval lease metadata from payload ignores retired payload aliases/.test(
+        runtimeApprovalLeaseTest,
+      ) &&
+      /Object\.hasOwn\(metadata,\s*alias\),\s*false/.test(runtimeApprovalLeaseTest) &&
+      /Object\.hasOwn\(state,\s*"leaseId"\),\s*false/.test(runtimeApprovalLeaseTest) &&
+      /Object\.hasOwn\(store\.events\[0\]\.payload_summary,\s*"approvalLease"\),\s*false/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(store\.events\[1\]\.payload_summary,\s*"approvalRequestEventId"\),\s*false/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(store\.events\[2\]\.payload_summary,\s*"approvalDecisionEventId"\),\s*false/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
       !/request\.(?:turnId|workflowNodeId|workflowGraphId|requestedBy|approvalAction|toolId|toolName|effectClass|riskDomain|approvalId|contextPressure|pressureStatus|contextPressureStatus|alertId|alertEventId|sourceEventId|policyDecisionRefs|authorityScopeRequirements|approvalManifest|receiptRefs|idempotencyKey)\b/.test(
         runtimeApprovalSurface,
       ) &&
       !/request\.(?:ttlMs|leaseTtlMs|expiresAt|expectedReceiptRefs|authorityScopeRequirements|leaseId|policyHash)\b/.test(
         runtimeApprovalLease,
+      ) &&
+      !/\bpayload\.approvalLease\b/.test(runtimeApprovalLease) &&
+      !/\b(?:lease|payload)\.(?:leaseId|policyHash|ttlMs|expiresAt|expectedReceiptRefs|authorityScopeRequirements)\b/.test(
+        runtimeApprovalLease,
+      ) &&
+      !/^\s*(?:schemaVersion|leaseId|approvalId|policyHash|ttlMs|expiresAt|expectedReceiptRefs|authorityScopeRequirements|revokeEndpoint|createdAt)\s*[:,]/m.test(
+        runtimeApprovalLease,
+      ) &&
+      !/^\s*(?:approvalLease|approvalRequestEventId|approvalDecisionEventId|leaseId|leaseStatus|policyHash|ttlMs|expiresAt|expectedReceiptRefs|authorityScopeRequirements|revokeEndpoint)\s*[:,]/m.test(
+        runtimeApprovalSurface,
       ),
     [
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",

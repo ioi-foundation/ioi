@@ -13122,6 +13122,13 @@ receipt, and decision-event fields only; retired camelCase helper-call fields
 can no longer survive as a parallel JS-shaped result ABI before Rust-planned
 budget recovery state updates.
 
+Slice 494 retires approval lease metadata aliases:
+approval lease metadata now emits, reads, and reports canonical `approval_lease`,
+`lease_id`, `expires_at`, `policy_hash`, receipt, authority, revoke, and
+decision-event fields only; retired camelCase lease metadata can no longer
+survive in approval request, decision, revoke, or coding-tool approval
+satisfaction handoffs.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

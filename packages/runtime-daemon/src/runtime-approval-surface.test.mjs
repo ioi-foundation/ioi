@@ -306,7 +306,8 @@ test("approval surface requests approval and blocks the active turn", () => {
   assert.equal(result.approval_required, true);
   assert.equal(result.status, "waiting_for_approval");
   assert.equal(store.events[0].event_kind, "approval.required");
-  assert.equal(store.events[0].payload_summary.approvalLease.status, "pending");
+  assert.equal(store.events[0].payload_summary.approval_lease.status, "pending");
+  assert.equal(Object.hasOwn(store.events[0].payload_summary, "approvalLease"), false);
   assert.equal(store.events[0].payload_summary.approvalManifest.toolId, "file.write");
   assert.equal(store.events[0].payload_summary.pressure, 0.7);
   assert.equal(store.runs.get("run_alpha").status, "blocked");
@@ -336,8 +337,11 @@ test("approval surface records approval decisions with active leases", () => {
   assert.equal(result.decision, "approve");
   assert.equal(result.lease_status, "active");
   assert.equal(result.approval_lease.status, "active");
+  assert.equal(Object.hasOwn(result, "leaseStatus"), false);
+  assert.equal(Object.hasOwn(result, "approvalLease"), false);
   assert.equal(store.events[1].event_kind, "approval.approved");
-  assert.equal(store.events[1].payload_summary.approvalRequestEventId, "event_1");
+  assert.equal(store.events[1].payload_summary.approval_request_event_id, "event_1");
+  assert.equal(Object.hasOwn(store.events[1].payload_summary, "approvalRequestEventId"), false);
   assert.equal(store.runs.get("run_alpha").approvalDecisions[0].decision, "approve");
   assert.equal(
     calls.find((call) => call.name === "planApprovalDecisionStateUpdate").request.event_id,
@@ -362,9 +366,11 @@ test("approval surface revokes approval leases and records prior decisions", () 
 
   assert.equal(result.decision, "revoke");
   assert.equal(result.lease_status, "revoked");
-  assert.equal(result.approval_lease.approvalDecisionEventId, "event_2");
+  assert.equal(result.approval_lease.approval_decision_event_id, "event_2");
+  assert.equal(Object.hasOwn(result.approval_lease, "approvalDecisionEventId"), false);
   assert.equal(store.events[2].event_kind, "approval.revoked");
-  assert.equal(store.events[2].payload_summary.approvalDecisionEventId, "event_2");
+  assert.equal(store.events[2].payload_summary.approval_decision_event_id, "event_2");
+  assert.equal(Object.hasOwn(store.events[2].payload_summary, "approvalDecisionEventId"), false);
   assert.equal(store.runs.get("run_alpha").turnStatus, "waiting_for_input");
   assert.equal(store.runs.get("run_alpha").approvalRevocations[0].decision, "revoke");
   assert.equal(

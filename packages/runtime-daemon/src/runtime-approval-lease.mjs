@@ -28,7 +28,7 @@ export function createRuntimeApprovalLease(deps = {}) {
   const safeId = deps.safeId || defaultSafeId;
   const uniqueStrings = deps.uniqueStrings || ((values = []) => [...new Set(normalizeArray(values).map((value) => String(value)).filter(Boolean))]);
 
-  function approvalLeaseMetadataForRequest({ request = {}, approvalId, action, scope, now, threadId } = {}) {
+  function approvalLeaseMetadataForRequest({ request = {}, approval_id: approvalId, action, scope, now, thread_id: threadId } = {}) {
     const ttlMs = optionalPositiveInteger(
       request.ttl_ms ?? request.lease_ttl_ms,
     );
@@ -48,40 +48,30 @@ export function createRuntimeApprovalLease(deps = {}) {
       optionalString(request.policy_hash) ??
       doctorHash(
         JSON.stringify({
-          approvalId,
+          approval_id: approvalId,
           action,
           scope,
-          threadId,
-          authorityScopeRequirements,
-          expectedReceiptRefs,
-          ttlMs,
-          expiresAt,
+          thread_id: threadId,
+          authority_scope_requirements: authorityScopeRequirements,
+          expected_receipt_refs: expectedReceiptRefs,
+          ttl_ms: ttlMs,
+          expires_at: expiresAt,
         }),
       );
     return {
       schema_version: "ioi.runtime.approval-lease.v1",
-      schemaVersion: "ioi.runtime.approval-lease.v1",
       lease_id: leaseId,
-      leaseId,
       approval_id: approvalId,
-      approvalId,
       status: "pending",
       action,
       scope,
       policy_hash: policyHash,
-      policyHash,
       ttl_ms: ttlMs,
-      ttlMs,
       expires_at: expiresAt,
-      expiresAt,
       expected_receipt_refs: expectedReceiptRefs,
-      expectedReceiptRefs,
       authority_scope_requirements: authorityScopeRequirements,
-      authorityScopeRequirements,
       revoke_endpoint: `/v1/threads/${threadId}/approvals/${encodeURIComponent(approvalId)}/revoke`,
-      revokeEndpoint: `/v1/threads/${threadId}/approvals/${encodeURIComponent(approvalId)}/revoke`,
       created_at: now,
-      createdAt: now,
     };
   }
 
@@ -89,81 +79,66 @@ export function createRuntimeApprovalLease(deps = {}) {
     const lease =
       payload.approval_lease && typeof payload.approval_lease === "object"
         ? payload.approval_lease
-        : payload.approvalLease && typeof payload.approvalLease === "object"
-          ? payload.approvalLease
-          : {};
+        : {};
     const leaseId =
-      optionalString(lease.lease_id ?? lease.leaseId ?? payload.lease_id ?? payload.leaseId) ??
+      optionalString(lease.lease_id ?? payload.lease_id) ??
       `approval_lease_${safeId(approvalId)}`;
     const policyHash =
-      optionalString(lease.policy_hash ?? lease.policyHash ?? payload.policy_hash ?? payload.policyHash) ??
+      optionalString(lease.policy_hash ?? payload.policy_hash) ??
       null;
-    const ttlMs = optionalPositiveInteger(lease.ttl_ms ?? lease.ttlMs ?? payload.ttl_ms ?? payload.ttlMs);
+    const ttlMs = optionalPositiveInteger(lease.ttl_ms ?? payload.ttl_ms);
     const expiresAt =
-      optionalString(lease.expires_at ?? lease.expiresAt ?? payload.expires_at ?? payload.expiresAt) ??
+      optionalString(lease.expires_at ?? payload.expires_at) ??
       null;
     const expectedReceiptRefs = uniqueStrings(
       normalizeArray(
         lease.expected_receipt_refs ??
-          lease.expectedReceiptRefs ??
-          payload.expected_receipt_refs ??
-          payload.expectedReceiptRefs,
+          payload.expected_receipt_refs,
       ),
     );
     const authorityScopeRequirements = uniqueStrings(
       normalizeArray(
         lease.authority_scope_requirements ??
-          lease.authorityScopeRequirements ??
-          payload.authority_scope_requirements ??
-          payload.authorityScopeRequirements,
+          payload.authority_scope_requirements,
       ),
     );
     return {
       schema_version: "ioi.runtime.approval-lease.v1",
-      schemaVersion: "ioi.runtime.approval-lease.v1",
       lease_id: leaseId,
-      leaseId,
       approval_id: approvalId,
-      approvalId,
       action: optionalString(lease.action ?? payload.action) ?? null,
       scope: optionalString(lease.scope ?? payload.scope) ?? "thread",
       policy_hash: policyHash,
-      policyHash,
       ttl_ms: ttlMs,
-      ttlMs,
       expires_at: expiresAt,
-      expiresAt,
       expected_receipt_refs: expectedReceiptRefs,
-      expectedReceiptRefs,
       authority_scope_requirements: authorityScopeRequirements,
-      authorityScopeRequirements,
       revoke_endpoint: `/v1/threads/${threadId}/approvals/${encodeURIComponent(approvalId)}/revoke`,
-      revokeEndpoint: `/v1/threads/${threadId}/approvals/${encodeURIComponent(approvalId)}/revoke`,
     };
   }
 
   function approvalLeaseStateForDecision({
-    threadId,
-    approvalId,
-    approvalRequestEvent,
-    latestDecision,
+    thread_id: threadId,
+    approval_id: approvalId,
+    approval_request_event: approvalRequestEvent,
+    latest_decision: latestDecision,
   }) {
     const decisionPayload = latestDecision?.payload_summary ?? latestDecision?.payload ?? {};
     const requestPayload = approvalRequestEvent?.payload_summary ?? approvalRequestEvent?.payload ?? {};
     const decisionLease = approvalLeaseMetadataFromPayload(decisionPayload, approvalId, threadId);
     const requestLease = approvalLeaseMetadataFromPayload(requestPayload, approvalId, threadId);
     const leaseId =
-      optionalString(decisionLease.lease_id ?? decisionLease.leaseId) ??
-      optionalString(requestLease.lease_id ?? requestLease.leaseId) ??
+      optionalString(decisionLease.lease_id) ??
+      optionalString(requestLease.lease_id) ??
       null;
     const expiresAt =
-      optionalString(decisionLease.expires_at ?? decisionLease.expiresAt) ??
-      optionalString(requestLease.expires_at ?? requestLease.expiresAt) ??
+      optionalString(decisionLease.expires_at) ??
+      optionalString(requestLease.expires_at) ??
       null;
     const expiresMs = expiresAt ? Date.parse(expiresAt) : Number.NaN;
     return {
-      leaseId,
-      expiresAt,
+      lease_id: leaseId,
+      expires_at: expiresAt,
       expired: Number.isFinite(expiresMs) && expiresMs <= Date.now(),
     };
   }

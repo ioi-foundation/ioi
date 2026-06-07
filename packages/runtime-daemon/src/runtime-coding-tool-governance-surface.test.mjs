@@ -8,8 +8,8 @@ function createSurface({ expired = false, manifestsMatch = true } = {}) {
     approvalLeaseStateForDecision() {
       return {
         expired,
-        leaseId: "lease-one",
-        expiresAt: "2026-06-04T12:00:00.000Z",
+        lease_id: "lease-one",
+        expires_at: "2026-06-04T12:00:00.000Z",
       };
     },
     approvalReasonForDecisionEvent(event) {
