@@ -1470,6 +1470,14 @@ function runBridge() {
       /String\(value \?\? ""\)\.trim\(\)\.toLowerCase\(\) \|\| "rust_workload_live"/.test(stepModuleRunner) &&
       !/DaemonJsStepModuleRunner/.test(stepModuleRunner) &&
       !/"daemon_js",/.test(stepModuleRunner) &&
+      /workspace_root:\s*context\.workspace_root \?\? null/.test(stepModuleRunner) &&
+      !/context\.workspaceRoot/.test(stepModuleRunner) &&
+      /workspaceRoot: "\/tmp\/retired-workspace"/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /assert\.notEqual\(calls\[0\]\.request\.workspace_root,\s*"\/tmp\/retired-workspace"\)/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
       /daemon-js StepModule backend selection fails closed/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ),
