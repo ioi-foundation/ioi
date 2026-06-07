@@ -14211,6 +14211,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts")
     : "";
+  const agentIdeDiagnosticsRepairActions = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts")
+    : "";
+  const agentIdeDiagnosticsRepairActionsTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.test.ts")
+    : "";
   const agentIdeTerminalStreamCard = exists(
     "packages/agent-ide/src/runtime/workflow-terminal-stream-card.ts",
   )
@@ -17908,6 +17918,134 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.test.ts",
     ],
     "Phase 10/11 is pending: IDE workflow edit proposal control nodes must send canonical daemon request bodies and ignore retired raw input aliases",
+  );
+  assertCheck(
+    result,
+    "ide-diagnostics-repair-action-aliases-retired",
+    /stringArrayField\(policy,\s*"decision_refs"\)/.test(
+      agentIdeDiagnosticsRepairActions,
+    ) &&
+      /stringField\(policy,\s*"policy_id"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /stringField\(decision,\s*"decision_id"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /stringField\(decision,\s*"restore_conflict_policy"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /booleanField\(decision,\s*"requires_approval"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /booleanField\(decision,\s*"allow_conflicts"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /booleanField\(decision,\s*"override_conflicts"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /stringField\(decision,\s*"workflow_node_id"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /stringField\(decision,\s*"thread_id"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /stringField\(policy,\s*"thread_id"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /stringField\(decision,\s*"workflow_graph_id"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /stringArrayField\(decision,\s*"rollback_refs"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /stringArrayField\(policy,\s*"rollback_refs"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /stringArrayField\(decision,\s*"workspace_snapshot_refs"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /stringArrayField\(policy,\s*"workspace_snapshot_refs"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /recordField\(payload,\s*"repair_policy"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /recordField\(payload,\s*"diagnostics_repair_policy"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /recordField\(payload,\s*"diagnostics_repair_context"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /arrayField\(payload,\s*"repair_decisions"\)/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      /diagnostics repair actions ignore retired camelCase repair aliases/.test(
+        agentIdeDiagnosticsRepairActionsTest,
+      ) &&
+      /diagnostics repair action containers ignore retired camelCase aliases/.test(
+        agentIdeDiagnosticsRepairActionsTest,
+      ) &&
+      /decisionRefs: \["policy-retired"\]/.test(
+        agentIdeDiagnosticsRepairActionsTest,
+      ) &&
+      /diagnosticsRepairPolicy:/.test(agentIdeDiagnosticsRepairActionsTest) &&
+      /repairDecisions:/.test(agentIdeDiagnosticsRepairActionsTest) &&
+      !/function (?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*camelKey/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"decisionRefs"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"policyId"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"decisionId"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"restoreConflictPolicy"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"requiresApproval"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"allowConflicts"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"overrideConflicts"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"workflowNodeId"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"threadId"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"workflowGraphId"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"rollbackRefs"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"workspaceSnapshotRefs"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"repairPolicy"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"diagnosticsRepairPolicy"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"diagnosticsRepairContext"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ) &&
+      !/(?:stringField|booleanField|arrayField|recordField|stringArrayField)\([^)]*"repairDecisions"/.test(
+        agentIdeDiagnosticsRepairActions,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE diagnostics repair action descriptors must ignore retired camelCase policy and decision aliases",
   );
   assertCheck(
     result,

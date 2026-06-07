@@ -54,37 +54,34 @@ export function diagnosticsRepairActionsForEvents(
       const status = stringField(decision, "status") ?? "available";
       const policyDecisionRefs = uniqueStrings([
         ...event.policyDecisionRefs,
-        ...stringArrayField(policy, "decisionRefs", "decision_refs"),
-        stringField(policy, "policyId", "policy_id") ?? "",
+        ...stringArrayField(policy, "decision_refs"),
+        stringField(policy, "policy_id") ?? "",
       ]);
       const decisionId =
-        stringField(decision, "decisionId", "decision_id") ??
+        stringField(decision, "decision_id") ??
         stringField(decision, "id") ??
         matchingDiagnosticsRepairDecisionRef(policyDecisionRefs, action) ??
         action;
       const restoreConflictPolicy =
-        stringField(
-          decision,
-          "restoreConflictPolicy",
-          "restore_conflict_policy",
-        ) ??
-        stringField(policy, "restoreConflictPolicy", "restore_conflict_policy");
+        stringField(decision, "restore_conflict_policy") ??
+        stringField(policy, "restore_conflict_policy");
       const requiresApproval =
-        booleanField(decision, "requiresApproval", "requires_approval") ??
+        booleanField(decision, "requires_approval") ??
         status === "requires_approval";
       const allowConflicts =
-        booleanField(decision, "allowConflicts", "allow_conflicts") ??
-        booleanField(decision, "overrideConflicts", "override_conflicts") ??
+        booleanField(decision, "allow_conflicts") ??
+        booleanField(decision, "override_conflicts") ??
         restoreConflictPolicy === "allow_override";
       const workflowNodeId =
-        stringField(decision, "workflowNodeId", "workflow_node_id") ??
+        stringField(decision, "workflow_node_id") ??
         `runtime.run-inspector.diagnostics-repair.${slug(action)}`;
       descriptors.set(action, {
         id: `diagnostics-repair:${event.threadId}:${decisionId}:${action}`,
         decisionId,
         action,
         label: DIAGNOSTICS_REPAIR_ACTION_LABELS[action],
-        summary: stringField(decision, "summary", "message"),
+        summary:
+          stringField(decision, "summary") ?? stringField(decision, "message"),
         status,
         executable: diagnosticsRepairDecisionIsExecutable(status),
         requiresApproval,
@@ -95,31 +92,23 @@ export function diagnosticsRepairActionsForEvents(
         allowConflicts,
         restoreConflictPolicy,
         threadId:
-          stringField(decision, "threadId", "thread_id") ??
-          stringField(policy, "threadId", "thread_id") ??
+          stringField(decision, "thread_id") ??
+          stringField(policy, "thread_id") ??
           event.threadId,
         workflowGraphId:
-          stringField(decision, "workflowGraphId", "workflow_graph_id") ??
+          stringField(decision, "workflow_graph_id") ??
           event.workflowGraphId ??
           latestEvent.workflowGraphId,
         workflowNodeId,
         eventId: event.id,
         rollbackRefs: uniqueStrings([
           ...event.rollbackRefs,
-          ...stringArrayField(decision, "rollbackRefs", "rollback_refs"),
-          ...stringArrayField(policy, "rollbackRefs", "rollback_refs"),
+          ...stringArrayField(decision, "rollback_refs"),
+          ...stringArrayField(policy, "rollback_refs"),
         ]),
         workspaceSnapshotRefs: uniqueStrings([
-          ...stringArrayField(
-            decision,
-            "workspaceSnapshotRefs",
-            "workspace_snapshot_refs",
-          ),
-          ...stringArrayField(
-            policy,
-            "workspaceSnapshotRefs",
-            "workspace_snapshot_refs",
-          ),
+          ...stringArrayField(decision, "workspace_snapshot_refs"),
+          ...stringArrayField(policy, "workspace_snapshot_refs"),
         ]),
         policyDecisionRefs,
         receiptRefs: event.receiptRefs,
@@ -146,18 +135,13 @@ function diagnosticsRepairDecisionRecords(
   policy: Record<string, unknown> | null;
 }> {
   const policies = uniqueRecords([
-    recordField(payload, "repairPolicy", "repair_policy"),
-    recordField(payload, "diagnosticsRepairPolicy", "diagnostics_repair_policy"),
+    recordField(payload, "repair_policy"),
+    recordField(payload, "diagnostics_repair_policy"),
     recordField(
-      recordField(
-        payload,
-        "diagnosticsRepairContext",
-        "diagnostics_repair_context",
-      ),
-      "repairPolicy",
+      recordField(payload, "diagnostics_repair_context"),
       "repair_policy",
     ),
-    recordField(recordField(payload, "result"), "repairPolicy", "repair_policy"),
+    recordField(recordField(payload, "result"), "repair_policy"),
   ]);
   const records: Array<{
     decision: Record<string, unknown>;
@@ -172,7 +156,7 @@ function diagnosticsRepairDecisionRecords(
   }
 
   for (const decision of [
-    ...arrayField(payload, "repairDecisions", "repair_decisions"),
+    ...arrayField(payload, "repair_decisions"),
     ...arrayField(payload, "decisions"),
   ]) {
     const record = objectField(decision);
@@ -244,27 +228,17 @@ function objectField(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function stringField(
-  value: unknown,
-  camelKey: string,
-  snakeKey?: string,
-): string | null {
+function stringField(value: unknown, key: string): string | null {
   const objectValue = objectField(value);
   if (!objectValue) return null;
-  const candidate =
-    objectValue[camelKey] ?? (snakeKey ? objectValue[snakeKey] : undefined);
+  const candidate = objectValue[key];
   return typeof candidate === "string" && candidate.trim() ? candidate : null;
 }
 
-function booleanField(
-  value: unknown,
-  camelKey: string,
-  snakeKey?: string,
-): boolean | null {
+function booleanField(value: unknown, key: string): boolean | null {
   const objectValue = objectField(value);
   if (!objectValue) return null;
-  const candidate =
-    objectValue[camelKey] ?? (snakeKey ? objectValue[snakeKey] : undefined);
+  const candidate = objectValue[key];
   if (typeof candidate === "boolean") return candidate;
   if (typeof candidate !== "string") return null;
   const normalized = candidate.trim().toLowerCase();
@@ -273,36 +247,25 @@ function booleanField(
   return null;
 }
 
-function arrayField(
-  value: unknown,
-  camelKey: string,
-  snakeKey?: string,
-): unknown[] {
+function arrayField(value: unknown, key: string): unknown[] {
   const objectValue = objectField(value);
   if (!objectValue) return [];
-  const candidate =
-    objectValue[camelKey] ?? (snakeKey ? objectValue[snakeKey] : undefined);
+  const candidate = objectValue[key];
   return Array.isArray(candidate) ? candidate : [];
 }
 
 function recordField(
   value: unknown,
-  camelKey: string,
-  snakeKey?: string,
+  key: string,
 ): Record<string, unknown> | null {
   const objectValue = objectField(value);
   if (!objectValue) return null;
-  const candidate =
-    objectValue[camelKey] ?? (snakeKey ? objectValue[snakeKey] : undefined);
+  const candidate = objectValue[key];
   return objectField(candidate);
 }
 
-function stringArrayField(
-  value: unknown,
-  camelKey: string,
-  snakeKey?: string,
-): string[] {
-  return arrayField(value, camelKey, snakeKey).filter(
+function stringArrayField(value: unknown, key: string): string[] {
+  return arrayField(value, key).filter(
     (candidate): candidate is string =>
       typeof candidate === "string" && Boolean(candidate.trim()),
   );
