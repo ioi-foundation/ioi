@@ -2412,11 +2412,20 @@ function runBridge() {
       /event\.data\?\.policy_receipt_id/.test(runtimeRunEventHelpers) &&
       /event\.data\?\.escalation_receipt_ids/.test(runtimeRunEventHelpers) &&
       /event\.data\?\.receipt_refs/.test(runtimeRunEventHelpers) &&
+      /event\.data\?\.policy_decision_id/.test(runtimeRunEventHelpers) &&
+      /event\.data\?\.policy_decision_ref/.test(runtimeRunEventHelpers) &&
+      /event\.data\?\.policy_decision_receipt/.test(runtimeRunEventHelpers) &&
+      /event\.data\?\.policy_decision_refs/.test(runtimeRunEventHelpers) &&
       !/event\.data\?\.(?:receiptId|policyReceiptId|escalationReceiptIds|receiptRefs)\b/.test(
+        runtimeRunEventHelpers,
+      ) &&
+      !/event\.data\?\.(?:policyDecisionId|policyDecisionRef|policyDecisionReceipt|policyDecisionRefs)\b/.test(
         runtimeRunEventHelpers,
       ) &&
       /receipt-lsp-retired/.test(runtimeRunEventHelpersTest) &&
       /receipt-extra-retired/.test(runtimeRunEventHelpersTest) &&
+      /policy-retired-id/.test(runtimeRunEventHelpersTest) &&
+      /policy-retired-list/.test(runtimeRunEventHelpersTest) &&
       /receipt-hook-ledger/.test(runtimeRunEventHelpersTest) &&
       /receipt-escalation/.test(runtimeRunEventHelpersTest),
     [

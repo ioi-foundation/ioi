@@ -39,14 +39,10 @@ export function createRuntimeRunEventHelpers({
 
   function policyDecisionRefsForRunEvent(event) {
     return uniqueStrings([
-      event.data?.policyDecisionId,
       event.data?.policy_decision_id,
-      event.data?.policyDecisionRef,
       event.data?.policy_decision_ref,
       event.data?.computer_use_policy_decision_ref,
-      event.data?.policyDecisionReceipt?.policy_decision_ref,
       event.data?.policy_decision_receipt?.policy_decision_ref,
-      ...normalizeArray(event.data?.policyDecisionRefs),
       ...normalizeArray(event.data?.policy_decision_refs),
     ]);
   }

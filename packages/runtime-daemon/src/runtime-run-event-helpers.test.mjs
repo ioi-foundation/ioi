@@ -54,13 +54,23 @@ test("runtime run event helpers preserve refs and metadata derivation", () => {
   assert.deepEqual(runtime.policyDecisionRefsForRunEvent({
     type: "policy_blocked",
     data: {
-      policyDecisionId: "policy-a",
+      policy_decision_id: "policy-a",
       policy_decision_ref: "policy-b",
-      policyDecisionReceipt: { policy_decision_ref: "policy-c" },
-      policyDecisionRefs: ["policy-a", "policy-d"],
+      policy_decision_receipt: { policy_decision_ref: "policy-c" },
+      computer_use_policy_decision_ref: "policy-d",
       policy_decision_refs: ["policy-e"],
     },
-  }), ["policy-a", "policy-b", "policy-c", "policy-d", "policy-e"]);
+  }), ["policy-a", "policy-b", "policy-d", "policy-c", "policy-e"]);
+
+  assert.deepEqual(runtime.policyDecisionRefsForRunEvent({
+    type: "policy_blocked",
+    data: {
+      policyDecisionId: "policy-retired-id",
+      policyDecisionRef: "policy-retired-ref",
+      policyDecisionReceipt: { policy_decision_ref: "policy-retired-receipt" },
+      policyDecisionRefs: ["policy-retired-list"],
+    },
+  }), []);
 
   assert.equal(runtime.componentKindForRunEvent({ type: "memory_update", data: { operation: "policy_update" } }), "memory_policy");
   assert.equal(runtime.componentKindForRunEvent({ type: "policy_blocked", data: { componentKind: "custom_gate" } }), "custom_gate");

@@ -13068,6 +13068,11 @@ MCP control event construction now derives policy IDs from canonical
 `policy_decision` only; retired camelCase `policyDecision` payload values can no
 longer steer policy-decision refs for MCP control events.
 
+Slice 485 retires run-event policy-decision reader aliases:
+runtime run event policy ref extraction now reads canonical `policy_decision_*`
+fields only; retired camelCase `policyDecision*` fields can no longer steer
+runtime event policy-decision refs.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
