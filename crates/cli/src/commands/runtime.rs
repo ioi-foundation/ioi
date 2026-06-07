@@ -54,6 +54,12 @@ pub enum RuntimeCommands {
         #[clap(subcommand)]
         command: ExternalCapabilityCommands,
     },
+
+    /// Inspect or request workspace snapshot restore through the daemon.
+    WorkspaceSnapshot {
+        #[clap(subcommand)]
+        command: WorkspaceSnapshotCommands,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -152,6 +158,41 @@ pub struct ExternalCapabilityAuthorizeArgs {
     pub request_json: Option<String>,
 
     /// Path to an external capability exit authority request JSON file.
+    #[clap(long, conflicts_with = "request_json")]
+    pub request_file: Option<PathBuf>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum WorkspaceSnapshotCommands {
+    /// List workspace snapshots recorded for a runtime thread.
+    List(WorkspaceSnapshotListArgs),
+
+    /// Preview a workspace snapshot restore through the daemon-mounted Rust restore guard.
+    RestorePreview(WorkspaceSnapshotRestoreArgs),
+
+    /// Apply a workspace snapshot restore through the daemon-mounted Rust restore guard.
+    RestoreApply(WorkspaceSnapshotRestoreArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct WorkspaceSnapshotListArgs {
+    /// Runtime thread id that owns the workspace snapshots.
+    pub thread_id: String,
+}
+
+#[derive(Args, Debug)]
+pub struct WorkspaceSnapshotRestoreArgs {
+    /// Runtime thread id that owns the workspace snapshot.
+    pub thread_id: String,
+
+    /// Workspace snapshot id to restore.
+    pub snapshot_id: String,
+
+    /// Canonical workspace restore request JSON object.
+    #[clap(long, conflicts_with = "request_file")]
+    pub request_json: Option<String>,
+
+    /// Path to a canonical workspace restore request JSON file.
     #[clap(long, conflicts_with = "request_json")]
     pub request_file: Option<PathBuf>,
 }
@@ -255,6 +296,58 @@ pub async fn run(args: RuntimeArgs) -> Result<()> {
                 .await?
             }
         },
+        RuntimeCommands::WorkspaceSnapshot { command } => match command {
+            WorkspaceSnapshotCommands::List(list_args) => {
+                daemon_request(
+                    endpoint,
+                    token,
+                    Method::GET,
+                    &workspace_snapshots_route(&list_args.thread_id),
+                    None,
+                )
+                .await?
+            }
+            WorkspaceSnapshotCommands::RestorePreview(restore_args) => {
+                let request = parse_optional_json_input(
+                    restore_args.request_json.as_deref(),
+                    restore_args.request_file.as_ref(),
+                    "workspace restore preview request",
+                    "--request-json",
+                    "--request-file",
+                )?;
+                daemon_request(
+                    endpoint,
+                    token,
+                    Method::POST,
+                    &workspace_snapshot_restore_preview_route(
+                        &restore_args.thread_id,
+                        &restore_args.snapshot_id,
+                    ),
+                    Some(workspace_restore_request_body(request)),
+                )
+                .await?
+            }
+            WorkspaceSnapshotCommands::RestoreApply(restore_args) => {
+                let request = parse_optional_json_input(
+                    restore_args.request_json.as_deref(),
+                    restore_args.request_file.as_ref(),
+                    "workspace restore apply request",
+                    "--request-json",
+                    "--request-file",
+                )?;
+                daemon_request(
+                    endpoint,
+                    token,
+                    Method::POST,
+                    &workspace_snapshot_restore_apply_route(
+                        &restore_args.thread_id,
+                        &restore_args.snapshot_id,
+                    ),
+                    Some(workspace_restore_request_body(request)),
+                )
+                .await?
+            }
+        },
     };
     print_value(&value, args.json)
 }
@@ -294,6 +387,29 @@ pub(crate) fn external_capability_exits_route(thread_id: &str) -> String {
     )
 }
 
+pub(crate) fn workspace_snapshots_route(thread_id: &str) -> String {
+    format!("/v1/threads/{}/snapshots", encode_path_segment(thread_id))
+}
+
+pub(crate) fn workspace_snapshot_restore_preview_route(
+    thread_id: &str,
+    snapshot_id: &str,
+) -> String {
+    format!(
+        "/v1/threads/{}/snapshots/{}/restore-preview",
+        encode_path_segment(thread_id),
+        encode_path_segment(snapshot_id)
+    )
+}
+
+pub(crate) fn workspace_snapshot_restore_apply_route(thread_id: &str, snapshot_id: &str) -> String {
+    format!(
+        "/v1/threads/{}/snapshots/{}/restore-apply",
+        encode_path_segment(thread_id),
+        encode_path_segment(snapshot_id)
+    )
+}
+
 fn worker_service_package_admission_body(invocation: Value) -> Value {
     json!({
         "source": "cli_client",
@@ -327,6 +443,33 @@ fn external_capability_authority_body(request: Value) -> Value {
         "source": "cli_client",
         "request": request,
     })
+}
+
+fn workspace_restore_request_body(request: Value) -> Value {
+    let mut body = match request {
+        Value::Object(map) => Value::Object(map),
+        _ => json!({}),
+    };
+    if let Value::Object(map) = &mut body {
+        map.insert(
+            "source".to_string(),
+            Value::String("cli_client".to_string()),
+        );
+    }
+    body
+}
+
+fn parse_optional_json_input(
+    inline: Option<&str>,
+    file: Option<&PathBuf>,
+    label: &str,
+    inline_flag: &str,
+    file_flag: &str,
+) -> Result<Value> {
+    match (inline, file) {
+        (None, None) => Ok(json!({})),
+        _ => parse_json_input(inline, file, label, inline_flag, file_flag),
+    }
 }
 
 fn parse_json_input(
@@ -417,6 +560,25 @@ mod tests {
         assert_eq!(
             external_capability_exits_route("thread/with spaces"),
             "/v1/threads/thread%2Fwith%20spaces/external-capability-exits"
+        );
+    }
+
+    #[test]
+    fn workspace_snapshot_routes_encode_ids() {
+        assert_eq!(
+            workspace_snapshots_route("thread/with spaces"),
+            "/v1/threads/thread%2Fwith%20spaces/snapshots"
+        );
+        assert_eq!(
+            workspace_snapshot_restore_preview_route(
+                "thread/with spaces",
+                "workspace/snapshot one"
+            ),
+            "/v1/threads/thread%2Fwith%20spaces/snapshots/workspace%2Fsnapshot%20one/restore-preview"
+        );
+        assert_eq!(
+            workspace_snapshot_restore_apply_route("thread/with spaces", "workspace/snapshot one"),
+            "/v1/threads/thread%2Fwith%20spaces/snapshots/workspace%2Fsnapshot%20one/restore-apply"
         );
     }
 
@@ -538,6 +700,51 @@ mod tests {
         assert!(body.get("exit_authorized").is_none());
         assert!(body.get("authority_hash").is_none());
         assert!(body.get("direct_truth_write_allowed").is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn workspace_restore_body_is_cli_request_only() -> Result<()> {
+        let request = serde_json::json!({
+            "workflow_graph_id": "workflow_restore",
+            "workflow_node_id": "node_restore",
+            "idempotency_key": "idem:workspace-restore-cli",
+            "approval_granted": true,
+            "allow_conflicts": false
+        });
+        let body = workspace_restore_request_body(request);
+
+        assert_eq!(
+            body.get("source"),
+            Some(&Value::String("cli_client".to_string()))
+        );
+        assert_eq!(
+            body.get("workflow_graph_id"),
+            Some(&Value::String("workflow_restore".to_string()))
+        );
+        assert!(body.get("restore_preview").is_none());
+        assert!(body.get("restore_apply").is_none());
+        assert!(body.get("operations").is_none());
+        assert!(body.get("policy_decision_refs").is_none());
+        assert!(body.get("accepted_receipt_append").is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn optional_workspace_restore_body_defaults_to_cli_source() -> Result<()> {
+        let body = workspace_restore_request_body(parse_optional_json_input(
+            None,
+            None,
+            "workspace restore request",
+            "--request-json",
+            "--request-file",
+        )?);
+
+        assert_eq!(
+            body.get("source"),
+            Some(&Value::String("cli_client".to_string()))
+        );
+        assert_eq!(body.as_object().map(|map| map.len()), Some(1));
         Ok(())
     }
 }

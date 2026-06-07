@@ -6011,6 +6011,30 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "workspace-restore-cli-surface",
+    /WorkspaceSnapshotCommands::List/.test(cliRuntime) &&
+      /WorkspaceSnapshotCommands::RestorePreview/.test(cliRuntime) &&
+      /WorkspaceSnapshotCommands::RestoreApply/.test(cliRuntime) &&
+      /workspace_snapshots_route/.test(cliRuntime) &&
+      /workspace_snapshot_restore_preview_route/.test(cliRuntime) &&
+      /workspace_snapshot_restore_apply_route/.test(cliRuntime) &&
+      /workspace_restore_request_body/.test(cliRuntime) &&
+      /"source":\s*"cli_client"/.test(cliRuntime) &&
+      /workspace_snapshot_routes_encode_ids/.test(cliRuntime) &&
+      /workspace_restore_body_is_cli_request_only/.test(cliRuntime) &&
+      /optional_workspace_restore_body_defaults_to_cli_source/.test(cliRuntime) &&
+      !/restore_preview:\s*/.test(cliRuntime) &&
+      !/restore_apply:\s*/.test(cliRuntime) &&
+      !/policy_decision_refs:\s*/.test(cliRuntime) &&
+      !/accepted_receipt_append:\s*/.test(cliRuntime),
+    [
+      "crates/cli/src/commands/runtime.rs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+    ],
+    "Phase 10/11 is pending: CLI workspace restore clients must call daemon snapshot restore routes without minting preview/apply truth locally",
+  );
+  assertCheck(
+    result,
     "worker-service-package-product-route",
     /createRuntimeWorkerServicePackageSurface/.test(runtimeDaemonIndex) &&
       /this\.workerServicePackageSurface/.test(runtimeDaemonIndex) &&
