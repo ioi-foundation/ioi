@@ -25,7 +25,7 @@ export function updateAgent(store, agentId, status, operationKind, deps = {}) {
       status: 500,
       code: "agent_status_state_update_planner_unavailable",
       message: "Agent status updates require Rust policy state-update planning.",
-      details: { agentId, status, operationKind },
+      details: { agent_id: agentId, status, operation_kind: operationKind },
     });
   }
   const stateUpdate = contextPolicyRunner.planAgentStatusStateUpdate({
@@ -40,7 +40,7 @@ export function updateAgent(store, agentId, status, operationKind, deps = {}) {
       status: 502,
       code: "agent_status_state_update_planner_invalid",
       message: "Rust agent status state planning did not return an agent record.",
-      details: { agentId, status, operationKind },
+      details: { agent_id: agentId, status, operation_kind: operationKind },
     });
   }
   const plannedOperationKind =
@@ -52,7 +52,7 @@ export function updateAgent(store, agentId, status, operationKind, deps = {}) {
       status: 502,
       code: "agent_status_state_update_operation_kind_missing",
       message: "Rust agent status state planning did not return an operation kind.",
-      details: { agentId, status, operationKind },
+      details: { agent_id: agentId, status, operation_kind: operationKind },
     });
   }
   if (plannedOperationKind !== operationKind) {
@@ -61,10 +61,10 @@ export function updateAgent(store, agentId, status, operationKind, deps = {}) {
       code: "agent_status_state_update_operation_kind_mismatch",
       message: "Rust agent status state planning returned an unexpected operation kind.",
       details: {
-        agentId,
+        agent_id: agentId,
         status,
-        expectedOperationKind: operationKind,
-        operationKind: plannedOperationKind,
+        expected_operation_kind: operationKind,
+        operation_kind: plannedOperationKind,
       },
     });
   }

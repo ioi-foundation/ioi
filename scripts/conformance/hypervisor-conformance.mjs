@@ -5214,7 +5214,18 @@ function runBridge() {
       /contextPolicyRunner\.planAgentStatusStateUpdate/.test(threadStore) &&
       /agent_status_state_update_operation_kind_missing/.test(threadStore) &&
       /agent_status_state_update_operation_kind_mismatch/.test(threadStore) &&
+      /details:\s*\{\s*agent_id:\s*agentId,\s*status,\s*operation_kind:\s*operationKind\s*\}/.test(
+        threadStore,
+      ) &&
+      /expected_operation_kind:\s*operationKind/.test(threadStore) &&
+      /assertNoRetiredAgentStatusDetailAliases\(error\.details\)/.test(threadStoreTest) &&
+      /thread store fails closed without Rust status planner/.test(threadStoreTest) &&
+      /error\.details\.agent_id/.test(threadStoreTest) &&
+      /error\.details\.expected_operation_kind/.test(threadStoreTest) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*operationKind/.test(threadStore) &&
+      !/details:\s*\{[^}\n]*\b(?:agentId|operationKind|expectedOperationKind)\s*:/.test(
+        threadStore,
+      ) &&
       !/store\.agents\.set\(agent\.id,\s*agent\)|store\.runs\.set\(runtimeRun\.id,\s*runtimeRun\)/.test(
         runtimeAgentRunLifecycle,
       ) &&
