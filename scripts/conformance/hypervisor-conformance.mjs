@@ -7883,9 +7883,30 @@ function runReceipts() {
       /endpoint_id:\s*endpoint\.id/.test(artifactEndpointReceiptBlocks) &&
       /endpoint_id:\s*endpointId/.test(artifactEndpointReceiptBlocks) &&
       /load_policy:\s*endpoint\.loadPolicy/.test(artifactEndpointReceiptBlocks) &&
+      /commitModelArtifactRecordState/.test(artifactEndpointOperations) &&
+      /commitModelEndpointRecordState/.test(artifactEndpointOperations) &&
+      /recordDir:\s*"model-artifacts"/.test(artifactEndpointOperations) &&
+      /recordDir:\s*"model-endpoints"/.test(artifactEndpointOperations) &&
+      /model_mount\.artifact\.import/.test(artifactEndpointOperations) &&
+      /model_mount\.endpoint\.mount/.test(artifactEndpointOperations) &&
+      /model_mount\.endpoint\.unmount/.test(artifactEndpointOperations) &&
+      /model_mount_artifact_state_commit_unconfigured/.test(artifactEndpointOperations) &&
+      /model_mount_endpoint_state_commit_unconfigured/.test(artifactEndpointOperations) &&
+      !/state\.writeMap\("model-artifacts"/.test(artifactEndpointOperations) &&
+      !/state\.writeMap\("model-endpoints"/.test(artifactEndpointOperations) &&
       !/\b(?:artifactId|modelId|providerId|sourcePathHash|targetPathHash|importMode|artifactPathHash|endpointId|loadPolicy)\s*:/.test(
         artifactEndpointReceiptBlocks,
       ) &&
+      /recordStateCommits/.test(artifactEndpointOperationsTest) &&
+      /model import fails closed without Rust Agentgres artifact record-state commit/.test(
+        artifactEndpointOperationsTest,
+      ) &&
+      /mount endpoint fails closed without Rust Agentgres endpoint record-state commit/.test(
+        artifactEndpointOperationsTest,
+      ) &&
+      /model_mount\.artifact\.import/.test(artifactEndpointOperationsTest) &&
+      /model_mount\.endpoint\.mount/.test(artifactEndpointOperationsTest) &&
+      /model_mount\.endpoint\.unmount/.test(artifactEndpointOperationsTest) &&
       /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"sourcePathHash"\),\s*false/.test(
         artifactEndpointOperationsTest,
       ) &&

@@ -1,3 +1,5 @@
+import { commitModelMountRecordState } from "./record-state-commits.mjs";
+
 const RETIRED_MODEL_IMPORT_REQUEST_ALIASES = [
   "modelId",
   "sourcePath",
@@ -110,9 +112,7 @@ export function importModel(state, body = {}, deps = {}) {
     state: "installed",
     discoveredAt: now,
   };
-  state.artifacts.set(artifact.id, artifact);
-  state.writeMap("model-artifacts", state.artifacts);
-  state.lifecycleReceipt("model_import", {
+  const receipt = state.lifecycleReceipt("model_import", {
     artifact_id: artifact.id,
     model_id: artifact.modelId,
     provider_id: artifact.providerId,
@@ -122,8 +122,12 @@ export function importModel(state, body = {}, deps = {}) {
     import_mode: importMode,
     checksum: artifact.checksum,
   });
+  commitModelArtifactRecordState(state, { ...artifact, receiptId: receipt.id }, "model_mount.artifact.import", [
+    receipt.id,
+  ]);
+  state.artifacts.set(artifact.id, { ...artifact, receiptId: receipt.id });
   state.writeProjection();
-  return artifact;
+  return { ...artifact, receiptId: receipt.id };
 }
 
 export function mountEndpoint(state, body = {}, deps = {}) {
@@ -170,15 +174,17 @@ export function mountEndpoint(state, body = {}, deps = {}) {
     status: "mounted",
     mountedAt: now,
   };
-  state.endpoints.set(endpoint.id, endpoint);
-  state.writeMap("model-endpoints", state.endpoints);
-  state.lifecycleReceipt("model_mount", {
+  const receipt = state.lifecycleReceipt("model_mount", {
     endpoint_id: endpoint.id,
     model_id: endpoint.modelId,
     provider_id: endpoint.providerId,
     load_policy: endpoint.loadPolicy,
   });
-  return endpoint;
+  commitModelEndpointRecordState(state, { ...endpoint, receiptId: receipt.id }, "model_mount.endpoint.mount", [
+    receipt.id,
+  ]);
+  state.endpoints.set(endpoint.id, { ...endpoint, receiptId: receipt.id });
+  return { ...endpoint, receiptId: receipt.id };
 }
 
 export function unmountEndpoint(state, body = {}, deps = {}) {
@@ -191,14 +197,51 @@ export function unmountEndpoint(state, body = {}, deps = {}) {
     status: "unmounted",
     unmountedAt: state.nowIso(),
   };
-  state.endpoints.set(endpointId, updated);
-  state.writeMap("model-endpoints", state.endpoints);
-  state.lifecycleReceipt("model_unmount", {
+  const receipt = state.lifecycleReceipt("model_unmount", {
     endpoint_id: endpointId,
     model_id: endpoint.modelId,
     provider_id: endpoint.providerId,
   });
-  return updated;
+  commitModelEndpointRecordState(
+    state,
+    { ...updated, receiptId: receipt.id },
+    "model_mount.endpoint.unmount",
+    [receipt.id],
+  );
+  state.endpoints.set(endpointId, { ...updated, receiptId: receipt.id });
+  return { ...updated, receiptId: receipt.id };
+}
+
+function commitModelArtifactRecordState(state, record, operationKind, receiptRefs) {
+  return commitModelMountRecordState(state, {
+    recordDir: "model-artifacts",
+    record,
+    operationKind,
+    receiptRefs,
+    unconfiguredCode: "model_mount_artifact_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Model artifact persistence requires Rust Agentgres record-state commit.",
+    unconfiguredDetails: {
+      artifact_id: record?.id ?? null,
+      model_id: record?.modelId ?? null,
+    },
+  });
+}
+
+function commitModelEndpointRecordState(state, record, operationKind, receiptRefs) {
+  return commitModelMountRecordState(state, {
+    recordDir: "model-endpoints",
+    record,
+    operationKind,
+    receiptRefs,
+    unconfiguredCode: "model_mount_endpoint_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Model endpoint persistence requires Rust Agentgres record-state commit.",
+    unconfiguredDetails: {
+      endpoint_id: record?.id ?? null,
+      model_id: record?.modelId ?? null,
+    },
+  });
 }
 
 function assertCanonicalModelImportRequestBody(body = {}) {

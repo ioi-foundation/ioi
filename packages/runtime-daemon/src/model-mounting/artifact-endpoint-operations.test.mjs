@@ -12,6 +12,7 @@ function fakeState() {
     artifacts: new Map(),
     endpoints: new Map(),
     modelRoot: "/models",
+    recordStateCommits: [],
     receipts: [],
     writes: [],
     projections: 0,
@@ -57,6 +58,24 @@ function fakeState() {
     },
     writeMap(name, map) {
       this.writes.push([name, [...map.values()].map((record) => ({ ...record }))]);
+    },
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(JSON.parse(JSON.stringify(request)));
+      return {
+        record_id: request.record_id,
+        object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+        content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+        admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+        commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+          admission: {
+            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+          },
+        },
+      };
     },
     writeProjection() {
       this.projections += 1;
@@ -232,8 +251,14 @@ test("model import materializes local artifacts and writes projection", () => {
   assert.equal(artifact.artifactPath, "/models/llama-test/model.gguf");
   assert.deepEqual(artifact.capabilities, ["chat", "embeddings"]);
   assert.equal(artifact.backendRegistry[0].id, "backend.native");
-  assert.equal(state.artifacts.get(artifact.id), artifact);
-  assert.equal(state.writes.at(-1)[0], "model-artifacts");
+  assert.equal(state.artifacts.get(artifact.id).receiptId, "receipt.model_import.1");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
+  assert.equal(state.recordStateCommits[0].record_dir, "model-artifacts");
+  assert.equal(state.recordStateCommits[0].record_id, "import.llama_test");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.artifact.import");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.model_import.1"]);
   assert.equal(state.receipts.at(-1).kind, "model_import");
   assert.equal(state.receipts.at(-1).details.artifact_id, "import.llama_test");
   assert.equal(state.receipts.at(-1).details.model_id, "llama-test");
@@ -248,6 +273,30 @@ test("model import materializes local artifacts and writes projection", () => {
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "sourcePathHash"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "importMode"), false);
   assert.equal(state.projections, 1);
+});
+
+test("model import fails closed without Rust Agentgres artifact record-state commit", () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+
+  assert.throws(
+    () =>
+      importModel(
+        state,
+        { model_id: "llama-test", path: "/tmp/model.gguf", import_mode: "copy" },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.code, "model_mount_artifact_state_commit_unconfigured");
+      assert.equal(error.details.artifact_id, "import.llama_test");
+      assert.equal(error.details.record_dir, "model-artifacts");
+      return true;
+    },
+  );
+
+  assert.equal(state.artifacts.size, 0);
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.projections, 0);
 });
 
 test("mount endpoint rejects retired request aliases before provider lookup", () => {
@@ -329,7 +378,11 @@ test("mount endpoint derives provider, artifact, backend, load policy, and recei
   assert.equal(endpoint.baseUrl, "local://ioi-daemon/model-fixture");
   assert.equal(endpoint.backendId, "backend.native");
   assert.deepEqual(endpoint.loadPolicy, { mode: "resident" });
-  assert.equal(state.endpoints.get(endpoint.id), endpoint);
+  assert.equal(state.endpoints.get(endpoint.id).receiptId, "receipt.model_mount.1");
+  assert.equal(state.recordStateCommits.at(-1).record_dir, "model-endpoints");
+  assert.equal(state.recordStateCommits.at(-1).record_id, "endpoint.provider_fixture.llama_test");
+  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.endpoint.mount");
+  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, ["receipt.model_mount.1"]);
   assert.equal(state.receipts.at(-1).kind, "model_mount");
   assert.equal(state.receipts.at(-1).details.endpoint_id, "endpoint.provider_fixture.llama_test");
   assert.equal(state.receipts.at(-1).details.model_id, "llama-test");
@@ -390,6 +443,30 @@ test("mount endpoint validates explicit model id and supports provider mount fal
   assert.equal(endpoint.baseUrl, "http://127.0.0.1:8080/v1");
 });
 
+test("mount endpoint fails closed without Rust Agentgres endpoint record-state commit", () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+  state.artifacts.set("artifact.llama", {
+    id: "artifact.llama",
+    providerId: "provider.fixture",
+    modelId: "llama-test",
+    capabilities: ["chat"],
+  });
+
+  assert.throws(
+    () => mountEndpoint(state, { model_id: "llama-test", load_policy: "resident" }, deps),
+    (error) => {
+      assert.equal(error.code, "model_mount_endpoint_state_commit_unconfigured");
+      assert.equal(error.details.endpoint_id, "endpoint.provider_fixture.llama_test");
+      assert.equal(error.details.record_dir, "model-endpoints");
+      return true;
+    },
+  );
+
+  assert.equal(state.endpoints.size, 0);
+  assert.deepEqual(state.writes, []);
+});
+
 test("unmount endpoint updates status and emits receipt", () => {
   const state = fakeState();
   state.endpoints.set("endpoint.a", {
@@ -404,7 +481,11 @@ test("unmount endpoint updates status and emits receipt", () => {
   assert.equal(result.status, "unmounted");
   assert.equal(result.unmountedAt, state.now);
   assert.equal(state.endpoints.get("endpoint.a").status, "unmounted");
-  assert.equal(state.writes.at(-1)[0], "model-endpoints");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.at(-1).record_dir, "model-endpoints");
+  assert.equal(state.recordStateCommits.at(-1).record_id, "endpoint.a");
+  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.endpoint.unmount");
+  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, ["receipt.model_unmount.1"]);
   assert.equal(state.receipts.at(-1).kind, "model_unmount");
   assert.equal(state.receipts.at(-1).details.endpoint_id, "endpoint.a");
   assert.equal(state.receipts.at(-1).details.model_id, "llama-test");
