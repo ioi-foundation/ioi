@@ -76,6 +76,9 @@ Matrix compaction timing:
 - When that seam becomes clear during goal resumption, perform the scheduled
   matrix-compaction pass before moving into unrelated route-family work; do not
   let context compaction demote this to optional evidence pruning.
+- Future-resumption trigger: after the next slice names the concrete Rust-core
+  owner or facade-retirement boundary it is migrating, perform the scheduled
+  matrix-compaction pass before starting a new unrelated route-family slice.
 - First scheduled pass completed on 2026-06-07: the historical append-only
   evidence after the route-family owner map was compacted into route-family
   ranges while preserving the live owner map, terminal blockers,

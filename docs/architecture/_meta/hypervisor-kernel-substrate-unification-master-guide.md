@@ -280,7 +280,10 @@ resume-goal obligation, not an optional docs cleanup: when that seam becomes
 clear during goal resumption, carry out the scheduled matrix-compaction pass
 before continuing into unrelated route-family work. Next scheduled
 matrix-compaction pass: pending the next clear Rust-core extraction or
-facade-retirement seam.
+facade-retirement seam. Trigger condition for future resumptions: once the next
+slice has named the concrete Rust-core owner or facade-retirement boundary it is
+migrating, schedule and perform the matrix-compaction pass before starting a new
+unrelated route-family slice.
 
 ## Part II: Target Execution Model
 
