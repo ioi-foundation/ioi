@@ -86,7 +86,7 @@ export function createRuntimeL1SettlementControlRequest(
   assertNoRetiredL1SettlementControlInputAliases(params);
   const threadId =
     cleanString(params.threadId) ??
-    stringAtPath(params.input, params.threadIdField ?? "threadId") ??
+    stringAtPath(params.input, params.threadIdField ?? "thread_id") ??
     stringAtPath(params.input, "thread_id");
   if (!threadId) {
     throw new Error("L1 settlement controls need a threadId input before dispatch.");
@@ -96,45 +96,43 @@ export function createRuntimeL1SettlementControlRequest(
     objectRecord(params.attempt) ??
     objectAtPath(params.input, params.attemptField ?? "attempt") ??
     objectAtPath(params.input, "settlement_attempt") ??
-    objectAtPath(params.input, "settlementAttempt") ??
     {};
   const schemaVersion =
     cleanString(attemptSeed.schema_version) ??
-    cleanString(attemptSeed.schemaVersion) ??
     RUNTIME_L1_SETTLEMENT_ATTEMPT_SCHEMA_VERSION;
   const settlementRef = requiredString(
     cleanString(params.settlementRef) ??
-      stringField(attemptSeed, "settlement_ref", "settlementRef") ??
+      stringField(attemptSeed, "settlement_ref") ??
       stringAtPath(params.input, "settlement_ref") ??
-      stringAtPath(params.input, "settlementRef"),
+      null,
     "settlement_ref",
   );
   const domainRef = requiredString(
     cleanString(params.domainRef) ??
-      stringField(attemptSeed, "domain_ref", "domainRef") ??
+      stringField(attemptSeed, "domain_ref") ??
       stringAtPath(params.input, "domain_ref") ??
-      stringAtPath(params.input, "domainRef"),
+      null,
     "domain_ref",
   );
   const stateRootRef = requiredString(
     cleanString(params.stateRootRef) ??
-      stringField(attemptSeed, "state_root_ref", "stateRootRef") ??
+      stringField(attemptSeed, "state_root_ref") ??
       stringAtPath(params.input, "state_root_ref") ??
-      stringAtPath(params.input, "stateRootRef"),
+      null,
     "state_root_ref",
   );
   const triggerRefs = requiredStringArray(
     params.triggerRefs ??
-      stringArrayField(attemptSeed, "trigger_refs", "triggerRefs") ??
+      stringArrayField(attemptSeed, "trigger_refs") ??
       stringArrayAtPath(params.input, "trigger_refs") ??
-      stringArrayAtPath(params.input, "triggerRefs"),
+      null,
     "trigger_refs",
   );
   const receiptRefs = requiredStringArray(
     params.receiptRefs ??
-      stringArrayField(attemptSeed, "receipt_refs", "receiptRefs") ??
+      stringArrayField(attemptSeed, "receipt_refs") ??
       stringArrayAtPath(params.input, "receipt_refs") ??
-      stringArrayAtPath(params.input, "receiptRefs"),
+      null,
     "receipt_refs",
   );
   const workflowGraphId = cleanString(params.workflow_graph_id) ?? null;
@@ -197,7 +195,7 @@ export function createRuntimeL1SettlementControlRequestFromWorkflowNode(
   return createRuntimeL1SettlementControlRequest({
     nodeId: node.id,
     input,
-    threadIdField: "threadId",
+    threadIdField: "thread_id",
     attempt,
     workflow_graph_id: options.workflow_graph_id,
     workflow_node_id:

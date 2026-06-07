@@ -8740,6 +8740,31 @@ function runBridge() {
         l1SettlementControlNodesTest,
       ) &&
       /L1 settlement controls fail closed without trigger refs/.test(l1SettlementControlNodesTest) &&
+      /L1 settlement controls ignore retired attempt aliases/.test(
+        l1SettlementControlNodesTest,
+      ) &&
+      /L1 settlement controls read canonical raw input fields/.test(
+        l1SettlementControlNodesTest,
+      ) &&
+      /stringField\(attemptSeed,\s*"settlement_ref"\)/.test(l1SettlementControlNodes) &&
+      /stringField\(attemptSeed,\s*"domain_ref"\)/.test(l1SettlementControlNodes) &&
+      /stringField\(attemptSeed,\s*"state_root_ref"\)/.test(l1SettlementControlNodes) &&
+      /stringArrayField\(attemptSeed,\s*"trigger_refs"\)/.test(
+        l1SettlementControlNodes,
+      ) &&
+      /stringArrayField\(attemptSeed,\s*"receipt_refs"\)/.test(
+        l1SettlementControlNodes,
+      ) &&
+      !/objectAtPath\(params\.input,\s*"settlementAttempt"\)/.test(
+        l1SettlementControlNodes,
+      ) &&
+      !/cleanString\(attemptSeed\.schemaVersion\)/.test(l1SettlementControlNodes) &&
+      !/(?:stringField|stringArrayField)\(attemptSeed,\s*"[^"]+",\s*"(?:settlementRef|domainRef|stateRootRef|triggerRefs|receiptRefs)"\)/.test(
+        l1SettlementControlNodes,
+      ) &&
+      !/stringAtPath\(params\.input,\s*"(?:settlementRef|domainRef|stateRootRef|triggerRefs|receiptRefs)"\)/.test(
+        l1SettlementControlNodes,
+      ) &&
       /createRuntimeL1SettlementControlRequest/.test(agentIdeIndex) &&
       /RuntimeL1SettlementControlRequest/.test(graphRuntimeTypes),
     [

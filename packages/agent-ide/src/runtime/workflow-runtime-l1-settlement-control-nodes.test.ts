@@ -84,7 +84,7 @@ test("builds L1 settlement controls from workflow nodes", () => {
         },
       } as any,
     },
-    { threadId: "thread-node" },
+    { thread_id: "thread-node" },
     { workflow_graph_id: "workflow.l1-node", actor: "runtime-composer" },
   );
 
@@ -128,6 +128,51 @@ test("L1 settlement workflow node options reject retired workflow graph input al
       ),
     /retired control input aliases/,
   );
+});
+
+test("L1 settlement controls ignore retired attempt aliases", () => {
+  const aliasOnlyAttempt = {
+    schemaVersion: "ioi.l1_settlement_admission.v1",
+    settlementRef: "l1://settlement/retired",
+    domainRef: "domain://retired",
+    stateRootRef: "state-root://retired",
+    triggerRefs: ["l1-trigger://retired"],
+    receiptRefs: ["receipt://retired"],
+  };
+
+  assert.throws(
+    () =>
+      createRuntimeL1SettlementControlRequest({
+        threadId: "thread-ide",
+        attempt: aliasOnlyAttempt as any,
+      }),
+    /settlement_ref/,
+  );
+
+  assert.throws(
+    () =>
+      createRuntimeL1SettlementControlRequest({
+        input: {
+          thread_id: "thread-ide",
+          settlementAttempt: settlementAttempt(),
+        },
+      }),
+    /settlement_ref/,
+  );
+});
+
+test("L1 settlement controls read canonical raw input fields", () => {
+  const request = createRuntimeL1SettlementControlRequest({
+    input: {
+      thread_id: "thread-canonical-input",
+      settlement_attempt: settlementAttempt(),
+    },
+  });
+
+  assert.equal(request.threadId, "thread-canonical-input");
+  assert.equal(request.body.settlement_ref, "l1://settlement/marketplace-payment");
+  assert.deepEqual(request.body.trigger_refs, ["l1-trigger://service-contract/payment"]);
+  assert.deepEqual(request.body.receipt_refs, ["receipt://local-settlement/payment"]);
 });
 
 test("L1 settlement controls fail closed without trigger refs", () => {
