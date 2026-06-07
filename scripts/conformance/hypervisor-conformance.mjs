@@ -19868,6 +19868,95 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-hunk-decision-proposal-bridge-aliases-retired",
+    /const approvalId =\s*\n\s*stringField\(proposalEvent,\s*"approval_id"\) \?\?\s*\n\s*stringField\(proposalPayload,\s*"approval_id"\);/.test(
+      agentIdeHunkDecisionReceiptPanel,
+    ) &&
+      /const threadId = stringField\(proposalEvent,\s*"thread_id"\);/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /const workflowGraphId =\s*\n\s*stringField\(proposalEvent,\s*"workflow_graph_id"\) \?\?\s*\n\s*stringField\(proposalPayload,\s*"workflow_graph_id"\);/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /const workflowNodeId =\s*\n\s*stringField\(proposalEvent,\s*"workflow_node_id"\) \?\?\s*\n\s*stringField\(proposalPayload,\s*"workflow_node_id"\);/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /stringField\(proposalPayload,\s*"workflow_relative_path"\) \?\?\s*\n\s*stringField\(proposalPayload,\s*"workflow_path"\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /const patchHash = stringField\(proposalPayload,\s*"patch_hash"\);/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /const codeDiff = stringField\(proposalPayload,\s*"code_diff"\);/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /arrayField\(proposalPayload,\s*"target_workflow_node_ids"\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /arrayField\(proposalPayload,\s*"bounded_targets"\)/.test(agentIdeHunkDecisionReceiptPanel) &&
+      /bridgeRequestType: stringField\(bridgeDecision,\s*"request_type"\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /bridgeOwnsRuntimeState: booleanField\(objectField\(bridgeDecision,\s*"payload"\),\s*"owns_runtime_state"\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /const proposalEventId = stringField\(payload,\s*"proposal_event_id"\);/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /stringField\(event,\s*"approval_id"\) \?\?\s*\n\s*stringField\(payloadForEvent\(event\),\s*"approval_id"\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /stringField\(value,\s*"request_type"\)/.test(agentIdeHunkDecisionReceiptPanel) &&
+      /stringField\(payload,\s*"approval_id"\) \?\? stringField\(value,\s*"approval_id"\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /stringField\(payload,\s*"proposal_id"\) \?\? stringField\(value,\s*"proposal_id"\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /stringField\(payload,\s*"hunk_file",\s*"file_path",\s*"file"\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /numberField\(payload,\s*"hunk_index"\) \?\? numberField\(value,\s*"hunk_index"\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /const valueProposalId = stringField\(value,\s*"proposal_id"\);/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /const valueApprovalId = stringField\(value,\s*"approval_id"\);/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /return stringField\(payloadForEvent\(event\),\s*"proposal_id"\);/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      !/stringField\((?:proposalEvent|proposalPayload|payload|value|event|payloadForEvent\(event\)|bridgeDecision),[^)]*"(?:approvalId|threadId|turnId|workflowGraphId|workflowNodeId|workflowRelativePath|workflowPath|patchHash|codeDiff|proposalEventId|requestType|proposalId|hunkFile|filePath)"[^)]*\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      !/arrayField\(proposalPayload,[^)]*"(?:targetWorkflowNodeIds|boundedTargets)"[^)]*\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      !/numberField\((?:payload|value),[^)]*"hunkIndex"[^)]*\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      !/booleanField\(objectField\(bridgeDecision,\s*"payload"\),[^)]*"ownsRuntimeState"[^)]*\)/.test(
+        agentIdeHunkDecisionReceiptPanel,
+      ) &&
+      /hunk decision receipt panel uses canonical proposal and bridge metadata/.test(
+        agentIdeHunkDecisionReceiptPanelTest,
+      ) &&
+      /hunk decision receipt panel ignores retired proposal and bridge aliases/.test(
+        agentIdeHunkDecisionReceiptPanelTest,
+      ) &&
+      /codeDiff: \[/.test(agentIdeHunkDecisionReceiptPanelTest) &&
+      /requestType: "chat\.hunkDecision"/.test(agentIdeHunkDecisionReceiptPanelTest) &&
+      /assert\.equal\(panel\.hunkCount,\s*0\)/.test(agentIdeHunkDecisionReceiptPanelTest),
+    [
+      "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE hunk-decision receipt panel proposal and bridge metadata must ignore retired camelCase aliases",
+  );
+  assertCheck(
+    result,
     "ide-terminal-stream-card-aliases-retired",
     /stringField\(event,\s*"event_kind",\s*"type"\)/.test(agentIdeTerminalStreamCard) &&
       /stringField\(objectField\(event,\s*"payload_summary",\s*"payload"\),\s*"event_kind"\)/.test(

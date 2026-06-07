@@ -142,23 +142,23 @@ function rowsForProposal({
   const proposalPayload = payloadForEvent(proposalEvent);
   const proposalId = proposalIdForEvent(proposalEvent);
   const approvalId =
-    stringField(proposalEvent, "approvalId", "approval_id") ??
-    stringField(proposalPayload, "approvalId", "approval_id");
-  const threadId = stringField(proposalEvent, "threadId", "thread_id");
+    stringField(proposalEvent, "approval_id") ??
+    stringField(proposalPayload, "approval_id");
+  const threadId = stringField(proposalEvent, "thread_id");
   const workflowGraphId =
-    stringField(proposalEvent, "workflowGraphId", "workflow_graph_id") ??
-    stringField(proposalPayload, "workflowGraphId", "workflow_graph_id");
+    stringField(proposalEvent, "workflow_graph_id") ??
+    stringField(proposalPayload, "workflow_graph_id");
   const workflowNodeId =
-    stringField(proposalEvent, "workflowNodeId", "workflow_node_id") ??
-    stringField(proposalPayload, "workflowNodeId", "workflow_node_id");
+    stringField(proposalEvent, "workflow_node_id") ??
+    stringField(proposalPayload, "workflow_node_id");
   const workflowRelativePath =
-    stringField(proposalPayload, "workflowRelativePath", "workflow_relative_path") ??
-    stringField(proposalPayload, "workflowPath", "workflow_path");
-  const patchHash = stringField(proposalPayload, "patchHash", "patch_hash");
-  const codeDiff = stringField(proposalPayload, "codeDiff", "code_diff");
+    stringField(proposalPayload, "workflow_relative_path") ??
+    stringField(proposalPayload, "workflow_path");
+  const patchHash = stringField(proposalPayload, "patch_hash");
+  const codeDiff = stringField(proposalPayload, "code_diff");
   const targetWorkflowNodeIds = uniqueStrings([
-    ...arrayField(proposalPayload, "targetWorkflowNodeIds", "target_workflow_node_ids"),
-    ...arrayField(proposalPayload, "boundedTargets", "bounded_targets"),
+    ...arrayField(proposalPayload, "target_workflow_node_ids"),
+    ...arrayField(proposalPayload, "bounded_targets"),
   ]);
   const hunks = parseUnifiedDiff(codeDiff ?? "", workflowRelativePath);
   const approvalDecisionEvent = latestEvent(events, (event) =>
@@ -194,7 +194,7 @@ function rowsForProposal({
       proposalId,
       approvalId,
       threadId,
-      turnId: stringField(proposalEvent, "turnId", "turn_id"),
+      turnId: stringField(proposalEvent, "turn_id"),
       workflowGraphId,
       workflowNodeId,
       targetWorkflowNodeIds,
@@ -209,8 +209,8 @@ function rowsForProposal({
       removedLineCount: hunk.removedLineCount,
       previewLines: hunk.previewLines,
       decision,
-      bridgeRequestType: stringField(bridgeDecision, "requestType", "request_type"),
-      bridgeOwnsRuntimeState: booleanField(objectField(bridgeDecision, "payload"), "ownsRuntimeState", "owns_runtime_state"),
+      bridgeRequestType: stringField(bridgeDecision, "request_type"),
+      bridgeOwnsRuntimeState: booleanField(objectField(bridgeDecision, "payload"), "owns_runtime_state"),
       proposalEventId: eventId(proposalEvent),
       approvalDecisionEventId: eventId(approvalDecisionEvent),
       applyEventId: eventId(applyEvent),
@@ -344,7 +344,7 @@ function isWorkflowEditApplyEvent(
   }
   const payload = payloadForEvent(event);
   const eventProposalId = proposalIdForEvent(event);
-  const proposalEventId = stringField(payload, "proposalEventId", "proposal_event_id");
+  const proposalEventId = stringField(payload, "proposal_event_id");
   return (
     (!proposalId || eventProposalId === proposalId) &&
     (!proposalEventId || proposalEventId === eventId(proposalEvent))
@@ -362,8 +362,8 @@ function isApprovalDecisionEvent(
     return false;
   }
   const eventApprovalId =
-    stringField(event, "approvalId", "approval_id") ??
-    stringField(payloadForEvent(event), "approvalId", "approval_id");
+    stringField(event, "approval_id") ??
+    stringField(payloadForEvent(event), "approval_id");
   return !approvalId || eventApprovalId === approvalId;
 }
 
@@ -396,15 +396,15 @@ function matchingBridgeDecision(
       .filter((value): value is Record<string, unknown> => Boolean(value))
       .find((value) => {
         const payload = objectField(value, "payload");
-        if (stringField(value, "requestType", "request_type") && stringField(value, "requestType", "request_type") !== "chat.hunkDecision") {
+        if (stringField(value, "request_type") && stringField(value, "request_type") !== "chat.hunkDecision") {
           return false;
         }
-        const approvalId = stringField(payload, "approvalId", "approval_id") ?? stringField(value, "approvalId", "approval_id");
-        const proposalId = stringField(payload, "proposalId", "proposal_id") ?? stringField(value, "proposalId", "proposal_id");
+        const approvalId = stringField(payload, "approval_id") ?? stringField(value, "approval_id");
+        const proposalId = stringField(payload, "proposal_id") ?? stringField(value, "proposal_id");
         const hunkFile =
-          stringField(payload, "hunkFile", "hunk_file", "filePath", "file_path", "file") ??
-          stringField(value, "hunkFile", "hunk_file", "filePath", "file_path", "file");
-        const hunkIndex = numberField(payload, "hunkIndex", "hunk_index") ?? numberField(value, "hunkIndex", "hunk_index");
+          stringField(payload, "hunk_file", "file_path", "file") ??
+          stringField(value, "hunk_file", "file_path", "file");
+        const hunkIndex = numberField(payload, "hunk_index") ?? numberField(value, "hunk_index");
         return (
           (!match.approvalId || !approvalId || approvalId === match.approvalId) &&
           (!match.proposalId || !proposalId || proposalId === match.proposalId) &&
@@ -427,8 +427,8 @@ function latestApplyResult(
       .filter((value): value is Record<string, unknown> => Boolean(value))
       .reverse()
       .find((value) => {
-        const valueProposalId = stringField(value, "proposalId", "proposal_id");
-        const valueApprovalId = stringField(value, "approvalId", "approval_id");
+        const valueProposalId = stringField(value, "proposal_id");
+        const valueApprovalId = stringField(value, "approval_id");
         return (
           stringField(value, "status") === status &&
           (!proposalId || !valueProposalId || valueProposalId === proposalId) &&
@@ -446,7 +446,7 @@ function latestEvent(
 }
 
 function proposalIdForEvent(event: WorkflowRuntimeThreadEventLike | null): string | null {
-  return stringField(payloadForEvent(event), "proposalId", "proposal_id");
+  return stringField(payloadForEvent(event), "proposal_id");
 }
 
 function payloadForEvent(event: WorkflowRuntimeThreadEventLike | null): Record<string, unknown> {

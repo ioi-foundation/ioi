@@ -13366,6 +13366,12 @@ frames now read canonical `observation_bundle`, `target_index`,
 so retired camelCase bundles and artifact refs cannot make old computer-use
 payloads look observation-backed, target-backed, or artifact-backed.
 
+Slice 526 retires IDE hunk-decision proposal and bridge aliases: the
+hunk-decision receipt panel now reads canonical proposal, approval, workflow,
+diff, target, bridge-decision, hunk-match, and blocked-apply metadata only, so
+retired camelCase request and payload aliases cannot create hunk rows, match
+bridge receipts, or construct approval/apply endpoints.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
