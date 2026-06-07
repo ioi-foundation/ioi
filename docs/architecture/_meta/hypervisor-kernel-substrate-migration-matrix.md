@@ -13347,6 +13347,12 @@ read canonical command-stream event and payload fields such as `event_kind`,
 `is_final`, `receipt_refs`, and `artifact_refs` only, so retired camelCase
 command-stream aliases cannot create terminal output or evidence rows.
 
+Slice 523 retires IDE computer-use replay evidence aliases: computer-use replay
+timeline frames now read canonical `receipt_refs`, `policy_decision_refs`,
+`artifact_refs`, and `computer_use_policy_decision_ref` evidence inputs only, so
+retired camelCase evidence aliases cannot make replay frames look receipt-backed,
+policy-backed, or artifact-backed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

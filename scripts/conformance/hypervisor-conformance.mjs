@@ -19528,6 +19528,54 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-computer-use-replay-evidence-aliases-retired",
+    /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeComputerUseReplayTimeline) &&
+      /arrayField\(payload,\s*"receipt_refs"\)/.test(agentIdeComputerUseReplayTimeline) &&
+      /arrayField\(event,\s*"policy_decision_refs"\)/.test(agentIdeComputerUseReplayTimeline) &&
+      /arrayField\(payload,\s*"policy_decision_refs"\)/.test(agentIdeComputerUseReplayTimeline) &&
+      /arrayField\(event,\s*"artifact_refs"\)/.test(agentIdeComputerUseReplayTimeline) &&
+      /policyDecisionRef:\s*stringField\(payload,\s*"computer_use_policy_decision_ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/arrayField\((?:event|payload),\s*"receipt_refs",\s*"receiptRefs"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/arrayField\((?:event|payload),\s*"policy_decision_refs",\s*"policyDecisionRefs"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/arrayField\(event,\s*"artifact_refs",\s*"artifactRefs"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_policy_decision_ref",\s*"computerUsePolicyDecisionRef"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /retiredEvidenceAliasTimeline/.test(computerUseReplayTimelineProof) &&
+      /receiptRefs:\s*\["receipt-retired-event-alias"\]/.test(computerUseReplayTimelineProof) &&
+      /policyDecisionRefs:\s*\["policy-retired-event-alias"\]/.test(computerUseReplayTimelineProof) &&
+      /artifactRefs:\s*\["artifact-retired-event-alias"\]/.test(computerUseReplayTimelineProof) &&
+      /computerUsePolicyDecisionRef:\s*"policy-retired-scalar-alias"/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredEvidenceAliasTimeline\.frames\[0\]\?\.policyDecisionRef,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredEvidenceAliasTimeline\.frames\[0\]\?\.receiptRefs,\s*\[\]/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredEvidenceAliasTimeline\.frames\[0\]\?\.policyDecisionRefs,\s*\[\]/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredEvidenceAliasTimeline\.frames\[0\]\?\.artifactRefs,\s*\[\]/.test(
+        computerUseReplayTimelineProof,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts",
+      "scripts/lib/workflow-computer-use-replay-timeline-proof.mjs",
+    ],
+    "Phase 10/11 is pending: IDE computer-use replay timeline must ignore retired receipt, policy, and artifact evidence aliases",
+  );
+  assertCheck(
+    result,
     "ide-runtime-event-identity-helper-alias-retired",
     /workflowRuntimeEventId/.test(agentIdeEventIdentity) &&
       /isProjectedRuntimeThreadEvent/.test(agentIdeEventIdentity) &&

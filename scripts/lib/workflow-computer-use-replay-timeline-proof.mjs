@@ -193,6 +193,30 @@ const legacyAliasTimeline = buildWorkflowComputerUseReplayTimeline(
   ],
   { workflowGraphId },
 );
+const retiredEvidenceAliasTimeline = buildWorkflowComputerUseReplayTimeline(
+  [
+    {
+      event_id: "event-retired-evidence-aliases",
+      seq: 12,
+      thread_id: threadId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: "runtime.native_browser.proposal",
+      event_kind: "computer_use.action_proposed",
+      receiptRefs: ["receipt-retired-event-alias"],
+      policyDecisionRefs: ["policy-retired-event-alias"],
+      artifactRefs: ["artifact-retired-event-alias"],
+      payload_summary: {
+        event_kind: "computer_use.action_proposed",
+        computer_use_lane: "native_browser",
+        computer_use_step: "propose_action",
+        receiptRefs: ["receipt-retired-payload-alias"],
+        policyDecisionRefs: ["policy-retired-payload-alias"],
+        computerUsePolicyDecisionRef: "policy-retired-scalar-alias",
+      },
+    },
+  ],
+  { workflowGraphId },
+);
 
 assert.equal(timeline.status, "ready");
 assert.equal(timeline.frameCount, 10);
@@ -214,6 +238,10 @@ assert.ok(timeline.frames.some((frame) => frame.policyDecisionRef === "approval-
 assert.ok(timeline.frames.every((frame) => frame.redaction === "computer_use_trace_safe"));
 assert.ok(!JSON.stringify(timeline).includes(RAW_SCREENSHOT_CANARY));
 assert.equal(legacyAliasTimeline.frames[0]?.eventId, null);
+assert.equal(retiredEvidenceAliasTimeline.frames[0]?.policyDecisionRef, null);
+assert.deepEqual(retiredEvidenceAliasTimeline.frames[0]?.receiptRefs, []);
+assert.deepEqual(retiredEvidenceAliasTimeline.frames[0]?.policyDecisionRefs, []);
+assert.deepEqual(retiredEvidenceAliasTimeline.frames[0]?.artifactRefs, []);
 
 const proof = {
   schemaVersion: "ioi.autopilot.stage18.computer-use-replay-timeline-proof.v1",
@@ -233,6 +261,11 @@ const proof = {
       timeline.targetIndexRefs.length === 2 && timeline.affordanceGraphRefs.length === 2,
     visualApprovalVisible: timeline.frames.some((frame) => frame.policyDecisionRef === "approval-visual-gui-run-button"),
     legacyEventIdAliasIgnored: legacyAliasTimeline.frames[0]?.eventId === null,
+    retiredEvidenceAliasesIgnored:
+      retiredEvidenceAliasTimeline.frames[0]?.policyDecisionRef === null &&
+      retiredEvidenceAliasTimeline.frames[0]?.receiptRefs.length === 0 &&
+      retiredEvidenceAliasTimeline.frames[0]?.policyDecisionRefs.length === 0 &&
+      retiredEvidenceAliasTimeline.frames[0]?.artifactRefs.length === 0,
   },
   summary: {
     frameCount: timeline.frameCount,
