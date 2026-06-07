@@ -20,6 +20,17 @@ const RETIRED_WORKSPACE_ARTIFACT_ALIASES = [
   "createdAt",
 ];
 
+const RETIRED_WORKSPACE_RESTORE_ERROR_DETAIL_ALIASES = [
+  "threadId",
+  "snapshotId",
+];
+
+function assertNoRetiredWorkspaceRestoreErrorDetailAliases(details) {
+  for (const key of RETIRED_WORKSPACE_RESTORE_ERROR_DETAIL_ALIASES) {
+    assert.equal(Object.hasOwn(details, key), false);
+  }
+}
+
 function runtimeError({ status, code, message, details }) {
   const error = new Error(message);
   error.status = status;
@@ -640,6 +651,68 @@ test("workspace snapshot surface previews and applies snapshot restores", () => 
   assert.equal(applied.applyStatus, "applied");
   assert.equal(fs.readFileSync(path.join(cwd, "src", "app.js"), "utf8"), "old");
   assert.equal(applied.event.event_kind, "workspace.restore.applied");
+});
+
+test("workspace snapshot restore fail-closed details use canonical fields", () => {
+  const { surface } = createSurface();
+  const store = createStore();
+
+  for (const operation of [
+    () => surface.previewWorkspaceSnapshotRestore(store, "thread_alpha", "", {}),
+    () => surface.applyWorkspaceSnapshotRestore(store, "thread_alpha", "", {}),
+  ]) {
+    assert.throws(
+      operation,
+      (error) => {
+        assert.equal(error.status, 400);
+        assert.equal(error.code, "workspace_snapshot_id_required");
+        assert.deepEqual(error.details, { thread_id: "thread_alpha" });
+        assert.equal(error.details.thread_id, "thread_alpha");
+        assertNoRetiredWorkspaceRestoreErrorDetailAliases(error.details);
+        return true;
+      },
+    );
+  }
+
+  store.codingArtifacts.set("artifact_snapshot_empty", {
+    id: "artifact_snapshot_empty",
+    thread_id: "thread_alpha",
+    channel: "workspace-snapshot",
+    content: JSON.stringify({
+      snapshot: {
+        snapshot_id: "workspace_snapshot_empty",
+        restore: { preview_supported: true },
+      },
+      files: [],
+    }),
+  });
+
+  for (const [operation, expectedCode] of [
+    [
+      () => surface.previewWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_empty", {}),
+      "workspace_restore_preview_empty",
+    ],
+    [
+      () => surface.applyWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_empty", {}),
+      "workspace_restore_apply_empty",
+    ],
+  ]) {
+    assert.throws(
+      operation,
+      (error) => {
+        assert.equal(error.status, 409);
+        assert.equal(error.code, expectedCode);
+        assert.deepEqual(error.details, {
+          thread_id: "thread_alpha",
+          snapshot_id: "workspace_snapshot_empty",
+        });
+        assert.equal(error.details.thread_id, "thread_alpha");
+        assert.equal(error.details.snapshot_id, "workspace_snapshot_empty");
+        assertNoRetiredWorkspaceRestoreErrorDetailAliases(error.details);
+        return true;
+      },
+    );
+  }
 });
 
 test("workspace snapshot restore rejects retired request aliases before agent lookup", () => {

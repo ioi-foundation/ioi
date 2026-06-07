@@ -262,7 +262,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         status: 400,
         code: "workspace_snapshot_id_required",
         message: "Restore preview requires a workspace snapshot id.",
-        details: { threadId },
+        details: { thread_id: threadId },
       });
     }
     const agent = store.agentForThread(threadId);
@@ -280,7 +280,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         status: 409,
         code: "workspace_restore_preview_empty",
         message: "Restore preview could not find content-backed files in the snapshot.",
-        details: { threadId, snapshotId: normalizedSnapshotId },
+        details: { thread_id: threadId, snapshot_id: normalizedSnapshotId },
       });
     }
     const readyCount = operations.filter((operation) => operation.status === "ready").length;
@@ -378,7 +378,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         status: 400,
         code: "workspace_snapshot_id_required",
         message: "Restore apply requires a workspace snapshot id.",
-        details: { threadId },
+        details: { thread_id: threadId },
       });
     }
     const agent = store.agentForThread(threadId);
@@ -396,7 +396,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
         status: 409,
         code: "workspace_restore_apply_empty",
         message: "Restore apply could not find content-backed files in the snapshot.",
-        details: { threadId, snapshotId: normalizedSnapshotId },
+        details: { thread_id: threadId, snapshot_id: normalizedSnapshotId },
       });
     }
     const gatePolicyPlan = planWorkspaceRestoreApplyPolicy({

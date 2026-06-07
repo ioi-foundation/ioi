@@ -18240,6 +18240,30 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "workspace-restore-error-detail-aliases-retired",
+    /details:\s*\{\s*thread_id:\s*threadId\s*\}/.test(runtimeWorkspaceSnapshotSurface) &&
+      /details:\s*\{\s*thread_id:\s*threadId,\s*snapshot_id:\s*normalizedSnapshotId\s*\}/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      /workspace snapshot restore fail-closed details use canonical fields/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /assertNoRetiredWorkspaceRestoreErrorDetailAliases\(error\.details\)/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /error\.details\.thread_id/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /error\.details\.snapshot_id/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      !/details:\s*\{[^}\n]*\b(?:threadId|snapshotId)\s*:/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: workspace restore fail-closed error details must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "managed-session-envelope-aliases-retired",
     /managed_session_control_request_aliases_retired/.test(managedSessionState) &&
       /retiredManagedSessionControlAliases/.test(managedSessionState) &&
