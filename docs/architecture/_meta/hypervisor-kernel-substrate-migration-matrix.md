@@ -11398,6 +11398,13 @@ so retired camelCase evidence aliases cannot make old replay, restore, or
 snapshot payloads look receipt-backed, artifact-backed, rollback-backed, or
 policy-backed.
 
+Slice 537 retires IDE worker-contribution trace evidence aliases: worker
+contribution rows now read canonical event/contribution `receipt_refs`,
+`policy_decision_refs`, event `rollback_refs`, and event `artifact_refs` only,
+so retired camelCase worker contribution evidence aliases cannot satisfy receipt
+readiness or make old worker payloads look receipt-backed, policy-backed,
+rollback-backed, or artifact-backed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

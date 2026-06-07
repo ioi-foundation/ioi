@@ -116,10 +116,10 @@ function rowForContribution({
   const result = objectField(payload, "result");
   const snapshotId =
     stringField(result, "workspaceSnapshotId", "workspace_snapshot_id") ??
-    firstString(arrayField(event, "rollbackRefs", "rollback_refs"));
+    firstString(arrayField(event, "rollback_refs"));
   const receiptRefs = uniqueStrings([
-    ...arrayField(event, "receiptRefs", "receipt_refs"),
-    ...arrayField(contribution, "receiptRefs", "receipt_refs"),
+    ...arrayField(event, "receipt_refs"),
+    ...arrayField(contribution, "receipt_refs"),
   ]);
   const status =
     !worker ? "needs_worker" : !event ? "needs_event" : receiptRefs.length === 0 ? "needs_receipt" : "ready";
@@ -152,17 +152,17 @@ function rowForContribution({
     snapshotId,
     receiptRefs,
     policyDecisionRefs: uniqueStrings([
-      ...arrayField(event, "policyDecisionRefs", "policy_decision_refs"),
-      ...arrayField(contribution, "policyDecisionRefs", "policy_decision_refs"),
+      ...arrayField(event, "policy_decision_refs"),
+      ...arrayField(contribution, "policy_decision_refs"),
     ]),
-    rollbackRefs: uniqueStrings(arrayField(event, "rollbackRefs", "rollback_refs")),
+    rollbackRefs: uniqueStrings(arrayField(event, "rollback_refs")),
     evidenceRefs: uniqueStrings([
       subagentId,
       stringField(worker, "childThreadId", "child_thread_id"),
       eventId(event),
       snapshotId,
       ...receiptRefs,
-      ...arrayField(event, "artifactRefs", "artifact_refs"),
+      ...arrayField(event, "artifact_refs"),
     ]),
   };
 }

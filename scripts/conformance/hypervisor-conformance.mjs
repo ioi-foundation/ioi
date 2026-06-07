@@ -13462,6 +13462,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-signed-replay-notebook.test.ts")
     : "";
+  const agentIdeWorkerContributionTrace = exists(
+    "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts")
+    : "";
+  const agentIdeWorkerContributionTraceTest = exists(
+    "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-worker-contribution-trace.test.ts")
+    : "";
   const agentIdeMixedRuntimePanels = [
     "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
@@ -20355,6 +20365,53 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.test.ts",
     ],
     "Phase 10/11 is pending: IDE signed replay notebook must ignore retired camelCase evidence aliases",
+  );
+  assertCheck(
+    result,
+    "ide-worker-contribution-evidence-aliases-retired",
+    /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeWorkerContributionTrace) &&
+      /arrayField\(contribution,\s*"receipt_refs"\)/.test(agentIdeWorkerContributionTrace) &&
+      /arrayField\(event,\s*"policy_decision_refs"\)/.test(agentIdeWorkerContributionTrace) &&
+      /arrayField\(contribution,\s*"policy_decision_refs"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      /arrayField\(event,\s*"rollback_refs"\)/.test(agentIdeWorkerContributionTrace) &&
+      /arrayField\(event,\s*"artifact_refs"\)/.test(agentIdeWorkerContributionTrace) &&
+      !/arrayField\(event,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/arrayField\(contribution,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/arrayField\(event,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/arrayField\(contribution,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/arrayField\(event,\s*"rollbackRefs",\s*"rollback_refs"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/arrayField\(event,\s*"artifactRefs",\s*"artifact_refs"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      /worker contribution trace ignores retired evidence aliases/.test(
+        agentIdeWorkerContributionTraceTest,
+      ) &&
+      /receiptRefs: \["receipt-event-retired"\]/.test(agentIdeWorkerContributionTraceTest) &&
+      /artifactRefs: \["artifact-event-retired"\]/.test(agentIdeWorkerContributionTraceTest) &&
+      /rollbackRefs: \["rollback-event-retired"\]/.test(agentIdeWorkerContributionTraceTest) &&
+      /policyDecisionRefs: \["policy-event-retired"\]/.test(
+        agentIdeWorkerContributionTraceTest,
+      ) &&
+      /assert\.equal\(trace\.rows\[0\]\?\.status,\s*"needs_receipt"\)/.test(
+        agentIdeWorkerContributionTraceTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
+      "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE worker contribution trace must ignore retired camelCase evidence aliases",
   );
   assertCheck(
     result,
