@@ -127,7 +127,7 @@ test("workspace change control maps tool ids to bridge actions and result envelo
           inspection: {
             workspace_change_reviews: [
               {
-                change_id: input.changeId,
+                change_id: input.change_id,
                 path: "src/app.js",
                 rollback_available: true,
               },
@@ -148,8 +148,17 @@ test("workspace change control maps tool ids to bridge actions and result envelo
   }, deps());
 
   assert.equal(bridgeCalls[0].action, "workspace_change_reject");
-  assert.equal(bridgeCalls[0].sessionId, "session_runtime");
-  assert.equal(bridgeCalls[0].changeId, "workspace_change:file:1");
+  assert.equal(bridgeCalls[0].session_id, "session_runtime");
+  assert.equal(bridgeCalls[0].thread_id, "thread_runtime");
+  assert.equal(bridgeCalls[0].workspace_root, "/workspace");
+  assert.equal(bridgeCalls[0].change_id, "workspace_change:file:1");
+  assert.equal(bridgeCalls[0].created_at, "2026-06-03T00:00:00.000Z");
+  assert.equal(Object.hasOwn(bridgeCalls[0], "sessionId"), false);
+  assert.equal(Object.hasOwn(bridgeCalls[0], "threadId"), false);
+  assert.equal(Object.hasOwn(bridgeCalls[0], "workspaceRoot"), false);
+  assert.equal(Object.hasOwn(bridgeCalls[0], "changeId"), false);
+  assert.equal(Object.hasOwn(bridgeCalls[0], "createdAt"), false);
+  assert.equal(Object.hasOwn(bridgeCalls[0], "requestHash"), false);
   assert.equal(controlled.schema_version, "ioi.runtime.workspace-change-control.daemon.v1");
   assert.equal(Object.hasOwn(controlled, "schemaVersion"), false);
   assert.equal(Object.hasOwn(controlled, "changeId"), false);
@@ -189,13 +198,17 @@ test("workspace change control rejects retired request aliases", async () => {
   await assert.rejects(
     controlWorkspaceChangeForThread(store, "thread_runtime", {
       toolId: "workspace_change__accept",
-      input: { changeId: "workspace_change:file:1" },
+      input: {
+        changeId: "workspace_change:file:1",
+        workspace_change_id: "workspace_change:file:2",
+      },
     }, deps()),
     (error) =>
       error.code === "workspace_change_control_request_aliases_retired" &&
       error.details.thread_id === "thread_runtime" &&
       error.details.retired_aliases.includes("toolId") &&
       error.details.retired_aliases.includes("changeId") &&
+      error.details.retired_aliases.includes("workspace_change_id") &&
       Object.hasOwn(error.details, "threadId") === false,
   );
 });

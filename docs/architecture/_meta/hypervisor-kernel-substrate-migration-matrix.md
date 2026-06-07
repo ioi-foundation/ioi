@@ -13295,6 +13295,67 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 654
+
+```yaml
+slice: 654
+phase: 10-authoritative-js-facade-retirement
+objective: retire workspace-change control bridge request aliases so control
+  actions reach the runtime bridge through canonical snake_case fields only
+owner_boundary:
+  route_or_surface: daemon workspace-change control bridge request envelope
+  authority_gate: unchanged; workspace-change accept/reject/discard remains a
+    daemon-controlled action path and this slice removes compatibility request
+    aliases before runtime bridge control dispatch
+  execution_backend: unchanged; the runtime bridge remains migration transport
+    for this route family and is not the terminal Rust daemon-core API shape
+  truth_path: workspace-change control identity now comes only from canonical
+    `change_id`, and the bridge control request carries canonical
+    `session_id`, `thread_id`, `workspace_root`, `request_hash`, `change_id`,
+    and `created_at` fields without duplicate camelCase bridge aliases
+  projection_path: compositor conformance rejects the retired
+    `workspace_change_id` input alias and requires canonical bridge request
+    fields before workspace-change control projection/result normalization
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/threads/workspace-change-state.mjs
+  tests:
+    - packages/runtime-daemon/src/threads/workspace-change-state.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - compositor conformance requires workspace-change control to read
+    `input.change_id` without falling back to retired `input.workspace_change_id`
+  - compositor conformance requires canonical snake_case runtime bridge control
+    request fields and focused tests proving retired camelCase bridge fields are
+    absent
+  - focused daemon tests prove retired request aliases fail closed before
+    workspace-change control dispatch
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/threads/workspace-change-state.test.mjs packages/runtime-daemon/src/workspace-change-inspection.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:compositor
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: focused bridge tests compare canonical
+    workspace-change control requests against poisoned retired alias input that
+    now fails closed or remains absent from the bridge request
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - workspace-change inspection still has a separate bridge request envelope
+      seam to review before terminal facade retirement for the route family
+    - terminal Rust daemon-core API extraction remains pending beyond this
+      workspace-change control bridge-envelope cleanup
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:

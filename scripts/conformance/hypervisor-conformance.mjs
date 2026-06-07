@@ -19464,9 +19464,15 @@ function runCompositor() {
       /retiredWorkspaceChangeControlAliases/.test(workspaceChangeState) &&
       /workspace_change_control_request_aliases_retired/.test(workspaceChangeState) &&
       /const toolId = optionalString\(request\.tool_id\)/.test(workspaceChangeState) &&
-      /const changeId = optionalString\(input\.change_id \?\? input\.workspace_change_id\)/.test(
+      /const changeId = optionalString\(input\.change_id\)/.test(
         workspaceChangeState,
       ) &&
+      /session_id:\s*sessionId/.test(workspaceChangeState) &&
+      /thread_id:\s*threadId/.test(workspaceChangeState) &&
+      /workspace_root:\s*agent\.cwd/.test(workspaceChangeState) &&
+      /request_hash:/.test(workspaceChangeState) &&
+      /change_id:\s*changeId/.test(workspaceChangeState) &&
+      /created_at:\s*createdAt/.test(workspaceChangeState) &&
       /tool_id:\s*normalizedToolId/.test(runtimeDaemonIndex) &&
       /Object\.hasOwn\(inspection,\s*"schemaVersion"\),\s*false/.test(
         workspaceChangeInspectionTest,
@@ -19490,6 +19496,15 @@ function runCompositor() {
       /workspace change control rejects retired request aliases/.test(
         workspaceChangeStateTest,
       ) &&
+      /Object\.hasOwn\(bridgeCalls\[0\],\s*"changeId"\),\s*false/.test(
+        workspaceChangeStateTest,
+      ) &&
+      /Object\.hasOwn\(bridgeCalls\[0\],\s*"requestHash"\),\s*false/.test(
+        workspaceChangeStateTest,
+      ) &&
+      /workspace_change_id:\s*"workspace_change:file:2"/.test(
+        workspaceChangeStateTest,
+      ) &&
       /Object\.hasOwn\(controlled,\s*"schemaVersion"\),\s*false/.test(
         workspaceChangeStateTest,
       ) &&
@@ -19508,6 +19523,9 @@ function runCompositor() {
         workspaceChangeState,
       ) &&
       !/\b(?:request|input)\.(?:toolId|createdAt|requestHash|workspaceChangeId)\b/.test(
+        workspaceChangeState,
+      ) &&
+      !/input\.workspace_change_id/.test(
         workspaceChangeState,
       ),
     [

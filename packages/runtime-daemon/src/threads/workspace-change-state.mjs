@@ -78,7 +78,7 @@ export async function controlWorkspaceChangeForThread(store, threadId, request =
   }
   const toolId = optionalString(request.tool_id);
   const input = request.input && typeof request.input === "object" ? request.input : request;
-  const changeId = optionalString(input.change_id ?? input.workspace_change_id);
+  const changeId = optionalString(input.change_id);
   if (!changeId) {
     throw runtimeError({
       status: 400,
@@ -100,18 +100,18 @@ export async function controlWorkspaceChangeForThread(store, threadId, request =
   const createdAt = optionalString(request.created_at) ?? new Date().toISOString();
   try {
     const bridgeResult = await store.runtimeBridge.controlThread({
-      sessionId,
-      threadId,
-      workspaceRoot: agent.cwd,
+      session_id: sessionId,
+      thread_id: threadId,
+      workspace_root: agent.cwd,
       action,
       reason:
         optionalString(input.reason ?? request.reason ?? request.message) ??
         `operator requested ${action.replace(/_/g, " ")}`,
-      requestHash:
+      request_hash:
         optionalString(request.request_hash) ??
         doctorHash(`${threadId}:${changeId}:${action}:${createdAt}`).slice(0, 16),
-      changeId,
-      createdAt,
+      change_id: changeId,
+      created_at: createdAt,
     });
     const inspection = normalizeWorkspaceChangeReviewInspection({
       bridge_result: bridgeResult?.inspection ?? bridgeResult,
@@ -167,6 +167,7 @@ function retiredWorkspaceChangeControlAliases(request = {}) {
     ["workspaceChangeId", request],
     ["changeId", input],
     ["workspaceChangeId", input],
+    ["workspace_change_id", input],
   ]
     .filter(([key, container]) => Object.hasOwn(container, key))
     .map(([key]) => key);
