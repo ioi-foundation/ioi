@@ -37,7 +37,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer; until then, rows distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; until then, rows distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -64,7 +64,8 @@ Matrix compaction timing:
 - When resuming the master-guide goal, continue the next Rust-core extraction or
   JS-facade retirement slice first; treat matrix compaction as a scheduled
   follow-up once that seam identifies which rows can be collapsed without
-  obscuring remaining terminal blockers.
+  obscuring remaining terminal blockers or encoding the command bridge as
+  terminal shape.
 - Schedule a dedicated matrix-compaction pass after the next Rust-core
   extraction/facade-retirement seam is clear enough to preserve the live
   route-family owner map, terminal blockers, bridge-scaffolding guardrail,

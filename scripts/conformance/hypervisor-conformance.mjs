@@ -310,6 +310,12 @@ function runDocs() {
       /`ioi-step-module-bridge` command path is migration scaffolding/.test(guide) &&
       /must\s+not be treated as the terminal substrate/.test(guide) &&
       /collapse into the Rust daemon core API/.test(guide) &&
+      /Resume-goal instruction: do not stop ordinary Rust-core extraction or facade\s+retirement work to prune the migration matrix now/.test(
+        guide,
+      ) &&
+      /Schedule the matrix\s+compaction pass once the next Rust-core extraction\/facade-retirement seam is\s+clear/.test(
+        guide,
+      ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -318,10 +324,13 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /Schedule a matrix-compaction pass once the next Rust-core extraction\/facade-retirement seam is clearer/.test(
+      /Schedule a matrix-compaction pass once the next Rust-core extraction\/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal/.test(
         matrix,
       ) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
+        matrix,
+      ) &&
+      /encoding the command bridge as\s+terminal shape/.test(
         matrix,
       ),
     [GUIDE, MATRIX],

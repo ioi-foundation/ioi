@@ -271,6 +271,12 @@ shrunk into a narrow daemon/kernel protocol transport with no independent
 execution authority, no compatibility-shim semantics, and no duplicate truth
 path.
 
+Resume-goal instruction: do not stop ordinary Rust-core extraction or facade
+retirement work to prune the migration matrix now. Schedule the matrix
+compaction pass once the next Rust-core extraction/facade-retirement seam is
+clear enough that the compacted matrix can preserve terminal-target evidence
+without hiding which bridge-scaffolding proofs are still interim.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
