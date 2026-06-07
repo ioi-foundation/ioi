@@ -43,7 +43,11 @@ export function createRuntimeContextPolicySurface({
         status: 502,
         code: "context_compaction_state_update_planner_invalid",
         message: "Rust context compaction state planning did not return a run record.",
-        details: { threadId, runId, targetKind: stateUpdate.target_kind ?? "run" },
+        details: {
+          thread_id: threadId,
+          run_id: runId,
+          target_kind: stateUpdate.target_kind ?? "run",
+        },
       });
     }
     return updatedRun;
@@ -56,7 +60,11 @@ export function createRuntimeContextPolicySurface({
         status: 502,
         code: "context_compaction_state_update_planner_invalid",
         message: "Rust context compaction state planning did not return an agent record.",
-        details: { threadId, agentId, targetKind: stateUpdate.target_kind ?? "agent" },
+        details: {
+          thread_id: threadId,
+          agent_id: agentId,
+          target_kind: stateUpdate.target_kind ?? "agent",
+        },
       });
     }
     return updatedAgent;
@@ -69,7 +77,12 @@ export function createRuntimeContextPolicySurface({
         status: 502,
         code: "context_compaction_state_update_operation_kind_missing",
         message: "Rust context compaction state planning did not return an operation kind.",
-        details: { threadId, targetId, targetKind, operationKind: "thread.compact" },
+        details: {
+          thread_id: threadId,
+          target_id: targetId,
+          target_kind: targetKind,
+          operation_kind: "thread.compact",
+        },
       });
     }
     if (operationKind !== "thread.compact") {
@@ -78,11 +91,11 @@ export function createRuntimeContextPolicySurface({
         code: "context_compaction_state_update_operation_kind_mismatch",
         message: "Rust context compaction state planning returned an unexpected operation kind.",
         details: {
-          threadId,
-          targetId,
-          targetKind,
-          expectedOperationKind: "thread.compact",
-          operationKind,
+          thread_id: threadId,
+          target_id: targetId,
+          target_kind: targetKind,
+          expected_operation_kind: "thread.compact",
+          operation_kind: operationKind,
         },
       });
     }

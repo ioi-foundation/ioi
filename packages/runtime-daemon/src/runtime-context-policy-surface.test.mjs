@@ -266,6 +266,20 @@ function harness({
   return { calls, events, store, surface };
 }
 
+function assertNoRetiredDetailAliases(details) {
+  for (const key of [
+    "threadId",
+    "runId",
+    "agentId",
+    "targetId",
+    "targetKind",
+    "operationKind",
+    "expectedOperationKind",
+  ]) {
+    assert.equal(Object.hasOwn(details, key), false);
+  }
+}
+
 test("context policy surface evaluates context budget and appends thread event", () => {
   const { calls, events, store, surface } = harness({
     contextResult: baseResult({ status: "blocked", policy_decision_id: "policy blocked" }),
@@ -552,7 +566,14 @@ test("context policy surface fails closed without Rust-planned compaction target
 
   assert.throws(
     () => runHarness.surface.compactThread(runHarness.store, "thread-agent-one", {}),
-    (error) => error.details?.code === "context_compaction_state_update_planner_invalid",
+    (error) => {
+      assert.equal(error.details?.code, "context_compaction_state_update_planner_invalid");
+      assert.equal(error.details?.details.thread_id, "thread-agent-one");
+      assert.equal(error.details?.details.run_id, "run-one");
+      assert.equal(error.details?.details.target_kind, "run");
+      assertNoRetiredDetailAliases(error.details?.details);
+      return true;
+    },
   );
   assert.equal(runHarness.calls.some((call) => call.name === "writeRun"), false);
 
@@ -569,7 +590,14 @@ test("context policy surface fails closed without Rust-planned compaction target
 
   assert.throws(
     () => agentHarness.surface.compactThread(agentHarness.store, "thread-agent-one", {}),
-    (error) => error.details?.code === "context_compaction_state_update_planner_invalid",
+    (error) => {
+      assert.equal(error.details?.code, "context_compaction_state_update_planner_invalid");
+      assert.equal(error.details?.details.thread_id, "thread-agent-one");
+      assert.equal(error.details?.details.agent_id, "agent-one");
+      assert.equal(error.details?.details.target_kind, "agent");
+      assertNoRetiredDetailAliases(error.details?.details);
+      return true;
+    },
   );
   assert.equal(agentHarness.calls.some((call) => call.name === "writeAgent"), false);
 });
@@ -592,7 +620,11 @@ test("context policy surface fails closed without Rust-planned compaction operat
     () => runHarness.surface.compactThread(runHarness.store, "thread-agent-one", {}),
     (error) => {
       assert.equal(error.details?.code, "context_compaction_state_update_operation_kind_missing");
-      assert.equal(error.details?.details.operationKind, "thread.compact");
+      assert.equal(error.details?.details.thread_id, "thread-agent-one");
+      assert.equal(error.details?.details.target_id, "run-one");
+      assert.equal(error.details?.details.target_kind, "run");
+      assert.equal(error.details?.details.operation_kind, "thread.compact");
+      assertNoRetiredDetailAliases(error.details?.details);
       return true;
     },
   );
@@ -617,10 +649,46 @@ test("context policy surface fails closed without Rust-planned compaction operat
     () => agentHarness.surface.compactThread(agentHarness.store, "thread-agent-one", {}),
     (error) => {
       assert.equal(error.details?.code, "context_compaction_state_update_operation_kind_missing");
-      assert.equal(error.details?.details.operationKind, "thread.compact");
+      assert.equal(error.details?.details.thread_id, "thread-agent-one");
+      assert.equal(error.details?.details.target_id, "agent-one");
+      assert.equal(error.details?.details.target_kind, "agent");
+      assert.equal(error.details?.details.operation_kind, "thread.compact");
+      assertNoRetiredDetailAliases(error.details?.details);
       return true;
     },
   );
   assert.equal(agentHarness.calls.some((call) => call.name === "writeAgent"), false);
   assert.equal(agentHarness.store.agents.get("agent-one").updatedAt, undefined);
+});
+
+test("context policy surface rejects unexpected Rust-planned compaction operation kind with canonical details", () => {
+  const runHarness = harness({
+    compactionStateUpdate: {
+      status: "planned",
+      target_kind: "run",
+      operation_kind: "run.create",
+      run: {
+        id: "run-one",
+        agentId: "agent-one",
+        trace: {},
+      },
+      agent: null,
+    },
+  });
+
+  assert.throws(
+    () => runHarness.surface.compactThread(runHarness.store, "thread-agent-one", {}),
+    (error) => {
+      assert.equal(error.details?.code, "context_compaction_state_update_operation_kind_mismatch");
+      assert.equal(error.details?.details.thread_id, "thread-agent-one");
+      assert.equal(error.details?.details.target_id, "run-one");
+      assert.equal(error.details?.details.target_kind, "run");
+      assert.equal(error.details?.details.expected_operation_kind, "thread.compact");
+      assert.equal(error.details?.details.operation_kind, "run.create");
+      assertNoRetiredDetailAliases(error.details?.details);
+      return true;
+    },
+  );
+  assert.equal(runHarness.calls.some((call) => call.name === "writeRun"), false);
+  assert.equal(runHarness.store.runs.get("run-one").trace.contextCompaction, undefined);
 });

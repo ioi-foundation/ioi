@@ -5344,6 +5344,35 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "context-policy-error-detail-aliases-retired",
+    /details:\s*\{\s*thread_id:\s*threadId,\s*run_id:\s*runId,\s*target_kind:/.test(
+      runtimeContextPolicySurface,
+    ) &&
+      /details:\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agentId,\s*target_kind:/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      /target_id:\s*targetId/.test(runtimeContextPolicySurface) &&
+      /expected_operation_kind:\s*"thread\.compact"/.test(runtimeContextPolicySurface) &&
+      /context policy surface rejects unexpected Rust-planned compaction operation kind with canonical details/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /assertNoRetiredDetailAliases\(error\.details\?\.details\)/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /error\.details\?\.details\.thread_id/.test(runtimeContextPolicySurfaceTest) &&
+      /error\.details\?\.details\.target_kind/.test(runtimeContextPolicySurfaceTest) &&
+      /error\.details\?\.details\.expected_operation_kind/.test(runtimeContextPolicySurfaceTest) &&
+      !/details:\s*\{[^}\n]*\b(?:threadId|runId|agentId|targetId|targetKind|operationKind|expectedOperationKind)\s*:/.test(
+        runtimeContextPolicySurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: context policy Rust-planning fail-closed details must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "workflow-edit-request-aliases-retired",
     /const requestedTurnId = optionalString\(request\.turn_id\);/.test(
       runtimeWorkflowEditSurface,
