@@ -401,7 +401,7 @@ fn computer_use_provider_matches_hint(provider: &ComputerUseProvider, hint: &str
 }
 
 fn computer_use_lane_for_input(input: &Value) -> String {
-    match optional_json_string(input, &["lane", "computerUseLane", "computer_use_lane"]).as_deref()
+    match optional_json_string(input, &["lane", "computer_use_lane"]).as_deref()
     {
         Some("visual_gui") => "visual_gui".to_string(),
         Some("sandboxed_hosted") => "sandboxed_hosted".to_string(),

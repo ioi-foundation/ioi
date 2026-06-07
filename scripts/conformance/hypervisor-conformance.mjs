@@ -507,6 +507,9 @@ function runBridge() {
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
+  const computerUseBridge = exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
+    : "";
   const workloadClient = exists("crates/client/src/workload_client/mod.rs")
     ? read("crates/client/src/workload_client/mod.rs")
     : "";
@@ -1571,6 +1574,24 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
     "Phase 10 is pending: Rust workload_client must own the StepModule workload dispatch contract and canonical workload observation used by the live bridge",
+  );
+  assertCheck(
+    result,
+    "computer-use-request-lease-lane-alias-retired",
+    /computer_use_lane_for_input/.test(computerUseBridge) &&
+      /optional_json_string\(input,\s*&\["lane",\s*"computer_use_lane"\]\)/.test(
+        computerUseBridge,
+      ) &&
+      !/computerUseLane/.test(computerUseBridge) &&
+      /computer_use_request_lease_ignores_retired_lane_alias/.test(bridgeModule) &&
+      /"computerUseLane": "sandboxed_hosted"/.test(bridgeModule) &&
+      /"native_browser"/.test(bridgeModule) &&
+      /"computer_use\.native_browser\.read"/.test(bridgeModule),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10/11 is pending: Rust computer-use request-lease lane selection must ignore retired computerUseLane input and use only canonical lane/computer_use_lane fields",
   );
   assertCheck(
     result,

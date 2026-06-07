@@ -9949,6 +9949,35 @@ mod tests {
     }
 
     #[test]
+    fn computer_use_request_lease_ignores_retired_lane_alias() {
+        let request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Try to steer the lane through a retired alias.",
+                "computerUseLane": "sandboxed_hosted",
+                "actionKind": "inspect"
+            }),
+        );
+
+        let response =
+            computer_use_request_lease_response(request).expect("lease request response");
+
+        assert_eq!(
+            response["workload_observation"]["result"]["leaseRequest"]["lane"],
+            "native_browser"
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["threadTool"]["toolName"],
+            "ioi.computer_use.native_browser"
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["leaseRequest"]["authorityScope"],
+            "computer_use.native_browser.read"
+        );
+    }
+
+    #[test]
     fn computer_use_request_lease_records_unavailable_provider_fail_closed() {
         let request = bridge_request(
             "computer_use.request_lease",
