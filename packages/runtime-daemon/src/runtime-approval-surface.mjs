@@ -22,7 +22,7 @@ function approvalRequiredError(runtimeError, threadId) {
     status: 400,
     code: "approval_id_required",
     message: "Approval decisions require an approval id.",
-    details: { threadId },
+    details: { thread_id: threadId },
   });
 }
 
@@ -31,7 +31,7 @@ function approvalRevokeRequiredError(runtimeError, threadId) {
     status: 400,
     code: "approval_id_required",
     message: "Approval revocation requires an approval id.",
-    details: { threadId },
+    details: { thread_id: threadId },
   });
 }
 
@@ -44,7 +44,11 @@ function resolveApprovalTarget(store, agent, threadId, request = {}, fallbackTur
   if (turnId) {
     run = store.getRun(runIdForTurn(turnId));
     if (run.agentId !== agent.id) {
-      throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId: run.id });
+      throw notFound(`Turn not found: ${turnId}`, {
+        thread_id: threadId,
+        turn_id: turnId,
+        run_id: run.id,
+      });
     }
   } else {
     run = runs.at(-1) ?? null;
@@ -107,7 +111,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
         status: 502,
         code: "approval_agent_state_update_planner_invalid",
         message: "Rust approval state planning did not return an agent record.",
-        details: { threadId, operationKind },
+        details: { thread_id: threadId, operation_kind: operationKind },
       });
     }
     return updatedAgent;
@@ -120,7 +124,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
         status: 502,
         code: "approval_run_state_update_planner_invalid",
         message: "Rust approval state planning did not return a run record.",
-        details: { threadId, runId, operationKind },
+        details: { thread_id: threadId, run_id: runId, operation_kind: operationKind },
       });
     }
     return updatedRun;
@@ -133,7 +137,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
         status: 502,
         code: "approval_state_update_operation_kind_missing",
         message: "Rust approval state planning did not return an operation kind.",
-        details: { ...details, operationKind: expectedOperationKind },
+        details: { ...details, operation_kind: expectedOperationKind },
       });
     }
     if (operationKind !== expectedOperationKind) {
@@ -143,8 +147,8 @@ export function createRuntimeApprovalSurface(deps = {}) {
         message: "Rust approval state planning returned an unexpected operation kind.",
         details: {
           ...details,
-          expectedOperationKind,
-          operationKind,
+          expected_operation_kind: expectedOperationKind,
+          operation_kind: operationKind,
         },
       });
     }
@@ -282,9 +286,9 @@ export function createRuntimeApprovalSurface(deps = {}) {
         policy_decision_refs: event.policy_decision_refs,
       });
       const operationKind = requiredApprovalOperationKind(stateUpdate, "approval.required", {
-        threadId,
-        runId: run.id,
-        targetKind: "run",
+        thread_id: threadId,
+        run_id: run.id,
+        target_kind: "run",
       });
       const updated = plannedApprovalRunRecord(stateUpdate, threadId, run.id, operationKind);
       store.runs.set(run.id, updated);
@@ -316,9 +320,9 @@ export function createRuntimeApprovalSurface(deps = {}) {
       policy_decision_refs: event.policy_decision_refs,
     });
     const operationKind = requiredApprovalOperationKind(stateUpdate, "approval.required", {
-      threadId,
-      agentId: agent.id,
-      targetKind: "agent",
+      thread_id: threadId,
+      agent_id: agent.id,
+      target_kind: "agent",
     });
     const updatedAgent = plannedApprovalAgentRecord(stateUpdate, threadId, operationKind);
     store.agents.set(updatedAgent.id, updatedAgent);
@@ -448,9 +452,9 @@ export function createRuntimeApprovalSurface(deps = {}) {
       });
       const expectedOperationKind = `approval.${decision}`;
       const operationKind = requiredApprovalOperationKind(stateUpdate, expectedOperationKind, {
-        threadId,
-        runId: run.id,
-        targetKind: "run",
+        thread_id: threadId,
+        run_id: run.id,
+        target_kind: "run",
       });
       const updated = plannedApprovalRunRecord(stateUpdate, threadId, run.id, operationKind);
       store.runs.set(run.id, updated);
@@ -489,9 +493,9 @@ export function createRuntimeApprovalSurface(deps = {}) {
     });
     const expectedOperationKind = `approval.${decision}`;
     const operationKind = requiredApprovalOperationKind(stateUpdate, expectedOperationKind, {
-      threadId,
-      agentId: agent.id,
-      targetKind: "agent",
+      thread_id: threadId,
+      agent_id: agent.id,
+      target_kind: "agent",
     });
     const updatedAgent = plannedApprovalAgentRecord(stateUpdate, threadId, operationKind);
     store.agents.set(updatedAgent.id, updatedAgent);
@@ -520,8 +524,8 @@ export function createRuntimeApprovalSurface(deps = {}) {
     const approvalRequestEvent = latestApprovalRequestEvent(store, threadId, normalizedApprovalId);
     if (!approvalRequestEvent) {
       throw notFound(`Approval request not found: ${normalizedApprovalId}`, {
-        threadId,
-        approvalId: normalizedApprovalId,
+        thread_id: threadId,
+        approval_id: normalizedApprovalId,
       });
     }
     const approvalRequestPayload = approvalRequestEvent.payload_summary ?? approvalRequestEvent.payload ?? {};
@@ -649,9 +653,9 @@ export function createRuntimeApprovalSurface(deps = {}) {
         policy_decision_refs: event.policy_decision_refs,
       });
       const operationKind = requiredApprovalOperationKind(stateUpdate, "approval.revoke", {
-        threadId,
-        runId: run.id,
-        targetKind: "run",
+        thread_id: threadId,
+        run_id: run.id,
+        target_kind: "run",
       });
       const updated = plannedApprovalRunRecord(stateUpdate, threadId, run.id, operationKind);
       store.runs.set(run.id, updated);
@@ -687,9 +691,9 @@ export function createRuntimeApprovalSurface(deps = {}) {
       policy_decision_refs: event.policy_decision_refs,
     });
     const operationKind = requiredApprovalOperationKind(stateUpdate, "approval.revoke", {
-      threadId,
-      agentId: agent.id,
-      targetKind: "agent",
+      thread_id: threadId,
+      agent_id: agent.id,
+      target_kind: "agent",
     });
     const updatedAgent = plannedApprovalAgentRecord(stateUpdate, threadId, operationKind);
     store.agents.set(updatedAgent.id, updatedAgent);

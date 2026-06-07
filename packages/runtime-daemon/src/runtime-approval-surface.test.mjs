@@ -227,6 +227,21 @@ function createSurface({
   });
 }
 
+function assertNoRetiredDetailAliases(details) {
+  for (const key of [
+    "threadId",
+    "runId",
+    "turnId",
+    "agentId",
+    "approvalId",
+    "targetKind",
+    "operationKind",
+    "expectedOperationKind",
+  ]) {
+    assert.equal(Object.hasOwn(details, key), false);
+  }
+}
+
 function createStore() {
   const events = [];
   const writes = [];
@@ -577,7 +592,14 @@ test("approval surface fails closed without Rust-planned run approval updates", 
         approval_id: "approval-one",
         reason: "Need permission",
       }),
-    (error) => error.code === "approval_run_state_update_planner_invalid",
+    (error) => {
+      assert.equal(error.code, "approval_run_state_update_planner_invalid");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.run_id, "run_alpha");
+      assert.equal(error.details.operation_kind, "approval.required");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
   );
   assert.equal(requestStore.writes.length, 0);
 
@@ -600,7 +622,14 @@ test("approval surface fails closed without Rust-planned run approval updates", 
       decisionSurface.decideThreadApproval(decisionStore, "thread_alpha", "approval-one", {
         decision: "approve",
       }),
-    (error) => error.code === "approval_run_state_update_planner_invalid",
+    (error) => {
+      assert.equal(error.code, "approval_run_state_update_planner_invalid");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.run_id, "run_alpha");
+      assert.equal(error.details.operation_kind, "approval.approve");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
   );
   assert.equal(decisionStore.writes.length, 1);
 
@@ -623,7 +652,14 @@ test("approval surface fails closed without Rust-planned run approval updates", 
 
   assert.throws(
     () => revokeSurface.revokeThreadApproval(revokeStore, "thread_alpha", "approval-one", {}),
-    (error) => error.code === "approval_run_state_update_planner_invalid",
+    (error) => {
+      assert.equal(error.code, "approval_run_state_update_planner_invalid");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.run_id, "run_alpha");
+      assert.equal(error.details.operation_kind, "approval.revoke");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
   );
   assert.equal(revokeStore.writes.length, 2);
 });
@@ -648,8 +684,11 @@ test("approval surface fails closed without Rust-planned operation kinds", () =>
       }),
     (error) => {
       assert.equal(error.code, "approval_state_update_operation_kind_missing");
-      assert.equal(error.details.operationKind, "approval.required");
-      assert.equal(error.details.targetKind, "run");
+      assert.equal(error.details.operation_kind, "approval.required");
+      assert.equal(error.details.target_kind, "run");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.run_id, "run_alpha");
+      assertNoRetiredDetailAliases(error.details);
       return true;
     },
   );
@@ -681,8 +720,11 @@ test("approval surface fails closed without Rust-planned operation kinds", () =>
       }),
     (error) => {
       assert.equal(error.code, "approval_state_update_operation_kind_missing");
-      assert.equal(error.details.operationKind, "approval.approve");
-      assert.equal(error.details.targetKind, "run");
+      assert.equal(error.details.operation_kind, "approval.approve");
+      assert.equal(error.details.target_kind, "run");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.run_id, "run_alpha");
+      assertNoRetiredDetailAliases(error.details);
       return true;
     },
   );
@@ -711,8 +753,11 @@ test("approval surface fails closed without Rust-planned operation kinds", () =>
     () => revokeSurface.revokeThreadApproval(revokeStore, "thread_alpha", "approval-one", {}),
     (error) => {
       assert.equal(error.code, "approval_state_update_operation_kind_missing");
-      assert.equal(error.details.operationKind, "approval.revoke");
-      assert.equal(error.details.targetKind, "run");
+      assert.equal(error.details.operation_kind, "approval.revoke");
+      assert.equal(error.details.target_kind, "run");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.run_id, "run_alpha");
+      assertNoRetiredDetailAliases(error.details);
       return true;
     },
   );
@@ -739,13 +784,49 @@ test("approval surface fails closed without Rust-planned operation kinds", () =>
       }),
     (error) => {
       assert.equal(error.code, "approval_state_update_operation_kind_missing");
-      assert.equal(error.details.operationKind, "approval.required");
-      assert.equal(error.details.targetKind, "agent");
+      assert.equal(error.details.operation_kind, "approval.required");
+      assert.equal(error.details.target_kind, "agent");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.agent_id, "agent_alpha");
+      assertNoRetiredDetailAliases(error.details);
       return true;
     },
   );
   assert.equal(agentStore.writes.length, 0);
   assert.equal(agentStore.agents.get("agent_alpha").updatedAt, undefined);
+});
+
+test("approval surface rejects unexpected Rust-planned operation kind with canonical details", () => {
+  const requestSurface = createSurface({
+    approvalRequestStateUpdate: {
+      ...approvalRequestStateUpdateForRequest({
+        run: createStore().runs.get("run_alpha"),
+        event_id: "event_mismatch_request_kind",
+      }),
+      operation_kind: "approval.revoke",
+    },
+  });
+  const requestStore = createStore();
+
+  assert.throws(
+    () =>
+      requestSurface.requestThreadApproval(requestStore, "thread_alpha", {
+        approval_id: "approval-one",
+        reason: "Need permission",
+      }),
+    (error) => {
+      assert.equal(error.code, "approval_state_update_operation_kind_mismatch");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.run_id, "run_alpha");
+      assert.equal(error.details.target_kind, "run");
+      assert.equal(error.details.expected_operation_kind, "approval.required");
+      assert.equal(error.details.operation_kind, "approval.revoke");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.equal(requestStore.writes.length, 0);
+  assert.equal(requestStore.runs.get("run_alpha").status, "running");
 });
 
 test("approval surface fails closed for missing approval ids and requests", () => {
@@ -754,10 +835,22 @@ test("approval surface fails closed for missing approval ids and requests", () =
 
   assert.throws(
     () => surface.decideThreadApproval(store, "thread_alpha", null, { decision: "approve" }),
-    (error) => error.status === 400 && error.code === "approval_id_required",
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "approval_id_required");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
   );
   assert.throws(
     () => surface.revokeThreadApproval(store, "thread_alpha", "missing", {}),
-    (error) => error.status === 404 && error.details.approvalId === "missing",
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.approval_id, "missing");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
   );
 });

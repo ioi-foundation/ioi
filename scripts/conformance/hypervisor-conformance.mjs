@@ -3860,6 +3860,33 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: approval request, decision, and revoke surfaces must use canonical request and lease fields without retired request aliases",
   );
+  assertCheck(
+    result,
+    "runtime-approval-error-detail-aliases-retired",
+    /details:\s*\{\s*thread_id:\s*threadId\s*\}/.test(runtimeApprovalSurface) &&
+      /details:\s*\{\s*thread_id:\s*threadId,\s*run_id:\s*runId,\s*operation_kind:\s*operationKind\s*\}/.test(
+        runtimeApprovalSurface,
+      ) &&
+      /details:\s*\{\s*thread_id:\s*threadId,\s*operation_kind:\s*operationKind\s*\}/.test(
+        runtimeApprovalSurface,
+      ) &&
+      /expected_operation_kind:\s*expectedOperationKind/.test(runtimeApprovalSurface) &&
+      /approval surface rejects unexpected Rust-planned operation kind with canonical details/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeApprovalSurfaceTest) &&
+      /error\.details\.thread_id/.test(runtimeApprovalSurfaceTest) &&
+      /error\.details\.approval_id/.test(runtimeApprovalSurfaceTest) &&
+      /error\.details\.expected_operation_kind/.test(runtimeApprovalSurfaceTest) &&
+      !/details:\s*\{[^}\n]*\b(?:threadId|runId|turnId|agentId|approvalId|targetKind|operationKind|expectedOperationKind)\s*:/.test(
+        runtimeApprovalSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-approval-surface.mjs",
+      "packages/runtime-daemon/src/runtime-approval-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: approval fail-closed details must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
   const runtimeContextBudgetEvaluationBlock =
     runtimeContextPolicySurface.match(
       /    evaluateContextBudget\(store, \{ threadId = null, runId = null, request = \{\} \} = \{\}\) \{[\s\S]*?(?=\n\n    evaluateCompactionPolicy)/,
