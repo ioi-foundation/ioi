@@ -16,6 +16,7 @@ export async function startRuntimeDaemonServiceWithStore({
     vaultSecrets: options.vaultSecrets,
     contextPolicyRunner: options.contextPolicyRunner,
     modelMountAdmissionRunner: options.modelMountAdmissionRunner,
+    runtimeAgentgresAdmissionRunner: options.runtimeAgentgresAdmissionRunner,
     runtimeBridge: options.runtimeBridge,
   });
   const server = http.createServer((request, response) => {

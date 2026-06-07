@@ -45,6 +45,10 @@ const CANONICAL_ROUTE_UPSERT_REQUEST_FIELDS = [
   "last_receipt_id",
 ];
 
+const RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION =
+  "ioi.runtime_model_mount_record_state_commit.v1";
+const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
+
 export function upsertRouteRecord(body = {}, { normalizeScopes, safeId } = {}) {
   assertCanonicalRouteUpsertRequestBody(body);
   const id = body.id ?? `route.${safeId(body.role ?? "custom")}`;
@@ -68,9 +72,17 @@ export function upsertRouteRecord(body = {}, { normalizeScopes, safeId } = {}) {
 export function upsertRoute(state, body = {}, deps = {}) {
   const { normalizeScopes, safeId } = deps;
   const route = upsertRouteRecord(body, { normalizeScopes, safeId });
-  state.routes.set(route.id, route);
-  state.writeMap("model-routes", state.routes);
-  return route;
+  const receipt = modelRouteRecordStateReceipt(state, route, "model_route_upsert", {
+    summary: `Model route ${route.id} updated.`,
+    evidence_refs: ["model_router.route_config", route.id],
+  });
+  const stored = {
+    ...route,
+    stateReceiptId: receipt.id,
+  };
+  commitModelRouteRecordState(state, stored, "model_mount.route.write", [receipt.id]);
+  state.routes.set(stored.id, stored);
+  return stored;
 }
 
 export function endpointIdsForExplicitModel({
@@ -345,8 +357,8 @@ export function testRoute(state, routeId, body = {}) {
     lastSelectedModel: selection.endpoint.modelId,
     lastReceiptId: receipt.id,
   };
+  commitModelRouteRecordState(state, updatedRoute, "model_mount.route.test", [receipt.id]);
   state.routes.set(routeId, updatedRoute);
-  state.writeMap("model-routes", state.routes);
   return { route: updatedRoute, selection, receipt };
 }
 
@@ -412,6 +424,90 @@ function routeDecisionReceiptIdRequiredError() {
   error.status = 500;
   error.code = "model_mount_route_decision_receipt_id_required";
   return error;
+}
+
+function modelRouteRecordStateReceipt(state, route, operation, { summary, evidence_refs: evidenceRefs }) {
+  if (typeof state.receipt !== "function") {
+    const error = new Error("Model route state changes require receipt creation before Rust Agentgres record-state commit.");
+    error.status = 500;
+    error.code = "model_mount_route_state_receipt_required";
+    error.details = {
+      route_id: route?.id ?? null,
+      operation,
+    };
+    throw error;
+  }
+  return state.receipt(operation, {
+    summary,
+    redaction: "redacted",
+    evidenceRefs,
+    details: {
+      route_id: route.id,
+      role: route.role,
+      privacy: route.privacy,
+      quality: route.quality,
+      status: route.status,
+      fallback: route.fallback,
+      provider_eligibility: route.providerEligibility,
+      denied_providers: route.deniedProviders,
+    },
+  });
+}
+
+function commitModelRouteRecordState(state, record, operationKind, receiptRefs) {
+  if (typeof state.commitRuntimeModelMountRecordState !== "function") {
+    const error = new Error("Model route persistence requires Rust Agentgres record-state commit.");
+    error.status = 500;
+    error.code = "model_mount_route_state_commit_unconfigured";
+    error.details = {
+      route_id: record?.id ?? null,
+      receipt_id: receiptRefs.find(Boolean) ?? null,
+    };
+    throw error;
+  }
+  return normalizeModelRouteRecordStateCommit(state.commitRuntimeModelMountRecordState({
+    schema_version: RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION,
+    record_dir: "model-routes",
+    record_id: record.id,
+    operation_kind: operationKind,
+    storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
+    record,
+    receipt_refs: receiptRefs.filter(Boolean),
+  }));
+}
+
+function normalizeModelRouteRecordStateCommit(value = {}) {
+  const commit = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const storageRecord = commit.storage_record && typeof commit.storage_record === "object"
+    ? commit.storage_record
+    : commit.record?.record ?? {};
+  const required = {
+    record_id: commit.record_id ?? commit.record?.record_id,
+    object_ref: commit.object_ref ?? storageRecord.object_ref,
+    content_hash: commit.content_hash ?? storageRecord.content_hash,
+    admission_hash: commit.admission_hash ?? storageRecord.admission?.admission_hash,
+    commit_hash: commit.commit_hash ?? commit.record?.commit_hash,
+    written_record: commit.written_record,
+  };
+  for (const [field, fieldValue] of Object.entries(required)) {
+    if (!fieldValue) {
+      const error = new Error(`Rust model-mount record state commit returned without ${field}.`);
+      error.status = 502;
+      error.code = "model_mount_record_state_commit_invalid";
+      error.details = { field };
+      throw error;
+    }
+  }
+  return {
+    ...commit,
+    storage_record: storageRecord,
+    record_id: required.record_id,
+    object_ref: required.object_ref,
+    content_hash: required.content_hash,
+    admission_hash: required.admission_hash,
+    commit_hash: required.commit_hash,
+    written_record: required.written_record,
+  };
 }
 
 function assertCanonicalRouteSelectionRequestBody(body = {}) {

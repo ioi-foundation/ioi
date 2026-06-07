@@ -4815,10 +4815,19 @@ function runBridge() {
       /deniedProviders:\s*normalizeScopes\(body\.denied_providers,\s*\[\]\)/.test(modelRoutes) &&
       /lastSelectedModel:\s*body\.last_selected_model \?\? null/.test(modelRoutes) &&
       /lastReceiptId:\s*body\.last_receipt_id \?\? null/.test(modelRoutes) &&
+      /commitModelRouteRecordState/.test(modelRoutes) &&
+      /RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(modelRoutes) &&
+      /model_mount\.route\.write/.test(modelRoutes) &&
+      /model_mount\.route\.test/.test(modelRoutes) &&
+      /model_mount_route_state_commit_unconfigured/.test(modelRoutes) &&
+      !/state\.writeMap\("model-routes"/.test(modelRoutes) &&
       !/body\.(?:maxCostUsd|maxLatencyMs|providerEligibility|deniedProviders|lastSelectedModel|lastReceiptId)\b/.test(
         modelRoutes,
       ) &&
       /route upsert rejects retired request aliases before state write/.test(modelRoutesTest) &&
+      /route upsert fails closed without Rust Agentgres record-state commit/.test(modelRoutesTest) &&
+      /route test fails closed without Rust Agentgres record-state commit/.test(modelRoutesTest) &&
+      /recordStateCommits/.test(modelRoutesTest) &&
       /retired_aliases,\s*\[\s*"maxCostUsd",\s*"maxLatencyMs",\s*"providerEligibility",\s*"deniedProviders",\s*"lastSelectedModel",\s*"lastReceiptId",\s*\]/.test(
         modelRoutesTest,
       ) &&
