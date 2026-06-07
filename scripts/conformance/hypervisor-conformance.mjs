@@ -11698,7 +11698,11 @@ function runReceipts() {
       /commits_runtime_memory_record_state_with_storage_admission/.test(agentgresAdmissionCore) &&
       /commits_runtime_memory_policy_state_with_storage_admission/.test(agentgresAdmissionCore) &&
       /runtime_memory_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
+      /runtime_memory_state_commit_rejects_retired_receipt_refs_alias/.test(agentgresAdmissionCore) &&
       /runtime_memory_state_commit_rejects_mismatched_payload_id/.test(agentgresAdmissionCore) &&
+      !/pub fn commit_runtime_memory_state[\s\S]*?json_string_array\(&request\.payload,\s*"receiptRefs"\)[\s\S]*?pub fn commit_runtime_subagent_state/.test(
+        agentgresAdmissionCore,
+      ) &&
       /pub fn commit_runtime_memory_state/.test(runtimeKernelModule) &&
       /commit_runtime_memory_state/.test(bridgeModule) &&
       /RuntimeMemoryStateCommitBridgeRequest/.test(bridgeModule) &&
@@ -12201,7 +12205,11 @@ function runReceipts() {
       /commit_runtime_agent_state/.test(agentgresAdmissionCore) &&
       /commits_runtime_agent_state_with_storage_admission/.test(agentgresAdmissionCore) &&
       /runtime_agent_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
+      /runtime_agent_state_commit_rejects_retired_receipt_refs_alias/.test(agentgresAdmissionCore) &&
       /runtime_agent_state_commit_rejects_mismatched_agent_id/.test(agentgresAdmissionCore) &&
+      !/pub fn commit_runtime_agent_state[\s\S]*?json_string_array\(&request\.agent,\s*"receiptRefs"\)[\s\S]*?pub fn commit_runtime_memory_state/.test(
+        agentgresAdmissionCore,
+      ) &&
       /pub fn commit_runtime_agent_state/.test(runtimeKernelModule) &&
       /commit_runtime_agent_state/.test(bridgeModule) &&
       /RuntimeAgentStateCommitBridgeRequest/.test(bridgeModule) &&

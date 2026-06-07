@@ -11309,6 +11309,10 @@ reconstruct the active seam without carrying every per-slice paragraph.
   current `runtime_usage` where that snake_case field remains part of the thread
   record, but no longer advertise retired `usageTelemetry` or `runtimeUsage`
   aliases after daemon projections stopped emitting them.
+- Slice 573 retires Rust Agentgres state-commit receipt alias fallbacks:
+  runtime agent and memory state commits now require canonical `receipt_refs`
+  from the request or payload and reject retired `receiptRefs` payload aliases
+  before storage-write admission.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

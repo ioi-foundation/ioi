@@ -852,9 +852,6 @@ impl AgentgresAdmissionCore {
         let safe_agent_id = safe_agentgres_component(&request.agent_id);
         let receipt_refs = if request.receipt_refs.is_empty() {
             json_string_array(&request.agent, "receipt_refs")
-                .into_iter()
-                .chain(json_string_array(&request.agent, "receiptRefs"))
-                .collect::<Vec<_>>()
         } else {
             request.receipt_refs.clone()
         };
@@ -911,9 +908,6 @@ impl AgentgresAdmissionCore {
         };
         let receipt_refs = if request.receipt_refs.is_empty() {
             json_string_array(&request.payload, "receipt_refs")
-                .into_iter()
-                .chain(json_string_array(&request.payload, "receiptRefs"))
-                .collect::<Vec<_>>()
         } else {
             request.receipt_refs.clone()
         };
@@ -3192,6 +3186,19 @@ mod tests {
     }
 
     #[test]
+    fn runtime_agent_state_commit_rejects_retired_receipt_refs_alias() {
+        let mut request = runtime_agent_state_commit();
+        request.agent["receipt_refs"] = json!([]);
+        request.agent["receiptRefs"] = json!(["receipt_agent_retired"]);
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_agent_state(&request)
+            .expect_err("retired receiptRefs must not satisfy Rust Agentgres admission");
+
+        assert_eq!(error, AgentgresAdmissionError::MissingReceiptRefs);
+    }
+
+    #[test]
     fn runtime_agent_state_commit_rejects_mismatched_agent_id() {
         let mut request = runtime_agent_state_commit();
         request.agent["id"] = json!("agent_other");
@@ -3265,6 +3272,19 @@ mod tests {
         let error = AgentgresAdmissionCore
             .commit_runtime_memory_state(&request)
             .expect_err("receipt refs are required");
+
+        assert_eq!(error, AgentgresAdmissionError::MissingReceiptRefs);
+    }
+
+    #[test]
+    fn runtime_memory_state_commit_rejects_retired_receipt_refs_alias() {
+        let mut request = runtime_memory_state_commit();
+        request.payload["receipt_refs"] = json!([]);
+        request.payload["receiptRefs"] = json!(["receipt_memory_retired"]);
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_memory_state(&request)
+            .expect_err("retired receiptRefs must not satisfy Rust Agentgres admission");
 
         assert_eq!(error, AgentgresAdmissionError::MissingReceiptRefs);
     }
