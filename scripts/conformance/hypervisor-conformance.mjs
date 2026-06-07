@@ -4920,6 +4920,30 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "thread-memory-error-detail-aliases-retired",
+    /details:\s*\{\s*thread_id:\s*threadId,\s*control_kind:\s*controlKind\s*\}/.test(
+      runtimeThreadMemoryState,
+    ) &&
+      /operation_kind:\s*expectedOperationKind/.test(runtimeThreadMemoryState) &&
+      /expected_operation_kind:\s*expectedOperationKind/.test(runtimeThreadMemoryState) &&
+      /thread memory state rejects unexpected Rust-planned operation kind with canonical details/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeThreadMemoryStateTest) &&
+      /error\.details\.thread_id/.test(runtimeThreadMemoryStateTest) &&
+      /error\.details\.control_kind/.test(runtimeThreadMemoryStateTest) &&
+      /error\.details\.expected_operation_kind/.test(runtimeThreadMemoryStateTest) &&
+      !/details:\s*\{[^}\n]*\b(?:threadId|controlKind|operationKind|expectedOperationKind)\s*:/.test(
+        runtimeThreadMemoryState,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+    ],
+    "Phase 10/11 is pending: thread-memory Rust-planning fail-closed details must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "thread-fork-request-aliases-retired",
     /const idempotencyKey = request\.idempotency_key;/.test(runtimeThreadForkState) &&
       /workflow_graph_id: request\.workflow_graph_id \?\? null/.test(runtimeThreadForkState) &&

@@ -175,6 +175,12 @@ function createHarness(options = {}) {
   return { agents, calls, state, store };
 }
 
+function assertNoRetiredDetailAliases(details) {
+  for (const key of ["threadId", "controlKind", "operationKind", "expectedOperationKind"]) {
+    assert.equal(Object.hasOwn(details, key), false);
+  }
+}
+
 test("thread memory state projects thread and agent memory", () => {
   const { calls, state, store } = createHarness();
 
@@ -412,7 +418,13 @@ test("thread memory state fails closed without Rust-planned agent projection", (
 
   assert.throws(
     () => state.recordThreadMemoryStatus(store, "thread_a", { source: "status_test" }, "memory.status.v1"),
-    (error) => error.code === "thread_memory_state_update_planner_invalid",
+    (error) => {
+      assert.equal(error.code, "thread_memory_state_update_planner_invalid");
+      assert.equal(error.details.thread_id, "thread_a");
+      assert.equal(error.details.control_kind, "memory_status");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
   );
   assert.equal(calls.filter((call) => call.type === "planThreadMemoryAgentStateUpdate").length, 1);
   assert.equal(calls.some((call) => call.type === "writeAgent"), false);
@@ -435,7 +447,41 @@ test("thread memory state fails closed without Rust-planned operation kind", () 
     () => state.recordThreadMemoryStatus(store, "thread_a", { source: "status_test" }, "memory.status.v1"),
     (error) => {
       assert.equal(error.code, "thread_memory_state_update_operation_kind_missing");
-      assert.equal(error.details.operationKind, "thread.memory_status");
+      assert.equal(error.details.thread_id, "thread_a");
+      assert.equal(error.details.control_kind, "memory_status");
+      assert.equal(error.details.operation_kind, "thread.memory_status");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.equal(calls.filter((call) => call.type === "planThreadMemoryAgentStateUpdate").length, 1);
+  assert.equal(calls.some((call) => call.type === "writeAgent"), false);
+  assert.equal(agents.get("agent_a").updatedAt, undefined);
+});
+
+test("thread memory state rejects unexpected Rust-planned operation kind with canonical details", () => {
+  const { agents, calls, state, store } = createHarness({
+    contextPolicyRunner: {
+      planThreadMemoryAgentStateUpdate(request = {}) {
+        calls.push({ type: "planThreadMemoryAgentStateUpdate", input: request });
+        return {
+          status: "planned",
+          operation_kind: "thread.memory_policy",
+          agent: { ...request.agent, updatedAt: request.created_at },
+        };
+      },
+    },
+  });
+
+  assert.throws(
+    () => state.recordThreadMemoryStatus(store, "thread_a", { source: "status_test" }, "memory.status.v1"),
+    (error) => {
+      assert.equal(error.code, "thread_memory_state_update_operation_kind_mismatch");
+      assert.equal(error.details.thread_id, "thread_a");
+      assert.equal(error.details.control_kind, "memory_status");
+      assert.equal(error.details.expected_operation_kind, "thread.memory_status");
+      assert.equal(error.details.operation_kind, "thread.memory_policy");
+      assertNoRetiredDetailAliases(error.details);
       return true;
     },
   );

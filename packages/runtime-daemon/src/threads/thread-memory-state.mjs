@@ -465,7 +465,7 @@ export function createThreadMemoryState({
         status: 500,
         code: "thread_memory_state_update_planner_unavailable",
         message: "Thread memory updates require Rust policy state-update planning.",
-        details: { threadId, controlKind },
+        details: { thread_id: threadId, control_kind: controlKind },
       });
     }
     const stateUpdate = contextPolicyRunner.planThreadMemoryAgentStateUpdate({
@@ -482,7 +482,7 @@ export function createThreadMemoryState({
         status: 502,
         code: "thread_memory_state_update_planner_invalid",
         message: "Rust thread-memory state planning did not return an agent record.",
-        details: { threadId, controlKind },
+        details: { thread_id: threadId, control_kind: controlKind },
       });
     }
     const operationKind = requiredThreadMemoryOperationKind(stateUpdate, threadId, controlKind);
@@ -499,7 +499,11 @@ export function createThreadMemoryState({
         status: 502,
         code: "thread_memory_state_update_operation_kind_missing",
         message: "Rust thread-memory state planning did not return an operation kind.",
-        details: { threadId, controlKind, operationKind: expectedOperationKind },
+        details: {
+          thread_id: threadId,
+          control_kind: controlKind,
+          operation_kind: expectedOperationKind,
+        },
       });
     }
     if (operationKind !== expectedOperationKind) {
@@ -508,10 +512,10 @@ export function createThreadMemoryState({
         code: "thread_memory_state_update_operation_kind_mismatch",
         message: "Rust thread-memory state planning returned an unexpected operation kind.",
         details: {
-          threadId,
-          controlKind,
-          expectedOperationKind,
-          operationKind,
+          thread_id: threadId,
+          control_kind: controlKind,
+          expected_operation_kind: expectedOperationKind,
+          operation_kind: operationKind,
         },
       });
     }
