@@ -86,7 +86,6 @@ function packageInvocationRequest() {
         receipt_refs: ["receipt://worker-package/daemon-runner"],
       },
     },
-    expected_heads: ["agentgres://worker-service-package/head/before"],
   };
 }
 

@@ -27,7 +27,6 @@ export interface RuntimeWorkerServicePackageInvocation extends Record<string, un
   manifest_ref: string;
   invocation: Record<string, unknown>;
   result: Record<string, unknown>;
-  expected_heads: string[];
 }
 
 export interface RuntimeWorkerServicePackageControlRequestBody {
@@ -42,7 +41,6 @@ export interface RuntimeWorkerServicePackageControlRequestBody {
   package_ref: string;
   manifest_ref: string;
   invocation_id: string;
-  expected_heads: string[];
   admission_only: true;
   direct_truth_write_allowed: false;
   mutation_allowed: false;
@@ -72,7 +70,6 @@ export interface RuntimeWorkerServicePackageControlRequestInput {
   manifestRef?: string | null;
   stepModuleInvocation?: Record<string, unknown> | null;
   result?: Record<string, unknown> | null;
-  expectedHeads?: string[] | null;
   workflowGraphId?: string | null;
   workflowNodeId?: string | null;
   actor?: string | null;
@@ -138,13 +135,8 @@ export function createRuntimeWorkerServicePackageControlRequest(
       objectAtPath(params.input, "result"),
     "result",
   );
-  const expectedHeads = requiredStringArray(
-    params.expectedHeads ??
-      stringArrayField(packageSeed, "expected_heads", "expectedHeads") ??
-      stringArrayAtPath(params.input, "expected_heads") ??
-      stringArrayAtPath(params.input, "expectedHeads"),
-    "expected_heads",
-  );
+  assertNoClientSuppliedWorkerServicePackageTruth(packageSeed);
+  assertNoClientSuppliedWorkerServicePackageTruth(params.input);
   const invocationId = requiredString(
     stringField(stepModuleInvocation, "invocation_id", "invocationId"),
     "invocation.invocation_id",
@@ -161,7 +153,6 @@ export function createRuntimeWorkerServicePackageControlRequest(
     manifest_ref: manifestRef,
     invocation: stepModuleInvocation,
     result,
-    expected_heads: expectedHeads,
   };
 
   return {
@@ -184,7 +175,6 @@ export function createRuntimeWorkerServicePackageControlRequest(
       package_ref: packageRef,
       manifest_ref: manifestRef,
       invocation_id: invocationId,
-      expected_heads: expectedHeads,
       admission_only: true,
       direct_truth_write_allowed: false,
       mutation_allowed: false,
@@ -227,12 +217,6 @@ function requiredString(value: string | null, field: string): string {
   throw new Error(`worker/service package controls need ${field} before dispatch.`);
 }
 
-function requiredStringArray(values: string[] | null | undefined, field: string): string[] {
-  const normalized = uniqueStrings(values ?? []);
-  if (normalized.length > 0) return normalized;
-  throw new Error(`worker/service package controls need ${field} before dispatch.`);
-}
-
 function requiredPackageKind(value: string | null): RuntimeWorkerServicePackageKind {
   if (RUNTIME_WORKER_SERVICE_PACKAGE_KINDS.includes(value as RuntimeWorkerServicePackageKind)) {
     return value as RuntimeWorkerServicePackageKind;
@@ -271,30 +255,12 @@ function objectRecord(source: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function stringArrayField(source: unknown, ...keys: string[]): string[] | null {
-  if (!source || typeof source !== "object" || Array.isArray(source)) return null;
-  for (const key of keys) {
-    const value = stringArray((source as Record<string, unknown>)[key]);
-    if (value) return value;
-  }
-  return null;
-}
-
 function stringAtPath(source: unknown, path: string): string | null {
   return cleanString(valueAtPath(source, path));
 }
 
-function stringArrayAtPath(source: unknown, path: string): string[] | null {
-  return stringArray(valueAtPath(source, path));
-}
-
 function objectAtPath(source: unknown, path: string): Record<string, unknown> | null {
   return objectRecord(valueAtPath(source, path));
-}
-
-function stringArray(value: unknown): string[] | null {
-  if (!Array.isArray(value)) return null;
-  return uniqueStrings(value.map((item) => cleanString(item)).filter(Boolean) as string[]);
 }
 
 function valueAtPath(source: unknown, path: string): unknown {
@@ -305,8 +271,16 @@ function valueAtPath(source: unknown, path: string): unknown {
   }, source);
 }
 
-function uniqueStrings(values: readonly string[]): string[] {
-  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+function assertNoClientSuppliedWorkerServicePackageTruth(source: unknown): void {
+  const record = objectRecord(source);
+  if (!record) return;
+  const retiredFields = ["expected_heads", "expectedHeads"].filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredFields.length === 0) return;
+  throw new Error(
+    `worker/service package controls no longer accept Rust-derived Agentgres truth fields: ${retiredFields.join(", ")}`,
+  );
 }
 
 function encodeSegment(value: string): string {

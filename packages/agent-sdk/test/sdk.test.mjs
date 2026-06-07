@@ -139,7 +139,6 @@ test("SDK admits worker/service package invocations through the thread route", a
       artifact_refs: ["artifact://worker-package/sdk-report"],
       payload_refs: ["payload://worker-package/sdk-output"],
     },
-    expected_heads: ["agentgres://worker-service-package/head/before"],
   };
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
@@ -153,6 +152,7 @@ test("SDK admits worker/service package invocations through the thread route", a
       assert.equal(body.source, "sdk_client");
       assert.equal(body.invocation.package_ref, "worker://runtime-auditor");
       assert.equal(body.invocation.invocation.invocation_id, "invocation://worker-package/sdk");
+      assert.equal(Object.prototype.hasOwnProperty.call(body.invocation, "expected_heads"), false);
       response.statusCode = 201;
       response.end(JSON.stringify({
         schema_version: "ioi.runtime.worker_service_package_admission.v1",

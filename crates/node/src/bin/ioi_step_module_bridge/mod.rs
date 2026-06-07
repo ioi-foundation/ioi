@@ -7178,8 +7178,7 @@ mod tests {
                             "model_reentry_required": false,
                             "verifier_required": true
                         }
-                    },
-                    "expected_heads": ["agentgres://worker-service-package/head/before"]
+                    }
                 }
             }))
             .expect("worker package bridge request");
@@ -7201,6 +7200,10 @@ mod tests {
         assert_eq!(
             response["agentgres_admission"]["operation_ref"],
             "agentgres://worker-service-package/operations/bridge"
+        );
+        assert_eq!(
+            response["receipt_binding"]["expected_heads"][0],
+            "agentgres://worker-service-package/head/current"
         );
         assert_eq!(
             response["projection_record"]["component_kind"],

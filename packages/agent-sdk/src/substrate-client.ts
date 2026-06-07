@@ -1116,7 +1116,6 @@ export interface RuntimeWorkerServicePackageInvocation extends Record<string, un
   manifest_ref: string;
   invocation: Record<string, unknown>;
   result: Record<string, unknown>;
-  expected_heads: string[];
 }
 
 export interface RuntimeWorkerServicePackageInvocationAdmissionInput extends Record<string, unknown> {

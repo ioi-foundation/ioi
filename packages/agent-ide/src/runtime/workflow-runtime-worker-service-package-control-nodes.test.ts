@@ -33,7 +33,6 @@ function packageInvocation() {
       artifact_refs: ["artifact://worker-package/ide-report"],
       payload_refs: ["payload://worker-package/ide-output"],
     },
-    expected_heads: ["agentgres://worker-service-package/head/before"],
   };
 }
 
@@ -47,6 +46,7 @@ const retiredWorkerServicePackageRequestAliases = [
   "packageRef",
   "manifestRef",
   "invocationId",
+  "expected_heads",
   "expectedHeads",
   "admissionOnly",
   "directTruthWriteAllowed",
@@ -73,7 +73,6 @@ test("builds worker/service package controls for daemon admission", () => {
   assert.equal(request.body.package_ref, "worker://runtime-auditor");
   assert.equal(request.body.manifest_ref, "worker://runtime-auditor@1");
   assert.equal(request.body.invocation.invocation.invocation_id, "invocation://worker-package/ide");
-  assert.deepEqual(request.body.expected_heads, ["agentgres://worker-service-package/head/before"]);
   assert.equal(request.body.admission_only, true);
   assert.equal(request.body.direct_truth_write_allowed, false);
   assert.equal(request.body.mutation_allowed, false);
@@ -109,9 +108,9 @@ test("builds worker/service package controls from workflow package nodes", () =>
   assert.equal(request.body.invocation.package_ref, "worker://runtime-auditor");
 });
 
-test("worker/service package controls fail closed without admission refs", () => {
-  const invalid = packageInvocation();
-  invalid.expected_heads = [];
+test("worker/service package controls fail closed without admission result", () => {
+  const invalid: Record<string, unknown> = packageInvocation();
+  invalid.result = {};
 
   assert.throws(
     () =>
@@ -119,6 +118,22 @@ test("worker/service package controls fail closed without admission refs", () =>
         threadId: "thread-ide",
         packageInvocation: invalid,
       }),
-    /expected_heads/,
+    /result/,
   );
+});
+
+test("worker/service package controls reject retired Agentgres truth fields", () => {
+  for (const key of ["expected_heads", "expectedHeads"]) {
+    assert.throws(
+      () =>
+        createRuntimeWorkerServicePackageControlRequest({
+          threadId: "thread-ide",
+          packageInvocation: {
+            ...packageInvocation(),
+            [key]: ["agentgres://worker-service-package/head/client"],
+          },
+        }),
+      /Rust-derived Agentgres truth fields/,
+    );
+  }
 });

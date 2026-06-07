@@ -589,8 +589,7 @@ mod tests {
             "package_kind": "worker_package",
             "package_ref": "package://worker/cli",
             "manifest_ref": "artifact://package-manifest/cli",
-            "invocation": { "invocation_id": "worker-service-package-cli" },
-            "expected_heads": ["agentgres://worker-service-package/head/before"]
+            "invocation": { "invocation_id": "worker-service-package-cli" }
         });
         let body = worker_service_package_admission_body(invocation);
 
@@ -599,6 +598,7 @@ mod tests {
             Some(&Value::String("cli_client".to_string()))
         );
         assert!(body.get("invocation").is_some());
+        assert!(body["invocation"].get("expected_heads").is_none());
         assert!(body.get("invocation_admitted").is_none());
         assert!(body.get("accepted_receipt_append").is_none());
         Ok(())

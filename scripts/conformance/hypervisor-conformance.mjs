@@ -1005,6 +1005,10 @@ function runBridge() {
     agentSdkSubstrateClient.match(
       /export interface RuntimeWorkerServicePackageInvocationAdmissionResult[\s\S]*?\n}\n/,
     )?.[0] ?? "";
+  const workerServicePackageInvocationType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeWorkerServicePackageInvocation[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const workerServicePackageAdmissionCamelAliasPropertyPattern =
     /\b(?:schemaVersion|invocationAdmitted|threadId|agentId|packageKind|packageRef|manifestRef|invocationId|routerAdmission|receiptBinding|acceptedReceiptAppend|agentgresAdmission|projectionRecord|receiptRefs|artifactRefs|payloadRefs|authorityGrantRefs)\s*:/;
   const workerServicePackageAdmissionCamelAliasTypePattern =
@@ -6055,6 +6059,7 @@ function runBridge() {
       /WorkerServicePackageInvocationCore/.test(bridgeModule) &&
       /rust_worker_service_package_invocation_command/.test(bridgeModule) &&
       /accepted_receipt_append/.test(bridgeModule) &&
+      /agentgres:\/\/worker-service-package\/head\/current/.test(bridgeModule) &&
       /bridge_admits_worker_service_package_invocation_through_rust_core/.test(bridgeModule),
     ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
     "Phase 8 is pending: worker/service package invocation admission must be exposed through the daemon command bridge",
@@ -6409,6 +6414,8 @@ function runBridge() {
       /admitWorkerServicePackageInvocation/.test(runtimeDaemonIndex) &&
       /WORKER_SERVICE_PACKAGE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(workerServicePackageSurface) &&
       /invocation_admitted:\s*true/.test(workerServicePackageSurface) &&
+      /RETIRED_WORKER_SERVICE_PACKAGE_TRUTH_FIELDS/.test(workerServicePackageSurface) &&
+      /worker_service_package_agentgres_truth_fields_retired/.test(workerServicePackageSurface) &&
       /store\.workerServicePackageRunner\.admitInvocation/.test(workerServicePackageSurface) &&
       /worker-service-package-invocations/.test(runtimeRouteHandlers) &&
       /store\.admitWorkerServicePackageInvocation/.test(runtimeRouteHandlers) &&
@@ -6418,6 +6425,9 @@ function runBridge() {
         workerServicePackageSurfaceTest,
       ) &&
       /worker\/service package surface fails closed without invocation payload/.test(
+        workerServicePackageSurfaceTest,
+      ) &&
+      /worker\/service package surface rejects client supplied Agentgres truth before Rust runner/.test(
         workerServicePackageSurfaceTest,
       ),
     [
@@ -6454,7 +6464,11 @@ function runBridge() {
     /RETIRED_WORKER_SERVICE_PACKAGE_REQUEST_ALIASES/.test(workerServicePackageSurface) &&
       /CANONICAL_WORKER_SERVICE_PACKAGE_REQUEST_FIELDS/.test(workerServicePackageSurface) &&
       /worker_service_package_invocation_request_aliases_retired/.test(workerServicePackageSurface) &&
+      /worker_service_package_agentgres_truth_fields_retired/.test(workerServicePackageSurface) &&
       /assertCanonicalWorkerServicePackageRequestBody\(body\);[\s\S]*objectRecord\(body\.invocation\)/.test(
+        workerServicePackageSurface,
+      ) &&
+      /assertNoClientSuppliedWorkerServicePackageTruth\(invocation\);/.test(
         workerServicePackageSurface,
       ) &&
       !/body\.(?:packageInvocation|package_invocation)\b/.test(workerServicePackageSurface) &&
@@ -6466,6 +6480,15 @@ function runBridge() {
       /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*key\)/.test(
         workerServicePackageControlNodesTest,
       ) &&
+      /worker\/service package controls reject retired Agentgres truth fields/.test(
+        workerServicePackageControlNodesTest,
+      ) &&
+      /assertNoClientSuppliedWorkerServicePackageTruth\(packageSeed\);/.test(
+        workerServicePackageControlNodes,
+      ) &&
+      !/expectedHeads\?:/.test(workerServicePackageControlNodes) &&
+      !/expected_heads:\s*string\[\]/.test(workerServicePackageControlNodes) &&
+      !/expected_heads:\s*expectedHeads/.test(workerServicePackageControlNodes) &&
       !/^\s*package_invocation:\s*RuntimeWorkerServicePackageInvocation;/m.test(
         workerServicePackageControlNodes,
       ) &&
@@ -6499,11 +6522,12 @@ function runBridge() {
       /worker-service-package-invocations/.test(workerServicePackageControlNodes) &&
       /admission_only:\s*true/.test(workerServicePackageControlNodes) &&
       /direct_truth_write_allowed:\s*false/.test(workerServicePackageControlNodes) &&
+      !/expected_heads:\s*string\[\]/.test(workerServicePackageInvocationType) &&
       !/\/apply/.test(workerServicePackageControlNodes) &&
       /builds worker\/service package controls for daemon admission/.test(
         workerServicePackageControlNodesTest,
       ) &&
-      /worker\/service package controls fail closed without admission refs/.test(
+      /worker\/service package controls fail closed without admission result/.test(
         workerServicePackageControlNodesTest,
       ) &&
       /createRuntimeWorkerServicePackageControlRequest/.test(agentIdeIndex) &&
@@ -6530,6 +6554,7 @@ function runBridge() {
       /"invocation":\s*invocation/.test(cliRuntime) &&
       /worker_service_package_route_encodes_thread_id/.test(cliRuntime) &&
       /worker_service_package_body_is_cli_admission_only/.test(cliRuntime) &&
+      !/"expected_heads":\s*\["agentgres:\/\/worker-service-package\/head\/before"\]/.test(cliRuntime) &&
       !/invocation_admitted:\s*true/.test(cliRuntime),
     [
       "crates/cli/src/main.rs",
@@ -10761,8 +10786,10 @@ function runReceipts() {
       /ReceiptBinder/.test(marketplaceCore) &&
       /AgentgresAdmissionCore/.test(marketplaceCore) &&
       /RustProjectionCore/.test(marketplaceCore) &&
+      /worker_service_package_expected_heads/.test(marketplaceCore) &&
+      /CallerSuppliedExpectedHeads/.test(marketplaceCore) &&
       /admits_worker_package_invocation_through_step_module_contract/.test(marketplaceCore) &&
-      /package_invocation_agentgres_transition_requires_expected_heads/.test(marketplaceCore) &&
+      /package_invocation_rejects_caller_supplied_expected_heads/.test(marketplaceCore) &&
       /admit_worker_service_package_invocation/.test(runtimeKernelModule),
     [
       "crates/services/src/agentic/runtime/kernel/marketplace.rs",

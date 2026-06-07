@@ -67,7 +67,6 @@ function packageInvocation() {
       state_root_after: "sha256:package-after",
       resulting_head: "agentgres://worker-service-package/head/surface",
     },
-    expected_heads: ["agentgres://worker-service-package/head/before"],
   };
 }
 
@@ -202,6 +201,29 @@ test("worker/service package surface rejects retired request aliases before agen
       assert.equal(error.code, "worker_service_package_invocation_request_aliases_retired");
       assert.deepEqual(error.details.retired_aliases, ["packageInvocation", "package_invocation"]);
       assert.deepEqual(error.details.canonical_fields, ["invocation"]);
+      return true;
+    },
+  );
+  assert.deepEqual(runtimeStore.calls, []);
+});
+
+test("worker/service package surface rejects client supplied Agentgres truth before Rust runner", () => {
+  const runtimeStore = store();
+  const surface = createRuntimeWorkerServicePackageSurface();
+
+  assert.throws(
+    () =>
+      surface.admitWorkerServicePackageInvocation(runtimeStore, "thread_surface", {
+        invocation: {
+          ...packageInvocation(),
+          expected_heads: ["agentgres://worker-service-package/head/client"],
+        },
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "worker_service_package_agentgres_truth_fields_retired");
+      assert.deepEqual(error.details.retired_fields, ["expected_heads"]);
+      assert.equal(error.details.derived_by, "rust_worker_service_package_invocation");
       return true;
     },
   );

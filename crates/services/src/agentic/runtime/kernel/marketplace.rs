@@ -123,6 +123,10 @@ pub enum MarketplaceAdmissionError {
     MissingPackageAuthorityGrant,
     #[error("package invocation receipt refs are missing")]
     MissingPackageReceipt,
+    #[error(
+        "worker/service package expected heads are Rust-derived and cannot be supplied by callers"
+    )]
+    CallerSuppliedExpectedHeads,
     #[error("package invocation router admission failed: {0:?}")]
     StepRouter(StepModuleRouterError),
     #[error("package invocation receipt binding failed: {0:?}")]
@@ -175,12 +179,9 @@ impl WorkerServicePackageInvocationCore {
         let router_admission = StepModuleRouterCore
             .admit_execution(&request.invocation, &request.result)
             .map_err(MarketplaceAdmissionError::StepRouter)?;
+        let expected_heads = worker_service_package_expected_heads(request);
         let receipt_binding = ReceiptBinder
-            .bind_step_module_result(
-                &request.invocation,
-                &request.result,
-                request.expected_heads.clone(),
-            )
+            .bind_step_module_result(&request.invocation, &request.result, expected_heads)
             .map_err(MarketplaceAdmissionError::ReceiptBinding)?;
         let agentgres_admission = if request.result.agentgres_operation_refs.is_empty() {
             None
@@ -259,6 +260,9 @@ impl WorkerServicePackageInvocationRequest {
         if self.result.receipt_refs.is_empty() {
             return Err(MarketplaceAdmissionError::MissingPackageReceipt);
         }
+        if !self.expected_heads.is_empty() {
+            return Err(MarketplaceAdmissionError::CallerSuppliedExpectedHeads);
+        }
         Ok(())
     }
 }
@@ -307,6 +311,15 @@ fn worker_service_package_agentgres_proposal(
     }
 }
 
+fn worker_service_package_expected_heads(
+    request: &WorkerServicePackageInvocationRequest,
+) -> Vec<String> {
+    if request.result.agentgres_operation_refs.is_empty() {
+        return vec![];
+    }
+    vec!["agentgres://worker-service-package/head/current".to_string()]
+}
+
 pub const REQUIRED_SCHEMA_NAMES: &[&str] = &[
     "tool",
     "capability_lease",
@@ -321,7 +334,6 @@ pub const REQUIRED_SCHEMA_NAMES: &[&str] = &[
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::runtime::kernel::receipt_binder::ReceiptBindingError;
     use crate::agentic::runtime::kernel::step_module::{
         StepModuleActor, StepModuleAuthority, StepModuleCustody, StepModuleExecution,
         StepModuleInput, StepModuleNext, StepModulePlaintextPolicy, StepModulePrivacyProfile,
@@ -421,7 +433,7 @@ mod tests {
                     verifier_required: true,
                 },
             },
-            expected_heads: vec!["agentgres://worker-service-package/head/before".to_string()],
+            expected_heads: vec![],
         }
     }
 
@@ -441,7 +453,7 @@ mod tests {
         assert!(record.router_admission.authoritative_transition);
         assert_eq!(
             record.receipt_binding.expected_heads,
-            vec!["agentgres://worker-service-package/head/before"]
+            vec!["agentgres://worker-service-package/head/current"]
         );
         assert_eq!(
             record
@@ -459,19 +471,17 @@ mod tests {
     }
 
     #[test]
-    fn package_invocation_agentgres_transition_requires_expected_heads() {
+    fn package_invocation_rejects_caller_supplied_expected_heads() {
         let mut request = worker_package_request();
-        request.expected_heads.clear();
+        request.expected_heads = vec!["agentgres://worker-service-package/head/client".to_string()];
 
         let error = WorkerServicePackageInvocationCore
             .admit_invocation(&request)
-            .expect_err("expected heads must be required");
+            .expect_err("caller-supplied expected heads must fail closed");
 
         assert_eq!(
             error,
-            MarketplaceAdmissionError::ReceiptBinding(
-                ReceiptBindingError::AgentgresOperationMissingExpectedHeads
-            )
+            MarketplaceAdmissionError::CallerSuppliedExpectedHeads
         );
     }
 }
