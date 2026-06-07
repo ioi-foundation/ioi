@@ -5709,12 +5709,11 @@ touched_files:
   ide: []
   tests:
     - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
+  conformance_checks:
   - receipts conformance fails if model-mounting reintroduces the unused
     `operationCount` / `operation-log.jsonl` reader
   - receipts conformance fails if model-mounting store status or lifecycle
-    receipts use `local_operation_log` or `agentgres_canonical_operation_log`
-    as live terminology
+    receipts use retired operation-log terminology as live terminology
   - model-mounting receipt evidence uses
     `agentgres_receipt_projection_boundary`
 verification:

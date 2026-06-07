@@ -10081,6 +10081,12 @@ function runReceipts() {
       /runtime Agentgres runner sends runtime model-mount receipt-state commit bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
+      /agentgres:\/\/model-mounting\/accepted-receipts\/op_1/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      !/agentgres:\/\/model-mounting\/operation-log\/op_1/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
       /commitRuntimeModelMountReceiptState\(request\)/.test(runtimeDaemonIndex) &&
       /commitRuntimeModelMountReceiptState:\s*\(request\) => this\.commitRuntimeModelMountReceiptState\(request\)/.test(
         runtimeDaemonIndex,
