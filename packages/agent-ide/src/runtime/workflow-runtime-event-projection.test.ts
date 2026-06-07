@@ -874,6 +874,14 @@ test("computer-use projection ignores retired top-level control aliases", () => 
       computerUseCoordinateSpaceId: "coordinate-space-retired",
       computerUseTargetIndexRef: "target-index-retired",
       computerUseAffordanceGraphRef: "affordance-graph-retired",
+      computerUseProposalRef: "proposal-retired",
+      computerUseActionRef: "action-retired",
+      computerUseTargetRef: "target-retired",
+      computerUsePolicyDecisionRef: "policy-retired",
+      computerUseVerificationRef: "verification-retired",
+      computerUseCommitGateRef: "commit-gate-retired",
+      computerUseTrajectoryRef: "trajectory-retired",
+      computerUseCleanupRef: "cleanup-retired",
     },
   });
   const projection = projectRuntimeThreadEventsToWorkflowProjection([retiredAliasEvent]);
@@ -893,6 +901,14 @@ test("computer-use projection ignores retired top-level control aliases", () => 
   assert.equal(projection.nodes[0]?.computerUse?.coordinateSpaceId, null);
   assert.equal(projection.nodes[0]?.computerUse?.targetIndexRef, null);
   assert.equal(projection.nodes[0]?.computerUse?.affordanceGraphRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.proposalRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.actionRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.targetRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.policyDecisionRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.verificationRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.commitGateRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.trajectoryRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.cleanupRef, null);
 });
 
 test("projects workspace trust warnings as workspace trust gate React Flow rows", () => {

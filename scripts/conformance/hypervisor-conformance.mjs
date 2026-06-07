@@ -19922,6 +19922,77 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-computer-use-projection-lifecycle-ref-aliases-retired",
+    /stringField\(payload,\s*"computer_use_proposal_ref"\)/.test(agentIdeRuntimeEventProjection) &&
+      /stringField\(payload,\s*"computer_use_action_ref"\)/.test(agentIdeRuntimeEventProjection) &&
+      /stringField\(payload,\s*"computer_use_target_ref"\)/.test(agentIdeRuntimeEventProjection) &&
+      /"computer_use_policy_decision_ref"/.test(agentIdeRuntimeEventProjection) &&
+      /stringField\(payload,\s*"computer_use_verification_ref"\)/.test(agentIdeRuntimeEventProjection) &&
+      /stringField\(payload,\s*"computer_use_commit_gate_ref"\)/.test(agentIdeRuntimeEventProjection) &&
+      /stringField\(payload,\s*"computer_use_trajectory_ref"\)/.test(agentIdeRuntimeEventProjection) &&
+      /stringField\(payload,\s*"computer_use_cleanup_ref"\)/.test(agentIdeRuntimeEventProjection) &&
+      !/stringField\(payload,\s*"computer_use_proposal_ref",\s*"computerUseProposalRef"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_action_ref",\s*"computerUseActionRef"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_target_ref",\s*"computerUseTargetRef"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/computerUsePolicyDecisionRef/.test(agentIdeRuntimeEventProjection) &&
+      !/stringField\(payload,\s*"computer_use_verification_ref",\s*"computerUseVerificationRef"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_commit_gate_ref",\s*"computerUseCommitGateRef"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_trajectory_ref",\s*"computerUseTrajectoryRef"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(payload,\s*"computer_use_cleanup_ref",\s*"computerUseCleanupRef"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /computerUseProposalRef:\s*"proposal-retired"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseActionRef:\s*"action-retired"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseTargetRef:\s*"target-retired"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUsePolicyDecisionRef:\s*"policy-retired"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseVerificationRef:\s*"verification-retired"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseCommitGateRef:\s*"commit-gate-retired"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseTrajectoryRef:\s*"trajectory-retired"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseCleanupRef:\s*"cleanup-retired"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.proposalRef,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.actionRef,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.targetRef,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.policyDecisionRef,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.verificationRef,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.commitGateRef,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.trajectoryRef,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.cleanupRef,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE computer-use projections must ignore retired top-level lifecycle ref aliases",
+  );
+  assertCheck(
+    result,
     "ide-computer-use-browser-discovery-projection-aliases-retired",
     /recordField\(\s*payload,\s*"browser_discovery_report",\s*\)/.test(
       agentIdeRuntimeEventProjection,

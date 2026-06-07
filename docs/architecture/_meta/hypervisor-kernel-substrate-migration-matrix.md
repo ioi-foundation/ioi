@@ -13397,6 +13397,16 @@ only, so retired camelCase artifact/ref aliases cannot make old payload shapes
 look observation-backed, screen-backed, SOM-backed, coordinate-backed,
 target-backed, or affordance-backed.
 
+Slice 530 retires IDE computer-use projection top-level lifecycle ref aliases:
+workflow runtime event projection now reads canonical `computer_use_proposal_ref`,
+`computer_use_action_ref`, `computer_use_target_ref`,
+`computer_use_policy_decision_ref`, `computer_use_verification_ref`,
+`computer_use_commit_gate_ref`, `computer_use_trajectory_ref`, and
+`computer_use_cleanup_ref` fields only, so retired camelCase lifecycle aliases
+cannot make old payload shapes look proposal-backed, action-backed,
+target-backed, policy-backed, verification-backed, commit-gated,
+trajectory-backed, or cleanup-backed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

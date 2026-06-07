@@ -3444,10 +3444,10 @@ function computerUseProjectionForRuntimeThreadEvent(
       "approvalRef",
     ),
     proposalRef:
-      stringField(payload, "computer_use_proposal_ref", "computerUseProposalRef") ??
+      stringField(payload, "computer_use_proposal_ref") ??
       stringField(actionProposal, "proposal_ref", "proposalRef"),
     actionRef:
-      stringField(payload, "computer_use_action_ref", "computerUseActionRef") ??
+      stringField(payload, "computer_use_action_ref") ??
       stringField(computerAction, "action_ref", "actionRef") ??
       stringField(actionReceipt, "action_ref", "actionRef"),
     actionKind: stringField(computerAction, "action_kind", "actionKind"),
@@ -3467,14 +3467,13 @@ function computerUseProjectionForRuntimeThreadEvent(
       "requiresReobserve",
     ),
     targetRef:
-      stringField(payload, "computer_use_target_ref", "computerUseTargetRef") ??
+      stringField(payload, "computer_use_target_ref") ??
       stringField(actionProposal, "target_ref", "targetRef") ??
       stringField(computerAction, "target_ref", "targetRef"),
     policyDecisionRef:
       stringField(
         payload,
         "computer_use_policy_decision_ref",
-        "computerUsePolicyDecisionRef",
       ) ??
       stringField(policyDecisionReceipt, "policy_decision_ref", "policyDecisionRef") ??
       stringField(actionProposal, "policy_decision_ref", "policyDecisionRef") ??
@@ -3501,23 +3500,23 @@ function computerUseProjectionForRuntimeThreadEvent(
       "failClosed",
     ),
     verificationRef:
-      stringField(payload, "computer_use_verification_ref", "computerUseVerificationRef") ??
+      stringField(payload, "computer_use_verification_ref") ??
       stringField(verificationReceipt, "verification_ref", "verificationRef") ??
       stringField(actionReceipt, "verification_ref", "verificationRef"),
     verificationStatus:
       stringField(verificationReceipt, "status") ??
       stringField(runState, "verification_status", "verificationStatus"),
     commitGateRef:
-      stringField(payload, "computer_use_commit_gate_ref", "computerUseCommitGateRef") ??
+      stringField(payload, "computer_use_commit_gate_ref") ??
       stringField(commitGate, "commit_gate_ref", "commitGateRef"),
     commitGateStatus: stringField(commitGate, "status"),
     outcomeRef: stringField(outcomeContract, "outcome_ref", "outcomeRef"),
     humanHandoffRef: stringField(humanHandoffState, "handoff_ref", "handoffRef"),
     trajectoryRef:
-      stringField(payload, "computer_use_trajectory_ref", "computerUseTrajectoryRef") ??
+      stringField(payload, "computer_use_trajectory_ref") ??
       stringField(trajectoryBundle, "trajectory_ref", "trajectoryRef"),
     cleanupRef:
-      stringField(payload, "computer_use_cleanup_ref", "computerUseCleanupRef") ??
+      stringField(payload, "computer_use_cleanup_ref") ??
       stringField(cleanupReceipt, "cleanup_ref", "cleanupRef"),
     cleanupStatus: stringField(cleanupReceipt, "status"),
     retentionMode:
