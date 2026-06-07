@@ -12828,6 +12828,11 @@ function runCompositor() {
     "payload: {\n        ...approvalManifest",
     "\n      },\n      receipt_refs",
   );
+  const codingToolBudgetRecoverySurfaceResultCalls = [
+    ...runtimeCodingToolBudgetRecoverySurface.matchAll(
+      /codingToolBudgetRecoveryResult\(\{[\s\S]*?\n\s*\}\);/g,
+    ),
+  ].map((match) => match[0]);
   const runtimeUsageSdkTelemetryBlock = blockBetween(
     agentSdkSubstrateClient,
     "export interface RuntimeUsageTelemetry",
@@ -14391,8 +14396,29 @@ function runCompositor() {
       /schema_version:\s*WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION/.test(
         codingToolBudgetRecoveryResultBlock,
       ) &&
+      /thread_id:\s*threadId/.test(codingToolBudgetRecoveryResultBlock) &&
+      /approval_id:\s*approvalId/.test(codingToolBudgetRecoveryResultBlock) &&
+      /target_node_ids:\s*targetNodeIds/.test(codingToolBudgetRecoveryResultBlock) &&
       /recovery_action:\s*action/.test(codingToolBudgetRecoveryResultBlock) &&
       /receipt_refs:\s*receiptRefs/.test(codingToolBudgetRecoveryResultBlock) &&
+      /thread_id: "thread_1"/.test(runtimeCodingToolBudgetRecoveryTest) &&
+      /approval_id: "approval_1"/.test(runtimeCodingToolBudgetRecoveryTest) &&
+      /target_node_ids: \["node_1"\]/.test(runtimeCodingToolBudgetRecoveryTest) &&
+      /receipt_refs: \["receipt_1"\]/.test(runtimeCodingToolBudgetRecoveryTest) &&
+      /retiredInputResult/.test(runtimeCodingToolBudgetRecoveryTest) &&
+      /assert\.notEqual\(retiredInputResult\.approval_id,\s*"approval_retired"\)/.test(
+        runtimeCodingToolBudgetRecoveryTest,
+      ) &&
+      codingToolBudgetRecoverySurfaceResultCalls.length >= 6 &&
+      codingToolBudgetRecoverySurfaceResultCalls.every(
+        (call) =>
+          !/^\s*(?:threadId|turnId|approvalId|sourceEventId|targetNodeIds|workflowGraphId|workflowNodeId|recoveryPolicy|approvalEvent|decisionEvent|receiptRefs|policyDecisionRefs)\s*:/m.test(
+            call,
+          ),
+      ) &&
+      /thread_id:\s*threadId/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /approval_id:\s*approvalId/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /target_node_ids:\s*targetNodeIds/.test(runtimeCodingToolBudgetRecoverySurface) &&
       /schema_version:\s*WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION/.test(
         codingToolBudgetRecoveryApprovalManifestBlock,
       ) &&

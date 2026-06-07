@@ -157,19 +157,19 @@ test("budget recovery retry limit and result envelope emit canonical fields only
     status: "completed",
     reason: "approved",
     run: { id: "run_1" },
-    threadId: "thread_1",
-    turnId: "turn_1",
-    approvalId: "approval_1",
-    sourceEventId: "event_1",
-    targetNodeIds: ["node_1"],
-    workflowGraphId: "graph_1",
-    workflowNodeId: "node_1",
-    recoveryPolicy: { retry_limit: 1 },
+    thread_id: "thread_1",
+    turn_id: "turn_1",
+    approval_id: "approval_1",
+    source_event_id: "event_1",
+    target_node_ids: ["node_1"],
+    workflow_graph_id: "graph_1",
+    workflow_node_id: "node_1",
+    recovery_policy: { retry_limit: 1 },
     event: { event_id: "event_result", seq: 5 },
-    approvalEvent: { event_id: "event_approval" },
-    decisionEvent: { event_id: "event_decision" },
-    receiptRefs: ["receipt_1"],
-    policyDecisionRefs: ["policy_1"],
+    approval_event: { event_id: "event_approval" },
+    decision_event: { event_id: "event_decision" },
+    receipt_refs: ["receipt_1"],
+    policy_decision_refs: ["policy_1"],
   });
 
   assert.equal(result.schema_version, "recovery.v1");
@@ -179,6 +179,21 @@ test("budget recovery retry limit and result envelope emit canonical fields only
   assert.deepEqual(result.target_node_ids, ["node_1"]);
   assert.deepEqual(result.receipt_refs, ["receipt_1"]);
   assert.deepEqual(result.policy_decision_refs, ["policy_1"]);
+  const retiredInputResult = recovery.codingToolBudgetRecoveryResult({
+    action: "retry_approved",
+    status: "completed",
+    run: { id: "run_1" },
+    threadId: "thread_retired",
+    approvalId: "approval_retired",
+    targetNodeIds: ["node_retired"],
+    receiptRefs: ["receipt_retired"],
+    policyDecisionRefs: ["policy_retired"],
+  });
+  assert.notEqual(retiredInputResult.thread_id, "thread_retired");
+  assert.notEqual(retiredInputResult.approval_id, "approval_retired");
+  assert.notDeepEqual(retiredInputResult.target_node_ids, ["node_retired"]);
+  assert.notDeepEqual(retiredInputResult.receipt_refs, ["receipt_retired"]);
+  assert.notDeepEqual(retiredInputResult.policy_decision_refs, ["policy_retired"]);
   for (const alias of [
     "schemaVersion",
     "recoveryAction",

@@ -13115,6 +13115,13 @@ idempotency, authority, receipt, and policy fields only; retired camelCase
 approval governance fields can no longer steer approval-gated coding-tool
 execution before Rust workload dispatch.
 
+Slice 493 retires coding-tool budget recovery result-builder aliases:
+coding-tool budget recovery result construction now accepts canonical
+`thread_id`, `approval_id`, `target_node_ids`, workflow, recovery-policy,
+receipt, and decision-event fields only; retired camelCase helper-call fields
+can no longer survive as a parallel JS-shaped result ABI before Rust-planned
+budget recovery state updates.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
