@@ -6,10 +6,11 @@ Supersedes: ad hoc split-brain status notes for this migration when they conflic
 Superseded by: none.
 Last alignment pass: 2026-06-07.
 Last matrix compaction pass: 2026-06-07, after compacting IDE replay,
-worker-contribution, workspace-trust, receipt-gate, policy, workflow-edit, and
-diagnostics-repair facade evidence through slice 647.
-Next resume instruction: run the scheduled matrix-compaction pass for the
-verified Slice 648 L1 settlement control facade-retirement seam before unrelated
+worker-contribution, workspace-trust, receipt-gate, policy, workflow-edit,
+diagnostics-repair, and L1 settlement control facade evidence through slice 648.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule and run the next
+matrix-compaction pass immediately after that seam is concrete, before unrelated
 route-family work resumes.
 
 ## Purpose
@@ -43,7 +44,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, workspace restore result output alias retirement, signed replay notebook output alias retirement, signed replay notebook restore/snapshot input alias retirement, signed replay event-kind identity helper, signed replay event-payload alias retirement, worker contribution result-payload alias retirement, worker contribution request/worker alias retirement, workspace trust gate payload alias retirement, IDE receipt gate panel alias retirement, IDE runtime policy/edit-proposal policy alias retirement, IDE workflow edit proposal control alias retirement, and IDE diagnostics repair action alias retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, workspace restore result output alias retirement, signed replay notebook output alias retirement, signed replay notebook restore/snapshot input alias retirement, signed replay event-kind identity helper, signed replay event-payload alias retirement, worker contribution result-payload alias retirement, worker contribution request/worker alias retirement, workspace trust gate payload alias retirement, IDE receipt gate panel alias retirement, IDE runtime policy/edit-proposal policy alias retirement, IDE workflow edit proposal control alias retirement, IDE diagnostics repair action alias retirement, and IDE L1 settlement control attempt/input alias retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -72,8 +73,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 648 named and
-  verified the L1 settlement control facade-retirement owner boundary.
+- Next scheduled matrix-compaction pass: pending until the next implementation
+  slice names and verifies a concrete Rust-core extraction or JS-facade
+  retirement owner boundary.
 - Future-resumption trigger: resume the migration goal by carrying out that next
   Rust-core extraction or facade-retirement slice first. Once the seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -420,6 +422,12 @@ Matrix compaction timing:
   guardrail, current sprint lane, and the distinction between canonical IDE
   projection/control adapters and remaining terminal Rust daemon-core projection
   ownership.
+- Eighty-fourth scheduled pass completed on 2026-06-07: the IDE L1 settlement
+  control attempt/input alias-retirement evidence after slice 648 was compacted
+  into the route-family range while preserving the live owner map, terminal
+  blockers, bridge-scaffolding guardrail, current sprint lane, and the
+  distinction between canonical IDE admission-control adapters and remaining
+  terminal Rust daemon-core L1 settlement ownership.
 
 ## Implementation Slice 0
 
@@ -13260,69 +13268,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 648
-
-```yaml
-slice: 648
-phase: 10-authoritative-js-facade-retirement
-objective: retire IDE L1 settlement control raw attempt/input aliases so
-  admission controls consume canonical snake_case request fields before daemon
-  dispatch
-owner_boundary:
-  route_or_surface: Hypervisor IDE L1 settlement admission control nodes
-  authority_gate: unchanged; this slice removes compatibility readers before
-    the existing daemon/Rust admission path and does not create accepted truth
-  execution_backend: unchanged; L1 settlement admission still routes through
-    the existing daemon runner and Rust admission bridge
-  truth_path: settlement admission attempts must use canonical
-    `settlement_attempt` / snake_case attempt fields before the daemon-bound
-    request is built; retired camelCase attempt/input aliases fail closed
-  projection_path: bridge conformance requires canonical L1 control readers and
-    rejects the retired `settlementAttempt`, `schemaVersion`, `settlementRef`,
-    `domainRef`, `stateRootRef`, `triggerRefs`, and `receiptRefs` attempt/input
-    aliases
-touched_files:
-  docs:
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  ide_facade:
-    - packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts
-  tests:
-    - packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - bridge conformance requires IDE L1 settlement control tests proving retired
-    attempt aliases are ignored and canonical raw input fields are accepted
-  - bridge conformance requires attempt readers to use canonical
-    `settlement_ref`, `domain_ref`, `state_root_ref`, `trigger_refs`, and
-    `receipt_refs`
-  - bridge conformance rejects the retired `settlementAttempt` wrapper,
-    `schemaVersion` fallback, camelCase attempt-field readers, and camelCase raw
-    input readers
-verification:
-  commands:
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - node --import tsx --test packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts
-    - npm run hypervisor-conformance:bridge
-    - npm run build --workspace=@ioi/agent-ide
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal Rust daemon-core API extraction remains pending beyond this IDE
-      L1 settlement control input facade cleanup
-    - explicit typed product/adapter params such as `settlementRef`,
-      `domainRef`, `stateRootRef`, `triggerRefs`, and `receiptRefs` remain until
-      the broader IDE/SDK TypeScript API naming contract is migrated
-    - scheduled matrix-compaction pass is now pending for this concrete
-      facade-retirement seam before unrelated route-family work resumes
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13338,7 +13283,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 648 and the eighty-third 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 648 and the eighty-fourth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -13447,7 +13392,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-647 retired SDK runtime usage record aliases and Rust/daemon
+- Slices 572-648 retired SDK runtime usage record aliases and Rust/daemon
   Agentgres state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -13720,7 +13665,12 @@ reconstruct the active seam without carrying every per-slice paragraph.
   readers now ignore retired camelCase
   runtime usage/context-pressure payload aliases, and the daemon-bound usage
   telemetry conversion emits only canonical snake_case fields instead of
-  duplicate camelCase compatibility output fields.
+  duplicate camelCase compatibility output fields;
+  IDE L1 settlement control nodes now consume canonical `settlement_attempt`
+  wrappers and snake_case attempt fields before daemon admission dispatch, so
+  retired `settlementAttempt`, `schemaVersion`, `settlementRef`, `domainRef`,
+  `stateRootRef`, `triggerRefs`, and `receiptRefs` aliases cannot populate L1
+  settlement admission-control requests.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
