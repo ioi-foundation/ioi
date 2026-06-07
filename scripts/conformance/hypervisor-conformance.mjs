@@ -8222,7 +8222,7 @@ function runBridge() {
     /blocked_reason:\s*operation\.blocked_reason \?\? null/.test(runtimeWorkspaceSnapshotSurface) &&
       /const reason = optionalString\(policy\?\.apply_reason\);/.test(runtimeWorkspaceSnapshotSurface) &&
       /file_count:\s*Number\(counts\.file_count \?\? 0\)/.test(runtimeWorkspaceSnapshotSurface) &&
-      /fileCount:\s*counts\.file_count/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/fileCount:\s*counts\.file_count/.test(runtimeWorkspaceSnapshotSurface) &&
       !/\boperation\.blockedReason\b/.test(runtimeWorkspaceSnapshotSurface) &&
       !/\bpolicy\?\.applyReason\b/.test(runtimeWorkspaceSnapshotSurface) &&
       !/\bcounts\.(?:fileCount|readyCount|noopCount|conflictCount|blockedCount|appliedCount|applyNoopCount|applyBlockedCount|failedCount)\b/.test(
@@ -18913,6 +18913,47 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
     ],
     "Phase 10/11 is pending: workspace restore preview/apply event appenders must read canonical snake_case result fields without camelCase fallbacks",
+  );
+  const previewWorkspaceSnapshotRestoreBody =
+    runtimeWorkspaceSnapshotSurface.match(
+      /  function previewWorkspaceSnapshotRestore\(store, threadId, snapshotId, request = \{\}\) \{[\s\S]*?(?=\n  function applyWorkspaceSnapshotRestore)/,
+    )?.[0] ?? "";
+  const applyWorkspaceSnapshotRestoreBody =
+    runtimeWorkspaceSnapshotSurface.match(
+      /  function applyWorkspaceSnapshotRestore\(store, threadId, snapshotId, request = \{\}\) \{[\s\S]*?(?=\n  function assertCanonicalWorkspaceRestoreRequestBody)/,
+    )?.[0] ?? "";
+  const workspaceRestoreResultAliasPattern =
+    /^\s*(?:schemaVersion|threadId|turnId|workspaceRoot|snapshotId|snapshotHash|previewStatus|previewSupported|applySupported|restoreApplySupported|fileCount|readyCount|noopCount|conflictCount|blockedCount|receiptRefs|artifactRefs|rollbackRefs|idempotencyKey|restorePreviewEvent|applyStatus|approvalRequired|approvalSatisfied|conflictPolicy|appliedCount|applyNoopCount|applyBlockedCount|failedCount|policyDecisionRefs|restoreApplyEvent)\s*:/m;
+  assertCheck(
+    result,
+    "workspace-restore-result-output-aliases-retired",
+    /assertNoRetiredWorkspaceRestorePreviewResultAliases\(preview\)/.test(
+      runtimeWorkspaceSnapshotSurfaceTest,
+    ) &&
+      /assertNoRetiredWorkspaceRestoreApplyResultAliases\(blocked\)/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /assertNoRetiredWorkspaceRestoreApplyResultAliases\(applied\)/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /preview\.preview_status,\s*"ready"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /blocked\.apply_status,\s*"blocked"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /applied\.apply_status,\s*"applied"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+      /Object\.hasOwn\(retiredIdentityPreview,\s*"turnId"\),\s*false/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      !workspaceRestoreResultAliasPattern.test(previewWorkspaceSnapshotRestoreBody) &&
+      !workspaceRestoreResultAliasPattern.test(applyWorkspaceSnapshotRestoreBody) &&
+      !/\brestorePreviewEvent:\s*event\b/.test(previewWorkspaceSnapshotRestoreBody) &&
+      !/\brestoreApplyEvent:\s*event\b/.test(applyWorkspaceSnapshotRestoreBody) &&
+      !/\bpolicy:\s*\{[\s\S]*?\b(?:approvalRequired|approvalSatisfied|approvalSource|conflictPolicy)\s*:/.test(
+        applyWorkspaceSnapshotRestoreBody,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: workspace restore preview/apply results must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

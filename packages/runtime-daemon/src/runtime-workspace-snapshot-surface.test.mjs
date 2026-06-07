@@ -25,9 +25,78 @@ const RETIRED_WORKSPACE_RESTORE_ERROR_DETAIL_ALIASES = [
   "snapshotId",
 ];
 
+const RETIRED_WORKSPACE_RESTORE_PREVIEW_RESULT_ALIASES = [
+  "schemaVersion",
+  "threadId",
+  "turnId",
+  "workspaceRoot",
+  "snapshotId",
+  "snapshotHash",
+  "previewStatus",
+  "previewSupported",
+  "applySupported",
+  "restoreApplySupported",
+  "fileCount",
+  "readyCount",
+  "noopCount",
+  "conflictCount",
+  "blockedCount",
+  "receiptRefs",
+  "artifactRefs",
+  "rollbackRefs",
+  "idempotencyKey",
+  "restorePreviewEvent",
+];
+
+const RETIRED_WORKSPACE_RESTORE_APPLY_RESULT_ALIASES = [
+  "schemaVersion",
+  "threadId",
+  "turnId",
+  "workspaceRoot",
+  "snapshotId",
+  "snapshotHash",
+  "previewStatus",
+  "applyStatus",
+  "applySupported",
+  "restoreApplySupported",
+  "approvalRequired",
+  "approvalSatisfied",
+  "conflictPolicy",
+  "fileCount",
+  "readyCount",
+  "noopCount",
+  "conflictCount",
+  "blockedCount",
+  "appliedCount",
+  "applyNoopCount",
+  "applyBlockedCount",
+  "failedCount",
+  "policyDecisionRefs",
+  "receiptRefs",
+  "artifactRefs",
+  "rollbackRefs",
+  "idempotencyKey",
+  "restoreApplyEvent",
+];
+
 function assertNoRetiredWorkspaceRestoreErrorDetailAliases(details) {
   for (const key of RETIRED_WORKSPACE_RESTORE_ERROR_DETAIL_ALIASES) {
     assert.equal(Object.hasOwn(details, key), false);
+  }
+}
+
+function assertNoRetiredWorkspaceRestorePreviewResultAliases(result) {
+  for (const key of RETIRED_WORKSPACE_RESTORE_PREVIEW_RESULT_ALIASES) {
+    assert.equal(Object.hasOwn(result, key), false, `${key} alias must be absent`);
+  }
+}
+
+function assertNoRetiredWorkspaceRestoreApplyResultAliases(result) {
+  for (const key of RETIRED_WORKSPACE_RESTORE_APPLY_RESULT_ALIASES) {
+    assert.equal(Object.hasOwn(result, key), false, `${key} alias must be absent`);
+  }
+  for (const key of ["approvalRequired", "approvalSatisfied", "approvalSource", "conflictPolicy"]) {
+    assert.equal(Object.hasOwn(result.policy ?? {}, key), false, `policy.${key} alias must be absent`);
   }
 }
 
@@ -503,35 +572,35 @@ test("workspace snapshot surface materializes restore artifacts and appends rest
   };
 
   const previewArtifact = surface.materializeWorkspaceRestorePreviewArtifact(store, {
-    threadId: "thread_alpha",
-    workspaceRoot: "/workspace",
-    snapshotId: "workspace_snapshot_alpha",
-    artifactId: "artifact_preview",
-    receiptId: "receipt_preview",
+    thread_id: "thread_alpha",
+    workspace_root: "/workspace",
+    snapshot_id: "workspace_snapshot_alpha",
+    artifact_id: "artifact_preview",
+    receipt_id: "receipt_preview",
     preview,
   });
   const applyArtifact = surface.materializeWorkspaceRestoreApplyArtifact(store, {
-    threadId: "thread_alpha",
-    workspaceRoot: "/workspace",
-    snapshotId: "workspace_snapshot_alpha",
-    artifactId: "artifact_apply",
-    receiptId: "receipt_apply",
+    thread_id: "thread_alpha",
+    workspace_root: "/workspace",
+    snapshot_id: "workspace_snapshot_alpha",
+    artifact_id: "artifact_apply",
+    receipt_id: "receipt_apply",
     apply,
   });
   const previewEvent = surface.appendWorkspaceRestorePreviewEvent(store, {
-    threadId: "thread_alpha",
-    turnId: "turn_alpha",
-    workspaceRoot: "/workspace",
-    workflowGraphId: "graph_alpha",
-    workflowNodeId: "restore_node",
+    thread_id: "thread_alpha",
+    turn_id: "turn_alpha",
+    workspace_root: "/workspace",
+    workflow_graph_id: "graph_alpha",
+    workflow_node_id: "restore_node",
     preview,
   });
   const applyEvent = surface.appendWorkspaceRestoreApplyEvent(store, {
-    threadId: "thread_alpha",
-    turnId: "turn_alpha",
-    workspaceRoot: "/workspace",
-    workflowGraphId: "graph_alpha",
-    workflowNodeId: "restore_node",
+    thread_id: "thread_alpha",
+    turn_id: "turn_alpha",
+    workspace_root: "/workspace",
+    workflow_graph_id: "graph_alpha",
+    workflow_node_id: "restore_node",
     apply,
   });
 
@@ -599,11 +668,16 @@ test("workspace snapshot surface previews and applies snapshot restores", () => 
   const preview = surface.previewWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_alpha", {
     workflow_node_id: "restore_node",
   });
-  assert.equal(preview.previewStatus, "ready");
+  assert.equal(preview.preview_status, "ready");
   assert.equal(preview.turn_id, "turn_alpha");
   assert.equal(preview.snapshot_hash, "hash_alpha");
   assert.equal(preview.event.event_kind, "workspace.restore.previewed");
   assert.equal(preview.event.workflow_node_id, "restore_node");
+  assert.equal(preview.artifact_refs.length, 1);
+  assert.match(preview.artifact_refs[0], /^artifact_workspace_restore_preview_workspace_snapshot_alpha_/);
+  assert.deepEqual(preview.rollback_refs, ["workspace_snapshot_alpha"]);
+  assert.equal(preview.restore_preview_event.event_id, preview.event.event_id);
+  assertNoRetiredWorkspaceRestorePreviewResultAliases(preview);
 
   store.codingArtifacts.set("artifact_snapshot_retired_identity", {
     id: "artifact_snapshot_retired_identity",
@@ -639,20 +713,29 @@ test("workspace snapshot surface previews and applies snapshot restores", () => 
     { workflow_node_id: "restore_node" },
   );
   assert.equal(retiredIdentityPreview.turn_id, null);
-  assert.equal(retiredIdentityPreview.turnId, null);
+  assert.equal(Object.hasOwn(retiredIdentityPreview, "turnId"), false);
   assert.equal(retiredIdentityPreview.snapshot_hash, null);
-  assert.equal(retiredIdentityPreview.snapshotHash, null);
+  assert.equal(Object.hasOwn(retiredIdentityPreview, "snapshotHash"), false);
 
   const blocked = surface.applyWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_alpha", {});
-  assert.equal(blocked.applyStatus, "blocked");
+  assert.equal(blocked.apply_status, "blocked");
+  assert.equal(blocked.policy.approval_required, true);
+  assert.equal(blocked.policy.approval_satisfied, false);
+  assert.equal(blocked.policy.conflict_policy, "clean_preview_only");
+  assertNoRetiredWorkspaceRestoreApplyResultAliases(blocked);
   assert.equal(fs.readFileSync(path.join(cwd, "src", "app.js"), "utf8"), "new");
 
   const applied = surface.applyWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_alpha", {
     confirm: true,
   });
-  assert.equal(applied.applyStatus, "applied");
+  assert.equal(applied.apply_status, "applied");
   assert.equal(fs.readFileSync(path.join(cwd, "src", "app.js"), "utf8"), "old");
   assert.equal(applied.event.event_kind, "workspace.restore.applied");
+  assert.equal(applied.restore_apply_event.event_id, applied.event.event_id);
+  assert.equal(applied.artifact_refs.length, 1);
+  assert.match(applied.artifact_refs[0], /^artifact_workspace_restore_apply_workspace_snapshot_alpha_/);
+  assert.deepEqual(applied.rollback_refs, ["workspace_snapshot_alpha"]);
+  assertNoRetiredWorkspaceRestoreApplyResultAliases(applied);
 });
 
 test("workspace snapshot restore fail-closed details use canonical fields", () => {

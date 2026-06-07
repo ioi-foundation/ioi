@@ -3603,73 +3603,73 @@ export class AgentgresRuntimeStateStore {
   }
 
   materializeWorkspaceRestorePreviewArtifact({
-    threadId,
-    workspaceRoot,
-    snapshotId,
-    artifactId,
-    receiptId,
+    thread_id,
+    workspace_root,
+    snapshot_id,
+    artifact_id,
+    receipt_id,
     preview,
   } = {}) {
     return this.workspaceSnapshotSurface.materializeWorkspaceRestorePreviewArtifact(this, {
-      threadId,
-      workspaceRoot,
-      snapshotId,
-      artifactId,
-      receiptId,
+      thread_id,
+      workspace_root,
+      snapshot_id,
+      artifact_id,
+      receipt_id,
       preview,
     });
   }
 
   materializeWorkspaceRestoreApplyArtifact({
-    threadId,
-    workspaceRoot,
-    snapshotId,
-    artifactId,
-    receiptId,
+    thread_id,
+    workspace_root,
+    snapshot_id,
+    artifact_id,
+    receipt_id,
     apply,
   } = {}) {
     return this.workspaceSnapshotSurface.materializeWorkspaceRestoreApplyArtifact(this, {
-      threadId,
-      workspaceRoot,
-      snapshotId,
-      artifactId,
-      receiptId,
+      thread_id,
+      workspace_root,
+      snapshot_id,
+      artifact_id,
+      receipt_id,
       apply,
     });
   }
 
   appendWorkspaceRestorePreviewEvent({
-    threadId,
-    turnId,
-    workspaceRoot,
-    workflowGraphId,
-    workflowNodeId,
+    thread_id,
+    turn_id,
+    workspace_root,
+    workflow_graph_id,
+    workflow_node_id,
     preview,
   } = {}) {
     return this.workspaceSnapshotSurface.appendWorkspaceRestorePreviewEvent(this, {
-      threadId,
-      turnId,
-      workspaceRoot,
-      workflowGraphId,
-      workflowNodeId,
+      thread_id,
+      turn_id,
+      workspace_root,
+      workflow_graph_id,
+      workflow_node_id,
       preview,
     });
   }
 
   appendWorkspaceRestoreApplyEvent({
-    threadId,
-    turnId,
-    workspaceRoot,
-    workflowGraphId,
-    workflowNodeId,
+    thread_id,
+    turn_id,
+    workspace_root,
+    workflow_graph_id,
+    workflow_node_id,
     apply,
   } = {}) {
     return this.workspaceSnapshotSurface.appendWorkspaceRestoreApplyEvent(this, {
-      threadId,
-      turnId,
-      workspaceRoot,
-      workflowGraphId,
-      workflowNodeId,
+      thread_id,
+      turn_id,
+      workspace_root,
+      workflow_graph_id,
+      workflow_node_id,
       apply,
     });
   }

@@ -272,7 +272,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const idempotencyKey = optionalString(request.idempotency_key);
     const snapshotPackage = workspaceSnapshotContentPackage(store, threadId, normalizedSnapshotId);
     const operations = previewWorkspaceRestoreOperations({
-      workspaceRoot: agent.cwd,
+      workspace_root: agent.cwd,
       files: snapshotPackage.files,
     });
     if (!operations.length) {
@@ -295,45 +295,26 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const snapshotTurnId = snapshotPackage.snapshot?.turn_id ?? null;
     const snapshotHash = snapshotPackage.snapshot?.snapshot_hash ?? null;
     const result = {
-      schemaVersion: WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION,
       schema_version: WORKSPACE_RESTORE_PREVIEW_SCHEMA_VERSION,
       object: "ioi.runtime_workspace_restore_preview",
-      threadId,
       thread_id: threadId,
-      turnId: snapshotTurnId,
       turn_id: snapshotTurnId,
-      workspaceRoot: agent.cwd,
       workspace_root: agent.cwd,
-      snapshotId: normalizedSnapshotId,
       snapshot_id: normalizedSnapshotId,
-      snapshotHash,
       snapshot_hash: snapshotHash,
-      previewStatus,
       preview_status: previewStatus,
-      previewSupported: blockedCount === 0,
       preview_supported: blockedCount === 0,
-      applySupported: previewStatus === "ready",
       apply_supported: previewStatus === "ready",
-      restoreApplySupported: previewStatus === "ready",
       restore_apply_supported: previewStatus === "ready",
-      fileCount: operations.length,
       file_count: operations.length,
-      readyCount,
       ready_count: readyCount,
-      noopCount,
       noop_count: noopCount,
-      conflictCount,
       conflict_count: conflictCount,
-      blockedCount,
       blocked_count: blockedCount,
       operations,
-      receiptRefs: [receiptId],
       receipt_refs: [receiptId],
-      artifactRefs: [artifactId],
       artifact_refs: [artifactId],
-      rollbackRefs: [normalizedSnapshotId],
       rollback_refs: [normalizedSnapshotId],
-      idempotencyKey,
       idempotency_key: idempotencyKey,
       summary:
         previewStatus === "ready"
@@ -341,32 +322,29 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
           : `Restore preview blocked for ${normalizedSnapshotId}: ${conflictCount} conflict(s), ${blockedCount} blocked file(s).`,
     };
     const artifactRecord = materializeWorkspaceRestorePreviewArtifact(store, {
-      threadId,
-      workspaceRoot: agent.cwd,
-      snapshotId: normalizedSnapshotId,
-      artifactId,
-      receiptId,
+      thread_id: threadId,
+      workspace_root: agent.cwd,
+      snapshot_id: normalizedSnapshotId,
+      artifact_id: artifactId,
+      receipt_id: receiptId,
       preview: result,
     });
     const event = appendWorkspaceRestorePreviewEvent(store, {
-      threadId,
-      turnId: result.turnId,
-      workspaceRoot: agent.cwd,
-      workflowGraphId,
-      workflowNodeId,
+      thread_id: threadId,
+      turn_id: result.turn_id,
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
       preview: {
         ...result,
-        artifactRefs: [artifactRecord.id],
         artifact_refs: [artifactRecord.id],
       },
     });
     return {
       ...result,
-      artifactRefs: [artifactRecord.id],
       artifact_refs: [artifactRecord.id],
       event,
       restore_preview_event: event,
-      restorePreviewEvent: event,
     };
   }
 
@@ -388,7 +366,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const idempotencyKey = optionalString(request.idempotency_key);
     const snapshotPackage = workspaceSnapshotContentPackage(store, threadId, normalizedSnapshotId);
     const previewOperations = previewWorkspaceRestoreOperations({
-      workspaceRoot: agent.cwd,
+      workspace_root: agent.cwd,
       files: snapshotPackage.files,
     });
     if (!previewOperations.length) {
@@ -400,7 +378,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       });
     }
     const gatePolicyPlan = planWorkspaceRestoreApplyPolicy({
-      snapshotId: normalizedSnapshotId,
+      snapshot_id: normalizedSnapshotId,
       request,
       operations: previewOperations,
     });
@@ -411,25 +389,23 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const conflictBlocked = Boolean(gatePolicyPlan.conflict_blocked);
     let operations = previewOperations.map((operation) => ({
       ...operation,
-      applyStatus: "blocked",
       apply_status: "blocked",
-      applyReason: workspaceRestoreOperationApplyReason(gatePolicyPlan, operation),
       apply_reason: workspaceRestoreOperationApplyReason(gatePolicyPlan, operation),
     }));
     if (approval.satisfied && !hardBlocked && !conflictBlocked) {
       operations = applyWorkspaceRestoreOperations({
-        workspaceRoot: agent.cwd,
+        workspace_root: agent.cwd,
         files: snapshotPackage.files,
-        allowConflicts,
+        allow_conflicts: allowConflicts,
       });
     }
     const counts = workspaceRestoreOperationCounts(operations);
     const finalPolicyPlan = planWorkspaceRestoreApplyPolicy({
-      snapshotId: normalizedSnapshotId,
+      snapshot_id: normalizedSnapshotId,
       request,
       counts,
-      hardBlocked,
-      conflictBlocked,
+      hard_blocked: hardBlocked,
+      conflict_blocked: conflictBlocked,
     });
     const applyStatus = finalPolicyPlan.apply_status;
     const previewStatus = counts.conflict_count || counts.blocked_count ? "blocked" : "ready";
@@ -447,98 +423,68 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     const snapshotTurnId = snapshotPackage.snapshot?.turn_id ?? null;
     const snapshotHash = snapshotPackage.snapshot?.snapshot_hash ?? null;
     const result = {
-      schemaVersion: WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION,
       schema_version: WORKSPACE_RESTORE_APPLY_SCHEMA_VERSION,
       object: "ioi.runtime_workspace_restore_apply",
-      threadId,
       thread_id: threadId,
-      turnId: snapshotTurnId,
       turn_id: snapshotTurnId,
-      workspaceRoot: agent.cwd,
       workspace_root: agent.cwd,
-      snapshotId: normalizedSnapshotId,
       snapshot_id: normalizedSnapshotId,
-      snapshotHash,
       snapshot_hash: snapshotHash,
-      previewStatus,
       preview_status: previewStatus,
-      applyStatus,
       apply_status: applyStatus,
-      applySupported: applyStatus !== "blocked" && applyStatus !== "failed",
       apply_supported: applyStatus !== "blocked" && applyStatus !== "failed",
-      restoreApplySupported: applyStatus !== "blocked" && applyStatus !== "failed",
       restore_apply_supported: applyStatus !== "blocked" && applyStatus !== "failed",
-      approvalRequired: true,
       approval_required: true,
-      approvalSatisfied: approval.satisfied,
       approval_satisfied: approval.satisfied,
-      conflictPolicy,
       conflict_policy: conflictPolicy,
-      fileCount: counts.file_count,
       file_count: counts.file_count,
-      readyCount: counts.ready_count,
       ready_count: counts.ready_count,
-      noopCount: counts.noop_count,
       noop_count: counts.noop_count,
-      conflictCount: counts.conflict_count,
       conflict_count: counts.conflict_count,
-      blockedCount: counts.blocked_count,
       blocked_count: counts.blocked_count,
-      appliedCount: counts.applied_count,
       applied_count: counts.applied_count,
-      applyNoopCount: counts.apply_noop_count,
       apply_noop_count: counts.apply_noop_count,
-      applyBlockedCount: counts.apply_blocked_count,
       apply_blocked_count: counts.apply_blocked_count,
-      failedCount: counts.failed_count,
       failed_count: counts.failed_count,
       operations,
       policy: {
         status: applyStatus === "blocked" ? "blocked" : "allowed",
-        approvalRequired: true,
-        approvalSatisfied: approval.satisfied,
-        approvalSource: approval.source,
-        conflictPolicy,
+        approval_required: true,
+        approval_satisfied: approval.satisfied,
+        approval_source: approval.source,
+        conflict_policy: conflictPolicy,
       },
       policy_decision_refs: policyDecisionRefs,
-      policyDecisionRefs,
-      receiptRefs: [receiptId],
       receipt_refs: [receiptId],
-      artifactRefs: [artifactId],
       artifact_refs: [artifactId],
-      rollbackRefs: [normalizedSnapshotId],
       rollback_refs: [normalizedSnapshotId],
-      idempotencyKey,
       idempotency_key: idempotencyKey,
       summary: finalPolicyPlan.summary,
     };
     const artifactRecord = materializeWorkspaceRestoreApplyArtifact(store, {
-      threadId,
-      workspaceRoot: agent.cwd,
-      snapshotId: normalizedSnapshotId,
-      artifactId,
-      receiptId,
+      thread_id: threadId,
+      workspace_root: agent.cwd,
+      snapshot_id: normalizedSnapshotId,
+      artifact_id: artifactId,
+      receipt_id: receiptId,
       apply: result,
     });
     const event = appendWorkspaceRestoreApplyEvent(store, {
-      threadId,
-      turnId: result.turnId,
-      workspaceRoot: agent.cwd,
-      workflowGraphId,
-      workflowNodeId,
+      thread_id: threadId,
+      turn_id: result.turn_id,
+      workspace_root: agent.cwd,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
       apply: {
         ...result,
-        artifactRefs: [artifactRecord.id],
         artifact_refs: [artifactRecord.id],
       },
     });
     return {
       ...result,
-      artifactRefs: [artifactRecord.id],
       artifact_refs: [artifactRecord.id],
       event,
       restore_apply_event: event,
-      restoreApplyEvent: event,
     };
   }
 
@@ -559,12 +505,12 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
   }
 
   function planWorkspaceRestoreApplyPolicy({
-    snapshotId,
+    snapshot_id: snapshotId,
     request = {},
     operations = null,
     counts = null,
-    hardBlocked = null,
-    conflictBlocked = null,
+    hard_blocked: hardBlocked = null,
+    conflict_blocked: conflictBlocked = null,
   } = {}) {
     if (!workspaceRestoreRunner?.planApplyPolicy) {
       throw runtimeError({
@@ -624,13 +570,13 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     return plan;
   }
 
-  function previewWorkspaceRestoreOperations({ workspaceRoot, files } = {}) {
+  function previewWorkspaceRestoreOperations({ workspace_root: workspaceRoot, files } = {}) {
     if (!workspaceRestoreRunner?.previewOperations) {
       throw runtimeError({
         status: 502,
         code: "workspace_restore_bridge_unconfigured",
         message: "Workspace restore preview requires the Rust workspace restore bridge.",
-        details: { workspaceRoot },
+        details: { workspace_root: workspaceRoot },
       });
     }
     return normalizeArray(
@@ -642,13 +588,13 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     );
   }
 
-  function applyWorkspaceRestoreOperations({ workspaceRoot, files, allowConflicts } = {}) {
+  function applyWorkspaceRestoreOperations({ workspace_root: workspaceRoot, files, allow_conflicts: allowConflicts } = {}) {
     if (!workspaceRestoreRunner?.applyOperations) {
       throw runtimeError({
         status: 502,
         code: "workspace_restore_bridge_unconfigured",
         message: "Workspace restore apply requires the Rust workspace restore bridge.",
-        details: { workspaceRoot },
+        details: { workspace_root: workspaceRoot },
       });
     }
     return normalizeArray(
@@ -742,14 +688,21 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
 
   function materializeWorkspaceRestorePreviewArtifact(
     store,
-    { threadId, workspaceRoot, snapshotId, artifactId, receiptId, preview } = {},
+    {
+      thread_id: threadId,
+      workspace_root: workspaceRoot,
+      snapshot_id: snapshotId,
+      artifact_id: artifactId,
+      receipt_id: receiptId,
+      preview,
+    } = {},
   ) {
     return materializeWorkspaceRestoreArtifact(store, {
-      threadId,
-      workspaceRoot,
-      snapshotId,
-      artifactId,
-      receiptId,
+      thread_id: threadId,
+      workspace_root: workspaceRoot,
+      snapshot_id: snapshotId,
+      artifact_id: artifactId,
+      receipt_id: receiptId,
       value: preview,
       toolName: "workspace.restore_preview",
       name: "workspace-restore-preview.json",
@@ -760,14 +713,21 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
 
   function materializeWorkspaceRestoreApplyArtifact(
     store,
-    { threadId, workspaceRoot, snapshotId, artifactId, receiptId, apply } = {},
+    {
+      thread_id: threadId,
+      workspace_root: workspaceRoot,
+      snapshot_id: snapshotId,
+      artifact_id: artifactId,
+      receipt_id: receiptId,
+      apply,
+    } = {},
   ) {
     return materializeWorkspaceRestoreArtifact(store, {
-      threadId,
-      workspaceRoot,
-      snapshotId,
-      artifactId,
-      receiptId,
+      thread_id: threadId,
+      workspace_root: workspaceRoot,
+      snapshot_id: snapshotId,
+      artifact_id: artifactId,
+      receipt_id: receiptId,
       value: apply,
       toolName: "workspace.restore_apply",
       name: "workspace-restore-apply.json",
@@ -778,7 +738,18 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
 
   function materializeWorkspaceRestoreArtifact(
     store,
-    { threadId, workspaceRoot, snapshotId, artifactId, receiptId, value, toolName, name, channel, redaction },
+    {
+      thread_id: threadId,
+      workspace_root: workspaceRoot,
+      snapshot_id: snapshotId,
+      artifact_id: artifactId,
+      receipt_id: receiptId,
+      value,
+      toolName,
+      name,
+      channel,
+      redaction,
+    },
   ) {
     const createdAt = now();
     const content = JSON.stringify(value, null, 2);
@@ -806,7 +777,14 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
 
   function appendWorkspaceRestorePreviewEvent(
     store,
-    { threadId, turnId, workspaceRoot, workflowGraphId, workflowNodeId, preview } = {},
+    {
+      thread_id: threadId,
+      turn_id: turnId,
+      workspace_root: workspaceRoot,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      preview,
+    } = {},
   ) {
     return store.appendRuntimeEvent({
       event_stream_id: eventStreamIdForThread(threadId),
@@ -841,7 +819,14 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
 
   function appendWorkspaceRestoreApplyEvent(
     store,
-    { threadId, turnId, workspaceRoot, workflowGraphId, workflowNodeId, apply } = {},
+    {
+      thread_id: threadId,
+      turn_id: turnId,
+      workspace_root: workspaceRoot,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      apply,
+    } = {},
   ) {
     return store.appendRuntimeEvent({
       event_stream_id: eventStreamIdForThread(threadId),
