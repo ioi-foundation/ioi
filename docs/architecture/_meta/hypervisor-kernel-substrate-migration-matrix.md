@@ -13083,6 +13083,11 @@ runtime artifact events now emit and read canonical `artifact_names` only;
 retired camelCase `artifactNames` values can no longer steer artifact refs
 before replay/projection.
 
+Slice 488 retires run-event component-kind reader aliases:
+policy-blocked runtime events now read canonical `component_kind` only; retired
+camelCase `componentKind` values can no longer steer component projection
+metadata.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

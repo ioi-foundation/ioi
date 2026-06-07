@@ -104,8 +104,8 @@ export function createRuntimeRunEventHelpers({
       case "lsp_diagnostics_injected":
         return "lsp_diagnostics";
       case "policy_blocked":
-        if (typeof eventOrType !== "string" && eventOrType?.data?.componentKind) {
-          return eventOrType.data.componentKind;
+        if (typeof eventOrType !== "string" && eventOrType?.data?.component_kind) {
+          return eventOrType.data.component_kind;
         }
         return "policy_gate";
       case "task_state":

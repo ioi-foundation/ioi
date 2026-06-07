@@ -2466,6 +2466,19 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "runtime-run-component-kind-reader-alias-retired",
+    /eventOrType\?\.data\?\.component_kind/.test(runtimeRunEventHelpers) &&
+      !/eventOrType\?\.data\?\.componentKind\b/.test(runtimeRunEventHelpers) &&
+      /component_kind: "custom_gate"/.test(runtimeRunEventHelpersTest) &&
+      /componentKind: "retired_gate"/.test(runtimeRunEventHelpersTest),
+    [
+      "packages/runtime-daemon/src/runtime-run-event-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-run-event-helpers.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime run component-kind readers must ignore retired camelCase componentKind aliases",
+  );
+  assertCheck(
+    result,
     "computer-use-control-payload-aliases-retired",
     /schema_version:\s*COMPUTER_USE_CONTRACT_SCHEMA_VERSION/.test(computerUseControlPayloadSummaryBlock) &&
       /computer_use:\s*true/.test(computerUseControlPayloadSummaryBlock) &&

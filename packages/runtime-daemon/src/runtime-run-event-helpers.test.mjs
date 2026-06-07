@@ -77,7 +77,8 @@ test("runtime run event helpers preserve refs and metadata derivation", () => {
   }), []);
 
   assert.equal(runtime.componentKindForRunEvent({ type: "memory_update", data: { operation: "policy_update" } }), "memory_policy");
-  assert.equal(runtime.componentKindForRunEvent({ type: "policy_blocked", data: { componentKind: "custom_gate" } }), "custom_gate");
+  assert.equal(runtime.componentKindForRunEvent({ type: "policy_blocked", data: { component_kind: "custom_gate" } }), "custom_gate");
+  assert.equal(runtime.componentKindForRunEvent({ type: "policy_blocked", data: { componentKind: "retired_gate" } }), "policy_gate");
   assert.equal(runtime.workflowNodeForRunEvent({
     type: "model_route_decision",
     data: {
