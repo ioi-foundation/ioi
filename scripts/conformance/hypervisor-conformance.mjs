@@ -3543,6 +3543,12 @@ function runBridge() {
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
         operatorInterruptTurnBody,
       ) &&
+      /approval_mode:\s*agent\.runtimeControls\?\.approval_mode \?\? "suggest"/.test(
+        operatorInterruptTurnBody,
+      ) &&
+      !/approval_mode:\s*agent\.runtimeControls\?\.approvalMode \?\? "suggest"/.test(
+        operatorInterruptTurnBody,
+      ) &&
       /workflowGraphId: "graph_retired"/.test(runtimeThreadControlTest) &&
       /workflowNodeId: "node_retired"/.test(runtimeThreadControlTest) &&
       /runtimeControlAction: "cancel"/.test(runtimeThreadControlTest) &&
@@ -3562,6 +3568,8 @@ function runBridge() {
       /runtime-backed operator controls fail closed without Rust-planned operation kinds/.test(
         runtimeThreadControlTest,
       ) &&
+      /approvalMode: "never_prompt"/.test(runtimeThreadControlTest) &&
+      /interrupted\.approval_mode,\s*"human_required"/.test(runtimeThreadControlTest) &&
       /plan_operator_interrupt_state_update/.test(runtimeThreadControlTest) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey|requestedBy|runtimeControlAction|controlAction)\b/.test(
         operatorInterruptTurnBody,
@@ -14054,7 +14062,12 @@ function runCompositor() {
       !/^\s*runtime_usage:\s*usageTelemetry,?\s*$/m.test(threadTurnProjection) &&
       !/^\s*runtimeUsage:\s*usageTelemetry,?\s*$/m.test(threadTurnProjection) &&
       !/run\.(?:usageTelemetry|runtimeUsage)/.test(threadTurnProjection) &&
+      /agent\.runtimeControls\?\.approval_mode/.test(threadTurnProjection) &&
+      !/agent\.runtimeControls\?\.approvalMode/.test(threadTurnProjection) &&
       /retiredUsageProjectionAliasKeys/.test(threadTurnProjectionTest) &&
+      /turn projection ignores retired persisted approval mode aliases/.test(
+        threadTurnProjectionTest,
+      ) &&
       /turn projection ignores retired run usage aliases/.test(threadTurnProjectionTest),
     [
       "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",

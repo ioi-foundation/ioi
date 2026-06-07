@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -310,6 +310,12 @@ function contextPolicyRunner(calls = [], overrides = {}) {
 }
 
 function runtimeAgentgresAdmissionRunner(calls = []) {
+  function writeCommittedRecord(stateDir, recordPath, value) {
+    const targetPath = join(stateDir, recordPath);
+    mkdirSync(join(targetPath, ".."), { recursive: true });
+    writeFileSync(targetPath, `${JSON.stringify(value, null, 2)}\n`);
+  }
+
   return {
     commitRuntimeRunState(stateDir, request) {
       calls.push({ operation: "commit_runtime_run_state", stateDir, input: request });
@@ -326,6 +332,134 @@ function runtimeAgentgresAdmissionRunner(calls = []) {
         commit_hash: "sha256:test-commit",
         written_records: [`runs/${request.run_id}.json`],
         evidence_refs: [operationRef],
+      };
+    },
+    commitRuntimeAgentState(stateDir, request) {
+      calls.push({ operation: "commit_runtime_agent_state", stateDir, input: request });
+      const recordPath = `agents/${request.agent_id}.json`;
+      writeCommittedRecord(stateDir, recordPath, request.agent ?? request);
+      return {
+        source: "rust_agentgres_runtime_agent_state_commit_command",
+        record: {
+          schema_version: "ioi.runtime_agent_state_commit.v1",
+          agent_id: request.agent_id,
+          operation_kind: request.operation_kind,
+          record: {
+            record_path: recordPath,
+            object_ref: `agentgres://runtime-state/agents/${request.agent_id}/records/${recordPath}`,
+            content_hash: "sha256:agent-content",
+            payload_refs: [`payload://runtime/agents/${request.agent_id}/records/${recordPath}`],
+            receipt_refs: request.agent?.receipt_refs ?? [],
+            admission: { admission_hash: "sha256:agent-admission" },
+          },
+          commit_hash: "sha256:agent-commit",
+        },
+        agent_id: request.agent_id,
+        object_ref: `agentgres://runtime-state/agents/${request.agent_id}/records/${recordPath}`,
+        content_hash: "sha256:agent-content",
+        admission_hash: "sha256:agent-admission",
+        commit_hash: "sha256:agent-commit",
+        written_record: { record_path: recordPath },
+        evidence_refs: ["rust_agentgres_runtime_agent_state_commit"],
+      };
+    },
+    commitRuntimeSubagentState(stateDir, request) {
+      calls.push({ operation: "commit_runtime_subagent_state", stateDir, input: request });
+      const recordPath = `subagents/${request.subagent_id}.json`;
+      writeCommittedRecord(stateDir, recordPath, request.subagent ?? request);
+      return {
+        source: "rust_agentgres_runtime_subagent_state_commit_command",
+        record: {
+          schema_version: "ioi.runtime_subagent_state_commit.v1",
+          subagent_id: request.subagent_id,
+          operation_kind: request.operation_kind,
+          record: {
+            record_path: recordPath,
+            object_ref: `agentgres://runtime-state/subagents/${request.subagent_id}/records/${recordPath}`,
+            content_hash: "sha256:subagent-content",
+            payload_refs: [`payload://runtime/subagents/${request.subagent_id}/records/${recordPath}`],
+            receipt_refs: request.subagent?.receipt_refs ?? [],
+            admission: { admission_hash: "sha256:subagent-admission" },
+          },
+          commit_hash: "sha256:subagent-commit",
+        },
+        subagent_id: request.subagent_id,
+        object_ref: `agentgres://runtime-state/subagents/${request.subagent_id}/records/${recordPath}`,
+        content_hash: "sha256:subagent-content",
+        admission_hash: "sha256:subagent-admission",
+        commit_hash: "sha256:subagent-commit",
+        written_record: { record_path: recordPath },
+        evidence_refs: ["rust_agentgres_runtime_subagent_state_commit"],
+      };
+    },
+    commitRuntimeModelMountRecordState(stateDir, request) {
+      calls.push({ operation: "commit_runtime_model_mount_record_state", stateDir, input: request });
+      const recordPath = request.record_path ?? `${request.record_kind ?? "records"}/${request.record_id ?? "record"}.json`;
+      writeCommittedRecord(stateDir, recordPath, request.record ?? request);
+      return {
+        source: "rust_agentgres_runtime_model_mount_record_state_commit_command",
+        backend: "rust_agentgres_storage",
+        record: {
+          schema_version: "ioi.runtime_model_mount_record_state_commit.v1",
+          record_id: request.record_id ?? "record",
+          record_kind: request.record_kind ?? "record",
+          record_path: recordPath,
+          commit_hash: "sha256:model-mount-record-commit",
+        },
+        storage_record: {
+          record_path: recordPath,
+          object_ref: `agentgres://model-mounting/records/${recordPath}`,
+          content_hash: "sha256:model-mount-record-content",
+          payload_refs: [`payload://model-mounting/records/${recordPath}`],
+          receipt_refs: request.receipt_refs ?? [],
+          admission: { admission_hash: "sha256:model-mount-record-admission" },
+        },
+        record_id: request.record_id ?? "record",
+        object_ref: `agentgres://model-mounting/records/${recordPath}`,
+        content_hash: "sha256:model-mount-record-content",
+        admission_hash: "sha256:model-mount-record-admission",
+        commit_hash: "sha256:model-mount-record-commit",
+        written_record: { record_path: recordPath },
+        evidence_refs: ["rust_agentgres_runtime_model_mount_record_state_commit"],
+      };
+    },
+    commitRuntimeModelMountReceiptState(stateDir, request) {
+      calls.push({ operation: "commit_runtime_model_mount_receipt_state", stateDir, input: request });
+      const receiptId = request.receipt_id ?? "receipt";
+      const recordPath = `receipts/${receiptId}.json`;
+      writeCommittedRecord(stateDir, recordPath, request.receipt ?? request);
+      return {
+        source: "rust_agentgres_runtime_model_mount_receipt_state_commit_command",
+        backend: "rust_agentgres_storage",
+        record: {
+          schema_version: "ioi.runtime_model_mount_receipt_state_commit.v1",
+          receipt_id: receiptId,
+          operation_kind: request.operation_kind,
+          record: {
+            record_path: recordPath,
+            object_ref: `agentgres://model-mounting/receipts/${receiptId}/records/${recordPath}`,
+            content_hash: "sha256:model-mount-receipt-content",
+            payload_refs: [`payload://model-mounting/receipts/${receiptId}/records/${recordPath}`],
+            receipt_refs: request.receipt_refs ?? [],
+            admission: { admission_hash: "sha256:model-mount-receipt-admission" },
+          },
+          commit_hash: "sha256:model-mount-receipt-commit",
+        },
+        storage_record: {
+          record_path: recordPath,
+          object_ref: `agentgres://model-mounting/receipts/${receiptId}/records/${recordPath}`,
+          content_hash: "sha256:model-mount-receipt-content",
+          payload_refs: [`payload://model-mounting/receipts/${receiptId}/records/${recordPath}`],
+          receipt_refs: request.receipt_refs ?? [],
+          admission: { admission_hash: "sha256:model-mount-receipt-admission" },
+        },
+        receipt_id: receiptId,
+        object_ref: `agentgres://model-mounting/receipts/${receiptId}/records/${recordPath}`,
+        content_hash: "sha256:model-mount-receipt-content",
+        admission_hash: "sha256:model-mount-receipt-admission",
+        commit_hash: "sha256:model-mount-receipt-commit",
+        written_record: { record_path: recordPath },
+        evidence_refs: ["rust_agentgres_runtime_model_mount_receipt_state_commit"],
       };
     },
   };
@@ -460,6 +594,7 @@ test("managed browser session inspect and control survive daemon store reconnect
   let store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
     contextPolicyRunner: contextPolicyRunner(calls),
+    runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(calls),
     modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
     runtimeBridge: managedSessionReconnectBridge(calls, managedState),
   });
@@ -492,6 +627,7 @@ test("managed browser session inspect and control survive daemon store reconnect
     store = new AgentgresRuntimeStateStore(stateDir, {
       cwd: stateDir,
       contextPolicyRunner: contextPolicyRunner(calls),
+      runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(calls),
       modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
       runtimeBridge: managedSessionReconnectBridge(calls, managedState),
     });
@@ -539,6 +675,7 @@ test("managed browser session HTTP routes survive daemon service reconnect", asy
       cwd: stateDir,
       stateDir,
       contextPolicyRunner: contextPolicyRunner(calls),
+      runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(calls),
       modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
       runtimeBridge: managedSessionReconnectBridge(calls, managedState),
     });
@@ -575,6 +712,7 @@ test("managed browser session HTTP routes survive daemon service reconnect", asy
       cwd: stateDir,
       stateDir,
       contextPolicyRunner: contextPolicyRunner(calls),
+      runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(calls),
       modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(calls),
       runtimeBridge: managedSessionReconnectBridge(calls, managedState),
     });
@@ -982,6 +1120,12 @@ test("runtime-backed in-flight turn can be interrupted before durable run projec
         local: { cwd: stateDir },
       },
     });
+    const agent = store.getAgent(thread.agent_id);
+    agent.runtimeControls = {
+      ...agent.runtimeControls,
+      approvalMode: "never_prompt",
+      approval_mode: "human_required",
+    };
     const turnPromise = store.createTurn(thread.thread_id, {
       prompt: "exercise in-flight runtime control",
       runtime_profile: "runtime_service",
@@ -1005,6 +1149,7 @@ test("runtime-backed in-flight turn can be interrupted before durable run projec
     assert.equal(controls[0].input.action, "stop");
     assert.equal(controls[0].input.threadId, thread.thread_id);
     assert.equal(interrupted.status, "interrupted");
+    assert.equal(interrupted.approval_mode, "human_required");
     assert.equal(interrupted.runtime_control.action, "stop");
     assert.equal(completed.turn_id, turnId);
     assert.equal(store.runs.has("run_inflight_runtime_control_test"), true);

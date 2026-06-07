@@ -192,6 +192,30 @@ test("turn projection distinguishes closed and open turns", () => {
   assert.equal(store.projectRunEventsCalled, true);
 });
 
+test("turn projection ignores retired persisted approval mode aliases", () => {
+  const agent = {
+    id: "agent_one",
+    cwd: "/workspace",
+    runtimeControls: {
+      mode: "review",
+      approvalMode: "never_prompt",
+      approval_mode: "human_required",
+    },
+  };
+  const store = createStore({ agent });
+  const turn = createProjection().turnForRun(store, {
+    id: "run_approval_alias",
+    agentId: "agent_one",
+    status: "running",
+    mode: "send",
+    createdAt: "2026-06-03T00:00:00.000Z",
+    updatedAt: "2026-06-03T00:00:05.000Z",
+  });
+
+  assert.equal(turn.mode, "review");
+  assert.equal(turn.approval_mode, "human_required");
+});
+
 test("turn projection ignores retired run usage aliases", () => {
   const agent = {
     id: "agent_one",

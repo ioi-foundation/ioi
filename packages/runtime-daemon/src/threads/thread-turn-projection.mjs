@@ -116,7 +116,7 @@ export function createThreadTurnProjection({
       started_at: run.createdAt,
       completed_at: completedAt,
       mode: run.threadMode ?? threadModeForRunMode(run.mode, agent.runtimeControls?.mode),
-      approval_mode: run.approvalMode ?? agent.runtimeControls?.approvalMode ?? "suggest",
+      approval_mode: run.approvalMode ?? agent.runtimeControls?.approval_mode ?? "suggest",
       model_route_decision_id: run.modelRouteDecision?.decision_id ?? run.trace?.modelRouteDecision?.decision_id ?? null,
       usage: usageTelemetry,
       usage_telemetry: usageTelemetry,

@@ -13053,6 +13053,11 @@ daemon run creation now reads canonical `runtimeControls.approval_mode` only
 before Rust-planned `run.create`; persisted camelCase `approvalMode` controls
 can no longer steer run approval semantics before Agentgres admission.
 
+Slice 482 retires turn-projection persisted approval-mode aliases:
+runless operator-interrupt and shared turn projections now read canonical
+`runtimeControls.approval_mode` only; persisted camelCase `approvalMode` values
+can no longer steer projected turn approval state.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

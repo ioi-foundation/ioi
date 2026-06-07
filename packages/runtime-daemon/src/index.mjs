@@ -1656,7 +1656,7 @@ export class AgentgresRuntimeStateStore {
         started_at: resolved.inFlight?.createdAt ?? event.created_at,
         completed_at: null,
         mode: request.mode ?? "send",
-        approval_mode: agent.runtimeControls?.approvalMode ?? "suggest",
+        approval_mode: agent.runtimeControls?.approval_mode ?? "suggest",
       };
       return runtimeControl
         ? {
