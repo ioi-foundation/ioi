@@ -14261,6 +14261,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts")
     : "";
+  const agentIdeEditProposalControlNodes = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts")
+    : "";
+  const agentIdeEditProposalControlNodesTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.test.ts")
+    : "";
   const runtimeWorkspaceTrustAcknowledgementControlRequestBody =
     agentIdeRuntimeControlNodes.match(
       /export interface RuntimeWorkspaceTrustAcknowledgementControlRequestBody \{[\s\S]*?\n\}/,
@@ -17816,6 +17826,88 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts",
     ],
     "Phase 10/11 is pending: IDE subagent control request bodies must emit canonical budget_usage_telemetry without duplicate budgetUsageTelemetry",
+  );
+  assertCheck(
+    result,
+    "ide-workflow-edit-proposal-control-aliases-retired",
+    /event_kind:\s*typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_SOURCE_EVENT_KIND;/.test(
+      agentIdeEditProposalControlNodes,
+    ) &&
+      /payload_schema_version:\s*typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_PAYLOAD_SCHEMA_VERSION;/.test(
+        agentIdeEditProposalControlNodes,
+      ) &&
+      /workflow_graph_id:\s*string \| null;/.test(
+        agentIdeEditProposalControlNodes,
+      ) &&
+      /workflow_node_id:\s*string;/.test(agentIdeEditProposalControlNodes) &&
+      /proposal_id:\s*string \| null;/.test(agentIdeEditProposalControlNodes) &&
+      /target_workflow_node_ids:\s*string\[\];/.test(
+        agentIdeEditProposalControlNodes,
+      ) &&
+      /bounded_targets:\s*string\[\];/.test(agentIdeEditProposalControlNodes) &&
+      /workflow_path:\s*string \| null;/.test(agentIdeEditProposalControlNodes) &&
+      /workflow_patch:\s*unknown \| null;/.test(agentIdeEditProposalControlNodes) &&
+      /code_diff:\s*string \| null;/.test(agentIdeEditProposalControlNodes) &&
+      /approval_mode:\s*"human_required";/.test(agentIdeEditProposalControlNodes) &&
+      /mutation_executed:\s*false;/.test(agentIdeEditProposalControlNodes) &&
+      /stringAtPath\(params\.input,\s*params\.threadIdField \?\? "thread_id"\)/.test(
+        agentIdeEditProposalControlNodes,
+      ) &&
+      /params\.targetWorkflowNodeIdsField \?\? "target_workflow_node_ids"/.test(
+        agentIdeEditProposalControlNodes,
+      ) &&
+      /stringAtPath\(params\.input,\s*params\.proposalIdField \?\? "proposal_id"\)/.test(
+        agentIdeEditProposalControlNodes,
+      ) &&
+      /valueAtPath\(params\.input,\s*params\.workflowPatchField \?\? "workflow_patch"\)/.test(
+        agentIdeEditProposalControlNodes,
+      ) &&
+      /stringAtPath\(params\.input,\s*params\.approvalIdField \?\? "approval_id"\)/.test(
+        agentIdeEditProposalControlNodes,
+      ) &&
+      /workflow edit proposal controls ignore retired raw input aliases/.test(
+        agentIdeEditProposalControlNodesTest,
+      ) &&
+      /proposalId: "proposal-retired"/.test(agentIdeEditProposalControlNodesTest) &&
+      /targetWorkflowNodeIds: \["target-retired"\]/.test(
+        agentIdeEditProposalControlNodesTest,
+      ) &&
+      /boundedTargets: \["bound-retired"\]/.test(
+        agentIdeEditProposalControlNodesTest,
+      ) &&
+      /workflowPath: "flows\/retired\.workflow\.json"/.test(
+        agentIdeEditProposalControlNodesTest,
+      ) &&
+      /codeDiff: "diff-retired"/.test(agentIdeEditProposalControlNodesTest) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"workflowGraphId"\),\s*false/.test(
+        agentIdeEditProposalControlNodesTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"proposalId"\),\s*false/.test(
+        agentIdeEditProposalControlNodesTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"targetWorkflowNodeIds"\),\s*\n\s*false/.test(
+        agentIdeEditProposalControlNodesTest,
+      ) &&
+      /Object\.prototype\.hasOwnProperty\.call\(apply\.body,\s*"approvalId"\),\s*false/.test(
+        agentIdeEditProposalControlNodesTest,
+      ) &&
+      !/^\s*(?:eventKind|componentKind|payloadSchemaVersion|workflowGraphId|workflowNodeId|proposalId|targetWorkflowNodeIds|boundedTargets|workflowPath|workflowPatch|codeDiff|approvalMode|proposalOnly|mutationAllowed|mutationExecuted|approvalId)\s*:/.test(
+        agentIdeEditProposalControlNodes,
+      ) &&
+      !/stringAtPath\(params\.input,\s*params\.(?:threadIdField|proposalIdField|workflowPathField|codeDiffField|approvalIdField) \?\? "(?:threadId|proposalId|workflowPath|codeDiff|approvalId)"\)/.test(
+        agentIdeEditProposalControlNodes,
+      ) &&
+      !/valueAtPath\(params\.input,\s*params\.workflowPatchField \?\? "workflowPatch"\)/.test(
+        agentIdeEditProposalControlNodes,
+      ) &&
+      !/stringArrayAtPath\(params\.input,\s*"(?:targetWorkflowNodeIds|boundedTargets)"\)/.test(
+        agentIdeEditProposalControlNodes,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE workflow edit proposal control nodes must send canonical daemon request bodies and ignore retired raw input aliases",
   );
   assertCheck(
     result,

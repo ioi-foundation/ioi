@@ -22,37 +22,22 @@ export interface RuntimeWorkflowEditProposalControlRequestBody {
   source: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_SOURCE;
   actor: string;
   event_kind: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_SOURCE_EVENT_KIND;
-  eventKind: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_SOURCE_EVENT_KIND;
   component_kind: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_COMPONENT_KIND;
-  componentKind: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_COMPONENT_KIND;
   payload_schema_version: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_PAYLOAD_SCHEMA_VERSION;
-  payloadSchemaVersion: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_PAYLOAD_SCHEMA_VERSION;
   workflow_graph_id: string | null;
-  workflowGraphId: string | null;
   workflow_node_id: string;
-  workflowNodeId: string;
   proposal_id: string | null;
-  proposalId: string | null;
   title: string;
   summary: string;
   target_workflow_node_ids: string[];
-  targetWorkflowNodeIds: string[];
   bounded_targets: string[];
-  boundedTargets: string[];
   workflow_path: string | null;
-  workflowPath: string | null;
   workflow_patch: unknown | null;
-  workflowPatch: unknown | null;
   code_diff: string | null;
-  codeDiff: string | null;
   approval_mode: "human_required";
-  approvalMode: "human_required";
   proposal_only: true;
-  proposalOnly: true;
   mutation_allowed: false;
-  mutationAllowed: false;
   mutation_executed: false;
-  mutationExecuted: false;
 }
 
 export interface RuntimeWorkflowEditProposalControlRequest {
@@ -93,21 +78,13 @@ export interface RuntimeWorkflowEditProposalApplyControlRequestBody {
   source: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_SOURCE;
   actor: string;
   event_kind: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_SOURCE_EVENT_KIND;
-  eventKind: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_SOURCE_EVENT_KIND;
   component_kind: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_COMPONENT_KIND;
-  componentKind: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_COMPONENT_KIND;
   payload_schema_version: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_PAYLOAD_SCHEMA_VERSION;
-  payloadSchemaVersion: typeof RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_PAYLOAD_SCHEMA_VERSION;
   workflow_graph_id: string | null;
-  workflowGraphId: string | null;
   workflow_node_id: string;
-  workflowNodeId: string;
   proposal_id: string;
-  proposalId: string;
   approval_id: string | null;
-  approvalId: string | null;
   proposal_only: true;
-  proposalOnly: true;
 }
 
 export interface RuntimeWorkflowEditProposalApplyControlRequest {
@@ -145,8 +122,7 @@ export function createRuntimeWorkflowEditProposalControlRequest(
 ): RuntimeWorkflowEditProposalControlRequest {
   const threadId =
     cleanString(params.threadId) ??
-    stringAtPath(params.input, params.threadIdField ?? "threadId") ??
-    stringAtPath(params.input, "thread_id");
+    stringAtPath(params.input, params.threadIdField ?? "thread_id");
   if (!threadId) {
     throw new Error("proposal nodes need a threadId input before dispatch.");
   }
@@ -155,17 +131,14 @@ export function createRuntimeWorkflowEditProposalControlRequest(
     params.targetWorkflowNodeIds ??
       stringArrayAtPath(
         params.input,
-        params.targetWorkflowNodeIdsField ?? "targetWorkflowNodeIds",
+        params.targetWorkflowNodeIdsField ?? "target_workflow_node_ids",
       ) ??
-      stringArrayAtPath(params.input, "target_workflow_node_ids") ??
-      stringArrayAtPath(params.input, "boundedTargets") ??
       stringArrayAtPath(params.input, "bounded_targets") ??
       [],
   );
   const proposalId =
     cleanString(params.proposalId) ??
-    stringAtPath(params.input, params.proposalIdField ?? "proposalId") ??
-    stringAtPath(params.input, "proposal_id");
+    stringAtPath(params.input, params.proposalIdField ?? "proposal_id");
   const workflowGraphId = cleanString(params.workflowGraphId) ?? null;
   const workflowNodeId =
     cleanString(params.workflowNodeId) ??
@@ -182,17 +155,14 @@ export function createRuntimeWorkflowEditProposalControlRequest(
     "Proposal-only workflow edit staged for daemon-owned approval.";
   const workflowPath =
     cleanString(params.workflowPath) ??
-    stringAtPath(params.input, params.workflowPathField ?? "workflowPath") ??
-    stringAtPath(params.input, "workflow_path");
+    stringAtPath(params.input, params.workflowPathField ?? "workflow_path");
   const workflowPatch =
     params.workflowPatch ??
-    valueAtPath(params.input, params.workflowPatchField ?? "workflowPatch") ??
-    valueAtPath(params.input, "workflow_patch") ??
+    valueAtPath(params.input, params.workflowPatchField ?? "workflow_patch") ??
     null;
   const codeDiff =
     cleanString(params.codeDiff) ??
-    stringAtPath(params.input, params.codeDiffField ?? "codeDiff") ??
-    stringAtPath(params.input, "code_diff");
+    stringAtPath(params.input, params.codeDiffField ?? "code_diff");
 
   return {
     schemaVersion: WORKFLOW_RUNTIME_EDIT_PROPOSAL_CONTROL_SCHEMA_VERSION,
@@ -205,37 +175,22 @@ export function createRuntimeWorkflowEditProposalControlRequest(
       source: RUNTIME_WORKFLOW_EDIT_PROPOSAL_SOURCE,
       actor: cleanString(params.actor) ?? "workflow-author",
       event_kind: RUNTIME_WORKFLOW_EDIT_PROPOSAL_SOURCE_EVENT_KIND,
-      eventKind: RUNTIME_WORKFLOW_EDIT_PROPOSAL_SOURCE_EVENT_KIND,
       component_kind: RUNTIME_WORKFLOW_EDIT_PROPOSAL_COMPONENT_KIND,
-      componentKind: RUNTIME_WORKFLOW_EDIT_PROPOSAL_COMPONENT_KIND,
       payload_schema_version: RUNTIME_WORKFLOW_EDIT_PROPOSAL_PAYLOAD_SCHEMA_VERSION,
-      payloadSchemaVersion: RUNTIME_WORKFLOW_EDIT_PROPOSAL_PAYLOAD_SCHEMA_VERSION,
       workflow_graph_id: workflowGraphId,
-      workflowGraphId,
       workflow_node_id: workflowNodeId,
-      workflowNodeId,
       proposal_id: proposalId,
-      proposalId,
       title,
       summary,
       target_workflow_node_ids: targetWorkflowNodeIds,
-      targetWorkflowNodeIds,
       bounded_targets: targetWorkflowNodeIds,
-      boundedTargets: targetWorkflowNodeIds,
       workflow_path: workflowPath,
-      workflowPath,
       workflow_patch: workflowPatch,
-      workflowPatch,
       code_diff: codeDiff,
-      codeDiff,
       approval_mode: "human_required",
-      approvalMode: "human_required",
       proposal_only: true,
-      proposalOnly: true,
       mutation_allowed: false,
-      mutationAllowed: false,
       mutation_executed: false,
-      mutationExecuted: false,
     },
   };
 }
@@ -245,22 +200,19 @@ export function createRuntimeWorkflowEditProposalApplyControlRequest(
 ): RuntimeWorkflowEditProposalApplyControlRequest {
   const threadId =
     cleanString(params.threadId) ??
-    stringAtPath(params.input, params.threadIdField ?? "threadId") ??
-    stringAtPath(params.input, "thread_id");
+    stringAtPath(params.input, params.threadIdField ?? "thread_id");
   if (!threadId) {
     throw new Error("proposal apply controls need a threadId input before dispatch.");
   }
   const proposalId =
     cleanString(params.proposalId) ??
-    stringAtPath(params.input, params.proposalIdField ?? "proposalId") ??
-    stringAtPath(params.input, "proposal_id");
+    stringAtPath(params.input, params.proposalIdField ?? "proposal_id");
   if (!proposalId) {
     throw new Error("proposal apply controls need a proposalId input before dispatch.");
   }
   const approvalId =
     cleanString(params.approvalId) ??
-    stringAtPath(params.input, params.approvalIdField ?? "approvalId") ??
-    stringAtPath(params.input, "approval_id");
+    stringAtPath(params.input, params.approvalIdField ?? "approval_id");
   const workflowGraphId = cleanString(params.workflowGraphId) ?? null;
   const workflowNodeId =
     cleanString(params.workflowNodeId) ??
@@ -280,23 +232,14 @@ export function createRuntimeWorkflowEditProposalApplyControlRequest(
       source: RUNTIME_WORKFLOW_EDIT_PROPOSAL_SOURCE,
       actor: cleanString(params.actor) ?? "workflow-author",
       event_kind: RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_SOURCE_EVENT_KIND,
-      eventKind: RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_SOURCE_EVENT_KIND,
       component_kind: RUNTIME_WORKFLOW_EDIT_PROPOSAL_COMPONENT_KIND,
-      componentKind: RUNTIME_WORKFLOW_EDIT_PROPOSAL_COMPONENT_KIND,
       payload_schema_version:
         RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_PAYLOAD_SCHEMA_VERSION,
-      payloadSchemaVersion:
-        RUNTIME_WORKFLOW_EDIT_PROPOSAL_APPLY_PAYLOAD_SCHEMA_VERSION,
       workflow_graph_id: workflowGraphId,
-      workflowGraphId,
       workflow_node_id: workflowNodeId,
-      workflowNodeId,
       proposal_id: proposalId,
-      proposalId,
       approval_id: approvalId,
-      approvalId,
       proposal_only: true,
-      proposalOnly: true,
     },
   };
 }
