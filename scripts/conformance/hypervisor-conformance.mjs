@@ -1063,6 +1063,10 @@ function runBridge() {
     agentSdkSubstrateClient.match(
       /export interface RuntimeWorkerServicePackageInvocationAdmissionResult[\s\S]*?\n}\n/,
     )?.[0] ?? "";
+  const workerServicePackageAdmissionInputType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeWorkerServicePackageInvocationAdmissionInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const workerServicePackageInvocationType =
     agentSdkSubstrateClient.match(
       /export interface RuntimeWorkerServicePackageInvocation[\s\S]*?\n}\n/,
@@ -6609,7 +6613,22 @@ function runBridge() {
     /admitWorkerServicePackageInvocation/.test(agentSdkSubstrateClient) &&
       /RuntimeWorkerServicePackageInvocationAdmissionInput/.test(agentSdkSubstrateClient) &&
       /worker-service-package-invocations/.test(agentSdkSubstrateClient) &&
+      !/extends Record<string, unknown>/.test(workerServicePackageAdmissionInputType) &&
+      !/^\s*(?:workflowGraphId|workflowNodeId)\?:/m.test(
+        workerServicePackageAdmissionInputType,
+      ) &&
+      /assertNoRetiredWorkerServicePackageAdmissionAliases\(input\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /worker_service_package_sdk_request_aliases_retired/.test(
+        agentSdkSubstrateClient,
+      ) &&
       /SDK admits worker\/service package invocations through the thread route/.test(agentSdkTest) &&
+      /SDK worker\/service package admission rejects retired request aliases before transport/.test(
+        agentSdkTest,
+      ) &&
+      /Object\.hasOwn\(body,\s*"workflowGraphId"\),\s*false/.test(agentSdkTest) &&
+      /Object\.hasOwn\(body,\s*"workflowNodeId"\),\s*false/.test(agentSdkTest) &&
       /WORKFLOW_RUNTIME_WORKER_SERVICE_PACKAGE_CONTROL_SCHEMA_VERSION/.test(
         workerServicePackageControlNodes,
       ) &&

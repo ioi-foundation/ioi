@@ -12980,6 +12980,12 @@ only, fail closed on retired `workflowGraphId` / `workflowNodeId` control
 aliases, and cTEE conformance guards the IDE input types, runtime guards, and
 focused tests.
 
+Slice 471 retires worker/service-package SDK request aliases:
+`admitWorkerServicePackageInvocation` now fails closed before transport when a
+caller supplies retired `workflowGraphId` or `workflowNodeId`, the SDK admission
+input type advertises canonical `workflow_graph_id` / `workflow_node_id` only,
+and bridge conformance guards the SDK type, runtime guard, and focused test.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

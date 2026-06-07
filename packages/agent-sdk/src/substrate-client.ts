@@ -1116,12 +1116,10 @@ export interface RuntimeWorkerServicePackageInvocation extends Record<string, un
   result: Record<string, unknown>;
 }
 
-export interface RuntimeWorkerServicePackageInvocationAdmissionInput extends Record<string, unknown> {
+export interface RuntimeWorkerServicePackageInvocationAdmissionInput {
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
   actor?: string;
-  workflowGraphId?: string;
   workflow_graph_id?: string;
-  workflowNodeId?: string;
   workflow_node_id?: string;
   invocation: RuntimeWorkerServicePackageInvocation | Record<string, unknown>;
 }
@@ -1736,6 +1734,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeWorkerServicePackageInvocationAdmissionInput,
   ): Promise<RuntimeWorkerServicePackageInvocationAdmissionResult> {
+    assertNoRetiredWorkerServicePackageAdmissionAliases(input);
     return this.request(
       "admitWorkerServicePackageInvocation",
       "POST",
@@ -2946,6 +2945,25 @@ function assertNoRetiredGovernedImprovementAdmissionAliases(input: RuntimeGovern
       "Governed improvement admission request aliases are retired; use workflow_graph_id and workflow_node_id.",
     details: {
       code: "governed_improvement_sdk_request_aliases_retired",
+      retired_aliases: retiredAliases,
+    },
+  });
+}
+
+function assertNoRetiredWorkerServicePackageAdmissionAliases(
+  input: RuntimeWorkerServicePackageInvocationAdmissionInput,
+): void {
+  const record = input as unknown as Record<string, unknown>;
+  const retiredAliases = ["workflowGraphId", "workflowNodeId"].filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new IoiAgentError({
+    code: "config",
+    message:
+      "Worker/service package admission request aliases are retired; use workflow_graph_id and workflow_node_id.",
+    details: {
+      code: "worker_service_package_sdk_request_aliases_retired",
       retired_aliases: retiredAliases,
     },
   });

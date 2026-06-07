@@ -186,6 +186,10 @@ test("SDK admits worker/service package invocations through the thread route", a
     ) {
       const body = await readBody(request);
       assert.equal(body.source, "sdk_client");
+      assert.equal(body.workflow_graph_id, "workflow_worker_service_sdk");
+      assert.equal(body.workflow_node_id, "worker_service_package_sdk");
+      assert.equal(Object.hasOwn(body, "workflowGraphId"), false);
+      assert.equal(Object.hasOwn(body, "workflowNodeId"), false);
       assert.equal(body.invocation.package_ref, "worker://runtime-auditor");
       assert.equal(body.invocation.invocation.invocation_id, "invocation://worker-package/sdk");
       assert.equal(Object.prototype.hasOwnProperty.call(body.invocation, "expected_heads"), false);
@@ -217,7 +221,11 @@ test("SDK admits worker/service package invocations through the thread route", a
     const address = server.address();
     assert.ok(address && typeof address === "object");
     const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
-    const result = await client.admitWorkerServicePackageInvocation("thread_sdk", { invocation });
+    const result = await client.admitWorkerServicePackageInvocation("thread_sdk", {
+      workflow_graph_id: "workflow_worker_service_sdk",
+      workflow_node_id: "worker_service_package_sdk",
+      invocation,
+    });
 
     assert.equal(result.status, "admitted");
     assert.equal(result.invocation_admitted, true);
@@ -228,6 +236,53 @@ test("SDK admits worker/service package invocations through the thread route", a
   } finally {
     await close(server);
   }
+});
+
+test("SDK worker/service package admission rejects retired request aliases before transport", async () => {
+  const client = createRuntimeSubstrateClient({ endpoint: "http://127.0.0.1:9" });
+  const invocation = {
+    schema_version: "ioi.worker_service_package_invocation.v1",
+    package_kind: "worker_package",
+    package_ref: "worker://runtime-auditor",
+    manifest_ref: "manifest://worker/runtime-auditor@1",
+    invocation: {
+      schema_version: "ioi.step_module_invocation.v1",
+      invocation_id: "invocation://worker-package/retired-alias",
+      module_ref: {
+        kind: "worker_package",
+        id: "runtime-auditor",
+        manifest_ref: "manifest://worker/runtime-auditor@1",
+      },
+      authority: {
+        wallet_network_required: true,
+        authority_grant_refs: ["authority://wallet/runtime-auditor"],
+      },
+      payload_refs: ["payload://worker-package/sdk-input"],
+      artifact_refs: [],
+      receipt_refs: [],
+    },
+    result: {
+      schema_version: "ioi.step_module_result.v1",
+      invocation_id: "invocation://worker-package/retired-alias",
+      status: "success",
+      receipt_refs: ["receipt://worker-package/retired-alias"],
+      artifact_refs: ["artifact://worker-package/retired-alias-report"],
+      payload_refs: ["payload://worker-package/retired-alias-output"],
+    },
+  };
+  await assert.rejects(
+    client.admitWorkerServicePackageInvocation("thread_sdk", {
+      workflowGraphId: "graph_retired",
+      workflowNodeId: "node_retired",
+      invocation,
+    }),
+    (error) =>
+      error instanceof IoiAgentError &&
+      error.code === "config" &&
+      error.details?.code === "worker_service_package_sdk_request_aliases_retired" &&
+      error.details?.retired_aliases?.includes("workflowGraphId") &&
+      error.details?.retired_aliases?.includes("workflowNodeId"),
+  );
 });
 
 test("SDK executes cTEE private workspace actions through the thread route", async () => {
