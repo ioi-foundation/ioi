@@ -77,7 +77,7 @@ export function runtimeEngine(state, engineId, deps = {}) {
 
 export function selectRuntimeEngine(state, body = {}, deps = {}) {
   const { requiredString, runtimeError, schemaVersion } = deps;
-  const engineId = requiredString(body.engine_id ?? body.engineId ?? body.id, "engine_id");
+  const engineId = requiredString(body.engine_id, "engine_id");
   const checkedAt = state.nowIso();
   const engines = listRuntimeEngines(state);
   const engine = engines.find((item) => item.id === engineId);
@@ -130,7 +130,7 @@ export function updateRuntimeEngine(state, engineId, body = {}, deps = {}) {
   const existing = runtimeEngineProfile(state, engineId) ?? {};
   const disabledValue = body.disabled ?? body.disable ?? existing.disabled ?? false;
   const defaultLoadOptions = normalizeRuntimeEngineDefaultLoadOptions(
-    body.default_load_options ?? body.defaultLoadOptions ?? body.load_options ?? body.loadOptions ?? existing.defaultLoadOptions ?? {},
+    body.default_load_options ?? body.load_options ?? existing.defaultLoadOptions ?? {},
   );
   const receipt = state.lifecycleReceipt("runtime_engine_update", {
     engine_id: engineId,
@@ -144,7 +144,7 @@ export function updateRuntimeEngine(state, engineId, body = {}, deps = {}) {
   const profile = {
     id: engineId,
     engineId,
-    label: body.label ?? body.operator_label ?? body.operatorLabel ?? existing.label ?? null,
+    label: body.label ?? body.operator_label ?? existing.label ?? null,
     disabled: Boolean(disabledValue),
     priority: body.priority === undefined || body.priority === null || body.priority === ""
       ? existing.priority ?? null

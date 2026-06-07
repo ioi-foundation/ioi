@@ -10603,6 +10603,9 @@ function runReceipts() {
       ) &&
       /notFound\(`Runtime engine not found: \$\{engineId\}`,\s*\{ engine_id: engineId \}\)/.test(runtimeEngines) &&
       /details:\s*\{ engine_id: engineId,\s*receipt_id: engine\.operatorProfile\.receiptId/.test(runtimeEngines) &&
+      /const engineId = requiredString\(body\.engine_id,\s*"engine_id"\);/.test(runtimeEngines) &&
+      /body\.default_load_options \?\? body\.load_options \?\? existing\.defaultLoadOptions/.test(runtimeEngines) &&
+      !/body\.(?:engineId|defaultLoadOptions|loadOptions|operatorLabel)\b/.test(runtimeEngines) &&
       /details\?\.runtime_engine_id === engineId/.test(runtimeEngineLatestReceiptFilter) &&
       /details\?\.engine_id === engineId/.test(runtimeEngineLatestReceiptFilter) &&
       /details\?\.backend_id === engineId/.test(runtimeEngineLatestReceiptFilter) &&
@@ -10616,6 +10619,10 @@ function runReceipts() {
       /Object\.hasOwn\(state\.receipts\[1\]\.details,\s*"previousProfileHash"\),\s*false/.test(runtimeEnginesTest) &&
       /Object\.hasOwn\(error\.details,\s*"engineId"\),\s*false/.test(runtimeEnginesTest) &&
       /Object\.hasOwn\(error\.details,\s*"receiptId"\),\s*false/.test(runtimeEnginesTest) &&
+      /runtime engine requests ignore retired camelCase aliases/.test(runtimeEnginesTest) &&
+      /selectRuntimeEngine\(state,\s*\{ engineId: "backend\.llama-cpp" \}/.test(runtimeEnginesTest) &&
+      /defaultLoadOptions: \{ gpu: "retired" \}/.test(runtimeEnginesTest) &&
+      /operatorLabel: "Retired label"/.test(runtimeEnginesTest) &&
       /receipt_legacy/.test(runtimeEnginesTest) &&
       /details:\s*\{ runtime_engine_id:\s*"backend\.llama-cpp" \}/.test(runtimeEnginesTest) &&
       /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"hadProfile"\),\s*false/.test(runtimeEnginesTest),

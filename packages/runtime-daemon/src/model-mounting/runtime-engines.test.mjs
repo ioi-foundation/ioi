@@ -176,7 +176,7 @@ test("runtime engine listing applies profiles, active selection, and priority or
 test("selecting runtime engine persists preference and writes projection", () => {
   const state = fakeState();
 
-  const result = selectRuntimeEngine(state, { engineId: "backend.llama-cpp" }, deps);
+  const result = selectRuntimeEngine(state, { engine_id: "backend.llama-cpp" }, deps);
 
   assert.equal(result.schemaVersion, "schema.v1");
   assert.equal(result.selectedEngineId, "backend.llama-cpp");
@@ -200,11 +200,11 @@ test("selecting runtime engine persists preference and writes projection", () =>
 
 test("disabled selected runtime engine resets preference to native fixture", () => {
   const state = fakeState();
-  selectRuntimeEngine(state, { engineId: "backend.llama-cpp" }, deps);
+  selectRuntimeEngine(state, { engine_id: "backend.llama-cpp" }, deps);
 
   const result = updateRuntimeEngine(state, "backend.llama-cpp", {
     disabled: true,
-    defaultLoadOptions: { gpu: "off" },
+    default_load_options: { gpu: "off" },
   }, deps);
 
   assert.equal(result.profile.disabled, true);
@@ -230,7 +230,7 @@ test("runtime engine errors use canonical details without retired aliases", () =
   });
 
   assert.throws(
-    () => selectRuntimeEngine(state, { engineId: "backend.llama-cpp" }, deps),
+    () => selectRuntimeEngine(state, { engine_id: "backend.llama-cpp" }, deps),
     (error) => {
       assert.equal(error.status, 409);
       assert.equal(error.code, "runtime_engine_disabled");
@@ -255,7 +255,7 @@ test("runtime engine errors use canonical details without retired aliases", () =
 
 test("runtime engine detail includes profile, preference, instances, and latest receipts", () => {
   const state = fakeState();
-  selectRuntimeEngine(state, { engineId: "backend.llama-cpp" }, deps);
+  selectRuntimeEngine(state, { engine_id: "backend.llama-cpp" }, deps);
   state.runtimeEngineProfiles.set("backend.llama-cpp", { id: "backend.llama-cpp", disabled: false });
   state.receipts.push({ id: "receipt_legacy", details: { runtimeEngineId: "backend.llama-cpp" } });
   state.receipts.push({ id: "receipt_runtime", details: { runtime_engine_id: "backend.llama-cpp" } });
@@ -295,11 +295,33 @@ test("runtime engine state persistence fails closed without Rust Agentgres recor
   delete state.commitRuntimeModelMountRecordState;
 
   assert.throws(
-    () => selectRuntimeEngine(state, { engineId: "backend.llama-cpp" }, deps),
+    () => selectRuntimeEngine(state, { engine_id: "backend.llama-cpp" }, deps),
     (error) =>
       error.code === "runtime_engine_record_state_commit_unconfigured" &&
       error.details.record_dir === "runtime-preferences" &&
       error.details.record_id === "default" &&
       error.details.receipt_id === "receipt_1",
   );
+});
+
+test("runtime engine requests ignore retired camelCase aliases", () => {
+  const state = fakeState();
+
+  assert.throws(
+    () => selectRuntimeEngine(state, { engineId: "backend.llama-cpp" }, deps),
+    /missing engine_id/,
+  );
+  assert.equal(state.receipts.length, 0);
+
+  const result = updateRuntimeEngine(state, "backend.llama-cpp", {
+    defaultLoadOptions: { gpu: "retired" },
+    loadOptions: { gpu: "also-retired" },
+    operatorLabel: "Retired label",
+  }, deps);
+
+  assert.equal(result.profile.label, null);
+  assert.deepEqual(result.profile.defaultLoadOptions, { normalized: true });
+  assert.deepEqual(state.receipts[0].details.default_load_options, { normalized: true });
+  assert.equal(Object.hasOwn(state.receipts[0].details, "defaultLoadOptions"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "operatorLabel"), false);
 });
