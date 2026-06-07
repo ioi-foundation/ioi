@@ -115,7 +115,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         status: 400,
         code: "diagnostics_repair_decision_required",
         message: "Diagnostics repair decision execution requires a decision id or action.",
-        details: { threadId },
+        details: { thread_id: threadId },
       });
     }
     const resolution = store.resolveDiagnosticsRepairDecision(threadId, target, request);
@@ -126,7 +126,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         status: 409,
         code: "diagnostics_repair_decision_invalid",
         message: "Diagnostics repair decision is missing an action.",
-        details: { threadId, decisionRef: target },
+        details: { thread_id: threadId, decision_ref: target },
       });
     }
     if (!["repair_retry", "restore_preview", "restore_apply", "operator_override"].includes(action)) {
@@ -135,10 +135,10 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         code: "diagnostics_repair_decision_action_unimplemented",
         message: `Diagnostics repair decision action is not executable yet: ${action}.`,
         details: {
-          threadId,
-          decisionRef: target,
+          thread_id: threadId,
+          decision_ref: target,
           action,
-          supportedActions: ["repair_retry", "restore_preview", "restore_apply", "operator_override"],
+          supported_actions: ["repair_retry", "restore_preview", "restore_apply", "operator_override"],
         },
       });
     }
@@ -147,7 +147,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         status: 409,
         code: "diagnostics_repair_decision_unavailable",
         message: `Diagnostics repair decision is not available: ${decision.status}.`,
-        details: { threadId, decisionRef: target, action, status: decision.status },
+        details: { thread_id: threadId, decision_ref: target, action, status: decision.status },
       });
     }
     assertCanonicalDiagnosticsRepairRestoreRequestBody(action, request);
@@ -163,7 +163,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         status: 409,
         code: "diagnostics_repair_snapshot_required",
         message: "Restore repair decision requires a workspace snapshot ref.",
-        details: { threadId, decisionRef: target, action },
+        details: { thread_id: threadId, decision_ref: target, action },
       });
     }
     const workflowGraphId = optionalString(request.workflow_graph_id ?? gateEvent.workflow_graph_id);

@@ -18495,6 +18495,13 @@ function runCompositor() {
       /policy_id:\s*repairPolicy\.policy_id \?\? null/.test(
         diagnosticsRepairDecisionExecutionBody,
       ) &&
+      /details:\s*\{\s*thread_id:\s*threadId\s*\}/.test(
+        diagnosticsRepairDecisionExecutionBody,
+      ) &&
+      /decision_ref:\s*target/.test(diagnosticsRepairDecisionExecutionBody) &&
+      /supported_actions:\s*\["repair_retry", "restore_preview", "restore_apply", "operator_override"\]/.test(
+        diagnosticsRepairDecisionExecutionBody,
+      ) &&
       !/\brequest\.decisionId\b/.test(diagnosticsRepairDecisionExecutionBody) &&
       !/\bdecision\.(?:decisionId|workspaceSnapshotRefs)\b/.test(
         diagnosticsRepairDecisionExecutionBody,
@@ -18502,10 +18509,16 @@ function runCompositor() {
       !/\brepairPolicy\.(?:policyId|workspaceSnapshotRefs)\b/.test(
         diagnosticsRepairDecisionExecutionBody,
       ) &&
+      !/details:\s*\{[^}\n]*\b(?:threadId|decisionRef|supportedActions)\s*:/.test(
+        diagnosticsRepairDecisionExecutionBody,
+      ) &&
       !/^\s*(?:schemaVersion|threadId|decisionId|gateEventId|policyId|snapshotId|workflowGraphId|workflowNodeId|repairPolicy|repairRetry|repairTurn|repairRetryEvent|operatorOverride|operatorOverrideEvent|restorePreview|restoreApply|restorePreviewEvent|restoreApplyEvent|receiptRefs|artifactRefs|policyDecisionRefs|rollbackRefs)\s*:/m.test(
         diagnosticsRepairDecisionExecutionBody,
       ) &&
       /Object\.hasOwn\(result,\s*field\),\s*false/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /Object\.hasOwn\(error\.details,\s*key\),\s*false/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
       /"schemaVersion"[\s\S]*"threadId"[\s\S]*"decisionId"[\s\S]*"receiptRefs"[\s\S]*"rollbackRefs"/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&

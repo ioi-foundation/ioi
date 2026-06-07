@@ -261,6 +261,8 @@ test("diagnostics repair decision execution ignores retired request decision ali
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "diagnostics_repair_decision_required");
+      assert.deepEqual(error.details, { thread_id: "thread_alpha" });
+      assert.equal(Object.hasOwn(error.details, "threadId"), false);
       assert.equal(store.calls.some((call) => call.name === "resolve"), false);
       return true;
     },
@@ -286,6 +288,14 @@ test("diagnostics repair decision execution ignores retired snapshot ref aliases
     (error) => {
       assert.equal(error.status, 409);
       assert.equal(error.code, "diagnostics_repair_snapshot_required");
+      assert.deepEqual(error.details, {
+        thread_id: "thread_alpha",
+        decision_ref: "decision_alpha",
+        action: "restore_apply",
+      });
+      for (const key of ["threadId", "decisionRef"]) {
+        assert.equal(Object.hasOwn(error.details, key), false);
+      }
       assert.equal(store.calls.some((call) => call.name === "apply"), false);
       return true;
     },
@@ -402,15 +412,47 @@ test("diagnostics repair surface fails closed for invalid or unavailable decisio
 
   assert.throws(
     () => surface.executeDiagnosticsRepairDecision(createStore(), "thread_alpha", "", {}),
-    (error) => error.status === 400 && error.code === "diagnostics_repair_decision_required",
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "diagnostics_repair_decision_required");
+      assert.deepEqual(error.details, { thread_id: "thread_alpha" });
+      assert.equal(Object.hasOwn(error.details, "threadId"), false);
+      return true;
+    },
   );
   assert.throws(
     () => surface.executeDiagnosticsRepairDecision(createStore({ action: "delete_everything" }), "thread_alpha", "decision_alpha", {}),
-    (error) => error.status === 409 && error.code === "diagnostics_repair_decision_action_unimplemented",
+    (error) => {
+      assert.equal(error.status, 409);
+      assert.equal(error.code, "diagnostics_repair_decision_action_unimplemented");
+      assert.deepEqual(error.details, {
+        thread_id: "thread_alpha",
+        decision_ref: "decision_alpha",
+        action: "delete_everything",
+        supported_actions: ["repair_retry", "restore_preview", "restore_apply", "operator_override"],
+      });
+      for (const key of ["threadId", "decisionRef", "supportedActions"]) {
+        assert.equal(Object.hasOwn(error.details, key), false);
+      }
+      return true;
+    },
   );
   assert.throws(
     () => surface.executeDiagnosticsRepairDecision(createStore({ status: "used" }), "thread_alpha", "decision_alpha", {}),
-    (error) => error.status === 409 && error.code === "diagnostics_repair_decision_unavailable",
+    (error) => {
+      assert.equal(error.status, 409);
+      assert.equal(error.code, "diagnostics_repair_decision_unavailable");
+      assert.deepEqual(error.details, {
+        thread_id: "thread_alpha",
+        decision_ref: "decision_alpha",
+        action: "restore_apply",
+        status: "used",
+      });
+      for (const key of ["threadId", "decisionRef"]) {
+        assert.equal(Object.hasOwn(error.details, key), false);
+      }
+      return true;
+    },
   );
   assert.throws(
     () =>
@@ -420,7 +462,19 @@ test("diagnostics repair surface fails closed for invalid or unavailable decisio
         "decision_alpha",
         {},
       ),
-    (error) => error.status === 409 && error.code === "diagnostics_repair_snapshot_required",
+    (error) => {
+      assert.equal(error.status, 409);
+      assert.equal(error.code, "diagnostics_repair_snapshot_required");
+      assert.deepEqual(error.details, {
+        thread_id: "thread_alpha",
+        decision_ref: "decision_alpha",
+        action: "restore_preview",
+      });
+      for (const key of ["threadId", "decisionRef"]) {
+        assert.equal(Object.hasOwn(error.details, key), false);
+      }
+      return true;
+    },
   );
 });
 
