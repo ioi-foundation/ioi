@@ -108,6 +108,47 @@ test("computer-use inputs project visual metadata and unavailable relaunch recei
   ]) {
     assert.equal(Object.hasOwn(metadata, key), false, `retired visual metadata alias ${key} must be absent`);
   }
+
+  const retiredOnlyMetadata = visualGuiObservationMetadataForInput({
+    computerUseVisualObservation: {
+      screenshotRef: "retired-shot",
+      viewportWidth: 1200,
+      visualTargets: [{ targetRef: "retired-target" }],
+      detectedPatterns: ["retired-pattern"],
+    },
+    visualObservation: {
+      screenshotRef: "retired-visual-shot",
+    },
+    visualTargets: [{ target_ref: "retired-top-level-target" }],
+    detectedPatterns: ["retired-top-level-pattern"],
+    viewportWidth: 800,
+    viewportHeight: 600,
+  });
+  assert.deepEqual(retiredOnlyMetadata, {});
+
+  const canonicalMetadata = visualGuiObservationMetadataForInput({
+    computer_use_visual_observation: {
+      screenshot_ref: "canonical-shot",
+      screenshotRef: "retired-shot",
+      viewport_width: 640,
+      viewportWidth: 1200,
+      visual_targets: [{ target_ref: "canonical-target" }],
+      visualTargets: [{ targetRef: "retired-target" }],
+      detected_patterns: ["canonical-pattern"],
+      detectedPatterns: ["retired-pattern"],
+    },
+    screenshotRef: "retired-top-level-shot",
+    viewportWidth: 999,
+    visualTargets: [{ targetRef: "retired-top-level-target" }],
+  });
+  assert.equal(canonicalMetadata.screenshot_ref, "canonical-shot");
+  assert.equal(canonicalMetadata.viewport_width, 640);
+  assert.deepEqual(canonicalMetadata.visual_targets, [{ target_ref: "canonical-target" }]);
+  assert.deepEqual(canonicalMetadata.detected_patterns, ["canonical-pattern"]);
+  assert.equal(Object.hasOwn(canonicalMetadata, "screenshotRef"), false);
+  assert.equal(Object.hasOwn(canonicalMetadata, "viewportWidth"), false);
+  assert.equal(Object.hasOwn(canonicalMetadata, "visualTargets"), false);
+
   assert.equal(visualGuiMediaTypeForPath("/tmp/a.webp"), "image/webp");
 
   const unavailable = nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch({

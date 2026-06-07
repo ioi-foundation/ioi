@@ -2230,10 +2230,10 @@ function runBridge() {
   assertCheck(
     result,
     "computer-use-visual-metadata-output-aliases-retired",
-    /\["screenshot_ref",\s*"screenshotRef"\]/.test(computerUseInputs) &&
-      /\["som_ref",\s*"somRef"\]/.test(computerUseInputs) &&
-      /\["ax_ref",\s*"axRef"\]/.test(computerUseInputs) &&
-      /for \(const \[snakeKey,\s*camelKey\] of stringFields\)/.test(computerUseInputs) &&
+    /"screenshot_ref"/.test(computerUseInputs) &&
+      /"som_ref"/.test(computerUseInputs) &&
+      /"ax_ref"/.test(computerUseInputs) &&
+      /for \(const snakeKey of stringFields\)/.test(computerUseInputs) &&
       /metadata\[snakeKey\]\s*=\s*value/.test(computerUseInputs) &&
       /metadata\.viewport_width\s*=\s*width/.test(computerUseInputs) &&
       /metadata\.viewport_height\s*=\s*height/.test(computerUseInputs) &&
@@ -2242,16 +2242,26 @@ function runBridge() {
       /metadata\.detected_patterns\s*=\s*detectedPatterns/.test(computerUseInputs) &&
       /metadata\.computer_use_visual_observation\s*=\s*visualObservation/.test(computerUseInputs) &&
       /assert\.equal\(Object\.hasOwn\(metadata,\s*key\),\s*false,\s*`retired visual metadata alias/.test(computerUseInputsTest) &&
+      /const retiredOnlyMetadata = visualGuiObservationMetadataForInput/.test(computerUseInputsTest) &&
+      /assert\.deepEqual\(retiredOnlyMetadata,\s*\{\}\)/.test(computerUseInputsTest) &&
+      /const canonicalMetadata = visualGuiObservationMetadataForInput/.test(computerUseInputsTest) &&
+      /assert\.equal\(canonicalMetadata\.screenshot_ref,\s*"canonical-shot"\)/.test(computerUseInputsTest) &&
       /"screenshot_ref"/.test(runtimeDaemonIndex) &&
       /"visual_targets"/.test(runtimeDaemonIndex) &&
       !/metadata\[camelKey\]\s*=\s*value/.test(computerUseInputs) &&
+      !/\binput\.(?:computerUseVisualObservation|visualGuiObservation|visualObservation|screenshotRef|somRef|axRef|accessibilityTreeRef|appName|windowTitle|coordinateSpaceId|redactionReportRef|viewportWidth|viewportHeight|visualTargets|visualAffordances|detectedPatterns)\b/.test(
+        computerUseInputs,
+      ) &&
+      !/\bvisualObservation\?\.(?:screenshotRef|somRef|axRef|accessibilityTreeRef|appName|windowTitle|coordinateSpaceId|redactionReportRef|viewportWidth|viewportHeight|visualTargets|visualAffordances|detectedPatterns)\b/.test(
+        computerUseInputs,
+      ) &&
       !/\bmetadata\.(?:screenshotRef|somRef|axRef|accessibilityTreeRef|appName|windowTitle|coordinateSpaceId|redactionReportRef|viewportWidth|viewportHeight|visualTargets|visualAffordances|detectedPatterns|computerUseVisualObservation)\s*=/.test(computerUseInputs),
     [
       "packages/runtime-daemon/src/computer-use-inputs.mjs",
       "packages/runtime-daemon/src/computer-use-inputs.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: computer-use visual metadata helpers must emit canonical snake_case fields without duplicate camelCase output aliases",
+    "Phase 10/11 is pending: computer-use visual metadata helpers must consume and emit canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

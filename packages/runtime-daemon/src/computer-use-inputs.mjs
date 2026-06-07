@@ -104,65 +104,50 @@ export function sandboxedHostedSessionModeForInput(input = {}) {
 
 export function visualGuiObservationMetadataForInput(input = {}) {
   const visualObservation = objectRecord(
-    input.computerUseVisualObservation ??
-      input.computer_use_visual_observation ??
-      input.visualGuiObservation ??
+    input.computer_use_visual_observation ??
       input.visual_gui_observation ??
-      input.visualObservation ??
       input.visual_observation,
   );
   const metadata = {};
   const stringFields = [
-    ["screenshot_ref", "screenshotRef"],
-    ["som_ref", "somRef"],
-    ["ax_ref", "axRef"],
-    ["accessibility_tree_ref", "accessibilityTreeRef"],
-    ["app_name", "appName"],
-    ["window_title", "windowTitle"],
-    ["coordinate_space_id", "coordinateSpaceId"],
-    ["redaction_report_ref", "redactionReportRef"],
+    "screenshot_ref",
+    "som_ref",
+    "ax_ref",
+    "accessibility_tree_ref",
+    "app_name",
+    "window_title",
+    "coordinate_space_id",
+    "redaction_report_ref",
   ];
-  for (const [snakeKey, camelKey] of stringFields) {
+  for (const snakeKey of stringFields) {
     const value = optionalString(
-      input[camelKey] ??
-        input[snakeKey] ??
-        visualObservation?.[camelKey] ??
+      input[snakeKey] ??
         visualObservation?.[snakeKey],
     );
     if (value) metadata[snakeKey] = value;
   }
   const width = visualGuiFiniteNumber(
-    input.viewportWidth ??
-      input.viewport_width ??
-      visualObservation?.viewportWidth ??
+    input.viewport_width ??
       visualObservation?.viewport_width,
   );
   const height = visualGuiFiniteNumber(
-    input.viewportHeight ??
-      input.viewport_height ??
-      visualObservation?.viewportHeight ??
+    input.viewport_height ??
       visualObservation?.viewport_height,
   );
   if (width !== null) metadata.viewport_width = width;
   if (height !== null) metadata.viewport_height = height;
   const visualTargets = normalizeArray(
-    input.visualTargets ??
-      input.visual_targets ??
-      visualObservation?.visualTargets ??
+    input.visual_targets ??
       visualObservation?.visual_targets ??
       visualObservation?.targets,
   );
   const visualAffordances = normalizeArray(
-    input.visualAffordances ??
-      input.visual_affordances ??
-      visualObservation?.visualAffordances ??
+    input.visual_affordances ??
       visualObservation?.visual_affordances ??
       visualObservation?.affordances,
   );
   const detectedPatterns = normalizeArray(
-    input.detectedPatterns ??
-      input.detected_patterns ??
-      visualObservation?.detectedPatterns ??
+    input.detected_patterns ??
       visualObservation?.detected_patterns,
   );
   if (visualTargets.length > 0) metadata.visual_targets = visualTargets;
