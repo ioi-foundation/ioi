@@ -573,9 +573,8 @@ impl RuntimeKernelService {
         &self,
         invocation: &StepModuleInvocation,
         node_trust: &CteeNodeTrust,
-        expected_heads: Vec<String>,
     ) -> Result<CteePrivateWorkspaceExecutionRecord, CteePrivateWorkspaceError> {
-        PrivateWorkspaceCteeModule.execute_and_admit(invocation, node_trust, expected_heads)
+        PrivateWorkspaceCteeModule.execute_and_admit(invocation, node_trust)
     }
 
     pub fn project_step_module_result(

@@ -6738,6 +6738,7 @@ function runBridge() {
       /"action":\s*action/.test(cliRuntime) &&
       /ctee_private_workspace_route_encodes_thread_id/.test(cliRuntime) &&
       /ctee_private_workspace_body_is_cli_admission_only/.test(cliRuntime) &&
+      !/"expected_heads":\s*\["agentgres:\/\/ctee\/head\/before"\]/.test(cliRuntime) &&
       !/action_executed:\s*true/.test(cliRuntime),
     [
       "crates/cli/src/main.rs",
@@ -10883,6 +10884,10 @@ function runCtee() {
     agentSdkSubstrateClient.match(
       /export interface RuntimeCteePrivateWorkspaceActionResult[\s\S]*?\n}\n/,
     )?.[0] ?? "";
+  const cteePrivateWorkspaceActionType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeCteePrivateWorkspaceAction[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const cteePrivateWorkspaceAdmissionCamelAliasPropertyPattern =
     /\b(?:schemaVersion|actionExecuted|threadId|agentId|invocationId|receiptRef|receiptBinding|acceptedReceiptAppend|agentgresAdmission|projectionRecord|receiptRefs|evidenceRefs)\s*:/;
   const cteePrivateWorkspaceAdmissionCamelAliasTypePattern =
@@ -10935,6 +10940,9 @@ function runCtee() {
       /AgentgresAdmissionCore/.test(cteeModule) &&
       /RustProjectionCore/.test(cteeModule) &&
       /StepModuleProjectionStatus::Live/.test(cteeModule) &&
+      /ctee_private_workspace_expected_heads/.test(cteeModule) &&
+      /CallerSuppliedExpectedHeads/.test(cteeModule) &&
+      /ctee_private_workspace_rejects_caller_supplied_expected_heads/.test(cteeModule) &&
       /execute_private_workspace_ctee_action/.test(kernelModule),
     [
       "crates/services/src/agentic/runtime/kernel/ctee.rs",
@@ -10989,6 +10997,8 @@ function runCtee() {
       /executeCteePrivateWorkspaceAction/.test(runtimeDaemonIndex) &&
       /CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(cteePrivateWorkspaceSurface) &&
       /action_executed:\s*true/.test(cteePrivateWorkspaceSurface) &&
+      /RETIRED_CTEE_PRIVATE_WORKSPACE_TRUTH_FIELDS/.test(cteePrivateWorkspaceSurface) &&
+      /ctee_private_workspace_agentgres_truth_fields_retired/.test(cteePrivateWorkspaceSurface) &&
       /store\.cteePrivateWorkspaceRunner\.executeAction/.test(cteePrivateWorkspaceSurface) &&
       /ctee-private-workspace-actions/.test(runtimeRouteHandlers) &&
       /store\.executeCteePrivateWorkspaceAction/.test(runtimeRouteHandlers) &&
@@ -11002,6 +11012,9 @@ function runCtee() {
         cteePrivateWorkspaceSurfaceTest,
       ) &&
       /cTEE private workspace surface fails closed without action payload/.test(
+        cteePrivateWorkspaceSurfaceTest,
+      ) &&
+      /cTEE private workspace surface rejects client supplied Agentgres truth before Rust runner/.test(
         cteePrivateWorkspaceSurfaceTest,
       ),
     [
@@ -11040,7 +11053,13 @@ function runCtee() {
       /ctee_private_workspace_action_request_aliases_retired/.test(
         cteePrivateWorkspaceSurface,
       ) &&
+      /ctee_private_workspace_agentgres_truth_fields_retired/.test(
+        cteePrivateWorkspaceSurface,
+      ) &&
       /assertCanonicalCteePrivateWorkspaceRequestBody\(body\);[\s\S]*objectRecord\(body\.action\)/.test(
+        cteePrivateWorkspaceSurface,
+      ) &&
+      /assertNoClientSuppliedCteePrivateWorkspaceTruth\(action\);/.test(
         cteePrivateWorkspaceSurface,
       ) &&
       !/body\.(?:cteeAction|ctee_action)\b/.test(cteePrivateWorkspaceSurface) &&
@@ -11052,6 +11071,15 @@ function runCtee() {
       /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*key\)/.test(
         cteePrivateWorkspaceControlNodesTest,
       ) &&
+      /cTEE private workspace controls reject retired Agentgres truth fields/.test(
+        cteePrivateWorkspaceControlNodesTest,
+      ) &&
+      /assertNoClientSuppliedCteePrivateWorkspaceTruth\(params,\s*actionSeed\);/.test(
+        cteePrivateWorkspaceControlNodes,
+      ) &&
+      !/expectedHeads\?:/.test(cteePrivateWorkspaceControlNodes) &&
+      !/expected_heads:\s*string\[\]/.test(cteePrivateWorkspaceControlNodes) &&
+      !/expected_heads:\s*expectedHeads/.test(cteePrivateWorkspaceControlNodes) &&
       !/^\s*ctee_action:\s*RuntimeCteePrivateWorkspaceAction;/m.test(
         cteePrivateWorkspaceControlNodes,
       ) &&
@@ -11077,11 +11105,10 @@ function runCtee() {
         cteePrivateWorkspaceRunner,
       ) &&
       /node_trust:\s*request\.node_trust/.test(cteePrivateWorkspaceRunner) &&
-      /expected_heads:\s*request\.expected_heads\s*\?\?\s*\[\]/.test(
-        cteePrivateWorkspaceRunner,
-      ) &&
+      !/expected_heads:\s*request\.expected_heads/.test(cteePrivateWorkspaceRunner) &&
       !/request\.nodeTrust/.test(cteePrivateWorkspaceRunner) &&
       !/request\.expectedHeads/.test(cteePrivateWorkspaceRunner) &&
+      !/request\.expected_heads/.test(cteePrivateWorkspaceRunner) &&
       /cTEE private workspace runner rejects retired bridge request aliases before command invocation/.test(
         cteePrivateWorkspaceRunnerTest,
       ) &&
@@ -11107,11 +11134,13 @@ function runCtee() {
       /admission_only:\s*true/.test(cteePrivateWorkspaceControlNodes) &&
       /direct_truth_write_allowed:\s*false/.test(cteePrivateWorkspaceControlNodes) &&
       /plaintext_custody_checked_by_rust:\s*true/.test(cteePrivateWorkspaceControlNodes) &&
+      !/expected_heads:\s*string\[\]/.test(cteePrivateWorkspaceActionType) &&
+      !/expected_heads:\s*string\[\]/.test(cteePrivateWorkspaceControlNodes) &&
       !/\/apply/.test(cteePrivateWorkspaceControlNodes) &&
       /builds cTEE private workspace controls for daemon admission/.test(
         cteePrivateWorkspaceControlNodesTest,
       ) &&
-      /cTEE private workspace controls fail closed without admission refs/.test(
+      /cTEE private workspace controls reject retired Agentgres truth fields/.test(
         cteePrivateWorkspaceControlNodesTest,
       ) &&
       /createRuntimeCteePrivateWorkspaceControlRequest/.test(agentIdeIndex) &&

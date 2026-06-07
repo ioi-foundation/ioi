@@ -35,7 +35,6 @@ function cteeAction() {
       trusted_for_plaintext: false,
       attestation_ref: null,
     },
-    expected_heads: ["agentgres://ctee/private-workspace/head/before"],
   };
 }
 
@@ -73,7 +72,8 @@ test("builds cTEE private workspace controls for daemon admission", () => {
   assert.equal(request.body.runtime_node_ref, "node://rented-untrusted");
   assert.equal(request.body.trusted_for_plaintext, false);
   assert.equal(request.body.action.invocation.invocation_id, "invocation://ctee/ide");
-  assert.deepEqual(request.body.expected_heads, ["agentgres://ctee/private-workspace/head/before"]);
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body, "expected_heads"), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(request.body.action, "expected_heads"), false);
   assert.equal(request.body.admission_only, true);
   assert.equal(request.body.direct_truth_write_allowed, false);
   assert.equal(request.body.plaintext_custody_checked_by_rust, true);
@@ -106,9 +106,9 @@ test("builds cTEE private workspace controls from workflow nodes", () => {
   assert.equal(request.body.action.node_trust.runtime_node_ref, "node://rented-untrusted");
 });
 
-test("cTEE private workspace controls fail closed without admission refs", () => {
-  const invalid = cteeAction();
-  invalid.expected_heads = [];
+test("cTEE private workspace controls reject retired Agentgres truth fields", () => {
+  const invalid: Record<string, unknown> = cteeAction();
+  invalid.expected_heads = ["agentgres://ctee/private-workspace/head/client"];
 
   assert.throws(
     () =>
@@ -116,6 +116,6 @@ test("cTEE private workspace controls fail closed without admission refs", () =>
         threadId: "thread-ide",
         action: invalid,
       }),
-    /expected_heads/,
+    /expected heads are Rust-derived/,
   );
 });

@@ -223,7 +223,6 @@ test("SDK executes cTEE private workspace actions through the thread route", asy
       trusted_for_plaintext: false,
       attestation_ref: null,
     },
-    expected_heads: ["agentgres://ctee/private-workspace/head/before"],
   };
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");

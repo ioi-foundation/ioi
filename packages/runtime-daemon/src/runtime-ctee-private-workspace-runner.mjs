@@ -8,6 +8,7 @@ export const RUST_CTEE_PRIVATE_WORKSPACE_BACKEND = "ctee_operator";
 const RETIRED_CTEE_PRIVATE_WORKSPACE_RUNNER_ALIASES = [
   "nodeTrust",
   "expectedHeads",
+  "expected_heads",
 ];
 
 export function createCteePrivateWorkspaceRunnerFromEnv(env = process.env, options = {}) {
@@ -37,7 +38,6 @@ export class RustCteePrivateWorkspaceRunner {
       backend: RUST_CTEE_PRIVATE_WORKSPACE_BACKEND,
       invocation: request.invocation,
       node_trust: request.node_trust,
-      expected_heads: request.expected_heads ?? [],
     };
     return normalizeCteePrivateWorkspaceBridgeResult(this.invokeBridge(bridgeRequest));
   }
@@ -116,7 +116,7 @@ function assertCanonicalCteePrivateWorkspaceRunnerRequest(request = {}) {
     {
       status: 400,
       retired_aliases: retiredAliases,
-      canonical_fields: ["node_trust", "expected_heads"],
+      canonical_fields: ["node_trust"],
     },
   );
 }

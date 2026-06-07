@@ -31,6 +31,7 @@ pub enum CteePrivateWorkspaceError {
     MissingDeclassificationApproval,
     MissingStateRootBefore,
     UntrustedNodePlaintextMountForbidden,
+    CallerSuppliedExpectedHeads,
     ReceiptBinding(ReceiptBindingError),
     AgentgresAdmission(AgentgresAdmissionError),
     Projection(ProjectionError),
@@ -78,10 +79,10 @@ impl PrivateWorkspaceCteeModule {
         &self,
         invocation: &StepModuleInvocation,
         node_trust: &CteeNodeTrust,
-        expected_heads: Vec<String>,
     ) -> Result<CteePrivateWorkspaceExecutionRecord, CteePrivateWorkspaceError> {
         let receipt = self.validate_invocation(invocation, node_trust)?;
         let result = ctee_step_module_result(invocation, &receipt)?;
+        let expected_heads = ctee_private_workspace_expected_heads(&result);
         let receipt_binding = ReceiptBinder
             .bind_step_module_result(invocation, &result, expected_heads)
             .map_err(CteePrivateWorkspaceError::ReceiptBinding)?;
@@ -166,6 +167,16 @@ impl PrivateWorkspaceCteeModule {
                 stable_receipt_suffix(&invocation.invocation_id)
             ),
         })
+    }
+
+    pub fn reject_caller_supplied_expected_heads(
+        &self,
+        expected_heads: &[String],
+    ) -> Result<(), CteePrivateWorkspaceError> {
+        if expected_heads.is_empty() {
+            return Ok(());
+        }
+        Err(CteePrivateWorkspaceError::CallerSuppliedExpectedHeads)
     }
 }
 
@@ -254,6 +265,13 @@ fn ctee_agentgres_operation_proposal(
     }
 }
 
+fn ctee_private_workspace_expected_heads(result: &StepModuleResult) -> Vec<String> {
+    if result.agentgres_operation_refs.is_empty() {
+        return vec![];
+    }
+    vec!["agentgres://ctee/private-workspace/head/current".to_string()]
+}
+
 fn ctee_projection_evidence_refs(receipt: &CteePrivateWorkspaceReceipt) -> Vec<String> {
     let mut refs = vec![
         receipt.custody_proof_ref.clone(),
@@ -291,7 +309,6 @@ fn stable_receipt_suffix(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::runtime::kernel::receipt_binder::ReceiptBindingError;
     use crate::agentic::runtime::kernel::step_module::{
         StepModuleActor, StepModuleAuthority, StepModuleCustody, StepModuleExecution,
         StepModuleInput, StepModulePlaintextPolicy, StepModuleProjectionStatus, StepModuleRef,
@@ -408,11 +425,7 @@ mod tests {
     #[test]
     fn ctee_private_workspace_executes_with_receipt_admission_and_projection() {
         let record = PrivateWorkspaceCteeModule
-            .execute_and_admit(
-                &ctee_invocation(),
-                &untrusted_node(),
-                vec!["agentgres://ctee/private-workspace/head/before".to_string()],
-            )
+            .execute_and_admit(&ctee_invocation(), &untrusted_node())
             .expect("ctee execution record");
 
         assert_eq!(
@@ -427,6 +440,10 @@ mod tests {
         assert_eq!(
             record.agentgres_admission.operation_ref,
             record.result.agentgres_operation_refs[0]
+        );
+        assert_eq!(
+            record.receipt_binding.expected_heads,
+            vec!["agentgres://ctee/private-workspace/head/current"]
         );
         assert_eq!(
             record.agentgres_admission.receipt_binding_ref,
@@ -448,16 +465,16 @@ mod tests {
     }
 
     #[test]
-    fn ctee_private_workspace_agentgres_admission_requires_expected_heads() {
+    fn ctee_private_workspace_rejects_caller_supplied_expected_heads() {
         let error = PrivateWorkspaceCteeModule
-            .execute_and_admit(&ctee_invocation(), &untrusted_node(), vec![])
-            .expect_err("ctee Agentgres admission must require expected heads");
+            .reject_caller_supplied_expected_heads(&[
+                "agentgres://ctee/private-workspace/head/client".to_string(),
+            ])
+            .expect_err("ctee expected heads are Rust-derived");
 
         assert_eq!(
             error,
-            CteePrivateWorkspaceError::ReceiptBinding(
-                ReceiptBindingError::AgentgresOperationMissingExpectedHeads
-            )
+            CteePrivateWorkspaceError::CallerSuppliedExpectedHeads
         );
     }
 

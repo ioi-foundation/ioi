@@ -1711,12 +1711,11 @@ fn execute_private_workspace_ctee_action(
                 .to_string(),
         ));
     }
+    PrivateWorkspaceCteeModule
+        .reject_caller_supplied_expected_heads(&request.expected_heads)
+        .map_err(|error| BridgeError::new("ctee_execution_invalid", format!("{error:?}")))?;
     let record = PrivateWorkspaceCteeModule
-        .execute_and_admit(
-            &request.invocation,
-            &request.node_trust,
-            request.expected_heads,
-        )
+        .execute_and_admit(&request.invocation, &request.node_trust)
         .map_err(|error| BridgeError::new("ctee_execution_invalid", format!("{error:?}")))?;
     let accepted_receipt_append = ReceiptBinder
         .append_accepted_receipt(
@@ -7052,8 +7051,7 @@ mod tests {
                 "runtime_node_ref": "node://rented-untrusted",
                 "trusted_for_plaintext": false,
                 "attestation_ref": null
-            },
-            "expected_heads": ["agentgres://ctee/private-workspace/head/before"]
+            }
         }))
         .expect("ctee bridge request");
 
@@ -7069,7 +7067,7 @@ mod tests {
         );
         assert_eq!(
             response["receipt_binding"]["expected_heads"][0],
-            "agentgres://ctee/private-workspace/head/before"
+            "agentgres://ctee/private-workspace/head/current"
         );
         assert_eq!(
             response["accepted_receipt_append"]["receipt_ref"],

@@ -612,8 +612,7 @@ mod tests {
             "node_trust": {
                 "plaintext_allowed": false,
                 "trusted_execution_profile": "ctee_private_workspace"
-            },
-            "expected_heads": ["agentgres://ctee/head/before"]
+            }
         });
         let body = ctee_private_workspace_action_body(action);
 

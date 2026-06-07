@@ -13,6 +13,11 @@ const CANONICAL_CTEE_PRIVATE_WORKSPACE_REQUEST_FIELDS = [
   "action",
 ];
 
+const RETIRED_CTEE_PRIVATE_WORKSPACE_TRUTH_FIELDS = [
+  "expected_heads",
+  "expectedHeads",
+];
+
 export function createRuntimeCteePrivateWorkspaceSurface(deps = {}) {
   const {
     runtimeError: runtimeErrorDep = runtimeError,
@@ -30,6 +35,7 @@ export function createRuntimeCteePrivateWorkspaceSurface(deps = {}) {
         message: "Private Workspace cTEE admission requires an action payload.",
       });
     }
+    assertNoClientSuppliedCteePrivateWorkspaceTruth(action);
     return action;
   }
 
@@ -45,6 +51,22 @@ export function createRuntimeCteePrivateWorkspaceSurface(deps = {}) {
       details: {
         retired_aliases: retiredAliases,
         canonical_fields: CANONICAL_CTEE_PRIVATE_WORKSPACE_REQUEST_FIELDS,
+      },
+    });
+  }
+
+  function assertNoClientSuppliedCteePrivateWorkspaceTruth(action = {}) {
+    const retiredFields = RETIRED_CTEE_PRIVATE_WORKSPACE_TRUTH_FIELDS.filter((field) =>
+      Object.hasOwn(action, field),
+    );
+    if (retiredFields.length === 0) return;
+    throw runtimeErrorDep({
+      status: 400,
+      code: "ctee_private_workspace_agentgres_truth_fields_retired",
+      message:
+        "Private Workspace cTEE expected heads are derived by the Rust core and cannot be supplied by clients.",
+      details: {
+        retired_fields: retiredFields,
       },
     });
   }

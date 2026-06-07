@@ -62,7 +62,6 @@ function cteeRequest() {
       trusted_for_plaintext: false,
       attestation_ref: null,
     },
-    expected_heads: ["agentgres://ctee/private-workspace/head/before"],
   };
 }
 
@@ -137,9 +136,7 @@ test("cTEE private workspace runner sends execution bridge request", () => {
   assert.equal(calls[0].bridgeRequest.backend, "ctee_operator");
   assert.equal(calls[0].bridgeRequest.invocation.invocation_id, "invocation://ctee/daemon-runner");
   assert.equal(calls[0].bridgeRequest.node_trust.trusted_for_plaintext, false);
-  assert.deepEqual(calls[0].bridgeRequest.expected_heads, [
-    "agentgres://ctee/private-workspace/head/before",
-  ]);
+  assert.equal(Object.hasOwn(calls[0].bridgeRequest, "expected_heads"), false);
   assert.equal(result.source, "rust_ctee_private_workspace_command");
   assert.equal(result.receipt.custody_proof_ref, "artifact://custody-proof");
   assert.equal(result.receipt_binding.binding_hash, "sha256:ctee-binding");
@@ -171,13 +168,15 @@ test("cTEE private workspace runner rejects retired bridge request aliases befor
       runner.executeAction({
         ...request,
         nodeTrust: request.node_trust,
-        expectedHeads: request.expected_heads,
+        expectedHeads: ["agentgres://ctee/private-workspace/head/client"],
+        expected_heads: ["agentgres://ctee/private-workspace/head/client"],
       }),
     (error) =>
       error.code === "ctee_private_workspace_runner_request_aliases_retired" &&
       error.details.status === 400 &&
       error.details.retired_aliases.includes("nodeTrust") &&
       error.details.retired_aliases.includes("expectedHeads") &&
+      error.details.retired_aliases.includes("expected_heads") &&
       Object.hasOwn(error.details, "nodeTrust") === false &&
       Object.hasOwn(error.details, "expectedHeads") === false,
   );

@@ -19,7 +19,6 @@ export interface RuntimeCteePrivateWorkspaceNodeTrust extends Record<string, unk
 export interface RuntimeCteePrivateWorkspaceAction extends Record<string, unknown> {
   invocation: Record<string, unknown>;
   node_trust: RuntimeCteePrivateWorkspaceNodeTrust;
-  expected_heads: string[];
 }
 
 export interface RuntimeCteePrivateWorkspaceControlRequestBody {
@@ -32,7 +31,6 @@ export interface RuntimeCteePrivateWorkspaceControlRequestBody {
   invocation_id: string;
   runtime_node_ref: string;
   trusted_for_plaintext: boolean;
-  expected_heads: string[];
   admission_only: true;
   direct_truth_write_allowed: false;
   plaintext_custody_checked_by_rust: true;
@@ -59,7 +57,6 @@ export interface RuntimeCteePrivateWorkspaceControlRequestInput {
   actionField?: string | null;
   invocation?: Record<string, unknown> | null;
   nodeTrust?: Partial<RuntimeCteePrivateWorkspaceNodeTrust> & Record<string, unknown>;
-  expectedHeads?: string[] | null;
   workflowGraphId?: string | null;
   workflowNodeId?: string | null;
   actor?: string | null;
@@ -87,6 +84,7 @@ export function createRuntimeCteePrivateWorkspaceControlRequest(
     objectAtPath(params.input, "ctee_action") ??
     objectAtPath(params.input, "cteeAction") ??
     {};
+  assertNoClientSuppliedCteePrivateWorkspaceTruth(params, actionSeed);
   const invocation = requiredObject(
     params.invocation ??
       objectField(actionSeed, "invocation") ??
@@ -107,13 +105,6 @@ export function createRuntimeCteePrivateWorkspaceControlRequest(
   if (trustedForPlaintext === null) {
     throw new Error("cTEE private workspace controls need node_trust.trusted_for_plaintext before dispatch.");
   }
-  const expectedHeads = requiredStringArray(
-    params.expectedHeads ??
-      stringArrayField(actionSeed, "expected_heads", "expectedHeads") ??
-      stringArrayAtPath(params.input, "expected_heads") ??
-      stringArrayAtPath(params.input, "expectedHeads"),
-    "expected_heads",
-  );
   const invocationId = requiredString(
     stringField(invocation, "invocation_id", "invocationId"),
     "invocation.invocation_id",
@@ -134,7 +125,6 @@ export function createRuntimeCteePrivateWorkspaceControlRequest(
     ...actionSeed,
     invocation,
     node_trust: nodeTrust,
-    expected_heads: expectedHeads,
   };
 
   return {
@@ -155,7 +145,6 @@ export function createRuntimeCteePrivateWorkspaceControlRequest(
       invocation_id: invocationId,
       runtime_node_ref: runtimeNodeRef,
       trusted_for_plaintext: trustedForPlaintext,
-      expected_heads: expectedHeads,
       admission_only: true,
       direct_truth_write_allowed: false,
       plaintext_custody_checked_by_rust: true,
@@ -198,15 +187,25 @@ function requiredString(value: string | null, field: string): string {
   throw new Error(`cTEE private workspace controls need ${field} before dispatch.`);
 }
 
-function requiredStringArray(values: string[] | null | undefined, field: string): string[] {
-  const normalized = uniqueStrings(values ?? []);
-  if (normalized.length > 0) return normalized;
-  throw new Error(`cTEE private workspace controls need ${field} before dispatch.`);
-}
-
 function requiredObject(value: Record<string, unknown> | null | undefined, field: string): Record<string, unknown> {
   if (value && Object.keys(value).length > 0) return value;
   throw new Error(`cTEE private workspace controls need ${field} before dispatch.`);
+}
+
+function assertNoClientSuppliedCteePrivateWorkspaceTruth(
+  params: RuntimeCteePrivateWorkspaceControlRequestInput,
+  actionSeed: Record<string, unknown>,
+): void {
+  const rejected =
+    Object.prototype.hasOwnProperty.call(params, "expectedHeads") ||
+    Object.prototype.hasOwnProperty.call(actionSeed, "expected_heads") ||
+    Object.prototype.hasOwnProperty.call(actionSeed, "expectedHeads") ||
+    valueAtPath(params.input, "expected_heads") !== undefined ||
+    valueAtPath(params.input, "expectedHeads") !== undefined;
+  if (!rejected) return;
+  throw new Error(
+    "cTEE private workspace expected heads are Rust-derived and cannot be supplied by workflow controls.",
+  );
 }
 
 function cleanString(value: unknown): string | null {
@@ -244,30 +243,12 @@ function objectRecord(source: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function stringArrayField(source: unknown, ...keys: string[]): string[] | null {
-  if (!source || typeof source !== "object" || Array.isArray(source)) return null;
-  for (const key of keys) {
-    const value = stringArray((source as Record<string, unknown>)[key]);
-    if (value) return value;
-  }
-  return null;
-}
-
 function stringAtPath(source: unknown, path: string): string | null {
   return cleanString(valueAtPath(source, path));
 }
 
-function stringArrayAtPath(source: unknown, path: string): string[] | null {
-  return stringArray(valueAtPath(source, path));
-}
-
 function objectAtPath(source: unknown, path: string): Record<string, unknown> | null {
   return objectRecord(valueAtPath(source, path));
-}
-
-function stringArray(value: unknown): string[] | null {
-  if (!Array.isArray(value)) return null;
-  return uniqueStrings(value.map((item) => cleanString(item)).filter(Boolean) as string[]);
 }
 
 function valueAtPath(source: unknown, path: string): unknown {
@@ -276,10 +257,6 @@ function valueAtPath(source: unknown, path: string): unknown {
     if (!current || typeof current !== "object" || Array.isArray(current)) return undefined;
     return (current as Record<string, unknown>)[segment];
   }, source);
-}
-
-function uniqueStrings(values: readonly string[]): string[] {
-  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }
 
 function encodeSegment(value: string): string {

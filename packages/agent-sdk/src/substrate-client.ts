@@ -1238,7 +1238,6 @@ export interface RuntimeCteePrivateWorkspaceNodeTrust extends Record<string, unk
 export interface RuntimeCteePrivateWorkspaceAction extends Record<string, unknown> {
   invocation: Record<string, unknown>;
   node_trust: RuntimeCteePrivateWorkspaceNodeTrust | Record<string, unknown>;
-  expected_heads: string[];
 }
 
 export interface RuntimeCteePrivateWorkspaceActionInput extends Record<string, unknown> {

@@ -34,7 +34,6 @@ function cteeAction() {
       trusted_for_plaintext: false,
       attestation_ref: null,
     },
-    expected_heads: ["agentgres://ctee/private-workspace/head/before"],
   };
 }
 
@@ -161,6 +160,29 @@ test("cTEE private workspace surface rejects retired request aliases before agen
       assert.equal(error.code, "ctee_private_workspace_action_request_aliases_retired");
       assert.deepEqual(error.details.retired_aliases, ["cteeAction", "ctee_action"]);
       assert.deepEqual(error.details.canonical_fields, ["action"]);
+      return true;
+    },
+  );
+  assert.deepEqual(runtimeStore.calls, []);
+});
+
+test("cTEE private workspace surface rejects client supplied Agentgres truth before Rust runner", () => {
+  const runtimeStore = store();
+  const surface = createRuntimeCteePrivateWorkspaceSurface();
+
+  assert.throws(
+    () =>
+      surface.executeCteePrivateWorkspaceAction(runtimeStore, "thread_surface", {
+        action: {
+          ...cteeAction(),
+          expected_heads: ["agentgres://ctee/private-workspace/head/client"],
+          expectedHeads: ["agentgres://ctee/private-workspace/head/client"],
+        },
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "ctee_private_workspace_agentgres_truth_fields_retired");
+      assert.deepEqual(error.details.retired_fields, ["expected_heads", "expectedHeads"]);
       return true;
     },
   );
