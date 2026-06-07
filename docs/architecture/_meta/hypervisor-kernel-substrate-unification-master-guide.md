@@ -272,37 +272,13 @@ execution authority, no compatibility-shim semantics, and no duplicate truth
 path. The target transport shape is a temporary transport to the Rust daemon core
 with no independent authority or compatibility-shim behavior.
 
-Resume-goal instruction: do not stop ordinary Rust-core extraction or facade
-retirement work to prune the migration matrix now, and do not treat matrix
-cleanup as an immediate prerequisite to resuming the migration goal. The next
-matrix-compaction pass is deliberately scheduled for after the next
-implementation slice makes a Rust-core extraction or JS-facade retirement seam
-concrete enough to identify which matrix rows can be collapsed without encoding
-migration scaffolding as terminal shape.
-
-Next-resume scheduling rule: first clarify the next Rust-core
-extraction/facade-retirement seam with a verified slice, then run the scheduled
-matrix-compaction pass before unrelated route-family work. This keeps the
-matrix compact enough for future context resumes while preserving the evidence
-needed to distinguish interim bridge scaffolding from terminal Rust daemon-core
-shape.
-Schedule the matrix compaction pass once the next Rust-core extraction/facade-retirement seam is
-clear enough to preserve evidence without encoding the command bridge as
-terminal shape.
-
-Future-resumption trigger: resume the migration goal by carrying out the next
-Rust-core extraction or facade-retirement slice first. Once that slice names and
-verifies the concrete owner boundary it is migrating, perform the scheduled
-matrix-compaction pass before starting unrelated route-family work, preserving
-terminal-target evidence while clearly marking bridge-scaffolding proofs as
-interim. Until that seam is clear, the scheduled matrix-compaction pass remains
-pending rather than optional.
-
-Resume carry-forward rule: the next goal resume must not spend its first pass
-on matrix pruning alone. It should first make the next Rust-core extraction or
-JS-facade retirement seam concrete, then immediately run the scheduled
-matrix-compaction pass as part of that same resume cycle so future context
-compactions carry the clarified owner boundary forward.
+Resume-goal scheduling marker: do not make matrix pruning the first action when
+the migration goal resumes. First complete a verified slice that clarifies the
+next Rust-core extraction or JS-facade retirement owner boundary; then run the
+scheduled matrix-compaction pass before starting unrelated route-family work.
+The compaction pass remains pending until that seam is clear enough to preserve
+evidence, distinguish interim bridge scaffolding from terminal Rust daemon-core
+shape, and avoid encoding the command bridge as the long-term substrate.
 
 ## Part II: Target Execution Model
 
