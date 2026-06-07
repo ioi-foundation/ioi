@@ -75,6 +75,9 @@ Matrix compaction timing:
   perform the scheduled matrix-compaction pass before starting unrelated
   route-family work; do not let context compaction demote this to optional
   evidence pruning.
+- Next resume order is mandatory: clarify a concrete Rust-core
+  extraction/facade-retirement seam with a verified slice, then run the
+  scheduled matrix-compaction pass before starting unrelated route-family work.
 - Resume carry-forward rule: the scheduled pass is part of the next resume cycle
   after the seam is clarified, not a standalone prerequisite and not optional
   cleanup to defer past unrelated route-family work.

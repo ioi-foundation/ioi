@@ -275,12 +275,19 @@ with no independent authority or compatibility-shim behavior.
 Resume-goal instruction: do not stop ordinary Rust-core extraction or facade
 retirement work to prune the migration matrix now, and do not treat matrix
 cleanup as an immediate prerequisite to resuming the migration goal. The next
-matrix-compaction pass is deliberately scheduled for after the next implementation
-slice makes a Rust-core extraction or JS-facade retirement seam concrete enough
-to identify which matrix rows can be collapsed without encoding migration
-scaffolding as terminal shape.
+matrix-compaction pass is deliberately scheduled for after the next
+implementation slice makes a Rust-core extraction or JS-facade retirement seam
+concrete enough to identify which matrix rows can be collapsed without encoding
+migration scaffolding as terminal shape.
+
+Next-resume scheduling rule: first clarify the next Rust-core
+extraction/facade-retirement seam with a verified slice, then run the scheduled
+matrix-compaction pass before unrelated route-family work. This keeps the
+matrix compact enough for future context resumes while preserving the evidence
+needed to distinguish interim bridge scaffolding from terminal Rust daemon-core
+shape.
 Schedule the matrix compaction pass once the next Rust-core extraction/facade-retirement seam is
-clear enough to preserve evidence without encoding migration scaffolding as
+clear enough to preserve evidence without encoding the command bridge as
 terminal shape.
 
 Future-resumption trigger: resume the migration goal by carrying out the next
