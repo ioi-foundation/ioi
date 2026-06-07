@@ -126,16 +126,16 @@ function cellForEvent(event: WorkflowRuntimeThreadEventLike): WorkflowSignedRepl
     });
   }
   if (eventKind === "workspace.snapshot.created" || componentKind === "workspace_snapshot") {
-    const snapshotId = stringField(payload, "snapshotId", "snapshot_id") ?? firstString(arrayField(event, "rollback_refs"));
+    const snapshotId = stringField(payload, "snapshot_id") ?? firstString(arrayField(event, "rollback_refs"));
     return baseCell(event, {
       cell_kind: "snapshot",
       title: "Workspace snapshot",
       summary: stringField(payload, "summary"),
       tool_name: null,
-      tool_call_id: stringField(payload, "toolCallId", "tool_call_id"),
+      tool_call_id: stringField(payload, "tool_call_id"),
       snapshot_id: snapshotId,
       file_paths: filePathsFromPayload(payload),
-      operation_count: numberField(payload, "fileCount", "file_count") ?? filePathsFromPayload(payload).length,
+      operation_count: numberField(payload, "file_count") ?? filePathsFromPayload(payload).length,
       approval_required: null,
       approval_satisfied: null,
       restore_preview_endpoint: endpointForSnapshot(event, snapshotId, "restore-preview"),
@@ -144,7 +144,7 @@ function cellForEvent(event: WorkflowRuntimeThreadEventLike): WorkflowSignedRepl
     });
   }
   if (eventKind === "workspace.restore.previewed") {
-    const snapshotId = stringField(payload, "snapshotId", "snapshot_id") ?? firstString(arrayField(event, "rollback_refs"));
+    const snapshotId = stringField(payload, "snapshot_id") ?? firstString(arrayField(event, "rollback_refs"));
     return baseCell(event, {
       cell_kind: "restore_preview",
       title: "Read-only restore preview",
@@ -162,7 +162,7 @@ function cellForEvent(event: WorkflowRuntimeThreadEventLike): WorkflowSignedRepl
     });
   }
   if (eventKind === "workspace.restore.applied") {
-    const snapshotId = stringField(payload, "snapshotId", "snapshot_id") ?? firstString(arrayField(event, "rollback_refs"));
+    const snapshotId = stringField(payload, "snapshot_id") ?? firstString(arrayField(event, "rollback_refs"));
     return baseCell(event, {
       cell_kind: "restore_apply",
       title: "Restore apply",
@@ -172,8 +172,8 @@ function cellForEvent(event: WorkflowRuntimeThreadEventLike): WorkflowSignedRepl
       snapshot_id: snapshotId,
       file_paths: filePathsFromOperations(payload),
       operation_count: arrayField(payload, "operations").length,
-      approval_required: booleanField(payload, "approvalRequired", "approval_required"),
-      approval_satisfied: booleanField(payload, "approvalSatisfied", "approval_satisfied"),
+      approval_required: booleanField(payload, "approval_required"),
+      approval_satisfied: booleanField(payload, "approval_satisfied"),
       restore_preview_endpoint: endpointForSnapshot(event, snapshotId, "restore-preview"),
       restore_apply_endpoint: endpointForSnapshot(event, snapshotId, "restore-apply"),
       read_only_replay: false,
@@ -337,7 +337,7 @@ function endpointForThreadSnapshot(
 function filePathsFromPayload(payload: Record<string, unknown>): string[] {
   return uniqueStrings([
     ...arrayField(payload, "files").map((file) => stringField(file, "path")),
-    ...arrayField(payload, "changedFiles", "changed_files").map((file) => stringField(file, "path")),
+    ...arrayField(payload, "changed_files").map((file) => stringField(file, "path")),
   ]);
 }
 

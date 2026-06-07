@@ -265,3 +265,66 @@ test("signed replay notebook reads event kind through canonical identity helper"
     "restore_preview",
   );
 });
+
+test("signed replay notebook ignores retired payload scalar aliases", () => {
+  const notebook = buildWorkflowSignedReplayNotebook({
+    events: [
+      event("snapshot-payload-retired", 1, {
+        eventKind: "workspace.snapshot.created",
+        componentKind: "workspace_snapshot",
+        payload: {
+          snapshotId: "snapshot-retired-payload",
+          toolCallId: "tool-retired-payload",
+          fileCount: 7,
+          changedFiles: [{ path: "retired.txt" }],
+        },
+      }),
+      event("snapshot-payload-canonical", 2, {
+        eventKind: "workspace.snapshot.created",
+        componentKind: "workspace_snapshot",
+        payload: {
+          snapshot_id: "snapshot-canonical-payload",
+          tool_call_id: "tool-canonical-payload",
+          file_count: 2,
+          changed_files: [{ path: "canonical.txt" }],
+        },
+      }),
+      event("restore-payload-retired", 3, {
+        eventKind: "workspace.restore.applied",
+        componentKind: "restore_gate",
+        payload: {
+          snapshotId: "snapshot-retired-restore-payload",
+          operations: [{ path: "retired-restore.txt" }],
+          approvalRequired: true,
+          approvalSatisfied: true,
+        },
+      }),
+      event("restore-payload-canonical", 4, {
+        eventKind: "workspace.restore.applied",
+        componentKind: "restore_gate",
+        payload: {
+          snapshot_id: "snapshot-canonical-restore-payload",
+          operations: [{ path: "canonical-restore.txt" }],
+          approval_required: true,
+          approval_satisfied: true,
+        },
+      }),
+    ],
+  });
+
+  assert.equal(notebook.cells.some((cell) => cell.snapshot_id === "snapshot-retired-payload"), false);
+  assert.equal(
+    notebook.cells.some((cell) => cell.snapshot_id === "snapshot-retired-restore-payload"),
+    false,
+  );
+
+  const snapshotCell = notebook.cells.find((cell) => cell.snapshot_id === "snapshot-canonical-payload");
+  assert.equal(snapshotCell?.tool_call_id, "tool-canonical-payload");
+  assert.equal(snapshotCell?.operation_count, 2);
+  assert.deepEqual(snapshotCell?.file_paths, ["canonical.txt"]);
+
+  const restoreCell = notebook.cells.find((cell) => cell.snapshot_id === "snapshot-canonical-restore-payload");
+  assert.equal(restoreCell?.approval_required, true);
+  assert.equal(restoreCell?.approval_satisfied, true);
+  assert.deepEqual(restoreCell?.file_paths, ["canonical-restore.txt"]);
+});

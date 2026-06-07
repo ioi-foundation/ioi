@@ -22296,7 +22296,37 @@ function runCompositor() {
       /const eventKind = workflowRuntimeEventKind\(event\);/.test(
         agentIdeSignedReplayNotebook,
       ) &&
+      /const snapshotId = stringField\(payload,\s*"snapshot_id"\) \?\? firstString\(arrayField\(event,\s*"rollback_refs"\)\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      /tool_call_id: stringField\(payload,\s*"tool_call_id"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      /operation_count: numberField\(payload,\s*"file_count"\) \?\? filePathsFromPayload\(payload\)\.length/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      /approval_required: booleanField\(payload,\s*"approval_required"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      /arrayField\(payload,\s*"changed_files"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
       !/const eventKind = stringField\(event,\s*"eventKind",\s*"event_kind"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/stringField\(payload,\s*"snapshotId",\s*"snapshot_id"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/stringField\(payload,\s*"toolCallId",\s*"tool_call_id"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/numberField\(payload,\s*"fileCount",\s*"file_count"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/booleanField\(payload,\s*"approvalRequired",\s*"approval_required"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/arrayField\(payload,\s*"changedFiles",\s*"changed_files"\)/.test(
         agentIdeSignedReplayNotebook,
       ) &&
       !/arrayField\(event,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
@@ -22383,6 +22413,15 @@ function runCompositor() {
         agentIdeSignedReplayNotebookTest,
       ) &&
       /signed replay notebook reads event kind through canonical identity helper/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /signed replay notebook ignores retired payload scalar aliases/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /snapshotId: "snapshot-retired-payload"/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /assert\.equal\(notebook\.cells\.some\(\(cell\) => cell\.snapshot_id === "snapshot-retired-payload"\),\s*false\)/.test(
         agentIdeSignedReplayNotebookTest,
       ) &&
       /eventKind: "workspace\.restore\.previewed"/.test(
