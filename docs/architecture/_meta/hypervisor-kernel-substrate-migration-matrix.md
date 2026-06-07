@@ -13341,6 +13341,12 @@ receipt panel now accepts only canonical `receipt_refs` and
 blocked apply results, so retired `receiptRefs` / `policyDecisionRefs` aliases
 cannot make unadmitted IDE/bridge shapes look receipt-backed.
 
+Slice 522 retires IDE terminal stream card aliases: terminal stream cards now
+read canonical command-stream event and payload fields such as `event_kind`,
+`event_stream_id`, `tool_call_id`, `stream_id`, `stream_seq`, `output_text`,
+`is_final`, `receipt_refs`, and `artifact_refs` only, so retired camelCase
+command-stream aliases cannot create terminal output or evidence rows.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

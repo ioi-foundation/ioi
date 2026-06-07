@@ -40,16 +40,16 @@ export function buildWorkflowTerminalStreamCard(
     .map(objectValue)
     .filter((event): event is Record<string, unknown> => {
       const kind =
-        stringField(event, "event_kind", "eventKind", "type") ??
-        stringField(objectField(event, "payload_summary", "payload"), "event_kind", "eventKind");
+        stringField(event, "event_kind", "type") ??
+        stringField(objectField(event, "payload_summary", "payload"), "event_kind");
       return kind === "COMMAND_STREAM";
     });
   const groups = new Map<string, Record<string, unknown>[]>();
   for (const event of streamEvents) {
     const payload = objectField(event, "payload_summary", "payload");
     const streamId =
-      stringField(payload, "stream_id", "streamId") ??
-      `${stringField(event, "event_stream_id", "eventStreamId") ?? "events"}:${stringField(event, "tool_call_id", "toolCallId") ?? "command"}`;
+      stringField(payload, "stream_id") ??
+      `${stringField(event, "event_stream_id") ?? "events"}:${stringField(event, "tool_call_id") ?? "command"}`;
     const group = groups.get(streamId) ?? [];
     group.push(event);
     groups.set(streamId, group);
@@ -73,40 +73,38 @@ function streamRow(streamId: string, events: Record<string, unknown>[]): Workflo
   const ordered = [...events].sort((left, right) => {
     const leftPayload = objectField(left, "payload_summary", "payload");
     const rightPayload = objectField(right, "payload_summary", "payload");
-    const leftSeq = numberField(leftPayload, "stream_seq", "streamSeq") ?? numberField(left, "seq") ?? 0;
-    const rightSeq = numberField(rightPayload, "stream_seq", "streamSeq") ?? numberField(right, "seq") ?? 0;
+    const leftSeq = numberField(leftPayload, "stream_seq") ?? numberField(left, "seq") ?? 0;
+    const rightSeq = numberField(rightPayload, "stream_seq") ?? numberField(right, "seq") ?? 0;
     if (leftSeq !== rightSeq) return leftSeq - rightSeq;
-    return (stringField(left, "created_at", "createdAt") ?? "").localeCompare(
-      stringField(right, "created_at", "createdAt") ?? "",
-    );
+    return (stringField(left, "created_at") ?? "").localeCompare(stringField(right, "created_at") ?? "");
   });
   const payloads = ordered.map((event) => objectField(event, "payload_summary", "payload"));
   const latestPayload = payloads[payloads.length - 1] ?? {};
   const mergedOutput = payloads
-    .map((payload) => stringField(payload, "output_text", "outputText") ?? "")
+    .map((payload) => stringField(payload, "output_text") ?? "")
     .join("");
-  const finalSeen = payloads.some((payload) => booleanField(payload, "is_final", "isFinal"));
+  const finalSeen = payloads.some((payload) => booleanField(payload, "is_final"));
   const receiptRefs = uniqueStrings([
-    ...ordered.flatMap((event) => arrayField(event, "receipt_refs", "receiptRefs")),
-    ...payloads.flatMap((payload) => arrayField(payload, "receipt_refs", "receiptRefs")),
+    ...ordered.flatMap((event) => arrayField(event, "receipt_refs")),
+    ...payloads.flatMap((payload) => arrayField(payload, "receipt_refs")),
   ]);
   const artifactRefs = uniqueStrings([
-    ...ordered.flatMap((event) => arrayField(event, "artifact_refs", "artifactRefs")),
-    ...payloads.flatMap((payload) => arrayField(payload, "artifact_refs", "artifactRefs")),
+    ...ordered.flatMap((event) => arrayField(event, "artifact_refs")),
+    ...payloads.flatMap((payload) => arrayField(payload, "artifact_refs")),
   ]);
   return {
     id: `terminal-stream-${safeId(streamId)}`,
     streamId,
     status: finalSeen ? "completed" : "streaming",
     toolCallId:
-      stringField(latestPayload, "tool_call_id", "toolCallId") ??
-      stringField(ordered[ordered.length - 1], "tool_call_id", "toolCallId"),
+      stringField(latestPayload, "tool_call_id") ??
+      stringField(ordered[ordered.length - 1], "tool_call_id"),
     toolName:
-      stringField(latestPayload, "tool_name", "toolName") ??
-      stringField(ordered[ordered.length - 1], "tool_name", "toolName"),
+      stringField(latestPayload, "tool_name") ??
+      stringField(ordered[ordered.length - 1], "tool_name"),
     command: stringField(latestPayload, "command"),
     channels: uniqueStrings(payloads.map((payload) => stringField(payload, "channel"))),
-    chunkCount: payloads.filter((payload) => stringField(payload, "output_text", "outputText")).length,
+    chunkCount: payloads.filter((payload) => stringField(payload, "output_text")).length,
     finalSeen,
     truncated: payloads.some((payload) => booleanField(payload, "truncated")),
     preview: streamPreview(mergedOutput),

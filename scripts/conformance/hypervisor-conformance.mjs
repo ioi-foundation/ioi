@@ -13343,6 +13343,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts")
     : "";
+  const agentIdeTerminalStreamCard = exists(
+    "packages/agent-ide/src/runtime/workflow-terminal-stream-card.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-terminal-stream-card.ts")
+    : "";
+  const agentIdeTerminalStreamCardTest = exists(
+    "packages/agent-ide/src/runtime/workflow-terminal-stream-card.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-terminal-stream-card.test.ts")
+    : "";
   const agentIdeContextBudgetControlNodes = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
   )
@@ -19667,6 +19677,47 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE hunk-decision receipt evidence must ignore retired camelCase receipt/policy aliases",
+  );
+  assertCheck(
+    result,
+    "ide-terminal-stream-card-aliases-retired",
+    /stringField\(event,\s*"event_kind",\s*"type"\)/.test(agentIdeTerminalStreamCard) &&
+      /stringField\(objectField\(event,\s*"payload_summary",\s*"payload"\),\s*"event_kind"\)/.test(
+        agentIdeTerminalStreamCard,
+      ) &&
+      /stringField\(payload,\s*"stream_id"\)/.test(agentIdeTerminalStreamCard) &&
+      /stringField\(event,\s*"event_stream_id"\)/.test(agentIdeTerminalStreamCard) &&
+      /stringField\(event,\s*"tool_call_id"\)/.test(agentIdeTerminalStreamCard) &&
+      /numberField\(leftPayload,\s*"stream_seq"\)/.test(agentIdeTerminalStreamCard) &&
+      /stringField\(left,\s*"created_at"\)/.test(agentIdeTerminalStreamCard) &&
+      /stringField\(payload,\s*"output_text"\)/.test(agentIdeTerminalStreamCard) &&
+      /booleanField\(payload,\s*"is_final"\)/.test(agentIdeTerminalStreamCard) &&
+      /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeTerminalStreamCard) &&
+      /arrayField\(payload,\s*"artifact_refs"\)/.test(agentIdeTerminalStreamCard) &&
+      /terminal stream card projects canonical command stream events/.test(
+        agentIdeTerminalStreamCardTest,
+      ) &&
+      /terminal stream card ignores retired command stream aliases/.test(
+        agentIdeTerminalStreamCardTest,
+      ) &&
+      /eventKind: "COMMAND_STREAM"/.test(agentIdeTerminalStreamCardTest) &&
+      /outputText: "retired\\n"/.test(agentIdeTerminalStreamCardTest) &&
+      /assert\.equal\(card\.status,\s*"empty"\)/.test(agentIdeTerminalStreamCardTest) &&
+      !/stringField\((?:event|payload|left|right|latestPayload|ordered\[[^\]]+\]),\s*"(?:event_kind|event_stream_id|tool_call_id|created_at|stream_id|output_text|tool_name)",\s*"(?:eventKind|eventStreamId|toolCallId|createdAt|streamId|outputText|toolName)"/.test(
+        agentIdeTerminalStreamCard,
+      ) &&
+      !/numberField\((?:leftPayload|rightPayload),\s*"stream_seq",\s*"streamSeq"\)/.test(
+        agentIdeTerminalStreamCard,
+      ) &&
+      !/booleanField\(payload,\s*"is_final",\s*"isFinal"\)/.test(agentIdeTerminalStreamCard) &&
+      !/arrayField\((?:event|payload),\s*"(?:receipt_refs|artifact_refs)",\s*"(?:receiptRefs|artifactRefs)"\)/.test(
+        agentIdeTerminalStreamCard,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-terminal-stream-card.ts",
+      "packages/agent-ide/src/runtime/workflow-terminal-stream-card.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE terminal stream cards must ignore retired camelCase command-stream aliases",
   );
   return result;
 }
