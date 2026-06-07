@@ -15,6 +15,7 @@ function fakeState() {
     now: "2026-06-04T03:00:00.000Z",
     receiptCounter: 0,
     receiptBindingRequests: [],
+    recordStateCommits: [],
     receipts: [],
     writes: [],
     nowIso() {
@@ -89,6 +90,24 @@ function fakeState() {
         },
         receipt_refs: request.result.receipt_refs,
         evidence_refs: ["rust_receipt_binder_core", `sha256:binding-${this.receiptCounter}`],
+      };
+    },
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(request);
+      return {
+        record_id: request.record_id,
+        object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+        content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+        admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+        commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+          admission: {
+            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+          },
+        },
       };
     },
     receipt(kind, payload) {
@@ -233,7 +252,53 @@ test("recordConversationState stores redacted replay metadata and message lineag
   assert.equal(Object.hasOwn(record.replay, "plaintextPersisted"), false);
   assert.equal(Object.hasOwn(record.replay, "previousResponseId"), false);
   assert.equal(state.conversations.get("resp_current"), record);
-  assert.equal(state.writes.at(-1)[0], "model-conversations");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.at(-1).record_dir, "model-conversations");
+  assert.equal(state.recordStateCommits.at(-1).record_id, "resp_current");
+  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.conversation.write");
+  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, [
+    "receipt.invocation",
+    "receipt.route",
+    "receipt.stream",
+  ]);
+  assert.equal(state.recordStateCommits.at(-1).record.replay.plaintext_persisted, false);
+});
+
+test("recordConversationState fails closed before local mutation without Rust Agentgres record-state commit", () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+
+  assert.throws(
+    () =>
+      recordConversationState(
+        state,
+        {
+          responseId: "resp_current",
+          previousState: null,
+          kind: "responses",
+          input: "secret prompt",
+          outputText: "public answer",
+          selection: selection(),
+          instance: { id: "instance.1", backendId: "backend.instance" },
+          receipt: { id: "receipt.invocation" },
+          routeReceipt: { id: "receipt.route" },
+          tokenCount: { total_tokens: 4 },
+          streamReceiptId: "receipt.stream",
+        },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.code, "model_mount_conversation_state_commit_unconfigured");
+      assert.equal(error.details.record_dir, "model-conversations");
+      assert.equal(error.details.response_id, "resp_current");
+      assert.equal(error.details.receipt_id, "receipt.invocation");
+      assert.equal(error.details.stream_receipt_id, "receipt.stream");
+      return true;
+    },
+  );
+
+  assert.equal(state.conversations.has("resp_current"), false);
+  assert.deepEqual(state.writes, []);
 });
 
 test("recordModelStreamCompleted emits stream receipt and finalizes conversation state", () => {

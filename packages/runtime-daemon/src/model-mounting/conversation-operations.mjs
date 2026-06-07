@@ -6,6 +6,7 @@ import {
   withModelMountInvocationAdmission,
   withModelMountInvocationReceiptBinding,
 } from "./model-invocation-operations.mjs";
+import { commitConversationRecordState } from "./conversation-record-state.mjs";
 
 export function nextResponseId(state, requested, deps = {}) {
   const {
@@ -85,8 +86,12 @@ export function recordConversationState(state, {
       previous_response_id: previousState?.id ?? null,
     },
   };
+  commitConversationRecordState(state, record, "model_mount.conversation.write", [
+    receipt.id,
+    routeReceipt?.id,
+    streamReceiptId,
+  ]);
   state.conversations.set(record.id, record);
-  state.writeMap("model-conversations", state.conversations);
   return record;
 }
 

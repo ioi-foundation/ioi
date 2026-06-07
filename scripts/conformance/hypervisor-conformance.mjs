@@ -549,6 +549,9 @@ function runBridge() {
   const modelConversationOps = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
     : "";
+  const modelConversationRecordState = exists("packages/runtime-daemon/src/model-mounting/conversation-record-state.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/conversation-record-state.mjs")
+    : "";
   const modelConversationOpsTest = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
     : "";
@@ -5520,9 +5523,19 @@ function runBridge() {
       !/"(?:routeId|endpointId|selectedModel|receiptId|inputHash|outputHash)"/.test(modelConversationSchemaRelations) &&
       /Object\.hasOwn\(record,\s*"routeId"\),\s*false/.test(modelConversationOpsTest) &&
       /Object\.hasOwn\(record,\s*"tokenCount"\),\s*false/.test(modelConversationOpsTest) &&
-      /Object\.hasOwn\(record\.replay,\s*"plaintextPersisted"\),\s*false/.test(modelConversationOpsTest),
+      /Object\.hasOwn\(record\.replay,\s*"plaintextPersisted"\),\s*false/.test(modelConversationOpsTest) &&
+      /commitConversationRecordState/.test(modelConversationOps) &&
+      /recordDir:\s*"model-conversations"/.test(modelConversationRecordState) &&
+      /model_mount\.conversation\.write/.test(modelConversationOps) &&
+      /model_mount_conversation_state_commit_unconfigured/.test(modelConversationRecordState) &&
+      !/state\.writeMap\("model-conversations"/.test(modelConversationOps) &&
+      /recordConversationState fails closed before local mutation without Rust Agentgres record-state commit/.test(
+        modelConversationOpsTest,
+      ) &&
+      /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(modelConversationOpsTest),
     [
       "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/conversation-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/validation.mjs",
       "packages/runtime-daemon/src/model-mounting/validation.test.mjs",
