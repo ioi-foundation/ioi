@@ -34,6 +34,7 @@ use agentgres_admission::{
     RuntimeArtifactStateCommitRecord, RuntimeArtifactStateCommitRequest,
     RuntimeMemoryStateCommitRecord, RuntimeMemoryStateCommitRequest,
     RuntimeModelMountReceiptStateCommitRecord, RuntimeModelMountReceiptStateCommitRequest,
+    RuntimeModelMountRecordStateCommitRecord, RuntimeModelMountRecordStateCommitRequest,
     RuntimeRunStateCommitRecord, RuntimeRunStateCommitRequest, RuntimeStatePersistenceRecord,
     RuntimeStatePersistenceRequest, RuntimeStateRecordMaterializationRecord,
     RuntimeStateRecordMaterializationRequest, RuntimeStateStorageWriteSetRecord,
@@ -544,6 +545,13 @@ impl RuntimeKernelService {
         request: &RuntimeArtifactStateCommitRequest,
     ) -> Result<RuntimeArtifactStateCommitRecord, AgentgresAdmissionError> {
         AgentgresAdmissionCore.commit_runtime_artifact_state(request)
+    }
+
+    pub fn commit_runtime_model_mount_record_state(
+        &self,
+        request: &RuntimeModelMountRecordStateCommitRequest,
+    ) -> Result<RuntimeModelMountRecordStateCommitRecord, AgentgresAdmissionError> {
+        AgentgresAdmissionCore.commit_runtime_model_mount_record_state(request)
     }
 
     pub fn commit_runtime_model_mount_receipt_state(

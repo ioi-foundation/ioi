@@ -767,6 +767,7 @@ export class AgentgresRuntimeStateStore {
       homeDir: options.homeDir,
       vaultSecrets: options.vaultSecrets,
       modelMountAdmissionRunner: options.modelMountAdmissionRunner,
+      commitRuntimeModelMountRecordState: (request) => this.commitRuntimeModelMountRecordState(request),
       commitRuntimeModelMountReceiptState: (request) => this.commitRuntimeModelMountReceiptState(request),
     });
     this.modelRouteSelection = createModelRouteSelection({
@@ -3820,6 +3821,10 @@ export class AgentgresRuntimeStateStore {
 
   commitRuntimeArtifactState(request) {
     return this.runtimeAgentgresAdmissionRunner.commitRuntimeArtifactState(this.stateDir, request);
+  }
+
+  commitRuntimeModelMountRecordState(request) {
+    return this.runtimeAgentgresAdmissionRunner.commitRuntimeModelMountRecordState(this.stateDir, request);
   }
 
   commitRuntimeModelMountReceiptState(request) {

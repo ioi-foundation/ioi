@@ -369,6 +369,7 @@ export class ModelMountingState {
     now = () => new Date(),
     vaultSecrets = {},
     modelMountAdmissionRunner = null,
+    commitRuntimeModelMountRecordState = null,
     commitRuntimeModelMountReceiptState = null,
   }) {
     this.stateDir = path.resolve(stateDir);
@@ -379,6 +380,7 @@ export class ModelMountingState {
     this.now = now;
     this.modelMountAdmissionRunner =
       modelMountAdmissionRunner ?? createModelMountAdmissionRunnerFromEnv(process.env);
+    this.commitRuntimeModelMountRecordState = commitRuntimeModelMountRecordState;
     this.store = new AgentgresModelMountingStore({
       stateDir: this.stateDir,
       commitRuntimeModelMountReceiptState,

@@ -17,6 +17,7 @@ function fakeState() {
     instances: new Map(),
     providers: new Map(),
     healthWrites: [],
+    recordStateCommits: [],
     projections: 0,
     receipts: [],
     resolvedVaultRefs: [],
@@ -65,6 +66,45 @@ function fakeState() {
     },
     writeMap(name, map) {
       this.writes.push([name, [...map.values()].map((record) => ({ ...record }))]);
+    },
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(JSON.parse(JSON.stringify(request)));
+      return {
+        source: "rust_agentgres_runtime_model_mount_record_state_commit_command",
+        backend: "rust_agentgres_storage",
+        record: {
+          schema_version: "ioi.runtime_model_mount_record_state_commit.v1",
+          record_dir: request.record_dir,
+          record_id: request.record_id,
+          operation_kind: request.operation_kind,
+          storage_backend_ref: request.storage_backend_ref,
+          record: {
+            record_path: `${request.record_dir}/${request.record_id}.json`,
+            object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}/records/${request.record_dir}/${request.record_id}.json`,
+            content_hash: "sha256:model-mount-record-content",
+            payload_refs: [`payload://model-mounting/records/${request.record_dir}/${request.record_id}/records/${request.record_dir}/${request.record_id}.json`],
+            receipt_refs: request.receipt_refs,
+            admission: { admission_hash: "sha256:model-mount-record-admission" },
+          },
+          commit_hash: "sha256:model-mount-record-commit",
+        },
+        storage_record: {
+          record_path: `${request.record_dir}/${request.record_id}.json`,
+          object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}/records/${request.record_dir}/${request.record_id}.json`,
+          content_hash: "sha256:model-mount-record-content",
+          payload_refs: [`payload://model-mounting/records/${request.record_dir}/${request.record_id}/records/${request.record_dir}/${request.record_id}.json`],
+          receipt_refs: request.receipt_refs,
+          admission: { admission_hash: "sha256:model-mount-record-admission" },
+        },
+        record_dir: request.record_dir,
+        record_id: request.record_id,
+        object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}/records/${request.record_dir}/${request.record_id}.json`,
+        content_hash: "sha256:model-mount-record-content",
+        admission_hash: "sha256:model-mount-record-admission",
+        commit_hash: "sha256:model-mount-record-commit",
+        written_record: { record_path: `${request.record_dir}/${request.record_id}.json` },
+        evidence_refs: ["rust_agentgres_runtime_model_mount_record_state_commit"],
+      };
     },
     writeProjection() {
       this.projections += 1;
@@ -271,7 +311,12 @@ test("provider health success persists public health and vault metadata boundary
   assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "authVaultRefHash"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerAuthEvidenceRefs"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerAuthHeaderNames"), false);
-  assert.equal(currentDeps.healthWrites[0].value.status, "available");
+  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
+  assert.equal(state.recordStateCommits[0].record_dir, "provider-health");
+  assert.equal(state.recordStateCommits[0].record_id, "health.provider_openai");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.provider_health.write");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.provider_health.1"]);
+  assert.equal(state.recordStateCommits[0].record.status, "available");
   assert.equal(state.projections, 1);
 });
 
@@ -337,8 +382,37 @@ test("provider health failure updates provider status and augments thrown detail
   assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "httpStatus"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerErrorHash"), false);
   assert.equal(state.providers.get("provider.remote").status, "blocked");
-  assert.equal(currentDeps.healthWrites[0].value.failureCode, "policy");
+  assert.equal(state.recordStateCommits[0].record.failureCode, "policy");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.provider_health.1"]);
   assert.equal(state.projections, 1);
+});
+
+test("provider health persistence fails closed without Rust Agentgres record-state commit", async () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+  state.providers.set("provider.openai", {
+    id: "provider.openai",
+    kind: "openai",
+    label: "OpenAI",
+    status: "configured",
+    discovery: { evidenceRefs: ["operator_provider_config"] },
+  });
+  state.drivers.set("provider.openai", {
+    async health() {
+      return {
+        status: "available",
+        evidenceRefs: ["provider_http_health"],
+      };
+    },
+  });
+
+  await assert.rejects(
+    () => providerHealth(state, "provider.openai", providerDeps()),
+    (error) =>
+      error.code === "model_mount_provider_health_state_commit_unconfigured" &&
+      error.details.provider_id === "provider.openai" &&
+      error.details.receipt_id === "receipt.provider_health.1",
+  );
 });
 
 test("local provider health receipts carry Rust lifecycle bindings", async () => {

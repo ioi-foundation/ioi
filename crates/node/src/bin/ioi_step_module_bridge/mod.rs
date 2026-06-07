@@ -5,8 +5,8 @@ use ioi_services::agentic::evolution::{GovernedEvolutionCore, GovernedRuntimeImp
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresOperationProposal, RuntimeAgentStateCommitRequest,
     RuntimeArtifactStateCommitRequest, RuntimeMemoryStateCommitRequest,
-    RuntimeModelMountReceiptStateCommitRequest, RuntimeRunStateCommitRequest,
-    RuntimeStatePersistenceRecord, RuntimeStateStorageWriteRecord,
+    RuntimeModelMountReceiptStateCommitRequest, RuntimeModelMountRecordStateCommitRequest,
+    RuntimeRunStateCommitRequest, RuntimeStatePersistenceRecord, RuntimeStateStorageWriteRecord,
     RuntimeSubagentStateCommitRequest, StorageBackendWriteProposal,
     AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
@@ -584,6 +584,17 @@ struct RuntimeArtifactStateCommitBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct RuntimeModelMountRecordStateCommitBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    state_dir: String,
+    request: RuntimeModelMountRecordStateCommitRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct RuntimeModelMountReceiptStateCommitBridgeRequest {
     #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
@@ -923,6 +934,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             commit_runtime_artifact_state(request)
+        }
+        "commit_runtime_model_mount_record_state" => {
+            let request: RuntimeModelMountRecordStateCommitBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            commit_runtime_model_mount_record_state(request)
         }
         "commit_runtime_model_mount_receipt_state" => {
             let request: RuntimeModelMountReceiptStateCommitBridgeRequest =
@@ -3127,6 +3144,60 @@ fn commit_runtime_artifact_state(
         "written_record": written_record,
         "evidence_refs": [
             "rust_agentgres_runtime_artifact_state_commit",
+            record.commit_hash,
+        ],
+    }))
+}
+
+fn commit_runtime_model_mount_record_state(
+    request: RuntimeModelMountRecordStateCommitBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "commit_runtime_model_mount_record_state" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = AgentgresAdmissionCore
+        .commit_runtime_model_mount_record_state(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "runtime_model_mount_record_state_commit_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    let written_record = write_runtime_state_storage_record(
+        &request.state_dir,
+        &record.record,
+        &request.request.record,
+    )?;
+    Ok(json!({
+        "source": "rust_agentgres_runtime_model_mount_record_state_commit_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
+        "record": record.clone(),
+        "storage_record": record.record.clone(),
+        "record_dir": record.record_dir.clone(),
+        "record_id": record.record_id.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "storage_backend_ref": record.storage_backend_ref.clone(),
+        "object_ref": record.record.object_ref.clone(),
+        "content_hash": record.record.content_hash.clone(),
+        "payload_refs": record.record.payload_refs.clone(),
+        "receipt_refs": record.record.receipt_refs.clone(),
+        "admission_hash": record.record.admission.admission_hash.clone(),
+        "commit_hash": record.commit_hash.clone(),
+        "written_record": written_record,
+        "evidence_refs": [
+            "rust_agentgres_runtime_model_mount_record_state_commit",
             record.commit_hash,
         ],
     }))
@@ -8799,6 +8870,69 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_agentgres_runtime_artifact_state_commit"));
+    }
+
+    #[test]
+    fn bridge_commits_runtime_model_mount_record_state_through_rust_core() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let state_dir = temp.path().join("runtime-state");
+        let request: RuntimeModelMountRecordStateCommitBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": COMMAND_SCHEMA_VERSION,
+                "operation": "commit_runtime_model_mount_record_state",
+                "backend": "rust_agentgres_storage",
+                "state_dir": state_dir,
+                "request": {
+                    "schema_version": "ioi.runtime_model_mount_record_state_commit.v1",
+                    "record_dir": "provider-health",
+                    "record_id": "health.provider_openai",
+                    "operation_kind": "model_mount.provider_health.write",
+                    "storage_backend_ref": "storage://runtime-agentgres/local-json",
+                    "record": {
+                        "id": "health.provider_openai",
+                        "provider_id": "provider.openai",
+                        "status": "available",
+                        "checked_at": "2026-06-04T00:00:00.000Z",
+                        "receipt_id": "receipt_provider_health",
+                        "evidence_refs": ["provider_http_health"]
+                    }
+                }
+            }))
+            .expect("runtime model-mount record-state commit bridge request");
+
+        let response =
+            commit_runtime_model_mount_record_state(request).expect("model-mount record committed");
+
+        assert_eq!(
+            response["source"],
+            "rust_agentgres_runtime_model_mount_record_state_commit_command"
+        );
+        assert_eq!(response["record_dir"], "provider-health");
+        assert_eq!(response["record_id"], "health.provider_openai");
+        assert_eq!(
+            response["operation_kind"],
+            "model_mount.provider_health.write"
+        );
+        assert!(response["commit_hash"]
+            .as_str()
+            .expect("commit hash")
+            .starts_with("sha256:"));
+        assert!(state_dir
+            .join("provider-health/health.provider_openai.json")
+            .exists());
+        let health_record =
+            fs::read_to_string(state_dir.join("provider-health/health.provider_openai.json"))
+                .expect("provider health record");
+        assert!(health_record.contains("\"id\": \"health.provider_openai\""));
+        assert_eq!(
+            response["written_record"]["object_ref"],
+            "agentgres://model-mounting/records/provider-health/health.provider_openai/records/provider-health/health.provider_openai.json"
+        );
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_agentgres_runtime_model_mount_record_state_commit"));
     }
 
     #[test]

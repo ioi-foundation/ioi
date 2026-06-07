@@ -8572,6 +8572,39 @@ function runReceipts() {
       /model_mount_provider_lifecycle_hash/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
+      /RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(agentgresAdmissionCore) &&
+      /RuntimeModelMountRecordStateCommitRequest/.test(agentgresAdmissionCore) &&
+      /RuntimeModelMountRecordStateCommitRecord/.test(agentgresAdmissionCore) &&
+      /commit_runtime_model_mount_record_state/.test(agentgresAdmissionCore) &&
+      /commits_runtime_model_mount_record_state_with_storage_admission/.test(agentgresAdmissionCore) &&
+      /runtime_model_mount_record_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
+      /runtime_model_mount_record_state_commit_rejects_mismatched_record_id/.test(agentgresAdmissionCore) &&
+      /pub fn commit_runtime_model_mount_record_state/.test(runtimeKernelModule) &&
+      /commit_runtime_model_mount_record_state/.test(bridgeModule) &&
+      /RuntimeModelMountRecordStateCommitBridgeRequest/.test(bridgeModule) &&
+      /rust_agentgres_runtime_model_mount_record_state_commit_command/.test(bridgeModule) &&
+      /bridge_commits_runtime_model_mount_record_state_through_rust_core/.test(bridgeModule) &&
+      /commitRuntimeModelMountRecordState/.test(runtimeAgentgresRunner) &&
+      /normalizeRuntimeModelMountRecordStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
+      /runtime Agentgres runner sends runtime model-mount record-state commit bridge request/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /commitRuntimeModelMountRecordState: \(request\) => this\.commitRuntimeModelMountRecordState\(request\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /commitRuntimeModelMountRecordState\(request\)/.test(runtimeDaemonIndex) &&
+      /this\.commitRuntimeModelMountRecordState = commitRuntimeModelMountRecordState/.test(
+        read("packages/runtime-daemon/src/model-mounting.mjs"),
+      ) &&
+      /commitProviderHealthStateRecord/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      /model_mount_provider_health_state_commit_unconfigured/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      !/writeJson\(pathModule\.join\(state\.stateDir,\s*"provider-health"/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
       /model_mount_provider_lifecycle_hash/.test(modelMountReceiptWriteGuards) &&
       /assertNoRetiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
       !/modelMountProviderLifecycle|providerLifecycleHash/.test(
@@ -8584,10 +8617,23 @@ function runReceipts() {
       /local provider health receipts carry Rust lifecycle bindings/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
+      /provider health persistence fails closed without Rust Agentgres record-state commit/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /record_dir,\s*"provider-health"/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
       /provider health receipt writes fail closed without provider kind/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ),
     [
+      "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
