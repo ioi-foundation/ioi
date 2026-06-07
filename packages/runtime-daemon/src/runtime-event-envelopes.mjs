@@ -158,20 +158,20 @@ export function createRuntimeEventEnvelopeHelpers({
         : isDiagnosticsBlockingGate
           ? "LspDiagnostics.BlockingGate"
           : isComputerUseEvent
-            ? event.data?.eventKind ?? computerUseSourceEventKind(event.type)
+            ? event.data?.event_kind ?? computerUseSourceEventKind(event.type)
             : `run.${event.type}`,
       event_kind: eventKind,
       status: runtimeEventStatusForRunEvent(event),
       actor: event.type === "delta" ? "assistant" : "runtime",
       created_at: event.createdAt,
       workspace_root: workspaceRoot,
-      workflow_graph_id: event.data?.workflowGraphId ?? event.data?.workflow_graph_id ?? null,
+      workflow_graph_id: event.data?.workflow_graph_id ?? null,
       component_kind: componentKindForRunEvent(event),
       workflow_node_id: workflowNodeForRunEvent(event),
-      tool_call_id: event.data?.toolCallId ?? event.data?.tool_call_id ?? null,
-      approval_id: event.data?.approvalId ?? event.data?.approval_id ?? null,
+      tool_call_id: event.data?.tool_call_id ?? null,
+      approval_id: event.data?.approval_id ?? null,
       policy_decision_refs: policyDecisionRefsForRunEvent(event),
-      rollback_refs: normalizeArray(event.data?.rollbackRefs ?? event.data?.rollback_refs),
+      rollback_refs: normalizeArray(event.data?.rollback_refs),
       payload_schema_version: isDiagnosticsInjection
         ? LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION
         : isDiagnosticsBlockingGate

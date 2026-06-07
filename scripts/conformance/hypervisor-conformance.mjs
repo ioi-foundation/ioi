@@ -13120,6 +13120,10 @@ function runCompositor() {
   const runtimeEventEnvelopesTest = exists("packages/runtime-daemon/src/runtime-event-envelopes.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-envelopes.test.mjs")
     : "";
+  const ttiEnvelopeForRunEventBlock =
+    runtimeEventEnvelopes.match(
+      /function ttiEnvelopeForRunEvent\(\{ event, threadId, turnId, workspaceRoot \}\) \{[\s\S]*?\n  \}/,
+    )?.[0] ?? "";
   const runtimeHttpUtils = exists("packages/runtime-daemon/src/runtime-http-utils.mjs")
     ? read("packages/runtime-daemon/src/runtime-http-utils.mjs")
     : "";
@@ -18806,6 +18810,39 @@ function runCompositor() {
       "packages/runtime-daemon/src/threads/thread-replay.mjs",
     ],
     "Phase 10/11 is pending: daemon runtime event envelopes must not emit legacy id/event/timestamp aliases, and SSE/cursors must use canonical event_id",
+  );
+  assertCheck(
+    result,
+    "runtime-event-envelope-input-aliases-retired",
+    ttiEnvelopeForRunEventBlock.length > 0 &&
+      /event\.data\?\.event_kind \?\? computerUseSourceEventKind/.test(
+        ttiEnvelopeForRunEventBlock,
+      ) &&
+      /workflow_graph_id:\s*event\.data\?\.workflow_graph_id \?\? null/.test(
+        ttiEnvelopeForRunEventBlock,
+      ) &&
+      /tool_call_id:\s*event\.data\?\.tool_call_id \?\? null/.test(
+        ttiEnvelopeForRunEventBlock,
+      ) &&
+      /approval_id:\s*event\.data\?\.approval_id \?\? null/.test(
+        ttiEnvelopeForRunEventBlock,
+      ) &&
+      /rollback_refs:\s*normalizeArray\(event\.data\?\.rollback_refs\)/.test(
+        ttiEnvelopeForRunEventBlock,
+      ) &&
+      !/\bevent\.data\?\.(?:eventKind|workflowGraphId|toolCallId|approvalId|rollbackRefs)\b/.test(
+        ttiEnvelopeForRunEventBlock,
+      ) &&
+      /eventKind:\s*"RetiredComputerUseObservation"/.test(runtimeEventEnvelopesTest) &&
+      /workflowGraphId:\s*"graph-retired"/.test(runtimeEventEnvelopesTest) &&
+      /toolCallId:\s*"tool-retired"/.test(runtimeEventEnvelopesTest) &&
+      /approvalId:\s*"approval-retired"/.test(runtimeEventEnvelopesTest) &&
+      /rollbackRefs:\s*\["rollback-retired"\]/.test(runtimeEventEnvelopesTest),
+    [
+      "packages/runtime-daemon/src/runtime-event-envelopes.mjs",
+      "packages/runtime-daemon/src/runtime-event-envelopes.test.mjs",
+    ],
+    "Phase 10/11 is pending: daemon runtime event envelopes must ignore retired camelCase TTI input aliases",
   );
   assertCheck(
     result,

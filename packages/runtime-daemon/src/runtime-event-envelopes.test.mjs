@@ -39,10 +39,10 @@ function helpers() {
     isComputerUseRunEventType: (type) => computerUseTypes.has(type),
     normalizeArray,
     payloadSummaryForRunEvent: (event) => ({
-      event_kind: event.data?.eventKind ?? `Run.${event.type}`,
+      event_kind: event.data?.event_kind ?? `Run.${event.type}`,
     }),
-    policyDecisionRefsForRunEvent: (event) => normalizeArray(event.data?.policyDecisionRefs),
-    receiptRefsForRunEvent: (event) => normalizeArray(event.data?.receiptRefs),
+    policyDecisionRefsForRunEvent: (event) => normalizeArray(event.data?.policy_decision_refs),
+    receiptRefsForRunEvent: (event) => normalizeArray(event.data?.receipt_refs),
     runtimeBridgeComputerUseTrace: () => ({
       actionProposal: {
         proposal_ref: "proposal-one",
@@ -133,8 +133,8 @@ test("tti envelopes preserve diagnostics and computer-use public envelopes", () 
       createdAt: "2026-06-03T00:00:00.000Z",
       data: {
         reason: "post_edit_diagnostics_findings",
-        policyDecisionRefs: ["policy-one"],
-        receiptRefs: ["receipt-one"],
+        policy_decision_refs: ["policy-one"],
+        receipt_refs: ["receipt-one"],
       },
     },
     threadId: "thread-one",
@@ -159,7 +159,18 @@ test("tti envelopes preserve diagnostics and computer-use public envelopes", () 
       type: "computer_use_observation",
       runId: "run-one",
       createdAt: "2026-06-03T00:00:00.000Z",
-      data: {},
+      data: {
+        event_kind: "ComputerUse.CanonicalObservation",
+        eventKind: "RetiredComputerUseObservation",
+        workflow_graph_id: "graph-canonical",
+        workflowGraphId: "graph-retired",
+        tool_call_id: "tool-canonical",
+        toolCallId: "tool-retired",
+        approval_id: "approval-canonical",
+        approvalId: "approval-retired",
+        rollback_refs: ["rollback-canonical"],
+        rollbackRefs: ["rollback-retired"],
+      },
     },
     threadId: "thread-one",
     turnId: "turn-one",
@@ -167,8 +178,17 @@ test("tti envelopes preserve diagnostics and computer-use public envelopes", () 
   });
 
   assert.equal(computerUse.payload_schema_version, "computer.v1");
-  assert.equal(computerUse.source_event_kind, "ComputerUse.computer_use_observation");
+  assert.equal(computerUse.source_event_kind, "ComputerUse.CanonicalObservation");
   assert.equal(computerUse.component_kind, "computer_use_harness");
+  assert.equal(computerUse.workflow_graph_id, "graph-canonical");
+  assert.equal(computerUse.tool_call_id, "tool-canonical");
+  assert.equal(computerUse.approval_id, "approval-canonical");
+  assert.deepEqual(computerUse.rollback_refs, ["rollback-canonical"]);
+  assert.notEqual(computerUse.source_event_kind, "RetiredComputerUseObservation");
+  assert.notEqual(computerUse.workflow_graph_id, "graph-retired");
+  assert.notEqual(computerUse.tool_call_id, "tool-retired");
+  assert.notEqual(computerUse.approval_id, "approval-retired");
+  assert.deepEqual(computerUse.rollback_refs.includes("rollback-retired"), false);
 });
 
 test("runtime event envelope normalization preserves canonical fields", () => {
