@@ -11466,6 +11466,13 @@ fields only, so retired camelCase event identity and tool/component aliases
 cannot create verification rows or bind diagnostic proof to old workflow
 identity.
 
+Slice 547 retires IDE receipt-first timeline event identity aliases:
+receipt-first tool timeline rows now read canonical event `thread_id`,
+`turn_id`, `workflow_graph_id`, `workflow_node_id`, `tool_name`, and
+`tool_call_id` fields only, so retired camelCase event identity and tool-call
+aliases cannot create receipt-first rows or bind tool receipts to old workflow
+identity.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

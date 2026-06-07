@@ -20064,6 +20064,12 @@ function runCompositor() {
     result,
     "ide-receipt-first-tool-timeline-aliases-retired",
     /stringField\(payload,\s*"tool_name"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /stringField\(event,\s*"thread_id"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /stringField\(event,\s*"turn_id"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /stringField\(event,\s*"workflow_graph_id"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /stringField\(event,\s*"workflow_node_id"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /stringField\(event,\s*"tool_name"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      /stringField\(event,\s*"tool_call_id"\)/.test(agentIdeReceiptFirstToolTimeline) &&
       /stringField\(payload,\s*"tool_call_id"\)/.test(agentIdeReceiptFirstToolTimeline) &&
       /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeReceiptFirstToolTimeline) &&
       /arrayField\(payload,\s*"receipt_refs"\)/.test(agentIdeReceiptFirstToolTimeline) &&
@@ -20073,6 +20079,24 @@ function runCompositor() {
       /arrayField\(result,\s*"artifact_refs"\)/.test(agentIdeReceiptFirstToolTimeline) &&
       /stringField\(result,\s*"output_hash"\)/.test(agentIdeReceiptFirstToolTimeline) &&
       /numberField\(result,\s*"output_bytes"\)/.test(agentIdeReceiptFirstToolTimeline) &&
+      !/stringField\(event,\s*"threadId",\s*"thread_id"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/stringField\(event,\s*"turnId",\s*"turn_id"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/stringField\(event,\s*"workflowGraphId",\s*"workflow_graph_id"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/stringField\(event,\s*"workflowNodeId",\s*"workflow_node_id"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/stringField\(event,\s*"toolName",\s*"tool_name"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
+      !/stringField\(event,\s*"toolCallId",\s*"tool_call_id"\)/.test(
+        agentIdeReceiptFirstToolTimeline,
+      ) &&
       !/stringField\(payload,\s*"tool_name",\s*"toolName"\)/.test(
         agentIdeReceiptFirstToolTimeline,
       ) &&
@@ -20106,12 +20130,22 @@ function runCompositor() {
       /receipt-first tool timeline ignores retired payload, result, and evidence aliases/.test(
         agentIdeReceiptFirstToolTimelineTest,
       ) &&
+      /receipt-first tool timeline ignores retired event identity aliases/.test(
+        agentIdeReceiptFirstToolTimelineTest,
+      ) &&
+      /toolName:\s*"file\.apply_patch"/.test(agentIdeReceiptFirstToolTimelineTest) &&
+      /toolCallId:\s*"call-retired-event"/.test(agentIdeReceiptFirstToolTimelineTest) &&
+      /threadId:\s*"thread-retired-event"/.test(agentIdeReceiptFirstToolTimelineTest) &&
+      /workflowGraphId:\s*"workflow-retired-event"/.test(agentIdeReceiptFirstToolTimelineTest) &&
       /toolName:\s*"file\.apply_patch"/.test(agentIdeReceiptFirstToolTimelineTest) &&
       /toolCallId:\s*"call-retired"/.test(agentIdeReceiptFirstToolTimelineTest) &&
       /receiptRefs:\s*\["receipt-retired"\]/.test(agentIdeReceiptFirstToolTimelineTest) &&
       /artifactRefs:\s*\["artifact-retired"\]/.test(agentIdeReceiptFirstToolTimelineTest) &&
       /outputHash:\s*"sha256:retired"/.test(agentIdeReceiptFirstToolTimelineTest) &&
       /outputBytes:\s*1024/.test(agentIdeReceiptFirstToolTimelineTest) &&
+      /assert\.equal\(timeline\.rows\[0\]\?\.workflowNodeId,\s*null\)/.test(
+        agentIdeReceiptFirstToolTimelineTest,
+      ) &&
       /assert\.equal\(timeline\.status,\s*"empty"\)/.test(agentIdeReceiptFirstToolTimelineTest),
     [
       "packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts",
