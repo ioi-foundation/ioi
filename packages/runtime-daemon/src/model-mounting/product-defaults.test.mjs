@@ -88,3 +88,40 @@ test("backend process planning is delegated to Rust model_mount", () => {
     state.close();
   }
 });
+
+test("accepted receipt head planning is delegated to Rust model_mount", () => {
+  const calls = [];
+  const state = new ModelMountingState({
+    stateDir: mkdtempSync(join(tmpdir(), "ioi-model-state-")),
+    cwd: process.cwd(),
+    homeDir: process.env.HOME,
+    modelMountAdmissionRunner: {
+      planAcceptedReceiptHead(request) {
+        calls.push(request);
+        return {
+          sequence: request.sequence,
+          headRef: `agentgres://model-mounting/accepted-receipts/head/${request.sequence}`,
+          stateRoot: `sha256:rust-head-${request.sequence}`,
+          projectionWatermark: `model-mounting-accepted-receipts:${request.sequence}`,
+          headHash: `sha256:head-${request.sequence}`,
+          evidenceRefs: ["rust_model_mount_accepted_receipt_head"],
+        };
+      },
+    },
+  });
+
+  try {
+    const head = state.agentgresModelMountingHead();
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].schema_version, "ioi.model_mount.accepted_receipt_head.v1");
+    assert.equal(calls[0].sequence, 0);
+    assert.equal(head.sequence, 0);
+    assert.equal(head.headRef, "agentgres://model-mounting/accepted-receipts/head/0");
+    assert.equal(head.stateRoot, "sha256:rust-head-0");
+    assert.equal(head.projectionWatermark, "model-mounting-accepted-receipts:0");
+    assert.equal(head.headHash, "sha256:head-0");
+  } finally {
+    state.close();
+  }
+});

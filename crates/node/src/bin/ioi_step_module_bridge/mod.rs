@@ -24,11 +24,12 @@ use ioi_services::agentic::runtime::kernel::marketplace::{
     WorkerServicePackageInvocationCore, WorkerServicePackageInvocationRequest,
 };
 use ioi_services::agentic::runtime::kernel::model_mount::{
-    ModelMountAcceptedReceiptTransitionRequest, ModelMountBackendProcessPlanRequest,
-    ModelMountCore, ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
-    ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
-    ModelMountProviderInvocationRequest, ModelMountProviderLifecycleRequest,
-    ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRequest,
+    ModelMountAcceptedReceiptHeadRequest, ModelMountAcceptedReceiptTransitionRequest,
+    ModelMountBackendProcessPlanRequest, ModelMountCore, ModelMountInstanceLifecycleRequest,
+    ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRequest,
+    ModelMountProviderInventoryRequest, ModelMountProviderInvocationRequest,
+    ModelMountProviderLifecycleRequest, ModelMountProviderResultAdmissionRequest,
+    ModelMountRouteDecisionRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
     AgentCreateStateUpdateCore, AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore,
@@ -208,6 +209,16 @@ struct ModelMountBackendProcessPlanBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountBackendProcessPlanRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelMountAcceptedReceiptHeadBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountAcceptedReceiptHeadRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -721,6 +732,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_model_mount_backend_process(request)
+        }
+        "plan_model_mount_accepted_receipt_head" => {
+            let request: ModelMountAcceptedReceiptHeadBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_model_mount_accepted_receipt_head(request)
         }
         "plan_model_mount_accepted_receipt_transition" => {
             let request: ModelMountAcceptedReceiptTransitionBridgeRequest =
@@ -1467,6 +1484,45 @@ fn plan_model_mount_backend_process(
         "spawn_status": plan.spawn_status,
         "plan_hash": plan.plan_hash,
         "evidence_refs": plan.evidence_refs,
+    }))
+}
+
+fn plan_model_mount_accepted_receipt_head(
+    request: ModelMountAcceptedReceiptHeadBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_model_mount_accepted_receipt_head" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let head = ModelMountCore
+        .plan_accepted_receipt_head(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "model_mount_accepted_receipt_head_rejected",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_model_mount_accepted_receipt_head_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_accepted_receipt_head".to_string()),
+        "head": head.clone(),
+        "sequence": head.sequence,
+        "head_ref": head.head_ref,
+        "state_root": head.state_root,
+        "projection_watermark": head.projection_watermark,
+        "head_hash": head.head_hash,
+        "evidence_refs": head.evidence_refs,
     }))
 }
 
@@ -6552,6 +6608,49 @@ mod tests {
         assert!(response["transition_hash"]
             .as_str()
             .expect("transition hash")
+            .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn bridge_plans_model_mount_accepted_receipt_head_through_rust_core() {
+        let request: ModelMountAcceptedReceiptHeadBridgeRequest = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "plan_model_mount_accepted_receipt_head",
+            "backend": "rust_model_mount_accepted_receipt_head",
+            "request": {
+                "schema_version": "ioi.model_mount.accepted_receipt_head.v1",
+                "sequence": 2
+            }
+        }))
+        .expect("accepted receipt head bridge request");
+
+        let response =
+            plan_model_mount_accepted_receipt_head(request).expect("accepted receipt head planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_accepted_receipt_head_command"
+        );
+        assert_eq!(
+            response["backend"],
+            "rust_model_mount_accepted_receipt_head"
+        );
+        assert_eq!(response["sequence"], 2);
+        assert_eq!(
+            response["head_ref"],
+            "agentgres://model-mounting/accepted-receipts/head/2"
+        );
+        assert!(response["state_root"]
+            .as_str()
+            .expect("state root")
+            .starts_with("sha256:"));
+        assert_eq!(
+            response["projection_watermark"],
+            "model-mounting-accepted-receipts:2"
+        );
+        assert!(response["head_hash"]
+            .as_str()
+            .expect("head hash")
             .starts_with("sha256:"));
     }
 

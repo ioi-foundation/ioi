@@ -1023,15 +1023,10 @@ export class ModelMountingState {
 
   agentgresModelMountingHead() {
     const sequence = this.listReceipts().length;
-    return {
+    return this.modelMountAdmissionRunner.planAcceptedReceiptHead({
+      schema_version: "ioi.model_mount.accepted_receipt_head.v1",
       sequence,
-      headRef: `agentgres://model-mounting/accepted-receipts/head/${sequence}`,
-      stateRoot: `sha256:${stableHash({
-        schema: "ioi.agentgres.model_mounting_state_root.v1",
-        sequence,
-      })}`,
-      projectionWatermark: `model-mounting-accepted-receipts:${sequence}`,
-    };
+    });
   }
 
   admitModelMountRouteDecision(request) {

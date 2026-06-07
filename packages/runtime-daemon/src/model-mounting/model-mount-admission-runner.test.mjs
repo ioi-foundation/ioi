@@ -894,6 +894,59 @@ test("Rust model_mount admission runner sends accepted receipt transition plan r
   assert.equal(result.transitionHash, "sha256:transition");
 });
 
+test("Rust model_mount admission runner sends accepted receipt head plan request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_accepted_receipt_head_command",
+            backend: "rust_model_mount_accepted_receipt_head",
+            head: {
+              schema_version: "ioi.model_mount.accepted_receipt_head.v1",
+              sequence: 2,
+              head_ref: "agentgres://model-mounting/accepted-receipts/head/2",
+              state_root: "sha256:state-2",
+              projection_watermark: "model-mounting-accepted-receipts:2",
+              head_hash: "sha256:head",
+              evidence_refs: ["rust_model_mount_accepted_receipt_head"],
+            },
+            sequence: 2,
+            head_ref: "agentgres://model-mounting/accepted-receipts/head/2",
+            state_root: "sha256:state-2",
+            projection_watermark: "model-mounting-accepted-receipts:2",
+            head_hash: "sha256:head",
+            evidence_refs: ["rust_model_mount_accepted_receipt_head"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planAcceptedReceiptHead({
+    schema_version: "ioi.model_mount.accepted_receipt_head.v1",
+    sequence: 2,
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_accepted_receipt_head");
+  assert.equal(calls[0].request.backend, "rust_model_mount_accepted_receipt_head");
+  assert.equal(calls[0].request.request.sequence, 2);
+  assert.equal(result.sequence, 2);
+  assert.equal(result.headRef, "agentgres://model-mounting/accepted-receipts/head/2");
+  assert.equal(result.stateRoot, "sha256:state-2");
+  assert.equal(result.projectionWatermark, "model-mounting-accepted-receipts:2");
+  assert.equal(result.headHash, "sha256:head");
+});
+
 test("Rust model_mount admission runner reads the generic admission command env", () => {
   const runner = createModelMountAdmissionRunnerFromEnv({
     [MODEL_MOUNT_ADMISSION_COMMAND_ENV]: "mock-model-mount-bridge",

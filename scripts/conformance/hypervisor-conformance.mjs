@@ -10638,20 +10638,25 @@ function runReceipts() {
       /model_mount_agentgres_head_required/.test(modelInvocationOps) &&
       /planModelMountAcceptedReceiptTransition/.test(modelInvocationOps) &&
       /model_mount_accepted_receipt_transition_planner_required/.test(modelInvocationOps) &&
+      /planAcceptedReceiptHead/.test(modelMountingState) &&
+      /plan_model_mount_accepted_receipt_head/.test(modelMountAdmissionRunner) &&
+      /plan_model_mount_accepted_receipt_head/.test(bridgeModule) &&
+      /ModelMountAcceptedReceiptHeadRequest/.test(bridgeModule) &&
+      /plan_accepted_receipt_head/.test(modelMountCore) &&
+      /MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION/.test(modelMountCore) &&
       /plan_model_mount_accepted_receipt_transition/.test(bridgeModule) &&
       /ModelMountAcceptedReceiptTransitionRequest/.test(bridgeModule) &&
       /plan_accepted_receipt_transition/.test(modelMountCore) &&
       /MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION/.test(modelMountCore) &&
       /agentgres:\/\/model-mounting\/accepted-receipts/.test(modelMountCore) &&
       /model-mounting-accepted-receipts/.test(modelMountCore) &&
-      /agentgres:\/\/model-mounting\/accepted-receipts/.test(modelMountingState) &&
-      /model-mounting-accepted-receipts/.test(modelMountingState) &&
       /agentgres:\/\/model-mounting\/accepted-receipts/.test(bridgeModule) &&
       /agentgres:\/\/model-mounting\/accepted-receipts/.test(agentgresAdmissionCore) &&
       !/agentgres:\/\/model-mounting\/operation-log/.test(
         `${modelInvocationOps}\n${modelMountingState}\n${bridgeModule}\n${agentgresAdmissionCore}\n${modelMountCore}`,
       ) &&
       !/const\s+stateRootAfter\s*=\s*`sha256:\$\{stableHash\(/.test(modelInvocationOps) &&
+      !/stateRoot:\s*`sha256:\$\{stableHash\(/.test(modelMountingState) &&
       !/model-mounting-operation-log/.test(`${modelInvocationOps}\n${modelMountingState}`) &&
       /agentgresOperationRefs/.test(modelInvocationOps) &&
       /stateRootAfter/.test(modelInvocationOps) &&

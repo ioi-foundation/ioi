@@ -19,6 +19,8 @@ pub const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION: &str =
 pub const MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION: &str = "ioi.model_mount.provider_result.v1";
 pub const MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION: &str =
     "ioi.model_mount.backend_process_plan.v1";
+pub const MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION: &str =
+    "ioi.model_mount.accepted_receipt_head.v1";
 pub const MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION: &str =
     "ioi.model_mount.accepted_receipt_transition.v1";
 
@@ -619,6 +621,23 @@ pub struct ModelMountBackendProcessPlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelMountAcceptedReceiptHeadRequest {
+    pub schema_version: String,
+    pub sequence: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelMountAcceptedReceiptHead {
+    pub schema_version: String,
+    pub sequence: u64,
+    pub head_ref: String,
+    pub state_root: String,
+    pub projection_watermark: String,
+    pub head_hash: String,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelMountAcceptedReceiptTransitionRequest {
     pub schema_version: String,
     pub current_sequence: u64,
@@ -1019,6 +1038,30 @@ impl ModelMountCore {
         Ok(plan)
     }
 
+    pub fn plan_accepted_receipt_head(
+        &self,
+        request: &ModelMountAcceptedReceiptHeadRequest,
+    ) -> Result<ModelMountAcceptedReceiptHead, ModelMountError> {
+        request.validate()?;
+        let mut head = ModelMountAcceptedReceiptHead {
+            schema_version: MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION.to_string(),
+            sequence: request.sequence,
+            head_ref: format!(
+                "agentgres://model-mounting/accepted-receipts/head/{}",
+                request.sequence
+            ),
+            state_root: model_mount_accepted_receipt_head_state_root(request.sequence)?,
+            projection_watermark: format!("model-mounting-accepted-receipts:{}", request.sequence),
+            head_hash: String::new(),
+            evidence_refs: vec![
+                "rust_model_mount_accepted_receipt_head".to_string(),
+                "rust_agentgres_receipt_head_planner".to_string(),
+            ],
+        };
+        head.head_hash = accepted_receipt_head_hash(&head)?;
+        Ok(head)
+    }
+
     pub fn plan_accepted_receipt_transition(
         &self,
         request: &ModelMountAcceptedReceiptTransitionRequest,
@@ -1068,6 +1111,18 @@ impl ModelMountBackendProcessPlanRequest {
         }
         require_non_empty("backend_ref", &self.backend_ref)?;
         require_non_empty("backend_kind", &self.backend_kind)?;
+        Ok(())
+    }
+}
+
+impl ModelMountAcceptedReceiptHeadRequest {
+    pub fn validate(&self) -> Result<(), ModelMountError> {
+        if self.schema_version != MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION {
+            return Err(ModelMountError::InvalidSchemaVersion {
+                expected: MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
         Ok(())
     }
 }
@@ -2376,6 +2431,32 @@ fn backend_process_plan_hash(
 }
 
 #[derive(Serialize)]
+struct ModelMountAcceptedReceiptHeadStateRootPayload {
+    schema: &'static str,
+    sequence: u64,
+}
+
+fn model_mount_accepted_receipt_head_state_root(sequence: u64) -> Result<String, ModelMountError> {
+    let payload = ModelMountAcceptedReceiptHeadStateRootPayload {
+        schema: "ioi.agentgres.model_mounting_state_root.v1",
+        sequence,
+    };
+    let bytes = serde_json::to_vec(&payload)
+        .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn accepted_receipt_head_hash(
+    head: &ModelMountAcceptedReceiptHead,
+) -> Result<String, ModelMountError> {
+    let mut canonical = head.clone();
+    canonical.head_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+#[derive(Serialize)]
 struct ModelMountAcceptedReceiptStateRootPayload<'a> {
     schema: &'static str,
     sequence: u64,
@@ -2763,6 +2844,13 @@ mod tests {
         }
     }
 
+    fn accepted_receipt_head_request() -> ModelMountAcceptedReceiptHeadRequest {
+        ModelMountAcceptedReceiptHeadRequest {
+            schema_version: MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION.to_string(),
+            sequence: 2,
+        }
+    }
+
     #[test]
     fn backend_process_plan_owns_supervision_args_and_readiness() {
         let plan = ModelMountCore
@@ -2840,6 +2928,50 @@ mod tests {
         assert!(transition
             .evidence_refs
             .contains(&"rust_model_mount_accepted_receipt_transition".to_string()));
+    }
+
+    #[test]
+    fn accepted_receipt_head_is_planned_in_rust_model_mount() {
+        let head = ModelMountCore
+            .plan_accepted_receipt_head(&accepted_receipt_head_request())
+            .expect("accepted receipt head planned in Rust");
+
+        assert_eq!(
+            head.schema_version,
+            MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION
+        );
+        assert_eq!(head.sequence, 2);
+        assert_eq!(
+            head.head_ref,
+            "agentgres://model-mounting/accepted-receipts/head/2"
+        );
+        assert!(head.state_root.starts_with("sha256:"));
+        assert_eq!(
+            head.projection_watermark,
+            "model-mounting-accepted-receipts:2"
+        );
+        assert!(head.head_hash.starts_with("sha256:"));
+        assert!(head
+            .evidence_refs
+            .contains(&"rust_model_mount_accepted_receipt_head".to_string()));
+    }
+
+    #[test]
+    fn accepted_receipt_head_rejects_wrong_schema() {
+        let mut request = accepted_receipt_head_request();
+        request.schema_version = "ioi.model_mount.legacy_head.v1".to_string();
+
+        let error = ModelMountCore
+            .plan_accepted_receipt_head(&request)
+            .expect_err("accepted receipt head requires the canonical schema");
+
+        assert_eq!(
+            error,
+            ModelMountError::InvalidSchemaVersion {
+                expected: MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION,
+                actual: "ioi.model_mount.legacy_head.v1".to_string(),
+            }
+        );
     }
 
     #[test]

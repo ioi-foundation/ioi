@@ -133,6 +133,35 @@ function mockModelMountAdmissionRunner() {
         backendEvidenceRefs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
       };
     },
+    planAcceptedReceiptHead(request) {
+      return {
+        source: "rust_model_mount_accepted_receipt_head_command",
+        backend: "rust_model_mount_accepted_receipt_head",
+        sequence: request.sequence,
+        headRef: `agentgres://model-mounting/accepted-receipts/head/${request.sequence}`,
+        stateRoot: `sha256:state-${request.sequence}`,
+        projectionWatermark: `model-mounting-accepted-receipts:${request.sequence}`,
+        headHash: `sha256:head-${request.sequence}`,
+        evidenceRefs: ["rust_model_mount_accepted_receipt_head"],
+      };
+    },
+    planAcceptedReceiptTransition(request) {
+      const nextSequence = request.current_sequence + 1;
+      const operationId = `op_${String(nextSequence).padStart(8, "0")}_${request.receipt_kind.replace(/[^a-z0-9]+/gi, "_")}`;
+      return {
+        source: "rust_model_mount_accepted_receipt_transition_command",
+        backend: "rust_model_mount_accepted_receipt_transition",
+        operationId,
+        operationRef: `agentgres://model-mounting/accepted-receipts/${operationId}`,
+        expectedHeads: [request.current_head_ref],
+        stateRootBefore: request.current_state_root,
+        stateRootAfter: `sha256:state-${nextSequence}`,
+        resultingHead: `agentgres://model-mounting/accepted-receipts/head/${nextSequence}`,
+        projectionWatermark: `model-mounting-accepted-receipts:${nextSequence}`,
+        transitionHash: `sha256:transition-${nextSequence}`,
+        evidenceRefs: ["rust_model_mount_accepted_receipt_transition"],
+      };
+    },
     planProviderLifecycle(request) {
       return {
         source: "rust_model_mount_provider_lifecycle_command",
