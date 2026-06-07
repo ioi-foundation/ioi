@@ -3328,11 +3328,7 @@ function computerUseProjectionForRuntimeThreadEvent(
       stringField(payload, "computer_use_lease_id") ??
       stringField(lease, "lease_id", "leaseId") ??
       stringField(runState, "lease_id", "leaseId"),
-    contractIngest: stringField(
-      payload,
-      "computer_use_contract_ingest",
-      "computerUseContractIngest",
-    ),
+    contractIngest: stringField(payload, "computer_use_contract_ingest"),
     status: projectedStatusForRuntimeThreadEvent(event),
     blocker:
       stringField(payload, "computer_use_blocker") ??

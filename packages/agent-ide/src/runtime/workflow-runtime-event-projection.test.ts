@@ -867,6 +867,7 @@ test("computer-use projection ignores retired top-level control aliases", () => 
       computerUseLane: "retired_lane",
       computerUseSessionMode: "retired_session",
       computerUseLeaseId: "retired_lease",
+      computerUseContractIngest: "contract-ingest-retired",
       computerUseBlocker: "retired_blocker",
       computerUseObservationRef: "observation-retired",
       computerUseScreenRef: "artifact:retired-screen",
@@ -895,6 +896,7 @@ test("computer-use projection ignores retired top-level control aliases", () => 
   assert.equal(projection.nodes[0]?.computerUse?.lane, null);
   assert.equal(projection.nodes[0]?.computerUse?.sessionMode, null);
   assert.equal(projection.nodes[0]?.computerUse?.leaseId, null);
+  assert.equal(projection.nodes[0]?.computerUse?.contractIngest, null);
   assert.equal(projection.nodes[0]?.computerUse?.blocker, null);
   assert.equal(projection.nodes[0]?.computerUse?.observationRef, null);
   assert.equal(projection.nodes[0]?.computerUse?.screenRef, null);

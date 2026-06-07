@@ -13413,6 +13413,12 @@ launch ref alias: workflow runtime event projection now reads canonical
 launch receipt, without accepting the retired `computerUseControlledRelaunchLaunchRef`
 payload field as browser-use evidence.
 
+Slice 532 retires the IDE computer-use projection top-level contract-ingest
+alias: workflow runtime event projection now reads canonical
+`computer_use_contract_ingest` only, so retired `computerUseContractIngest`
+payloads cannot make old computer-use contract-ingest shapes render as canonical
+projection state.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -19818,6 +19818,7 @@ function runCompositor() {
       /stringField\(payload,\s*"computer_use_lane"\)/.test(agentIdeRuntimeEventProjection) &&
       /stringField\(payload,\s*"computer_use_session_mode"\)/.test(agentIdeRuntimeEventProjection) &&
       /stringField\(payload,\s*"computer_use_lease_id"\)/.test(agentIdeRuntimeEventProjection) &&
+      /stringField\(payload,\s*"computer_use_contract_ingest"\)/.test(agentIdeRuntimeEventProjection) &&
       /stringField\(payload,\s*"computer_use_blocker"\)/.test(agentIdeRuntimeEventProjection) &&
       /"computer_use_controlled_relaunch_launch_ref"/.test(agentIdeRuntimeEventProjection) &&
       !/stringField\(\s*event\.payload,\s*"computer_use_step",\s*"computerUseStep"\s*\)/.test(
@@ -19832,6 +19833,9 @@ function runCompositor() {
       !/stringField\(payload,\s*"computer_use_lease_id",\s*"computerUseLeaseId"\)/.test(
         agentIdeRuntimeEventProjection,
       ) &&
+      !/stringField\(payload,\s*"computer_use_contract_ingest",\s*"computerUseContractIngest"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
       !/stringField\(payload,\s*"computer_use_blocker",\s*"computerUseBlocker"\)/.test(
         agentIdeRuntimeEventProjection,
       ) &&
@@ -19843,6 +19847,9 @@ function runCompositor() {
       /computerUseLane:\s*"retired_lane"/.test(agentIdeRuntimeEventProjectionTest) &&
       /computerUseSessionMode:\s*"retired_session"/.test(agentIdeRuntimeEventProjectionTest) &&
       /computerUseLeaseId:\s*"retired_lease"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseContractIngest:\s*"contract-ingest-retired"/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
       /computerUseBlocker:\s*"retired_blocker"/.test(agentIdeRuntimeEventProjectionTest) &&
       /computerUseControlledRelaunchLaunchRef:\s*"controlled-relaunch-retired"/.test(
         agentIdeRuntimeEventProjectionTest,
@@ -19857,6 +19864,9 @@ function runCompositor() {
         agentIdeRuntimeEventProjectionTest,
       ) &&
       /projection\.nodes\[0\]\?\.computerUse\?\.leaseId,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.contractIngest,\s*null/.test(
         agentIdeRuntimeEventProjectionTest,
       ) &&
       /projection\.nodes\[0\]\?\.computerUse\?\.blocker,\s*null/.test(
