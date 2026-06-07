@@ -355,6 +355,43 @@ test("coding tool invocation surface accepts canonical idempotency key", () => {
   assert.equal(result.event.idempotency_key, "coding_tool_idempotency_canonical");
 });
 
+test("coding tool invocation surface returns canonical failed result when rust live runner fails", () => {
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool() {
+      const error = new Error("runner unavailable");
+      error.code = "rust_live_runner_unavailable";
+      error.details = {
+        reason: "fixture",
+        schemaVersion: "retired.error.schema",
+        toolName: "retired.workspace.status",
+      };
+      throw error;
+    },
+  };
+  const surface = createSurface({ stepModuleRunner: liveRunner });
+  const store = createStore();
+
+  const result = surface.invokeThreadTool(store, "thread_alpha", "workspace.status", {
+    tool_call_id: "tool_status_runner_failed",
+    input: {},
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.result.schema_version, "ioi.runtime.coding-tool-result.v1");
+  assert.equal(result.result.tool_name, "workspace.status");
+  assert.equal(result.result.status, "failed");
+  assert.equal(result.result.error.code, "rust_live_runner_unavailable");
+  assert.equal(Object.hasOwn(result.result, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(result.result, "toolName"), false);
+  assert.equal(result.event.event_kind, "tool.failed");
+  assert.equal(result.event.payload_summary.result.schema_version, "ioi.runtime.coding-tool-result.v1");
+  assert.equal(result.event.payload_summary.result.tool_name, "workspace.status");
+  assert.equal(Object.hasOwn(result.event.payload_summary.result, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(result.event.payload_summary.result, "toolName"), false);
+});
+
 test("coding tool invocation surface runs workspace.status through rust workload live path", () => {
   const runnerCalls = [];
   const liveRunner = {

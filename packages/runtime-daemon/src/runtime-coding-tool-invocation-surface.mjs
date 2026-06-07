@@ -298,8 +298,8 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       };
       error = stepModuleError;
       result = {
-        schemaVersion: CODING_TOOL_RESULT_SCHEMA_VERSION,
-        toolName: normalizedToolId,
+        schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
+        tool_name: normalizedToolId,
         status,
         error,
       };

@@ -2014,6 +2014,38 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: Rust live coding-tool result wrappers must expose canonical snake_case fields without duplicate camelCase aliases",
   );
+  const codingToolRustLiveFailureBody =
+    runtimeCodingToolInvocationSurface.match(
+      /} catch \(caught\) \{[\s\S]*?\n    \}\n    const summary = codingToolSummary/,
+    )?.[0] ?? "";
+  assertCheck(
+    result,
+    "coding-tool-failure-result-aliases-retired",
+    /schema_version:\s*CODING_TOOL_RESULT_SCHEMA_VERSION/.test(codingToolRustLiveFailureBody) &&
+      /tool_name:\s*normalizedToolId/.test(codingToolRustLiveFailureBody) &&
+      !/schemaVersion:\s*CODING_TOOL_RESULT_SCHEMA_VERSION/.test(codingToolRustLiveFailureBody) &&
+      !/toolName:\s*normalizedToolId/.test(codingToolRustLiveFailureBody) &&
+      /returns canonical failed result when rust live runner fails/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"schemaVersion"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"toolName"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.event\.payload_summary\.result,\s*"schemaVersion"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.event\.payload_summary\.result,\s*"toolName"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: Rust live coding-tool failure results must expose canonical snake_case fields without retired result-wrapper aliases",
+  );
   assertCheck(
     result,
     "runtime-invocation-result-replay-aliases-retired",
