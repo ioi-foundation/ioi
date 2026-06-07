@@ -13261,6 +13261,13 @@ now consumes canonical `computer_use_lane`, `tool_id`, `tool_call_id`,
 fields only; retired camelCase context aliases can no longer steer multi-event
 computer-use replay metadata before workflow projection.
 
+Slice 511 retires coding-tool StepModule context aliases:
+the JS projection wrapper for migrated coding-tool StepModule work now consumes
+canonical `run_id`, `task_id`, `thread_id`, workflow, authority, receipt,
+ArtifactRef/PayloadRef, Agentgres, and state-root context fields only; retired
+camelCase context aliases can no longer steer the Rust workload projection
+envelope before StepModuleRouter dispatch.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

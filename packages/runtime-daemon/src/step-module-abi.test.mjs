@@ -24,13 +24,13 @@ test("every coding tool contract can project into the Step/Module ABI", () => {
       {},
       {},
       {
-        runId: "run:test",
-        taskId: "task:test",
-        threadId: "thread:test",
-        workflowGraphId: "workflow:test",
-        workflowNodeId: `node:test:${contract.stable_tool_id}`,
-        stateRootBefore: "sha256:before",
-        projectionWatermark: "domain_seq:1",
+        run_id: "run:test",
+        task_id: "task:test",
+        thread_id: "thread:test",
+        workflow_graph_id: "workflow:test",
+        workflow_node_id: `node:test:${contract.stable_tool_id}`,
+        state_root_before: "sha256:before",
+        projection_watermark: "domain_seq:1",
       },
     );
 
@@ -71,6 +71,105 @@ test("cTEE private workspace projection refuses node plaintext custody", () => {
     () => validateStepModuleInvocationShape(invocation),
     /cannot allow node plaintext custody/,
   );
+});
+
+test("coding tool StepModule projection ignores retired camelCase context aliases", () => {
+  const contract = codingToolContracts()[0];
+  const { invocation, result } = codingToolStepModuleProjection(
+    contract.stable_tool_id,
+    {},
+    {},
+    {
+      run_id: "run:canonical",
+      task_id: "task:canonical",
+      thread_id: "thread:canonical",
+      workflow_graph_id: "workflow:canonical",
+      workflow_node_id: "node:canonical",
+      context_chamber_ref: "context://canonical",
+      action_proposal_ref: "proposal://canonical",
+      gate_result_ref: "gate://canonical",
+      actor_id: "actor:canonical",
+      runtime_node_ref: "runtime://canonical",
+      policy_hash: "sha256:policy-canonical",
+      authority_grant_refs: ["grant://canonical"],
+      approval_ref: "approval://canonical",
+      state_root_before: "sha256:before-canonical",
+      projection_watermark: "domain_seq:canonical",
+      idempotency_key: "idem:canonical",
+      deadline_ms: 1234,
+      workflow_projection_status: "projected",
+      execution_result_ref: "result://canonical",
+      normalized_observation_ref: "observation://canonical",
+      receipt_refs: ["receipt://canonical"],
+      artifact_refs: ["artifact://canonical"],
+      payload_refs: ["payload://canonical"],
+      agentgres_operation_refs: ["agentgres://canonical"],
+      state_root_after: "sha256:after-canonical",
+      resulting_head: "head:canonical",
+      evidence_refs: ["evidence://canonical"],
+      model_reentry_required: true,
+      verifier_required: true,
+      runId: "run:retired",
+      taskId: "task:retired",
+      threadId: "thread:retired",
+      workflowGraphId: "workflow:retired",
+      workflowNodeId: "node:retired",
+      contextChamberRef: "context://retired",
+      actionProposalRef: "proposal://retired",
+      gateResultRef: "gate://retired",
+      actorId: "actor:retired",
+      runtimeNodeRef: "runtime://retired",
+      policyHash: "sha256:policy-retired",
+      authorityGrantRefs: ["grant://retired"],
+      approvalRef: "approval://retired",
+      stateRootBefore: "sha256:before-retired",
+      projectionWatermark: "domain_seq:retired",
+      idempotencyKey: "idem:retired",
+      deadlineMs: 9999,
+      workflowProjectionStatus: "failed",
+      executionResultRef: "result://retired",
+      normalizedObservationRef: "observation://retired",
+      receiptRefs: ["receipt://retired"],
+      artifactRefs: ["artifact://retired"],
+      payloadRefs: ["payload://retired"],
+      agentgresOperationRefs: ["agentgres://retired"],
+      stateRootAfter: "sha256:after-retired",
+      resultingHead: "head:retired",
+      evidenceRefs: ["evidence://retired"],
+      modelReentryRequired: false,
+      verifierRequired: false,
+    },
+  );
+
+  assert.equal(invocation.run_id, "run:canonical");
+  assert.equal(invocation.task_id, "task:canonical");
+  assert.equal(invocation.thread_id, "thread:canonical");
+  assert.equal(invocation.workflow_graph_id, "workflow:canonical");
+  assert.equal(invocation.workflow_node_id, "node:canonical");
+  assert.equal(invocation.context_chamber_ref, "context://canonical");
+  assert.equal(invocation.action_proposal_ref, "proposal://canonical");
+  assert.equal(invocation.gate_result_ref, "gate://canonical");
+  assert.equal(invocation.actor.actor_id, "actor:canonical");
+  assert.equal(invocation.actor.runtime_node_ref, "runtime://canonical");
+  assert.equal(invocation.authority.policy_hash, "sha256:policy-canonical");
+  assert.deepEqual(invocation.authority.authority_grant_refs, ["grant://canonical"]);
+  assert.equal(invocation.authority.approval_ref, "approval://canonical");
+  assert.equal(invocation.input.state_root_before, "sha256:before-canonical");
+  assert.equal(invocation.input.projection_watermark, "domain_seq:canonical");
+  assert.equal(invocation.execution.idempotency_key, "idem:canonical");
+  assert.equal(invocation.execution.deadline_ms, 1234);
+  assert.equal(result.workflow_projection.status, "projected");
+  assert.equal(result.execution_result_ref, "result://canonical");
+  assert.equal(result.normalized_observation_ref, "observation://canonical");
+  assert.deepEqual(result.receipt_refs, ["receipt://canonical"]);
+  assert.deepEqual(result.artifact_refs, ["artifact://canonical"]);
+  assert.deepEqual(result.payload_refs, ["payload://canonical"]);
+  assert.deepEqual(result.agentgres_operation_refs, ["agentgres://canonical"]);
+  assert.equal(result.state_root_after, "sha256:after-canonical");
+  assert.equal(result.resulting_head, "head:canonical");
+  assert.deepEqual(result.workflow_projection.evidence_refs, ["evidence://canonical"]);
+  assert.equal(result.next.model_reentry_required, true);
+  assert.equal(result.next.verifier_required, true);
 });
 
 test("StepModule ABI rejects retired daemon_js execution backend", () => {
@@ -148,7 +247,7 @@ test("Agentgres operation refs require result state-root binding", () => {
   assert.throws(
     () =>
       codingToolStepModuleProjection(contract.stable_tool_id, {}, {}, {
-        agentgresOperationRefs: ["agentgres://operation/test"],
+        agentgres_operation_refs: ["agentgres://operation/test"],
       }),
     /state_root_after and resulting_head/,
   );

@@ -443,6 +443,23 @@ function runAbi() {
       /codingToolStepModuleProjection/.test(read("packages/runtime-daemon/src/coding-tools.mjs")) &&
       /moduleKind = "workload_job"/.test(stepModuleAbi) &&
       /executionBackend = "workload_grpc"/.test(stepModuleAbi) &&
+      /runId:\s*context\.run_id/.test(read("packages/runtime-daemon/src/coding-tools.mjs")) &&
+      /authorityGrantRefs:\s*context\.authority_grant_refs \?\? \[\]/.test(
+        read("packages/runtime-daemon/src/coding-tools.mjs"),
+      ) &&
+      /agentgresOperationRefs:\s*context\.agentgres_operation_refs \?\? \[\]/.test(
+        read("packages/runtime-daemon/src/coding-tools.mjs"),
+      ) &&
+      !/context\.(?:runId|taskId|threadId|workflowGraphId|workflowNodeId|contextChamberRef|actionProposalRef|gateResultRef|actorId|runtimeNodeRef|policyHash|authorityGrantRefs|approvalRef|stateRootBefore|projectionWatermark|idempotencyKey|deadlineMs|workflowProjectionStatus|executionResultRef|normalizedObservationRef|receiptRefs|artifactRefs|payloadRefs|agentgresOperationRefs|stateRootAfter|resultingHead|evidenceRefs|modelReentryRequired|verifierRequired)\b/.test(
+        read("packages/runtime-daemon/src/coding-tools.mjs"),
+      ) &&
+      /coding tool StepModule projection ignores retired camelCase context aliases/.test(
+        read("packages/runtime-daemon/src/step-module-abi.test.mjs"),
+      ) &&
+      /runId: "run:retired"/.test(read("packages/runtime-daemon/src/step-module-abi.test.mjs")) &&
+      /assert\.equal\(invocation\.run_id,\s*"run:canonical"\)/.test(
+        read("packages/runtime-daemon/src/step-module-abi.test.mjs"),
+      ) &&
       !/executionBackend = "daemon_js"/.test(stepModuleAbi) &&
       !/backend === "daemon_js"/.test(stepModuleAbi) &&
       !/StepModuleKind::DaemonNativeTool,\s*StepModuleBackend::DaemonJs/.test(rustStepModule) &&
