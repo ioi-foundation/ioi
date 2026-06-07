@@ -65,6 +65,15 @@ function harness() {
   return { calls, store, surface };
 }
 
+function thrownBy(callback) {
+  try {
+    callback();
+  } catch (error) {
+    return error;
+  }
+  assert.fail("Expected callback to throw");
+}
+
 test("runtime task job surface lists and filters task and job projections with canonical request fields", () => {
   const { calls, store, surface } = harness();
 
@@ -154,6 +163,12 @@ test("runtime task job surface gets and cancels tasks and jobs by public id or r
     { name: "cancelRun", runId: "run-a" },
     { name: "cancelRun", runId: "run-b" },
   ]);
-  assert.throws(() => surface.getTask(store, "missing"), /Task not found/);
-  assert.throws(() => surface.getJob(store, "missing"), /Job not found/);
+  const missingTask = thrownBy(() => surface.getTask(store, "missing"));
+  assert.match(missingTask.message, /Task not found/);
+  assert.equal(missingTask.details.task_id, "missing");
+  assert.equal(Object.hasOwn(missingTask.details, "taskId"), false);
+  const missingJob = thrownBy(() => surface.getJob(store, "missing"));
+  assert.match(missingJob.message, /Job not found/);
+  assert.equal(missingJob.details.job_id, "missing");
+  assert.equal(Object.hasOwn(missingJob.details, "jobId"), false);
 });

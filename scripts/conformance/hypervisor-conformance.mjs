@@ -14597,6 +14597,38 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-task-job-read-aliases-retired",
+    /const agentId = options\.agent_id \?\? undefined;/.test(runtimeTaskJobSurface) &&
+      !/options\.agentId\b/.test(runtimeTaskJobSurface) &&
+      /notFoundDep\(`Task not found: \$\{taskId\}`,\s*\{ task_id: taskId \}\)/.test(
+        runtimeTaskJobSurface,
+      ) &&
+      /notFoundDep\(`Job not found: \$\{jobId\}`,\s*\{ job_id: jobId \}\)/.test(
+        runtimeTaskJobSurface,
+      ) &&
+      !/notFoundDep\(`Task not found: \$\{taskId\}`,\s*\{ taskId \}\)/.test(
+        runtimeTaskJobSurface,
+      ) &&
+      !/notFoundDep\(`Job not found: \$\{jobId\}`,\s*\{ jobId \}\)/.test(
+        runtimeTaskJobSurface,
+      ) &&
+      /surface\.listJobs\(store, \{ agentId: "legacy-agent", status: "running" \}\)/.test(
+        runtimeTaskJobSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(missingTask\.details,\s*"taskId"\),\s*false/.test(
+        runtimeTaskJobSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(missingJob\.details,\s*"jobId"\),\s*false/.test(
+        runtimeTaskJobSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime task/job reads must ignore retired agentId request aliases and expose canonical snake_case not-found details",
+  );
+  assertCheck(
+    result,
     "runtime-event-legacy-payload-aliases-retired",
     !/legacy_event_(?:id|type)/.test(
       `${runtimeEventPayloads}\n${agentSdkRuntimeEvents}\n${agentSdkSubstrateClient}`,

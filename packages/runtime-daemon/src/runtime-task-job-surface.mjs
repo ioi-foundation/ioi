@@ -71,7 +71,7 @@ export function createRuntimeTaskJobSurface({
     },
     getTask(store, taskId) {
       const task = this.listTasks(store).find((candidate) => candidate.taskId === taskId || candidate.runId === taskId);
-      if (!task) throw notFoundDep(`Task not found: ${taskId}`, { taskId });
+      if (!task) throw notFoundDep(`Task not found: ${taskId}`, { task_id: taskId });
       return task;
     },
     cancelTask(store, taskId) {
@@ -81,7 +81,7 @@ export function createRuntimeTaskJobSurface({
     },
     getJob(store, jobId) {
       const job = this.listJobs(store).find((candidate) => candidate.jobId === jobId || candidate.runId === jobId);
-      if (!job) throw notFoundDep(`Job not found: ${jobId}`, { jobId });
+      if (!job) throw notFoundDep(`Job not found: ${jobId}`, { job_id: jobId });
       return job;
     },
     cancelJob(store, jobId) {
