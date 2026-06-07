@@ -19819,6 +19819,7 @@ function runCompositor() {
       /stringField\(payload,\s*"computer_use_session_mode"\)/.test(agentIdeRuntimeEventProjection) &&
       /stringField\(payload,\s*"computer_use_lease_id"\)/.test(agentIdeRuntimeEventProjection) &&
       /stringField\(payload,\s*"computer_use_blocker"\)/.test(agentIdeRuntimeEventProjection) &&
+      /"computer_use_controlled_relaunch_launch_ref"/.test(agentIdeRuntimeEventProjection) &&
       !/stringField\(\s*event\.payload,\s*"computer_use_step",\s*"computerUseStep"\s*\)/.test(
         agentIdeRuntimeEventProjection,
       ) &&
@@ -19834,6 +19835,7 @@ function runCompositor() {
       !/stringField\(payload,\s*"computer_use_blocker",\s*"computerUseBlocker"\)/.test(
         agentIdeRuntimeEventProjection,
       ) &&
+      !/computerUseControlledRelaunchLaunchRef/.test(agentIdeRuntimeEventProjection) &&
       /computer-use projection ignores retired top-level control aliases/.test(
         agentIdeRuntimeEventProjectionTest,
       ) &&
@@ -19842,6 +19844,9 @@ function runCompositor() {
       /computerUseSessionMode:\s*"retired_session"/.test(agentIdeRuntimeEventProjectionTest) &&
       /computerUseLeaseId:\s*"retired_lease"/.test(agentIdeRuntimeEventProjectionTest) &&
       /computerUseBlocker:\s*"retired_blocker"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /computerUseControlledRelaunchLaunchRef:\s*"controlled-relaunch-retired"/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
       /projection\.nodes\[0\]\?\.computerUse\?\.step,\s*"action_proposed"/.test(
         agentIdeRuntimeEventProjectionTest,
       ) &&
@@ -19855,6 +19860,9 @@ function runCompositor() {
         agentIdeRuntimeEventProjectionTest,
       ) &&
       /projection\.nodes\[0\]\?\.computerUse\?\.blocker,\s*null/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /projection\.nodes\[0\]\?\.computerUse\?\.controlledRelaunchLaunchRef,\s*null/.test(
         agentIdeRuntimeEventProjectionTest,
       ),
     [

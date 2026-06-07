@@ -13407,6 +13407,12 @@ cannot make old payload shapes look proposal-backed, action-backed,
 target-backed, policy-backed, verification-backed, commit-gated,
 trajectory-backed, or cleanup-backed.
 
+Slice 531 retires the IDE computer-use projection top-level controlled-relaunch
+launch ref alias: workflow runtime event projection now reads canonical
+`computer_use_controlled_relaunch_launch_ref` from the payload, or the nested
+launch receipt, without accepting the retired `computerUseControlledRelaunchLaunchRef`
+payload field as browser-use evidence.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

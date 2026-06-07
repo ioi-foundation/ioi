@@ -3412,7 +3412,6 @@ function computerUseProjectionForRuntimeThreadEvent(
       stringField(
         payload,
         "computer_use_controlled_relaunch_launch_ref",
-        "computerUseControlledRelaunchLaunchRef",
       ) ??
       stringField(
         controlledRelaunchLaunchReceipt,

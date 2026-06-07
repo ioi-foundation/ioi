@@ -874,6 +874,7 @@ test("computer-use projection ignores retired top-level control aliases", () => 
       computerUseCoordinateSpaceId: "coordinate-space-retired",
       computerUseTargetIndexRef: "target-index-retired",
       computerUseAffordanceGraphRef: "affordance-graph-retired",
+      computerUseControlledRelaunchLaunchRef: "controlled-relaunch-retired",
       computerUseProposalRef: "proposal-retired",
       computerUseActionRef: "action-retired",
       computerUseTargetRef: "target-retired",
@@ -901,6 +902,7 @@ test("computer-use projection ignores retired top-level control aliases", () => 
   assert.equal(projection.nodes[0]?.computerUse?.coordinateSpaceId, null);
   assert.equal(projection.nodes[0]?.computerUse?.targetIndexRef, null);
   assert.equal(projection.nodes[0]?.computerUse?.affordanceGraphRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.controlledRelaunchLaunchRef, null);
   assert.equal(projection.nodes[0]?.computerUse?.proposalRef, null);
   assert.equal(projection.nodes[0]?.computerUse?.actionRef, null);
   assert.equal(projection.nodes[0]?.computerUse?.targetRef, null);
