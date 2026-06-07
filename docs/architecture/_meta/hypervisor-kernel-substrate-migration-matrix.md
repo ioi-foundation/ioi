@@ -13166,6 +13166,12 @@ Rust-planned override `operator_control` records; retired camelCase override
 metadata can no longer leave the Rust policy bridge as a parallel result ABI
 before daemon diagnostics repair persistence.
 
+Slice 500 retires Rust interrupt/steer control timestamp aliases:
+Rust operator interrupt and steer state planning now emits canonical `event_id`
+and `created_at` inside Rust-planned `operator_control` records; retired
+camelCase control metadata can no longer leave the Rust policy bridge as a
+parallel result ABI before daemon operator-control persistence.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

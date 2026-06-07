@@ -8350,6 +8350,13 @@ mod tests {
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "turn.interrupt");
         assert_eq!(response["operator_control"]["control"], "interrupt");
+        assert_eq!(response["operator_control"]["event_id"], "event_interrupt");
+        assert!(response["operator_control"].get("eventId").is_none());
+        assert!(response["operator_control"].get("createdAt").is_none());
+        assert_eq!(
+            response["run"]["trace"]["operatorControls"][0]["event_id"],
+            "event_interrupt"
+        );
         assert_eq!(response["run"]["status"], "canceled");
         assert_eq!(response["run"]["turnStatus"], "interrupted");
         assert_eq!(
@@ -8401,9 +8408,12 @@ mod tests {
             response["operator_control"]["guidance"],
             "focus on the failing bridge assertion"
         );
+        assert_eq!(response["operator_control"]["event_id"], "event_steer");
+        assert!(response["operator_control"].get("eventId").is_none());
+        assert!(response["operator_control"].get("createdAt").is_none());
         assert_eq!(response["run"]["status"], "running");
         assert_eq!(
-            response["run"]["trace"]["operatorControls"][0]["eventId"],
+            response["run"]["trace"]["operatorControls"][0]["event_id"],
             "event_steer"
         );
     }

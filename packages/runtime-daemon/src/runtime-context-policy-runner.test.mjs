@@ -520,7 +520,7 @@ test("operator interrupt state update runner sends Rust state update bridge requ
             operator_control: {
               control: "interrupt",
               reason: "operator_stop",
-              eventId: "event_interrupt",
+              event_id: "event_interrupt",
             },
             stop_condition: {
               reason: "operator_interrupt",
@@ -533,7 +533,7 @@ test("operator interrupt state update runner sends Rust state update bridge requ
                 operatorControls: [
                   {
                     control: "interrupt",
-                    eventId: "event_interrupt",
+                    event_id: "event_interrupt",
                   },
                 ],
               },
@@ -568,8 +568,12 @@ test("operator interrupt state update runner sends Rust state update bridge requ
   assert.equal(result.source, "rust_operator_interrupt_state_update_command");
   assert.equal(result.operation_kind, "turn.interrupt");
   assert.equal(result.operator_control.reason, "operator_stop");
+  assert.equal(result.operator_control.event_id, "event_interrupt");
+  assert.equal(Object.hasOwn(result.operator_control, "eventId"), false);
+  assert.equal(Object.hasOwn(result.operator_control, "createdAt"), false);
   assert.equal(result.stop_condition.reason, "operator_interrupt");
   assert.equal(result.run.turnStatus, "interrupted");
+  assert.equal(result.run.trace.operatorControls[0].event_id, "event_interrupt");
 });
 
 test("operator steer state update runner sends Rust state update bridge request", () => {
@@ -591,7 +595,7 @@ test("operator steer state update runner sends Rust state update bridge request"
             operator_control: {
               control: "steer",
               guidance: "focus on the failing bridge assertion",
-              eventId: "event_steer",
+              event_id: "event_steer",
             },
             run: {
               id: "run_budget",
@@ -601,7 +605,7 @@ test("operator steer state update runner sends Rust state update bridge request"
                 operatorControls: [
                   {
                     control: "steer",
-                    eventId: "event_steer",
+                    event_id: "event_steer",
                   },
                 ],
               },
@@ -636,7 +640,10 @@ test("operator steer state update runner sends Rust state update bridge request"
   assert.equal(result.source, "rust_operator_steer_state_update_command");
   assert.equal(result.operation_kind, "turn.steer");
   assert.equal(result.operator_control.guidance, "focus on the failing bridge assertion");
-  assert.equal(result.run.trace.operatorControls[0].eventId, "event_steer");
+  assert.equal(result.operator_control.event_id, "event_steer");
+  assert.equal(Object.hasOwn(result.operator_control, "eventId"), false);
+  assert.equal(Object.hasOwn(result.operator_control, "createdAt"), false);
+  assert.equal(result.run.trace.operatorControls[0].event_id, "event_steer");
 });
 
 test("run cancel state update runner sends Rust state update bridge request", () => {

@@ -670,6 +670,14 @@ function runBridge() {
     policyCore.match(
       /impl DiagnosticsOperatorOverrideStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct OperatorInterruptStateUpdateCore;)/,
     )?.[0] ?? "";
+  const operatorInterruptStateUpdateCoreBlock =
+    policyCore.match(
+      /impl OperatorInterruptStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct OperatorSteerStateUpdateCore;)/,
+    )?.[0] ?? "";
+  const operatorSteerStateUpdateCoreBlock =
+    policyCore.match(
+      /impl OperatorSteerStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct RunCancelStateUpdateCore;)/,
+    )?.[0] ?? "";
   const stepModuleRunner = exists("packages/runtime-daemon/src/step-module-runner.mjs")
     ? read("packages/runtime-daemon/src/step-module-runner.mjs")
     : "";
@@ -3770,10 +3778,22 @@ function runBridge() {
       /OperatorInterruptStateUpdateRequest/.test(policyCore) &&
       /OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_operator_interrupt_state_update/.test(policyCore) &&
+      /"event_id": request\.event_id/.test(operatorInterruptStateUpdateCoreBlock) &&
+      /"created_at": request\.created_at/.test(operatorInterruptStateUpdateCoreBlock) &&
+      !/"eventId": request\.event_id|"createdAt": request\.created_at/.test(
+        operatorInterruptStateUpdateCoreBlock,
+      ) &&
       /plan_operator_interrupt_state_update/.test(bridgeModule) &&
       /OperatorInterruptStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_operator_interrupt_state_update_command/.test(bridgeModule) &&
       /bridge_plans_operator_interrupt_state_update_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /response\["operator_control"\]\["event_id"\]/.test(bridgeModule) &&
+      /response\["operator_control"\]\.get\("eventId"\)\.is_none\(\)/.test(
+        bridgeModule,
+      ) &&
+      /response\["operator_control"\]\.get\("createdAt"\)\.is_none\(\)/.test(
         bridgeModule,
       ) &&
       /planOperatorInterruptStateUpdate/.test(runtimeContextPolicyRunner) &&
@@ -3781,6 +3801,13 @@ function runBridge() {
         runtimeContextPolicyRunner,
       ) &&
       /operator interrupt state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.operator_control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
+      /Object\.hasOwn\(result\.operator_control,\s*"eventId"\),\s*false/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /Object\.hasOwn\(result\.operator_control,\s*"createdAt"\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /createContextPolicyRunnerFromEnv/.test(runtimeDaemonIndex) &&
@@ -3845,13 +3872,32 @@ function runBridge() {
       /OperatorSteerStateUpdateRequest/.test(policyCore) &&
       /OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_operator_steer_state_update/.test(policyCore) &&
+      /"event_id": request\.event_id/.test(operatorSteerStateUpdateCoreBlock) &&
+      /"created_at": request\.created_at/.test(operatorSteerStateUpdateCoreBlock) &&
+      !/"eventId": request\.event_id|"createdAt": request\.created_at/.test(
+        operatorSteerStateUpdateCoreBlock,
+      ) &&
       /plan_operator_steer_state_update/.test(bridgeModule) &&
       /OperatorSteerStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_operator_steer_state_update_command/.test(bridgeModule) &&
       /bridge_plans_operator_steer_state_update_through_rust_core/.test(bridgeModule) &&
+      /response\["operator_control"\]\["event_id"\]/.test(bridgeModule) &&
+      /response\["operator_control"\]\.get\("eventId"\)\.is_none\(\)/.test(
+        bridgeModule,
+      ) &&
+      /response\["operator_control"\]\.get\("createdAt"\)\.is_none\(\)/.test(
+        bridgeModule,
+      ) &&
       /planOperatorSteerStateUpdate/.test(runtimeContextPolicyRunner) &&
       /OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
       /operator steer state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.operator_control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
+      /Object\.hasOwn\(result\.operator_control,\s*"eventId"\),\s*false/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /Object\.hasOwn\(result\.operator_control,\s*"createdAt"\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /this\.contextPolicyRunner\.planOperatorSteerStateUpdate/.test(runtimeDaemonIndex) &&

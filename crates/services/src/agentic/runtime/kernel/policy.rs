@@ -1756,9 +1756,9 @@ impl OperatorInterruptStateUpdateCore {
             "control": "interrupt",
             "source": source,
             "reason": reason,
-            "eventId": request.event_id,
+            "event_id": request.event_id,
             "seq": request.seq,
-            "createdAt": request.created_at,
+            "created_at": request.created_at,
         });
         let stop_condition = json!({
             "reason": "operator_interrupt",
@@ -1853,9 +1853,9 @@ impl OperatorSteerStateUpdateCore {
             "control": "steer",
             "source": source,
             "guidance": guidance,
-            "eventId": request.event_id,
+            "event_id": request.event_id,
             "seq": request.seq,
-            "createdAt": request.created_at,
+            "created_at": request.created_at,
         });
         let mut run =
             object_value(&request.run).ok_or(OperatorSteerStateUpdateError::MissingField("run"))?;
@@ -4968,15 +4968,18 @@ mod tests {
         assert_eq!(record.operation_kind, "turn.interrupt");
         assert_eq!(record.operator_control["control"], "interrupt");
         assert_eq!(record.operator_control["reason"], "operator_stop");
+        assert_eq!(record.operator_control["event_id"], "event_interrupt");
+        assert!(record.operator_control.get("eventId").is_none());
+        assert!(record.operator_control.get("createdAt").is_none());
         assert_eq!(record.stop_condition["reason"], "operator_interrupt");
         assert_eq!(record.run["status"], "canceled");
         assert_eq!(record.run["turnStatus"], "interrupted");
         assert_eq!(
-            record.run["trace"]["operatorControls"][0]["eventId"],
+            record.run["trace"]["operatorControls"][0]["event_id"],
             "event_interrupt"
         );
         assert_eq!(
-            record.run["operatorControls"][0]["eventId"],
+            record.run["operatorControls"][0]["event_id"],
             "event_interrupt"
         );
         assert!(
@@ -5005,14 +5008,17 @@ mod tests {
             record.operator_control["guidance"],
             "focus on the failing bridge assertion"
         );
+        assert_eq!(record.operator_control["event_id"], "event_steer");
+        assert!(record.operator_control.get("eventId").is_none());
+        assert!(record.operator_control.get("createdAt").is_none());
         assert_eq!(record.run["status"], "running");
         assert_eq!(record.run["turnStatus"], "running");
         assert_eq!(record.run["updatedAt"], "2026-06-06T04:35:00.000Z");
         assert_eq!(
-            record.run["trace"]["operatorControls"][0]["eventId"],
+            record.run["trace"]["operatorControls"][0]["event_id"],
             "event_steer"
         );
-        assert_eq!(record.run["operatorControls"][0]["eventId"], "event_steer");
+        assert_eq!(record.run["operatorControls"][0]["event_id"], "event_steer");
     }
 
     #[test]
