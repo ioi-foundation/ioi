@@ -11,7 +11,7 @@ pub(super) fn build_computer_use_lease_request(
     let lane = computer_use_lane_for_input(input);
     let session_mode = computer_use_session_mode_for_input(input, &lane);
     let action_kind = computer_use_action_kind_for_input(input);
-    let approval_ref = optional_json_string(input, &["approvalRef", "approval_ref"]);
+    let approval_ref = optional_json_string(input, &["approval_ref"]);
     let provider_hint = optional_json_string(
         input,
         &[

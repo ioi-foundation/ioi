@@ -1595,6 +1595,23 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-request-lease-approval-alias-retired",
+    /optional_json_string\(input,\s*&\["approval_ref"\]\)/.test(computerUseBridge) &&
+      !/optional_json_string\(input,\s*&\["approvalRef",\s*"approval_ref"\]\)/.test(
+        computerUseBridge,
+      ) &&
+      /computer_use_request_lease_ignores_retired_approval_alias/.test(bridgeModule) &&
+      /"approvalRef": "approval_legacy"/.test(bridgeModule) &&
+      /"computer_use\.native_browser\.act"/.test(bridgeModule) &&
+      /approvalRequiredBeforeExecution/.test(bridgeModule),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10/11 is pending: Rust computer-use request-lease approval selection must ignore retired approvalRef input so wallet.network approval requirements cannot be bypassed",
+  );
+  assertCheck(
+    result,
     "coding-tool-result-router-admission-alias-retired",
     !/\brouterAdmission\s*:/.test(runtimeCodingToolInvocationSurface) &&
       /result\.result\.router_admission\.schema_version/.test(

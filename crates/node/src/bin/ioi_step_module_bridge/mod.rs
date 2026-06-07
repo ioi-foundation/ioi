@@ -9978,6 +9978,41 @@ mod tests {
     }
 
     #[test]
+    fn computer_use_request_lease_ignores_retired_approval_alias() {
+        let request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Try to satisfy approval through a retired alias.",
+                "lane": "native_browser",
+                "action_kind": "click",
+                "approvalRef": "approval_legacy"
+            }),
+        );
+
+        let response =
+            computer_use_request_lease_response(request).expect("lease request response");
+
+        assert_eq!(
+            response["workload_observation"]["result"]["leaseRequest"]["authorityScope"],
+            "computer_use.native_browser.act"
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["leaseRequest"]["approvalRef"],
+            Value::Null
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["approvalRequiredBeforeExecution"],
+            true
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["walletNetworkAuthorityBoundary"]
+                ["requiredBeforeExecution"],
+            true
+        );
+    }
+
+    #[test]
     fn computer_use_request_lease_records_unavailable_provider_fail_closed() {
         let request = bridge_request(
             "computer_use.request_lease",
