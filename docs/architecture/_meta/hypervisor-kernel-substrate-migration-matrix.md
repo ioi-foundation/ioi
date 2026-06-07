@@ -11405,6 +11405,13 @@ so retired camelCase worker contribution evidence aliases cannot satisfy receipt
 readiness or make old worker payloads look receipt-backed, policy-backed,
 rollback-backed, or artifact-backed.
 
+Slice 538 retires IDE delegation-matrix event evidence aliases: delegation rows
+now read canonical event `receipt_refs` and `policy_decision_refs`, plus
+canonical payload `receipt_refs`, `source_receipt_refs`,
+`policy_decision_refs`, and `source_policy_decision_refs` only, so retired
+camelCase event evidence aliases cannot make old delegation payloads look
+receipt-backed or policy-backed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

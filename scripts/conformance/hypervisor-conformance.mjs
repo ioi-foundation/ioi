@@ -13402,6 +13402,11 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts")
     : "";
+  const agentIdeDelegationMatrixTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.test.ts")
+    : "";
   const agentIdeTelemetrySourceBinding = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
   )
@@ -19858,6 +19863,34 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
     ],
     "Phase 10/11 is pending: mixed IDE runtime panels must share canonical event identity handling and ignore raw retired id/event aliases",
+  );
+  assertCheck(
+    result,
+    "ide-delegation-matrix-evidence-aliases-retired",
+    /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeDelegationMatrix) &&
+      /arrayField\(payload,\s*"receipt_refs"\)/.test(agentIdeDelegationMatrix) &&
+      /arrayField\(payload,\s*"source_receipt_refs"\)/.test(agentIdeDelegationMatrix) &&
+      /arrayField\(event,\s*"policy_decision_refs"\)/.test(agentIdeDelegationMatrix) &&
+      /arrayField\(payload,\s*"policy_decision_refs"\)/.test(agentIdeDelegationMatrix) &&
+      /arrayField\(payload,\s*"source_policy_decision_refs"\)/.test(agentIdeDelegationMatrix) &&
+      !/arrayField\(event,\s*"receiptRefs",\s*"receipt_refs"\)/.test(agentIdeDelegationMatrix) &&
+      !/arrayField\(event,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
+        agentIdeDelegationMatrix,
+      ) &&
+      /delegation matrix ignores retired event evidence aliases/.test(
+        agentIdeDelegationMatrixTest,
+      ) &&
+      /receiptRefs: \["receipt-event-retired"\]/.test(agentIdeDelegationMatrixTest) &&
+      /policyDecisionRefs: \["policy-event-retired"\]/.test(agentIdeDelegationMatrixTest) &&
+      /assert\.deepEqual\(matrix\.receiptRefs,\s*\[\]\)/.test(agentIdeDelegationMatrixTest) &&
+      /assert\.deepEqual\(matrix\.policyDecisionRefs,\s*\[\]\)/.test(
+        agentIdeDelegationMatrixTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE delegation matrix must ignore retired camelCase event evidence aliases",
   );
   assertCheck(
     result,

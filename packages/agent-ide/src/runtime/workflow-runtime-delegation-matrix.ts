@@ -177,12 +177,12 @@ function baseRow(
     workflowGraphId: eventWorkflowGraphId(event),
     workflowNodeId: eventWorkflowNodeId(event),
     receiptRefs: uniqueStrings([
-      ...arrayField(event, "receiptRefs", "receipt_refs"),
+      ...arrayField(event, "receipt_refs"),
       ...arrayField(payload, "receipt_refs"),
       ...arrayField(payload, "source_receipt_refs"),
     ]),
     policyDecisionRefs: uniqueStrings([
-      ...arrayField(event, "policyDecisionRefs", "policy_decision_refs"),
+      ...arrayField(event, "policy_decision_refs"),
       ...arrayField(payload, "policy_decision_refs"),
       ...arrayField(payload, "source_policy_decision_refs"),
     ]),
