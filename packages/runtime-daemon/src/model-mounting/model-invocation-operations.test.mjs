@@ -167,15 +167,15 @@ function fakeState(overrides = {}) {
           transition_hash: `sha256:transition-${nextSequence}`,
           evidence_refs: ["rust_model_mount_accepted_receipt_transition"],
         },
-        operationId,
-        operationRef: `agentgres://model-mounting/accepted-receipts/${operationId}`,
-        expectedHeads: [request.current_head_ref],
-        stateRootBefore: request.current_state_root,
-        stateRootAfter: `sha256:state-${nextSequence}`,
-        resultingHead: `agentgres://model-mounting/accepted-receipts/head/${nextSequence}`,
-        projectionWatermark: `model-mounting-accepted-receipts:${nextSequence}`,
-        transitionHash: `sha256:transition-${nextSequence}`,
-        evidenceRefs: ["rust_model_mount_accepted_receipt_transition"],
+        operation_id: operationId,
+        operation_ref: `agentgres://model-mounting/accepted-receipts/${operationId}`,
+        expected_heads: [request.current_head_ref],
+        state_root_before: request.current_state_root,
+        state_root_after: `sha256:state-${nextSequence}`,
+        resulting_head: `agentgres://model-mounting/accepted-receipts/head/${nextSequence}`,
+        projection_watermark: `model-mounting-accepted-receipts:${nextSequence}`,
+        transition_hash: `sha256:transition-${nextSequence}`,
+        evidence_refs: ["rust_model_mount_accepted_receipt_transition"],
       };
     },
     bindModelMountInvocationReceipt(request) {
@@ -1634,6 +1634,53 @@ test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount Ste
   assert.equal(request.result.workflow_projection.component_kind, "ModelInvocationNode");
   assert.equal(request.result.workflow_projection.status, "live");
   assert.ok(request.result.workflow_projection.evidence_refs.includes("provider.auth"));
+});
+
+test("model invocation Agentgres transition ignores retired camelCase bridge fields", () => {
+  const state = {
+    agentgresModelMountingHead() {
+      return {
+        sequence: 0,
+        headRef: "agentgres://model-mounting/accepted-receipts/head/0",
+        stateRoot: "sha256:state-0",
+      };
+    },
+    planModelMountAcceptedReceiptTransition() {
+      return {
+        transition: {
+          schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
+          expected_heads: ["agentgres://model-mounting/accepted-receipts/head/0"],
+        },
+        operationId: "op_retired",
+        operationRef: "agentgres://model-mounting/accepted-receipts/op_retired",
+        expectedHeads: ["agentgres://model-mounting/accepted-receipts/head/0"],
+        stateRootBefore: "sha256:state-0",
+        stateRootAfter: "sha256:state-1",
+        resultingHead: "agentgres://model-mounting/accepted-receipts/head/1",
+        projectionWatermark: "model-mounting-accepted-receipts:1",
+        transitionHash: "sha256:transition-retired",
+        evidenceRefs: ["rust_model_mount_accepted_receipt_transition"],
+      };
+    },
+  };
+
+  assert.throws(
+    () =>
+      modelMountInvocationAgentgresTransitionForReceipt(state, {
+        admission: {
+          invocation_admission_ref: "model_mount://invocation_admission/test",
+          invocation_admission_hash: "sha256:invocation-test",
+        },
+        admissionRequest: {
+          route_decision_ref: "model_mount://route_decision/test",
+          input_hash: "sha256:input",
+          output_hash: "sha256:output",
+        },
+        receiptId: "receipt.invoke",
+        receiptKind: "model_invocation",
+      }),
+    /transition\.operation_id/,
+  );
 });
 
 test("invokeModel fails closed without invocation receipt id support", async () => {

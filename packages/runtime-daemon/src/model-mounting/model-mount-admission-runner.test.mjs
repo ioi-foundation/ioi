@@ -914,17 +914,19 @@ test("Rust model_mount admission runner sends accepted receipt transition plan r
   assert.equal(calls[0].request.operation, "plan_model_mount_accepted_receipt_transition");
   assert.equal(calls[0].request.backend, "rust_model_mount_accepted_receipt_transition");
   assert.equal(calls[0].request.request.current_sequence, 0);
-  assert.equal(result.operationId, "op_00000001_model_invocation");
+  assert.equal(result.operation_id, "op_00000001_model_invocation");
   assert.equal(
-    result.operationRef,
+    result.operation_ref,
     "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation",
   );
-  assert.deepEqual(result.expectedHeads, ["agentgres://model-mounting/accepted-receipts/head/0"]);
-  assert.equal(result.stateRootBefore, "sha256:state-0");
-  assert.equal(result.stateRootAfter, "sha256:state-1");
-  assert.equal(result.resultingHead, "agentgres://model-mounting/accepted-receipts/head/1");
-  assert.equal(result.projectionWatermark, "model-mounting-accepted-receipts:1");
-  assert.equal(result.transitionHash, "sha256:transition");
+  assert.deepEqual(result.expected_heads, ["agentgres://model-mounting/accepted-receipts/head/0"]);
+  assert.equal(result.state_root_before, "sha256:state-0");
+  assert.equal(result.state_root_after, "sha256:state-1");
+  assert.equal(result.resulting_head, "agentgres://model-mounting/accepted-receipts/head/1");
+  assert.equal(result.projection_watermark, "model-mounting-accepted-receipts:1");
+  assert.equal(result.transition_hash, "sha256:transition");
+  assert.equal(Object.hasOwn(result, "stateRootBefore"), false);
+  assert.equal(Object.hasOwn(result, "resultingHead"), false);
 });
 
 test("Rust model_mount admission runner sends accepted receipt head plan request", () => {

@@ -807,13 +807,13 @@ export function modelMountInvocationReceiptBindingRequestForReceipt({
     node_plaintext_allowed: Boolean(admissionRequest?.node_plaintext_allowed),
     custody_proof_ref: admissionRequest?.custody_ref ?? null,
     idempotency_key: admissionRequest?.idempotency_key ?? `model_invocation:${receiptId}`,
-    state_root_before: requiredStringRef("agentgresTransition.stateRootBefore", agentgresTransition?.stateRootBefore),
-    projection_watermark: requiredStringRef("agentgresTransition.projectionWatermark", agentgresTransition?.projectionWatermark),
+    state_root_before: requiredStringRef("agentgresTransition.state_root_before", agentgresTransition?.state_root_before),
+    projection_watermark: requiredStringRef("agentgresTransition.projection_watermark", agentgresTransition?.projection_watermark),
     agentgres_operation_refs: [
-      requiredStringRef("agentgresTransition.operationRef", agentgresTransition?.operationRef),
+      requiredStringRef("agentgresTransition.operation_ref", agentgresTransition?.operation_ref),
     ],
-    state_root_after: requiredStringRef("agentgresTransition.stateRootAfter", agentgresTransition?.stateRootAfter),
-    resulting_head: requiredStringRef("agentgresTransition.resultingHead", agentgresTransition?.resultingHead),
+    state_root_after: requiredStringRef("agentgresTransition.state_root_after", agentgresTransition?.state_root_after),
+    resulting_head: requiredStringRef("agentgresTransition.resulting_head", agentgresTransition?.resulting_head),
     evidence_refs: uniqueRefs([
       "rust_model_mount_core",
       admission?.invocation_admission_ref,
@@ -867,15 +867,15 @@ export function modelMountInvocationAgentgresTransitionForReceipt(
     output_hash: admissionRequest?.output_hash ?? receiptDetails.output_hash ?? null,
   });
   return {
-    operationId: requiredStringRef("transition.operationId", transition?.operationId),
-    operationRef: requiredStringRef("transition.operationRef", transition?.operationRef),
-    expectedHeads: uniqueRefs(transition?.expectedHeads ?? []),
-    stateRootBefore: requiredStringRef("transition.stateRootBefore", transition?.stateRootBefore),
-    stateRootAfter: requiredStringRef("transition.stateRootAfter", transition?.stateRootAfter),
-    resultingHead: requiredStringRef("transition.resultingHead", transition?.resultingHead),
-    projectionWatermark: requiredStringRef("transition.projectionWatermark", transition?.projectionWatermark),
-    transitionHash: requiredStringRef("transition.transitionHash", transition?.transitionHash),
-    evidenceRefs: uniqueRefs(transition?.evidenceRefs ?? []),
+    operation_id: requiredStringRef("transition.operation_id", transition?.operation_id),
+    operation_ref: requiredStringRef("transition.operation_ref", transition?.operation_ref),
+    expected_heads: uniqueRefs(transition?.expected_heads ?? []),
+    state_root_before: requiredStringRef("transition.state_root_before", transition?.state_root_before),
+    state_root_after: requiredStringRef("transition.state_root_after", transition?.state_root_after),
+    resulting_head: requiredStringRef("transition.resulting_head", transition?.resulting_head),
+    projection_watermark: requiredStringRef("transition.projection_watermark", transition?.projection_watermark),
+    transition_hash: requiredStringRef("transition.transition_hash", transition?.transition_hash),
+    evidence_refs: uniqueRefs(transition?.evidence_refs ?? []),
     acceptedReceiptTransition: objectRecord(transition?.transition),
   };
 }

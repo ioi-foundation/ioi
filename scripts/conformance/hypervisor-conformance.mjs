@@ -12982,6 +12982,16 @@ function runReceipts() {
       /agentgres_operation_refs/.test(modelInvocationOps) &&
       /state_root_after/.test(modelInvocationOps) &&
       /resulting_head/.test(modelInvocationOps) &&
+      /model invocation Agentgres transition ignores retired camelCase bridge fields/.test(modelInvocationOpsTest) &&
+      !/agentgresTransition\?\.(?:operationRef|stateRootBefore|stateRootAfter|resultingHead|projectionWatermark)/.test(
+        modelInvocationOps,
+      ) &&
+      !/transition\?\.(?:operationId|operationRef|expectedHeads|stateRootBefore|stateRootAfter|resultingHead|projectionWatermark|transitionHash|evidenceRefs)/.test(
+        modelInvocationOps,
+      ) &&
+      !/\b(?:operationId|operationRef|stateRootBefore|stateRootAfter|resultingHead|transitionHash):\s*result\./.test(
+        modelMountAdmissionRunner,
+      ) &&
       /model_mount_step_module_invocation/.test(modelInvocationOps) &&
       /model_mount_step_module_result/.test(modelInvocationOps) &&
       !/(?:modelMountReceiptBinding|modelMountAcceptedReceiptAppend|modelMountStepModuleInvocation|modelMountStepModuleResult|modelMountRouterAdmission|modelMountAgentgres|modelMountProjectionRecord)/.test(modelInvocationOps),
@@ -13004,7 +13014,14 @@ function runReceipts() {
       /model_mount_agentgres_expected_heads/.test(modelInvocationOps) &&
       /model_mount_agentgres_state_root_before/.test(modelInvocationOps) &&
       /model_mount_agentgres_state_root_after/.test(modelInvocationOps) &&
-      /model_mount_agentgres_resulting_head/.test(modelInvocationOps),
+      /model_mount_agentgres_resulting_head/.test(modelInvocationOps) &&
+      /operation_id:\s*requiredStringRef\("transition\.operation_id"/.test(modelInvocationOps) &&
+      /state_root_before:\s*requiredStringRef\("transition\.state_root_before"/.test(
+        modelInvocationOps,
+      ) &&
+      /resulting_head:\s*requiredStringRef\("transition\.resulting_head"/.test(
+        modelInvocationOps,
+      ),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
