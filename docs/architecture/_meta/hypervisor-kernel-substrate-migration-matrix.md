@@ -13078,6 +13078,11 @@ LSP diagnostics runtime-event status now reads canonical `diagnostic_status`
 only; retired camelCase `diagnosticStatus` values can no longer mark an
 injected diagnostics event blocked before projection.
 
+Slice 487 retires run-event artifact-name aliases:
+runtime artifact events now emit and read canonical `artifact_names` only;
+retired camelCase `artifactNames` values can no longer steer artifact refs
+before replay/projection.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

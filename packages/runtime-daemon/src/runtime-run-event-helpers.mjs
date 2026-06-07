@@ -272,7 +272,7 @@ export function createRuntimeRunEventHelpers({
     if (event.type === "hook_dry_run_plan") return ["hook-dry-run-plan.json"];
     if (event.type === "hook_invocation_ledger") return ["hook-invocations.json"];
     if (event.type === "policy_blocked" && event.data?.reason === "post_edit_diagnostics_findings") return ["diagnostics-blocking-gate.json"];
-    if (event.type === "artifact") return event.data?.artifactNames ?? [];
+    if (event.type === "artifact") return event.data?.artifact_names ?? [];
     return [];
   }
 

@@ -5239,7 +5239,7 @@ function buildRun({
     });
   }
   addEvent("artifact", "Trace and scorecard artifacts recorded", {
-    artifactNames: [
+    artifact_names: [
       "trace.json",
       "runtime-task.json",
       "runtime-job.json",

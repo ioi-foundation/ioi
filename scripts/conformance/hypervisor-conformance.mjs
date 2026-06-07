@@ -2450,6 +2450,22 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "runtime-run-artifact-name-reader-alias-retired",
+    /artifact_names:\s*\[/.test(runtimeDaemonIndex) &&
+      !/artifactNames:\s*\[/.test(runtimeDaemonIndex) &&
+      /event\.data\?\.artifact_names/.test(runtimeRunEventHelpers) &&
+      !/event\.data\?\.artifactNames\b/.test(runtimeRunEventHelpers) &&
+      /artifact_names: \["one\.json"\]/.test(runtimeRunEventHelpersTest) &&
+      /artifactNames: \["retired-one\.json"\]/.test(runtimeRunEventHelpersTest),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-run-event-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-run-event-helpers.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime run artifact events must emit/read canonical artifact_names without retired artifactNames aliases",
+  );
+  assertCheck(
+    result,
     "computer-use-control-payload-aliases-retired",
     /schema_version:\s*COMPUTER_USE_CONTRACT_SCHEMA_VERSION/.test(computerUseControlPayloadSummaryBlock) &&
       /computer_use:\s*true/.test(computerUseControlPayloadSummaryBlock) &&

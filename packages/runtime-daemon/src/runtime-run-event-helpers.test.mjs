@@ -120,7 +120,11 @@ test("runtime run event helpers preserve payload records, receipts, and artifact
   }), []);
 
   assert.deepEqual(runtime.artifactRefsForRunEvent({ type: "runtime_task" }), ["runtime-task.json"]);
-  assert.deepEqual(runtime.artifactRefsForRunEvent({ type: "artifact", data: { artifactNames: ["one.json"] } }), ["one.json"]);
+  assert.deepEqual(runtime.artifactRefsForRunEvent({ type: "artifact", data: { artifact_names: ["one.json"] } }), ["one.json"]);
+  assert.deepEqual(runtime.artifactRefsForRunEvent({
+    type: "artifact",
+    data: { artifactNames: ["retired-one.json"] },
+  }), []);
   assert.deepEqual(runtime.artifactRefsForRunEvent({
     type: "policy_blocked",
     data: { reason: "post_edit_diagnostics_findings" },
