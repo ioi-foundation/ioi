@@ -11421,6 +11421,14 @@ rows now read canonical `thread_id`, `turn_id`, `workflow_graph_id`,
 scope, receipt, and policy aliases cannot make old usage telemetry snapshots
 look canonical, receipt-backed, or policy-backed.
 
+Slice 540 retires IDE context-lifecycle compaction-policy payload aliases:
+compaction-policy rows now read canonical `context_budget`, `usage_summary`,
+`usage_telemetry`, `compact_scope`, `budget_status`, `approval_required`,
+`approval_satisfied`, `execute_compaction`, `compaction_executed`,
+`compaction_event_id`, and `compact_reason` fields only, so retired camelCase
+policy payload aliases cannot make old compaction policy records look
+canonical, approval-satisfied, execution-ready, or usage-bound.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

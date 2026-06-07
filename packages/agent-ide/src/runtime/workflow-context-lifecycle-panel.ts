@@ -193,15 +193,15 @@ function compactionPolicyRow(
   event: WorkflowRuntimeThreadEventLike,
   payload: Record<string, unknown>,
 ): WorkflowContextLifecycleRow {
-  const contextBudget = objectField(payload, "contextBudget", "context_budget");
+  const contextBudget = objectField(payload, "context_budget");
   const budgetSummary = usageSummary(
-    objectField(contextBudget, "usageSummary", "usage_summary") ||
-      objectField(contextBudget, "usageTelemetry", "usage_telemetry"),
+    objectField(contextBudget, "usage_summary") ||
+      objectField(contextBudget, "usage_telemetry"),
   );
   return baseRow(event, payload, {
     rowKind: "compaction_policy",
     summary: stringField(payload, "summary"),
-    scope: stringField(payload, "compactScope", "compact_scope"),
+    scope: stringField(payload, "compact_scope"),
     totalTokens: budgetSummary.totalTokens,
     estimatedCostUsd: budgetSummary.estimatedCostUsd,
     contextPressure: budgetSummary.contextPressure,
@@ -211,14 +211,14 @@ function compactionPolicyRow(
     violationIds: [],
     warningIds: [],
     action: stringField(payload, "action"),
-    budgetStatus: stringField(payload, "budgetStatus", "budget_status"),
-    approvalRequired: booleanField(payload, "approvalRequired", "approval_required"),
-    approvalSatisfied: booleanField(payload, "approvalSatisfied", "approval_satisfied"),
-    executeCompaction: booleanField(payload, "executeCompaction", "execute_compaction"),
-    compactionExecuted: booleanField(payload, "compactionExecuted", "compaction_executed"),
-    compactionEventId: stringField(payload, "compactionEventId", "compaction_event_id"),
-    compactReason: stringField(payload, "compactReason", "compact_reason"),
-    compactScope: stringField(payload, "compactScope", "compact_scope"),
+    budgetStatus: stringField(payload, "budget_status"),
+    approvalRequired: booleanField(payload, "approval_required"),
+    approvalSatisfied: booleanField(payload, "approval_satisfied"),
+    executeCompaction: booleanField(payload, "execute_compaction"),
+    compactionExecuted: booleanField(payload, "compaction_executed"),
+    compactionEventId: stringField(payload, "compaction_event_id"),
+    compactReason: stringField(payload, "compact_reason"),
+    compactScope: stringField(payload, "compact_scope"),
   });
 }
 

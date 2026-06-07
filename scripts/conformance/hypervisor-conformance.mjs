@@ -20393,6 +20393,72 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-context-lifecycle-compaction-policy-aliases-retired",
+    /objectField\(payload,\s*"context_budget"\)/.test(agentIdeContextLifecyclePanel) &&
+      /objectField\(contextBudget,\s*"usage_summary"\)/.test(agentIdeContextLifecyclePanel) &&
+      /objectField\(contextBudget,\s*"usage_telemetry"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      /stringField\(payload,\s*"compact_scope"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(payload,\s*"budget_status"\)/.test(agentIdeContextLifecyclePanel) &&
+      /booleanField\(payload,\s*"approval_required"\)/.test(agentIdeContextLifecyclePanel) &&
+      /booleanField\(payload,\s*"approval_satisfied"\)/.test(agentIdeContextLifecyclePanel) &&
+      /booleanField\(payload,\s*"execute_compaction"\)/.test(agentIdeContextLifecyclePanel) &&
+      /booleanField\(payload,\s*"compaction_executed"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(payload,\s*"compaction_event_id"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(payload,\s*"compact_reason"\)/.test(agentIdeContextLifecyclePanel) &&
+      !/objectField\(payload,\s*"contextBudget",\s*"context_budget"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/objectField\(contextBudget,\s*"usageSummary",\s*"usage_summary"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/objectField\(contextBudget,\s*"usageTelemetry",\s*"usage_telemetry"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(payload,\s*"compactScope",\s*"compact_scope"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(payload,\s*"budgetStatus",\s*"budget_status"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/booleanField\(payload,\s*"approvalRequired",\s*"approval_required"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/booleanField\(payload,\s*"approvalSatisfied",\s*"approval_satisfied"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/booleanField\(payload,\s*"executeCompaction",\s*"execute_compaction"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/booleanField\(payload,\s*"compactionExecuted",\s*"compaction_executed"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(payload,\s*"compactionEventId",\s*"compaction_event_id"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(payload,\s*"compactReason",\s*"compact_reason"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      /context lifecycle panel ignores retired compaction policy payload aliases/.test(
+        agentIdeContextLifecyclePanelTest,
+      ) &&
+      /compactScope: "thread-retired"/.test(agentIdeContextLifecyclePanelTest) &&
+      /budgetStatus: "blocked-retired"/.test(agentIdeContextLifecyclePanelTest) &&
+      /approvalRequired: true/.test(agentIdeContextLifecyclePanelTest) &&
+      /contextBudget: \{/.test(agentIdeContextLifecyclePanelTest) &&
+      /usageSummary: \{/.test(agentIdeContextLifecyclePanelTest) &&
+      /assert\.equal\(panel\.rows\[0\]\?\.compactionExecuted,\s*null\)/.test(
+        agentIdeContextLifecyclePanelTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE context lifecycle compaction policy rows must ignore retired camelCase policy payload aliases",
+  );
+  assertCheck(
+    result,
     "ide-signed-replay-evidence-aliases-retired",
     /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeSignedReplayNotebook) &&
       /arrayField\(event,\s*"artifact_refs"\)/.test(agentIdeSignedReplayNotebook) &&
