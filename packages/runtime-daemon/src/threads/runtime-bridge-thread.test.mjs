@@ -529,10 +529,36 @@ test("runtime bridge thread start normalization fills event defaults", () => {
   });
 });
 
+test("runtime bridge thread start normalization ignores retired result aliases", () => {
+  const projection = normalizeRuntimeBridgeThreadStart({
+    bridgeResult: {
+      session_id: "session_runtime",
+      bridge_id: "bridge_runtime",
+      updated_at: "2026-06-06T06:15:00.000Z",
+      sessionId: "session_retired",
+      bridgeId: "bridge_retired",
+      updatedAt: "1999-01-01T00:00:00.000Z",
+      events: [{ event_kind: "thread.started" }],
+    },
+    agent: { id: "agent_runtime", cwd: "/workspace" },
+    threadId: "thread_agent_runtime",
+    runtimeProfile: "runtime_service",
+  }, {
+    bridgeId: "bridge_default",
+    eventStreamIdForThread: (threadId) => `stream_${threadId}`,
+    normalizeArray: (value) => Array.isArray(value) ? value : [],
+    runtimeError: deps().runtimeError,
+  });
+
+  assert.equal(projection.sessionId, "session_runtime");
+  assert.equal(projection.bridgeId, "bridge_runtime");
+  assert.equal(projection.updatedAt, "2026-06-06T06:15:00.000Z");
+});
+
 test("runtime bridge thread start normalization rejects missing session id", () => {
   assert.throws(
     () => normalizeRuntimeBridgeThreadStart({
-      bridgeResult: { events: [{ event_kind: "thread.started" }] },
+      bridgeResult: { sessionId: "session_retired", events: [{ event_kind: "thread.started" }] },
       agent: { id: "agent_runtime", cwd: "/workspace" },
       threadId: "thread_agent_runtime",
       runtimeProfile: "runtime_service",

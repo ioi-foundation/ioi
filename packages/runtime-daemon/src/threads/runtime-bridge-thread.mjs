@@ -289,7 +289,7 @@ export function normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadI
     normalizeArray,
     runtimeError,
   } = deps;
-  const sessionId = String(bridgeResult?.session_id ?? bridgeResult?.sessionId ?? "").trim();
+  const sessionId = String(bridgeResult?.session_id ?? "").trim();
   if (!sessionId) {
     throw runtimeError({
       status: 502,
@@ -311,10 +311,10 @@ export function normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadI
   const now = new Date().toISOString();
   return {
     sessionId,
-    bridgeId: bridgeResult?.bridge_id ?? bridgeResult?.bridgeId ?? bridgeId,
+    bridgeId: bridgeResult?.bridge_id ?? bridgeId,
     status: bridgeResult?.status ?? "active",
     source: bridgeResult?.source ?? "runtime_service",
-    updatedAt: bridgeResult?.updated_at ?? bridgeResult?.updatedAt ?? now,
+    updatedAt: bridgeResult?.updated_at ?? now,
     events: events.map((event) => ({
       ...event,
       event_stream_id: event.event_stream_id ?? eventStreamIdForThread(threadId),

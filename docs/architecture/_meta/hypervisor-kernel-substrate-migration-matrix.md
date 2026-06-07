@@ -13226,6 +13226,12 @@ runtime-bridge live-event normalization now consumes and emits canonical
 `turn_id` and `run_id` identity only; retired `turnId` and `runId` event inputs
 can no longer enter in-flight turn tracking or normalized runtime event records.
 
+Slice 506 retires runtime-bridge thread-start result aliases:
+runtime-bridge thread-start normalization now consumes canonical bridge result
+`session_id`, `bridge_id`, and `updated_at` fields only; retired `sessionId`,
+`bridgeId`, and `updatedAt` inputs can no longer steer daemon projection before
+Rust-planned agent persistence.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

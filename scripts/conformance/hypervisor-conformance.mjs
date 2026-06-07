@@ -12681,6 +12681,10 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs")
     : "";
+  const runtimeBridgeThreadStartNormalizerBlock =
+    runtimeBridgeThread.match(
+      /export function normalizeRuntimeBridgeThreadStart\([\s\S]*?(?=\n\nexport function normalizeRuntimeBridgeTurnSubmit)/,
+    )?.[0] ?? "";
   const runtimeBridgeTurnSubmitNormalizerBlock =
     runtimeBridgeThread.match(
       /export function normalizeRuntimeBridgeTurnSubmit\([\s\S]*?(?=\n\nexport function normalizeRuntimeBridgeLiveEvent)/,
@@ -14825,6 +14829,24 @@ function runCompositor() {
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
     "Phase 10/11 is pending: runtime bridge turn normalization must not read retired usage telemetry aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-bridge-thread-start-result-aliases-retired",
+    !/bridgeResult\?\.(?:sessionId|bridgeId|updatedAt)/.test(
+      runtimeBridgeThreadStartNormalizerBlock,
+    ) &&
+      /runtime bridge thread start normalization ignores retired result aliases/.test(
+        runtimeBridgeThreadTest,
+      ) &&
+      /sessionId: "session_retired"/.test(runtimeBridgeThreadTest) &&
+      /bridgeId: "bridge_retired"/.test(runtimeBridgeThreadTest) &&
+      /updatedAt: "1999-01-01T00:00:00\.000Z"/.test(runtimeBridgeThreadTest),
+    [
+      "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
+      "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime bridge thread-start normalization must not read retired result identity/timestamp aliases",
   );
   assertCheck(
     result,
