@@ -123,14 +123,14 @@ function rowsForGoalVerificationEvent(event: RuntimeEventInput): WorkflowRuntime
   const kind = eventKind(event);
   const payload = eventPayload(event);
   const componentKind = eventComponentKind(event);
-  const toolName = stringField(payload, "tool_name", "toolName") ?? eventToolName(event);
+  const toolName = stringField(payload, "tool_name") ?? eventToolName(event);
   if (kind === "tool.completed" && toolName === "lsp.diagnostics") {
     const result = objectField(payload, "result");
-    const diagnosticStatus = stringField(result, "diagnosticStatus", "diagnostic_status") ??
-      stringField(payload, "diagnosticStatus", "diagnostic_status");
+    const diagnosticStatus = stringField(result, "diagnostic_status") ??
+      stringField(payload, "diagnostic_status");
     const diagnosticCount =
-      numberField(result, "diagnosticCount", "diagnostic_count") ??
-      numberField(payload, "diagnosticCount", "diagnostic_count");
+      numberField(result, "diagnostic_count") ??
+      numberField(payload, "diagnostic_count");
     return [
       baseRow(event, payload, {
         rowKind: "diagnostics_run",
@@ -148,8 +148,8 @@ function rowsForGoalVerificationEvent(event: RuntimeEventInput): WorkflowRuntime
         rowKind: "diagnostics_gate",
         status: "blocked",
         label: "Completion blocked by diagnostics",
-        diagnosticStatus: stringField(payload, "diagnosticStatus", "diagnostic_status"),
-        diagnosticCount: numberField(payload, "diagnosticCount", "diagnostic_count"),
+        diagnosticStatus: stringField(payload, "diagnostic_status"),
+        diagnosticCount: numberField(payload, "diagnostic_count"),
       }),
     ];
   }
@@ -172,7 +172,7 @@ function rowsForGoalVerificationEvent(event: RuntimeEventInput): WorkflowRuntime
         rowKind: "completion",
         status: "passed",
         label: "Completion allowed",
-        stopReason: stringField(payload, "stopReason", "stop_reason"),
+        stopReason: stringField(payload, "stop_reason"),
       }),
     ];
   }
@@ -218,22 +218,22 @@ function baseRow(
     workflowNodeId: eventWorkflowNodeId(event),
     threadId: eventThreadId(event),
     turnId: eventTurnId(event),
-    toolName: overrides.toolName ?? stringField(payload, "tool_name", "toolName") ?? eventToolName(event),
+    toolName: overrides.toolName ?? stringField(payload, "tool_name") ?? eventToolName(event),
     diagnosticStatus: overrides.diagnosticStatus ?? null,
     diagnosticCount: overrides.diagnosticCount ?? null,
-    stopReason: overrides.stopReason ?? stringField(payload, "stopReason", "stop_reason"),
+    stopReason: overrides.stopReason ?? stringField(payload, "stop_reason"),
     summary: overrides.summary ?? stringField(payload, "summary", "message"),
     receiptRefs: uniqueStrings([
-      ...arrayField(event, "receiptRefs", "receipt_refs"),
-      ...arrayField(payload, "receiptRefs", "receipt_refs"),
+      ...arrayField(event, "receipt_refs"),
+      ...arrayField(payload, "receipt_refs"),
     ]),
     policyDecisionRefs: uniqueStrings([
-      ...arrayField(event, "policyDecisionRefs", "policy_decision_refs"),
-      ...arrayField(payload, "policyDecisionRefs", "policy_decision_refs"),
+      ...arrayField(event, "policy_decision_refs"),
+      ...arrayField(payload, "policy_decision_refs"),
     ]),
     rollbackRefs: uniqueStrings([
-      ...arrayField(event, "rollbackRefs", "rollback_refs"),
-      ...arrayField(payload, "rollbackRefs", "rollback_refs"),
+      ...arrayField(event, "rollback_refs"),
+      ...arrayField(payload, "rollback_refs"),
     ]),
   };
 }

@@ -13432,6 +13432,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.test.ts")
     : "";
+  const agentIdeGoalVerificationPanel = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts")
+    : "";
+  const agentIdeGoalVerificationPanelTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.test.ts")
+    : "";
   const agentIdeMixedRuntimePanels = [
     "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
@@ -19865,6 +19875,64 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE policy lease panel must ignore retired camelCase lease payload and evidence aliases",
+  );
+  assertCheck(
+    result,
+    "ide-goal-verification-panel-aliases-retired",
+    /stringField\(payload,\s*"tool_name"\)/.test(agentIdeGoalVerificationPanel) &&
+      /stringField\(result,\s*"diagnostic_status"\)/.test(agentIdeGoalVerificationPanel) &&
+      /numberField\(result,\s*"diagnostic_count"\)/.test(agentIdeGoalVerificationPanel) &&
+      /stringField\(payload,\s*"stop_reason"\)/.test(agentIdeGoalVerificationPanel) &&
+      /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeGoalVerificationPanel) &&
+      /arrayField\(payload,\s*"receipt_refs"\)/.test(agentIdeGoalVerificationPanel) &&
+      /arrayField\(event,\s*"policy_decision_refs"\)/.test(agentIdeGoalVerificationPanel) &&
+      /arrayField\(payload,\s*"policy_decision_refs"\)/.test(agentIdeGoalVerificationPanel) &&
+      /arrayField\(event,\s*"rollback_refs"\)/.test(agentIdeGoalVerificationPanel) &&
+      /arrayField\(payload,\s*"rollback_refs"\)/.test(agentIdeGoalVerificationPanel) &&
+      !/stringField\(payload,\s*"tool_name",\s*"toolName"\)/.test(agentIdeGoalVerificationPanel) &&
+      !/stringField\(result,\s*"diagnosticStatus",\s*"diagnostic_status"\)/.test(
+        agentIdeGoalVerificationPanel,
+      ) &&
+      !/numberField\(result,\s*"diagnosticCount",\s*"diagnostic_count"\)/.test(
+        agentIdeGoalVerificationPanel,
+      ) &&
+      !/stringField\(payload,\s*"stopReason",\s*"stop_reason"\)/.test(
+        agentIdeGoalVerificationPanel,
+      ) &&
+      !/arrayField\(event,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeGoalVerificationPanel,
+      ) &&
+      !/arrayField\(payload,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeGoalVerificationPanel,
+      ) &&
+      !/arrayField\(event,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
+        agentIdeGoalVerificationPanel,
+      ) &&
+      !/arrayField\(payload,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
+        agentIdeGoalVerificationPanel,
+      ) &&
+      !/arrayField\(event,\s*"rollbackRefs",\s*"rollback_refs"\)/.test(
+        agentIdeGoalVerificationPanel,
+      ) &&
+      !/arrayField\(payload,\s*"rollbackRefs",\s*"rollback_refs"\)/.test(
+        agentIdeGoalVerificationPanel,
+      ) &&
+      /goal verification panel ignores retired payload and evidence aliases/.test(
+        agentIdeGoalVerificationPanelTest,
+      ) &&
+      /toolName:\s*"lsp\.diagnostics"/.test(agentIdeGoalVerificationPanelTest) &&
+      /diagnosticStatus:\s*"clean"/.test(agentIdeGoalVerificationPanelTest) &&
+      /diagnosticCount:\s*0/.test(agentIdeGoalVerificationPanelTest) &&
+      /receiptRefs:\s*\["receipt-retired"\]/.test(agentIdeGoalVerificationPanelTest) &&
+      /policyDecisionRefs:\s*\["policy-retired"\]/.test(agentIdeGoalVerificationPanelTest) &&
+      /rollbackRefs:\s*\["rollback-retired"\]/.test(agentIdeGoalVerificationPanelTest) &&
+      /stopReason:\s*"goal_satisfied"/.test(agentIdeGoalVerificationPanelTest) &&
+      /assert\.equal\(panel\.status,\s*"failed"\)/.test(agentIdeGoalVerificationPanelTest),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE goal verification panel must ignore retired camelCase diagnostic, completion, and evidence aliases",
   );
   assertCheck(
     result,

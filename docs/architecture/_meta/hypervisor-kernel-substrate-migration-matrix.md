@@ -11375,6 +11375,14 @@ and `lease_status` fields only, so retired camelCase lease payload and evidence
 aliases cannot create lease rows or make old approval payloads look
 receipt-backed, policy-backed, revokable, or executable.
 
+Slice 534 retires IDE goal-verification panel diagnostic, completion, and
+evidence aliases: the goal-verification panel now reads canonical `tool_name`,
+`diagnostic_status`, `diagnostic_count`, `stop_reason`, `receipt_refs`,
+`policy_decision_refs`, and `rollback_refs` fields only, so retired camelCase
+diagnostic, completion, receipt, policy, and rollback aliases cannot make old
+tool/completion payloads look goal-verified, receipt-backed, policy-backed, or
+rollback-backed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
