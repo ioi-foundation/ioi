@@ -145,6 +145,49 @@ test("thread route admits worker/service package invocations through store facad
   });
 });
 
+test("thread route authorizes external capability exits through store facade", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const response = responseRecorder();
+  const calls = [];
+  const body = {
+    request: {
+      schema_version: "ioi.external_capability_exit_authority.v1",
+      exit_ref: "exit://aiip/slack-post-message",
+      capability_ref: "capability://connector/slack.postMessage",
+    },
+  };
+  const store = {
+    authorizeExternalCapabilityExit(threadId, requestBody) {
+      calls.push({ threadId, requestBody });
+      return {
+        status: "authorized",
+        exit_ref: requestBody.request.exit_ref,
+        exit_authorized: true,
+      };
+    },
+  };
+
+  await handleThreadRoute({
+    request: request({
+      method: "POST",
+      url: "/v1/threads/thread_route/external-capability-exits",
+      body,
+    }),
+    response,
+    store,
+    url: new URL("/v1/threads/thread_route/external-capability-exits", "http://daemon.test"),
+    segments: ["v1", "threads", "thread_route", "external-capability-exits"],
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(calls, [{ threadId: "thread_route", requestBody: body }]);
+  assert.deepEqual(JSON.parse(response.body), {
+    status: "authorized",
+    exit_ref: "exit://aiip/slack-post-message",
+    exit_authorized: true,
+  });
+});
+
 test("thread route executes cTEE private workspace actions through store facade", async () => {
   const { handleThreadRoute } = routeHandlers();
   const response = responseRecorder();

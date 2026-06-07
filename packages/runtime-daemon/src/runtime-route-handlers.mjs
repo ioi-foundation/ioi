@@ -977,6 +977,10 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, store.admitGovernedImprovementProposal(threadId, await readBody(request)), 201);
       return;
     }
+    if (request.method === "POST" && action === "external-capability-exits" && !segments[4]) {
+      writeJsonResponse(response, store.authorizeExternalCapabilityExit(threadId, await readBody(request)), 201);
+      return;
+    }
     if (request.method === "POST" && action === "worker-service-package-invocations" && !segments[4]) {
       writeJsonResponse(response, store.admitWorkerServicePackageInvocation(threadId, await readBody(request)), 201);
       return;

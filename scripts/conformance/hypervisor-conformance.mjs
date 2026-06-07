@@ -783,6 +783,16 @@ function runBridge() {
   )
     ? read("packages/runtime-daemon/src/runtime-external-capability-authority-store.test.mjs")
     : "";
+  const externalCapabilityAuthoritySurface = exists(
+    "packages/runtime-daemon/src/runtime-external-capability-authority-surface.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-surface.mjs")
+    : "";
+  const externalCapabilityAuthoritySurfaceTest = exists(
+    "packages/runtime-daemon/src/runtime-external-capability-authority-surface.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-surface.test.mjs")
+    : "";
   const governedImprovementSurface = exists("packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs")
     : "";
@@ -2394,6 +2404,46 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 9/10 is pending: daemon external capability exit facade must call the Rust authority bridge and fail closed when unconfigured",
+  );
+  assertCheck(
+    result,
+    "external-capability-exit-authority-product-route",
+    /createRuntimeExternalCapabilityAuthoritySurface/.test(runtimeDaemonIndex) &&
+      /this\.externalCapabilityAuthoritySurface/.test(runtimeDaemonIndex) &&
+      /authorizeExternalCapabilityExit\(threadId, request = \{\}\)/.test(runtimeDaemonIndex) &&
+      /this\.externalCapabilityAuthoritySurface\.authorizeExternalCapabilityExit/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /EXTERNAL_CAPABILITY_AUTHORITY_RESPONSE_SCHEMA_VERSION/.test(
+        externalCapabilityAuthoritySurface,
+      ) &&
+      /exit_authorized:\s*true/.test(externalCapabilityAuthoritySurface) &&
+      /direct_truth_write_allowed:\s*false/.test(externalCapabilityAuthoritySurface) &&
+      /store\.externalCapabilityAuthorityRunner\.authorizeExit/.test(
+        externalCapabilityAuthoritySurface,
+      ) &&
+      /external-capability-exits/.test(runtimeRouteHandlers) &&
+      /store\.authorizeExternalCapabilityExit/.test(runtimeRouteHandlers) &&
+      /external capability authority surface authorizes nested request through Rust runner/.test(
+        externalCapabilityAuthoritySurfaceTest,
+      ) &&
+      /external capability authority surface rejects retired aliases before Rust runner/.test(
+        externalCapabilityAuthoritySurfaceTest,
+      ) &&
+      /external capability authority surface fails closed without request payload/.test(
+        externalCapabilityAuthoritySurfaceTest,
+      ) &&
+      /thread route authorizes external capability exits through store facade/.test(
+        runtimeRouteHandlersTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-external-capability-authority-surface.mjs",
+      "packages/runtime-daemon/src/runtime-external-capability-authority-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 9/10 is pending: daemon external capability exit product route must authorize through the Rust authority runner without minting JS truth",
   );
   assertCheck(
     result,

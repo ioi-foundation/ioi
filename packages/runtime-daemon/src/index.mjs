@@ -166,6 +166,7 @@ import { createRuntimeAgentOptionsHelpers } from "./runtime-agent-options.mjs";
 import { createRuntimeAgentgresAdmissionRunnerFromEnv } from "./runtime-agentgres-admission-runner.mjs";
 import { createGovernedImprovementRunnerFromEnv } from "./runtime-governed-improvement-runner.mjs";
 import { createExternalCapabilityAuthorityRunnerFromEnv } from "./runtime-external-capability-authority-runner.mjs";
+import { createRuntimeExternalCapabilityAuthoritySurface } from "./runtime-external-capability-authority-surface.mjs";
 import { createWorkerServicePackageRunnerFromEnv } from "./runtime-worker-service-package-runner.mjs";
 import { createCteePrivateWorkspaceRunnerFromEnv } from "./runtime-ctee-private-workspace-runner.mjs";
 import { createL1SettlementRunnerFromEnv } from "./runtime-l1-settlement-runner.mjs";
@@ -801,6 +802,9 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
     });
     this.governedImprovementSurface = createRuntimeGovernedImprovementSurface({
+      runtimeError,
+    });
+    this.externalCapabilityAuthoritySurface = createRuntimeExternalCapabilityAuthoritySurface({
       runtimeError,
     });
     this.workerServicePackageSurface = createRuntimeWorkerServicePackageSurface({
@@ -1803,6 +1807,10 @@ export class AgentgresRuntimeStateStore {
 
   admitGovernedImprovementProposal(threadId, request = {}) {
     return this.governedImprovementSurface.admitGovernedImprovementProposal(this, threadId, request);
+  }
+
+  authorizeExternalCapabilityExit(threadId, request = {}) {
+    return this.externalCapabilityAuthoritySurface.authorizeExternalCapabilityExit(this, threadId, request);
   }
 
   admitWorkerServicePackageInvocation(threadId, request = {}) {
