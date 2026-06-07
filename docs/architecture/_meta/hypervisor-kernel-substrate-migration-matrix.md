@@ -11429,6 +11429,14 @@ compaction-policy rows now read canonical `context_budget`, `usage_summary`,
 policy payload aliases cannot make old compaction policy records look
 canonical, approval-satisfied, execution-ready, or usage-bound.
 
+Slice 541 retires IDE context-lifecycle budget usage and threshold aliases:
+context-budget rows and shared usage summaries now read canonical
+`usage_summary`, `usage_telemetry`, `total_tokens`, `estimated_cost_usd`,
+`context_pressure`, `max_total_tokens`, `max_cost_usd`, and
+`max_context_pressure` fields only, so retired camelCase budget telemetry and
+threshold aliases cannot make old context budget records look usage-bound or
+threshold-backed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

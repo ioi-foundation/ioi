@@ -161,8 +161,8 @@ function contextBudgetRow(
   payload: Record<string, unknown>,
 ): WorkflowContextLifecycleRow {
   const summary = usageSummary(
-    objectField(payload, "usageSummary", "usage_summary") ||
-      objectField(payload, "usageTelemetry", "usage_telemetry"),
+    objectField(payload, "usage_summary") ||
+      objectField(payload, "usage_telemetry"),
   );
   const thresholds = objectField(payload, "thresholds");
   return baseRow(event, payload, {
@@ -172,9 +172,9 @@ function contextBudgetRow(
     totalTokens: summary.totalTokens,
     estimatedCostUsd: summary.estimatedCostUsd,
     contextPressure: summary.contextPressure,
-    maxTotalTokens: numberField(thresholds, "maxTotalTokens", "max_total_tokens"),
-    maxCostUsd: numberField(thresholds, "maxCostUsd", "max_cost_usd"),
-    maxContextPressure: numberField(thresholds, "maxContextPressure", "max_context_pressure"),
+    maxTotalTokens: numberField(thresholds, "max_total_tokens"),
+    maxCostUsd: numberField(thresholds, "max_cost_usd"),
+    maxContextPressure: numberField(thresholds, "max_context_pressure"),
     violationIds: arrayField(payload, "violations").map(checkId).filter(Boolean),
     warningIds: arrayField(payload, "warnings").map(checkId).filter(Boolean),
     action: null,
@@ -295,9 +295,9 @@ function usageSummary(value: unknown): {
 } {
   const record = objectValue(value);
   return {
-    totalTokens: numberField(record, "totalTokens", "total_tokens"),
-    estimatedCostUsd: numberField(record, "estimatedCostUsd", "estimated_cost_usd"),
-    contextPressure: numberField(record, "contextPressure", "context_pressure"),
+    totalTokens: numberField(record, "total_tokens"),
+    estimatedCostUsd: numberField(record, "estimated_cost_usd"),
+    contextPressure: numberField(record, "context_pressure"),
   };
 }
 

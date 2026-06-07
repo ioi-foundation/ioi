@@ -98,6 +98,81 @@ test("context lifecycle panel ignores retired usage snapshot aliases", () => {
   assert.deepEqual(panel.evidenceRefs, []);
 });
 
+test("context lifecycle panel reads canonical context budget usage and threshold fields", () => {
+  const panel = buildWorkflowContextLifecyclePanel({
+    events: [
+      event("budget-canonical", 1, {
+        componentKind: "context_budget",
+        payload: {
+          summary: "Budget pressure",
+          scope: "thread",
+          status: "blocked",
+          usage_summary: {
+            total_tokens: 6144,
+            estimated_cost_usd: 0.73,
+            context_pressure: 0.88,
+          },
+          thresholds: {
+            max_total_tokens: 6000,
+            max_cost_usd: 0.7,
+            max_context_pressure: 0.8,
+          },
+        },
+      }),
+    ],
+  });
+
+  assert.equal(panel.rows.length, 1);
+  assert.equal(panel.rows[0]?.rowKind, "context_budget");
+  assert.equal(panel.rows[0]?.scope, "thread");
+  assert.equal(panel.rows[0]?.budgetStatus, "blocked");
+  assert.equal(panel.rows[0]?.totalTokens, 6144);
+  assert.equal(panel.rows[0]?.estimatedCostUsd, 0.73);
+  assert.equal(panel.rows[0]?.contextPressure, 0.88);
+  assert.equal(panel.rows[0]?.maxTotalTokens, 6000);
+  assert.equal(panel.rows[0]?.maxCostUsd, 0.7);
+  assert.equal(panel.rows[0]?.maxContextPressure, 0.8);
+});
+
+test("context lifecycle panel ignores retired context budget usage and threshold aliases", () => {
+  const panel = buildWorkflowContextLifecyclePanel({
+    events: [
+      event("budget-retired", 1, {
+        componentKind: "context_budget",
+        payload: {
+          summary: "Retired budget pressure",
+          scope: "thread",
+          status: "blocked",
+          usageSummary: {
+            totalTokens: 6144,
+            estimatedCostUsd: 0.73,
+            contextPressure: 0.88,
+          },
+          usageTelemetry: {
+            totalTokens: 8192,
+            estimatedCostUsd: 0.9,
+            contextPressure: 0.95,
+          },
+          thresholds: {
+            maxTotalTokens: 6000,
+            maxCostUsd: 0.7,
+            maxContextPressure: 0.8,
+          },
+        },
+      }),
+    ],
+  });
+
+  assert.equal(panel.rows.length, 1);
+  assert.equal(panel.rows[0]?.rowKind, "context_budget");
+  assert.equal(panel.rows[0]?.totalTokens, null);
+  assert.equal(panel.rows[0]?.estimatedCostUsd, null);
+  assert.equal(panel.rows[0]?.contextPressure, null);
+  assert.equal(panel.rows[0]?.maxTotalTokens, null);
+  assert.equal(panel.rows[0]?.maxCostUsd, null);
+  assert.equal(panel.rows[0]?.maxContextPressure, null);
+});
+
 test("context lifecycle panel reads canonical compaction policy payload fields", () => {
   const panel = buildWorkflowContextLifecyclePanel({
     events: [

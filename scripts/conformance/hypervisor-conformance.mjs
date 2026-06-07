@@ -20459,6 +20459,59 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-context-lifecycle-budget-aliases-retired",
+    /objectField\(payload,\s*"usage_summary"\)/.test(agentIdeContextLifecyclePanel) &&
+      /objectField\(payload,\s*"usage_telemetry"\)/.test(agentIdeContextLifecyclePanel) &&
+      /numberField\(thresholds,\s*"max_total_tokens"\)/.test(agentIdeContextLifecyclePanel) &&
+      /numberField\(thresholds,\s*"max_cost_usd"\)/.test(agentIdeContextLifecyclePanel) &&
+      /numberField\(thresholds,\s*"max_context_pressure"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      /numberField\(record,\s*"total_tokens"\)/.test(agentIdeContextLifecyclePanel) &&
+      /numberField\(record,\s*"estimated_cost_usd"\)/.test(agentIdeContextLifecyclePanel) &&
+      /numberField\(record,\s*"context_pressure"\)/.test(agentIdeContextLifecyclePanel) &&
+      !/objectField\(payload,\s*"usageSummary",\s*"usage_summary"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/objectField\(payload,\s*"usageTelemetry",\s*"usage_telemetry"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/numberField\(thresholds,\s*"maxTotalTokens",\s*"max_total_tokens"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/numberField\(thresholds,\s*"maxCostUsd",\s*"max_cost_usd"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/numberField\(thresholds,\s*"maxContextPressure",\s*"max_context_pressure"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/numberField\(record,\s*"totalTokens",\s*"total_tokens"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/numberField\(record,\s*"estimatedCostUsd",\s*"estimated_cost_usd"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/numberField\(record,\s*"contextPressure",\s*"context_pressure"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      /context lifecycle panel ignores retired context budget usage and threshold aliases/.test(
+        agentIdeContextLifecyclePanelTest,
+      ) &&
+      /usageSummary: \{/.test(agentIdeContextLifecyclePanelTest) &&
+      /usageTelemetry: \{/.test(agentIdeContextLifecyclePanelTest) &&
+      /maxTotalTokens: 6000/.test(agentIdeContextLifecyclePanelTest) &&
+      /totalTokens: 6144/.test(agentIdeContextLifecyclePanelTest) &&
+      /assert\.equal\(panel\.rows\[0\]\?\.maxContextPressure,\s*null\)/.test(
+        agentIdeContextLifecyclePanelTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE context lifecycle budget rows must ignore retired camelCase usage and threshold aliases",
+  );
+  assertCheck(
+    result,
     "ide-signed-replay-evidence-aliases-retired",
     /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeSignedReplayNotebook) &&
       /arrayField\(event,\s*"artifact_refs"\)/.test(agentIdeSignedReplayNotebook) &&
