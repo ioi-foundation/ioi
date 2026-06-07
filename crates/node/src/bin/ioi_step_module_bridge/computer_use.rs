@@ -14,14 +14,7 @@ pub(super) fn build_computer_use_lease_request(
     let approval_ref = optional_json_string(input, &["approval_ref"]);
     let provider_hint = optional_json_string(
         input,
-        &[
-            "providerId",
-            "provider_id",
-            "providerKind",
-            "provider_kind",
-            "sandboxProvider",
-            "sandbox_provider",
-        ],
+        &["provider_id", "provider_kind", "sandbox_provider"],
     );
     let provider = computer_use_provider_for_lane(&lane, provider_hint.as_deref(), &session_mode);
     let provider_registry = computer_use_provider_registry_report(provider.as_ref());
@@ -82,7 +75,7 @@ pub(super) fn build_computer_use_lease_request(
         thread_tool_input.insert(
             "sandboxProvider".to_string(),
             json!(
-                optional_json_string(input, &["sandboxProvider", "sandbox_provider"])
+                optional_json_string(input, &["sandbox_provider"])
                     .unwrap_or_else(|| "local_fixture".to_string())
             ),
         );

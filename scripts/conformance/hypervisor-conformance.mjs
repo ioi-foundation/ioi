@@ -1629,6 +1629,26 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-request-lease-provider-aliases-retired",
+    /optional_json_string\(\s*input,\s*&\["provider_id",\s*"provider_kind",\s*"sandbox_provider"\]/.test(
+      computerUseBridge,
+    ) &&
+      /optional_json_string\(input,\s*&\["sandbox_provider"\]\)/.test(computerUseBridge) &&
+      !/optional_json_string\(\s*input,\s*&\[\s*"providerId"/.test(computerUseBridge) &&
+      !/optional_json_string\(\s*input,\s*&\[[^\]]*"providerKind"/.test(computerUseBridge) &&
+      !/optional_json_string\(\s*input,\s*&\[[^\]]*"sandboxProvider"/.test(computerUseBridge) &&
+      /computer_use_request_lease_ignores_retired_provider_aliases/.test(bridgeModule) &&
+      /"sandboxProvider": "local_container"/.test(bridgeModule) &&
+      /"providerKind": "local_container"/.test(bridgeModule) &&
+      /"ioi\.computer_use\.sandboxed_hosted\.local_fixture"/.test(bridgeModule),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10/11 is pending: Rust computer-use request-lease provider selection must ignore retired providerId/providerKind/sandboxProvider input aliases so provider choice cannot be steered through compatibility fields",
+  );
+  assertCheck(
+    result,
     "coding-tool-result-router-admission-alias-retired",
     !/\brouterAdmission\s*:/.test(runtimeCodingToolInvocationSurface) &&
       /result\.result\.router_admission\.schema_version/.test(

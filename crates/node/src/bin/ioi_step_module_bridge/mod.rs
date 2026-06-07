@@ -10055,7 +10055,7 @@ mod tests {
                 "prompt": "Open a hosted sandbox.",
                 "lane": "sandboxed_hosted",
                 "sessionMode": "hosted_sandbox",
-                "sandboxProvider": "local_container",
+                "sandbox_provider": "local_container",
                 "action_kind": "inspect"
             }),
         );
@@ -10082,6 +10082,42 @@ mod tests {
             false
         );
         assert_eq!(response["agentgres_admission"], Value::Null);
+    }
+
+    #[test]
+    fn computer_use_request_lease_ignores_retired_provider_aliases() {
+        let request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Try to steer the provider through retired aliases.",
+                "lane": "sandboxed_hosted",
+                "session_mode": "local_sandbox",
+                "sandboxProvider": "local_container",
+                "providerKind": "local_container",
+                "action_kind": "inspect"
+            }),
+        );
+
+        let response =
+            computer_use_request_lease_response(request).expect("lease request response");
+
+        assert_eq!(
+            response["workload_observation"]["result"]["leaseRequest"]["providerId"],
+            "ioi.computer_use.sandboxed_hosted.local_fixture"
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["leaseRequest"]["providerKind"],
+            "local_fixture"
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["threadTool"]["toolName"],
+            "ioi.computer_use.sandboxed_hosted"
+        );
+        assert_eq!(
+            response["workload_observation"]["result"]["threadTool"]["unavailableReason"],
+            Value::Null
+        );
     }
 
     #[test]
