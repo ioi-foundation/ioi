@@ -12102,6 +12102,15 @@ function runReceipts() {
       /RuntimeStatePersistenceRecord/.test(runtimeKernelModule) &&
       /pub fn plan_runtime_state_persistence/.test(runtimeKernelModule) &&
       /materializes_runtime_state_records_in_rust/.test(agentgresAdmissionCore) &&
+      /"primitive_capabilities":\s*\["prim:model\.invoke"\]/.test(agentgresAdmissionCore) &&
+      /"authority_scopes":\s*\[\]/.test(agentgresAdmissionCore) &&
+      /"wallet_layer":\s*"wallet\.network"/.test(agentgresAdmissionCore) &&
+      /record\.records\[7\]\.payload\["receipt_id"\]/.test(agentgresAdmissionCore) &&
+      /record\.records\[8\]\.payload\["wallet_layer"\]/.test(agentgresAdmissionCore) &&
+      !/"primitiveCapabilities":\s*\["prim:model\.invoke"\]/.test(agentgresAdmissionCore) &&
+      !/"authorityScopes":\s*\[\]/.test(agentgresAdmissionCore) &&
+      !/"walletLayer":\s*"wallet\.network"/.test(agentgresAdmissionCore) &&
+      !/record\.records\[7\]\.payload\["receiptId"\]/.test(agentgresAdmissionCore) &&
       /plans_runtime_state_storage_write_set_with_rust_content_hash_and_admissions/.test(agentgresAdmissionCore) &&
       /plans_runtime_state_persistence_with_materialization_and_storage_write_set/.test(agentgresAdmissionCore) &&
       /admit_storage_backend_write/.test(bridgeModule) &&

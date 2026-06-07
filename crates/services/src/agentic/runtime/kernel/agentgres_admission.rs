@@ -654,12 +654,12 @@ impl AgentgresAdmissionCore {
                 safe_agentgres_component(&request.run_id)
             ),
             payload: json!({
-                "runId": &request.run_id,
+                "run_id": &request.run_id,
                 "decision": "allowed",
                 "rationale": "Local daemon run stayed inside bounded local/private runtime contract.",
-                "primitiveCapabilities": ["prim:model.invoke"],
-                "authorityScopes": [],
-                "receiptId": receipt_id_for_kind(&request.run, "policy_decision"),
+                "primitive_capabilities": ["prim:model.invoke"],
+                "authority_scopes": [],
+                "receipt_id": receipt_id_for_kind(&request.run, "policy_decision"),
             }),
             artifact_refs: vec![],
             payload_refs: vec![],
@@ -670,11 +670,11 @@ impl AgentgresAdmissionCore {
                 safe_agentgres_component(&request.run_id)
             ),
             payload: json!({
-                "runId": &request.run_id,
+                "run_id": &request.run_id,
                 "decision": "allowed",
-                "authorityScopes": [],
-                "walletLayer": "wallet.network",
-                "receiptId": receipt_id_for_kind(&request.run, "authority_decision"),
+                "authority_scopes": [],
+                "wallet_layer": "wallet.network",
+                "receipt_id": receipt_id_for_kind(&request.run, "authority_decision"),
             }),
             artifact_refs: vec![],
             payload_refs: vec![],
@@ -3065,13 +3065,65 @@ mod tests {
         assert_eq!(record.records[3].payload["completedItemCount"], json!(6));
         assert_eq!(record.records[6].record_path, "artifacts/artifact_1.json");
         assert_eq!(
-            record.records[7].payload["receiptId"],
+            record.records[7].payload["receipt_id"],
             json!("receipt_policy")
         );
         assert_eq!(
-            record.records[8].payload["walletLayer"],
+            record.records[8].payload["wallet_layer"],
             json!("wallet.network")
         );
+        assert_eq!(record.records[7].payload["run_id"], json!("run_1"));
+        assert_eq!(
+            record.records[7].payload["primitive_capabilities"],
+            json!(["prim:model.invoke"])
+        );
+        assert_eq!(record.records[7].payload["authority_scopes"], json!([]));
+        assert_eq!(record.records[8].payload["run_id"], json!("run_1"));
+        assert_eq!(
+            record.records[8].payload["receipt_id"],
+            json!("receipt_authority")
+        );
+        assert_eq!(record.records[8].payload["authority_scopes"], json!([]));
+        assert!(!record.records[7]
+            .payload
+            .as_object()
+            .unwrap()
+            .contains_key("runId"));
+        assert!(!record.records[7]
+            .payload
+            .as_object()
+            .unwrap()
+            .contains_key("receiptId"));
+        assert!(!record.records[7]
+            .payload
+            .as_object()
+            .unwrap()
+            .contains_key("primitiveCapabilities"));
+        assert!(!record.records[7]
+            .payload
+            .as_object()
+            .unwrap()
+            .contains_key("authorityScopes"));
+        assert!(!record.records[8]
+            .payload
+            .as_object()
+            .unwrap()
+            .contains_key("runId"));
+        assert!(!record.records[8]
+            .payload
+            .as_object()
+            .unwrap()
+            .contains_key("receiptId"));
+        assert!(!record.records[8]
+            .payload
+            .as_object()
+            .unwrap()
+            .contains_key("authorityScopes"));
+        assert!(!record.records[8]
+            .payload
+            .as_object()
+            .unwrap()
+            .contains_key("walletLayer"));
         assert_eq!(
             record.records[13].payload["agentgresTransition"]["transition_hash"],
             json!("sha256:transition")

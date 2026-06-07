@@ -11346,6 +11346,11 @@ reconstruct the active seam without carrying every per-slice paragraph.
   canonical `resulting_head` and `state_root_after`, and runtime artifact/model-
   mount record state commits no longer accept retired `receiptId` payload aliases
   before Rust Agentgres storage-write admission and receipt/state-root binding.
+- Slice 578 retired Rust Agentgres materialized policy/authority decision
+  camelCase payload fields: Rust-written policy and authority decision records now
+  emit canonical `run_id`, `receipt_id`, `primitive_capabilities`,
+  `authority_scopes`, and `wallet_layer` fields instead of JS-shaped decision
+  record aliases before storage-write admission.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
