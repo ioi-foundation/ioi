@@ -37,7 +37,7 @@ export async function createRuntimeBridgeThread(store, { request, options, runti
       status: 500,
       code: "runtime_bridge_thread_start_state_update_planner_unavailable",
       message: "Runtime bridge thread start updates require Rust policy state-update planning.",
-      details: { threadId, runtimeProfile },
+      details: { thread_id: threadId, runtime_profile: runtimeProfile },
     });
   }
   const stateUpdate = contextPolicyRunner.planRuntimeBridgeThreadStartAgentStateUpdate({
@@ -56,14 +56,14 @@ export async function createRuntimeBridgeThread(store, { request, options, runti
       status: 502,
       code: "runtime_bridge_thread_start_state_update_planner_invalid",
       message: "Rust runtime bridge thread start planning did not return an agent record.",
-      details: { threadId, runtimeProfile },
+      details: { thread_id: threadId, runtime_profile: runtimeProfile },
     });
   }
   const operationKind = requiredRuntimeBridgeOperationKind({
     stateUpdate,
     expectedOperationKind: "thread.runtime_bridge.start",
     codePrefix: "runtime_bridge_thread_start_state_update",
-    details: { threadId, runtimeProfile },
+    details: { thread_id: threadId, runtime_profile: runtimeProfile },
     runtimeError: deps.runtimeError,
   });
   store.agents.set(updated.id, updated);
@@ -181,7 +181,7 @@ export async function createRuntimeBridgeTurn(store, { agent, threadId, request,
       status: 500,
       code: "runtime_bridge_turn_run_state_update_planner_unavailable",
       message: "Runtime bridge turn run updates require Rust policy state-update planning.",
-      details: { threadId, runId: runDraft.id },
+      details: { thread_id: threadId, run_id: runDraft.id },
     });
   }
   const stateUpdateProjection = {
@@ -200,14 +200,14 @@ export async function createRuntimeBridgeTurn(store, { agent, threadId, request,
       status: 502,
       code: "runtime_bridge_turn_run_state_update_planner_invalid",
       message: "Rust runtime bridge turn planning did not return a run record.",
-      details: { threadId, runId: runDraft.id },
+      details: { thread_id: threadId, run_id: runDraft.id },
     });
   }
   const operationKind = requiredRuntimeBridgeOperationKind({
     stateUpdate,
     expectedOperationKind: "turn.runtime_bridge.submit",
     codePrefix: "runtime_bridge_turn_run_state_update",
-    details: { threadId, runId: runDraft.id },
+    details: { thread_id: threadId, run_id: runDraft.id },
     runtimeError: deps.runtimeError,
   });
   store.runs.set(run.id, run);
@@ -295,7 +295,7 @@ export function normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadI
       status: 502,
       code: "runtime_bridge_contract",
       message: "RuntimeApiBridge startThread result must include session_id.",
-      details: { runtimeProfile, operation: "start_thread" },
+      details: { runtime_profile: runtimeProfile, operation: "start_thread" },
     });
   }
   const events = normalizeArray(bridgeResult?.events);
@@ -305,7 +305,7 @@ export function normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadI
       status: 502,
       code: "runtime_bridge_contract",
       message: "RuntimeApiBridge startThread result must include a thread.started event.",
-      details: { runtimeProfile, sessionId, operation: "start_thread" },
+      details: { runtime_profile: runtimeProfile, session_id: sessionId, operation: "start_thread" },
     });
   }
   const now = new Date().toISOString();
@@ -346,7 +346,7 @@ export function normalizeRuntimeBridgeTurnSubmit({ bridgeResult, agent, threadId
       status: 502,
       code: "runtime_bridge_contract",
       message: "RuntimeApiBridge submitTurn result must include turn_id.",
-      details: { runtimeProfile: agent.runtimeProfile, operation: "submit_turn" },
+      details: { runtime_profile: agent.runtimeProfile, operation: "submit_turn" },
     });
   }
   const runId = String(bridgeResult?.run_id ?? runIdForTurn(turnId)).trim();
@@ -357,7 +357,7 @@ export function normalizeRuntimeBridgeTurnSubmit({ bridgeResult, agent, threadId
       status: 502,
       code: "runtime_bridge_contract",
       message: "RuntimeApiBridge submitTurn result must include a turn.started event.",
-      details: { runtimeProfile: agent.runtimeProfile, operation: "submit_turn", turnId },
+      details: { runtime_profile: agent.runtimeProfile, operation: "submit_turn", turn_id: turnId },
     });
   }
   const now = new Date().toISOString();

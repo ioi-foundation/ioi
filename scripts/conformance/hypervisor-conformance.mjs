@@ -5083,6 +5083,21 @@ function runBridge() {
       /requiredRuntimeBridgeOperationKind/.test(runtimeBridgeThread) &&
       /stateUpdateProjection\s*=\s*\{\s*run_id:\s*runDraft\.id/.test(runtimeBridgeThread) &&
       /projection:\s*stateUpdateProjection/.test(runtimeBridgeThread) &&
+      /details:\s*\{\s*thread_id:\s*threadId,\s*runtime_profile:\s*runtimeProfile\s*\}/.test(
+        runtimeBridgeThread,
+      ) &&
+      /details:\s*\{\s*thread_id:\s*threadId,\s*run_id:\s*runDraft\.id\s*\}/.test(
+        runtimeBridgeThread,
+      ) &&
+      /details:\s*\{\s*runtime_profile:\s*runtimeProfile,\s*operation:\s*"start_thread"\s*\}/.test(
+        runtimeBridgeThread,
+      ) &&
+      /details:\s*\{\s*runtime_profile:\s*agent\.runtimeProfile,\s*operation:\s*"submit_turn",\s*turn_id:\s*turnId\s*\}/.test(
+        runtimeBridgeThread,
+      ) &&
+      !/details:\s*\{[^}\n]*\b(?:threadId|runId|turnId|sessionId|runtimeProfile|operationKind|expectedOperationKind)\s*:/.test(
+        runtimeBridgeThread,
+      ) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"thread\.runtime_bridge\.start"/.test(
         runtimeBridgeThread,
       ) &&
@@ -5105,6 +5120,13 @@ function runBridge() {
       /runtime bridge turn creation fails closed without Rust-planned operation kind/.test(
         runtimeBridgeThreadTest,
       ) &&
+      /assertNoRetiredRuntimeBridgeErrorDetailAliases\(error\.details\)/.test(
+        runtimeBridgeThreadTest,
+      ) &&
+      /error\.details\.thread_id/.test(runtimeBridgeThreadTest) &&
+      /error\.details\.run_id/.test(runtimeBridgeThreadTest) &&
+      /error\.details\.runtime_profile/.test(runtimeBridgeThreadTest) &&
+      /error\.details\.turn_id/.test(runtimeBridgeThreadTest) &&
       /runtime profile request normalization ignores retired camelCase aliases/.test(
         runtimeApiBridgeTest,
       ) &&

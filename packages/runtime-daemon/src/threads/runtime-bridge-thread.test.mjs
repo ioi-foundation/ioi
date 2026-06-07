@@ -16,6 +16,22 @@ const retiredRuntimeBridgeTurnUsageAliasKeys = [
   "runtimeUsage",
 ];
 
+const retiredRuntimeBridgeErrorDetailAliasKeys = [
+  "threadId",
+  "runId",
+  "turnId",
+  "sessionId",
+  "runtimeProfile",
+  "operationKind",
+  "expectedOperationKind",
+];
+
+function assertNoRetiredRuntimeBridgeErrorDetailAliases(details) {
+  for (const key of retiredRuntimeBridgeErrorDetailAliasKeys) {
+    assert.equal(Object.hasOwn(details, key), false);
+  }
+}
+
 class BridgeUnavailableError extends Error {
   constructor(details = {}) {
     super("bridge unavailable");
@@ -265,7 +281,13 @@ test("runtime bridge thread creation fails closed without Rust-planned agent pro
       options: { local: { cwd: "/workspace" } },
       runtimeProfile: "runtime_service",
     }, deps()),
-    (error) => error.code === "runtime_bridge_thread_start_state_update_planner_invalid",
+    (error) => {
+      assert.equal(error.code, "runtime_bridge_thread_start_state_update_planner_invalid");
+      assert.equal(error.details.thread_id, "thread_agent_runtime");
+      assert.equal(error.details.runtime_profile, "runtime_service");
+      assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
+      return true;
+    },
   );
   assert.equal(
     store.calls.some((call) => call.operation === "write_agent"),
@@ -296,7 +318,10 @@ test("runtime bridge thread creation fails closed without Rust-planned operation
     }, deps()),
     (error) => {
       assert.equal(error.code, "runtime_bridge_thread_start_state_update_operation_kind_missing");
+      assert.equal(error.details.thread_id, "thread_agent_runtime");
+      assert.equal(error.details.runtime_profile, "runtime_service");
       assert.equal(error.details.operation_kind, "thread.runtime_bridge.start");
+      assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
       return true;
     },
   );
@@ -383,7 +408,13 @@ test("runtime bridge turn creation fails closed without Rust-planned run project
       threadId: "thread_agent_runtime",
       request: { prompt: "hello" },
     }, turnDeps()),
-    (error) => error.code === "runtime_bridge_turn_run_state_update_planner_invalid",
+    (error) => {
+      assert.equal(error.code, "runtime_bridge_turn_run_state_update_planner_invalid");
+      assert.equal(error.details.thread_id, "thread_agent_runtime");
+      assert.equal(error.details.run_id, "run_runtime");
+      assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
+      return true;
+    },
   );
   assert.equal(store.calls.some((call) => call.operation === "write_run"), false);
 });
@@ -413,7 +444,10 @@ test("runtime bridge turn creation fails closed without Rust-planned operation k
     }, turnDeps()),
     (error) => {
       assert.equal(error.code, "runtime_bridge_turn_run_state_update_operation_kind_missing");
+      assert.equal(error.details.thread_id, "thread_agent_runtime");
+      assert.equal(error.details.run_id, "run_runtime");
       assert.equal(error.details.operation_kind, "turn.runtime_bridge.submit");
+      assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
       return true;
     },
   );
@@ -566,6 +600,8 @@ test("runtime bridge thread start normalization rejects missing session id", () 
     (error) => {
       assert.equal(error.code, "runtime_bridge_contract");
       assert.equal(error.details.operation, "start_thread");
+      assert.equal(error.details.runtime_profile, "runtime_service");
+      assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
       return true;
     },
   );
@@ -581,7 +617,9 @@ test("runtime bridge thread start normalization rejects missing thread started e
     }, deps()),
     (error) => {
       assert.equal(error.code, "runtime_bridge_contract");
-      assert.equal(error.details.sessionId, "session_runtime");
+      assert.equal(error.details.session_id, "session_runtime");
+      assert.equal(error.details.runtime_profile, "runtime_service");
+      assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
       return true;
     },
   );
@@ -696,6 +734,8 @@ test("runtime bridge turn submit normalization rejects missing turn id", () => {
     (error) => {
       assert.equal(error.code, "runtime_bridge_contract");
       assert.equal(error.details.operation, "submit_turn");
+      assert.equal(error.details.runtime_profile, "runtime_service");
+      assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
       return true;
     },
   );
@@ -711,7 +751,9 @@ test("runtime bridge turn submit normalization rejects missing turn started even
     }, deps()),
     (error) => {
       assert.equal(error.code, "runtime_bridge_contract");
-      assert.equal(error.details.turnId, "turn_runtime");
+      assert.equal(error.details.turn_id, "turn_runtime");
+      assert.equal(error.details.runtime_profile, "runtime_service");
+      assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
       return true;
     },
   );
