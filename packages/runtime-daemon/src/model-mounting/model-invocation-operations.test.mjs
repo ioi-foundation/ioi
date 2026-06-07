@@ -74,9 +74,9 @@ function fakeState(overrides = {}) {
       const sequence = this.receipts.length;
       return {
         sequence,
-        headRef: `agentgres://model-mounting/accepted-receipts/head/${sequence}`,
-        stateRoot: `sha256:state-${sequence}`,
-        projectionWatermark: `model-mounting-accepted-receipts:${sequence}`,
+        head_ref: `agentgres://model-mounting/accepted-receipts/head/${sequence}`,
+        state_root: `sha256:state-${sequence}`,
+        projection_watermark: `model-mounting-accepted-receipts:${sequence}`,
       };
     },
     nextReceiptId(kind) {
@@ -1641,8 +1641,8 @@ test("model invocation Agentgres transition ignores retired camelCase bridge fie
     agentgresModelMountingHead() {
       return {
         sequence: 0,
-        headRef: "agentgres://model-mounting/accepted-receipts/head/0",
-        stateRoot: "sha256:state-0",
+        head_ref: "agentgres://model-mounting/accepted-receipts/head/0",
+        state_root: "sha256:state-0",
       };
     },
     planModelMountAcceptedReceiptTransition() {
@@ -1680,6 +1680,39 @@ test("model invocation Agentgres transition ignores retired camelCase bridge fie
         receiptKind: "model_invocation",
       }),
     /transition\.operation_id/,
+  );
+});
+
+test("model invocation Agentgres transition rejects retired camelCase head fields", () => {
+  const state = {
+    agentgresModelMountingHead() {
+      return {
+        sequence: 0,
+        headRef: "agentgres://model-mounting/accepted-receipts/head/0",
+        stateRoot: "sha256:state-0",
+      };
+    },
+    planModelMountAcceptedReceiptTransition() {
+      throw new Error("transition planner should not be called with retired head fields");
+    },
+  };
+
+  assert.throws(
+    () =>
+      modelMountInvocationAgentgresTransitionForReceipt(state, {
+        admission: {
+          invocation_admission_ref: "model_mount://invocation_admission/test",
+          invocation_admission_hash: "sha256:invocation-test",
+        },
+        admissionRequest: {
+          route_decision_ref: "model_mount://route_decision/test",
+          input_hash: "sha256:input",
+          output_hash: "sha256:output",
+        },
+        receiptId: "receipt.invoke",
+        receiptKind: "model_invocation",
+      }),
+    /agentgresHead\.head_ref/,
   );
 });
 

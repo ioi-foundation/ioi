@@ -10,10 +10,9 @@ worker-contribution, workspace-trust, receipt-gate, policy, workflow-edit,
 diagnostics-repair, L1 settlement control/workflow, and governed-improvement
 proposal identity facade evidence, and model-mount accepted-receipt transition
 bridge-field evidence through slice 651.
-Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule and run the next
-matrix-compaction pass immediately after that seam is concrete, before unrelated
-route-family work resumes.
+Next resume instruction: run the scheduled matrix-compaction pass for the
+verified Slice 652 model-mount accepted-receipt head facade-retirement seam
+before unrelated route-family work resumes.
 
 ## Purpose
 
@@ -46,7 +45,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, workspace restore result output alias retirement, signed replay notebook output alias retirement, signed replay notebook restore/snapshot input alias retirement, signed replay event-kind identity helper, signed replay event-payload alias retirement, worker contribution result-payload alias retirement, worker contribution request/worker alias retirement, workspace trust gate payload alias retirement, IDE receipt gate panel alias retirement, IDE runtime policy/edit-proposal policy alias retirement, IDE workflow edit proposal control alias retirement, IDE diagnostics repair action alias retirement, IDE L1 settlement control attempt/input alias retirement, IDE L1 settlement workflow-logic alias retirement, governed-improvement proposal identity alias retirement, and model-mount accepted-receipt transition bridge-field retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, workspace restore result output alias retirement, signed replay notebook output alias retirement, signed replay notebook restore/snapshot input alias retirement, signed replay event-kind identity helper, signed replay event-payload alias retirement, worker contribution result-payload alias retirement, worker contribution request/worker alias retirement, workspace trust gate payload alias retirement, IDE receipt gate panel alias retirement, IDE runtime policy/edit-proposal policy alias retirement, IDE workflow edit proposal control alias retirement, IDE diagnostics repair action alias retirement, IDE L1 settlement control attempt/input alias retirement, IDE L1 settlement workflow-logic alias retirement, governed-improvement proposal identity alias retirement, and model-mount accepted-receipt transition bridge-field retirement slices clarified the seams; Slice 652 now names the model-mount accepted-receipt head field retirement seam for the next compaction pass, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -75,9 +74,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending until the next implementation
-  slice names and verifies a concrete Rust-core extraction or JS-facade
-  retirement owner boundary.
+- Next scheduled matrix-compaction pass: pending after Slice 652 named and
+  verified the model-mount accepted-receipt head facade-retirement owner
+  boundary.
 - Future-resumption trigger: resume the migration goal by carrying out that next
   Rust-core extraction or facade-retirement slice first. Once the seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13288,6 +13287,75 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 652
+
+```yaml
+slice: 652
+phase: 5-receipt-and-state-root-unification
+objective: retire the model-mount accepted-receipt head bridge-field
+  compatibility shape so transition planning consumes canonical snake_case Rust
+  Agentgres head fields only
+owner_boundary:
+  route_or_surface: Hypervisor Daemon model-mount accepted-receipt head to
+    accepted-receipt transition handoff
+  authority_gate: unchanged; model invocation receipt persistence still requires
+    Rust accepted-receipt head planning followed by Rust transition planning and
+    receipt binding
+  execution_backend: unchanged; the Rust model-mount admission runner still
+    invokes the accepted-receipt head command before transition planning
+  truth_path: current head refs and state roots must come from canonical
+    snake_case Rust head fields; retired `headRef` and `stateRoot` bridge
+    outputs can no longer seed transition planning
+  projection_path: receipts conformance rejects reintroducing camelCase
+    accepted-receipt head reader/output fields and requires a focused
+    fail-closed test before transition planning
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon_facade:
+    - packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs
+    - packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs
+  tests:
+    - packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs
+    - packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs
+    - packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs
+    - packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs
+    - packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts conformance requires the accepted-receipt head normalizer to emit
+    canonical `head_ref`, `state_root`, `projection_watermark`, `head_hash`, and
+    `evidence_refs`
+  - receipts conformance requires transition planning to read
+    `currentHead.head_ref` and `currentHead.state_root`
+  - receipts conformance rejects `headRef`, `stateRoot`, `projectionWatermark`,
+    and `headHash` bridge-output fields in the accepted-receipt head normalizer
+  - focused model invocation test proves camelCase-only head output fails closed
+    before transition planning is called
+verification:
+  commands:
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs
+    - node --test packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs
+    - npm run hypervisor-conformance:receipts
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this
+      accepted-receipt head facade cleanup
+    - public model-mount read projections still expose their established
+      product/UI fields until those projection contracts are migrated separately
+    - scheduled matrix-compaction pass is now pending for this concrete
+      receipt/state-root facade-retirement seam before unrelated route-family
+      work resumes
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13303,7 +13371,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 651 and the eighty-seventh 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 652 and the eighty-seventh 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

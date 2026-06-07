@@ -12953,6 +12953,25 @@ function runReceipts() {
       /ModelMountAcceptedReceiptHeadRequest/.test(bridgeModule) &&
       /plan_accepted_receipt_head/.test(modelMountCore) &&
       /MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION/.test(modelMountCore) &&
+      /head_ref:\s*result\.head_ref \?\? head\.head_ref/.test(modelMountAdmissionRunner) &&
+      /state_root:\s*result\.state_root \?\? head\.state_root/.test(modelMountAdmissionRunner) &&
+      /Object\.hasOwn\(result,\s*"headRef"\),\s*false/.test(modelMountAdmissionRunnerTest) &&
+      /model invocation Agentgres transition rejects retired camelCase head fields/.test(
+        modelInvocationOpsTest,
+      ) &&
+      /current_head_ref:\s*currentHead\.head_ref/.test(modelInvocationOps) &&
+      /current_state_root:\s*currentHead\.state_root/.test(modelInvocationOps) &&
+      !/current_head_ref:\s*currentHead\.headRef/.test(modelInvocationOps) &&
+      !/current_state_root:\s*currentHead\.stateRoot/.test(modelInvocationOps) &&
+      !/\b(?:headRef|stateRoot|projectionWatermark|headHash):\s*result\./.test(
+        modelMountAdmissionRunner,
+      ) &&
+      /head_ref:\s*requiredStringRef\("agentgresHead\.head_ref"/.test(
+        modelInvocationOps,
+      ) &&
+      /state_root:\s*hashRef\(value\?\.state_root,\s*"agentgresHead\.state_root"\)/.test(
+        modelInvocationOps,
+      ) &&
       /plan_model_mount_accepted_receipt_transition/.test(bridgeModule) &&
       /accepted_receipt_transition:\s*Option<ModelMountAcceptedReceiptTransition>/.test(bridgeModule) &&
       /model_mount_caller_supplied_expected_heads/.test(modelMountInvocationReceiptBridgeBlock) &&

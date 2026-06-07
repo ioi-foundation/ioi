@@ -856,8 +856,8 @@ export function modelMountInvocationAgentgresTransitionForReceipt(
   const transition = state.planModelMountAcceptedReceiptTransition({
     schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
     current_sequence: currentHead.sequence,
-    current_head_ref: currentHead.headRef,
-    current_state_root: currentHead.stateRoot,
+    current_head_ref: currentHead.head_ref,
+    current_state_root: currentHead.state_root,
     receipt_id: requiredStringRef("receiptId", receiptId),
     receipt_kind: requiredStringRef("receiptKind", receiptKind),
     route_decision_ref: admissionRequest?.route_decision_ref ?? null,
@@ -1150,8 +1150,8 @@ function normalizeAgentgresHead(value) {
   }
   return {
     sequence,
-    headRef: requiredStringRef("agentgresHead.headRef", value?.headRef),
-    stateRoot: hashRef(value?.stateRoot, "agentgresHead.stateRoot"),
+    head_ref: requiredStringRef("agentgresHead.head_ref", value?.head_ref),
+    state_root: hashRef(value?.state_root, "agentgresHead.state_root"),
   };
 }
 

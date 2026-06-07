@@ -26,9 +26,9 @@ function fakeState() {
       const sequence = this.receipts.length;
       return {
         sequence,
-        headRef: `agentgres://model-mounting/accepted-receipts/head/${sequence}`,
-        stateRoot: `sha256:state-${sequence}`,
-        projectionWatermark: `model-mounting-accepted-receipts:${sequence}`,
+        head_ref: `agentgres://model-mounting/accepted-receipts/head/${sequence}`,
+        state_root: `sha256:state-${sequence}`,
+        projection_watermark: `model-mounting-accepted-receipts:${sequence}`,
       };
     },
     nextReceiptId(kind) {
@@ -69,15 +69,15 @@ function fakeState() {
           transition_hash: `sha256:transition-${nextSequence}`,
           evidence_refs: ["rust_model_mount_accepted_receipt_transition"],
         },
-        operationId,
-        operationRef: `agentgres://model-mounting/accepted-receipts/${operationId}`,
-        expectedHeads: [request.current_head_ref],
-        stateRootBefore: request.current_state_root,
-        stateRootAfter: `sha256:state-${nextSequence}`,
-        resultingHead: `agentgres://model-mounting/accepted-receipts/head/${nextSequence}`,
-        projectionWatermark: `model-mounting-accepted-receipts:${nextSequence}`,
-        transitionHash: `sha256:transition-${nextSequence}`,
-        evidenceRefs: ["rust_model_mount_accepted_receipt_transition"],
+        operation_id: operationId,
+        operation_ref: `agentgres://model-mounting/accepted-receipts/${operationId}`,
+        expected_heads: [request.current_head_ref],
+        state_root_before: request.current_state_root,
+        state_root_after: `sha256:state-${nextSequence}`,
+        resulting_head: `agentgres://model-mounting/accepted-receipts/head/${nextSequence}`,
+        projection_watermark: `model-mounting-accepted-receipts:${nextSequence}`,
+        transition_hash: `sha256:transition-${nextSequence}`,
+        evidence_refs: ["rust_model_mount_accepted_receipt_transition"],
       };
     },
     bindModelMountInvocationReceipt(request) {

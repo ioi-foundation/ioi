@@ -976,10 +976,12 @@ test("Rust model_mount admission runner sends accepted receipt head plan request
   assert.equal(calls[0].request.backend, "rust_model_mount_accepted_receipt_head");
   assert.equal(calls[0].request.request.sequence, 2);
   assert.equal(result.sequence, 2);
-  assert.equal(result.headRef, "agentgres://model-mounting/accepted-receipts/head/2");
-  assert.equal(result.stateRoot, "sha256:state-2");
-  assert.equal(result.projectionWatermark, "model-mounting-accepted-receipts:2");
-  assert.equal(result.headHash, "sha256:head");
+  assert.equal(result.head_ref, "agentgres://model-mounting/accepted-receipts/head/2");
+  assert.equal(result.state_root, "sha256:state-2");
+  assert.equal(result.projection_watermark, "model-mounting-accepted-receipts:2");
+  assert.equal(result.head_hash, "sha256:head");
+  assert.equal(Object.hasOwn(result, "headRef"), false);
+  assert.equal(Object.hasOwn(result, "stateRoot"), false);
 });
 
 test("Rust model_mount admission runner reads the generic admission command env", () => {

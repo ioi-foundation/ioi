@@ -450,11 +450,11 @@ function normalizeAcceptedReceiptHeadBridgeResult(value = {}) {
     backend: result.backend ?? RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_BACKEND,
     head,
     sequence: result.sequence ?? head.sequence ?? null,
-    headRef: result.head_ref ?? head.head_ref ?? null,
-    stateRoot: result.state_root ?? head.state_root ?? null,
-    projectionWatermark: result.projection_watermark ?? head.projection_watermark ?? null,
-    headHash: result.head_hash ?? head.head_hash ?? null,
-    evidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : head.evidence_refs ?? [],
+    head_ref: result.head_ref ?? head.head_ref ?? null,
+    state_root: result.state_root ?? head.state_root ?? null,
+    projection_watermark: result.projection_watermark ?? head.projection_watermark ?? null,
+    head_hash: result.head_hash ?? head.head_hash ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : head.evidence_refs ?? [],
   };
 }
 

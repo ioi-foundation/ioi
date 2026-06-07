@@ -100,11 +100,11 @@ test("accepted receipt head planning is delegated to Rust model_mount", () => {
         calls.push(request);
         return {
           sequence: request.sequence,
-          headRef: `agentgres://model-mounting/accepted-receipts/head/${request.sequence}`,
-          stateRoot: `sha256:rust-head-${request.sequence}`,
-          projectionWatermark: `model-mounting-accepted-receipts:${request.sequence}`,
-          headHash: `sha256:head-${request.sequence}`,
-          evidenceRefs: ["rust_model_mount_accepted_receipt_head"],
+          head_ref: `agentgres://model-mounting/accepted-receipts/head/${request.sequence}`,
+          state_root: `sha256:rust-head-${request.sequence}`,
+          projection_watermark: `model-mounting-accepted-receipts:${request.sequence}`,
+          head_hash: `sha256:head-${request.sequence}`,
+          evidence_refs: ["rust_model_mount_accepted_receipt_head"],
         };
       },
     },
@@ -117,10 +117,10 @@ test("accepted receipt head planning is delegated to Rust model_mount", () => {
     assert.equal(calls[0].schema_version, "ioi.model_mount.accepted_receipt_head.v1");
     assert.equal(calls[0].sequence, 0);
     assert.equal(head.sequence, 0);
-    assert.equal(head.headRef, "agentgres://model-mounting/accepted-receipts/head/0");
-    assert.equal(head.stateRoot, "sha256:rust-head-0");
-    assert.equal(head.projectionWatermark, "model-mounting-accepted-receipts:0");
-    assert.equal(head.headHash, "sha256:head-0");
+    assert.equal(head.head_ref, "agentgres://model-mounting/accepted-receipts/head/0");
+    assert.equal(head.state_root, "sha256:rust-head-0");
+    assert.equal(head.projection_watermark, "model-mounting-accepted-receipts:0");
+    assert.equal(head.head_hash, "sha256:head-0");
   } finally {
     state.close();
   }
