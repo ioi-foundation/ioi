@@ -1058,6 +1058,9 @@ function runBridge() {
   const threadRuntimeControlsTest = exists("packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs")
     : "";
+  const modelRouteSelection = exists("packages/runtime-daemon/src/threads/model-route-selection.mjs")
+    ? read("packages/runtime-daemon/src/threads/model-route-selection.mjs")
+    : "";
   const modelRouteSelectionTest = exists("packages/runtime-daemon/src/threads/model-route-selection.test.mjs")
     ? read("packages/runtime-daemon/src/threads/model-route-selection.test.mjs")
     : "";
@@ -6180,6 +6183,33 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/model-route-selection.test.mjs",
     ],
     "Phase 3/10 is pending: runtime run assembly must consume canonical route-decision fields without retired camelCase route/model fallbacks",
+  );
+  assertCheck(
+    result,
+    "runtime-model-route-selection-request-aliases-retired",
+    /const requestedModel = model\.id \?\? model\.model \?\? "auto"/.test(modelRouteSelection) &&
+      /const routeId = model\.route_id \?\? model\.route \?\? options\.route_id \?\? "route\.local-first"/.test(
+        modelRouteSelection,
+      ) &&
+      !/model\.modelId/.test(modelRouteSelection) &&
+      !/model\.routeId/.test(modelRouteSelection) &&
+      !/options\.routeId/.test(modelRouteSelection) &&
+      /model route selection ignores retired request aliases/.test(modelRouteSelectionTest) &&
+      /model route selection defaults when only retired request aliases are supplied/.test(
+        modelRouteSelectionTest,
+      ) &&
+      /modelId:\s*"retired-model"/.test(modelRouteSelectionTest) &&
+      /routeId:\s*"route\.retired-model"/.test(modelRouteSelectionTest) &&
+      /routeId:\s*"route\.retired-option"/.test(modelRouteSelectionTest) &&
+      /assert\.equal\(calls\[0\]\[1\]\.modelId,\s*"auto"\)/.test(modelRouteSelectionTest) &&
+      /assert\.equal\(calls\[0\]\[1\]\.routeId,\s*"route\.local-first"\)/.test(
+        modelRouteSelectionTest,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/model-route-selection.mjs",
+      "packages/runtime-daemon/src/threads/model-route-selection.test.mjs",
+    ],
+    "Phase 3/10 is pending: runtime model-route selection requests must ignore retired camelCase model/route aliases before route selection",
   );
   assertCheck(
     result,

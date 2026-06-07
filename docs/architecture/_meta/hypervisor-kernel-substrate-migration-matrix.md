@@ -13233,6 +13233,12 @@ runtime-bridge thread-start normalization now consumes canonical bridge result
 `bridgeId`, and `updatedAt` inputs can no longer steer daemon projection before
 Rust-planned agent persistence.
 
+Slice 507 retires runtime model-route selection request aliases:
+runtime model-route selection now consumes canonical `model.id`, `model.model`,
+`model.route_id`, `model.route`, and `options.route_id` request fields only;
+retired `model.modelId`, `model.routeId`, and `options.routeId` inputs can no
+longer steer route selection before Rust-owned model-route receipt binding.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

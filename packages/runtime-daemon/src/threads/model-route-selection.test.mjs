@@ -49,7 +49,7 @@ test("model route selection resolves explicit model route with workflow context"
     {
       model: {
         id: "qwen-local",
-        routeId: "route.local-first",
+        route_id: "route.local-first",
         reasoningEffort: "medium",
       },
     },
@@ -70,6 +70,80 @@ test("model route selection resolves explicit model route with workflow context"
   assert.equal(route.endpointId, "endpoint-local");
   assert.equal(route.providerId, "provider-local");
   assert.equal(route.receiptId, "receipt-direct");
+});
+
+test("model route selection ignores retired request aliases", () => {
+  const calls = [];
+  const helper = createModelRouteSelection({
+    normalizeArray: (value) => (Array.isArray(value) ? value : []),
+    modelMounting: {
+      selectRoute(input) {
+        calls.push(["selectRoute", input]);
+        return {
+          route: { id: input.routeId },
+          endpoint: { id: "endpoint-local", modelId: input.modelId },
+          provider: { id: "provider-local" },
+        };
+      },
+      routeSelectionReceipt(selection, context) {
+        calls.push(["routeSelectionReceipt", context]);
+        return routeReceipt({ id: "receipt-direct", selection, ...context });
+      },
+    },
+  });
+
+  const route = helper.resolveModelRoute({
+    routeId: "route.retired-option",
+    route_id: "route.local-first",
+    model: {
+      id: "qwen-local",
+      modelId: "retired-model",
+      routeId: "route.retired-model",
+    },
+  });
+
+  assert.equal(calls[0][1].modelId, "qwen-local");
+  assert.equal(calls[0][1].routeId, "route.local-first");
+  assert.equal(calls[1][1].body.model, "qwen-local");
+  assert.equal(calls[1][1].body.route_id, "route.local-first");
+  assert.equal(route.requestedModelId, "qwen-local");
+  assert.equal(route.routeId, "route.local-first");
+});
+
+test("model route selection defaults when only retired request aliases are supplied", () => {
+  const calls = [];
+  const helper = createModelRouteSelection({
+    normalizeArray: (value) => (Array.isArray(value) ? value : []),
+    modelMounting: {
+      selectRoute(input) {
+        calls.push(["selectRoute", input]);
+        return {
+          route: { id: input.routeId },
+          endpoint: { id: "endpoint-local", modelId: input.modelId },
+          provider: { id: "provider-local" },
+        };
+      },
+      routeSelectionReceipt(selection, context) {
+        calls.push(["routeSelectionReceipt", context]);
+        return routeReceipt({ id: "receipt-direct", selection, ...context });
+      },
+    },
+  });
+
+  const route = helper.resolveModelRoute({
+    routeId: "route.retired-option",
+    model: {
+      modelId: "retired-model",
+      routeId: "route.retired-model",
+    },
+  });
+
+  assert.equal(calls[0][1].modelId, "auto");
+  assert.equal(calls[0][1].routeId, "route.local-first");
+  assert.equal(calls[1][1].body.model, "auto");
+  assert.equal(calls[1][1].body.route_id, "route.local-first");
+  assert.equal(route.requestedModelId, "auto");
+  assert.equal(route.routeId, "route.local-first");
 });
 
 test("model route selection falls back to local-first route with merged candidate evidence", () => {

@@ -53,8 +53,8 @@ export function createModelRouteSelection({ modelMounting, normalizeArray }) {
 
   function resolveModelRoute(options = {}, context = {}) {
     const model = options.model ?? {};
-    const requestedModel = model.id ?? model.model ?? model.modelId ?? "auto";
-    const routeId = model.routeId ?? model.route_id ?? model.route ?? options.routeId ?? options.route_id ?? "route.local-first";
+    const requestedModel = model.id ?? model.model ?? "auto";
+    const routeId = model.route_id ?? model.route ?? options.route_id ?? "route.local-first";
     const capability = model.capability ?? options.capability ?? "chat";
     const policy = modelPolicyForOptions(options);
     const workflow = modelWorkflowContext({ model, options, context });
