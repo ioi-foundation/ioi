@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after Rust Agentgres materialized policy/authority decision payload alias retirement slice 578 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after Rust Agentgres subagent identity alias retirement slice 579 clarified the active seam.
 
 ## Purpose
 
@@ -38,7 +38,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, and Rust Agentgres state-commit receipt/head/root/materialization alias facade-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, and Rust Agentgres state-commit receipt/head/root/materialization/identity alias facade-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -154,6 +154,12 @@ Matrix compaction timing:
   terminal blockers, bridge-scaffolding guardrail, current sprint lane, and the
   distinction between canonical Rust-written storage records and remaining
   terminal Rust daemon-core extraction work.
+- Fourteenth scheduled pass completed on 2026-06-07: the Rust Agentgres subagent
+  identity alias evidence after slice 579 was compacted into the route-family
+  range while preserving the live owner map, terminal blockers,
+  bridge-scaffolding guardrail, current sprint lane, and the distinction between
+  canonical Rust storage admission identity fields and remaining terminal Rust
+  daemon-core extraction work.
 
 ## Implementation Slice 0
 
@@ -11231,7 +11237,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 578 and the thirteenth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 579 and the fourteenth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -11340,7 +11346,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-578 retired SDK runtime usage record aliases and Rust Agentgres
+- Slices 572-579 retired SDK runtime usage record aliases and Rust Agentgres
   state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -11355,10 +11361,8 @@ reconstruct the active seam without carrying every per-slice paragraph.
   Rust-written policy and authority decision records now emit canonical `run_id`,
   `receipt_id`, `primitive_capabilities`, `authority_scopes`, and `wallet_layer`
   fields instead of JS-shaped decision record aliases before storage-write
-  admission.
-- Slice 579 retired the Rust Agentgres subagent `subagentId` identity fallback:
-  runtime subagent state commits now validate only canonical `subagent_id`, and
-  retired `subagentId` payload aliases cannot satisfy storage-write admission.
+  admission, and runtime subagent state commits now validate only canonical
+  `subagent_id` rather than retired `subagentId` payload aliases.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
