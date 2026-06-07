@@ -336,12 +336,12 @@ export function revokeCatalogProviderOAuth(state, providerId, deps = {}) {
   return { oauthSession: publicOAuthSession(revoked), receiptId: receipt.id };
 }
 
-function commitCatalogProviderOAuthConfigState(state, providerId, record, receipt, operationKind) {
+function commitCatalogProviderOAuthConfigState(state, providerId, record, receipt, operation_kind) {
   commitModelMountRecordState(state, {
     recordDir: "model-catalog-providers",
     record: { ...record, receiptId: receipt.id },
-    operationKind,
-    receiptRefs: [receipt.id],
+    operation_kind,
+    receipt_refs: [receipt.id],
     unconfiguredCode: "model_mount_catalog_provider_oauth_state_commit_unconfigured",
     unconfiguredMessage:
       "Catalog provider OAuth configuration persistence requires Rust Agentgres record-state commit.",

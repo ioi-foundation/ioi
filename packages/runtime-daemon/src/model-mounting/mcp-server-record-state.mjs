@@ -1,11 +1,11 @@
 import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
-export function commitMcpServerRecordState(state, record, operationKind, receiptRefs = []) {
+export function commitMcpServerRecordState(state, record, operation_kind, receipt_refs = []) {
   return commitModelMountRecordState(state, {
     recordDir: "mcp-servers",
     record,
-    operationKind,
-    receiptRefs,
+    operation_kind,
+    receipt_refs,
     unconfiguredCode: "model_mount_mcp_server_state_commit_unconfigured",
     unconfiguredMessage:
       "MCP server persistence requires Rust Agentgres record-state commit.",

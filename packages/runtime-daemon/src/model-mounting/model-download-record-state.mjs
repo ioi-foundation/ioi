@@ -1,11 +1,11 @@
 import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
-export function commitModelDownloadRecordState(state, record, operationKind, receiptRefs = []) {
+export function commitModelDownloadRecordState(state, record, operation_kind, receipt_refs = []) {
   return commitModelMountRecordState(state, {
     recordDir: "model-downloads",
     record,
-    operationKind,
-    receiptRefs,
+    operation_kind,
+    receipt_refs,
     unconfiguredCode: "model_mount_download_state_commit_unconfigured",
     unconfiguredMessage:
       "Model download lifecycle persistence requires Rust Agentgres record-state commit.",

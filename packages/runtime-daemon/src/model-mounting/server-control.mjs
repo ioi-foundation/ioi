@@ -71,8 +71,8 @@ export function writeServerControlState(state, controlState) {
   commitModelMountRecordState(state, {
     recordDir: "server-control",
     record,
-    operationKind: "model_mount.server_control.write",
-    receiptRefs: [record.receiptId],
+    operation_kind: "model_mount.server_control.write",
+    receipt_refs: [record.receiptId],
     unconfiguredCode: "model_mount_server_control_state_commit_unconfigured",
     unconfiguredMessage:
       "Model-mount server-control persistence requires Rust Agentgres record-state commit.",

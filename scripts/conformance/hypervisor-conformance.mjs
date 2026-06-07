@@ -10613,6 +10613,14 @@ function runReceipts() {
       /runtime Agentgres runner sends runtime model-mount record-state commit bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
+      !/\b(?:operationKind|receiptRefs)\b/.test(
+        read("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs"),
+      ) &&
+      /operation_kind/.test(read("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs")) &&
+      /receipt_refs/.test(read("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs")) &&
+      /model-mount record-state commit ignores retired option aliases before Rust admission/.test(
+        read("packages/runtime-daemon/src/model-mounting/record-state-commits.test.mjs"),
+      ) &&
       /commitRuntimeModelMountRecordState: \(request\) => this\.commitRuntimeModelMountRecordState\(request\)/.test(
         runtimeDaemonIndex,
       ) &&
@@ -10658,6 +10666,8 @@ function runReceipts() {
       "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
+      "packages/runtime-daemon/src/model-mounting/record-state-commits.test.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",

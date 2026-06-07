@@ -208,12 +208,12 @@ export function removeRuntimeEngineOverride(state, engineId, deps = {}) {
   };
 }
 
-function commitRuntimeEngineRecordState(state, recordDir, record, operationKind) {
+function commitRuntimeEngineRecordState(state, recordDir, record, operation_kind) {
   return commitModelMountRecordState(state, {
     recordDir,
     record,
-    operationKind,
-    receiptRefs: [record.receiptId],
+    operation_kind,
+    receipt_refs: [record.receiptId],
     unconfiguredCode: "runtime_engine_record_state_commit_unconfigured",
     unconfiguredMessage:
       "Runtime engine state persistence requires Rust Agentgres model-mount record-state commit.",

@@ -1,11 +1,11 @@
 import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
-export function commitConversationRecordState(state, record, operationKind, receiptRefs = []) {
+export function commitConversationRecordState(state, record, operation_kind, receipt_refs = []) {
   return commitModelMountRecordState(state, {
     recordDir: "model-conversations",
     record,
-    operationKind,
-    receiptRefs,
+    operation_kind,
+    receipt_refs,
     unconfiguredCode: "model_mount_conversation_state_commit_unconfigured",
     unconfiguredMessage:
       "Model conversation state persistence requires Rust Agentgres record-state commit.",

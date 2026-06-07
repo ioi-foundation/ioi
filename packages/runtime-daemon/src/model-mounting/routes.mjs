@@ -365,14 +365,14 @@ export function persistModelRouteSelectionState(
   routeRecord,
   selectedModel,
   receiptId,
-  operationKind = "model_mount.route.selection_update",
+  operation_kind = "model_mount.route.selection_update",
 ) {
   const route = {
     ...routeRecord,
     lastSelectedModel: selectedModel,
     lastReceiptId: receiptId,
   };
-  commitModelRouteRecordState(state, route, operationKind, [receiptId]);
+  commitModelRouteRecordState(state, route, operation_kind, [receiptId]);
   state.routes.set(route.id, route);
   return route;
 }
@@ -469,12 +469,12 @@ function modelRouteRecordStateReceipt(state, route, operation, { summary, eviden
   });
 }
 
-function commitModelRouteRecordState(state, record, operationKind, receiptRefs) {
+function commitModelRouteRecordState(state, record, operation_kind, receipt_refs) {
   return commitModelMountRecordState(state, {
     recordDir: "model-routes",
     record,
-    operationKind,
-    receiptRefs,
+    operation_kind,
+    receipt_refs,
     unconfiguredCode: "model_mount_route_state_commit_unconfigured",
     unconfiguredMessage: "Model route persistence requires Rust Agentgres record-state commit.",
     unconfiguredDetails: {

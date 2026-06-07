@@ -1,11 +1,11 @@
 import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
-export function commitModelInstanceRecordState(state, record, operationKind, receiptRefs = []) {
+export function commitModelInstanceRecordState(state, record, operation_kind, receipt_refs = []) {
   return commitModelMountRecordState(state, {
     recordDir: "model-instances",
     record,
-    operationKind,
-    receiptRefs,
+    operation_kind,
+    receipt_refs,
     unconfiguredCode: "model_mount_instance_state_commit_unconfigured",
     unconfiguredMessage:
       "Model instance lifecycle persistence requires Rust Agentgres record-state commit.",

@@ -72,12 +72,12 @@ export function writeModelMountingVaultRefs(state) {
   state.vaultRefs = new Map(records.map((record) => [record.id, record]));
 }
 
-function commitVaultRefRecordState(state, record, operationKind, receiptRefs) {
+function commitVaultRefRecordState(state, record, operation_kind, receipt_refs) {
   return commitModelMountRecordState(state, {
     recordDir: "vault-refs",
     record,
-    operationKind,
-    receiptRefs,
+    operation_kind,
+    receipt_refs,
     unconfiguredCode: "model_mount_vault_ref_state_commit_unconfigured",
     unconfiguredMessage:
       "Vault ref metadata persistence requires Rust Agentgres record-state commit.",

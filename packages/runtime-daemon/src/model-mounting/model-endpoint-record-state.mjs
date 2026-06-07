@@ -1,11 +1,11 @@
 import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
-export function commitModelEndpointRecordState(state, record, operationKind, receiptRefs = []) {
+export function commitModelEndpointRecordState(state, record, operation_kind, receipt_refs = []) {
   return commitModelMountRecordState(state, {
     recordDir: "model-endpoints",
     record,
-    operationKind,
-    receiptRefs,
+    operation_kind,
+    receipt_refs,
     unconfiguredCode: "model_mount_endpoint_state_commit_unconfigured",
     unconfiguredMessage:
       "Model endpoint persistence requires Rust Agentgres record-state commit.",

@@ -376,12 +376,12 @@ export function backendLogs(state, backendId, deps = {}) {
   return resolved;
 }
 
-function commitBackendProcessRecordState(state, record, operationKind, receiptRefs) {
+function commitBackendProcessRecordState(state, record, operation_kind, receipt_refs) {
   return commitModelMountRecordState(state, {
     recordDir: "backend-processes",
     record,
-    operationKind,
-    receiptRefs,
+    operation_kind,
+    receipt_refs,
     unconfiguredCode: "model_mount_backend_process_state_commit_unconfigured",
     unconfiguredMessage:
       "Model backend process persistence requires Rust Agentgres record-state commit.",
@@ -392,12 +392,12 @@ function commitBackendProcessRecordState(state, record, operationKind, receiptRe
   });
 }
 
-function commitBackendRecordState(state, record, operationKind, receiptRefs) {
+function commitBackendRecordState(state, record, operation_kind, receipt_refs) {
   return commitModelMountRecordState(state, {
     recordDir: "model-backends",
     record,
-    operationKind,
-    receiptRefs,
+    operation_kind,
+    receipt_refs,
     unconfiguredCode: "model_mount_backend_state_commit_unconfigured",
     unconfiguredMessage:
       "Model backend persistence requires Rust Agentgres record-state commit.",

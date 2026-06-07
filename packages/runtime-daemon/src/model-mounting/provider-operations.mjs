@@ -253,8 +253,8 @@ function commitProviderHealthStateRecord(state, record) {
   return commitModelMountRecordState(state, {
     recordDir: "provider-health",
     record,
-    operationKind: "model_mount.provider_health.write",
-    receiptRefs: [record.receiptId],
+    operation_kind: "model_mount.provider_health.write",
+    receipt_refs: [record.receiptId],
     unconfiguredCode: "model_mount_provider_health_state_commit_unconfigured",
     unconfiguredMessage:
       "Model-mount provider health persistence requires Rust Agentgres record-state commit.",
@@ -264,12 +264,12 @@ function commitProviderHealthStateRecord(state, record) {
   });
 }
 
-function commitProviderRecordState(state, record, operationKind, receiptRefs) {
+function commitProviderRecordState(state, record, operation_kind, receipt_refs) {
   return commitModelMountRecordState(state, {
     recordDir: "model-providers",
     record,
-    operationKind,
-    receiptRefs,
+    operation_kind,
+    receipt_refs,
     unconfiguredCode: "model_mount_provider_state_commit_unconfigured",
     unconfiguredMessage:
       "Model provider persistence requires Rust Agentgres record-state commit.",

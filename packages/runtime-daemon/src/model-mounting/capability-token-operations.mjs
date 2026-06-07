@@ -124,12 +124,12 @@ export function authorize(state, authorization, requiredScope, deps = {}) {
   return authorized;
 }
 
-function commitCapabilityTokenRecordState(state, record, operationKind, receiptRefs) {
+function commitCapabilityTokenRecordState(state, record, operation_kind, receipt_refs) {
   return commitModelMountRecordState(state, {
     recordDir: "tokens",
     record,
-    operationKind,
-    receiptRefs,
+    operation_kind,
+    receipt_refs,
     unconfiguredCode: "model_mount_capability_token_state_commit_unconfigured",
     unconfiguredMessage:
       "Model-mount capability token persistence requires Rust Agentgres record-state commit.",

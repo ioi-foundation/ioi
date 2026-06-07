@@ -72,8 +72,8 @@ export function configureCatalogProvider(state, providerId, body = {}, deps = {}
   commitModelMountRecordState(state, {
     recordDir: "model-catalog-providers",
     record: { ...record, receiptId: receipt.id },
-    operationKind: "model_mount.catalog_provider_configuration.write",
-    receiptRefs: [receipt.id],
+    operation_kind: "model_mount.catalog_provider_configuration.write",
+    receipt_refs: [receipt.id],
     unconfiguredCode: "model_mount_catalog_provider_configuration_state_commit_unconfigured",
     unconfiguredMessage:
       "Catalog provider configuration persistence requires Rust Agentgres record-state commit.",

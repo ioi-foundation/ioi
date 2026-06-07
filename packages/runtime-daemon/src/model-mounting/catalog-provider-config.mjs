@@ -337,8 +337,8 @@ export async function catalogProviderAuthHeaders(providerId, state) {
         commitModelMountRecordState(state, {
           recordDir: "model-catalog-providers",
           record: refreshedConfig,
-          operationKind: "model_mount.catalog_provider_auth_header.refresh",
-          receiptRefs: [],
+          operation_kind: "model_mount.catalog_provider_auth_header.refresh",
+          receipt_refs: [],
           unconfiguredCode: "model_mount_catalog_provider_auth_header_state_commit_unconfigured",
           unconfiguredMessage:
             "Catalog provider auth-header refresh persistence requires Rust Agentgres record-state commit.",

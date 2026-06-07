@@ -7,8 +7,8 @@ export function commitModelMountRecordState(
   {
     recordDir,
     record,
-    operationKind,
-    receiptRefs = [],
+    operation_kind,
+    receipt_refs = [],
     unconfiguredCode = "model_mount_record_state_commit_unconfigured",
     unconfiguredMessage = "Model-mount record persistence requires Rust Agentgres record-state commit.",
     unconfiguredDetails = {},
@@ -22,7 +22,7 @@ export function commitModelMountRecordState(
     error.details = {
       record_dir: recordDir ?? null,
       record_id: record?.id ?? null,
-      receipt_id: receiptRefs.find(Boolean) ?? record?.receiptId ?? null,
+      receipt_id: receipt_refs.find(Boolean) ?? null,
       ...unconfiguredDetails,
     };
     throw error;
@@ -31,10 +31,10 @@ export function commitModelMountRecordState(
     schema_version: RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION,
     record_dir: recordDir,
     record_id: record.id,
-    operation_kind: operationKind,
+    operation_kind,
     storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
     record,
-    receipt_refs: receiptRefs.filter(Boolean),
+    receipt_refs: receipt_refs.filter(Boolean),
   }), { invalidCode });
 }
 
