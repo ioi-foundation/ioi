@@ -1642,10 +1642,7 @@ fn runtime_initial_state_root(run_id: &str) -> Result<String, AgentgresAdmission
 
 fn runtime_previous_resulting_head(run_id: &str, previous_transition: Option<&Value>) -> String {
     previous_transition
-        .and_then(|transition| {
-            json_string(transition, "resulting_head")
-                .or_else(|| json_string(transition, "resultingHead"))
-        })
+        .and_then(|transition| json_string(transition, "resulting_head"))
         .filter(|value| !value.trim().is_empty())
         .map(str::to_string)
         .unwrap_or_else(|| runtime_initial_head(run_id))
@@ -1656,10 +1653,7 @@ fn runtime_previous_state_root(
     previous_transition: Option<&Value>,
 ) -> Result<String, AgentgresAdmissionError> {
     match previous_transition
-        .and_then(|transition| {
-            json_string(transition, "state_root_after")
-                .or_else(|| json_string(transition, "stateRootAfter"))
-        })
+        .and_then(|transition| json_string(transition, "state_root_after"))
         .filter(|value| !value.trim().is_empty())
     {
         Some(value) => Ok(value.to_string()),
@@ -3698,5 +3692,29 @@ mod tests {
             .transition
             .operation_ref
             .contains("/operations/run.cancel_"));
+    }
+
+    #[test]
+    fn runtime_run_state_commit_ignores_retired_previous_transition_aliases() {
+        let mut request = runtime_run_state_commit();
+        request.operation_kind = "run.cancel".to_string();
+        request.previous_transition = Some(json!({
+            "stateRootAfter": "sha256:retired-previous-state-root",
+            "resultingHead": "agentgres://runtime-state/runs/run_1/head/retired"
+        }));
+
+        let record = AgentgresAdmissionCore
+            .commit_runtime_run_state(&request)
+            .expect("runtime run state committed from canonical previous transition fields");
+
+        assert_eq!(
+            record.transition.expected_heads,
+            vec!["agentgres://runtime-state/runs/run_1/head/0"]
+        );
+        assert_ne!(
+            record.transition.state_root_before,
+            "sha256:retired-previous-state-root"
+        );
+        assert!(record.transition.state_root_before.starts_with("sha256:"));
     }
 }

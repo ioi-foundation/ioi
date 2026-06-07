@@ -11331,6 +11331,11 @@ reconstruct the active seam without carrying every per-slice paragraph.
   payload, reject retired `receiptRefs`-only payload aliases, and ignore
   poisoned `receiptRefs` arrays where canonical receipt identity is present
   before Rust Agentgres storage-write admission.
+- Slice 576 retires Rust Agentgres previous-transition head/root aliases:
+  runtime run-state commits now derive expected heads and prior state roots only
+  from canonical `resulting_head` and `state_root_after`, ignoring retired
+  `resultingHead` and `stateRootAfter` aliases before receipt/state-root
+  binding.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

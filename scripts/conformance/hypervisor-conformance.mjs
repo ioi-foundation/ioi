@@ -11999,6 +11999,13 @@ function runReceipts() {
       /runtime_state_record_materialization_rejects_mismatched_agent_snapshot/.test(agentgresAdmissionCore) &&
       /commits_runtime_run_state_with_rust_derived_transition_and_persistence/.test(agentgresAdmissionCore) &&
       /commits_runtime_run_state_from_previous_transition_head/.test(agentgresAdmissionCore) &&
+      /runtime_run_state_commit_ignores_retired_previous_transition_aliases/.test(agentgresAdmissionCore) &&
+      !/fn runtime_previous_resulting_head[\s\S]*?json_string\(transition,\s*"resultingHead"\)[\s\S]*?fn runtime_previous_state_root/.test(
+        agentgresAdmissionCore,
+      ) &&
+      !/fn runtime_previous_state_root[\s\S]*?json_string\(transition,\s*"stateRootAfter"\)[\s\S]*?fn receipt_ids/.test(
+        agentgresAdmissionCore,
+      ) &&
       /commit_runtime_run_state/.test(bridgeModule) &&
       /rust_agentgres_runtime_run_state_commit_command/.test(bridgeModule) &&
       !/plan_runtime_run_state_transition/.test(bridgeModule) &&
