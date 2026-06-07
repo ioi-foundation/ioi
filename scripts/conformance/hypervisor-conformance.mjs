@@ -12820,6 +12820,14 @@ function runCompositor() {
     runtimeEventPayloads.match(/if \(isComputerUseRunEventType\(event\.type\)\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeMemoryUpdatePayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "memory_update"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const canonicalMemoryMutationEventPayloadBlock =
+    runtimeDaemonIndex.match(
+      /function canonicalMemoryMutationEventPayload\(value = \{\}\) \{[\s\S]*?\n}\n\nfunction canonicalSubagentMemoryInheritanceEventPayload/,
+    )?.[0] ?? "";
+  const canonicalMemoryWorkflowNodeIdBlock =
+    runtimeDaemonIndex.match(
+      /function canonicalMemoryWorkflowNodeId\(value = \{\}\) \{[\s\S]*?\n}/,
+    )?.[0] ?? "";
   const runtimeRepositoryContextPayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(event\.type === "repository_context"\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeBranchPolicyPayloadSummaryBlock =
@@ -14289,6 +14297,37 @@ function runCompositor() {
       "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
     ],
     "Phase 10/11 is pending: runtime memory mutation payloads must expose canonical snake_case fields without duplicate camelCase facade aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-memory-mutation-event-input-aliases-retired",
+    canonicalMemoryMutationEventPayloadBlock.length > 0 &&
+      canonicalMemoryWorkflowNodeIdBlock.length > 0 &&
+      /schema_version:\s*value\.schema_version \?\? null/.test(
+        canonicalMemoryMutationEventPayloadBlock,
+      ) &&
+      /memory_key:\s*value\.memory_key \?\? null/.test(
+        canonicalMemoryMutationEventPayloadBlock,
+      ) &&
+      /workflow_node_id:\s*canonicalMemoryWorkflowNodeId\(value\)/.test(
+        canonicalMemoryMutationEventPayloadBlock,
+      ) &&
+      /evidence_refs:\s*normalizeArray\(value\.evidence_refs\)/.test(
+        canonicalMemoryMutationEventPayloadBlock,
+      ) &&
+      !/\bvalue\.(?:schemaVersion|memoryKey|agentId|threadId|targetType|targetId|injectionEnabled|readOnly|writeRequiresApproval|workflowGraphId|workflowNodeId|workflowNodeType|createdAt|updatedAt|deletedAt|evidenceRefs)\b/.test(
+        canonicalMemoryMutationEventPayloadBlock,
+      ) &&
+      !/\bvalue\?\.workflowNodeId\b/.test(canonicalMemoryWorkflowNodeIdBlock) &&
+      /memoryKey:\s*"retired-memory-key"/.test(runtimeEventPayloadsTest) &&
+      /workflowNodeId:\s*"retired\.memory\.node"/.test(runtimeEventPayloadsTest) &&
+      /evidenceRefs:\s*\["memory-retired"\]/.test(runtimeEventPayloadsTest) &&
+      /retiredMemorySummaryAliasKeys/.test(runtimeEventPayloadsTest),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-event-payloads.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime memory mutation event canonicalizer must ignore retired camelCase record/policy input aliases",
   );
   assertCheck(
     result,

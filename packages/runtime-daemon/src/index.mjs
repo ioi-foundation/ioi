@@ -3830,13 +3830,13 @@ export class AgentgresRuntimeStateStore {
 }
 
 function canonicalMemoryWorkflowNodeId(value = {}) {
-  return value?.workflow_node_id ?? value?.workflowNodeId ?? null;
+  return value?.workflow_node_id ?? null;
 }
 
 function canonicalMemoryMutationEventPayload(value = {}) {
   const isPolicy = value.object === "ioi.agent_memory_policy";
   return {
-    schema_version: value.schema_version ?? value.schemaVersion ?? null,
+    schema_version: value.schema_version ?? null,
     object: value.object ?? null,
     memory_record_id: isPolicy
       ? value.memory_record_id ?? null
@@ -3846,26 +3846,26 @@ function canonicalMemoryMutationEventPayload(value = {}) {
       : value.memory_policy_id ?? null,
     scope: value.scope ?? null,
     fact: value.fact ?? null,
-    memory_key: value.memory_key ?? value.memoryKey ?? null,
-    agent_id: value.agent_id ?? value.agentId ?? null,
-    thread_id: value.thread_id ?? value.threadId ?? null,
+    memory_key: value.memory_key ?? null,
+    agent_id: value.agent_id ?? null,
+    thread_id: value.thread_id ?? null,
     workspace: value.workspace ?? null,
-    target_type: value.target_type ?? value.targetType ?? null,
-    target_id: value.target_id ?? value.targetId ?? null,
+    target_type: value.target_type ?? null,
+    target_id: value.target_id ?? null,
     disabled: Boolean(value.disabled),
-    injection_enabled: value.injection_enabled ?? value.injectionEnabled ?? null,
-    read_only: value.read_only ?? value.readOnly ?? null,
-    write_requires_approval: value.write_requires_approval ?? value.writeRequiresApproval ?? null,
+    injection_enabled: value.injection_enabled ?? null,
+    read_only: value.read_only ?? null,
+    write_requires_approval: value.write_requires_approval ?? null,
     retention: value.retention ?? null,
-    workflow_graph_id: value.workflow_graph_id ?? value.workflowGraphId ?? null,
+    workflow_graph_id: value.workflow_graph_id ?? null,
     workflow_node_id: canonicalMemoryWorkflowNodeId(value),
-    workflow_node_type: value.workflow_node_type ?? value.workflowNodeType ?? null,
+    workflow_node_type: value.workflow_node_type ?? null,
     source: value.source ?? null,
     redaction: value.redaction ?? "none",
-    created_at: value.created_at ?? value.createdAt ?? null,
-    updated_at: value.updated_at ?? value.updatedAt ?? null,
-    deleted_at: value.deleted_at ?? value.deletedAt ?? null,
-    evidence_refs: normalizeArray(value.evidence_refs ?? value.evidenceRefs),
+    created_at: value.created_at ?? null,
+    updated_at: value.updated_at ?? null,
+    deleted_at: value.deleted_at ?? null,
+    evidence_refs: normalizeArray(value.evidence_refs),
   };
 }
 
