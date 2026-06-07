@@ -11479,6 +11479,12 @@ matrix rows now read canonical event `thread_id`, `workflow_graph_id`, and
 cannot bind delegation or subagent memory rows to old thread or workflow
 identity.
 
+Slice 549 retires IDE worker-contribution event identity aliases: worker
+contribution traces now match tool events by canonical event `tool_call_id` and
+read canonical event `workflow_graph_id` / `workflow_node_id` only, so retired
+camelCase event tool-call and workflow aliases cannot match contributions or
+bind worker evidence to old workflow identity.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

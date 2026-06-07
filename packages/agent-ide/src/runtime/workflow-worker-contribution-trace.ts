@@ -110,7 +110,7 @@ function rowForContribution({
   );
   const event = events.find((candidate) =>
     (requestedEventId && eventId(candidate) === requestedEventId) ||
-    (toolCallId && stringField(candidate, "toolCallId", "tool_call_id") === toolCallId),
+    (toolCallId && stringField(candidate, "tool_call_id") === toolCallId),
   );
   const payload = payloadForEvent(event);
   const result = objectField(payload, "result");
@@ -140,8 +140,8 @@ function rowForContribution({
     toolCallId,
     eventId: eventId(event),
     eventSeq: eventSeq(event),
-    workflowGraphId: stringField(event, "workflowGraphId", "workflow_graph_id"),
-    workflowNodeId: stringField(event, "workflowNodeId", "workflow_node_id"),
+    workflowGraphId: stringField(event, "workflow_graph_id"),
+    workflowNodeId: stringField(event, "workflow_node_id"),
     filePath,
     hunkIndex: numberField(contribution, "hunkIndex", "hunk_index"),
     hunkHeader: stringField(contribution, "hunkHeader", "hunk_header"),

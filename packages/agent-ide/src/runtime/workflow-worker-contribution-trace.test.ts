@@ -16,15 +16,20 @@ function event(
     id,
     cursor: `events_thread:test:${seq}`,
     seq,
+    thread_id: "thread-test",
     threadId: "thread-test",
+    turn_id: "turn-test",
     turnId: "turn-test",
     type: "tool_completed",
     eventKind: "tool.completed",
     sourceEventKind: "Tool.Completed",
     status: "completed",
     createdAt: `2026-06-07T00:00:0${seq}.000Z`,
+    component_kind: "tool_call",
     componentKind: "tool_call",
+    workflow_node_id: "workflow.worker-contribution",
     workflowNodeId: "workflow.worker-contribution",
+    workflow_graph_id: "workflow.worker-contribution",
     workflowGraphId: "workflow.worker-contribution",
     payloadSchemaVersion: "ioi.agent-sdk.thread-event.v1",
     receiptRefs: [],
@@ -79,6 +84,82 @@ test("worker contribution trace reads canonical evidence refs", () => {
   ]);
   assert.deepEqual(trace.rows[0]?.rollbackRefs, ["rollback-event-canonical"]);
   assert.ok(trace.evidenceRefs.includes("artifact-event-canonical"));
+});
+
+test("worker contribution trace reads canonical event identity fields", () => {
+  const trace = buildWorkflowWorkerContributionTrace({
+    events: [
+      event("tool-identity", 1, {
+        tool_call_id: "tool-call-canonical",
+        workflow_graph_id: "workflow-canonical-event",
+        workflow_node_id: "workflow.worker-contribution-canonical",
+        receipt_refs: ["receipt-event-canonical"],
+      }),
+    ],
+    subagents: [subagent],
+    contributions: [
+      {
+        contribution_id: "contribution-canonical",
+        subagent_id: "subagent-canonical",
+        tool_call_id: "tool-call-canonical",
+      },
+    ],
+  });
+
+  assert.equal(trace.status, "ready");
+  assert.equal(trace.rows[0]?.workflowGraphId, "workflow-canonical-event");
+  assert.equal(trace.rows[0]?.workflowNodeId, "workflow.worker-contribution-canonical");
+});
+
+test("worker contribution trace ignores retired event identity aliases", () => {
+  const trace = buildWorkflowWorkerContributionTrace({
+    events: [
+      event("tool-retired-identity", 1, {
+        tool_call_id: undefined,
+        toolCallId: "tool-call-retired",
+        workflow_graph_id: undefined,
+        workflow_node_id: undefined,
+        workflowGraphId: "workflow-retired-event",
+        workflowNodeId: "workflow.worker-contribution-retired",
+        receipt_refs: ["receipt-event-retired"],
+      }),
+    ],
+    subagents: [subagent],
+    contributions: [
+      {
+        contribution_id: "contribution-retired",
+        subagent_id: "subagent-canonical",
+        tool_call_id: "tool-call-retired",
+      },
+    ],
+  });
+
+  assert.equal(trace.status, "blocked");
+  assert.equal(trace.rows[0]?.status, "needs_event");
+
+  const byEventId = buildWorkflowWorkerContributionTrace({
+    events: [
+      event("tool-retired-workflow", 1, {
+        workflow_graph_id: undefined,
+        workflow_node_id: undefined,
+        workflowGraphId: "workflow-retired-event",
+        workflowNodeId: "workflow.worker-contribution-retired",
+        receipt_refs: ["receipt-event-retired"],
+      }),
+    ],
+    subagents: [subagent],
+    contributions: [
+      {
+        contribution_id: "contribution-retired-workflow",
+        subagent_id: "subagent-canonical",
+        event_id: "tool-retired-workflow",
+      },
+    ],
+  });
+
+  assert.equal(byEventId.rows[0]?.status, "ready");
+  assert.equal(byEventId.rows[0]?.workflowGraphId, null);
+  assert.equal(byEventId.rows[0]?.workflowNodeId, null);
 });
 
 test("worker contribution trace ignores retired evidence aliases", () => {

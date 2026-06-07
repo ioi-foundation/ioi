@@ -20786,7 +20786,10 @@ function runCompositor() {
   assertCheck(
     result,
     "ide-worker-contribution-evidence-aliases-retired",
-    /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeWorkerContributionTrace) &&
+    /stringField\(candidate,\s*"tool_call_id"\)/.test(agentIdeWorkerContributionTrace) &&
+      /stringField\(event,\s*"workflow_graph_id"\)/.test(agentIdeWorkerContributionTrace) &&
+      /stringField\(event,\s*"workflow_node_id"\)/.test(agentIdeWorkerContributionTrace) &&
+      /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeWorkerContributionTrace) &&
       /arrayField\(contribution,\s*"receipt_refs"\)/.test(agentIdeWorkerContributionTrace) &&
       /arrayField\(event,\s*"policy_decision_refs"\)/.test(agentIdeWorkerContributionTrace) &&
       /arrayField\(contribution,\s*"policy_decision_refs"\)/.test(
@@ -20794,6 +20797,15 @@ function runCompositor() {
       ) &&
       /arrayField\(event,\s*"rollback_refs"\)/.test(agentIdeWorkerContributionTrace) &&
       /arrayField\(event,\s*"artifact_refs"\)/.test(agentIdeWorkerContributionTrace) &&
+      !/stringField\(candidate,\s*"toolCallId",\s*"tool_call_id"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/stringField\(event,\s*"workflowGraphId",\s*"workflow_graph_id"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/stringField\(event,\s*"workflowNodeId",\s*"workflow_node_id"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
       !/arrayField\(event,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
         agentIdeWorkerContributionTrace,
       ) &&
@@ -20815,6 +20827,17 @@ function runCompositor() {
       /worker contribution trace ignores retired evidence aliases/.test(
         agentIdeWorkerContributionTraceTest,
       ) &&
+      /worker contribution trace ignores retired event identity aliases/.test(
+        agentIdeWorkerContributionTraceTest,
+      ) &&
+      /toolCallId: "tool-call-retired"/.test(agentIdeWorkerContributionTraceTest) &&
+      /workflowGraphId: "workflow-retired-event"/.test(agentIdeWorkerContributionTraceTest) &&
+      /assert\.equal\(trace\.rows\[0\]\?\.status,\s*"needs_event"\)/.test(
+        agentIdeWorkerContributionTraceTest,
+      ) &&
+      /assert\.equal\(byEventId\.rows\[0\]\?\.workflowNodeId,\s*null\)/.test(
+        agentIdeWorkerContributionTraceTest,
+      ) &&
       /receiptRefs: \["receipt-event-retired"\]/.test(agentIdeWorkerContributionTraceTest) &&
       /artifactRefs: \["artifact-event-retired"\]/.test(agentIdeWorkerContributionTraceTest) &&
       /rollbackRefs: \["rollback-event-retired"\]/.test(agentIdeWorkerContributionTraceTest) &&
@@ -20828,7 +20851,7 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
       "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.test.ts",
     ],
-    "Phase 10/11 is pending: IDE worker contribution trace must ignore retired camelCase evidence aliases",
+    "Phase 10/11 is pending: IDE worker contribution trace must ignore retired camelCase event identity and evidence aliases",
   );
   assertCheck(
     result,
