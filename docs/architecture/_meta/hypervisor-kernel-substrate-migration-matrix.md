@@ -11317,6 +11317,10 @@ reconstruct the active seam without carrying every per-slice paragraph.
   while runtime agent and memory state commits now require canonical
   `receipt_refs` from the request or payload and reject retired `receiptRefs`
   payload aliases before storage-write admission.
+- Slice 574 extends the Rust Agentgres state-commit receipt alias guard to
+  runtime subagent state commits: subagent persistence now has the same
+  conformance-pinned negative canary proving retired `receiptRefs` payload
+  aliases cannot satisfy Rust Agentgres storage-write admission.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

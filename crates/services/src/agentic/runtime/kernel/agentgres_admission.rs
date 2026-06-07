@@ -3347,6 +3347,19 @@ mod tests {
     }
 
     #[test]
+    fn runtime_subagent_state_commit_rejects_retired_receipt_refs_alias() {
+        let mut request = runtime_subagent_state_commit();
+        request.subagent["receipt_refs"] = json!([]);
+        request.subagent["receiptRefs"] = json!(["receipt_subagent_retired"]);
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_subagent_state(&request)
+            .expect_err("retired receiptRefs must not satisfy Rust Agentgres admission");
+
+        assert_eq!(error, AgentgresAdmissionError::MissingReceiptRefs);
+    }
+
+    #[test]
     fn runtime_subagent_state_commit_rejects_mismatched_subagent_id() {
         let mut request = runtime_subagent_state_commit();
         request.subagent["subagent_id"] = json!("subagent_other");

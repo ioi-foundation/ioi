@@ -12255,7 +12255,11 @@ function runReceipts() {
       /commit_runtime_subagent_state/.test(agentgresAdmissionCore) &&
       /commits_runtime_subagent_state_with_storage_admission/.test(agentgresAdmissionCore) &&
       /runtime_subagent_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
+      /runtime_subagent_state_commit_rejects_retired_receipt_refs_alias/.test(agentgresAdmissionCore) &&
       /runtime_subagent_state_commit_rejects_mismatched_subagent_id/.test(agentgresAdmissionCore) &&
+      !/pub fn commit_runtime_subagent_state[\s\S]*?json_string_array\(&request\.subagent,\s*"receiptRefs"\)[\s\S]*?pub fn commit_runtime_artifact_state/.test(
+        agentgresAdmissionCore,
+      ) &&
       /pub fn commit_runtime_subagent_state/.test(runtimeKernelModule) &&
       /commit_runtime_subagent_state/.test(bridgeModule) &&
       /RuntimeSubagentStateCommitBridgeRequest/.test(bridgeModule) &&
