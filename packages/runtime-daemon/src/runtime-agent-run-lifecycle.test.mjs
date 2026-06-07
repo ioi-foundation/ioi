@@ -95,8 +95,8 @@ function deps(overrides = {}) {
       }
     },
     initialThreadRuntimeControls: (options, modelRoute, now) => ({
-      mode: options.mode ?? "ask",
-      approvalMode: options.approvalMode ?? null,
+      mode: options.interaction_mode ?? "agent",
+      approvalMode: options.approval_mode ?? null,
       modelRouteId: modelRoute.routeId,
       updatedAt: now,
     }),
@@ -148,7 +148,7 @@ test("createAgent resolves runtime, model route, controls, MCP registry, and per
       local: { cwd: "/workspace/project" },
       model: { id: "model.local" },
       mcpServers: { docs: {} },
-      mode: "agent",
+      interaction_mode: "agent",
     },
     deps({ statePlannerCalls }),
   );
@@ -165,6 +165,37 @@ test("createAgent resolves runtime, model route, controls, MCP registry, and per
   assert.equal(statePlannerCalls[0].operation, "plan_agent_create_state_update");
   assert.equal(statePlannerCalls[0].request.agent.id, "agent_uuid-1");
   assert.deepEqual(store.resolveModelRouteCall.context.evidenceRefs, ["runtime_agent_model_route"]);
+});
+
+test("createAgent ignores retired initial runtime-control aliases before Rust planning", () => {
+  const store = fakeStore();
+  const statePlannerCalls = [];
+
+  const agent = createAgent(
+    store,
+    {
+      local: { cwd: "/workspace/project" },
+      mode: "yolo",
+      approvalMode: "never_prompt",
+      approval_mode: "suggest",
+      routeId: "route.retired",
+      model: {
+        id: "model.local",
+        routeId: "route.retired",
+        reasoningEffort: "xhigh",
+        maxCostUsd: 99,
+        workflowGraphId: "graph.retired",
+      },
+    },
+    deps({ statePlannerCalls }),
+  );
+
+  assert.equal(agent.runtimeControls.mode, "agent");
+  assert.equal(agent.runtimeControls.approvalMode, "suggest");
+  assert.equal(agent.runtimeControls.modelRouteId, "route.local-first");
+  assert.equal(statePlannerCalls[0].operation, "plan_agent_create_state_update");
+  assert.equal(statePlannerCalls[0].request.agent.runtimeControls.mode, "agent");
+  assert.equal(statePlannerCalls[0].request.agent.runtimeControls.approvalMode, "suggest");
 });
 
 test("createAgent preserves hosted provider availability failures", () => {
@@ -228,7 +259,7 @@ test("createRun resolves route, memory, skill catalog, usage telemetry, and pers
   assert.equal(run.id, "run.test");
   assert.equal(run.mode, "learn");
   assert.equal(run.prompt, "Learn governed task-family updates for schemas");
-  assert.equal(run.threadMode, "ask");
+  assert.equal(run.threadMode, "agent");
   assert.equal(run.approvalMode, "manual");
   assert.deepEqual(run.usage, {
     run_id: "run.test",

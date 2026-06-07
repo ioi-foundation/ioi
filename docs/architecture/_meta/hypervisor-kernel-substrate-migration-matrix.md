@@ -13035,6 +13035,13 @@ caller supplies retired run-create option aliases such as `threadMode`,
 inside the opaque `options` bag before the daemon's Rust-planned run-create
 state update.
 
+Slice 479 retires agent-create initial runtime-control aliases:
+daemon agent creation now derives initial thread runtime controls from canonical
+`interaction_mode`, `approval_mode`, `route_id`, `reasoning_effort`,
+`max_cost_usd`, and workflow snake_case fields only; poisoned JS-era
+`mode`/`approvalMode` and model-routing camelCase aliases no longer steer the
+Rust-planned `agent.create` record before Agentgres admission.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -4247,12 +4247,24 @@ function runBridge() {
       /createAgent fails closed without Rust-planned operation kind/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
+      /createAgent ignores retired initial runtime-control aliases before Rust planning/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
       /createRun fails closed without Rust-planned operation kind/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
       /createRun ignores retired thread and approval mode request aliases before Rust planning/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
+      /options\.interaction_mode \?\? "agent"/.test(threadRuntimeControls) &&
+      !/options\.mode \?\? options\.interaction_mode/.test(threadRuntimeControls) &&
+      !/options\.(?:approvalMode|routeId)\b/.test(threadRuntimeControls) &&
+      !/options\.model\?\.(?:routeId|reasoningEffort|maxCostUsd|workflowGraphId|workflowNodeId)\b/.test(
+        threadRuntimeControls,
+      ) &&
+      /mode: "yolo"/.test(threadRuntimeControlsTest) &&
+      /approvalMode: "never_prompt"/.test(threadRuntimeControlsTest) &&
+      /workflowGraphId: "graph\.retired"/.test(threadRuntimeControlsTest) &&
       !/request\.(?:threadMode|approvalMode)\b/.test(runtimeAgentRunLifecycle) &&
       /assertNoRetiredRuntimeRunCreateOptionAliases\(options,\s*mode\);/.test(
         agentSdkSubstrateClient,
@@ -4281,6 +4293,8 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
       "packages/runtime-daemon/src/threads/thread-store.mjs",
       "packages/runtime-daemon/src/threads/thread-store.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/test/sdk.test.mjs",

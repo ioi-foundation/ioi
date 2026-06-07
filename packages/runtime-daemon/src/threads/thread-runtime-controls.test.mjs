@@ -33,8 +33,8 @@ test("thread mode and approval aliases normalize to daemon control values", () =
 test("initial and normalized runtime controls preserve schema and model route fields", () => {
   const controls = initialThreadRuntimeControls(
     {
-      mode: "plan",
-      model: { id: "auto", routeId: "route.local-first", privacy: "local_private" },
+      interaction_mode: "plan",
+      model: { id: "auto", route_id: "route.local-first", privacy: "local_private" },
     },
     {
       requestedModelId: "auto",
@@ -62,6 +62,32 @@ test("initial and normalized runtime controls preserve schema and model route fi
   assert.equal(controls.model.reasoningEffort, "low");
   assert.equal(controls.model.workflowGraphId, "graph-1");
   assert.equal(controls.model.workflowNodeId, "node-1");
+
+  const poisoned = initialThreadRuntimeControls(
+    {
+      mode: "yolo",
+      approvalMode: "never_prompt",
+      approval_mode: "suggest",
+      routeId: "route.retired",
+      model: {
+        id: "auto",
+        routeId: "route.retired",
+        reasoningEffort: "xhigh",
+        maxCostUsd: 99,
+        workflowGraphId: "graph.retired",
+        workflowNodeId: "node.retired",
+      },
+    },
+    {},
+    "2026-06-03T00:00:00.000Z",
+  );
+  assert.equal(poisoned.mode, "agent");
+  assert.equal(poisoned.approvalMode, "suggest");
+  assert.equal(poisoned.model.routeId, "route.local-first");
+  assert.equal(poisoned.model.reasoningEffort, null);
+  assert.equal(poisoned.model.maxCostUsd, null);
+  assert.equal(poisoned.model.workflowGraphId, null);
+  assert.equal(poisoned.model.workflowNodeId, "runtime.model-router");
 
   const normalizedFromCanonicalDecision = normalizedAgentRuntimeControls({
     modelRouteDecision: {

@@ -11,7 +11,7 @@ import * as routeDecision from "../model-mounting/route-decision.mjs";
 
 export function initialThreadRuntimeControls(options = {}, modelRoute = {}, now = new Date().toISOString()) {
   const mode = normalizeThreadInteractionMode(
-    options.mode ?? options.interaction_mode ?? "agent",
+    options.interaction_mode ?? "agent",
   );
   const approvalMode = normalizeThreadApprovalMode(
     options.approval_mode,
@@ -25,17 +25,17 @@ export function initialThreadRuntimeControls(options = {}, modelRoute = {}, now 
     approval_mode: approvalMode,
     model: {
       id: modelRoute.requestedModelId ?? options.model?.id ?? options.model?.model ?? "auto",
-      routeId: modelRoute.routeId ?? options.model?.routeId ?? options.routeId ?? "route.local-first",
+      routeId: modelRoute.routeId ?? options.model?.route_id ?? options.route_id ?? "route.local-first",
       selectedModel: modelRoute.selectedModel ?? null,
       endpointId: modelRoute.endpointId ?? null,
       providerId: modelRoute.providerId ?? null,
       receiptId: modelRoute.receiptId ?? null,
-      reasoningEffort: modelRoute.decision?.reasoning_effort ?? options.model?.reasoningEffort ?? options.model?.thinking ?? null,
+      reasoningEffort: modelRoute.decision?.reasoning_effort ?? options.model?.reasoning_effort ?? options.model?.thinking ?? null,
       privacy: options.model?.privacy ?? null,
-      maxCostUsd: options.model?.maxCostUsd ?? options.model?.max_cost_usd ?? null,
+      maxCostUsd: options.model?.max_cost_usd ?? null,
       allow_hosted_fallback: options.model?.allow_hosted_fallback ?? null,
-      workflowGraphId: modelRoute.decision?.workflow_graph_id ?? options.model?.workflowGraphId ?? null,
-      workflowNodeId: modelRoute.decision?.workflow_node_id ?? options.model?.workflowNodeId ?? "runtime.model-router",
+      workflowGraphId: modelRoute.decision?.workflow_graph_id ?? options.model?.workflow_graph_id ?? null,
+      workflowNodeId: modelRoute.decision?.workflow_node_id ?? options.model?.workflow_node_id ?? "runtime.model-router",
       updatedAt: now,
     },
     updatedAt: now,
