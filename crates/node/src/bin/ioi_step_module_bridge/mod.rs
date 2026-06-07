@@ -8535,7 +8535,16 @@ mod tests {
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "thread.thinking");
-        assert_eq!(response["control"]["controlKind"], "thinking");
+        assert_eq!(response["control"]["control_kind"], "thinking");
+        assert_eq!(response["control"]["event_id"], "evt_thread_control");
+        for field in [
+            "controlKind",
+            "eventId",
+            "createdAt",
+            "workspaceTrustWarningEventId",
+        ] {
+            assert!(response["control"].get(field).is_none());
+        }
         assert_eq!(
             response["agent"]["runtimeControls"]["model"]["selectedModel"],
             "local-model"
@@ -8584,7 +8593,11 @@ mod tests {
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "thread.mcp_add");
-        assert_eq!(response["control"]["controlKind"], "mcp_add");
+        assert_eq!(response["control"]["control_kind"], "mcp_add");
+        assert_eq!(response["control"]["event_id"], "event_mcp_add");
+        assert!(response["control"].get("controlKind").is_none());
+        assert!(response["control"].get("eventId").is_none());
+        assert!(response["control"].get("createdAt").is_none());
         assert_eq!(response["agent"]["id"], "agent_1");
         assert_eq!(response["agent"]["updatedAt"], "2026-06-06T05:45:00.000Z");
         assert_eq!(
@@ -8625,7 +8638,11 @@ mod tests {
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "thread.memory_status");
-        assert_eq!(response["control"]["controlKind"], "memory_status");
+        assert_eq!(response["control"]["control_kind"], "memory_status");
+        assert_eq!(response["control"]["event_id"], "event_memory_status");
+        assert!(response["control"].get("controlKind").is_none());
+        assert!(response["control"].get("eventId").is_none());
+        assert!(response["control"].get("createdAt").is_none());
         assert_eq!(response["agent"]["id"], "agent_1");
         assert_eq!(response["agent"]["updatedAt"], "2026-06-06T06:05:00.000Z");
     }

@@ -678,6 +678,18 @@ function runBridge() {
     policyCore.match(
       /impl OperatorSteerStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct RunCancelStateUpdateCore;)/,
     )?.[0] ?? "";
+  const threadControlAgentStateUpdateCoreBlock =
+    policyCore.match(
+      /impl ThreadControlAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct AgentCreateStateUpdateCore;)/,
+    )?.[0] ?? "";
+  const mcpControlAgentStateUpdateCoreBlock =
+    policyCore.match(
+      /impl McpControlAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct ThreadMemoryAgentStateUpdateCore;)/,
+    )?.[0] ?? "";
+  const threadMemoryAgentStateUpdateCoreBlock =
+    policyCore.match(
+      /impl ThreadMemoryAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct RuntimeBridgeThreadStartAgentStateUpdateCore;)/,
+    )?.[0] ?? "";
   const stepModuleRunner = exists("packages/runtime-daemon/src/step-module-runner.mjs")
     ? read("packages/runtime-daemon/src/step-module-runner.mjs")
     : "";
@@ -3993,10 +4005,24 @@ function runBridge() {
       /THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_thread_mode_agent_state_update/.test(policyCore) &&
       /rust_policy_plans_thread_model_agent_state_update/.test(policyCore) &&
+      /"control_kind": control_kind/.test(threadControlAgentStateUpdateCoreBlock) &&
+      /"event_id": request\.event_id/.test(threadControlAgentStateUpdateCoreBlock) &&
+      /"created_at": request\.created_at/.test(threadControlAgentStateUpdateCoreBlock) &&
+      /"workspace_trust_warning_event_id": request\.workspace_trust_warning_event_id/.test(
+        threadControlAgentStateUpdateCoreBlock,
+      ) &&
+      !/"controlKind": control_kind|"eventId": request\.event_id|"createdAt": request\.created_at|"workspaceTrustWarningEventId": request\.workspace_trust_warning_event_id/.test(
+        threadControlAgentStateUpdateCoreBlock,
+      ) &&
       /plan_thread_control_agent_state_update/.test(bridgeModule) &&
       /ThreadControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_thread_control_agent_state_update_command/.test(bridgeModule) &&
       /bridge_plans_thread_control_agent_state_update_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /response\["control"\]\["control_kind"\]/.test(bridgeModule) &&
+      /response\["control"\]\["event_id"\]/.test(bridgeModule) &&
+      /"controlKind"[\s\S]*"workspaceTrustWarningEventId"[\s\S]*response\["control"\]\.get\(field\)\.is_none\(\)/.test(
         bridgeModule,
       ) &&
       /planThreadControlAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
@@ -4004,6 +4030,11 @@ function runBridge() {
         runtimeContextPolicyRunner,
       ) &&
       /thread control agent state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.control\.control_kind/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
+      /Object\.hasOwn\(result\.control,\s*field\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
@@ -4186,15 +4217,41 @@ function runBridge() {
       /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_mcp_control_agent_state_update/.test(policyCore) &&
       /rust_policy_rejects_invalid_mcp_control_agent_state_update_schema/.test(policyCore) &&
+      /"control_kind": control_kind/.test(mcpControlAgentStateUpdateCoreBlock) &&
+      /"event_id": request\.event_id/.test(mcpControlAgentStateUpdateCoreBlock) &&
+      /"created_at": request\.created_at/.test(mcpControlAgentStateUpdateCoreBlock) &&
+      !/"controlKind": control_kind|"eventId": request\.event_id|"createdAt": request\.created_at/.test(
+        mcpControlAgentStateUpdateCoreBlock,
+      ) &&
       /plan_mcp_control_agent_state_update/.test(bridgeModule) &&
       /McpControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_mcp_control_agent_state_update_command/.test(bridgeModule) &&
       /bridge_plans_mcp_control_agent_state_update_through_rust_core/.test(bridgeModule) &&
+      /response\["control"\]\["control_kind"\]/.test(bridgeModule) &&
+      /response\["control"\]\["event_id"\]/.test(bridgeModule) &&
+      /response\["control"\]\.get\("controlKind"\)\.is_none\(\)/.test(
+        bridgeModule,
+      ) &&
+      /response\["control"\]\.get\("eventId"\)\.is_none\(\)/.test(bridgeModule) &&
+      /response\["control"\]\.get\("createdAt"\)\.is_none\(\)/.test(
+        bridgeModule,
+      ) &&
       /planMcpControlAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
       /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
       /mcp control agent state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.control\.control_kind/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
+      /Object\.hasOwn\(result\.control,\s*"controlKind"\),\s*false/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /Object\.hasOwn\(result\.control,\s*"eventId"\),\s*false/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /Object\.hasOwn\(result\.control,\s*"createdAt"\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /contextPolicyRunnerDep\.planMcpControlAgentStateUpdate/.test(
@@ -4233,10 +4290,25 @@ function runBridge() {
       /THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_thread_memory_agent_state_update/.test(policyCore) &&
       /rust_policy_rejects_invalid_thread_memory_agent_state_update_schema/.test(policyCore) &&
+      /"control_kind": control_kind/.test(threadMemoryAgentStateUpdateCoreBlock) &&
+      /"event_id": request\.event_id/.test(threadMemoryAgentStateUpdateCoreBlock) &&
+      /"created_at": request\.created_at/.test(threadMemoryAgentStateUpdateCoreBlock) &&
+      !/"controlKind": control_kind|"eventId": request\.event_id|"createdAt": request\.created_at/.test(
+        threadMemoryAgentStateUpdateCoreBlock,
+      ) &&
       /plan_thread_memory_agent_state_update/.test(bridgeModule) &&
       /ThreadMemoryAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_thread_memory_agent_state_update_command/.test(bridgeModule) &&
       /bridge_plans_thread_memory_agent_state_update_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /response\["control"\]\["control_kind"\]/.test(bridgeModule) &&
+      /response\["control"\]\["event_id"\]/.test(bridgeModule) &&
+      /response\["control"\]\.get\("controlKind"\)\.is_none\(\)/.test(
+        bridgeModule,
+      ) &&
+      /response\["control"\]\.get\("eventId"\)\.is_none\(\)/.test(bridgeModule) &&
+      /response\["control"\]\.get\("createdAt"\)\.is_none\(\)/.test(
         bridgeModule,
       ) &&
       /planThreadMemoryAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
@@ -4244,6 +4316,17 @@ function runBridge() {
         runtimeContextPolicyRunner,
       ) &&
       /thread memory agent state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.control\.control_kind/.test(runtimeContextPolicyRunnerTest) &&
+      /result\.control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
+      /Object\.hasOwn\(result\.control,\s*"controlKind"\),\s*false/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /Object\.hasOwn\(result\.control,\s*"eventId"\),\s*false/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /Object\.hasOwn\(result\.control,\s*"createdAt"\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /contextPolicyRunner\.planThreadMemoryAgentStateUpdate/.test(

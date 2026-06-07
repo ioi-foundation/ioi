@@ -732,8 +732,8 @@ test("thread control agent state update runner sends Rust state update bridge re
             operation_kind: "thread.thinking",
             updated_at: "2026-06-06T05:00:00.000Z",
             control: {
-              controlKind: "thinking",
-              eventId: "evt_thread_control",
+              control_kind: "thinking",
+              event_id: "evt_thread_control",
             },
             agent: {
               id: "agent_1",
@@ -777,7 +777,16 @@ test("thread control agent state update runner sends Rust state update bridge re
   assert.equal(captured.request.model_route.selectedModel, "local-model");
   assert.equal(result.source, "rust_thread_control_agent_state_update_command");
   assert.equal(result.operation_kind, "thread.thinking");
-  assert.equal(result.control.eventId, "evt_thread_control");
+  assert.equal(result.control.control_kind, "thinking");
+  assert.equal(result.control.event_id, "evt_thread_control");
+  for (const field of [
+    "controlKind",
+    "eventId",
+    "createdAt",
+    "workspaceTrustWarningEventId",
+  ]) {
+    assert.equal(Object.hasOwn(result.control, field), false);
+  }
   assert.equal(result.agent.modelId, "local-model");
 });
 
@@ -798,8 +807,8 @@ test("mcp control agent state update runner sends Rust state update bridge reque
             operation_kind: "thread.mcp_add",
             updated_at: "2026-06-06T05:45:00.000Z",
             control: {
-              controlKind: "mcp_add",
-              eventId: "event_mcp_add",
+              control_kind: "mcp_add",
+              event_id: "event_mcp_add",
             },
             agent: {
               id: "agent_1",
@@ -834,7 +843,11 @@ test("mcp control agent state update runner sends Rust state update bridge reque
   assert.equal(captured.request.control_kind, "mcp_add");
   assert.equal(result.source, "rust_mcp_control_agent_state_update_command");
   assert.equal(result.operation_kind, "thread.mcp_add");
-  assert.equal(result.control.eventId, "event_mcp_add");
+  assert.equal(result.control.control_kind, "mcp_add");
+  assert.equal(result.control.event_id, "event_mcp_add");
+  assert.equal(Object.hasOwn(result.control, "controlKind"), false);
+  assert.equal(Object.hasOwn(result.control, "eventId"), false);
+  assert.equal(Object.hasOwn(result.control, "createdAt"), false);
   assert.equal(result.agent.mcpRegistry.servers[0].id, "mcp.docs");
 });
 
@@ -855,8 +868,8 @@ test("thread memory agent state update runner sends Rust state update bridge req
             operation_kind: "thread.memory_status",
             updated_at: "2026-06-06T06:05:00.000Z",
             control: {
-              controlKind: "memory_status",
-              eventId: "event_memory_status",
+              control_kind: "memory_status",
+              event_id: "event_memory_status",
             },
             agent: {
               id: "agent_1",
@@ -888,7 +901,11 @@ test("thread memory agent state update runner sends Rust state update bridge req
   assert.equal(captured.request.control_kind, "memory_status");
   assert.equal(result.source, "rust_thread_memory_agent_state_update_command");
   assert.equal(result.operation_kind, "thread.memory_status");
-  assert.equal(result.control.eventId, "event_memory_status");
+  assert.equal(result.control.control_kind, "memory_status");
+  assert.equal(result.control.event_id, "event_memory_status");
+  assert.equal(Object.hasOwn(result.control, "controlKind"), false);
+  assert.equal(Object.hasOwn(result.control, "eventId"), false);
+  assert.equal(Object.hasOwn(result.control, "createdAt"), false);
   assert.equal(result.agent.updatedAt, "2026-06-06T06:05:00.000Z");
 });
 

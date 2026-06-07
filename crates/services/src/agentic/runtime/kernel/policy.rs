@@ -2282,11 +2282,11 @@ impl ThreadControlAgentStateUpdateCore {
         agent.insert("runtimeControls".to_string(), Value::Object(controls));
         agent.insert("updatedAt".to_string(), Value::String(updated_at.clone()));
         let control = json!({
-            "controlKind": control_kind,
-            "eventId": request.event_id,
+            "control_kind": control_kind,
+            "event_id": request.event_id,
             "seq": request.seq,
-            "createdAt": request.created_at,
-            "workspaceTrustWarningEventId": request.workspace_trust_warning_event_id,
+            "created_at": request.created_at,
+            "workspace_trust_warning_event_id": request.workspace_trust_warning_event_id,
         });
 
         Ok(ThreadControlAgentStateUpdateRecord {
@@ -2426,10 +2426,10 @@ impl McpControlAgentStateUpdateCore {
             Value::String(request.created_at.clone()),
         );
         let control = json!({
-            "controlKind": control_kind,
-            "eventId": request.event_id,
+            "control_kind": control_kind,
+            "event_id": request.event_id,
             "seq": request.seq,
-            "createdAt": request.created_at,
+            "created_at": request.created_at,
         });
 
         Ok(McpControlAgentStateUpdateRecord {
@@ -2468,10 +2468,10 @@ impl ThreadMemoryAgentStateUpdateCore {
             Value::String(request.created_at.clone()),
         );
         let control = json!({
-            "controlKind": control_kind,
-            "eventId": request.event_id,
+            "control_kind": control_kind,
+            "event_id": request.event_id,
             "seq": request.seq,
-            "createdAt": request.created_at,
+            "created_at": request.created_at,
         });
 
         Ok(ThreadMemoryAgentStateUpdateRecord {
@@ -5124,11 +5124,16 @@ mod tests {
         assert_eq!(record.thread_id, "thread_1");
         assert_eq!(record.agent_id, "agent_1");
         assert_eq!(record.updated_at, "2026-06-06T05:00:01.000Z");
-        assert_eq!(record.control["controlKind"], "mode");
+        assert_eq!(record.control["control_kind"], "mode");
+        assert_eq!(record.control["event_id"], "evt_thread_control");
+        assert!(record.control.get("controlKind").is_none());
+        assert!(record.control.get("eventId").is_none());
+        assert!(record.control.get("createdAt").is_none());
         assert_eq!(
-            record.control["workspaceTrustWarningEventId"],
+            record.control["workspace_trust_warning_event_id"],
             "evt_workspace_warning"
         );
+        assert!(record.control.get("workspaceTrustWarningEventId").is_none());
         assert_eq!(record.agent["runtimeControls"]["mode"], "review");
         assert_eq!(record.agent["updatedAt"], "2026-06-06T05:00:01.000Z");
         assert_eq!(record.agent["modelId"], "previous-model");
@@ -5230,7 +5235,11 @@ mod tests {
         assert_eq!(record.thread_id, "thread_1");
         assert_eq!(record.agent_id, "agent_1");
         assert_eq!(record.updated_at, "2026-06-06T05:45:00.000Z");
-        assert_eq!(record.control["controlKind"], "mcp_add");
+        assert_eq!(record.control["control_kind"], "mcp_add");
+        assert_eq!(record.control["event_id"], "event_mcp_add");
+        assert!(record.control.get("controlKind").is_none());
+        assert!(record.control.get("eventId").is_none());
+        assert!(record.control.get("createdAt").is_none());
         assert_eq!(record.agent["updatedAt"], "2026-06-06T05:45:00.000Z");
         assert_eq!(record.agent["mcpRegistry"]["servers"][0]["id"], "mcp.docs");
     }
@@ -5250,7 +5259,11 @@ mod tests {
         assert_eq!(record.thread_id, "thread_1");
         assert_eq!(record.agent_id, "agent_1");
         assert_eq!(record.updated_at, "2026-06-06T06:05:00.000Z");
-        assert_eq!(record.control["controlKind"], "memory_status");
+        assert_eq!(record.control["control_kind"], "memory_status");
+        assert_eq!(record.control["event_id"], "event_memory_status");
+        assert!(record.control.get("controlKind").is_none());
+        assert!(record.control.get("eventId").is_none());
+        assert!(record.control.get("createdAt").is_none());
         assert_eq!(record.agent["updatedAt"], "2026-06-06T06:05:00.000Z");
     }
 

@@ -13172,6 +13172,13 @@ and `created_at` inside Rust-planned `operator_control` records; retired
 camelCase control metadata can no longer leave the Rust policy bridge as a
 parallel result ABI before daemon operator-control persistence.
 
+Slice 501 retires Rust agent-control record aliases:
+Rust thread-control, MCP-control, and thread-memory agent state planning now
+emit canonical `control_kind`, `event_id`, `created_at`, and
+`workspace_trust_warning_event_id` fields inside Rust-planned control records;
+retired camelCase control metadata can no longer leave the Rust policy bridge
+as a parallel result ABI before daemon agent-control persistence.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
