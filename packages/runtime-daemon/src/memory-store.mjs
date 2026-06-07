@@ -57,23 +57,23 @@ export class AgentMemoryStore {
     const now = new Date().toISOString();
     const id = `memory_${crypto.randomUUID()}`;
     const record = {
-      schemaVersion: AGENT_MEMORY_SCHEMA_VERSION,
+      schema_version: AGENT_MEMORY_SCHEMA_VERSION,
       id,
       object: "ioi.agent_memory_record",
       scope,
       fact,
-      memoryKey: optionalMemoryString(workflow.memoryKey ?? workflow.memory_key ?? workflow.stateKey ?? workflow.state_key),
-      agentId: agent?.id ?? null,
-      threadId: threadId ?? null,
+      memory_key: optionalMemoryString(workflow.memory_key ?? workflow.state_key),
+      agent_id: agent?.id ?? null,
+      thread_id: threadId ?? null,
       workspace: agent?.cwd ?? null,
-      workflowGraphId: workflow.workflowGraphId ?? workflow.workflow_graph_id ?? null,
-      workflowNodeId: workflow.workflowNodeId ?? workflow.workflow_node_id ?? "runtime.memory",
-      workflowNodeType: workflow.workflowNodeType ?? workflow.workflow_node_type ?? "Memory",
+      workflow_graph_id: workflow.workflow_graph_id ?? null,
+      workflow_node_id: workflow.workflow_node_id ?? "runtime.memory",
+      workflow_node_type: workflow.workflow_node_type ?? "Memory",
       source,
       redaction: "none",
-      createdAt: now,
-      updatedAt: now,
-      evidenceRefs: ["agent_memory_store", "memory.write", threadId, agent?.id].filter(Boolean),
+      created_at: now,
+      updated_at: now,
+      evidence_refs: ["agent_memory_store", "memory.write", threadId, agent?.id].filter(Boolean),
     };
     const receipt = {
       id: `receipt_${id}_write`,
@@ -104,8 +104,8 @@ export class AgentMemoryStore {
       ...record,
       fact: requiredMemoryText(text),
       source,
-      updatedAt: new Date().toISOString(),
-      evidenceRefs: [...new Set([...normalizeArray(record.evidenceRefs), "memory.edit"])],
+      updated_at: new Date().toISOString(),
+      evidence_refs: [...new Set([...normalizeArray(record.evidence_refs), "memory.edit"])],
     };
     const receipt = memoryReceipt(updated, {
       kind: "memory_edit",
@@ -132,8 +132,8 @@ export class AgentMemoryStore {
     const deleted = {
       ...record,
       source,
-      deletedAt: new Date().toISOString(),
-      evidenceRefs: [...new Set([...normalizeArray(record.evidenceRefs), "memory.delete"])],
+      deleted_at: new Date().toISOString(),
+      evidence_refs: [...new Set([...normalizeArray(record.evidence_refs), "memory.delete"])],
     };
     const receipt = memoryReceipt(deleted, {
       kind: "memory_delete",
@@ -150,15 +150,15 @@ export class AgentMemoryStore {
     const records = [...this.records.values()]
       .filter((record) => {
         if (includeGlobal && record.scope === "global") return true;
-        if (threadId && record.threadId === threadId) return true;
-        if (agent?.id && record.agentId === agent.id && record.scope !== "thread") return true;
+        if (threadId && record.thread_id === threadId) return true;
+        if (agent?.id && record.agent_id === agent.id && record.scope !== "thread") return true;
         if (workspace && record.workspace === workspace && record.scope === "workspace") return true;
         return false;
       })
       .filter((record) => !filters.scope || record.scope === filters.scope)
-      .filter((record) => !filters.memory_key || record.memoryKey === filters.memory_key)
+      .filter((record) => !filters.memory_key || record.memory_key === filters.memory_key)
       .filter((record) => !filters.query || memoryRecordSearchText(record).includes(filters.query))
-      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+      .sort((left, right) => left.created_at.localeCompare(right.created_at));
     const limited = filters.limit ? records.slice(0, filters.limit) : records;
     return filters.redaction === "redacted" ? limited.map(redactMemoryRecord) : limited;
   }
@@ -421,10 +421,10 @@ function memoryRecordSearchText(record = {}) {
     record.fact,
     record.id,
     record.scope,
-    record.memoryKey,
-    record.workflowGraphId,
-    record.workflowNodeId,
-    record.workflowNodeType,
+    record.memory_key,
+    record.workflow_graph_id,
+    record.workflow_node_id,
+    record.workflow_node_type,
     record.source,
   ]
     .filter((value) => value !== undefined && value !== null)

@@ -74,7 +74,14 @@ test("agent memory store commits records, edits, and policies through Rust Agent
       agent,
       threadId: "thread.memory",
       scope: "thread",
-      workflow: { memory_key: "launch" },
+      workflow: {
+        memory_key: "launch",
+        workflow_graph_id: "graph.memory",
+        workflow_node_id: "node.memory",
+        memoryKey: "retired.launch",
+        workflowGraphId: "graph.retired",
+        workflowNodeId: "node.retired",
+      },
     });
     store.remember({
       text: "Remember the support checklist.",
@@ -83,9 +90,39 @@ test("agent memory store commits records, edits, and policies through Rust Agent
       scope: "thread",
       workflow: { memory_key: "support" },
     });
+    store.records.set("memory.retired.alias", {
+      id: "memory.retired.alias",
+      scope: "thread",
+      fact: "Retired alias record must not project.",
+      threadId: "thread.memory",
+      agentId: "agent.memory",
+      memoryKey: "launch",
+      workflowNodeId: "node.retired.only",
+      createdAt: "2026-06-07T00:00:00.000Z",
+    });
 
     assert.equal("appendOperation" in store, false);
     assert.equal(remembered.receipt.kind, "memory_write");
+    assert.equal(remembered.record.schema_version, "ioi.agent-runtime.memory.v1");
+    assert.equal(remembered.record.thread_id, "thread.memory");
+    assert.equal(remembered.record.agent_id, "agent.memory");
+    assert.equal(remembered.record.memory_key, "launch");
+    assert.equal(remembered.record.workflow_graph_id, "graph.memory");
+    assert.equal(remembered.record.workflow_node_id, "node.memory");
+    for (const key of [
+      "schemaVersion",
+      "threadId",
+      "agentId",
+      "memoryKey",
+      "workflowGraphId",
+      "workflowNodeId",
+      "workflowNodeType",
+      "createdAt",
+      "updatedAt",
+      "evidenceRefs",
+    ]) {
+      assert.equal(Object.hasOwn(remembered.record, key), false, `retired memory record alias ${key} must be absent`);
+    }
     assert.equal(fs.existsSync(path.join(store.memoryDir, `${remembered.record.id}.json`)), true);
     assert.equal(commits[0].schema_version, "ioi.runtime_memory_state_commit.v1");
     assert.equal(commits[0].memory_state_kind, "record");
@@ -93,6 +130,10 @@ test("agent memory store commits records, edits, and policies through Rust Agent
     assert.deepEqual(commits[0].receipt_refs, [remembered.receipt.id]);
     assert.equal(store.list({ agent, threadId: "thread.memory", memory_key: "launch" }).length, 1);
     assert.equal(store.list({ agent, threadId: "thread.memory", memoryKey: "launch" }).length, 2);
+    assert.equal(store.list({ agent, threadId: "thread.retired", memory_key: "launch" }).length, 0);
+    assert.equal(store.list({ agent: { id: "agent.retired", cwd: "/workspace" }, memory_key: "launch" }).length, 0);
+    assert.equal(store.list({ agent, threadId: "thread.memory", query: "node.memory" }).length, 1);
+    assert.equal(store.list({ agent, threadId: "thread.memory", query: "node.retired" }).length, 0);
     assert.equal(store.projection({ agent, threadId: "thread.memory", filters: { memory_key: "launch" } }).filters.memory_key, "launch");
     assert.equal(
       Object.hasOwn(store.projection({ agent, threadId: "thread.memory", filters: { memory_key: "launch" } }).filters, "memoryKey"),

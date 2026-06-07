@@ -14759,10 +14759,16 @@ function runCompositor() {
       /memoryListFilters\(\{ scope, memory_key, query, limit, redaction \}\)/.test(
         runtimeMemoryStoreListBlock,
       ) &&
-      /!filters\.memory_key \|\| record\.memoryKey === filters\.memory_key/.test(
+      /!filters\.memory_key \|\| record\.memory_key === filters\.memory_key/.test(
         runtimeMemoryStoreListBlock,
       ) &&
       /memory_key:\s*optionalMemoryString\(memory_key\)/.test(runtimeMemoryStoreListFiltersBlock) &&
+      /memory\.retired\.alias/.test(runtimeMemoryStoreTest) &&
+      /remembered\.record\.memory_key,\s*"launch"/.test(runtimeMemoryStoreTest) &&
+      /Object\.hasOwn\(remembered\.record,\s*key\),\s*false,\s*`retired memory record alias/.test(
+        runtimeMemoryStoreTest,
+      ) &&
+      /query: "node\.retired"/.test(runtimeMemoryStoreTest) &&
       /runtime\.hasExplicitSubagentMemorySelector\(\{ memoryKey: "project" \}\), false/.test(
         runtimeMemoryHelpersTest,
       ) &&
@@ -14778,6 +14784,9 @@ function runCompositor() {
       ) &&
       /Object\.hasOwn\(store\.projection\([\s\S]*\)\.filters, "memoryKey"\),\s*false/.test(
         runtimeMemoryStoreTest,
+      ) &&
+      !/record\.(?:threadId|agentId|memoryKey|workflowGraphId|workflowNodeId|workflowNodeType|createdAt|updatedAt|evidenceRefs)\b/.test(
+        runtimeMemoryStore,
       ) &&
       !/\boptions\.(?:memoryKey|memoryQuery|memoryScope|memoryLimit|memoryRedaction|q)\b/.test(
         `${runtimeMemoryListFiltersBlock}\n${runtimeMemoryExplicitSelectorBlock}`,
