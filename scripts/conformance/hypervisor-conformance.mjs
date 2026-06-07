@@ -12189,6 +12189,9 @@ function runCompositor() {
   const executionSurfaceLeg = exists("scripts/check-execution-surface-leg.mjs")
     ? read("scripts/check-execution-surface-leg.mjs")
     : "";
+  const liveModelMountingGate = exists("scripts/live-model-mounting-gate.mjs")
+    ? read("scripts/live-model-mounting-gate.mjs")
+    : "";
   const liveRuntimeDaemonContract = exists("scripts/lib/live-runtime-daemon-contract.test.mjs")
     ? read("scripts/lib/live-runtime-daemon-contract.test.mjs")
     : "";
@@ -15736,6 +15739,25 @@ function runCompositor() {
       "scripts/lib/cursor-sdk-parity-contract.mjs",
     ],
     "Phase 10/11 is pending: SDK testing and evidence paths must not retain the retired mock runtime client helper",
+  );
+  assertCheck(
+    result,
+    "execution-surface-operation-log-terminology-retired",
+    /agentgres_canonical_state_projection/.test(executionSurfaceLeg) &&
+      !/"operation-log\.jsonl"|"agentgres_canonical_operation_log"/.test(executionSurfaceLeg) &&
+      /daemon_backed_canonical_state_projection/.test(runtimeCompletePlus) &&
+      /retiredOperationLogAbsent/.test(runtimeCompletePlus) &&
+      !/daemon_backed_canonical_operation_log|agentgres_canonical_operation_log|operationLogText|operationKinds/.test(
+        runtimeCompletePlus,
+      ) &&
+      /receiptProjection/.test(liveModelMountingGate) &&
+      !/operationLogProjection/.test(liveModelMountingGate),
+    [
+      "scripts/check-execution-surface-leg.mjs",
+      "scripts/evidence/runtime-complete-plus.mjs",
+      "scripts/live-model-mounting-gate.mjs",
+    ],
+    "Phase 10/11 is pending: execution-surface and live model-mounting gates must expose receipt/projection vocabulary instead of retired operation-log terminology",
   );
   assertCheck(
     result,

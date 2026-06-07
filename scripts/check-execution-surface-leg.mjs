@@ -48,6 +48,7 @@ const sdkIndex = read("packages/agent-sdk/src/index.ts");
 const sdkTesting = read("packages/agent-sdk/src/testing.ts");
 const sdkTests = read("packages/agent-sdk/test/sdk.test.mjs");
 const localDaemon = read("packages/runtime-daemon/src/index.mjs");
+const runtimeHttpUtils = read("packages/runtime-daemon/src/runtime-http-utils.mjs");
 const broadEvidence = read("scripts/evidence/runtime-complete-plus.mjs");
 const runtimeContracts = read("crates/types/src/app/runtime_contracts.rs");
 const toolContracts = read("crates/services/src/agentic/runtime/tools/contracts.rs");
@@ -94,24 +95,28 @@ assertLane(
 assertText(
   "B2",
   "event streaming and reconnect transport",
-  `${sdkSubstrate}\n${localDaemon}`,
-  ["requestEvents", "text/event-stream", "parseServerSentEvents", "lastEventId", "last-event-id"],
-  ["packages/agent-sdk/src/substrate-client.ts", "packages/runtime-daemon/src/index.mjs"],
-  "daemon event stream cannot parse SSE or resume by cursor",
+  `${sdkSubstrate}\n${localDaemon}\n${runtimeHttpUtils}`,
+  ["requestEvents", "text/event-stream", "parseServerSentEvents", "event_id"],
+  [
+    "packages/agent-sdk/src/substrate-client.ts",
+    "packages/runtime-daemon/src/index.mjs",
+    "packages/runtime-daemon/src/runtime-http-utils.mjs",
+  ],
+  "daemon event stream cannot parse canonical SSE event_id envelopes",
 );
-assertText(
+assertLane(
   "B3",
   "live local daemon service",
-  localDaemon,
   [
     "startRuntimeDaemonService",
     "AgentgresRuntimeStateStore",
     "/v1/agents",
     "/v1/runs",
-    "operation-log.jsonl",
-  ],
+    "agentgres_canonical_state_projection",
+  ].every((pattern) => localDaemon.includes(pattern)) &&
+    !/operation-log\.jsonl|agentgres_canonical_operation_log/.test(localDaemon),
   ["packages/runtime-daemon/src/index.mjs"],
-  "local daemon service is not implemented as a reusable long-running public API",
+  "local daemon service is not implemented as a reusable public API over canonical Agentgres state projections",
 );
 
 assertText(
@@ -207,8 +212,9 @@ assertText(
   "Agentgres canonical live proof",
   `${localDaemon}\n${broadEvidence}`,
   [
-    "daemon_backed_canonical_operation_log",
-    "agentgres_canonical_operation_log",
+    "daemon_backed_canonical_state_projection",
+    "agentgres_canonical_state_projection",
+    "retiredOperationLogAbsent",
     "cross-surface-compatibility-report.json",
     "canonical_live",
   ],

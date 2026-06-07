@@ -232,15 +232,7 @@ async function runLiveDaemonAgentgresProof(createRuntimeSubstrateClient, Agent, 
       `${daemon.endpoint}/v1/runs/${run.id}/events?lastEventId=${encodeURIComponent(firstBatch.at(-1).id)}`,
       { headers: { accept: "text/event-stream" } },
     ).then((response) => response.text());
-    const operationLogPath = path.join(liveAgentgresDir, "operation-log.jsonl");
-    const operationLogText = fs.existsSync(operationLogPath)
-      ? fs.readFileSync(operationLogPath, "utf8")
-      : "";
-    const operationKinds = operationLogText
-      .trim()
-      .split(/\n/)
-      .filter(Boolean)
-      .map((line) => JSON.parse(line).kind);
+    const retiredOperationLogPath = path.join(liveAgentgresDir, "operation-log.jsonl");
     const stateFiles = Object.fromEntries(
       [
         "schema.json",
@@ -250,7 +242,6 @@ async function runLiveDaemonAgentgresProof(createRuntimeSubstrateClient, Agent, 
         `ledgers/${run.id}.json`,
         `quality/${run.id}.json`,
         `projections/${run.id}.json`,
-        "operation-log.jsonl",
       ].map((relativePath) => [
         relativePath,
         fs.existsSync(path.join(liveAgentgresDir, relativePath)),
@@ -280,11 +271,12 @@ async function runLiveDaemonAgentgresProof(createRuntimeSubstrateClient, Agent, 
           trace.taskState.currentObjective === cliTrace.taskState?.currentObjective &&
           trace.taskState.currentObjective === objective,
         canonicalProjectionPresent:
-          trace.canonicalState?.source === "agentgres_canonical_operation_log" &&
-          cliTrace.canonicalState?.source === "agentgres_canonical_operation_log",
+          trace.canonicalState?.source === "agentgres_canonical_state_projection" &&
+          cliTrace.canonicalState?.source === "agentgres_canonical_state_projection",
+        retiredOperationLogAbsent: !fs.existsSync(retiredOperationLogPath),
       },
       stateFiles,
-      operationKinds,
+      retiredOperationLogAbsent: !fs.existsSync(retiredOperationLogPath),
     };
     return {
       daemon: {
@@ -324,11 +316,11 @@ async function runLiveDaemonAgentgresProof(createRuntimeSubstrateClient, Agent, 
       agentgres: {
         status: "canonical_live",
         canonicalOwner: "Agentgres",
-        proofClass: "daemon_backed_canonical_operation_log",
+        proofClass: "daemon_backed_canonical_state_projection",
         stateDir: liveAgentgresDir,
         schemaPath: path.join(liveAgentgresDir, "schema.json"),
-        operationLogPath,
-        operationKinds,
+        retiredOperationLogPath,
+        retiredOperationLogAbsent: !fs.existsSync(retiredOperationLogPath),
         stateFiles,
         projection: cliTrace.canonicalState,
         replayTerminalState: result.status,
@@ -586,7 +578,7 @@ async function main() {
         "## Complete Plus Evidence",
         "",
         "- Daemon public runtime API is validated by `daemon-lifecycle-trace.json`.",
-        "- Agentgres canonical persistence is validated by `agentgres-persistence-proof.json` and `live-agentgres/operation-log.jsonl`.",
+        "- Agentgres canonical persistence is validated by `agentgres-persistence-proof.json` and canonical state/projection records; the retired `operation-log.jsonl` mirror is absent.",
         "- SDK checkpoints remain cache/export only and are not canonical.",
         "- Cross-surface compatibility is validated by `cross-surface-compatibility-report.json`.",
         "- CLI/public runtime observation is recorded in `cli-transcript.md`.",

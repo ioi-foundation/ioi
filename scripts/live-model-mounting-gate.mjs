@@ -510,7 +510,7 @@ function fakeBoundaryHealth(kind) {
     ok: true,
     service: "local-agentgres-boundary",
     port: "AgentgresModelMountingStorePort",
-    methods: ["projectionReplay", "receiptLookup", "operationLogProjection"],
+    methods: ["projectionReplay", "receiptLookup", "receiptProjection"],
   };
 }
 
