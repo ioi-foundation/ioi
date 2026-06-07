@@ -954,7 +954,6 @@ export interface RuntimeThreadCreateInput {
   runtime_profile?: string;
   goal?: string;
   max_steps?: number;
-  [key: string]: unknown;
 }
 
 export interface RuntimeThreadForkInput {
@@ -969,13 +968,10 @@ export interface RuntimeThreadForkInput {
 
 export interface RuntimeTurnCreateInput {
   prompt?: string;
-  message?: string;
-  input?: string;
   mode?: RuntimeRunRecord["mode"];
   options?: SendOptions | PlanOptions | DryRunOptions | HandoffOptions;
   memory?: SendOptions["memory"];
   remember?: string;
-  [key: string]: unknown;
 }
 
 export interface RuntimeTurnInterruptInput {
@@ -1621,6 +1617,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   }
 
   async createThread(input: RuntimeThreadCreateInput = {}): Promise<RuntimeThreadRecord> {
+    assertNoRetiredRuntimeThreadCreateAliases(input);
     return this.request("createThread", "POST", "/v1/threads", input);
   }
 
@@ -1793,6 +1790,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   }
 
   async submitTurn(threadId: string, input: RuntimeTurnCreateInput): Promise<RuntimeTurnRecord> {
+    assertNoRetiredRuntimeTurnCreateAliases(input);
     return this.request("submitTurn", "POST", `/v1/threads/${encodePath(threadId)}/turns`, input);
   }
 
@@ -3047,6 +3045,39 @@ function assertNoRetiredRuntimeThreadControlAliases(
     details: {
       code: "runtime_thread_control_sdk_request_aliases_retired",
       operation,
+      retired_aliases: retiredAliases,
+    },
+  });
+}
+
+function assertNoRetiredRuntimeThreadCreateAliases(input: RuntimeThreadCreateInput): void {
+  const record = input as unknown as Record<string, unknown>;
+  const retiredAliases = ["runtimeProfile", "maxSteps"].filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new IoiAgentError({
+    code: "config",
+    message:
+      "Runtime thread create request aliases are retired; use runtime_profile and max_steps.",
+    details: {
+      code: "runtime_thread_create_sdk_request_aliases_retired",
+      retired_aliases: retiredAliases,
+    },
+  });
+}
+
+function assertNoRetiredRuntimeTurnCreateAliases(input: RuntimeTurnCreateInput): void {
+  const record = input as unknown as Record<string, unknown>;
+  const retiredAliases = ["message", "input"].filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new IoiAgentError({
+    code: "config",
+    message: "Runtime turn create request aliases are retired; use prompt.",
+    details: {
+      code: "runtime_turn_create_sdk_request_aliases_retired",
       retired_aliases: retiredAliases,
     },
   });

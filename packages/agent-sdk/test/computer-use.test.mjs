@@ -2355,7 +2355,7 @@ test("runtime service bridge computer-use events persist as run trace artifacts"
     const thread = await Thread.create({
       local: { cwd },
       model: { id: "local:auto" },
-      runtimeProfile: "runtime_service",
+      request: { runtime_profile: "runtime_service" },
       substrateClient: client,
     });
     const turn = await thread.send("Use the browser to inspect the bridge-mounted app.", {

@@ -13019,6 +13019,14 @@ aliases such as `approvalMode`, `modelId`, `routeId`, `reasoningEffort`,
 agent-control input types advertise canonical snake_case request fields only,
 and bridge conformance guards the SDK types, runtime guard, and focused tests.
 
+Slice 477 retires SDK thread/turn creation request aliases:
+`createThread`, `submitTurn`, and the `Thread.create` wrapper now fail closed
+before transport when callers supply retired thread-start or turn-submit aliases
+such as `runtimeProfile`, `maxSteps`, `message`, or `input`; the SDK creation
+input types and wrapper options advertise canonical `runtime_profile`,
+`max_steps`, and `prompt` fields only, preserving the Rust-planned runtime
+bridge state-update path without a JS-era request escape hatch.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

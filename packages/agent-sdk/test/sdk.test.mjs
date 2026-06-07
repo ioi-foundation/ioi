@@ -1361,6 +1361,10 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     if (request.method === "POST" && url.pathname === "/v1/threads") {
       const body = await readBody(request);
       assert.equal(body.options.local.cwd, process.cwd());
+      assert.equal(Object.hasOwn(body, "runtimeProfile"), false);
+      assert.equal(Object.hasOwn(body, "maxSteps"), false);
+      assert.equal(Object.hasOwn(body.options, "runtimeProfile"), false);
+      assert.equal(Object.hasOwn(body.options, "maxSteps"), false);
       response.end(JSON.stringify(threadRecord));
       return;
     }
@@ -1371,6 +1375,8 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     if (request.method === "POST" && url.pathname === "/v1/threads/thread_sdk/turns") {
       const body = await readBody(request);
       assert.equal(body.prompt, "Exercise typed thread events.");
+      assert.equal(Object.hasOwn(body, "message"), false);
+      assert.equal(Object.hasOwn(body, "input"), false);
       response.end(JSON.stringify(turnRecord));
       return;
     }
@@ -1605,6 +1611,53 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
   } finally {
     await close(server);
   }
+});
+
+test("SDK thread and turn create requests reject retired aliases before transport", async () => {
+  const client = createRuntimeSubstrateClient({ endpoint: "http://127.0.0.1:9" });
+  await assert.rejects(
+    client.createThread({
+      runtimeProfile: "runtime_service",
+      maxSteps: 5,
+      options: { local: { cwd: process.cwd() } },
+    }),
+    (error) =>
+      error instanceof IoiAgentError &&
+      error.code === "config" &&
+      error.details?.code === "runtime_thread_create_sdk_request_aliases_retired" &&
+      error.details?.retired_aliases?.includes("runtimeProfile") &&
+      error.details?.retired_aliases?.includes("maxSteps"),
+  );
+  await assert.rejects(
+    client.submitTurn("thread_sdk", {
+      message: "retired message alias",
+      input: "retired input alias",
+    }),
+    (error) =>
+      error instanceof IoiAgentError &&
+      error.code === "config" &&
+      error.details?.code === "runtime_turn_create_sdk_request_aliases_retired" &&
+      error.details?.retired_aliases?.includes("message") &&
+      error.details?.retired_aliases?.includes("input"),
+  );
+});
+
+test("Thread create wrapper rejects retired option aliases before transport", async () => {
+  const client = createRuntimeSubstrateClient({ endpoint: "http://127.0.0.1:9" });
+  await assert.rejects(
+    Thread.create({
+      local: { cwd: process.cwd() },
+      runtimeProfile: "runtime_service",
+      maxSteps: 3,
+      substrateClient: client,
+    }),
+    (error) =>
+      error instanceof IoiAgentError &&
+      error.code === "config" &&
+      error.details?.code === "runtime_thread_create_sdk_option_aliases_retired" &&
+      error.details?.retired_aliases?.includes("runtimeProfile") &&
+      error.details?.retired_aliases?.includes("maxSteps"),
+  );
 });
 
 test("SDK thread control requests reject retired aliases before transport", async () => {

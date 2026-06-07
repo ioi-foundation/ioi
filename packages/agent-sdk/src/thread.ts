@@ -1,4 +1,5 @@
 import type { AgentOptions, SendOptions, StreamOptions } from "./options.js";
+import { IoiAgentError } from "./errors.js";
 import {
   createRuntimeSubstrateClient,
   type RuntimeEventStreamOptions,
@@ -52,9 +53,9 @@ let defaultThreadClient: RuntimeSubstrateClient | undefined;
 
 export interface ThreadCreateOptions extends AgentOptions {
   request?: Omit<RuntimeThreadCreateInput, "options">;
-  runtimeProfile?: string;
+  runtime_profile?: string;
   goal?: string;
-  maxSteps?: number;
+  max_steps?: number;
 }
 
 function clientForThreadOptions(options?: AgentOptions): RuntimeSubstrateClient {
@@ -69,21 +70,39 @@ function clientForThreadOptions(options?: AgentOptions): RuntimeSubstrateClient 
 }
 
 function threadCreateInput(options: ThreadCreateOptions): RuntimeThreadCreateInput {
+  assertNoRetiredThreadCreateOptionAliases(options);
   const {
     substrateClient: _substrateClient,
     request,
-    runtimeProfile,
+    runtime_profile,
     goal,
-    maxSteps,
+    max_steps,
     ...agentOptions
   } = options;
   return {
     ...(request ?? {}),
-    ...(runtimeProfile ? { runtime_profile: runtimeProfile } : {}),
+    ...(runtime_profile ? { runtime_profile } : {}),
     ...(goal ? { goal } : {}),
-    ...(maxSteps !== undefined ? { max_steps: maxSteps } : {}),
+    ...(max_steps !== undefined ? { max_steps } : {}),
     options: agentOptions,
   };
+}
+
+function assertNoRetiredThreadCreateOptionAliases(options: ThreadCreateOptions): void {
+  const record = options as unknown as Record<string, unknown>;
+  const retiredAliases = ["runtimeProfile", "maxSteps"].filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new IoiAgentError({
+    code: "config",
+    message:
+      "Thread create option aliases are retired; use runtime_profile and max_steps.",
+    details: {
+      code: "runtime_thread_create_sdk_option_aliases_retired",
+      retired_aliases: retiredAliases,
+    },
+  });
 }
 
 export class Thread {

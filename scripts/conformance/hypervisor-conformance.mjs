@@ -718,6 +718,9 @@ function runBridge() {
   const agentSdkComputerUseTest = exists("packages/agent-sdk/test/computer-use.test.mjs")
     ? read("packages/agent-sdk/test/computer-use.test.mjs")
     : "";
+  const agentSdkThread = exists("packages/agent-sdk/src/thread.ts")
+    ? read("packages/agent-sdk/src/thread.ts")
+    : "";
   const computerUseSandboxFixture = exists("packages/runtime-daemon/src/computer-use-sandbox-fixture.mjs")
     ? read("packages/runtime-daemon/src/computer-use-sandbox-fixture.mjs")
     : "";
@@ -1156,6 +1159,17 @@ function runBridge() {
     "RuntimeThreadModeInput",
     "RuntimeThreadModelInput",
     "RuntimeThreadThinkingInput",
+  ]
+    .map(
+      (name) =>
+        agentSdkSubstrateClient.match(
+          new RegExp(`export interface ${name}[\\s\\S]*?\\n}\\n`),
+        )?.[0] ?? "",
+    )
+    .join("\n");
+  const runtimeThreadTurnCreateSdkInputBlocks = [
+    "RuntimeThreadCreateInput",
+    "RuntimeTurnCreateInput",
   ]
     .map(
       (name) =>
@@ -4125,6 +4139,50 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
     "Phase 9/10 is pending: runtime bridge thread-start agent updates must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-thread-turn-create-request-aliases-retired",
+    /runtime_profile\?: string;/.test(runtimeThreadTurnCreateSdkInputBlocks) &&
+      /max_steps\?: number;/.test(runtimeThreadTurnCreateSdkInputBlocks) &&
+      /prompt\?: string;/.test(runtimeThreadTurnCreateSdkInputBlocks) &&
+      !/^\s*(?:runtimeProfile|maxSteps|message|input)\?:/m.test(
+        runtimeThreadTurnCreateSdkInputBlocks,
+      ) &&
+      !/\[key:\s*string\]:\s*unknown;/.test(runtimeThreadTurnCreateSdkInputBlocks) &&
+      /assertNoRetiredRuntimeThreadCreateAliases\(input\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /assertNoRetiredRuntimeTurnCreateAliases\(input\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /runtime_thread_create_sdk_request_aliases_retired/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /runtime_turn_create_sdk_request_aliases_retired/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /runtime_thread_create_sdk_option_aliases_retired/.test(agentSdkThread) &&
+      /runtime_profile\?: string;/.test(agentSdkThread) &&
+      /max_steps\?: number;/.test(agentSdkThread) &&
+      !/runtimeProfile\?: string;|maxSteps\?: number;/.test(agentSdkThread) &&
+      /SDK thread and turn create requests reject retired aliases before transport/.test(
+        agentSdkTest,
+      ) &&
+      /Thread create wrapper rejects retired option aliases before transport/.test(
+        agentSdkTest,
+      ) &&
+      /request:\s*\{\s*runtime_profile:\s*"runtime_service"\s*\}/.test(
+        agentSdkComputerUseTest,
+      ) &&
+      !/runtimeProfile:\s*"runtime_service"/.test(agentSdkComputerUseTest),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/src/thread.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+      "packages/agent-sdk/test/computer-use.test.mjs",
+    ],
+    "Phase 10/11 is pending: SDK thread and turn creation must use canonical runtime_profile/max_steps/prompt request fields before Rust-planned runtime bridge state updates",
   );
   assertCheck(
     result,
