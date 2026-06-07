@@ -12973,6 +12973,13 @@ only, fail closed on retired `workflowGraphId` / `workflowNodeId` control
 aliases, and bridge conformance guards the IDE input types, runtime guards, and
 focused tests.
 
+Slice 470 retires cTEE Private Workspace IDE control input aliases:
+`createRuntimeCteePrivateWorkspaceControlRequest` and the workflow-node helper
+now accept canonical `workflow_graph_id` / `workflow_node_id` steering inputs
+only, fail closed on retired `workflowGraphId` / `workflowNodeId` control
+aliases, and cTEE conformance guards the IDE input types, runtime guards, and
+focused tests.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

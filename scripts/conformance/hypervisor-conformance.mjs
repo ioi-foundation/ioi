@@ -11119,6 +11119,14 @@ function runCtee() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts")
     : "";
+  const cteePrivateWorkspaceControlRequestInputType =
+    cteePrivateWorkspaceControlNodes.match(
+      /export interface RuntimeCteePrivateWorkspaceControlRequestInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const cteePrivateWorkspaceWorkflowNodeOptionsType =
+    cteePrivateWorkspaceControlNodes.match(
+      /export interface RuntimeCteePrivateWorkspaceWorkflowNodeOptions[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   assertCheck(
     result,
     "ctee-core-module",
@@ -11340,6 +11348,21 @@ function runCtee() {
       /WORKFLOW_RUNTIME_CTEE_PRIVATE_WORKSPACE_CONTROL_SCHEMA_VERSION/.test(
         cteePrivateWorkspaceControlNodes,
       ) &&
+      /RETIRED_CTEE_PRIVATE_WORKSPACE_CONTROL_INPUT_FIELDS/.test(
+        cteePrivateWorkspaceControlNodes,
+      ) &&
+      /assertNoRetiredCteePrivateWorkspaceControlInputAliases\(params\);/.test(
+        cteePrivateWorkspaceControlNodes,
+      ) &&
+      /assertNoRetiredCteePrivateWorkspaceWorkflowNodeOptionAliases\(options\);/.test(
+        cteePrivateWorkspaceControlNodes,
+      ) &&
+      !/^\s*(?:workflowGraphId|workflowNodeId)\?:/m.test(
+        cteePrivateWorkspaceControlRequestInputType,
+      ) &&
+      !/^\s*workflowGraphId\?:/m.test(cteePrivateWorkspaceWorkflowNodeOptionsType) &&
+      /^\s*workflow_graph_id\?:/m.test(cteePrivateWorkspaceControlRequestInputType) &&
+      /^\s*workflow_node_id\?:/m.test(cteePrivateWorkspaceControlRequestInputType) &&
       /createRuntimeCteePrivateWorkspaceControlRequest/.test(cteePrivateWorkspaceControlNodes) &&
       /ctee-private-workspace-actions/.test(cteePrivateWorkspaceControlNodes) &&
       /admission_only:\s*true/.test(cteePrivateWorkspaceControlNodes) &&
@@ -11349,6 +11372,12 @@ function runCtee() {
       !/expected_heads:\s*string\[\]/.test(cteePrivateWorkspaceControlNodes) &&
       !/\/apply/.test(cteePrivateWorkspaceControlNodes) &&
       /builds cTEE private workspace controls for daemon admission/.test(
+        cteePrivateWorkspaceControlNodesTest,
+      ) &&
+      /cTEE private workspace controls reject retired control input aliases/.test(
+        cteePrivateWorkspaceControlNodesTest,
+      ) &&
+      /cTEE private workspace workflow node options reject retired workflow graph input alias/.test(
         cteePrivateWorkspaceControlNodesTest,
       ) &&
       /cTEE private workspace controls reject retired Agentgres truth fields/.test(

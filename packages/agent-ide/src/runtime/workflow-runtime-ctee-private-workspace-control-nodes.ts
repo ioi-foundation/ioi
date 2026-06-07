@@ -10,6 +10,11 @@ export const RUNTIME_CTEE_PRIVATE_WORKSPACE_COMPONENT_KIND =
 export const RUNTIME_CTEE_PRIVATE_WORKSPACE_WORKFLOW_NODE_ID =
   "runtime.ctee-private-workspace-action" as const;
 
+const RETIRED_CTEE_PRIVATE_WORKSPACE_CONTROL_INPUT_FIELDS = [
+  "workflowGraphId",
+  "workflowNodeId",
+] as const;
+
 export interface RuntimeCteePrivateWorkspaceNodeTrust extends Record<string, unknown> {
   runtime_node_ref: string;
   trusted_for_plaintext: boolean;
@@ -57,19 +62,20 @@ export interface RuntimeCteePrivateWorkspaceControlRequestInput {
   actionField?: string | null;
   invocation?: Record<string, unknown> | null;
   nodeTrust?: Partial<RuntimeCteePrivateWorkspaceNodeTrust> & Record<string, unknown>;
-  workflowGraphId?: string | null;
-  workflowNodeId?: string | null;
+  workflow_graph_id?: string | null;
+  workflow_node_id?: string | null;
   actor?: string | null;
 }
 
 export interface RuntimeCteePrivateWorkspaceWorkflowNodeOptions {
-  workflowGraphId?: string | null;
+  workflow_graph_id?: string | null;
   actor?: string | null;
 }
 
 export function createRuntimeCteePrivateWorkspaceControlRequest(
   params: RuntimeCteePrivateWorkspaceControlRequestInput,
 ): RuntimeCteePrivateWorkspaceControlRequest {
+  assertNoRetiredCteePrivateWorkspaceControlInputAliases(params);
   const threadId =
     cleanString(params.threadId) ??
     stringAtPath(params.input, params.threadIdField ?? "threadId") ??
@@ -109,9 +115,9 @@ export function createRuntimeCteePrivateWorkspaceControlRequest(
     stringField(invocation, "invocation_id", "invocationId"),
     "invocation.invocation_id",
   );
-  const workflowGraphId = cleanString(params.workflowGraphId) ?? null;
+  const workflowGraphId = cleanString(params.workflow_graph_id) ?? null;
   const workflowNodeId =
-    cleanString(params.workflowNodeId) ??
+    cleanString(params.workflow_node_id) ??
     `${RUNTIME_CTEE_PRIVATE_WORKSPACE_WORKFLOW_NODE_ID}.${safeId(invocationId)}`;
   const nodeTrust: RuntimeCteePrivateWorkspaceNodeTrust = {
     ...(nodeTrustSeed ?? {}),
@@ -158,6 +164,7 @@ export function createRuntimeCteePrivateWorkspaceControlRequestFromWorkflowNode(
   input: unknown = {},
   options: RuntimeCteePrivateWorkspaceWorkflowNodeOptions = {},
 ): RuntimeCteePrivateWorkspaceControlRequest {
+  assertNoRetiredCteePrivateWorkspaceWorkflowNodeOptionAliases(options);
   const logic = workflowNodeLogic(node);
   const action =
     objectField(logic, "cteePrivateWorkspace") ??
@@ -169,9 +176,9 @@ export function createRuntimeCteePrivateWorkspaceControlRequestFromWorkflowNode(
     input,
     threadIdField: "threadId",
     action,
-    workflowGraphId: options.workflowGraphId,
-    workflowNodeId:
-      stringField(logic, "workflowNodeId", "workflow_node_id") ??
+    workflow_graph_id: options.workflow_graph_id,
+    workflow_node_id:
+      stringField(logic, "workflow_node_id") ??
       `${RUNTIME_CTEE_PRIVATE_WORKSPACE_WORKFLOW_NODE_ID}.${safeId(node.id)}`,
     actor: options.actor,
   });
@@ -190,6 +197,32 @@ function requiredString(value: string | null, field: string): string {
 function requiredObject(value: Record<string, unknown> | null | undefined, field: string): Record<string, unknown> {
   if (value && Object.keys(value).length > 0) return value;
   throw new Error(`cTEE private workspace controls need ${field} before dispatch.`);
+}
+
+function assertNoRetiredCteePrivateWorkspaceControlInputAliases(
+  input: RuntimeCteePrivateWorkspaceControlRequestInput,
+): void {
+  const record = input as unknown as Record<string, unknown>;
+  const retiredAliases = RETIRED_CTEE_PRIVATE_WORKSPACE_CONTROL_INPUT_FIELDS.filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new Error(
+    `cTEE private workspace controls no longer accept retired control input aliases: ${retiredAliases.join(", ")}`,
+  );
+}
+
+function assertNoRetiredCteePrivateWorkspaceWorkflowNodeOptionAliases(
+  options: RuntimeCteePrivateWorkspaceWorkflowNodeOptions,
+): void {
+  const record = options as unknown as Record<string, unknown>;
+  const retiredAliases = RETIRED_CTEE_PRIVATE_WORKSPACE_CONTROL_INPUT_FIELDS.filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new Error(
+    `cTEE private workspace workflow node options no longer accept retired control input aliases: ${retiredAliases.join(", ")}`,
+  );
 }
 
 function assertNoClientSuppliedCteePrivateWorkspaceTruth(

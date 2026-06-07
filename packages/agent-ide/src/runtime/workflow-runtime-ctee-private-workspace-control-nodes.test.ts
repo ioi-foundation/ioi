@@ -54,12 +54,17 @@ const retiredCteePrivateWorkspaceRequestAliases = [
   "cteeAction",
 ];
 
+const retiredCteePrivateWorkspaceControlInputAliases = [
+  "workflowGraphId",
+  "workflowNodeId",
+];
+
 test("builds cTEE private workspace controls for daemon admission", () => {
   const request = createRuntimeCteePrivateWorkspaceControlRequest({
     nodeId: "node-ctee-private-workspace",
     threadId: "thread-ide",
     action: cteeAction(),
-    workflowGraphId: "workflow.ctee",
+    workflow_graph_id: "workflow.ctee",
     actor: "workflow-author",
   });
 
@@ -95,7 +100,7 @@ test("builds cTEE private workspace controls from workflow nodes", () => {
       } as any,
     },
     { threadId: "thread-node" },
-    { workflowGraphId: "workflow.ctee-node", actor: "runtime-composer" },
+    { workflow_graph_id: "workflow.ctee-node", actor: "runtime-composer" },
   );
 
   assert.equal(request.nodeId, "ctee-node");
@@ -104,6 +109,40 @@ test("builds cTEE private workspace controls from workflow nodes", () => {
   assert.equal(request.body.workflow_graph_id, "workflow.ctee-node");
   assert.equal(request.body.workflow_node_id, "runtime.ctee-private-workspace-action.ctee-node");
   assert.equal(request.body.action.node_trust.runtime_node_ref, "node://rented-untrusted");
+});
+
+test("cTEE private workspace controls reject retired control input aliases", () => {
+  for (const key of retiredCteePrivateWorkspaceControlInputAliases) {
+    assert.throws(
+      () =>
+        createRuntimeCteePrivateWorkspaceControlRequest({
+          threadId: "thread-ide",
+          action: cteeAction(),
+          [key]: "retired",
+        } as any),
+      /retired control input aliases/,
+    );
+  }
+});
+
+test("cTEE private workspace workflow node options reject retired workflow graph input alias", () => {
+  assert.throws(
+    () =>
+      createRuntimeCteePrivateWorkspaceControlRequestFromWorkflowNode(
+        {
+          id: "ctee-node",
+          type: "runtime.control.ctee_private_workspace",
+          config: {
+            logic: {
+              action: cteeAction(),
+            },
+          } as any,
+        },
+        { threadId: "thread-node" },
+        { workflowGraphId: "workflow.ctee-node" } as any,
+      ),
+    /retired control input aliases/,
+  );
 });
 
 test("cTEE private workspace controls reject retired Agentgres truth fields", () => {
