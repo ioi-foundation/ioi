@@ -171,7 +171,7 @@ export function createRuntimeThreadControlSurface({
           status: 500,
           code: "thread_control_state_update_planner_unavailable",
           message: "Thread control updates require Rust policy state-update planning.",
-          details: { threadId, controlKind },
+          details: { thread_id: threadId, control_kind: controlKind },
         });
       }
       const stateUpdate = contextPolicyRunnerDep.planThreadControlAgentStateUpdate({
@@ -193,7 +193,7 @@ export function createRuntimeThreadControlSurface({
           status: 502,
           code: "thread_control_state_update_planner_invalid",
           message: "Rust policy state-update planning did not return an agent record.",
-          details: { threadId, controlKind },
+          details: { thread_id: threadId, control_kind: controlKind },
         });
       }
       const operationKind = requiredThreadControlOperationKind(stateUpdate, threadId, controlKind);
@@ -336,7 +336,11 @@ export function createRuntimeThreadControlSurface({
         status: 502,
         code: "thread_control_state_update_operation_kind_missing",
         message: "Rust policy state-update planning did not return an operation kind.",
-        details: { threadId, controlKind, operationKind: expectedOperationKind },
+        details: {
+          thread_id: threadId,
+          control_kind: controlKind,
+          operation_kind: expectedOperationKind,
+        },
       });
     }
     if (operationKind !== expectedOperationKind) {
@@ -345,10 +349,10 @@ export function createRuntimeThreadControlSurface({
         code: "thread_control_state_update_operation_kind_mismatch",
         message: "Rust policy state-update planning returned an unexpected operation kind.",
         details: {
-          threadId,
-          controlKind,
-          expectedOperationKind,
-          operationKind,
+          thread_id: threadId,
+          control_kind: controlKind,
+          expected_operation_kind: expectedOperationKind,
+          operation_kind: operationKind,
         },
       });
     }

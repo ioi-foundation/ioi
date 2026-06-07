@@ -147,6 +147,12 @@ function createSurface(plannerCalls = [], { threadControlStateUpdate = null } = 
   });
 }
 
+function assertNoRetiredDetailAliases(details) {
+  for (const key of ["threadId", "controlKind", "operationKind", "expectedOperationKind"]) {
+    assert.equal(Object.hasOwn(details, key), false);
+  }
+}
+
 test("thread control surface updates mode controls through Rust planner and emits workspace trust warning", () => {
   const store = createStore();
   const plannerCalls = [];
@@ -290,7 +296,41 @@ test("thread control surface fails closed without Rust-planned operation kind", 
       }),
     (error) => {
       assert.equal(error.code, "thread_control_state_update_operation_kind_missing");
-      assert.equal(error.details.operationKind, "thread.mode");
+      assert.equal(error.details.thread_id, "thread_1");
+      assert.equal(error.details.control_kind, "mode");
+      assert.equal(error.details.operation_kind, "thread.mode");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.equal(store.writes.length, 0);
+  assert.equal(store.agents.get("agent_1").runtimeControls.mode, "agent");
+  assert.equal(plannerCalls.length, 1);
+});
+
+test("thread control surface rejects unexpected Rust-planned operation kind with canonical details", () => {
+  const store = createStore();
+  const plannerCalls = [];
+  const surface = createSurface(plannerCalls, {
+    threadControlStateUpdate: {
+      operation_kind: "thread.memory_status",
+    },
+  });
+
+  assert.throws(
+    () =>
+      surface.updateThreadMode(store, "thread_1", {
+        mode: "review",
+        actor: "operator_1",
+        source: "agent_studio",
+      }),
+    (error) => {
+      assert.equal(error.code, "thread_control_state_update_operation_kind_mismatch");
+      assert.equal(error.details.thread_id, "thread_1");
+      assert.equal(error.details.control_kind, "mode");
+      assert.equal(error.details.expected_operation_kind, "thread.mode");
+      assert.equal(error.details.operation_kind, "thread.memory_status");
+      assertNoRetiredDetailAliases(error.details);
       return true;
     },
   );

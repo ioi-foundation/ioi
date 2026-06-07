@@ -4639,6 +4639,30 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "thread-control-error-detail-aliases-retired",
+    /details:\s*\{\s*thread_id:\s*threadId,\s*control_kind:\s*controlKind\s*\}/.test(
+      runtimeThreadControlSurface,
+    ) &&
+      /operation_kind:\s*expectedOperationKind/.test(runtimeThreadControlSurface) &&
+      /expected_operation_kind:\s*expectedOperationKind/.test(runtimeThreadControlSurface) &&
+      /thread control surface rejects unexpected Rust-planned operation kind with canonical details/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeThreadControlSurfaceTest) &&
+      /error\.details\.thread_id/.test(runtimeThreadControlSurfaceTest) &&
+      /error\.details\.control_kind/.test(runtimeThreadControlSurfaceTest) &&
+      /error\.details\.expected_operation_kind/.test(runtimeThreadControlSurfaceTest) &&
+      !/details:\s*\{[^}\n]*\b(?:threadId|controlKind|operationKind|expectedOperationKind)\s*:/.test(
+        runtimeThreadControlSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: thread-control Rust-planning fail-closed details must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "agent-sdk-thread-agent-control-request-aliases-retired",
     /workflow_graph_id\?: string;/.test(runtimeThreadAgentControlSdkInputBlocks) &&
       /workflow_node_id\?: string;/.test(runtimeThreadAgentControlSdkInputBlocks) &&
