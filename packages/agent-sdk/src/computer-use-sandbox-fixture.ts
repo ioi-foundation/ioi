@@ -20,15 +20,11 @@ export interface SandboxFixtureContracts {
 
 export function sandboxFixtureRequested(input: Record<string, unknown> | null | undefined): boolean {
   const provider = cleanString(
-    input?.computerUseSandboxProvider ??
-      input?.computer_use_sandbox_provider ??
-      input?.sandboxProvider ??
+    input?.computer_use_sandbox_provider ??
       input?.sandbox_provider,
   );
   const fixture = booleanValue(
-    input?.computerUseSandboxFixture ??
-      input?.computer_use_sandbox_fixture ??
-      input?.sandboxFixture ??
+    input?.computer_use_sandbox_fixture ??
       input?.sandbox_fixture,
   );
   return fixture === true || ["local_fixture", "fixture", "deterministic_fixture", "mock"].includes(provider ?? "");
@@ -59,16 +55,12 @@ export function computerUseContractsFromSandboxFixture({
   const providerId = "ioi.sandboxed_hosted.local_fixture";
   const sandboxImageRef =
     cleanString(
-      metadata?.computerUseSandboxImageRef ??
-        metadata?.computer_use_sandbox_image_ref ??
-        metadata?.sandboxImageRef ??
+      metadata?.computer_use_sandbox_image_ref ??
         metadata?.sandbox_image_ref,
     ) ?? "ioi/sandbox-fixture:local";
   const sandboxTaskRef =
     cleanString(
-      metadata?.computerUseSandboxTaskRef ??
-        metadata?.computer_use_sandbox_task_ref ??
-        metadata?.sandboxTaskRef ??
+      metadata?.computer_use_sandbox_task_ref ??
         metadata?.sandbox_task_ref,
     ) ?? `sandbox_task_${safeId(runId)}`;
   const coordinateSpaceId = `sandbox_${safeId(runId)}_viewport`;

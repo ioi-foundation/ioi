@@ -3027,16 +3027,12 @@ export class AgentgresRuntimeStateStore {
     const requestedSessionMode = sandboxedHostedSessionModeForInput(input);
     const sandboxProvider =
       optionalString(
-        input.computerUseSandboxProvider ??
-          input.computer_use_sandbox_provider ??
-          input.sandboxProvider ??
+        input.computer_use_sandbox_provider ??
           input.sandbox_provider,
       ) ?? "local_fixture";
     const sandboxFixture =
       booleanValue(
-        input.computerUseSandboxFixture ??
-          input.computer_use_sandbox_fixture ??
-          input.sandboxFixture ??
+        input.computer_use_sandbox_fixture ??
           input.sandbox_fixture,
       ) ?? sandboxProvider === "local_fixture";
     const metadata = {
@@ -3061,12 +3057,12 @@ export class AgentgresRuntimeStateStore {
       computer_use_action_kind: requestedActionKind,
       computer_use_approval_ref: requestedApprovalRef,
       computer_use_target_ref: requestedTargetRef,
-      computerUseSandboxProvider: sandboxProvider,
-      computerUseSandboxFixture: sandboxFixture,
-      computerUseSandboxImageRef:
-        optionalString(input.computerUseSandboxImageRef ?? input.computer_use_sandbox_image_ref ?? input.sandboxImageRef ?? input.sandbox_image_ref),
-      computerUseSandboxTaskRef:
-        optionalString(input.computerUseSandboxTaskRef ?? input.computer_use_sandbox_task_ref ?? input.sandboxTaskRef ?? input.sandbox_task_ref),
+      computer_use_sandbox_provider: sandboxProvider,
+      computer_use_sandbox_fixture: sandboxFixture,
+      computer_use_sandbox_image_ref:
+        optionalString(input.computer_use_sandbox_image_ref ?? input.sandbox_image_ref),
+      computer_use_sandbox_task_ref:
+        optionalString(input.computer_use_sandbox_task_ref ?? input.sandbox_task_ref),
       computerUseObservationBundle:
         objectRecord(input.computerUseObservationBundle ?? input.observation_bundle),
       computerUseTargetIndex:
@@ -3081,8 +3077,8 @@ export class AgentgresRuntimeStateStore {
     for (const key of [
       "computer_use_approval_ref",
       "computer_use_target_ref",
-      "computerUseSandboxImageRef",
-      "computerUseSandboxTaskRef",
+      "computer_use_sandbox_image_ref",
+      "computer_use_sandbox_task_ref",
       "computerUseObservationBundle",
       "computerUseTargetIndex",
       "computerUseAffordanceGraph",

@@ -3,15 +3,11 @@ const COMPUTER_USE_CONTRACT_SCHEMA_VERSION = "ioi.computer-use.harness.v1";
 export function sandboxFixtureRequested(input = {}) {
   const metadata = input.options?.metadata ?? input.metadata ?? input;
   const provider = cleanString(
-    metadata.computerUseSandboxProvider ??
-      metadata.computer_use_sandbox_provider ??
-      metadata.sandboxProvider ??
+    metadata.computer_use_sandbox_provider ??
       metadata.sandbox_provider,
   );
   const fixture = booleanValue(
-    metadata.computerUseSandboxFixture ??
-      metadata.computer_use_sandbox_fixture ??
-      metadata.sandboxFixture ??
+    metadata.computer_use_sandbox_fixture ??
       metadata.sandbox_fixture,
   );
   return fixture === true || ["local_fixture", "fixture", "deterministic_fixture", "mock"].includes(provider ?? "");
@@ -33,16 +29,12 @@ export function computerUseContractsFromSandboxFixture({
   const providerId = "ioi.sandboxed_hosted.local_fixture";
   const sandboxImageRef =
     cleanString(
-      metadata.computerUseSandboxImageRef ??
-        metadata.computer_use_sandbox_image_ref ??
-        metadata.sandboxImageRef ??
+      metadata.computer_use_sandbox_image_ref ??
         metadata.sandbox_image_ref,
     ) ?? "ioi/sandbox-fixture:local";
   const sandboxTaskRef =
     cleanString(
-      metadata.computerUseSandboxTaskRef ??
-        metadata.computer_use_sandbox_task_ref ??
-        metadata.sandboxTaskRef ??
+      metadata.computer_use_sandbox_task_ref ??
         metadata.sandbox_task_ref,
     ) ?? `sandbox_task_${safeId(runId)}`;
   const coordinateSpaceId = `sandbox_${safeId(runId)}_viewport`;

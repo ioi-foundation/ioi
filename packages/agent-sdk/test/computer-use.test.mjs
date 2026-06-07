@@ -28,6 +28,10 @@ import {
   runComputerUseShadowReplay,
 } from "../dist/index.js";
 import { computerUseContractsFromBrowserObservationArtifacts } from "../dist/computer-use-browser-artifacts.js";
+import {
+  computerUseContractsFromSandboxFixture,
+  sandboxFixtureRequested,
+} from "../dist/computer-use-sandbox-fixture.js";
 import { startRuntimeDaemonService } from "../../runtime-daemon/src/index.mjs";
 import { startFakeNativeBrowserCdpServer } from "../../runtime-daemon/src/native-browser-cdp-test-fixture.mjs";
 
@@ -2088,6 +2092,53 @@ test("browser observation artifact contracts ignore retired camelCase aliases", 
   assert.equal(result.targetIndex.targets[0].target_ref.endsWith(":document"), true);
 });
 
+test("sandbox fixture contracts ignore retired camelCase aliases", () => {
+  assert.equal(sandboxFixtureRequested({
+    computerUseSandboxProvider: "local_fixture",
+    computerUseSandboxFixture: true,
+  }), false);
+  assert.equal(sandboxFixtureRequested({
+    computer_use_sandbox_provider: "local_fixture",
+    computer_use_sandbox_fixture: true,
+  }), true);
+  const retiredAliasResult = computerUseContractsFromSandboxFixture({
+    metadata: {
+      computerUseSandboxProvider: "local_fixture",
+      computerUseSandboxFixture: true,
+      computerUseSandboxImageRef: "image:retired",
+      computerUseSandboxTaskRef: "task-retired",
+    },
+    runId: "run_sandbox_retired_alias",
+    leaseId: "lease_sandbox_retired_alias",
+    observationRef: "observation_sandbox_retired_alias",
+    targetIndexRef: "target_index_sandbox_retired_alias",
+    affordanceGraphRef: "affordance_sandbox_retired_alias",
+    retentionMode: "no_persistence",
+    sessionMode: "local_sandbox",
+    actionKind: "inspect",
+  });
+  assert.equal(retiredAliasResult, null);
+  const canonicalResult = computerUseContractsFromSandboxFixture({
+    metadata: {
+      computer_use_sandbox_provider: "local_fixture",
+      computer_use_sandbox_fixture: true,
+      computer_use_sandbox_image_ref: "image:canonical",
+      computer_use_sandbox_task_ref: "task-canonical",
+    },
+    runId: "run_sandbox_canonical",
+    leaseId: "lease_sandbox_canonical",
+    observationRef: "observation_sandbox_canonical",
+    targetIndexRef: "target_index_sandbox_canonical",
+    affordanceGraphRef: "affordance_sandbox_canonical",
+    retentionMode: "no_persistence",
+    sessionMode: "local_sandbox",
+    actionKind: "inspect",
+  });
+  assert.ok(canonicalResult);
+  assert.equal(canonicalResult.providerReceipt.image_ref, "image:canonical");
+  assert.equal(canonicalResult.providerReceipt.task_ref, "task-canonical");
+});
+
 test("runtime service bridge computer-use events persist as run trace artifacts", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-bridge-computer-use-artifacts-cwd-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-bridge-computer-use-artifacts-state-"));
@@ -2507,8 +2558,8 @@ test("runtime daemon thread tool activates local fixture sandboxed computer-use 
       input: {
         prompt: "Inspect the sandbox fixture workspace.",
         sessionMode: "local_sandbox",
-        sandboxProvider: "local_fixture",
-        sandboxFixture: true,
+        sandbox_provider: "local_fixture",
+        sandbox_fixture: true,
         observationRetentionMode: "no_persistence",
       },
     });

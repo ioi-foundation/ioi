@@ -603,8 +603,17 @@ function runBridge() {
   const agentSdkComputerUseBrowserArtifacts = exists("packages/agent-sdk/src/computer-use-browser-artifacts.ts")
     ? read("packages/agent-sdk/src/computer-use-browser-artifacts.ts")
     : "";
+  const agentSdkComputerUseSandboxFixture = exists("packages/agent-sdk/src/computer-use-sandbox-fixture.ts")
+    ? read("packages/agent-sdk/src/computer-use-sandbox-fixture.ts")
+    : "";
   const agentSdkComputerUseTest = exists("packages/agent-sdk/test/computer-use.test.mjs")
     ? read("packages/agent-sdk/test/computer-use.test.mjs")
+    : "";
+  const computerUseSandboxFixture = exists("packages/runtime-daemon/src/computer-use-sandbox-fixture.mjs")
+    ? read("packages/runtime-daemon/src/computer-use-sandbox-fixture.mjs")
+    : "";
+  const computerUseSandboxFixtureTest = exists("packages/runtime-daemon/src/computer-use-sandbox-fixture.test.mjs")
+    ? read("packages/runtime-daemon/src/computer-use-sandbox-fixture.test.mjs")
     : "";
   const computerUseProjection = exists("packages/runtime-daemon/src/computer-use-projection.mjs")
     ? read("packages/runtime-daemon/src/computer-use-projection.mjs")
@@ -1682,6 +1691,48 @@ function runBridge() {
       "packages/agent-sdk/test/computer-use.test.mjs",
     ],
     "Phase 10/11 is pending: SDK browser observation artifact projection must ignore retired camelCase artifact aliases",
+  );
+  assertCheck(
+    result,
+    "computer-use-sandbox-fixture-aliases-retired",
+    /input\?\.computer_use_sandbox_provider/.test(agentSdkComputerUseSandboxFixture) &&
+      /input\?\.sandbox_provider/.test(agentSdkComputerUseSandboxFixture) &&
+      /input\?\.computer_use_sandbox_fixture/.test(agentSdkComputerUseSandboxFixture) &&
+      /input\?\.sandbox_fixture/.test(agentSdkComputerUseSandboxFixture) &&
+      /metadata\?\.computer_use_sandbox_image_ref/.test(agentSdkComputerUseSandboxFixture) &&
+      /metadata\?\.sandbox_image_ref/.test(agentSdkComputerUseSandboxFixture) &&
+      /metadata\.computer_use_sandbox_provider/.test(computerUseSandboxFixture) &&
+      /metadata\.sandbox_provider/.test(computerUseSandboxFixture) &&
+      /metadata\.computer_use_sandbox_image_ref/.test(computerUseSandboxFixture) &&
+      /computer_use_sandbox_provider:\s*sandboxProvider/.test(runtimeDaemonIndex) &&
+      /computer_use_sandbox_fixture:\s*sandboxFixture/.test(runtimeDaemonIndex) &&
+      /computer_use_sandbox_image_ref:/.test(runtimeDaemonIndex) &&
+      /sandbox fixture contracts ignore retired camelCase aliases/.test(agentSdkComputerUseTest) &&
+      /sandbox fixture helper ignores retired camelCase aliases/.test(computerUseSandboxFixtureTest) &&
+      /computerUseSandboxProvider:\s*"local_fixture"/.test(agentSdkComputerUseTest) &&
+      /computerUseSandboxProvider:\s*"local_fixture"/.test(computerUseSandboxFixtureTest) &&
+      /assert\.equal\(retiredAliasResult,\s*null\)/.test(agentSdkComputerUseTest) &&
+      /assert\.equal\(retiredAliasResult,\s*null\)/.test(computerUseSandboxFixtureTest) &&
+      !/\b(?:input|metadata)\?\.(?:computerUseSandboxProvider|sandboxProvider|computerUseSandboxFixture|sandboxFixture|computerUseSandboxImageRef|sandboxImageRef|computerUseSandboxTaskRef|sandboxTaskRef)\b/.test(
+        agentSdkComputerUseSandboxFixture,
+      ) &&
+      !/\bmetadata\.(?:computerUseSandboxProvider|sandboxProvider|computerUseSandboxFixture|sandboxFixture|computerUseSandboxImageRef|sandboxImageRef|computerUseSandboxTaskRef|sandboxTaskRef)\b/.test(
+        computerUseSandboxFixture,
+      ) &&
+      !/\binput\.(?:computerUseSandboxProvider|sandboxProvider|computerUseSandboxFixture|sandboxFixture|computerUseSandboxImageRef|sandboxImageRef|computerUseSandboxTaskRef|sandboxTaskRef)\b/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/\b(?:computerUseSandboxProvider|computerUseSandboxFixture|computerUseSandboxImageRef|computerUseSandboxTaskRef)\s*:/.test(
+        runtimeDaemonIndex,
+      ),
+    [
+      "packages/agent-sdk/src/computer-use-sandbox-fixture.ts",
+      "packages/agent-sdk/test/computer-use.test.mjs",
+      "packages/runtime-daemon/src/computer-use-sandbox-fixture.mjs",
+      "packages/runtime-daemon/src/computer-use-sandbox-fixture.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 10/11 is pending: sandboxed computer-use fixture contracts must ignore retired camelCase aliases",
   );
   assertCheck(
     result,
