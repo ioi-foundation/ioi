@@ -1075,6 +1075,10 @@ function runBridge() {
     agentSdkSubstrateClient.match(
       /export interface RuntimeGovernedImprovementProposalAdmissionResult[\s\S]*?\n}\n/,
     )?.[0] ?? "";
+  const governedImprovementAdmissionInputType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeGovernedImprovementProposalAdmissionInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const governedImprovementAdmissionCamelAliasPropertyPattern =
     /\b(?:schemaVersion|proposalAdmitted|mutationExecuted|threadId|agentId|proposalId|admissionHash|agentgresOperationRef|stateRootBefore|stateRootAfter|resultingHead|approvalRef|rollbackRef)\s*:/;
   const governedImprovementAdmissionCamelAliasTypePattern =
@@ -7072,7 +7076,22 @@ function runBridge() {
     /admitGovernedImprovementProposal/.test(agentSdkSubstrateClient) &&
       /RuntimeGovernedImprovementProposalAdmissionInput/.test(agentSdkSubstrateClient) &&
       /governed-improvement-proposals/.test(agentSdkSubstrateClient) &&
+      !/extends Record<string, unknown>/.test(governedImprovementAdmissionInputType) &&
+      !/^\s*(?:workflowGraphId|workflowNodeId)\?:/m.test(
+        governedImprovementAdmissionInputType,
+      ) &&
+      /assertNoRetiredGovernedImprovementAdmissionAliases\(input\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /governed_improvement_sdk_request_aliases_retired/.test(
+        agentSdkSubstrateClient,
+      ) &&
       /SDK admits governed improvement proposals through the thread route/.test(agentSdkTest) &&
+      /SDK governed improvement admission rejects retired request aliases before transport/.test(
+        agentSdkTest,
+      ) &&
+      /Object\.hasOwn\(body,\s*"workflowGraphId"\),\s*false/.test(agentSdkTest) &&
+      /Object\.hasOwn\(body,\s*"workflowNodeId"\),\s*false/.test(agentSdkTest) &&
       /WORKFLOW_RUNTIME_GOVERNED_IMPROVEMENT_CONTROL_SCHEMA_VERSION/.test(
         governedImprovementControlNodes,
       ) &&

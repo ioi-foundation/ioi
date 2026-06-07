@@ -58,6 +58,10 @@ test("SDK admits governed improvement proposals through the thread route", async
     ) {
       const body = await readBody(request);
       assert.equal(body.source, "sdk_client");
+      assert.equal(body.workflow_graph_id, "workflow_sdk");
+      assert.equal(body.workflow_node_id, "governed_improvement_sdk");
+      assert.equal(Object.hasOwn(body, "workflowGraphId"), false);
+      assert.equal(Object.hasOwn(body, "workflowNodeId"), false);
       assert.equal(body.proposal.proposal_id, "proposal://runtime-improvement/sdk");
       assert.equal(body.proposal.approval_ref, "approval://wallet/runtime-improvement/sdk");
       for (const key of [
@@ -98,7 +102,11 @@ test("SDK admits governed improvement proposals through the thread route", async
     const address = server.address();
     assert.ok(address && typeof address === "object");
     const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
-    const result = await client.admitGovernedImprovementProposal("thread_sdk", { proposal });
+    const result = await client.admitGovernedImprovementProposal("thread_sdk", {
+      workflow_graph_id: "workflow_sdk",
+      workflow_node_id: "governed_improvement_sdk",
+      proposal,
+    });
 
     assert.equal(result.status, "admitted");
     assert.equal(result.proposal_admitted, true);
@@ -110,6 +118,34 @@ test("SDK admits governed improvement proposals through the thread route", async
   } finally {
     await close(server);
   }
+});
+
+test("SDK governed improvement admission rejects retired request aliases before transport", async () => {
+  const client = createRuntimeSubstrateClient({ endpoint: "http://127.0.0.1:9" });
+  await assert.rejects(
+    client.admitGovernedImprovementProposal("thread_sdk", {
+      workflowGraphId: "graph_retired",
+      workflowNodeId: "node_retired",
+      proposal: {
+        schema_version: "ioi.governed_runtime_improvement.v1",
+        proposal_id: "proposal://runtime-improvement/retired-alias",
+        target_ref: "skill://runtime-auditor/current",
+        candidate_ref: "skill-candidate://runtime-auditor/from-trace",
+        surface: "skill",
+        source_trace_ref: "trace://runtime-improvement/high-fitness",
+        eval_receipt_refs: ["receipt://eval/sdk-holdout-pass"],
+        verifier_receipt_refs: ["receipt://verifier/sdk-regression-pass"],
+        approval_ref: "approval://wallet/runtime-improvement/sdk",
+        rollback_ref: "rollback://skill/runtime-auditor/current",
+      },
+    }),
+    (error) =>
+      error instanceof IoiAgentError &&
+      error.code === "config" &&
+      error.details?.code === "governed_improvement_sdk_request_aliases_retired" &&
+      error.details?.retired_aliases?.includes("workflowGraphId") &&
+      error.details?.retired_aliases?.includes("workflowNodeId"),
+  );
 });
 
 test("SDK admits worker/service package invocations through the thread route", async () => {

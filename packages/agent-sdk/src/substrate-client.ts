@@ -1074,12 +1074,10 @@ export interface RuntimeGovernedImprovementProposal extends Record<string, unkno
   rollback_ref: string;
 }
 
-export interface RuntimeGovernedImprovementProposalAdmissionInput extends Record<string, unknown> {
+export interface RuntimeGovernedImprovementProposalAdmissionInput {
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
   actor?: string;
-  workflowGraphId?: string;
   workflow_graph_id?: string;
-  workflowNodeId?: string;
   workflow_node_id?: string;
   proposal: RuntimeGovernedImprovementProposal | Record<string, unknown>;
 }
@@ -1722,6 +1720,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeGovernedImprovementProposalAdmissionInput,
   ): Promise<RuntimeGovernedImprovementProposalAdmissionResult> {
+    assertNoRetiredGovernedImprovementAdmissionAliases(input);
     return this.request(
       "admitGovernedImprovementProposal",
       "POST",
@@ -2933,6 +2932,23 @@ function runtimeUsageListQuery(input: RuntimeUsageListInput = {}): string {
   if (agentId) params.set("agent_id", agentId);
   const query = params.toString();
   return query ? `?${query}` : "";
+}
+
+function assertNoRetiredGovernedImprovementAdmissionAliases(input: RuntimeGovernedImprovementProposalAdmissionInput): void {
+  const record = input as unknown as Record<string, unknown>;
+  const retiredAliases = ["workflowGraphId", "workflowNodeId"].filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new IoiAgentError({
+    code: "config",
+    message:
+      "Governed improvement admission request aliases are retired; use workflow_graph_id and workflow_node_id.",
+    details: {
+      code: "governed_improvement_sdk_request_aliases_retired",
+      retired_aliases: retiredAliases,
+    },
+  });
 }
 
 function memoryListQuery(options: MemoryListOptions = {}): string {
