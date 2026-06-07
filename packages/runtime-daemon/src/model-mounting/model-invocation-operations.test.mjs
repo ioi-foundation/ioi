@@ -73,9 +73,9 @@ function fakeState(overrides = {}) {
       const sequence = this.receipts.length;
       return {
         sequence,
-        headRef: `agentgres://model-mounting/operation-log/head/${sequence}`,
+        headRef: `agentgres://model-mounting/accepted-receipts/head/${sequence}`,
         stateRoot: `sha256:state-${sequence}`,
-        projectionWatermark: `model-mounting-operation-log:${sequence}`,
+        projectionWatermark: `model-mounting-accepted-receipts:${sequence}`,
       };
     },
     nextReceiptId(kind) {
@@ -551,9 +551,9 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(result.receipt.details.model_mount_receipt_binding_ref, "sha256:binding-1");
   assert.equal(result.receipt.details.model_mount_accepted_receipt_append_hash, "sha256:append-1");
   assert.equal(result.receipt.details.model_mount_step_module_invocation.input.state_root_before, "sha256:state-0");
-  assert.equal(result.receipt.details.model_mount_step_module_result.agentgres_operation_refs[0], "agentgres://model-mounting/operation-log/op_00000001_model_invocation");
+  assert.equal(result.receipt.details.model_mount_step_module_result.agentgres_operation_refs[0], "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation");
   assert.equal(result.receipt.details.model_mount_step_module_result.state_root_after.startsWith("sha256:"), true);
-  assert.equal(result.receipt.details.model_mount_agentgres_admission.operation_ref, "agentgres://model-mounting/operation-log/op_00000001_model_invocation");
+  assert.equal(result.receipt.details.model_mount_agentgres_admission.operation_ref, "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation");
   assert.equal(result.receipt.details.model_mount_step_module_invocation.module_ref.kind, "model_mount");
   assert.equal(result.receipt.details.model_mount_step_module_result.workflow_projection.status, "live");
   assert.equal(result.receipt.details.previous_response_id, null);
@@ -577,7 +577,7 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(state.providerInvocationRequests[0].execution_backend, "rust_model_mount_fixture");
   assert.equal(state.providerInvocationRequests[0].admitted_provider_execution.provider_execution_hash, "sha256:provider-execution-1");
   assert.deepEqual(state.receiptBindingRequests[0].expectedHeads, [
-    "agentgres://model-mounting/operation-log/head/0",
+    "agentgres://model-mounting/accepted-receipts/head/0",
   ]);
   assert.deepEqual(result.receipt.details.model_mount_invocation_admission_receipt_refs, [
     "receipt://receipt.route",
@@ -703,7 +703,7 @@ test("invokeModel reuses identical in-flight provider execution and marks coales
   assert.equal(secondResult.receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/2");
   assert.equal(secondResult.receipt.details.model_mount_provider_execution_ref, "model_mount://provider_execution/1");
   assert.equal(secondResult.receipt.details.model_mount_receipt_binding_ref, "sha256:binding-2");
-  assert.equal(secondResult.receipt.details.model_mount_step_module_result.agentgres_operation_refs[0], "agentgres://model-mounting/operation-log/op_00000002_model_invocation_coalesced");
+  assert.equal(secondResult.receipt.details.model_mount_step_module_result.agentgres_operation_refs[0], "agentgres://model-mounting/accepted-receipts/op_00000002_model_invocation_coalesced");
   assert.equal(state.inflightModelInvocations.size, 0);
 });
 
@@ -765,7 +765,7 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(result.invocation.receipt.details.model_mount_invocation_admission.stream_status, "started");
   assert.equal(result.invocation.receipt.details.model_mount_receipt_binding_ref, "sha256:binding-1");
   assert.equal(result.invocation.receipt.details.model_mount_accepted_receipt_append.receipt_ref, "receipt://receipt.1.model_invocation");
-  assert.equal(result.invocation.receipt.details.model_mount_agentgres_admission.operation_ref, "agentgres://model-mounting/operation-log/op_00000001_model_invocation");
+  assert.equal(result.invocation.receipt.details.model_mount_agentgres_admission.operation_ref, "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation");
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "modelMountAcceptedReceiptAppend"), false);
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "modelMountAgentgresOperationRef"), false);
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "modelMountProviderResultAdmissionRef"), false);
@@ -1586,7 +1586,7 @@ test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount Ste
   });
 
   assert.equal(request.receiptRef, "receipt://receipt.invoke");
-  assert.deepEqual(request.expectedHeads, ["agentgres://model-mounting/operation-log/head/0"]);
+  assert.deepEqual(request.expectedHeads, ["agentgres://model-mounting/accepted-receipts/head/0"]);
   assert.equal(request.invocation.module_ref.kind, "model_mount");
   assert.equal(request.invocation.execution.backend, "model_mount");
   assert.equal(request.invocation.input.state_root_before, "sha256:state-0");
@@ -1595,9 +1595,9 @@ test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount Ste
   assert.deepEqual(request.invocation.authority.authority_grant_refs, ["grant://wallet/model-chat"]);
   assert.deepEqual(request.result.receipt_refs, ["receipt://receipt.invoke"]);
   assert.deepEqual(request.result.agentgres_operation_refs, [
-    "agentgres://model-mounting/operation-log/op_00000001_model_invocation",
+    "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation",
   ]);
-  assert.equal(request.result.resulting_head, "agentgres://model-mounting/operation-log/head/1");
+  assert.equal(request.result.resulting_head, "agentgres://model-mounting/accepted-receipts/head/1");
   assert.equal(request.result.workflow_projection.component_kind, "ModelInvocationNode");
   assert.equal(request.result.workflow_projection.status, "live");
   assert.ok(request.result.workflow_projection.evidence_refs.includes("provider.auth"));

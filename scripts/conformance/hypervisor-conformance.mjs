@@ -7013,6 +7013,9 @@ function runReceipts() {
   const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     : "";
+  const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting.mjs")
+    : "";
   const modelMountAdmissionRunner = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
     : "";
@@ -10630,6 +10633,12 @@ function runReceipts() {
       /model_mount_agentgres_admission/.test(modelInvocationOps) &&
       /model_mount_agentgres_operation_ref/.test(modelInvocationOps) &&
       /model_mount_agentgres_head_required/.test(modelInvocationOps) &&
+      /agentgres:\/\/model-mounting\/accepted-receipts/.test(modelInvocationOps) &&
+      /model-mounting-accepted-receipts/.test(modelInvocationOps) &&
+      /agentgres:\/\/model-mounting\/accepted-receipts/.test(modelMountingState) &&
+      /model-mounting-accepted-receipts/.test(modelMountingState) &&
+      !/agentgres:\/\/model-mounting\/operation-log/.test(`${modelInvocationOps}\n${modelMountingState}`) &&
+      !/model-mounting-operation-log/.test(`${modelInvocationOps}\n${modelMountingState}`) &&
       /agentgresOperationRefs/.test(modelInvocationOps) &&
       /stateRootAfter/.test(modelInvocationOps) &&
       /resultingHead/.test(modelInvocationOps) &&
@@ -10638,6 +10647,7 @@ function runReceipts() {
       !/(?:modelMountReceiptBinding|modelMountAcceptedReceiptAppend|modelMountStepModuleInvocation|modelMountStepModuleResult|modelMountRouterAdmission|modelMountAgentgres|modelMountProjectionRecord)/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 4 is pending: Rust receipt_binder must bind model invocation accepted receipts before persistence",

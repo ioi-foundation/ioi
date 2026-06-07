@@ -25,9 +25,9 @@ function fakeState() {
       const sequence = this.receipts.length;
       return {
         sequence,
-        headRef: `agentgres://model-mounting/operation-log/head/${sequence}`,
+        headRef: `agentgres://model-mounting/accepted-receipts/head/${sequence}`,
         stateRoot: `sha256:state-${sequence}`,
-        projectionWatermark: `model-mounting-operation-log:${sequence}`,
+        projectionWatermark: `model-mounting-accepted-receipts:${sequence}`,
       };
     },
     nextReceiptId(kind) {
@@ -363,11 +363,11 @@ test("recordModelStreamCompleted emits stream receipt and finalizes conversation
   assert.equal(Object.hasOwn(receipt.details, "providerStreamShapeSummary"), false);
   assert.equal(receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/1");
   assert.equal(receipt.details.model_mount_receipt_binding_ref, "sha256:binding-1");
-  assert.equal(receipt.details.model_mount_agentgres_operation_ref, "agentgres://model-mounting/operation-log/op_00000001_model_invocation_stream_completed");
+  assert.equal(receipt.details.model_mount_agentgres_operation_ref, "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation_stream_completed");
   assert.equal(receipt.details.model_mount_step_module_invocation.input.state_root_before, "sha256:state-0");
-  assert.equal(receipt.details.model_mount_step_module_result.resulting_head, "agentgres://model-mounting/operation-log/head/1");
+  assert.equal(receipt.details.model_mount_step_module_result.resulting_head, "agentgres://model-mounting/accepted-receipts/head/1");
   assert.deepEqual(state.receiptBindingRequests[0].expectedHeads, [
-    "agentgres://model-mounting/operation-log/head/0",
+    "agentgres://model-mounting/accepted-receipts/head/0",
   ]);
   assert.equal(invocation.conversationState.id, "resp_stream");
   assert.equal(invocation.conversationState.stream_receipt_id, receipt.id);

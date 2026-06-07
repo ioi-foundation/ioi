@@ -1025,12 +1025,12 @@ export class ModelMountingState {
     const sequence = this.listReceipts().length;
     return {
       sequence,
-      headRef: `agentgres://model-mounting/operation-log/head/${sequence}`,
+      headRef: `agentgres://model-mounting/accepted-receipts/head/${sequence}`,
       stateRoot: `sha256:${stableHash({
         schema: "ioi.agentgres.model_mounting_state_root.v1",
         sequence,
       })}`,
-      projectionWatermark: `model-mounting-operation-log:${sequence}`,
+      projectionWatermark: `model-mounting-accepted-receipts:${sequence}`,
     };
   }
 

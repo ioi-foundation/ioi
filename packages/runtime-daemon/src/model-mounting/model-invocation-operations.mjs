@@ -849,8 +849,8 @@ export function modelMountInvocationAgentgresTransitionForReceipt(
   const currentHead = normalizeAgentgresHead(state.agentgresModelMountingHead());
   const nextSequence = currentHead.sequence + 1;
   const operationId = `op_${String(nextSequence).padStart(8, "0")}_${requiredStringRef("receiptKind", receiptKind).replace(/[^a-z0-9]+/gi, "_")}`;
-  const operationRef = `agentgres://model-mounting/operation-log/${operationId}`;
-  const resultingHead = `agentgres://model-mounting/operation-log/head/${nextSequence}`;
+  const operationRef = `agentgres://model-mounting/accepted-receipts/${operationId}`;
+  const resultingHead = `agentgres://model-mounting/accepted-receipts/head/${nextSequence}`;
   const stateRootAfter = `sha256:${stableHash({
     schema: "ioi.agentgres.model_mounting_state_root.v1",
     sequence: nextSequence,
@@ -871,7 +871,7 @@ export function modelMountInvocationAgentgresTransitionForReceipt(
     stateRootBefore: currentHead.stateRoot,
     stateRootAfter,
     resultingHead,
-    projectionWatermark: `model-mounting-operation-log:${nextSequence}`,
+    projectionWatermark: `model-mounting-accepted-receipts:${nextSequence}`,
   };
 }
 
