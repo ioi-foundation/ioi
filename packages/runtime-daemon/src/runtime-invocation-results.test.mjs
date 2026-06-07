@@ -221,6 +221,20 @@ test("native browser invocation result sorts events and merges payload/projectio
     },
   ], {
     agent: { cwd: "/agent" },
+    tool_id: "computer_use__canonical_context",
+    toolId: "computer_use__retired_context",
+    tool_call_id: "call_canonical_context",
+    toolCallId: "call_retired_context",
+    thread_id: "thread_canonical_context",
+    threadId: "thread_retired_context",
+    turn_id: "turn_canonical_context",
+    turnId: "turn_retired_context",
+    workflow_graph_id: "graph_canonical_context",
+    workflowGraphId: "graph_retired_context",
+    workflow_node_id: "node_canonical_context",
+    workflowNodeId: "node_retired_context",
+    computer_use_lane: "visual_gui",
+    computerUseLane: "sandboxed_hosted",
     projection: {
       lease: { lease_ref: "lease_1" },
       targetIndex: { target: "button" },
@@ -230,10 +244,12 @@ test("native browser invocation result sorts events and merges payload/projectio
   assert.equal(result.schema_version, "ioi.runtime.computer-use-visual-gui-result.v1");
   assert.equal(result.object, "ioi.runtime_computer_use_visual_gui_result");
   assert.equal(result.status, "failed");
-  assert.equal(result.tool_name, "computer_use__visual_gui");
-  assert.equal(result.tool_call_id, "call_1");
-  assert.equal(result.workflow_graph_id, "graph_1");
-  assert.equal(result.workflow_node_id, "node_1");
+  assert.equal(result.tool_name, "computer_use__canonical_context");
+  assert.equal(result.tool_call_id, "call_canonical_context");
+  assert.equal(result.thread_id, "thread_canonical_context");
+  assert.equal(result.turn_id, "turn_canonical_context");
+  assert.equal(result.workflow_graph_id, "graph_canonical_context");
+  assert.equal(result.workflow_node_id, "node_canonical_context");
   assert.deepEqual(result.event_refs, ["event_1", "event_2", "event_3"]);
   assert.deepEqual(result.receipt_refs, ["receipt_a", "receipt_b"]);
   assert.deepEqual(result.artifact_refs, ["artifact_a", "artifact_b"]);

@@ -2521,13 +2521,13 @@ export class AgentgresRuntimeStateStore {
     if (duplicateEvents.length > 0) {
       return computerUseNativeBrowserInvocationResultFromEvents(duplicateEvents, {
         agent,
-        threadId,
-        turnId,
-        toolId,
-        toolCallId,
-        workflowGraphId,
-        workflowNodeId,
-        computerUseLane: "native_browser",
+        thread_id: threadId,
+        turn_id: turnId,
+        tool_id: toolId,
+        tool_call_id: toolCallId,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        computer_use_lane: "native_browser",
       });
     }
     const requestInput = objectRecord(request.input);
@@ -2738,14 +2738,14 @@ export class AgentgresRuntimeStateStore {
     }
     return computerUseNativeBrowserInvocationResultFromEvents(appendedEvents, {
       agent,
-      threadId,
-      turnId,
-      toolId,
-      toolCallId,
-      workflowGraphId,
-      workflowNodeId,
+      thread_id: threadId,
+      turn_id: turnId,
+      tool_id: toolId,
+      tool_call_id: toolCallId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
       projection,
-      computerUseLane: "native_browser",
+      computer_use_lane: "native_browser",
     });
   }
 
@@ -2774,13 +2774,13 @@ export class AgentgresRuntimeStateStore {
     if (duplicateEvents.length > 0) {
       return computerUseNativeBrowserInvocationResultFromEvents(duplicateEvents, {
         agent,
-        threadId,
-        turnId,
-        toolId,
-        toolCallId,
-        workflowGraphId,
-        workflowNodeId,
-        computerUseLane: "visual_gui",
+        thread_id: threadId,
+        turn_id: turnId,
+        tool_id: toolId,
+        tool_call_id: toolCallId,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        computer_use_lane: "visual_gui",
       });
     }
     const requestInput = objectRecord(request.input);
@@ -2975,14 +2975,14 @@ export class AgentgresRuntimeStateStore {
     }
     return computerUseNativeBrowserInvocationResultFromEvents(appendedEvents, {
       agent,
-      threadId,
-      turnId,
-      toolId,
-      toolCallId,
-      workflowGraphId,
-      workflowNodeId,
+      thread_id: threadId,
+      turn_id: turnId,
+      tool_id: toolId,
+      tool_call_id: toolCallId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
       projection,
-      computerUseLane: "visual_gui",
+      computer_use_lane: "visual_gui",
     });
   }
 
@@ -3011,13 +3011,13 @@ export class AgentgresRuntimeStateStore {
     if (duplicateEvents.length > 0) {
       return computerUseNativeBrowserInvocationResultFromEvents(duplicateEvents, {
         agent,
-        threadId,
-        turnId,
-        toolId,
-        toolCallId,
-        workflowGraphId,
-        workflowNodeId,
-        computerUseLane: "sandboxed_hosted",
+        thread_id: threadId,
+        turn_id: turnId,
+        tool_id: toolId,
+        tool_call_id: toolCallId,
+        workflow_graph_id: workflowGraphId,
+        workflow_node_id: workflowNodeId,
+        computer_use_lane: "sandboxed_hosted",
       });
     }
     const requestInput = objectRecord(request.input);
@@ -3164,14 +3164,14 @@ export class AgentgresRuntimeStateStore {
     }
     return computerUseNativeBrowserInvocationResultFromEvents(appendedEvents, {
       agent,
-      threadId,
-      turnId,
-      toolId,
-      toolCallId,
-      workflowGraphId,
-      workflowNodeId,
+      thread_id: threadId,
+      turn_id: turnId,
+      tool_id: toolId,
+      tool_call_id: toolCallId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
       projection,
-      computerUseLane: "sandboxed_hosted",
+      computer_use_lane: "sandboxed_hosted",
     });
   }
 

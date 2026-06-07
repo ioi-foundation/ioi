@@ -123,8 +123,7 @@ export function createRuntimeInvocationResultProjections(deps = {}) {
     const payloads = orderedEvents.map((event) => event.payload_summary ?? event.payload ?? {});
     const firstPayload = payloads[0] ?? {};
     const resultLane = optionalString(
-      context.computerUseLane ??
-        context.computer_use_lane ??
+      context.computer_use_lane ??
         firstPayload.computer_use_lane,
     ) ?? "native_browser";
     const resultObjectLane = safeId(resultLane);
@@ -152,16 +151,16 @@ export function createRuntimeInvocationResultProjections(deps = {}) {
       schema_version: `ioi.runtime.computer-use-${resultSchemaLane}-result.v1`,
       object: `ioi.runtime_computer_use_${resultObjectLane}_result`,
       tool_pack: "computer_use",
-      tool_name: context.toolId ?? firstPayload.tool_ref ?? null,
-      tool_call_id: context.toolCallId ?? orderedEvents[0]?.tool_call_id ?? null,
-      thread_id: context.threadId ?? orderedEvents[0]?.thread_id ?? null,
-      turn_id: context.turnId ?? orderedEvents[0]?.turn_id ?? null,
+      tool_name: context.tool_id ?? firstPayload.tool_ref ?? null,
+      tool_call_id: context.tool_call_id ?? orderedEvents[0]?.tool_call_id ?? null,
+      thread_id: context.thread_id ?? orderedEvents[0]?.thread_id ?? null,
+      turn_id: context.turn_id ?? orderedEvents[0]?.turn_id ?? null,
       status: orderedEvents.every((event) => event.status !== "failed") ? "completed" : "failed",
       workspace_root: context.agent?.cwd ?? orderedEvents[0]?.workspace_root ?? null,
       workflow_graph_id:
-        context.workflowGraphId ?? firstPayload.workflow_graph_id ?? null,
+        context.workflow_graph_id ?? firstPayload.workflow_graph_id ?? null,
       workflow_node_id:
-        context.workflowNodeId ?? firstPayload.workflow_node_id ?? null,
+        context.workflow_node_id ?? firstPayload.workflow_node_id ?? null,
       shell_fallback_used: false,
       receipt_refs: receiptRefs,
       artifact_refs: artifactRefs,

@@ -13254,6 +13254,13 @@ control result projections now consume canonical `tool_id`, `tool_call_id`,
 fields only; retired camelCase context aliases can no longer steer replay
 metadata before workflow projection.
 
+Slice 510 retires native computer-use replay context aliases:
+native-browser, visual-GUI, and sandboxed-hosted computer-use result aggregation
+now consumes canonical `computer_use_lane`, `tool_id`, `tool_call_id`,
+`thread_id`, `turn_id`, `workflow_graph_id`, and `workflow_node_id` context
+fields only; retired camelCase context aliases can no longer steer multi-event
+computer-use replay metadata before workflow projection.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

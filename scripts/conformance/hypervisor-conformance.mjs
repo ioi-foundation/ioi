@@ -1780,13 +1780,19 @@ function runBridge() {
       /payloads\.find\(\(payload\) => payload\.cleanup_receipt\)/.test(
         runtimeInvocationNativeComputerUseResultBody,
       ) &&
-      /tool_name:\s*context\.toolId \?\? firstPayload\.tool_ref \?\? null/.test(
+      /tool_name:\s*context\.tool_id \?\? firstPayload\.tool_ref \?\? null/.test(
         runtimeInvocationNativeComputerUseResultBody,
       ) &&
-      /workflow_graph_id:\s*[\r\n\s]*context\.workflowGraphId \?\? firstPayload\.workflow_graph_id \?\? null/.test(
+      /tool_call_id:\s*context\.tool_call_id \?\? orderedEvents\[0\]\?\.tool_call_id \?\? null/.test(
         runtimeInvocationNativeComputerUseResultBody,
       ) &&
-      /workflow_node_id:\s*[\r\n\s]*context\.workflowNodeId \?\? firstPayload\.workflow_node_id \?\? null/.test(
+      /workflow_graph_id:\s*[\r\n\s]*context\.workflow_graph_id \?\? firstPayload\.workflow_graph_id \?\? null/.test(
+        runtimeInvocationNativeComputerUseResultBody,
+      ) &&
+      /workflow_node_id:\s*[\r\n\s]*context\.workflow_node_id \?\? firstPayload\.workflow_node_id \?\? null/.test(
+        runtimeInvocationNativeComputerUseResultBody,
+      ) &&
+      !/context\.(?:computerUseLane|toolId|toolCallId|threadId|turnId|workflowGraphId|workflowNodeId)\b/.test(
         runtimeInvocationNativeComputerUseResultBody,
       ) &&
       !/\bidempotentReplay\s*:/.test(runtimeInvocationNativeComputerUseResultBody) &&
@@ -1796,6 +1802,14 @@ function runBridge() {
       /computerUseLane: "sandboxed hosted"/.test(runtimeInvocationResultsTest) &&
       /toolRef: "computer_use__retired_alias"/.test(runtimeInvocationResultsTest) &&
       /workflowGraphId: "graph_retired_alias"/.test(runtimeInvocationResultsTest) &&
+      /toolId: "computer_use__retired_context"/.test(runtimeInvocationResultsTest) &&
+      /computerUseLane: "sandboxed_hosted"/.test(runtimeInvocationResultsTest) &&
+      /assert\.equal\(result\.tool_name,\s*"computer_use__canonical_context"\)/.test(
+        runtimeInvocationResultsTest,
+      ) &&
+      /assert\.equal\(result\.workflow_node_id,\s*"node_canonical_context"\)/.test(
+        runtimeInvocationResultsTest,
+      ) &&
       /environmentSelectionReceipt: \{ env: "retired_alias" \}/.test(runtimeInvocationResultsTest) &&
       /observationBundle: \{ screen: "retired_alias" \}/.test(runtimeInvocationResultsTest) &&
       /computerAction: \{ action: "retired_alias" \}/.test(runtimeInvocationResultsTest) &&
