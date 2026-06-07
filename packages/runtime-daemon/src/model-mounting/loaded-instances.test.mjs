@@ -16,6 +16,7 @@ function fakeState({ now = "2026-06-03T12:00:00.000Z", instances = [] } = {}) {
       ["endpoint_b", { id: "endpoint_b", modelId: "model_b", backendId: "backend.native" }],
     ]),
     providers: new Map(),
+    recordStateCommits: [],
     receipts: [],
     transitionRequests: [],
     writes: [],
@@ -25,7 +26,9 @@ function fakeState({ now = "2026-06-03T12:00:00.000Z", instances = [] } = {}) {
       return endpoint;
     },
     lifecycleReceipt(kind, details) {
+      const receipt = { id: `receipt.${kind}.${this.receipts.length + 1}`, kind, details };
       this.receipts.push([kind, details]);
+      return receipt;
     },
     now() {
       return new Date(now);
@@ -35,6 +38,21 @@ function fakeState({ now = "2026-06-03T12:00:00.000Z", instances = [] } = {}) {
     },
     writeMap(dir, map) {
       this.writes.push([dir, [...map.values()].map((instance) => ({ ...instance }))]);
+    },
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(JSON.parse(JSON.stringify(request)));
+      return {
+        record_id: request.record_id,
+        commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+          admission: {
+            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+          },
+        },
+      };
     },
     planModelMountInstanceLifecycle(request) {
       this.transitionRequests.push(request);
@@ -104,10 +122,11 @@ test("idle TTL eviction writes changed instances and emits lifecycle receipts", 
     ],
   });
 
-  evictExpiredInstances(state);
+  assert.equal(evictExpiredInstances(state), true);
 
   assert.equal(state.instances.get("instance_old").status, "evicted");
   assert.equal(state.instances.get("instance_old").evictionReason, "idle_ttl");
+  assert.equal(state.instances.get("instance_old").receiptId, "receipt.model_idle_evict.1");
   assert.equal(state.instances.get("instance_fresh").status, "loaded");
   assert.deepEqual(state.receipts, [
     ["model_idle_evict", {
@@ -117,8 +136,14 @@ test("idle TTL eviction writes changed instances and emits lifecycle receipts", 
       provider_id: "provider_a",
     }],
   ]);
-  assert.equal(state.writes.length, 1);
-  assert.equal(state.writes[0][0], "model-instances");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
+  assert.equal(state.recordStateCommits[0].record_dir, "model-instances");
+  assert.equal(state.recordStateCommits[0].record_id, "instance_old");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.instance.evict");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.model_idle_evict.1"]);
+  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt.model_idle_evict.1");
 });
 
 test("idle TTL eviction plans Rust lifecycle for migrated local providers", () => {
@@ -145,6 +170,7 @@ test("idle TTL eviction plans Rust lifecycle for migrated local providers", () =
 
   const evicted = state.instances.get("instance_old");
   assert.equal(evicted.status, "evicted");
+  assert.equal(evicted.receiptId, "receipt.model_idle_evict.1");
   assert.equal(evicted.model_mount_instance_lifecycle_action, "evict");
   assert.equal(evicted.model_mount_instance_lifecycle_status, "evicted");
   assert.equal(evicted.model_mount_instance_lifecycle_hash, "sha256:evict:instance_old");
@@ -167,10 +193,11 @@ test("idle TTL eviction skips writes when no loaded instances expire", () => {
     ],
   });
 
-  evictExpiredInstances(state);
+  assert.equal(evictExpiredInstances(state), false);
 
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.writes, []);
+  assert.deepEqual(state.recordStateCommits, []);
 });
 
 test("coalescing keeps newest loaded instance per endpoint", () => {
@@ -182,13 +209,19 @@ test("coalescing keeps newest loaded instance per endpoint", () => {
     ],
   });
 
-  coalesceLoadedInstances(state);
+  assert.equal(coalesceLoadedInstances(state), true);
 
   assert.equal(state.instances.get("instance_old").status, "superseded");
   assert.equal(state.instances.get("instance_old").supersededBy, "instance_new");
+  assert.equal(state.instances.get("instance_old").receiptId, "receipt.model_supersede.1");
   assert.equal(state.instances.get("instance_new").status, "loaded");
   assert.equal(state.instances.get("instance_other").status, "loaded");
-  assert.equal(state.writes.length, 1);
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].record_dir, "model-instances");
+  assert.equal(state.recordStateCommits[0].record_id, "instance_old");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.instance.supersede");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.model_supersede.1"]);
 });
 
 test("explicit supersede returns whether state changed", () => {
@@ -203,7 +236,13 @@ test("explicit supersede returns whether state changed", () => {
   assert.equal(supersedeLoadedInstances(state, "endpoint_a", "instance_keep"), true);
   assert.equal(state.instances.get("instance_old").status, "superseded");
   assert.equal(state.instances.get("instance_old").supersededBy, "instance_keep");
+  assert.equal(state.instances.get("instance_old").receiptId, "receipt.model_supersede.1");
   assert.equal(state.instances.get("instance_other").status, "loaded");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].record_dir, "model-instances");
+  assert.equal(state.recordStateCommits[0].record_id, "instance_old");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.instance.supersede");
   assert.equal(supersedeLoadedInstances(state, "endpoint_missing", "none"), false);
 });
 
@@ -238,6 +277,7 @@ test("explicit supersede plans Rust lifecycle for migrated local providers", () 
 
   const superseded = state.instances.get("instance_old");
   assert.equal(superseded.status, "superseded");
+  assert.equal(superseded.receiptId, "receipt.model_supersede.1");
   assert.equal(superseded.model_mount_instance_lifecycle_action, "supersede");
   assert.equal(superseded.model_mount_instance_lifecycle_status, "superseded");
   assert.equal(superseded.model_mount_instance_lifecycle_hash, "sha256:supersede:instance_old");
@@ -248,4 +288,39 @@ test("explicit supersede plans Rust lifecycle for migrated local providers", () 
   assert.equal(state.receipts.at(-1)[1].superseded_by, "instance_keep");
   assert.equal(Object.hasOwn(state.receipts.at(-1)[1], "providerKind"), false);
   assert.equal(Object.hasOwn(state.receipts.at(-1)[1], "supersededBy"), false);
+  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.instance.supersede");
+});
+
+test("instance lifecycle maintenance fails closed without Rust Agentgres record-state commit", () => {
+  const state = fakeState({
+    instances: [
+      {
+        id: "instance_old",
+        endpointId: "endpoint_a",
+        modelId: "model_a",
+        providerId: "provider_a",
+        status: "loaded",
+        expiresAt: "2026-06-03T11:59:59.000Z",
+      },
+    ],
+  });
+  delete state.commitRuntimeModelMountRecordState;
+
+  assert.throws(
+    () => evictExpiredInstances(state),
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "model_mount_instance_state_commit_unconfigured");
+      assert.equal(error.details.record_dir, "model-instances");
+      assert.equal(error.details.record_id, "instance_old");
+      assert.equal(error.details.instance_id, "instance_old");
+      assert.equal(error.details.endpoint_id, "endpoint_a");
+      assert.equal(error.details.model_id, "model_a");
+      assert.equal(error.details.provider_id, "provider_a");
+      return true;
+    },
+  );
+
+  assert.equal(state.instances.get("instance_old").status, "loaded");
+  assert.deepEqual(state.writes, []);
 });

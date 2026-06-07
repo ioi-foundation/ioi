@@ -7118,6 +7118,9 @@ function runReceipts() {
   const modelLoadingOperations = exists("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")
     : "";
+  const modelInstanceRecordState = exists("packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs")
+    : "";
   const modelLoadingOperationsTest = exists("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs")
     : "";
@@ -7678,6 +7681,26 @@ function runReceipts() {
       /model_mount_provider_lifecycle_hash/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
+      /commitModelInstanceRecordState/.test(modelInstanceRecordState) &&
+      /recordDir:\s*"model-instances"/.test(modelInstanceRecordState) &&
+      /model_mount\.instance\.load/.test(modelLoadingOperations) &&
+      /model_mount\.instance\.unload/.test(modelLoadingOperations) &&
+      /model_mount\.instance\.evict/.test(loadedInstances) &&
+      /model_mount\.instance\.supersede/.test(loadedInstances) &&
+      /model_mount_instance_state_commit_unconfigured/.test(modelInstanceRecordState) &&
+      !/state\.writeMap\("model-instances"/.test(modelLoadingOperations) &&
+      !/state\.writeMap\("model-instances"/.test(loadedInstances) &&
+      /recordStateCommits/.test(modelLoadingOperationsTest) &&
+      /recordStateCommits/.test(loadedInstancesTest) &&
+      /loadModel fails closed without Rust Agentgres instance record-state commit/.test(
+        modelLoadingOperationsTest,
+      ) &&
+      /unloadModel fails closed without Rust Agentgres instance record-state commit/.test(
+        modelLoadingOperationsTest,
+      ) &&
+      /instance lifecycle maintenance fails closed without Rust Agentgres record-state commit/.test(
+        loadedInstancesTest,
+      ) &&
       /model instance map writes require Rust lifecycle binding/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
@@ -7686,6 +7709,11 @@ function runReceipts() {
       ),
     [
       "packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
+      "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
     ],

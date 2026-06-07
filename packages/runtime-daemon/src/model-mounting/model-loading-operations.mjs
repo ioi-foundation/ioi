@@ -2,6 +2,7 @@ import {
   modelMountInstanceLifecycleFields,
   planModelMountInstanceLifecycleForMigratedProvider,
 } from "./model-instance-lifecycle.mjs";
+import { commitModelInstanceRecordState } from "./model-instance-record-state.mjs";
 
 const RETIRED_MODEL_LOADING_REQUEST_ALIASES = [
   "endpointId",
@@ -128,10 +129,7 @@ export async function loadModel(state, body = {}, deps = {}) {
     providerEvidenceRefs: driverResult.evidenceRefs ?? [],
     ...modelMountInstanceLifecycleFields(instanceLifecycle),
   };
-  state.instances.set(instance.id, instance);
-  state.supersedeLoadedInstances(endpoint.id, instance.id);
-  state.writeMap("model-instances", state.instances);
-  state.lifecycleReceipt("model_load", {
+  const receipt = state.lifecycleReceipt("model_load", {
     instance_id: instance.id,
     endpoint_id: endpoint.id,
     model_id: endpoint.modelId,
@@ -147,7 +145,11 @@ export async function loadModel(state, body = {}, deps = {}) {
     backend_process: driverResult.process ?? null,
     command_args_hash: driverResult.commandArgsHash ?? null,
   });
-  return instance;
+  const stored = { ...instance, receiptId: receipt.id };
+  commitModelInstanceRecordState(state, stored, "model_mount.instance.load", [receipt.id]);
+  state.instances.set(stored.id, stored);
+  state.supersedeLoadedInstances(endpoint.id, stored.id);
+  return stored;
 }
 
 export function loadEstimate(state, endpoint, loadOptions = {}, runtimePreference = state.runtimePreference(), deps = {}) {
@@ -206,9 +208,7 @@ export async function unloadModel(state, body = {}, deps = {}) {
     providerEvidenceRefs: driverResult.evidenceRefs ?? instance.providerEvidenceRefs ?? [],
     ...modelMountInstanceLifecycleFields(instanceLifecycle),
   };
-  state.instances.set(instance.id, updated);
-  state.writeMap("model-instances", state.instances);
-  state.lifecycleReceipt("model_unload", {
+  const receipt = state.lifecycleReceipt("model_unload", {
     instance_id: instance.id,
     endpoint_id: instance.endpointId,
     model_id: instance.modelId,
@@ -218,7 +218,10 @@ export async function unloadModel(state, body = {}, deps = {}) {
     ...modelMountInstanceLifecycleFields(instanceLifecycle),
     backend_process: driverResult.process ?? null,
   });
-  return updated;
+  const stored = { ...updated, receiptId: receipt.id };
+  commitModelInstanceRecordState(state, stored, "model_mount.instance.unload", [receipt.id]);
+  state.instances.set(instance.id, stored);
+  return stored;
 }
 
 function assertCanonicalModelLoadingRequestBody(body = {}) {

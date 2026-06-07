@@ -3,6 +3,7 @@ import {
   modelMountInstanceLifecycleRequiresRust,
   planModelMountInstanceLifecycleForMigratedProvider,
 } from "./model-instance-lifecycle.mjs";
+import { commitModelInstanceRecordState } from "./model-instance-record-state.mjs";
 
 export function loadedInstanceForEndpoint(state, endpointId, failIfMissing = true, deps = {}) {
   const { notFound } = deps;
@@ -34,19 +35,19 @@ export function evictExpiredInstances(state) {
       evictionReason: "idle_ttl",
       ...modelMountInstanceLifecycleFields(instanceLifecycle),
     };
-    state.instances.set(instance.id, evicted);
-    changed = true;
-    state.lifecycleReceipt("model_idle_evict", {
+    const receipt = state.lifecycleReceipt("model_idle_evict", {
       instance_id: instance.id,
       endpoint_id: instance.endpointId,
       model_id: instance.modelId,
       provider_id: instance.providerId,
       ...lifecycleReceiptFields(state, evicted, instanceLifecycle),
     });
+    const stored = { ...evicted, receiptId: receipt.id };
+    commitModelInstanceRecordState(state, stored, "model_mount.instance.evict", [receipt.id]);
+    state.instances.set(instance.id, stored);
+    changed = true;
   }
-  if (changed) {
-    state.writeMap("model-instances", state.instances);
-  }
+  return changed;
 }
 
 export function coalesceLoadedInstances(state) {
@@ -76,8 +77,7 @@ export function coalesceLoadedInstances(state) {
       supersededReason: "endpoint_reload",
       ...modelMountInstanceLifecycleFields(instanceLifecycle),
     };
-    state.instances.set(instance.id, superseded);
-    state.lifecycleReceipt("model_supersede", {
+    const receipt = state.lifecycleReceipt("model_supersede", {
       instance_id: instance.id,
       endpoint_id: instance.endpointId,
       model_id: instance.modelId,
@@ -85,11 +85,12 @@ export function coalesceLoadedInstances(state) {
       superseded_by: keeper.id,
       ...lifecycleReceiptFields(state, superseded, instanceLifecycle),
     });
+    const stored = { ...superseded, receiptId: receipt.id };
+    commitModelInstanceRecordState(state, stored, "model_mount.instance.supersede", [receipt.id]);
+    state.instances.set(instance.id, stored);
     changed = true;
   }
-  if (changed) {
-    state.writeMap("model-instances", state.instances);
-  }
+  return changed;
 }
 
 export function supersedeLoadedInstances(state, endpointId, keepInstanceId) {
@@ -109,8 +110,7 @@ export function supersedeLoadedInstances(state, endpointId, keepInstanceId) {
       supersededReason: "endpoint_reload",
       ...modelMountInstanceLifecycleFields(instanceLifecycle),
     };
-    state.instances.set(instance.id, superseded);
-    state.lifecycleReceipt("model_supersede", {
+    const receipt = state.lifecycleReceipt("model_supersede", {
       instance_id: instance.id,
       endpoint_id: instance.endpointId,
       model_id: instance.modelId,
@@ -118,6 +118,9 @@ export function supersedeLoadedInstances(state, endpointId, keepInstanceId) {
       superseded_by: keepInstanceId,
       ...lifecycleReceiptFields(state, superseded, instanceLifecycle),
     });
+    const stored = { ...superseded, receiptId: receipt.id };
+    commitModelInstanceRecordState(state, stored, "model_mount.instance.supersede", [receipt.id]);
+    state.instances.set(instance.id, stored);
     changed = true;
   }
   return changed;
