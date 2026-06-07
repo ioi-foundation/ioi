@@ -13151,6 +13151,13 @@ Rust coding-tool budget recovery state planning now emits canonical
 camelCase recovery-control metadata can no longer leave the Rust policy bridge
 as a parallel result ABI before daemon run persistence.
 
+Slice 498 retires Rust context-compaction metadata aliases:
+Rust context-compaction state planning now emits canonical `event_id`,
+`created_at`, and `compacted_tokens` inside Rust-planned compaction controls
+and trace metadata; retired camelCase compaction metadata can no longer leave
+the Rust policy bridge as a parallel result ABI before daemon run/agent
+persistence.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

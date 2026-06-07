@@ -8149,7 +8149,16 @@ mod tests {
         assert_eq!(response["status"], "planned");
         assert_eq!(response["target_kind"], "run");
         assert_eq!(response["operation_kind"], "thread.compact");
-        assert_eq!(response["operator_control"]["eventId"], "event_budget");
+        assert_eq!(response["operator_control"]["event_id"], "event_budget");
+        assert!(response["operator_control"].get("eventId").is_none());
+        assert!(response["operator_control"].get("createdAt").is_none());
+        assert_eq!(
+            response["run"]["trace"]["contextCompaction"]["event_id"],
+            "event_budget"
+        );
+        assert!(response["run"]["trace"]["contextCompaction"]
+            .get("eventId")
+            .is_none());
         assert_eq!(
             response["run"]["trace"]["contextCompaction"]["reason"],
             "trim context"

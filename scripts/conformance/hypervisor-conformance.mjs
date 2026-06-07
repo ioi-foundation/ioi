@@ -658,6 +658,10 @@ function runBridge() {
   const policyCore = exists("crates/services/src/agentic/runtime/kernel/policy.rs")
     ? read("crates/services/src/agentic/runtime/kernel/policy.rs")
     : "";
+  const contextCompactionStateUpdateCoreBlock =
+    policyCore.match(
+      /impl ContextCompactionStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct CodingToolBudgetRecoveryStateUpdateCore;)/,
+    )?.[0] ?? "";
   const codingToolBudgetRecoveryStateUpdateCoreBlock =
     policyCore.match(
       /impl CodingToolBudgetRecoveryStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct DiagnosticsOperatorOverrideStateUpdateCore;)/,
@@ -4827,15 +4831,35 @@ function runBridge() {
       /CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_context_compaction_run_state_update/.test(policyCore) &&
       /rust_policy_plans_context_compaction_runless_agent_update/.test(policyCore) &&
+      /"event_id": request\.event_id/.test(contextCompactionStateUpdateCoreBlock) &&
+      /"created_at": request\.created_at/.test(contextCompactionStateUpdateCoreBlock) &&
+      /"compacted_tokens": 0/.test(contextCompactionStateUpdateCoreBlock) &&
+      !/"eventId": request\.event_id|"createdAt": request\.created_at|"compactedTokens": 0/.test(
+        contextCompactionStateUpdateCoreBlock,
+      ) &&
       /plan_context_compaction_state_update/.test(bridgeModule) &&
       /ContextCompactionStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_context_compaction_state_update_command/.test(bridgeModule) &&
       /bridge_plans_context_compaction_state_update_through_rust_core/.test(bridgeModule) &&
+      /response\["operator_control"\]\["event_id"\]/.test(bridgeModule) &&
+      /response\["operator_control"\]\.get\("eventId"\)\.is_none\(\)/.test(bridgeModule) &&
+      /response\["run"\]\["trace"\]\["contextCompaction"\]\["event_id"\]/.test(bridgeModule) &&
+      /response\["run"\]\["trace"\]\["contextCompaction"\][\s\S]*?\.get\("eventId"\)[\s\S]*?\.is_none\(\)/.test(
+        bridgeModule,
+      ) &&
       /planContextCompactionStateUpdate/.test(runtimeContextPolicyRunner) &&
       /CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
       /context compaction state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.operator_control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
+      /Object\.hasOwn\(result\.operator_control,\s*"eventId"\),\s*false/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.context_compaction\.compacted_tokens/.test(runtimeContextPolicyRunnerTest) &&
+      /Object\.hasOwn\(result\.context_compaction,\s*"compactedTokens"\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /requiredContextPolicyBridgeOperationKind/.test(runtimeContextPolicyRunner) &&

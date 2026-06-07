@@ -1475,16 +1475,16 @@ impl ContextCompactionStateUpdateCore {
             "source": source.clone(),
             "reason": reason.clone(),
             "scope": scope.clone(),
-            "eventId": request.event_id,
+            "event_id": request.event_id,
             "seq": request.seq,
-            "createdAt": request.created_at,
+            "created_at": request.created_at,
         });
         let context_compaction = json!({
             "reason": reason.clone(),
             "scope": scope.clone(),
-            "eventId": request.event_id,
+            "event_id": request.event_id,
             "seq": request.seq,
-            "compactedTokens": 0,
+            "compacted_tokens": 0,
         });
 
         let (run, agent) = if target_kind == "run" {
@@ -4841,14 +4841,23 @@ mod tests {
         assert_eq!(record.status, "planned");
         assert_eq!(record.target_kind, "run");
         assert_eq!(record.operation_kind, "thread.compact");
-        assert_eq!(record.operator_control["eventId"], "event_budget");
+        assert_eq!(record.operator_control["event_id"], "event_budget");
+        assert!(record.operator_control.get("eventId").is_none());
+        assert!(record.operator_control.get("createdAt").is_none());
         assert_eq!(record.operator_control["seq"], 8);
         assert_eq!(record.context_compaction["reason"], "trim context");
+        assert_eq!(record.context_compaction["event_id"], "event_budget");
+        assert_eq!(record.context_compaction["compacted_tokens"], 0);
+        assert!(record.context_compaction.get("eventId").is_none());
+        assert!(record.context_compaction.get("compactedTokens").is_none());
         let run = record.run.expect("updated run");
         assert_eq!(run["updatedAt"], "2026-06-06T03:40:00.000Z");
-        assert_eq!(run["trace"]["contextCompaction"]["eventId"], "event_budget");
+        assert_eq!(
+            run["trace"]["contextCompaction"]["event_id"],
+            "event_budget"
+        );
         assert_eq!(run["trace"]["operatorControls"][0]["control"], "compact");
-        assert_eq!(run["operatorControls"][0]["eventId"], "event_budget");
+        assert_eq!(run["operatorControls"][0]["event_id"], "event_budget");
         assert!(record.agent.is_none());
     }
 

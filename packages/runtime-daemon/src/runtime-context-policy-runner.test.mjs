@@ -288,20 +288,20 @@ test("context compaction state update runner sends Rust state update bridge requ
             updated_at: "2026-06-05T12:00:00.000Z",
             operator_control: {
               control: "compact",
-              eventId: "event_1",
+              event_id: "event_1",
               seq: 1,
             },
             context_compaction: {
-              eventId: "event_1",
+              event_id: "event_1",
               seq: 1,
-              compactedTokens: 0,
+              compacted_tokens: 0,
             },
             run: {
               id: "run_1",
               updatedAt: "2026-06-05T12:00:00.000Z",
               trace: {
                 contextCompaction: {
-                  eventId: "event_1",
+                  event_id: "event_1",
                 },
               },
             },
@@ -339,9 +339,13 @@ test("context compaction state update runner sends Rust state update bridge requ
   assert.equal(result.source, "rust_context_compaction_state_update_command");
   assert.equal(result.target_kind, "run");
   assert.equal(result.operation_kind, "thread.compact");
-  assert.equal(result.operator_control.eventId, "event_1");
-  assert.equal(result.context_compaction.compactedTokens, 0);
-  assert.equal(result.run.trace.contextCompaction.eventId, "event_1");
+  assert.equal(result.operator_control.event_id, "event_1");
+  assert.equal(Object.hasOwn(result.operator_control, "eventId"), false);
+  assert.equal(Object.hasOwn(result.operator_control, "createdAt"), false);
+  assert.equal(result.context_compaction.compacted_tokens, 0);
+  assert.equal(Object.hasOwn(result.context_compaction, "eventId"), false);
+  assert.equal(Object.hasOwn(result.context_compaction, "compactedTokens"), false);
+  assert.equal(result.run.trace.contextCompaction.event_id, "event_1");
 });
 
 test("coding tool budget recovery state update runner sends Rust state update bridge request", () => {
