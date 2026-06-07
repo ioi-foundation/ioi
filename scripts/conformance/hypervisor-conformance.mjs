@@ -9393,9 +9393,32 @@ function runReceipts() {
     result,
     "model-mount-receipt-store-operation-append-retired",
     !/\bappendOperation\b/.test(modelMountStore) &&
+      /RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_SCHEMA_VERSION/.test(agentgresAdmissionCore) &&
+      /RuntimeModelMountReceiptStateCommitRequest/.test(agentgresAdmissionCore) &&
+      /RuntimeModelMountReceiptStateCommitRecord/.test(agentgresAdmissionCore) &&
+      /commit_runtime_model_mount_receipt_state/.test(agentgresAdmissionCore) &&
+      /commits_runtime_model_mount_receipt_state_with_storage_admission/.test(agentgresAdmissionCore) &&
+      /runtime_model_mount_receipt_state_commit_rejects_mismatched_receipt_id/.test(agentgresAdmissionCore) &&
+      /pub fn commit_runtime_model_mount_receipt_state/.test(runtimeKernelModule) &&
+      /commit_runtime_model_mount_receipt_state/.test(bridgeModule) &&
+      /RuntimeModelMountReceiptStateCommitBridgeRequest/.test(bridgeModule) &&
+      /rust_agentgres_runtime_model_mount_receipt_state_commit_command/.test(bridgeModule) &&
+      /bridge_commits_runtime_model_mount_receipt_state_through_rust_core/.test(bridgeModule) &&
+      /commitRuntimeModelMountReceiptState/.test(runtimeAgentgresRunner) &&
+      /normalizeRuntimeModelMountReceiptStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
+      /runtime Agentgres runner sends runtime model-mount receipt-state commit bridge request/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /commitRuntimeModelMountReceiptState\(request\)/.test(runtimeDaemonIndex) &&
+      /commitRuntimeModelMountReceiptState:\s*\(request\) => this\.commitRuntimeModelMountReceiptState\(request\)/.test(
+        runtimeDaemonIndex,
+      ) &&
       !/operationCount|operation-log\.jsonl/.test(modelMountIo) &&
       !/local_operation_log|agentgres_canonical_operation_log/.test(modelMountStore) &&
       !/agentgres_canonical_operation_log/.test(modelMountReceiptOperations) &&
+      /Model-mount receipt persistence requires Rust Agentgres receipt-state commit/.test(modelMountStore) &&
+      /commitModelMountReceiptState\(receipt\)/.test(modelMountStore) &&
+      !/writeJson\(path\.join\(this\.stateDir,\s*"receipts"/.test(modelMountStore) &&
       /local_receipt_projection_store/.test(modelMountStore) &&
       /notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receipt_id: receiptId \}\)/.test(modelMountStore) &&
       !/notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receiptId \}\)/.test(modelMountStore) &&
@@ -9403,6 +9426,10 @@ function runReceipts() {
       /model invocation receipt writes persist only after Rust receipt and Agentgres admission without operation append/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ) &&
+      /model invocation receipt writes fail closed without Rust receipt-state commit/.test(
+        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+      ) &&
+      /commits\[0\]\.schema_version/.test(read("packages/runtime-daemon/src/model-mounting/store.test.mjs")) &&
       /receipt lookup returns persisted receipts and fails closed with canonical details/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ) &&
@@ -9415,12 +9442,18 @@ function runReceipts() {
       /const sequence = this\.listReceipts\(\)\.length/.test(read("packages/runtime-daemon/src/model-mounting.mjs")) &&
       /watermark: receipts\.length/.test(read("packages/runtime-daemon/src/model-mounting/projections.mjs")),
     [
+      "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
       "packages/runtime-daemon/src/model-mounting/store.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/model-mounting/projections.mjs",
     ],
-    "Phase 5/11 is pending: receipt persistence must not append duplicate JS operation-log records after Rust binding and Agentgres admission",
+    "Phase 5/11 is pending: model-mount receipt persistence must pass through Rust Agentgres receipt-state storage admission and must not append duplicate JS operation-log records after Rust binding and Agentgres admission",
   );
   assertCheck(
     result,

@@ -9,12 +9,58 @@ import { AgentgresModelMountingStore } from "./store.mjs";
 
 function testStore() {
   const appended = [];
+  const commits = [];
   const stateDir = mkdtempSync(path.join(tmpdir(), "ioi-model-mounting-store-"));
   const store = new AgentgresModelMountingStore({
     stateDir,
+    commitRuntimeModelMountReceiptState: fakeReceiptCommitter(stateDir, commits),
     appendOperation: (kind, payload) => appended.push({ kind, payload }),
   });
-  return { appended, stateDir, store };
+  return { appended, commits, stateDir, store };
+}
+
+function fakeReceiptCommitter(stateDir, commits) {
+  return function commitRuntimeModelMountReceiptState(request) {
+    commits.push(request);
+    const recordPath = path.join("receipts", `${request.receipt_id}.json`);
+    const targetPath = path.join(stateDir, recordPath);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.writeFileSync(targetPath, `${JSON.stringify(request.receipt, null, 2)}\n`);
+    return {
+      source: "rust_agentgres_runtime_model_mount_receipt_state_commit_command",
+      backend: "rust_agentgres_storage",
+      record: {
+        schema_version: "ioi.runtime_model_mount_receipt_state_commit.v1",
+        receipt_id: request.receipt_id,
+        operation_kind: request.operation_kind,
+        storage_backend_ref: request.storage_backend_ref,
+        record: {
+          record_path: recordPath,
+          object_ref: `agentgres://model-mounting/receipts/${request.receipt_id}/records/${recordPath}`,
+          content_hash: "sha256:receipt-content",
+          payload_refs: [`payload://model-mounting/receipts/${request.receipt_id}/records/${recordPath}`],
+          receipt_refs: request.receipt_refs,
+          admission: { admission_hash: "sha256:receipt-admission" },
+        },
+        commit_hash: "sha256:receipt-commit",
+      },
+      storage_record: {
+        record_path: recordPath,
+        object_ref: `agentgres://model-mounting/receipts/${request.receipt_id}/records/${recordPath}`,
+        content_hash: "sha256:receipt-content",
+        payload_refs: [`payload://model-mounting/receipts/${request.receipt_id}/records/${recordPath}`],
+        receipt_refs: request.receipt_refs,
+        admission: { admission_hash: "sha256:receipt-admission" },
+      },
+      receipt_id: request.receipt_id,
+      object_ref: `agentgres://model-mounting/receipts/${request.receipt_id}/records/${recordPath}`,
+      content_hash: "sha256:receipt-content",
+      admission_hash: "sha256:receipt-admission",
+      commit_hash: "sha256:receipt-commit",
+      written_record: { record_path: recordPath },
+      evidence_refs: ["rust_agentgres_runtime_model_mount_receipt_state_commit"],
+    };
+  };
 }
 
 function boundModelInvocationReceipt(overrides = {}) {
@@ -228,13 +274,31 @@ test("model invocation receipt writes reject legacy camelCase binding details", 
 });
 
 test("model invocation receipt writes persist only after Rust receipt and Agentgres admission without operation append", () => {
-  const { appended, stateDir, store } = testStore();
+  const { appended, commits, stateDir, store } = testStore();
   const receipt = boundModelInvocationReceipt();
 
   store.writeReceipt(receipt);
 
   assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.model-invocation.json")), true);
+  assert.equal(commits.length, 1);
+  assert.equal(commits[0].schema_version, "ioi.runtime_model_mount_receipt_state_commit.v1");
+  assert.equal(commits[0].receipt_id, "receipt.model-invocation");
+  assert.equal(commits[0].operation_kind, "model_mount.receipt.write");
+  assert.deepEqual(commits[0].receipt_refs, ["receipt.model-invocation"]);
   assert.deepEqual(appended, []);
+});
+
+test("model invocation receipt writes fail closed without Rust receipt-state commit", () => {
+  const stateDir = mkdtempSync(path.join(tmpdir(), "ioi-model-mounting-store-"));
+  const store = new AgentgresModelMountingStore({ stateDir });
+
+  assert.throws(
+    () => store.writeReceipt(boundModelInvocationReceipt({ id: "receipt.unconfigured" })),
+    (error) =>
+      error.code === "model_mount_receipt_state_commit_unconfigured" &&
+      error.details.receipt_id === "receipt.unconfigured",
+  );
+  assert.equal(fs.existsSync(path.join(stateDir, "receipts", "receipt.unconfigured.json")), false);
 });
 
 test("receipt lookup returns persisted receipts and fails closed with canonical details", () => {

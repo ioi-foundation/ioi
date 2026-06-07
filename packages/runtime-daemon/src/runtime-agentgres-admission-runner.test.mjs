@@ -136,6 +136,27 @@ function artifactCommitRequest() {
   };
 }
 
+function modelMountReceiptCommitRequest() {
+  return {
+    schema_version: "ioi.runtime_model_mount_receipt_state_commit.v1",
+    receipt_id: "receipt_model_invocation",
+    operation_kind: "model_mount.receipt.write",
+    storage_backend_ref: "storage://runtime-agentgres/local-json",
+    receipt: {
+      id: "receipt_model_invocation",
+      kind: "model_invocation",
+      redaction: "redacted",
+      evidenceRefs: ["rust_receipt_binder_core", "rust_agentgres_admission"],
+      details: {
+        model_mount_receipt_binding_ref: "sha256:binding",
+        model_mount_accepted_receipt_append_hash: "sha256:append",
+        model_mount_agentgres_operation_ref: "agentgres://model-mounting/operation-log/op_1",
+        model_mount_agentgres_admission_hash: "sha256:agentgres",
+      },
+    },
+  };
+}
+
 test("runtime Agentgres runner sends runtime run-state commit bridge request", () => {
   const calls = [];
   const runner = new RustRuntimeAgentgresAdmissionRunner({
@@ -488,6 +509,70 @@ test("runtime Agentgres runner sends runtime artifact-state commit bridge reques
   assert.equal(result.artifact_id, "artifact_1");
   assert.equal(result.commit_hash, "sha256:artifact-commit");
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_artifact_state_commit"]);
+});
+
+test("runtime Agentgres runner sends runtime model-mount receipt-state commit bridge request", () => {
+  const calls = [];
+  const runner = new RustRuntimeAgentgresAdmissionRunner({
+    command: "mock-runtime-agentgres-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_agentgres_runtime_model_mount_receipt_state_commit_command",
+            backend: RUST_AGENTGRES_STORAGE_BACKEND,
+            record: {
+              schema_version: "ioi.runtime_model_mount_receipt_state_commit.v1",
+              receipt_id: "receipt_model_invocation",
+              operation_kind: "model_mount.receipt.write",
+              storage_backend_ref: "storage://runtime-agentgres/local-json",
+              record: {
+                record_path: "receipts/receipt_model_invocation.json",
+                object_ref:
+                  "agentgres://model-mounting/receipts/receipt_model_invocation/records/receipts/receipt_model_invocation.json",
+                content_hash: "sha256:receipt-content",
+                payload_refs: [
+                  "payload://model-mounting/receipts/receipt_model_invocation/records/receipts/receipt_model_invocation.json",
+                ],
+                receipt_refs: ["receipt_model_invocation"],
+                admission: {
+                  admission_hash: "sha256:receipt-admission",
+                },
+              },
+              commit_hash: "sha256:receipt-commit",
+            },
+            receipt_id: "receipt_model_invocation",
+            object_ref:
+              "agentgres://model-mounting/receipts/receipt_model_invocation/records/receipts/receipt_model_invocation.json",
+            content_hash: "sha256:receipt-content",
+            admission_hash: "sha256:receipt-admission",
+            commit_hash: "sha256:receipt-commit",
+            written_record: {
+              record_path: "receipts/receipt_model_invocation.json",
+            },
+            evidence_refs: ["rust_agentgres_runtime_model_mount_receipt_state_commit"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.commitRuntimeModelMountReceiptState("/runtime-state", modelMountReceiptCommitRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "commit_runtime_model_mount_receipt_state");
+  assert.equal(calls[0].request.backend, RUST_AGENTGRES_STORAGE_BACKEND);
+  assert.equal(calls[0].request.state_dir, "/runtime-state");
+  assert.equal(calls[0].request.request.receipt_id, "receipt_model_invocation");
+  assert.equal(result.receipt_id, "receipt_model_invocation");
+  assert.equal(result.commit_hash, "sha256:receipt-commit");
+  assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_model_mount_receipt_state_commit"]);
 });
 
 test("runtime Agentgres runner requires explicit runtime admission command env", () => {

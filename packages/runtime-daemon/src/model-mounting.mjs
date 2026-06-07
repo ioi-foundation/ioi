@@ -362,7 +362,15 @@ const {
 });
 
 export class ModelMountingState {
-  constructor({ stateDir, cwd, homeDir, now = () => new Date(), vaultSecrets = {}, modelMountAdmissionRunner = null }) {
+  constructor({
+    stateDir,
+    cwd,
+    homeDir,
+    now = () => new Date(),
+    vaultSecrets = {},
+    modelMountAdmissionRunner = null,
+    commitRuntimeModelMountReceiptState = null,
+  }) {
     this.stateDir = path.resolve(stateDir);
     this.cwd = path.resolve(cwd ?? process.cwd());
     this.homeDir = path.resolve(homeDir ?? process.env.HOME ?? this.cwd);
@@ -373,6 +381,7 @@ export class ModelMountingState {
       modelMountAdmissionRunner ?? createModelMountAdmissionRunnerFromEnv(process.env);
     this.store = new AgentgresModelMountingStore({
       stateDir: this.stateDir,
+      commitRuntimeModelMountReceiptState,
     });
     this.walletAuthority = new AgentgresWalletAuthority({
       now: this.now,

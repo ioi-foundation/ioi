@@ -20,6 +20,8 @@ pub const RUNTIME_SUBAGENT_STATE_COMMIT_SCHEMA_VERSION: &str =
     "ioi.runtime_subagent_state_commit.v1";
 pub const RUNTIME_ARTIFACT_STATE_COMMIT_SCHEMA_VERSION: &str =
     "ioi.runtime_artifact_state_commit.v1";
+pub const RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_SCHEMA_VERSION: &str =
+    "ioi.runtime_model_mount_receipt_state_commit.v1";
 pub const AGENTGRES_OPERATION_EXPECTED_HEADS_NEGATIVE_CONFORMANCE: &str =
     "Agentgres operation append without expected heads/state-root binding fails";
 pub const STORAGE_BACKEND_WRITE_AGENTGRES_REF_NEGATIVE_CONFORMANCE: &str =
@@ -353,6 +355,27 @@ pub struct RuntimeArtifactStateCommitRequest {
 pub struct RuntimeArtifactStateCommitRecord {
     pub schema_version: String,
     pub artifact_id: String,
+    pub operation_kind: String,
+    pub storage_backend_ref: String,
+    pub record: RuntimeStateStorageWriteRecord,
+    pub commit_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeModelMountReceiptStateCommitRequest {
+    pub schema_version: String,
+    pub receipt_id: String,
+    pub operation_kind: String,
+    pub storage_backend_ref: String,
+    pub receipt: Value,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeModelMountReceiptStateCommitRecord {
+    pub schema_version: String,
+    pub receipt_id: String,
     pub operation_kind: String,
     pub storage_backend_ref: String,
     pub record: RuntimeStateStorageWriteRecord,
@@ -1013,6 +1036,57 @@ impl AgentgresAdmissionCore {
         record.commit_hash = runtime_artifact_state_commit_hash(&record)?;
         Ok(record)
     }
+
+    pub fn commit_runtime_model_mount_receipt_state(
+        &self,
+        request: &RuntimeModelMountReceiptStateCommitRequest,
+    ) -> Result<RuntimeModelMountReceiptStateCommitRecord, AgentgresAdmissionError> {
+        request.validate()?;
+        let safe_receipt_id = safe_agentgres_component(&request.receipt_id);
+        let receipt_refs = if request.receipt_refs.is_empty() {
+            runtime_model_mount_receipt_refs(&request.receipt)
+        } else {
+            request.receipt_refs.clone()
+        };
+        if receipt_refs.is_empty() {
+            return Err(AgentgresAdmissionError::MissingReceiptRefs);
+        }
+        let record_path = format!("receipts/{safe_receipt_id}.json");
+        let payload_refs = vec![format!(
+            "payload://model-mounting/receipts/{safe_receipt_id}/records/{record_path}"
+        )];
+        let proposal = StorageBackendWriteProposal {
+            schema_version: STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION.to_string(),
+            storage_backend_ref: request.storage_backend_ref.clone(),
+            object_ref: format!(
+                "agentgres://model-mounting/receipts/{safe_receipt_id}/records/{record_path}"
+            ),
+            content_hash: runtime_state_payload_hash(&request.receipt)?,
+            artifact_refs: vec![],
+            payload_refs,
+            receipt_refs,
+        };
+        let admission = self.admit_storage_backend_write(&proposal)?;
+        let storage_record = RuntimeStateStorageWriteRecord {
+            record_path,
+            object_ref: proposal.object_ref,
+            content_hash: proposal.content_hash,
+            artifact_refs: proposal.artifact_refs,
+            payload_refs: proposal.payload_refs,
+            receipt_refs: proposal.receipt_refs,
+            admission,
+        };
+        let mut record = RuntimeModelMountReceiptStateCommitRecord {
+            schema_version: RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            receipt_id: request.receipt_id.clone(),
+            operation_kind: request.operation_kind.clone(),
+            storage_backend_ref: request.storage_backend_ref.clone(),
+            record: storage_record,
+            commit_hash: String::new(),
+        };
+        record.commit_hash = runtime_model_mount_receipt_state_commit_hash(&record)?;
+        Ok(record)
+    }
 }
 
 impl AgentgresOperationProposal {
@@ -1240,6 +1314,22 @@ impl RuntimeArtifactStateCommitRequest {
     }
 }
 
+impl RuntimeModelMountReceiptStateCommitRequest {
+    pub fn validate(&self) -> Result<(), AgentgresAdmissionError> {
+        if self.schema_version != RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_SCHEMA_VERSION {
+            return Err(AgentgresAdmissionError::InvalidSchemaVersion {
+                expected: RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("receipt_id", &self.receipt_id)?;
+        require_non_empty("operation_kind", &self.operation_kind)?;
+        require_non_empty("storage_backend_ref", &self.storage_backend_ref)?;
+        validate_runtime_model_mount_receipt_id(&self.receipt, &self.receipt_id)?;
+        Ok(())
+    }
+}
+
 fn validate_against_binding(
     proposal: &AgentgresOperationProposal,
     binding: &StepModuleReceiptBinding,
@@ -1418,6 +1508,16 @@ fn runtime_subagent_state_commit_hash(
 
 fn runtime_artifact_state_commit_hash(
     record: &RuntimeArtifactStateCommitRecord,
+) -> Result<String, AgentgresAdmissionError> {
+    let mut canonical = record.clone();
+    canonical.commit_hash.clear();
+    let bytes = serde_json::to_vec(&canonical)
+        .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
+}
+
+fn runtime_model_mount_receipt_state_commit_hash(
+    record: &RuntimeModelMountReceiptStateCommitRecord,
 ) -> Result<String, AgentgresAdmissionError> {
     let mut canonical = record.clone();
     canonical.commit_hash.clear();
@@ -1930,6 +2030,33 @@ fn runtime_artifact_receipt_refs(artifact: &Value) -> Vec<String> {
     refs
 }
 
+fn validate_runtime_model_mount_receipt_id(
+    receipt: &Value,
+    expected_receipt_id: &str,
+) -> Result<(), AgentgresAdmissionError> {
+    match json_string(receipt, "id").or_else(|| json_string(receipt, "receipt_id")) {
+        Some(receipt_id) if receipt_id == expected_receipt_id => Ok(()),
+        Some(_) => Err(AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch),
+        None => Err(AgentgresAdmissionError::MissingField("receipt.id")),
+    }
+}
+
+fn runtime_model_mount_receipt_refs(receipt: &Value) -> Vec<String> {
+    let mut refs = json_string_array(receipt, "receipt_refs")
+        .into_iter()
+        .chain(json_string_array(receipt, "receiptRefs"))
+        .collect::<Vec<_>>();
+    if let Some(receipt_id) = json_string(receipt, "id")
+        .or_else(|| json_string(receipt, "receipt_id"))
+        .filter(|entry| !entry.trim().is_empty())
+    {
+        refs.push(receipt_id.to_string());
+    }
+    refs.sort();
+    refs.dedup();
+    refs
+}
+
 fn terminal_event_count(run: &Value) -> usize {
     json_array(run, "events")
         .into_iter()
@@ -2398,6 +2525,32 @@ mod tests {
             operation_kind: "artifact.coding_tool_draft".to_string(),
             storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
             artifact: runtime_artifact_record(),
+            receipt_refs: vec![],
+        }
+    }
+
+    fn runtime_model_mount_receipt() -> Value {
+        json!({
+            "id": "receipt_model_invocation",
+            "kind": "model_invocation",
+            "redaction": "redacted",
+            "evidenceRefs": ["rust_receipt_binder_core", "rust_agentgres_admission"],
+            "details": {
+                "model_mount_receipt_binding_ref": "sha256:binding",
+                "model_mount_accepted_receipt_append_hash": "sha256:append",
+                "model_mount_agentgres_operation_ref": "agentgres://model-mounting/operation-log/op_1",
+                "model_mount_agentgres_admission_hash": "sha256:agentgres"
+            }
+        })
+    }
+
+    fn runtime_model_mount_receipt_state_commit() -> RuntimeModelMountReceiptStateCommitRequest {
+        RuntimeModelMountReceiptStateCommitRequest {
+            schema_version: RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_SCHEMA_VERSION.to_string(),
+            receipt_id: "receipt_model_invocation".to_string(),
+            operation_kind: "model_mount.receipt.write".to_string(),
+            storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
+            receipt: runtime_model_mount_receipt(),
             receipt_refs: vec![],
         }
     }
@@ -3083,6 +3236,66 @@ mod tests {
         let error = AgentgresAdmissionCore
             .commit_runtime_artifact_state(&request)
             .expect_err("artifact payload id must match request id");
+
+        assert_eq!(
+            error,
+            AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch
+        );
+    }
+
+    #[test]
+    fn commits_runtime_model_mount_receipt_state_with_storage_admission() {
+        let record = AgentgresAdmissionCore
+            .commit_runtime_model_mount_receipt_state(&runtime_model_mount_receipt_state_commit())
+            .expect("runtime model-mount receipt state committed");
+
+        assert_eq!(
+            record.schema_version,
+            RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_SCHEMA_VERSION
+        );
+        assert_eq!(record.receipt_id, "receipt_model_invocation");
+        assert_eq!(record.operation_kind, "model_mount.receipt.write");
+        assert!(record.commit_hash.starts_with("sha256:"));
+        assert_eq!(
+            record.record.record_path,
+            "receipts/receipt_model_invocation.json"
+        );
+        assert_eq!(
+            record.record.object_ref,
+            "agentgres://model-mounting/receipts/receipt_model_invocation/records/receipts/receipt_model_invocation.json"
+        );
+        assert_eq!(
+            record.record.payload_refs,
+            vec!["payload://model-mounting/receipts/receipt_model_invocation/records/receipts/receipt_model_invocation.json"]
+        );
+        assert_eq!(record.record.receipt_refs, vec!["receipt_model_invocation"]);
+        assert!(record
+            .record
+            .admission
+            .admission_hash
+            .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn runtime_model_mount_receipt_state_commit_requires_receipts() {
+        let mut request = runtime_model_mount_receipt_state_commit();
+        request.receipt["id"] = Value::Null;
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_model_mount_receipt_state(&request)
+            .expect_err("receipt refs are required");
+
+        assert_eq!(error, AgentgresAdmissionError::MissingField("receipt.id"));
+    }
+
+    #[test]
+    fn runtime_model_mount_receipt_state_commit_rejects_mismatched_receipt_id() {
+        let mut request = runtime_model_mount_receipt_state_commit();
+        request.receipt["id"] = json!("receipt_other");
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_model_mount_receipt_state(&request)
+            .expect_err("receipt payload id must match request id");
 
         assert_eq!(
             error,

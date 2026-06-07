@@ -5,6 +5,9 @@ import crypto from "node:crypto";
 import { assertModelMountingReceiptWriteBound } from "./receipt-write-guards.mjs";
 
 const SECRET_REDACTION = "[REDACTED]";
+const RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_SCHEMA_VERSION =
+  "ioi.runtime_model_mount_receipt_state_commit.v1";
+const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
 
 function stableHash(value) {
   return crypto.createHash("sha256").update(stableStringify(value)).digest("hex");
@@ -86,8 +89,9 @@ function notFound(message, details) {
 }
 
 export class AgentgresModelMountingStore {
-  constructor({ stateDir }) {
+  constructor({ stateDir, commitRuntimeModelMountReceiptState = null }) {
     this.stateDir = path.resolve(stateDir);
+    this.commitRuntimeModelMountReceiptState = commitRuntimeModelMountReceiptState;
   }
 
   ensureDirs() {
@@ -129,7 +133,7 @@ export class AgentgresModelMountingStore {
 
   writeReceipt(receipt) {
     assertModelMountingReceiptWriteBound(receipt);
-    writeJson(path.join(this.stateDir, "receipts", `${receipt.id}.json`), receipt);
+    const commit = this.commitModelMountReceiptState(receipt);
     emitRemoteBoundaryEvent(process.env.IOI_AGENTGRES_URL, "/operations", {
       port: "AgentgresModelMountingStorePort",
       kind: "receipt.write",
@@ -138,7 +142,9 @@ export class AgentgresModelMountingStore {
       receiptKind: receipt.kind,
       redaction: receipt.redaction,
       evidenceRefs: receipt.evidenceRefs,
+      commitHash: commit.commit_hash,
     });
+    return commit;
   }
 
   listReceipts() {
@@ -184,4 +190,56 @@ export class AgentgresModelMountingStore {
       evidenceRefs: ["agentgres_receipt_projection_boundary", "typed_agentgres_projection_boundary"],
     };
   }
+
+  commitModelMountReceiptState(receipt) {
+    if (typeof this.commitRuntimeModelMountReceiptState !== "function") {
+      const error = new Error("Model-mount receipt persistence requires Rust Agentgres receipt-state commit.");
+      error.status = 500;
+      error.code = "model_mount_receipt_state_commit_unconfigured";
+      error.details = { receipt_id: receipt?.id ?? null };
+      throw error;
+    }
+    return normalizeModelMountReceiptStateCommit(this.commitRuntimeModelMountReceiptState({
+      schema_version: RUNTIME_MODEL_MOUNT_RECEIPT_STATE_COMMIT_SCHEMA_VERSION,
+      receipt_id: receipt.id,
+      operation_kind: "model_mount.receipt.write",
+      storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
+      receipt,
+      receipt_refs: [receipt.id],
+    }));
+  }
+}
+
+function normalizeModelMountReceiptStateCommit(value = {}) {
+  const commit = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const storageRecord = commit.storage_record && typeof commit.storage_record === "object"
+    ? commit.storage_record
+    : commit.record?.record ?? {};
+  const required = {
+    receipt_id: commit.receipt_id ?? commit.record?.receipt_id,
+    object_ref: commit.object_ref ?? storageRecord.object_ref,
+    content_hash: commit.content_hash ?? storageRecord.content_hash,
+    admission_hash: commit.admission_hash ?? storageRecord.admission?.admission_hash,
+    commit_hash: commit.commit_hash ?? commit.record?.commit_hash,
+    written_record: commit.written_record,
+  };
+  for (const [field, value] of Object.entries(required)) {
+    if (!value) {
+      const error = new Error(`Rust model-mount receipt state commit returned without ${field}.`);
+      error.status = 502;
+      error.code = "model_mount_receipt_state_commit_invalid";
+      error.details = { missing: field };
+      throw error;
+    }
+  }
+  return {
+    ...commit,
+    storage_record: storageRecord,
+    receipt_id: required.receipt_id,
+    object_ref: required.object_ref,
+    content_hash: required.content_hash,
+    admission_hash: required.admission_hash,
+    commit_hash: required.commit_hash,
+    written_record: required.written_record,
+  };
 }

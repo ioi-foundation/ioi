@@ -32,11 +32,13 @@ use agentgres_admission::{
     AgentgresAdmissionCore, AgentgresAdmissionError, AgentgresAdmissionRecord,
     AgentgresOperationProposal, RuntimeAgentStateCommitRecord, RuntimeAgentStateCommitRequest,
     RuntimeArtifactStateCommitRecord, RuntimeArtifactStateCommitRequest,
-    RuntimeMemoryStateCommitRecord, RuntimeMemoryStateCommitRequest, RuntimeRunStateCommitRecord,
-    RuntimeRunStateCommitRequest, RuntimeStatePersistenceRecord, RuntimeStatePersistenceRequest,
-    RuntimeStateRecordMaterializationRecord, RuntimeStateRecordMaterializationRequest,
-    RuntimeStateStorageWriteSetRecord, RuntimeStateStorageWriteSetRequest,
-    RuntimeStateTransitionRecord, RuntimeStateTransitionRequest, RuntimeSubagentStateCommitRecord,
+    RuntimeMemoryStateCommitRecord, RuntimeMemoryStateCommitRequest,
+    RuntimeModelMountReceiptStateCommitRecord, RuntimeModelMountReceiptStateCommitRequest,
+    RuntimeRunStateCommitRecord, RuntimeRunStateCommitRequest, RuntimeStatePersistenceRecord,
+    RuntimeStatePersistenceRequest, RuntimeStateRecordMaterializationRecord,
+    RuntimeStateRecordMaterializationRequest, RuntimeStateStorageWriteSetRecord,
+    RuntimeStateStorageWriteSetRequest, RuntimeStateTransitionRecord,
+    RuntimeStateTransitionRequest, RuntimeSubagentStateCommitRecord,
     RuntimeSubagentStateCommitRequest, StorageBackendWriteAdmissionRecord,
     StorageBackendWriteProposal,
 };
@@ -542,6 +544,13 @@ impl RuntimeKernelService {
         request: &RuntimeArtifactStateCommitRequest,
     ) -> Result<RuntimeArtifactStateCommitRecord, AgentgresAdmissionError> {
         AgentgresAdmissionCore.commit_runtime_artifact_state(request)
+    }
+
+    pub fn commit_runtime_model_mount_receipt_state(
+        &self,
+        request: &RuntimeModelMountReceiptStateCommitRequest,
+    ) -> Result<RuntimeModelMountReceiptStateCommitRecord, AgentgresAdmissionError> {
+        AgentgresAdmissionCore.commit_runtime_model_mount_receipt_state(request)
     }
 
     pub fn validate_private_workspace_ctee_invocation(
