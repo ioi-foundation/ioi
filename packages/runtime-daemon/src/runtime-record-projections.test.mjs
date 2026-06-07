@@ -158,3 +158,57 @@ test("runtime bridge computer-use trace emits canonical projection fields only",
     "artifactRefs",
   ]);
 });
+
+test("runtime task job checklist records for run ignore embedded sidecar identity aliases", () => {
+  const runtime = projections();
+  const run = {
+    id: "run_canonical",
+    agentId: "agent_record",
+    objective: "Project canonical records",
+    mode: "send",
+    status: "completed",
+    createdAt: "2026-06-07T00:00:00.000Z",
+    updatedAt: "2026-06-07T00:00:01.000Z",
+    runtimeTask: {
+      taskId: "task_retired_embedded",
+      runId: "run_retired",
+      status: "failed",
+    },
+    runtimeJob: {
+      jobId: "job_retired_embedded",
+      taskId: "task_retired_embedded",
+      runId: "run_retired",
+      status: "failed",
+    },
+    runtimeChecklist: {
+      checklistId: "checklist_retired_embedded",
+      jobId: "job_retired_embedded",
+      taskId: "task_retired_embedded",
+      runId: "run_retired",
+      status: "failed",
+    },
+    trace: {
+      qualityLedger: {
+        taskFamily: "coding",
+        selectedStrategy: "agent",
+      },
+    },
+  };
+
+  const task = runtime.runtimeTaskRecordForRun(run);
+  const job = runtime.runtimeJobRecordForRun(run);
+  const checklist = runtime.runtimeChecklistRecordForRun(run);
+
+  assert.equal(task.taskId, "task_run_canonical");
+  assert.equal(task.runId, "run_canonical");
+  assert.equal(task.status, "completed");
+  assert.equal(job.jobId, "job_run_canonical");
+  assert.equal(job.taskId, "task_run_canonical");
+  assert.equal(job.runId, "run_canonical");
+  assert.equal(job.status, "completed");
+  assert.equal(checklist.checklistId, "checklist_run_canonical");
+  assert.equal(checklist.jobId, "job_run_canonical");
+  assert.equal(checklist.taskId, "task_run_canonical");
+  assert.equal(checklist.runId, "run_canonical");
+  assert.equal(checklist.status, "completed");
+});

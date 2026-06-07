@@ -14189,6 +14189,21 @@ function runCompositor() {
     "function runtimeBridgeTrajectoryFromComputerUseEvents",
     "function runtimeTaskRecordForRun",
   );
+  const runtimeTaskRecordForRunBlock = blockBetween(
+    runtimeRecordProjections,
+    "function runtimeTaskRecordForRun",
+    "function runtimeJobRecord",
+  );
+  const runtimeJobRecordForRunBlock = blockBetween(
+    runtimeRecordProjections,
+    "function runtimeJobRecordForRun",
+    "function runtimeChecklistRecordForRun",
+  );
+  const runtimeChecklistRecordForRunBlock = blockBetween(
+    runtimeRecordProjections,
+    "function runtimeChecklistRecordForRun",
+    "function jobStatusForRunStatus",
+  );
   const codingToolBudgetRecoveryPolicyBlock = blockBetween(
     runtimeCodingToolBudgetRecovery,
     "function codingToolBudgetRecoveryPolicyFromInputs",
@@ -15895,6 +15910,32 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
     ],
     "Phase 10/11 is pending: runtime bridge computer-use trace artifacts must emit canonical snake_case projection fields without retired camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-record-sidecar-embedded-identity-aliases-retired",
+    runtimeTaskRecordForRunBlock.length > 0 &&
+      runtimeJobRecordForRunBlock.length > 0 &&
+      runtimeChecklistRecordForRunBlock.length > 0 &&
+      !/return run\.runtimeTask/.test(runtimeTaskRecordForRunBlock) &&
+      !/return run\.runtimeJob/.test(runtimeJobRecordForRunBlock) &&
+      !/return run\.runtimeChecklist/.test(runtimeChecklistRecordForRunBlock) &&
+      /runtime task job checklist records for run ignore embedded sidecar identity aliases/.test(
+        runtimeRecordProjectionsTest,
+      ) &&
+      /task_retired_embedded/.test(runtimeRecordProjectionsTest) &&
+      /job_retired_embedded/.test(runtimeRecordProjectionsTest) &&
+      /checklist_retired_embedded/.test(runtimeRecordProjectionsTest) &&
+      /task\.taskId,\s*"task_run_canonical"/.test(runtimeRecordProjectionsTest) &&
+      /job\.jobId,\s*"job_run_canonical"/.test(runtimeRecordProjectionsTest) &&
+      /checklist\.checklistId,\s*"checklist_run_canonical"/.test(
+        runtimeRecordProjectionsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-record-projections.mjs",
+      "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime task/job/checklist record projections must rebuild canonical sidecar identity instead of trusting embedded JS runtime sidecar records",
   );
   assertCheck(
     result,

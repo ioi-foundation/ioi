@@ -694,7 +694,6 @@ function runtimeBridgeTrajectoryFromComputerUseEvents({ projection, events, obse
 }
 
 function runtimeTaskRecordForRun(run) {
-  if (run?.runtimeTask) return run.runtimeTask;
   return runtimeTaskRecord({
     runId: run?.id,
     agent: { id: run?.agentId },
@@ -910,7 +909,6 @@ function attachChecklistToRuntimeJob(job, checklist) {
 }
 
 function runtimeJobRecordForRun(run) {
-  if (run?.runtimeJob) return run.runtimeJob;
   const task = runtimeTaskRecordForRun(run);
   const status = jobStatusForRunStatus(run?.status);
   return runtimeJobRecord({
@@ -930,7 +928,6 @@ function runtimeJobRecordForRun(run) {
 }
 
 function runtimeChecklistRecordForRun(run) {
-  if (run?.runtimeChecklist) return run.runtimeChecklist;
   const task = runtimeTaskRecordForRun(run);
   const job = runtimeJobRecordForRun(run);
   return runtimeChecklistRecord({
