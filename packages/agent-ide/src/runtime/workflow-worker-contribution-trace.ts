@@ -115,7 +115,7 @@ function rowForContribution({
   const payload = payloadForEvent(event);
   const result = objectField(payload, "result");
   const snapshotId =
-    stringField(result, "workspaceSnapshotId", "workspace_snapshot_id") ??
+    stringField(result, "workspace_snapshot_id") ??
     firstString(arrayField(event, "rollback_refs"));
   const receiptRefs = uniqueStrings([
     ...arrayField(event, "receipt_refs"),
@@ -125,8 +125,8 @@ function rowForContribution({
     !worker ? "needs_worker" : !event ? "needs_event" : receiptRefs.length === 0 ? "needs_receipt" : "ready";
   const filePath =
     stringField(contribution, "filePath", "file_path", "hunkFile", "hunk_file") ??
-    firstString(arrayField(objectField(result, "result"), "changedFiles", "changed_files").map((file) => stringField(file, "path"))) ??
-    firstString(arrayField(result, "changedFiles", "changed_files").map((file) => stringField(file, "path")));
+    firstString(arrayField(objectField(result, "result"), "changed_files").map((file) => stringField(file, "path"))) ??
+    firstString(arrayField(result, "changed_files").map((file) => stringField(file, "path")));
   return {
     id: `worker-contribution-${safeId(stringField(contribution, "contributionId", "contribution_id") ?? String(index))}`,
     status,
@@ -147,8 +147,8 @@ function rowForContribution({
     hunkHeader: stringField(contribution, "hunkHeader", "hunk_header"),
     editCount:
       numberField(contribution, "editCount", "edit_count") ??
-      numberField(objectField(result, "result"), "editCount", "edit_count") ??
-      numberField(result, "editCount", "edit_count"),
+      numberField(objectField(result, "result"), "edit_count") ??
+      numberField(result, "edit_count"),
     snapshotId,
     receiptRefs,
     policyDecisionRefs: uniqueStrings([

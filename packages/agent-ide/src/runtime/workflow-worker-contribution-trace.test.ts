@@ -192,3 +192,73 @@ test("worker contribution trace ignores retired evidence aliases", () => {
   assert.deepEqual(trace.rows[0]?.rollbackRefs, []);
   assert.ok(!trace.evidenceRefs.includes("artifact-event-retired"));
 });
+
+test("worker contribution trace ignores retired result payload aliases", () => {
+  const retired = buildWorkflowWorkerContributionTrace({
+    events: [
+      event("tool-retired-result", 1, {
+        tool_call_id: "tool-call-retired-result",
+        receipt_refs: ["receipt-event-retired-result"],
+        payload: {
+          result: {
+            workspaceSnapshotId: "snapshot-retired-result",
+            editCount: 4,
+            changedFiles: [{ path: "retired-result.txt" }],
+            result: {
+              editCount: 5,
+              changedFiles: [{ path: "retired-nested-result.txt" }],
+            },
+          },
+        },
+      }),
+    ],
+    subagents: [subagent],
+    contributions: [
+      {
+        contribution_id: "contribution-retired-result",
+        subagent_id: "subagent-canonical",
+        tool_call_id: "tool-call-retired-result",
+      },
+    ],
+  });
+
+  assert.equal(retired.rows[0]?.status, "ready");
+  assert.equal(retired.rows[0]?.snapshotId, null);
+  assert.equal(retired.rows[0]?.filePath, null);
+  assert.equal(retired.rows[0]?.editCount, null);
+  assert.ok(!retired.evidenceRefs.includes("snapshot-retired-result"));
+
+  const canonical = buildWorkflowWorkerContributionTrace({
+    events: [
+      event("tool-canonical-result", 1, {
+        tool_call_id: "tool-call-canonical-result",
+        receipt_refs: ["receipt-event-canonical-result"],
+        payload: {
+          result: {
+            workspace_snapshot_id: "snapshot-canonical-result",
+            edit_count: 4,
+            changed_files: [{ path: "canonical-result.txt" }],
+            result: {
+              edit_count: 5,
+              changed_files: [{ path: "canonical-nested-result.txt" }],
+            },
+          },
+        },
+      }),
+    ],
+    subagents: [subagent],
+    contributions: [
+      {
+        contribution_id: "contribution-canonical-result",
+        subagent_id: "subagent-canonical",
+        tool_call_id: "tool-call-canonical-result",
+      },
+    ],
+  });
+
+  assert.equal(canonical.rows[0]?.status, "ready");
+  assert.equal(canonical.rows[0]?.snapshotId, "snapshot-canonical-result");
+  assert.equal(canonical.rows[0]?.filePath, "canonical-nested-result.txt");
+  assert.equal(canonical.rows[0]?.editCount, 5);
+  assert.ok(canonical.evidenceRefs.includes("snapshot-canonical-result"));
+});

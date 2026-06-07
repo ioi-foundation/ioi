@@ -22493,6 +22493,15 @@ function runCompositor() {
       ) &&
       /arrayField\(event,\s*"rollback_refs"\)/.test(agentIdeWorkerContributionTrace) &&
       /arrayField\(event,\s*"artifact_refs"\)/.test(agentIdeWorkerContributionTrace) &&
+      /stringField\(result,\s*"workspace_snapshot_id"\)/.test(agentIdeWorkerContributionTrace) &&
+      /arrayField\(objectField\(result,\s*"result"\),\s*"changed_files"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      /arrayField\(result,\s*"changed_files"\)/.test(agentIdeWorkerContributionTrace) &&
+      /numberField\(objectField\(result,\s*"result"\),\s*"edit_count"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      /numberField\(result,\s*"edit_count"\)/.test(agentIdeWorkerContributionTrace) &&
       !/stringField\(candidate,\s*"toolCallId",\s*"tool_call_id"\)/.test(
         agentIdeWorkerContributionTrace,
       ) &&
@@ -22520,10 +22529,34 @@ function runCompositor() {
       !/arrayField\(event,\s*"artifactRefs",\s*"artifact_refs"\)/.test(
         agentIdeWorkerContributionTrace,
       ) &&
+      !/stringField\(result,\s*"workspaceSnapshotId",\s*"workspace_snapshot_id"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/arrayField\(objectField\(result,\s*"result"\),\s*"changedFiles",\s*"changed_files"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/arrayField\(result,\s*"changedFiles",\s*"changed_files"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/numberField\(objectField\(result,\s*"result"\),\s*"editCount",\s*"edit_count"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
+      !/numberField\(result,\s*"editCount",\s*"edit_count"\)/.test(
+        agentIdeWorkerContributionTrace,
+      ) &&
       /worker contribution trace ignores retired evidence aliases/.test(
         agentIdeWorkerContributionTraceTest,
       ) &&
       /worker contribution trace ignores retired event identity aliases/.test(
+        agentIdeWorkerContributionTraceTest,
+      ) &&
+      /worker contribution trace ignores retired result payload aliases/.test(
+        agentIdeWorkerContributionTraceTest,
+      ) &&
+      /workspaceSnapshotId: "snapshot-retired-result"/.test(
+        agentIdeWorkerContributionTraceTest,
+      ) &&
+      /assert\.equal\(retired\.rows\[0\]\?\.snapshotId,\s*null\)/.test(
         agentIdeWorkerContributionTraceTest,
       ) &&
       /toolCallId: "tool-call-retired"/.test(agentIdeWorkerContributionTraceTest) &&
