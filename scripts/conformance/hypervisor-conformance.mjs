@@ -1523,7 +1523,20 @@ function runBridge() {
       /artifact\.read/.test(runtimeCodingToolInvocationSurface) &&
       /tool\.retrieve_result/.test(runtimeCodingToolInvocationSurface) &&
       /computer_use\.request_lease/.test(runtimeCodingToolInvocationSurface) &&
-      /rustWorkloadDataPlane/.test(runtimeCodingToolInvocationSurface) &&
+      /rust_workload_data_plane/.test(runtimeCodingToolInvocationSurface) &&
+      /schema_version:\s*"ioi\.runtime\.coding-tool-data-plane\.v1"/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /Object\.hasOwn\(runnerCalls\[0\]\.input,\s*"rustWorkloadDataPlane"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(runnerCalls\[0\]\.input\.rust_workload_data_plane,\s*"schemaVersion"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      !/rustWorkloadDataPlane/.test(runtimeCodingToolInvocationSurface) &&
+      !/schemaVersion:\s*"ioi\.runtime\.coding-tool-data-plane\.v1"/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
       /rust_workload_live/.test(runtimeCodingToolInvocationSurface) &&
       /coding_tool_rust_workload_live_required/.test(runtimeCodingToolInvocationSurface) &&
       /throw notFound\(`Coding tool not found: \$\{toolId\}`,\s*\{\s*thread_id: threadId,\s*tool_id: toolId,\s*pack: CODING_TOOL_PACK_ID,\s*\}\)/.test(

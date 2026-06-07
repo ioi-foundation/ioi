@@ -1080,7 +1080,7 @@ test("coding tool invocation surface runs artifact.read through rust workload li
     blocksDaemonJsExecution: true,
     runCodingTool(input) {
       runnerCalls.push(input);
-      const artifactResult = input.input.rustWorkloadDataPlane.result;
+      const artifactResult = input.input.rust_workload_data_plane.result;
       return {
         backend: "rust_workload_live",
         mode: "live",
@@ -1149,8 +1149,11 @@ test("coding tool invocation surface runs artifact.read through rust workload li
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
   assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
-  assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.source, "daemon_artifact_store");
-  assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.result.content, "stored artifact\n");
+  assert.equal(runnerCalls[0].input.rust_workload_data_plane.schema_version, "ioi.runtime.coding-tool-data-plane.v1");
+  assert.equal(runnerCalls[0].input.rust_workload_data_plane.source, "daemon_artifact_store");
+  assert.equal(runnerCalls[0].input.rust_workload_data_plane.result.content, "stored artifact\n");
+  assert.equal(Object.hasOwn(runnerCalls[0].input, "rustWorkloadDataPlane"), false);
+  assert.equal(Object.hasOwn(runnerCalls[0].input.rust_workload_data_plane, "schemaVersion"), false);
   assert.ok(store.calls.some((call) => call.name === "readArtifact"));
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.backend, "rust_artifact_read");
@@ -1196,7 +1199,7 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
     blocksDaemonJsExecution: true,
     runCodingTool(input) {
       runnerCalls.push(input);
-      const retrieveResult = input.input.rustWorkloadDataPlane.result;
+      const retrieveResult = input.input.rust_workload_data_plane.result;
       return {
         backend: "rust_workload_live",
         mode: "live",
@@ -1265,8 +1268,11 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
   assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
-  assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.query.tool_call_id, "tool_patch");
-  assert.equal(runnerCalls[0].input.rustWorkloadDataPlane.result.content, "stored result\n");
+  assert.equal(runnerCalls[0].input.rust_workload_data_plane.schema_version, "ioi.runtime.coding-tool-data-plane.v1");
+  assert.equal(runnerCalls[0].input.rust_workload_data_plane.query.tool_call_id, "tool_patch");
+  assert.equal(runnerCalls[0].input.rust_workload_data_plane.result.content, "stored result\n");
+  assert.equal(Object.hasOwn(runnerCalls[0].input, "rustWorkloadDataPlane"), false);
+  assert.equal(Object.hasOwn(runnerCalls[0].input.rust_workload_data_plane, "schemaVersion"), false);
   assert.ok(store.calls.some((call) => call.name === "retrieveResult"));
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.backend, "rust_tool_result_retrieve");

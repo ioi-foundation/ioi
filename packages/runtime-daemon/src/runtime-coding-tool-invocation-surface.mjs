@@ -454,8 +454,8 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
     const range = artifactReadRange(input);
     return {
       ...input,
-      rustWorkloadDataPlane: {
-        schemaVersion: "ioi.runtime.coding-tool-data-plane.v1",
+      rust_workload_data_plane: {
+        schema_version: "ioi.runtime.coding-tool-data-plane.v1",
         source: "daemon_artifact_store",
         operation: toolId,
         artifact_id: artifactId,
@@ -497,8 +497,8 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
     };
     return {
       ...input,
-      rustWorkloadDataPlane: {
-        schemaVersion: "ioi.runtime.coding-tool-data-plane.v1",
+      rust_workload_data_plane: {
+        schema_version: "ioi.runtime.coding-tool-data-plane.v1",
         source: "daemon_artifact_store",
         operation: toolId,
         query,
