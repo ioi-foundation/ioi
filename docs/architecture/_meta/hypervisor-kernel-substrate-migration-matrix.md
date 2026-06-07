@@ -13129,6 +13129,13 @@ decision-event fields only; retired camelCase lease metadata can no longer
 survive in approval request, decision, revoke, or coding-tool approval
 satisfaction handoffs.
 
+Slice 495 retires approval payload metadata aliases:
+approval request, decision, and revoke payloads now emit and read canonical
+`approval_required`, `tool_id`, `effect_class`, `risk_domain`,
+`approval_manifest`, pressure, alert, and source-event fields only; retired
+camelCase payload metadata can no longer duplicate approval-gate truth before
+Rust authority state planning.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

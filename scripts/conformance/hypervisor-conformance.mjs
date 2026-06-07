@@ -3306,11 +3306,26 @@ function runBridge() {
       /Object\.hasOwn\(store\.events\[0\]\.payload_summary,\s*"approvalLease"\),\s*false/.test(
         runtimeApprovalSurfaceTest,
       ) &&
+      /Object\.hasOwn\(result,\s*"approvalRequired"\),\s*false/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(store\.events\[0\]\.payload_summary,\s*field\),\s*false/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(store\.events\[1\]\.payload_summary,\s*field\),\s*false/.test(
+        runtimeApprovalSurfaceTest,
+      ) &&
       /Object\.hasOwn\(store\.events\[1\]\.payload_summary,\s*"approvalRequestEventId"\),\s*false/.test(
         runtimeApprovalSurfaceTest,
       ) &&
       /Object\.hasOwn\(store\.events\[2\]\.payload_summary,\s*"approvalDecisionEventId"\),\s*false/.test(
         runtimeApprovalSurfaceTest,
+      ) &&
+      !/^\s*(?:approvalRequired|approvalManifest|toolId|effectClass|riskDomain|pressureStatus|alertId|sourceEventId)\s*[:,]/m.test(
+        runtimeApprovalSurface,
+      ) &&
+      !/approvalRequestPayload\.(?:toolId|effectClass|riskDomain|approvalManifest)\b/.test(
+        runtimeApprovalSurface,
       ) &&
       !/request\.(?:turnId|workflowNodeId|workflowGraphId|requestedBy|approvalAction|toolId|toolName|effectClass|riskDomain|approvalId|contextPressure|pressureStatus|contextPressureStatus|alertId|alertEventId|sourceEventId|policyDecisionRefs|authorityScopeRequirements|approvalManifest|receiptRefs|idempotencyKey)\b/.test(
         runtimeApprovalSurface,
