@@ -32,7 +32,7 @@ export function optionalPositiveNumber(value) {
 
 export function subagentIsActive(record = {}) {
   return ["queued", "running", "waiting_for_input", "interrupted"].includes(
-    record.lifecycle_status ?? record.lifecycleStatus ?? record.status,
+    record.lifecycle_status ?? record.status,
   );
 }
 
@@ -223,7 +223,7 @@ export function subagentBudgetStatusForRun({
 
 export function subagentCancellationPropagates(record = {}) {
   return normalizeSubagentCancellationInheritance(
-    record.cancellation_inheritance ?? record.cancellationInheritance,
+    record.cancellation_inheritance,
   ) === "propagate";
 }
 
@@ -286,25 +286,25 @@ export function validateSubagentOutputContract(
 }
 
 export function subagentResultForRun({ record, run = {}, output, outputContractStatus } = {}) {
-  const subagentId = record?.subagent_id ?? record?.subagentId ?? record?.agent_id ?? record?.agentId ?? null;
+  const subagentId = record?.subagent_id ?? record?.agent_id ?? null;
   const lifecycleStatus = lifecycleStatusForRun(
-    record?.lifecycle_status ?? record?.lifecycleStatus ?? record?.status ?? run.status,
+    record?.lifecycle_status ?? record?.status ?? run.status,
   );
   return {
     schema_version: RUNTIME_SUBAGENT_RESULT_SCHEMA_VERSION,
     object: "ioi.runtime_subagent_result",
     subagent_id: subagentId,
-    agent_id: record?.agent_id ?? record?.agentId ?? run.agentId ?? null,
-    run_id: run.id ?? record?.run_id ?? record?.runId ?? null,
+    agent_id: record?.agent_id ?? null,
+    run_id: run.id ?? record?.run_id ?? null,
     status: lifecycleStatus,
     lifecycle_status: lifecycleStatus,
     result: run.result ?? "",
     output,
     output_contract_status: outputContractStatus?.status ?? null,
-    budget_status: record?.budget_status ?? record?.budgetStatus?.status ?? null,
+    budget_status: record?.budget_status ?? null,
     usage_telemetry: record?.usage_telemetry ?? null,
     receipt_refs: uniqueStrings([
-      ...normalizeArray(record?.receipt_refs ?? record?.receiptRefs),
+      ...normalizeArray(record?.receipt_refs),
       ...normalizeArray(run.receipts).map((receipt) => receipt.id),
     ]),
   };

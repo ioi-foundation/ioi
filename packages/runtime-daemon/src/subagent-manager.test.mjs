@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   normalizeSubagentBudget,
   normalizeSubagentBudgetUsageTelemetry,
+  subagentCancellationPropagates,
+  subagentIsActive,
   subagentBudgetStatusForRun,
   subagentContractOutputForRun,
   subagentManagerEventPayload,
@@ -64,6 +66,18 @@ const retiredSubagentResultOutputAliasKeys = [
   "outputContractStatus",
   "budgetStatus",
   "receiptRefs",
+];
+const retiredSubagentResultInputAliasKeys = [
+  "subagentId",
+  "agentId",
+  "runId",
+  "lifecycleStatus",
+  "budgetStatus",
+  "receiptRefs",
+];
+const retiredSubagentLifecycleInputAliasKeys = [
+  "lifecycleStatus",
+  "cancellationInheritance",
 ];
 const retiredSubagentOutputContractAliasKeys = [
   "schemaVersion",
@@ -559,6 +573,86 @@ test("subagent result and manager events emit canonical usage telemetry only", (
   assert.equal(retiredEvent.usage_telemetry, null);
   assert.equal(retiredEvent.cost_estimate_usd, null);
   assert.equal(retiredEvent.token_estimate, null);
+});
+
+test("subagent result and lifecycle helpers ignore retired record input aliases", () => {
+  const run = {
+    id: "run-canonical",
+    status: "completed",
+    result: "done",
+    receipts: [{ id: "receipt-run" }],
+  };
+  const result = subagentResultForRun({
+    record: {
+      subagent_id: "subagent-canonical",
+      agent_id: "agent-canonical",
+      run_id: "run-record-canonical",
+      lifecycle_status: "completed",
+      budget_status: "within_budget",
+      receipt_refs: ["receipt-record"],
+      subagentId: "subagent-retired",
+      agentId: "agent-retired",
+      runId: "run-retired",
+      lifecycleStatus: "failed",
+      budgetStatus: { status: "blocked" },
+      receiptRefs: ["receipt-retired"],
+    },
+    run,
+    output: "SUMMARY\nDone.",
+    outputContractStatus: { status: "valid" },
+  });
+  const retiredOnly = subagentResultForRun({
+    record: {
+      subagentId: "subagent-retired",
+      agentId: "agent-retired",
+      runId: "run-retired",
+      lifecycleStatus: "running",
+      budgetStatus: { status: "blocked" },
+      receiptRefs: ["receipt-retired"],
+    },
+    run: { result: "no id", receipts: [] },
+    output: "SUMMARY\nDone.",
+    outputContractStatus: { status: "valid" },
+  });
+
+  assert.equal(result.subagent_id, "subagent-canonical");
+  assert.equal(result.agent_id, "agent-canonical");
+  assert.equal(result.run_id, "run-canonical");
+  assert.equal(result.lifecycle_status, "completed");
+  assert.equal(result.budget_status, "within_budget");
+  assert.deepEqual(result.receipt_refs, ["receipt-record", "receipt-run"]);
+  assert.equal(retiredOnly.subagent_id, null);
+  assert.equal(retiredOnly.agent_id, null);
+  assert.equal(retiredOnly.run_id, null);
+  assert.equal(retiredOnly.lifecycle_status, "completed");
+  assert.equal(retiredOnly.budget_status, null);
+  assert.deepEqual(retiredOnly.receipt_refs, []);
+  assert.equal(
+    subagentIsActive({ lifecycleStatus: "running" }),
+    false,
+  );
+  assert.equal(
+    subagentCancellationPropagates({ cancellationInheritance: "propagate" }),
+    true,
+  );
+  assert.equal(
+    subagentCancellationPropagates({ cancellationInheritance: "detach" }),
+    true,
+  );
+  assert.equal(
+    subagentCancellationPropagates({
+      cancellation_inheritance: "detach",
+      cancellationInheritance: "propagate",
+    }),
+    false,
+  );
+  for (const key of retiredSubagentResultInputAliasKeys) {
+    assert.equal(Object.prototype.hasOwnProperty.call(retiredOnly, key), false);
+  }
+  assert.deepEqual(retiredSubagentLifecycleInputAliasKeys, [
+    "lifecycleStatus",
+    "cancellationInheritance",
+  ]);
 });
 
 test("subagent manager event payload ignores retired record input aliases", () => {

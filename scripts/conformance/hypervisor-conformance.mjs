@@ -12917,9 +12917,17 @@ function runCompositor() {
     subagentManager.match(
       /export function subagentUsageTelemetryForRun[\s\S]*?\n}\n\nexport function subagentBudgetStatusForRun/,
     )?.[0] ?? "";
+  const subagentIsActiveBlock =
+    subagentManager.match(
+      /export function subagentIsActive[\s\S]*?\n}\n\nexport function subagentBudgetForRequest/,
+    )?.[0] ?? "";
   const subagentBudgetStatusForRunBlock =
     subagentManager.match(
       /export function subagentBudgetStatusForRun[\s\S]*?\n}\n\nexport function subagentCancellationPropagates/,
+    )?.[0] ?? "";
+  const subagentCancellationPropagatesBlock =
+    subagentManager.match(
+      /export function subagentCancellationPropagates[\s\S]*?\n}\n\nexport function normalizeSubagentOutputContract/,
     )?.[0] ?? "";
   const subagentOutputContractHelperBlock =
     subagentManager.match(
@@ -15609,6 +15617,31 @@ function runCompositor() {
       "packages/runtime-daemon/src/subagent-manager.test.mjs",
     ],
     "Phase 10/11 is pending: subagent result output must expose canonical snake_case fields only",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-result-input-aliases-retired",
+    subagentResultForRunBlock.length > 0 &&
+      subagentIsActiveBlock.length > 0 &&
+      subagentCancellationPropagatesBlock.length > 0 &&
+      !/\brecord\?\.(?:subagentId|agentId|runId|lifecycleStatus|budgetStatus|receiptRefs)\b/.test(
+        subagentResultForRunBlock,
+      ) &&
+      !/\brun\.agentId\b/.test(subagentResultForRunBlock) &&
+      !/\brecord\.lifecycleStatus\b/.test(subagentIsActiveBlock) &&
+      !/\brecord\.cancellationInheritance\b/.test(
+        subagentCancellationPropagatesBlock,
+      ) &&
+      /retiredSubagentResultInputAliasKeys/.test(subagentManagerTest) &&
+      /retiredSubagentLifecycleInputAliasKeys/.test(subagentManagerTest) &&
+      /subagent result and lifecycle helpers ignore retired record input aliases/.test(
+        subagentManagerTest,
+      ),
+    [
+      "packages/runtime-daemon/src/subagent-manager.mjs",
+      "packages/runtime-daemon/src/subagent-manager.test.mjs",
+    ],
+    "Phase 10/11 is pending: subagent result/lifecycle helpers must ignore retired camelCase record input aliases",
   );
   assertCheck(
     result,
