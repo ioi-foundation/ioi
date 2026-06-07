@@ -8434,6 +8434,24 @@ function runReceipts() {
       /previous_profile_hash:\s*stableHash/.test(runtimeEngineReceiptBlocks) &&
       /had_profile:\s*Boolean/.test(runtimeEngineReceiptBlocks) &&
       /evidence_refs:\s*\["operator_runtime_engine_profile/.test(runtimeEngineReceiptBlocks) &&
+      /commitRuntimeEngineRecordState/.test(runtimeEngines) &&
+      /RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(runtimeEngines) &&
+      /model_mount\.runtime_preference\.write/.test(runtimeEngines) &&
+      /model_mount\.runtime_engine_profile\.write/.test(runtimeEngines) &&
+      /model_mount\.runtime_engine_profile\.delete/.test(runtimeEngines) &&
+      /runtime_engine_record_state_commit_unconfigured/.test(runtimeEngines) &&
+      !/fs\.rmSync/.test(runtimeEngines) &&
+      !/state\.writeMap\("runtime-preferences"/.test(runtimeEngines) &&
+      !/state\.writeMap\("runtime-engine-profiles"/.test(runtimeEngines) &&
+      /recordStateCommits/.test(runtimeEnginesTest) &&
+      /runtime engine state persistence fails closed without Rust Agentgres record-state commit/.test(runtimeEnginesTest) &&
+      /operation_kind,\s*"model_mount\.runtime_engine_profile\.delete"/.test(runtimeEnginesTest) &&
+      /loadModelMountingMap applies Rust-admitted tombstone records/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /record\?\.deleted === true/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
       /notFound\(`Runtime engine not found: \$\{engineId\}`,\s*\{ engine_id: engineId \}\)/.test(runtimeEngines) &&
       /details:\s*\{ engine_id: engineId,\s*receipt_id: engine\.operatorProfile\.receiptId/.test(runtimeEngines) &&
       /details\?\.runtime_engine_id === engineId/.test(runtimeEngineLatestReceiptFilter) &&
@@ -8455,8 +8473,10 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/model-mounting/runtime-engines.mjs",
       "packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
     ],
-    "Phase 9/11 is pending: runtime-engine receipts, fail-closed errors, and latest-receipt readers must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 9/11 is pending: runtime-engine receipts, fail-closed errors, latest-receipt readers, and durable preference/profile records must use canonical snake_case metadata and Rust Agentgres record-state admission",
   );
   assertCheck(
     result,

@@ -1,7 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
-
 const DEFAULT_RUNTIME_ENGINE_ID = "backend.autopilot.native-local.fixture";
+const RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION =
+  "ioi.runtime_model_mount_record_state_commit.v1";
+const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
 
 function defaultRuntimePreference(state, receiptId = "none", source = "default_native_local_runtime") {
   return {
@@ -112,7 +112,7 @@ export function selectRuntimeEngine(state, body = {}, deps = {}) {
     defaultLoadOptions: engine.operatorProfile?.defaultLoadOptions ?? {},
   };
   state.runtimeSelections.set(preference.id, preference);
-  state.writeMap("runtime-preferences", state.runtimeSelections);
+  commitRuntimeEngineRecordState(state, "runtime-preferences", preference, "model_mount.runtime_preference.write");
   state.writeProjection();
   return {
     schemaVersion,
@@ -156,10 +156,11 @@ export function updateRuntimeEngine(state, engineId, body = {}, deps = {}) {
     source: "operator_runtime_engine_profile",
   };
   state.runtimeEngineProfiles.set(engineId, profile);
-  state.writeMap("runtime-engine-profiles", state.runtimeEngineProfiles);
+  commitRuntimeEngineRecordState(state, "runtime-engine-profiles", profile, "model_mount.runtime_engine_profile.write");
   if (profile.disabled && runtimePreference(state).selectedEngineId === engineId) {
-    state.runtimeSelections.set("default", defaultRuntimePreference(state, receipt.id, "operator_runtime_disable_reset"));
-    state.writeMap("runtime-preferences", state.runtimeSelections);
+    const resetPreference = defaultRuntimePreference(state, receipt.id, "operator_runtime_disable_reset");
+    state.runtimeSelections.set("default", resetPreference);
+    commitRuntimeEngineRecordState(state, "runtime-preferences", resetPreference, "model_mount.runtime_preference.write");
   }
   state.writeProjection();
   return {
@@ -171,7 +172,7 @@ export function updateRuntimeEngine(state, engineId, body = {}, deps = {}) {
 }
 
 export function removeRuntimeEngineOverride(state, engineId, deps = {}) {
-  const { safeFileName, schemaVersion, stableHash } = deps;
+  const { schemaVersion, stableHash } = deps;
   runtimeEngine(state, engineId, deps);
   const existing = runtimeEngineProfile(state, engineId);
   const receipt = state.lifecycleReceipt("runtime_engine_profile_remove", {
@@ -181,11 +182,22 @@ export function removeRuntimeEngineOverride(state, engineId, deps = {}) {
     evidence_refs: ["operator_runtime_engine_profile_remove"],
   });
   state.runtimeEngineProfiles.delete(engineId);
-  fs.rmSync(path.join(state.stateDir, "runtime-engine-profiles", `${safeFileName(engineId)}.json`), { force: true });
-  state.writeMap("runtime-engine-profiles", state.runtimeEngineProfiles);
+  commitRuntimeEngineRecordState(
+    state,
+    "runtime-engine-profiles",
+    {
+      id: engineId,
+      deleted: true,
+      deletedAt: state.nowIso(),
+      receiptId: receipt.id,
+      source: "operator_runtime_engine_profile_remove",
+    },
+    "model_mount.runtime_engine_profile.delete",
+  );
   if (runtimePreference(state).selectedEngineId === engineId && existing?.disabled) {
-    state.runtimeSelections.set("default", defaultRuntimePreference(state, receipt.id, "operator_runtime_profile_remove_reset"));
-    state.writeMap("runtime-preferences", state.runtimeSelections);
+    const resetPreference = defaultRuntimePreference(state, receipt.id, "operator_runtime_profile_remove_reset");
+    state.runtimeSelections.set("default", resetPreference);
+    commitRuntimeEngineRecordState(state, "runtime-preferences", resetPreference, "model_mount.runtime_preference.write");
   }
   state.writeProjection();
   return {
@@ -194,6 +206,63 @@ export function removeRuntimeEngineOverride(state, engineId, deps = {}) {
     removed: Boolean(existing),
     engine: runtimeEngine(state, engineId, deps),
     receiptId: receipt.id,
+  };
+}
+
+function commitRuntimeEngineRecordState(state, recordDir, record, operationKind) {
+  if (typeof state.commitRuntimeModelMountRecordState !== "function") {
+    const error = new Error("Runtime engine state persistence requires Rust Agentgres model-mount record-state commit.");
+    error.status = 500;
+    error.code = "runtime_engine_record_state_commit_unconfigured";
+    error.details = {
+      record_dir: recordDir,
+      record_id: record?.id ?? null,
+      receipt_id: record?.receiptId ?? null,
+    };
+    throw error;
+  }
+  return normalizeRuntimeEngineRecordStateCommit(state.commitRuntimeModelMountRecordState({
+    schema_version: RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION,
+    record_dir: recordDir,
+    record_id: record.id,
+    operation_kind: operationKind,
+    storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
+    record,
+    receipt_refs: [record.receiptId],
+  }));
+}
+
+function normalizeRuntimeEngineRecordStateCommit(value = {}) {
+  const commit = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const storageRecord = commit.storage_record && typeof commit.storage_record === "object"
+    ? commit.storage_record
+    : commit.record?.record ?? {};
+  const required = {
+    record_id: commit.record_id ?? commit.record?.record_id,
+    object_ref: commit.object_ref ?? storageRecord.object_ref,
+    content_hash: commit.content_hash ?? storageRecord.content_hash,
+    admission_hash: commit.admission_hash ?? storageRecord.admission?.admission_hash,
+    commit_hash: commit.commit_hash ?? commit.record?.commit_hash,
+    written_record: commit.written_record,
+  };
+  for (const [field, fieldValue] of Object.entries(required)) {
+    if (!fieldValue) {
+      const error = new Error(`Rust runtime engine record state commit returned without ${field}.`);
+      error.status = 502;
+      error.code = "runtime_engine_record_state_commit_invalid";
+      error.details = { field };
+      throw error;
+    }
+  }
+  return {
+    ...commit,
+    storage_record: storageRecord,
+    record_id: required.record_id,
+    object_ref: required.object_ref,
+    content_hash: required.content_hash,
+    admission_hash: required.admission_hash,
+    commit_hash: required.commit_hash,
+    written_record: required.written_record,
   };
 }
 

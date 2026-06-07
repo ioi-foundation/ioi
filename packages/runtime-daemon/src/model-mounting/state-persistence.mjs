@@ -35,6 +35,10 @@ export function loadModelMountingMap(state, dir, map, deps = {}) {
   const { listJson, readJson } = deps;
   for (const filePath of listJson(path.join(state.stateDir, dir))) {
     const record = readJson(filePath);
+    if (record?.deleted === true && typeof record.id === "string") {
+      map.delete(record.id);
+      continue;
+    }
     if (typeof record.id === "string") {
       map.set(record.id, record);
     }

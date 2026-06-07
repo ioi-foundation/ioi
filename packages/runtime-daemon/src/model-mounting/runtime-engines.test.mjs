@@ -16,6 +16,7 @@ function fakeState() {
     stateDir: "/tmp/ioi-runtime-engines-test",
     runtimeSelections: new Map(),
     runtimeEngineProfiles: new Map(),
+    recordStateCommits: [],
     receipts: [],
     writes: [],
     projections: 0,
@@ -67,6 +68,45 @@ function fakeState() {
     },
     writeMap(dir, map) {
       this.writes.push([dir, [...map.values()].map((record) => ({ ...record }))]);
+    },
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(JSON.parse(JSON.stringify(request)));
+      return {
+        source: "rust_agentgres_runtime_model_mount_record_state_commit_command",
+        backend: "rust_agentgres_storage",
+        record: {
+          schema_version: "ioi.runtime_model_mount_record_state_commit.v1",
+          record_dir: request.record_dir,
+          record_id: request.record_id,
+          operation_kind: request.operation_kind,
+          storage_backend_ref: request.storage_backend_ref,
+          record: {
+            record_path: `${request.record_dir}/${request.record_id}.json`,
+            object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}/records/${request.record_dir}/${request.record_id}.json`,
+            content_hash: "sha256:runtime-engine-content",
+            payload_refs: [`payload://model-mounting/records/${request.record_dir}/${request.record_id}/records/${request.record_dir}/${request.record_id}.json`],
+            receipt_refs: request.receipt_refs,
+            admission: { admission_hash: "sha256:runtime-engine-admission" },
+          },
+          commit_hash: "sha256:runtime-engine-commit",
+        },
+        storage_record: {
+          record_path: `${request.record_dir}/${request.record_id}.json`,
+          object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}/records/${request.record_dir}/${request.record_id}.json`,
+          content_hash: "sha256:runtime-engine-content",
+          payload_refs: [`payload://model-mounting/records/${request.record_dir}/${request.record_id}/records/${request.record_dir}/${request.record_id}.json`],
+          receipt_refs: request.receipt_refs,
+          admission: { admission_hash: "sha256:runtime-engine-admission" },
+        },
+        record_dir: request.record_dir,
+        record_id: request.record_id,
+        object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}/records/${request.record_dir}/${request.record_id}.json`,
+        content_hash: "sha256:runtime-engine-content",
+        admission_hash: "sha256:runtime-engine-admission",
+        commit_hash: "sha256:runtime-engine-commit",
+        written_record: { record_path: `${request.record_dir}/${request.record_id}.json` },
+        evidence_refs: ["rust_agentgres_runtime_model_mount_record_state_commit"],
+      };
     },
     writeProjection() {
       this.projections += 1;
@@ -141,7 +181,12 @@ test("selecting runtime engine persists preference and writes projection", () =>
   assert.equal(result.schemaVersion, "schema.v1");
   assert.equal(result.selectedEngineId, "backend.llama-cpp");
   assert.equal(state.runtimeSelections.get("default").source, "operator_runtime_select");
-  assert.equal(state.writes[0][0], "runtime-preferences");
+  assert.equal(state.recordStateCommits[0].record_dir, "runtime-preferences");
+  assert.equal(state.recordStateCommits[0].record_id, "default");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.runtime_preference.write");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt_1"]);
+  assert.equal(state.recordStateCommits[0].record.selectedEngineId, "backend.llama-cpp");
+  assert.deepEqual(state.writes, []);
   assert.equal(state.projections, 1);
   assert.equal(state.receipts[0].kind, "runtime_engine_select");
   assert.equal(state.receipts[0].details.engine_id, "backend.llama-cpp");
@@ -172,7 +217,8 @@ test("disabled selected runtime engine resets preference to native fixture", () 
   assert.equal(Object.hasOwn(state.receipts[1].details, "previousProfileHash"), false);
   assert.equal(Object.hasOwn(state.receipts[1].details, "defaultLoadOptions"), false);
   assert.equal(Object.hasOwn(state.receipts[1].details, "evidenceRefs"), false);
-  assert.equal(state.writes.some(([dir]) => dir === "runtime-engine-profiles"), true);
+  assert.equal(state.recordStateCommits.some((commit) => commit.record_dir === "runtime-engine-profiles"), true);
+  assert.equal(state.recordStateCommits.some((commit) => commit.record_dir === "runtime-preferences"), true);
 });
 
 test("runtime engine errors use canonical details without retired aliases", () => {
@@ -237,6 +283,23 @@ test("removing runtime engine override clears profile and reports removal", () =
   assert.equal(Object.hasOwn(state.receipts[0].details, "hadProfile"), false);
   assert.equal(Object.hasOwn(state.receipts[0].details, "previousProfileHash"), false);
   assert.equal(Object.hasOwn(state.receipts[0].details, "evidenceRefs"), false);
-  assert.equal(state.writes.some(([dir]) => dir === "runtime-engine-profiles"), true);
+  assert.equal(state.recordStateCommits[0].record_dir, "runtime-engine-profiles");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.runtime_engine_profile.delete");
+  assert.equal(state.recordStateCommits[0].record.deleted, true);
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt_1"]);
   assert.equal(state.projections, 1);
+});
+
+test("runtime engine state persistence fails closed without Rust Agentgres record-state commit", () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+
+  assert.throws(
+    () => selectRuntimeEngine(state, { engineId: "backend.llama-cpp" }, deps),
+    (error) =>
+      error.code === "runtime_engine_record_state_commit_unconfigured" &&
+      error.details.record_dir === "runtime-preferences" &&
+      error.details.record_id === "default" &&
+      error.details.receipt_id === "receipt_1",
+  );
 });

@@ -59,6 +59,26 @@ test("loadModelMountingMap loads only records with string ids", () => {
   assert.deepEqual([...target.entries()], [["provider_a", { id: "provider_a", label: "A" }]]);
 });
 
+test("loadModelMountingMap applies Rust-admitted tombstone records", () => {
+  const state = fakeState();
+  const target = new Map([["profile_a", { id: "profile_a", label: "old" }]]);
+
+  loadModelMountingMap(state, "runtime-engine-profiles", target, {
+    listJson(dir) {
+      return [`${dir}/profile-a.json`];
+    },
+    readJson() {
+      return {
+        id: "profile_a",
+        deleted: true,
+        receiptId: "receipt_remove",
+      };
+    },
+  });
+
+  assert.equal(target.has("profile_a"), false);
+});
+
 test("loadModelMountingMaps applies the canonical directory map table", () => {
   const state = fakeState();
 
