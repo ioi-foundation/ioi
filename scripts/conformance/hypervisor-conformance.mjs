@@ -9762,11 +9762,14 @@ function runReceipts() {
         capabilityTokenOperations,
       ) &&
       /commitCapabilityTokenRecordState/.test(capabilityTokenOperations) &&
-      /RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(capabilityTokenOperations) &&
+      /commitModelMountRecordState/.test(capabilityTokenOperations) &&
+      /recordDir:\s*"tokens"/.test(capabilityTokenOperations) &&
       /model_mount\.capability_token\.create/.test(capabilityTokenOperations) &&
       /model_mount\.capability_token\.authorize/.test(capabilityTokenOperations) &&
       /model_mount\.capability_token\.revoke/.test(capabilityTokenOperations) &&
       /model_mount_capability_token_state_commit_unconfigured/.test(capabilityTokenOperations) &&
+      !/RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(capabilityTokenOperations) &&
+      !/normalizeCapabilityTokenRecordStateCommit/.test(capabilityTokenOperations) &&
       !/state\.writeMap\("tokens"/.test(capabilityTokenOperations) &&
       !/details:\s*\{\s*requiredScope\s*\}/.test(capabilityTokenOperations) &&
       !/notFoundDep\(`Token not found: \$\{tokenId\}`,\s*\{\s*tokenId\s*\}\)/.test(
