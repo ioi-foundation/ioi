@@ -70,6 +70,8 @@ Matrix compaction timing:
   extraction/facade-retirement seam is clear enough to preserve the live
   route-family owner map, terminal blockers, bridge-scaffolding guardrail,
   current sprint lane, and recent slice evidence without hiding remaining work.
+- When that seam becomes clear during goal resumption, perform the scheduled
+  matrix-compaction pass before moving into unrelated route-family work.
 
 ## Implementation Slice 0
 

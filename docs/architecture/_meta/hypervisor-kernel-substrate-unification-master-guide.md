@@ -275,7 +275,9 @@ Resume-goal instruction: do not stop ordinary Rust-core extraction or facade
 retirement work to prune the migration matrix now. Schedule the matrix
 compaction pass once the next Rust-core extraction/facade-retirement seam is
 clear enough that the compacted matrix can preserve terminal-target evidence
-without hiding which bridge-scaffolding proofs are still interim.
+without hiding which bridge-scaffolding proofs are still interim. When that
+seam becomes clear during goal resumption, carry out the scheduled
+matrix-compaction pass before continuing into unrelated route-family work.
 
 ## Part II: Target Execution Model
 
