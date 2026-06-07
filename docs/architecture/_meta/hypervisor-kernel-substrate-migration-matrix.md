@@ -13359,6 +13359,13 @@ computer-use replay filtering and frame identity now read canonical
 only, so retired camelCase identity aliases cannot create replay frames or bind
 them to graph/thread/node identity.
 
+Slice 525 retires IDE computer-use replay artifact/ref aliases: replay timeline
+frames now read canonical `observation_bundle`, `target_index`,
+`affordance_graph`, `computer_use_*_ref`, `screenshot_ref`, `som_ref`,
+`ax_ref`, `target_index_ref`, `observation_ref`, and `graph_ref` fields only,
+so retired camelCase bundles and artifact refs cannot make old computer-use
+payloads look observation-backed, target-backed, or artifact-backed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

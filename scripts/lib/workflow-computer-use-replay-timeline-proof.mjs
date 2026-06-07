@@ -255,6 +255,46 @@ const retiredIdentityFieldAliasTimeline = buildWorkflowComputerUseReplayTimeline
   ],
   { workflowGraphId },
 );
+const retiredArtifactRefAliasTimeline = buildWorkflowComputerUseReplayTimeline(
+  [
+    {
+      event_id: "event-retired-artifact-ref-aliases",
+      seq: 15,
+      thread_id: threadId,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: "runtime.native_browser.retired-artifacts",
+      event_kind: "computer_use.observation",
+      payload_summary: {
+        event_kind: "computer_use.observation",
+        computer_use_lane: "native_browser",
+        computer_use_step: "observe",
+        computerUseObservationRef: "observation-retired-payload-alias",
+        computerUseScreenRef: "artifact:retired:screen",
+        computerUseSomRef: "artifact:retired:som",
+        computerUseAxRef: "artifact:retired:ax",
+        computerUseTargetIndexRef: "target-index-retired-payload-alias",
+        computerUseAffordanceGraphRef: "affordance-retired-payload-alias",
+        observationBundle: {
+          observationRef: "observation-retired-bundle-alias",
+          screenshotRef: "artifact:retired:bundle-screen",
+          somRef: "artifact:retired:bundle-som",
+          axRef: "artifact:retired:bundle-ax",
+          targetIndexRef: "target-index-retired-bundle-alias",
+          targets: [{ targetRef: "target-retired-alias" }],
+        },
+        targetIndex: {
+          targetIndexRef: "target-index-retired-object-alias",
+          targets: [{ targetRef: "target-retired-object-alias" }],
+        },
+        affordanceGraph: {
+          graphRef: "affordance-retired-object-alias",
+          affordances: [{ affordanceRef: "affordance-retired-alias" }],
+        },
+      },
+    },
+  ],
+  { workflowGraphId },
+);
 
 assert.equal(timeline.status, "ready");
 assert.equal(timeline.frameCount, 10);
@@ -284,6 +324,15 @@ assert.equal(retiredIdentityKindAliasTimeline.frameCount, 0);
 assert.equal(retiredIdentityFieldAliasTimeline.frames[0]?.threadId, null);
 assert.equal(retiredIdentityFieldAliasTimeline.frames[0]?.workflowGraphId, null);
 assert.equal(retiredIdentityFieldAliasTimeline.frames[0]?.workflowNodeId, null);
+assert.equal(retiredArtifactRefAliasTimeline.frames[0]?.observationRef, null);
+assert.equal(retiredArtifactRefAliasTimeline.frames[0]?.screenshotRef, null);
+assert.equal(retiredArtifactRefAliasTimeline.frames[0]?.somRef, null);
+assert.equal(retiredArtifactRefAliasTimeline.frames[0]?.axRef, null);
+assert.equal(retiredArtifactRefAliasTimeline.frames[0]?.targetIndexRef, null);
+assert.equal(retiredArtifactRefAliasTimeline.frames[0]?.affordanceGraphRef, null);
+assert.equal(retiredArtifactRefAliasTimeline.frames[0]?.targetCount, 0);
+assert.equal(retiredArtifactRefAliasTimeline.frames[0]?.affordanceCount, 0);
+assert.deepEqual(retiredArtifactRefAliasTimeline.frames[0]?.artifactRefs, []);
 
 const proof = {
   schemaVersion: "ioi.autopilot.stage18.computer-use-replay-timeline-proof.v1",
@@ -313,6 +362,16 @@ const proof = {
       retiredIdentityFieldAliasTimeline.frames[0]?.threadId === null &&
       retiredIdentityFieldAliasTimeline.frames[0]?.workflowGraphId === null &&
       retiredIdentityFieldAliasTimeline.frames[0]?.workflowNodeId === null,
+    retiredArtifactRefAliasesIgnored:
+      retiredArtifactRefAliasTimeline.frames[0]?.observationRef === null &&
+      retiredArtifactRefAliasTimeline.frames[0]?.screenshotRef === null &&
+      retiredArtifactRefAliasTimeline.frames[0]?.somRef === null &&
+      retiredArtifactRefAliasTimeline.frames[0]?.axRef === null &&
+      retiredArtifactRefAliasTimeline.frames[0]?.targetIndexRef === null &&
+      retiredArtifactRefAliasTimeline.frames[0]?.affordanceGraphRef === null &&
+      retiredArtifactRefAliasTimeline.frames[0]?.targetCount === 0 &&
+      retiredArtifactRefAliasTimeline.frames[0]?.affordanceCount === 0 &&
+      retiredArtifactRefAliasTimeline.frames[0]?.artifactRefs.length === 0,
   },
   summary: {
     frameCount: timeline.frameCount,

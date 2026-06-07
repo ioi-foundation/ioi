@@ -106,28 +106,28 @@ export function buildWorkflowComputerUseReplayTimeline(
 
 function replayFrameForEvent(event: RuntimeEventInput, index: number): WorkflowComputerUseReplayFrame {
   const payload = eventPayload(event);
-  const observation = objectField(payload, "observation_bundle", "observationBundle");
-  const targetIndex = objectField(payload, "target_index", "targetIndex", "computerUseTargetIndex");
-  const affordanceGraph = objectField(payload, "affordance_graph", "affordanceGraph");
+  const observation = objectField(payload, "observation_bundle");
+  const targetIndex = objectField(payload, "target_index");
+  const affordanceGraph = objectField(payload, "affordance_graph");
   const eventKind = eventKindForEvent(event);
   const step = stringField(payload, "computer_use_step", "computerUseStep") ?? stepForEventKind(eventKind);
   const lane = computerUseLane(payload);
   const screenshotRef =
-    stringField(observation, "screenshot_ref", "screenshotRef") ??
-    stringField(payload, "computer_use_screen_ref", "computerUseScreenRef", "screenshot_ref", "screenshotRef");
+    stringField(observation, "screenshot_ref") ??
+    stringField(payload, "computer_use_screen_ref", "screenshot_ref");
   const somRef =
-    stringField(observation, "som_ref", "somRef") ??
-    stringField(payload, "computer_use_som_ref", "computerUseSomRef", "som_ref", "somRef");
+    stringField(observation, "som_ref") ??
+    stringField(payload, "computer_use_som_ref", "som_ref");
   const axRef =
-    stringField(observation, "ax_ref", "axRef") ??
-    stringField(payload, "computer_use_ax_ref", "computerUseAxRef", "ax_ref", "axRef");
+    stringField(observation, "ax_ref") ??
+    stringField(payload, "computer_use_ax_ref", "ax_ref");
   const targetIndexRef =
-    stringField(payload, "computer_use_target_index_ref", "computerUseTargetIndexRef") ??
-    stringField(observation, "target_index_ref", "targetIndexRef") ??
-    stringField(targetIndex, "target_index_ref", "targetIndexRef");
+    stringField(payload, "computer_use_target_index_ref") ??
+    stringField(observation, "target_index_ref") ??
+    stringField(targetIndex, "target_index_ref");
   const affordanceGraphRef =
-    stringField(payload, "computer_use_affordance_graph_ref", "computerUseAffordanceGraphRef") ??
-    stringField(affordanceGraph, "graph_ref", "graphRef");
+    stringField(payload, "computer_use_affordance_graph_ref") ??
+    stringField(affordanceGraph, "graph_ref");
   const targetCount =
     arrayField(targetIndex, "targets").length ||
     arrayField(observation, "targets").length ||
@@ -150,8 +150,8 @@ function replayFrameForEvent(event: RuntimeEventInput, index: number): WorkflowC
     workflowGraphId: eventWorkflowGraphId(event),
     workflowNodeId: eventWorkflowNodeId(event),
     observationRef:
-      stringField(payload, "computer_use_observation_ref", "computerUseObservationRef") ??
-      stringField(observation, "observation_ref", "observationRef"),
+      stringField(payload, "computer_use_observation_ref") ??
+      stringField(observation, "observation_ref"),
     screenshotRef,
     somRef,
     axRef,
@@ -199,7 +199,7 @@ function eventPayload(event: RuntimeEventInput): Record<string, unknown> {
 }
 
 function computerUseLane(payload: Record<string, unknown>): string | null {
-  const observation = objectField(payload, "observation_bundle", "observationBundle");
+  const observation = objectField(payload, "observation_bundle");
   return (
     stringField(payload, "computer_use_lane", "computerUseLane") ??
     stringField(observation, "lane") ??

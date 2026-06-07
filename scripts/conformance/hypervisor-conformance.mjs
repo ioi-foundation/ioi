@@ -19635,6 +19635,87 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-computer-use-replay-artifact-ref-aliases-retired",
+    /const observation = objectField\(payload,\s*"observation_bundle"\);/.test(
+      agentIdeComputerUseReplayTimeline,
+    ) &&
+      /const targetIndex = objectField\(payload,\s*"target_index"\);/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /const affordanceGraph = objectField\(payload,\s*"affordance_graph"\);/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /stringField\(observation,\s*"screenshot_ref"\)/.test(agentIdeComputerUseReplayTimeline) &&
+      /stringField\(payload,\s*"computer_use_screen_ref",\s*"screenshot_ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /stringField\(observation,\s*"som_ref"\)/.test(agentIdeComputerUseReplayTimeline) &&
+      /stringField\(payload,\s*"computer_use_som_ref",\s*"som_ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /stringField\(observation,\s*"ax_ref"\)/.test(agentIdeComputerUseReplayTimeline) &&
+      /stringField\(payload,\s*"computer_use_ax_ref",\s*"ax_ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /stringField\(payload,\s*"computer_use_target_index_ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /stringField\(observation,\s*"target_index_ref"\)/.test(agentIdeComputerUseReplayTimeline) &&
+      /stringField\(targetIndex,\s*"target_index_ref"\)/.test(agentIdeComputerUseReplayTimeline) &&
+      /stringField\(payload,\s*"computer_use_affordance_graph_ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /stringField\(affordanceGraph,\s*"graph_ref"\)/.test(agentIdeComputerUseReplayTimeline) &&
+      /stringField\(payload,\s*"computer_use_observation_ref"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /stringField\(observation,\s*"observation_ref"\)/.test(agentIdeComputerUseReplayTimeline) &&
+      !/objectField\(payload,\s*"observation_bundle",\s*"observationBundle"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/objectField\(payload,\s*"target_index",\s*"targetIndex",\s*"computerUseTargetIndex"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/objectField\(payload,\s*"affordance_graph",\s*"affordanceGraph"\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      !/stringField\((?:observation|payload|targetIndex|affordanceGraph),[^)]*"(?:screenshotRef|computerUseScreenRef|somRef|computerUseSomRef|axRef|computerUseAxRef|computerUseTargetIndexRef|targetIndexRef|computerUseAffordanceGraphRef|graphRef|computerUseObservationRef|observationRef)"[^)]*\)/.test(
+        agentIdeComputerUseReplayTimeline,
+      ) &&
+      /retiredArtifactRefAliasTimeline/.test(computerUseReplayTimelineProof) &&
+      /computerUseScreenRef:\s*"artifact:retired:screen"/.test(computerUseReplayTimelineProof) &&
+      /observationBundle:\s*\{/.test(computerUseReplayTimelineProof) &&
+      /targetIndex:\s*\{/.test(computerUseReplayTimelineProof) &&
+      /affordanceGraph:\s*\{/.test(computerUseReplayTimelineProof) &&
+      /retiredArtifactRefAliasTimeline\.frames\[0\]\?\.observationRef,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredArtifactRefAliasTimeline\.frames\[0\]\?\.screenshotRef,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredArtifactRefAliasTimeline\.frames\[0\]\?\.targetIndexRef,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredArtifactRefAliasTimeline\.frames\[0\]\?\.affordanceGraphRef,\s*null/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredArtifactRefAliasTimeline\.frames\[0\]\?\.targetCount,\s*0/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredArtifactRefAliasTimeline\.frames\[0\]\?\.affordanceCount,\s*0/.test(
+        computerUseReplayTimelineProof,
+      ) &&
+      /retiredArtifactRefAliasTimeline\.frames\[0\]\?\.artifactRefs,\s*\[\]/.test(
+        computerUseReplayTimelineProof,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts",
+      "scripts/lib/workflow-computer-use-replay-timeline-proof.mjs",
+    ],
+    "Phase 10/11 is pending: IDE computer-use replay timeline must ignore retired computer-use artifact and ref aliases",
+  );
+  assertCheck(
+    result,
     "ide-runtime-event-identity-helper-alias-retired",
     /workflowRuntimeEventId/.test(agentIdeEventIdentity) &&
       /isProjectedRuntimeThreadEvent/.test(agentIdeEventIdentity) &&
