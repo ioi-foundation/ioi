@@ -9,6 +9,7 @@ import {
   vaultRefMetadata,
   vaultStatus,
 } from "./vault-operations.mjs";
+import { writeModelMountingVaultRefs } from "./state-persistence.mjs";
 
 function createState() {
   const calls = [];
@@ -16,18 +17,23 @@ function createState() {
   const metadata = new Map();
   const state = {
     calls,
+    recordStateCommits: [],
     receipts,
     vault: {
       bindVaultRef(record) {
         calls.push({ name: "bindVaultRef", record });
         const result = {
           vaultRefHash: `hash:${record.vaultRef}`,
+          id: `vault_ref.hash:${record.vaultRef}`,
           configured: true,
           label: record.label,
           purpose: record.purpose,
         };
         metadata.set(record.vaultRef, result);
         return result;
+      },
+      metadataRecords() {
+        return [...metadata.values()];
       },
       listVaultRefs() {
         calls.push({ name: "listVaultRefs" });
@@ -54,12 +60,14 @@ function createState() {
       },
       removeVaultRef(vaultRef, purpose) {
         calls.push({ name: "removeVaultRef", vaultRef, purpose });
-        metadata.delete(vaultRef);
-        return {
+        const result = {
           vaultRefHash: `hash:${vaultRef}`,
+          id: `vault_ref.hash:${vaultRef}`,
           configured: false,
           purpose,
         };
+        metadata.set(vaultRef, result);
+        return result;
       },
     },
     receipt(kind, payload) {
@@ -71,8 +79,28 @@ function createState() {
       receipts.push(receipt);
       return receipt;
     },
+    commitRuntimeModelMountRecordState(request) {
+      calls.push({ name: "commitRuntimeModelMountRecordState", request });
+      this.recordStateCommits.push(request);
+      return {
+        record_id: request.record_id,
+        object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+        content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+        admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+        commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+          admission: {
+            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+          },
+        },
+      };
+    },
     writeVaultRefs() {
       calls.push({ name: "writeVaultRefs" });
+      writeModelMountingVaultRefs(this);
     },
     writeProjection() {
       calls.push({ name: "writeProjection" });
@@ -102,10 +130,13 @@ test("vault operations bind refs, persist metadata, and emit redacted receipts",
   ]);
   assert.deepEqual(
     state.calls.map((call) => call.name),
-    ["bindVaultRef", "writeVaultRefs", "writeProjection"],
+    ["bindVaultRef", "writeVaultRefs", "commitRuntimeModelMountRecordState", "writeProjection"],
   );
+  assert.equal(state.recordStateCommits[0].record_dir, "vault-refs");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.vault_ref.write");
 
   assert.deepEqual(listVaultRefs(state), [{
+    id: "vault_ref.hash:vault://provider/custom/api-key",
     vaultRefHash: "hash:vault://provider/custom/api-key",
     configured: true,
     label: "Custom auth",
@@ -145,9 +176,10 @@ test("vault operations project status, health receipt, and removal receipt", () 
   assert.equal(state.receipts[1].kind, "vault_ref_removal");
   assert.deepEqual(
     state.calls.map((call) => call.name),
-    ["adapterStatus", "health", "removeVaultRef", "writeVaultRefs", "writeProjection"],
+    ["adapterStatus", "health", "removeVaultRef", "writeVaultRefs", "commitRuntimeModelMountRecordState", "writeProjection"],
   );
-  assert.equal(listVaultRefs(state).length, 0);
+  assert.equal(listVaultRefs(state).length, 1);
+  assert.equal(listVaultRefs(state)[0].configured, false);
 });
 
 test("vault operations reject retired request aliases before vault access", () => {

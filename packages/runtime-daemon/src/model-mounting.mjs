@@ -326,7 +326,6 @@ import { seedModelMountingDefaults } from "./model-mounting/state-seeding.mjs";
 import {
   loadModelMountingMap,
   loadModelMountingMaps,
-  writeAllModelMountingMaps,
   writeModelMountingMap,
   writeModelMountingVaultRefs,
 } from "./model-mounting/state-persistence.mjs";
@@ -529,7 +528,7 @@ export class ModelMountingState {
   }
 
   writeAll() {
-    return writeAllModelMountingMaps(this);
+    this.writeProjection();
   }
 
   writeMap(dir, map) {

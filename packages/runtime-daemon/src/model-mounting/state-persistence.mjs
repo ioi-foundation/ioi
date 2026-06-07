@@ -4,6 +4,7 @@ import {
   modelMountInstanceLifecycleBindingIssues,
   modelMountInstanceLifecycleRequiresRust,
 } from "./model-instance-lifecycle.mjs";
+import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
 export const MODEL_MOUNTING_STATE_MAPS = [
   ["model-providers", "providers"],
@@ -46,14 +47,13 @@ export function loadModelMountingMap(state, dir, map, deps = {}) {
 }
 
 export function writeAllModelMountingMaps(state) {
-  for (const [dir, property] of MODEL_MOUNTING_STATE_MAPS) {
-    if (dir === "vault-refs") {
-      state.writeVaultRefs();
-    } else {
-      state.writeMap(dir, state[property]);
-    }
-  }
-  state.writeProjection();
+  const error = new Error("Bulk model-mounting map persistence is retired; use Rust Agentgres record-state commits per record.");
+  error.status = 500;
+  error.code = "model_mount_bulk_map_write_retired";
+  error.details = {
+    canonical_persistence: "rust_agentgres_record_state_commit",
+  };
+  throw error;
 }
 
 export function writeModelMountingMap(state, dir, map) {
@@ -62,8 +62,27 @@ export function writeModelMountingMap(state, dir, map) {
 }
 
 export function writeModelMountingVaultRefs(state) {
-  state.vaultRefs = new Map(state.vault.metadataRecords().map((record) => [record.id, record]));
-  state.writeMap("vault-refs", state.vaultRefs);
+  const records = state.vault.metadataRecords();
+  for (const record of records) {
+    commitVaultRefRecordState(state, record, "model_mount.vault_ref.write", []);
+  }
+  state.vaultRefs = new Map(records.map((record) => [record.id, record]));
+}
+
+function commitVaultRefRecordState(state, record, operationKind, receiptRefs) {
+  return commitModelMountRecordState(state, {
+    recordDir: "vault-refs",
+    record,
+    operationKind,
+    receiptRefs,
+    unconfiguredCode: "model_mount_vault_ref_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Vault ref metadata persistence requires Rust Agentgres record-state commit.",
+    unconfiguredDetails: {
+      vault_ref_id: record?.id ?? null,
+      vault_ref_hash: record?.vaultRefHash ?? null,
+    },
+  });
 }
 
 function assertModelInstanceMapRustBound(state, dir, map) {

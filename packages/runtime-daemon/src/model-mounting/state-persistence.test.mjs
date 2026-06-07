@@ -18,6 +18,7 @@ function fakeState() {
     store: {
       writeMap: (dir, map) => state.writes.push([dir, [...map.keys()]]),
     },
+    recordStateCommits: [],
     vault: {
       metadataRecords: () => [
         { id: "vault_a", configured: true },
@@ -26,6 +27,24 @@ function fakeState() {
     },
     writeMap(dir, map) {
       this.writes.push([dir, [...map.keys()]]);
+    },
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(request);
+      return {
+        record_id: request.record_id,
+        object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+        content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+        admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+        commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+          admission: {
+            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+          },
+        },
+      };
     },
     writeProjection() {
       this.projections += 1;
@@ -97,19 +116,20 @@ test("loadModelMountingMaps applies the canonical directory map table", () => {
   }
 });
 
-test("writeAllModelMountingMaps writes maps in canonical order and refreshes vault refs", () => {
+test("writeAllModelMountingMaps fails closed as a retired bulk persistence path", () => {
   const state = fakeState();
-  state.providers.set("provider_a", { id: "provider_a" });
-  state.routes.set("route_a", { id: "route_a" });
 
-  writeAllModelMountingMaps(state);
+  assert.throws(
+    () => writeAllModelMountingMaps(state),
+    (error) => {
+      assert.equal(error.code, "model_mount_bulk_map_write_retired");
+      assert.equal(error.details.canonical_persistence, "rust_agentgres_record_state_commit");
+      return true;
+    },
+  );
 
-  assert.deepEqual(state.writes.map(([dir]) => dir), MODEL_MOUNTING_STATE_MAPS.map(([dir]) => dir));
-  assert.deepEqual(state.writes.find(([dir]) => dir === "model-providers"), ["model-providers", ["provider_a"]]);
-  assert.deepEqual(state.writes.find(([dir]) => dir === "model-routes"), ["model-routes", ["route_a"]]);
-  assert.deepEqual(state.writes.find(([dir]) => dir === "vault-refs"), ["vault-refs", ["vault_a", "vault_b"]]);
-  assert.equal(state.vaultRefs.get("vault_a").configured, true);
-  assert.equal(state.projections, 1);
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.projections, 0);
 });
 
 test("writeModelMountingMap delegates through the configured store", () => {
@@ -119,6 +139,40 @@ test("writeModelMountingMap delegates through the configured store", () => {
   writeModelMountingMap(state, "model-artifacts", map);
 
   assert.deepEqual(state.writes, [["model-artifacts", ["artifact_a"]]]);
+});
+
+test("writeModelMountingVaultRefs commits metadata through Rust Agentgres record-state", () => {
+  const state = fakeState();
+
+  writeModelMountingVaultRefs(state);
+
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.vaultRefs.get("vault_a").configured, true);
+  assert.equal(state.recordStateCommits.length, 2);
+  assert.deepEqual(state.recordStateCommits.map((commit) => commit.record_dir), ["vault-refs", "vault-refs"]);
+  assert.deepEqual(state.recordStateCommits.map((commit) => commit.operation_kind), [
+    "model_mount.vault_ref.write",
+    "model_mount.vault_ref.write",
+  ]);
+  assert.deepEqual(state.recordStateCommits.map((commit) => commit.record_id), ["vault_a", "vault_b"]);
+});
+
+test("writeModelMountingVaultRefs fails closed without Rust Agentgres record-state commit", () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+
+  assert.throws(
+    () => writeModelMountingVaultRefs(state),
+    (error) => {
+      assert.equal(error.code, "model_mount_vault_ref_state_commit_unconfigured");
+      assert.equal(error.details.record_dir, "vault-refs");
+      assert.equal(error.details.vault_ref_id, "vault_a");
+      return true;
+    },
+  );
+
+  assert.equal(state.vaultRefs.size, 0);
+  assert.deepEqual(state.writes, []);
 });
 
 test("model instance map writes require Rust lifecycle binding for migrated local providers", () => {

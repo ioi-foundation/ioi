@@ -7707,6 +7707,15 @@ function runReceipts() {
       /model_mount_instance_map_direct_write_forbidden/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&
+      /model_mount_bulk_map_write_retired/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      /writeAll\(\)\s*\{\s*this\.writeProjection\(\);/.test(
+        read("packages/runtime-daemon/src/model-mounting.mjs"),
+      ) &&
+      !/state\.writeMap\(/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
       /RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
@@ -7753,6 +7762,9 @@ function runReceipts() {
       ) &&
       /reject lifecycle action\/status drift/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /writeAllModelMountingMaps fails closed as a retired bulk persistence path/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ),
     [
       "packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs",
@@ -7763,8 +7775,9 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/10 is pending: direct JS model-instance map persistence for migrated local providers must fail closed without Rust model_mount instance lifecycle binding",
+    "Phase 9/10 is pending: direct JS model-instance and bulk map persistence must fail closed without Rust model_mount lifecycle or record-state admission",
   );
   assertCheck(
     result,
@@ -9822,12 +9835,29 @@ function runReceipts() {
       /vault operations reject retired request aliases before vault access/.test(vaultOperationsTest) &&
       /retired_aliases,\s*\[\s*"vaultRef",\s*"secret",\s*"value"\s*\]/.test(vaultOperationsTest) &&
       /canonical_fields,\s*\[\s*"vault_ref",\s*"material"\s*\]/.test(vaultOperationsTest) &&
-      /assert\.deepEqual\(state\.calls,\s*\[\]\)/.test(vaultOperationsTest),
+      /assert\.deepEqual\(state\.calls,\s*\[\]\)/.test(vaultOperationsTest) &&
+      /recordDir:\s*"vault-refs"/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      /model_mount\.vault_ref\.write/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      /model_mount_vault_ref_state_commit_unconfigured/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      /writeModelMountingVaultRefs commits metadata through Rust Agentgres record-state/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /writeModelMountingVaultRefs fails closed without Rust Agentgres record-state commit/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ),
     [
       "packages/runtime-daemon/src/model-mounting/vault-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
     ],
-    "Phase 7/11 is pending: vault operation request bodies must fail closed on retired aliases before vault lookup, binding, or removal",
+    "Phase 7/11 is pending: vault operation request bodies and metadata persistence must fail closed before retired aliases or direct JS vault-ref map writes",
   );
   assertCheck(
     result,

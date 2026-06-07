@@ -12,12 +12,50 @@ async function withModelState(fn) {
     cwd: process.cwd(),
     homeDir: process.env.HOME,
     modelMountAdmissionRunner: mockModelMountAdmissionRunner(),
+    commitRuntimeModelMountRecordState: mockRuntimeModelMountRecordStateCommit,
+    commitRuntimeModelMountReceiptState: mockRuntimeModelMountReceiptStateCommit,
   });
   try {
     return await fn(state);
   } finally {
     state.close();
   }
+}
+
+function mockRuntimeModelMountRecordStateCommit(request) {
+  return {
+    record_id: request.record_id,
+    object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+    content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+    admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+    commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
+    written_record: request.record,
+    storage_record: {
+      object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+      content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+      admission: {
+        admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+      },
+    },
+  };
+}
+
+function mockRuntimeModelMountReceiptStateCommit(request) {
+  return {
+    receipt_id: request.receipt_id,
+    object_ref: `agentgres://model-mounting/receipts/${request.receipt_id}`,
+    content_hash: `sha256:receipt:${request.receipt_id}`,
+    admission_hash: `sha256:admission:receipt:${request.receipt_id}`,
+    commit_hash: `sha256:commit:receipt:${request.receipt_id}`,
+    written_record: request.receipt,
+    storage_record: {
+      object_ref: `agentgres://model-mounting/receipts/${request.receipt_id}`,
+      content_hash: `sha256:receipt:${request.receipt_id}`,
+      admission: {
+        admission_hash: `sha256:admission:receipt:${request.receipt_id}`,
+      },
+    },
+  };
 }
 
 function mockModelMountAdmissionRunner() {
