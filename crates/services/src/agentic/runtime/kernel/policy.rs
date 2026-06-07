@@ -2241,15 +2241,15 @@ impl ThreadControlAgentStateUpdateCore {
                 ThreadControlAgentStateUpdateError::MissingField("model_route"),
             )?;
             let model_route_value = Value::Object(model_route.clone());
-            let selected_model = optional_json_string(&model_route_value, "selectedModel").ok_or(
-                ThreadControlAgentStateUpdateError::MissingField("model_route.selectedModel"),
+            let selected_model = optional_json_string(&model_route_value, "selected_model").ok_or(
+                ThreadControlAgentStateUpdateError::MissingField("model_route.selected_model"),
             )?;
-            let requested_model_id = optional_json_string(&model_route_value, "requestedModelId")
+            let requested_model_id = optional_json_string(&model_route_value, "requested_model_id")
                 .ok_or(ThreadControlAgentStateUpdateError::MissingField(
-                "model_route.requestedModelId",
+                "model_route.requested_model_id",
             ))?;
-            let route_id = optional_json_string(&model_route_value, "routeId").ok_or(
-                ThreadControlAgentStateUpdateError::MissingField("model_route.routeId"),
+            let route_id = optional_json_string(&model_route_value, "route_id").ok_or(
+                ThreadControlAgentStateUpdateError::MissingField("model_route.route_id"),
             )?;
 
             agent.insert("modelId".to_string(), Value::String(selected_model));
@@ -2261,17 +2261,17 @@ impl ThreadControlAgentStateUpdateCore {
             insert_optional_string_field(
                 &mut agent,
                 "modelRouteEndpointId",
-                optional_json_string(&model_route_value, "endpointId"),
+                optional_json_string(&model_route_value, "endpoint_id"),
             );
             insert_optional_string_field(
                 &mut agent,
                 "modelRouteProviderId",
-                optional_json_string(&model_route_value, "providerId"),
+                optional_json_string(&model_route_value, "provider_id"),
             );
             insert_optional_string_field(
                 &mut agent,
                 "modelRouteReceiptId",
-                optional_json_string(&model_route_value, "receiptId"),
+                optional_json_string(&model_route_value, "receipt_id"),
             );
             agent.insert(
                 "modelRouteDecision".to_string(),
@@ -4413,7 +4413,7 @@ mod tests {
                     "approvalMode": "suggest",
                     "model": {
                         "id": "auto",
-                        "routeId": "route.local-first"
+                    "routeId": "route.local-first"
                     }
                 }
             }),
@@ -4438,15 +4438,15 @@ mod tests {
             workspace_trust_warning_event_id: None,
             workspace_trust_warning_created_at: None,
             model_route: Some(json!({
-                "requestedModelId": "auto",
-                "selectedModel": "local-model",
-                "routeId": "route.local-first",
-                "endpointId": "endpoint_1",
-                "providerId": "provider_1",
-                "receiptId": "receipt_route_1",
+                "requested_model_id": "auto",
+                "selected_model": "local-model",
+                "route_id": "route.local-first",
+                "endpoint_id": "endpoint_1",
+                "provider_id": "provider_1",
+                "receipt_id": "receipt_route_1",
                 "decision": {
-                    "routeId": "route.local-first",
-                    "workflowNodeId": "runtime.model-router.custom"
+                    "route_id": "route.local-first",
+                    "workflow_node_id": "runtime.model-router.custom"
                 }
             })),
         }
@@ -5160,8 +5160,30 @@ mod tests {
         assert_eq!(record.agent["modelRouteProviderId"], "provider_1");
         assert_eq!(record.agent["modelRouteReceiptId"], "receipt_route_1");
         assert_eq!(
-            record.agent["modelRouteDecision"]["workflowNodeId"],
+            record.agent["modelRouteDecision"]["workflow_node_id"],
             "runtime.model-router.custom"
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_retired_thread_control_model_route_aliases() {
+        let mut request = thread_control_agent_state_update_request("thinking");
+        request.model_route = Some(json!({
+            "requestedModelId": "auto",
+            "selectedModel": "retired-model",
+            "routeId": "route.retired",
+            "endpointId": "endpoint_retired",
+            "providerId": "provider_retired",
+            "receiptId": "receipt_retired",
+        }));
+
+        let error = ThreadControlAgentStateUpdateCore
+            .plan(&request)
+            .expect_err("retired thread-control model-route aliases must not plan state");
+
+        assert_eq!(
+            error,
+            ThreadControlAgentStateUpdateError::MissingField("model_route.selected_model")
         );
     }
 

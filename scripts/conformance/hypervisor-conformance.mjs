@@ -4611,6 +4611,21 @@ function runBridge() {
       /"workspace_trust_warning_event_id": request\.workspace_trust_warning_event_id/.test(
         threadControlAgentStateUpdateCoreBlock,
       ) &&
+      /optional_json_string\(&model_route_value,\s*"selected_model"\)/.test(
+        threadControlAgentStateUpdateCoreBlock,
+      ) &&
+      /optional_json_string\(&model_route_value,\s*"requested_model_id"\)/.test(
+        threadControlAgentStateUpdateCoreBlock,
+      ) &&
+      /optional_json_string\(&model_route_value,\s*"route_id"\)/.test(
+        threadControlAgentStateUpdateCoreBlock,
+      ) &&
+      !/optional_json_string\(&model_route_value,\s*"(?:selectedModel|requestedModelId|routeId|endpointId|providerId|receiptId)"\)/.test(
+        threadControlAgentStateUpdateCoreBlock,
+      ) &&
+      /rust_policy_rejects_retired_thread_control_model_route_aliases/.test(
+        policyCore,
+      ) &&
       !/"controlKind": control_kind|"eventId": request\.event_id|"createdAt": request\.created_at|"workspaceTrustWarningEventId": request\.workspace_trust_warning_event_id/.test(
         threadControlAgentStateUpdateCoreBlock,
       ) &&
@@ -4632,6 +4647,12 @@ function runBridge() {
       /thread control agent state update runner sends Rust state update bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
+      /captured\.request\.model_route\.selected_model/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /Object\.hasOwn\(captured\.request\.model_route,\s*field\),\s*false/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /result\.control\.control_kind/.test(runtimeContextPolicyRunnerTest) &&
       /result\.control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
       /Object\.hasOwn\(result\.control,\s*field\),\s*false/.test(
@@ -4641,10 +4662,14 @@ function runBridge() {
       /contextPolicyRunnerDep\.planThreadControlAgentStateUpdate/.test(
         runtimeThreadControlSurface,
       ) &&
+      /model_route:\s*threadControlAgentStateUpdateModelRoute\(modelRoute\)/.test(
+        runtimeThreadControlSurface,
+      ) &&
       /requiredThreadControlOperationKind/.test(runtimeThreadControlSurface) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*`thread\.\$\{controlKind\}`/.test(
         runtimeThreadControlSurface,
       ) &&
+      !/model_route:\s*modelRoute/.test(runtimeThreadControlSurface) &&
       !/modelId:\s*modelRoute\.selectedModel|runtimeControls:\s*nextControls/.test(
         runtimeThreadControlSurface,
       ) &&

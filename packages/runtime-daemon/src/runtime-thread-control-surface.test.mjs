@@ -83,12 +83,12 @@ function createSurface(plannerCalls = [], { threadControlStateUpdate = null } = 
           updatedAt: request.updated_at,
         };
         if (request.model_route) {
-          agent.modelId = request.model_route.selectedModel;
-          agent.requestedModelId = request.model_route.requestedModelId;
-          agent.modelRouteId = request.model_route.routeId;
-          agent.modelRouteEndpointId = request.model_route.endpointId;
-          agent.modelRouteProviderId = request.model_route.providerId;
-          agent.modelRouteReceiptId = request.model_route.receiptId;
+          agent.modelId = request.model_route.selected_model;
+          agent.requestedModelId = request.model_route.requested_model_id;
+          agent.modelRouteId = request.model_route.route_id;
+          agent.modelRouteEndpointId = request.model_route.endpoint_id;
+          agent.modelRouteProviderId = request.model_route.provider_id;
+          agent.modelRouteReceiptId = request.model_route.receipt_id;
           agent.modelRouteDecision = request.model_route.decision;
         }
         return {
@@ -217,7 +217,10 @@ test("thread control surface updates model controls through route selection and 
   assert.equal(store.writes[0].operationKind, "thread.thinking");
   assert.equal(plannerCalls.length, 1);
   assert.equal(plannerCalls[0].control_kind, "thinking");
-  assert.equal(plannerCalls[0].model_route.receiptId, "receipt_route_1");
+  assert.equal(plannerCalls[0].model_route.receipt_id, "receipt_route_1");
+  assert.equal(plannerCalls[0].model_route.route_id, "route.local-first");
+  assert.equal(Object.hasOwn(plannerCalls[0].model_route, "receiptId"), false);
+  assert.equal(Object.hasOwn(plannerCalls[0].model_route, "routeId"), false);
   assert.equal(plannerCalls[0].controls.model.selectedModel, "local-model");
 });
 

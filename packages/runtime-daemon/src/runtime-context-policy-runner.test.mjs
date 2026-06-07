@@ -760,9 +760,9 @@ test("thread control agent state update runner sends Rust state update bridge re
     seq: 7,
     created_at: "2026-06-06T05:00:00.000Z",
     model_route: {
-      requestedModelId: "auto",
-      selectedModel: "local-model",
-      routeId: "route.local-first",
+      requested_model_id: "auto",
+      selected_model: "local-model",
+      route_id: "route.local-first",
     },
   });
 
@@ -774,7 +774,11 @@ test("thread control agent state update runner sends Rust state update bridge re
     THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(captured.request.control_kind, "thinking");
-  assert.equal(captured.request.model_route.selectedModel, "local-model");
+  assert.equal(captured.request.model_route.selected_model, "local-model");
+  assert.equal(captured.request.model_route.route_id, "route.local-first");
+  for (const field of ["selectedModel", "requestedModelId", "routeId"]) {
+    assert.equal(Object.hasOwn(captured.request.model_route, field), false);
+  }
   assert.equal(result.source, "rust_thread_control_agent_state_update_command");
   assert.equal(result.operation_kind, "thread.thinking");
   assert.equal(result.control.control_kind, "thinking");

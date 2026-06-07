@@ -8502,8 +8502,8 @@ mod tests {
                     "approvalMode": "suggest",
                     "model": {
                         "id": "auto",
-                        "routeId": "route.local-first",
-                        "selectedModel": "local-model"
+                            "routeId": "route.local-first",
+                            "selectedModel": "local-model"
                     },
                     "updatedAt": "2026-06-06T05:00:00.000Z"
                 },
@@ -8511,14 +8511,14 @@ mod tests {
                 "seq": 7,
                 "created_at": "2026-06-06T05:00:00.000Z",
                 "model_route": {
-                    "requestedModelId": "auto",
-                    "selectedModel": "local-model",
-                    "routeId": "route.local-first",
-                    "endpointId": "endpoint_1",
-                    "providerId": "provider_1",
-                    "receiptId": "receipt_route_1",
+                    "requested_model_id": "auto",
+                    "selected_model": "local-model",
+                    "route_id": "route.local-first",
+                    "endpoint_id": "endpoint_1",
+                    "provider_id": "provider_1",
+                    "receipt_id": "receipt_route_1",
                     "decision": {
-                        "workflowNodeId": "runtime.model-router.custom"
+                        "workflow_node_id": "runtime.model-router.custom"
                     }
                 }
             }

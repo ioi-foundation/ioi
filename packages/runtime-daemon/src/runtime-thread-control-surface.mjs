@@ -185,7 +185,7 @@ export function createRuntimeThreadControlSurface({
         updated_at: workspaceTrustWarningEvent?.created_at ?? event.created_at,
         workspace_trust_warning_event_id: workspaceTrustWarningEvent?.event_id ?? null,
         workspace_trust_warning_created_at: workspaceTrustWarningEvent?.created_at ?? null,
-        model_route: modelRoute,
+        model_route: threadControlAgentStateUpdateModelRoute(modelRoute),
       });
       const updatedAgent = stateUpdate.agent;
       if (!updatedAgent?.id) {
@@ -358,4 +358,17 @@ export function createRuntimeThreadControlSurface({
     }
     return operationKind;
   }
+}
+
+function threadControlAgentStateUpdateModelRoute(modelRoute = null) {
+  if (!modelRoute || typeof modelRoute !== "object" || Array.isArray(modelRoute)) return null;
+  return {
+    requested_model_id: modelRoute.requestedModelId ?? null,
+    selected_model: modelRoute.selectedModel ?? null,
+    route_id: modelRoute.routeId ?? null,
+    endpoint_id: modelRoute.endpointId ?? null,
+    provider_id: modelRoute.providerId ?? null,
+    receipt_id: modelRoute.receiptId ?? null,
+    decision: modelRoute.decision ?? null,
+  };
 }
