@@ -29,7 +29,7 @@ export function createRuntimeRunEventHelpers({
       return event.data?.alert_level === "blocked" ? "blocked" : "warning";
     }
     if (event.type === "lsp_diagnostics_injected") {
-      return event.data?.blocking && event.data?.diagnosticStatus === "findings" ? "blocked" : "completed";
+      return event.data?.blocking && event.data?.diagnostic_status === "findings" ? "blocked" : "completed";
     }
     if (event.type === "policy_blocked") return "blocked";
     if (event.type === "canceled" || event.type === "job_canceled") return "canceled";

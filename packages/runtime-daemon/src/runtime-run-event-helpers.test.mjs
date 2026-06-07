@@ -41,8 +41,12 @@ test("runtime run event helpers preserve event status mapping", () => {
   }), "blocked");
   assert.equal(runtime.runtimeEventStatusForRunEvent({
     type: "lsp_diagnostics_injected",
-    data: { blocking: true, diagnosticStatus: "findings" },
+    data: { blocking: true, diagnostic_status: "findings" },
   }), "blocked");
+  assert.equal(runtime.runtimeEventStatusForRunEvent({
+    type: "lsp_diagnostics_injected",
+    data: { blocking: true, diagnosticStatus: "findings" },
+  }), "completed");
   assert.equal(runtime.runtimeEventStatusForRunEvent({ type: "computer_use_cleanup" }), "completed");
   assert.equal(runtime.runtimeEventStatusForRunEvent({ type: "computer_use_observation" }), "running");
   assert.equal(runtime.runtimeEventStatusForRunEvent({ type: "computer_use_environment_unavailable" }), "blocked");

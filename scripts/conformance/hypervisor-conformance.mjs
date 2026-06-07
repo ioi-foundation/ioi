@@ -2436,6 +2436,20 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "runtime-run-diagnostics-status-reader-alias-retired",
+    /event\.data\?\.diagnostic_status/.test(runtimeRunEventHelpers) &&
+      !/event\.data\?\.diagnosticStatus\b/.test(runtimeRunEventHelpers) &&
+      /diagnosticStatus: "findings"/.test(runtimeRunEventHelpersTest) &&
+      /data: \{ blocking: true, diagnostic_status: "findings" \}/.test(runtimeRunEventHelpersTest) &&
+      /data: \{ blocking: true, diagnosticStatus: "findings" \}/.test(runtimeRunEventHelpersTest),
+    [
+      "packages/runtime-daemon/src/runtime-run-event-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-run-event-helpers.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime run diagnostics status readers must ignore retired camelCase diagnosticStatus aliases",
+  );
+  assertCheck(
+    result,
     "computer-use-control-payload-aliases-retired",
     /schema_version:\s*COMPUTER_USE_CONTRACT_SCHEMA_VERSION/.test(computerUseControlPayloadSummaryBlock) &&
       /computer_use:\s*true/.test(computerUseControlPayloadSummaryBlock) &&

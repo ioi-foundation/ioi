@@ -13073,6 +13073,11 @@ runtime run event policy ref extraction now reads canonical `policy_decision_*`
 fields only; retired camelCase `policyDecision*` fields can no longer steer
 runtime event policy-decision refs.
 
+Slice 486 retires run-event diagnostics status reader aliases:
+LSP diagnostics runtime-event status now reads canonical `diagnostic_status`
+only; retired camelCase `diagnosticStatus` values can no longer mark an
+injected diagnostics event blocked before projection.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
