@@ -12,54 +12,36 @@ export function computerUseContractsFromVisualObservation({
 } = {}) {
   const metadata = request.options?.metadata ?? request.metadata ?? request;
   const visualObservation =
-    objectValue(metadata.computerUseVisualObservation) ??
     objectValue(metadata.computer_use_visual_observation) ??
-    objectValue(metadata.visualGuiObservation) ??
     objectValue(metadata.visual_gui_observation) ??
-    objectValue(metadata.visualObservation) ??
     objectValue(metadata.visual_observation) ??
     {};
   const screenshotRef = cleanString(
     visualObservation.screenshot_ref ??
-      visualObservation.screenshotRef ??
-      metadata.screenshotRef ??
       metadata.screenshot_ref,
   );
   const somRef = cleanString(
     visualObservation.som_ref ??
-      visualObservation.somRef ??
       visualObservation.set_of_marks_ref ??
-      visualObservation.setOfMarksRef ??
-      metadata.somRef ??
       metadata.som_ref,
   );
   const axRef = cleanString(
     visualObservation.ax_ref ??
-      visualObservation.axRef ??
       visualObservation.accessibility_tree_ref ??
-      visualObservation.accessibilityTreeRef ??
-      metadata.axRef ??
       metadata.ax_ref ??
-      metadata.accessibilityTreeRef ??
       metadata.accessibility_tree_ref,
   );
   const rawTargets = arrayValue(
     visualObservation.targets ??
       visualObservation.visual_targets ??
-      visualObservation.visualTargets ??
-      metadata.visualTargets ??
       metadata.visual_targets,
   );
   const appName = cleanString(
     visualObservation.app_name ??
-      visualObservation.appName ??
-      metadata.appName ??
       metadata.app_name,
   );
   const windowTitle = cleanString(
     visualObservation.window_title ??
-      visualObservation.windowTitle ??
-      metadata.windowTitle ??
       metadata.window_title,
   );
 
@@ -70,20 +52,14 @@ export function computerUseContractsFromVisualObservation({
   const coordinateSpaceId =
     cleanString(
       visualObservation.coordinate_space_id ??
-        visualObservation.coordinateSpaceId ??
-        metadata.coordinateSpaceId ??
         metadata.coordinate_space_id,
     ) ?? `screen_${safeId(runId)}_visual`;
   const viewportWidth = finiteNumber(
     visualObservation.viewport_width ??
-      visualObservation.viewportWidth ??
-      metadata.viewportWidth ??
       metadata.viewport_width,
   );
   const viewportHeight = finiteNumber(
     visualObservation.viewport_height ??
-      visualObservation.viewportHeight ??
-      metadata.viewportHeight ??
       metadata.viewport_height,
   );
   const targets = normalizeVisualTargets({
@@ -114,16 +90,14 @@ export function computerUseContractsFromVisualObservation({
     redaction_report_ref:
       cleanString(
         visualObservation.redaction_report_ref ??
-          visualObservation.redactionReportRef ??
-          metadata.redactionReportRef ??
           metadata.redaction_report_ref,
       ) ?? null,
     freshness_ms:
-      finiteNumber(visualObservation.freshness_ms ?? visualObservation.freshnessMs) ?? null,
+      finiteNumber(visualObservation.freshness_ms) ?? null,
     retention_mode: retentionMode,
     detected_patterns: uniqueStrings([
-      ...stringArray(visualObservation.detected_patterns ?? visualObservation.detectedPatterns),
-      ...stringArray(metadata.detectedPatterns ?? metadata.detected_patterns),
+      ...stringArray(visualObservation.detected_patterns),
+      ...stringArray(metadata.detected_patterns),
       ...(targets.some((target) => target.role === "canvas") ? ["canvas"] : []),
       ...(somRef ? ["som"] : []),
       ...(axRef ? ["accessibility_tree"] : []),
@@ -146,7 +120,6 @@ export function computerUseContractsFromVisualObservation({
       rawAffordances:
         visualObservation.affordances ??
         visualObservation.visual_affordances ??
-        metadata.visualAffordances ??
         metadata.visual_affordances,
       targets,
       runId,

@@ -131,3 +131,42 @@ test("computer-use visual observation ignores retired target and affordance alia
   assert.deepEqual(affordance.fallback_action_paths, []);
   assert.deepEqual(affordance.invalidation_conditions, []);
 });
+
+test("computer-use visual observation ignores retired observation metadata aliases", () => {
+  const contracts = computerUseContractsFromVisualObservation({
+    runId: "run_visual_retired_metadata",
+    request: {
+      metadata: {
+        computerUseVisualObservation: {
+          screenshotRef: "artifact_retired_screenshot",
+          somRef: "artifact_retired_som",
+          axRef: "artifact_retired_ax",
+          appName: "Retired App",
+          windowTitle: "Retired Window",
+          coordinateSpaceId: "screen_retired",
+          viewportWidth: 800,
+          viewportHeight: 600,
+          redactionReportRef: "artifact_retired_redaction",
+          freshnessMs: 10,
+          detectedPatterns: ["retired_pattern"],
+          visualTargets: [
+            {
+              target_ref: "target_retired",
+              available_actions: ["click"],
+            },
+          ],
+          visualAffordances: [
+            {
+              target_ref: "target_retired",
+              possible_action: "click",
+            },
+          ],
+        },
+        screenshotRef: "artifact_retired_top_level_screenshot",
+        visualTargets: [{ target_ref: "target_retired_top_level" }],
+      },
+    },
+  });
+
+  assert.equal(contracts, null);
+});

@@ -1787,15 +1787,27 @@ function runBridge() {
       /computer-use visual observation ignores retired target and affordance aliases/.test(
         computerUseVisualObservationTest,
       ) &&
+      /computer-use visual observation ignores retired observation metadata aliases/.test(
+        computerUseVisualObservationTest,
+      ) &&
       /targetRef: "target_legacy"/.test(computerUseVisualObservationTest) &&
       /availableActions: \["click"\]/.test(computerUseVisualObservationTest) &&
+      /computerUseVisualObservation/.test(computerUseVisualObservationTest) &&
+      /screenshotRef: "artifact_retired_screenshot"/.test(computerUseVisualObservationTest) &&
+      /assert\.equal\(contracts,\s*null\)/.test(computerUseVisualObservationTest) &&
       !/\btarget\.(?:targetRef|id|semanticIds|somId|availableActions)\b/.test(
         computerUseVisualObservation,
       ) &&
       !/\baffordance\.(?:targetRef|affordanceRef|possibleAction|actionPreconditions|actionConfidence|expectedStateTransition|riskClass|requiredAuthority|requiredConfirmation|fallbackActionPaths|invalidationConditions)\b/.test(
         computerUseVisualObservation,
       ) &&
-      !/\bbounds\.coordinateSpaceId\b/.test(computerUseVisualObservation),
+      !/\bbounds\.coordinateSpaceId\b/.test(computerUseVisualObservation) &&
+      !/\bmetadata\.(?:computerUseVisualObservation|visualGuiObservation|visualObservation|screenshotRef|somRef|axRef|accessibilityTreeRef|appName|windowTitle|coordinateSpaceId|redactionReportRef|viewportWidth|viewportHeight|visualTargets|visualAffordances|detectedPatterns)\b/.test(
+        computerUseVisualObservation,
+      ) &&
+      !/\bvisualObservation\.(?:screenshotRef|somRef|setOfMarksRef|axRef|accessibilityTreeRef|visualTargets|appName|windowTitle|coordinateSpaceId|viewportWidth|viewportHeight|redactionReportRef|freshnessMs|detectedPatterns)\b/.test(
+        computerUseVisualObservation,
+      ),
     [
       "packages/runtime-daemon/src/computer-use-visual-observation.mjs",
       "packages/runtime-daemon/src/computer-use-visual-observation.test.mjs",
