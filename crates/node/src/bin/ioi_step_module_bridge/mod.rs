@@ -8198,9 +8198,16 @@ mod tests {
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "workflow.run.retry_completed");
         assert_eq!(
-            response["operator_control"]["approvalId"],
+            response["operator_control"]["approval_id"],
             "approval_budget"
         );
+        assert!(response["operator_control"].get("approvalId").is_none());
+        assert!(response["operator_control"].get("eventId").is_none());
+        assert!(response["operator_control"].get("receiptRefs").is_none());
+        assert!(response["operator_control"]
+            .get("policyDecisionRefs")
+            .is_none());
+        assert!(response["operator_control"].get("createdAt").is_none());
         assert_eq!(
             response["run"]["trace"]["operatorControls"][0]["control"],
             "coding_tool_budget_recovery"

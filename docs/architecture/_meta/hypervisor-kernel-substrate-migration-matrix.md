@@ -13144,6 +13144,13 @@ Rust approval request, decision, and revoke state planners now emit canonical
 longer leave the Rust authority bridge as a parallel result ABI before daemon
 state persistence.
 
+Slice 497 retires Rust budget-recovery control metadata aliases:
+Rust coding-tool budget recovery state planning now emits canonical
+`approval_id`, `event_id`, `receipt_refs`, `policy_decision_refs`, and
+`created_at` inside Rust-planned retry `operator_control` records; retired
+camelCase recovery-control metadata can no longer leave the Rust policy bridge
+as a parallel result ABI before daemon run persistence.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

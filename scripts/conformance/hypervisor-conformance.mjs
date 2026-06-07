@@ -658,6 +658,10 @@ function runBridge() {
   const policyCore = exists("crates/services/src/agentic/runtime/kernel/policy.rs")
     ? read("crates/services/src/agentic/runtime/kernel/policy.rs")
     : "";
+  const codingToolBudgetRecoveryStateUpdateCoreBlock =
+    policyCore.match(
+      /impl CodingToolBudgetRecoveryStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct DiagnosticsOperatorOverrideStateUpdateCore;)/,
+    )?.[0] ?? "";
   const stepModuleRunner = exists("packages/runtime-daemon/src/step-module-runner.mjs")
     ? read("packages/runtime-daemon/src/step-module-runner.mjs")
     : "";
@@ -3498,17 +3502,35 @@ function runBridge() {
       /CodingToolBudgetRecoveryStateUpdateRequest/.test(policyCore) &&
       /CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_coding_tool_budget_recovery_state_update/.test(policyCore) &&
+      /"approval_id": approval_id/.test(codingToolBudgetRecoveryStateUpdateCoreBlock) &&
+      /"event_id": request\.event_id/.test(codingToolBudgetRecoveryStateUpdateCoreBlock) &&
+      /"receipt_refs": request\.receipt_refs\.clone\(\)/.test(
+        codingToolBudgetRecoveryStateUpdateCoreBlock,
+      ) &&
+      /"policy_decision_refs": request\.policy_decision_refs\.clone\(\)/.test(
+        codingToolBudgetRecoveryStateUpdateCoreBlock,
+      ) &&
+      /"created_at": request\.created_at/.test(codingToolBudgetRecoveryStateUpdateCoreBlock) &&
+      !/"approvalId": approval_id|"eventId": request\.event_id|"receiptRefs": request\.receipt_refs|"policyDecisionRefs": request\.policy_decision_refs|"createdAt": request\.created_at/.test(
+        codingToolBudgetRecoveryStateUpdateCoreBlock,
+      ) &&
       /plan_coding_tool_budget_recovery_state_update/.test(bridgeModule) &&
       /CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_coding_tool_budget_recovery_state_update_command/.test(bridgeModule) &&
       /bridge_plans_coding_tool_budget_recovery_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
+      /response\["operator_control"\]\["approval_id"\]/.test(bridgeModule) &&
+      /response\["operator_control"\]\.get\("approvalId"\)\.is_none\(\)/.test(bridgeModule) &&
       /planCodingToolBudgetRecoveryStateUpdate/.test(runtimeContextPolicyRunner) &&
       /CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
       /coding tool budget recovery state update runner sends Rust state update bridge request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.operator_control\.approval_id/.test(runtimeContextPolicyRunnerTest) &&
+      /Object\.hasOwn\(result\.operator_control,\s*field\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /contextPolicyRunnerDep\.planCodingToolBudgetRecoveryStateUpdate/.test(
@@ -3527,6 +3549,10 @@ function runBridge() {
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       /budget recovery surface fails closed without Rust-planned operation kind/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /operatorControls\[0\]\.approval_id/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /Object\.hasOwn\(store\.runs\.get\("run_alpha"\)\.operatorControls\[0\],\s*"approvalId"\),\s*false/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeCodingToolBudgetRecoverySurface) &&

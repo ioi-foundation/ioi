@@ -362,8 +362,8 @@ test("coding tool budget recovery state update runner sends Rust state update br
             updated_at: "2026-06-06T04:05:00.000Z",
             operator_control: {
               control: "coding_tool_budget_recovery",
-              approvalId: "approval_budget",
-              eventId: "event_retry",
+              approval_id: "approval_budget",
+              event_id: "event_retry",
             },
             run: {
               id: "run_budget",
@@ -372,7 +372,7 @@ test("coding tool budget recovery state update runner sends Rust state update br
                 operatorControls: [
                   {
                     control: "coding_tool_budget_recovery",
-                    eventId: "event_retry",
+                    event_id: "event_retry",
                   },
                 ],
               },
@@ -407,8 +407,11 @@ test("coding tool budget recovery state update runner sends Rust state update br
   assert.equal(captured.request.approval_id, "approval_budget");
   assert.equal(result.source, "rust_coding_tool_budget_recovery_state_update_command");
   assert.equal(result.operation_kind, "workflow.run.retry_completed");
-  assert.equal(result.operator_control.approvalId, "approval_budget");
-  assert.equal(result.run.trace.operatorControls[0].eventId, "event_retry");
+  assert.equal(result.operator_control.approval_id, "approval_budget");
+  for (const field of ["approvalId", "eventId", "receiptRefs", "policyDecisionRefs", "createdAt"]) {
+    assert.equal(Object.hasOwn(result.operator_control, field), false);
+  }
+  assert.equal(result.run.trace.operatorControls[0].event_id, "event_retry");
 });
 
 test("diagnostics operator override state update runner sends Rust state update bridge request", () => {

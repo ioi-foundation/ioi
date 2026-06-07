@@ -22,14 +22,14 @@ function codingToolBudgetRecoveryStateUpdateForRequest(request = {}) {
   const control = {
     control: "coding_tool_budget_recovery",
     action: "retry_approved",
-    approvalId: request.approval_id,
+    approval_id: request.approval_id,
     status: "completed",
     source: request.source,
-    eventId: request.event_id,
+    event_id: request.event_id,
     seq: request.seq,
-    receiptRefs: request.receipt_refs,
-    policyDecisionRefs: request.policy_decision_refs,
-    createdAt: request.created_at,
+    receipt_refs: request.receipt_refs,
+    policy_decision_refs: request.policy_decision_refs,
+    created_at: request.created_at,
   };
   const run = request.run ?? {};
   return {
@@ -51,7 +51,7 @@ function codingToolBudgetRecoveryStateUpdateForRequest(request = {}) {
 
 function appendOperatorControlForTest(value, control) {
   const entries = Array.isArray(value) ? [...value] : [];
-  if (!entries.some((entry) => entry?.eventId === control.eventId)) {
+  if (!entries.some((entry) => (entry?.event_id ?? entry?.eventId) === control.event_id)) {
     entries.push(control);
   }
   return entries;
@@ -463,6 +463,9 @@ test("budget recovery surface records approved retry and enforces retry limit", 
     retry.event.event_id,
   );
   assert.equal(store.runs.get("run_alpha").operatorControls[0].action, "retry_approved");
+  assert.equal(store.runs.get("run_alpha").operatorControls[0].approval_id, "approval_budget");
+  assert.equal(Object.hasOwn(store.runs.get("run_alpha").operatorControls[0], "approvalId"), false);
+  assert.equal(Object.hasOwn(store.runs.get("run_alpha").operatorControls[0], "eventId"), false);
   assert.equal(store.writes[0].operationKind, "workflow.run.retry_completed");
 
   const limit = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {

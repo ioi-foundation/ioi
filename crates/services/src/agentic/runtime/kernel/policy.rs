@@ -1556,14 +1556,14 @@ impl CodingToolBudgetRecoveryStateUpdateCore {
         let operator_control = json!({
             "control": "coding_tool_budget_recovery",
             "action": "retry_approved",
-            "approvalId": approval_id,
+            "approval_id": approval_id,
             "status": "completed",
             "source": source,
-            "eventId": request.event_id,
+            "event_id": request.event_id,
             "seq": request.seq,
-            "receiptRefs": request.receipt_refs.clone(),
-            "policyDecisionRefs": request.policy_decision_refs.clone(),
-            "createdAt": request.created_at,
+            "receipt_refs": request.receipt_refs.clone(),
+            "policy_decision_refs": request.policy_decision_refs.clone(),
+            "created_at": request.created_at,
         });
         let mut run = object_value(&request.run).ok_or(
             CodingToolBudgetRecoveryStateUpdateError::MissingField("run"),
@@ -3508,15 +3508,22 @@ fn normalized_thread_control_kind(
 }
 
 fn append_operator_control(existing: Option<&Value>, control: &Value) -> Value {
-    let control_event_id = control.get("eventId").and_then(Value::as_str);
+    let control_event_id = control
+        .get("event_id")
+        .or_else(|| control.get("eventId"))
+        .and_then(Value::as_str);
     let mut entries = existing
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
     let exists = control_event_id.is_some_and(|event_id| {
-        entries
-            .iter()
-            .any(|entry| entry.get("eventId").and_then(Value::as_str) == Some(event_id))
+        entries.iter().any(|entry| {
+            entry
+                .get("event_id")
+                .or_else(|| entry.get("eventId"))
+                .and_then(Value::as_str)
+                == Some(event_id)
+        })
     });
     if !exists {
         entries.push(control.clone());
@@ -4874,14 +4881,19 @@ mod tests {
         );
         assert_eq!(record.status, "planned");
         assert_eq!(record.operation_kind, "workflow.run.retry_completed");
-        assert_eq!(record.operator_control["approvalId"], "approval_budget");
-        assert_eq!(record.operator_control["receiptRefs"][0], "receipt_retry");
+        assert_eq!(record.operator_control["approval_id"], "approval_budget");
+        assert_eq!(record.operator_control["receipt_refs"][0], "receipt_retry");
+        assert!(record.operator_control.get("approvalId").is_none());
+        assert!(record.operator_control.get("eventId").is_none());
+        assert!(record.operator_control.get("receiptRefs").is_none());
+        assert!(record.operator_control.get("policyDecisionRefs").is_none());
+        assert!(record.operator_control.get("createdAt").is_none());
         assert_eq!(record.run["updatedAt"], "2026-06-06T04:05:00.000Z");
         assert_eq!(
             record.run["trace"]["operatorControls"][0]["control"],
             "coding_tool_budget_recovery"
         );
-        assert_eq!(record.run["operatorControls"][0]["eventId"], "event_retry");
+        assert_eq!(record.run["operatorControls"][0]["event_id"], "event_retry");
     }
 
     #[test]
