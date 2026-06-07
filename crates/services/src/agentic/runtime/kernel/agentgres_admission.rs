@@ -2087,7 +2087,7 @@ fn validate_runtime_subagent_id(
     subagent: &Value,
     expected_subagent_id: &str,
 ) -> Result<(), AgentgresAdmissionError> {
-    match json_string(subagent, "subagent_id").or_else(|| json_string(subagent, "subagentId")) {
+    match json_string(subagent, "subagent_id") {
         Some(subagent_id) if subagent_id == expected_subagent_id => Ok(()),
         Some(_) => Err(AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch),
         None => Err(AgentgresAdmissionError::MissingField(
@@ -3402,6 +3402,22 @@ mod tests {
         let error = AgentgresAdmissionCore
             .commit_runtime_subagent_state(&request)
             .expect_err("subagent payload id must match request id");
+
+        assert_eq!(
+            error,
+            AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch
+        );
+    }
+
+    #[test]
+    fn runtime_subagent_state_commit_rejects_retired_subagent_id_alias() {
+        let mut request = runtime_subagent_state_commit();
+        request.subagent["subagent_id"] = json!("");
+        request.subagent["subagentId"] = json!("subagent_1");
+
+        let error = AgentgresAdmissionCore
+            .commit_runtime_subagent_state(&request)
+            .expect_err("retired subagentId must not satisfy Rust Agentgres admission");
 
         assert_eq!(
             error,

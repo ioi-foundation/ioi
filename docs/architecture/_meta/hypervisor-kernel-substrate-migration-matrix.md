@@ -11356,6 +11356,9 @@ reconstruct the active seam without carrying every per-slice paragraph.
   `receipt_id`, `primitive_capabilities`, `authority_scopes`, and `wallet_layer`
   fields instead of JS-shaped decision record aliases before storage-write
   admission.
+- Slice 579 retired the Rust Agentgres subagent `subagentId` identity fallback:
+  runtime subagent state commits now validate only canonical `subagent_id`, and
+  retired `subagentId` payload aliases cannot satisfy storage-write admission.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
