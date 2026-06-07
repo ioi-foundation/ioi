@@ -189,7 +189,7 @@ export function createRuntimeL1SettlementControlRequestFromWorkflowNode(
   const logic = workflowNodeLogic(node);
   const attempt =
     objectField(logic, "l1Settlement") ??
-    objectField(logic, "settlementAttempt") ??
+    objectField(logic, "settlement_attempt") ??
     objectField(logic, "attempt") ??
     {};
   return createRuntimeL1SettlementControlRequest({

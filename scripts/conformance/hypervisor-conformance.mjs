@@ -8746,6 +8746,14 @@ function runBridge() {
       /L1 settlement controls read canonical raw input fields/.test(
         l1SettlementControlNodesTest,
       ) &&
+      /L1 settlement workflow nodes read canonical settlement attempt logic/.test(
+        l1SettlementControlNodesTest,
+      ) &&
+      /L1 settlement workflow nodes ignore retired settlement attempt logic alias/.test(
+        l1SettlementControlNodesTest,
+      ) &&
+      /objectField\(logic,\s*"settlement_attempt"\)/.test(l1SettlementControlNodes) &&
+      !/objectField\(logic,\s*"settlementAttempt"\)/.test(l1SettlementControlNodes) &&
       /stringField\(attemptSeed,\s*"settlement_ref"\)/.test(l1SettlementControlNodes) &&
       /stringField\(attemptSeed,\s*"domain_ref"\)/.test(l1SettlementControlNodes) &&
       /stringField\(attemptSeed,\s*"state_root_ref"\)/.test(l1SettlementControlNodes) &&

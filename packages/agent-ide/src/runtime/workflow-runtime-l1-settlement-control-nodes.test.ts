@@ -96,6 +96,45 @@ test("builds L1 settlement controls from workflow nodes", () => {
   assert.equal(request.body.attempt.settlement_ref, "l1://settlement/marketplace-payment");
 });
 
+test("L1 settlement workflow nodes read canonical settlement attempt logic", () => {
+  const request = createRuntimeL1SettlementControlRequestFromWorkflowNode(
+    {
+      id: "l1-settlement-node",
+      type: "runtime.control.l1_settlement",
+      config: {
+        logic: {
+          settlement_attempt: settlementAttempt(),
+        },
+      } as any,
+    },
+    { thread_id: "thread-node" },
+    { workflow_graph_id: "workflow.l1-node", actor: "runtime-composer" },
+  );
+
+  assert.equal(request.body.settlement_ref, "l1://settlement/marketplace-payment");
+  assert.equal(request.body.domain_ref, "domain://marketplace/services");
+});
+
+test("L1 settlement workflow nodes ignore retired settlement attempt logic alias", () => {
+  assert.throws(
+    () =>
+      createRuntimeL1SettlementControlRequestFromWorkflowNode(
+        {
+          id: "l1-settlement-node",
+          type: "runtime.control.l1_settlement",
+          config: {
+            logic: {
+              settlementAttempt: settlementAttempt(),
+            },
+          } as any,
+        },
+        { thread_id: "thread-node" },
+        { workflow_graph_id: "workflow.l1-node", actor: "runtime-composer" },
+      ),
+    /settlement_ref/,
+  );
+});
+
 test("L1 settlement controls reject retired control input aliases", () => {
   for (const key of retiredL1SettlementControlInputAliases) {
     assert.throws(
