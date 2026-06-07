@@ -99,7 +99,7 @@ export function buildWorkflowRuntimePolicyLeasePanel(
     }
     const payload = eventPayload(event);
     const approvalId =
-      stringField(event, "approvalId", "approval_id") ??
+      stringField(event, "approval_id") ??
       stringField(payload, "approval_id");
     if (!approvalId) continue;
     const lease = objectField(payload, "approval_lease");
@@ -339,19 +339,19 @@ function eventSeq(event: RuntimeEventInput): number {
 }
 
 function eventThreadId(event: RuntimeEventInput): string | null {
-  return stringField(event, "threadId", "thread_id");
+  return stringField(event, "thread_id");
 }
 
 function eventTurnId(event: RuntimeEventInput): string | null {
-  return stringField(event, "turnId", "turn_id");
+  return stringField(event, "turn_id");
 }
 
 function eventWorkflowGraphId(event: RuntimeEventInput): string | null {
-  return stringField(event, "workflowGraphId", "workflow_graph_id");
+  return stringField(event, "workflow_graph_id");
 }
 
 function eventWorkflowNodeId(event: RuntimeEventInput): string | null {
-  return stringField(event, "workflowNodeId", "workflow_node_id");
+  return stringField(event, "workflow_node_id");
 }
 
 function cleanString(value: unknown): string | null {

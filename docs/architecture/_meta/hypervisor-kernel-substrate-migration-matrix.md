@@ -11453,6 +11453,12 @@ lifecycle rows now read canonical event/payload `component_kind`, `thread_id`,
 camelCase event identity aliases cannot create lifecycle rows or bind old
 payloads to thread, turn, workflow graph, or workflow node identity.
 
+Slice 545 retires IDE policy-lease event identity aliases: policy lease rows
+now read canonical event `approval_id`, `thread_id`, `turn_id`,
+`workflow_graph_id`, and `workflow_node_id` fields only, so retired camelCase
+event identity aliases cannot create approval lease rows or bind lease state to
+old thread, turn, workflow graph, or workflow node identity.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

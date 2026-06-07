@@ -19906,6 +19906,11 @@ function runCompositor() {
     result,
     "ide-policy-lease-panel-aliases-retired",
     /stringField\(payload,\s*"approval_id"\)/.test(agentIdePolicyLeasePanel) &&
+      /stringField\(event,\s*"approval_id"\)/.test(agentIdePolicyLeasePanel) &&
+      /stringField\(event,\s*"thread_id"\)/.test(agentIdePolicyLeasePanel) &&
+      /stringField\(event,\s*"turn_id"\)/.test(agentIdePolicyLeasePanel) &&
+      /stringField\(event,\s*"workflow_graph_id"\)/.test(agentIdePolicyLeasePanel) &&
+      /stringField\(event,\s*"workflow_node_id"\)/.test(agentIdePolicyLeasePanel) &&
       /objectField\(payload,\s*"approval_lease"\)/.test(agentIdePolicyLeasePanel) &&
       /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdePolicyLeasePanel) &&
       /arrayField\(event,\s*"policy_decision_refs"\)/.test(agentIdePolicyLeasePanel) &&
@@ -19916,6 +19921,15 @@ function runCompositor() {
       /arrayField\(lease,\s*"expected_receipt_refs"\)/.test(agentIdePolicyLeasePanel) &&
       /arrayField\(lease,\s*"authority_scope_requirements"\)/.test(agentIdePolicyLeasePanel) &&
       /stringField\(lease,\s*"revoke_endpoint"\)/.test(agentIdePolicyLeasePanel) &&
+      !/stringField\(event,\s*"approvalId",\s*"approval_id"\)/.test(agentIdePolicyLeasePanel) &&
+      !/stringField\(event,\s*"threadId",\s*"thread_id"\)/.test(agentIdePolicyLeasePanel) &&
+      !/stringField\(event,\s*"turnId",\s*"turn_id"\)/.test(agentIdePolicyLeasePanel) &&
+      !/stringField\(event,\s*"workflowGraphId",\s*"workflow_graph_id"\)/.test(
+        agentIdePolicyLeasePanel,
+      ) &&
+      !/stringField\(event,\s*"workflowNodeId",\s*"workflow_node_id"\)/.test(
+        agentIdePolicyLeasePanel,
+      ) &&
       !/stringField\(payload,\s*"approvalId",\s*"approval_id"\)/.test(agentIdePolicyLeasePanel) &&
       !/objectField\(payload,\s*"approvalLease",\s*"approval_lease"\)/.test(agentIdePolicyLeasePanel) &&
       !/arrayField\(event,\s*"receiptRefs",\s*"receipt_refs"\)/.test(agentIdePolicyLeasePanel) &&
@@ -19938,10 +19952,19 @@ function runCompositor() {
       /policy lease panel ignores retired payload and evidence aliases/.test(
         agentIdePolicyLeasePanelTest,
       ) &&
+      /policy lease panel ignores retired event identity aliases/.test(
+        agentIdePolicyLeasePanelTest,
+      ) &&
+      /approvalId:\s*"approval-retired-event"/.test(agentIdePolicyLeasePanelTest) &&
+      /threadId:\s*"thread-retired-event"/.test(agentIdePolicyLeasePanelTest) &&
+      /workflowGraphId:\s*"workflow-retired-event"/.test(agentIdePolicyLeasePanelTest) &&
       /approvalId:\s*"approval-retired"/.test(agentIdePolicyLeasePanelTest) &&
       /approvalLease:\s*\{/.test(agentIdePolicyLeasePanelTest) &&
       /receiptRefs:\s*\["receipt-retired"\]/.test(agentIdePolicyLeasePanelTest) &&
       /policyDecisionRefs:\s*\["policy-retired"\]/.test(agentIdePolicyLeasePanelTest) &&
+      /assert\.equal\(panel\.rows\[0\]\?\.workflowNodeId,\s*null\)/.test(
+        agentIdePolicyLeasePanelTest,
+      ) &&
       /assert\.equal\(panel\.rows\.length,\s*0\)/.test(agentIdePolicyLeasePanelTest),
     [
       "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
