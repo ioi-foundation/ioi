@@ -211,3 +211,57 @@ test("signed replay notebook ignores retired restore and snapshot scalar aliases
   assert.equal(restoreCell?.workflow_node_id, "workflow-node-canonical-result");
   assert.deepEqual(restoreCell?.receipt_refs, ["receipt-result-canonical-scalar"]);
 });
+
+test("signed replay notebook reads event kind through canonical identity helper", () => {
+  const notebook = buildWorkflowSignedReplayNotebook({
+    events: [
+      {
+        eventKind: "workspace.restore.previewed",
+        component_kind: "restore_gate",
+        event_id: "retired-event-kind",
+        seq: 1,
+        status: "completed",
+        payload: {
+          snapshot_id: "snapshot-retired-event-kind",
+          operations: [{ path: "retired.txt" }],
+        },
+        rollback_refs: ["snapshot-retired-event-kind"],
+      } as unknown as WorkflowRuntimeThreadEventLike,
+      {
+        event_kind: "workspace.restore.previewed",
+        component_kind: "restore_gate",
+        event_id: "canonical-event-kind",
+        seq: 2,
+        status: "completed",
+        payload: {
+          snapshot_id: "snapshot-canonical-event-kind",
+          operations: [{ path: "canonical.txt" }],
+        },
+        rollback_refs: ["snapshot-canonical-event-kind"],
+      } as unknown as WorkflowRuntimeThreadEventLike,
+      event("projected-event-kind", 3, {
+        eventKind: "workspace.restore.previewed",
+        componentKind: "restore_gate",
+        payload: {
+          snapshot_id: "snapshot-projected-event-kind",
+          operations: [{ path: "projected.txt" }],
+        },
+        rollback_refs: ["snapshot-projected-event-kind"],
+      }),
+    ],
+  });
+
+  assert.equal(notebook.cells.some((cell) => cell.event_id === "retired-event-kind"), false);
+  assert.equal(
+    notebook.cells.some((cell) => cell.snapshot_id === "snapshot-retired-event-kind"),
+    false,
+  );
+  assert.equal(
+    notebook.cells.find((cell) => cell.event_id === "canonical-event-kind")?.cell_kind,
+    "restore_preview",
+  );
+  assert.equal(
+    notebook.cells.find((cell) => cell.event_id === "projected-event-kind")?.cell_kind,
+    "restore_preview",
+  );
+});

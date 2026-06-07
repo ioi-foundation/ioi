@@ -22292,6 +22292,13 @@ function runCompositor() {
       /arrayField\(snapshot,\s*"receipt_refs"\)/.test(agentIdeSignedReplayNotebook) &&
       /arrayField\(snapshot,\s*"artifact_refs"\)/.test(agentIdeSignedReplayNotebook) &&
       /arrayField\(snapshot,\s*"policy_decision_refs"\)/.test(agentIdeSignedReplayNotebook) &&
+      /workflowRuntimeEventKind/.test(agentIdeSignedReplayNotebook) &&
+      /const eventKind = workflowRuntimeEventKind\(event\);/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/const eventKind = stringField\(event,\s*"eventKind",\s*"event_kind"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
       !/arrayField\(event,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
         agentIdeSignedReplayNotebook,
       ) &&
@@ -22373,6 +22380,18 @@ function runCompositor() {
         agentIdeSignedReplayNotebookTest,
       ) &&
       /signed replay notebook ignores retired restore and snapshot scalar aliases/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /signed replay notebook reads event kind through canonical identity helper/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /eventKind: "workspace\.restore\.previewed"/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /event_kind: "workspace\.restore\.previewed"/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /assert\.equal\(notebook\.cells\.some\(\(cell\) => cell\.event_id === "retired-event-kind"\),\s*false\)/.test(
         agentIdeSignedReplayNotebookTest,
       ) &&
       /schemaVersion: "ioi\.workspace-restore-preview\.v1"/.test(
