@@ -8731,11 +8731,15 @@ function runReceipts() {
       /had_profile:\s*Boolean/.test(runtimeEngineReceiptBlocks) &&
       /evidence_refs:\s*\["operator_runtime_engine_profile/.test(runtimeEngineReceiptBlocks) &&
       /commitRuntimeEngineRecordState/.test(runtimeEngines) &&
-      /RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(runtimeEngines) &&
+      /commitModelMountRecordState/.test(runtimeEngines) &&
+      /recordDir/.test(runtimeEngines) &&
       /model_mount\.runtime_preference\.write/.test(runtimeEngines) &&
       /model_mount\.runtime_engine_profile\.write/.test(runtimeEngines) &&
       /model_mount\.runtime_engine_profile\.delete/.test(runtimeEngines) &&
       /runtime_engine_record_state_commit_unconfigured/.test(runtimeEngines) &&
+      /runtime_engine_record_state_commit_invalid/.test(runtimeEngines) &&
+      !/RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(runtimeEngines) &&
+      !/normalizeRuntimeEngineRecordStateCommit/.test(runtimeEngines) &&
       !/fs\.rmSync/.test(runtimeEngines) &&
       !/state\.writeMap\("runtime-preferences"/.test(runtimeEngines) &&
       !/state\.writeMap\("runtime-engine-profiles"/.test(runtimeEngines) &&
