@@ -11342,6 +11342,10 @@ reconstruct the active seam without carrying every per-slice paragraph.
   from canonical `resulting_head` and `state_root_after`, ignoring retired
   `resultingHead` and `stateRootAfter` aliases before receipt/state-root
   binding.
+- Slice 577 retired Rust Agentgres artifact/model-mount record `receiptId`
+  receipt identity aliases: runtime artifact and model-mount record state commits
+  now require canonical `receipt_id` or `receipt_refs`, and retired `receiptId`
+  payload aliases cannot satisfy storage-write admission.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

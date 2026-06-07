@@ -10593,8 +10593,12 @@ function runReceipts() {
       /commits_runtime_model_mount_record_state_with_storage_admission/.test(agentgresAdmissionCore) &&
       /runtime_model_mount_record_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
       /runtime_model_mount_record_state_commit_rejects_retired_receipt_refs_alias/.test(agentgresAdmissionCore) &&
+      /runtime_model_mount_record_state_commit_rejects_retired_receipt_id_alias/.test(agentgresAdmissionCore) &&
       /runtime_model_mount_record_state_commit_rejects_mismatched_record_id/.test(agentgresAdmissionCore) &&
       !/fn runtime_model_mount_record_receipt_refs[\s\S]*?json_string_array\(record,\s*"receiptRefs"\)[\s\S]*?fn validate_runtime_model_mount_receipt_id/.test(
+        agentgresAdmissionCore,
+      ) &&
+      !/fn runtime_model_mount_record_receipt_refs[\s\S]*?json_string\(record,\s*"receiptId"\)[\s\S]*?fn validate_runtime_model_mount_receipt_id/.test(
         agentgresAdmissionCore,
       ) &&
       /pub fn commit_runtime_model_mount_record_state/.test(runtimeKernelModule) &&
@@ -11755,8 +11759,12 @@ function runReceipts() {
       /commits_runtime_artifact_state_with_storage_admission/.test(agentgresAdmissionCore) &&
       /runtime_artifact_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
       /runtime_artifact_state_commit_rejects_retired_receipt_refs_alias/.test(agentgresAdmissionCore) &&
+      /runtime_artifact_state_commit_rejects_retired_receipt_id_alias/.test(agentgresAdmissionCore) &&
       /runtime_artifact_state_commit_rejects_mismatched_artifact_id/.test(agentgresAdmissionCore) &&
       !/fn runtime_artifact_receipt_refs[\s\S]*?json_string_array\(artifact,\s*"receiptRefs"\)[\s\S]*?fn validate_runtime_model_mount_record_id/.test(
+        agentgresAdmissionCore,
+      ) &&
+      !/fn runtime_artifact_receipt_refs[\s\S]*?json_string\(artifact,\s*"receiptId"\)[\s\S]*?fn validate_runtime_model_mount_record_id/.test(
         agentgresAdmissionCore,
       ) &&
       /pub fn commit_runtime_artifact_state/.test(runtimeKernelModule) &&
