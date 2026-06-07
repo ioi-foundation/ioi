@@ -7710,19 +7710,25 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-instance-map-direct-write-guard",
-    /assertModelInstanceMapRustBound/.test(
-      read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
-    ) &&
-      /model_mount_instance_map_direct_write_forbidden/.test(
+    /model_mount_map_write_retired/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&
       /model_mount_bulk_map_write_retired/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      /canonical_persistence:\s*"rust_agentgres_record_state_commit"/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&
       /writeAll\(\)\s*\{\s*this\.writeProjection\(\);/.test(
         read("packages/runtime-daemon/src/model-mounting.mjs"),
       ) &&
       !/state\.writeMap\(/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/state\.store\.writeMap\(/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/modelMountInstanceLifecycleRequiresRust/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&
       /RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND/.test(
@@ -7746,6 +7752,15 @@ function runReceipts() {
       /model_mount_provider_lifecycle_hash/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
+      /writeModelMountingMap fails closed as a retired per-map persistence path/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /model instance map writes fail closed through the retired per-map persistence path/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /model instance map writes reject Rust-bound records through the retired per-map persistence path/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
       /commitModelInstanceRecordState/.test(modelInstanceRecordState) &&
       /recordDir:\s*"model-instances"/.test(modelInstanceRecordState) &&
       /model_mount\.instance\.load/.test(modelLoadingOperations) &&
@@ -7766,10 +7781,7 @@ function runReceipts() {
       /instance lifecycle maintenance fails closed without Rust Agentgres record-state commit/.test(
         loadedInstancesTest,
       ) &&
-      /model instance map writes require Rust lifecycle binding/.test(
-        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
-      ) &&
-      /reject lifecycle action\/status drift/.test(
+      /reject lifecycle action\/status drift through retired per-map persistence/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
       /writeAllModelMountingMaps fails closed as a retired bulk persistence path/.test(

@@ -132,13 +132,22 @@ test("writeAllModelMountingMaps fails closed as a retired bulk persistence path"
   assert.equal(state.projections, 0);
 });
 
-test("writeModelMountingMap delegates through the configured store", () => {
+test("writeModelMountingMap fails closed as a retired per-map persistence path", () => {
   const state = fakeState();
   const map = new Map([["artifact_a", { id: "artifact_a" }]]);
 
-  writeModelMountingMap(state, "model-artifacts", map);
+  assert.throws(
+    () => writeModelMountingMap(state, "model-artifacts", map),
+    (error) => {
+      assert.equal(error.code, "model_mount_map_write_retired");
+      assert.equal(error.details.dir, "model-artifacts");
+      assert.equal(error.details.record_count, 1);
+      assert.equal(error.details.canonical_persistence, "rust_agentgres_record_state_commit");
+      return true;
+    },
+  );
 
-  assert.deepEqual(state.writes, [["model-artifacts", ["artifact_a"]]]);
+  assert.deepEqual(state.writes, []);
 });
 
 test("writeModelMountingVaultRefs commits metadata through Rust Agentgres record-state", () => {
@@ -175,7 +184,7 @@ test("writeModelMountingVaultRefs fails closed without Rust Agentgres record-sta
   assert.deepEqual(state.writes, []);
 });
 
-test("model instance map writes require Rust lifecycle binding for migrated local providers", () => {
+test("model instance map writes fail closed through the retired per-map persistence path", () => {
   const state = fakeState();
   state.providers.set("provider.local", { id: "provider.local", kind: "ioi_native_local" });
   const map = new Map([
@@ -189,13 +198,14 @@ test("model instance map writes require Rust lifecycle binding for migrated loca
   assert.throws(
     () => writeModelMountingMap(state, "model-instances", map),
     (error) =>
-      error.code === "model_mount_instance_map_direct_write_forbidden" &&
-      error.details.missing.includes("instance.local:model_mount_instance_lifecycle_hash"),
+      error.code === "model_mount_map_write_retired" &&
+      error.details.dir === "model-instances" &&
+      error.details.canonical_persistence === "rust_agentgres_record_state_commit",
   );
   assert.deepEqual(state.writes, []);
 });
 
-test("model instance map writes allow Rust-bound local and non-migrated provider records", () => {
+test("model instance map writes reject Rust-bound records through the retired per-map persistence path", () => {
   const state = fakeState();
   state.providers.set("provider.local", { id: "provider.local", kind: "local_folder" });
   state.providers.set("provider.remote", { id: "provider.remote", kind: "openai_compatible" });
@@ -217,12 +227,18 @@ test("model instance map writes allow Rust-bound local and non-migrated provider
     }],
   ]);
 
-  writeModelMountingMap(state, "model-instances", map);
+  assert.throws(
+    () => writeModelMountingMap(state, "model-instances", map),
+    (error) =>
+      error.code === "model_mount_map_write_retired" &&
+      error.details.dir === "model-instances" &&
+      error.details.record_count === 2,
+  );
 
-  assert.deepEqual(state.writes, [["model-instances", ["instance.local", "instance.remote"]]]);
+  assert.deepEqual(state.writes, []);
 });
 
-test("model instance map writes reject lifecycle action/status drift for migrated local providers", () => {
+test("model instance map writes reject lifecycle action/status drift through retired per-map persistence", () => {
   const state = fakeState();
   state.providers.set("provider.local", { id: "provider.local", kind: "ioi_native_local" });
   const map = new Map([
@@ -241,8 +257,8 @@ test("model instance map writes reject lifecycle action/status drift for migrate
   assert.throws(
     () => writeModelMountingMap(state, "model-instances", map),
     (error) =>
-      error.code === "model_mount_instance_map_direct_write_forbidden" &&
-      error.details.mismatches.includes("instance.local:model_mount_instance_lifecycle_action") &&
-      error.details.mismatches.includes("instance.local:model_mount_instance_lifecycle_status"),
+      error.code === "model_mount_map_write_retired" &&
+      error.details.dir === "model-instances",
   );
+  assert.deepEqual(state.writes, []);
 });

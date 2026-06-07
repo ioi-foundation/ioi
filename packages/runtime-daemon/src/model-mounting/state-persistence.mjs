@@ -1,9 +1,5 @@
 import path from "node:path";
 
-import {
-  modelMountInstanceLifecycleBindingIssues,
-  modelMountInstanceLifecycleRequiresRust,
-} from "./model-instance-lifecycle.mjs";
 import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
 export const MODEL_MOUNTING_STATE_MAPS = [
@@ -57,8 +53,15 @@ export function writeAllModelMountingMaps(state) {
 }
 
 export function writeModelMountingMap(state, dir, map) {
-  assertModelInstanceMapRustBound(state, dir, map);
-  state.store.writeMap(dir, map);
+  const error = new Error("Model-mounting map persistence is retired; use Rust Agentgres record-state commits per record.");
+  error.status = 500;
+  error.code = "model_mount_map_write_retired";
+  error.details = {
+    dir: dir ?? null,
+    record_count: typeof map?.size === "number" ? map.size : null,
+    canonical_persistence: "rust_agentgres_record_state_commit",
+  };
+  throw error;
 }
 
 export function writeModelMountingVaultRefs(state) {
@@ -83,27 +86,4 @@ function commitVaultRefRecordState(state, record, operationKind, receiptRefs) {
       vault_ref_hash: record?.vaultRefHash ?? null,
     },
   });
-}
-
-function assertModelInstanceMapRustBound(state, dir, map) {
-  if (dir !== "model-instances") return;
-  const missing = [];
-  const mismatches = [];
-  for (const instance of map.values()) {
-    const provider = state.providers?.get?.(instance.providerId);
-    if (!modelMountInstanceLifecycleRequiresRust(provider)) continue;
-    const issues = modelMountInstanceLifecycleBindingIssues(instance, {
-      prefix: instance.id,
-      status: instance.status,
-    });
-    missing.push(...issues.missing);
-    mismatches.push(...issues.mismatches);
-  }
-  if (missing.length > 0 || mismatches.length > 0) {
-    const error = new Error("Model instance writes for migrated local providers require Rust model_mount lifecycle bindings.");
-    error.status = 500;
-    error.code = "model_mount_instance_map_direct_write_forbidden";
-    error.details = { missing, mismatches };
-    throw error;
-  }
 }
