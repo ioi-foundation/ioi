@@ -85,10 +85,10 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
       input,
       result,
       ...context,
-      moduleKind: "workload_job",
-      executionBackend: "workload_grpc",
-      workflowProjectionStatus:
-        context.workflowProjectionStatus ??
+      module_kind: "workload_job",
+      execution_backend: "workload_grpc",
+      workflow_projection_status:
+        context.workflow_projection_status ??
         (this.backend === "rust_workload_shadow" ? "shadow" : "gated"),
     });
     const request = {

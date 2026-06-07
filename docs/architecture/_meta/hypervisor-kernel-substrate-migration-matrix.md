@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after computer-use request-lease catalog facade alias retirement slice 622 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after StepModule ABI helper facade alias retirement slice 623 clarified the active seam.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -42,7 +42,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, and computer-use request-lease catalog facade-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, and StepModule ABI helper facade-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -400,6 +400,12 @@ Matrix compaction timing:
   terminal blockers, bridge-scaffolding guardrail, current sprint lane, and the
   distinction between canonical JS catalog/summary facade fields and remaining
   terminal Rust daemon-core extraction work.
+- Fifty-eighth scheduled pass completed on 2026-06-07: the shared StepModule
+  ABI helper option alias retirement evidence after slice 623 was compacted into
+  the route-family range while preserving the live owner map, terminal blockers,
+  bridge-scaffolding guardrail, current sprint lane, and the distinction between
+  canonical JS projection helper input fields and remaining terminal Rust
+  daemon-core extraction work.
 
 ## Implementation Slice 0
 
@@ -12223,6 +12229,63 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 623
+
+```yaml
+slice: 623
+phase: 10-authoritative-js-facade-retirement
+objective: retire StepModule ABI helper option aliases so JS projection wrappers
+  consume canonical snake_case fields directly
+owner_boundary:
+  route_or_surface: shared JS StepModule ABI projection helpers for coding-tool
+    and model-mount route families
+  authority_gate: unchanged; this slice removes compatibility vocabulary before
+    StepModule invocation/result construction rather than widening authority
+  execution_backend: Rust workload/model-mount backends remain canonical; helper
+    defaults stay `workload_job` / `workload_grpc` or `model_mount`
+  truth_path: receipt, artifact, payload, Agentgres, state-root, and workflow
+    projection refs are read from canonical snake_case helper fields only
+  projection_path: focused ABI tests prove retired camelCase caller aliases are
+    ignored while live helper callers pass canonical fields
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  js_facade:
+    - packages/runtime-daemon/src/step-module-abi.mjs
+    - packages/runtime-daemon/src/coding-tools.mjs
+    - packages/runtime-daemon/src/step-module-runner.mjs
+    - packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs
+  tests:
+    - packages/runtime-daemon/src/step-module-abi.test.mjs
+    - packages/runtime-daemon/src/step-module-runner.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - ABI conformance now requires canonical snake_case StepModule helper option
+    names and rejects retired camelCase helper assignment defaults
+  - focused StepModule ABI tests verify canonical coding-tool and model-mount
+    projections while retaining poisoned retired-alias fixtures
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/step-module-abi.test.mjs
+    - node --test packages/runtime-daemon/src/step-module-runner.test.mjs
+    - npm run hypervisor-conformance:abi
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: StepModuleRunner shadow fixture still sends a
+    canonical StepModuleInvocation request to the Rust workload command bridge
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this JS
+      helper facade cleanup
+    - route-family-specific JS adapters still need retirement once their Rust
+      core boundaries are proven
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -12238,7 +12301,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 622 and the fifty-seventh 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 623 and the fifty-eighth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -12347,7 +12410,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-622 retired SDK runtime usage record aliases and Rust/daemon
+- Slices 572-623 retired SDK runtime usage record aliases and Rust/daemon
   Agentgres state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -12509,6 +12572,9 @@ reconstruct the active seam without carrying every per-slice paragraph.
   `computer_use.request_lease` now advertise, pass, and summarize canonical
   snake_case request/result fields without retired camelCase request/output
   aliases;
+  shared JS StepModule ABI helpers and their coding-tool/model-mount callers now
+  consume canonical snake_case option fields directly, with ABI conformance
+  guarding against retired camelCase helper assignment defaults;
   IDE runtime telemetry summary
   readers now ignore retired camelCase
   runtime usage/context-pressure payload aliases, and the daemon-bound usage
@@ -12518,7 +12584,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
-| `hypervisor-conformance:abi` | pass | Step/Module schemas and current coding-tool projection wrappers exist, and coding-tool projections default to `workload_job` / `workload_grpc` instead of daemon_js. |
+| `hypervisor-conformance:abi` | pass | Step/Module schemas and current coding-tool/model-mount projection wrappers exist, coding-tool projections default to `workload_job` / `workload_grpc` instead of daemon_js, and the shared JS StepModule helper option surface uses canonical snake_case fields without retired camelCase defaults. |
 | `hypervisor-conformance:bridge` | pass | daemon StepModuleRunner boundary defaults to Rust workload live, explicit `daemon_js` backend selection fails closed, runtime coding-tool invocation requires Rust workload live, the retired JS `executeCodingTool` dispatcher is no longer present in the invocation surface, catalog module export surface, or daemon constructor injection, private JS coding-tool implementation bodies and their process/filesystem imports are absent from `coding-tools.mjs`, coding-tool budget block responses emit canonical `budget_usage_telemetry` without duplicate `budgetUsageTelemetry`, coding-tool artifact retrieval inputs and fail-closed error details use canonical snake_case fields without retired camelCase aliases, coding-tool artifact/read retrieve invocation fail-closed error details and unknown-tool not-found details use canonical `thread_id`/`tool_id` fields without retired camelCase aliases, coding-tool budget-recovery, workflow-edit apply, thread-control, context-policy Rust-planning, approval, thread-memory Rust-planning, managed-session control-contract, and agent-status Rust-planning fail-closed details use canonical snake_case fields without retired camelCase aliases, Rust thread-control agent-state update planning reads canonical model-route input only and rejects retired camelCase-only model-route input aliases, Rust computer-use request-lease lane selection ignores retired `computerUseLane` input and accepts only canonical `lane`/`computer_use_lane`, Rust computer-use request-lease approval selection ignores retired `approvalRef` input so act requests cannot satisfy wallet.network authority through a compatibility alias, Rust computer-use request-lease action selection ignores retired `actionKind` input so read requests cannot escalate to act authority through a compatibility alias, Rust computer-use request-lease provider selection ignores retired `providerId`/`providerKind`/`sandboxProvider` input so provider choice cannot be steered through compatibility aliases, Rust computer-use request-lease target selection ignores retired `targetRef` input so target binding cannot be steered through a compatibility alias, Rust computer-use request-lease session selection ignores retired `sessionMode` input so session/provider binding cannot be steered through a compatibility alias, Rust computer-use request-lease retention selection ignores retired `observationRetentionMode` input so retention policy cannot be steered through a compatibility alias, Rust computer-use request-lease StepModule binding consumes canonical `receipt_refs`/`request_ref` instead of retired `receiptRefs`/`requestRef` output aliases, Rust computer-use request-lease result output emits canonical snake_case fields without retired camelCase compatibility aliases, JS coding-tool catalog and result summaries for `computer_use.request_lease` use canonical snake_case fields without retired camelCase request/output aliases, runtime run receipt readers ignore retired camelCase receipt aliases, live Rust model_mount provider-execution admission bridge, shared Rust provider invocation bridge for fixture and native-local non-stream execution, Rust native-local stream invocation bridge and returned-chunk adapter, Rust local-provider lifecycle planner bridge for fixture/native-local health/load/unload result envelopes, Rust local-provider inventory planner bridge for fixture/native-local model/list-loaded result envelopes, Rust instance lifecycle bridge for migrated local-provider model load/unload/evict/supersede state transitions emits `provider_lifecycle_hash` without the retired `providerLifecycleHash` alias, model-mount route-decision receipt/projection/native-response details, provider-lifecycle, provider-inventory, instance-lifecycle, admission, and receipt-binding details now use canonical snake_case fields at the bridge-facing receipt boundary, hosted fallback policy, runtime thread-control policy helpers, and SDK/IDE policy helper types use canonical `allow_hosted_fallback` without the retired `allowHostedFallback` alias, route-decision fallback request/output metadata, response-lineage output metadata, identity metadata, route/model/provider identity metadata, descriptor metadata, direct CLI descriptor readers, policy/evaluation metadata, accepted workflow metadata, accepted ref metadata, projection receipt metadata, route-selection receipt metadata and failure metadata, native response route-decision fixtures, receipt-gate route/detail metadata, model-invocation, stream-completion, stream-cancel, and redacted conversation-state metadata, thread-control route-decision readers, runtime thread-control model-route handoff payloads, and run-assembly route-decision readers use canonical snake_case fields without retired camelCase aliases, IDE model capability binding no longer mints executable `model-capability:legacy.*` refs or readiness from raw `modelId`, retired direct JS local provider non-stream invoke and native-local stream production shims, removed dead native-local stream helper exports, obsolete output wrapper, retired fixture response modules, Rust provider-result admission bridge, stream-start provider-result admission guard, native-stream no-downgrade guards, OpenAI-compatible responses no-fallback guard, provider compatibility-translation fail-closed guard, model-mount continuation and response-lineage metadata alias retirement guard, model-mount conversation-state metadata alias retirement guard, protocol response facade re-export retirement guard, legacy model-list facade naming retirement guard, worker/service package invocation admission bridge, fail-closed daemon worker-service package runner mounted on the runtime store, product/API worker-service package invocation route, SDK/IDE/CLI worker-service package admission clients, cTEE Private Workspace CLI action client, L1 settlement admission bridge, fail-closed daemon L1 settlement runner mounted on the runtime store, product/API L1 settlement admission route, IDE/CLI/SDK L1 settlement admission clients, governed meta-improvement proposal admission bridge, fail-closed daemon governed-improvement runner mounted on the runtime store, product/API governed-improvement proposal admission route, and SDK/IDE/CLI governed-improvement proposal clients exist without a duplicate JS request-shape append or JS apply shortcut. |
 | `hypervisor-conformance:receipts` | pass | Rust StepModule receipt binder exists, model provider execution is admitted before driver calls, fixture and native-local non-stream provider invocation execute in Rust, native-local stream frame planning/chunks execute in Rust, local-provider health/load/unload lifecycle status/backend/evidence envelopes are planned and hash-bound in Rust, local-provider model/list-loaded inventory status/backend/evidence envelopes are planned and hash-bound in Rust, migrated local-provider model load/unload/evict/supersede instance lifecycle transitions are planned and hash-bound in Rust to provider lifecycle hashes, direct migrated local-provider model-instance map and lifecycle receipt helper/store persistence without provider kind, canonical provider-lifecycle hash, and Rust instance lifecycle action/status hashes now fails closed under canonical snake_case binding fields, model-instance lifecycle accepted-receipt and fail-closed metadata, loaded-instance lookup fail-closed metadata, tokenizer/context-fit accepted-receipt metadata, artifact endpoint lifecycle receipt metadata, runtime survey receipt metadata, model-storage lifecycle accepted-receipt and fail-closed metadata, download job lookup fail-closed metadata, MCP registration/import/tool accepted-receipt and fail-closed metadata, catalog import/download accepted-receipt and fail-closed metadata, catalog helper fail-closed metadata, runtime-engine accepted-receipt, fail-closed metadata, and request parsing use canonical fields without retired camelCase aliases, LM Studio provider absent-CLI fail-closed metadata, model-mount state accessor fail-closed metadata, backend process lookup fail-closed metadata, local system probe fail-closed metadata, direct migrated local-provider provider-health receipt persistence without provider kind and Rust lifecycle/action/status/hash/evidence now fails closed under canonical snake_case provider-lifecycle binding fields, migrated local-provider provider start/stop fails closed without Rust lifecycle binding and direct provider-control receipt persistence requires the same canonical snake_case provider-lifecycle binding, direct migrated local-provider provider-inventory receipt persistence without provider kind and Rust inventory action/status/hash/evidence now fails closed under canonical snake_case provider-inventory binding fields, the direct receipt-write guards now live outside the JS store adapter in `model-mounting/receipt-write-guards.mjs`, model route-decision and invocation receipt-binding guards require canonical snake_case receipt_binder/Agentgres/StepModule detail fields and reject legacy camelCase `modelMount*` binding details; model-mount admission metadata also uses canonical snake_case detail fields only, non-migrated provider results and native stream-start observations are Rust-admitted observations, runtime run-state persistence sends one commit request to Rust, where Agentgres admission derives prior heads/state roots, projection watermark, receipt/artifact/payload refs, run-state and task-state hashes, runtime task/job/checklist materializations, storage admissions, write-set hash, persistence hash, commit hash, and Rust-written local JSON records; `writeRunRecord` no longer calls JS transition planning, JS persistence, JS materialization, storage write-set planning, or local `writeJson`, and neither the runtime-daemon JS facade nor the Rust command bridge exposes lower-level transition/materialization/storage-write-set/persistence methods as execution entry points, runtime Agentgres admission requires the explicit `IOI_RUNTIME_AGENTGRES_COMMAND` env without model-mount env fallback, stream request-shape evidence, provider-open retry handling, provider transport/auth, wallet/vault, capability-token, catalog-provider auth, OAuth credential, and catalog OAuth accepted-receipt and fail-closed metadata, backend lifecycle accepted-receipt and fail-closed metadata, provider operation accepted-receipt and fail-closed metadata, wallet authority audit mirroring, vault audit mirroring, receipt lookup fail-closed metadata, receipt persistence and model-mount local adapter status no longer expose local operation-log terminology or an `operation-log.jsonl` reader, OpenAI provider stream-shape recording, stale model-mounting append callback injection, memory record/policy operation mirroring, runtime bridge turn budget/error mirroring, agent delete operation mirroring, agent/subagent persistence operation mirroring, and run persistence/read-surface operation-log exposure no longer create duplicate JS operation-like records; model-mounting local heads and projection watermarks derive from persisted receipt count; model invocation and stream-completion receipts carry Rust Agentgres admission, direct unbound model invocation store appends fail closed, worker/service package invocation has a Rust admission primitive over StepModuleRouter, receipt_binder, Agentgres admission, and projection, meta-improvement proposals have a governed Rust admission primitive requiring eval/verifier receipts, approval, rollback, and Agentgres binding, and the legacy direct `EvolutionService::evolve` manifest mutation body is retired fail-closed. |
 | `hypervisor-conformance:ctee` | pass | Rust cTEE Private Workspace module validation exists, untrusted plaintext custody fails closed, the Rust cTEE action bundle binds receipts, admits Agentgres truth, and emits projection records, the daemon command bridge exposes that bundle through `execute_private_workspace_ctee_action`, the daemon `RustCteePrivateWorkspaceRunner` is mounted fail-closed on the runtime store, product/API and runner bridge request aliases are retired before Rust command invocation, the product/API cTEE route calls that runner without a JS apply shortcut, and SDK/IDE cTEE clients consume that route without direct truth creation. |

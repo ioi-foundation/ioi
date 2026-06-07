@@ -441,14 +441,17 @@ function runAbi() {
     exists("packages/runtime-daemon/src/step-module-abi.mjs") &&
       /createCodingToolStepModuleProjection/.test(stepModuleAbi) &&
       /codingToolStepModuleProjection/.test(read("packages/runtime-daemon/src/coding-tools.mjs")) &&
-      /moduleKind = "workload_job"/.test(stepModuleAbi) &&
-      /executionBackend = "workload_grpc"/.test(stepModuleAbi) &&
-      /runId:\s*context\.run_id/.test(read("packages/runtime-daemon/src/coding-tools.mjs")) &&
-      /authorityGrantRefs:\s*context\.authority_grant_refs \?\? \[\]/.test(
+      /module_kind = "workload_job"/.test(stepModuleAbi) &&
+      /execution_backend = "workload_grpc"/.test(stepModuleAbi) &&
+      /run_id:\s*context\.run_id/.test(read("packages/runtime-daemon/src/coding-tools.mjs")) &&
+      /authority_grant_refs:\s*context\.authority_grant_refs \?\? \[\]/.test(
         read("packages/runtime-daemon/src/coding-tools.mjs"),
       ) &&
-      /agentgresOperationRefs:\s*context\.agentgres_operation_refs \?\? \[\]/.test(
+      /agentgres_operation_refs:\s*context\.agentgres_operation_refs \?\? \[\]/.test(
         read("packages/runtime-daemon/src/coding-tools.mjs"),
+      ) &&
+      !/\b(?:runId|taskId|threadId|workflowGraphId|workflowNodeId|contextChamberRef|actionProposalRef|gateResultRef|moduleKind|executionBackend|manifestRef|actorId|runtimeNodeRef|policyHash|authorityGrantRefs|approvalRef|stateRootBefore|projectionWatermark|idempotencyKey|deadlineMs|workflowProjectionStatus|executionResultRef|normalizedObservationRef|receiptRefs|artifactRefs|payloadRefs|agentgresOperationRefs|stateRootAfter|resultingHead|evidenceRefs|modelReentryRequired|verifierRequired|invocationRef|routeRef|providerRef|endpointRef|modelRef|invocationKind|inputHash|outputHash|routeDecisionRef|routeReceiptRef|receiptRef|authorityScopes|privacyProfile|nodePlaintextAllowed|declassificationRequired|custodyProofRef|leakageProfileRef)\s*=/.test(
+        stepModuleAbi,
       ) &&
       !/context\.(?:runId|taskId|threadId|workflowGraphId|workflowNodeId|contextChamberRef|actionProposalRef|gateResultRef|actorId|runtimeNodeRef|policyHash|authorityGrantRefs|approvalRef|stateRootBefore|projectionWatermark|idempotencyKey|deadlineMs|workflowProjectionStatus|executionResultRef|normalizedObservationRef|receiptRefs|artifactRefs|payloadRefs|agentgresOperationRefs|stateRootAfter|resultingHead|evidenceRefs|modelReentryRequired|verifierRequired)\b/.test(
         read("packages/runtime-daemon/src/coding-tools.mjs"),
@@ -12811,9 +12814,9 @@ function runReceipts() {
       !/const\s+stateRootAfter\s*=\s*`sha256:\$\{stableHash\(/.test(modelInvocationOps) &&
       !/stateRoot:\s*`sha256:\$\{stableHash\(/.test(modelMountingState) &&
       !/model-mounting-operation-log/.test(`${modelInvocationOps}\n${modelMountingState}`) &&
-      /agentgresOperationRefs/.test(modelInvocationOps) &&
-      /stateRootAfter/.test(modelInvocationOps) &&
-      /resultingHead/.test(modelInvocationOps) &&
+      /agentgres_operation_refs/.test(modelInvocationOps) &&
+      /state_root_after/.test(modelInvocationOps) &&
+      /resulting_head/.test(modelInvocationOps) &&
       /model_mount_step_module_invocation/.test(modelInvocationOps) &&
       /model_mount_step_module_result/.test(modelInvocationOps) &&
       !/(?:modelMountReceiptBinding|modelMountAcceptedReceiptAppend|modelMountStepModuleInvocation|modelMountStepModuleResult|modelMountRouterAdmission|modelMountAgentgres|modelMountProjectionRecord)/.test(modelInvocationOps),

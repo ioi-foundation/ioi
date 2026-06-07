@@ -79,10 +79,10 @@ test("rust workload shadow runner produces workload invocation with mock bridge 
     input: {},
     result: {},
     context: {
-      runId: "run:test",
-      taskId: "task:test",
-      workflowGraphId: "workflow:test",
-      workflowNodeId: "node:test",
+      run_id: "run:test",
+      task_id: "task:test",
+      workflow_graph_id: "workflow:test",
+      workflow_node_id: "node:test",
     },
   });
 
