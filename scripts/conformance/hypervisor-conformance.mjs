@@ -11786,6 +11786,12 @@ function runReceipts() {
       /Runtime artifact state commits require Rust Agentgres admission/.test(
         read("packages/runtime-daemon/src/runtime-artifact-state-commit.mjs"),
       ) &&
+      !/artifactRecord\.receiptRefs|artifactRecord\.receiptId/.test(
+        read("packages/runtime-daemon/src/runtime-artifact-state-commit.mjs"),
+      ) &&
+      /runtime artifact state commit rejects retired receipt aliases before Rust commit/.test(
+        read("packages/runtime-daemon/src/runtime-artifact-state-commit.test.mjs"),
+      ) &&
       /commitRuntimeArtifactRecord\(store, artifactRecord, "artifact\.coding_tool_draft"\)/.test(
         runtimeCodingToolArtifactSurface,
       ) &&
@@ -11818,6 +11824,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
       "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-artifact-state-commit.mjs",
+      "packages/runtime-daemon/src/runtime-artifact-state-commit.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",

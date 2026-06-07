@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after daemon subagent state-load identity alias retirement slice 582 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after daemon artifact receipt alias retirement slice 583 clarified the active seam.
 
 ## Purpose
 
@@ -177,6 +177,12 @@ Matrix compaction timing:
   route-family range while preserving the live owner map, terminal blockers,
   bridge-scaffolding guardrail, current sprint lane, and the distinction between
   canonical state hydration fields and remaining terminal Rust daemon-core
+  extraction work.
+- Eighteenth scheduled pass completed on 2026-06-07: the daemon artifact
+  receipt alias evidence after slice 583 was compacted into the route-family
+  range while preserving the live owner map, terminal blockers,
+  bridge-scaffolding guardrail, current sprint lane, and the distinction between
+  canonical artifact receipt fields and remaining terminal Rust daemon-core
   extraction work.
 
 ## Implementation Slice 0
@@ -11255,7 +11261,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 582 and the seventeenth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 583 and the eighteenth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -11364,7 +11370,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-582 retired SDK runtime usage record aliases and Rust/daemon
+- Slices 572-583 retired SDK runtime usage record aliases and Rust/daemon
   Agentgres state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -11388,7 +11394,10 @@ reconstruct the active seam without carrying every per-slice paragraph.
   mapping retired `agent_id` aliases into the Rust Agentgres agent-state commit
   request, and daemon subagent state hydration now loads only canonical
   `subagent_id` records rather than reviving retired `subagentId`, `agent_id`,
-  or `agentId` identity aliases from local state.
+  or `agentId` identity aliases from local state; daemon artifact state commits
+  now derive receipt refs only from canonical `receipt_refs`/`receipt_id` fields
+  instead of translating retired `receiptRefs` or `receiptId` aliases before
+  Rust Agentgres artifact-state admission.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

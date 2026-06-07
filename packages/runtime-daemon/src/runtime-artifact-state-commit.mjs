@@ -56,9 +56,7 @@ function artifactReceiptRefs(artifactRecord = {}) {
   const refs = [];
   for (const value of [
     ...(Array.isArray(artifactRecord.receipt_refs) ? artifactRecord.receipt_refs : []),
-    ...(Array.isArray(artifactRecord.receiptRefs) ? artifactRecord.receiptRefs : []),
     artifactRecord.receipt_id,
-    artifactRecord.receiptId,
   ]) {
     const text = typeof value === "string" ? value.trim() : "";
     if (text && !refs.includes(text)) refs.push(text);
