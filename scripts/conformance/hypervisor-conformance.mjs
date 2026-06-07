@@ -18062,8 +18062,14 @@ function runCompositor() {
         managedSessionInspectionTest,
       ) &&
       /Object\.hasOwn\(normalized,\s*field\),\s*false/.test(managedSessionInspectionTest) &&
+      /details:\s*\{\s*thread_id:\s*threadId,\s*operation:\s*"control_thread"\s*\}/.test(
+        managedSessionState,
+      ) &&
+      /assertNoRetiredContractDetailAliases\(error\.details\)/.test(managedSessionStateTest) &&
+      /error\.details\.thread_id/.test(managedSessionStateTest) &&
       /managed session control rejects retired request aliases/.test(managedSessionStateTest) &&
       /Object\.hasOwn\(controlled,\s*field\),\s*false/.test(managedSessionStateTest) &&
+      !/details:\s*\{\s*threadId\s*(?:,|:)/.test(managedSessionState) &&
       !/^\s*(?:threadId|sessionId|productLane|bridgeId|workspaceRoot|managedSessions|managedSessionId|bridgeResult)\s*:/m.test(
         managedSessionInspection,
       ) &&

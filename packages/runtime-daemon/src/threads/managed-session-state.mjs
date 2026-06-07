@@ -89,7 +89,7 @@ export async function controlManagedSessionForThread(store, threadId, request = 
       status: 400,
       code: "managed_session_control_contract",
       message: "Managed session control requires managed_session_id.",
-      details: { threadId, operation: "control_thread" },
+      details: { thread_id: threadId, operation: "control_thread" },
     });
   }
   store.assertRuntimeBridgeAvailable({

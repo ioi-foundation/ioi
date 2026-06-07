@@ -47,6 +47,12 @@ function fakeStore({ agent, runtimeBridge = {} }) {
   };
 }
 
+function assertNoRetiredContractDetailAliases(details) {
+  for (const field of ["threadId"]) {
+    assert.equal(Object.hasOwn(details, field), false, `retired managed session detail alias ${field}`);
+  }
+}
+
 test("managed session thread inspection returns replay-safe empty snapshot for fixture threads", async () => {
   const store = fakeStore({
     agent: {
@@ -152,7 +158,13 @@ test("managed session control requires managed session id", async () => {
 
   await assert.rejects(
     controlManagedSessionForThread(store, "thread_runtime", { action: "observe" }, deps()),
-    /Managed session control requires managed_session_id/,
+    (error) => {
+      assert.equal(error.code, "managed_session_control_contract");
+      assert.equal(error.details.thread_id, "thread_runtime");
+      assert.equal(error.details.operation, "control_thread");
+      assertNoRetiredContractDetailAliases(error.details);
+      return true;
+    },
   );
 });
 
