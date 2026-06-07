@@ -1014,6 +1014,14 @@ function runBridge() {
     agentSdkSubstrateClient.match(
       /export interface RuntimeThreadToolInvokeInput[\s\S]*?\n}\n/,
     )?.[0] ?? "";
+  const runtimeMemoryValidationInputType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeMemoryValidationInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const runtimeThreadMemoryInputType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeThreadMemoryInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const workspaceRestoreSdkSurfaceBlocks = [
     workspaceSnapshotListResultType,
     workspaceRestorePreviewInputType,
@@ -1342,6 +1350,32 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
     ],
     "Phase 10/11 is pending: SDK thread tool invocation must use canonical turn_id/workflow ids without retired request aliases",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-thread-memory-identity-aliases-retired",
+    /rememberThreadMemory/.test(agentSdkSubstrateClient) &&
+      /\/v1\/threads\/\$\{encodePath\(threadId\)\}\/memory/.test(agentSdkSubstrateClient) &&
+      /SDK writes thread memory with canonical request identity fields/.test(agentSdkTest) &&
+      /workflow_graph_id\?:\s*string;/.test(runtimeMemoryValidationInputType) &&
+      /workflow_node_id\?:\s*string;/.test(runtimeMemoryValidationInputType) &&
+      /turn_id\?:\s*string;/.test(runtimeThreadMemoryInputType) &&
+      /idempotency_key\?:\s*string;/.test(runtimeThreadMemoryInputType) &&
+      !/(?:^|\n)\s*(?:turnId|workflowGraphId|workflowNodeId|idempotencyKey)\??:/.test(
+        `${runtimeMemoryValidationInputType}\n${runtimeThreadMemoryInputType}`,
+      ) &&
+      !/\[key:\s*string\]:\s*unknown;/.test(
+        `${runtimeMemoryValidationInputType}\n${runtimeThreadMemoryInputType}`,
+      ) &&
+      /Object\.hasOwn\(body,\s*field\),\s*false/.test(agentSdkTest) &&
+      /"workflowGraphId"/.test(agentSdkTest) &&
+      /"idempotencyKey"/.test(agentSdkTest),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+    ],
+    "Phase 10/11 is pending: SDK thread memory requests must use canonical turn_id/workflow ids without retired request aliases",
   );
   assertCheck(
     result,

@@ -752,17 +752,12 @@ export interface RuntimeMemoryStatusOptions extends MemoryListOptions {
 export interface RuntimeMemoryValidationInput extends RuntimeMemoryStatusOptions {
   projection?: AgentMemoryProjection;
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
-  workflowGraphId?: string;
   workflow_graph_id?: string;
-  workflowNodeId?: string;
   workflow_node_id?: string;
-  [key: string]: unknown;
 }
 
 export interface RuntimeThreadMemoryInput extends RuntimeMemoryValidationInput {
-  turnId?: string;
   turn_id?: string;
-  idempotencyKey?: string;
   idempotency_key?: string;
 }
 

@@ -729,6 +729,72 @@ test("SDK invokes thread tools with canonical request identity fields", async ()
   }
 });
 
+test("SDK writes thread memory with canonical request identity fields", async () => {
+  const requests = [];
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    requests.push(`${request.method} ${url.pathname}`);
+    response.setHeader("content-type", "application/json");
+    if (request.method === "POST" && url.pathname === "/v1/threads/thread_sdk/memory") {
+      const body = await readBody(request);
+      assert.equal(body.source, "sdk_client");
+      assert.equal(body.text, "Remember canonical thread memory identity.");
+      assert.equal(body.scope, "thread");
+      assert.equal(body.turn_id, "turn_sdk");
+      assert.equal(body.workflow_graph_id, "workflow_sdk");
+      assert.equal(body.workflow_node_id, "runtime.memory-manager");
+      assert.equal(body.idempotency_key, "idem:thread-memory-sdk");
+      for (const field of [
+        "turnId",
+        "workflowGraphId",
+        "workflowNodeId",
+        "idempotencyKey",
+      ]) {
+        assert.equal(Object.hasOwn(body, field), false);
+      }
+      response.statusCode = 201;
+      response.end(JSON.stringify({
+        record: {
+          id: "memory_sdk",
+          text: body.text,
+          scope: "thread",
+          thread_id: "thread_sdk",
+          workflow_graph_id: "workflow_sdk",
+          workflow_node_id: "runtime.memory-manager",
+        },
+        receipt: {
+          schema_version: "ioi.runtime.receipt.v1",
+          receipt_id: "receipt://thread-memory/sdk",
+          status: "accepted",
+        },
+      }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: { code: "not_found", message: "missing route" } }));
+  });
+  await listen(server);
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
+    const result = await client.rememberThreadMemory("thread_sdk", {
+      text: "Remember canonical thread memory identity.",
+      scope: "thread",
+      turn_id: "turn_sdk",
+      workflow_graph_id: "workflow_sdk",
+      workflow_node_id: "runtime.memory-manager",
+      idempotency_key: "idem:thread-memory-sdk",
+    });
+
+    assert.equal(result.record.id, "memory_sdk");
+    assert.equal(result.receipt.receipt_id, "receipt://thread-memory/sdk");
+    assert.ok(requests.includes("POST /v1/threads/thread_sdk/memory"));
+  } finally {
+    await close(server);
+  }
+});
+
 test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
   const now = new Date().toISOString();
   const events = [
