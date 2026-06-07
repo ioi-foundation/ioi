@@ -405,7 +405,8 @@ test("coding tool invocation surface runs workspace.status through rust workload
           workload_observation: {
             tool: "workspace.status",
             result: {
-              schemaVersion: "ioi.runtime.coding-tool-result.v1",
+              schemaVersion: "retired.result.schema",
+              toolName: "retired.workspace.status",
               workspaceRoot: "/tmp/workspace",
               git: {
                 available: true,
@@ -414,7 +415,13 @@ test("coding tool invocation surface runs workspace.status through rust workload
               },
               changedFiles: [{ status: "M", path: "README.md" }],
               counts: { changed: 1, untracked: 0, ignored: 0 },
+              artifactRefs: ["artifact://retired/workspace.status"],
+              executionResultRef: "result://retired/workspace.status",
+              normalizedObservationRef: "observation://retired/workspace.status",
+              receiptRefs: ["receipt://retired/workspace.status"],
+              rustWorkload: false,
               shellFallbackUsed: false,
+              stepModuleBackend: "daemon_js",
             },
           },
         },
@@ -443,17 +450,24 @@ test("coding tool invocation surface runs workspace.status through rust workload
   assert.equal(result.result.git.branch, "main");
   assert.deepEqual(result.result.changedFiles, [{ status: "M", path: "README.md" }]);
   assert.equal(result.result.counts.changed, 1);
+  assert.equal(result.result.schema_version, "ioi.runtime.coding-tool-result.v1");
+  assert.equal(result.result.tool_name, "workspace.status");
   assert.equal(result.result.execution_result_ref, "result://rust-live/workspace.status");
   assert.equal(result.result.router_admission.schema_version, "ioi.step_module_router_admission.v1");
   assert.equal(result.result.observation.tool, "workspace.status");
   assert.equal(Object.hasOwn(result.step_module.bridge_result, "workload_observation"), true);
   assert.equal(Object.hasOwn(result.step_module.bridge_result, "shadow_observation"), false);
   assert.equal(Object.hasOwn(result.result, "routerAdmission"), false);
+  assert.equal(Object.hasOwn(result.result, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(result.result, "toolName"), false);
+  assert.equal(Object.hasOwn(result.result, "workspaceRoot"), false);
   assert.equal(Object.hasOwn(result.result, "rustWorkload"), false);
   assert.equal(Object.hasOwn(result.result, "stepModuleBackend"), false);
   assert.equal(Object.hasOwn(result.result, "executionResultRef"), false);
   assert.equal(Object.hasOwn(result.result, "normalizedObservationRef"), false);
   assert.equal(Object.hasOwn(result.result, "receiptRefs"), false);
+  assert.equal(Object.hasOwn(result.result, "artifactRefs"), false);
+  assert.equal(Object.hasOwn(result.result, "shellFallbackUsed"), false);
   assert.equal(result.step_module.backend, "rust_workload_live");
   assert.equal(result.event.payload_summary.step_module_backend, "rust_workload_live");
   assert.equal(result.event.payload_summary.approval_required, false);

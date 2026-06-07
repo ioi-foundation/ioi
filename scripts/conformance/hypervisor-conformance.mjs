@@ -1931,10 +1931,25 @@ function runBridge() {
   assertCheck(
     result,
     "coding-tool-result-wrapper-aliases-retired",
-    /schema_version:\s*toolResult\.schema_version \?\? schemaVersion \?\? CODING_TOOL_RESULT_SCHEMA_VERSION/.test(
+    /const RETIRED_RUST_LIVE_TOOL_RESULT_FIELDS = \[/.test(
       runtimeCodingToolInvocationSurface,
     ) &&
-      /tool_name:\s*toolResult\.tool_name \?\? toolName \?\? toolId/.test(
+      /"schemaVersion"/.test(runtimeCodingToolInvocationSurface) &&
+      /"toolName"/.test(runtimeCodingToolInvocationSurface) &&
+      /"artifactRefs"/.test(runtimeCodingToolInvocationSurface) &&
+      /"shellFallbackUsed"/.test(runtimeCodingToolInvocationSurface) &&
+      /"workspaceRoot"/.test(runtimeCodingToolInvocationSurface) &&
+      /for \(const field of RETIRED_RUST_LIVE_TOOL_RESULT_FIELDS\) \{\n    delete canonicalToolResult\[field\];\n  \}/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /schema_version:\s*toolResult\.schema_version \?\? CODING_TOOL_RESULT_SCHEMA_VERSION/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      !/schema_version:\s*toolResult\.schema_version \?\? schemaVersion \?\? CODING_TOOL_RESULT_SCHEMA_VERSION/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /tool_name:\s*toolResult\.tool_name \?\? toolId/.test(runtimeCodingToolInvocationSurface) &&
+      !/tool_name:\s*toolResult\.tool_name \?\? toolName \?\? toolId/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
       /rust_workload:\s*true/.test(runtimeCodingToolInvocationSurface) &&
@@ -1965,6 +1980,21 @@ function runBridge() {
       /Object\.hasOwn\(result\.result,\s*"receiptRefs"\),\s*false/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
+      /Object\.hasOwn\(result\.result,\s*"schemaVersion"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"toolName"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"workspaceRoot"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"artifactRefs"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*"shellFallbackUsed"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
       /Object\.hasOwn\(result\.result,\s*"workspaceSnapshot"\),\s*false/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
@@ -1972,7 +2002,7 @@ function runBridge() {
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
       /Object\.hasOwn\(result,\s*field\),\s*false/.test(runtimeCodingToolInvocationSurfaceTest) &&
-      !/^\s*(?:schemaVersion|toolName|rustWorkload|stepModuleBackend|executionResultRef|normalizedObservationRef|receiptRefs)\s*:/m.test(
+      !/^\s*(?:schemaVersion|toolName|rustWorkload|stepModuleBackend|executionResultRef|normalizedObservationRef|receiptRefs|artifactRefs|shellFallbackUsed|workspaceRoot)\s*:/m.test(
         codingToolRustLiveResultBody,
       ) &&
       !/^\s*(?:workspaceSnapshot|workspaceSnapshotId|workspaceSnapshotEvent|autoDiagnostics|stepModule|stepModuleError|commandStreamEvents)\s*:/m.test(

@@ -529,6 +529,19 @@ function toolInputError(code, message, details = {}) {
   return error;
 }
 
+const RETIRED_RUST_LIVE_TOOL_RESULT_FIELDS = [
+  "artifactRefs",
+  "executionResultRef",
+  "normalizedObservationRef",
+  "receiptRefs",
+  "rustWorkload",
+  "schemaVersion",
+  "shellFallbackUsed",
+  "stepModuleBackend",
+  "toolName",
+  "workspaceRoot",
+];
+
 function codingToolResultForRustLiveStepModule(toolId, stepModuleProjection = {}) {
   const stepResult = stepModuleProjection?.result ?? {};
   const workloadObservation = stepModuleProjection?.bridge_result?.workload_observation ?? null;
@@ -537,21 +550,14 @@ function codingToolResultForRustLiveStepModule(toolId, stepModuleProjection = {}
     observedResult && typeof observedResult === "object" && !Array.isArray(observedResult)
       ? observedResult
       : {};
-  const {
-    executionResultRef,
-    normalizedObservationRef,
-    receiptRefs,
-    rustWorkload,
-    schemaVersion,
-    stepModuleBackend,
-    toolName,
-    artifactRefs,
-    ...canonicalToolResult
-  } = toolResult;
+  const canonicalToolResult = { ...toolResult };
+  for (const field of RETIRED_RUST_LIVE_TOOL_RESULT_FIELDS) {
+    delete canonicalToolResult[field];
+  }
   return {
     ...canonicalToolResult,
-    schema_version: toolResult.schema_version ?? schemaVersion ?? CODING_TOOL_RESULT_SCHEMA_VERSION,
-    tool_name: toolResult.tool_name ?? toolName ?? toolId,
+    schema_version: toolResult.schema_version ?? CODING_TOOL_RESULT_SCHEMA_VERSION,
+    tool_name: toolResult.tool_name ?? toolId,
     status: "completed",
     rust_workload: true,
     backend: toolResult.backend ?? stepModuleProjection?.backend ?? "rust_workload_live",
