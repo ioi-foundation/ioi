@@ -53,6 +53,11 @@ function commitRequest() {
     operation_kind: "run.create",
     storage_backend_ref: "storage://runtime-agentgres/local-json",
     run: runtimeRun(),
+    agent: {
+      id: "agent_1",
+      status: "active",
+      runtime: "local",
+    },
     canonical_projection: { runId: "run_1", projection: "canonical" },
   };
 }
@@ -118,6 +123,7 @@ test("runtime Agentgres runner sends runtime run-state commit bridge request", (
   assert.equal(calls[0].request.backend, RUST_AGENTGRES_STORAGE_BACKEND);
   assert.equal(calls[0].request.state_dir, "/runtime-state");
   assert.equal(calls[0].request.request.run_id, "run_1");
+  assert.equal(calls[0].request.request.agent.id, "agent_1");
   assert.equal(Object.hasOwn(calls[0].request.request, "expected_heads"), false);
   assert.equal(Object.hasOwn(calls[0].request.request, "state_root_before"), false);
   assert.equal(Object.hasOwn(calls[0].request.request, "receipt_refs"), false);

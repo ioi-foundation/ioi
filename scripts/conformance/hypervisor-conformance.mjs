@@ -9602,6 +9602,9 @@ function runReceipts() {
       /RuntimeStateTransitionRequest/.test(agentgresAdmissionCore) &&
       /RuntimeRunStateCommitRequest/.test(agentgresAdmissionCore) &&
       /RuntimeRunStateCommitRecord/.test(agentgresAdmissionCore) &&
+      /pub agent: Option<Value>/.test(agentgresAdmissionCore) &&
+      /validate_optional_runtime_agent_id/.test(agentgresAdmissionCore) &&
+      /RuntimeStateRecordAgentIdMismatch/.test(agentgresAdmissionCore) &&
       /plan_runtime_state_transition/.test(agentgresAdmissionCore) &&
       /commit_runtime_run_state/.test(agentgresAdmissionCore) &&
       /runtime_run_state_hash/.test(agentgresAdmissionCore) &&
@@ -9610,6 +9613,8 @@ function runReceipts() {
       /runtime_job_record_for_run/.test(agentgresAdmissionCore) &&
       /runtime_checklist_record_for_run/.test(agentgresAdmissionCore) &&
       /runtime_state_transition_requires_expected_heads_state_root_and_receipts/.test(agentgresAdmissionCore) &&
+      /materializes_runtime_agent_snapshot_when_committed_with_run_state/.test(agentgresAdmissionCore) &&
+      /runtime_state_record_materialization_rejects_mismatched_agent_snapshot/.test(agentgresAdmissionCore) &&
       /commits_runtime_run_state_with_rust_derived_transition_and_persistence/.test(agentgresAdmissionCore) &&
       /commits_runtime_run_state_from_previous_transition_head/.test(agentgresAdmissionCore) &&
       /commit_runtime_run_state/.test(bridgeModule) &&
@@ -9638,6 +9643,7 @@ function runReceipts() {
       !/initialRunStateRoot/.test(threadPersistence) &&
       !/planRunStateTransition/.test(threadPersistence) &&
       !/persistRunStateRecords/.test(threadPersistence) &&
+      /agent: store\.agents\?\.get\?\.\(run\.agentId\) \?\? null/.test(threadPersistence) &&
       !/run,\s+projection_ref/s.test(threadPersistence) &&
       !/run_state_hash:\s*runStateHash/.test(threadPersistence) &&
       !/task_state_hash:\s*runStateHash/.test(threadPersistence) &&
@@ -9648,10 +9654,17 @@ function runReceipts() {
       /Object\.hasOwn\(store\.commitRequests\[0\], "receipt_refs"\), false/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
+      /assert\.deepEqual\(store\.commitRequests\[0\]\.agent, agent\)/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /"agents\/agent_1\.json"/.test(read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs")) &&
       /thread persistence leaves previous run-state transition lookup to Rust commit/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
       /runtime Agentgres runner sends runtime run-state commit bridge request/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /calls\[0\]\.request\.request\.agent\.id, "agent_1"/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
       /runtime Agentgres runner requires explicit runtime admission command env/.test(
@@ -9708,6 +9721,7 @@ function runReceipts() {
       !/rust_runtime_agentgres_transition_command/.test(bridgeModule) &&
       /bridge_admits_storage_backend_write_through_rust_core/.test(bridgeModule) &&
       /bridge_commits_runtime_run_state_through_rust_core/.test(bridgeModule) &&
+      /state_dir\.join\("agents\/agent_1\.json"\)\.exists/.test(bridgeModule) &&
       !/bridge_materializes_runtime_state_records_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_runtime_state_storage_writes_through_rust_core/.test(bridgeModule) &&
       !/bridge_persists_runtime_state_records_through_rust_core/.test(bridgeModule) &&

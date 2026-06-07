@@ -8157,6 +8157,12 @@ mod tests {
                         }
                     }
                 },
+                "agent": {
+                    "id": "agent_1",
+                    "status": "active",
+                    "runtime": "local",
+                    "updatedAt": "2026-06-04T00:00:01.000Z"
+                },
                 "canonical_projection": {
                     "runId": "run_1",
                     "projection": "canonical"
@@ -8184,6 +8190,10 @@ mod tests {
             .expect("commit hash")
             .starts_with("sha256:"));
         assert!(state_dir.join("tasks/run_1.json").exists());
+        assert!(state_dir.join("agents/agent_1.json").exists());
+        let agent_record =
+            fs::read_to_string(state_dir.join("agents/agent_1.json")).expect("agent record");
+        assert!(agent_record.contains("\"id\": \"agent_1\""));
         let task_record =
             fs::read_to_string(state_dir.join("tasks/run_1.json")).expect("task record");
         assert!(task_record.contains("\"agentgresTransition\""));

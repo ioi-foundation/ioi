@@ -39,6 +39,7 @@ pub enum AgentgresAdmissionError {
     ReceiptBindingArtifactRefsMismatch,
     ReceiptBindingPayloadRefsMismatch,
     RuntimeStateRecordRunIdMismatch,
+    RuntimeStateRecordAgentIdMismatch,
     MissingReceiptRefs,
     StorageBackendWriteMissingAgentgresRef,
     StorageBackendWriteMissingReceipt,
@@ -198,6 +199,8 @@ pub struct RuntimeStateRecordMaterializationRequest {
     pub schema_version: String,
     pub run_id: String,
     pub run: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent: Option<Value>,
     pub canonical_projection: Value,
     pub agentgres_transition: Value,
 }
@@ -218,6 +221,8 @@ pub struct RuntimeStatePersistenceRequest {
     #[serde(default)]
     pub receipt_refs: Vec<String>,
     pub run: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent: Option<Value>,
     pub canonical_projection: Value,
     pub agentgres_transition: Value,
 }
@@ -238,6 +243,8 @@ pub struct RuntimeRunStateCommitRequest {
     pub operation_kind: String,
     pub storage_backend_ref: String,
     pub run: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent: Option<Value>,
     pub canonical_projection: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_transition: Option<Value>,
@@ -432,6 +439,15 @@ impl AgentgresAdmissionCore {
             artifact_refs: vec![],
             payload_refs: vec![],
         }];
+        if let Some(agent) = &request.agent {
+            let agent_id = required_json_string(agent, "id")?;
+            records.push(RuntimeStateStorageWriteInput {
+                record_path: format!("agents/{}.json", safe_agentgres_component(agent_id)),
+                payload: agent.clone(),
+                artifact_refs: vec![],
+                payload_refs: vec![],
+            });
+        }
 
         records.push(RuntimeStateStorageWriteInput {
             record_path: format!("tasks/{}.json", safe_agentgres_component(&request.run_id)),
@@ -599,6 +615,7 @@ impl AgentgresAdmissionCore {
                 schema_version: RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION.to_string(),
                 run_id: request.run_id.clone(),
                 run: request.run.clone(),
+                agent: request.agent.clone(),
                 canonical_projection: request.canonical_projection.clone(),
                 agentgres_transition: request.agentgres_transition.clone(),
             })?;
@@ -671,6 +688,7 @@ impl AgentgresAdmissionCore {
             storage_backend_ref: request.storage_backend_ref.clone(),
             receipt_refs,
             run: request.run.clone(),
+            agent: request.agent.clone(),
             canonical_projection: request.canonical_projection.clone(),
             agentgres_transition: serde_json::to_value(&transition)
                 .map_err(|error| AgentgresAdmissionError::HashFailed(error.to_string()))?,
@@ -793,6 +811,7 @@ impl RuntimeStateRecordMaterializationRequest {
         }
         require_non_empty("run_id", &self.run_id)?;
         validate_runtime_run_id(&self.run, &self.run_id)?;
+        validate_optional_runtime_agent_id(&self.run, self.agent.as_ref())?;
         Ok(())
     }
 }
@@ -808,6 +827,7 @@ impl RuntimeStatePersistenceRequest {
         require_non_empty("run_id", &self.run_id)?;
         require_non_empty("storage_backend_ref", &self.storage_backend_ref)?;
         validate_runtime_run_id(&self.run, &self.run_id)?;
+        validate_optional_runtime_agent_id(&self.run, self.agent.as_ref())?;
         required_json_string(&self.agentgres_transition, "operation_ref")?;
         required_json_string(&self.agentgres_transition, "state_root_after")?;
         required_json_string(&self.agentgres_transition, "resulting_head")?;
@@ -832,6 +852,7 @@ impl RuntimeRunStateCommitRequest {
         require_non_empty("operation_kind", &self.operation_kind)?;
         require_non_empty("storage_backend_ref", &self.storage_backend_ref)?;
         validate_runtime_run_id(&self.run, &self.run_id)?;
+        validate_optional_runtime_agent_id(&self.run, self.agent.as_ref())?;
         let receipt_refs = if self.receipt_refs.is_empty() {
             receipt_ids(&self.run)
         } else {
@@ -1415,6 +1436,23 @@ fn validate_runtime_run_id(
     }
 }
 
+fn validate_optional_runtime_agent_id(
+    run: &Value,
+    agent: Option<&Value>,
+) -> Result<(), AgentgresAdmissionError> {
+    let Some(agent) = agent else {
+        return Ok(());
+    };
+    let run_agent_id = json_string(run, "agentId")
+        .or_else(|| json_string(run, "agent_id"))
+        .ok_or(AgentgresAdmissionError::MissingField("run.agentId"))?;
+    match json_string(agent, "id").or_else(|| json_string(agent, "agent_id")) {
+        Some(agent_id) if agent_id == run_agent_id => Ok(()),
+        Some(_) => Err(AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch),
+        None => Err(AgentgresAdmissionError::MissingField("agent.id")),
+    }
+}
+
 fn terminal_event_count(run: &Value) -> usize {
     json_array(run, "events")
         .into_iter()
@@ -1740,6 +1778,16 @@ mod tests {
         })
     }
 
+    fn runtime_agent() -> Value {
+        json!({
+            "id": "agent_1",
+            "status": "active",
+            "runtime": "local",
+            "createdAt": "2026-06-04T00:00:00.000Z",
+            "updatedAt": "2026-06-04T00:00:01.000Z"
+        })
+    }
+
     fn runtime_state_transition() -> RuntimeStateTransitionRequest {
         RuntimeStateTransitionRequest {
             schema_version: RUNTIME_STATE_TRANSITION_SCHEMA_VERSION.to_string(),
@@ -1792,6 +1840,7 @@ mod tests {
             schema_version: RUNTIME_STATE_RECORD_MATERIALIZATION_SCHEMA_VERSION.to_string(),
             run_id: "run_1".to_string(),
             run: runtime_run(),
+            agent: None,
             canonical_projection: json!({
                 "runId": "run_1",
                 "projection": "canonical"
@@ -1813,6 +1862,7 @@ mod tests {
                 "receipt_authority".to_string(),
             ],
             run: runtime_run(),
+            agent: None,
             canonical_projection: json!({
                 "runId": "run_1",
                 "projection": "canonical"
@@ -1837,6 +1887,7 @@ mod tests {
             operation_kind: "run.create".to_string(),
             storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
             run: runtime_run(),
+            agent: Some(runtime_agent()),
             canonical_projection: json!({
                 "runId": "run_1",
                 "projection": "canonical"
@@ -2142,6 +2193,41 @@ mod tests {
     }
 
     #[test]
+    fn materializes_runtime_agent_snapshot_when_committed_with_run_state() {
+        let mut request = runtime_state_record_materialization();
+        request.agent = Some(runtime_agent());
+
+        let record = AgentgresAdmissionCore
+            .materialize_runtime_state_records(&request)
+            .expect("runtime state records materialized with agent snapshot");
+
+        assert_eq!(record.records.len(), 15);
+        assert_eq!(record.records[1].record_path, "agents/agent_1.json");
+        assert_eq!(record.records[1].payload["id"], json!("agent_1"));
+        assert_eq!(record.records[2].record_path, "tasks/run_1.json");
+        assert_eq!(
+            record.records[14].payload["agentgresTransition"]["transition_hash"],
+            json!("sha256:transition")
+        );
+    }
+
+    #[test]
+    fn runtime_state_record_materialization_rejects_mismatched_agent_snapshot() {
+        let mut request = runtime_state_record_materialization();
+        request.agent = Some(runtime_agent());
+        request.agent.as_mut().expect("agent")["id"] = json!("agent_other");
+
+        let error = AgentgresAdmissionCore
+            .materialize_runtime_state_records(&request)
+            .expect_err("agent payload id must match run agent id");
+
+        assert_eq!(
+            error,
+            AgentgresAdmissionError::RuntimeStateRecordAgentIdMismatch
+        );
+    }
+
+    #[test]
     fn plans_runtime_state_persistence_with_materialization_and_storage_write_set() {
         let record = AgentgresAdmissionCore
             .plan_runtime_state_persistence(&runtime_state_persistence())
@@ -2217,10 +2303,14 @@ mod tests {
         );
         assert_eq!(
             record.persistence.storage_write_set.records[1].object_ref,
+            "agentgres://runtime-state/runs/run_1/records/agents/agent_1.json"
+        );
+        assert_eq!(
+            record.persistence.storage_write_set.records[2].object_ref,
             "agentgres://runtime-state/runs/run_1/records/tasks/run_1.json"
         );
         assert_eq!(
-            record.persistence.materialization.records[13].payload["agentgresTransition"]
+            record.persistence.materialization.records[14].payload["agentgresTransition"]
                 ["transition_hash"],
             json!(record.transition.transition_hash)
         );

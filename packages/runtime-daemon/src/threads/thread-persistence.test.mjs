@@ -89,6 +89,7 @@ function fakeStore() {
       this.persistenceEvents.push({ type: "runtime_run_state_commit", runId: request.run_id });
       const files = [
         `runs/${request.run_id}.json`,
+        ...(request.agent?.id ? [`agents/${request.agent.id}.json`] : []),
         `tasks/${request.run_id}.json`,
         `jobs/job_${request.run_id}.json`,
         `checklists/checklist_${request.run_id}.json`,
@@ -354,6 +355,12 @@ test("thread persistence writes run projections without operation entries and pe
       traceBundleId: "trace_bundle_1",
     },
   };
+  const agent = {
+    id: "agent_1",
+    status: "active",
+    runtime: "local",
+  };
+  store.agents.set(agent.id, agent);
 
   writeRunRecord(store, run, "run.create", deps(store));
 
@@ -363,6 +370,7 @@ test("thread persistence writes run projections without operation entries and pe
   assert.equal(store.commitRequests[0].operation_kind, "run.create");
   assert.equal(store.commitRequests[0].storage_backend_ref, "storage://runtime-agentgres/local-json");
   assert.deepEqual(store.commitRequests[0].run, run);
+  assert.deepEqual(store.commitRequests[0].agent, agent);
   assert.deepEqual(store.commitRequests[0].canonical_projection, {
     runId: "run_1",
     projection: "canonical",
@@ -397,6 +405,7 @@ test("thread persistence writes run projections without operation entries and pe
   assert.equal(Object.hasOwn(store.persistenceRequests[0], "runtime_task"), false);
   assert.equal(Object.hasOwn(store.persistenceRequests[0], "runtime_job"), false);
   assert.equal(Object.hasOwn(store.persistenceRequests[0], "runtime_checklist"), false);
+  assert.deepEqual(store.persistenceRequests[0].agent, agent);
   assert.deepEqual(store.persistenceRequests[0].canonical_projection, {
     runId: "run_1",
     projection: "canonical",
@@ -405,6 +414,7 @@ test("thread persistence writes run projections without operation entries and pe
   const files = store.rustWrites.map((write) => write.filePath);
   assert.deepEqual(files, [
     "runs/run_1.json",
+    "agents/agent_1.json",
     "tasks/run_1.json",
     "jobs/job_run_1.json",
     "checklists/checklist_run_1.json",

@@ -138,6 +138,7 @@ function commitRunState(store, run, operationKind) {
     operation_kind: operationKind,
     storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
     run,
+    agent: store.agents?.get?.(run.agentId) ?? null,
     canonical_projection: store.canonicalProjection(run.id),
   };
   return normalizeRunStateCommit(store.commitRuntimeRunState(request));
