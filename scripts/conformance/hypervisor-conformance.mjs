@@ -19279,6 +19279,9 @@ function runCompositor() {
       /tool_name/.test(runtimeMcpCatalogSummaryBlock) &&
       /stable_tool_id/.test(runtimeMcpCatalogSummaryBlock) &&
       /input_schema/.test(runtimeMcpCatalogSummaryBlock) &&
+      /server_id:\s*server\.id \?\? null/.test(runtimeMcpCatalogSummaryBlock) &&
+      /stable_resource_id:\s*resource\.stable_resource_id/.test(runtimeMcpCatalogSummaryBlock) &&
+      /stable_prompt_id:\s*prompt\.stable_prompt_id/.test(runtimeMcpCatalogSummaryBlock) &&
       /preview_limit:\s*previewLimit/.test(runtimeMcpControlLiveDiscoveryBlock) &&
       /force_full_catalog:\s*forceFullCatalog/.test(runtimeMcpControlLiveDiscoveryBlock) &&
       /live_mode:\s*liveMode/.test(runtimeMcpCatalogSurface) &&
@@ -19287,6 +19290,9 @@ function runCompositor() {
       /previewLimit:\s*2,\s*forceFullCatalog:\s*true/.test(runtimeMcpHelpersTest) &&
       /Object\.hasOwn\(exposure\.summary,\s*"toolCount"\),\s*false/.test(runtimeMcpHelpersTest) &&
       /Object\.hasOwn\(exposure\.exposure,\s*"previewLimit"\),\s*false/.test(runtimeMcpHelpersTest) &&
+      /canonicalSummaryHash\.catalog_hash/.test(runtimeMcpHelpersTest) &&
+      /server_id:\s*"mcp\.docs"/.test(runtimeMcpHelpersTest) &&
+      /input_schema:\s*\{\s*type:\s*"object"\s*\}/.test(runtimeMcpHelpersTest) &&
       /retiredOptionExposure\.exposure\.mode,\s*"deferred"/.test(runtimeMcpHelpersTest) &&
       !/\boptions\.(?:previewLimit|forceFullCatalog|liveMode|errorCode)\b/.test(
         `${runtimeMcpCatalogExposureBlock}\n${runtimeMcpCatalogSummaryBlock}`,

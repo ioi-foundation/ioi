@@ -3,8 +3,10 @@ import test from "node:test";
 
 import { RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS } from "./runtime-contract-constants.mjs";
 import {
+  doctorHash,
   mcpCatalogExposureForStatus,
   mcpCatalogFullRequested,
+  mcpCatalogSummaryForServer,
   mcpConfigSourceModeForRequest,
   mcpJsonRpcError,
   mcpJsonRpcErrorCodeFor,
@@ -204,6 +206,33 @@ test("runtime MCP helpers summarize and defer large catalogs", () => {
   assert.equal(Object.hasOwn(exposure.exposure, "previewLimit"), false);
   assert.equal(Object.hasOwn(exposure.exposure, "returnedToolCount"), false);
   assert.equal(Object.hasOwn(exposure.exposure, "searchRoute"), false);
+  const canonicalSummaryHash = mcpCatalogSummaryForServer(
+    { id: "mcp.docs", label: "Docs" },
+    {
+      tools: [{
+        stable_tool_id: "mcp.docs.search",
+        tool_name: "search",
+        description: "Search docs",
+        input_schema: { type: "object" },
+      }],
+      resources: [{ stable_resource_id: "mcp.docs.root", uri: "docs://root", name: "Docs root" }],
+      prompts: [{ stable_prompt_id: "mcp.docs.ask", name: "ask" }],
+    },
+  );
+  assert.equal(
+    canonicalSummaryHash.catalog_hash,
+    doctorHash(JSON.stringify({
+      server_id: "mcp.docs",
+      tools: [{
+        stable_tool_id: "mcp.docs.search",
+        tool_name: "search",
+        description: "Search docs",
+        input_schema: { type: "object" },
+      }],
+      resources: [{ stable_resource_id: "mcp.docs.root", uri: "docs://root", name: "Docs root" }],
+      prompts: [{ stable_prompt_id: "mcp.docs.ask", name: "ask" }],
+    })),
+  );
 
   const largeCatalogTools = Array.from({ length: 60 }, (_, index) => ({
     stable_tool_id: `mcp.docs.large_${index}`,

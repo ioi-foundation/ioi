@@ -11492,6 +11492,12 @@ tool descriptor `_meta` governance fields now expose canonical `stable_tool_id`,
 availability/config snake_case fields only, while leaving MCP JSON-RPC protocol
 fields such as `inputSchema` and `serverInfo` untouched.
 
+Slice 551 canonicalizes MCP catalog summary hashes: catalog summaries now hash
+`server_id`, `stable_tool_id`, `tool_name`, `input_schema`,
+`stable_resource_id`, and `stable_prompt_id` payload keys, so the summary hash
+no longer depends on retired camelCase/internal `serverId` or `inputSchema`
+compatibility names while the public summary output remains canonical.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

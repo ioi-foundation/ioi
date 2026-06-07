@@ -455,20 +455,20 @@ export function mcpCatalogSummaryForServer(server = {}, catalog = {}, options = 
   const toolNames = tools.map((tool) => optionalString(tool.tool_name)).filter(Boolean).sort();
   const namespaces = mcpToolNamespaces(toolNames);
   const hashPayload = {
-    serverId: server.id ?? null,
+    server_id: server.id ?? null,
     tools: tools.map((tool) => ({
-      id: tool.stable_tool_id ?? null,
-      name: tool.tool_name ?? null,
+      stable_tool_id: tool.stable_tool_id ?? null,
+      tool_name: tool.tool_name ?? null,
       description: tool.description ?? null,
-      inputSchema: tool.input_schema ?? null,
+      input_schema: tool.input_schema ?? null,
     })),
     resources: resources.map((resource) => ({
-      id: resource.stable_resource_id ?? null,
+      stable_resource_id: resource.stable_resource_id ?? null,
       uri: resource.uri ?? null,
       name: resource.name ?? null,
     })),
     prompts: prompts.map((prompt) => ({
-      id: prompt.stable_prompt_id ?? null,
+      stable_prompt_id: prompt.stable_prompt_id ?? null,
       name: prompt.name ?? null,
     })),
   };
