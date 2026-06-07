@@ -87,7 +87,8 @@ export function createRuntimeGovernedImprovementSurface(deps = {}) {
       mutation_executed: false,
       thread_id: threadId,
       agent_id: agent.id,
-      proposal_id: admission.proposal_id ?? record.proposal_id ?? optionalString(proposal.proposal_id ?? proposal.proposalId),
+      proposal_id:
+        admission.proposal_id ?? record.proposal_id ?? optionalString(proposal.proposal_id) ?? null,
       admission_hash: admission.admission_hash ?? record.admission_hash ?? null,
       agentgres_operation_ref:
         admission.agentgres_operation_ref ?? record.agentgres_operation_ref ?? null,

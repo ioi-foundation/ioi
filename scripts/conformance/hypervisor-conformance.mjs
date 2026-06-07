@@ -8882,7 +8882,11 @@ function runBridge() {
       /governed improvement surface admits nested proposal through Rust runner/.test(governedImprovementSurfaceTest) &&
       /governed improvement surface rejects client supplied Agentgres truth before Rust runner/.test(
         governedImprovementSurfaceTest,
-      ),
+      ) &&
+      /governed improvement surface does not derive proposal id from retired proposal alias/.test(
+        governedImprovementSurfaceTest,
+      ) &&
+      !/proposal\.proposalId/.test(governedImprovementSurface),
     [
       "packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs",
       "packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs",

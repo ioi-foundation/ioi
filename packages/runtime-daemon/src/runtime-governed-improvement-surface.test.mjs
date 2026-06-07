@@ -165,6 +165,45 @@ test("governed improvement surface exposes only canonical snake_case admission f
   }
 });
 
+test("governed improvement surface does not derive proposal id from retired proposal alias", () => {
+  const calls = [];
+  const runtimeStore = {
+    calls,
+    agentForThread(threadId) {
+      calls.push({ name: "agentForThread", threadId });
+      return { id: "agent_surface" };
+    },
+    governedImprovementRunner: {
+      admitProposal(input) {
+        calls.push({ name: "admitProposal", input });
+        return {
+          source: "rust_governed_meta_improvement_command",
+          backend: "rust_governed_evolution",
+          record: {
+            admission_hash: "sha256:surface-admission",
+          },
+          admission_hash: "sha256:surface-admission",
+        };
+      },
+    },
+  };
+
+  const result = createRuntimeGovernedImprovementSurface().admitGovernedImprovementProposal(
+    runtimeStore,
+    "thread_surface",
+    {
+      proposal: {
+        ...proposal(),
+        proposal_id: undefined,
+        proposalId: "proposal://retired/alias",
+      },
+    },
+  );
+
+  assert.equal(result.proposal_id, null);
+  assert.equal(runtimeStore.calls[1].input.proposalId, "proposal://retired/alias");
+});
+
 test("governed improvement surface fails closed without proposal payload", () => {
   const surface = createRuntimeGovernedImprovementSurface();
 
