@@ -738,9 +738,7 @@ async function withMcpStdioSession(server, options, callback) {
   const cwd = path.resolve(
     options.cwd ??
       server.containment?.workspace_root ??
-      server.containment?.workspaceRoot ??
       server.workspace_root ??
-      server.workspaceRoot ??
       process.cwd(),
   );
   const tmpDir = path.join(cwd, ".tmp");

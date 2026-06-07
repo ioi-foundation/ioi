@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
+  discoverMcpStdioCatalog,
   mcpRegistryForWorkspace,
   normalizeMcpServerRecord,
   validateMcpServerRecords,
@@ -125,4 +129,62 @@ test("MCP manager server records ignore retired workspaceRoot context alias", ()
   assert.notEqual(server.containment.workspace_root, "/retired-workspace");
   assert.equal(Object.hasOwn(server, "workspaceRoot"), false);
   assert.equal(Object.hasOwn(server.containment, "workspaceRoot"), false);
+});
+
+test("MCP stdio sessions ignore retired workspaceRoot cwd aliases", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-mcp-cwd-"));
+  const canonicalCwd = path.join(root, "canonical");
+  const retiredCwd = path.join(root, "retired");
+  const fixture = `
+    let buffer = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk) => {
+      buffer += chunk;
+      let index = buffer.indexOf("\\n");
+      while (index >= 0) {
+        const line = buffer.slice(0, index).trim();
+        buffer = buffer.slice(index + 1);
+        if (line) {
+          const message = JSON.parse(line);
+          if (message.id != null) {
+            let result = {};
+            if (message.method === "initialize") {
+              result = { protocolVersion: "2024-11-05", serverInfo: { name: "cwd-fixture" } };
+            } else if (message.method === "tools/list") {
+              result = { tools: [] };
+            } else if (message.method === "resources/list") {
+              result = { resources: [] };
+            } else if (message.method === "prompts/list") {
+              result = { prompts: [] };
+            }
+            process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: message.id, result }) + "\\n");
+          }
+        }
+        index = buffer.indexOf("\\n");
+      }
+    });
+  `;
+
+  try {
+    const catalog = await discoverMcpStdioCatalog(
+      {
+        id: "mcp.cwd",
+        transport: "stdio",
+        command: process.execPath,
+        args: ["-e", fixture],
+        workspace_root: canonicalCwd,
+        workspaceRoot: retiredCwd,
+        containment: {
+          workspace_root: canonicalCwd,
+          workspaceRoot: retiredCwd,
+        },
+      },
+      { timeout_ms: 2_000 },
+    );
+
+    assert.equal(catalog.cwd, path.resolve(canonicalCwd));
+    assert.notEqual(catalog.cwd, path.resolve(retiredCwd));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });

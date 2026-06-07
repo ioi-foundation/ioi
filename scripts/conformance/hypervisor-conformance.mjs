@@ -20608,6 +20608,16 @@ function runCompositor() {
       /auth_boundary:\s*session\.authBoundary \?\? session\.auth_boundary \?\? null/.test(
         runtimeMcpManagerLiveOutputBlock,
       ) &&
+      /server\.containment\?\.workspace_root\s*\?\?\s*\n\s*server\.workspace_root\s*\?\?\s*\n\s*process\.cwd\(\)/.test(
+        runtimeMcpManager,
+      ) &&
+      /test\("MCP stdio sessions ignore retired workspaceRoot cwd aliases"/.test(
+        runtimeMcpManagerTest,
+      ) &&
+      /workspaceRoot:\s*retiredCwd/.test(runtimeMcpManagerTest) &&
+      /assert\.notEqual\(catalog\.cwd,\s*path\.resolve\(retiredCwd\)\)/.test(
+        runtimeMcpManagerTest,
+      ) &&
       /execution_mode:\s*catalog\.execution_mode \?\? liveMode/.test(runtimeMcpControlLiveDiscoveryBlock) &&
       /auth_boundary:\s*catalog\.auth_boundary \?\? null/.test(runtimeMcpControlLiveDiscoveryBlock) &&
       /executionMode:\s*"retired_live_stdio"/.test(runtimeMcpControlSurfaceTest) &&
@@ -20618,6 +20628,8 @@ function runCompositor() {
       !/^\s*(?:executionMode|serverUrl|protocolVersion|serverInfo|toolCount|listedTools|resourceCount|listedResources|promptCount|listedPrompts|authBoundary)\s*:/m.test(
         runtimeMcpManagerLiveOutputBlock,
       ) &&
+      !/server\.containment\?\.workspaceRoot\b/.test(runtimeMcpManager) &&
+      !/server\.workspaceRoot\b/.test(runtimeMcpManager) &&
       !/catalog\.(?:executionMode|authBoundary)\b/.test(runtimeMcpControlLiveDiscoveryBlock),
     [
       "packages/runtime-daemon/src/mcp-manager.mjs",
