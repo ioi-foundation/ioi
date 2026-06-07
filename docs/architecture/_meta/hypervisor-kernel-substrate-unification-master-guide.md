@@ -291,6 +291,12 @@ terminal-target evidence while clearly marking bridge-scaffolding proofs as
 interim. Until that seam is clear, the scheduled matrix-compaction pass remains
 pending rather than optional.
 
+Resume carry-forward rule: the next goal resume must not spend its first pass
+on matrix pruning alone. It should first make the next Rust-core extraction or
+JS-facade retirement seam concrete, then immediately run the scheduled
+matrix-compaction pass as part of that same resume cycle so future context
+compactions carry the clarified owner boundary forward.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

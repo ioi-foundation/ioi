@@ -75,6 +75,9 @@ Matrix compaction timing:
   perform the scheduled matrix-compaction pass before starting unrelated
   route-family work; do not let context compaction demote this to optional
   evidence pruning.
+- Resume carry-forward rule: the scheduled pass is part of the next resume cycle
+  after the seam is clarified, not a standalone prerequisite and not optional
+  cleanup to defer past unrelated route-family work.
 - The scheduled pass must preserve the live route-family owner map, terminal
   blockers, bridge-scaffolding guardrail, current sprint lane, and recent slice
   evidence without hiding remaining work or encoding the command bridge as
