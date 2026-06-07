@@ -37,7 +37,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Rows distinguish current wired proof from terminal target; planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer; until then, rows distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -57,6 +57,14 @@ Remaining terminal blockers:
   truth or duplicate authority.
 - Long-term planned objects and profiles remain planned until their runtime
   path, receipts, and fail-closed conformance guard are implemented.
+
+Matrix compaction timing:
+
+- Do not prune the slice ledger as a prerequisite to ordinary goal resumption.
+- Schedule a dedicated matrix-compaction pass after the next Rust-core
+  extraction/facade-retirement seam is clear enough to preserve the live
+  route-family owner map, terminal blockers, bridge-scaffolding guardrail,
+  current sprint lane, and recent slice evidence without hiding remaining work.
 
 ## Implementation Slice 0
 

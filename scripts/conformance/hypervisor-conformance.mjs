@@ -317,7 +317,13 @@ function runDocs() {
         matrix,
       ) &&
       /not the terminal architecture/.test(matrix) &&
-      /Bridge scaffolding retirement/.test(matrix),
+      /Bridge scaffolding retirement/.test(matrix) &&
+      /Schedule a matrix-compaction pass once the next Rust-core extraction\/facade-retirement seam is clearer/.test(
+        matrix,
+      ) &&
+      /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
+        matrix,
+      ),
     [GUIDE, MATRIX],
     "master guide and migration matrix must keep command bridge usage scoped to migration transport, not terminal architecture",
   );
