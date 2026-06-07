@@ -2431,6 +2431,60 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-contract-override-metadata-aliases-retired",
+    /observationBundle:\s*objectValue\(metadata\.computer_use_observation_bundle\)/.test(
+      computerUseProjection,
+    ) &&
+      /targetIndex:\s*objectValue\(metadata\.computer_use_target_index\)/.test(
+        computerUseProjection,
+      ) &&
+      /affordanceGraph:\s*objectValue\(metadata\.computer_use_affordance_graph\)/.test(
+        computerUseProjection,
+      ) &&
+      /adapterContract:\s*objectValue\(metadata\.computer_use_adapter_contract\)/.test(
+        computerUseProjection,
+      ) &&
+      /cleanupReceipt:\s*objectValue\(metadata\.computer_use_cleanup_receipt\)/.test(
+        computerUseProjection,
+      ) &&
+      /metadata\.computer_use_browser_observation_artifacts \?\?[\r\n\s]*metadata\.browser_observation_artifacts/.test(
+        computerUseProjection,
+      ) &&
+      /computer_use_observation_bundle:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
+      /computer_use_target_index:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
+      /computer_use_affordance_graph:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
+      /computer_use_adapter_contract:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
+      /computer_use_cleanup_receipt:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
+      /computer-use projection accepts canonical contract override metadata/.test(
+        computerUseProjectionTest,
+      ) &&
+      /computer-use projection ignores retired contract override aliases/.test(
+        computerUseProjectionTest,
+      ) &&
+      /computerUseObservationBundle:/.test(computerUseProjectionTest) &&
+      /computerUseTargetIndex:/.test(computerUseProjectionTest) &&
+      /computerUseAffordanceGraph:/.test(computerUseProjectionTest) &&
+      /computerUseAdapterContract:/.test(computerUseProjectionTest) &&
+      /computerUseCleanupReceipt:/.test(computerUseProjectionTest) &&
+      /computerUseBrowserObservationArtifacts:/.test(computerUseProjectionTest) &&
+      !/metadata\.(?:computerUseObservationBundle|computerUseTargetIndex|computerUseAffordanceGraph|computerUseAdapterContract|computerUseCleanupReceipt|computerUseBrowserObservationArtifacts|browserObservationArtifacts)\b/.test(
+        computerUseProjection,
+      ) &&
+      !/input\.(?:computerUseObservationBundle|computerUseTargetIndex|computerUseAffordanceGraph|computerUseAdapterContract|computerUseCleanupReceipt|computerUseBrowserObservationArtifacts)\b/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/(?:computerUseObservationBundle|computerUseTargetIndex|computerUseAffordanceGraph|computerUseAdapterContract|computerUseCleanupReceipt|computerUseBrowserObservationArtifacts):/.test(
+        runtimeDaemonIndex,
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/computer-use-projection.mjs",
+      "packages/runtime-daemon/src/computer-use-projection.test.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use projection contract overrides must use canonical snake_case metadata without retired camelCase override aliases",
+  );
+  assertCheck(
+    result,
     "visual-gui-local-executor-request-aliases-retired",
     /booleanValue\(input\.local_gui_executor\)/.test(visualGuiLocalExecutor) &&
       /booleanValue\(input\.execute_local_gui\)/.test(visualGuiLocalExecutor) &&

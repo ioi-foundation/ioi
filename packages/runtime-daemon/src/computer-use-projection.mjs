@@ -1853,30 +1853,13 @@ function computerUseTargetHint(prompt) {
 function computerUseContractOverrides(request = {}) {
   const metadata = request.options?.metadata ?? request.metadata ?? {};
   return {
-    observationBundle: objectValue(
-      metadata.computerUseObservationBundle ??
-      metadata.computer_use_observation_bundle,
-    ),
-    targetIndex: objectValue(
-      metadata.computerUseTargetIndex ??
-      metadata.computer_use_target_index,
-    ),
-    affordanceGraph: objectValue(
-      metadata.computerUseAffordanceGraph ??
-      metadata.computer_use_affordance_graph,
-    ),
-    adapterContract: objectValue(
-      metadata.computerUseAdapterContract ??
-      metadata.computer_use_adapter_contract,
-    ),
-    cleanupReceipt: objectValue(
-      metadata.computerUseCleanupReceipt ??
-      metadata.computer_use_cleanup_receipt,
-    ),
+    observationBundle: objectValue(metadata.computer_use_observation_bundle),
+    targetIndex: objectValue(metadata.computer_use_target_index),
+    affordanceGraph: objectValue(metadata.computer_use_affordance_graph),
+    adapterContract: objectValue(metadata.computer_use_adapter_contract),
+    cleanupReceipt: objectValue(metadata.computer_use_cleanup_receipt),
     browserObservationArtifacts: objectValue(
-      metadata.computerUseBrowserObservationArtifacts ??
       metadata.computer_use_browser_observation_artifacts ??
-      metadata.browserObservationArtifacts ??
       metadata.browser_observation_artifacts,
     ),
   };

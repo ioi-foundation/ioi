@@ -2628,14 +2628,14 @@ export class AgentgresRuntimeStateStore {
       computer_use_target_ref: requestedTargetRef,
       computer_use_native_browser_execution: nativeBrowserExecution,
       computer_use_controlled_relaunch_launch_receipt: controlledRelaunchLaunch?.launchReceipt ?? null,
-      computerUseObservationBundle:
-        objectRecord(input.computerUseObservationBundle ?? input.observation_bundle),
-      computerUseTargetIndex:
-        objectRecord(input.computerUseTargetIndex ?? input.target_index),
-      computerUseAffordanceGraph:
-        objectRecord(input.computerUseAffordanceGraph ?? input.affordance_graph),
-      computerUseBrowserObservationArtifacts:
-        objectRecord(input.computerUseBrowserObservationArtifacts ?? input.browser_observation_artifacts),
+      computer_use_observation_bundle:
+        objectRecord(input.computer_use_observation_bundle ?? input.observation_bundle),
+      computer_use_target_index:
+        objectRecord(input.computer_use_target_index ?? input.target_index),
+      computer_use_affordance_graph:
+        objectRecord(input.computer_use_affordance_graph ?? input.affordance_graph),
+      computer_use_browser_observation_artifacts:
+        objectRecord(input.computer_use_browser_observation_artifacts ?? input.browser_observation_artifacts),
       computer_use_controlled_relaunch_broker:
         objectRecord(
           input.computer_use_controlled_relaunch_broker ??
@@ -2659,10 +2659,10 @@ export class AgentgresRuntimeStateStore {
       "computer_use_target_ref",
       "computer_use_native_browser_execution",
       "computer_use_controlled_relaunch_launch_receipt",
-      "computerUseObservationBundle",
-      "computerUseTargetIndex",
-      "computerUseAffordanceGraph",
-      "computerUseBrowserObservationArtifacts",
+      "computer_use_observation_bundle",
+      "computer_use_target_index",
+      "computer_use_affordance_graph",
+      "computer_use_browser_observation_artifacts",
       "computer_use_controlled_relaunch_broker",
       "controlled_relaunch_broker_ref",
       "controlled_relaunch_start_url",
@@ -2860,16 +2860,16 @@ export class AgentgresRuntimeStateStore {
       computerUseExecutionResult: visualGuiExecution,
       computerUseVisualGuiExecution: visualGuiExecution,
       ...visualObservationMetadata,
-      computerUseObservationBundle:
-        objectRecord(input.computerUseObservationBundle ?? input.observation_bundle),
-      computerUseTargetIndex:
-        objectRecord(input.computerUseTargetIndex ?? input.target_index),
-      computerUseAffordanceGraph:
-        objectRecord(input.computerUseAffordanceGraph ?? input.affordance_graph),
-      computerUseAdapterContract:
-        objectRecord(input.computerUseAdapterContract ?? input.adapter_contract),
-      computerUseCleanupReceipt:
-        objectRecord(input.computerUseCleanupReceipt ?? input.cleanup_receipt),
+      computer_use_observation_bundle:
+        objectRecord(input.computer_use_observation_bundle ?? input.observation_bundle),
+      computer_use_target_index:
+        objectRecord(input.computer_use_target_index ?? input.target_index),
+      computer_use_affordance_graph:
+        objectRecord(input.computer_use_affordance_graph ?? input.affordance_graph),
+      computer_use_adapter_contract:
+        objectRecord(input.computer_use_adapter_contract ?? input.adapter_contract),
+      computer_use_cleanup_receipt:
+        objectRecord(input.computer_use_cleanup_receipt ?? input.cleanup_receipt),
     };
     for (const key of [
       "computer_use_approval_ref",
@@ -2901,11 +2901,11 @@ export class AgentgresRuntimeStateStore {
       "visual_targets",
       "visual_affordances",
       "detected_patterns",
-      "computerUseObservationBundle",
-      "computerUseTargetIndex",
-      "computerUseAffordanceGraph",
-      "computerUseAdapterContract",
-      "computerUseCleanupReceipt",
+      "computer_use_observation_bundle",
+      "computer_use_target_index",
+      "computer_use_affordance_graph",
+      "computer_use_adapter_contract",
+      "computer_use_cleanup_receipt",
     ]) {
       if (Array.isArray(metadata[key])) {
         if (metadata[key].length === 0) delete metadata[key];
@@ -3076,27 +3076,27 @@ export class AgentgresRuntimeStateStore {
         optionalString(input.computer_use_sandbox_image_ref ?? input.sandbox_image_ref),
       computer_use_sandbox_task_ref:
         optionalString(input.computer_use_sandbox_task_ref ?? input.sandbox_task_ref),
-      computerUseObservationBundle:
-        objectRecord(input.computerUseObservationBundle ?? input.observation_bundle),
-      computerUseTargetIndex:
-        objectRecord(input.computerUseTargetIndex ?? input.target_index),
-      computerUseAffordanceGraph:
-        objectRecord(input.computerUseAffordanceGraph ?? input.affordance_graph),
-      computerUseAdapterContract:
-        objectRecord(input.computerUseAdapterContract ?? input.adapter_contract),
-      computerUseCleanupReceipt:
-        objectRecord(input.computerUseCleanupReceipt ?? input.cleanup_receipt),
+      computer_use_observation_bundle:
+        objectRecord(input.computer_use_observation_bundle ?? input.observation_bundle),
+      computer_use_target_index:
+        objectRecord(input.computer_use_target_index ?? input.target_index),
+      computer_use_affordance_graph:
+        objectRecord(input.computer_use_affordance_graph ?? input.affordance_graph),
+      computer_use_adapter_contract:
+        objectRecord(input.computer_use_adapter_contract ?? input.adapter_contract),
+      computer_use_cleanup_receipt:
+        objectRecord(input.computer_use_cleanup_receipt ?? input.cleanup_receipt),
     };
     for (const key of [
       "computer_use_approval_ref",
       "computer_use_target_ref",
       "computer_use_sandbox_image_ref",
       "computer_use_sandbox_task_ref",
-      "computerUseObservationBundle",
-      "computerUseTargetIndex",
-      "computerUseAffordanceGraph",
-      "computerUseAdapterContract",
-      "computerUseCleanupReceipt",
+      "computer_use_observation_bundle",
+      "computer_use_target_index",
+      "computer_use_affordance_graph",
+      "computer_use_adapter_contract",
+      "computer_use_cleanup_receipt",
     ]) {
       if (metadata[key] && typeof metadata[key] === "object") {
         if (Object.keys(metadata[key]).length === 0) delete metadata[key];

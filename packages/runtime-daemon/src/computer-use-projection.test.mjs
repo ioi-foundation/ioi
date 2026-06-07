@@ -206,6 +206,101 @@ test("computer-use projection ignores retired native-browser execution aliases",
   assert.equal(projection.lease.evidence_refs.includes("executor_retired_execution"), false);
 });
 
+test("computer-use projection accepts canonical contract override metadata", () => {
+  const projection = projectionFor({
+    runId: "projection_canonical_contract_overrides",
+    metadata: {
+      computer_use: true,
+      computer_use_observation_bundle: {
+        observation_ref: "observation_canonical_override",
+        target_index_ref: "target_index_canonical_override",
+        title: "Canonical override title",
+        screenshot_ref: "artifact:canonical:screenshot",
+      },
+      computer_use_target_index: {
+        target_index_ref: "target_index_canonical_override",
+        targets: [
+          {
+            target_ref: "target_canonical_override",
+            label: "Canonical target",
+            role: "button",
+            semantic_ids: ["canonical-target"],
+            available_actions: ["click"],
+          },
+        ],
+      },
+      computer_use_affordance_graph: {
+        graph_ref: "affordance_canonical_override",
+        target_index_ref: "target_index_canonical_override",
+        affordances: [
+          {
+            target_ref: "target_canonical_override",
+            possible_action: "click",
+            confidence: 99,
+          },
+        ],
+      },
+      computer_use_adapter_contract: {
+        adapter_id: "adapter_canonical_override",
+        capabilities: ["canonical_override"],
+      },
+      computer_use_cleanup_receipt: {
+        cleanup_ref: "cleanup_canonical_override",
+        status: "completed",
+      },
+    },
+  });
+
+  assert.equal(projection.observation.observation_ref, "observation_canonical_override");
+  assert.equal(projection.observation.title, "Canonical override title");
+  assert.equal(projection.targetIndex.target_index_ref, "target_index_canonical_override");
+  assert.equal(projection.targetIndex.targets[0].target_ref, "target_canonical_override");
+  assert.equal(projection.affordanceGraph.graph_ref, "affordance_canonical_override");
+  assert.equal(projection.adapterContract.adapter_id, "adapter_canonical_override");
+  assert.equal(projection.cleanup.cleanup_ref, "cleanup_canonical_override");
+});
+
+test("computer-use projection ignores retired contract override aliases", () => {
+  const projection = projectionFor({
+    runId: "projection_retired_contract_overrides",
+    metadata: {
+      computer_use: true,
+      computerUseObservationBundle: {
+        observation_ref: "observation_retired_override",
+        target_index_ref: "target_index_retired_override",
+        title: "Retired override title",
+      },
+      computerUseTargetIndex: {
+        target_index_ref: "target_index_retired_override",
+        targets: [{ target_ref: "target_retired_override" }],
+      },
+      computerUseAffordanceGraph: {
+        graph_ref: "affordance_retired_override",
+      },
+      computerUseAdapterContract: {
+        adapter_id: "adapter_retired_override",
+      },
+      computerUseCleanupReceipt: {
+        cleanup_ref: "cleanup_retired_override",
+      },
+      computerUseBrowserObservationArtifacts: {
+        screenshot_ref: "artifact:retired:screenshot",
+      },
+      browserObservationArtifacts: {
+        screenshot_ref: "artifact:retired:browser",
+      },
+    },
+  });
+
+  assert.notEqual(projection.observation.observation_ref, "observation_retired_override");
+  assert.notEqual(projection.observation.title, "Retired override title");
+  assert.notEqual(projection.targetIndex.target_index_ref, "target_index_retired_override");
+  assert.notEqual(projection.targetIndex.targets[0].target_ref, "target_retired_override");
+  assert.notEqual(projection.affordanceGraph.graph_ref, "affordance_retired_override");
+  assert.notEqual(projection.adapterContract.adapter_id, "adapter_retired_override");
+  assert.notEqual(projection.cleanup.cleanup_ref, "cleanup_retired_override");
+});
+
 function projectionFor({ runId, metadata, prompt = "click the requested computer-use target" }) {
   return computerUseProjectionForRun({
     agent: { cwd: "/tmp/ioi-projection-test" },

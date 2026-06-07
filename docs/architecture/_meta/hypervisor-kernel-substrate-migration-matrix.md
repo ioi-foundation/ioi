@@ -13296,6 +13296,14 @@ projection now consumes canonical `computer_use_native_browser_execution` and
 result aliases can no longer turn an approved native-browser action into an
 executed action, adapter receipt, observation override, or lease evidence ref.
 
+Slice 516 retires computer-use contract override metadata aliases:
+native-browser, visual-GUI, and sandboxed-hosted runtime event producers now
+emit canonical `computer_use_*` observation, target-index, affordance-graph,
+adapter-contract, cleanup-receipt, and browser-observation-artifact override
+metadata; projection consumes those canonical fields only, so retired camelCase
+override aliases can no longer steer observation, grounding, adapter, cleanup,
+or browser-artifact contract projection.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
