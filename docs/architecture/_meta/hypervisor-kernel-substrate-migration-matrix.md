@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after coding-tool governance budget evidence-ref alias retirement slice 600 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after worker/service and cTEE nested invocation identity alias retirement slice 601 clarified the active seam.
 
 ## Purpose
 
@@ -81,6 +81,10 @@ Matrix compaction timing:
 - Resume carry-forward rule: the scheduled pass is part of the next resume cycle
   after the seam is clarified, not a standalone prerequisite and not optional
   cleanup to defer past unrelated route-family work.
+- Context-compaction guard: if work resumes from a compacted thread, carry this
+  scheduling rule forward explicitly. The next clear Rust-core extraction or
+  JS-facade retirement seam should immediately create a matrix-compaction pass
+  before unrelated implementation work continues.
 - The scheduled pass must preserve the live route-family owner map, terminal
   blockers, bridge-scaffolding guardrail, current sprint lane, and recent slice
   evidence without hiding remaining work or encoding the command bridge as
@@ -291,6 +295,12 @@ Matrix compaction timing:
   into the route-family range while preserving the live owner map, terminal
   blockers, bridge-scaffolding guardrail, current sprint lane, and the
   distinction between canonical budget-block receipt/policy evidence refs and
+  remaining terminal Rust daemon-core extraction work.
+- Thirty-sixth scheduled pass completed on 2026-06-07: the worker/service
+  package and cTEE nested invocation identity alias evidence after slice 601 was
+  compacted into the route-family range while preserving the live owner map,
+  terminal blockers, bridge-scaffolding guardrail, current sprint lane, and the
+  distinction between canonical runner/admission invocation identity and
   remaining terminal Rust daemon-core extraction work.
 
 ## Implementation Slice 0
@@ -11369,7 +11379,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 600 and the thirty-fifth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 601 and the thirty-sixth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -11478,7 +11488,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-600 retired SDK runtime usage record aliases and Rust/daemon
+- Slices 572-601 retired SDK runtime usage record aliases and Rust/daemon
   Agentgres state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -11552,6 +11562,9 @@ reconstruct the active seam without carrying every per-slice paragraph.
   `policy_decision_refs` only from canonical budget-policy fields, ignoring
   retired `receiptRefs` and `policyDecisionRefs` aliases before budget-block
   event/result materialization;
+  worker/service package and cTEE admission surfaces now derive fallback
+  invocation identity only from canonical nested `invocation_id`, ignoring
+  retired nested `invocationId` before runner/admission result materialization;
   Rust-written policy and authority decision records now emit canonical `run_id`,
   `receipt_id`, `primitive_capabilities`, `authority_scopes`, and `wallet_layer`
   fields instead of JS-shaped decision record aliases before storage-write

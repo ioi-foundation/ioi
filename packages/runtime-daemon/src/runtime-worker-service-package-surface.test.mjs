@@ -230,6 +230,24 @@ test("worker/service package surface rejects client supplied Agentgres truth bef
   assert.deepEqual(runtimeStore.calls, []);
 });
 
+test("worker/service package surface ignores retired nested invocation identity alias", () => {
+  const runtimeStore = store();
+  const surface = createRuntimeWorkerServicePackageSurface();
+  const invocation = packageInvocation();
+  invocation.invocation = {
+    ...invocation.invocation,
+    invocation_id: undefined,
+    invocationId: "invocation://worker-package/retired",
+  };
+
+  const result = surface.admitWorkerServicePackageInvocation(runtimeStore, "thread_surface", {
+    invocation,
+  });
+
+  assert.equal(result.invocation_id, undefined);
+  assert.equal(runtimeStore.calls.at(-1).input.invocation.invocationId, "invocation://worker-package/retired");
+});
+
 test("worker/service package surface exposes only canonical snake_case admission fields", () => {
   const result = createRuntimeWorkerServicePackageSurface().admitWorkerServicePackageInvocation(
     store(),

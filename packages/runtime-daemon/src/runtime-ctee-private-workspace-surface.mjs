@@ -88,7 +88,7 @@ export function createRuntimeCteePrivateWorkspaceSurface(deps = {}) {
       invocation_id:
         result.invocation_id ??
         record.invocation_id ??
-        optionalString(action.invocation?.invocation_id ?? action.invocation?.invocationId),
+        optionalString(action.invocation?.invocation_id),
       receipt_ref: receipt?.receipt_ref ?? result.receipt_refs?.[0] ?? null,
       receipt,
       result,

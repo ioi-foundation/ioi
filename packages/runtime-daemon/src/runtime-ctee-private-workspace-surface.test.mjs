@@ -189,6 +189,41 @@ test("cTEE private workspace surface rejects client supplied Agentgres truth bef
   assert.deepEqual(runtimeStore.calls, []);
 });
 
+test("cTEE private workspace surface ignores retired nested invocation identity alias", () => {
+  const runtimeStore = store();
+  runtimeStore.cteePrivateWorkspaceRunner.executeAction = (input) => {
+    runtimeStore.calls.push({ name: "executeAction", input });
+    return {
+      record: {
+        result: {
+          status: "success",
+          receipt_refs: [],
+        },
+      },
+      result: {
+        status: "success",
+        receipt_refs: [],
+      },
+      receipt_refs: [],
+      evidence_refs: [],
+    };
+  };
+  const surface = createRuntimeCteePrivateWorkspaceSurface();
+  const action = cteeAction();
+  action.invocation = {
+    ...action.invocation,
+    invocation_id: undefined,
+    invocationId: "invocation://ctee/retired",
+  };
+
+  const result = surface.executeCteePrivateWorkspaceAction(runtimeStore, "thread_surface", {
+    action,
+  });
+
+  assert.equal(result.invocation_id, undefined);
+  assert.equal(runtimeStore.calls.at(-1).input.invocation.invocationId, "invocation://ctee/retired");
+});
+
 test("cTEE private workspace surface exposes only canonical snake_case admission fields", () => {
   const result = createRuntimeCteePrivateWorkspaceSurface().executeCteePrivateWorkspaceAction(
     store(),

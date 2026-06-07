@@ -88,7 +88,7 @@ export function createRuntimeWorkerServicePackageSurface(deps = {}) {
       invocation_id:
         admission.invocation_id ??
         record.invocation_id ??
-        optionalString(invocation.invocation?.invocation_id ?? invocation.invocation?.invocationId),
+        optionalString(invocation.invocation?.invocation_id),
       router_admission: admission.router_admission ?? record.router_admission ?? null,
       receipt_binding: admission.receipt_binding ?? record.receipt_binding ?? null,
       accepted_receipt_append: admission.accepted_receipt_append ?? null,

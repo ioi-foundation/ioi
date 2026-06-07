@@ -8090,6 +8090,14 @@ function runBridge() {
       /worker\/service package surface rejects retired request aliases before agent lookup or Rust runner/.test(
         workerServicePackageSurfaceTest,
       ) &&
+      /worker\/service package surface ignores retired nested invocation identity alias/.test(
+        workerServicePackageSurfaceTest,
+      ) &&
+      /invocationId: "invocation:\/\/worker-package\/retired"/.test(
+        workerServicePackageSurfaceTest,
+      ) &&
+      /result\.invocation_id,\s*undefined/.test(workerServicePackageSurfaceTest) &&
+      !/invocation\.invocation\?\.invocationId/.test(workerServicePackageSurface) &&
       /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(workerServicePackageSurfaceTest) &&
       /retiredWorkerServicePackageRequestAliases/.test(workerServicePackageControlNodesTest) &&
       /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*key\)/.test(
@@ -12935,6 +12943,14 @@ function runCtee() {
       /cTEE private workspace surface rejects retired request aliases before agent lookup or Rust runner/.test(
         cteePrivateWorkspaceSurfaceTest,
       ) &&
+      /cTEE private workspace surface ignores retired nested invocation identity alias/.test(
+        cteePrivateWorkspaceSurfaceTest,
+      ) &&
+      /invocationId: "invocation:\/\/ctee\/retired"/.test(
+        cteePrivateWorkspaceSurfaceTest,
+      ) &&
+      /result\.invocation_id,\s*undefined/.test(cteePrivateWorkspaceSurfaceTest) &&
+      !/action\.invocation\?\.invocationId/.test(cteePrivateWorkspaceSurface) &&
       /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(cteePrivateWorkspaceSurfaceTest) &&
       /retiredCteePrivateWorkspaceRequestAliases/.test(cteePrivateWorkspaceControlNodesTest) &&
       /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*key\)/.test(
