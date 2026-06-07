@@ -5390,9 +5390,16 @@ function runBridge() {
       /applied\.event\.payload_summary\.requested_by,\s*"workflow-author"/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
+      /details:\s*\{ thread_id: threadId \}/.test(runtimeWorkflowEditSurface) &&
+      /thread_id: threadId,\s*proposal_id: normalizedProposalId/.test(runtimeWorkflowEditSurface) &&
+      /error\.details\.thread_id, "thread_alpha"/.test(runtimeWorkflowEditSurfaceTest) &&
+      /Object\.hasOwn\(error\.details,\s*"threadId"\),\s*false/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
       !/request\.(?:turnId|workflowNodeId|workflowGraphId|requestedBy|workflowPath|workflowPatch|codeDiff|editIntentId|proposalId|approvalId|receiptRefs|policyDecisionRefs|targetWorkflowNodeIds|boundedTargets|idempotencyKey)\b/.test(
         runtimeWorkflowEditSurface,
       ) &&
+      !/details:\s*\{ threadId/.test(runtimeWorkflowEditSurface) &&
       !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|requested_by|workflow_path|workflow_patch|code_diff|edit_intent_id|proposal_id|approval_id|receipt_refs|policy_decision_refs|target_workflow_node_ids|bounded_targets|idempotency_key)\s*\?\?\s*request\./.test(
         runtimeWorkflowEditSurface,
       ),

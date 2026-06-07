@@ -425,16 +425,23 @@ test("workflow-edit surface enforces workspace boundaries and required proposal 
   );
   assert.throws(
     () => surface.applyWorkflowEditProposal(store, "thread_alpha", null, {}),
-    (error) =>
-      error.status === 400 &&
-      error.code === "workflow_edit_proposal_id_required" &&
-      error.details.threadId === "thread_alpha",
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "workflow_edit_proposal_id_required");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(Object.hasOwn(error.details, "threadId"), false);
+      return true;
+    },
   );
   assert.throws(
     () => surface.applyWorkflowEditProposal(store, "thread_alpha", "missing", {}),
-    (error) =>
-      error.status === 404 &&
-      error.code === "not_found" &&
-      error.details.proposal_id === "missing",
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.code, "not_found");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.proposal_id, "missing");
+      assert.equal(Object.hasOwn(error.details, "threadId"), false);
+      return true;
+    },
   );
 });

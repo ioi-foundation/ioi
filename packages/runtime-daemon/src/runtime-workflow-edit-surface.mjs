@@ -330,13 +330,13 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
           status: 400,
           code: "workflow_edit_proposal_id_required",
           message: "Workflow edit proposal apply requires a proposal id.",
-          details: { threadId },
+          details: { thread_id: threadId },
         });
       })();
     const proposalEvent = latestWorkflowEditProposalEvent(store, threadId, normalizedProposalId);
     if (!proposalEvent) {
       throw notFoundDep(`Workflow edit proposal not found: ${normalizedProposalId}`, {
-        threadId,
+        thread_id: threadId,
         proposal_id: normalizedProposalId,
       });
     }
