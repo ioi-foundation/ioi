@@ -31,6 +31,7 @@ pub mod workspace_restore;
 use agentgres_admission::{
     AgentgresAdmissionCore, AgentgresAdmissionError, AgentgresAdmissionRecord,
     AgentgresOperationProposal, RuntimeAgentStateCommitRecord, RuntimeAgentStateCommitRequest,
+    RuntimeArtifactStateCommitRecord, RuntimeArtifactStateCommitRequest,
     RuntimeMemoryStateCommitRecord, RuntimeMemoryStateCommitRequest, RuntimeRunStateCommitRecord,
     RuntimeRunStateCommitRequest, RuntimeStatePersistenceRecord, RuntimeStatePersistenceRequest,
     RuntimeStateRecordMaterializationRecord, RuntimeStateRecordMaterializationRequest,
@@ -534,6 +535,13 @@ impl RuntimeKernelService {
         request: &RuntimeSubagentStateCommitRequest,
     ) -> Result<RuntimeSubagentStateCommitRecord, AgentgresAdmissionError> {
         AgentgresAdmissionCore.commit_runtime_subagent_state(request)
+    }
+
+    pub fn commit_runtime_artifact_state(
+        &self,
+        request: &RuntimeArtifactStateCommitRequest,
+    ) -> Result<RuntimeArtifactStateCommitRecord, AgentgresAdmissionError> {
+        AgentgresAdmissionCore.commit_runtime_artifact_state(request)
     }
 
     pub fn validate_private_workspace_ctee_invocation(

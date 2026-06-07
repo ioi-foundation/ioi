@@ -1692,7 +1692,7 @@ function runBridge() {
       /source_path_included:\s*false/.test(codingToolVisualArtifactMaterializerBlock) &&
       /created_at:\s*createdAt/.test(codingToolVisualArtifactMaterializerBlock) &&
       /assertNoRetiredArtifactRecordAliases\(records\[0\]\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
-      /assertNoRetiredArtifactRecordAliases\(writes\[0\]\.value\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /assertNoRetiredArtifactRecordAliases\(store\.artifactCommits\[0\]\.artifact\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
       /assertNoRetiredArtifactRecordAliases\(result\.artifacts\[0\]\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
       !/^\s*(?:schemaVersion|threadId|toolName|toolCallId|workspaceRoot|mediaType|receiptId|contentBytes|contentHash|createdAt|sourcePathHash|sourcePathIncluded)\s*[:,]/m.test(
         codingToolArtifactRecordBlocks,
@@ -7156,6 +7156,22 @@ function runReceipts() {
   const runtimeAgentgresRunner = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
     : "";
+  const runtimeCodingToolArtifactSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
+    : "";
+  const runtimeCodingToolArtifactSurfaceTest = exists(
+    "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs")
+    : "";
+  const runtimeWorkspaceSnapshotSurface = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
+    : "";
+  const runtimeWorkspaceSnapshotSurfaceTest = exists(
+    "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
+    : "";
   const agentgresAdmissionCore = exists("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     ? read("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     : "";
@@ -9495,6 +9511,73 @@ function runReceipts() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 5/11 is pending: memory record and policy files must be persisted through Rust Agentgres storage admission instead of direct JS file writes",
+  );
+  assertCheck(
+    result,
+    "runtime-artifact-state-storage-write-rust-admitted",
+    /RUNTIME_ARTIFACT_STATE_COMMIT_SCHEMA_VERSION/.test(agentgresAdmissionCore) &&
+      /RuntimeArtifactStateCommitRequest/.test(agentgresAdmissionCore) &&
+      /RuntimeArtifactStateCommitRecord/.test(agentgresAdmissionCore) &&
+      /commit_runtime_artifact_state/.test(agentgresAdmissionCore) &&
+      /commits_runtime_artifact_state_with_storage_admission/.test(agentgresAdmissionCore) &&
+      /runtime_artifact_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
+      /runtime_artifact_state_commit_rejects_mismatched_artifact_id/.test(agentgresAdmissionCore) &&
+      /pub fn commit_runtime_artifact_state/.test(runtimeKernelModule) &&
+      /commit_runtime_artifact_state/.test(bridgeModule) &&
+      /RuntimeArtifactStateCommitBridgeRequest/.test(bridgeModule) &&
+      /rust_agentgres_runtime_artifact_state_commit_command/.test(bridgeModule) &&
+      /bridge_commits_runtime_artifact_state_through_rust_core/.test(bridgeModule) &&
+      /commitRuntimeArtifactState/.test(runtimeAgentgresRunner) &&
+      /normalizeRuntimeArtifactStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
+      /runtime Agentgres runner sends runtime artifact-state commit bridge request/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /commitRuntimeArtifactState\(request\)/.test(runtimeDaemonIndex) &&
+      /commitRuntimeArtifactRecord/.test(
+        read("packages/runtime-daemon/src/runtime-artifact-state-commit.mjs"),
+      ) &&
+      /Runtime artifact state commits require Rust Agentgres admission/.test(
+        read("packages/runtime-daemon/src/runtime-artifact-state-commit.mjs"),
+      ) &&
+      /commitRuntimeArtifactRecord\(store, artifactRecord, "artifact\.coding_tool_draft"\)/.test(
+        runtimeCodingToolArtifactSurface,
+      ) &&
+      /commitRuntimeArtifactRecord\(store, artifactRecord, "artifact\.visual_observation"\)/.test(
+        runtimeCodingToolArtifactSurface,
+      ) &&
+      /commitRuntimeArtifactRecord\(store, artifactRecord, "artifact\.workspace_snapshot"\)/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      /commitRuntimeArtifactRecord\(store, artifactRecord, `artifact\.\$\{channel\}`\)/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      !/writeJson\(store\.pathFor\("artifacts"/.test(runtimeCodingToolArtifactSurface) &&
+      !/writeJson\(store\.pathFor\("artifacts"/.test(runtimeWorkspaceSnapshotSurface) &&
+      /assert\.equal\(writes\.length, 0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /store\.artifactCommits\[0\]\.schema_version/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /store\.artifactCommits\[0\]\.operation_kind, "artifact\.coding_tool_draft"/.test(
+        runtimeCodingToolArtifactSurfaceTest,
+      ) &&
+      /store\.artifactCommits\[0\]\.operation_kind, "artifact\.workspace_snapshot"/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /store\.artifactCommits\[1\]\.operation_kind, "artifact\.restore-apply"/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
+      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-artifact-state-commit.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 5/11 is pending: coding-tool, visual GUI, workspace snapshot, and restore artifacts must be persisted through Rust Agentgres storage admission instead of direct JS file writes",
   );
   assertCheck(
     result,

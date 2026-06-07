@@ -10,8 +10,8 @@ import {
 import {
   notFound as defaultNotFound,
   runtimeError as defaultRuntimeError,
-  writeJson as defaultWriteJson,
 } from "./runtime-http-utils.mjs";
+import { commitRuntimeArtifactRecord } from "./runtime-artifact-state-commit.mjs";
 import {
   WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES,
   WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES,
@@ -57,7 +57,6 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     now = () => new Date().toISOString(),
     notFound = defaultNotFound,
     runtimeError = defaultRuntimeError,
-    writeJson = defaultWriteJson,
     workspaceRestoreRunner,
   } = deps;
 
@@ -180,7 +179,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       created_at: createdAt,
     };
     store.codingArtifacts.set(artifactRecord.id, artifactRecord);
-    writeJson(store.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
+    commitRuntimeArtifactRecord(store, artifactRecord, "artifact.workspace_snapshot");
     return artifactRecord;
   }
 
@@ -801,7 +800,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
       created_at: createdAt,
     };
     store.codingArtifacts.set(artifactRecord.id, artifactRecord);
-    writeJson(store.pathFor("artifacts", `${artifactRecord.id}.json`), artifactRecord);
+    commitRuntimeArtifactRecord(store, artifactRecord, `artifact.${channel}`);
     return artifactRecord;
   }
 

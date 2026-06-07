@@ -114,6 +114,28 @@ function subagentCommitRequest() {
   };
 }
 
+function artifactCommitRequest() {
+  return {
+    schema_version: "ioi.runtime_artifact_state_commit.v1",
+    artifact_id: "artifact_1",
+    operation_kind: "artifact.coding_tool_draft",
+    storage_backend_ref: "storage://runtime-agentgres/local-json",
+    artifact: {
+      schema_version: "ioi.runtime.coding-tool-artifact.v1",
+      id: "artifact_1",
+      thread_id: "thread_1",
+      tool_name: "file.read",
+      tool_call_id: "tool_call_1",
+      channel: "stdout",
+      media_type: "text/plain",
+      receipt_id: "receipt_artifact",
+      content: "hello",
+      content_bytes: 5,
+      content_hash: "sha256:content",
+    },
+  };
+}
+
 test("runtime Agentgres runner sends runtime run-state commit bridge request", () => {
   const calls = [];
   const runner = new RustRuntimeAgentgresAdmissionRunner({
@@ -406,6 +428,66 @@ test("runtime Agentgres runner sends runtime subagent-state commit bridge reques
   assert.equal(result.subagent_id, "subagent_1");
   assert.equal(result.commit_hash, "sha256:subagent-commit");
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_subagent_state_commit"]);
+});
+
+test("runtime Agentgres runner sends runtime artifact-state commit bridge request", () => {
+  const calls = [];
+  const runner = new RustRuntimeAgentgresAdmissionRunner({
+    command: "mock-runtime-agentgres-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_agentgres_runtime_artifact_state_commit_command",
+            backend: RUST_AGENTGRES_STORAGE_BACKEND,
+            record: {
+              schema_version: "ioi.runtime_artifact_state_commit.v1",
+              artifact_id: "artifact_1",
+              operation_kind: "artifact.coding_tool_draft",
+              storage_backend_ref: "storage://runtime-agentgres/local-json",
+              record: {
+                record_path: "artifacts/artifact_1.json",
+                object_ref: "agentgres://runtime-state/artifacts/artifact_1/records/artifacts/artifact_1.json",
+                content_hash: "sha256:artifact-content",
+                payload_refs: ["payload://runtime/artifacts/artifact_1/records/artifacts/artifact_1.json"],
+                receipt_refs: ["receipt_artifact"],
+                admission: {
+                  admission_hash: "sha256:artifact-admission",
+                },
+              },
+              commit_hash: "sha256:artifact-commit",
+            },
+            artifact_id: "artifact_1",
+            object_ref: "agentgres://runtime-state/artifacts/artifact_1/records/artifacts/artifact_1.json",
+            content_hash: "sha256:artifact-content",
+            admission_hash: "sha256:artifact-admission",
+            commit_hash: "sha256:artifact-commit",
+            written_record: {
+              record_path: "artifacts/artifact_1.json",
+            },
+            evidence_refs: ["rust_agentgres_runtime_artifact_state_commit"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.commitRuntimeArtifactState("/runtime-state", artifactCommitRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "commit_runtime_artifact_state");
+  assert.equal(calls[0].request.backend, RUST_AGENTGRES_STORAGE_BACKEND);
+  assert.equal(calls[0].request.state_dir, "/runtime-state");
+  assert.equal(calls[0].request.request.artifact_id, "artifact_1");
+  assert.equal(result.artifact_id, "artifact_1");
+  assert.equal(result.commit_hash, "sha256:artifact-commit");
+  assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_artifact_state_commit"]);
 });
 
 test("runtime Agentgres runner requires explicit runtime admission command env", () => {

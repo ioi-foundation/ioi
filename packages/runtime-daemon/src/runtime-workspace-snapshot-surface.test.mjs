@@ -223,9 +223,15 @@ function previewOperation(workspaceRoot, file = {}) {
 
 function createStore(cwd = "/workspace") {
   const events = [];
+  const artifactCommits = [];
   return {
     codingArtifacts: new Map(),
     events,
+    artifactCommits,
+    commitRuntimeArtifactState(request) {
+      artifactCommits.push(request);
+      return fakeArtifactStateCommit(request);
+    },
     agentForThread(threadId) {
       assert.equal(threadId, "thread_alpha");
       return { id: "agent_alpha", cwd };
@@ -245,6 +251,42 @@ function createStore(cwd = "/workspace") {
     pathFor(...segments) {
       return path.join("/tmp/runtime-workspace-snapshots", ...segments);
     },
+  };
+}
+
+function fakeArtifactStateCommit(request) {
+  return {
+    source: "rust_agentgres_runtime_artifact_state_commit_command",
+    backend: "rust_agentgres_storage",
+    record: {
+      schema_version: "ioi.runtime_artifact_state_commit.v1",
+      artifact_id: request.artifact_id,
+      operation_kind: request.operation_kind,
+      storage_backend_ref: request.storage_backend_ref,
+      record: {
+        record_path: `artifacts/${request.artifact_id}.json`,
+        object_ref: `agentgres://runtime-state/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`,
+        content_hash: "sha256:artifact-content",
+        payload_refs: [`payload://runtime/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`],
+        receipt_refs: request.receipt_refs,
+        admission: { admission_hash: "sha256:artifact-admission" },
+      },
+      commit_hash: "sha256:artifact-commit",
+    },
+    storage_record: {
+      record_path: `artifacts/${request.artifact_id}.json`,
+      object_ref: `agentgres://runtime-state/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`,
+      content_hash: "sha256:artifact-content",
+      payload_refs: [`payload://runtime/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`],
+      receipt_refs: request.receipt_refs,
+      admission: { admission_hash: "sha256:artifact-admission" },
+    },
+    artifact_id: request.artifact_id,
+    object_ref: `agentgres://runtime-state/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`,
+    content_hash: "sha256:artifact-content",
+    admission_hash: "sha256:artifact-admission",
+    commit_hash: "sha256:artifact-commit",
+    written_record: { record_path: `artifacts/${request.artifact_id}.json` },
   };
 }
 
@@ -337,8 +379,12 @@ test("workspace snapshot surface prepares snapshots and persists content artifac
     assert.equal(Object.hasOwn(contentPayload, field), false);
   }
   assert.equal(store.codingArtifacts.get(snapshot.artifactRecord.id), snapshot.artifactRecord);
-  assert.equal(writes.length, 1);
-  assert.match(writes[0].filePath, /workspace_snapshot_tool_call_alpha_.*_content\.json$/);
+  assert.equal(writes.length, 0);
+  assert.equal(store.artifactCommits.length, 1);
+  assert.equal(store.artifactCommits[0].schema_version, "ioi.runtime_artifact_state_commit.v1");
+  assert.equal(store.artifactCommits[0].artifact_id, snapshot.artifactRecord.id);
+  assert.equal(store.artifactCommits[0].operation_kind, "artifact.workspace_snapshot");
+  assert.deepEqual(store.artifactCommits[0].receipt_refs, [snapshot.artifactRecord.receipt_id]);
 });
 
 test("workspace snapshot surface appends and lists snapshot events", () => {
@@ -493,7 +539,14 @@ test("workspace snapshot surface materializes restore artifacts and appends rest
   assert.equal(previewEvent.payload_schema_version, "ioi.runtime.workspace-restore-preview.v1");
   assert.equal(applyEvent.status, "blocked");
   assert.deepEqual(applyEvent.policy_decision_refs, ["policy_apply"]);
-  assert.equal(writes.length, 2);
+  assert.equal(writes.length, 0);
+  assert.equal(store.artifactCommits.length, 2);
+  assert.equal(store.artifactCommits[0].artifact_id, "artifact_preview");
+  assert.equal(store.artifactCommits[0].operation_kind, "artifact.restore-preview");
+  assert.deepEqual(store.artifactCommits[0].receipt_refs, ["receipt_preview"]);
+  assert.equal(store.artifactCommits[1].artifact_id, "artifact_apply");
+  assert.equal(store.artifactCommits[1].operation_kind, "artifact.restore-apply");
+  assert.deepEqual(store.artifactCommits[1].receipt_refs, ["receipt_apply"]);
 });
 
 test("workspace snapshot surface previews and applies snapshot restores", () => {

@@ -39,9 +39,15 @@ function createSurface(overrides = {}) {
 
 function createStore() {
   const events = [];
+  const artifactCommits = [];
   return {
     codingArtifacts: new Map(),
     events,
+    artifactCommits,
+    commitRuntimeArtifactState(request) {
+      artifactCommits.push(request);
+      return fakeArtifactStateCommit(request);
+    },
     appendRuntimeEvent(record) {
       const event = {
         ...record,
@@ -54,6 +60,42 @@ function createStore() {
     pathFor(...segments) {
       return path.join("/tmp/runtime-coding-tool-artifacts", ...segments);
     },
+  };
+}
+
+function fakeArtifactStateCommit(request) {
+  return {
+    source: "rust_agentgres_runtime_artifact_state_commit_command",
+    backend: "rust_agentgres_storage",
+    record: {
+      schema_version: "ioi.runtime_artifact_state_commit.v1",
+      artifact_id: request.artifact_id,
+      operation_kind: request.operation_kind,
+      storage_backend_ref: request.storage_backend_ref,
+      record: {
+        record_path: `artifacts/${request.artifact_id}.json`,
+        object_ref: `agentgres://runtime-state/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`,
+        content_hash: "sha256:artifact-content",
+        payload_refs: [`payload://runtime/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`],
+        receipt_refs: request.receipt_refs,
+        admission: { admission_hash: "sha256:artifact-admission" },
+      },
+      commit_hash: "sha256:artifact-commit",
+    },
+    storage_record: {
+      record_path: `artifacts/${request.artifact_id}.json`,
+      object_ref: `agentgres://runtime-state/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`,
+      content_hash: "sha256:artifact-content",
+      payload_refs: [`payload://runtime/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`],
+      receipt_refs: request.receipt_refs,
+      admission: { admission_hash: "sha256:artifact-admission" },
+    },
+    artifact_id: request.artifact_id,
+    object_ref: `agentgres://runtime-state/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`,
+    content_hash: "sha256:artifact-content",
+    admission_hash: "sha256:artifact-admission",
+    commit_hash: "sha256:artifact-commit",
+    written_record: { record_path: `artifacts/${request.artifact_id}.json` },
   };
 }
 
@@ -149,9 +191,13 @@ test("coding-tool artifact surface materializes drafts with stable artifact reco
   assert.equal(records[0].created_at, "2026-06-04T14:00:00.000Z");
   assertNoRetiredArtifactRecordAliases(records[0]);
   assert.equal(store.codingArtifacts.get(records[0].id), records[0]);
-  assert.equal(writes.length, 1);
-  assert.equal(writes[0].filePath, "/tmp/runtime-coding-tool-artifacts/artifacts/artifact_coding_tool_tool_call_alpha_stdout.json");
-  assertNoRetiredArtifactRecordAliases(writes[0].value);
+  assert.equal(writes.length, 0);
+  assert.equal(store.artifactCommits.length, 1);
+  assert.equal(store.artifactCommits[0].schema_version, "ioi.runtime_artifact_state_commit.v1");
+  assert.equal(store.artifactCommits[0].artifact_id, "artifact_coding_tool_tool_call_alpha_stdout");
+  assert.equal(store.artifactCommits[0].operation_kind, "artifact.coding_tool_draft");
+  assert.deepEqual(store.artifactCommits[0].receipt_refs, ["receipt_alpha"]);
+  assertNoRetiredArtifactRecordAliases(store.artifactCommits[0].artifact);
 });
 
 test("coding-tool artifact surface reads artifacts inside the owning thread", () => {
@@ -360,8 +406,12 @@ test("coding-tool artifact surface materializes visual GUI observation artifacts
   assert.equal(result.artifacts[0].content, Buffer.from([1, 2, 3]).toString("base64"));
   assert.equal(result.artifacts[0].source_path_included, false);
   assertNoRetiredArtifactRecordAliases(result.artifacts[0]);
-  assert.equal(writes.length, 1);
-  assertNoRetiredArtifactRecordAliases(writes[0].value);
+  assert.equal(writes.length, 0);
+  assert.equal(store.artifactCommits.length, 1);
+  assert.equal(store.artifactCommits[0].artifact_id, "artifact_computer_use_visual_tool_call_alpha_visual-gui-screenshot");
+  assert.equal(store.artifactCommits[0].operation_kind, "artifact.visual_observation");
+  assert.deepEqual(store.artifactCommits[0].receipt_refs, ["receipt_tool_call_alpha_visual-gui-screenshot"]);
+  assertNoRetiredArtifactRecordAliases(store.artifactCommits[0].artifact);
 });
 
 test("coding-tool artifact surface skips visual GUI paths with explicit refs", () => {
