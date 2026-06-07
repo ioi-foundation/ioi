@@ -31,8 +31,8 @@ test("approval request state runner sends Rust authority bridge request", () => 
             updated_at: "2026-06-06T04:30:00.000Z",
             operator_control: {
               control: "approval_request",
-              approvalId: "approval_alpha",
-              eventId: "event_approval",
+              approval_id: "approval_alpha",
+              event_id: "event_approval",
             },
             run: {
               id: "run_alpha",
@@ -41,8 +41,8 @@ test("approval request state runner sends Rust authority bridge request", () => 
               trace: {
                 approvalRequests: [
                   {
-                    approvalId: "approval_alpha",
-                    eventId: "event_approval",
+                    approval_id: "approval_alpha",
+                    event_id: "event_approval",
                   },
                 ],
               },
@@ -79,8 +79,11 @@ test("approval request state runner sends Rust authority bridge request", () => 
   assert.equal(result.source, "rust_approval_request_state_update_command");
   assert.equal(result.operation_kind, "approval.required");
   assert.equal(result.target_kind, "run");
-  assert.equal(result.operator_control.approvalId, "approval_alpha");
-  assert.equal(result.run.trace.approvalRequests[0].eventId, "event_approval");
+  assert.equal(result.operator_control.approval_id, "approval_alpha");
+  for (const field of ["approvalId", "eventId", "receiptRefs", "policyDecisionRefs", "createdAt"]) {
+    assert.equal(Object.hasOwn(result.operator_control, field), false);
+  }
+  assert.equal(result.run.trace.approvalRequests[0].event_id, "event_approval");
 });
 
 test("approval request state runner normalizes Rust agent target updates", () => {
@@ -102,8 +105,8 @@ test("approval request state runner normalizes Rust agent target updates", () =>
             updated_at: "2026-06-06T04:30:00.000Z",
             operator_control: {
               control: "approval_request",
-              approvalId: "approval_alpha",
-              eventId: "event_approval",
+              approval_id: "approval_alpha",
+              event_id: "event_approval",
             },
             run: null,
             agent: {
@@ -211,17 +214,17 @@ test("approval decision state runner sends Rust authority bridge request", () =>
             updated_at: "2026-06-06T04:35:00.000Z",
             operator_control: {
               control: "approval_decision",
-              approvalId: "approval_alpha",
-              leaseId: "lease_alpha",
-              eventId: "event_decision",
+              approval_id: "approval_alpha",
+              lease_id: "lease_alpha",
+              event_id: "event_decision",
             },
             run: {
               id: "run_alpha",
               trace: {
                 approvalDecisions: [
                   {
-                    approvalId: "approval_alpha",
-                    eventId: "event_decision",
+                    approval_id: "approval_alpha",
+                    event_id: "event_decision",
                   },
                 ],
               },
@@ -262,8 +265,19 @@ test("approval decision state runner sends Rust authority bridge request", () =>
   assert.equal(result.source, "rust_approval_decision_state_update_command");
   assert.equal(result.operation_kind, "approval.approve");
   assert.equal(result.target_kind, "run");
-  assert.equal(result.operator_control.leaseId, "lease_alpha");
-  assert.equal(result.run.trace.approvalDecisions[0].eventId, "event_decision");
+  assert.equal(result.operator_control.lease_id, "lease_alpha");
+  for (const field of [
+    "approvalId",
+    "leaseId",
+    "leaseStatus",
+    "eventId",
+    "receiptRefs",
+    "policyDecisionRefs",
+    "createdAt",
+  ]) {
+    assert.equal(Object.hasOwn(result.operator_control, field), false);
+  }
+  assert.equal(result.run.trace.approvalDecisions[0].event_id, "event_decision");
 });
 
 test("approval revoke state runner sends Rust authority bridge request", () => {
@@ -285,10 +299,10 @@ test("approval revoke state runner sends Rust authority bridge request", () => {
             updated_at: "2026-06-06T04:40:00.000Z",
             operator_control: {
               control: "approval_revoke",
-              approvalId: "approval_alpha",
-              leaseId: "lease_alpha",
-              leaseStatus: "revoked",
-              eventId: "event_revoke",
+              approval_id: "approval_alpha",
+              lease_id: "lease_alpha",
+              lease_status: "revoked",
+              event_id: "event_revoke",
             },
             run: {
               id: "run_alpha",
@@ -296,8 +310,8 @@ test("approval revoke state runner sends Rust authority bridge request", () => {
               trace: {
                 approvalRevocations: [
                   {
-                    approvalId: "approval_alpha",
-                    eventId: "event_revoke",
+                    approval_id: "approval_alpha",
+                    event_id: "event_revoke",
                   },
                 ],
               },
@@ -335,6 +349,17 @@ test("approval revoke state runner sends Rust authority bridge request", () => {
   assert.equal(result.source, "rust_approval_revoke_state_update_command");
   assert.equal(result.operation_kind, "approval.revoke");
   assert.equal(result.target_kind, "run");
-  assert.equal(result.operator_control.leaseStatus, "revoked");
-  assert.equal(result.run.trace.approvalRevocations[0].eventId, "event_revoke");
+  assert.equal(result.operator_control.lease_status, "revoked");
+  for (const field of [
+    "approvalId",
+    "leaseId",
+    "leaseStatus",
+    "eventId",
+    "receiptRefs",
+    "policyDecisionRefs",
+    "createdAt",
+  ]) {
+    assert.equal(Object.hasOwn(result.operator_control, field), false);
+  }
+  assert.equal(result.run.trace.approvalRevocations[0].event_id, "event_revoke");
 });

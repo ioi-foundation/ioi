@@ -7711,10 +7711,20 @@ mod tests {
         assert_eq!(response["backend"], "rust_authority");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "approval.required");
-        assert_eq!(response["operator_control"]["approvalId"], "approval_alpha");
+        assert_eq!(
+            response["operator_control"]["approval_id"],
+            "approval_alpha"
+        );
+        assert!(response["operator_control"].get("approvalId").is_none());
+        assert!(response["operator_control"].get("eventId").is_none());
+        assert!(response["operator_control"].get("receiptRefs").is_none());
+        assert!(response["operator_control"]
+            .get("policyDecisionRefs")
+            .is_none());
+        assert!(response["operator_control"].get("createdAt").is_none());
         assert_eq!(response["run"]["status"], "blocked");
         assert_eq!(
-            response["run"]["trace"]["approvalRequests"][0]["eventId"],
+            response["run"]["trace"]["approvalRequests"][0]["event_id"],
             "event_approval"
         );
     }
@@ -7806,9 +7816,18 @@ mod tests {
         assert_eq!(response["backend"], "rust_authority");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "approval.approve");
-        assert_eq!(response["operator_control"]["leaseId"], "lease_alpha");
+        assert_eq!(response["operator_control"]["lease_id"], "lease_alpha");
+        assert!(response["operator_control"].get("approvalId").is_none());
+        assert!(response["operator_control"].get("leaseId").is_none());
+        assert!(response["operator_control"].get("leaseStatus").is_none());
+        assert!(response["operator_control"].get("eventId").is_none());
+        assert!(response["operator_control"].get("receiptRefs").is_none());
+        assert!(response["operator_control"]
+            .get("policyDecisionRefs")
+            .is_none());
+        assert!(response["operator_control"].get("createdAt").is_none());
         assert_eq!(
-            response["run"]["trace"]["approvalDecisions"][0]["eventId"],
+            response["run"]["trace"]["approvalDecisions"][0]["event_id"],
             "event_decision"
         );
     }
@@ -7852,10 +7871,19 @@ mod tests {
         assert_eq!(response["backend"], "rust_authority");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "approval.revoke");
-        assert_eq!(response["operator_control"]["leaseStatus"], "revoked");
+        assert_eq!(response["operator_control"]["lease_status"], "revoked");
+        assert!(response["operator_control"].get("approvalId").is_none());
+        assert!(response["operator_control"].get("leaseId").is_none());
+        assert!(response["operator_control"].get("leaseStatus").is_none());
+        assert!(response["operator_control"].get("eventId").is_none());
+        assert!(response["operator_control"].get("receiptRefs").is_none());
+        assert!(response["operator_control"]
+            .get("policyDecisionRefs")
+            .is_none());
+        assert!(response["operator_control"].get("createdAt").is_none());
         assert_eq!(response["run"]["turnStatus"], "waiting_for_input");
         assert_eq!(
-            response["run"]["trace"]["approvalRevocations"][0]["eventId"],
+            response["run"]["trace"]["approvalRevocations"][0]["event_id"],
             "event_revoke"
         );
     }

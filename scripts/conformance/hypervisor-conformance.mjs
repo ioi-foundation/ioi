@@ -3050,6 +3050,14 @@ function runBridge() {
       /APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /rust_authority_plans_approval_request_state_update/.test(approvalCore) &&
       /rust_authority_plans_approval_request_agent_state_update/.test(approvalCore) &&
+      /"approval_id": approval_id/.test(approvalCore) &&
+      /"event_id": request\.event_id/.test(approvalCore) &&
+      /"receipt_refs": request\.receipt_refs\.clone\(\)/.test(approvalCore) &&
+      /"policy_decision_refs": request\.policy_decision_refs\.clone\(\)/.test(approvalCore) &&
+      /"created_at": request\.created_at/.test(approvalCore) &&
+      !/"approvalId": approval_id|"eventId": request\.event_id|"receiptRefs": request\.receipt_refs|"policyDecisionRefs": request\.policy_decision_refs|"createdAt": request\.created_at/.test(
+        approvalCore,
+      ) &&
       /plan_approval_request_state_update/.test(bridgeModule) &&
       /ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_approval_request_state_update_command/.test(bridgeModule) &&
@@ -3057,6 +3065,8 @@ function runBridge() {
       /bridge_plans_approval_request_agent_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
+      /response\["operator_control"\]\["approval_id"\]/.test(bridgeModule) &&
+      /response\["operator_control"\]\.get\("approvalId"\)\.is_none\(\)/.test(bridgeModule) &&
       /createRuntimeApprovalStateRunnerFromEnv/.test(runtimeApprovalStateRunner) &&
       /RustRuntimeApprovalStateRunner/.test(runtimeApprovalStateRunner) &&
       /planApprovalRequestStateUpdate/.test(runtimeApprovalStateRunner) &&
@@ -3064,6 +3074,10 @@ function runBridge() {
         runtimeApprovalStateRunnerTest,
       ) &&
       /approval request state runner normalizes Rust agent target updates/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
+      /result\.operator_control\.approval_id/.test(runtimeApprovalStateRunnerTest) &&
+      /Object\.hasOwn\(result\.operator_control,\s*field\),\s*false/.test(
         runtimeApprovalStateRunnerTest,
       ) &&
       /approval request state runner fails closed without bridge command/.test(
@@ -3116,10 +3130,18 @@ function runBridge() {
       /APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /rust_authority_plans_approval_decision_state_update/.test(approvalCore) &&
       /rust_authority_plans_approval_decision_agent_state_update/.test(approvalCore) &&
+      /"approval_id": approval_id/.test(approvalCore) &&
+      /"lease_id": lease_id/.test(approvalCore) &&
+      /"lease_status": lease_status/.test(approvalCore) &&
+      !/"approvalId": approval_id|"leaseId": lease_id|"leaseStatus": lease_status/.test(
+        approvalCore,
+      ) &&
       /plan_approval_decision_state_update/.test(bridgeModule) &&
       /ApprovalDecisionStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_approval_decision_state_update_command/.test(bridgeModule) &&
       /bridge_plans_approval_decision_state_update_through_rust_core/.test(bridgeModule) &&
+      /response\["operator_control"\]\["lease_id"\]/.test(bridgeModule) &&
+      /response\["operator_control"\]\.get\("leaseId"\)\.is_none\(\)/.test(bridgeModule) &&
       /planApprovalDecisionStateUpdate/.test(runtimeApprovalStateRunner) &&
       /APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeApprovalStateRunner,
@@ -3127,6 +3149,7 @@ function runBridge() {
       /approval decision state runner sends Rust authority bridge request/.test(
         runtimeApprovalStateRunnerTest,
       ) &&
+      /result\.operator_control\.lease_id/.test(runtimeApprovalStateRunnerTest) &&
       /approval state runner fails closed without Rust-planned operation kinds/.test(
         runtimeApprovalStateRunnerTest,
       ) &&
@@ -3176,10 +3199,18 @@ function runBridge() {
       /APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /rust_authority_plans_approval_revoke_state_update/.test(approvalCore) &&
       /rust_authority_plans_approval_revoke_agent_state_update/.test(approvalCore) &&
+      /"approval_id": approval_id/.test(approvalCore) &&
+      /"lease_id": lease_id/.test(approvalCore) &&
+      /"lease_status": "revoked"/.test(approvalCore) &&
+      !/"approvalId": approval_id|"leaseId": lease_id|"leaseStatus": "revoked"/.test(
+        approvalCore,
+      ) &&
       /plan_approval_revoke_state_update/.test(bridgeModule) &&
       /ApprovalRevokeStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_approval_revoke_state_update_command/.test(bridgeModule) &&
       /bridge_plans_approval_revoke_state_update_through_rust_core/.test(bridgeModule) &&
+      /response\["operator_control"\]\["lease_status"\]/.test(bridgeModule) &&
+      /response\["operator_control"\]\.get\("leaseStatus"\)\.is_none\(\)/.test(bridgeModule) &&
       /planApprovalRevokeStateUpdate/.test(runtimeApprovalStateRunner) &&
       /APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeApprovalStateRunner,
@@ -3187,6 +3218,7 @@ function runBridge() {
       /approval revoke state runner sends Rust authority bridge request/.test(
         runtimeApprovalStateRunnerTest,
       ) &&
+      /result\.operator_control\.lease_status/.test(runtimeApprovalStateRunnerTest) &&
       /approval state runner fails closed without Rust-planned operation kinds/.test(
         runtimeApprovalStateRunnerTest,
       ) &&

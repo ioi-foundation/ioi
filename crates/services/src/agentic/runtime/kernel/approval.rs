@@ -430,15 +430,15 @@ impl ApprovalRequestStateUpdateCore {
         let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
         let operator_control = json!({
             "control": "approval_request",
-            "approvalId": approval_id,
+            "approval_id": approval_id,
             "status": "waiting_for_approval",
             "source": source,
             "reason": reason,
-            "eventId": request.event_id,
+            "event_id": request.event_id,
             "seq": request.seq,
-            "receiptRefs": request.receipt_refs.clone(),
-            "policyDecisionRefs": request.policy_decision_refs.clone(),
-            "createdAt": request.created_at,
+            "receipt_refs": request.receipt_refs.clone(),
+            "policy_decision_refs": request.policy_decision_refs.clone(),
+            "created_at": request.created_at,
         });
         let (run, agent) = if target_kind == "run" {
             let mut run = object_value(&request.run)
@@ -525,18 +525,18 @@ impl ApprovalDecisionStateUpdateCore {
         let reason = optional_trimmed(request.reason.as_deref());
         let operator_control = json!({
             "control": "approval_decision",
-            "approvalId": approval_id,
-            "leaseId": lease_id,
-            "leaseStatus": lease_status,
+            "approval_id": approval_id,
+            "lease_id": lease_id,
+            "lease_status": lease_status,
             "decision": decision,
             "status": status,
             "source": source,
             "reason": reason,
-            "eventId": request.event_id,
+            "event_id": request.event_id,
             "seq": request.seq,
-            "receiptRefs": request.receipt_refs.clone(),
-            "policyDecisionRefs": request.policy_decision_refs.clone(),
-            "createdAt": request.created_at,
+            "receipt_refs": request.receipt_refs.clone(),
+            "policy_decision_refs": request.policy_decision_refs.clone(),
+            "created_at": request.created_at,
         });
         let (run, agent) = if target_kind == "run" {
             let mut run = object_value(&request.run)
@@ -614,18 +614,18 @@ impl ApprovalRevokeStateUpdateCore {
         let reason = optional_trimmed(request.reason.as_deref());
         let operator_control = json!({
             "control": "approval_revoke",
-            "approvalId": approval_id,
-            "leaseId": lease_id,
-            "leaseStatus": "revoked",
+            "approval_id": approval_id,
+            "lease_id": lease_id,
+            "lease_status": "revoked",
             "decision": "revoke",
             "status": "revoked",
             "source": source,
             "reason": reason,
-            "eventId": request.event_id,
+            "event_id": request.event_id,
             "seq": request.seq,
-            "receiptRefs": request.receipt_refs.clone(),
-            "policyDecisionRefs": request.policy_decision_refs.clone(),
-            "createdAt": request.created_at,
+            "receipt_refs": request.receipt_refs.clone(),
+            "policy_decision_refs": request.policy_decision_refs.clone(),
+            "created_at": request.created_at,
         });
         let (run, agent) = if target_kind == "run" {
             let mut run = object_value(&request.run)
@@ -1119,7 +1119,7 @@ fn object_value(value: &Value) -> Option<serde_json::Map<String, Value>> {
 }
 
 fn append_operator_control(existing: Option<&Value>, control: &Value) -> Value {
-    let control_event_id = control.get("eventId").and_then(Value::as_str);
+    let control_event_id = control.get("event_id").and_then(Value::as_str);
     let mut entries = existing
         .and_then(Value::as_array)
         .cloned()
@@ -1127,7 +1127,7 @@ fn append_operator_control(existing: Option<&Value>, control: &Value) -> Value {
     let exists = control_event_id.is_some_and(|event_id| {
         entries
             .iter()
-            .any(|entry| entry.get("eventId").and_then(Value::as_str) == Some(event_id))
+            .any(|entry| entry.get("event_id").and_then(Value::as_str) == Some(event_id))
     });
     if !exists {
         entries.push(control.clone());
@@ -1370,15 +1370,20 @@ mod tests {
         assert_eq!(record.operation_kind, "approval.required");
         assert_eq!(record.target_kind, "run");
         assert_eq!(record.operator_control["control"], "approval_request");
-        assert_eq!(record.operator_control["approvalId"], "approval_alpha");
+        assert_eq!(record.operator_control["approval_id"], "approval_alpha");
+        assert!(record.operator_control.get("approvalId").is_none());
+        assert!(record.operator_control.get("eventId").is_none());
+        assert!(record.operator_control.get("receiptRefs").is_none());
+        assert!(record.operator_control.get("policyDecisionRefs").is_none());
+        assert!(record.operator_control.get("createdAt").is_none());
         assert_eq!(record.run["status"], "blocked");
         assert_eq!(record.run["turnStatus"], "waiting_for_approval");
         assert_eq!(
-            record.run["trace"]["approvalRequests"][0]["eventId"],
+            record.run["trace"]["approvalRequests"][0]["event_id"],
             "event_approval"
         );
         assert_eq!(
-            record.run["operatorControls"][0]["receiptRefs"][0],
+            record.run["operatorControls"][0]["receipt_refs"][0],
             "receipt_approval"
         );
     }
@@ -1440,14 +1445,21 @@ mod tests {
         assert_eq!(record.operation_kind, "approval.approve");
         assert_eq!(record.target_kind, "run");
         assert_eq!(record.operator_control["control"], "approval_decision");
-        assert_eq!(record.operator_control["leaseId"], "lease_alpha");
+        assert_eq!(record.operator_control["lease_id"], "lease_alpha");
+        assert!(record.operator_control.get("approvalId").is_none());
+        assert!(record.operator_control.get("leaseId").is_none());
+        assert!(record.operator_control.get("leaseStatus").is_none());
+        assert!(record.operator_control.get("eventId").is_none());
+        assert!(record.operator_control.get("receiptRefs").is_none());
+        assert!(record.operator_control.get("policyDecisionRefs").is_none());
+        assert!(record.operator_control.get("createdAt").is_none());
         assert_eq!(record.run["turnStatus"], "waiting_for_approval");
         assert_eq!(
-            record.run["trace"]["approvalDecisions"][0]["eventId"],
+            record.run["trace"]["approvalDecisions"][0]["event_id"],
             "event_decision"
         );
         assert_eq!(
-            record.run["operatorControls"][0]["receiptRefs"][0],
+            record.run["operatorControls"][0]["receipt_refs"][0],
             "receipt_decision"
         );
     }
@@ -1489,7 +1501,8 @@ mod tests {
             .expect("approval reject state update");
 
         assert_eq!(record.operation_kind, "approval.reject");
-        assert_eq!(record.operator_control["leaseStatus"], "denied");
+        assert_eq!(record.operator_control["lease_status"], "denied");
+        assert!(record.operator_control.get("leaseStatus").is_none());
         assert_eq!(record.run["turnStatus"], "waiting_for_input");
     }
 
@@ -1525,18 +1538,25 @@ mod tests {
         assert_eq!(record.operation_kind, "approval.revoke");
         assert_eq!(record.target_kind, "run");
         assert_eq!(record.operator_control["control"], "approval_revoke");
-        assert_eq!(record.operator_control["leaseStatus"], "revoked");
+        assert_eq!(record.operator_control["lease_status"], "revoked");
+        assert!(record.operator_control.get("approvalId").is_none());
+        assert!(record.operator_control.get("leaseId").is_none());
+        assert!(record.operator_control.get("leaseStatus").is_none());
+        assert!(record.operator_control.get("eventId").is_none());
+        assert!(record.operator_control.get("receiptRefs").is_none());
+        assert!(record.operator_control.get("policyDecisionRefs").is_none());
+        assert!(record.operator_control.get("createdAt").is_none());
         assert_eq!(record.run["turnStatus"], "waiting_for_input");
         assert_eq!(
-            record.run["trace"]["approvalRevocations"][0]["eventId"],
+            record.run["trace"]["approvalRevocations"][0]["event_id"],
             "event_revoke"
         );
         assert_eq!(
-            record.run["approvalDecisions"][0]["receiptRefs"][0],
+            record.run["approvalDecisions"][0]["receipt_refs"][0],
             "receipt_revoke"
         );
         assert_eq!(
-            record.run["operatorControls"][0]["policyDecisionRefs"][0],
+            record.run["operatorControls"][0]["policy_decision_refs"][0],
             "policy_revoke"
         );
     }

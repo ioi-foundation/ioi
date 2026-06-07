@@ -13136,6 +13136,14 @@ approval request, decision, and revoke payloads now emit and read canonical
 camelCase payload metadata can no longer duplicate approval-gate truth before
 Rust authority state planning.
 
+Slice 496 retires Rust approval-control bridge metadata aliases:
+Rust approval request, decision, and revoke state planners now emit canonical
+`approval_id`, `lease_id`, `lease_status`, `event_id`, `receipt_refs`,
+`policy_decision_refs`, and `created_at` inside Rust-planned
+`operator_control` records; retired camelCase approval-control metadata can no
+longer leave the Rust authority bridge as a parallel result ABI before daemon
+state persistence.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
