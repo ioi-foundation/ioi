@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after MCP facade-retirement slices 550-552 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after thread-control facade-retirement slices 553-565 clarified the active seam.
 
 ## Purpose
 
@@ -38,7 +38,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; the first scheduled compaction pass ran on 2026-06-07 after IDE computer-use projection facade-retirement slices clarified the seam, and the second ran on 2026-06-07 after MCP facade-retirement slices clarified the seam, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, and thread-control/coding-tool detail facade-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -90,6 +90,13 @@ Matrix compaction timing:
   bridge-scaffolding guardrail, current sprint lane, and the MCP distinction
   between IOI-owned snake_case governance fields and MCP protocol-required
   camelCase fields such as `inputSchema` and `serverInfo`.
+- Third scheduled pass completed on 2026-06-07: the expanded subagent, memory,
+  runtime read facade, coding-tool, workflow-edit, and thread-control evidence
+  after slices 553-565 was compacted into route-family ranges while preserving
+  the live owner map, terminal blockers, bridge-scaffolding guardrail, current
+  sprint lane, and the proof that fail-closed details now expose canonical
+  snake_case fields without retired camelCase aliases at the migrated facade
+  boundary.
 
 ## Implementation Slice 0
 
@@ -11167,7 +11174,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 565 and the second 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 565 and the third 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -11250,71 +11257,18 @@ reconstruct the active seam without carrying every per-slice paragraph.
   protocol-required fields such as `inputSchema` and `serverInfo` remain
   protocol transport fields, not IOI compatibility shims or authority paths.
 
-Slice 553 retires subagent budget/status/output-contract helper aliases:
-subagent manager budget normalization now consumes canonical budget cap fields
-only, budget status and policy-decision envelopes emit canonical snake_case
-fields only, and output-contract helpers ignore retired `requiredSections` while
-emitting canonical `required_sections`, `present_sections`, `missing_sections`,
-and `validated_at` fields.
-
-Slice 554 retires subagent result/lifecycle record input aliases: subagent
-manager result helpers now read canonical `subagent_id`, `agent_id`, `run_id`,
-`lifecycle_status`, `budget_status`, and `receipt_refs` fields only, and
-lifecycle/cancellation helpers ignore retired `lifecycleStatus` and
-`cancellationInheritance` record aliases.
-
-Slice 555 retires runtime memory mutation event canonicalizer aliases:
-memory-update event construction now reads canonical memory record/policy fields
-only for schema, identity, target, workflow, timestamp, and evidence metadata
-before the compositor sees the projection payload.
-
-Slice 556 retires runtime TTI envelope input aliases: daemon event envelopes now
-read canonical `event_kind`, workflow, tool-call, approval, and rollback fields
-when constructing source-event and projection metadata, rather than accepting
-retired camelCase event data aliases.
-
-Slice 557 retires runtime usage-list read aliases: run-read usage list requests
-now consume canonical `agent_id` and `group_by` only, and subagent usage list
-filtering reads canonical `parent_thread_id` records without the retired
-`parentThreadId` persisted-record fallback.
-
-Slice 558 retires runtime task/job read aliases: task/job listing reads consume
-canonical `agent_id` only, retired `agentId` list filters remain ignored, and
-task/job not-found details expose canonical `task_id`/`job_id` without the
-retired `taskId`/`jobId` detail aliases.
-
-Slice 559 retires the public runtime run-list query alias: `/v1/runs` now
-forwards canonical `agent_id` only, and retired `agentId` query parameters are
-ignored before the request reaches the daemon run-list facade.
-
-Slice 560 retires coding-tool artifact error detail aliases: artifact reads,
-cross-thread blocks, missing retrieve targets, and missing tool-result artifact
-errors now expose canonical `thread_id`, `artifact_id`, `owner_thread_id`, and
-`tool_call_id` details without retired camelCase detail aliases.
-
-Slice 561 retires coding-tool invocation artifact error detail aliases:
-artifact.read and tool.retrieve_result fail-closed invocation errors now expose
-canonical `thread_id` and `tool_id` details without retired camelCase detail
-aliases.
-
-Slice 562 retires coding-tool invocation not-found error detail aliases: unknown
-tool fail-closed details now expose canonical `thread_id` and `tool_id` without
-retired camelCase detail aliases.
-
-Slice 563 retires coding-tool budget-recovery fail-closed detail aliases:
-Rust-planning failures and run/thread compatibility-boundary errors now expose
-canonical `thread_id`, `run_id`, `operation_kind`, and
-`expected_operation_kind` details without retired camelCase aliases.
-
-Slice 564 retires workflow-edit apply fail-closed detail aliases: missing
-proposal ids and missing proposal events now expose canonical `thread_id`
-details without retired `threadId` aliases.
-
-Slice 565 retires thread-control Rust-planning fail-closed detail aliases:
-planner-unavailable, invalid-agent, missing-operation-kind, and
-operation-kind-mismatch errors now expose canonical `thread_id`,
-`control_kind`, `operation_kind`, and `expected_operation_kind` details without
-retired camelCase aliases.
+- Slices 553-559 retired subagent budget/status/output-contract helper aliases,
+  subagent result/lifecycle input aliases, runtime memory mutation and TTI
+  event-envelope aliases, runtime usage-list aliases, runtime task/job read
+  aliases, and the public runtime run-list query alias so those facade and
+  compositor surfaces consume canonical snake_case request, record, event,
+  identity, budget, receipt, and not-found detail fields only.
+- Slices 560-565 retired coding-tool artifact, invocation, unknown-tool, and
+  budget-recovery fail-closed detail aliases, plus workflow-edit apply and
+  thread-control Rust-planning fail-closed detail aliases, so migrated facade
+  errors expose canonical `thread_id`, `tool_id`, `artifact_id`, `run_id`,
+  `control_kind`, `operation_kind`, and `expected_operation_kind` fields without
+  retired camelCase detail aliases.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
