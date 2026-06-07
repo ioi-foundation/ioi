@@ -9430,12 +9430,29 @@ function runReceipts() {
       /evidenceRefs:\s*normalizeScopes\(body\.evidence_refs,\s*existing\.discovery\?\.evidenceRefs/.test(
         providerUpsertBlock,
       ) &&
+      /commitProviderRecordState\(state,\s*provider,\s*"model_mount\.provider\.write",\s*\[\]\)/.test(
+        providerUpsertBlock,
+      ) &&
+      /recordDir:\s*"model-providers"/.test(providerOperations) &&
+      /model_mount\.provider\.health_update/.test(providerOperations) &&
+      /model_mount\.provider\.start/.test(providerOperations) &&
+      /model_mount\.provider\.stop/.test(providerOperations) &&
+      /model_mount_provider_state_commit_unconfigured/.test(providerOperations) &&
+      !/state\.writeMap\("model-providers"/.test(providerOperations) &&
       !/body\.(?:authScheme|authHeaderName|apiFormat|baseUrl|privacyClass|evidenceRefs)\b/.test(
         providerUpsertBlock,
+      ) &&
+      /provider upsert fails closed without Rust Agentgres provider record-state commit/.test(
+        providerOperationsTest,
       ) &&
       /provider upsert rejects retired request aliases before vault resolution or state write/.test(
         providerOperationsTest,
       ) &&
+      /recordStateCommits/.test(providerOperationsTest) &&
+      /model_mount\.provider\.write/.test(providerOperationsTest) &&
+      /model_mount\.provider\.health_update/.test(providerOperationsTest) &&
+      /model_mount\.provider\.start/.test(providerOperationsTest) &&
+      /model_mount\.provider\.stop/.test(providerOperationsTest) &&
       /retired_aliases,\s*\[\s*"authScheme"\s*,\s*"authHeaderName"\s*,\s*"apiFormat"\s*,\s*"baseUrl"\s*,\s*"privacyClass"\s*,\s*"evidenceRefs"\s*,?\s*\]/.test(
         providerOperationsTest,
       ) &&

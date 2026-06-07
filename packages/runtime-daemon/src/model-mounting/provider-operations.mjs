@@ -1,5 +1,6 @@
 import { runtimeError } from "./io.mjs";
 import { modelMountProviderKindRequiresRustInstanceLifecycle } from "./model-instance-lifecycle.mjs";
+import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
 const RETIRED_PROVIDER_UPSERT_REQUEST_ALIASES = [
   "authScheme",
@@ -18,10 +19,6 @@ const CANONICAL_PROVIDER_UPSERT_REQUEST_FIELDS = [
   "privacy_class",
   "evidence_refs",
 ];
-
-const RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION =
-  "ioi.runtime_model_mount_record_state_commit.v1";
-const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
 
 export function upsertProvider(state, body = {}, deps = {}) {
   const {
@@ -63,8 +60,8 @@ export function upsertProvider(state, body = {}, deps = {}) {
     authScheme,
     authHeaderName,
   };
+  commitProviderRecordState(state, provider, "model_mount.provider.write", []);
   state.providers.set(provider.id, provider);
-  state.writeMap("model-providers", state.providers);
   return publicProvider(provider);
 }
 
@@ -141,8 +138,7 @@ export async function providerHealth(state, providerId, deps = {}) {
         ...(driverResult.publicCli ? { publicCli: driverResult.publicCli } : {}),
       },
     };
-    state.providers.set(providerId, updated);
-    state.writeMap("model-providers", state.providers);
+    commitProviderRecordState(state, updated, "model_mount.provider.health_update", [receipt.id]);
     commitProviderHealthStateRecord(state, {
       id: `health.${safeId(providerId)}`,
       providerId,
@@ -151,6 +147,7 @@ export async function providerHealth(state, providerId, deps = {}) {
       receiptId: receipt.id,
       evidenceRefs: driverResult.evidenceRefs ?? [],
     });
+    state.providers.set(providerId, updated);
     state.writeProjection();
     return publicProvider(updated, providerHasVaultRef(updated) ? state.vault.vaultRefMetadata(updated.secretRef) : null);
   } catch (error) {
@@ -167,6 +164,7 @@ export async function providerHealth(state, providerId, deps = {}) {
 function isModelMountRecordStateCommitError(error) {
   return typeof error?.code === "string" && (
     error.code.startsWith("model_mount_record_state_commit") ||
+    error.code.startsWith("model_mount_provider_state_commit") ||
     error.code.startsWith("model_mount_provider_health_state_commit")
   );
 }
@@ -218,8 +216,7 @@ function providerHealthFailure(state, provider, providerId, error, deps) {
       },
     },
   };
-  state.providers.set(providerId, updated);
-  state.writeMap("model-providers", state.providers);
+  commitProviderRecordState(state, updated, "model_mount.provider.health_update", [receipt.id]);
   commitProviderHealthStateRecord(state, {
     id: `health.${safeId(providerId)}`,
     providerId,
@@ -230,6 +227,7 @@ function providerHealthFailure(state, provider, providerId, error, deps) {
     failureStatus: error?.status ?? 500,
     evidenceRefs,
   });
+  state.providers.set(providerId, updated);
   state.writeProjection();
   error.details = {
     provider_id: providerId,
@@ -250,59 +248,34 @@ function providerHealthFailure(state, provider, providerId, error, deps) {
 }
 
 function commitProviderHealthStateRecord(state, record) {
-  if (typeof state.commitRuntimeModelMountRecordState !== "function") {
-    const error = new Error("Model-mount provider health persistence requires Rust Agentgres record-state commit.");
-    error.status = 500;
-    error.code = "model_mount_provider_health_state_commit_unconfigured";
-    error.details = {
-      provider_id: record?.providerId ?? null,
-      receipt_id: record?.receiptId ?? null,
-    };
-    throw error;
-  }
-  return normalizeModelMountRecordStateCommit(state.commitRuntimeModelMountRecordState({
-    schema_version: RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION,
-    record_dir: "provider-health",
-    record_id: record.id,
-    operation_kind: "model_mount.provider_health.write",
-    storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
+  return commitModelMountRecordState(state, {
+    recordDir: "provider-health",
     record,
-    receipt_refs: [record.receiptId],
-  }));
+    operationKind: "model_mount.provider_health.write",
+    receiptRefs: [record.receiptId],
+    unconfiguredCode: "model_mount_provider_health_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Model-mount provider health persistence requires Rust Agentgres record-state commit.",
+    unconfiguredDetails: {
+      provider_id: record?.providerId ?? null,
+    },
+  });
 }
 
-function normalizeModelMountRecordStateCommit(value = {}) {
-  const commit = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const storageRecord = commit.storage_record && typeof commit.storage_record === "object"
-    ? commit.storage_record
-    : commit.record?.record ?? {};
-  const required = {
-    record_id: commit.record_id ?? commit.record?.record_id,
-    object_ref: commit.object_ref ?? storageRecord.object_ref,
-    content_hash: commit.content_hash ?? storageRecord.content_hash,
-    admission_hash: commit.admission_hash ?? storageRecord.admission?.admission_hash,
-    commit_hash: commit.commit_hash ?? commit.record?.commit_hash,
-    written_record: commit.written_record,
-  };
-  for (const [field, fieldValue] of Object.entries(required)) {
-    if (!fieldValue) {
-      const error = new Error(`Rust model-mount record state commit returned without ${field}.`);
-      error.status = 502;
-      error.code = "model_mount_record_state_commit_invalid";
-      error.details = { field };
-      throw error;
-    }
-  }
-  return {
-    ...commit,
-    storage_record: storageRecord,
-    record_id: required.record_id,
-    object_ref: required.object_ref,
-    content_hash: required.content_hash,
-    admission_hash: required.admission_hash,
-    commit_hash: required.commit_hash,
-    written_record: required.written_record,
-  };
+function commitProviderRecordState(state, record, operationKind, receiptRefs) {
+  return commitModelMountRecordState(state, {
+    recordDir: "model-providers",
+    record,
+    operationKind,
+    receiptRefs,
+    unconfiguredCode: "model_mount_provider_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Model provider persistence requires Rust Agentgres record-state commit.",
+    unconfiguredDetails: {
+      provider_id: record?.id ?? null,
+      provider_kind: record?.kind ?? null,
+    },
+  });
 }
 
 function providerLifecycleReceiptFields(lifecycle) {
@@ -389,9 +362,7 @@ export async function startProvider(state, providerId, deps = {}) {
       },
     },
   };
-  state.providers.set(providerId, updated);
-  state.writeMap("model-providers", state.providers);
-  state.lifecycleReceipt("provider_start", {
+  const receipt = state.lifecycleReceipt("provider_start", {
     provider_id: providerId,
     provider_kind: provider.kind,
     model_id: provider.label,
@@ -399,6 +370,8 @@ export async function startProvider(state, providerId, deps = {}) {
     evidence_refs: result.evidenceRefs ?? [],
     ...providerLifecycleReceiptFields(result.model_mount_provider_lifecycle),
   });
+  commitProviderRecordState(state, updated, "model_mount.provider.start", [receipt.id]);
+  state.providers.set(providerId, updated);
   return publicProvider(updated);
 }
 
@@ -422,9 +395,7 @@ export async function stopProvider(state, providerId, deps = {}) {
       },
     },
   };
-  state.providers.set(providerId, updated);
-  state.writeMap("model-providers", state.providers);
-  state.lifecycleReceipt("provider_stop", {
+  const receipt = state.lifecycleReceipt("provider_stop", {
     provider_id: providerId,
     provider_kind: provider.kind,
     model_id: provider.label,
@@ -432,6 +403,8 @@ export async function stopProvider(state, providerId, deps = {}) {
     evidence_refs: result.evidenceRefs ?? [],
     ...providerLifecycleReceiptFields(result.model_mount_provider_lifecycle),
   });
+  commitProviderRecordState(state, updated, "model_mount.provider.stop", [receipt.id]);
+  state.providers.set(providerId, updated);
   return publicProvider(updated);
 }
 
