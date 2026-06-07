@@ -13103,6 +13103,12 @@ function runCompositor() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
+  const skillHookCatalog = exists("packages/runtime-daemon/src/skill-hook-catalog.mjs")
+    ? read("packages/runtime-daemon/src/skill-hook-catalog.mjs")
+    : "";
+  const skillHookCatalogTest = exists("packages/runtime-daemon/src/skill-hook-catalog.test.mjs")
+    ? read("packages/runtime-daemon/src/skill-hook-catalog.test.mjs")
+    : "";
   const conversationArtifacts = exists("packages/runtime-daemon/src/conversation-artifacts.mjs")
     ? read("packages/runtime-daemon/src/conversation-artifacts.mjs")
     : "";
@@ -14547,6 +14553,31 @@ function runCompositor() {
       /WorkflowCompositorAcceptedTruthForbidden/.test(projectionCore),
     ["crates/services/src/agentic/runtime/kernel/projection.rs"],
     "Phase 11 is pending: compositor must be unable to create accepted truth directly",
+  );
+  assertCheck(
+    result,
+    "runtime-skill-hook-governance-aliases-retired",
+    /record\.event_kinds \?\? record\.events \?\? record\.subscribe \?\? record\.subscriptions/.test(
+      skillHookCatalog,
+    ) &&
+      /record\.authority_scopes \?\? record\.capabilities/.test(skillHookCatalog) &&
+      /record\.tool_contracts \?\? record\.tools/.test(skillHookCatalog) &&
+      /record\.failure_policy \?\? record\.on_failure \?\? record\.onFailure/.test(skillHookCatalog) &&
+      /optionalString\(record\.side_effect_class\)/.test(skillHookCatalog) &&
+      !/record\.(?:eventKinds|authorityScopes|toolContracts|failurePolicy|sideEffectClass)\b/.test(
+        skillHookCatalog,
+      ) &&
+      /skill hook catalog ignores retired camelCase governance aliases/.test(skillHookCatalogTest) &&
+      /authorityScopes: \["workspace\.write"\]/.test(skillHookCatalogTest) &&
+      /assert\.deepEqual\(hook\.authorityScopes,\s*\[\]\)/.test(skillHookCatalogTest) &&
+      /assert\.deepEqual\(hook\.validation\.issues,\s*\["missing_authority_scope"\]\)/.test(
+        skillHookCatalogTest,
+      ),
+    [
+      "packages/runtime-daemon/src/skill-hook-catalog.mjs",
+      "packages/runtime-daemon/src/skill-hook-catalog.test.mjs",
+    ],
+    "Phase 10/11 is pending: skill hook governance manifests must not let retired camelCase aliases satisfy authority, tool-contract, event-kind, failure-policy, or side-effect declarations",
   );
   assertCheck(
     result,

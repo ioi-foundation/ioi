@@ -261,13 +261,13 @@ export function hooksFromDefinition({ source, definition, definitionPath, worksp
 
 export function hookRecordFromDefinition({ source, name, definition, definitionPath, workspaceRoot, issues = [] }) {
   const record = definition && typeof definition === "object" && !Array.isArray(definition) ? definition : {};
-  const eventKinds = normalizeStringList(record.eventKinds ?? record.events ?? record.subscribe ?? record.subscriptions);
+  const eventKinds = normalizeStringList(record.event_kinds ?? record.events ?? record.subscribe ?? record.subscriptions);
   const inferredEventKinds = eventKinds.length > 0 ? eventKinds : inferHookEventKinds(name);
-  const authorityScopes = normalizeStringList(record.authorityScopes ?? record.authority_scopes ?? record.capabilities);
-  const toolContracts = normalizeStringList(record.toolContracts ?? record.tool_contracts ?? record.tools);
+  const authorityScopes = normalizeStringList(record.authority_scopes ?? record.capabilities);
+  const toolContracts = normalizeStringList(record.tool_contracts ?? record.tools);
   const commandInput = record.command ?? record.script ?? record.path ?? (typeof definition === "string" ? definition : null);
-  const failurePolicy = normalizeHookFailurePolicy(record.failurePolicy ?? record.failure_policy ?? record.onFailure);
-  const sideEffectClass = optionalString(record.sideEffectClass ?? record.side_effect_class) ?? "none";
+  const failurePolicy = normalizeHookFailurePolicy(record.failure_policy ?? record.on_failure ?? record.onFailure);
+  const sideEffectClass = optionalString(record.side_effect_class) ?? "none";
   const nextIssues = [...issues];
   if (commandInput && authorityScopes.length === 0) nextIssues.push("missing_authority_scope");
   if (sideEffectClass !== "none" && toolContracts.length === 0) nextIssues.push("missing_tool_contract");

@@ -7,6 +7,7 @@ import { afterEach, test } from "node:test";
 import {
   discoverSkillHookCatalog,
   hookRecordFromDefinition,
+  inferHookEventKinds,
   parseMarkdownSkillMetadata,
   skillHookSources,
 } from "./skill-hook-catalog.mjs";
@@ -63,10 +64,10 @@ test("skill hook catalog discovers skills and redacted hook definitions", () => 
         {
           name: "pre_tool_guard",
           command: "secret-token=do-not-leak",
-          authorityScopes: ["workspace.write"],
-          toolContracts: ["coding.apply_patch"],
-          sideEffectClass: "local_write",
-          failurePolicy: "block",
+          authority_scopes: ["workspace.write"],
+          tool_contracts: ["coding.apply_patch"],
+          side_effect_class: "local_write",
+          failure_policy: "block",
         },
       ],
     }),
@@ -131,6 +132,34 @@ test("skill hook catalog marks missing canonical skill files and hook capability
     "missing_authority_scope",
     "missing_tool_contract",
   ]);
+});
+
+test("skill hook catalog ignores retired camelCase governance aliases", () => {
+  const hook = hookRecordFromDefinition({
+    source: {
+      id: "workspace.ioi.hooks_file",
+      compatibility: "ioi",
+      trustLevel: "workspace",
+    },
+    name: "retired-governance-aliases",
+    definition: {
+      eventKinds: ["post_tool"],
+      authorityScopes: ["workspace.write"],
+      toolContracts: ["coding.apply_patch"],
+      sideEffectClass: "local_write",
+      failurePolicy: "block",
+      command: "npm run mutate",
+    },
+    definitionPath: "/workspace/.ioi/hooks.json",
+    workspaceRoot: "/workspace",
+  });
+
+  assert.deepEqual(hook.eventKinds, inferHookEventKinds("retired-governance-aliases"));
+  assert.equal(hook.failurePolicy, "warn");
+  assert.equal(hook.sideEffectClass, "none");
+  assert.deepEqual(hook.authorityScopes, []);
+  assert.deepEqual(hook.toolContracts, []);
+  assert.deepEqual(hook.validation.issues, ["missing_authority_scope"]);
 });
 
 test("skill metadata and hook definitions normalize compatibility aliases", () => {
