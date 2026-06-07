@@ -131,8 +131,8 @@ export function createDiagnosticsFeedbackHelpers({
       rollbackRefs.push(...normalizeArray(event.rollback_refs));
       if (repairContext) {
         diagnosticsRepairContexts.push(repairContext);
-        rollbackRefs.push(...normalizeArray(repairContext.rollbackRefs ?? repairContext.rollback_refs));
-        const contextSnapshotId = optionalString(repairContext.workspaceSnapshotId ?? repairContext.workspace_snapshot_id);
+        rollbackRefs.push(...normalizeArray(repairContext.rollback_refs));
+        const contextSnapshotId = optionalString(repairContext.workspace_snapshot_id);
         if (contextSnapshotId) rollbackRefs.push(contextSnapshotId);
       }
       statuses.push(result.diagnostic_status ?? payload.result_summary?.diagnostic_status ?? "clean");
@@ -159,7 +159,7 @@ export function createDiagnosticsFeedbackHelpers({
     const workspaceSnapshotRefs = uniqueStrings([
       ...uniqueRollbackRefs,
       ...diagnosticsRepairContexts.map((context) =>
-        optionalString(context.workspaceSnapshotId ?? context.workspace_snapshot_id),
+        optionalString(context.workspace_snapshot_id),
       ),
     ]);
     const sourceToolCallIds = uniqueStrings(

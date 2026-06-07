@@ -19793,6 +19793,18 @@ function runCompositor() {
       /diagnostic_event_id:\s*event\.event_id \?\? null/.test(compactDiagnosticFindingBody) &&
       !/\bdiagnosticEventId\s*:/.test(compactDiagnosticFindingBody) &&
       /receipt_refs:\s*uniqueStrings\(receiptRefs\)/.test(compactDiagnosticsFeedbackBody) &&
+      /rollbackRefs\.push\(\.\.\.normalizeArray\(repairContext\.rollback_refs\)\)/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
+      /optionalString\(repairContext\.workspace_snapshot_id\)/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
+      /optionalString\(context\.workspace_snapshot_id\)/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
+      !/\b(?:repairContext|context)\.(?:rollbackRefs|workspaceSnapshotId)\b/.test(
+        compactDiagnosticsFeedbackBody,
+      ) &&
       /receipt_id:\s*receiptId/.test(compactDiagnosticsFeedbackBody) &&
       /prompt_text:\s*diagnosticsPromptText/.test(compactDiagnosticsFeedbackBody) &&
       /schema_version:\s*LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION/.test(
@@ -19833,6 +19845,14 @@ function runCompositor() {
       ) &&
       /diagnosticStatus:\s*"findings"/.test(diagnosticsFeedbackTest) &&
       /assert\.equal\(feedback\.diagnostic_status,\s*"clean"\)/.test(diagnosticsFeedbackTest) &&
+      /workspaceSnapshotId:\s*"snapshot-retired"/.test(diagnosticsFeedbackTest) &&
+      /rollbackRefs:\s*\["rollback-retired"\]/.test(diagnosticsFeedbackTest) &&
+      /feedback\.rollback_refs\.includes\("rollback-retired"\),\s*false/.test(
+        diagnosticsFeedbackTest,
+      ) &&
+      /feedback\.workspace_snapshot_refs\.includes\("snapshot-retired"\),\s*false/.test(
+        diagnosticsFeedbackTest,
+      ) &&
       /Object\.hasOwn\(feedback\.findings\[0\],\s*"diagnosticEventId"\),\s*false/.test(
         diagnosticsFeedbackTest,
       ) &&
