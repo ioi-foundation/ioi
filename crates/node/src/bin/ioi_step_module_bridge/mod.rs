@@ -3237,15 +3237,15 @@ fn successful_step_module_result(
 fn step_module_response(
     request: StepModuleBridgeRequest,
     result: StepModuleResult,
-    shadow_observation: Value,
+    workload_observation: Value,
 ) -> Value {
-    step_module_response_with_expected_heads(request, result, shadow_observation, vec![])
+    step_module_response_with_expected_heads(request, result, workload_observation, vec![])
 }
 
 fn step_module_response_with_expected_heads(
     request: StepModuleBridgeRequest,
     mut result: StepModuleResult,
-    shadow_observation: Value,
+    workload_observation: Value,
     expected_heads: Vec<String>,
 ) -> Value {
     let workload_dispatch = match WorkloadClient::plan_step_module_dispatch(
@@ -3364,7 +3364,7 @@ fn step_module_response_with_expected_heads(
         "receipt_binding": receipt_binding,
         "agentgres_admission": agentgres_admission,
         "projection_record": projection_record,
-        "shadow_observation": shadow_observation,
+        "workload_observation": workload_observation,
     })
 }
 
@@ -8338,8 +8338,8 @@ mod tests {
             fs::read_to_string(workspace.join("README.md")).expect("updated file"),
             "after\n"
         );
-        assert_eq!(response["shadow_observation"]["result"]["applied"], true);
-        assert_eq!(response["shadow_observation"]["result"]["changed"], true);
+        assert_eq!(response["workload_observation"]["result"]["applied"], true);
+        assert_eq!(response["workload_observation"]["result"]["changed"], true);
         assert_eq!(
             response["router_admission"]["authoritative_transition"],
             true
@@ -8411,8 +8411,8 @@ mod tests {
             fs::read_to_string(workspace.join("README.md")).expect("original file"),
             "before\n"
         );
-        assert_eq!(response["shadow_observation"]["result"]["applied"], false);
-        assert_eq!(response["shadow_observation"]["result"]["changed"], true);
+        assert_eq!(response["workload_observation"]["result"]["applied"], false);
+        assert_eq!(response["workload_observation"]["result"]["changed"], true);
         assert_eq!(
             response["router_admission"]["authoritative_transition"],
             true
@@ -8456,26 +8456,26 @@ mod tests {
         let response = artifact_read_response(request).expect("artifact read response");
 
         assert_eq!(
-            response["shadow_observation"]["result"]["backend"],
+            response["workload_observation"]["result"]["backend"],
             "rust_artifact_read"
         );
         assert_eq!(
-            response["shadow_observation"]["result"]["dataPlaneSource"],
+            response["workload_observation"]["result"]["dataPlaneSource"],
             "daemon_artifact_store"
         );
         assert_eq!(
-            response["shadow_observation"]["result"]["shellFallbackUsed"],
+            response["workload_observation"]["result"]["shellFallbackUsed"],
             false
         );
         assert_eq!(
-            response["shadow_observation"]["result"]["contentHash"]
+            response["workload_observation"]["result"]["contentHash"]
                 .as_str()
                 .expect("content hash")
                 .len(),
             64
         );
         assert_ne!(
-            response["shadow_observation"]["result"]["contentHash"],
+            response["workload_observation"]["result"]["contentHash"],
             "prefetch-hash"
         );
         assert_eq!(
@@ -8534,15 +8534,15 @@ mod tests {
         let response = tool_retrieve_result_response(request).expect("retrieve response");
 
         assert_eq!(
-            response["shadow_observation"]["result"]["backend"],
+            response["workload_observation"]["result"]["backend"],
             "rust_tool_result_retrieve"
         );
         assert_eq!(
-            response["shadow_observation"]["result"]["toolCallId"],
+            response["workload_observation"]["result"]["toolCallId"],
             "tool_patch"
         );
         assert_eq!(
-            response["shadow_observation"]["result"]["contentHash"]
+            response["workload_observation"]["result"]["contentHash"]
                 .as_str()
                 .expect("content hash")
                 .len(),
@@ -8593,27 +8593,27 @@ mod tests {
             computer_use_request_lease_response(request).expect("lease request response");
 
         assert_eq!(
-            response["shadow_observation"]["result"]["leaseRequest"]["lane"],
+            response["workload_observation"]["result"]["leaseRequest"]["lane"],
             "native_browser"
         );
         assert_eq!(
-            response["shadow_observation"]["result"]["leaseRequest"]["authorityScope"],
+            response["workload_observation"]["result"]["leaseRequest"]["authorityScope"],
             "computer_use.native_browser.act"
         );
         assert_eq!(
-            response["shadow_observation"]["result"]["approvalRequiredBeforeExecution"],
+            response["workload_observation"]["result"]["approvalRequiredBeforeExecution"],
             true
         );
         assert_eq!(
-            response["shadow_observation"]["result"]["walletNetworkAuthorityBoundary"]
+            response["workload_observation"]["result"]["walletNetworkAuthorityBoundary"]
                 ["authorityLayer"],
             "wallet.network"
         );
         assert_eq!(
-            response["shadow_observation"]["result"]["threadTool"]["toolName"],
+            response["workload_observation"]["result"]["threadTool"]["toolName"],
             "ioi.computer_use.native_browser"
         );
-        assert!(response["shadow_observation"]["result"]["requestRef"]
+        assert!(response["workload_observation"]["result"]["requestRef"]
             .as_str()
             .expect("request ref")
             .starts_with("computer_use_lease_request_"));
@@ -8648,21 +8648,21 @@ mod tests {
             computer_use_request_lease_response(request).expect("lease request response");
 
         assert_eq!(
-            response["shadow_observation"]["result"]["leaseRequest"]["providerId"],
+            response["workload_observation"]["result"]["leaseRequest"]["providerId"],
             "ioi.computer_use.sandboxed_hosted.local_container"
         );
         assert_eq!(
-            response["shadow_observation"]["result"]["threadTool"]["toolName"],
+            response["workload_observation"]["result"]["threadTool"]["toolName"],
             Value::Null
         );
         assert!(
-            response["shadow_observation"]["result"]["threadTool"]["unavailableReason"]
+            response["workload_observation"]["result"]["threadTool"]["unavailableReason"]
                 .as_str()
                 .expect("unavailable reason")
                 .contains("no container runtime adapter")
         );
         assert_eq!(
-            response["shadow_observation"]["result"]["approvalRequiredBeforeExecution"],
+            response["workload_observation"]["result"]["approvalRequiredBeforeExecution"],
             false
         );
         assert_eq!(response["agentgres_admission"], Value::Null);

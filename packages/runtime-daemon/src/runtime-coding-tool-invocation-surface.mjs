@@ -531,7 +531,8 @@ function toolInputError(code, message, details = {}) {
 
 function codingToolResultForRustLiveStepModule(toolId, stepModuleProjection = {}) {
   const stepResult = stepModuleProjection?.result ?? {};
-  const observedResult = stepModuleProjection?.bridge_result?.shadow_observation?.result;
+  const workloadObservation = stepModuleProjection?.bridge_result?.workload_observation ?? null;
+  const observedResult = workloadObservation?.result;
   const toolResult =
     observedResult && typeof observedResult === "object" && !Array.isArray(observedResult)
       ? observedResult
@@ -559,6 +560,6 @@ function codingToolResultForRustLiveStepModule(toolId, stepModuleProjection = {}
     normalized_observation_ref: stepResult.normalized_observation_ref ?? null,
     router_admission: stepModuleProjection?.bridge_result?.router_admission ?? null,
     receipt_refs: normalizeArray(stepResult.receipt_refs),
-    observation: stepModuleProjection?.bridge_result?.shadow_observation ?? null,
+    observation: workloadObservation,
   };
 }

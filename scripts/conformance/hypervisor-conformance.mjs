@@ -1140,12 +1140,21 @@ function runBridge() {
       /WorkloadClient::plan_step_module_dispatch/.test(bridgeModule) &&
       /workload_step_module_dispatch_request/.test(bridgeModule) &&
       /"workload_dispatch": workload_dispatch/.test(bridgeModule) &&
-      /rust_workload_client_step_module_dispatch/.test(bridgeModule),
+      /"workload_observation": workload_observation/.test(bridgeModule) &&
+      /rust_workload_client_step_module_dispatch/.test(bridgeModule) &&
+      /bridge_result\?\.workload_observation/.test(runtimeCodingToolInvocationSurface) &&
+      /Object\.hasOwn\(result\.step_module\.bridge_result,\s*"shadow_observation"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      !/shadow_observation/.test(bridgeModule) &&
+      !/shadow_observation/.test(runtimeCodingToolInvocationSurface),
     [
       "crates/client/src/workload_client/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
-    "Phase 10 is pending: Rust workload_client must own the StepModule workload dispatch contract used by the live bridge",
+    "Phase 10 is pending: Rust workload_client must own the StepModule workload dispatch contract and canonical workload observation used by the live bridge",
   );
   assertCheck(
     result,

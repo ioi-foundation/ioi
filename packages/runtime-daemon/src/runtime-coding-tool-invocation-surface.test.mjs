@@ -261,7 +261,7 @@ test("coding tool invocation surface ignores retired request identity aliases", 
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
           },
-          shadow_observation: {
+          workload_observation: {
             tool: "workspace.status",
             result: {
               schemaVersion: "ioi.runtime.coding-tool-result.v1",
@@ -393,7 +393,7 @@ test("coding tool invocation surface runs workspace.status through rust workload
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
           },
-          shadow_observation: {
+          workload_observation: {
             tool: "workspace.status",
             result: {
               schemaVersion: "ioi.runtime.coding-tool-result.v1",
@@ -436,6 +436,9 @@ test("coding tool invocation surface runs workspace.status through rust workload
   assert.equal(result.result.counts.changed, 1);
   assert.equal(result.result.execution_result_ref, "result://rust-live/workspace.status");
   assert.equal(result.result.router_admission.schema_version, "ioi.step_module_router_admission.v1");
+  assert.equal(result.result.observation.tool, "workspace.status");
+  assert.equal(Object.hasOwn(result.step_module.bridge_result, "workload_observation"), true);
+  assert.equal(Object.hasOwn(result.step_module.bridge_result, "shadow_observation"), false);
   assert.equal(Object.hasOwn(result.result, "routerAdmission"), false);
   assert.equal(Object.hasOwn(result.result, "rustWorkload"), false);
   assert.equal(Object.hasOwn(result.result, "stepModuleBackend"), false);
@@ -508,7 +511,7 @@ test("coding tool invocation surface runs file.inspect through rust workload liv
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
           },
-          shadow_observation: {
+          workload_observation: {
             tool: "file.inspect",
             result: {
               schemaVersion: "ioi.runtime.coding-tool-result.v1",
@@ -599,7 +602,7 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
           },
-          shadow_observation: {
+          workload_observation: {
             tool: "git.diff",
             result: {
               schemaVersion: "ioi.runtime.coding-tool-result.v1",
@@ -688,7 +691,7 @@ test("coding tool invocation surface runs lsp.diagnostics through rust workload 
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
           },
-          shadow_observation: {
+          workload_observation: {
             tool: "lsp.diagnostics",
             result: {
               schemaVersion: "ioi.runtime.coding-tool-result.v1",
@@ -804,7 +807,7 @@ test("coding tool invocation surface runs test.run through rust workload live pa
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
           },
-          shadow_observation: {
+          workload_observation: {
             tool: "test.run",
             result: {
               schemaVersion: "ioi.runtime.coding-tool-result.v1",
@@ -916,7 +919,7 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
             state_root_after: "state://workspace/README.md/after",
             resulting_head: "head://workspace/README.md/after",
           },
-          shadow_observation: {
+          workload_observation: {
             tool: "file.apply_patch",
             result: {
               schemaVersion: "ioi.runtime.coding-tool-result.v1",
@@ -1058,7 +1061,7 @@ test("coding tool invocation surface runs artifact.read through rust workload li
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
           },
-          shadow_observation: {
+          workload_observation: {
             tool: "artifact.read",
             result: {
               ...artifactResult,
@@ -1168,7 +1171,7 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
           },
-          shadow_observation: {
+          workload_observation: {
             tool: "tool.retrieve_result",
             result: {
               ...retrieveResult,
@@ -1280,7 +1283,7 @@ test("coding tool invocation surface runs computer_use.request_lease through rus
             schema_version: "ioi.step_module_router_admission.v1",
             backend: "workload_grpc",
           },
-          shadow_observation: {
+          workload_observation: {
             tool: "computer_use.request_lease",
             result: {
               schemaVersion: "ioi.runtime.coding-tool-result.v1",
