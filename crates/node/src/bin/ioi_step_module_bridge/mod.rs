@@ -8707,8 +8707,8 @@ mod tests {
                     "cwd": "/workspace"
                 },
                 "projection": {
-                    "runId": "run_runtime_bridge",
-                    "turnId": "turn_runtime_bridge"
+                    "run_id": "run_runtime_bridge",
+                    "turn_id": "turn_runtime_bridge"
                 },
                 "run": {
                     "id": "run_runtime_bridge",

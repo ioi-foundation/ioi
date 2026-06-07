@@ -354,7 +354,8 @@ test("runtime bridge turn creation submits clamped bridge request and persists r
   assert.equal(write.run.projection.events[0].event_kind, "lsp.diagnostics.injected");
   const planner = store.calls.find((call) => call.operation === "plan_runtime_bridge_turn_run_state_update");
   assert.equal(planner.input.thread_id, "thread_agent_runtime");
-  assert.equal(planner.input.projection.runId, "run_runtime");
+  assert.equal(planner.input.projection.run_id, "run_runtime");
+  assert.equal(Object.hasOwn(planner.input.projection, "runId"), false);
   assert.equal(planner.input.run.id, "run_runtime");
 
   assert.equal(store.calls.some((call) => call.operation === "append_operation"), false);

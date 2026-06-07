@@ -13208,6 +13208,13 @@ Rust-planned `bridge_start` records; retired camelCase bridge-start metadata can
 no longer leave the Rust policy bridge as a parallel result ABI before daemon
 runtime-bridge agent persistence.
 
+Slice 503 retires Rust runtime-bridge turn projection aliases:
+runtime-bridge turn run-state planning now sends canonical `projection.run_id`
+into the Rust policy core, and Rust rejects the retired `projection.runId`
+request shape before daemon run persistence; the product/API turn projection can
+remain stable while the Rust-planned state-update boundary stops carrying a
+parallel JS-era request ABI.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

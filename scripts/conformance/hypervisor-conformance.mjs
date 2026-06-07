@@ -720,6 +720,10 @@ function runBridge() {
     policyCore.match(
       /impl RuntimeBridgeThreadStartAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct RuntimeBridgeTurnRunStateUpdateCore;)/,
     )?.[0] ?? "";
+  const runtimeBridgeTurnRunStateUpdateCoreBlock =
+    policyCore.match(
+      /impl RuntimeBridgeTurnRunStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct SubagentRecordStateUpdateCore;)/,
+    )?.[0] ?? "";
   const stepModuleRunner = exists("packages/runtime-daemon/src/step-module-runner.mjs")
     ? read("packages/runtime-daemon/src/step-module-runner.mjs")
     : "";
@@ -4492,6 +4496,14 @@ function runBridge() {
       /"updated_at": request\.updated_at/.test(
         runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
       ) &&
+      /optional_json_string\(&projection_value,\s*"run_id"\)/.test(
+        runtimeBridgeTurnRunStateUpdateCoreBlock,
+      ) &&
+      /"projection\.run_id"/.test(runtimeBridgeTurnRunStateUpdateCoreBlock) &&
+      !/optional_json_string\(&projection_value,\s*"runId"\)/.test(
+        runtimeBridgeTurnRunStateUpdateCoreBlock,
+      ) &&
+      !/"projection\.runId"/.test(runtimeBridgeTurnRunStateUpdateCoreBlock) &&
       !/"runtimeProfile": request\.runtime_profile|"sessionId": request\.session_id|"bridgeId": request\.bridge_id|"updatedAt": request\.updated_at/.test(
         runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
       ) &&
@@ -4530,6 +4542,13 @@ function runBridge() {
       /Object\.hasOwn\(result\.bridge_start,\s*field\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
+      /projection:\s*\{\s*run_id:\s*"run_runtime"\s*\}/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /captured\.request\.projection\.run_id/.test(runtimeContextPolicyRunnerTest) &&
+      /Object\.hasOwn\(captured\.request\.projection,\s*"runId"\),\s*false/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /contextPolicyRunner\.planRuntimeBridgeThreadStartAgentStateUpdate/.test(
         runtimeBridgeThread,
       ) &&
@@ -4537,6 +4556,8 @@ function runBridge() {
         runtimeBridgeThread,
       ) &&
       /requiredRuntimeBridgeOperationKind/.test(runtimeBridgeThread) &&
+      /stateUpdateProjection\s*=\s*\{\s*run_id:\s*runDraft\.id/.test(runtimeBridgeThread) &&
+      /projection:\s*stateUpdateProjection/.test(runtimeBridgeThread) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"thread\.runtime_bridge\.start"/.test(
         runtimeBridgeThread,
       ) &&
@@ -4550,6 +4571,10 @@ function runBridge() {
         runtimeBridgeThreadTest,
       ) &&
       /runtime bridge turn creation fails closed without Rust-planned run projection/.test(
+        runtimeBridgeThreadTest,
+      ) &&
+      /planner\.input\.projection\.run_id/.test(runtimeBridgeThreadTest) &&
+      /Object\.hasOwn\(planner\.input\.projection,\s*"runId"\),\s*false/.test(
         runtimeBridgeThreadTest,
       ) &&
       /runtime bridge turn creation fails closed without Rust-planned operation kind/.test(

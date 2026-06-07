@@ -2581,12 +2581,12 @@ impl RuntimeBridgeTurnRunStateUpdateCore {
         let updated_at = optional_json_string(&run_value, "updatedAt").ok_or(
             RuntimeBridgeTurnRunStateUpdateError::MissingField("run.updatedAt"),
         )?;
-        let projection_run_id = optional_json_string(&projection_value, "runId").ok_or(
-            RuntimeBridgeTurnRunStateUpdateError::MissingField("projection.runId"),
+        let projection_run_id = optional_json_string(&projection_value, "run_id").ok_or(
+            RuntimeBridgeTurnRunStateUpdateError::MissingField("projection.run_id"),
         )?;
         if projection_run_id != run_id {
             return Err(RuntimeBridgeTurnRunStateUpdateError::MismatchedField {
-                field: "projection.runId",
+                field: "projection.run_id",
                 expected: run_id,
                 actual: projection_run_id,
             });
@@ -3180,9 +3180,9 @@ impl RuntimeBridgeTurnRunStateUpdateRequest {
                 actual: run_agent_id,
             });
         }
-        if optional_json_string(&projection_value, "runId").is_none() {
+        if optional_json_string(&projection_value, "run_id").is_none() {
             return Err(RuntimeBridgeTurnRunStateUpdateError::MissingField(
-                "projection.runId",
+                "projection.run_id",
             ));
         }
         Ok(())
@@ -4578,8 +4578,8 @@ mod tests {
                 "cwd": "/workspace"
             }),
             projection: json!({
-                "runId": "run_runtime_bridge",
-                "turnId": "turn_runtime_bridge"
+                "run_id": "run_runtime_bridge",
+                "turn_id": "turn_runtime_bridge"
             }),
             run: json!({
                 "id": "run_runtime_bridge",

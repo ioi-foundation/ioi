@@ -184,10 +184,14 @@ export async function createRuntimeBridgeTurn(store, { agent, threadId, request,
       details: { threadId, runId: runDraft.id },
     });
   }
+  const stateUpdateProjection = {
+    run_id: runDraft.id,
+    ...(projection.turnId ? { turn_id: projection.turnId } : {}),
+  };
   const stateUpdate = contextPolicyRunner.planRuntimeBridgeTurnRunStateUpdate({
     thread_id: threadId,
     agent,
-    projection,
+    projection: stateUpdateProjection,
     run: runDraft,
   });
   const run = stateUpdate.run;
