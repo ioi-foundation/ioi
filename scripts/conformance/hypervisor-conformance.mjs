@@ -7238,6 +7238,12 @@ function runReceipts() {
   const runtimeSurveyTest = exists("packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs")
     : "";
+  const serverControl = exists("packages/runtime-daemon/src/model-mounting/server-control.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/server-control.mjs")
+    : "";
+  const serverControlTest = exists("packages/runtime-daemon/src/model-mounting/server-control.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/server-control.test.mjs")
+    : "";
   const stateAccessors = exists("packages/runtime-daemon/src/model-mounting/state-accessors.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/state-accessors.mjs")
     : "";
@@ -8812,6 +8818,29 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs",
     ],
     "Phase 9/11 is pending: runtime survey receipts and readback must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-server-control-record-state",
+    /commitModelMountRecordState/.test(serverControl) &&
+      /recordDir:\s*"server-control"/.test(serverControl) &&
+      /SERVER_CONTROL_RECORD_ID\s*=\s*"server-control\.default"/.test(serverControl) &&
+      /model_mount\.server_control\.write/.test(serverControl) &&
+      /model_mount_server_control_state_commit_unconfigured/.test(serverControl) &&
+      /commitModelMountRecordState\(state,[\s\S]*?writeJson\(path\.join\(state\.stateDir,\s*"server-state\.json"\),\s*record\)/.test(
+        serverControl,
+      ) &&
+      /server control state fails closed before local cache write without Rust Agentgres record-state commit/.test(
+        serverControlTest,
+      ) &&
+      /recordStateCommits/.test(serverControlTest) &&
+      /existsSync\(join\(state\.stateDir,\s*"server-state\.json"\)\),\s*false/.test(serverControlTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/server-control.mjs",
+      "packages/runtime-daemon/src/model-mounting/server-control.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
+    ],
+    "Phase 9/11 is pending: server-control state must commit through Rust Agentgres record-state admission before local server-state cache writes",
   );
   assertCheck(
     result,

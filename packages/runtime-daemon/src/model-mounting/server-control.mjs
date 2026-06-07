@@ -5,6 +5,9 @@ import path from "node:path";
 import { readLines } from "./local-system-probes.mjs";
 import { normalizeLimit, parseJsonMaybe } from "./provider-protocol.mjs";
 import { readJson, redact, writeJson } from "./io.mjs";
+import { commitModelMountRecordState } from "./record-state-commits.mjs";
+
+const SERVER_CONTROL_RECORD_ID = "server-control.default";
 
 export function serverStatus(state, baseUrl, { schemaVersion }) {
   state.evictExpiredInstances();
@@ -49,6 +52,7 @@ export function serverControlState(state, { schemaVersion }) {
     return readJson(statePath);
   }
   return {
+    id: SERVER_CONTROL_RECORD_ID,
     schemaVersion,
     status: "running",
     gatewayStatus: "running",
@@ -60,8 +64,24 @@ export function serverControlState(state, { schemaVersion }) {
 }
 
 export function writeServerControlState(state, controlState) {
-  writeJson(path.join(state.stateDir, "server-state.json"), controlState);
-  return controlState;
+  const record = {
+    id: SERVER_CONTROL_RECORD_ID,
+    ...controlState,
+  };
+  commitModelMountRecordState(state, {
+    recordDir: "server-control",
+    record,
+    operationKind: "model_mount.server_control.write",
+    receiptRefs: [record.receiptId],
+    unconfiguredCode: "model_mount_server_control_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Model-mount server-control persistence requires Rust Agentgres record-state commit.",
+    unconfiguredDetails: {
+      server_control_id: record.id,
+    },
+  });
+  writeJson(path.join(state.stateDir, "server-state.json"), record);
+  return record;
 }
 
 export function serverStart(state, baseUrl, options) {

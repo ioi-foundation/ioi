@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -19,8 +19,10 @@ const SCHEMA = "schema.server-control.test";
 
 function fakeState({ stateDir = mkdtempSync(join(tmpdir(), "ioi-server-control-")) } = {}) {
   const receipts = [];
+  const recordStateCommits = [];
   const state = {
     stateDir,
+    recordStateCommits,
     providers: new Map([
       ["provider.local", { id: "provider.local", status: "available" }],
       ["provider.remote", { id: "provider.remote", status: "blocked" }],
@@ -47,6 +49,22 @@ function fakeState({ stateDir = mkdtempSync(join(tmpdir(), "ioi-server-control-"
       const receipt = { id: `receipt.${kind}.${receipts.length + 1}`, kind, details };
       receipts.push(receipt);
       return receipt;
+    },
+    commitRuntimeModelMountRecordState(request) {
+      recordStateCommits.push(JSON.parse(JSON.stringify(request)));
+      return {
+        record_id: request.record_id,
+        object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}`,
+        content_hash: `sha256:${request.record_id}`,
+        admission_hash: `admit:${request.record_id}`,
+        commit_hash: `commit:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.record_id}`,
+          admission: { admission_hash: `admit:${request.record_id}` },
+        },
+      };
     },
     nowIso() {
       return this.now;
@@ -85,6 +103,12 @@ test("server control records lifecycle operations, state, and log ids", () => {
     assert.equal(stopped.lastServerOperation, "server_stop");
     assert.equal(stopped.receiptId, "receipt.server_stop.1");
     assert.match(stopped.logId, /^server_log_/);
+    assert.equal(state.recordStateCommits[0].record_dir, "server-control");
+    assert.equal(state.recordStateCommits[0].record_id, "server-control.default");
+    assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.server_control.write");
+    assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.server_stop.1"]);
+    assert.equal(state.recordStateCommits[0].record.operation, "server_stop");
+    assert.equal(JSON.parse(readFileSync(join(state.stateDir, "server-state.json"), "utf8")).id, "server-control.default");
 
     const restarted = serverRestart(state, "http://daemon.test", { schemaVersion: SCHEMA });
     assert.equal(restarted.controlStatus, "running");
@@ -95,6 +119,28 @@ test("server control records lifecycle operations, state, and log ids", () => {
     const started = serverStart(state, null, { schemaVersion: SCHEMA });
     assert.equal(started.lastServerOperation, "server_start");
     assert.equal(serverLogRecords(state, { limit: 10 }).length, 3);
+  } finally {
+    rmSync(state.stateDir, { recursive: true, force: true });
+  }
+});
+
+test("server control state fails closed before local cache write without Rust Agentgres record-state commit", () => {
+  const state = fakeState();
+  delete state.commitRuntimeModelMountRecordState;
+  try {
+    assert.throws(
+      () => serverStop(state, null, { schemaVersion: SCHEMA }),
+      (error) => {
+        assert.equal(error.status, 500);
+        assert.equal(error.code, "model_mount_server_control_state_commit_unconfigured");
+        assert.equal(error.details.record_dir, "server-control");
+        assert.equal(error.details.record_id, "server-control.default");
+        assert.equal(error.details.server_control_id, "server-control.default");
+        assert.equal(error.details.receipt_id, "receipt.server_stop.1");
+        return true;
+      },
+    );
+    assert.equal(existsSync(join(state.stateDir, "server-state.json")), false);
   } finally {
     rmSync(state.stateDir, { recursive: true, force: true });
   }
