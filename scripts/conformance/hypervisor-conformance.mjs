@@ -4855,7 +4855,8 @@ function runBridge() {
       /lastSelectedModel:\s*body\.last_selected_model \?\? null/.test(modelRoutes) &&
       /lastReceiptId:\s*body\.last_receipt_id \?\? null/.test(modelRoutes) &&
       /commitModelRouteRecordState/.test(modelRoutes) &&
-      /RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(modelRoutes) &&
+      /commitModelMountRecordState/.test(modelRoutes) &&
+      /recordDir:\s*"model-routes"/.test(modelRoutes) &&
       /model_mount\.route\.write/.test(modelRoutes) &&
       /model_mount\.route\.test/.test(modelRoutes) &&
       /persistModelRouteSelectionState/.test(modelRoutes) &&
@@ -4863,6 +4864,8 @@ function runBridge() {
       /model_mount\.route\.tokenizer_selection/.test(modelTokenizerOperations) &&
       /model_mount\.route\.invocation_selection/.test(modelInvocationOps) &&
       /model_mount_route_state_commit_unconfigured/.test(modelRoutes) &&
+      !/RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(modelRoutes) &&
+      !/normalizeModelRouteRecordStateCommit/.test(modelRoutes) &&
       !/state\.writeMap\("model-routes"/.test(modelRoutes) &&
       !/state\.writeMap\("model-routes"/.test(modelTokenizerOperations) &&
       !/state\.writeMap\("model-routes"/.test(modelInvocationOps) &&
