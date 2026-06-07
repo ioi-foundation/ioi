@@ -19976,6 +19976,12 @@ function runCompositor() {
     result,
     "ide-goal-verification-panel-aliases-retired",
     /stringField\(payload,\s*"tool_name"\)/.test(agentIdeGoalVerificationPanel) &&
+      /stringField\(event,\s*"thread_id"\)/.test(agentIdeGoalVerificationPanel) &&
+      /stringField\(event,\s*"turn_id"\)/.test(agentIdeGoalVerificationPanel) &&
+      /stringField\(event,\s*"workflow_graph_id"\)/.test(agentIdeGoalVerificationPanel) &&
+      /stringField\(event,\s*"workflow_node_id"\)/.test(agentIdeGoalVerificationPanel) &&
+      /stringField\(event,\s*"component_kind"\)/.test(agentIdeGoalVerificationPanel) &&
+      /stringField\(event,\s*"tool_name"\)/.test(agentIdeGoalVerificationPanel) &&
       /stringField\(result,\s*"diagnostic_status"\)/.test(agentIdeGoalVerificationPanel) &&
       /numberField\(result,\s*"diagnostic_count"\)/.test(agentIdeGoalVerificationPanel) &&
       /stringField\(payload,\s*"stop_reason"\)/.test(agentIdeGoalVerificationPanel) &&
@@ -19985,6 +19991,20 @@ function runCompositor() {
       /arrayField\(payload,\s*"policy_decision_refs"\)/.test(agentIdeGoalVerificationPanel) &&
       /arrayField\(event,\s*"rollback_refs"\)/.test(agentIdeGoalVerificationPanel) &&
       /arrayField\(payload,\s*"rollback_refs"\)/.test(agentIdeGoalVerificationPanel) &&
+      !/stringField\(event,\s*"threadId",\s*"thread_id"\)/.test(agentIdeGoalVerificationPanel) &&
+      !/stringField\(event,\s*"turnId",\s*"turn_id"\)/.test(agentIdeGoalVerificationPanel) &&
+      !/stringField\(event,\s*"workflowGraphId",\s*"workflow_graph_id"\)/.test(
+        agentIdeGoalVerificationPanel,
+      ) &&
+      !/stringField\(event,\s*"workflowNodeId",\s*"workflow_node_id"\)/.test(
+        agentIdeGoalVerificationPanel,
+      ) &&
+      !/stringField\(event,\s*"componentKind",\s*"component_kind"\)/.test(
+        agentIdeGoalVerificationPanel,
+      ) &&
+      !/stringField\(event,\s*"toolName",\s*"tool_name"\)/.test(
+        agentIdeGoalVerificationPanel,
+      ) &&
       !/stringField\(payload,\s*"tool_name",\s*"toolName"\)/.test(agentIdeGoalVerificationPanel) &&
       !/stringField\(result,\s*"diagnosticStatus",\s*"diagnostic_status"\)/.test(
         agentIdeGoalVerificationPanel,
@@ -20016,6 +20036,13 @@ function runCompositor() {
       /goal verification panel ignores retired payload and evidence aliases/.test(
         agentIdeGoalVerificationPanelTest,
       ) &&
+      /goal verification panel ignores retired event identity aliases/.test(
+        agentIdeGoalVerificationPanelTest,
+      ) &&
+      /componentKind:\s*"lsp_diagnostics_gate"/.test(agentIdeGoalVerificationPanelTest) &&
+      /toolName:\s*"lsp\.diagnostics"/.test(agentIdeGoalVerificationPanelTest) &&
+      /threadId:\s*"thread-retired-event"/.test(agentIdeGoalVerificationPanelTest) &&
+      /workflowGraphId:\s*"workflow-retired-event"/.test(agentIdeGoalVerificationPanelTest) &&
       /toolName:\s*"lsp\.diagnostics"/.test(agentIdeGoalVerificationPanelTest) &&
       /diagnosticStatus:\s*"clean"/.test(agentIdeGoalVerificationPanelTest) &&
       /diagnosticCount:\s*0/.test(agentIdeGoalVerificationPanelTest) &&
@@ -20023,6 +20050,9 @@ function runCompositor() {
       /policyDecisionRefs:\s*\["policy-retired"\]/.test(agentIdeGoalVerificationPanelTest) &&
       /rollbackRefs:\s*\["rollback-retired"\]/.test(agentIdeGoalVerificationPanelTest) &&
       /stopReason:\s*"goal_satisfied"/.test(agentIdeGoalVerificationPanelTest) &&
+      /assert\.equal\(panel\.rows\[0\]\?\.workflowNodeId,\s*null\)/.test(
+        agentIdeGoalVerificationPanelTest,
+      ) &&
       /assert\.equal\(panel\.status,\s*"failed"\)/.test(agentIdeGoalVerificationPanelTest),
     [
       "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",

@@ -11459,6 +11459,13 @@ now read canonical event `approval_id`, `thread_id`, `turn_id`,
 event identity aliases cannot create approval lease rows or bind lease state to
 old thread, turn, workflow graph, or workflow node identity.
 
+Slice 546 retires IDE goal-verification event identity aliases: goal
+verification rows now read canonical event `thread_id`, `turn_id`,
+`workflow_graph_id`, `workflow_node_id`, `component_kind`, and `tool_name`
+fields only, so retired camelCase event identity and tool/component aliases
+cannot create verification rows or bind diagnostic proof to old workflow
+identity.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

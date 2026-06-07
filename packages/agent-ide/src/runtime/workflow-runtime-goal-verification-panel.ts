@@ -325,27 +325,27 @@ function eventSeq(event: RuntimeEventInput): number {
 }
 
 function eventThreadId(event: RuntimeEventInput): string | null {
-  return stringField(event, "threadId", "thread_id");
+  return stringField(event, "thread_id");
 }
 
 function eventTurnId(event: RuntimeEventInput): string | null {
-  return stringField(event, "turnId", "turn_id");
+  return stringField(event, "turn_id");
 }
 
 function eventWorkflowGraphId(event: RuntimeEventInput): string | null {
-  return stringField(event, "workflowGraphId", "workflow_graph_id");
+  return stringField(event, "workflow_graph_id");
 }
 
 function eventWorkflowNodeId(event: RuntimeEventInput): string | null {
-  return stringField(event, "workflowNodeId", "workflow_node_id");
+  return stringField(event, "workflow_node_id");
 }
 
 function eventComponentKind(event: RuntimeEventInput): string | null {
-  return stringField(event, "componentKind", "component_kind");
+  return stringField(event, "component_kind");
 }
 
 function eventToolName(event: RuntimeEventInput): string | null {
-  return stringField(event, "toolName", "tool_name");
+  return stringField(event, "tool_name");
 }
 
 function cleanString(value: unknown): string | null {
