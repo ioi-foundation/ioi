@@ -600,6 +600,12 @@ function runBridge() {
   const computerUseVisualObservationTest = exists("packages/runtime-daemon/src/computer-use-visual-observation.test.mjs")
     ? read("packages/runtime-daemon/src/computer-use-visual-observation.test.mjs")
     : "";
+  const computerUseBrowserArtifacts = exists("packages/runtime-daemon/src/computer-use-browser-artifacts.mjs")
+    ? read("packages/runtime-daemon/src/computer-use-browser-artifacts.mjs")
+    : "";
+  const computerUseBrowserArtifactsTest = exists("packages/runtime-daemon/src/computer-use-browser-artifacts.test.mjs")
+    ? read("packages/runtime-daemon/src/computer-use-browser-artifacts.test.mjs")
+    : "";
   const agentSdkComputerUse = exists("packages/agent-sdk/src/computer-use.ts")
     ? read("packages/agent-sdk/src/computer-use.ts")
     : "";
@@ -1694,6 +1700,28 @@ function runBridge() {
       "packages/agent-sdk/test/computer-use.test.mjs",
     ],
     "Phase 10/11 is pending: SDK browser observation artifact projection must ignore retired camelCase artifact aliases",
+  );
+  assertCheck(
+    result,
+    "daemon-browser-observation-artifact-aliases-retired",
+    /browser observation artifacts ignore retired camelCase aliases/.test(
+      computerUseBrowserArtifactsTest,
+    ) &&
+      /browser observation artifacts project canonical artifact fields/.test(
+        computerUseBrowserArtifactsTest,
+      ) &&
+      /browserUseSelectorMapText:\s*"\[99\]/.test(computerUseBrowserArtifactsTest) &&
+      /assert\.equal\(result\.observationBundle\.screenshot_ref,\s*null\)/.test(
+        computerUseBrowserArtifactsTest,
+      ) &&
+      !/\bartifacts\.(?:pageTitle|browserUseSelectorMapText|browsergymDomText|browsergymAxtreeText|browsergymFocusedBid|screenshotRef|somRef|redactionReportRef)\b/.test(
+        computerUseBrowserArtifacts,
+      ),
+    [
+      "packages/runtime-daemon/src/computer-use-browser-artifacts.mjs",
+      "packages/runtime-daemon/src/computer-use-browser-artifacts.test.mjs",
+    ],
+    "Phase 10/11 is pending: daemon browser observation artifact projection must ignore retired camelCase artifact aliases",
   );
   assertCheck(
     result,
