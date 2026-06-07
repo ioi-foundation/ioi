@@ -6,6 +6,10 @@ Supersedes: ad hoc split-brain status notes for this migration when they conflic
 Superseded by: none.
 Last alignment pass: 2026-06-07.
 Last matrix compaction pass: 2026-06-07, after IDE runtime telemetry summary facade alias retirement slice 608 clarified the active seam.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule and run the next
+matrix-compaction pass immediately after that seam is concrete, before unrelated
+route-family work resumes.
 
 ## Purpose
 
