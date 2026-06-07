@@ -15081,19 +15081,28 @@ function runCompositor() {
     result,
     "runtime-run-job-id-projection-aliases-retired",
     /return \{ jobId: run\.id \};/.test(runtimeRunReadSurface) &&
+      /return \{ checklistId: run\.id \};/.test(runtimeRunReadSurface) &&
       !/runtimeJob\?\.jobId/.test(runtimeRunReadSurface) &&
       !/run\.jobId\b/.test(runtimeRunReadSurface) &&
+      !/runtimeChecklist\?\.checklistId/.test(runtimeRunReadSurface) &&
+      !/run\.checklistId\b/.test(runtimeRunReadSurface) &&
       /runtime run read surface default job sidecar path ignores retired job id fallbacks/.test(
         runtimeRunReadSurfaceTest,
       ) &&
+      /runtime run read surface default checklist sidecar path ignores retired checklist id fallbacks/.test(
+        runtimeRunReadSurfaceTest,
+      ) &&
       /jobs\/run-canonical\.json/.test(runtimeRunReadSurfaceTest) &&
+      /checklists\/run-canonical\.json/.test(runtimeRunReadSurfaceTest) &&
       /job-retired-nested/.test(runtimeRunReadSurfaceTest) &&
-      /job-retired-top/.test(runtimeRunReadSurfaceTest),
+      /job-retired-top/.test(runtimeRunReadSurfaceTest) &&
+      /checklist-retired-nested/.test(runtimeRunReadSurfaceTest) &&
+      /checklist-retired-top/.test(runtimeRunReadSurfaceTest),
     [
       "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
       "packages/runtime-daemon/src/runtime-run-read-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime run read projections must derive job sidecar identity from canonical run id instead of retired jobId aliases",
+    "Phase 10/11 is pending: runtime run read projections must derive job/checklist sidecar identity from canonical run id instead of retired sidecar id aliases",
   );
   assertCheck(
     result,

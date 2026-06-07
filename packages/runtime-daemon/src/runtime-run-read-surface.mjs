@@ -19,7 +19,7 @@ function defaultRuntimeJobRecordForRun(run = {}) {
 }
 
 function defaultRuntimeChecklistRecordForRun(run = {}) {
-  return { checklistId: run.runtimeChecklist?.checklistId ?? run.checklistId ?? run.id };
+  return { checklistId: run.id };
 }
 
 function runStateProjectionWatermark(store) {

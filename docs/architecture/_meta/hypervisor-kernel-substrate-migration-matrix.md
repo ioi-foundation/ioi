@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after runtime task/job default projection identity fallback retirement slice 604 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after runtime run-read checklist sidecar identity fallback retirement slice 605 clarified the active seam.
 
 ## Purpose
 
@@ -11391,7 +11391,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 604 and the thirty-ninth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 605 and the fortieth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -11500,7 +11500,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-604 retired SDK runtime usage record aliases and Rust/daemon
+- Slices 572-605 retired SDK runtime usage record aliases and Rust/daemon
   Agentgres state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -11604,7 +11604,10 @@ reconstruct the active seam without carrying every per-slice paragraph.
   `taskId`/`jobId` identities only from canonical run id, ignoring retired
   nested and top-level `runtimeTask.taskId`, `taskId`, `runtimeJob.jobId`, and
   `jobId` persisted-record aliases before task/job read projection and
-  sidecar path materialization.
+  sidecar path materialization; runtime run-read checklist sidecar projection
+  now derives checklist identity only from canonical run id, ignoring retired
+  nested and top-level `runtimeChecklist.checklistId` and `checklistId`
+  persisted-record aliases before checklist sidecar path materialization.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

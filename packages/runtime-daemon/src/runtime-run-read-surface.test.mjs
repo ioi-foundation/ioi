@@ -210,3 +210,28 @@ test("runtime run read surface default job sidecar path ignores retired job id f
     "jobs/run-canonical.json",
   );
 });
+
+test("runtime run read surface default checklist sidecar path ignores retired checklist id fallbacks", () => {
+  const poisonedRun = {
+    ...run("run-canonical"),
+    runtimeChecklist: { checklistId: "checklist-retired-nested" },
+    checklistId: "checklist-retired-top",
+  };
+  const store = {
+    schemaVersion: "schema.v1",
+    stateDir: "/state",
+    runs: new Map([["run-canonical", poisonedRun]]),
+    getRun(runId) {
+      return this.runs.get(runId);
+    },
+    pathFor(...segments) {
+      return ["/state", ...segments].join("/");
+    },
+  };
+  const surface = createRuntimeRunReadSurface();
+
+  assert.equal(
+    surface.canonicalProjection(store, "run-canonical").paths.checklist,
+    "checklists/run-canonical.json",
+  );
+});
