@@ -1169,6 +1169,14 @@ function runBridge() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts")
     : "";
+  const governedImprovementControlRequestInputType =
+    governedImprovementControlNodes.match(
+      /export interface RuntimeGovernedImprovementControlRequestInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
+  const governedImprovementWorkflowNodeOptionsType =
+    governedImprovementControlNodes.match(
+      /export interface RuntimeGovernedImprovementWorkflowNodeOptions[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const workerServicePackageControlNodes = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts",
   )
@@ -7095,6 +7103,21 @@ function runBridge() {
       /WORKFLOW_RUNTIME_GOVERNED_IMPROVEMENT_CONTROL_SCHEMA_VERSION/.test(
         governedImprovementControlNodes,
       ) &&
+      /RETIRED_GOVERNED_IMPROVEMENT_CONTROL_INPUT_FIELDS/.test(
+        governedImprovementControlNodes,
+      ) &&
+      /assertNoRetiredGovernedImprovementControlInputAliases\(params\);/.test(
+        governedImprovementControlNodes,
+      ) &&
+      /assertNoRetiredGovernedImprovementWorkflowNodeOptionAliases\(options\);/.test(
+        governedImprovementControlNodes,
+      ) &&
+      !/^\s*(?:workflowGraphId|workflowNodeId)\?:/m.test(
+        governedImprovementControlRequestInputType,
+      ) &&
+      !/^\s*workflowGraphId\?:/m.test(governedImprovementWorkflowNodeOptionsType) &&
+      /^\s*workflow_graph_id\?:/m.test(governedImprovementControlRequestInputType) &&
+      /^\s*workflow_node_id\?:/m.test(governedImprovementControlRequestInputType) &&
       /createRuntimeGovernedImprovementControlRequest/.test(governedImprovementControlNodes) &&
       /RUNTIME_GOVERNED_IMPROVEMENT_PROPOSAL_SCHEMA_VERSION/.test(
         governedImprovementControlNodes,
@@ -7103,6 +7126,12 @@ function runBridge() {
       /mutation_executed:\s*false/.test(governedImprovementControlNodes) &&
       !/\/apply/.test(governedImprovementControlNodes) &&
       /builds governed improvement proposal controls for daemon admission/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /governed improvement controls reject retired control input aliases/.test(
+        governedImprovementControlNodesTest,
+      ) &&
+      /governed improvement workflow node options reject retired workflow graph input alias/.test(
         governedImprovementControlNodesTest,
       ) &&
       /governed improvement controls fail closed without evaluation receipts/.test(

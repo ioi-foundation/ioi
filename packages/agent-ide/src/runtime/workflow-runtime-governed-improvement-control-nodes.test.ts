@@ -86,11 +86,16 @@ const retiredGovernedImprovementWorkflowLogicAliases = [
   "workflowNodeId",
 ];
 
+const retiredGovernedImprovementControlInputAliases = [
+  "workflowGraphId",
+  "workflowNodeId",
+];
+
 test("builds governed improvement proposal controls for daemon admission", () => {
   const request = createRuntimeGovernedImprovementControlRequest({
     threadId: "thread-ide",
-    workflowGraphId: "workflow-governed-improvement",
-    workflowNodeId: "runtime.governed-improvement-proposal.ide",
+    workflow_graph_id: "workflow-governed-improvement",
+    workflow_node_id: "runtime.governed-improvement-proposal.ide",
     proposal: {
       ...proposal(),
       eval_receipt_refs: [
@@ -138,6 +143,20 @@ test("builds governed improvement controls from canonical input proposal", () =>
 
   assert.equal(request.body.proposal.proposal_id, "proposal://runtime-improvement/ide");
   assert.equal(request.body.proposal_id, "proposal://runtime-improvement/ide");
+});
+
+test("governed improvement controls reject retired control input aliases", () => {
+  for (const key of retiredGovernedImprovementControlInputAliases) {
+    assert.throws(
+      () =>
+        createRuntimeGovernedImprovementControlRequest({
+          threadId: "thread-ide",
+          proposal: proposal(),
+          [key]: "retired",
+        } as any),
+      /retired control input aliases/,
+    );
+  }
 });
 
 test("governed improvement controls reject retired proposal input field aliases", () => {
@@ -215,7 +234,7 @@ test("builds governed improvement controls from workflow proposal nodes", () => 
       },
     },
     { threadId: "thread-from-node" },
-    { workflowGraphId: "workflow-from-node", actor: "runtime-reviewer" },
+    { workflow_graph_id: "workflow-from-node", actor: "runtime-reviewer" },
   );
 
   assert.equal(request.threadId, "thread-from-node");
@@ -226,6 +245,27 @@ test("builds governed improvement controls from workflow proposal nodes", () => 
   );
   assert.equal(request.body.workflow_graph_id, "workflow-from-node");
   assert.equal(request.body.actor, "runtime-reviewer");
+});
+
+test("governed improvement workflow node options reject retired workflow graph input alias", () => {
+  assert.throws(
+    () =>
+      createRuntimeGovernedImprovementControlRequestFromWorkflowNode(
+        {
+          id: "governed-improvement-node",
+          type: "proposal",
+          config: {
+            logic: {
+              proposal: proposal(),
+            } as any,
+            law: {},
+          },
+        },
+        { threadId: "thread-from-node" },
+        { workflowGraphId: "workflow-from-node" } as any,
+      ),
+    /retired control input aliases/,
+  );
 });
 
 test("governed improvement controls reject retired workflow logic aliases", () => {

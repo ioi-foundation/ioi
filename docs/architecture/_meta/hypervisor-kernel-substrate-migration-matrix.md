@@ -12954,6 +12954,12 @@ caller supplies retired `workflowGraphId` or `workflowNodeId`, the SDK admission
 input type advertises canonical `workflow_graph_id` / `workflow_node_id` only,
 and bridge conformance guards the SDK type, runtime guard, and focused test.
 
+Slice 467 retires governed-improvement IDE control input aliases:
+`createRuntimeGovernedImprovementControlRequest` and the workflow-node helper now
+accept canonical `workflow_graph_id` / `workflow_node_id` steering inputs only,
+fail closed on retired `workflowGraphId` / `workflowNodeId` control aliases, and
+bridge conformance guards the IDE input types, runtime guards, and focused tests.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

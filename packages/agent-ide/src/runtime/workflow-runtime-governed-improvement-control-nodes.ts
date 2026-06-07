@@ -57,6 +57,11 @@ const RETIRED_GOVERNED_IMPROVEMENT_WORKFLOW_LOGIC_FIELDS = [
   "workflowNodeId",
 ] as const;
 
+const RETIRED_GOVERNED_IMPROVEMENT_CONTROL_INPUT_FIELDS = [
+  "workflowGraphId",
+  "workflowNodeId",
+] as const;
+
 export type RuntimeGovernedImprovementSurface =
   (typeof RUNTIME_GOVERNED_IMPROVEMENT_SURFACES)[number];
 
@@ -124,19 +129,20 @@ export interface RuntimeGovernedImprovementControlRequestInput {
   verifierReceiptRefs?: string[] | null;
   approvalRef?: string | null;
   rollbackRef?: string | null;
-  workflowGraphId?: string | null;
-  workflowNodeId?: string | null;
+  workflow_graph_id?: string | null;
+  workflow_node_id?: string | null;
   actor?: string | null;
 }
 
 export interface RuntimeGovernedImprovementWorkflowNodeOptions {
-  workflowGraphId?: string | null;
+  workflow_graph_id?: string | null;
   actor?: string | null;
 }
 
 export function createRuntimeGovernedImprovementControlRequest(
   params: RuntimeGovernedImprovementControlRequestInput,
 ): RuntimeGovernedImprovementControlRequest {
+  assertNoRetiredGovernedImprovementControlInputAliases(params);
   const threadId =
     cleanString(params.threadId) ??
     stringAtPath(params.input, params.threadIdField ?? "threadId") ??
@@ -209,9 +215,9 @@ export function createRuntimeGovernedImprovementControlRequest(
       stringAtPath(params.input, "rollback_ref"),
     "rollback_ref",
   );
-  const workflowGraphId = cleanString(params.workflowGraphId) ?? null;
+  const workflowGraphId = cleanString(params.workflow_graph_id) ?? null;
   const workflowNodeId =
-    cleanString(params.workflowNodeId) ??
+    cleanString(params.workflow_node_id) ??
     `${RUNTIME_GOVERNED_IMPROVEMENT_WORKFLOW_NODE_ID}.${safeId(proposalId)}`;
   const proposal: RuntimeGovernedImprovementProposal = {
     ...proposalSeed,
@@ -266,6 +272,7 @@ export function createRuntimeGovernedImprovementControlRequestFromWorkflowNode(
   input: unknown = {},
   options: RuntimeGovernedImprovementWorkflowNodeOptions = {},
 ): RuntimeGovernedImprovementControlRequest {
+  assertNoRetiredGovernedImprovementWorkflowNodeOptionAliases(options);
   const logic = workflowNodeLogic(node);
   assertCanonicalGovernedImprovementWorkflowLogic(logic);
   const proposal = objectField(logic, "proposal") ?? {};
@@ -274,8 +281,8 @@ export function createRuntimeGovernedImprovementControlRequestFromWorkflowNode(
     input,
     threadIdField: "threadId",
     proposal,
-    workflowGraphId: options.workflowGraphId,
-    workflowNodeId:
+    workflow_graph_id: options.workflow_graph_id,
+    workflow_node_id:
       stringField(logic, "workflow_node_id") ??
       `${RUNTIME_GOVERNED_IMPROVEMENT_WORKFLOW_NODE_ID}.${safeId(node.id)}`,
     actor: options.actor,
@@ -340,6 +347,32 @@ function assertCanonicalGovernedImprovementWorkflowLogic(logic: NodeLogic): void
   if (retiredAliases.length === 0) return;
   throw new Error(
     `governed improvement workflow nodes no longer accept retired logic aliases: ${retiredAliases.join(", ")}`,
+  );
+}
+
+function assertNoRetiredGovernedImprovementControlInputAliases(
+  input: RuntimeGovernedImprovementControlRequestInput,
+): void {
+  const record = input as unknown as Record<string, unknown>;
+  const retiredAliases = RETIRED_GOVERNED_IMPROVEMENT_CONTROL_INPUT_FIELDS.filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new Error(
+    `governed improvement proposal controls no longer accept retired control input aliases: ${retiredAliases.join(", ")}`,
+  );
+}
+
+function assertNoRetiredGovernedImprovementWorkflowNodeOptionAliases(
+  options: RuntimeGovernedImprovementWorkflowNodeOptions,
+): void {
+  const record = options as unknown as Record<string, unknown>;
+  const retiredAliases = RETIRED_GOVERNED_IMPROVEMENT_CONTROL_INPUT_FIELDS.filter((field) =>
+    Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new Error(
+    `governed improvement workflow node options no longer accept retired control input aliases: ${retiredAliases.join(", ")}`,
   );
 }
 
