@@ -310,10 +310,10 @@ function runDocs() {
       /`ioi-step-module-bridge` command path is migration scaffolding/.test(guide) &&
       /must\s+not be treated as the terminal substrate/.test(guide) &&
       /collapse into the Rust daemon core API/.test(guide) &&
-      /Resume-goal instruction: do not stop ordinary Rust-core extraction or facade\s+retirement work to prune the migration matrix now/.test(
+      /Resume-goal scheduling marker: do not make matrix pruning the first action when\s+the migration goal resumes/.test(
         guide,
       ) &&
-      /Schedule the matrix\s+compaction pass once the next Rust-core extraction\/facade-retirement seam is\s+clear/.test(
+      /First complete a verified slice that clarifies the\s+next Rust-core extraction or JS-facade retirement owner boundary; then run the\s+scheduled matrix-compaction pass/.test(
         guide,
       ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
@@ -15079,8 +15079,32 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-run-job-id-projection-aliases-retired",
+    /return \{ jobId: run\.id \};/.test(runtimeRunReadSurface) &&
+      !/runtimeJob\?\.jobId/.test(runtimeRunReadSurface) &&
+      !/run\.jobId\b/.test(runtimeRunReadSurface) &&
+      /runtime run read surface default job sidecar path ignores retired job id fallbacks/.test(
+        runtimeRunReadSurfaceTest,
+      ) &&
+      /jobs\/run-canonical\.json/.test(runtimeRunReadSurfaceTest) &&
+      /job-retired-nested/.test(runtimeRunReadSurfaceTest) &&
+      /job-retired-top/.test(runtimeRunReadSurfaceTest),
+    [
+      "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
+      "packages/runtime-daemon/src/runtime-run-read-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime run read projections must derive job sidecar identity from canonical run id instead of retired jobId aliases",
+  );
+  assertCheck(
+    result,
     "runtime-task-job-read-aliases-retired",
     /const agentId = options\.agent_id \?\? undefined;/.test(runtimeTaskJobSurface) &&
+      /taskId: run\.id/.test(runtimeTaskJobSurface) &&
+      /jobId: run\.id/.test(runtimeTaskJobSurface) &&
+      !/runtimeTask\?\.taskId/.test(runtimeTaskJobSurface) &&
+      !/runtimeJob\?\.jobId/.test(runtimeTaskJobSurface) &&
+      !/run\.taskId\b/.test(runtimeTaskJobSurface) &&
+      !/run\.jobId\b/.test(runtimeTaskJobSurface) &&
       !/options\.agentId\b/.test(runtimeTaskJobSurface) &&
       /notFoundDep\(`Task not found: \$\{taskId\}`,\s*\{ task_id: taskId \}\)/.test(
         runtimeTaskJobSurface,
@@ -15097,6 +15121,11 @@ function runCompositor() {
       /surface\.listJobs\(store, \{ agentId: "legacy-agent", status: "running" \}\)/.test(
         runtimeTaskJobSurfaceTest,
       ) &&
+      /runtime task job surface default projections ignore retired task and job id fallbacks/.test(
+        runtimeTaskJobSurfaceTest,
+      ) &&
+      /task-retired-nested/.test(runtimeTaskJobSurfaceTest) &&
+      /job-retired-nested/.test(runtimeTaskJobSurfaceTest) &&
       /Object\.hasOwn\(missingTask\.details,\s*"taskId"\),\s*false/.test(
         runtimeTaskJobSurfaceTest,
       ) &&
@@ -15107,7 +15136,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
       "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime task/job reads must ignore retired agentId request aliases and expose canonical snake_case not-found details",
+    "Phase 10/11 is pending: runtime task/job reads must ignore retired agentId request aliases, persisted taskId/jobId aliases, and expose canonical snake_case not-found details",
   );
   assertCheck(
     result,

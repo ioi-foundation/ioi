@@ -9,7 +9,7 @@ function defaultNotFound(message, details = {}) {
 
 function defaultRuntimeTaskRecordForRun(run = {}) {
   return {
-    taskId: run.runtimeTask?.taskId ?? run.taskId ?? run.id,
+    taskId: run.id,
     runId: run.id,
     status: run.status,
     createdAt: run.createdAt ?? "",
@@ -18,7 +18,7 @@ function defaultRuntimeTaskRecordForRun(run = {}) {
 
 function defaultRuntimeJobRecordForRun(run = {}) {
   return {
-    jobId: run.runtimeJob?.jobId ?? run.jobId ?? run.id,
+    jobId: run.id,
     runId: run.id,
     status: run.status,
     createdAt: run.createdAt ?? "",

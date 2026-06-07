@@ -181,3 +181,32 @@ test("runtime run read surface projects authority evidence, replay, trace, and c
     scorecard: { status: "pass" },
   });
 });
+
+test("runtime run read surface default job sidecar path ignores retired job id fallbacks", () => {
+  const poisonedRun = {
+    ...run("run-canonical"),
+    runtimeJob: { jobId: "job-retired-nested" },
+    jobId: "job-retired-top",
+  };
+  const store = {
+    schemaVersion: "schema.v1",
+    stateDir: "/state",
+    runs: new Map([["run-canonical", poisonedRun]]),
+    getRun(runId) {
+      return this.runs.get(runId);
+    },
+    pathFor(...segments) {
+      return ["/state", ...segments].join("/");
+    },
+  };
+  const surface = createRuntimeRunReadSurface({
+    runtimeChecklistRecordForRun(input) {
+      return { checklistId: `checklist-${input.id}` };
+    },
+  });
+
+  assert.equal(
+    surface.canonicalProjection(store, "run-canonical").paths.job,
+    "jobs/run-canonical.json",
+  );
+});

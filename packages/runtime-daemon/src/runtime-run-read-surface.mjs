@@ -15,7 +15,7 @@ import {
 import { threadIdForAgent } from "./runtime-identifiers.mjs";
 
 function defaultRuntimeJobRecordForRun(run = {}) {
-  return { jobId: run.runtimeJob?.jobId ?? run.jobId ?? run.id };
+  return { jobId: run.id };
 }
 
 function defaultRuntimeChecklistRecordForRun(run = {}) {

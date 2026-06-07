@@ -96,6 +96,43 @@ test("runtime task job surface lists and filters task and job projections with c
   ]);
 });
 
+test("runtime task job surface default projections ignore retired task and job id fallbacks", () => {
+  const runs = [
+    {
+      id: "run-canonical",
+      runtimeTask: { taskId: "task-retired-nested" },
+      taskId: "task-retired-top",
+      runtimeJob: { jobId: "job-retired-nested" },
+      jobId: "job-retired-top",
+      status: "running",
+      createdAt: "2026-06-04T00:00:05.000Z",
+    },
+  ];
+  const surface = createRuntimeTaskJobSurface();
+  const store = {
+    listRuns() {
+      return runs;
+    },
+  };
+
+  assert.deepEqual(surface.listTasks(store), [
+    {
+      taskId: "run-canonical",
+      runId: "run-canonical",
+      status: "running",
+      createdAt: "2026-06-04T00:00:05.000Z",
+    },
+  ]);
+  assert.deepEqual(surface.listJobs(store), [
+    {
+      jobId: "run-canonical",
+      runId: "run-canonical",
+      status: "running",
+      createdAt: "2026-06-04T00:00:05.000Z",
+    },
+  ]);
+});
+
 test("runtime task job surface creates task with existing or synthesized agent", () => {
   const { calls, store, surface } = harness();
 
