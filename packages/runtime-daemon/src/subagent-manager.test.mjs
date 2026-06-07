@@ -614,6 +614,17 @@ test("subagent result and lifecycle helpers ignore retired record input aliases"
     output: "SUMMARY\nDone.",
     outputContractStatus: { status: "valid" },
   });
+  const canonicalAgentOnly = subagentResultForRun({
+    record: {
+      agent_id: "agent-canonical-only",
+      run_id: "run-record-canonical",
+      lifecycle_status: "completed",
+      receipt_refs: ["receipt-record"],
+    },
+    run,
+    output: "SUMMARY\nDone.",
+    outputContractStatus: { status: "valid" },
+  });
 
   assert.equal(result.subagent_id, "subagent-canonical");
   assert.equal(result.agent_id, "agent-canonical");
@@ -627,6 +638,10 @@ test("subagent result and lifecycle helpers ignore retired record input aliases"
   assert.equal(retiredOnly.lifecycle_status, "completed");
   assert.equal(retiredOnly.budget_status, null);
   assert.deepEqual(retiredOnly.receipt_refs, []);
+  assert.equal(canonicalAgentOnly.subagent_id, null);
+  assert.equal(canonicalAgentOnly.agent_id, "agent-canonical-only");
+  assert.equal(canonicalAgentOnly.run_id, "run-canonical");
+  assert.deepEqual(canonicalAgentOnly.receipt_refs, ["receipt-record", "receipt-run"]);
   assert.equal(
     subagentIsActive({ lifecycleStatus: "running" }),
     false,

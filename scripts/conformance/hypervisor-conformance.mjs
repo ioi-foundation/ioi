@@ -16205,6 +16205,9 @@ function runCompositor() {
     subagentResultForRunBlock.length > 0 &&
       subagentIsActiveBlock.length > 0 &&
       subagentCancellationPropagatesBlock.length > 0 &&
+      !/record\?\.subagent_id\s*\?\?\s*record\?\.agent_id/.test(
+        subagentResultForRunBlock,
+      ) &&
       !/\brecord\?\.(?:subagentId|agentId|runId|lifecycleStatus|budgetStatus|receiptRefs)\b/.test(
         subagentResultForRunBlock,
       ) &&
@@ -16216,6 +16219,10 @@ function runCompositor() {
       /retiredSubagentResultInputAliasKeys/.test(subagentManagerTest) &&
       /retiredSubagentLifecycleInputAliasKeys/.test(subagentManagerTest) &&
       /subagent result and lifecycle helpers ignore retired record input aliases/.test(
+        subagentManagerTest,
+      ) &&
+      /canonicalAgentOnly\.subagent_id,\s*null/.test(subagentManagerTest) &&
+      /canonicalAgentOnly\.agent_id,\s*"agent-canonical-only"/.test(
         subagentManagerTest,
       ),
     [

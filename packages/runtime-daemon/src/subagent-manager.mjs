@@ -286,7 +286,7 @@ export function validateSubagentOutputContract(
 }
 
 export function subagentResultForRun({ record, run = {}, output, outputContractStatus } = {}) {
-  const subagentId = record?.subagent_id ?? record?.agent_id ?? null;
+  const subagentId = record?.subagent_id ?? null;
   const lifecycleStatus = lifecycleStatusForRun(
     record?.lifecycle_status ?? record?.status ?? run.status,
   );
