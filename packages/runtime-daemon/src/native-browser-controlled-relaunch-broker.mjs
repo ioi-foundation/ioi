@@ -307,31 +307,23 @@ async function fetchJsonWithTimeout(url, timeoutMs) {
 
 function controlledRelaunchApprovalRef(input) {
   return stringValue(
-    input.controlledRelaunchApprovalRef ??
-      input.controlled_relaunch_approval_ref ??
-      input.hostBrowserLaunchApprovalRef ??
+    input.controlled_relaunch_approval_ref ??
       input.host_browser_launch_approval_ref ??
-      input.browserLaunchApprovalRef ??
       input.browser_launch_approval_ref,
   );
 }
 
 function controlledRelaunchBrokerRef(input, fallback) {
   return stringValue(
-    input.controlledRelaunchBrokerRef ??
-      input.controlled_relaunch_broker_ref ??
-      input.computerUseControlledRelaunchBroker?.broker_ref ??
-      input.computerUseControlledRelaunchBroker?.brokerRef ??
-      input.controlledRelaunchBroker?.broker_ref ??
-      input.controlledRelaunchBroker?.brokerRef,
+    input.controlled_relaunch_broker_ref ??
+      input.computer_use_controlled_relaunch_broker?.broker_ref ??
+      input.controlled_relaunch_broker?.broker_ref,
   ) ?? `broker_${fallback}`;
 }
 
 function controlledRelaunchExecutablePath(input) {
   const explicit = stringValue(
-    input.controlledRelaunchExecutablePath ??
-      input.controlled_relaunch_executable_path ??
-      input.browserExecutablePath ??
+    input.controlled_relaunch_executable_path ??
       input.browser_executable_path,
   );
   if (explicit) return explicit;
@@ -371,27 +363,21 @@ function knownBrowserExecutablePaths() {
 
 function controlledRelaunchExecutableArgs(input) {
   return stringArray(
-    input.controlledRelaunchExecutableArgs ??
-      input.controlled_relaunch_executable_args ??
-      input.browserExecutableArgs ??
+    input.controlled_relaunch_executable_args ??
       input.browser_executable_args,
   );
 }
 
 function controlledRelaunchExtraArgs(input) {
   return stringArray(
-    input.controlledRelaunchExtraArgs ??
-      input.controlled_relaunch_extra_args ??
-      input.browserLaunchArgs ??
+    input.controlled_relaunch_extra_args ??
       input.browser_launch_args,
   );
 }
 
 function controlledRelaunchPort(input) {
   const value = Number(
-    input.controlledRelaunchCdpPort ??
-      input.controlled_relaunch_cdp_port ??
-      input.browserLaunchCdpPort ??
+    input.controlled_relaunch_cdp_port ??
       input.browser_launch_cdp_port,
   );
   if (Number.isFinite(value) && value > 0 && value < 65536) return Math.round(value);
@@ -400,10 +386,8 @@ function controlledRelaunchPort(input) {
 
 function controlledRelaunchStartUrl(input) {
   const value = stringValue(
-    input.controlledRelaunchStartUrl ??
-      input.controlled_relaunch_start_url ??
+    input.controlled_relaunch_start_url ??
       input.url ??
-      input.targetUrl ??
       input.target_url,
   );
   return /^https?:\/\//i.test(value ?? "") ? value : null;
@@ -411,8 +395,8 @@ function controlledRelaunchStartUrl(input) {
 
 function controlledRelaunchHeadless(input) {
   const value =
-    booleanValue(input.controlledRelaunchHeadless ?? input.controlled_relaunch_headless) ??
-    booleanValue(input.browserLaunchHeadless ?? input.browser_launch_headless);
+    booleanValue(input.controlled_relaunch_headless) ??
+    booleanValue(input.browser_launch_headless);
   return value ?? false;
 }
 

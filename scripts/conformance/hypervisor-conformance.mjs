@@ -1102,6 +1102,12 @@ function runBridge() {
   const workerServicePackageSurfaceTest = exists("packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs")
     : "";
+  const nativeBrowserControlledRelaunchBroker = exists("packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.mjs")
+    ? read("packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.mjs")
+    : "";
+  const nativeBrowserControlledRelaunchBrokerTest = exists("packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.test.mjs")
+    ? read("packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.test.mjs")
+    : "";
   const workspaceRestoreKernel = exists("crates/services/src/agentic/runtime/kernel/workspace_restore.rs")
     ? read("crates/services/src/agentic/runtime/kernel/workspace_restore.rs")
     : "";
@@ -2521,6 +2527,21 @@ function runBridge() {
       !/input\.(?:computerUseControlledRelaunchBroker|controlledRelaunchBroker|controlledRelaunchBrokerRef|controlledRelaunchStartUrl|controlledRelaunchProfileDirRef|controlledRelaunchLaunchPlanRef|controlledRelaunchExecutablePath)\b/.test(
         runtimeDaemonIndex,
       ) &&
+      !/input\.(?:controlledRelaunchApprovalRef|hostBrowserLaunchApprovalRef|browserLaunchApprovalRef|computerUseControlledRelaunchBroker|controlledRelaunchBroker|controlledRelaunchBrokerRef|controlledRelaunchExecutablePath|browserExecutablePath|controlledRelaunchExecutableArgs|browserExecutableArgs|controlledRelaunchExtraArgs|browserLaunchArgs|controlledRelaunchCdpPort|browserLaunchCdpPort|controlledRelaunchStartUrl|targetUrl|controlledRelaunchHeadless|browserLaunchHeadless)\b/.test(
+        nativeBrowserControlledRelaunchBroker,
+      ) &&
+      !/(?:computerUseControlledRelaunchBroker|controlledRelaunchBrokerRef|controlledRelaunchExecutablePath|browserExecutablePath|controlledRelaunchExecutableArgs|browserExecutableArgs|controlledRelaunchExtraArgs|browserLaunchArgs|controlledRelaunchCdpPort|browserLaunchCdpPort|controlledRelaunchStartUrl|targetUrl|controlledRelaunchHeadless|browserLaunchHeadless)\?\./.test(
+        nativeBrowserControlledRelaunchBroker,
+      ) &&
+      /controlled relaunch broker ignores retired camelCase launch aliases/.test(
+        nativeBrowserControlledRelaunchBrokerTest,
+      ) &&
+      /controlledRelaunchApprovalRef: "approval_retired"/.test(
+        nativeBrowserControlledRelaunchBrokerTest,
+      ) &&
+      /assert\.equal\(result\.launchReceipt\.approval_ref,\s*null\)/.test(
+        nativeBrowserControlledRelaunchBrokerTest,
+      ) &&
       !/(?:computerUseControlledRelaunchBroker|controlledRelaunchBrokerRef|controlledRelaunchStartUrl|controlledRelaunchProfileDirRef|controlledRelaunchLaunchPlanRef|controlledRelaunchExecutablePath):/.test(
         runtimeDaemonIndex,
       ),
@@ -2528,6 +2549,8 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/computer-use-projection.mjs",
       "packages/runtime-daemon/src/computer-use-projection.test.mjs",
+      "packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.mjs",
+      "packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.test.mjs",
     ],
     "Phase 10/11 is pending: computer-use controlled relaunch metadata must use canonical snake_case broker, receipt, launch-plan, and retention fields without retired camelCase aliases",
   );
