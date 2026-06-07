@@ -3244,7 +3244,6 @@ function computerUseProjectionForRuntimeThreadEvent(
   const browserDiscoveryReport = recordField(
     payload,
     "browser_discovery_report",
-    "browserDiscoveryReport",
   );
   const controlledRelaunchLaunchReceipt = recordField(
     payload,
@@ -3398,25 +3397,21 @@ function computerUseProjectionForRuntimeThreadEvent(
       stringField(
         payload,
         "computer_use_browser_discovery_ref",
-        "computerUseBrowserDiscoveryRef",
       ) ??
-      stringField(browserDiscoveryReport, "discovery_ref", "discoveryRef") ??
-      stringField(browserDiscoveryReport, "receipt_ref", "receiptRef"),
+      stringField(browserDiscoveryReport, "discovery_ref") ??
+      stringField(browserDiscoveryReport, "receipt_ref"),
     browserProcessCount: numberField(
       browserDiscoveryReport,
       "browser_process_count",
-      "browserProcessCount",
     ),
     cdpEndpointCount: numberField(
       browserDiscoveryReport,
       "cdp_endpoint_count",
-      "cdpEndpointCount",
     ),
     defaultProfileBlockerCount: browserDiscoveryReport
       ? arrayField(
           browserDiscoveryReport,
           "default_profile_remote_debugging_blockers",
-          "defaultProfileRemoteDebuggingBlockers",
         ).length
       : null,
     controlledRelaunchLaunchRef:

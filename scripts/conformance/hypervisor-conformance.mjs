@@ -13289,6 +13289,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-event-identity.test.ts")
     : "";
+  const agentIdeRuntimeEventProjection = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts")
+    : "";
+  const agentIdeRuntimeEventProjectionTest = exists(
+    "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts")
+    : "";
   const agentIdeContextBudgetControlNodes = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
   )
@@ -19487,6 +19497,67 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
     ],
     "Phase 10/11 is pending: mixed IDE runtime panels must share canonical event identity handling and ignore raw retired id/event aliases",
+  );
+  assertCheck(
+    result,
+    "ide-computer-use-browser-discovery-projection-aliases-retired",
+    /recordField\(\s*payload,\s*"browser_discovery_report",\s*\)/.test(
+      agentIdeRuntimeEventProjection,
+    ) &&
+      /stringField\(\s*payload,\s*"computer_use_browser_discovery_ref",\s*\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /stringField\(browserDiscoveryReport,\s*"discovery_ref"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /stringField\(browserDiscoveryReport,\s*"receipt_ref"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /numberField\(\s*browserDiscoveryReport,\s*"browser_process_count",\s*\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /numberField\(\s*browserDiscoveryReport,\s*"cdp_endpoint_count",\s*\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /arrayField\(\s*browserDiscoveryReport,\s*"default_profile_remote_debugging_blockers",\s*\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /computer-use browser discovery projection ignores retired aliases/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /computerUseBrowserDiscoveryRef: "retired-browser-discovery"/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /browserDiscoveryReport: \{/.test(agentIdeRuntimeEventProjectionTest) &&
+      /assert\.equal\(projection\.nodes\[0\]\?\.computerUse\?\.browserDiscoveryRef,\s*null\)/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      !/recordField\(\s*payload,\s*"browser_discovery_report",\s*"browserDiscoveryReport"\s*\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(\s*payload,\s*"computer_use_browser_discovery_ref",\s*"computerUseBrowserDiscoveryRef"\s*\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(browserDiscoveryReport,\s*"discovery_ref",\s*"discoveryRef"\s*\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(browserDiscoveryReport,\s*"receipt_ref",\s*"receiptRef"\s*\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/numberField\(\s*browserDiscoveryReport,\s*"browser_process_count",\s*"browserProcessCount"\s*\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/numberField\(\s*browserDiscoveryReport,\s*"cdp_endpoint_count",\s*"cdpEndpointCount"\s*\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/arrayField\(\s*browserDiscoveryReport,\s*"default_profile_remote_debugging_blockers",\s*"defaultProfileRemoteDebuggingBlockers"\s*\)/.test(
+        agentIdeRuntimeEventProjection,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE computer-use browser discovery projections must ignore retired camelCase discovery payload aliases",
   );
   assertCheck(
     result,

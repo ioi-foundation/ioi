@@ -13321,6 +13321,14 @@ fields only; invocation-result replay reads only `browser_discovery_report`, so
 retired camelCase discovery payload and report aliases can no longer create a
 duplicate replay truth path.
 
+Slice 519 retires IDE computer-use browser-discovery projection aliases: the
+workflow runtime event projector now reads canonical
+`browser_discovery_report`, `computer_use_browser_discovery_ref`,
+`discovery_ref`, `receipt_ref`, `browser_process_count`, `cdp_endpoint_count`,
+and `default_profile_remote_debugging_blockers` fields only, so retired
+camelCase discovery payload aliases cannot re-enter the Hypervisor IDE
+projection lane after daemon payload canonicalization.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -549,6 +549,36 @@ test("projects browser discovery receipts as glass-box computer-use rows", () =>
   );
 });
 
+test("computer-use browser discovery projection ignores retired aliases", () => {
+  const projection = projectRuntimeThreadEventsToWorkflowProjection([
+    event("computer-use-browser-discovery-retired-aliases", 1, {
+      type: "computer_use_browser_discovery",
+      eventKind: "computer_use.browser_discovery",
+      sourceEventKind: "ComputerUse.BrowserDiscovery",
+      status: "completed",
+      componentKind: "computer_use_harness",
+      payload: {
+        computer_use_step: "discover_browser",
+        computerUseBrowserDiscoveryRef: "retired-browser-discovery",
+        browserDiscoveryReport: {
+          discoveryRef: "retired-report",
+          receiptRef: "retired-receipt",
+          browserProcessCount: 7,
+          cdpEndpointCount: 3,
+          defaultProfileRemoteDebuggingBlockers: [
+            { browserFamily: "chrome" },
+          ],
+        },
+      },
+    }),
+  ]);
+
+  assert.equal(projection.nodes[0]?.computerUse?.browserDiscoveryRef, null);
+  assert.equal(projection.nodes[0]?.computerUse?.browserProcessCount, null);
+  assert.equal(projection.nodes[0]?.computerUse?.cdpEndpointCount, null);
+  assert.equal(projection.nodes[0]?.computerUse?.defaultProfileBlockerCount, null);
+});
+
 test("projects controlled relaunch launch receipts as browser-use evidence", () => {
   const projection = projectRuntimeThreadEventsToWorkflowProjection([
     event("computer-use-controlled-relaunch", 1, {
