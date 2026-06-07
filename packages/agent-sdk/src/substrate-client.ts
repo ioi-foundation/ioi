@@ -615,17 +615,11 @@ export interface RuntimeToolListOptions {
 export interface RuntimeThreadToolInvokeInput {
   input?: Record<string, unknown>;
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
-  turnId?: string;
   turn_id?: string;
-  workflowGraphId?: string;
   workflow_graph_id?: string;
-  workflowNodeId?: string;
   workflow_node_id?: string;
-  toolCallId?: string;
   tool_call_id?: string;
-  idempotencyKey?: string;
   idempotency_key?: string;
-  [key: string]: unknown;
 }
 
 export interface RuntimeThreadToolInvocationResult {

@@ -652,6 +652,83 @@ test("SDK executes diagnostics restore decisions with canonical request fields",
   }
 });
 
+test("SDK invokes thread tools with canonical request identity fields", async () => {
+  const requests = [];
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    requests.push(`${request.method} ${url.pathname}`);
+    response.setHeader("content-type", "application/json");
+    if (
+      request.method === "POST" &&
+      url.pathname === "/v1/threads/thread_sdk/tools/workspace.status/invoke"
+    ) {
+      const body = await readBody(request);
+      assert.equal(body.source, "sdk_client");
+      assert.equal(body.turn_id, "turn_sdk");
+      assert.equal(body.workflow_graph_id, "workflow_sdk");
+      assert.equal(body.workflow_node_id, "runtime.coding-tool.workspace.status");
+      assert.equal(body.tool_call_id, "tool_call_sdk");
+      assert.equal(body.idempotency_key, "idem:thread-tool-sdk");
+      assert.deepEqual(body.input, { detail: "short" });
+      assert.equal(Object.hasOwn(body, "workflowGraphId"), false);
+      assert.equal(Object.hasOwn(body, "toolCallId"), false);
+      for (const field of [
+        "turnId",
+        "workflowGraphId",
+        "workflowNodeId",
+        "toolCallId",
+        "idempotencyKey",
+      ]) {
+        assert.equal(Object.hasOwn(body, field), false);
+      }
+      response.end(JSON.stringify({
+        schema_version: "ioi.runtime.coding-tool-result.v1",
+        object: "ioi.runtime_coding_tool_result",
+        tool_pack: "coding_tools",
+        tool_name: "workspace.status",
+        status: "completed",
+        thread_id: "thread_sdk",
+        turn_id: "turn_sdk",
+        workflow_graph_id: "workflow_sdk",
+        workflow_node_id: "runtime.coding-tool.workspace.status",
+        tool_call_id: "tool_call_sdk",
+        result: {
+          status: "clean",
+          workspace_root: "/workspace",
+        },
+        receipt_refs: ["receipt://thread-tool/sdk"],
+        artifact_refs: [],
+        policy_decision_refs: [],
+        rollback_refs: [],
+      }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: { code: "not_found", message: "missing route" } }));
+  });
+  await listen(server);
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
+    const result = await client.invokeThreadTool("thread_sdk", "workspace.status", {
+      turn_id: "turn_sdk",
+      workflow_graph_id: "workflow_sdk",
+      workflow_node_id: "runtime.coding-tool.workspace.status",
+      tool_call_id: "tool_call_sdk",
+      idempotency_key: "idem:thread-tool-sdk",
+      input: { detail: "short" },
+    });
+
+    assert.equal(result.status, "completed");
+    assert.equal(result.tool_name, "workspace.status");
+    assert.deepEqual(result.receipt_refs, ["receipt://thread-tool/sdk"]);
+    assert.ok(requests.includes("POST /v1/threads/thread_sdk/tools/workspace.status/invoke"));
+  } finally {
+    await close(server);
+  }
+});
+
 test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
   const now = new Date().toISOString();
   const events = [

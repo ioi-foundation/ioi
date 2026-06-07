@@ -1010,6 +1010,10 @@ function runBridge() {
     agentSdkSubstrateClient.match(
       /export interface RuntimeDiagnosticsRepairDecisionExecuteInput[\s\S]*?\n}\n/,
     )?.[0] ?? "";
+  const runtimeThreadToolInvokeInputType =
+    agentSdkSubstrateClient.match(
+      /export interface RuntimeThreadToolInvokeInput[\s\S]*?\n}\n/,
+    )?.[0] ?? "";
   const workspaceRestoreSdkSurfaceBlocks = [
     workspaceSnapshotListResultType,
     workspaceRestorePreviewInputType,
@@ -1314,6 +1318,30 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
     "Phase 10/11 is pending: Rust live coding-tool invocation identity must use canonical turn_id/workflow ids without retired request aliases",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-thread-tool-invoke-identity-aliases-retired",
+    /invokeThreadTool/.test(agentSdkSubstrateClient) &&
+      /tools\/\$\{encodePath\(toolId\)\}\/invoke/.test(agentSdkSubstrateClient) &&
+      /SDK invokes thread tools with canonical request identity fields/.test(agentSdkTest) &&
+      /turn_id\?:\s*string;/.test(runtimeThreadToolInvokeInputType) &&
+      /workflow_graph_id\?:\s*string;/.test(runtimeThreadToolInvokeInputType) &&
+      /workflow_node_id\?:\s*string;/.test(runtimeThreadToolInvokeInputType) &&
+      /tool_call_id\?:\s*string;/.test(runtimeThreadToolInvokeInputType) &&
+      /idempotency_key\?:\s*string;/.test(runtimeThreadToolInvokeInputType) &&
+      !/^\s*(?:turnId|workflowGraphId|workflowNodeId|toolCallId|idempotencyKey)\??:/.test(
+        runtimeThreadToolInvokeInputType,
+      ) &&
+      !/\[key:\s*string\]:\s*unknown;/.test(runtimeThreadToolInvokeInputType) &&
+      /Object\.hasOwn\(body,\s*"workflowGraphId"\),\s*false/.test(agentSdkTest) &&
+      /Object\.hasOwn\(body,\s*"toolCallId"\),\s*false/.test(agentSdkTest),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+    ],
+    "Phase 10/11 is pending: SDK thread tool invocation must use canonical turn_id/workflow ids without retired request aliases",
   );
   assertCheck(
     result,
