@@ -201,6 +201,20 @@ function harness({ stateUpdateOverride = null } = {}) {
   return { events, statePlannerCalls, store, surface, transportCalls, writes };
 }
 
+function assertNoRetiredDetailAliases(details) {
+  for (const alias of [
+    "threadId",
+    "serverId",
+    "toolId",
+    "toolName",
+    "controlKind",
+    "operationKind",
+    "expectedOperationKind",
+  ]) {
+    assert.equal(Object.hasOwn(details ?? {}, alias), false, `${alias} detail alias must be absent`);
+  }
+}
+
 test("runtime MCP control surface applies add, remove, and blocked mutation envelopes", () => {
   const { events, statePlannerCalls, store, surface } = harness();
 
@@ -390,10 +404,11 @@ test("runtime MCP control surface fails closed without Rust-planned operation ki
         thread_id: "thread-agent-one",
         id: "mcp.extra",
         tools: [{ name: "extra" }],
-      }),
+    }),
     (error) => {
       assert.equal(error.code, "mcp_control_state_update_operation_kind_missing");
-      assert.equal(error.details.operationKind, "thread.mcp_add");
+      assert.equal(error.details.operation_kind, "thread.mcp_add");
+      assertNoRetiredDetailAliases(error.details);
       return true;
     },
   );
@@ -497,6 +512,105 @@ test("runtime MCP control surface ignores retired threadId request alias", async
   });
   assert.equal(invoked.status, "completed");
   assert.equal(invoked.thread_id, "thread-agent-one");
+});
+
+test("runtime MCP control error details use canonical fields", async () => {
+  const { store, surface } = harness();
+
+  assert.throws(
+    () => surface.removeMcpServer(store, "mcp.docs", {}),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "mcp_thread_required");
+      assert.equal(error.details.server_id, "mcp.docs");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.throws(
+    () => surface.setMcpServerEnabled(store, "mcp.docs", false, {}),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details.server_id, "mcp.docs");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.throws(
+    () => surface.removeThreadMcpServer(store, "thread-agent-one", "mcp.missing", {}),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.thread_id, "thread-agent-one");
+      assert.equal(error.details.server_id, "mcp.missing");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  await assert.rejects(
+    () => surface.invokeMcpTool(store, { tool_id: "mcp.docs.search" }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details.tool_id, "mcp.docs.search");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => surface.invokeThreadMcpTool(store, "thread-agent-one", "mcp.missing.nope", {
+      server_id: "mcp.missing",
+    }),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.thread_id, "thread-agent-one");
+      assert.equal(error.details.tool_id, "mcp.missing.nope");
+      assert.equal(error.details.server_id, "mcp.missing");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => surface.invokeThreadMcpTool(store, "thread-agent-one", null, { server_id: "mcp.docs" }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.details.thread_id, "thread-agent-one");
+      assert.equal(error.details.server_id, "mcp.docs");
+      assert.equal(error.details.tool_id, null);
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => surface.invokeThreadMcpTool(store, "thread-agent-one", null, {
+      server_id: "mcp.docs",
+      tool_name: "missing",
+    }),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.thread_id, "thread-agent-one");
+      assert.equal(error.details.server_id, "mcp.docs");
+      assert.equal(error.details.tool_name, "missing");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  const mismatched = harness({ stateUpdateOverride: { operation_kind: "thread.mcp_wrong" } });
+  assert.throws(
+    () => mismatched.surface.addThreadMcpServer(mismatched.store, "thread-agent-one", {
+      id: "mcp.extra",
+      tools: [{ name: "extra" }],
+    }),
+    (error) => {
+      assert.equal(error.status, 502);
+      assert.equal(error.details.thread_id, "thread-agent-one");
+      assert.equal(error.details.control_kind, "mcp_add");
+      assert.equal(error.details.expected_operation_kind, "thread.mcp_add");
+      assert.equal(error.details.operation_kind, "thread.mcp_wrong");
+      assertNoRetiredDetailAliases(error.details);
+      return true;
+    },
+  );
 });
 
 test("runtime MCP control surface ignores retired invoke identity aliases", async () => {

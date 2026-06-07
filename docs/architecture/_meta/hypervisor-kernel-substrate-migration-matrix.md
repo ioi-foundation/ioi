@@ -11498,6 +11498,13 @@ Slice 551 canonicalizes MCP catalog summary hashes: catalog summaries now hash
 no longer depends on retired camelCase/internal `serverId` or `inputSchema`
 compatibility names while the public summary output remains canonical.
 
+Slice 552 retires MCP control fail-closed detail aliases: MCP control missing
+thread/server/tool and Rust state-update planner errors now expose canonical
+`thread_id`, `server_id`, `tool_id`, `tool_name`, `control_kind`,
+`operation_kind`, and `expected_operation_kind` detail fields only, so
+fail-closed daemon responses no longer leak retired camelCase route identity
+or planner-detail aliases.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

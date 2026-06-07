@@ -157,7 +157,7 @@ export function createRuntimeMcpControlSurface({
           status: 400,
           code: "mcp_thread_required",
           message: "MCP server removal requires a thread_id so the daemon can update the active runtime registry.",
-          details: { serverId },
+          details: { server_id: serverId ?? null },
         });
       }
       return this.removeThreadMcpServer(store, threadId, serverId, input);
@@ -200,7 +200,12 @@ export function createRuntimeMcpControlSurface({
       const agent = store.agentForThread(threadId);
       const registry = agent.mcpRegistry ?? mcpRegistryForWorkspaceDep(agent.cwd, { homeDir: store.homeDir });
       const server = resolveMcpServerRecordDep(registry.servers, serverId ?? request.server_id);
-      if (!server) throw notFoundDep(`MCP server not found: ${serverId}`, { threadId, serverId });
+      if (!server) {
+        throw notFoundDep(`MCP server not found: ${serverId}`, {
+          thread_id: threadId,
+          server_id: serverId ?? request.server_id ?? null,
+        });
+      }
       const remainingServers = normalizeArrayDep(registry.servers).filter((candidate) => candidate.id !== server.id);
       const updatedRegistry = mcpRegistryWithServersDep(registry, remainingServers);
       const updatedAgent = {
@@ -254,7 +259,7 @@ export function createRuntimeMcpControlSurface({
           status: 400,
           code: "mcp_servers_required",
           message: `MCP ${mutationKind} requires at least one server definition.`,
-          details: { threadId, mutationKind },
+          details: { thread_id: threadId, mutation_kind: mutationKind },
         });
       }
       const validation = validateMcpServerRecordsDep(proposedServers);
@@ -432,7 +437,7 @@ export function createRuntimeMcpControlSurface({
           status: 400,
           code: "mcp_thread_required",
           message: "MCP server enable/disable controls require a thread_id so the daemon can update the active runtime registry.",
-          details: { serverId, enabled },
+          details: { server_id: serverId ?? null, enabled },
         });
       }
       return this.setThreadMcpServerEnabled(store, threadId, serverId, enabled, request);
@@ -441,7 +446,12 @@ export function createRuntimeMcpControlSurface({
       const agent = store.agentForThread(threadId);
       const registry = agent.mcpRegistry ?? mcpRegistryForWorkspaceDep(agent.cwd, { homeDir: store.homeDir });
       const server = resolveMcpServerRecordDep(registry.servers, serverId);
-      if (!server) throw notFoundDep(`MCP server not found: ${serverId}`, { threadId, serverId });
+      if (!server) {
+        throw notFoundDep(`MCP server not found: ${serverId}`, {
+          thread_id: threadId,
+          server_id: serverId ?? null,
+        });
+      }
       const nextStatus = enabled
         ? (server.status === "disabled" ? "configured" : server.status ?? "configured")
         : "disabled";
@@ -507,7 +517,7 @@ export function createRuntimeMcpControlSurface({
           status: 400,
           code: "mcp_thread_required",
           message: "MCP tool invocation requires a thread_id so the daemon can apply the active MCP registry and approval policy.",
-          details: { toolId: request.tool_id ?? null },
+          details: { tool_id: request.tool_id ?? null },
         });
       }
       return this.invokeThreadMcpTool(store, threadId, request.tool_id, request);
@@ -518,9 +528,9 @@ export function createRuntimeMcpControlSurface({
       const target = resolveMcpToolRecordDep(servers, toolId, request);
       if (!target.server) {
         throw notFoundDep("MCP server not found for invocation.", {
-          threadId,
-          toolId,
-          serverId: request.server_id ?? null,
+          thread_id: threadId,
+          tool_id: toolId ?? request.tool_id ?? null,
+          server_id: request.server_id ?? null,
         });
       }
       if (!target.toolName) {
@@ -528,7 +538,11 @@ export function createRuntimeMcpControlSurface({
           status: 400,
           code: "mcp_tool_required",
           message: "MCP invocation requires a tool name.",
-          details: { threadId, serverId: target.server.id, toolId: toolId ?? null },
+          details: {
+            thread_id: threadId,
+            server_id: target.server.id,
+            tool_id: toolId ?? request.tool_id ?? null,
+          },
         });
       }
       const server = target.server;
@@ -539,9 +553,9 @@ export function createRuntimeMcpControlSurface({
         null;
       if (!toolEntry) {
         throw notFoundDep(`MCP tool not found: ${toolName}`, {
-          threadId,
-          serverId: server.id,
-          toolName,
+          thread_id: threadId,
+          server_id: server.id,
+          tool_name: toolName,
         });
       }
       const input = request.input ?? request.arguments ?? request.args ?? {};
@@ -840,7 +854,7 @@ export function createRuntimeMcpControlSurface({
           status: 500,
           code: "mcp_control_state_update_planner_unavailable",
           message: "MCP control updates require Rust policy state-update planning.",
-          details: { threadId, controlKind },
+          details: { thread_id: threadId, control_kind: controlKind },
         });
       }
       const stateUpdate = contextPolicyRunnerDep.planMcpControlAgentStateUpdate({
@@ -857,7 +871,7 @@ export function createRuntimeMcpControlSurface({
           status: 502,
           code: "mcp_control_state_update_planner_invalid",
           message: "Rust policy state-update planning did not return an agent record.",
-          details: { threadId, controlKind },
+          details: { thread_id: threadId, control_kind: controlKind },
         });
       }
       const operationKind = requiredMcpControlOperationKind(stateUpdate, threadId, controlKind);
@@ -875,7 +889,11 @@ export function createRuntimeMcpControlSurface({
         status: 502,
         code: "mcp_control_state_update_operation_kind_missing",
         message: "Rust policy state-update planning did not return an operation kind.",
-        details: { threadId, controlKind, operationKind: expectedOperationKind },
+        details: {
+          thread_id: threadId,
+          control_kind: controlKind,
+          operation_kind: expectedOperationKind,
+        },
       });
     }
     if (operationKind !== expectedOperationKind) {
@@ -884,10 +902,10 @@ export function createRuntimeMcpControlSurface({
         code: "mcp_control_state_update_operation_kind_mismatch",
         message: "Rust policy state-update planning returned an unexpected operation kind.",
         details: {
-          threadId,
-          controlKind,
-          expectedOperationKind,
-          operationKind,
+          thread_id: threadId,
+          control_kind: controlKind,
+          expected_operation_kind: expectedOperationKind,
+          operation_kind: operationKind,
         },
       });
     }

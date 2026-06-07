@@ -19478,6 +19478,30 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-mcp-control-error-detail-aliases-retired",
+    /details:\s*\{\s*server_id:\s*serverId \?\? null\s*\}/.test(runtimeMcpControlSurface) &&
+      /server_id:\s*serverId \?\? request\.server_id \?\? null/.test(
+        runtimeMcpControlSurface,
+      ) &&
+      /details:\s*\{\s*tool_id:\s*request\.tool_id \?\? null\s*\}/.test(
+        runtimeMcpControlSurface,
+      ) &&
+      /expected_operation_kind:\s*expectedOperationKind/.test(runtimeMcpControlSurface) &&
+      /runtime MCP control error details use canonical fields/.test(runtimeMcpControlSurfaceTest) &&
+      /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeMcpControlSurfaceTest) &&
+      /error\.details\.server_id/.test(runtimeMcpControlSurfaceTest) &&
+      /error\.details\.expected_operation_kind/.test(runtimeMcpControlSurfaceTest) &&
+      !/details:\s*\{[^}\n]*\b(?:threadId|serverId|toolId|toolName|controlKind|operationKind|expectedOperationKind)\s*:/.test(
+        runtimeMcpControlSurface,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: MCP control fail-closed error details must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "runtime-mcp-invocation-output-aliases-retired",
     /schema_version:\s*invocationSchemaVersion/.test(runtimeMcpInvocationEnvelopeBlock) &&
       /tool_call_id:\s*toolCallId/.test(runtimeMcpInvocationEnvelopeBlock) &&
