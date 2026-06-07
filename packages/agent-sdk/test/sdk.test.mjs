@@ -1647,6 +1647,174 @@ test("SDK thread control requests reject retired aliases before transport", asyn
   );
 });
 
+test("SDK thread agent-control requests use canonical identity and policy fields", async () => {
+  const now = new Date().toISOString();
+  const bodies = new Map();
+  const threadRecord = {
+    id: "thread_sdk",
+    agent_id: "agent_sdk",
+    status: "active",
+    mode: "agent",
+    approval_mode: "human_required",
+    created_at: now,
+    updated_at: now,
+    latest_seq: 3,
+  };
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    response.setHeader("content-type", "application/json");
+    if (request.method === "POST" && url.pathname.startsWith("/v1/threads/thread_sdk/")) {
+      bodies.set(url.pathname, await readBody(request));
+      response.end(JSON.stringify(threadRecord));
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: { code: "not_found", message: "missing route" } }));
+  });
+  await listen(server);
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
+
+    await client.updateThreadMode("thread_sdk", {
+      mode: "review",
+      approval_mode: "human_required",
+      workflow_graph_id: "workflow_thread_agent_controls_sdk",
+      workflow_node_id: "thread_mode_sdk",
+      idempotency_key: "thread_mode_sdk_idempotency",
+    });
+    await client.updateThreadModel("thread_sdk", {
+      model: {
+        id: "model.local",
+        route_id: "route.local-first",
+        reasoning_effort: "medium",
+        max_cost_usd: 0.05,
+        allow_hosted_fallback: false,
+        workflow_graph_id: "workflow_thread_agent_controls_sdk",
+        workflow_node_id: "thread_model_nested_sdk",
+      },
+      model_id: "model.local",
+      route_id: "route.local-first",
+      reasoning_effort: "medium",
+      workflow_graph_id: "workflow_thread_agent_controls_sdk",
+      workflow_node_id: "thread_model_sdk",
+      idempotency_key: "thread_model_sdk_idempotency",
+    });
+    await client.updateThreadThinking("thread_sdk", {
+      reasoning_effort: "high",
+      workflow_graph_id: "workflow_thread_agent_controls_sdk",
+      workflow_node_id: "thread_thinking_sdk",
+      idempotency_key: "thread_thinking_sdk_idempotency",
+    });
+
+    const modeBody = bodies.get("/v1/threads/thread_sdk/mode");
+    assert.equal(modeBody.source, "sdk_client");
+    assert.equal(modeBody.approval_mode, "human_required");
+    assert.equal(modeBody.workflow_graph_id, "workflow_thread_agent_controls_sdk");
+    assert.equal(modeBody.workflow_node_id, "thread_mode_sdk");
+    assert.equal(modeBody.idempotency_key, "thread_mode_sdk_idempotency");
+    for (const key of ["approvalMode", "workflowGraphId", "workflowNodeId", "idempotencyKey"]) {
+      assert.equal(Object.hasOwn(modeBody, key), false, `retired mode alias ${key} must be absent`);
+    }
+
+    const modelBody = bodies.get("/v1/threads/thread_sdk/model");
+    assert.equal(modelBody.source, "sdk_client");
+    assert.equal(modelBody.model.route_id, "route.local-first");
+    assert.equal(modelBody.model.reasoning_effort, "medium");
+    assert.equal(modelBody.model.max_cost_usd, 0.05);
+    assert.equal(modelBody.model.workflow_graph_id, "workflow_thread_agent_controls_sdk");
+    assert.equal(modelBody.model.workflow_node_id, "thread_model_nested_sdk");
+    assert.equal(modelBody.model_id, "model.local");
+    assert.equal(modelBody.route_id, "route.local-first");
+    assert.equal(modelBody.reasoning_effort, "medium");
+    assert.equal(modelBody.workflow_node_id, "thread_model_sdk");
+    for (const key of ["modelId", "routeId", "reasoningEffort", "maxCostUsd", "workflowGraphId", "workflowNodeId", "idempotencyKey"]) {
+      assert.equal(Object.hasOwn(modelBody, key), false, `retired model alias ${key} must be absent`);
+      assert.equal(Object.hasOwn(modelBody.model, key), false, `retired nested model alias ${key} must be absent`);
+    }
+
+    const thinkingBody = bodies.get("/v1/threads/thread_sdk/thinking");
+    assert.equal(thinkingBody.source, "sdk_client");
+    assert.equal(thinkingBody.reasoning_effort, "high");
+    assert.equal(thinkingBody.workflow_node_id, "thread_thinking_sdk");
+    assert.equal(thinkingBody.idempotency_key, "thread_thinking_sdk_idempotency");
+    for (const key of ["reasoningEffort", "workflowGraphId", "workflowNodeId", "idempotencyKey"]) {
+      assert.equal(Object.hasOwn(thinkingBody, key), false, `retired thinking alias ${key} must be absent`);
+    }
+  } finally {
+    await close(server);
+  }
+});
+
+test("SDK thread agent-control requests reject retired aliases before transport", async () => {
+  const client = createRuntimeSubstrateClient({ endpoint: "http://127.0.0.1:9" });
+  const retiredInput = {
+    workflowGraphId: "graph_retired",
+    workflowNodeId: "node_retired",
+    idempotencyKey: "idempotency_retired",
+  };
+  const rejectsRetiredThreadAgentControlAliases = (operation, aliases) => (error) =>
+    error instanceof IoiAgentError &&
+    error.code === "config" &&
+    error.details?.code === "runtime_thread_agent_control_sdk_request_aliases_retired" &&
+    error.details?.operation === operation &&
+    aliases.every((alias) => error.details?.retired_aliases?.includes(alias));
+
+  await assert.rejects(
+    client.updateThreadMode("thread_sdk", {
+      mode: "review",
+      approvalMode: "never",
+      ...retiredInput,
+    }),
+    rejectsRetiredThreadAgentControlAliases("updateThreadMode", [
+      "approvalMode",
+      "workflowGraphId",
+      "workflowNodeId",
+      "idempotencyKey",
+    ]),
+  );
+  await assert.rejects(
+    client.updateThreadModel("thread_sdk", {
+      modelId: "model_retired",
+      routeId: "route_retired",
+      reasoningEffort: "medium",
+      model: {
+        id: "model.local",
+        routeId: "route_nested_retired",
+        maxCostUsd: 0.1,
+        workflowGraphId: "graph_nested_retired",
+        workflowNodeId: "node_nested_retired",
+      },
+      ...retiredInput,
+    }),
+    rejectsRetiredThreadAgentControlAliases("updateThreadModel", [
+      "modelId",
+      "routeId",
+      "reasoningEffort",
+      "workflowGraphId",
+      "workflowNodeId",
+      "idempotencyKey",
+      "model.routeId",
+      "model.maxCostUsd",
+      "model.workflowGraphId",
+      "model.workflowNodeId",
+    ]),
+  );
+  await assert.rejects(
+    client.updateThreadThinking("thread_sdk", {
+      reasoningEffort: "high",
+      ...retiredInput,
+    }),
+    rejectsRetiredThreadAgentControlAliases("updateThreadThinking", [
+      "reasoningEffort",
+      "workflowGraphId",
+      "workflowNodeId",
+      "idempotencyKey",
+    ]),
+  );
+});
+
 test("AgentSubagent mapping behaviorally routes handoffs", async () => {
   const now = new Date().toISOString();
   const runRecord = {

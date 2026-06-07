@@ -13011,6 +13011,14 @@ before transport when callers supply retired `workflowGraphId`,
 canonical `workflow_graph_id` / `workflow_node_id` / `idempotency_key` only, and
 bridge conformance guards the SDK types, runtime guard, and focused test.
 
+Slice 476 retires SDK thread agent-control request aliases:
+`updateThreadMode`, `updateThreadModel`, and `updateThreadThinking` now fail
+closed before transport when callers supply retired JS-era mode/model/thinking
+aliases such as `approvalMode`, `modelId`, `routeId`, `reasoningEffort`,
+`maxCostUsd`, `workflowGraphId`, `workflowNodeId`, or `idempotencyKey`; the SDK
+agent-control input types advertise canonical snake_case request fields only,
+and bridge conformance guards the SDK types, runtime guard, and focused tests.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

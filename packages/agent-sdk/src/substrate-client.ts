@@ -1010,46 +1010,45 @@ export interface RuntimeThreadCompactInput {
 
 export interface RuntimeThreadModeInput {
   mode: RuntimeThreadRecord["mode"] | string;
-  approvalMode?: RuntimeThreadRecord["approval_mode"] | string;
+  approval_mode?: RuntimeThreadRecord["approval_mode"] | string;
   actor?: string;
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
-  workflowGraphId?: string;
-  workflowNodeId?: string;
-  [key: string]: unknown;
+  workflow_graph_id?: string;
+  workflow_node_id?: string;
+  idempotency_key?: string;
 }
 
 export interface RuntimeThreadModelInput {
   model?: string | {
     id?: string;
-    modelId?: string;
-    routeId?: string;
-    reasoningEffort?: string;
+    model_id?: string;
+    route_id?: string;
+    reasoning_effort?: string;
     thinking?: string;
     privacy?: string;
-    maxCostUsd?: number;
+    max_cost_usd?: number;
     allow_hosted_fallback?: boolean;
-    workflowGraphId?: string;
-    workflowNodeId?: string;
-    [key: string]: unknown;
+    workflow_graph_id?: string;
+    workflow_node_id?: string;
   };
-  modelId?: string;
-  routeId?: string;
-  reasoningEffort?: string;
+  model_id?: string;
+  route_id?: string;
+  reasoning_effort?: string;
   actor?: string;
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
-  workflowGraphId?: string;
-  workflowNodeId?: string;
-  [key: string]: unknown;
+  workflow_graph_id?: string;
+  workflow_node_id?: string;
+  idempotency_key?: string;
 }
 
 export interface RuntimeThreadThinkingInput {
-  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | string;
+  reasoning_effort?: "low" | "medium" | "high" | "xhigh" | string;
   thinking?: "low" | "medium" | "high" | "xhigh" | string;
   actor?: string;
   source?: "sdk_client" | "cli_tui" | "react_flow" | string;
-  workflowGraphId?: string;
-  workflowNodeId?: string;
-  [key: string]: unknown;
+  workflow_graph_id?: string;
+  workflow_node_id?: string;
+  idempotency_key?: string;
 }
 
 export type RuntimeGovernedImprovementSurface =
@@ -1669,6 +1668,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeThreadModeInput,
   ): Promise<RuntimeThreadRecord> {
+    assertNoRetiredRuntimeThreadAgentControlAliases(input, "updateThreadMode");
     return this.request(
       "updateThreadMode",
       "POST",
@@ -1684,6 +1684,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeThreadModelInput,
   ): Promise<RuntimeThreadRecord> {
+    assertNoRetiredRuntimeThreadAgentControlAliases(input, "updateThreadModel");
     return this.request(
       "updateThreadModel",
       "POST",
@@ -1699,6 +1700,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     threadId: string,
     input: RuntimeThreadThinkingInput,
   ): Promise<RuntimeThreadRecord> {
+    assertNoRetiredRuntimeThreadAgentControlAliases(input, "updateThreadThinking");
     return this.request(
       "updateThreadThinking",
       "POST",
@@ -3048,6 +3050,48 @@ function assertNoRetiredRuntimeThreadControlAliases(
       retired_aliases: retiredAliases,
     },
   });
+}
+
+function assertNoRetiredRuntimeThreadAgentControlAliases(
+  input:
+    | RuntimeThreadModeInput
+    | RuntimeThreadModelInput
+    | RuntimeThreadThinkingInput,
+  operation: string,
+): void {
+  const record = input as unknown as Record<string, unknown>;
+  const retiredAliases = [
+    ...retiredRuntimeThreadAgentControlAliases(record),
+    ...retiredRuntimeThreadAgentControlAliases(record.model, "model."),
+  ];
+  if (retiredAliases.length === 0) return;
+  throw new IoiAgentError({
+    code: "config",
+    message:
+      "Runtime thread agent-control request aliases are retired; use canonical snake_case request fields.",
+    details: {
+      code: "runtime_thread_agent_control_sdk_request_aliases_retired",
+      operation,
+      retired_aliases: retiredAliases,
+    },
+  });
+}
+
+function retiredRuntimeThreadAgentControlAliases(value: unknown, prefix = ""): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const record = value as Record<string, unknown>;
+  return [
+    "approvalMode",
+    "workflowGraphId",
+    "workflowNodeId",
+    "idempotencyKey",
+    "modelId",
+    "routeId",
+    "reasoningEffort",
+    "maxCostUsd",
+  ]
+    .filter((field) => Object.prototype.hasOwnProperty.call(record, field))
+    .map((field) => `${prefix}${field}`);
 }
 
 function memoryListQuery(options: MemoryListOptions = {}): string {

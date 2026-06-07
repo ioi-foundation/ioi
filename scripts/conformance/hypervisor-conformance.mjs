@@ -1152,6 +1152,18 @@ function runBridge() {
         )?.[0] ?? "",
     )
     .join("\n");
+  const runtimeThreadAgentControlSdkInputBlocks = [
+    "RuntimeThreadModeInput",
+    "RuntimeThreadModelInput",
+    "RuntimeThreadThinkingInput",
+  ]
+    .map(
+      (name) =>
+        agentSdkSubstrateClient.match(
+          new RegExp(`export interface ${name}[\\s\\S]*?\\n}\\n`),
+        )?.[0] ?? "",
+    )
+    .join("\n");
   const workspaceRestoreSdkSurfaceBlocks = [
     workspaceSnapshotListResultType,
     workspaceRestorePreviewInputType,
@@ -3804,6 +3816,47 @@ function runBridge() {
       "packages/agent-sdk/test/sdk.test.mjs",
     ],
     "Phase 10/11 is pending: thread-control request identity must use canonical workflow_graph_id/workflow_node_id before model routing and Rust state planning",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-thread-agent-control-request-aliases-retired",
+    /workflow_graph_id\?: string;/.test(runtimeThreadAgentControlSdkInputBlocks) &&
+      /workflow_node_id\?: string;/.test(runtimeThreadAgentControlSdkInputBlocks) &&
+      /idempotency_key\?: string;/.test(runtimeThreadAgentControlSdkInputBlocks) &&
+      /approval_mode\?: RuntimeThreadRecord\["approval_mode"\] \| string;/.test(
+        runtimeThreadAgentControlSdkInputBlocks,
+      ) &&
+      /model_id\?: string;/.test(runtimeThreadAgentControlSdkInputBlocks) &&
+      /route_id\?: string;/.test(runtimeThreadAgentControlSdkInputBlocks) &&
+      /reasoning_effort\?:/.test(runtimeThreadAgentControlSdkInputBlocks) &&
+      /max_cost_usd\?: number;/.test(runtimeThreadAgentControlSdkInputBlocks) &&
+      !/^\s*(?:approvalMode|workflowGraphId|workflowNodeId|idempotencyKey|modelId|routeId|reasoningEffort|maxCostUsd)\?:/m.test(
+        runtimeThreadAgentControlSdkInputBlocks,
+      ) &&
+      !/\[key:\s*string\]:\s*unknown;/.test(runtimeThreadAgentControlSdkInputBlocks) &&
+      /assertNoRetiredRuntimeThreadAgentControlAliases\(input,\s*"updateThreadMode"\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /assertNoRetiredRuntimeThreadAgentControlAliases\(input,\s*"updateThreadModel"\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /assertNoRetiredRuntimeThreadAgentControlAliases\(input,\s*"updateThreadThinking"\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /runtime_thread_agent_control_sdk_request_aliases_retired/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /SDK thread agent-control requests use canonical identity and policy fields/.test(
+        agentSdkTest,
+      ) &&
+      /SDK thread agent-control requests reject retired aliases before transport/.test(
+        agentSdkTest,
+      ),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+    ],
+    "Phase 10/11 is pending: SDK thread mode/model/thinking controls must fail closed on retired JS-era aliases before daemon transport",
   );
   assertCheck(
     result,
