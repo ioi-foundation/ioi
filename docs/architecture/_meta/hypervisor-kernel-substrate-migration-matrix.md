@@ -13027,6 +13027,14 @@ input types and wrapper options advertise canonical `runtime_profile`,
 `max_steps`, and `prompt` fields only, preserving the Rust-planned runtime
 bridge state-update path without a JS-era request escape hatch.
 
+Slice 478 retires SDK run-create option aliases:
+`send`, `plan`, `dryRun`, and `handoff` now fail closed before transport when a
+caller supplies retired run-create option aliases such as `threadMode`,
+`approvalMode`, `runtimeProfile`, `workflowGraphId`, `workflowNodeId`, or
+`idempotencyKey`; SDK requests can no longer preserve JS-era run steering
+inside the opaque `options` bag before the daemon's Rust-planned run-create
+state update.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

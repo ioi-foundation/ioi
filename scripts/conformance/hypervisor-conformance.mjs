@@ -234,7 +234,8 @@ function runDocs() {
   assertCheck(
     result,
     "source-map-hypervisor-fleet",
-    /Hypervisor Fleet, autonomous infrastructure manager/.test(sourceMap) &&
+    /Hypervisor Fleet, general infrastructure manager/.test(sourceMap) &&
+      /autonomous infrastructure manager/.test(sourceMap) &&
       /\[`fleet\.md`\]\(\.\.\/components\/hypervisor\/fleet\.md\)/.test(sourceMap),
     [SOURCE_OF_TRUTH, "docs/architecture/components/hypervisor/fleet.md"],
     "source-of-truth map must name Hypervisor Fleet and its canonical owner doc",
@@ -4253,6 +4254,14 @@ function runBridge() {
         runtimeAgentRunLifecycleTest,
       ) &&
       !/request\.(?:threadMode|approvalMode)\b/.test(runtimeAgentRunLifecycle) &&
+      /assertNoRetiredRuntimeRunCreateOptionAliases\(options,\s*mode\);/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /runtime_run_create_sdk_option_aliases_retired/.test(agentSdkSubstrateClient) &&
+      /SDK run create options reject retired aliases before transport/.test(agentSdkTest) &&
+      /Object\.hasOwn\(body\.options,\s*key\),\s*false,\s*`retired run-create option alias/.test(
+        agentSdkTest,
+      ) &&
       /thread store fails closed without Rust-planned status agent/.test(threadStoreTest) &&
       /thread store fails closed without Rust-planned status operation kind/.test(
         threadStoreTest,
@@ -4273,6 +4282,8 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/thread-store.mjs",
       "packages/runtime-daemon/src/threads/thread-store.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
     ],
     "Phase 9/10 is pending: agent/run create state updates must be planned by Rust policy core through the command bridge",
   );

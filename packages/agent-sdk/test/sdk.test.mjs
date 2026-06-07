@@ -1125,6 +1125,9 @@ test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
     if (request.method === "POST" && url.pathname === "/v1/agents/agent_http/runs") {
       assert.equal(body.mode, "send");
       assert.equal(body.prompt, "HTTP daemon test");
+      for (const key of ["threadMode", "approvalMode", "runtimeProfile", "workflowGraphId", "workflowNodeId", "idempotencyKey"]) {
+        assert.equal(Object.hasOwn(body.options, key), false, `retired run-create option alias ${key} must be absent`);
+      }
       response.end(JSON.stringify(runRecord));
       return;
     }
@@ -1657,6 +1660,32 @@ test("Thread create wrapper rejects retired option aliases before transport", as
       error.details?.code === "runtime_thread_create_sdk_option_aliases_retired" &&
       error.details?.retired_aliases?.includes("runtimeProfile") &&
       error.details?.retired_aliases?.includes("maxSteps"),
+  );
+});
+
+test("SDK run create options reject retired aliases before transport", async () => {
+  const client = createRuntimeSubstrateClient({ endpoint: "http://127.0.0.1:9" });
+  const retiredOptions = {
+    threadMode: "review",
+    approvalMode: "manual",
+    runtimeProfile: "runtime_service",
+    workflowGraphId: "graph_retired",
+    workflowNodeId: "node_retired",
+    idempotencyKey: "run_retired",
+  };
+  await assert.rejects(
+    client.send("agent_sdk", "retired run create options", retiredOptions),
+    (error) =>
+      error instanceof IoiAgentError &&
+      error.code === "config" &&
+      error.details?.code === "runtime_run_create_sdk_option_aliases_retired" &&
+      error.details?.mode === "send" &&
+      error.details?.retired_aliases?.includes("threadMode") &&
+      error.details?.retired_aliases?.includes("approvalMode") &&
+      error.details?.retired_aliases?.includes("runtimeProfile") &&
+      error.details?.retired_aliases?.includes("workflowGraphId") &&
+      error.details?.retired_aliases?.includes("workflowNodeId") &&
+      error.details?.retired_aliases?.includes("idempotencyKey"),
   );
 });
 

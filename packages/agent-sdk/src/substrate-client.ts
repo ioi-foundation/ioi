@@ -2753,6 +2753,7 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     prompt: string,
     options: SendOptions | PlanOptions | DryRunOptions | HandoffOptions,
   ): Promise<RuntimeRunRecord> {
+    assertNoRetiredRuntimeRunCreateOptionAliases(options, mode);
     return this.request(mode, "POST", `/v1/agents/${encodePath(agentId)}/runs`, {
       mode,
       prompt,
@@ -3078,6 +3079,32 @@ function assertNoRetiredRuntimeTurnCreateAliases(input: RuntimeTurnCreateInput):
     message: "Runtime turn create request aliases are retired; use prompt.",
     details: {
       code: "runtime_turn_create_sdk_request_aliases_retired",
+      retired_aliases: retiredAliases,
+    },
+  });
+}
+
+function assertNoRetiredRuntimeRunCreateOptionAliases(
+  options: SendOptions | PlanOptions | DryRunOptions | HandoffOptions,
+  mode: RuntimeRunRecord["mode"],
+): void {
+  const record = options as unknown as Record<string, unknown>;
+  const retiredAliases = [
+    "threadMode",
+    "approvalMode",
+    "runtimeProfile",
+    "workflowGraphId",
+    "workflowNodeId",
+    "idempotencyKey",
+  ].filter((field) => Object.prototype.hasOwnProperty.call(record, field));
+  if (retiredAliases.length === 0) return;
+  throw new IoiAgentError({
+    code: "config",
+    message:
+      "Runtime run create option aliases are retired; use canonical daemon thread/control APIs before run creation.",
+    details: {
+      code: "runtime_run_create_sdk_option_aliases_retired",
+      mode,
       retired_aliases: retiredAliases,
     },
   });
