@@ -9374,9 +9374,20 @@ function runReceipts() {
       /notFoundDep\(`Token not found: \$\{tokenId\}`,\s*\{\s*token_id:\s*tokenId\s*\}\)/.test(
         capabilityTokenOperations,
       ) &&
+      /commitCapabilityTokenRecordState/.test(capabilityTokenOperations) &&
+      /RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(capabilityTokenOperations) &&
+      /model_mount\.capability_token\.create/.test(capabilityTokenOperations) &&
+      /model_mount\.capability_token\.authorize/.test(capabilityTokenOperations) &&
+      /model_mount\.capability_token\.revoke/.test(capabilityTokenOperations) &&
+      /model_mount_capability_token_state_commit_unconfigured/.test(capabilityTokenOperations) &&
+      !/state\.writeMap\("tokens"/.test(capabilityTokenOperations) &&
       !/details:\s*\{\s*requiredScope\s*\}/.test(capabilityTokenOperations) &&
       !/notFoundDep\(`Token not found: \$\{tokenId\}`,\s*\{\s*tokenId\s*\}\)/.test(
         capabilityTokenOperations,
+      ) &&
+      /recordStateCommits/.test(capabilityTokenOperationsTest) &&
+      /capability token state persistence fails closed without Rust Agentgres record-state commit/.test(
+        capabilityTokenOperationsTest,
       ) &&
       /Object\.hasOwn\(error\.details,\s*"requiredScope"\),\s*false/.test(capabilityTokenOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"tokenId"\),\s*false/.test(capabilityTokenOperationsTest),

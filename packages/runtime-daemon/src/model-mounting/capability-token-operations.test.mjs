@@ -11,10 +11,12 @@ import {
 function createState() {
   const calls = [];
   const receipts = [];
+  const recordStateCommits = [];
   const now = new Date("2026-06-04T14:00:00.000Z");
   const state = {
     calls,
     receipts,
+    recordStateCommits,
     tokens: new Map(),
     now: () => now,
     nowIso: () => now.toISOString(),
@@ -59,6 +61,22 @@ function createState() {
     },
     writeMap(dir, map) {
       calls.push({ name: "writeMap", dir, size: map.size });
+    },
+    commitRuntimeModelMountRecordState(request) {
+      recordStateCommits.push(request);
+      return {
+        record_id: request.record_id,
+        object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}`,
+        content_hash: `sha256:${request.record_id}`,
+        admission_hash: `admit:${request.record_id}`,
+        commit_hash: `commit:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.record_id}`,
+          admission: { admission_hash: `admit:${request.record_id}` },
+        },
+      };
     },
   };
   return state;
@@ -107,7 +125,14 @@ test("capability token operations create public token envelopes and persist gran
     "wallet.network.capability_grant",
     "wallet.grant.uuid-2",
   ]);
-  assert.equal(state.calls.some((call) => call.name === "writeMap" && call.dir === "tokens"), true);
+  assert.equal(state.calls.some((call) => call.name === "writeMap" && call.dir === "tokens"), false);
+  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
+  assert.equal(state.recordStateCommits[0].record_dir, "tokens");
+  assert.equal(state.recordStateCommits[0].record_id, "grant_uuid-1");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.capability_token.create");
+  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt-1"]);
+  assert.equal(state.recordStateCommits[0].record.tokenHash, "hash:ioi_mnt_test_token");
 });
 
 test("capability token operations list, authorize, and revoke tokens", () => {
@@ -134,12 +159,48 @@ test("capability token operations list, authorize, and revoke tokens", () => {
   assert.equal(authorized.id, second.id);
   assert.equal(authorized.lastUsedScope, "model.responses:create");
   assert.equal(state.tokens.get(second.id).lastUsedAt, "2026-06-04T14:00:00.000Z");
+  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.capability_token.authorize");
+  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, [second.receiptId]);
 
   const revoked = revokeToken(state, second.id);
   assert.equal(revoked.revocationEpoch, 1);
   assert.equal(revoked.revokedAt, "2026-06-04T14:00:00.000Z");
   assert.equal(state.receipts.at(-1).kind, "permission_token_revocation");
   assert.equal(state.receipts.at(-1).redaction, "redacted");
+  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.capability_token.revoke");
+  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, [second.receiptId, "receipt-3"]);
+  assert.deepEqual(state.tokens.get(second.id).auditReceiptIds, ["receipt-3"]);
+});
+
+test("capability token state persistence fails closed without Rust Agentgres record-state commit", () => {
+  const state = createState();
+  delete state.commitRuntimeModelMountRecordState;
+  const localDeps = {
+    ...deps,
+    randomUUID: (() => {
+      let index = 0;
+      return () => {
+        index += 1;
+        return `local-uuid-${index}`;
+      };
+    })(),
+  };
+
+  assert.throws(
+    () => createToken(state, { expiresAt: "2026-06-05T14:00:00.000Z" }, localDeps),
+    (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "model_mount_capability_token_state_commit_unconfigured");
+      assert.equal(error.details.token_id, "grant_local-uuid-1");
+      assert.equal(error.details.grant_id, "wallet.grant.local-uuid-2");
+      assert.equal(error.details.receipt_id, "receipt-1");
+      assert.equal(Object.hasOwn(error.details, "tokenId"), false);
+      assert.equal(Object.hasOwn(error.details, "grantId"), false);
+      assert.equal(Object.hasOwn(error.details, "receiptId"), false);
+      return true;
+    },
+  );
+  assert.equal(state.tokens.size, 0);
 });
 
 test("capability token operations preserve auth and not-found errors", () => {

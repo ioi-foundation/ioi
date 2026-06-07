@@ -9,6 +9,10 @@ import {
   runtimeError,
 } from "./io.mjs";
 
+const RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION =
+  "ioi.runtime_model_mount_record_state_commit.v1";
+const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
+
 export function createToken(state, body = {}, deps = {}) {
   const {
     generateTokenValue = () => `ioi_mnt_${crypto.randomBytes(24).toString("base64url")}`,
@@ -54,8 +58,8 @@ export function createToken(state, body = {}, deps = {}) {
     details: publicTokenDep(token),
   });
   const stored = { ...token, receiptId: receipt.id };
+  commitCapabilityTokenRecordState(state, stored, "model_mount.capability_token.create", [receipt.id]);
   state.tokens.set(stored.id, stored);
-  state.writeMap("tokens", state.tokens);
   return { ...publicTokenDep(stored), token: tokenValue };
 }
 
@@ -74,15 +78,22 @@ export function revokeToken(state, tokenId, deps = {}) {
   const token = state.tokens.get(tokenId);
   if (!token) throw notFoundDep(`Token not found: ${tokenId}`, { token_id: tokenId });
   const revoked = state.walletAuthority.revokeGrant(token);
-  state.tokens.set(tokenId, revoked);
-  state.writeMap("tokens", state.tokens);
-  state.receipt("permission_token_revocation", {
+  const receipt = state.receipt("permission_token_revocation", {
     summary: `Capability token ${tokenId} revoked.`,
     redaction: "redacted",
     evidenceRefs: ["wallet.network.revocation", token.grantId],
     details: publicTokenDep(revoked),
   });
-  return publicTokenDep(revoked);
+  const stored = {
+    ...revoked,
+    auditReceiptIds: [...(Array.isArray(revoked.auditReceiptIds) ? revoked.auditReceiptIds : []), receipt.id],
+  };
+  commitCapabilityTokenRecordState(state, stored, "model_mount.capability_token.revoke", [
+    stored.receiptId,
+    receipt.id,
+  ]);
+  state.tokens.set(tokenId, stored);
+  return publicTokenDep(stored);
 }
 
 export function authorize(state, authorization, requiredScope, deps = {}) {
@@ -109,7 +120,66 @@ export function authorize(state, authorization, requiredScope, deps = {}) {
     });
   }
   const authorized = state.walletAuthority.authorizeScope(token, requiredScope);
+  commitCapabilityTokenRecordState(state, authorized, "model_mount.capability_token.authorize", [
+    authorized.receiptId,
+  ]);
   state.tokens.set(authorized.id, authorized);
-  state.writeMap("tokens", state.tokens);
   return authorized;
+}
+
+function commitCapabilityTokenRecordState(state, record, operationKind, receiptRefs) {
+  if (typeof state.commitRuntimeModelMountRecordState !== "function") {
+    const error = new Error("Model-mount capability token persistence requires Rust Agentgres record-state commit.");
+    error.status = 500;
+    error.code = "model_mount_capability_token_state_commit_unconfigured";
+    error.details = {
+      token_id: record?.id ?? null,
+      grant_id: record?.grantId ?? null,
+      receipt_id: record?.receiptId ?? null,
+    };
+    throw error;
+  }
+  return normalizeCapabilityTokenRecordStateCommit(state.commitRuntimeModelMountRecordState({
+    schema_version: RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION,
+    record_dir: "tokens",
+    record_id: record.id,
+    operation_kind: operationKind,
+    storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
+    record,
+    receipt_refs: receiptRefs.filter(Boolean),
+  }));
+}
+
+function normalizeCapabilityTokenRecordStateCommit(value = {}) {
+  const commit = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const storageRecord = commit.storage_record && typeof commit.storage_record === "object"
+    ? commit.storage_record
+    : commit.record?.record ?? {};
+  const required = {
+    record_id: commit.record_id ?? commit.record?.record_id,
+    object_ref: commit.object_ref ?? storageRecord.object_ref,
+    content_hash: commit.content_hash ?? storageRecord.content_hash,
+    admission_hash: commit.admission_hash ?? storageRecord.admission?.admission_hash,
+    commit_hash: commit.commit_hash ?? commit.record?.commit_hash,
+    written_record: commit.written_record,
+  };
+  for (const [field, fieldValue] of Object.entries(required)) {
+    if (!fieldValue) {
+      const error = new Error(`Rust model-mount record state commit returned without ${field}.`);
+      error.status = 502;
+      error.code = "model_mount_record_state_commit_invalid";
+      error.details = { field };
+      throw error;
+    }
+  }
+  return {
+    ...commit,
+    storage_record: storageRecord,
+    record_id: required.record_id,
+    object_ref: required.object_ref,
+    content_hash: required.content_hash,
+    admission_hash: required.admission_hash,
+    commit_hash: required.commit_hash,
+    written_record: required.written_record,
+  };
 }
