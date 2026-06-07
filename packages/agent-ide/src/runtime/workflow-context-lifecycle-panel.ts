@@ -148,7 +148,7 @@ function usageSnapshotRow(value: unknown): WorkflowContextLifecycleRow | null {
 }
 
 function rowForEvent(event: WorkflowRuntimeThreadEventLike): WorkflowContextLifecycleRow | null {
-  const componentKind = stringField(event, "componentKind", "component_kind");
+  const componentKind = stringField(event, "component_kind");
   const payload = payloadForEvent(event);
   if (componentKind === "context_budget") return contextBudgetRow(event, payload);
   if (componentKind === "compaction_policy") return compactionPolicyRow(event, payload);
@@ -274,14 +274,14 @@ function baseRow(
     status: stringField(event, "status") ?? stringField(payload, "status") ?? "unknown",
     eventId: eventIdValue,
     eventSeq: eventSeq(event),
-    threadId: stringField(event, "threadId", "thread_id") ?? stringField(payload, "threadId", "thread_id"),
-    turnId: stringField(event, "turnId", "turn_id") ?? stringField(payload, "turnId", "turn_id"),
+    threadId: stringField(event, "thread_id") ?? stringField(payload, "thread_id"),
+    turnId: stringField(event, "turn_id") ?? stringField(payload, "turn_id"),
     workflowGraphId:
-      stringField(event, "workflowGraphId", "workflow_graph_id") ??
-      stringField(payload, "workflowGraphId", "workflow_graph_id"),
+      stringField(event, "workflow_graph_id") ??
+      stringField(payload, "workflow_graph_id"),
     workflowNodeId:
-      stringField(event, "workflowNodeId", "workflow_node_id") ??
-      stringField(payload, "workflowNodeId", "workflow_node_id"),
+      stringField(event, "workflow_node_id") ??
+      stringField(payload, "workflow_node_id"),
     receiptRefs: uniqueStrings(arrayField(event, "receipt_refs")),
     policyDecisionRefs: uniqueStrings(arrayField(event, "policy_decision_refs")),
     ...fields,

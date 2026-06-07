@@ -11447,6 +11447,12 @@ lifecycle rows now read canonical event `receipt_refs` and
 `policy_decision_refs` only, so retired camelCase event evidence refs cannot
 make old context lifecycle rows look receipt-backed or policy-backed.
 
+Slice 544 retires IDE context-lifecycle event identity aliases: context
+lifecycle rows now read canonical event/payload `component_kind`, `thread_id`,
+`turn_id`, `workflow_graph_id`, and `workflow_node_id` fields only, so retired
+camelCase event identity aliases cannot create lifecycle rows or bind old
+payloads to thread, turn, workflow graph, or workflow node identity.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

@@ -16,15 +16,20 @@ function event(
     id,
     cursor: `events_thread:test:${seq}`,
     seq,
+    thread_id: "thread-test",
     threadId: "thread-test",
+    turn_id: "turn-test",
     turnId: "turn-test",
     type: "runtime_context",
     eventKind: "runtime.context",
     sourceEventKind: "Runtime.Context",
     status: "completed",
     createdAt: `2026-06-07T00:00:0${seq}.000Z`,
+    component_kind: "compaction_policy",
     componentKind: "compaction_policy",
+    workflow_node_id: "workflow.context-lifecycle",
     workflowNodeId: "workflow.context-lifecycle",
+    workflow_graph_id: "workflow.context-lifecycle",
     workflowGraphId: "workflow.context-lifecycle",
     payloadSchemaVersion: "ioi.agent-sdk.thread-event.v1",
     receiptRefs: [],
@@ -98,11 +103,83 @@ test("context lifecycle panel ignores retired usage snapshot aliases", () => {
   assert.deepEqual(panel.evidenceRefs, []);
 });
 
+test("context lifecycle panel reads canonical event identity fields", () => {
+  const panel = buildWorkflowContextLifecyclePanel({
+    events: [
+      event("identity-canonical", 1, {
+        component_kind: "context_budget",
+        thread_id: "thread-canonical-event",
+        turn_id: "turn-canonical-event",
+        workflow_graph_id: "workflow-canonical-event",
+        workflow_node_id: "workflow.identity-canonical",
+        payload: {
+          status: "ready",
+          usage_summary: {
+            total_tokens: 1024,
+          },
+        },
+      }),
+    ],
+  });
+
+  assert.equal(panel.rows.length, 1);
+  assert.equal(panel.rows[0]?.rowKind, "context_budget");
+  assert.equal(panel.rows[0]?.threadId, "thread-canonical-event");
+  assert.equal(panel.rows[0]?.turnId, "turn-canonical-event");
+  assert.equal(panel.rows[0]?.workflowGraphId, "workflow-canonical-event");
+  assert.equal(panel.rows[0]?.workflowNodeId, "workflow.identity-canonical");
+});
+
+test("context lifecycle panel ignores retired event identity aliases", () => {
+  const panel = buildWorkflowContextLifecyclePanel({
+    events: [
+      event("identity-component-kind-retired", 1, {
+        component_kind: undefined,
+        componentKind: "context_budget",
+        payload: {
+          status: "ready",
+          usage_summary: {
+            total_tokens: 1024,
+          },
+        },
+      }),
+      event("identity-retired", 2, {
+        component_kind: "context_budget",
+        thread_id: undefined,
+        turn_id: undefined,
+        workflow_graph_id: undefined,
+        workflow_node_id: undefined,
+        threadId: "thread-retired-identity",
+        turnId: "turn-retired-identity",
+        workflowGraphId: "workflow-retired-identity",
+        workflowNodeId: "workflow.identity-retired",
+        payload: {
+          status: "ready",
+          threadId: "payload-thread-retired-identity",
+          turnId: "payload-turn-retired-identity",
+          workflowGraphId: "payload-workflow-retired-identity",
+          workflowNodeId: "payload.workflow.identity-retired",
+          usage_summary: {
+            total_tokens: 1024,
+          },
+        },
+      }),
+    ],
+  });
+
+  assert.equal(panel.rows.length, 1);
+  assert.equal(panel.rows[0]?.eventId, "identity-retired");
+  assert.equal(panel.rows[0]?.threadId, null);
+  assert.equal(panel.rows[0]?.turnId, null);
+  assert.equal(panel.rows[0]?.workflowGraphId, null);
+  assert.equal(panel.rows[0]?.workflowNodeId, null);
+});
+
 test("context lifecycle panel reads canonical context budget usage and threshold fields", () => {
   const panel = buildWorkflowContextLifecyclePanel({
     events: [
       event("budget-canonical", 1, {
-        componentKind: "context_budget",
+        component_kind: "context_budget",
         payload: {
           summary: "Budget pressure",
           scope: "thread",
@@ -138,7 +215,7 @@ test("context lifecycle panel ignores retired context budget usage and threshold
   const panel = buildWorkflowContextLifecyclePanel({
     events: [
       event("budget-retired", 1, {
-        componentKind: "context_budget",
+        component_kind: "context_budget",
         payload: {
           summary: "Retired budget pressure",
           scope: "thread",
@@ -257,7 +334,7 @@ test("context lifecycle panel reads canonical context compaction payload fields"
   const panel = buildWorkflowContextLifecyclePanel({
     events: [
       event("compaction-canonical", 1, {
-        componentKind: "context_compaction",
+        component_kind: "context_compaction",
         payload: {
           reason: "pressure",
           scope: "thread",
@@ -280,7 +357,7 @@ test("context lifecycle panel ignores retired context compaction payload aliases
   const panel = buildWorkflowContextLifecyclePanel({
     events: [
       event("compaction-retired", 1, {
-        componentKind: "context_compaction",
+        component_kind: "context_compaction",
         payload: {
           reason: "pressure",
           scope: "thread",
@@ -299,7 +376,7 @@ test("context lifecycle panel reads canonical event evidence refs", () => {
   const panel = buildWorkflowContextLifecyclePanel({
     events: [
       event("budget-evidence-canonical", 1, {
-        componentKind: "context_budget",
+        component_kind: "context_budget",
         receipt_refs: ["receipt-context-canonical"],
         policy_decision_refs: ["policy-context-canonical"],
         payload: {
@@ -323,7 +400,7 @@ test("context lifecycle panel ignores retired event evidence aliases", () => {
   const panel = buildWorkflowContextLifecyclePanel({
     events: [
       event("budget-evidence-retired", 1, {
-        componentKind: "context_budget",
+        component_kind: "context_budget",
         receiptRefs: ["receipt-context-retired"],
         policyDecisionRefs: ["policy-context-retired"],
         payload: {

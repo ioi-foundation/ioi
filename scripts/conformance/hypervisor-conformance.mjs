@@ -20393,6 +20393,62 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-context-lifecycle-event-identity-aliases-retired",
+    /stringField\(event,\s*"component_kind"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(event,\s*"thread_id"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(payload,\s*"thread_id"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(event,\s*"turn_id"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(payload,\s*"turn_id"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(event,\s*"workflow_graph_id"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(payload,\s*"workflow_graph_id"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(event,\s*"workflow_node_id"\)/.test(agentIdeContextLifecyclePanel) &&
+      /stringField\(payload,\s*"workflow_node_id"\)/.test(agentIdeContextLifecyclePanel) &&
+      !/stringField\(event,\s*"componentKind",\s*"component_kind"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(event,\s*"threadId",\s*"thread_id"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(payload,\s*"threadId",\s*"thread_id"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(event,\s*"turnId",\s*"turn_id"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(payload,\s*"turnId",\s*"turn_id"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(event,\s*"workflowGraphId",\s*"workflow_graph_id"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(payload,\s*"workflowGraphId",\s*"workflow_graph_id"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(event,\s*"workflowNodeId",\s*"workflow_node_id"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      !/stringField\(payload,\s*"workflowNodeId",\s*"workflow_node_id"\)/.test(
+        agentIdeContextLifecyclePanel,
+      ) &&
+      /context lifecycle panel ignores retired event identity aliases/.test(
+        agentIdeContextLifecyclePanelTest,
+      ) &&
+      /componentKind: "context_budget"/.test(agentIdeContextLifecyclePanelTest) &&
+      /threadId: "thread-retired-identity"/.test(agentIdeContextLifecyclePanelTest) &&
+      /workflowGraphId: "workflow-retired-identity"/.test(
+        agentIdeContextLifecyclePanelTest,
+      ) &&
+      /assert\.equal\(panel\.rows\[0\]\?\.workflowNodeId,\s*null\)/.test(
+        agentIdeContextLifecyclePanelTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE context lifecycle rows must ignore retired camelCase event identity aliases",
+  );
+  assertCheck(
+    result,
     "ide-context-lifecycle-compaction-policy-aliases-retired",
     /objectField\(payload,\s*"context_budget"\)/.test(agentIdeContextLifecyclePanel) &&
       /objectField\(contextBudget,\s*"usage_summary"\)/.test(agentIdeContextLifecyclePanel) &&
