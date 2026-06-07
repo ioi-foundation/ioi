@@ -12314,8 +12314,13 @@ function runReceipts() {
       /commitSubagentState\(store, subagent/.test(threadPersistence) &&
       /RUNTIME_SUBAGENT_STATE_COMMIT_SCHEMA_VERSION/.test(threadPersistence) &&
       /Subagent persistence requires Rust Agentgres subagent-state commit/.test(threadPersistence) &&
+      /const subagentId = subagent\.subagent_id;/.test(writeSubagentRecordBody) &&
+      !/subagent\.subagentId|subagent\.agent_id|subagent\.agentId/.test(writeSubagentRecordBody) &&
       !/\bwriteJson\(store\.pathFor\("subagents"/.test(writeSubagentRecordBody) &&
       /thread persistence commits subagent records through Rust Agentgres/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /thread persistence rejects retired subagent identity aliases before Rust commit/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
       /subagentCommitRequests\[0\]\.schema_version/.test(

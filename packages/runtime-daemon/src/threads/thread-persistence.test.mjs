@@ -401,6 +401,31 @@ test("thread persistence rejects subagent records without stable ids", () => {
   );
 });
 
+test("thread persistence rejects retired subagent identity aliases before Rust commit", () => {
+  for (const alias of ["subagentId", "agent_id", "agentId"]) {
+    const store = fakeStore();
+    const subagent = {
+      [alias]: "subagent_retired",
+      receipt_refs: ["receipt_subagent"],
+    };
+
+    assert.throws(
+      () => writeSubagentRecord(store, subagent, "subagent.spawn", {
+        ...deps(store),
+        runtimeError: ({ status, code, message, details }) => Object.assign(new Error(message), { status, code, details }),
+      }),
+      (error) => {
+        assert.equal(error.status, 500);
+        assert.equal(error.code, "subagent_id_required");
+        assert.equal(error.details.operation_kind, "subagent.spawn");
+        return true;
+      },
+    );
+    assert.equal(store.subagentCommitRequests.length, 0);
+    assert.equal(store.subagents.size, 0);
+  }
+});
+
 test("thread persistence resolves state paths and quiet removal without operation logs", () => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-thread-persistence-"));
   const store = { stateDir };

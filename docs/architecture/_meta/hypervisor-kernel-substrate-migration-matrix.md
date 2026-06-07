@@ -11363,6 +11363,10 @@ reconstruct the active seam without carrying every per-slice paragraph.
   fields instead of JS-shaped decision record aliases before storage-write
   admission, and runtime subagent state commits now validate only canonical
   `subagent_id` rather than retired `subagentId` payload aliases.
+- Slice 580 retired daemon subagent persistence identity fallbacks before Rust
+  commit: `writeSubagentRecord` now requires canonical `subagent_id` and no
+  longer maps retired `subagentId`, `agent_id`, or `agentId` aliases into the
+  Rust Agentgres subagent-state commit request.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

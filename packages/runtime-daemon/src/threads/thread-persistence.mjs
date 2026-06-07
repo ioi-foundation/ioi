@@ -338,7 +338,7 @@ export function writeAgentRecord(store, agent, operationKind, deps = {}) {
 
 export function writeSubagentRecord(store, subagent, operationKind, deps = {}) {
   const { runtimeError } = deps;
-  const subagentId = subagent.subagent_id ?? subagent.subagentId ?? subagent.agent_id ?? subagent.agentId;
+  const subagentId = subagent.subagent_id;
   if (!subagentId) {
     const errorFactory = typeof runtimeError === "function"
       ? runtimeError
