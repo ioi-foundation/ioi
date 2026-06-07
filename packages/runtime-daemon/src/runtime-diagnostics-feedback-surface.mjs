@@ -38,15 +38,14 @@ export function createRuntimeDiagnosticsFeedbackSurface(deps = {}) {
       .filter(Boolean);
     if (!paths.length) return null;
     const workspaceSnapshot =
-      patchResult?.workspaceSnapshot ??
       patchResult?.workspace_snapshot ??
       null;
     const workspaceSnapshotId =
-      optionalString(patchResult?.workspaceSnapshotId ?? patchResult?.workspace_snapshot_id) ??
-      optionalString(workspaceSnapshot?.snapshotId ?? workspaceSnapshot?.snapshot_id);
+      optionalString(patchResult?.workspace_snapshot_id) ??
+      optionalString(workspaceSnapshot?.snapshot_id);
     const rollbackRefs = uniqueStrings([
       workspaceSnapshotId,
-      ...normalizeArray(patchResult?.rollbackRefs ?? patchResult?.rollback_refs),
+      ...normalizeArray(patchResult?.rollback_refs),
     ]);
     const repairPolicyConfig = config.repairPolicyConfig ?? diagnosticsRepairPolicyConfig(request, input);
     return store.invokeThreadTool(threadId, "lsp.diagnostics", {

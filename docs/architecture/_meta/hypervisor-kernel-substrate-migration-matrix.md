@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after MCP stdio workspace-root cwd fallback retirement slice 632 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after diagnostics feedback repair-context snapshot/rollback alias retirement slice 633 clarified the active seam.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -42,7 +42,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, and MCP stdio workspace-root cwd fallback retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, and diagnostics feedback repair-context snapshot/rollback alias retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -12802,6 +12802,69 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 633
+
+```yaml
+slice: 633
+phase: 10-authoritative-js-facade-retirement
+objective: retire diagnostics feedback repair-context snapshot and rollback
+  aliases before post-edit diagnostics can emit restore/rollback evidence
+  through retired camelCase result fields
+owner_boundary:
+  route_or_surface: diagnostics feedback post-edit repair context
+  authority_gate: unchanged; diagnostics repair/restore policy gates still run
+    before restore or operator override execution
+  execution_backend: post-edit diagnostics context now reads snapshot and
+    rollback identity only from canonical `workspace_snapshot_id`,
+    `workspace_snapshot.snapshot_id`, and `rollback_refs`
+  truth_path: repair context and lsp diagnostics invocation rollback refs use
+    canonical snapshot/rollback fields before downstream repair/restore
+    decisions can consume them
+  projection_path: focused diagnostics feedback tests prove poisoned retired
+    `workspaceSnapshotId`, nested `workspaceSnapshot.snapshotId`, and
+    `rollbackRefs` cannot populate emitted rollback refs or repair context
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  js_facade:
+    - packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - compositor conformance requires canonical
+    `patchResult.workspace_snapshot_id`, `workspace_snapshot.snapshot_id`, and
+    `rollback_refs` readers for diagnostics feedback repair context
+  - compositor conformance rejects retired `patchResult.workspaceSnapshotId`,
+    `patchResult.workspaceSnapshot`, `workspaceSnapshot.snapshotId`, and
+    `patchResult.rollbackRefs` readers
+  - focused diagnostics feedback tests poison retired snapshot and rollback
+    aliases beside canonical fields and prove only canonical refs are emitted
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:compositor
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: post-edit diagnostics input carries canonical
+    snapshot/rollback refs beside retired camelCase aliases, and only canonical
+    refs reach `rollback_refs` and `diagnostics_repair_context`
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this
+      diagnostics feedback facade cleanup
+    - `changedFiles` remains a local diagnostics input shape and should be
+      retired separately only after the canonical changed-file producer is
+      verified for this call path
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -12817,7 +12880,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 632 and the sixty-seventh 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 633 and the sixty-eighth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -12926,7 +12989,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-632 retired SDK runtime usage record aliases and Rust/daemon
+- Slices 572-633 retired SDK runtime usage record aliases and Rust/daemon
   Agentgres state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -13122,6 +13185,11 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stdio live transport cwd selection now ignores retired server and containment
   `workspaceRoot` fields so poisoned camelCase workspace roots cannot steer a
   spawned stdio session cwd;
+  diagnostics feedback post-edit repair context now derives snapshot and
+  rollback refs only from canonical `workspace_snapshot_id`,
+  `workspace_snapshot.snapshot_id`, and `rollback_refs`, so poisoned
+  `workspaceSnapshotId`, nested `workspaceSnapshot.snapshotId`, and
+  `rollbackRefs` aliases cannot feed repair/restore evidence;
   IDE runtime telemetry summary
   readers now ignore retired camelCase
   runtime usage/context-pressure payload aliases, and the daemon-bound usage

@@ -19460,6 +19460,9 @@ function runCompositor() {
         runtimeDiagnosticsFeedbackSurface,
       ) &&
       /workspace_snapshot_id:\s*workspaceSnapshotId \?\? null/.test(runtimeDiagnosticsFeedbackSurface) &&
+      /optionalString\(patchResult\?\.workspace_snapshot_id\)/.test(runtimeDiagnosticsFeedbackSurface) &&
+      /optionalString\(workspaceSnapshot\?\.snapshot_id\)/.test(runtimeDiagnosticsFeedbackSurface) &&
+      /\.\.\.normalizeArray\(patchResult\?\.rollback_refs\)/.test(runtimeDiagnosticsFeedbackSurface) &&
       /restore_policy:\s*repairPolicyConfig\.restorePolicy/.test(runtimeDiagnosticsFeedbackSurface) &&
       /restore_conflict_policy:\s*repairPolicyConfig\.restoreConflictPolicy/.test(
         runtimeDiagnosticsFeedbackSurface,
@@ -19476,11 +19479,23 @@ function runCompositor() {
       !/^\s*(?:schemaVersion|sourceToolName|sourceToolCallId|sourceWorkflowGraphId|sourceWorkflowNodeId|workspaceSnapshotId|restorePolicy|restoreConflictPolicy|diagnosticsRepairDefault|operatorOverrideRequiresApproval|rollbackRefs|changedFiles|beforeHash|afterHash|diagnosticsRecommended)\s*:/m.test(
         runtimeDiagnosticsFeedbackSurface,
       ) &&
+      !/patchResult\?\.(?:workspaceSnapshotId|rollbackRefs|workspaceSnapshot)\b/.test(
+        runtimeDiagnosticsFeedbackSurface,
+      ) &&
+      !/workspaceSnapshot\?\.snapshotId\b/.test(runtimeDiagnosticsFeedbackSurface) &&
       !/\brequest\.workflowNodeId\b/.test(runtimeDiagnosticsFeedbackSurface) &&
       /diagnostics feedback repair context ignores retired source workflow request alias/.test(
         runtimeDiagnosticsFeedbackSurfaceTest,
       ) &&
       /workflowNodeId:\s*"patch_alias"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
+      /diagnostics feedback repair context ignores retired snapshot and rollback aliases/.test(
+        runtimeDiagnosticsFeedbackSurfaceTest,
+      ) &&
+      /workspaceSnapshotId:\s*"snapshot_retired"/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
+      /rollbackRefs:\s*\["rollback_retired"\]/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
+      /request\.rollback_refs\.includes\("rollback_retired"\),\s*false/.test(
+        runtimeDiagnosticsFeedbackSurfaceTest,
+      ) &&
       /source_workflow_node_id,\s*null/.test(runtimeDiagnosticsFeedbackSurfaceTest) &&
       /Object\.hasOwn\(request\.diagnostics_repair_context,\s*field\),\s*false/.test(
         runtimeDiagnosticsFeedbackSurfaceTest,

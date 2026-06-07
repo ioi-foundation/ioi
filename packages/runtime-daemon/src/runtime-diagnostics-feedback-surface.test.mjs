@@ -100,11 +100,11 @@ test("diagnostics feedback surface invokes lsp diagnostics with repair context",
           diagnosticsRecommended: false,
         },
       ],
-      workspaceSnapshotId: "snapshot_alpha",
-      workspaceSnapshot: {
-        restore: { previewSupported: true },
+      workspace_snapshot_id: "snapshot_alpha",
+      workspace_snapshot: {
+        restore: { preview_supported: true },
       },
-      rollbackRefs: ["rollback_alpha"],
+      rollback_refs: ["rollback_alpha"],
     },
   });
 
@@ -153,13 +153,52 @@ test("diagnostics feedback repair context ignores retired source workflow reques
     },
     patchResult: {
       changedFiles: [{ path: "src/app.js" }],
-      workspaceSnapshotId: "snapshot_alpha",
+      workspace_snapshot_id: "snapshot_alpha",
     },
   });
 
   const request = store.calls[0].request;
   assert.equal(request.diagnostics_repair_context.source_workflow_node_id, null);
   assert.equal(Object.hasOwn(request.diagnostics_repair_context, "sourceWorkflowNodeId"), false);
+});
+
+test("diagnostics feedback repair context ignores retired snapshot and rollback aliases", () => {
+  const surface = createSurface();
+  const store = createStore();
+
+  surface.maybeRunPostEditDiagnostics(store, {
+    threadId: "thread_alpha",
+    turnId: "turn_alpha",
+    patchToolCallId: "patch_alpha",
+    workflowGraphId: "graph_alpha",
+    request: {
+      workflow_node_id: "patch_node",
+    },
+    patchResult: {
+      changedFiles: [{ path: "src/app.js" }],
+      workspace_snapshot_id: "snapshot_canonical",
+      workspaceSnapshotId: "snapshot_retired",
+      workspace_snapshot: {
+        snapshot_id: "snapshot_nested_canonical",
+      },
+      workspaceSnapshot: {
+        snapshotId: "snapshot_nested_retired",
+      },
+      rollback_refs: ["rollback_canonical"],
+      rollbackRefs: ["rollback_retired"],
+    },
+  });
+
+  const request = store.calls[0].request;
+  assert.equal(request.diagnostics_repair_context.workspace_snapshot_id, "snapshot_canonical");
+  assert.deepEqual(request.rollback_refs, ["snapshot_canonical", "rollback_canonical"]);
+  assert.deepEqual(request.diagnostics_repair_context.rollback_refs, [
+    "snapshot_canonical",
+    "rollback_canonical",
+  ]);
+  assert.equal(request.rollback_refs.includes("snapshot_retired"), false);
+  assert.equal(request.rollback_refs.includes("snapshot_nested_retired"), false);
+  assert.equal(request.rollback_refs.includes("rollback_retired"), false);
 });
 
 test("diagnostics feedback surface returns pending diagnostics after last injection", () => {
