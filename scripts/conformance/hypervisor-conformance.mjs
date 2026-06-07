@@ -1742,6 +1742,41 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: Rust computer-use request-lease result output must emit canonical snake_case fields only, without retired camelCase compatibility aliases",
   );
+  const computerUseCodingToolCatalogBlock =
+    codingTools.match(
+      /stable_tool_id:\s*"computer_use\.request_lease"[\s\S]*?workflow_config_fields:\s*\[[\s\S]*?\n\s*],\n\s*},/,
+    )?.[0] ?? "";
+  assertCheck(
+    result,
+    "coding-tool-computer-use-catalog-aliases-retired",
+    /stable_tool_id:\s*"computer_use\.request_lease"/.test(computerUseCodingToolCatalogBlock) &&
+      /required:\s*\["request_ref",\s*"lease_request",\s*"thread_tool"\]/.test(
+        computerUseCodingToolCatalogBlock,
+      ) &&
+      /session_mode:\s*\{\s*type:\s*"string"\s*\}/.test(computerUseCodingToolCatalogBlock) &&
+      /action_kind:\s*\{\s*type:\s*"string"\s*\}/.test(computerUseCodingToolCatalogBlock) &&
+      /target_ref:\s*\{\s*type:\s*"string"\s*\}/.test(computerUseCodingToolCatalogBlock) &&
+      /approval_ref:\s*\{\s*type:\s*"string"\s*\}/.test(computerUseCodingToolCatalogBlock) &&
+      /observation_retention_mode:\s*\{\s*type:\s*"string"\s*\}/.test(codingTools) &&
+      /"tool_pack\.coding\.computer_use_lease_request"/.test(
+        computerUseCodingToolCatalogBlock,
+      ) &&
+      /request_ref:\s*result\?\.request_ref \?\? null/.test(codingTools) &&
+      /result\.result\.lease_request\.authority_scope/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.result,\s*field\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      !/\b(?:computerUseLane|sessionMode|actionKind|targetRef|approvalRef|observationRetentionMode|requestRef|leaseRequest|threadTool|approvalRequiredBeforeExecution|toolPack)\b/.test(
+        computerUseCodingToolCatalogBlock,
+      ),
+    [
+      "packages/runtime-daemon/src/coding-tools.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: JS coding-tool catalog and summaries for computer_use.request_lease must use canonical Rust result fields without retired camelCase request/output aliases",
+  );
   assertCheck(
     result,
     "coding-tool-result-router-admission-alias-retired",

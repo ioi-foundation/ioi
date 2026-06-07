@@ -1307,51 +1307,51 @@ test("coding tool invocation surface runs computer_use.request_lease through rus
           workload_observation: {
             tool: "computer_use.request_lease",
             result: {
-              schemaVersion: "ioi.runtime.coding-tool-result.v1",
+              schema_version: "ioi.runtime.coding-tool-result.v1",
               object: "ioi.coding_agent_computer_use_lease_request",
-              requestRef: "computer_use_lease_request_alpha",
-              workspaceRoot: "/tmp/workspace",
-              leaseRequest: {
+              request_ref: "computer_use_lease_request_alpha",
+              workspace_root: "/tmp/workspace",
+              lease_request: {
                 prompt: "Open the browser and click sign in.",
                 lane: "native_browser",
-                sessionMode: "controlled_relaunch",
-                actionKind: "click",
-                authorityScope: "computer_use.native_browser.act",
-                repoAuthorityScope: "workspace.read",
-                sharedClipboardPolicy: "disabled_until_explicit_approval",
-                artifactPolicy: "redacted_trace_artifacts_only",
-                approvalRef: null,
-                failClosedWhenUnavailable: true,
-                providerId: "ioi.computer_use.native_browser.task_scoped_profile",
-                providerKind: "task_scoped_browser_profile",
-                walletNetworkAuthorityRequiredBeforeExecution: true,
+                session_mode: "controlled_relaunch",
+                action_kind: "click",
+                authority_scope: "computer_use.native_browser.act",
+                repo_authority_scope: "workspace.read",
+                shared_clipboard_policy: "disabled_until_explicit_approval",
+                artifact_policy: "redacted_trace_artifacts_only",
+                approval_ref: null,
+                fail_closed_when_unavailable: true,
+                provider_id: "ioi.computer_use.native_browser.task_scoped_profile",
+                provider_kind: "task_scoped_browser_profile",
+                wallet_network_authority_required_before_execution: true,
               },
-              threadTool: {
-                toolPack: "computer_use",
-                toolName: "ioi.computer_use.native_browser",
-                unavailableReason: null,
+              thread_tool: {
+                tool_pack: "computer_use",
+                tool_name: "ioi.computer_use.native_browser",
+                unavailable_reason: null,
                 input: {
                   prompt: "Open the browser and click sign in.",
-                  actionKind: "click",
-                  sessionMode: "controlled_relaunch",
+                  action_kind: "click",
+                  session_mode: "controlled_relaunch",
                 },
               },
-              approvalRequiredBeforeExecution: true,
-              walletNetworkAuthorityBoundary: {
-                authorityLayer: "wallet.network",
-                requiredBeforeExecution: true,
-                grantRefs: [],
-                receiptRefs: [],
+              approval_required_before_execution: true,
+              wallet_network_authority_boundary: {
+                authority_layer: "wallet.network",
+                required_before_execution: true,
+                grant_refs: [],
+                receipt_refs: [],
               },
-              evidenceRefs: [
+              evidence_refs: [
                 "computer_use_lease_request_alpha",
                 "ioi.computer_use.native_browser.task_scoped_profile",
                 "computer_use_lease_request_receipt",
                 "coding_tool_receipt",
                 "wallet.network.authority_boundary",
               ],
-              receiptRefs: ["receipt_computer_use_lease_request_alpha"],
-              shellFallbackUsed: false,
+              receipt_refs: ["receipt_computer_use_lease_request_alpha"],
+              shell_fallback_used: false,
             },
           },
         },
@@ -1370,20 +1370,31 @@ test("coding tool invocation surface runs computer_use.request_lease through rus
     input: {
       prompt: "Open the browser and click sign in.",
       lane: "native_browser",
-      sessionMode: "controlled_relaunch",
-      actionKind: "click",
+      session_mode: "controlled_relaunch",
+      action_kind: "click",
     },
   });
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
   assert.equal(runnerCalls[0].context.workflowProjectionStatus, "live");
-  assert.equal(runnerCalls[0].input.actionKind, "click");
+  assert.equal(runnerCalls[0].input.action_kind, "click");
   assert.equal(result.result.rust_workload, true);
-  assert.equal(result.result.requestRef, "computer_use_lease_request_alpha");
-  assert.equal(result.result.approvalRequiredBeforeExecution, true);
-  assert.equal(result.result.walletNetworkAuthorityBoundary.authorityLayer, "wallet.network");
-  assert.equal(result.result.leaseRequest.authorityScope, "computer_use.native_browser.act");
+  assert.equal(result.result.request_ref, "computer_use_lease_request_alpha");
+  assert.equal(result.result.approval_required_before_execution, true);
+  assert.equal(result.result.wallet_network_authority_boundary.authority_layer, "wallet.network");
+  assert.equal(result.result.lease_request.authority_scope, "computer_use.native_browser.act");
+  for (const field of [
+    "requestRef",
+    "leaseRequest",
+    "threadTool",
+    "approvalRequiredBeforeExecution",
+    "walletNetworkAuthorityBoundary",
+    "evidenceRefs",
+    "receiptRefs",
+  ]) {
+    assert.equal(Object.hasOwn(result.result, field), false);
+  }
   assert.equal(result.step_module.backend, "rust_workload_live");
   assert.ok(result.receipt_refs.includes("receipt://rust-live/computer_use.request_lease"));
   assert.ok(result.receipt_refs.includes("receipt_computer_use_lease_request_alpha"));

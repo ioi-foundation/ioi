@@ -394,32 +394,27 @@ export function codingToolContracts() {
         properties: {
           prompt: { type: "string" },
           lane: { type: "string", enum: ["native_browser", "visual_gui", "sandboxed_hosted"] },
-          sessionMode: { type: "string" },
           session_mode: { type: "string" },
-          actionKind: { type: "string" },
           action_kind: { type: "string" },
           url: { type: "string" },
-          targetRef: { type: "string" },
           target_ref: { type: "string" },
           selector: { type: "string" },
-          approvalRef: { type: "string" },
           approval_ref: { type: "string" },
-          observationRetentionMode: { type: "string" },
           observation_retention_mode: { type: "string" },
         },
       },
       output_schema: {
         type: "object",
-        required: ["requestRef", "leaseRequest", "threadTool"],
+        required: ["request_ref", "lease_request", "thread_tool"],
       },
       evidence_requirements: ["computer_use_lease_request_receipt", "coding_tool_receipt"],
       workflow_node_type: "ComputerUseLeaseRequestNode",
       workflow_config_fields: [
-        "toolPack.coding.computerUseLeaseRequest",
-        "computerUse.lane",
-        "computerUse.sessionMode",
-        "computerUse.actionKind",
-        "computerUse.approvalPolicy",
+        "tool_pack.coding.computer_use_lease_request",
+        "computer_use.lane",
+        "computer_use.session_mode",
+        "computer_use.action_kind",
+        "computer_use.approval_policy",
         ...CODING_TOOL_BUDGET_WORKFLOW_CONFIG_FIELDS,
       ],
     },
@@ -638,8 +633,8 @@ export function codingToolInputSummary(toolId, input = {}) {
   if (toolId === "computer_use.request_lease") {
     return {
       lane: computerUseLaneForInput(input),
-      sessionMode: computerUseSessionModeForInput(input),
-      actionKind: computerUseActionKindForInput(input),
+      session_mode: computerUseSessionModeForInput(input),
+      action_kind: computerUseActionKindForInput(input),
       url: optionalString(input.url) ?? null,
     };
   }
@@ -726,11 +721,11 @@ export function codingToolResultSummary(toolId, result = {}) {
   }
   if (toolId === "computer_use.request_lease") {
     return {
-      requestRef: result?.requestRef ?? null,
-      lane: result?.leaseRequest?.lane ?? null,
-      sessionMode: result?.leaseRequest?.sessionMode ?? null,
-      actionKind: result?.leaseRequest?.actionKind ?? null,
-      approvalRequiredBeforeExecution: Boolean(result?.approvalRequiredBeforeExecution),
+      request_ref: result?.request_ref ?? null,
+      lane: result?.lease_request?.lane ?? null,
+      session_mode: result?.lease_request?.session_mode ?? null,
+      action_kind: result?.lease_request?.action_kind ?? null,
+      approval_required_before_execution: Boolean(result?.approval_required_before_execution),
     };
   }
   return {};
@@ -766,7 +761,7 @@ export function codingToolSummary(toolId, result = {}, status = "completed") {
     return `Retrieved tool result ${result?.tool_call_id ?? result?.artifact_id ?? "artifact"}.`;
   }
   if (toolId === "computer_use.request_lease") {
-    return `Recorded computer-use lease request ${result?.requestRef ?? ""}`.trim();
+    return `Recorded computer-use lease request ${result?.request_ref ?? ""}`.trim();
   }
   return `${toolId} completed.`;
 }
@@ -779,13 +774,13 @@ export function codingToolSourceEventKind(toolId) {
 }
 
 function computerUseLaneForInput(input = {}) {
-  const value = optionalString(input.lane ?? input.computerUseLane ?? input.computer_use_lane);
+  const value = optionalString(input.lane ?? input.computer_use_lane);
   if (value === "visual_gui" || value === "sandboxed_hosted") return value;
   return "native_browser";
 }
 
 function computerUseSessionModeForInput(input = {}) {
-  const value = optionalString(input.sessionMode ?? input.session_mode);
+  const value = optionalString(input.session_mode);
   if (value) return value;
   const lane = computerUseLaneForInput(input);
   if (lane === "visual_gui") return "visual_fallback";
@@ -794,7 +789,7 @@ function computerUseSessionModeForInput(input = {}) {
 }
 
 function computerUseActionKindForInput(input = {}) {
-  const value = optionalString(input.actionKind ?? input.action_kind)?.toLowerCase().replace(/[\s-]+/g, "_");
+  const value = optionalString(input.action_kind)?.toLowerCase().replace(/[\s-]+/g, "_");
   if (!value) return "inspect";
   if (value === "type" || value === "input_text") return "type_text";
   if (value === "keypress") return "key_press";
