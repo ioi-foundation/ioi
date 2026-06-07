@@ -4015,6 +4015,16 @@ function runBridge() {
       /plannedCodingToolBudgetRecoveryOperationKind/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
+      /details:\s*\{ thread_id: threadId, run_id: runId \}/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      /details:\s*\{ thread_id: threadId, run_id: runId, operation_kind: "workflow\.run\.retry_completed" \}/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      /expected_operation_kind:\s*"workflow\.run\.retry_completed"/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      /operation_kind:\s*operationKind/.test(runtimeCodingToolBudgetRecoverySurface) &&
       /planCodingToolBudgetRecoveryStateUpdate/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
@@ -4028,8 +4038,14 @@ function runBridge() {
       /Object\.hasOwn\(store\.runs\.get\("run_alpha"\)\.operatorControls\[0\],\s*"approvalId"\),\s*false/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
+      /assertNoRetiredBudgetRecoveryErrorDetailAliases\(error\.details\)/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeCodingToolBudgetRecoverySurface) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"workflow\.run\.retry_completed"/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      !/\b(?:threadId|runId|operationKind|expectedOperationKind)\s*:/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       !/appendOperatorControl/.test(runtimeCodingToolBudgetRecoverySurface),
@@ -4081,6 +4097,11 @@ function runBridge() {
       /budget recovery surface accepts canonical retry idempotency key/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
+      /notFound\(`Run not found for thread: \$\{runId\}`,\s*\{ run_id: runId, thread_id: threadId \}\)/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      /error\.details\.thread_id, "thread_other"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /error\.details\.run_id, "run_alpha"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
       /idempotency_key: "budget_recovery_idempotency_canonical"/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
@@ -4094,6 +4115,9 @@ function runBridge() {
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       !/request\.(?:threadId|workflowNodeId|workflowGraphId|recoveryAction|requestedBy|sourceEventId|approvalId|receiptRefs|policyDecisionRefs|idempotencyKey)\b/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      !/notFound\(`Run not found for thread: \$\{runId\}`,\s*\{ runId, threadId \}\)/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       !/request\.(?:targetNodeIds|workflowNodeId|recoveryPolicy|retryLimit)\b/.test(

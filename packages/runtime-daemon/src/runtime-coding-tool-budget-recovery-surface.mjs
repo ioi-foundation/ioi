@@ -68,7 +68,7 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
         status: 502,
         code: "coding_tool_budget_recovery_state_update_planner_invalid",
         message: "Rust coding-tool budget recovery state planning did not return a run record.",
-        details: { threadId, runId },
+        details: { thread_id: threadId, run_id: runId },
       });
     }
     return updatedRun;
@@ -81,7 +81,7 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
         status: 502,
         code: "coding_tool_budget_recovery_state_update_operation_kind_missing",
         message: "Rust coding-tool budget recovery state planning did not return an operation kind.",
-        details: { threadId, runId, operationKind: "workflow.run.retry_completed" },
+        details: { thread_id: threadId, run_id: runId, operation_kind: "workflow.run.retry_completed" },
       });
     }
     if (operationKind !== "workflow.run.retry_completed") {
@@ -90,10 +90,10 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
         code: "coding_tool_budget_recovery_state_update_operation_kind_mismatch",
         message: "Rust coding-tool budget recovery state planning returned an unexpected operation kind.",
         details: {
-          threadId,
-          runId,
-          expectedOperationKind: "workflow.run.retry_completed",
-          operationKind,
+          thread_id: threadId,
+          run_id: runId,
+          expected_operation_kind: "workflow.run.retry_completed",
+          operation_kind: operationKind,
         },
       });
     }
@@ -122,7 +122,7 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
       optionalString(request.thread_id) ??
       expectedThreadId;
     if (threadId !== expectedThreadId) {
-      throw notFound(`Run not found for thread: ${runId}`, { runId, threadId });
+      throw notFound(`Run not found for thread: ${runId}`, { run_id: runId, thread_id: threadId });
     }
     const turnId = turnIdForRun(run.id);
     const action = codingToolBudgetRecoveryAction(request.action ?? request.recovery_action);

@@ -18,6 +18,19 @@ function notFound(message, details) {
   return error;
 }
 
+const retiredBudgetRecoveryErrorDetailAliasKeys = [
+  "threadId",
+  "runId",
+  "operationKind",
+  "expectedOperationKind",
+];
+
+function assertNoRetiredBudgetRecoveryErrorDetailAliases(details) {
+  for (const key of retiredBudgetRecoveryErrorDetailAliasKeys) {
+    assert.equal(Object.hasOwn(details, key), false, `retired budget recovery error detail alias ${key} must be absent`);
+  }
+}
+
 function codingToolBudgetRecoveryStateUpdateForRequest(request = {}) {
   const control = {
     control: "coding_tool_budget_recovery",
@@ -540,7 +553,13 @@ test("budget recovery surface fails closed without Rust-planned retry run", () =
         action: "retry_approved",
         source: "runtime_auto",
       }),
-    (error) => error.code === "coding_tool_budget_recovery_state_update_planner_invalid",
+    (error) => {
+      assert.equal(error.code, "coding_tool_budget_recovery_state_update_planner_invalid");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.run_id, "run_alpha");
+      assertNoRetiredBudgetRecoveryErrorDetailAliases(error.details);
+      return true;
+    },
   );
   assert.equal(store.writes.length, 0);
   assert.equal(
@@ -575,7 +594,10 @@ test("budget recovery surface fails closed without Rust-planned operation kind",
       }),
     (error) => {
       assert.equal(error.code, "coding_tool_budget_recovery_state_update_operation_kind_missing");
-      assert.equal(error.details.operationKind, "workflow.run.retry_completed");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.run_id, "run_alpha");
+      assert.equal(error.details.operation_kind, "workflow.run.retry_completed");
+      assertNoRetiredBudgetRecoveryErrorDetailAliases(error.details);
       return true;
     },
   );
@@ -589,6 +611,12 @@ test("budget recovery surface preserves the run/thread compatibility boundary", 
 
   assert.throws(
     () => surface.codingToolBudgetRecoveryForRun(store, "run_alpha", { thread_id: "thread_other" }),
-    (error) => error.status === 404 && error.details.threadId === "thread_other",
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.equal(error.details.thread_id, "thread_other");
+      assert.equal(error.details.run_id, "run_alpha");
+      assertNoRetiredBudgetRecoveryErrorDetailAliases(error.details);
+      return true;
+    },
   );
 });
