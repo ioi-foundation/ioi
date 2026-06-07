@@ -692,8 +692,8 @@ test("runtime daemon invokes browser discovery through thread tool spine", async
       workflowGraphId: "workflow.browser-discovery-tool",
       workflowNodeId: "browser-discovery-tool",
       input: {
-        includeTabs: false,
-        revealTabTitles: false,
+        include_tabs: false,
+        reveal_tab_titles: false,
       },
     });
     assert.equal(result.status, "completed");

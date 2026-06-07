@@ -811,6 +811,9 @@ function runBridge() {
   const agentSdkComputerUseTest = exists("packages/agent-sdk/test/computer-use.test.mjs")
     ? read("packages/agent-sdk/test/computer-use.test.mjs")
     : "";
+  const agentIdeWorkflowNodeRegistry = exists("packages/agent-ide/src/runtime/workflow-node-registry.ts")
+    ? read("packages/agent-ide/src/runtime/workflow-node-registry.ts")
+    : "";
   const agentSdkThread = exists("packages/agent-sdk/src/thread.ts")
     ? read("packages/agent-sdk/src/thread.ts")
     : "";
@@ -1831,6 +1834,37 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-invocation-results.test.mjs",
     ],
     "Phase 10/11 is pending: computer-use browser discovery payloads and replay projections must use canonical snake_case fields without retired camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "computer-use-browser-discovery-request-aliases-retired",
+    /includeTabMetadata:\s*Boolean\(input\.include_tabs\)/.test(runtimeDaemonIndex) &&
+      /revealTabTitles:\s*Boolean\(input\.reveal_tab_titles\)/.test(runtimeDaemonIndex) &&
+      /include_tabs\?: boolean;/.test(agentSdkSubstrateClient) &&
+      /reveal_tab_titles\?: boolean;/.test(agentSdkSubstrateClient) &&
+      /params\.set\("include_tabs",\s*String\(options\.include_tabs\)\)/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /params\.set\("reveal_tab_titles",\s*String\(options\.reveal_tab_titles\)\)/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /include_tabs: false/.test(agentSdkComputerUseTest) &&
+      /reveal_tab_titles: false/.test(agentSdkComputerUseTest) &&
+      /include_tabs: false/.test(agentIdeWorkflowNodeRegistry) &&
+      /reveal_tab_titles: false/.test(agentIdeWorkflowNodeRegistry) &&
+      !/input\.(?:includeTabs|revealTabTitles)\b/.test(runtimeDaemonIndex) &&
+      !/includeTabs\?: boolean|revealTabTitles\?: boolean|options\.(?:includeTabs|revealTabTitles)\b/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      !/includeTabs: false|revealTabTitles: false/.test(agentSdkComputerUseTest) &&
+      !/includeTabs: false|revealTabTitles: false/.test(agentIdeWorkflowNodeRegistry),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/computer-use.test.mjs",
+      "packages/agent-ide/src/runtime/workflow-node-registry.ts",
+    ],
+    "Phase 10/11 is pending: browser-discovery request inputs must use canonical snake_case tab options without retired camelCase aliases",
   );
   assertCheck(
     result,

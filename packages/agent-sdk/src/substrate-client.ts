@@ -1265,9 +1265,7 @@ export interface RuntimeEventStreamOptions {
 export interface RuntimeComputerUseBrowserDiscoveryOptions {
   probe?: boolean;
   include_tabs?: boolean;
-  includeTabs?: boolean;
   reveal_tab_titles?: boolean;
-  revealTabTitles?: boolean;
 }
 
 export interface RuntimeComputerUseBrowserDiscoveryProcess {
@@ -3174,11 +3172,11 @@ function computerUseBrowserDiscoveryQuery(
 ): string {
   const params = new URLSearchParams();
   if (options.probe !== undefined) params.set("probe", String(options.probe));
-  const includeTabs = options.includeTabs ?? options.include_tabs;
-  if (includeTabs !== undefined) params.set("include_tabs", String(includeTabs));
-  const revealTabTitles = options.revealTabTitles ?? options.reveal_tab_titles;
-  if (revealTabTitles !== undefined) {
-    params.set("reveal_tab_titles", String(revealTabTitles));
+  if (options.include_tabs !== undefined) {
+    params.set("include_tabs", String(options.include_tabs));
+  }
+  if (options.reveal_tab_titles !== undefined) {
+    params.set("reveal_tab_titles", String(options.reveal_tab_titles));
   }
   const text = params.toString();
   return text ? `?${text}` : "";

@@ -2229,8 +2229,8 @@ export class AgentgresRuntimeStateStore {
     };
     const report = discoverComputerUseBrowsersSync({
       includeCdpProbe: false,
-      includeTabMetadata: Boolean(input.includeTabs ?? input.include_tabs),
-      revealTabTitles: Boolean(input.revealTabTitles ?? input.reveal_tab_titles),
+      includeTabMetadata: Boolean(input.include_tabs),
+      revealTabTitles: Boolean(input.reveal_tab_titles),
     });
     const leaseId = `lease_${safeId(threadId)}_${safeId(toolCallId)}_browser_discovery`;
     const payloadSummary = {

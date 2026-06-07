@@ -13329,6 +13329,12 @@ and `default_profile_remote_debugging_blockers` fields only, so retired
 camelCase discovery payload aliases cannot re-enter the Hypervisor IDE
 projection lane after daemon payload canonicalization.
 
+Slice 520 retires browser-discovery request option aliases: daemon tool input,
+SDK query construction, SDK live-tool fixtures, and IDE default tool arguments
+now use canonical `include_tabs` and `reveal_tab_titles` fields only, so
+retired `includeTabs` / `revealTabTitles` request aliases no longer steer
+browser tab metadata discovery.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
