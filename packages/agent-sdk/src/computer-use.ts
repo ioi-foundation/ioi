@@ -1401,7 +1401,7 @@ function boundsValue(value: unknown): { x: number; y: number; width: number; hei
     y,
     width,
     height,
-    coordinate_space_id: stringValue(record["coordinate_space_id"]) ?? stringValue(record["coordinateSpaceId"]) ?? undefined,
+    coordinate_space_id: stringValue(record["coordinate_space_id"]) ?? undefined,
   };
 }
 

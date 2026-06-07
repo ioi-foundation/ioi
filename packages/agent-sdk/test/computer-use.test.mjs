@@ -479,7 +479,45 @@ test("computer-use model adapters normalize UI-TARS coordinates as observation-b
   assert.equal(computerActionHasGrounding(result.computer_action), true);
 });
 
+test("computer-use model adapters ignore retired camelCase bounds coordinate aliases", () => {
+  const result = compileComputerUseModelActionAdapter({
+    adapter_kind: "openai_computer_use",
+    run_id: "run-retired-bounds-coordinate-alias",
+    observation_ref: "observation-browser",
+    target_index: {
+      target_index_ref: "target-index-browser",
+      observation_ref: "observation-browser",
+      drift_state: "fresh",
+      targets: [
+        {
+          target_ref: "target-submit",
+          label: "Submit",
+          role: "button",
+          bounds: {
+            x: 20,
+            y: 10,
+            width: 90,
+            height: 40,
+            coordinateSpaceId: "retired-viewport-browser",
+          },
+          confidence: 96,
+          available_actions: ["click"],
+        },
+      ],
+    },
+    raw_model_output: {
+      type: "click",
+      x: 42,
+      y: 28,
+    },
+    proposed_by: "mounted-openai-cua",
+  });
 
+  assert.equal(result.action_proposal.target_ref, "target-submit");
+  assert.equal(result.computer_action.coordinate_space_id, null);
+  assert.equal(result.grounding.coordinate_space_id, null);
+  assert.equal(result.grounding.grounding_status, "target_ref");
+});
 
 test("runtime daemon emits canonical computer-use events for browser prompts", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-daemon-computer-use-cwd-"));

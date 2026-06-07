@@ -600,6 +600,9 @@ function runBridge() {
   const computerUseVisualObservationTest = exists("packages/runtime-daemon/src/computer-use-visual-observation.test.mjs")
     ? read("packages/runtime-daemon/src/computer-use-visual-observation.test.mjs")
     : "";
+  const agentSdkComputerUse = exists("packages/agent-sdk/src/computer-use.ts")
+    ? read("packages/agent-sdk/src/computer-use.ts")
+    : "";
   const agentSdkComputerUseBrowserArtifacts = exists("packages/agent-sdk/src/computer-use-browser-artifacts.ts")
     ? read("packages/agent-sdk/src/computer-use-browser-artifacts.ts")
     : "";
@@ -1770,6 +1773,26 @@ function runBridge() {
       "packages/runtime-daemon/src/computer-use-visual-observation.test.mjs",
     ],
     "Phase 10/11 is pending: computer-use visual observation target and affordance projection must use canonical snake_case fields without retired aliases",
+  );
+  assertCheck(
+    result,
+    "agent-sdk-computer-use-bounds-coordinate-alias-retired",
+    /coordinate_space_id:\s*stringValue\(record\["coordinate_space_id"\]\) \?\? undefined/.test(
+      agentSdkComputerUse,
+    ) &&
+      /computer-use model adapters ignore retired camelCase bounds coordinate aliases/.test(
+        agentSdkComputerUseTest,
+      ) &&
+      /coordinateSpaceId:\s*"retired-viewport-browser"/.test(agentSdkComputerUseTest) &&
+      /assert\.equal\(result\.computer_action\.coordinate_space_id,\s*null\)/.test(
+        agentSdkComputerUseTest,
+      ) &&
+      !/record\["coordinateSpaceId"\]/.test(agentSdkComputerUse),
+    [
+      "packages/agent-sdk/src/computer-use.ts",
+      "packages/agent-sdk/test/computer-use.test.mjs",
+    ],
+    "Phase 10/11 is pending: SDK computer-use model adapters must ignore retired camelCase bounds coordinate aliases",
   );
   assertCheck(
     result,
