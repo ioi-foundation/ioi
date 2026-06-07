@@ -10211,6 +10211,51 @@ mod tests {
     }
 
     #[test]
+    fn computer_use_request_lease_ignores_retired_observation_retention_alias() {
+        let retired_alias_request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Try to steer retention through a retired alias.",
+                "lane": "native_browser",
+                "action_kind": "inspect",
+                "observationRetentionMode": "local_raw_artifacts"
+            }),
+        );
+        let canonical_request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Use canonical retention.",
+                "lane": "native_browser",
+                "action_kind": "inspect",
+                "observation_retention_mode": "local_raw_artifacts"
+            }),
+        );
+
+        let retired_alias_response = computer_use_request_lease_response(retired_alias_request)
+            .expect("retired alias lease request response");
+        let canonical_response =
+            computer_use_request_lease_response(canonical_request).expect("canonical response");
+
+        assert_eq!(
+            retired_alias_response["workload_observation"]["result"]["threadTool"]["input"]
+                ["observationRetentionMode"],
+            "prompt_visible_summary_only"
+        );
+        assert_eq!(
+            canonical_response["workload_observation"]["result"]["threadTool"]["input"]
+                ["observationRetentionMode"],
+            "local_raw_artifacts"
+        );
+        assert_eq!(
+            retired_alias_response["workload_observation"]["result"]["leaseRequest"]
+                ["authorityScope"],
+            "computer_use.native_browser.read"
+        );
+    }
+
+    #[test]
     fn lsp_diagnostics_node_check_reports_clean_javascript() {
         let temp = tempfile::tempdir().expect("tempdir");
         let workspace = temp.path().join("workspace");

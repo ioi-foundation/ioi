@@ -1682,6 +1682,27 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-request-lease-observation-retention-alias-retired",
+    /optional_json_string\(\s*input,\s*&\["observation_retention_mode"\]/.test(
+      computerUseBridge,
+    ) &&
+      !/optional_json_string\(\s*input,\s*&\["observationRetentionMode",\s*"observation_retention_mode"\]/.test(
+        computerUseBridge,
+      ) &&
+      /computer_use_request_lease_ignores_retired_observation_retention_alias/.test(
+        bridgeModule,
+      ) &&
+      /"observationRetentionMode": "local_raw_artifacts"/.test(bridgeModule) &&
+      /"observation_retention_mode": "local_raw_artifacts"/.test(bridgeModule) &&
+      /"prompt_visible_summary_only"/.test(bridgeModule),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10/11 is pending: Rust computer-use request-lease observation retention must ignore retired observationRetentionMode input so retention policy cannot be steered through a compatibility field",
+  );
+  assertCheck(
+    result,
     "coding-tool-result-router-admission-alias-retired",
     !/\brouterAdmission\s*:/.test(runtimeCodingToolInvocationSurface) &&
       /result\.result\.router_admission\.schema_version/.test(

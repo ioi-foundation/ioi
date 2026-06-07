@@ -50,7 +50,7 @@ pub(super) fn build_computer_use_lease_request(
         .and_then(|provider| provider.thread_tool_name);
     let observation_retention_mode = optional_json_string(
         input,
-        &["observationRetentionMode", "observation_retention_mode"],
+        &["observation_retention_mode"],
     )
     .unwrap_or_else(|| {
         if lane == "sandboxed_hosted" {
