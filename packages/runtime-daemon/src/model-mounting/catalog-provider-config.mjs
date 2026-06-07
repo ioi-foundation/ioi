@@ -13,6 +13,9 @@ import {
 import {
   oauthBoundaryForSession,
 } from "./oauth-boundary.mjs";
+import {
+  commitOAuthSessionRecordState,
+} from "./oauth-record-state.mjs";
 import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1";
@@ -315,12 +318,20 @@ export async function catalogProviderAuthHeaders(providerId, state) {
     const session = state?.oauthSessions?.get(config.oauthSessionId) ?? null;
     const resolved = await state.oauthCredentialProvider.resolveAccessHeader(session, { providerId, headerName });
     if (resolved.refreshed) {
-      state.oauthSessions.set(resolved.session.id, resolved.session);
-      state.writeMap?.("oauth-sessions", state.oauthSessions);
+      const refreshedSession = {
+        ...resolved.session,
+        providerId: resolved.session?.providerId ?? providerId,
+      };
+      commitOAuthSessionRecordState(
+        state,
+        refreshedSession,
+        "model_mount.oauth_session.auth_header_refresh",
+        [],
+      );
       if (config?.id && state.catalogProviderConfigs?.has(config.id)) {
         const refreshedConfig = {
           ...config,
-          oauthBoundary: oauthBoundaryForSession(resolved.session, { refreshed: true }),
+          oauthBoundary: oauthBoundaryForSession(refreshedSession, { refreshed: true }),
           updatedAt: state.nowIso?.() ?? config.updatedAt,
         };
         commitModelMountRecordState(state, {
@@ -335,6 +346,7 @@ export async function catalogProviderAuthHeaders(providerId, state) {
         });
         state.catalogProviderConfigs.set(config.id, refreshedConfig);
       }
+      state.oauthSessions.set(refreshedSession.id, refreshedSession);
     }
     state?.writeVaultRefs?.();
     return {

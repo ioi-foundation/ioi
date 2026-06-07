@@ -493,6 +493,9 @@ function runBridge() {
   const modelMountRecordStateCommits = exists("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs")
     : "";
+  const oauthRecordState = exists("packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs")
+    : "";
   const catalogProviderConfigurationOperations = exists(
     "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs",
   )
@@ -4928,23 +4931,46 @@ function runBridge() {
     result,
     "model-mount-catalog-provider-oauth-rust-record-state",
     /commitModelMountRecordState/.test(catalogProviderOAuthOperations) &&
+      /commitOAuthStateRecordState/.test(catalogProviderOAuthOperations) &&
+      /commitOAuthSessionRecordState/.test(catalogProviderOAuthOperations) &&
+      /recordDir:\s*"oauth-states"/.test(oauthRecordState) &&
+      /recordDir:\s*"oauth-sessions"/.test(oauthRecordState) &&
+      /model_mount_oauth_state_commit_unconfigured/.test(oauthRecordState) &&
+      /model_mount_oauth_session_commit_unconfigured/.test(oauthRecordState) &&
       /recordDir:\s*"model-catalog-providers"/.test(catalogProviderOAuthOperations) &&
       /model_mount\.catalog_provider_oauth\.start/.test(catalogProviderOAuthOperations) &&
       /model_mount\.catalog_provider_oauth\.callback/.test(catalogProviderOAuthOperations) &&
       /model_mount\.catalog_provider_oauth\.exchange/.test(catalogProviderOAuthOperations) &&
       /model_mount\.catalog_provider_oauth\.refresh/.test(catalogProviderOAuthOperations) &&
       /model_mount\.catalog_provider_oauth\.revoke/.test(catalogProviderOAuthOperations) &&
+      /model_mount\.oauth_state\.start/.test(catalogProviderOAuthOperations) &&
+      /model_mount\.oauth_state\.callback/.test(catalogProviderOAuthOperations) &&
+      /model_mount\.oauth_session\.callback/.test(catalogProviderOAuthOperations) &&
+      /model_mount\.oauth_session\.exchange/.test(catalogProviderOAuthOperations) &&
+      /model_mount\.oauth_session\.refresh/.test(catalogProviderOAuthOperations) &&
+      /model_mount\.oauth_session\.revoke/.test(catalogProviderOAuthOperations) &&
       /model_mount_catalog_provider_oauth_state_commit_unconfigured/.test(
         catalogProviderOAuthOperations,
       ) &&
       /model_mount\.catalog_provider_auth_header\.refresh/.test(catalogProviderConfig) &&
+      /model_mount\.oauth_session\.auth_header_refresh/.test(catalogProviderConfig) &&
       /model_mount_catalog_provider_auth_header_state_commit_unconfigured/.test(
         catalogProviderConfig,
       ) &&
       !/state\.writeMap\("model-catalog-providers"/.test(catalogProviderOAuthOperations) &&
+      !/state\.writeMap\("oauth-states"/.test(catalogProviderOAuthOperations) &&
+      !/state\.writeMap\("oauth-sessions"/.test(catalogProviderOAuthOperations) &&
       !/writeMap\?\.\("model-catalog-providers"/.test(catalogProviderConfig) &&
       !/writeMap\("model-catalog-providers"/.test(catalogProviderConfig) &&
+      !/writeMap\?\.\("oauth-sessions"/.test(catalogProviderConfig) &&
+      !/writeMap\("oauth-sessions"/.test(catalogProviderConfig) &&
       /catalog OAuth provider config updates fail closed without Rust Agentgres record-state commit/.test(
+        catalogProviderOAuthOperationsTest,
+      ) &&
+      /catalog OAuth state persistence fails closed before local state mutation without Rust Agentgres record-state commit/.test(
+        catalogProviderOAuthOperationsTest,
+      ) &&
+      /catalog OAuth session persistence fails closed before local session mutation without Rust Agentgres record-state commit/.test(
         catalogProviderOAuthOperationsTest,
       ) &&
       /catalog provider auth refresh fails closed before provider config mutation without Rust Agentgres record-state commit/.test(
@@ -4952,20 +4978,16 @@ function runBridge() {
       ) &&
       /recordStateCommits/.test(catalogProviderOAuthOperationsTest) &&
       /recordStateCommits/.test(catalogProviderConfigTest) &&
-      /assert\.deepEqual\(state\.writes\.map\(\(\[name\]\) => name\),\s*\["oauth-states"\]\)/.test(
-        catalogProviderOAuthOperationsTest,
-      ) &&
-      /assert\.deepEqual\(state\.writes\.map\(\(\[name\]\) => name\),\s*\["oauth-sessions"\]\)/.test(
-        catalogProviderOAuthOperationsTest,
-      ),
+      /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
     ],
-    "Phase 9/10 is pending: catalog provider OAuth boundary updates must commit provider config through Rust Agentgres record-state admission instead of direct JS map persistence",
+    "Phase 9/10 is pending: catalog provider OAuth state, sessions, and boundary updates must commit through Rust Agentgres record-state admission instead of direct JS map persistence",
   );
   assertCheck(
     result,

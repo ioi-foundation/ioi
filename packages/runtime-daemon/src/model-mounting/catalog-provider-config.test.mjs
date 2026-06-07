@@ -321,8 +321,6 @@ test("catalog provider auth supports OAuth session refresh projections", async (
     catalogAuthHeaderName: "authorization",
   });
   state.catalogProviderConfig = () => state.catalogProviderConfigs.get("catalog.huggingface");
-  const writes = [];
-  state.writeMap = (name, value) => writes.push([name, value]);
   state.nowIso = () => "2026-06-03T12:00:00.000Z";
   state.oauthCredentialProvider = {
     async resolveAccessHeader(session, { headerName }) {
@@ -340,18 +338,27 @@ test("catalog provider auth supports OAuth session refresh projections", async (
   const auth = await catalogProviderAuthHeaders("catalog.huggingface", state);
 
   assert.deepEqual(auth.headers, { authorization: "Bearer refreshed" });
-  assert.equal(state.oauthSessions.get("session-1"), refreshedSession);
+  assert.deepEqual(state.oauthSessions.get("session-1"), {
+    ...refreshedSession,
+    providerId: "catalog.huggingface",
+  });
   assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthBoundary.status, "refreshed");
-  assert.deepEqual(writes.map(([name]) => name), ["oauth-sessions"]);
-  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.recordStateCommits.length, 2);
   assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
-  assert.equal(state.recordStateCommits[0].record_dir, "model-catalog-providers");
-  assert.equal(state.recordStateCommits[0].record_id, "catalog.huggingface");
+  assert.equal(state.recordStateCommits[0].record_dir, "oauth-sessions");
+  assert.equal(state.recordStateCommits[0].record_id, "session-1");
   assert.equal(
     state.recordStateCommits[0].operation_kind,
-    "model_mount.catalog_provider_auth_header.refresh",
+    "model_mount.oauth_session.auth_header_refresh",
   );
   assert.deepEqual(state.recordStateCommits[0].receipt_refs, []);
+  assert.equal(state.recordStateCommits[1].record_dir, "model-catalog-providers");
+  assert.equal(state.recordStateCommits[1].record_id, "catalog.huggingface");
+  assert.equal(
+    state.recordStateCommits[1].operation_kind,
+    "model_mount.catalog_provider_auth_header.refresh",
+  );
+  assert.deepEqual(state.recordStateCommits[1].receipt_refs, []);
   assert.equal(state.writeVaultRefsCount(), 1);
 });
 
@@ -366,7 +373,6 @@ test("catalog provider auth refresh fails closed before provider config mutation
     catalogAuthHeaderName: "authorization",
   });
   state.catalogProviderConfig = () => state.catalogProviderConfigs.get("catalog.huggingface");
-  state.writeMap = () => {};
   state.nowIso = () => "2026-06-03T12:00:00.000Z";
   state.oauthCredentialProvider = {
     async resolveAccessHeader() {
@@ -382,13 +388,14 @@ test("catalog provider auth refresh fails closed before provider config mutation
   await assert.rejects(
     () => catalogProviderAuthHeaders("catalog.huggingface", state),
     (error) => {
-      assert.equal(error.code, "model_mount_catalog_provider_auth_header_state_commit_unconfigured");
+      assert.equal(error.code, "model_mount_oauth_session_commit_unconfigured");
       assert.equal(error.details.provider_id, "catalog.huggingface");
-      assert.equal(error.details.record_dir, "model-catalog-providers");
+      assert.equal(error.details.record_dir, "oauth-sessions");
       return true;
     },
   );
 
+  assert.equal(state.oauthSessions.get("session-1").refreshCount, undefined);
   assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthBoundary, undefined);
 });
 

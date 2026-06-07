@@ -1,4 +1,8 @@
 import { commitModelMountRecordState } from "./record-state-commits.mjs";
+import {
+  commitOAuthSessionRecordState,
+  commitOAuthStateRecordState,
+} from "./oauth-record-state.mjs";
 
 export function startCatalogProviderOAuth(state, providerId, body = {}, deps = {}) {
   const {
@@ -9,7 +13,6 @@ export function startCatalogProviderOAuth(state, providerId, body = {}, deps = {
   } = deps;
   assertConfigurableCatalogProvider(providerId);
   const started = state.oauthCredentialProvider.startAuthorization({ providerId, body });
-  state.oauthStates.set(started.state.id, started.state);
   const existing = state.catalogProviderConfigs.get(providerId);
   const update = catalogProviderConfigUpdate(
     providerId,
@@ -60,9 +63,12 @@ export function startCatalogProviderOAuth(state, providerId, body = {}, deps = {
     receipt,
     "model_mount.catalog_provider_oauth.start",
   );
+  commitOAuthStateRecordState(state, { ...started.state, receiptId: receipt.id }, "model_mount.oauth_state.start", [
+    receipt.id,
+  ]);
+  state.oauthStates.set(started.state.id, { ...started.state, receiptId: receipt.id });
   state.catalogProviderConfigs.set(providerId, { ...storedConfig, receiptId: receipt.id });
   if (update.runtimeMaterial) state.catalogProviderRuntimeMaterials.set(providerId, update.runtimeMaterial);
-  state.writeMap("oauth-states", state.oauthStates);
   state.writeVaultRefs();
   state.writeProjection();
   return {
@@ -92,13 +98,11 @@ export async function completeCatalogProviderOAuth(state, providerId, body = {},
     ? state.oauthStates.get(String(stateId))
     : [...state.oauthStates.values()].find(
         (candidate) =>
-          candidate.providerId === providerId &&
-          candidate.status === "pending" &&
-          candidate.stateHash === stableHash(callbackState),
+      candidate.providerId === providerId &&
+      candidate.status === "pending" &&
+      candidate.stateHash === stableHash(callbackState),
       );
   const completed = await state.oauthCredentialProvider.completeAuthorization({ providerId, stateRecord, body });
-  state.oauthStates.set(completed.state.id, completed.state);
-  state.oauthSessions.set(completed.session.id, completed.session);
   const existing = state.catalogProviderConfigs.get(providerId);
   const update = catalogProviderConfigUpdate(
     providerId,
@@ -136,10 +140,19 @@ export async function completeCatalogProviderOAuth(state, providerId, body = {},
     receipt,
     "model_mount.catalog_provider_oauth.callback",
   );
+  commitOAuthStateRecordState(state, { ...completed.state, receiptId: receipt.id }, "model_mount.oauth_state.callback", [
+    receipt.id,
+  ]);
+  commitOAuthSessionRecordState(
+    state,
+    { ...completed.session, receiptId: receipt.id },
+    "model_mount.oauth_session.callback",
+    [receipt.id],
+  );
+  state.oauthStates.set(completed.state.id, { ...completed.state, receiptId: receipt.id });
+  state.oauthSessions.set(completed.session.id, { ...completed.session, receiptId: receipt.id });
   state.catalogProviderConfigs.set(providerId, { ...update.record, receiptId: receipt.id });
   if (update.runtimeMaterial) state.catalogProviderRuntimeMaterials.set(providerId, update.runtimeMaterial);
-  state.writeMap("oauth-states", state.oauthStates);
-  state.writeMap("oauth-sessions", state.oauthSessions);
   state.writeVaultRefs();
   state.writeProjection();
   return {
@@ -160,7 +173,6 @@ export async function exchangeCatalogProviderOAuth(state, providerId, body = {},
   } = deps;
   assertConfigurableCatalogProvider(providerId);
   const { session, evidence } = await state.oauthCredentialProvider.exchangeAuthorizationCode({ providerId, body });
-  state.oauthSessions.set(session.id, session);
   const existing = state.catalogProviderConfigs.get(providerId);
   const update = catalogProviderConfigUpdate(
     providerId,
@@ -197,9 +209,15 @@ export async function exchangeCatalogProviderOAuth(state, providerId, body = {},
     receipt,
     "model_mount.catalog_provider_oauth.exchange",
   );
+  commitOAuthSessionRecordState(
+    state,
+    { ...session, receiptId: receipt.id },
+    "model_mount.oauth_session.exchange",
+    [receipt.id],
+  );
+  state.oauthSessions.set(session.id, { ...session, receiptId: receipt.id });
   state.catalogProviderConfigs.set(providerId, { ...update.record, receiptId: receipt.id });
   if (update.runtimeMaterial) state.catalogProviderRuntimeMaterials.set(providerId, update.runtimeMaterial);
-  state.writeMap("oauth-sessions", state.oauthSessions);
   state.writeVaultRefs();
   state.writeProjection();
   return {
@@ -230,7 +248,6 @@ export async function refreshCatalogProviderOAuth(state, providerId, deps = {}) 
     });
   }
   const refreshed = await state.oauthCredentialProvider.refreshAccessToken(session);
-  state.oauthSessions.set(refreshed.id, refreshed);
   const storedConfig = {
     ...config,
     oauthBoundary: oauthBoundaryForSession(refreshed, { refreshed: true }),
@@ -252,8 +269,14 @@ export async function refreshCatalogProviderOAuth(state, providerId, deps = {}) 
     receipt,
     "model_mount.catalog_provider_oauth.refresh",
   );
+  commitOAuthSessionRecordState(
+    state,
+    { ...refreshed, receiptId: receipt.id },
+    "model_mount.oauth_session.refresh",
+    [receipt.id],
+  );
+  state.oauthSessions.set(refreshed.id, { ...refreshed, receiptId: receipt.id });
   state.catalogProviderConfigs.set(providerId, { ...storedConfig, receiptId: receipt.id });
-  state.writeMap("oauth-sessions", state.oauthSessions);
   state.writeVaultRefs();
   state.writeProjection();
   return { oauthSession: publicOAuthSession(refreshed), receiptId: receipt.id };
@@ -279,7 +302,6 @@ export function revokeCatalogProviderOAuth(state, providerId, deps = {}) {
     });
   }
   const revoked = state.oauthCredentialProvider.revokeSession(session);
-  state.oauthSessions.set(revoked.id, revoked);
   const storedConfig = {
     ...config,
     oauthBoundary: oauthBoundaryForSession(revoked),
@@ -301,8 +323,14 @@ export function revokeCatalogProviderOAuth(state, providerId, deps = {}) {
     receipt,
     "model_mount.catalog_provider_oauth.revoke",
   );
+  commitOAuthSessionRecordState(
+    state,
+    { ...revoked, receiptId: receipt.id },
+    "model_mount.oauth_session.revoke",
+    [receipt.id],
+  );
+  state.oauthSessions.set(revoked.id, { ...revoked, receiptId: receipt.id });
   state.catalogProviderConfigs.set(providerId, { ...storedConfig, receiptId: receipt.id });
-  state.writeMap("oauth-sessions", state.oauthSessions);
   state.writeVaultRefs();
   state.writeProjection();
   return { oauthSession: publicOAuthSession(revoked), receiptId: receipt.id };
