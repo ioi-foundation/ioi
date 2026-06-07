@@ -14393,6 +14393,16 @@ function runCompositor() {
     .filter((file) => exists(file))
     .map((file) => read(file))
     .join("\n");
+  const agentIdeWorkspaceTrustGate = exists(
+    "packages/agent-ide/src/runtime/workflow-workspace-trust-gate.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-workspace-trust-gate.ts")
+    : "";
+  const agentIdeWorkspaceTrustGateTest = exists(
+    "packages/agent-ide/src/runtime/workflow-workspace-trust-gate.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-workspace-trust-gate.test.ts")
+    : "";
   const agentSdkRuntimeEvents = exists("packages/agent-sdk/src/runtime-events.ts")
     ? read("packages/agent-sdk/src/runtime-events.ts")
     : "";
@@ -21974,6 +21984,51 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
     ],
     "Phase 10/11 is pending: typed IDE runtime panels must use the shared event identity helper instead of local id fallbacks",
+  );
+  assertCheck(
+    result,
+    "ide-workspace-trust-payload-aliases-retired",
+    /stringField\(event\.payload,\s*"workflow_node_id"\)/.test(
+      agentIdeWorkspaceTrustGate,
+    ) &&
+      /stringField\(event\.payload,\s*"warning_id"\)/.test(agentIdeWorkspaceTrustGate) &&
+      /stringField\(event\.payload,\s*"source_event_id"\)/.test(
+        agentIdeWorkspaceTrustGate,
+      ) &&
+      /stringField\(warningEvent\.payload,\s*"warning_id"\)/.test(
+        agentIdeWorkspaceTrustGate,
+      ) &&
+      !/stringField\(event\.payload,\s*"workflowNodeId",\s*"workflow_node_id"\)/.test(
+        agentIdeWorkspaceTrustGate,
+      ) &&
+      !/stringField\(event\.payload,\s*"warningId",\s*"warning_id"\)/.test(
+        agentIdeWorkspaceTrustGate,
+      ) &&
+      !/stringField\(event\.payload,\s*"sourceEventId",\s*"source_event_id"\)/.test(
+        agentIdeWorkspaceTrustGate,
+      ) &&
+      !/stringField\(warningEvent\.payload,\s*"warningId",\s*"warning_id"\)/.test(
+        agentIdeWorkspaceTrustGate,
+      ) &&
+      /workspace trust gate ignores retired payload aliases/.test(
+        agentIdeWorkspaceTrustGateTest,
+      ) &&
+      /workflowNodeId: "runtime\.thread-mode\.workspace-trust"/.test(
+        agentIdeWorkspaceTrustGateTest,
+      ) &&
+      /warningId: "warning-retired-alias"/.test(agentIdeWorkspaceTrustGateTest) &&
+      /sourceEventId: "warning-canonical"/.test(agentIdeWorkspaceTrustGateTest) &&
+      /assert\.equal\(\s*ignoredWarning\.issues\[0\]\?\.code,\s*"workspace_trust_warning_not_emitted"/.test(
+        agentIdeWorkspaceTrustGateTest,
+      ) &&
+      /assert\.equal\(\s*ignoredAcknowledgement\.issues\[0\]\?\.code,\s*"workspace_trust_acknowledgement_missing"/.test(
+        agentIdeWorkspaceTrustGateTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-workspace-trust-gate.ts",
+      "packages/agent-ide/src/runtime/workflow-workspace-trust-gate.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE workspace trust gate payload parsing must ignore retired camelCase workflow node, warning, and source-event aliases",
   );
   assertCheck(
     result,

@@ -124,9 +124,9 @@ test("workspace trust gate requires acknowledgement after daemon warning", () =>
     eventKind: "workspace.trust_warning",
     sourceEventKind: "WorkspaceTrust.Warning",
     payload: {
-      warningId: "warning-1",
+      warning_id: "warning-1",
       mode: "review",
-      approvalMode: "human_required",
+      approval_mode: "human_required",
     },
     receiptRefs: ["receipt:warning"],
   });
@@ -145,7 +145,7 @@ test("workspace trust gate passes when acknowledgement receipt is in daemon hist
     type: "workspace_trust_warning",
     eventKind: "workspace.trust_warning",
     sourceEventKind: "WorkspaceTrust.Warning",
-    payload: { warningId: "warning-1" },
+    payload: { warning_id: "warning-1" },
     receiptRefs: ["receipt:warning"],
   });
   const acknowledgement = baseEvent({
@@ -155,8 +155,8 @@ test("workspace trust gate passes when acknowledgement receipt is in daemon hist
     eventKind: "workspace.trust_acknowledged",
     sourceEventKind: "WorkspaceTrust.Acknowledged",
     payload: {
-      warningId: "warning-1",
-      sourceEventId: "warning-1",
+      warning_id: "warning-1",
+      source_event_id: "warning-1",
     },
     receiptRefs: ["receipt:ack"],
   });
@@ -170,6 +170,59 @@ test("workspace trust gate passes when acknowledgement receipt is in daemon hist
     "receipt:warning",
     "receipt:ack",
   ]);
+});
+
+test("workspace trust gate ignores retired payload aliases", () => {
+  const retiredWarning = baseEvent({
+    id: "warning-retired",
+    type: "workspace_trust_warning",
+    eventKind: "workspace.trust_warning",
+    sourceEventKind: "WorkspaceTrust.Warning",
+    workflowNodeId: null,
+    payload: {
+      workflowNodeId: "runtime.thread-mode.workspace-trust",
+      warningId: "warning-retired-alias",
+    },
+    receiptRefs: ["receipt:warning-retired"],
+  });
+  const ignoredWarning = workflowWorkspaceTrustGateReadiness(workflow(), [
+    retiredWarning,
+  ]);
+  assert.equal(ignoredWarning.status, "blocked");
+  assert.equal(
+    ignoredWarning.issues[0]?.code,
+    "workspace_trust_warning_not_emitted",
+  );
+
+  const warning = baseEvent({
+    id: "warning-canonical",
+    type: "workspace_trust_warning",
+    eventKind: "workspace.trust_warning",
+    sourceEventKind: "WorkspaceTrust.Warning",
+    payload: { warning_id: "warning-canonical" },
+    receiptRefs: ["receipt:warning"],
+  });
+  const retiredAcknowledgement = baseEvent({
+    id: "ack-retired",
+    seq: 2,
+    type: "workspace_trust_acknowledged",
+    eventKind: "workspace.trust_acknowledged",
+    sourceEventKind: "WorkspaceTrust.Acknowledged",
+    payload: {
+      warningId: "warning-canonical",
+      sourceEventId: "warning-canonical",
+    },
+    receiptRefs: ["receipt:ack-retired"],
+  });
+  const ignoredAcknowledgement = workflowWorkspaceTrustGateReadiness(workflow(), [
+    warning,
+    retiredAcknowledgement,
+  ]);
+  assert.equal(ignoredAcknowledgement.status, "blocked");
+  assert.equal(
+    ignoredAcknowledgement.issues[0]?.code,
+    "workspace_trust_acknowledgement_missing",
+  );
 });
 
 test("workspace trust gate ignores canvas-local pass state without daemon receipt", () => {

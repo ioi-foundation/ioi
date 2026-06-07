@@ -80,7 +80,7 @@ function eventId(event: WorkflowRuntimeThreadEventLike): string {
 function eventWorkflowNodeId(event: WorkflowRuntimeThreadEventLike): string | null {
   return (
     cleanString(event.workflowNodeId) ??
-    stringField(event.payload, "workflowNodeId", "workflow_node_id")
+    stringField(event.payload, "workflow_node_id")
   );
 }
 
@@ -150,8 +150,8 @@ function trustAcknowledgementEvent(
         event.sourceEventKind === "WorkspaceTrust.Acknowledged";
       if (!eventKindMatches) return false;
       return (
-        stringField(event.payload, "warningId", "warning_id") === warningId ||
-        stringField(event.payload, "sourceEventId", "source_event_id") ===
+        stringField(event.payload, "warning_id") === warningId ||
+        stringField(event.payload, "source_event_id") ===
           sourceEventId
       );
     }) ?? null
@@ -218,7 +218,7 @@ export function workflowWorkspaceTrustGateReadiness(
         };
       }
       const warningId =
-        stringField(warningEvent.payload, "warningId", "warning_id") ??
+        stringField(warningEvent.payload, "warning_id") ??
         eventId(warningEvent);
       const acknowledgementEvent =
         trustAcknowledgementEvent(events, warningEvent, warningId) ?? null;
