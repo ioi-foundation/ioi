@@ -1703,6 +1703,27 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-request-lease-binding-output-aliases-retired",
+    /computer_use_request_lease_response/.test(bridgeModule) &&
+      /json_string_refs\(\s*&lease_request,\s*&\["receipt_refs"\],?\s*\)/.test(bridgeModule) &&
+      /optional_json_string\(&lease_request,\s*&\["request_ref"\]\)/.test(bridgeModule) &&
+      !/json_string_refs\(\s*&lease_request,\s*&\["receiptRefs",\s*"receipt_refs"\]/.test(
+        bridgeModule,
+      ) &&
+      !/optional_json_string\(&lease_request,\s*&\["requestRef",\s*"request_ref"\]\)/.test(
+        bridgeModule,
+      ) &&
+      /computer_use_request_lease_binds_canonical_receipt_and_request_refs/.test(
+        bridgeModule,
+      ),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
+    ],
+    "Phase 10/11 is pending: Rust computer-use request-lease StepModule receipt/evidence binding must consume canonical receipt_refs/request_ref rather than retired receiptRefs/requestRef output aliases",
+  );
+  assertCheck(
+    result,
     "coding-tool-result-router-admission-alias-retired",
     !/\brouterAdmission\s*:/.test(runtimeCodingToolInvocationSurface) &&
       /result\.result\.router_admission\.schema_version/.test(

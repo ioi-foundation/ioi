@@ -3831,13 +3831,13 @@ fn computer_use_request_lease_response(
             .into_iter()
             .chain(json_string_refs(
                 &lease_request,
-                &["receiptRefs", "receipt_refs"],
+                &["receipt_refs"],
             ))
             .collect(),
     );
     result.workflow_projection.evidence_refs.push(format!(
         "evidence://rust-workload/computer_use.request_lease/{}",
-        optional_json_string(&lease_request, &["requestRef", "request_ref"])
+        optional_json_string(&lease_request, &["request_ref"])
             .map(|value| safe_ref_path(&value))
             .unwrap_or_else(|| "unknown".to_string())
     ));
@@ -10253,6 +10253,43 @@ mod tests {
                 ["authorityScope"],
             "computer_use.native_browser.read"
         );
+    }
+
+    #[test]
+    fn computer_use_request_lease_binds_canonical_receipt_and_request_refs() {
+        let request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Bind canonical computer-use refs.",
+                "lane": "native_browser",
+                "action_kind": "inspect"
+            }),
+        );
+
+        let response =
+            computer_use_request_lease_response(request).expect("lease request response");
+        let workload_result = &response["workload_observation"]["result"];
+        let canonical_receipt_ref = workload_result["receipt_refs"][0]
+            .as_str()
+            .expect("canonical receipt ref");
+        let canonical_request_ref = workload_result["request_ref"]
+            .as_str()
+            .expect("canonical request ref");
+        let evidence_ref = format!(
+            "evidence://rust-workload/computer_use.request_lease/{canonical_request_ref}"
+        );
+
+        assert!(response["result"]["receipt_refs"]
+            .as_array()
+            .expect("result receipt refs")
+            .iter()
+            .any(|value| value == canonical_receipt_ref));
+        assert!(response["result"]["workflow_projection"]["evidence_refs"]
+            .as_array()
+            .expect("projection evidence refs")
+            .iter()
+            .any(|value| value == &evidence_ref));
     }
 
     #[test]
