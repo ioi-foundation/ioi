@@ -9176,6 +9176,32 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-state-accessor-record-state-commits",
+    /commitModelArtifactRecordState/.test(stateAccessors) &&
+      /commitModelInstanceRecordState/.test(stateAccessors) &&
+      /model_mount\.artifact\.provider_direct_mount/.test(stateAccessors) &&
+      /model_mount\.instance\.touch/.test(stateAccessors) &&
+      !/state\.writeMap\("model-artifacts"/.test(stateAccessors) &&
+      !/state\.writeMap\("model-instances"/.test(stateAccessors) &&
+      /recordDir:\s*"model-artifacts"/.test(modelArtifactRecordState) &&
+      /recordDir:\s*"model-instances"/.test(modelInstanceRecordState) &&
+      /provider-direct mount artifacts fail closed without Rust Agentgres record-state commit/.test(
+        stateAccessorsTest,
+      ) &&
+      /ensureLoaded existing instance touch fails closed without Rust Agentgres record-state commit/.test(
+        stateAccessorsTest,
+      ) &&
+      /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(stateAccessorsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/state-accessors.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs",
+    ],
+    "Phase 9/10 is pending: model-mount accessor-created artifact and instance records must commit through Rust Agentgres record-state admission instead of direct JS map persistence",
+  );
+  assertCheck(
+    result,
     "model-mount-catalog-provider-auth-error-detail-aliases-retired",
     /details:\s*\{\s*provider_id:\s*providerId\s*\}/.test(catalogProviderConfig) &&
       /details:\s*\{\s*auth_scheme:\s*scheme\s*\}/.test(catalogProviderConfig) &&

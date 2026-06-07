@@ -1,3 +1,6 @@
+import { commitModelArtifactRecordState } from "./model-artifact-record-state.mjs";
+import { commitModelInstanceRecordState } from "./model-instance-record-state.mjs";
+
 export function provider(state, providerId, deps = {}) {
   const { notFound } = deps;
   const record = state.providers.get(providerId);
@@ -62,8 +65,8 @@ export function modelForProviderMount(state, modelId, providerRecord, body = {},
     state: "available",
     discoveredAt: now,
   };
+  commitModelArtifactRecordState(state, mounted, "model_mount.artifact.provider_direct_mount", []);
   state.artifacts.set(mounted.id, mounted);
-  state.writeMap("model-artifacts", state.artifacts);
   return mounted;
 }
 
@@ -95,8 +98,8 @@ export async function ensureLoaded(state, endpointRecord, deps = {}) {
       lastUsedAt: state.nowIso(),
       expiresAt: expiresAt(state.nowIso(), existing.loadPolicy),
     };
+    commitModelInstanceRecordState(state, updated, "model_mount.instance.touch", []);
     state.instances.set(updated.id, updated);
-    state.writeMap("model-instances", state.instances);
     return updated;
   }
   return state.loadModel({ endpoint_id: endpointRecord.id, load_policy: endpointRecord.loadPolicy });

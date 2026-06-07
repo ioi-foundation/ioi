@@ -29,7 +29,26 @@ function fakeState() {
     loadCalls: [],
     mounted: [],
     now: "2026-06-04T04:00:00.000Z",
+    recordStateCommits: [],
     writes: [],
+    commitRuntimeModelMountRecordState(request) {
+      this.recordStateCommits.push(request);
+      return {
+        record_id: request.record_id,
+        object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+        content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+        admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+        commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
+        written_record: request.record,
+        storage_record: {
+          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
+          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
+          admission: {
+            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
+          },
+        },
+      };
+    },
     endpoint(endpointId) {
       return endpoint(this, endpointId, { notFound: deps.notFound });
     },
@@ -172,7 +191,30 @@ test("model accessors find artifacts and persist provider-direct mount artifacts
   assert.deepEqual(mounted.capabilities, ["chat", "vision"]);
   assert.equal(mounted.privacyClass, "hosted_private");
   assert.equal(state.artifacts.get(mounted.id), mounted);
-  assert.equal(state.writes.at(-1)[0], "model-artifacts");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.at(-1).record_dir, "model-artifacts");
+  assert.equal(state.recordStateCommits.at(-1).record_id, mounted.id);
+  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.artifact.provider_direct_mount");
+  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, []);
+});
+
+test("provider-direct mount artifacts fail closed without Rust Agentgres record-state commit", () => {
+  const state = fakeState();
+  const providerRecord = state.providers.get("provider.local");
+  delete state.commitRuntimeModelMountRecordState;
+
+  assert.throws(
+    () => modelForProviderMount(state, "remote-model", providerRecord, {}, state.now, deps),
+    (error) => {
+      assert.equal(error.code, "model_mount_artifact_state_commit_unconfigured");
+      assert.equal(error.details.record_dir, "model-artifacts");
+      assert.equal(error.details.artifact_id, "provider.local.remote.model");
+      return true;
+    },
+  );
+
+  assert.equal(state.artifacts.has("provider.local.remote.model"), false);
+  assert.deepEqual(state.writes, []);
 });
 
 test("ensureLoaded refreshes existing instance and writes it back", async () => {
@@ -192,8 +234,37 @@ test("ensureLoaded refreshes existing instance and writes it back", async () => 
   assert.equal(updated.lastUsedAt, state.now);
   assert.equal(updated.expiresAt, "2026-06-04T04:05:00.000Z");
   assert.equal(state.instances.get("instance.loaded"), updated);
-  assert.equal(state.writes.at(-1)[0], "model-instances");
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.recordStateCommits.at(-1).record_dir, "model-instances");
+  assert.equal(state.recordStateCommits.at(-1).record_id, "instance.loaded");
+  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.instance.touch");
+  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, []);
   assert.deepEqual(state.loadedLookups, [["endpoint.active", false]]);
+});
+
+test("ensureLoaded existing instance touch fails closed without Rust Agentgres record-state commit", async () => {
+  const state = fakeState();
+  state.instances.set("instance.loaded", {
+    id: "instance.loaded",
+    endpointId: "endpoint.active",
+    status: "loaded",
+    loadPolicy: { mode: "on_demand" },
+    lastUsedAt: "old",
+  });
+  delete state.commitRuntimeModelMountRecordState;
+
+  await assert.rejects(
+    () => ensureLoaded(state, state.endpoints.get("endpoint.active"), deps),
+    (error) => {
+      assert.equal(error.code, "model_mount_instance_state_commit_unconfigured");
+      assert.equal(error.details.record_dir, "model-instances");
+      assert.equal(error.details.instance_id, "instance.loaded");
+      return true;
+    },
+  );
+
+  assert.equal(state.instances.get("instance.loaded").lastUsedAt, "old");
+  assert.deepEqual(state.writes, []);
 });
 
 test("ensureLoaded calls loadModel when no active instance exists", async () => {
