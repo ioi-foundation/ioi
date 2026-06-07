@@ -155,7 +155,8 @@ test("thread store projects usage for run and thread", () => {
   store.runs.set("run_1", { id: "run_1", agentId: "agent_1", createdAt: "2026-06-03T00:00:01.000Z" });
   store.runs.set("run_2", { id: "run_2", agentId: "agent_1", createdAt: "2026-06-03T00:00:02.000Z" });
   store.subagents.set("subagent_1", { id: "subagent_1", parent_thread_id: "thread_1" });
-  store.subagents.set("subagent_2", { id: "subagent_2", parentThreadId: "thread_1" });
+  store.subagents.set("subagent_2", { id: "subagent_2", parent_thread_id: "thread_1" });
+  store.subagents.set("subagent_retired", { id: "subagent_retired", parentThreadId: "thread_1" });
   store.subagents.set("subagent_other", { id: "subagent_other", parent_thread_id: "thread_other" });
 
   const usageDeps = {

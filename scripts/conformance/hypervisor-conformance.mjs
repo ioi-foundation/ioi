@@ -5382,6 +5382,9 @@ function runBridge() {
       /thread store fails closed on mismatched Rust-planned status operation kind/.test(
         threadStoreTest,
       ) &&
+      /record\.parent_thread_id === threadId/.test(threadStore) &&
+      !/record\.parentThreadId\b/.test(threadStore) &&
+      /subagent_retired/.test(threadStoreTest) &&
       !/const updated = \{ \.\.\.agent, status, updatedAt: new Date\(\)\.toISOString\(\) \}/.test(
         threadStore,
       ),
@@ -15673,9 +15676,12 @@ function runCompositor() {
       !/^\s*runtime_usage:\s*usageTelemetry,?\s*$/m.test(threadTurnProjection) &&
       !/^\s*runtimeUsage:\s*usageTelemetry,?\s*$/m.test(threadTurnProjection) &&
       !/run\.(?:usageTelemetry|runtimeUsage)/.test(threadTurnProjection) &&
+      /record\.parent_thread_id === threadId/.test(threadTurnProjection) &&
+      !/record\.parentThreadId\b/.test(threadTurnProjection) &&
       /agent\.runtimeControls\?\.approval_mode/.test(threadTurnProjection) &&
       !/agent\.runtimeControls\?\.approvalMode/.test(threadTurnProjection) &&
       /retiredUsageProjectionAliasKeys/.test(threadTurnProjectionTest) &&
+      /sub_retired/.test(threadTurnProjectionTest) &&
       /turn projection ignores retired persisted approval mode aliases/.test(
         threadTurnProjectionTest,
       ) &&
@@ -15684,7 +15690,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
       "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
     ],
-    "Phase 10/11 is pending: thread/turn usage projections must not emit or read retired usage telemetry aliases",
+    "Phase 10/11 is pending: thread/turn usage projections must not emit or read retired usage telemetry or parent-thread aliases",
   );
   assertCheck(
     result,

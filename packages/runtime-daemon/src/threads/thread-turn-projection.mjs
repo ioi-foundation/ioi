@@ -30,7 +30,7 @@ export function createThreadTurnProjection({
       agent,
       runs,
       subagents: [...store.subagents.values()].filter(
-        (record) => (record.parent_thread_id ?? record.parentThreadId) === threadId,
+        (record) => record.parent_thread_id === threadId,
       ),
     });
     return {

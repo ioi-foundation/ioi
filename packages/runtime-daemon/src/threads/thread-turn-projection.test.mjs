@@ -32,6 +32,7 @@ function createStore({ agent, runs = [], events = [] }) {
     agents: new Map([[agent.id, agent]]),
     subagents: new Map([
       ["sub_one", { id: "sub_one", parent_thread_id: `thread_${agent.id.replace(/^agent_/, "")}` }],
+      ["sub_retired", { id: "sub_retired", parentThreadId: `thread_${agent.id.replace(/^agent_/, "")}` }],
       ["sub_other", { id: "sub_other", parent_thread_id: "thread_other" }],
     ]),
     memory: {
