@@ -13452,6 +13452,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.test.ts")
     : "";
+  const agentIdeSignedReplayNotebook = exists(
+    "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts")
+    : "";
+  const agentIdeSignedReplayNotebookTest = exists(
+    "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-signed-replay-notebook.test.ts")
+    : "";
   const agentIdeMixedRuntimePanels = [
     "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
     "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
@@ -20280,6 +20290,71 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
     ],
     "Phase 10/11 is pending: typed IDE runtime panels must use the shared event identity helper instead of local id fallbacks",
+  );
+  assertCheck(
+    result,
+    "ide-signed-replay-evidence-aliases-retired",
+    /arrayField\(event,\s*"receipt_refs"\)/.test(agentIdeSignedReplayNotebook) &&
+      /arrayField\(event,\s*"artifact_refs"\)/.test(agentIdeSignedReplayNotebook) &&
+      /arrayField\(event,\s*"rollback_refs"\)/.test(agentIdeSignedReplayNotebook) &&
+      /arrayField\(event,\s*"policy_decision_refs"\)/.test(agentIdeSignedReplayNotebook) &&
+      /arrayField\(result,\s*"receipt_refs"\)/.test(agentIdeSignedReplayNotebook) &&
+      /arrayField\(result,\s*"artifact_refs"\)/.test(agentIdeSignedReplayNotebook) &&
+      /arrayField\(result,\s*"rollback_refs"\)/.test(agentIdeSignedReplayNotebook) &&
+      /arrayField\(result,\s*"policy_decision_refs"\)/.test(agentIdeSignedReplayNotebook) &&
+      /arrayField\(snapshot,\s*"receipt_refs"\)/.test(agentIdeSignedReplayNotebook) &&
+      /arrayField\(snapshot,\s*"artifact_refs"\)/.test(agentIdeSignedReplayNotebook) &&
+      /arrayField\(snapshot,\s*"policy_decision_refs"\)/.test(agentIdeSignedReplayNotebook) &&
+      !/arrayField\(event,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/arrayField\(event,\s*"artifactRefs",\s*"artifact_refs"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/arrayField\(event,\s*"rollbackRefs",\s*"rollback_refs"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/arrayField\(event,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/arrayField\(result,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/arrayField\(result,\s*"artifactRefs",\s*"artifact_refs"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/arrayField\(result,\s*"rollbackRefs",\s*"rollback_refs"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/arrayField\(result,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/arrayField\(snapshot,\s*"receiptRefs",\s*"receipt_refs"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/arrayField\(snapshot,\s*"artifactRefs",\s*"artifact_refs"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      !/arrayField\(snapshot,\s*"policyDecisionRefs",\s*"policy_decision_refs"\)/.test(
+        agentIdeSignedReplayNotebook,
+      ) &&
+      /signed replay notebook ignores retired evidence aliases/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /receiptRefs: \["receipt-event-retired"\]/.test(agentIdeSignedReplayNotebookTest) &&
+      /artifactRefs: \["artifact-event-retired"\]/.test(agentIdeSignedReplayNotebookTest) &&
+      /rollbackRefs: \["snapshot-event-retired"\]/.test(agentIdeSignedReplayNotebookTest) &&
+      /policyDecisionRefs: \["policy-event-retired"\]/.test(
+        agentIdeSignedReplayNotebookTest,
+      ) &&
+      /assert\.equal\(notebook\.receiptBackedCellCount,\s*0\)/.test(
+        agentIdeSignedReplayNotebookTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts",
+      "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE signed replay notebook must ignore retired camelCase evidence aliases",
   );
   assertCheck(
     result,

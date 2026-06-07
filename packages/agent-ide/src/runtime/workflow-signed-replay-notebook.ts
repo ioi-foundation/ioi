@@ -126,7 +126,7 @@ function cellForEvent(event: WorkflowRuntimeThreadEventLike): WorkflowSignedRepl
     });
   }
   if (eventKind === "workspace.snapshot.created" || componentKind === "workspace_snapshot") {
-    const snapshotId = stringField(payload, "snapshotId", "snapshot_id") ?? firstString(arrayField(event, "rollbackRefs", "rollback_refs"));
+    const snapshotId = stringField(payload, "snapshotId", "snapshot_id") ?? firstString(arrayField(event, "rollback_refs"));
     return baseCell(event, {
       cellKind: "snapshot",
       title: "Workspace snapshot",
@@ -144,7 +144,7 @@ function cellForEvent(event: WorkflowRuntimeThreadEventLike): WorkflowSignedRepl
     });
   }
   if (eventKind === "workspace.restore.previewed") {
-    const snapshotId = stringField(payload, "snapshotId", "snapshot_id") ?? firstString(arrayField(event, "rollbackRefs", "rollback_refs"));
+    const snapshotId = stringField(payload, "snapshotId", "snapshot_id") ?? firstString(arrayField(event, "rollback_refs"));
     return baseCell(event, {
       cellKind: "restore_preview",
       title: "Read-only restore preview",
@@ -162,7 +162,7 @@ function cellForEvent(event: WorkflowRuntimeThreadEventLike): WorkflowSignedRepl
     });
   }
   if (eventKind === "workspace.restore.applied") {
-    const snapshotId = stringField(payload, "snapshotId", "snapshot_id") ?? firstString(arrayField(event, "rollbackRefs", "rollback_refs"));
+    const snapshotId = stringField(payload, "snapshotId", "snapshot_id") ?? firstString(arrayField(event, "rollback_refs"));
     return baseCell(event, {
       cellKind: "restore_apply",
       title: "Restore apply",
@@ -213,10 +213,10 @@ function cellForRestoreResult(value: unknown): WorkflowSignedReplayNotebookCell 
     approvalSatisfied: booleanField(result, "approvalSatisfied", "approval_satisfied"),
     restorePreviewEndpoint: endpointForThreadSnapshot(result, snapshotId, "restore-preview"),
     restoreApplyEndpoint: endpointForThreadSnapshot(result, snapshotId, "restore-apply"),
-    receiptRefs: uniqueStrings(arrayField(result, "receiptRefs", "receipt_refs")),
-    artifactRefs: uniqueStrings(arrayField(result, "artifactRefs", "artifact_refs")),
-    rollbackRefs: uniqueStrings(arrayField(result, "rollbackRefs", "rollback_refs")),
-    policyDecisionRefs: uniqueStrings(arrayField(result, "policyDecisionRefs", "policy_decision_refs")),
+    receiptRefs: uniqueStrings(arrayField(result, "receipt_refs")),
+    artifactRefs: uniqueStrings(arrayField(result, "artifact_refs")),
+    rollbackRefs: uniqueStrings(arrayField(result, "rollback_refs")),
+    policyDecisionRefs: uniqueStrings(arrayField(result, "policy_decision_refs")),
   };
 }
 
@@ -245,10 +245,10 @@ function cellForSnapshotListItem(value: unknown): WorkflowSignedReplayNotebookCe
     approvalSatisfied: null,
     restorePreviewEndpoint: endpointForThreadSnapshot(snapshot, snapshotId, "restore-preview"),
     restoreApplyEndpoint: endpointForThreadSnapshot(snapshot, snapshotId, "restore-apply"),
-    receiptRefs: uniqueStrings(arrayField(snapshot, "receiptRefs", "receipt_refs")),
-    artifactRefs: uniqueStrings(arrayField(snapshot, "artifactRefs", "artifact_refs")),
+    receiptRefs: uniqueStrings(arrayField(snapshot, "receipt_refs")),
+    artifactRefs: uniqueStrings(arrayField(snapshot, "artifact_refs")),
     rollbackRefs: uniqueStrings([snapshotId]),
-    policyDecisionRefs: uniqueStrings(arrayField(snapshot, "policyDecisionRefs", "policy_decision_refs")),
+    policyDecisionRefs: uniqueStrings(arrayField(snapshot, "policy_decision_refs")),
   };
 }
 
@@ -278,10 +278,10 @@ function baseCell(
     threadId: stringField(event, "threadId", "thread_id"),
     workflowGraphId: stringField(event, "workflowGraphId", "workflow_graph_id"),
     workflowNodeId: stringField(event, "workflowNodeId", "workflow_node_id"),
-    receiptRefs: uniqueStrings(arrayField(event, "receiptRefs", "receipt_refs")),
-    artifactRefs: uniqueStrings(arrayField(event, "artifactRefs", "artifact_refs")),
-    rollbackRefs: uniqueStrings(arrayField(event, "rollbackRefs", "rollback_refs")),
-    policyDecisionRefs: uniqueStrings(arrayField(event, "policyDecisionRefs", "policy_decision_refs")),
+    receiptRefs: uniqueStrings(arrayField(event, "receipt_refs")),
+    artifactRefs: uniqueStrings(arrayField(event, "artifact_refs")),
+    rollbackRefs: uniqueStrings(arrayField(event, "rollback_refs")),
+    policyDecisionRefs: uniqueStrings(arrayField(event, "policy_decision_refs")),
     ...fields,
   };
 }

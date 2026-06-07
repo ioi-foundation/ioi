@@ -11390,6 +11390,14 @@ aliases: the receipt-first tool timeline now reads canonical `tool_name`,
 output aliases cannot make old tool payloads look receipt-backed,
 artifact-backed, or output-hash-bound.
 
+Slice 536 retires IDE signed-replay evidence aliases: the signed replay notebook
+now reads canonical `receipt_refs`, `artifact_refs`, `rollback_refs`, and
+`policy_decision_refs` from runtime events and restore results, and canonical
+snapshot-list `receipt_refs`, `artifact_refs`, and `policy_decision_refs` only,
+so retired camelCase evidence aliases cannot make old replay, restore, or
+snapshot payloads look receipt-backed, artifact-backed, rollback-backed, or
+policy-backed.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |
