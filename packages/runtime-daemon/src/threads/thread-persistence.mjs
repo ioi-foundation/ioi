@@ -106,7 +106,7 @@ export function loadStateRecords(store, deps = {}) {
   }
   for (const file of listJson(store.pathFor("artifacts"))) {
     const artifactRecord = readJson(file);
-    const schemaVersion = artifactRecord.schema_version ?? artifactRecord.schemaVersion;
+    const schemaVersion = artifactRecord.schema_version;
     if (schemaVersion === codingToolArtifactSchemaVersion && artifactRecord.id) {
       store.codingArtifacts.set(artifactRecord.id, artifactRecord);
     }

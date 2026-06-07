@@ -502,8 +502,9 @@ test("thread persistence loads agents, runs, subagents, coding artifacts, and re
     "subagents/retired-subagent-id.json": { subagentId: "subagent_retired" },
     "subagents/retired-agent-id.json": { agent_id: "subagent_agent_retired" },
     "subagents/retired-agent-camel.json": { agentId: "subagent_agent_camel_retired" },
-    "artifacts/coding.json": { id: "artifact_1", schemaVersion: "ioi.coding-tool.artifact.v1" },
-    "artifacts/other.json": { id: "artifact_2", schemaVersion: "other" },
+    "artifacts/coding.json": { id: "artifact_1", schema_version: "ioi.coding-tool.artifact.v1" },
+    "artifacts/retired-schema.json": { id: "artifact_retired", schemaVersion: "ioi.coding-tool.artifact.v1" },
+    "artifacts/other.json": { id: "artifact_2", schema_version: "other" },
   };
   const jsonFiles = {
     agents: ["agents/a.json"],
@@ -515,7 +516,7 @@ test("thread persistence loads agents, runs, subagents, coding artifacts, and re
       "subagents/retired-agent-id.json",
       "subagents/retired-agent-camel.json",
     ],
-    artifacts: ["artifacts/coding.json", "artifacts/other.json"],
+    artifacts: ["artifacts/coding.json", "artifacts/retired-schema.json", "artifacts/other.json"],
   };
 
   loadStateRecords(store, {
@@ -542,7 +543,8 @@ test("thread persistence loads agents, runs, subagents, coding artifacts, and re
   assert.equal(store.subagents.has("subagent_retired"), false);
   assert.equal(store.subagents.has("subagent_agent_retired"), false);
   assert.equal(store.subagents.has("subagent_agent_camel_retired"), false);
-  assert.deepEqual(store.codingArtifacts.get("artifact_1"), { id: "artifact_1", schemaVersion: "ioi.coding-tool.artifact.v1" });
+  assert.deepEqual(store.codingArtifacts.get("artifact_1"), { id: "artifact_1", schema_version: "ioi.coding-tool.artifact.v1" });
+  assert.equal(store.codingArtifacts.has("artifact_retired"), false);
   assert.equal(store.codingArtifacts.has("artifact_2"), false);
   assert.deepEqual(store.registeredEvents, [{ seq: 1 }, { seq: 2 }]);
 });

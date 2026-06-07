@@ -5,7 +5,7 @@ Canonical owner: this file tracks live/current/final ownership for the Hyperviso
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
 Last alignment pass: 2026-06-07.
-Last matrix compaction pass: 2026-06-07, after runtime coding-tool artifact-draft facade alias retirement slice 628 clarified the active seam.
+Last matrix compaction pass: 2026-06-07, after runtime artifact-state reload facade alias retirement slice 629 clarified the active seam.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -42,7 +42,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, and runtime coding-tool artifact-draft facade-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, and runtime artifact-state reload facade-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -12575,6 +12575,60 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 629
+
+```yaml
+slice: 629
+phase: 10-authoritative-js-facade-retirement
+objective: retire persisted runtime artifact-state schema alias rehydration
+  before local state reload can revive retired artifact records
+owner_boundary:
+  route_or_surface: runtime artifact-state reload for coding-tool artifacts
+  authority_gate: unchanged; artifact records must already have been admitted
+    through Rust Agentgres artifact-state commit before durable persistence
+  execution_backend: n/a; reload is a daemon facade over Rust-admitted durable
+    records, not an execution backend
+  truth_path: live coding artifact state is rehydrated only from persisted
+    records carrying canonical `schema_version`
+  projection_path: thread-persistence tests prove retired `schemaVersion`
+    artifact records do not enter the live coding artifact map
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  js_facade:
+    - packages/runtime-daemon/src/threads/thread-persistence.mjs
+  tests:
+    - packages/runtime-daemon/src/threads/thread-persistence.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts conformance requires artifact reload to read
+    `artifactRecord.schema_version` without a retired `schemaVersion` fallback
+  - receipts conformance requires a poisoned persisted artifact fixture with
+    only `schemaVersion` to stay out of live coding artifact state
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/threads/thread-persistence.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:receipts
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: poisoned persisted artifact record carries the
+    retired `schemaVersion` alias with the correct schema value, while only the
+    canonical `schema_version` artifact is rehydrated
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this JS
+      runtime facade cleanup
+    - broader state-schema relation metadata still exposes SDK/product camelCase
+      labels and should be retired separately only where it can revive
+      accepted-truth or execution state
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -12590,7 +12644,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 628 and the sixty-third 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 629 and the sixty-fourth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -12699,7 +12753,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-628 retired SDK runtime usage record aliases and Rust/daemon
+- Slices 572-629 retired SDK runtime usage record aliases and Rust/daemon
   Agentgres state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -12882,6 +12936,10 @@ reconstruct the active seam without carrying every per-slice paragraph.
   runtime coding-tool artifact materialization now consumes canonical
   `artifact_drafts` and `media_type` only, while the Rust-live result wrapper
   strips retired `artifactDrafts` before artifact records can be persisted;
+  daemon runtime artifact-state reload now admits persisted coding-tool
+  artifact records only by canonical `schema_version`, so retired
+  `schemaVersion`-only artifact records cannot rehydrate live coding artifact
+  state after Rust Agentgres artifact-state admission;
   IDE runtime telemetry summary
   readers now ignore retired camelCase
   runtime usage/context-pressure payload aliases, and the daemon-bound usage

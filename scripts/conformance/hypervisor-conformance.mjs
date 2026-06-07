@@ -12307,6 +12307,14 @@ function runReceipts() {
       /runtime artifact state commit rejects retired receipt aliases before Rust commit/.test(
         read("packages/runtime-daemon/src/runtime-artifact-state-commit.test.mjs"),
       ) &&
+      /const schemaVersion = artifactRecord\.schema_version;/.test(threadPersistence) &&
+      !/artifactRecord\.schema_version \?\? artifactRecord\.schemaVersion/.test(threadPersistence) &&
+      /"artifacts\/retired-schema\.json": \{ id: "artifact_retired", schemaVersion: "ioi\.coding-tool\.artifact\.v1" \}/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /store\.codingArtifacts\.has\("artifact_retired"\), false/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
       /commitRuntimeArtifactRecord\(store, artifactRecord, "artifact\.coding_tool_draft"\)/.test(
         runtimeCodingToolArtifactSurface,
       ) &&
@@ -12340,6 +12348,8 @@ function runReceipts() {
       "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-artifact-state-commit.mjs",
       "packages/runtime-daemon/src/runtime-artifact-state-commit.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-persistence.mjs",
+      "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
