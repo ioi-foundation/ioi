@@ -13632,6 +13632,10 @@ function runCompositor() {
   const managedSessionState = exists("packages/runtime-daemon/src/threads/managed-session-state.mjs")
     ? read("packages/runtime-daemon/src/threads/managed-session-state.mjs")
     : "";
+  const managedSessionInspectionStateBlock =
+    managedSessionState.match(
+      /export async function inspectManagedSessionsForThread[\s\S]*?\nexport async function controlManagedSessionForThread/,
+    )?.[0] ?? managedSessionState;
   const managedSessionStateTest = exists("packages/runtime-daemon/src/threads/managed-session-state.test.mjs")
     ? read("packages/runtime-daemon/src/threads/managed-session-state.test.mjs")
     : "";
@@ -19389,7 +19393,21 @@ function runCompositor() {
   assertCheck(
     result,
     "managed-session-envelope-aliases-retired",
-    /managed_session_control_request_aliases_retired/.test(managedSessionState) &&
+    /managed_session_inspection_request_aliases_retired/.test(
+      managedSessionInspectionStateBlock,
+    ) &&
+      /retiredManagedSessionInspectionAliases/.test(
+        managedSessionInspectionStateBlock,
+      ) &&
+      /session_id:\s*sessionId/.test(managedSessionInspectionStateBlock) &&
+      /thread_id:\s*threadId/.test(managedSessionInspectionStateBlock) &&
+      /workspace_root:\s*agent\.cwd/.test(managedSessionInspectionStateBlock) &&
+      /managed_sessions_only:\s*true/.test(managedSessionInspectionStateBlock) &&
+      /requested_at:\s*new Date\(\)\.toISOString\(\)/.test(
+        managedSessionInspectionStateBlock,
+      ) &&
+      /projection:\s*"managed_sessions"/.test(managedSessionInspectionStateBlock) &&
+      /managed_session_control_request_aliases_retired/.test(managedSessionState) &&
       /retiredManagedSessionControlAliases/.test(managedSessionState) &&
       /runtime_profile:\s*agent\.runtime_profile \?\? "fixture"/.test(managedSessionState) &&
       /const managedSessions =\s*[\r\n\s]*bridgeResult\?\.managed_sessions \?\?/.test(
@@ -19407,6 +19425,15 @@ function runCompositor() {
         managedSessionInspectionTest,
       ) &&
       /Object\.hasOwn\(normalized,\s*field\),\s*false/.test(managedSessionInspectionTest) &&
+      /managed session thread inspection rejects retired bridge request aliases/.test(
+        managedSessionStateTest,
+      ) &&
+      /Object\.hasOwn\(bridgeCalls\[0\],\s*field\),\s*false/.test(
+        managedSessionStateTest,
+      ) &&
+      /bridgeCalls\[0\]\.managed_sessions_only,\s*true/.test(
+        managedSessionStateTest,
+      ) &&
       /details:\s*\{\s*thread_id:\s*threadId,\s*operation:\s*"control_thread"\s*\}/.test(
         managedSessionState,
       ) &&
@@ -19421,8 +19448,14 @@ function runCompositor() {
       !/^\s*(?:threadId|sessionId|managedSessions|managedSessionId)\s*:/m.test(
         managedSessionState,
       ) &&
+      !/^\s*(?:sessionId|threadId|workspaceRoot|managedSessionsOnly|requestedAt)\s*:/m.test(
+        managedSessionInspectionStateBlock,
+      ) &&
       !/\bbridgeResult\?\.(?:bridgeId|threadId|sessionId|workspaceRoot|managedSessions)\b/.test(
         managedSessionInspection,
+      ) &&
+      !/\brequest\.(?:sessionId|threadId|workspaceRoot|managedSessionsOnly|requestedAt)\b/.test(
+        managedSessionInspectionStateBlock,
       ) &&
       !/\brequest\.(?:managedSessionId|sessionCardId|createdAt|requestHash)\b/.test(
         managedSessionState,

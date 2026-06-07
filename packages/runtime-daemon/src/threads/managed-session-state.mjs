@@ -24,18 +24,27 @@ export async function inspectManagedSessionsForThread(store, threadId, request =
       managed_sessions: emptyManagedSessionSnapshot(threadId),
     };
   }
+  const retiredAliases = retiredManagedSessionInspectionAliases(request);
+  if (retiredAliases.length > 0) {
+    throw runtimeError({
+      status: 400,
+      code: "managed_session_inspection_request_aliases_retired",
+      message: "Managed session inspection request uses retired aliases.",
+      details: { thread_id: threadId, retired_aliases: retiredAliases },
+    });
+  }
   store.assertRuntimeBridgeAvailable({
     runtimeProfile: agent.runtimeProfile,
     operation: "inspect_thread",
   });
   try {
     const bridgeResult = await store.runtimeBridge.inspectThread({
-      sessionId,
-      threadId,
-      workspaceRoot: agent.cwd,
+      session_id: sessionId,
+      thread_id: threadId,
+      workspace_root: agent.cwd,
       projection: "managed_sessions",
-      managedSessionsOnly: true,
-      requestedAt: new Date().toISOString(),
+      managed_sessions_only: true,
+      requested_at: new Date().toISOString(),
     });
     return normalizeManagedSessionInspection({
       bridgeResult,
@@ -53,6 +62,16 @@ export async function inspectManagedSessionsForThread(store, threadId, request =
     }
     throw error;
   }
+}
+
+function retiredManagedSessionInspectionAliases(request = {}) {
+  return [
+    "sessionId",
+    "threadId",
+    "workspaceRoot",
+    "managedSessionsOnly",
+    "requestedAt",
+  ].filter((key) => Object.hasOwn(request, key));
 }
 
 export async function controlManagedSessionForThread(store, threadId, request = {}, deps = {}) {

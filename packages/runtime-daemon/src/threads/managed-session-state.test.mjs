@@ -98,10 +98,41 @@ test("managed session thread inspection calls runtime bridge and normalizes resu
   const inspected = await inspectManagedSessionsForThread(store, "thread_runtime", {}, deps());
 
   assert.equal(bridgeCalls[0].projection, "managed_sessions");
-  assert.equal(bridgeCalls[0].managedSessionsOnly, true);
+  assert.equal(bridgeCalls[0].managed_sessions_only, true);
+  assert.equal(bridgeCalls[0].session_id, "session_runtime");
+  assert.equal(bridgeCalls[0].thread_id, "thread_runtime");
+  assert.equal(bridgeCalls[0].workspace_root, "/workspace");
+  assert.equal(typeof bridgeCalls[0].requested_at, "string");
+  for (const field of ["sessionId", "threadId", "workspaceRoot", "managedSessionsOnly", "requestedAt"]) {
+    assert.equal(Object.hasOwn(bridgeCalls[0], field), false, `retired managed session bridge alias ${field}`);
+  }
   assert.equal(inspected.bridge_id, "bridge_runtime");
   assert.equal(inspected.managed_sessions.sessions[0].id, "sandbox_browser:test");
   assert.equal(Object.hasOwn(inspected, "managedSessions"), false);
+});
+
+test("managed session thread inspection rejects retired bridge request aliases", async () => {
+  const store = fakeStore({
+    agent: {
+      id: "agent_runtime",
+      cwd: "/workspace",
+      runtimeProfile: "runtime_service",
+      runtimeSessionId: "session_runtime",
+    },
+  });
+
+  for (const alias of ["sessionId", "threadId", "workspaceRoot", "managedSessionsOnly", "requestedAt"]) {
+    await assert.rejects(
+      inspectManagedSessionsForThread(store, "thread_runtime", { [alias]: "retired" }, deps()),
+      (error) => {
+        assert.equal(error.code, "managed_session_inspection_request_aliases_retired");
+        assert.equal(error.details.thread_id, "thread_runtime");
+        assert.deepEqual(error.details.retired_aliases, [alias]);
+        assertNoRetiredContractDetailAliases(error.details);
+        return true;
+      },
+    );
+  }
 });
 
 test("managed session control builds normalized bridge command and inspection envelope", async () => {
