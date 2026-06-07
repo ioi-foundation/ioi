@@ -6920,13 +6920,16 @@ function runBridge() {
   assertCheck(
     result,
     "runtime-thread-control-model-route-payload-aliases-retired",
-    /threadRuntimeControlModelForOptions\(model = \{\}\)[\s\S]*route_id: model\.route_id \?\? model\.routeId/.test(
+    /threadRuntimeControlModelForOptions\(model = \{\}\)[\s\S]*route_id: model\.route_id \?\? "route\.local-first"/.test(
       threadRuntimeControls,
     ) &&
-      /threadRuntimeControlModelForOptions\(model = \{\}\)[\s\S]*reasoning_effort: model\.reasoning_effort \?\? model\.reasoningEffort/.test(
+      /threadRuntimeControlModelForOptions\(model = \{\}\)[\s\S]*reasoning_effort: model\.reasoning_effort \?\? undefined/.test(
         threadRuntimeControls,
       ) &&
-      /threadRuntimeControlModelForOptions\(model = \{\}\)[\s\S]*workflow_node_id: model\.workflow_node_id \?\? model\.workflowNodeId/.test(
+      /threadRuntimeControlModelForOptions\(model = \{\}\)[\s\S]*workflow_node_id: model\.workflow_node_id \?\? "runtime\.model-router"/.test(
+        threadRuntimeControls,
+      ) &&
+      !/threadRuntimeControlModelForOptions\(model = \{\}\)(?:(?!\n}\n\nexport function threadRuntimeControlKind)[\s\S])*model\.(?:routeId|reasoningEffort|maxCostUsd|workflowGraphId|workflowNodeId)/.test(
         threadRuntimeControls,
       ) &&
       /optionalString\(bodyModel\.id \?\? bodyModel\.model_id\)/.test(threadRuntimeControls) &&
@@ -6947,6 +6950,7 @@ function runBridge() {
       /workflow_node_id: "node\.persisted"/.test(threadRuntimeControlsTest) &&
       /modelId: "retired-model"/.test(threadRuntimeControlsTest) &&
       /routeId: "route\.retired"/.test(threadRuntimeControlsTest) &&
+      /threadRuntimeControlModelForOptions/.test(threadRuntimeControlsTest) &&
       /assert\.equal\(input\.model\.route_id,\s*"route\.canonical"\)/.test(
         threadRuntimeControlsTest,
       ) &&

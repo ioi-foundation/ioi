@@ -15,6 +15,7 @@ import {
   runModeForThreadMode,
   threadModeForRunMode,
   threadRuntimeControlKind,
+  threadRuntimeControlModelForOptions,
   threadRuntimeControlModelInput,
 } from "./thread-runtime-controls.mjs";
 
@@ -59,9 +60,13 @@ test("initial and normalized runtime controls preserve schema and model route fi
   assert.equal(controls.mode, "plan");
   assert.equal(controls.approvalMode, "human_required");
   assert.equal(controls.model.selectedModel, "local-model");
+  assert.equal(controls.model.selected_model, "local-model");
   assert.equal(controls.model.reasoningEffort, "low");
+  assert.equal(controls.model.reasoning_effort, "low");
   assert.equal(controls.model.workflowGraphId, "graph-1");
+  assert.equal(controls.model.workflow_graph_id, "graph-1");
   assert.equal(controls.model.workflowNodeId, "node-1");
+  assert.equal(controls.model.workflow_node_id, "node-1");
 
   const poisoned = initialThreadRuntimeControls(
     {
@@ -84,10 +89,15 @@ test("initial and normalized runtime controls preserve schema and model route fi
   assert.equal(poisoned.mode, "agent");
   assert.equal(poisoned.approvalMode, "suggest");
   assert.equal(poisoned.model.routeId, "route.local-first");
+  assert.equal(poisoned.model.route_id, "route.local-first");
   assert.equal(poisoned.model.reasoningEffort, null);
+  assert.equal(poisoned.model.reasoning_effort, null);
   assert.equal(poisoned.model.maxCostUsd, null);
+  assert.equal(poisoned.model.max_cost_usd, null);
   assert.equal(poisoned.model.workflowGraphId, null);
+  assert.equal(poisoned.model.workflow_graph_id, null);
   assert.equal(poisoned.model.workflowNodeId, "runtime.model-router");
+  assert.equal(poisoned.model.workflow_node_id, "runtime.model-router");
 
   const normalizedFromCanonicalDecision = normalizedAgentRuntimeControls({
     modelRouteDecision: {
@@ -100,8 +110,11 @@ test("initial and normalized runtime controls preserve schema and model route fi
     },
   });
   assert.equal(normalizedFromCanonicalDecision.model.reasoningEffort, "medium");
+  assert.equal(normalizedFromCanonicalDecision.model.reasoning_effort, "medium");
   assert.equal(normalizedFromCanonicalDecision.model.workflowGraphId, "graph-decision");
+  assert.equal(normalizedFromCanonicalDecision.model.workflow_graph_id, "graph-decision");
   assert.equal(normalizedFromCanonicalDecision.model.workflowNodeId, "node-decision");
+  assert.equal(normalizedFromCanonicalDecision.model.workflow_node_id, "node-decision");
 
   assert.deepEqual(normalizedAgentRuntimeControls({
     mode: "chat",
@@ -111,17 +124,27 @@ test("initial and normalized runtime controls preserve schema and model route fi
   }).model, {
     id: "requested-model",
     routeId: "route.test",
+    route_id: "route.test",
     selectedModel: null,
+    selected_model: null,
     endpointId: "endpoint-test",
+    endpoint_id: "endpoint-test",
     providerId: null,
+    provider_id: null,
     receiptId: null,
+    receipt_id: null,
     reasoningEffort: null,
+    reasoning_effort: null,
     privacy: null,
     maxCostUsd: null,
+    max_cost_usd: null,
     allow_hosted_fallback: null,
     workflowGraphId: null,
+    workflow_graph_id: null,
     workflowNodeId: "runtime.model-router",
+    workflow_node_id: "runtime.model-router",
     updatedAt: null,
+    updated_at: null,
   });
 });
 
@@ -133,9 +156,9 @@ test("runtime-backed requests inherit model controls without overriding explicit
       approval_mode: "human_required",
       model: {
         id: "auto",
-        routeId: "route.local-first",
-        reasoningEffort: "high",
-        workflowNodeId: "node-1",
+        route_id: "route.local-first",
+        reasoning_effort: "high",
+        workflow_node_id: "node-1",
       },
     },
   };
@@ -259,11 +282,11 @@ test("thread runtime control model payloads use canonical route-selection fields
         approval_mode: "suggest",
         model: {
           id: "auto",
-          routeId: "route.persisted",
-          reasoningEffort: "medium",
-          maxCostUsd: 0.25,
-          workflowGraphId: "graph.persisted",
-          workflowNodeId: "node.persisted",
+          route_id: "route.persisted",
+          reasoning_effort: "medium",
+          max_cost_usd: 0.25,
+          workflow_graph_id: "graph.persisted",
+          workflow_node_id: "node.persisted",
         },
       },
     },
@@ -284,6 +307,25 @@ test("thread runtime control model payloads use canonical route-selection fields
   for (const alias of ["routeId", "reasoningEffort", "maxCostUsd", "workflowGraphId", "workflowNodeId"]) {
     assert.equal(Object.hasOwn(controlled.options.model, alias), false);
   }
+
+  assert.deepEqual(threadRuntimeControlModelForOptions({
+    id: "auto",
+    routeId: "route.retired",
+    reasoningEffort: "medium",
+    maxCostUsd: 0.25,
+    workflowGraphId: "graph.retired",
+    workflowNodeId: "node.retired",
+  }), {
+    id: "auto",
+    route_id: "route.local-first",
+    reasoning_effort: undefined,
+    privacy: undefined,
+    max_cost_usd: undefined,
+    allow_hosted_fallback: undefined,
+    workflow_graph_id: undefined,
+    workflow_node_id: "runtime.model-router",
+    workflow_node_type: "Model Router",
+  });
 
   const input = threadRuntimeControlModelInput(
     {

@@ -65,7 +65,7 @@ export function createThreadTurnProjection({
       selected_model: agent.modelId,
       reasoning_effort:
         agent.modelRouteDecision?.reasoning_effort ??
-        runtimeControls.model?.reasoningEffort ??
+        runtimeControls.model?.reasoning_effort ??
         null,
       runtime_controls: runtimeControls,
       memory_count: store.memory.list({

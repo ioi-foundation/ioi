@@ -273,16 +273,23 @@ export interface RuntimeThreadControls {
     selectedModel?: string | null;
     selected_model?: string | null;
     endpointId?: string | null;
+    endpoint_id?: string | null;
     providerId?: string | null;
+    provider_id?: string | null;
     receiptId?: string | null;
+    receipt_id?: string | null;
     reasoningEffort?: string | null;
     reasoning_effort?: string | null;
     privacy?: string | null;
     maxCostUsd?: number | null;
+    max_cost_usd?: number | null;
     allow_hosted_fallback?: boolean | null;
     workflowGraphId?: string | null;
+    workflow_graph_id?: string | null;
     workflowNodeId?: string | null;
+    workflow_node_id?: string | null;
     updatedAt?: string | null;
+    updated_at?: string | null;
   };
   updatedAt?: string | null;
 }

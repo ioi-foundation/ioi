@@ -26,17 +26,27 @@ export function initialThreadRuntimeControls(options = {}, modelRoute = {}, now 
     model: {
       id: modelRoute.requestedModelId ?? options.model?.id ?? options.model?.model ?? "auto",
       routeId: modelRoute.routeId ?? options.model?.route_id ?? options.route_id ?? "route.local-first",
+      route_id: modelRoute.routeId ?? options.model?.route_id ?? options.route_id ?? "route.local-first",
       selectedModel: modelRoute.selectedModel ?? null,
+      selected_model: modelRoute.selectedModel ?? null,
       endpointId: modelRoute.endpointId ?? null,
+      endpoint_id: modelRoute.endpointId ?? null,
       providerId: modelRoute.providerId ?? null,
+      provider_id: modelRoute.providerId ?? null,
       receiptId: modelRoute.receiptId ?? null,
+      receipt_id: modelRoute.receiptId ?? null,
       reasoningEffort: modelRoute.decision?.reasoning_effort ?? options.model?.reasoning_effort ?? options.model?.thinking ?? null,
+      reasoning_effort: modelRoute.decision?.reasoning_effort ?? options.model?.reasoning_effort ?? options.model?.thinking ?? null,
       privacy: options.model?.privacy ?? null,
       maxCostUsd: options.model?.max_cost_usd ?? null,
+      max_cost_usd: options.model?.max_cost_usd ?? null,
       allow_hosted_fallback: options.model?.allow_hosted_fallback ?? null,
       workflowGraphId: modelRoute.decision?.workflow_graph_id ?? options.model?.workflow_graph_id ?? null,
+      workflow_graph_id: modelRoute.decision?.workflow_graph_id ?? options.model?.workflow_graph_id ?? null,
       workflowNodeId: modelRoute.decision?.workflow_node_id ?? options.model?.workflow_node_id ?? "runtime.model-router",
+      workflow_node_id: modelRoute.decision?.workflow_node_id ?? options.model?.workflow_node_id ?? "runtime.model-router",
       updatedAt: now,
+      updated_at: now,
     },
     updatedAt: now,
   };
@@ -50,6 +60,19 @@ export function normalizedAgentRuntimeControls(agent = {}) {
     approvalModeForThreadMode(mode),
   );
   const model = source.model ?? {};
+  const routeId = model.routeId ?? model.route_id ?? agent.modelRouteId ?? "route.local-first";
+  const selectedModel = model.selectedModel ?? model.selected_model ?? agent.modelId ?? null;
+  const endpointId = model.endpointId ?? model.endpoint_id ?? agent.modelRouteEndpointId ?? null;
+  const providerId = model.providerId ?? model.provider_id ?? agent.modelRouteProviderId ?? null;
+  const receiptId = model.receiptId ?? model.receipt_id ?? agent.modelRouteReceiptId ?? null;
+  const reasoningEffort =
+    model.reasoningEffort ?? model.reasoning_effort ?? agent.modelRouteDecision?.reasoning_effort ?? null;
+  const maxCostUsd = model.maxCostUsd ?? model.max_cost_usd ?? null;
+  const workflowGraphId =
+    model.workflowGraphId ?? model.workflow_graph_id ?? agent.modelRouteDecision?.workflow_graph_id ?? null;
+  const workflowNodeId =
+    model.workflowNodeId ?? model.workflow_node_id ?? agent.modelRouteDecision?.workflow_node_id ?? "runtime.model-router";
+  const updatedAt = model.updatedAt ?? model.updated_at ?? source.updatedAt ?? source.updated_at ?? agent.updatedAt ?? null;
   return {
     schemaVersion: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
     schema_version: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
@@ -58,18 +81,28 @@ export function normalizedAgentRuntimeControls(agent = {}) {
     approval_mode: approvalMode,
     model: {
       id: model.id ?? agent.requestedModelId ?? agent.modelId ?? "auto",
-      routeId: model.routeId ?? model.route_id ?? agent.modelRouteId ?? "route.local-first",
-      selectedModel: model.selectedModel ?? model.selected_model ?? agent.modelId ?? null,
-      endpointId: model.endpointId ?? model.endpoint_id ?? agent.modelRouteEndpointId ?? null,
-      providerId: model.providerId ?? model.provider_id ?? agent.modelRouteProviderId ?? null,
-      receiptId: model.receiptId ?? model.receipt_id ?? agent.modelRouteReceiptId ?? null,
-      reasoningEffort: model.reasoningEffort ?? model.reasoning_effort ?? agent.modelRouteDecision?.reasoning_effort ?? null,
+      routeId,
+      route_id: routeId,
+      selectedModel,
+      selected_model: selectedModel,
+      endpointId,
+      endpoint_id: endpointId,
+      providerId,
+      provider_id: providerId,
+      receiptId,
+      receipt_id: receiptId,
+      reasoningEffort,
+      reasoning_effort: reasoningEffort,
       privacy: model.privacy ?? null,
-      maxCostUsd: model.maxCostUsd ?? model.max_cost_usd ?? null,
+      maxCostUsd,
+      max_cost_usd: maxCostUsd,
       allow_hosted_fallback: model.allow_hosted_fallback ?? null,
-      workflowGraphId: model.workflowGraphId ?? model.workflow_graph_id ?? agent.modelRouteDecision?.workflow_graph_id ?? null,
-      workflowNodeId: model.workflowNodeId ?? model.workflow_node_id ?? agent.modelRouteDecision?.workflow_node_id ?? "runtime.model-router",
-      updatedAt: model.updatedAt ?? model.updated_at ?? source.updatedAt ?? source.updated_at ?? agent.updatedAt ?? null,
+      workflowGraphId,
+      workflow_graph_id: workflowGraphId,
+      workflowNodeId,
+      workflow_node_id: workflowNodeId,
+      updatedAt,
+      updated_at: updatedAt,
     },
     updatedAt: source.updatedAt ?? source.updated_at ?? agent.updatedAt ?? null,
   };
@@ -100,13 +133,13 @@ export function requestWithThreadRuntimeControls(agent, request = {}) {
 export function threadRuntimeControlModelForOptions(model = {}) {
   return {
     id: model.id ?? "auto",
-    route_id: model.route_id ?? model.routeId ?? "route.local-first",
-    reasoning_effort: model.reasoning_effort ?? model.reasoningEffort ?? undefined,
+    route_id: model.route_id ?? "route.local-first",
+    reasoning_effort: model.reasoning_effort ?? undefined,
     privacy: model.privacy ?? undefined,
-    max_cost_usd: model.max_cost_usd ?? model.maxCostUsd ?? undefined,
+    max_cost_usd: model.max_cost_usd ?? undefined,
     allow_hosted_fallback: model.allow_hosted_fallback ?? undefined,
-    workflow_graph_id: model.workflow_graph_id ?? model.workflowGraphId ?? undefined,
-    workflow_node_id: model.workflow_node_id ?? model.workflowNodeId ?? "runtime.model-router",
+    workflow_graph_id: model.workflow_graph_id ?? undefined,
+    workflow_node_id: model.workflow_node_id ?? "runtime.model-router",
     workflow_node_type: "Model Router",
   };
 }
