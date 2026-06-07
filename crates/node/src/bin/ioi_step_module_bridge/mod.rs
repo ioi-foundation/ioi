@@ -9901,7 +9901,7 @@ mod tests {
             json!({
                 "prompt": "Open the browser and click the sign in button.",
                 "lane": "native_browser",
-                "sessionMode": "controlled_relaunch",
+                "session_mode": "controlled_relaunch",
                 "action_kind": "click",
                 "url": "https://example.test"
             }),
@@ -10054,7 +10054,7 @@ mod tests {
             json!({
                 "prompt": "Open a hosted sandbox.",
                 "lane": "sandboxed_hosted",
-                "sessionMode": "hosted_sandbox",
+                "session_mode": "hosted_sandbox",
                 "sandbox_provider": "local_container",
                 "action_kind": "inspect"
             }),
@@ -10160,6 +10160,53 @@ mod tests {
             retired_alias_response["workload_observation"]["result"]["leaseRequest"]
                 ["authorityScope"],
             "computer_use.native_browser.read"
+        );
+    }
+
+    #[test]
+    fn computer_use_request_lease_ignores_retired_session_mode_alias() {
+        let retired_alias_request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Try to steer the session mode through a retired alias.",
+                "lane": "sandboxed_hosted",
+                "sessionMode": "hosted_sandbox",
+                "action_kind": "inspect"
+            }),
+        );
+        let baseline_request = bridge_request(
+            "computer_use.request_lease",
+            "/tmp/workspace",
+            json!({
+                "prompt": "Try to steer the session mode through a retired alias.",
+                "lane": "sandboxed_hosted",
+                "action_kind": "inspect"
+            }),
+        );
+
+        let retired_alias_response = computer_use_request_lease_response(retired_alias_request)
+            .expect("retired alias lease request response");
+        let baseline_response =
+            computer_use_request_lease_response(baseline_request).expect("baseline response");
+
+        assert_eq!(
+            retired_alias_response["workload_observation"]["result"]["requestRef"],
+            baseline_response["workload_observation"]["result"]["requestRef"]
+        );
+        assert_eq!(
+            retired_alias_response["workload_observation"]["result"]["leaseRequest"]
+                ["sessionMode"],
+            "local_sandbox"
+        );
+        assert_eq!(
+            retired_alias_response["workload_observation"]["result"]["threadTool"]["input"]
+                ["sessionMode"],
+            "local_sandbox"
+        );
+        assert_eq!(
+            retired_alias_response["workload_observation"]["result"]["threadTool"]["toolName"],
+            "ioi.computer_use.sandboxed_hosted"
         );
     }
 

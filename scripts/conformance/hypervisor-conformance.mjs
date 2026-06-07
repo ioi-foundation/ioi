@@ -1665,6 +1665,23 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-request-lease-session-mode-alias-retired",
+    /optional_json_string\(input,\s*&\["session_mode"\]\)/.test(computerUseBridge) &&
+      !/optional_json_string\(input,\s*&\["sessionMode",\s*"session_mode"\]\)/.test(
+        computerUseBridge,
+      ) &&
+      /computer_use_request_lease_ignores_retired_session_mode_alias/.test(bridgeModule) &&
+      /"sessionMode": "hosted_sandbox"/.test(bridgeModule) &&
+      /"local_sandbox"/.test(bridgeModule) &&
+      /"ioi\.computer_use\.sandboxed_hosted"/.test(bridgeModule),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10/11 is pending: Rust computer-use request-lease session-mode selection must ignore retired sessionMode input so provider/session binding cannot be steered through a compatibility field",
+  );
+  assertCheck(
+    result,
     "coding-tool-result-router-admission-alias-retired",
     !/\brouterAdmission\s*:/.test(runtimeCodingToolInvocationSurface) &&
       /result\.result\.router_admission\.schema_version/.test(

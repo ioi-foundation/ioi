@@ -403,7 +403,7 @@ fn computer_use_lane_for_input(input: &Value) -> String {
 }
 
 fn computer_use_session_mode_for_input(input: &Value, lane: &str) -> String {
-    if let Some(value) = optional_json_string(input, &["sessionMode", "session_mode"]) {
+    if let Some(value) = optional_json_string(input, &["session_mode"]) {
         return value;
     }
     match lane {
