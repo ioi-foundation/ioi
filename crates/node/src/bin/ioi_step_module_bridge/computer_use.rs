@@ -12,10 +12,8 @@ pub(super) fn build_computer_use_lease_request(
     let session_mode = computer_use_session_mode_for_input(input, &lane);
     let action_kind = computer_use_action_kind_for_input(input);
     let approval_ref = optional_json_string(input, &["approval_ref"]);
-    let provider_hint = optional_json_string(
-        input,
-        &["provider_id", "provider_kind", "sandbox_provider"],
-    );
+    let provider_hint =
+        optional_json_string(input, &["provider_id", "provider_kind", "sandbox_provider"]);
     let provider = computer_use_provider_for_lane(&lane, provider_hint.as_deref(), &session_mode);
     let provider_registry = computer_use_provider_registry_report(provider.as_ref());
     let url = optional_json_string(input, &["url"]);
@@ -48,38 +46,33 @@ pub(super) fn build_computer_use_lease_request(
     let thread_tool_name = provider
         .as_ref()
         .and_then(|provider| provider.thread_tool_name);
-    let observation_retention_mode = optional_json_string(
-        input,
-        &["observation_retention_mode"],
-    )
-    .unwrap_or_else(|| {
-        if lane == "sandboxed_hosted" {
-            "no_persistence".to_string()
-        } else {
-            "prompt_visible_summary_only".to_string()
-        }
-    });
+    let observation_retention_mode = optional_json_string(input, &["observation_retention_mode"])
+        .unwrap_or_else(|| {
+            if lane == "sandboxed_hosted" {
+                "no_persistence".to_string()
+            } else {
+                "prompt_visible_summary_only".to_string()
+            }
+        });
     let mut thread_tool_input = serde_json::Map::new();
     thread_tool_input.insert("prompt".to_string(), json!(prompt.clone()));
     thread_tool_input.insert("url".to_string(), json!(url.clone()));
-    thread_tool_input.insert("actionKind".to_string(), json!(action_kind.clone()));
-    thread_tool_input.insert("sessionMode".to_string(), json!(session_mode.clone()));
-    thread_tool_input.insert("targetRef".to_string(), json!(target_ref.clone()));
+    thread_tool_input.insert("action_kind".to_string(), json!(action_kind.clone()));
+    thread_tool_input.insert("session_mode".to_string(), json!(session_mode.clone()));
+    thread_tool_input.insert("target_ref".to_string(), json!(target_ref.clone()));
     thread_tool_input.insert("selector".to_string(), json!(selector.clone()));
-    thread_tool_input.insert("approvalRef".to_string(), json!(approval_ref.clone()));
+    thread_tool_input.insert("approval_ref".to_string(), json!(approval_ref.clone()));
     thread_tool_input.insert(
-        "observationRetentionMode".to_string(),
+        "observation_retention_mode".to_string(),
         json!(observation_retention_mode),
     );
     if lane == "sandboxed_hosted" {
         thread_tool_input.insert(
-            "sandboxProvider".to_string(),
-            json!(
-                optional_json_string(input, &["sandbox_provider"])
-                    .unwrap_or_else(|| "local_fixture".to_string())
-            ),
+            "sandbox_provider".to_string(),
+            json!(optional_json_string(input, &["sandbox_provider"])
+                .unwrap_or_else(|| "local_fixture".to_string())),
         );
-        thread_tool_input.insert("sandboxFixture".to_string(), json!(true));
+        thread_tool_input.insert("sandbox_fixture".to_string(), json!(true));
     }
     let unavailable_reason = if thread_tool_name.is_none() {
         provider
@@ -118,65 +111,41 @@ pub(super) fn build_computer_use_lease_request(
     );
     let receipt_refs = vec![receipt_ref.clone()];
     Ok(json!({
-        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
         "object": "ioi.coding_agent_computer_use_lease_request",
-        "requestRef": request_ref.clone(),
         "request_ref": request_ref,
-        "workspaceRoot": workspace_root,
         "workspace_root": workspace_root,
-        "leaseRequest": {
+        "lease_request": {
             "prompt": prompt.clone(),
             "lane": lane.clone(),
-            "sessionMode": session_mode.clone(),
             "session_mode": session_mode.clone(),
-            "actionKind": action_kind.clone(),
             "action_kind": action_kind,
-            "authorityScope": authority_scope.clone(),
             "authority_scope": authority_scope,
-            "repoAuthorityScope": "workspace.read",
             "repo_authority_scope": "workspace.read",
-            "sharedClipboardPolicy": "disabled_until_explicit_approval",
             "shared_clipboard_policy": "disabled_until_explicit_approval",
-            "artifactPolicy": "redacted_trace_artifacts_only",
             "artifact_policy": "redacted_trace_artifacts_only",
-            "approvalRef": approval_ref.clone(),
             "approval_ref": approval_ref,
-            "failClosedWhenUnavailable": true,
             "fail_closed_when_unavailable": true,
-            "providerId": selected_provider_id,
             "provider_id": selected_provider_id,
-            "providerKind": selected_provider_kind,
             "provider_kind": selected_provider_kind,
-            "walletNetworkAuthorityRequiredBeforeExecution": approval_required_before_execution,
             "wallet_network_authority_required_before_execution": approval_required_before_execution
         },
-        "threadTool": {
-            "toolPack": "computer_use",
+        "thread_tool": {
             "tool_pack": "computer_use",
-            "toolName": thread_tool_name,
             "tool_name": thread_tool_name,
-            "unavailableReason": unavailable_reason_value.clone(),
             "unavailable_reason": unavailable_reason_value,
             "input": thread_tool_input_value
         },
-        "providerRegistry": provider_registry.clone(),
         "provider_registry": provider_registry,
-        "approvalRequiredBeforeExecution": approval_required_before_execution,
         "approval_required_before_execution": approval_required_before_execution,
-        "walletNetworkAuthorityBoundary": {
-            "authorityLayer": "wallet.network",
+        "wallet_network_authority_boundary": {
             "authority_layer": "wallet.network",
-            "requiredBeforeExecution": approval_required_before_execution,
             "required_before_execution": approval_required_before_execution,
-            "grantRefs": [],
             "grant_refs": [],
-            "receiptRefs": [],
             "receipt_refs": []
         },
-        "evidenceRefs": evidence_refs,
-        "receiptRefs": receipt_refs.clone(),
+        "evidence_refs": evidence_refs,
         "receipt_refs": receipt_refs,
-        "shellFallbackUsed": false,
         "shell_fallback_used": false
     }))
 }
@@ -394,8 +363,7 @@ fn computer_use_provider_matches_hint(provider: &ComputerUseProvider, hint: &str
 }
 
 fn computer_use_lane_for_input(input: &Value) -> String {
-    match optional_json_string(input, &["lane", "computer_use_lane"]).as_deref()
-    {
+    match optional_json_string(input, &["lane", "computer_use_lane"]).as_deref() {
         Some("visual_gui") => "visual_gui".to_string(),
         Some("sandboxed_hosted") => "sandboxed_hosted".to_string(),
         _ => "native_browser".to_string(),
@@ -443,7 +411,7 @@ fn computer_use_request_seed(
     selector: Option<&str>,
 ) -> Result<String, String> {
     Ok(format!(
-        "{{\"workspaceRoot\":{},\"prompt\":{},\"lane\":{},\"sessionMode\":{},\"actionKind\":{},\"url\":{},\"targetRef\":{},\"selector\":{}}}",
+        "{{\"workspace_root\":{},\"prompt\":{},\"lane\":{},\"session_mode\":{},\"action_kind\":{},\"url\":{},\"target_ref\":{},\"selector\":{}}}",
         json_literal(Some(workspace_root))?,
         json_literal(Some(prompt))?,
         json_literal(Some(lane))?,

@@ -1603,7 +1603,7 @@ function runBridge() {
       /computer_use_request_lease_ignores_retired_approval_alias/.test(bridgeModule) &&
       /"approvalRef": "approval_legacy"/.test(bridgeModule) &&
       /"computer_use\.native_browser\.act"/.test(bridgeModule) &&
-      /approvalRequiredBeforeExecution/.test(bridgeModule),
+      /approval_required_before_execution/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -1620,7 +1620,7 @@ function runBridge() {
       /computer_use_request_lease_ignores_retired_action_kind_alias/.test(bridgeModule) &&
       /"actionKind": "click"/.test(bridgeModule) &&
       /"computer_use\.native_browser\.read"/.test(bridgeModule) &&
-      /approvalRequiredBeforeExecution/.test(bridgeModule),
+      /approval_required_before_execution/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -1721,6 +1721,26 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
     ],
     "Phase 10/11 is pending: Rust computer-use request-lease StepModule receipt/evidence binding must consume canonical receipt_refs/request_ref rather than retired receiptRefs/requestRef output aliases",
+  );
+  assertCheck(
+    result,
+    "computer-use-request-lease-result-output-aliases-retired",
+    /build_computer_use_lease_request/.test(computerUseBridge) &&
+      /"lease_request":/.test(computerUseBridge) &&
+      /"thread_tool":/.test(computerUseBridge) &&
+      /"wallet_network_authority_boundary":/.test(computerUseBridge) &&
+      /"receipt_refs":/.test(computerUseBridge) &&
+      !/"(?:schemaVersion|requestRef|workspaceRoot|leaseRequest|threadTool|providerRegistry|approvalRequiredBeforeExecution|walletNetworkAuthorityBoundary|evidenceRefs|receiptRefs|shellFallbackUsed|sessionMode|actionKind|authorityScope|repoAuthorityScope|sharedClipboardPolicy|artifactPolicy|approvalRef|failClosedWhenUnavailable|providerId|providerKind|walletNetworkAuthorityRequiredBeforeExecution|toolPack|toolName|unavailableReason|targetRef|observationRetentionMode|sandboxProvider|sandboxFixture)"/.test(
+        computerUseBridge,
+      ) &&
+      /retired workload result field \{retired_field\} must not be emitted/.test(
+        bridgeModule,
+      ),
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10/11 is pending: Rust computer-use request-lease result output must emit canonical snake_case fields only, without retired camelCase compatibility aliases",
   );
   assertCheck(
     result,

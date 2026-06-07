@@ -3829,10 +3829,7 @@ fn computer_use_request_lease_response(
         result
             .receipt_refs
             .into_iter()
-            .chain(json_string_refs(
-                &lease_request,
-                &["receipt_refs"],
-            ))
+            .chain(json_string_refs(&lease_request, &["receipt_refs"]))
             .collect(),
     );
     result.workflow_projection.evidence_refs.push(format!(
@@ -9911,27 +9908,27 @@ mod tests {
             computer_use_request_lease_response(request).expect("lease request response");
 
         assert_eq!(
-            response["workload_observation"]["result"]["leaseRequest"]["lane"],
+            response["workload_observation"]["result"]["lease_request"]["lane"],
             "native_browser"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["leaseRequest"]["authorityScope"],
+            response["workload_observation"]["result"]["lease_request"]["authority_scope"],
             "computer_use.native_browser.act"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["approvalRequiredBeforeExecution"],
+            response["workload_observation"]["result"]["approval_required_before_execution"],
             true
         );
         assert_eq!(
-            response["workload_observation"]["result"]["walletNetworkAuthorityBoundary"]
-                ["authorityLayer"],
+            response["workload_observation"]["result"]["wallet_network_authority_boundary"]
+                ["authority_layer"],
             "wallet.network"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["threadTool"]["toolName"],
+            response["workload_observation"]["result"]["thread_tool"]["tool_name"],
             "ioi.computer_use.native_browser"
         );
-        assert!(response["workload_observation"]["result"]["requestRef"]
+        assert!(response["workload_observation"]["result"]["request_ref"]
             .as_str()
             .expect("request ref")
             .starts_with("computer_use_lease_request_"));
@@ -9964,15 +9961,15 @@ mod tests {
             computer_use_request_lease_response(request).expect("lease request response");
 
         assert_eq!(
-            response["workload_observation"]["result"]["leaseRequest"]["lane"],
+            response["workload_observation"]["result"]["lease_request"]["lane"],
             "native_browser"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["threadTool"]["toolName"],
+            response["workload_observation"]["result"]["thread_tool"]["tool_name"],
             "ioi.computer_use.native_browser"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["leaseRequest"]["authorityScope"],
+            response["workload_observation"]["result"]["lease_request"]["authority_scope"],
             "computer_use.native_browser.read"
         );
     }
@@ -9993,20 +9990,20 @@ mod tests {
             computer_use_request_lease_response(request).expect("lease request response");
 
         assert_eq!(
-            response["workload_observation"]["result"]["leaseRequest"]["actionKind"],
+            response["workload_observation"]["result"]["lease_request"]["action_kind"],
             "inspect"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["leaseRequest"]["authorityScope"],
+            response["workload_observation"]["result"]["lease_request"]["authority_scope"],
             "computer_use.native_browser.read"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["approvalRequiredBeforeExecution"],
+            response["workload_observation"]["result"]["approval_required_before_execution"],
             false
         );
         assert_eq!(
-            response["workload_observation"]["result"]["walletNetworkAuthorityBoundary"]
-                ["requiredBeforeExecution"],
+            response["workload_observation"]["result"]["wallet_network_authority_boundary"]
+                ["required_before_execution"],
             false
         );
     }
@@ -10028,20 +10025,20 @@ mod tests {
             computer_use_request_lease_response(request).expect("lease request response");
 
         assert_eq!(
-            response["workload_observation"]["result"]["leaseRequest"]["authorityScope"],
+            response["workload_observation"]["result"]["lease_request"]["authority_scope"],
             "computer_use.native_browser.act"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["leaseRequest"]["approvalRef"],
+            response["workload_observation"]["result"]["lease_request"]["approval_ref"],
             Value::Null
         );
         assert_eq!(
-            response["workload_observation"]["result"]["approvalRequiredBeforeExecution"],
+            response["workload_observation"]["result"]["approval_required_before_execution"],
             true
         );
         assert_eq!(
-            response["workload_observation"]["result"]["walletNetworkAuthorityBoundary"]
-                ["requiredBeforeExecution"],
+            response["workload_observation"]["result"]["wallet_network_authority_boundary"]
+                ["required_before_execution"],
             true
         );
     }
@@ -10064,21 +10061,21 @@ mod tests {
             computer_use_request_lease_response(request).expect("lease request response");
 
         assert_eq!(
-            response["workload_observation"]["result"]["leaseRequest"]["providerId"],
+            response["workload_observation"]["result"]["lease_request"]["provider_id"],
             "ioi.computer_use.sandboxed_hosted.local_container"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["threadTool"]["toolName"],
+            response["workload_observation"]["result"]["thread_tool"]["tool_name"],
             Value::Null
         );
         assert!(
-            response["workload_observation"]["result"]["threadTool"]["unavailableReason"]
+            response["workload_observation"]["result"]["thread_tool"]["unavailable_reason"]
                 .as_str()
                 .expect("unavailable reason")
                 .contains("no container runtime adapter")
         );
         assert_eq!(
-            response["workload_observation"]["result"]["approvalRequiredBeforeExecution"],
+            response["workload_observation"]["result"]["approval_required_before_execution"],
             false
         );
         assert_eq!(response["agentgres_admission"], Value::Null);
@@ -10103,19 +10100,19 @@ mod tests {
             computer_use_request_lease_response(request).expect("lease request response");
 
         assert_eq!(
-            response["workload_observation"]["result"]["leaseRequest"]["providerId"],
+            response["workload_observation"]["result"]["lease_request"]["provider_id"],
             "ioi.computer_use.sandboxed_hosted.local_fixture"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["leaseRequest"]["providerKind"],
+            response["workload_observation"]["result"]["lease_request"]["provider_kind"],
             "local_fixture"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["threadTool"]["toolName"],
+            response["workload_observation"]["result"]["thread_tool"]["tool_name"],
             "ioi.computer_use.sandboxed_hosted"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["threadTool"]["unavailableReason"],
+            response["workload_observation"]["result"]["thread_tool"]["unavailable_reason"],
             Value::Null
         );
     }
@@ -10148,17 +10145,17 @@ mod tests {
             computer_use_request_lease_response(baseline_request).expect("baseline response");
 
         assert_eq!(
-            retired_alias_response["workload_observation"]["result"]["requestRef"],
-            baseline_response["workload_observation"]["result"]["requestRef"]
+            retired_alias_response["workload_observation"]["result"]["request_ref"],
+            baseline_response["workload_observation"]["result"]["request_ref"]
         );
         assert_eq!(
-            retired_alias_response["workload_observation"]["result"]["threadTool"]["input"]
-                ["targetRef"],
+            retired_alias_response["workload_observation"]["result"]["thread_tool"]["input"]
+                ["target_ref"],
             Value::Null
         );
         assert_eq!(
-            retired_alias_response["workload_observation"]["result"]["leaseRequest"]
-                ["authorityScope"],
+            retired_alias_response["workload_observation"]["result"]["lease_request"]
+                ["authority_scope"],
             "computer_use.native_browser.read"
         );
     }
@@ -10191,21 +10188,21 @@ mod tests {
             computer_use_request_lease_response(baseline_request).expect("baseline response");
 
         assert_eq!(
-            retired_alias_response["workload_observation"]["result"]["requestRef"],
-            baseline_response["workload_observation"]["result"]["requestRef"]
+            retired_alias_response["workload_observation"]["result"]["request_ref"],
+            baseline_response["workload_observation"]["result"]["request_ref"]
         );
         assert_eq!(
-            retired_alias_response["workload_observation"]["result"]["leaseRequest"]
-                ["sessionMode"],
+            retired_alias_response["workload_observation"]["result"]["lease_request"]
+                ["session_mode"],
             "local_sandbox"
         );
         assert_eq!(
-            retired_alias_response["workload_observation"]["result"]["threadTool"]["input"]
-                ["sessionMode"],
+            retired_alias_response["workload_observation"]["result"]["thread_tool"]["input"]
+                ["session_mode"],
             "local_sandbox"
         );
         assert_eq!(
-            retired_alias_response["workload_observation"]["result"]["threadTool"]["toolName"],
+            retired_alias_response["workload_observation"]["result"]["thread_tool"]["tool_name"],
             "ioi.computer_use.sandboxed_hosted"
         );
     }
@@ -10239,18 +10236,18 @@ mod tests {
             computer_use_request_lease_response(canonical_request).expect("canonical response");
 
         assert_eq!(
-            retired_alias_response["workload_observation"]["result"]["threadTool"]["input"]
-                ["observationRetentionMode"],
+            retired_alias_response["workload_observation"]["result"]["thread_tool"]["input"]
+                ["observation_retention_mode"],
             "prompt_visible_summary_only"
         );
         assert_eq!(
-            canonical_response["workload_observation"]["result"]["threadTool"]["input"]
-                ["observationRetentionMode"],
+            canonical_response["workload_observation"]["result"]["thread_tool"]["input"]
+                ["observation_retention_mode"],
             "local_raw_artifacts"
         );
         assert_eq!(
-            retired_alias_response["workload_observation"]["result"]["leaseRequest"]
-                ["authorityScope"],
+            retired_alias_response["workload_observation"]["result"]["lease_request"]
+                ["authority_scope"],
             "computer_use.native_browser.read"
         );
     }
@@ -10276,9 +10273,8 @@ mod tests {
         let canonical_request_ref = workload_result["request_ref"]
             .as_str()
             .expect("canonical request ref");
-        let evidence_ref = format!(
-            "evidence://rust-workload/computer_use.request_lease/{canonical_request_ref}"
-        );
+        let evidence_ref =
+            format!("evidence://rust-workload/computer_use.request_lease/{canonical_request_ref}");
 
         assert!(response["result"]["receipt_refs"]
             .as_array()
@@ -10290,6 +10286,64 @@ mod tests {
             .expect("projection evidence refs")
             .iter()
             .any(|value| value == &evidence_ref));
+        for retired_field in [
+            "schemaVersion",
+            "requestRef",
+            "workspaceRoot",
+            "leaseRequest",
+            "threadTool",
+            "providerRegistry",
+            "approvalRequiredBeforeExecution",
+            "walletNetworkAuthorityBoundary",
+            "evidenceRefs",
+            "receiptRefs",
+            "shellFallbackUsed",
+        ] {
+            assert!(
+                workload_result.get(retired_field).is_none(),
+                "retired workload result field {retired_field} must not be emitted"
+            );
+        }
+        for retired_field in [
+            "sessionMode",
+            "actionKind",
+            "authorityScope",
+            "repoAuthorityScope",
+            "sharedClipboardPolicy",
+            "artifactPolicy",
+            "approvalRef",
+            "failClosedWhenUnavailable",
+            "providerId",
+            "providerKind",
+            "walletNetworkAuthorityRequiredBeforeExecution",
+        ] {
+            assert!(
+                workload_result["lease_request"]
+                    .get(retired_field)
+                    .is_none(),
+                "retired lease_request field {retired_field} must not be emitted"
+            );
+        }
+        for retired_field in ["toolPack", "toolName", "unavailableReason"] {
+            assert!(
+                workload_result["thread_tool"].get(retired_field).is_none(),
+                "retired thread_tool field {retired_field} must not be emitted"
+            );
+        }
+        for retired_field in [
+            "actionKind",
+            "sessionMode",
+            "targetRef",
+            "approvalRef",
+            "observationRetentionMode",
+        ] {
+            assert!(
+                workload_result["thread_tool"]["input"]
+                    .get(retired_field)
+                    .is_none(),
+                "retired thread_tool input field {retired_field} must not be emitted"
+            );
+        }
     }
 
     #[test]
