@@ -209,12 +209,14 @@ test("turn projection ignores retired persisted approval mode aliases", () => {
     agentId: "agent_one",
     status: "running",
     mode: "send",
+    approvalMode: "retired_run_approval_mode",
     createdAt: "2026-06-03T00:00:00.000Z",
     updatedAt: "2026-06-03T00:00:05.000Z",
   });
 
   assert.equal(turn.mode, "review");
   assert.equal(turn.approval_mode, "human_required");
+  assert.notEqual(turn.approval_mode, "retired_run_approval_mode");
 });
 
 test("turn projection ignores retired run usage aliases", () => {

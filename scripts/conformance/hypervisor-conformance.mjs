@@ -15805,9 +15805,14 @@ function runCompositor() {
       !/record\.parentThreadId\b/.test(threadTurnProjection) &&
       /agent\.runtimeControls\?\.approval_mode/.test(threadTurnProjection) &&
       !/agent\.runtimeControls\?\.approvalMode/.test(threadTurnProjection) &&
+      !/run\.approvalMode\b/.test(threadTurnProjection) &&
       /retiredUsageProjectionAliasKeys/.test(threadTurnProjectionTest) &&
       /sub_retired/.test(threadTurnProjectionTest) &&
       /turn projection ignores retired persisted approval mode aliases/.test(
+        threadTurnProjectionTest,
+      ) &&
+      /approvalMode: "retired_run_approval_mode"/.test(threadTurnProjectionTest) &&
+      /assert\.notEqual\(turn\.approval_mode,\s*"retired_run_approval_mode"\)/.test(
         threadTurnProjectionTest,
       ) &&
       /turn projection ignores retired run usage aliases/.test(threadTurnProjectionTest),
