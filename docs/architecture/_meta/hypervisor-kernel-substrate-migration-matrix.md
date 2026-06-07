@@ -7,11 +7,12 @@ Superseded by: none.
 Last alignment pass: 2026-06-07.
 Last matrix compaction pass: 2026-06-07, after compacting IDE replay,
 worker-contribution, workspace-trust, receipt-gate, policy, workflow-edit,
-diagnostics-repair, and L1 settlement control/workflow facade evidence through
-slice 649.
-Next resume instruction: run the scheduled matrix-compaction pass for the
-verified Slice 650 governed-improvement proposal identity facade-retirement seam
-before unrelated route-family work resumes.
+diagnostics-repair, L1 settlement control/workflow, and governed-improvement
+proposal identity facade evidence through slice 650.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule and run the next
+matrix-compaction pass immediately after that seam is concrete, before unrelated
+route-family work resumes.
 
 ## Purpose
 
@@ -44,7 +45,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, workspace restore result output alias retirement, signed replay notebook output alias retirement, signed replay notebook restore/snapshot input alias retirement, signed replay event-kind identity helper, signed replay event-payload alias retirement, worker contribution result-payload alias retirement, worker contribution request/worker alias retirement, workspace trust gate payload alias retirement, IDE receipt gate panel alias retirement, IDE runtime policy/edit-proposal policy alias retirement, IDE workflow edit proposal control alias retirement, IDE diagnostics repair action alias retirement, IDE L1 settlement control attempt/input alias retirement, and IDE L1 settlement workflow-logic alias retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, workspace restore result output alias retirement, signed replay notebook output alias retirement, signed replay notebook restore/snapshot input alias retirement, signed replay event-kind identity helper, signed replay event-payload alias retirement, worker contribution result-payload alias retirement, worker contribution request/worker alias retirement, workspace trust gate payload alias retirement, IDE receipt gate panel alias retirement, IDE runtime policy/edit-proposal policy alias retirement, IDE workflow edit proposal control alias retirement, IDE diagnostics repair action alias retirement, IDE L1 settlement control attempt/input alias retirement, IDE L1 settlement workflow-logic alias retirement, and governed-improvement proposal identity alias retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -73,9 +74,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 650 named and
-  verified the governed-improvement proposal identity facade-retirement owner
-  boundary.
+- Next scheduled matrix-compaction pass: pending until the next implementation
+  slice names and verifies a concrete Rust-core extraction or JS-facade
+  retirement owner boundary.
 - Future-resumption trigger: resume the migration goal by carrying out that next
   Rust-core extraction or facade-retirement slice first. Once the seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -434,6 +435,12 @@ Matrix compaction timing:
   bridge-scaffolding guardrail, current sprint lane, and the distinction between
   canonical IDE workflow-node config adapters and remaining terminal Rust
   daemon-core L1 settlement ownership.
+- Eighty-sixth scheduled pass completed on 2026-06-07: the governed-improvement
+  product/API proposal identity alias-retirement evidence after slice 650 was
+  compacted into the route-family range while preserving the live owner map,
+  terminal blockers, bridge-scaffolding guardrail, current sprint lane, and the
+  distinction between canonical daemon admission responses and remaining
+  terminal Rust daemon-core governed-improvement ownership.
 
 ## Implementation Slice 0
 
@@ -13274,67 +13281,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 650
-
-```yaml
-slice: 650
-phase: 10-authoritative-js-facade-retirement
-objective: retire the governed-improvement product/API response fallback that
-  allowed retired proposal `proposalId` input to populate canonical
-  `proposal_id` after Rust admission
-owner_boundary:
-  route_or_surface: Hypervisor Daemon governed-improvement proposal admission
-    product/API surface
-  authority_gate: unchanged; this slice removes a compatibility response
-    derivation after the existing Rust governed-improvement runner admission
-  execution_backend: unchanged; governed-improvement proposals still route
-    through the daemon runner and Rust governed-evolution admission bridge
-  truth_path: accepted proposal identity must come from Rust admission, the
-    Rust-derived record, or canonical proposal `proposal_id`; retired
-    `proposalId` input can no longer become canonical response state
-  projection_path: bridge conformance rejects reintroducing
-    `proposal.proposalId` into the governed-improvement surface and requires a
-    focused fail-closed/ignore test
-touched_files:
-  docs:
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  daemon_facade:
-    - packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs
-  tests:
-    - packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - bridge conformance requires the governed-improvement surface test proving
-    retired proposal `proposalId` input does not derive canonical `proposal_id`
-  - bridge conformance rejects `proposal.proposalId` fallback readers in the
-    product/API surface
-  - focused daemon test proves the Rust runner still receives the poisoned
-    client field while the response emits `proposal_id: null` when Rust and
-    canonical proposal identity are absent
-verification:
-  commands:
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - node --test packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs
-    - npm run hypervisor-conformance:bridge
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal Rust daemon-core API extraction remains pending beyond this
-      governed-improvement product/API response facade cleanup
-    - broader governed-improvement IDE review UI, rollback application, and
-      live mutation commit path remain product/runtime evolution after terminal
-      admission ownership is proven
-    - scheduled matrix-compaction pass is now pending for this concrete
-      facade-retirement seam before unrelated route-family work resumes
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13350,7 +13296,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 650 and the eighty-fifth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 650 and the eighty-sixth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -13459,7 +13405,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   stable ids expose canonical `thread_id`, `agent_id`, `operation`,
   `operation_kind`, and `expected_operation_kind` details without retired
   camelCase aliases before Rust Agentgres state commits.
-- Slices 572-649 retired SDK runtime usage record aliases and Rust/daemon
+- Slices 572-650 retired SDK runtime usage record aliases and Rust/daemon
   Agentgres state-commit receipt alias fallbacks/guards: run/thread/trace SDK contracts still
   expose canonical `usage` and `usage_telemetry` records, plus current
   `runtime_usage` where that snake_case field remains part of the thread record,
@@ -13739,7 +13685,11 @@ reconstruct the active seam without carrying every per-slice paragraph.
   `stateRootRef`, `triggerRefs`, and `receiptRefs` aliases cannot populate L1
   settlement admission-control requests, and workflow-node logic now consumes
   canonical `settlement_attempt` without reviving the retired
-  `settlementAttempt` logic alias.
+  `settlementAttempt` logic alias;
+  governed-improvement product/API admission responses now derive canonical
+  `proposal_id` only from Rust admission, the Rust-derived record, or canonical
+  proposal `proposal_id`, so retired proposal `proposalId` input cannot become
+  accepted response identity after Rust admission.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
