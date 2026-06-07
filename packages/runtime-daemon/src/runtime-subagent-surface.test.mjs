@@ -1458,7 +1458,8 @@ test("subagent resume ignores retired camelCase request aliases", () => {
   assert.equal(result.event.workflow_node_id, "node_resume_canonical");
   assert.equal(createdRun.request.prompt, "Canonical resume prompt");
   assert.equal(createdRun.request.options.receiver, "worker");
-  assert.equal(createdRun.request.options.model.routeId, "route.resume.canonical");
+  assert.equal(createdRun.request.options.model.route_id, "route.resume.canonical");
+  assert.equal(Object.hasOwn(createdRun.request.options.model, "routeId"), false);
   assert.equal(saved.resume_history[0].prompt, "Canonical resume prompt");
   assertNoOwnKeys(result.resume, retiredSubagentNestedResumeAliasKeys);
 });
@@ -1513,7 +1514,8 @@ test("subagent resume ignores retired camelCase record aliases", () => {
   assert.equal(result.result, "Created response: Try again canonical");
   assert.equal(saved.budget_status, "within_budget");
   assert.equal(createdRun.agentId, "agent_child_1");
-  assert.equal(createdRun.request.options.model.routeId, "route.resume.canonical");
+  assert.equal(createdRun.request.options.model.route_id, "route.resume.canonical");
+  assert.equal(Object.hasOwn(createdRun.request.options.model, "routeId"), false);
   assert.deepEqual(saved.previous_run_ids, ["run_1"]);
   assert.equal(saved.resume_history.length, 1);
   assert.equal(saved.cancellation_history.length, 1);

@@ -146,14 +146,14 @@ test("runtime-backed requests inherit model controls without overriding explicit
   assert.equal(controlled.approvalMode, "human_required");
   assert.deepEqual(controlled.options.model, {
     id: "auto",
-    routeId: "route.local-first",
-    reasoningEffort: "high",
+    route_id: "route.local-first",
+    reasoning_effort: "high",
     privacy: undefined,
-    maxCostUsd: undefined,
+    max_cost_usd: undefined,
     allow_hosted_fallback: undefined,
-    workflowGraphId: undefined,
-    workflowNodeId: "node-1",
-    workflowNodeType: "Model Router",
+    workflow_graph_id: undefined,
+    workflow_node_id: "node-1",
+    workflow_node_type: "Model Router",
   });
 
   const explicit = requestWithThreadRuntimeControls(agent, {
@@ -171,7 +171,7 @@ test("thread control request kind and model input infer compact operator updates
     {
       model: {
         model_id: "model-1",
-        route: "route-1",
+        route_id: "route-1",
         thinking: "off",
         max_cost_usd: 0.05,
         allow_hosted_fallback: true,
@@ -183,11 +183,11 @@ test("thread control request kind and model input infer compact operator updates
   assert.deepEqual(input, {
     model: {
       id: "model-1",
-      routeId: "route-1",
-      workflowNodeId: "existing-node",
-      workflowNodeType: "Model Router",
-      reasoningEffort: "none",
-      maxCostUsd: 0.05,
+      route_id: "route-1",
+      workflow_node_id: "existing-node",
+      workflow_node_type: "Model Router",
+      reasoning_effort: "none",
+      max_cost_usd: 0.05,
       allow_hosted_fallback: true,
     },
     workflowNodeId: "existing-node",
@@ -245,8 +245,76 @@ test("thread runtime control helpers ignore retired request aliases", () => {
     {},
   );
   assert.equal(modelInput.model.id, "existing-model");
-  assert.equal(modelInput.model.routeId, "route.existing");
+  assert.equal(modelInput.model.route_id, "route.existing");
+  assert.equal(Object.hasOwn(modelInput.model, "routeId"), false);
   assert.equal(Object.hasOwn(modelInput.model, "reasoningEffort"), false);
+});
+
+test("thread runtime control model payloads use canonical route-selection fields", () => {
+  const controlled = requestWithThreadRuntimeControls(
+    {
+      runtimeProfile: "runtime_service",
+      runtimeControls: {
+        mode: "agent",
+        approval_mode: "suggest",
+        model: {
+          id: "auto",
+          routeId: "route.persisted",
+          reasoningEffort: "medium",
+          maxCostUsd: 0.25,
+          workflowGraphId: "graph.persisted",
+          workflowNodeId: "node.persisted",
+        },
+      },
+    },
+    { options: {} },
+  );
+
+  assert.deepEqual(controlled.options.model, {
+    id: "auto",
+    route_id: "route.persisted",
+    reasoning_effort: "medium",
+    privacy: undefined,
+    max_cost_usd: 0.25,
+    allow_hosted_fallback: undefined,
+    workflow_graph_id: "graph.persisted",
+    workflow_node_id: "node.persisted",
+    workflow_node_type: "Model Router",
+  });
+  for (const alias of ["routeId", "reasoningEffort", "maxCostUsd", "workflowGraphId", "workflowNodeId"]) {
+    assert.equal(Object.hasOwn(controlled.options.model, alias), false);
+  }
+
+  const input = threadRuntimeControlModelInput(
+    {
+      model: {
+        id: "canonical-model",
+        modelId: "retired-model",
+        route_id: "route.canonical",
+        routeId: "route.retired",
+        reasoning_effort: "high",
+        reasoningEffort: "low",
+        max_cost_usd: 0.5,
+        maxCostUsd: 99,
+        workflow_graph_id: "graph.canonical",
+        workflowGraphId: "graph.retired",
+        workflow_node_id: "node.canonical",
+        workflowNodeId: "node.retired",
+      },
+    },
+    { model: {} },
+    {},
+  );
+
+  assert.equal(input.model.id, "canonical-model");
+  assert.equal(input.model.route_id, "route.canonical");
+  assert.equal(input.model.reasoning_effort, "high");
+  assert.equal(input.model.max_cost_usd, 0.5);
+  assert.equal(input.model.workflow_graph_id, "graph.canonical");
+  assert.equal(input.model.workflow_node_id, "node.canonical");
+  for (const alias of ["modelId", "routeId", "reasoningEffort", "maxCostUsd", "workflowGraphId", "workflowNodeId"]) {
+    assert.equal(Object.hasOwn(input.model, alias), false);
+  }
 });
 
 test("model policy, workflow context, reasoning effort, and route receipt binding stay stable", () => {

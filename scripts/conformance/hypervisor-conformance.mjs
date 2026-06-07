@@ -6235,6 +6235,50 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "runtime-thread-control-model-route-payload-aliases-retired",
+    /threadRuntimeControlModelForOptions\(model = \{\}\)[\s\S]*route_id: model\.route_id \?\? model\.routeId/.test(
+      threadRuntimeControls,
+    ) &&
+      /threadRuntimeControlModelForOptions\(model = \{\}\)[\s\S]*reasoning_effort: model\.reasoning_effort \?\? model\.reasoningEffort/.test(
+        threadRuntimeControls,
+      ) &&
+      /threadRuntimeControlModelForOptions\(model = \{\}\)[\s\S]*workflow_node_id: model\.workflow_node_id \?\? model\.workflowNodeId/.test(
+        threadRuntimeControls,
+      ) &&
+      /optionalString\(bodyModel\.id \?\? bodyModel\.model_id\)/.test(threadRuntimeControls) &&
+      /optionalString\(bodyModel\.route_id \?\? bodyModel\.route\)/.test(threadRuntimeControls) &&
+      !/bodyModel\.(?:modelId|routeId|reasoningEffort|maxCostUsd|workflowGraphId|workflowNodeId)/.test(
+        threadRuntimeControls,
+      ) &&
+      /modelRoute\.decision\?\.reasoning_effort/.test(runtimeThreadControlSurface) &&
+      /modelRoute\.decision\?\.workflow_node_id/.test(runtimeThreadControlSurface) &&
+      !/modelRoute\.decision\?\.(?:reasoningEffort|workflowNodeId)/.test(
+        runtimeThreadControlSurface,
+      ) &&
+      /thread runtime control model payloads use canonical route-selection fields/.test(
+        threadRuntimeControlsTest,
+      ) &&
+      /route_id: "route\.persisted"/.test(threadRuntimeControlsTest) &&
+      /reasoning_effort: "medium"/.test(threadRuntimeControlsTest) &&
+      /workflow_node_id: "node\.persisted"/.test(threadRuntimeControlsTest) &&
+      /modelId: "retired-model"/.test(threadRuntimeControlsTest) &&
+      /routeId: "route\.retired"/.test(threadRuntimeControlsTest) &&
+      /assert\.equal\(input\.model\.route_id,\s*"route\.canonical"\)/.test(
+        threadRuntimeControlsTest,
+      ) &&
+      /Object\.hasOwn\(store\.routeRequests\[0\]\.input\.model,\s*"routeId"\),\s*false/.test(
+        runtimeThreadControlSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+    ],
+    "Phase 10 is pending: inherited thread-control model payloads must enter route selection with canonical snake_case fields and no retired camelCase request aliases",
+  );
+  assertCheck(
+    result,
     "sdk-ide-hosted-fallback-alias-retired",
     /allow_hosted_fallback/.test(agentSdkSubstrateClient) &&
       /allow_hosted_fallback/.test(agentSdkMessages) &&
@@ -15328,6 +15372,30 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
     "Phase 10/11 is pending: subagent resume lifecycle persistence must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "runtime-subagent-model-route-payload-aliases-retired",
+    /model:\s*\{\s*id: parentAgent\.requestedModelId \?\? parentAgent\.modelId \?\? "auto",\s*route_id: parentAgent\.modelRouteId \?\? "route\.local-first",\s*\}/.test(
+      runtimeSubagentSurface,
+    ) &&
+      /model:\s*\{ id: "auto", route_id: modelRouteId \}/.test(
+        runtimeSubagentSurface,
+      ) &&
+      !/model:\s*\{ id: "auto", routeId: modelRouteId \}/.test(
+        runtimeSubagentSurface,
+      ) &&
+      /createdRun\.request\.options\.model\.route_id, "route\.resume\.canonical"/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(createdRun\.request\.options\.model,\s*"routeId"\),\s*false/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: subagent-created run model-route payloads must use canonical route_id before route selection",
   );
   assertCheck(
     result,

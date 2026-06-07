@@ -128,14 +128,14 @@ export function createRuntimeThreadControlSurface({
           providerId: modelRoute.providerId,
           receiptId: modelRoute.receiptId,
           reasoningEffort:
-            modelRoute.decision?.reasoningEffort ??
-            modelInput.model.reasoningEffort ??
+            modelRoute.decision?.reasoning_effort ??
+            modelInput.model.reasoning_effort ??
             null,
           privacy: modelInput.model.privacy ?? null,
-          maxCostUsd: modelInput.model.maxCostUsd ?? null,
+          maxCostUsd: modelInput.model.max_cost_usd ?? null,
           allow_hosted_fallback: modelInput.model.allow_hosted_fallback ?? null,
           workflowGraphId,
-          workflowNodeId: modelRoute.decision?.workflowNodeId ?? modelInput.workflowNodeId,
+          workflowNodeId: modelRoute.decision?.workflow_node_id ?? modelInput.workflowNodeId,
           updatedAt: now,
         };
       }
@@ -242,7 +242,7 @@ export function createRuntimeThreadControlSurface({
       const streamId = eventStreamIdForThreadDep(threadId);
       const workflowNodeId =
         request.workflow_node_id ??
-        modelRoute?.decision?.workflowNodeId ??
+        modelRoute?.decision?.workflow_node_id ??
         (controlKind === "mode"
           ? "runtime.thread-mode"
           : controls.model?.workflowNodeId ?? "runtime.model-router");

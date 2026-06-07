@@ -237,7 +237,7 @@ export function createRuntimeSubagentSurface({
         local: { cwd: parentAgent.cwd },
         model: {
           id: parentAgent.requestedModelId ?? parentAgent.modelId ?? "auto",
-          routeId: parentAgent.modelRouteId ?? "route.local-first",
+          route_id: parentAgent.modelRouteId ?? "route.local-first",
         },
       });
       const run = store.createRun(childAgent.id, {
@@ -687,7 +687,7 @@ export function createRuntimeSubagentSurface({
         options: {
           receiver: role,
           memory: request.memory ?? request.options?.memory ?? {},
-          model: { id: "auto", routeId: modelRouteId },
+          model: { id: "auto", route_id: modelRouteId },
         },
       });
       const output = subagentContractOutputForRunDep(run, record.output_contract);

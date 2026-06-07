@@ -13239,6 +13239,14 @@ runtime model-route selection now consumes canonical `model.id`, `model.model`,
 retired `model.modelId`, `model.routeId`, and `options.routeId` inputs can no
 longer steer route selection before Rust-owned model-route receipt binding.
 
+Slice 508 canonicalizes model route payloads from thread-control facades:
+runtime-backed inherited thread model controls, operator model updates, and
+subagent-created run requests now send canonical `route_id`,
+`reasoning_effort`, `max_cost_usd`, `workflow_graph_id`, and
+`workflow_node_id` into model-route selection; retired camelCase request fields
+can no longer survive those facades into Rust-planned model-route receipt
+binding.
+
 | Command | Expected status now | Reason |
 | --- | --- | --- |
 | `hypervisor-conformance:docs` | pass | Phase 0 inventory, source map, matrix, command wiring, and stale-term guard exist. |

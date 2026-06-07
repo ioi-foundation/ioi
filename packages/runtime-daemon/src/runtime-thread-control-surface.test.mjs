@@ -42,19 +42,19 @@ function createStore() {
       return {
         requestedModelId: input.model.id,
         selectedModel: "local-model",
-        routeId: input.model.routeId,
+        routeId: input.model.route_id,
         endpointId: "endpoint_1",
         providerId: "provider_1",
         receiptId: "receipt_route_1",
         decision: {
-          requestedModel: input.model.id,
-          selectedModel: "local-model",
-          routeId: input.model.routeId,
-          endpointId: "endpoint_1",
-          providerId: "provider_1",
-          reasoningEffort: input.model.reasoningEffort ?? null,
-          workflowGraphId: context.workflowGraphId,
-          workflowNodeId: context.workflowNodeId,
+          requested_model: input.model.id,
+          selected_model: "local-model",
+          route_id: input.model.route_id,
+          endpoint_id: "endpoint_1",
+          provider_id: "provider_1",
+          reasoning_effort: input.model.reasoning_effort ?? null,
+          workflow_graph_id: context.workflowGraphId,
+          workflow_node_id: context.workflowNodeId,
         },
       };
     },
@@ -187,7 +187,7 @@ test("thread control surface updates model controls through route selection and 
     thinking: "off",
     model: {
       id: "auto",
-      routeId: "route.local-first",
+      route_id: "route.local-first",
       privacy: "local_private",
     },
     workflow_node_id: "runtime.model-router.custom",
@@ -204,6 +204,8 @@ test("thread control surface updates model controls through route selection and 
   assert.equal(result.event.source_event_kind, "OperatorControl.Thinking");
   assert.equal(result.event.payload_schema_version, "ioi.runtime.model-route-control.v1");
   assert.deepEqual(result.event.receipt_refs, ["receipt_route_1"]);
+  assert.equal(store.routeRequests[0].input.model.route_id, "route.local-first");
+  assert.equal(Object.hasOwn(store.routeRequests[0].input.model, "routeId"), false);
   assert.equal(store.routeRequests[0].context.evidenceRefs[0], "runtime_thread_thinking_control");
   assert.equal(store.agents.get("agent_1").modelRouteReceiptId, "receipt_route_1");
   assert.equal(store.writes[0].operationKind, "thread.thinking");
@@ -243,7 +245,7 @@ test("thread control surface ignores retired request identity aliases", () => {
     thinking: "off",
     model: {
       id: "auto",
-      routeId: "route.local-first",
+      route_id: "route.local-first",
     },
     workflowGraphId: "graph_model_retired",
     workflowNodeId: "node_model_retired",
