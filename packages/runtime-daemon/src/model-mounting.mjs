@@ -1046,6 +1046,10 @@ export class ModelMountingState {
     return this.modelMountAdmissionRunner.admitProviderExecution(request);
   }
 
+  planModelMountAcceptedReceiptTransition(request) {
+    return this.modelMountAdmissionRunner.planAcceptedReceiptTransition(request);
+  }
+
   executeModelMountProviderInvocation(request) {
     return this.modelMountAdmissionRunner.executeProviderInvocation(request);
   }

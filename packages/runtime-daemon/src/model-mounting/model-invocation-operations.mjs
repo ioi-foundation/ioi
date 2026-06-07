@@ -840,6 +840,12 @@ export function modelMountInvocationAgentgresTransitionForReceipt(
     receiptKind,
   } = {},
 ) {
+  if (typeof state.planModelMountAcceptedReceiptTransition !== "function") {
+    const error = new Error("Model invocation Agentgres admission requires Rust model-mount accepted receipt transition planning.");
+    error.status = 500;
+    error.code = "model_mount_accepted_receipt_transition_planner_required";
+    throw error;
+  }
   if (typeof state.agentgresModelMountingHead !== "function") {
     const error = new Error("Model invocation Agentgres admission requires a current model-mounting operation head.");
     error.status = 500;
@@ -847,31 +853,29 @@ export function modelMountInvocationAgentgresTransitionForReceipt(
     throw error;
   }
   const currentHead = normalizeAgentgresHead(state.agentgresModelMountingHead());
-  const nextSequence = currentHead.sequence + 1;
-  const operationId = `op_${String(nextSequence).padStart(8, "0")}_${requiredStringRef("receiptKind", receiptKind).replace(/[^a-z0-9]+/gi, "_")}`;
-  const operationRef = `agentgres://model-mounting/accepted-receipts/${operationId}`;
-  const resultingHead = `agentgres://model-mounting/accepted-receipts/head/${nextSequence}`;
-  const stateRootAfter = `sha256:${stableHash({
-    schema: "ioi.agentgres.model_mounting_state_root.v1",
-    sequence: nextSequence,
-    previousHead: currentHead.headRef,
-    operationRef,
-    receiptId: requiredStringRef("receiptId", receiptId),
-    receiptKind,
-    routeDecisionRef: admissionRequest?.route_decision_ref ?? null,
-    invocationAdmissionRef: admission?.invocation_admission_ref ?? null,
-    invocationAdmissionHash: admission?.invocation_admission_hash ?? null,
-    inputHash: admissionRequest?.input_hash ?? receiptDetails.input_hash ?? null,
-    outputHash: admissionRequest?.output_hash ?? receiptDetails.output_hash ?? null,
-  })}`;
+  const transition = state.planModelMountAcceptedReceiptTransition({
+    schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
+    current_sequence: currentHead.sequence,
+    current_head_ref: currentHead.headRef,
+    current_state_root: currentHead.stateRoot,
+    receipt_id: requiredStringRef("receiptId", receiptId),
+    receipt_kind: requiredStringRef("receiptKind", receiptKind),
+    route_decision_ref: admissionRequest?.route_decision_ref ?? null,
+    invocation_admission_ref: admission?.invocation_admission_ref ?? null,
+    invocation_admission_hash: admission?.invocation_admission_hash ?? null,
+    input_hash: admissionRequest?.input_hash ?? receiptDetails.input_hash ?? null,
+    output_hash: admissionRequest?.output_hash ?? receiptDetails.output_hash ?? null,
+  });
   return {
-    operationId,
-    operationRef,
-    expectedHeads: [currentHead.headRef],
-    stateRootBefore: currentHead.stateRoot,
-    stateRootAfter,
-    resultingHead,
-    projectionWatermark: `model-mounting-accepted-receipts:${nextSequence}`,
+    operationId: requiredStringRef("transition.operationId", transition?.operationId),
+    operationRef: requiredStringRef("transition.operationRef", transition?.operationRef),
+    expectedHeads: uniqueRefs(transition?.expectedHeads ?? []),
+    stateRootBefore: requiredStringRef("transition.stateRootBefore", transition?.stateRootBefore),
+    stateRootAfter: requiredStringRef("transition.stateRootAfter", transition?.stateRootAfter),
+    resultingHead: requiredStringRef("transition.resultingHead", transition?.resultingHead),
+    projectionWatermark: requiredStringRef("transition.projectionWatermark", transition?.projectionWatermark),
+    transitionHash: requiredStringRef("transition.transitionHash", transition?.transitionHash),
+    evidenceRefs: uniqueRefs(transition?.evidenceRefs ?? []),
   };
 }
 

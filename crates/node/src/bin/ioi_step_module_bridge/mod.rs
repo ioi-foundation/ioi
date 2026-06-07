@@ -24,11 +24,11 @@ use ioi_services::agentic::runtime::kernel::marketplace::{
     WorkerServicePackageInvocationCore, WorkerServicePackageInvocationRequest,
 };
 use ioi_services::agentic::runtime::kernel::model_mount::{
-    ModelMountBackendProcessPlanRequest, ModelMountCore, ModelMountInstanceLifecycleRequest,
-    ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRequest,
-    ModelMountProviderInventoryRequest, ModelMountProviderInvocationRequest,
-    ModelMountProviderLifecycleRequest, ModelMountProviderResultAdmissionRequest,
-    ModelMountRouteDecisionRequest,
+    ModelMountAcceptedReceiptTransitionRequest, ModelMountBackendProcessPlanRequest,
+    ModelMountCore, ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
+    ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
+    ModelMountProviderInvocationRequest, ModelMountProviderLifecycleRequest,
+    ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
     AgentCreateStateUpdateCore, AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore,
@@ -208,6 +208,16 @@ struct ModelMountBackendProcessPlanBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountBackendProcessPlanRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelMountAcceptedReceiptTransitionBridgeRequest {
+    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountAcceptedReceiptTransitionRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -711,6 +721,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_model_mount_backend_process(request)
+        }
+        "plan_model_mount_accepted_receipt_transition" => {
+            let request: ModelMountAcceptedReceiptTransitionBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_model_mount_accepted_receipt_transition(request)
         }
         "bind_model_mount_invocation_receipt" => {
             let request: ModelMountInvocationReceiptBindingBridgeRequest =
@@ -1451,6 +1467,48 @@ fn plan_model_mount_backend_process(
         "spawn_status": plan.spawn_status,
         "plan_hash": plan.plan_hash,
         "evidence_refs": plan.evidence_refs,
+    }))
+}
+
+fn plan_model_mount_accepted_receipt_transition(
+    request: ModelMountAcceptedReceiptTransitionBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_model_mount_accepted_receipt_transition" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let transition = ModelMountCore
+        .plan_accepted_receipt_transition(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "model_mount_accepted_receipt_transition_rejected",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_model_mount_accepted_receipt_transition_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_accepted_receipt_transition".to_string()),
+        "transition": transition.clone(),
+        "operation_id": transition.operation_id,
+        "operation_ref": transition.operation_ref,
+        "expected_heads": transition.expected_heads,
+        "state_root_before": transition.state_root_before,
+        "state_root_after": transition.state_root_after,
+        "resulting_head": transition.resulting_head,
+        "projection_watermark": transition.projection_watermark,
+        "transition_hash": transition.transition_hash,
+        "evidence_refs": transition.evidence_refs,
     }))
 }
 
@@ -6433,6 +6491,68 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_model_mount_backend_process_plan"));
+    }
+
+    #[test]
+    fn bridge_plans_model_mount_accepted_receipt_transition_through_rust_core() {
+        let request: ModelMountAcceptedReceiptTransitionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_accepted_receipt_transition",
+                "backend": "rust_model_mount_accepted_receipt_transition",
+                "request": {
+                    "schema_version": "ioi.model_mount.accepted_receipt_transition.v1",
+                    "current_sequence": 0,
+                    "current_head_ref": "agentgres://model-mounting/accepted-receipts/head/0",
+                    "current_state_root": "sha256:state-0",
+                    "receipt_id": "receipt.invoke",
+                    "receipt_kind": "model_invocation",
+                    "route_decision_ref": "model_mount://route_decision/test",
+                    "invocation_admission_ref": "model_mount://invocation_admission/test",
+                    "invocation_admission_hash": "sha256:invocation-test",
+                    "input_hash": "sha256:input",
+                    "output_hash": "sha256:output"
+                }
+            }))
+            .expect("accepted receipt transition bridge request");
+
+        let response = plan_model_mount_accepted_receipt_transition(request)
+            .expect("accepted receipt transition planned in Rust");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_accepted_receipt_transition_command"
+        );
+        assert_eq!(
+            response["backend"],
+            "rust_model_mount_accepted_receipt_transition"
+        );
+        assert_eq!(response["operation_id"], "op_00000001_model_invocation");
+        assert_eq!(
+            response["operation_ref"],
+            "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation"
+        );
+        assert_eq!(
+            response["expected_heads"][0],
+            "agentgres://model-mounting/accepted-receipts/head/0"
+        );
+        assert_eq!(response["state_root_before"], "sha256:state-0");
+        assert!(response["state_root_after"]
+            .as_str()
+            .expect("state root after")
+            .starts_with("sha256:"));
+        assert_eq!(
+            response["resulting_head"],
+            "agentgres://model-mounting/accepted-receipts/head/1"
+        );
+        assert_eq!(
+            response["projection_watermark"],
+            "model-mounting-accepted-receipts:1"
+        );
+        assert!(response["transition_hash"]
+            .as_str()
+            .expect("transition hash")
+            .starts_with("sha256:"));
     }
 
     #[test]

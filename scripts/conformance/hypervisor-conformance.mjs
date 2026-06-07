@@ -7369,6 +7369,9 @@ function runReceipts() {
   const agentgresAdmissionCore = exists("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     ? read("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     : "";
+  const modelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount.rs")
+    : "";
   const marketplaceCore = exists("crates/services/src/agentic/runtime/kernel/marketplace.rs")
     ? read("crates/services/src/agentic/runtime/kernel/marketplace.rs")
     : "";
@@ -10633,15 +10636,22 @@ function runReceipts() {
       /model_mount_agentgres_admission/.test(modelInvocationOps) &&
       /model_mount_agentgres_operation_ref/.test(modelInvocationOps) &&
       /model_mount_agentgres_head_required/.test(modelInvocationOps) &&
-      /agentgres:\/\/model-mounting\/accepted-receipts/.test(modelInvocationOps) &&
-      /model-mounting-accepted-receipts/.test(modelInvocationOps) &&
+      /planModelMountAcceptedReceiptTransition/.test(modelInvocationOps) &&
+      /model_mount_accepted_receipt_transition_planner_required/.test(modelInvocationOps) &&
+      /plan_model_mount_accepted_receipt_transition/.test(bridgeModule) &&
+      /ModelMountAcceptedReceiptTransitionRequest/.test(bridgeModule) &&
+      /plan_accepted_receipt_transition/.test(modelMountCore) &&
+      /MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION/.test(modelMountCore) &&
+      /agentgres:\/\/model-mounting\/accepted-receipts/.test(modelMountCore) &&
+      /model-mounting-accepted-receipts/.test(modelMountCore) &&
       /agentgres:\/\/model-mounting\/accepted-receipts/.test(modelMountingState) &&
       /model-mounting-accepted-receipts/.test(modelMountingState) &&
       /agentgres:\/\/model-mounting\/accepted-receipts/.test(bridgeModule) &&
       /agentgres:\/\/model-mounting\/accepted-receipts/.test(agentgresAdmissionCore) &&
       !/agentgres:\/\/model-mounting\/operation-log/.test(
-        `${modelInvocationOps}\n${modelMountingState}\n${bridgeModule}\n${agentgresAdmissionCore}`,
+        `${modelInvocationOps}\n${modelMountingState}\n${bridgeModule}\n${agentgresAdmissionCore}\n${modelMountCore}`,
       ) &&
+      !/const\s+stateRootAfter\s*=\s*`sha256:\$\{stableHash\(/.test(modelInvocationOps) &&
       !/model-mounting-operation-log/.test(`${modelInvocationOps}\n${modelMountingState}`) &&
       /agentgresOperationRefs/.test(modelInvocationOps) &&
       /stateRootAfter/.test(modelInvocationOps) &&
@@ -10652,6 +10662,7 @@ function runReceipts() {
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],

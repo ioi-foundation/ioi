@@ -825,6 +825,75 @@ test("Rust model_mount admission runner sends invocation receipt binding request
   assert.deepEqual(result.evidence_refs, ["rust_receipt_binder_core", "sha256:binding", "sha256:append"]);
 });
 
+test("Rust model_mount admission runner sends accepted receipt transition plan request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_accepted_receipt_transition_command",
+            backend: "rust_model_mount_accepted_receipt_transition",
+            transition: {
+              schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
+              operation_id: "op_00000001_model_invocation",
+              operation_ref: "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation",
+              expected_heads: ["agentgres://model-mounting/accepted-receipts/head/0"],
+              state_root_before: "sha256:state-0",
+              state_root_after: "sha256:state-1",
+              resulting_head: "agentgres://model-mounting/accepted-receipts/head/1",
+              projection_watermark: "model-mounting-accepted-receipts:1",
+              transition_hash: "sha256:transition",
+              evidence_refs: ["rust_model_mount_accepted_receipt_transition"],
+            },
+            operation_id: "op_00000001_model_invocation",
+            operation_ref: "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation",
+            expected_heads: ["agentgres://model-mounting/accepted-receipts/head/0"],
+            state_root_before: "sha256:state-0",
+            state_root_after: "sha256:state-1",
+            resulting_head: "agentgres://model-mounting/accepted-receipts/head/1",
+            projection_watermark: "model-mounting-accepted-receipts:1",
+            transition_hash: "sha256:transition",
+            evidence_refs: ["rust_model_mount_accepted_receipt_transition"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planAcceptedReceiptTransition({
+    schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
+    current_sequence: 0,
+    current_head_ref: "agentgres://model-mounting/accepted-receipts/head/0",
+    current_state_root: "sha256:state-0",
+    receipt_id: "receipt.invoke",
+    receipt_kind: "model_invocation",
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_accepted_receipt_transition");
+  assert.equal(calls[0].request.backend, "rust_model_mount_accepted_receipt_transition");
+  assert.equal(calls[0].request.request.current_sequence, 0);
+  assert.equal(result.operationId, "op_00000001_model_invocation");
+  assert.equal(
+    result.operationRef,
+    "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation",
+  );
+  assert.deepEqual(result.expectedHeads, ["agentgres://model-mounting/accepted-receipts/head/0"]);
+  assert.equal(result.stateRootBefore, "sha256:state-0");
+  assert.equal(result.stateRootAfter, "sha256:state-1");
+  assert.equal(result.resultingHead, "agentgres://model-mounting/accepted-receipts/head/1");
+  assert.equal(result.projectionWatermark, "model-mounting-accepted-receipts:1");
+  assert.equal(result.transitionHash, "sha256:transition");
+});
+
 test("Rust model_mount admission runner reads the generic admission command env", () => {
   const runner = createModelMountAdmissionRunnerFromEnv({
     [MODEL_MOUNT_ADMISSION_COMMAND_ENV]: "mock-model-mount-bridge",

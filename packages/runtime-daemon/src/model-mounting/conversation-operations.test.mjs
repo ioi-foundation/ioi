@@ -15,6 +15,7 @@ function fakeState() {
     now: "2026-06-04T03:00:00.000Z",
     receiptCounter: 0,
     receiptBindingRequests: [],
+    transitionRequests: [],
     recordStateCommits: [],
     receipts: [],
     writes: [],
@@ -47,6 +48,24 @@ function fakeState() {
         invocation_admission_hash: `sha256:invocation-${this.receiptCounter}`,
         receipt_refs: request.receipt_refs,
         evidence_refs: ["rust_model_mount_core", `model_mount://invocation_admission/${this.receiptCounter}`],
+      };
+    },
+    planModelMountAcceptedReceiptTransition(request) {
+      this.transitionRequests.push(request);
+      const nextSequence = request.current_sequence + 1;
+      const operationId = `op_${String(nextSequence).padStart(8, "0")}_${request.receipt_kind.replace(/[^a-z0-9]+/gi, "_")}`;
+      return {
+        source: "rust_model_mount_accepted_receipt_transition_command",
+        backend: "rust_model_mount_accepted_receipt_transition",
+        operationId,
+        operationRef: `agentgres://model-mounting/accepted-receipts/${operationId}`,
+        expectedHeads: [request.current_head_ref],
+        stateRootBefore: request.current_state_root,
+        stateRootAfter: `sha256:state-${nextSequence}`,
+        resultingHead: `agentgres://model-mounting/accepted-receipts/head/${nextSequence}`,
+        projectionWatermark: `model-mounting-accepted-receipts:${nextSequence}`,
+        transitionHash: `sha256:transition-${nextSequence}`,
+        evidenceRefs: ["rust_model_mount_accepted_receipt_transition"],
       };
     },
     bindModelMountInvocationReceipt(request) {

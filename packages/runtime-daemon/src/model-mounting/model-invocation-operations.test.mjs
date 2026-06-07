@@ -29,6 +29,7 @@ function fakeState(overrides = {}) {
     providerInvocationRequests: [],
     providerStreamInvocationRequests: [],
     providerResultRequests: [],
+    transitionRequests: [],
     recordStateCommits: [],
     recordedConversations: [],
     routes: new Map([["route.local-first", { id: "route.local-first" }]]),
@@ -146,6 +147,24 @@ function fakeState(overrides = {}) {
       return providerStreamInvocationBridgeResult(request, {
         invocationHash: `sha256:provider-stream-invocation-${this.providerStreamInvocationRequests.length}`,
       });
+    },
+    planModelMountAcceptedReceiptTransition(request) {
+      this.transitionRequests.push(request);
+      const nextSequence = request.current_sequence + 1;
+      const operationId = `op_${String(nextSequence).padStart(8, "0")}_${request.receipt_kind.replace(/[^a-z0-9]+/gi, "_")}`;
+      return {
+        source: "rust_model_mount_accepted_receipt_transition_command",
+        backend: "rust_model_mount_accepted_receipt_transition",
+        operationId,
+        operationRef: `agentgres://model-mounting/accepted-receipts/${operationId}`,
+        expectedHeads: [request.current_head_ref],
+        stateRootBefore: request.current_state_root,
+        stateRootAfter: `sha256:state-${nextSequence}`,
+        resultingHead: `agentgres://model-mounting/accepted-receipts/head/${nextSequence}`,
+        projectionWatermark: `model-mounting-accepted-receipts:${nextSequence}`,
+        transitionHash: `sha256:transition-${nextSequence}`,
+        evidenceRefs: ["rust_model_mount_accepted_receipt_transition"],
+      };
     },
     bindModelMountInvocationReceipt(request) {
       this.receiptBindingRequests.push(request);
@@ -1856,6 +1875,25 @@ test("invokeModel fails closed without Rust receipt binding support", async () =
         deps(),
       ),
     (error) => error.code === "model_mount_invocation_receipt_binding_required",
+  );
+});
+
+test("invokeModel fails closed without Rust accepted receipt transition planning", async () => {
+  const state = fakeState({ planModelMountAcceptedReceiptTransition: undefined });
+
+  await assert.rejects(
+    () =>
+      invokeModel(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.chat:*",
+          kind: "responses",
+          body: { model: "model.local" },
+        },
+        deps(),
+      ),
+    (error) => error.code === "model_mount_accepted_receipt_transition_planner_required",
   );
 });
 

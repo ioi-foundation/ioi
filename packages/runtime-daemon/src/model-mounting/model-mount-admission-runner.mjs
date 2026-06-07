@@ -8,6 +8,7 @@ export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
 export const RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND = "rust_model_mount_fixture_inventory";
 export const RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND = "rust_model_mount_fixture_lifecycle";
 export const RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND = "rust_model_mount_backend_process";
+export const RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_BACKEND = "rust_model_mount_accepted_receipt_transition";
 export const RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND = "rust_model_mount_instance_lifecycle";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_local";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND = "rust_model_mount_native_local_inventory";
@@ -128,6 +129,16 @@ export class RustModelMountAdmissionRunner {
       request,
     };
     return normalizeBackendProcessPlanBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
+  planAcceptedReceiptTransition(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_accepted_receipt_transition",
+      backend: RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_BACKEND,
+      request,
+    };
+    return normalizeAcceptedReceiptTransitionBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
   bindInvocationReceipt({ invocation, result, expectedHeads = [], receiptRef = null } = {}) {
@@ -404,6 +415,25 @@ function normalizeBackendProcessPlanBridgeResult(value = {}) {
     spawn_status: result.spawn_status ?? record.spawn_status ?? null,
     plan_hash: result.plan_hash ?? record.plan_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+  };
+}
+
+function normalizeAcceptedReceiptTransitionBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const transition = result.transition && typeof result.transition === "object" ? result.transition : {};
+  return {
+    source: result.source ?? "rust_model_mount_accepted_receipt_transition_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_BACKEND,
+    transition,
+    operationId: result.operation_id ?? transition.operation_id ?? null,
+    operationRef: result.operation_ref ?? transition.operation_ref ?? null,
+    expectedHeads: Array.isArray(result.expected_heads) ? result.expected_heads : transition.expected_heads ?? [],
+    stateRootBefore: result.state_root_before ?? transition.state_root_before ?? null,
+    stateRootAfter: result.state_root_after ?? transition.state_root_after ?? null,
+    resultingHead: result.resulting_head ?? transition.resulting_head ?? null,
+    projectionWatermark: result.projection_watermark ?? transition.projection_watermark ?? null,
+    transitionHash: result.transition_hash ?? transition.transition_hash ?? null,
+    evidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : transition.evidence_refs ?? [],
   };
 }
 
