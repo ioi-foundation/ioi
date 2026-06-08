@@ -483,7 +483,7 @@ function runDocs() {
       /The\s+Slice 780 MCP public catalog Rust-core matrix-compaction pass is complete/.test(guide) &&
       /Slice 781 moved MCP catalog summary projection into Rust daemon-core migration\s+transport/.test(guide) &&
       /McpManagerCatalogSummaryProjectionCore/.test(guide) &&
-      /The Slice 781 MCP catalog summary Rust-core\s+matrix-compaction pass is pending/.test(guide) &&
+      /The Slice 781 MCP catalog summary Rust-core\s+matrix-compaction pass is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -530,8 +530,8 @@ function runDocs() {
       /This pass compacted Slice 778 MCP status catalog-projection Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 779 MCP validation projection Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 780 MCP public catalog Rust-core evidence/.test(matrix) &&
-      /Slice 781 moved MCP catalog summary projection into Rust daemon-core migration\s+transport/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice only after compacting the Slice 781 MCP\s+catalog summary Rust-core evidence/.test(matrix) &&
+      /This pass compacted Slice 781 MCP catalog summary Rust-core evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -788,12 +788,12 @@ function runDocs() {
       /mcpCatalogRowsForServers\(\)/.test(matrix) &&
       /public MCP declared catalog list\/search row projection/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 780 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 781/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 781/.test(matrix) &&
       /McpManagerCatalogSummaryProjectionCore/.test(matrix) &&
       /plan_mcp_manager_catalog_summary_projection/.test(matrix) &&
       /planMcpManagerCatalogSummaryProjection/.test(matrix) &&
-      /Schedule\s+and run a matrix-compaction pass for Slice 781 before unrelated route-family\s+work resumes/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending for Slice 781 MCP catalog\s+summary Rust-core evidence/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 781 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending until the next concrete\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
