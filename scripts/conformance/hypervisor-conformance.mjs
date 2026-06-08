@@ -17135,6 +17135,40 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-bridge-event-payload-aliases-retired",
+    /function canonicalRuntimeBridgeEventPayload/.test(runtimeBridgeThread) &&
+      /canonicalRuntimeBridgeEventPayload\(event\)/.test(runtimeBridgeTurnSubmitNormalizerBlock) &&
+      /canonicalRuntimeBridgeEventPayload\(eventRecord\)/.test(
+        runtimeBridgeLiveEventNormalizerBlock,
+      ) &&
+      !/\.\.\.\(event\.payload \?\? event\.payload_summary \?\? \{\}\)/.test(
+        runtimeBridgeTurnSubmitNormalizerBlock,
+      ) &&
+      !/\.\.\.\(eventRecord\.payload \?\? eventRecord\.payload_summary \?\? \{\}\)/.test(
+        runtimeBridgeLiveEventNormalizerBlock,
+      ) &&
+      /"eventKind",\s*[\r\n\s]*"workflowGraphId",\s*[\r\n\s]*"workflowNodeId"/.test(
+        runtimeBridgeThread,
+      ) &&
+      /retiredRuntimeBridgeEventPayloadAliasKeys/.test(runtimeBridgeThreadTest) &&
+      /runtime bridge live event normalization scrubs retired payload aliases/.test(
+        runtimeBridgeThreadTest,
+      ) &&
+      /workflowGraphId: "graph-retired"/.test(runtimeBridgeThreadTest) &&
+      /assertNoRetiredRuntimeBridgeEventPayloadAliases\(normalized\.payload\)/.test(
+        runtimeBridgeThreadTest,
+      ) &&
+      /assertNoRetiredRuntimeBridgeEventPayloadAliases\(projection\.events\[0\]\.payload\)/.test(
+        runtimeBridgeThreadTest,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
+      "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime bridge turn/live event payload normalization must scrub retired camelCase payload aliases",
+  );
+  assertCheck(
+    result,
     "runtime-daemon-index-usage-aliases-retired",
     !/request\.(?:usageTelemetry|runtime_usage|runtimeUsage)/.test(runtimeDaemonIndex) &&
       !/^\s*usageTelemetry,?\s*$/m.test(runtimeDaemonIndex) &&

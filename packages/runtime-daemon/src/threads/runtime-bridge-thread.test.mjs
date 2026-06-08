@@ -16,6 +16,24 @@ const retiredRuntimeBridgeTurnUsageAliasKeys = [
   "runtimeUsage",
 ];
 
+const retiredRuntimeBridgeEventPayloadAliasKeys = [
+  "runId",
+  "turnId",
+  "threadId",
+  "agentId",
+  "eventKind",
+  "workflowGraphId",
+  "workflowNodeId",
+  "componentKind",
+  "payloadSchemaVersion",
+  "runtimeEventId",
+  "runtimeEventKind",
+  "sourceEventKind",
+  "receiptRefs",
+  "artifactRefs",
+  "policyDecisionRefs",
+];
+
 const retiredRuntimeBridgeErrorDetailAliasKeys = [
   "threadId",
   "runId",
@@ -29,6 +47,12 @@ const retiredRuntimeBridgeErrorDetailAliasKeys = [
 function assertNoRetiredRuntimeBridgeErrorDetailAliases(details) {
   for (const key of retiredRuntimeBridgeErrorDetailAliasKeys) {
     assert.equal(Object.hasOwn(details, key), false);
+  }
+}
+
+function assertNoRetiredRuntimeBridgeEventPayloadAliases(payload) {
+  for (const key of retiredRuntimeBridgeEventPayloadAliasKeys) {
+    assert.equal(Object.hasOwn(payload, key), false);
   }
 }
 
@@ -634,7 +658,16 @@ test("runtime bridge turn submit normalization fills run and event defaults", ()
       usageTelemetry: { total_tokens: 100 },
       runtime_usage: { total_tokens: 200 },
       runtimeUsage: { total_tokens: 300 },
-      events: [{ event_kind: "turn.started", payload_summary: { step: "submit" } }],
+      events: [{
+        event_kind: "turn.started",
+        payload_summary: {
+          step: "submit",
+          workflow_graph_id: "graph-canonical",
+          workflowGraphId: "graph-retired",
+          receipt_refs: ["receipt-canonical"],
+          receiptRefs: ["receipt-retired"],
+        },
+      }],
     },
     agent: {
       id: "agent_runtime",
@@ -664,7 +697,10 @@ test("runtime bridge turn submit normalization fills run and event defaults", ()
     run_id: "run_turn_runtime",
     session_id: "session_runtime",
     step: "submit",
+    workflow_graph_id: "graph-canonical",
+    receipt_refs: ["receipt-canonical"],
   });
+  assertNoRetiredRuntimeBridgeEventPayloadAliases(projection.events[0].payload);
 });
 
 test("runtime bridge turn submit normalization ignores retired usage aliases", () => {
@@ -807,6 +843,46 @@ test("runtime bridge live event normalization ignores retired identity aliases",
   assert.equal(Object.hasOwn(normalized, "turnId"), false);
   assert.equal(Object.hasOwn(normalized, "runId"), false);
   assert.equal(normalized.payload.run_id, "run_runtime");
+});
+
+test("runtime bridge live event normalization scrubs retired payload aliases", () => {
+  const normalized = normalizeRuntimeBridgeLiveEvent({
+    event: {
+      event_kind: "turn.delta",
+      turn_id: "turn_runtime",
+      run_id: "run_runtime",
+      payload_summary: {
+        text: "chunk",
+        event_kind: "runtime.delta",
+        workflow_graph_id: "graph-canonical",
+        workflow_node_id: "node-canonical",
+        receipt_refs: ["receipt-canonical"],
+        artifact_refs: ["artifact-canonical"],
+        policy_decision_refs: ["policy-canonical"],
+        eventKind: "RetiredEventKind",
+        workflowGraphId: "graph-retired",
+        workflowNodeId: "node-retired",
+        runtimeEventId: "event-retired",
+        receiptRefs: ["receipt-retired"],
+        artifactRefs: ["artifact-retired"],
+        policyDecisionRefs: ["policy-retired"],
+      },
+    },
+    agent: {
+      id: "agent_runtime",
+      cwd: "/workspace",
+      runtimeSessionId: "session_runtime",
+    },
+    threadId: "thread_agent_runtime",
+  }, deps());
+
+  assert.equal(normalized.payload.event_kind, "runtime.delta");
+  assert.equal(normalized.payload.workflow_graph_id, "graph-canonical");
+  assert.equal(normalized.payload.workflow_node_id, "node-canonical");
+  assert.deepEqual(normalized.payload.receipt_refs, ["receipt-canonical"]);
+  assert.deepEqual(normalized.payload.artifact_refs, ["artifact-canonical"]);
+  assert.deepEqual(normalized.payload.policy_decision_refs, ["policy-canonical"]);
+  assertNoRetiredRuntimeBridgeEventPayloadAliases(normalized.payload);
 });
 
 test("runtime bridge live event normalization preserves explicit envelope fields", () => {

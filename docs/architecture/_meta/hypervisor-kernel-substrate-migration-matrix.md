@@ -13424,6 +13424,62 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 683
+
+```yaml
+slice: 683
+title: Runtime bridge event payload alias retirement
+status: in_review
+date: 2026-06-08
+phase: 10
+objective: scrub retired camelCase identity, workflow, receipt, artifact, and
+  policy aliases from runtime bridge turn/live event payload inputs before they
+  become canonical runtime event payloads
+owner_boundary:
+  route_or_surface: runtime bridge turn submit and live event normalization
+  authority_gate: unchanged; this slice changes facade payload projection only
+    and does not execute work or admit accepted truth
+  execution_backend: unchanged; runtime bridge event normalization remains JS
+    migration transport pending terminal Rust projection-core ownership
+  truth_path: event payloads preserve canonical snake_case fields and drop
+    retired camelCase aliases before downstream event envelopes, traces, and
+    compositor projections consume them
+  projection_path: compositor conformance requires turn-submit and live-event
+    normalization to call the shared canonical bridge event payload helper
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  runtime_projection:
+    - packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs
+  tests:
+    - packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - compositor conformance requires `canonicalRuntimeBridgeEventPayload` in
+    turn-submit and live-event normalization
+  - compositor conformance rejects raw `event.payload ?? event.payload_summary`
+    spreading into normalized runtime payloads
+  - focused runtime bridge thread tests prove poisoned camelCase payload aliases
+    are absent while canonical snake_case fields remain
+verification:
+  commands:
+    - node --test --test-name-pattern "runtime bridge" packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs
+    - node --check packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:compositor
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core projection ownership remains pending beyond
+      this JS runtime bridge payload alias-retirement slice
+    - runtime bridge remains migration transport rather than terminal
+      architecture
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:

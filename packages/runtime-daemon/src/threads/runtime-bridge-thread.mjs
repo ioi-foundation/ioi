@@ -388,7 +388,7 @@ export function normalizeRuntimeBridgeTurnSubmit({ bridgeResult, agent, threadId
         agent_id: agent.id,
         run_id: runId,
         session_id: runtimeSessionIdForAgent(agent),
-        ...(event.payload ?? event.payload_summary ?? {}),
+        ...canonicalRuntimeBridgeEventPayload(event),
       },
     })),
   };
@@ -421,7 +421,38 @@ export function normalizeRuntimeBridgeLiveEvent({ event, agent, threadId }, deps
       agent_id: agent.id,
       ...(runId ? { run_id: runId } : {}),
       session_id: runtimeSessionIdForAgent(agent),
-      ...(eventRecord.payload ?? eventRecord.payload_summary ?? {}),
+      ...canonicalRuntimeBridgeEventPayload(eventRecord),
     },
   };
+}
+
+function canonicalRuntimeBridgeEventPayload(event = {}) {
+  const payload = objectRecord(event.payload ?? event.payload_summary);
+  return withoutKeys(payload, [
+    "runId",
+    "turnId",
+    "threadId",
+    "agentId",
+    "eventKind",
+    "workflowGraphId",
+    "workflowNodeId",
+    "componentKind",
+    "payloadSchemaVersion",
+    "runtimeEventId",
+    "runtimeEventKind",
+    "sourceEventKind",
+    "receiptRefs",
+    "artifactRefs",
+    "policyDecisionRefs",
+  ]);
+}
+
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function withoutKeys(record, keys) {
+  const output = { ...record };
+  for (const key of keys) delete output[key];
+  return output;
 }
