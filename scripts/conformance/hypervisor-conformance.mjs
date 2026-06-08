@@ -412,6 +412,9 @@ function runDocs() {
       /Slice 765 retired the private backend registry local log writer/.test(guide) &&
       /`writeBackendLog\(\)` no longer\s+imports filesystem APIs, creates `backend-logs\/\*\.jsonl`/.test(guide) &&
       /The Slice 765 backend registry local log writer retirement matrix-compaction\s+pass is complete/.test(guide) &&
+      /Slice 766 retired the stale `ConversationArtifactStore` artifact-state\s+committer injection/.test(guide) &&
+      /new ConversationArtifactStore\(this\.stateDir\)/.test(guide) &&
+      /Schedule a matrix-compaction pass after Slice 766/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -441,7 +444,8 @@ function runDocs() {
       /This pass compacted Slice 763 direct conversation-artifact store writer\s+retirement evidence/.test(matrix) &&
       /This pass compacted Slice 764 direct `AgentMemoryStore` writer and run-memory\s+mutation path retirement evidence/.test(matrix) &&
       /This pass compacted Slice 765 backend registry local log writer retirement\s+evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /Slice 766 retired the stale `ConversationArtifactStore` artifact-state\s+committer injection/.test(matrix) &&
+      /Next resume instruction: compact Slice 766 into the route-family ledger before\s+starting unrelated route-family work/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -643,9 +647,11 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 765 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 765/.test(matrix) &&
       /model_mount_backend_log_js_writer_retired/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 765 backend\s+registry local log writer retirement compaction/.test(matrix) &&
+      /Implementation Slice Evidence: 766/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 766\s+`ConversationArtifactStore` committer injection retirement/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
+      /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,
       ) &&
@@ -16051,11 +16057,16 @@ function runCompositor() {
     !/#createRevisionFiles/.test(conversationArtifacts) &&
     !/#receipt/.test(conversationArtifacts) &&
     !/#write/.test(conversationArtifacts) &&
+    !/this\.commitRuntimeArtifactState/.test(conversationArtifacts) &&
+    !/new ConversationArtifactStore\(this\.stateDir,\s*\{[\s\S]*commitRuntimeArtifactState/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /new ConversationArtifactStore\(this\.stateDir\)/.test(runtimeDaemonIndex) &&
     /conversation artifact direct store mutations fail closed before JS artifact-state writes/.test(
       conversationArtifactsTest,
     ) &&
     /assertConversationArtifactStoreRustCoreRequired/.test(conversationArtifactsTest) &&
-    /commit must not be reached/.test(conversationArtifactsTest) &&
+    /Object\.hasOwn\(store,\s*"commitRuntimeArtifactState"\),\s*false/.test(conversationArtifactsTest) &&
     /fs\.readdirSync\(path\.join\(stateDir,\s*"conversation-artifacts",\s*"records"\)\)/.test(
       conversationArtifactsTest,
     ) &&
@@ -16132,7 +16143,8 @@ function runCompositor() {
       conversationArtifactStoreJsWritersRetired &&
       !/writeJson\(path\.join\(this\.receiptsDir/.test(conversationArtifacts) &&
       !/writeJson\(path\.join\(this\.recordsDir/.test(conversationArtifacts) &&
-      /new ConversationArtifactStore\(this\.stateDir,\s*\{[\s\S]*commitRuntimeArtifactState: \(request\) => this\.commitRuntimeArtifactState\(request\)/.test(
+      /new ConversationArtifactStore\(this\.stateDir\)/.test(runtimeDaemonIndex) &&
+      !/new ConversationArtifactStore\(this\.stateDir,\s*\{[\s\S]*commitRuntimeArtifactState: \(request\) => this\.commitRuntimeArtifactState\(request\)/.test(
         runtimeDaemonIndex,
       ) &&
       !/^\s*(?:schemaVersion|artifactId|threadId|turnId|artifactClass|outputModality|stateLabel|generatedFiles|sourceRefs|originalRefs|projectionRefs|previewRefs|traceRefs|policyRefs|receiptRefs|actionSchemaVersion|latestRevisionId|exportRefs|promotionRefs|createdAt|updatedAt|previewInline)\s*:/m.test(

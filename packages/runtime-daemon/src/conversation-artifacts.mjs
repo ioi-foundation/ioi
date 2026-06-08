@@ -73,13 +73,12 @@ function conversationArtifactStoreRustCoreRequiredError({ operation, operationKi
 }
 
 export class ConversationArtifactStore {
-  constructor(stateDir, options = {}) {
+  constructor(stateDir) {
     this.stateDir = path.resolve(stateDir);
     this.rootDir = path.join(this.stateDir, "conversation-artifacts");
     this.recordsDir = path.join(this.rootDir, "records");
     this.assetsDir = path.join(this.rootDir, "assets");
     this.receiptsDir = path.join(this.rootDir, "receipts");
-    this.commitRuntimeArtifactState = options.commitRuntimeArtifactState;
     this.records = new Map();
     this.ensureDirs();
     this.load();

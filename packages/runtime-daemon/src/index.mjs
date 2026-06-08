@@ -715,9 +715,7 @@ export class AgentgresRuntimeStateStore {
     this.inFlightRuntimeTurns = new Map();
     this.runtimeEventStreams = new Map();
     this.codingArtifacts = new Map();
-    this.conversationArtifacts = new ConversationArtifactStore(this.stateDir, {
-      commitRuntimeArtifactState: (request) => this.commitRuntimeArtifactState(request),
-    });
+    this.conversationArtifacts = new ConversationArtifactStore(this.stateDir);
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
     this.runtimeAgentgresAdmissionRunner =
       options.runtimeAgentgresAdmissionRunner ?? createRuntimeAgentgresAdmissionRunnerFromEnv(process.env);

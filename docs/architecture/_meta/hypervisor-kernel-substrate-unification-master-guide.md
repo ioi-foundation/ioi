@@ -493,6 +493,23 @@ terminal architecture.
 The Slice 765 backend registry local log writer retirement matrix-compaction
 pass is complete. No matrix-compaction pass is pending until the next Rust-core
 extraction or facade-retirement seam lands.
+Slice 766 retired the stale `ConversationArtifactStore` artifact-state
+committer injection. The runtime store now mounts
+`new ConversationArtifactStore(this.stateDir)` without a
+`commitRuntimeArtifactState` option, and the store no longer keeps a
+`commitRuntimeArtifactState` property. Direct artifact mutation methods were
+already fail-closed from Slice 763; this slice removes the remaining
+writer-shaped constructor surface so the conversation-artifact read/projection
+adapter cannot appear to forward accepted artifact truth through JS. This does
+not claim terminal conversation-artifact migration: direct Rust daemon-core
+artifact admission/projection still needs to own lifecycle execution, receipt
+binding, ArtifactRef/PayloadRef admission, Agentgres expected-head/state-root
+binding, projection, replay, SDK/IDE protocol coverage, and conformance. Do not
+encode the remaining JS read adapter or artifact-state command transport as
+terminal architecture.
+Schedule a matrix-compaction pass after Slice 766 before starting unrelated
+route-family work, once this Rust-core extraction/facade-retirement seam is
+ready to collapse into compacted evidence.
 
 ## Part II: Target Execution Model
 

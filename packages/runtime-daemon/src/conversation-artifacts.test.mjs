@@ -153,11 +153,8 @@ function assertConversationArtifactStoreRustCoreRequired(error, {
 test("conversation artifact direct store mutations fail closed before JS artifact-state writes", async () => {
   const stateDir = await mkdtemp(path.join(tmpdir(), "ioi-conversation-artifact-"));
   try {
-    const store = new ConversationArtifactStore(stateDir, {
-      commitRuntimeArtifactState(request) {
-        throw new Error(`commit must not be reached: ${request.operation_kind}`);
-      },
-    });
+    const store = new ConversationArtifactStore(stateDir);
+    assert.equal(Object.hasOwn(store, "commitRuntimeArtifactState"), false);
 
     assert.throws(
       () => store.create({ title: "Draft" }),
